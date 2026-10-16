@@ -1,0 +1,16 @@
+{
+  "date_from_date": "2026-10-16 09:04:55 +0700",
+  "command": [
+    "gh",
+    "api",
+    "--method",
+    "POST",
+    "repos/autonomous-ai/lampOS/actions/jobs/116766212679/rerun"
+  ],
+  "exit_code": 0,
+  "head": "ad0e7f447e7a67e4c00666207f537d2f260e498e",
+  "only_job": 116766212679,
+  "reason": "Only unexecuted shard; first test step skipped after dependency-fetch failure; successful first shards preserved.",
+  "first_log_bytes": 30140,
+  "first_log_sha256": "347b11aeb905bdd67309d03e2c05677ef0095055db0ee79272310e5cc7f012a5"
+}

@@ -1,0 +1,10 @@
+{
+  "date_from_date": "2026-10-16 09:07:09 +0700",
+  "phase": "Optional dependency-metadata enrichment after source comparison and snapshot copying",
+  "error": "TypeError: 'NoneType' object is not subscriptable at meta['resolve']['nodes']",
+  "cause": "The retained Cargo metadata was produced with --no-deps, so resolve is null.",
+  "correction": "Report only the declared direct local dependencies from that saved metadata. No resolved graph is inferred. Previously written source snapshots must compare byte-exact on parser continuation.",
+  "raw_error": "Tool transcript; no separate raw stderr was captured.",
+  "source_or_raw_log_edits": 0,
+  "cargo_or_test_runs": 0
+}

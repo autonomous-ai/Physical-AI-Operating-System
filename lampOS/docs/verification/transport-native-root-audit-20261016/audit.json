@@ -1,0 +1,67 @@
+{
+  "date": "2026-10-16 09:21:59 +0700",
+  "normal_unique_passes": 5227,
+  "first_attempt_unique_passes": 4091,
+  "full_composite_unique_passes": 5357,
+  "full_original123_exact_once": true,
+  "normal_original123": 0,
+  "new_tests_full": 7,
+  "new_tests_normal": 7,
+  "all505_eval_compiled_identities_exact": true,
+  "original_three_shard_logs_byte_exact": true,
+  "only_new_shard3_executions": 1266,
+  "failed_or_successful_test_retries": false,
+  "by_binary_original123_printed_sums": {
+    "lamp-memory::health": {
+      "count": 7,
+      "seconds": 5.086
+    },
+    "lamp-voice": {
+      "count": 63,
+      "seconds": 137.742
+    },
+    "lamp-voice::capture_hold_worker": {
+      "count": 4,
+      "seconds": 13.931
+    },
+    "lamp-voice-eval::final_dispatch": {
+      "count": 13,
+      "seconds": 5.214
+    },
+    "lamp-voice-eval::physical_loopback": {
+      "count": 12,
+      "seconds": 6.659
+    },
+    "lamp-voice-eval::serve_relay": {
+      "count": 6,
+      "seconds": 31.12
+    },
+    "lamp-voice-eval::serve_session": {
+      "count": 14,
+      "seconds": 19.214
+    },
+    "lamp-records::records": {
+      "count": 1,
+      "seconds": 0.01
+    },
+    "lamp-actions::server": {
+      "count": 1,
+      "seconds": 4.112
+    },
+    "lamp-health::program": {
+      "count": 1,
+      "seconds": 5.008
+    },
+    "lamp-voice-eval": {
+      "count": 1,
+      "seconds": 0.005
+    }
+  },
+  "original123_printed_sum": 228.101,
+  "standalone_serial_measurement": false,
+  "raw_sha256": {
+    "normal-attempt1.log": "200cbdbfbdcf6b3a0bab2abb91cedb7a2f4e15368171358b456b98b5a82307fe",
+    "full-attempt1.log": "163fd564960b8c121ba30e11616c67caedd9ba826c351a3fcf48f3023bdb8cfc",
+    "full-attempt2.log": "21c2927fd32aab1d4da1854e18134b8721731574eda2f3f909b470420c5aaa44"
+  }
+}

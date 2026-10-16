@@ -1,0 +1,387 @@
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	﻿2026-10-16T01:40:02.7580888Z Current runner version: '2.337.0'
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:02.7605410Z ##[group]Runner Image Provisioner
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:02.7606358Z Hosted Compute Agent
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:02.7607157Z Version: 20261012.601
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:02.7607997Z Commit: f3dc54e1fb89da6852db922499a0233137369e1d
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:02.7608729Z Build Date: 2026-10-12T17:48:21Z
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:02.7609502Z Worker ID: {e048b8cd-19bc-4f9b-812e-4d53e03e5177}
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:02.7610272Z Region: westus2
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:02.7610821Z Cloud: Azure
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:02.7611449Z ##[endgroup]
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:02.7613131Z ##[group]Operating System
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:02.7613761Z Ubuntu
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:02.7614410Z 22.04.5
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:02.7614920Z LTS
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:02.7615527Z ##[endgroup]
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:02.7616132Z ##[group]Runner Image
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:02.7616755Z Image: ubuntu-22.04-arm
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:02.7617657Z Version: 20261012.156.1
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:02.7618996Z Included Software: https://github.com/actions/runner-images/blob/ubuntu22-arm64/20261012.156/images/ubuntu/Ubuntu2204-Arm64-Readme.md
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:02.7621065Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu22-arm64%2F20261012.156
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:02.7622016Z ##[endgroup]
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:02.7623305Z ##[group]GITHUB_TOKEN Permissions
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:02.7626026Z Contents: read
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:02.7626776Z Metadata: read
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:02.7627595Z Packages: read
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:02.7628242Z ##[endgroup]
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:02.7630683Z Secret source: Actions
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:02.7631835Z Cache mode: write
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:02.7632788Z Prepare workflow directory
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:02.7977630Z Prepare all required actions
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:02.8026170Z Getting action download info
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:03.1826180Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:03.4269437Z Download action repository 'actions/cache@v4' (SHA:0057852bfaa89a56745cba8c7296529d2fc39830)
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:03.5313664Z Download action repository 'taiki-e/install-action@v2' (SHA:1168f6810a3cb30a3514bf5756a3b7f0422c6df8)
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:03.7784419Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:04.0260598Z Complete job name: lampOS — build and test on Linux ARM64 (3/4)
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:04.0993603Z ##[group]Run sudo apt-get update
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:04.0994492Z [36;1msudo apt-get update[0m
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:04.0995474Z [36;1msudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \[0m
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:04.0997140Z [36;1m  ca-certificates curl git build-essential pkg-config clang libclang-dev libasound2-dev procps file[0m
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:04.1024774Z shell: /usr/bin/bash -e {0}
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:04.1025910Z ##[endgroup]
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:04.2100956Z Get:1 https://packages.microsoft.com/ubuntu/22.04/prod jammy InRelease [3632 B]
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:04.2517443Z Get:2 https://packages.microsoft.com/ubuntu/22.04/prod jammy/main arm64 Packages [616 kB]
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:04.2634511Z Get:3 https://packages.microsoft.com/ubuntu/22.04/prod jammy/main armhf Packages [23.5 kB]
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:04.2667362Z Get:4 https://packages.microsoft.com/ubuntu/22.04/prod jammy/main amd64 Packages [871 kB]
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:04.4686135Z Hit:5 http://ports.ubuntu.com/ubuntu-ports jammy InRelease
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:04.5371400Z Get:6 http://ports.ubuntu.com/ubuntu-ports jammy-updates InRelease [128 kB]
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:04.8320131Z Get:7 http://ports.ubuntu.com/ubuntu-ports jammy-backports InRelease [127 kB]
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:04.9501902Z Get:8 http://ports.ubuntu.com/ubuntu-ports jammy-security InRelease [129 kB]
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:05.0602737Z Get:9 http://ports.ubuntu.com/ubuntu-ports jammy-updates/main arm64 Packages [3763 kB]
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:05.4830083Z Get:10 http://ports.ubuntu.com/ubuntu-ports jammy-updates/main Translation-en [576 kB]
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:05.5585746Z Get:11 http://ports.ubuntu.com/ubuntu-ports jammy-updates/universe arm64 Packages [1365 kB]
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:05.6446562Z Get:12 http://ports.ubuntu.com/ubuntu-ports jammy-updates/universe Translation-en [326 kB]
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:05.7171160Z Get:13 http://ports.ubuntu.com/ubuntu-ports jammy-security/main arm64 Packages [3511 kB]
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:05.8319567Z Get:14 http://ports.ubuntu.com/ubuntu-ports jammy-security/main Translation-en [509 kB]
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:05.9055299Z Get:15 http://ports.ubuntu.com/ubuntu-ports jammy-security/universe arm64 Packages [1136 kB]
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:05.9868358Z Get:16 http://ports.ubuntu.com/ubuntu-ports jammy-security/universe Translation-en [237 kB]
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:09.2575814Z Fetched 13.3 MB in 2s (6242 kB/s)
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:10.5795498Z Reading package lists...
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:10.6403440Z Reading package lists...
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:10.8938573Z Building dependency tree...
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:10.8968419Z Reading state information...
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:11.1175289Z pkg-config is already the newest version (0.29.2-1ubuntu3).
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:11.1176124Z ca-certificates is already the newest version (20260601~22.04.1).
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:11.1176732Z file is already the newest version (1:5.41-3ubuntu0.1).
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:11.1177656Z procps is already the newest version (2:3.3.17-6ubuntu2.1).
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:11.1178171Z procps set to manually installed.
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:11.1179118Z git is already the newest version (1:2.55.0-0ppa1~ubuntu22.04.2).
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:11.1179606Z The following additional packages will be installed:
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:11.1187893Z   libclang-14-dev libcurl4
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:11.1188587Z Suggested packages:
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:11.1188988Z   libasound2-doc
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:11.1376007Z The following NEW packages will be installed:
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:11.1383853Z   build-essential clang libasound2-dev libclang-14-dev libclang-dev
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:11.1387965Z The following packages will be upgraded:
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:11.1395470Z   curl libcurl4
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:11.6067318Z 2 upgraded, 5 newly installed, 0 to remove and 36 not upgraded.
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:11.6067965Z Need to get 25.9 MB of archives.
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:11.6068462Z After this operation, 252 MB of additional disk space will be used.
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:11.6069365Z Get:1 http://ports.ubuntu.com/ubuntu-ports jammy/main arm64 build-essential arm64 12.9ubuntu3 [4740 B]
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:11.7566668Z Get:2 http://ports.ubuntu.com/ubuntu-ports jammy/universe arm64 clang arm64 1:14.0-55~exp2 [3558 B]
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:11.9063253Z Get:3 http://ports.ubuntu.com/ubuntu-ports jammy-security/main arm64 curl arm64 7.81.0-1ubuntu1.30 [190 kB]
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:12.5607594Z Get:4 http://ports.ubuntu.com/ubuntu-ports jammy-security/main arm64 libcurl4 arm64 7.81.0-1ubuntu1.30 [287 kB]
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:12.9001370Z Get:5 http://ports.ubuntu.com/ubuntu-ports jammy-updates/main arm64 libasound2-dev arm64 1.2.6.1-1ubuntu1.2 [110 kB]
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:13.0755984Z Get:6 http://ports.ubuntu.com/ubuntu-ports jammy-updates/universe arm64 libclang-14-dev arm64 1:14.0.0-1ubuntu1.1 [25.3 MB]
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:14.4946242Z Get:7 http://ports.ubuntu.com/ubuntu-ports jammy/universe arm64 libclang-dev arm64 1:14.0-55~exp2 [3140 B]
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:14.7756299Z Fetched 25.9 MB in 3s (7738 kB/s)
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:14.8053219Z Selecting previously unselected package build-essential.
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:14.8258065Z (Reading database ... 
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:14.8258882Z (Reading database ... 5%
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:14.8259239Z (Reading database ... 10%
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:14.8259724Z (Reading database ... 15%
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:14.8260014Z (Reading database ... 20%
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:14.8260336Z (Reading database ... 25%
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:14.8260619Z (Reading database ... 30%
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:14.8260871Z (Reading database ... 35%
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:14.8261185Z (Reading database ... 40%
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:14.8261436Z (Reading database ... 45%
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:14.8261681Z (Reading database ... 50%
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:14.9299543Z (Reading database ... 55%
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:15.1305904Z (Reading database ... 60%
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:15.2968347Z (Reading database ... 65%
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:15.4828606Z (Reading database ... 70%
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:15.6888119Z (Reading database ... 75%
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:15.8813298Z (Reading database ... 80%
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:16.0865644Z (Reading database ... 85%
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:16.2927860Z (Reading database ... 90%
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:16.4434998Z (Reading database ... 95%
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:16.4435371Z (Reading database ... 100%
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:16.4435925Z (Reading database ... 202929 files and directories currently installed.)
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:16.4477852Z Preparing to unpack .../0-build-essential_12.9ubuntu3_arm64.deb ...
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:16.4504139Z Unpacking build-essential (12.9ubuntu3) ...
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:16.4680548Z Selecting previously unselected package clang.
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:16.4813035Z Preparing to unpack .../1-clang_1%3a14.0-55~exp2_arm64.deb ...
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:16.4822499Z Unpacking clang (1:14.0-55~exp2) ...
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:16.5127221Z Preparing to unpack .../2-curl_7.81.0-1ubuntu1.30_arm64.deb ...
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:16.5146215Z Unpacking curl (7.81.0-1ubuntu1.30) over (7.81.0-1ubuntu1.29) ...
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:16.5480271Z Preparing to unpack .../3-libcurl4_7.81.0-1ubuntu1.30_arm64.deb ...
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:16.5506889Z Unpacking libcurl4:arm64 (7.81.0-1ubuntu1.30) over (7.81.0-1ubuntu1.29) ...
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:16.5701577Z Selecting previously unselected package libasound2-dev:arm64.
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:16.5831021Z Preparing to unpack .../4-libasound2-dev_1.2.6.1-1ubuntu1.2_arm64.deb ...
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:16.5863479Z Unpacking libasound2-dev:arm64 (1.2.6.1-1ubuntu1.2) ...
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:16.6099759Z Selecting previously unselected package libclang-14-dev.
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:16.6257960Z Preparing to unpack .../5-libclang-14-dev_1%3a14.0.0-1ubuntu1.1_arm64.deb ...
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:16.6266374Z Unpacking libclang-14-dev (1:14.0.0-1ubuntu1.1) ...
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:17.5491681Z Selecting previously unselected package libclang-dev.
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:17.5668562Z Preparing to unpack .../6-libclang-dev_1%3a14.0-55~exp2_arm64.deb ...
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:17.5676058Z Unpacking libclang-dev (1:14.0-55~exp2) ...
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:17.6013209Z Setting up clang (1:14.0-55~exp2) ...
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:17.6200400Z Setting up libclang-14-dev (1:14.0.0-1ubuntu1.1) ...
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:17.6214963Z Setting up build-essential (12.9ubuntu3) ...
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:17.6231146Z Setting up libcurl4:arm64 (7.81.0-1ubuntu1.30) ...
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:17.6247815Z Setting up curl (7.81.0-1ubuntu1.30) ...
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:17.6266879Z Setting up libasound2-dev:arm64 (1.2.6.1-1ubuntu1.2) ...
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:17.6281891Z Setting up libclang-dev (1:14.0-55~exp2) ...
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:17.6300218Z Processing triggers for man-db (2.10.2-1) ...
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:17.6317675Z Not building database; man-db/auto-update is not 'true'.
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:17.6330282Z Processing triggers for libc-bin (2.35-0ubuntu3.15) ...
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:19.6543261Z 
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:19.6544067Z Running kernel seems to be up-to-date.
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:19.6544369Z 
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:19.6546185Z Services to be restarted:
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:19.6589047Z  systemctl restart php8.1-fpm.service
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:19.6589395Z 
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:19.6590191Z No containers need to be restarted.
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:19.6590412Z 
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:19.6590561Z No user sessions are running outdated binaries.
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:19.6590838Z 
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:19.6591099Z No VM guests are running outdated hypervisor (qemu) binaries on this host.
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:20.9649388Z ##[group]Run actions/checkout@v4
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:20.9649803Z with:
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:20.9650208Z   repository: autonomous-ai/lampOS
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:20.9652977Z   token: ***
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:20.9653340Z   ssh-strict: true
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:20.9653590Z   ssh-user: git
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:20.9653829Z   persist-credentials: true
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:20.9654149Z   clean: true
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:20.9654401Z   sparse-checkout-cone-mode: true
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:20.9654728Z   fetch-depth: 1
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:20.9654972Z   fetch-tags: false
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:20.9655218Z   show-progress: true
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:20.9655484Z   lfs: false
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:20.9655699Z   submodules: false
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:20.9656187Z   set-safe-directory: true
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:20.9656515Z   allow-unsafe-pr-checkout: false
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:20.9656833Z ##[endgroup]
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:21.0469058Z Syncing repository: autonomous-ai/lampOS
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:21.0471002Z ##[group]Getting Git version info
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:21.0471908Z Working directory is '/home/runner/work/lampOS/lampOS'
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:21.0472692Z [command]/usr/bin/git version
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:21.0511185Z git version 2.55.0
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:21.0528875Z ##[endgroup]
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:21.0542991Z Temporarily overriding HOME='/home/runner/work/_temp/95d8a971-a858-434a-93ae-b547105313f8' before making global git config changes
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:21.0543773Z Adding repository directory to the temporary git global config as a safe directory
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:21.0546926Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/lampOS/lampOS
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:21.0582118Z Deleting the contents of '/home/runner/work/lampOS/lampOS'
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:21.0586229Z ##[group]Initializing the repository
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:21.0590332Z [command]/usr/bin/git init /home/runner/work/lampOS/lampOS
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:21.0687124Z hint: Using 'master' as the name for the initial branch. This default branch name
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:21.0693754Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:21.0694499Z hint: to use in all of your new repositories, which will suppress this warning,
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:21.0695592Z hint: call:
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:21.0696080Z hint:
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:21.0696901Z hint: 	git config --global init.defaultBranch <name>
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:21.0697613Z hint:
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:21.0698039Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:21.0698766Z hint: 'development'. The just-created branch can be renamed via this command:
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:21.0699259Z hint:
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:21.0699613Z hint: 	git branch -m <name>
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:21.0699977Z hint:
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:21.0700434Z hint: Disable this message with "git config set advice.defaultBranchName false"
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:21.0701133Z Initialized empty Git repository in /home/runner/work/lampOS/lampOS/.git/
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:21.0702655Z [command]/usr/bin/git remote add origin https://github.com/autonomous-ai/lampOS
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:21.0730138Z ##[endgroup]
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:21.0730641Z ##[group]Disabling automatic garbage collection
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:21.0733384Z [command]/usr/bin/git config --local gc.auto 0
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:21.0758481Z ##[endgroup]
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:21.0759062Z ##[group]Setting up auth
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:21.0764388Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:21.0790444Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:21.1076124Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:21.1103394Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:21.1283367Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:21.1311983Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:21.1492539Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:21.1528126Z ##[endgroup]
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:21.1528633Z ##[group]Fetching the repository
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:21.1535512Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +ad0e7f447e7a67e4c00666207f537d2f260e498e:refs/remotes/origin/tests/823-transport-exit-clock
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:23.9569811Z From https://github.com/autonomous-ai/lampOS
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:23.9570872Z  * [new ref]         ad0e7f447e7a67e4c00666207f537d2f260e498e -> origin/tests/823-transport-exit-clock
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:23.9573447Z ##[endgroup]
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:23.9573906Z ##[group]Determining the checkout info
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:23.9576035Z ##[endgroup]
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:23.9581485Z [command]/usr/bin/git sparse-checkout disable
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:23.9618574Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:23.9643221Z ##[group]Checking out the ref
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:23.9648030Z [command]/usr/bin/git checkout --progress --force -B tests/823-transport-exit-clock refs/remotes/origin/tests/823-transport-exit-clock
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:24.5404091Z Switched to a new branch 'tests/823-transport-exit-clock'
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:24.5405190Z branch 'tests/823-transport-exit-clock' set up to track 'origin/tests/823-transport-exit-clock'.
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:24.5823692Z ##[endgroup]
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:24.5859794Z [command]/usr/bin/git log -1 --format=%H
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:24.5887983Z ad0e7f447e7a67e4c00666207f537d2f260e498e
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:24.6010183Z ##[group]Run curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain 1.96.0 -c clippy -c rustfmt
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:24.6011266Z [36;1mcurl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain 1.96.0 -c clippy -c rustfmt[0m
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:24.6012019Z [36;1mecho "$HOME/.cargo/bin" >> "$GITHUB_PATH"[0m
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:24.6038284Z shell: /usr/bin/bash -e {0}
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:24.6038755Z ##[endgroup]
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:26.1430252Z info: downloading installer
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:26.5100692Z warn: it looks like you have an existing rustup settings file at:
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:26.5101317Z warn: /home/runner/.rustup/settings.toml
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:26.5418308Z info: profile set to minimal
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:26.5418727Z info: default host tuple is aarch64-unknown-linux-gnu
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:26.5426716Z info: syncing channel updates for 1.96.0-aarch64-unknown-linux-gnu
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:26.6521021Z info: latest update on 2026-05-28 for version 1.96.0 (ac68faa20 2026-05-25)
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:26.6521583Z info: downloading 5 components
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:31.7006642Z info: default toolchain set to 1.96.0-aarch64-unknown-linux-gnu
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:31.7007205Z 
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:31.7077249Z   1.96.0-aarch64-unknown-linux-gnu installed - rustc 1.96.0 (ac68faa20 2026-05-25)
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:31.7077629Z 
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:31.7078861Z 
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:31.7079173Z Rust is installed now. Great!
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:31.7079367Z 
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:31.7079516Z To get started you may need to restart your current shell.
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:31.7079937Z This would reload your PATH environment variable to include
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:31.7080364Z Cargo's bin directory ($HOME/.cargo/bin).
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:31.7080569Z 
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:31.7080738Z To configure your current shell, you need to source the
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:31.7081131Z corresponding env file under $HOME/.cargo.
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:31.7081359Z 
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:31.7081597Z Consider running the right command for your shell (note the leading DOT):
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:31.7082021Z . "$HOME/.cargo/env"     # For sh/ash/dash/pdksh/bash
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:31.7082418Z . "$HOME/.cargo/env.ps1" # For pwsh
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:31.7082766Z cargo:rerun-if-env-changed=CC_aarch64-unknown-linux-gnu
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:31.7083152Z CC_aarch64-unknown-linux-gnu = None
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:31.7083547Z cargo:rerun-if-env-changed=CC_aarch64_unknown_linux_gnu
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:31.7083917Z CC_aarch64_unknown_linux_gnu = None
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:31.7084219Z cargo:rerun-if-env-changed=HOST_CC
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:31.7084487Z HOST_CC = None
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:31.7084745Z cargo:rerun-if-env-changed=CC
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:31.7085009Z CC = None
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:31.7085255Z cargo:rerun-if-env-changed=CC_ENABLE_DEBUG_OUTPUT
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:31.7392806Z cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:31.7393206Z CRATE_CC_NO_DEFAULTS = None
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:31.7393969Z cargo:rerun-if-env-changed=CFLAGS
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:31.7394276Z CFLAGS = None
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:31.7394510Z cargo:rerun-if-env-changed=HOST_CFLAGS
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:31.7394835Z HOST_CFLAGS = None
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:31.7395126Z cargo:rerun-if-env-changed=CFLAGS_aarch64_unknown_linux_gnu
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:31.7395924Z CFLAGS_aarch64_unknown_linux_gnu = None
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:31.7396297Z cargo:rerun-if-env-changed=CFLAGS_aarch64-unknown-linux-gnu
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:31.7396676Z CFLAGS_aarch64-unknown-linux-gnu = None
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:31.8129065Z ##[group]Run actions/cache@v4
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:31.8129507Z with:
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:31.8129799Z   path: ~/.cargo/registry
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	~/.cargo/git
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	lampOS/target
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:31.8130306Z   key: lampos-arm64-u2204-a2af42cb8a37f4e583907e6e8945f0ee48d1da6381e3c9183c11a82edab4332d
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:31.8130851Z   restore-keys: lampos-arm64-u2204-
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:31.8131150Z   enableCrossOsArchive: false
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:31.8131470Z   fail-on-cache-miss: false
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:31.8131753Z   lookup-only: false
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:31.8131972Z   save-always: false
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:31.8132248Z ##[endgroup]
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:31.8988200Z (node:3372) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:31.8988915Z (Use `node --trace-deprecation ...` to show where the warning was created)
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.1381964Z Cache not found for input keys: lampos-arm64-u2204-a2af42cb8a37f4e583907e6e8945f0ee48d1da6381e3c9183c11a82edab4332d, lampos-arm64-u2204-
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.1519369Z ##[group]Run taiki-e/install-action@v2
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.1519905Z with:
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.1520154Z   tool: cargo-nextest
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.1520440Z   checksum: true
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.1520685Z   fallback: cargo-binstall
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.1520953Z ##[endgroup]
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.1605623Z ##[start-action display=Run bail() {;id=__taiki-e_install-action.__run]
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.1642707Z ##[group]Run bail() {
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.1643138Z [36;1mbail() {[0m
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.1643491Z [36;1m  printf '::error::install-action: %s\n' "$*"[0m
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.1643828Z [36;1m  exit 1[0m
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.1644044Z [36;1m}[0m
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.1644471Z [36;1m# If /bin/sh is dash, environment variable containing % is not imported, but is fine[0m
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.1645017Z [36;1m# because it also means that it will not be exposed to subprocess.[0m
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.1645537Z [36;1mif /usr/bin/env | grep -Eq '^BASH_FUNC_'; then[0m
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.1646173Z [36;1m  bail 'bash function injection via BASH_FUNC_ environment variable is not allowed for security reasons'[0m
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.1646729Z [36;1mfi[0m
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.1647357Z [36;1mif ! command -v bash >/dev/null; then[0m
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.1647748Z [36;1m  if grep -Eq '^ID=alpine' /etc/os-release; then[0m
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.1648273Z [36;1m    printf '::group::Install packages required for install-action (bash)\n'[0m
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.1648729Z [36;1m    # NB: sync with apk_install in main.sh[0m
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.1649087Z [36;1m    if command -v sudo >/dev/null; then[0m
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.1649469Z [36;1m      sudo apk --no-cache add bash[0m
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.1649828Z [36;1m    elif command -v doas >/dev/null; then[0m
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.1650190Z [36;1m      doas apk --no-cache add bash[0m
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.1650497Z [36;1m    else[0m
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.1650728Z [36;1m      apk --no-cache add bash[0m
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.1651053Z [36;1m    fi[0m
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.1651322Z [36;1m    printf '::endgroup::\n'[0m
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.1651617Z [36;1m  else[0m
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.1651884Z [36;1m    bail 'this action requires bash'[0m
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.1652176Z [36;1m  fi[0m
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.1652447Z [36;1mfi[0m
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.1652748Z [36;1mbash --noprofile --norc "${GITHUB_ACTION_PATH:?}/main.sh"[0m
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.1655981Z shell: /usr/bin/env -u ENV -u BASH_ENV -u CDPATH -u SHELLOPTS -u BASHOPTS /bin/sh -eu {0}
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.1656590Z env:
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.1657367Z   INPUT_TOOL: cargo-nextest
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.1657649Z   INPUT_CHECKSUM: true
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.1657890Z   INPUT_FALLBACK: cargo-binstall
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.1660830Z   DEFAULT_GITHUB_TOKEN: ***
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.1661149Z   ACTION_USER_AGENT: taiki-e/install-action (v2)
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.1661528Z   RUNNER_OS: Linux
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.1661763Z   RUNNER_ARCH: ARM64
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.1661994Z ##[endgroup]
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.1767805Z info: host platform: aarch64_linux
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.3211627Z info: installing cargo-nextest@latest
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.4431204Z info: downloading https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-0.9.148/cargo-nextest-0.9.148-aarch64-unknown-linux-gnu.tar.gz
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.7889707Z info: verifying sha256 checksum for cargo-nextest-0.9.148-aarch64-unknown-linux-gnu.tar.gz
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.9947981Z info: cargo-nextest installed at /home/runner/.cargo/bin/cargo-nextest
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.9950327Z + cargo-nextest nextest --version
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.9972786Z cargo-nextest 0.9.148 (cd1d6d546 2026-10-07)
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.9973196Z release: 0.9.148
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.9973502Z commit-hash: cd1d6d5467322dbc0d39a80cb671d000ac302798
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.9973924Z commit-date: 2026-10-07
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.9974179Z host: aarch64-unknown-linux-gnu
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.9977436Z 
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:32.9996456Z ##[end-action id=__taiki-e_install-action.__run;outcome=success;conclusion=success;duration_ms=838]
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:33.0005630Z ##[start-action display=Run Set-StrictMode -Version Latest;id=__taiki-e_install-action.__run_2]
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:33.0012506Z ##[end-action id=__taiki-e_install-action.__run_2;outcome=skipped;conclusion=skipped;duration_ms=0]
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:33.0052964Z ##[group]Run cargo build --locked --release --workspace --bins --examples
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:33.0053575Z [36;1mcargo build --locked --release --workspace --bins --examples[0m
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:33.0072624Z shell: /usr/bin/bash -e {0}
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:33.0072932Z ##[endgroup]
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:33.0667782Z     Updating crates.io index
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:33.0673196Z     Updating git repository `https://github.com/RustAudio/cpal.git`
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:34.9360050Z error: failed to get `rustls-platform-verifier-android` as a dependency of package `rustls-platform-verifier v0.7.1`
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:34.9361370Z     ... which satisfies dependency `rustls-platform-verifier = "^0.7"` (locked to 0.7.1) of package `lamp-surround v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/surround)`
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:34.9362020Z 
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:34.9362102Z Caused by:
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:34.9362455Z   failed to load source for dependency `rustls-platform-verifier-android`
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:34.9362804Z 
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:34.9363028Z Caused by:
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:34.9363272Z   unable to update registry `crates-io`
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:34.9363497Z 
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:34.9363604Z Caused by:
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:34.9363900Z   download of ru/st/rustls-platform-verifier-android failed
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:34.9364167Z 
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:34.9364296Z Caused by:
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:34.9364502Z   curl failed
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:34.9364675Z 
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:34.9364752Z Caused by:
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:34.9365123Z   [55] Failed sending data to the peer (OpenSSL SSL_read: SSL_ERROR_SYSCALL, errno 0)
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:34.9416364Z ##[error]Process completed with exit code 101.
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:34.9571966Z Post job cleanup.
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:35.0261878Z [command]/usr/bin/git version
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:35.0292714Z git version 2.55.0
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:35.0324926Z Temporarily overriding HOME='/home/runner/work/_temp/35a5ee32-af25-4970-9fd2-498681aa319f' before making global git config changes
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:35.0326216Z Adding repository directory to the temporary git global config as a safe directory
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:35.0329596Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/lampOS/lampOS
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:35.0361139Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:35.0389198Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:35.0588762Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:35.0602763Z http.https://github.com/.extraheader
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:35.0604544Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:35.0640052Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:35.0824735Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:35.0851568Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:35.1156246Z Cleaning up orphan processes
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T01:40:35.1481918Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/cache@v4, actions/checkout@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

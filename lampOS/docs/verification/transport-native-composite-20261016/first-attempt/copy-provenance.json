@@ -1,0 +1,427 @@
+{
+  "date_from_date": "2026-10-16 09:09:38 +0700",
+  "files": [
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/raw/full-attempt1.jobs-api.json",
+      "destination": "raw/full-attempt1.jobs-api.json",
+      "bytes": 14908,
+      "sha256": "42a7407748aa3aa3cd36aea1a41ef9304af0c16b62a205c22ce154b1daa4114a"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/raw/full-attempt1.jobs-api.json.stderr",
+      "destination": "raw/full-attempt1.jobs-api.json.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/raw/full-attempt1.log",
+      "destination": "raw/full-attempt1.log",
+      "bytes": 1468759,
+      "sha256": "163fd564960b8c121ba30e11616c67caedd9ba826c351a3fcf48f3023bdb8cfc"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/raw/full-attempt1.log.stderr",
+      "destination": "raw/full-attempt1.log.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/raw/full-attempt1.run-api.json",
+      "destination": "raw/full-attempt1.run-api.json",
+      "bytes": 12690,
+      "sha256": "530fe09cb5fdaac5cdc00582f301fe630ed127d94ae2e513e46601faaf452744"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/raw/full-attempt1.run-api.json.stderr",
+      "destination": "raw/full-attempt1.run-api.json.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/raw/full-head-commit.json",
+      "destination": "raw/full-head-commit.json",
+      "bytes": 1119,
+      "sha256": "b977af1918f50fa15c944034a25b5dfcb2d07ac99f6efb21bb0805f0ad3ee780"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/raw/full-head-commit.json.stderr",
+      "destination": "raw/full-head-commit.json.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/raw/full-head-tree.json",
+      "destination": "raw/full-head-tree.json",
+      "bytes": 2319654,
+      "sha256": "d2da5caeeb9ec2bd02b3c8e00ec91a1efe30c18d2c5914149208bef3f8aed195"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/raw/full-head-tree.json.stderr",
+      "destination": "raw/full-head-tree.json.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/raw/normal-attempt1.jobs-api.json",
+      "destination": "raw/normal-attempt1.jobs-api.json",
+      "bytes": 4273,
+      "sha256": "922b98306c41d37355b5a88da6a20ad073a795be1e56095bed3461208551a867"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/raw/normal-attempt1.jobs-api.json.stderr",
+      "destination": "raw/normal-attempt1.jobs-api.json.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/raw/normal-attempt1.log",
+      "destination": "raw/normal-attempt1.log",
+      "bytes": 1269077,
+      "sha256": "200cbdbfbdcf6b3a0bab2abb91cedb7a2f4e15368171358b456b98b5a82307fe"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/raw/normal-attempt1.log.stderr",
+      "destination": "raw/normal-attempt1.log.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/raw/normal-attempt1.run-api.json",
+      "destination": "raw/normal-attempt1.run-api.json",
+      "bytes": 12714,
+      "sha256": "e438a3fc03de0decc8a0adb86411ae9f1690ffcedb7f2136dcf508a1cb0e20a8"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/raw/normal-attempt1.run-api.json.stderr",
+      "destination": "raw/normal-attempt1.run-api.json.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/raw/normal-merge-commit.json",
+      "destination": "raw/normal-merge-commit.json",
+      "bytes": 2603,
+      "sha256": "b37d0ea3462fed257b6dbf09a4572eeb0ab8fcb69c36bc031e03cc22643042d3"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/raw/normal-merge-commit.json.stderr",
+      "destination": "raw/normal-merge-commit.json.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/raw/normal-merge-tree.json",
+      "destination": "raw/normal-merge-tree.json",
+      "bytes": 2320142,
+      "sha256": "668b31170457ab1b7d49a46f8e5848c2e9cb1d1eff3a8db189d5ee086684c7a6"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/raw/normal-merge-tree.json.stderr",
+      "destination": "raw/normal-merge-tree.json.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/raw/shard3-attempt1-api.json",
+      "destination": "raw/shard3-attempt1-api.json",
+      "bytes": 3349,
+      "sha256": "d80b6f3c06f97ec821860a0cc8a2092ed4773ea3768d5bf4178821c3fc7bb475"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/raw/shard3-attempt1-api.json.stderr",
+      "destination": "raw/shard3-attempt1-api.json.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/raw/shard3-attempt1-api.log",
+      "destination": "raw/shard3-attempt1-api.log",
+      "bytes": 30140,
+      "sha256": "347b11aeb905bdd67309d03e2c05677ef0095055db0ee79272310e5cc7f012a5"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/raw/shard3-attempt1-api.log.stderr",
+      "destination": "raw/shard3-attempt1-api.log.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/raw/shard3-attempt1.log",
+      "destination": "raw/shard3-attempt1.log",
+      "bytes": 53360,
+      "sha256": "50cba2286145f2fa7faedf2d9edcd6f27a2a12dad285486329e185608cc73101"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/raw/shard3-attempt1.log.stderr",
+      "destination": "raw/shard3-attempt1.log.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/captures/full-attempt1.jobs-api.json.json",
+      "destination": "captures/full-attempt1.jobs-api.json.json",
+      "bytes": 529,
+      "sha256": "8d357d487d0823c88fd3c88539f572eac1e4f5011e0e5492b7099dc9db7b321e"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/captures/full-attempt1.log.json",
+      "destination": "captures/full-attempt1.log.json",
+      "bytes": 529,
+      "sha256": "71dd1c0f5b73a23fe1f1086ee04e117867bbb2f2499e5a77b8ae941a1cbf229e"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/captures/full-attempt1.run-api.json.json",
+      "destination": "captures/full-attempt1.run-api.json.json",
+      "bytes": 509,
+      "sha256": "fdbb1604a882a59b0cef7080249419f8559e50c3b45d4006e19e1292818547bb"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/captures/full-head-commit.json.json",
+      "destination": "captures/full-head-commit.json.json",
+      "bytes": 516,
+      "sha256": "8b64e6deb0fb679e41c6e5485a1517bc6be01635ba5c853bd96172e14e1477e7"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/captures/full-head-tree.json.json",
+      "destination": "captures/full-head-tree.json.json",
+      "bytes": 522,
+      "sha256": "3ecbd002110cf977a85286b8a2e4827e1a7ce2478719a2e53d99239042a4b477"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/captures/normal-attempt1.jobs-api.json.json",
+      "destination": "captures/normal-attempt1.jobs-api.json.json",
+      "bytes": 533,
+      "sha256": "5c2b41a76c2c64e2899d2fd326fc5823eb36d60b97b763e7bd36237ebb63bc20"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/captures/normal-attempt1.log.json",
+      "destination": "captures/normal-attempt1.log.json",
+      "bytes": 533,
+      "sha256": "5c4de4391aea14e436a818c75502cfc51de4618c5f3505e80c51e4855f09718b"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/captures/normal-attempt1.run-api.json.json",
+      "destination": "captures/normal-attempt1.run-api.json.json",
+      "bytes": 513,
+      "sha256": "046672a9c84070e33043508c9266d0f0b935cf603014bbb7587e92ddab0d6b4b"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/captures/normal-merge-commit.json.json",
+      "destination": "captures/normal-merge-commit.json.json",
+      "bytes": 522,
+      "sha256": "1dd411e90871afd361aa9bb3aceb02f05545c48a97dcf1912fca9bf4532b4590"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/captures/normal-merge-tree.json.json",
+      "destination": "captures/normal-merge-tree.json.json",
+      "bytes": 528,
+      "sha256": "8fc1cd5215074e547fe273ee4401464eb6f9e224bf1b6d4c6191a2b0af5aa658"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/captures/shard3-attempt1-api.json.json",
+      "destination": "captures/shard3-attempt1-api.json.json",
+      "bytes": 495,
+      "sha256": "44d74207d1e354d7c3a4efc5bbaff17aae06b40b238717dee73f8ea232f71713"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/captures/shard3-attempt1-api.log.json",
+      "destination": "captures/shard3-attempt1-api.log.json",
+      "bytes": 498,
+      "sha256": "eaba4dc07e4819288d78e9a306d73ff37f97ccd5a1bbd99221820d9407bfff67"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/captures/shard3-attempt1.log.json",
+      "destination": "captures/shard3-attempt1.log.json",
+      "bytes": 540,
+      "sha256": "6c82557fc30a73d84e1c934b2bfaa63bd8e0da9368a4a43b3a5eaea6756f9ff8"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/source-snapshots/.github/workflows/lampos-arm64.yml",
+      "destination": "source-snapshots/.github/workflows/lampos-arm64.yml",
+      "bytes": 7440,
+      "sha256": "11cbcf5ced5022ca685b5c9e51f349c986259a5044575a20f39d3b8e869a045f"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/source-snapshots/lampOS/.config/nextest.toml",
+      "destination": "source-snapshots/lampOS/.config/nextest.toml",
+      "bytes": 6466,
+      "sha256": "33254521c34198ae2d4f988c4b7d04391c03da769ad91769e691171ae3b87367"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/source-snapshots/lampOS/Cargo.lock",
+      "destination": "source-snapshots/lampOS/Cargo.lock",
+      "bytes": 113084,
+      "sha256": "40d62fead16a6f138c4d7dbe400a2e4a9855ceece96d19b1e642136431aed4c5"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/source-snapshots/lampOS/Cargo.toml",
+      "destination": "source-snapshots/lampOS/Cargo.toml",
+      "bytes": 1211,
+      "sha256": "dafaa1133d09ab0137847973359e8d1c01e7dc306aa54e299ec1a6f611e24c2b"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/source-snapshots/lampOS/crates/voice-eval/src/physical/mac.rs",
+      "destination": "source-snapshots/lampOS/crates/voice-eval/src/physical/mac.rs",
+      "bytes": 190321,
+      "sha256": "fe7c6e74eb2dda37b14e05b358207ee0a6e9fa1a5060924a41779b50d996f5ed"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/source-snapshots/lampOS/crates/voice-eval/src/physical/transport_exit_clock_tests.rs",
+      "destination": "source-snapshots/lampOS/crates/voice-eval/src/physical/transport_exit_clock_tests.rs",
+      "bytes": 7006,
+      "sha256": "32a653355cf0a2f42df38bc2e71d5d2ed682ff97cc2edb8321d32373b52910d3"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/source-snapshots/lampOS/docs/voice-test-fixtures.md",
+      "destination": "source-snapshots/lampOS/docs/voice-test-fixtures.md",
+      "bytes": 19642,
+      "sha256": "8ae2d7745236ce42fe60ac91c8b814f68c19bfdc75b96e282dfc73ff0d81b1f8"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/normal-attempt1-results.json",
+      "destination": "normal-attempt1-results.json",
+      "bytes": 1320932,
+      "sha256": "3da11ed11e9b07bb62952f8bc895bd64ae73d6e89fffccbb8d47ed903e3fa944"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/full-attempt1-results.json",
+      "destination": "full-attempt1-results.json",
+      "bytes": 1032929,
+      "sha256": "24048df790c1316ee0c98acaea393fef0d25bc284fbe4671282baa3ad8bf098d"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/published-first-shard3.log",
+      "destination": "published-first-shard3.log",
+      "bytes": 30140,
+      "sha256": "347b11aeb905bdd67309d03e2c05677ef0095055db0ee79272310e5cc7f012a5"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/preliminary-attempt1-audit.json",
+      "destination": "preliminary-attempt1-audit.json",
+      "bytes": 223017,
+      "sha256": "7e41bceae4e3cf0b3ee476323153b66b89393b36051bff59896d570bdfbb3105"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/source-and-merge-audit.json",
+      "destination": "source-and-merge-audit.json",
+      "bytes": 416423,
+      "sha256": "8d085407f8296c254b87bd215599ebc40471d6a136a9dfbd9a2ed2adf18b3310"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/parser-diagnostic.json",
+      "destination": "parser-diagnostic.json",
+      "bytes": 695,
+      "sha256": "dbef77a2d9983d341cdcdd0390747d41c644e2210b9e228708b99a80d56bf734"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/source-parser-diagnostic.json",
+      "destination": "source-parser-diagnostic.json",
+      "bytes": 676,
+      "sha256": "d418fcd8c3bde6e77d3f426f251c001a2fec0882ea8281d57559f9bb62897e41"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/packaging-preflight-diagnostic.json",
+      "destination": "packaging-preflight-diagnostic.json",
+      "bytes": 401,
+      "sha256": "8c6da2ad2a69c7203cf91793bd0f87f3762db4c43f4fd7f198bc2e185e2e36be"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-restart/first-jobs.json",
+      "destination": "root-authorized-restart/first-jobs.json",
+      "bytes": 14908,
+      "sha256": "42a7407748aa3aa3cd36aea1a41ef9304af0c16b62a205c22ce154b1daa4114a"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-restart/first-jobs.stderr",
+      "destination": "root-authorized-restart/first-jobs.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-restart/restart.json",
+      "destination": "root-authorized-restart/restart.json",
+      "bytes": 533,
+      "sha256": "9872836f1e3cae41ae796a2ee768ff452512d84656949a308ad0fa01f3961f56"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-restart/restart.stderr",
+      "destination": "root-authorized-restart/restart.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-restart/restart.stdout",
+      "destination": "root-authorized-restart/restart.stdout",
+      "bytes": 2,
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-exit-evidence/corrected-gate/list.log",
+      "destination": "local-gate/list.log",
+      "bytes": 92391,
+      "sha256": "59b7dc13a9800bd95d896cbd1a58627e9d8f95b0ec1ce45ce76f475b341efab6"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-exit-evidence/corrected-gate/identity-proof.json",
+      "destination": "local-gate/identity-proof.json",
+      "bytes": 1226,
+      "sha256": "374aefd801b9a9ad33d676c59b1091b79cb34875ec6bb9ab49f45efd83cb408c"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-exit-evidence/corrected-gate/source.json",
+      "destination": "local-gate/source.json",
+      "bytes": 131383,
+      "sha256": "37fa2e6f732f05ec709b9c94a872b9bc9ddeaef8cfe7cf250eb00d6fde7077a8"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-exit-evidence/corrected-gate/metadata.log",
+      "destination": "local-gate/metadata.log",
+      "bytes": 166748,
+      "sha256": "70653a9af1c2cdb38a743c58f2297d5a5d109aa899b9e3d55ce980f7af6159fc"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-exit-evidence/corrected-gate/completed.json",
+      "destination": "local-gate/completed.json",
+      "bytes": 274,
+      "sha256": "38c51006006508029fac98fcfda5d98b31008b6d06c1cda84c06601436272b4e"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-exit-evidence/corrected-gate/gates.json",
+      "destination": "local-gate/gates.json",
+      "bytes": 3865,
+      "sha256": "829f606c40c786089e57056744dd9e783dbe0edef7c014dbc8a9cb67626f8dea"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-exit-evidence/baseline/list.log",
+      "destination": "local-baseline/list.log",
+      "bytes": 92986,
+      "sha256": "cf9553141b153b7d716ec0f962e7dded2f20019fd44cd10ac45c6ea5a2b22212"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-exit-evidence/baseline/source.json",
+      "destination": "local-baseline/source.json",
+      "bytes": 131130,
+      "sha256": "ba8d9b9505a8e6765f3be3d76d7536b639086410559ca3de76cc56d77e8f4da3"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-exit-evidence/baseline/gates.json",
+      "destination": "local-baseline/gates.json",
+      "bytes": 1069,
+      "sha256": "e62f91150c9ff6e803797b319c1a70c4cf3dd7812945e2468cb400ac68cb0b1f"
+    },
+    {
+      "source": "/private/tmp/lampos-tests-inventory/lampOS/docs/verification/realtime-inventory-20261015/inventory.json",
+      "destination": "original123-inventory.json",
+      "bytes": 416179,
+      "sha256": "72d671f8b22246898f9142c0216c9fbced55e350e46b83ffec787c81496fb1fc"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-exit-publication-files.json",
+      "destination": "local-publication-files.json",
+      "bytes": 25222,
+      "sha256": "79467184ccdfbeedd081244076366b28b6c275b6b08c6e3e6a62db2694051497"
+    }
+  ],
+  "all_copied_bytes_exact": true,
+  "first_attempt_immutable": true
+}

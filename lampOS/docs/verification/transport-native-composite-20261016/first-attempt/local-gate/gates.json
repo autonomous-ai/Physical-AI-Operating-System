@@ -1,0 +1,140 @@
+[
+  {
+    "name": "fmt",
+    "command": [
+      "cargo",
+      "fmt",
+      "--all",
+      "--",
+      "--check"
+    ],
+    "cwd": "/private/tmp/lampos-tests-transport-exit-clock/lampOS",
+    "target": "/private/tmp/tests-823-memory-application-target",
+    "started": "2026-10-16 08:27:19 +0700",
+    "finished": "2026-10-16 08:27:24 +0700",
+    "exit_code": 0,
+    "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "name": "metadata",
+    "command": [
+      "cargo",
+      "metadata",
+      "--locked",
+      "--offline",
+      "--no-deps",
+      "--format-version",
+      "1"
+    ],
+    "cwd": "/private/tmp/lampos-tests-transport-exit-clock/lampOS",
+    "target": "/private/tmp/tests-823-memory-application-target",
+    "started": "2026-10-16 08:27:24 +0700",
+    "finished": "2026-10-16 08:27:25 +0700",
+    "exit_code": 0,
+    "raw_sha256": "70653a9af1c2cdb38a743c58f2297d5a5d109aa899b9e3d55ce980f7af6159fc"
+  },
+  {
+    "name": "clippy",
+    "command": [
+      "cargo",
+      "clippy",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-voice-eval",
+      "--all-targets",
+      "--",
+      "-D",
+      "warnings"
+    ],
+    "cwd": "/private/tmp/lampos-tests-transport-exit-clock/lampOS",
+    "target": "/private/tmp/tests-823-memory-application-target",
+    "started": "2026-10-16 08:27:25 +0700",
+    "finished": "2026-10-16 08:27:33 +0700",
+    "exit_code": 0,
+    "raw_sha256": "044be98ce0f38d2681e5e1b41b8c74b0b8956a3bd6c807bf60f853b3a5b45f8c"
+  },
+  {
+    "name": "list",
+    "command": [
+      "cargo",
+      "nextest",
+      "list",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-voice-eval",
+      "--message-format",
+      "json"
+    ],
+    "cwd": "/private/tmp/lampos-tests-transport-exit-clock/lampOS",
+    "target": "/private/tmp/tests-823-memory-application-target",
+    "started": "2026-10-16 08:27:33 +0700",
+    "finished": "2026-10-16 08:27:48 +0700",
+    "exit_code": 0,
+    "raw_sha256": "59b7dc13a9800bd95d896cbd1a58627e9d8f95b0ec1ce45ce76f475b341efab6"
+  },
+  {
+    "name": "original-case",
+    "command": [
+      "cargo",
+      "nextest",
+      "run",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-voice-eval",
+      "--profile",
+      "default",
+      "--test-threads",
+      "1",
+      "--no-fail-fast",
+      "--retries",
+      "0",
+      "-E",
+      "binary_id(lamp-voice-eval) & test(=physical::mac::audit_grant_tests::audit_transport_that_outlives_its_bound_is_killed_and_never_certified)"
+    ],
+    "cwd": "/private/tmp/lampos-tests-transport-exit-clock/lampOS",
+    "target": "/private/tmp/tests-823-memory-application-target",
+    "started": "2026-10-16 08:27:48 +0700",
+    "finished": "2026-10-16 08:27:49 +0700",
+    "exit_code": 0,
+    "raw_sha256": "1ff6ebc4bdc216e73e5b559eff2583baf6f8f8e2b21562bb70dd989364540a4a"
+  },
+  {
+    "name": "tests",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-voice-eval",
+      "--no-fail-fast",
+      "--",
+      "--test-threads=1"
+    ],
+    "cwd": "/private/tmp/lampos-tests-transport-exit-clock/lampOS",
+    "target": "/private/tmp/tests-823-memory-application-target",
+    "started": "2026-10-16 08:27:49 +0700",
+    "finished": "2026-10-16 08:30:35 +0700",
+    "exit_code": 0,
+    "raw_sha256": "9ae10393c76d69403625b8b1e13f6321b676c0955d2aa915585ccb69111ce03a"
+  },
+  {
+    "name": "build",
+    "command": [
+      "cargo",
+      "build",
+      "--locked",
+      "--offline",
+      "--workspace"
+    ],
+    "cwd": "/private/tmp/lampos-tests-transport-exit-clock/lampOS",
+    "target": "/private/tmp/tests-823-memory-application-target",
+    "started": "2026-10-16 08:30:36 +0700",
+    "finished": "2026-10-16 08:32:04 +0700",
+    "exit_code": 0,
+    "raw_sha256": "a70b433e5d383c1ea73838d6b9b9ac8998e890b149cb7f60d28bb39d26629e7e"
+  }
+]

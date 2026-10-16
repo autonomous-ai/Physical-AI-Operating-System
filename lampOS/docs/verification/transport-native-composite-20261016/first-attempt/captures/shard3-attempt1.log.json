@@ -1,0 +1,20 @@
+{
+  "command": [
+    "gh",
+    "run",
+    "view",
+    "38836332567",
+    "-R",
+    "autonomous-ai/lampOS",
+    "--job",
+    "116766212679",
+    "--log"
+  ],
+  "started_from_date": "2026-10-16 09:01:10 +0700",
+  "finished_from_date": "2026-10-16 09:01:16 +0700",
+  "exit_code": 0,
+  "stdout": "raw/shard3-attempt1.log",
+  "stderr": "raw/shard3-attempt1.log.stderr",
+  "stdout_sha256": "50cba2286145f2fa7faedf2d9edcd6f27a2a12dad285486329e185608cc73101",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

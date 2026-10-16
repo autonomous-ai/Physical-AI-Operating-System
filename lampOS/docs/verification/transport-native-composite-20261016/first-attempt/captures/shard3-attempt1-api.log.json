@@ -1,0 +1,14 @@
+{
+  "command": [
+    "gh",
+    "api",
+    "repos/autonomous-ai/lampOS/actions/jobs/116766212679/logs"
+  ],
+  "started_from_date": "2026-10-16 09:01:10 +0700",
+  "finished_from_date": "2026-10-16 09:01:12 +0700",
+  "exit_code": 0,
+  "stdout": "raw/shard3-attempt1-api.log",
+  "stderr": "raw/shard3-attempt1-api.log.stderr",
+  "stdout_sha256": "347b11aeb905bdd67309d03e2c05677ef0095055db0ee79272310e5cc7f012a5",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

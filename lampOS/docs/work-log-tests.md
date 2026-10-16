@@ -1,5 +1,19 @@
 # Tests work log
 
+## 2026-10-16 09:24:26 +0700 — Transport expiry ready; final-drain native gate started
+
+Ready for lamp-voice: yes (#957)
+
+[Transport-expiry #957](https://github.com/autonomous-ai/lampOS/pull/957), exact `ad0e7f447e7a67e4c00666207f537d2f260e498e`, has green normal 38836333333 and full 38836332567 native qualification. [Complete raw native evidence](verification/transport-native-composite-20261016/README.md) and [independent root audit](verification/transport-native-root-audit-20261016/README.md) prove normal 5,227 distinct passes and full 5,357, every fixed original 123, all seven additions and all 505 Evaluator identities exactly once. Full retains the first dependency-fetch failure: only unexecuted shard 3 was restarted. The other three successful logs and execution/step times remain exact. No test was retried.
+
+Full tests exact ad0; normal tests merge 96ccd9e3 with the nineteen upstream 1fb changes recorded separately. All 1,022 frozen local inputs match the full head; all 77 Evaluator files and the three owned source/doc files match both trees. The original expiry's native 0.005 s is one observation, not a native pair. Its separate local 5.055 → 0.047 s pair retains its shared-host limits. The original 123 printed 228.101 s sum is across shards/attempts and is not the under-120-second standalone serial result. That target remains open. This fixture is off unless explicitly selected by its unit test; product defaults and original assertions remain unchanged. The reviewer owns merge.
+
+Ready for lamp-voice: no (#963)
+
+[Final-drain #963](https://github.com/autonomous-ai/lampOS/pull/963), exact `c5bcc45b905458c1a8adcd8bcf06885f35dbfdf7`, preserves the original 300 ms late-line delay, 800 ms dispatch and all 13 original family checks. The selected session-end case uses actual cat-completion markers and actual reader enqueue counts, without draining the queue. First local 504/0/0, formatting, strict Clippy and workspace build passed; all 498 prior identities/ignore flags plus six additions remain, with 1,023 inputs frozen. The same-case first pair is 1.272 → 0.444 s under uncontrolled host load. [Source and raw evidence](https://github.com/autonomous-ai/lampOS/tree/c5bcc45b905458c1a8adcd8bcf06885f35dbfdf7/lampOS/docs/verification/final-drain-clock-20261016). Normal 38839828555 and full 38839828296 are ongoing. Native/device timing and pre-initial-marker panic regression remain unshown; existing backend cleanup ownership is unchanged.
+
+Gemini actual task-join preparation retains all 2,708 existing identities/15 ignores plus 18 additions. Its first compilation caught E0277 in a new poison test before any test executed; the two-line capture correction and failed log remain. Corrected strict gates and all 18 first focused tests pass, and the full affected gate continues. The Health audit found that publisher cadence alone cannot honestly cross its five-second gap and three-second lease: subscriber judgement and real lease-file clocks also require coherent seams. No Health source or assertion changed. #783's loaded qualification remains with Eighth.
+
 ## 2026-10-16 09:07:02 +0700 — Original 123 source map refreshed
 
 Ready for lamp-voice: no change; this is inventory evidence, not the final serial gate.

@@ -1,0 +1,19 @@
+2026-10-16T01:40:33.0673196Z     Updating git repository `https://github.com/RustAudio/cpal.git`
+2026-10-16T01:40:34.9360050Z error: failed to get `rustls-platform-verifier-android` as a dependency of package `rustls-platform-verifier v0.7.1`
+2026-10-16T01:40:34.9361370Z     ... which satisfies dependency `rustls-platform-verifier = "^0.7"` (locked to 0.7.1) of package `lamp-surround v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/surround)`
+2026-10-16T01:40:34.9362020Z 
+2026-10-16T01:40:34.9362102Z Caused by:
+2026-10-16T01:40:34.9362455Z   failed to load source for dependency `rustls-platform-verifier-android`
+2026-10-16T01:40:34.9362804Z 
+2026-10-16T01:40:34.9363028Z Caused by:
+2026-10-16T01:40:34.9363272Z   unable to update registry `crates-io`
+2026-10-16T01:40:34.9363497Z 
+2026-10-16T01:40:34.9363604Z Caused by:
+2026-10-16T01:40:34.9363900Z   download of ru/st/rustls-platform-verifier-android failed
+2026-10-16T01:40:34.9364167Z 
+2026-10-16T01:40:34.9364296Z Caused by:
+2026-10-16T01:40:34.9364502Z   curl failed
+2026-10-16T01:40:34.9364675Z 
+2026-10-16T01:40:34.9364752Z Caused by:
+2026-10-16T01:40:34.9365123Z   [55] Failed sending data to the peer (OpenSSL SSL_read: SSL_ERROR_SYSCALL, errno 0)
+2026-10-16T01:40:34.9416364Z ##[error]Process completed with exit code 101.

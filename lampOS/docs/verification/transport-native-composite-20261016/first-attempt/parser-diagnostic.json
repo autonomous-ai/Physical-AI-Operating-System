@@ -1,0 +1,10 @@
+{
+  "date_from_date": "2026-10-16 09:03:15 +0700",
+  "phase": "First metadata/log parser invocation, after raw capture and result parsing",
+  "error": "AssertionError: normal jobs total_count was expected to be 1, but the API returns 2 including the skipped report-full-run-failure job.",
+  "actual": "One ARM64 job with all successful steps, plus one skipped failure-reporting job with no steps.",
+  "correction": "Require both exact normal job names/conclusions; preserve both. Existing parsed result files must be byte-identical on parser continuation.",
+  "raw_error": "Tool transcript; no separate raw stderr file was captured.",
+  "source_or_raw_log_edits": 0,
+  "test_or_job_reruns": 0
+}

@@ -1,0 +1,13 @@
+# Audit method
+
+Each raw read has its exact command, shell-date start/finish, exit code and stdout/stderr hashes. Capture failures are never overwritten or interpreted as test failures. First-attempt API/CLI logs and complete metadata are retained, including the zero-test dependency failure.
+
+The parser records every nextest PASS/FAIL/LEAK identity as binary plus full test name, the printed duration, shard, raw line and ordinal/total. It requires unique identities, ordinal sets exactly 1..N per shard, each displayed total N, and one matching start and success summary per executed shard. It also inspects raw failure and nextest retry markers. Workflow jobs and every step are checked separately; skipped reporting, non-shard-1 docs/artifacts and the initial skipped test step are distinguished from failures.
+
+The normal result set is compared against the existing PR filter applied to all 505 retained Evaluator compiled identities, yielding exactly 459. The completed full composite must cover all 505 identities, every one of the fixed original 123 and every new helper identity exactly once. The 498-to-505 baseline comparison preserves ignored flags. New helpers never enter the fixed denominator. Only the newly executed shard-3 results may fill the first attempt's missing sets; its identities must be disjoint from all 4,091 first-attempt results.
+
+For shards 1, 2 and 4, entire raw per-shard log bytes, every API step and original execution start/end times must be identical between attempt views. Both original source-execution job IDs and later GitHub record IDs are retained. Shard 3 must have no first-attempt test execution and a distinct later successful job. This proves no already executed test was retried; it does not erase the infrastructure failure.
+
+All four full checkout lines equal the exact PR head. Refreshed commit metadata must retain the original tree and exact API bytes. All 1,022 frozen gate source inputs are checked against local immutable Git blobs and the remote full tree; normal-tree differences are enumerated. All 77 Evaluator files and the owned code/doc and execution configuration match both trees. Normal's newer Voice/Gemini dependencies are recorded rather than assumed identical. Source proofs do not assert all historical original-123 assertion bytes are unchanged.
+
+Doc tests and both own-harness commands are audited from their separate raw output and successful step. They are excluded from nextest totals. Printed durations are descriptive observations across parallel shards and infrastructure attempts, not queue/build latency, a serial suite bound or a controlled before/after experiment.

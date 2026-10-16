@@ -1,0 +1,107 @@
+{
+  "date_from_date": "2026-10-16 09:21:03 +0700",
+  "first77_files_unchanged": true,
+  "final_copies": [
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/raw/full-attempt2.head-commit.json",
+      "destination": "final/raw/full-attempt2.head-commit.json",
+      "bytes": 1119,
+      "sha256": "b977af1918f50fa15c944034a25b5dfcb2d07ac99f6efb21bb0805f0ad3ee780"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/raw/full-attempt2.head-commit.json.stderr",
+      "destination": "final/raw/full-attempt2.head-commit.json.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/raw/full-attempt2.jobs-api.json",
+      "destination": "final/raw/full-attempt2.jobs-api.json",
+      "bytes": 14332,
+      "sha256": "4d90918dc98554d8ba447740aa183a15e549f8ad118e61898a4cceee68175ffe"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/raw/full-attempt2.jobs-api.json.stderr",
+      "destination": "final/raw/full-attempt2.jobs-api.json.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/raw/full-attempt2.log",
+      "destination": "final/raw/full-attempt2.log",
+      "bytes": 1768389,
+      "sha256": "21c2927fd32aab1d4da1854e18134b8721731574eda2f3f909b470420c5aaa44"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/raw/full-attempt2.log.stderr",
+      "destination": "final/raw/full-attempt2.log.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/raw/full-attempt2.run-api.json",
+      "destination": "final/raw/full-attempt2.run-api.json",
+      "bytes": 12773,
+      "sha256": "b54af7e240dd955fffa1e2c5fc356ac362a3d82a6fc00750d96be0320c340cf3"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/raw/full-attempt2.run-api.json.stderr",
+      "destination": "final/raw/full-attempt2.run-api.json.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/captures/full-attempt2.head-commit.json.json",
+      "destination": "final/captures/full-attempt2.head-commit.json.json",
+      "bytes": 534,
+      "sha256": "15f4c4bb220cb182ebbcd8d82d68a2a3af3c6273ad663dcad9a1461b9d1d03a0"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/captures/full-attempt2.jobs-api.json.json",
+      "destination": "final/captures/full-attempt2.jobs-api.json.json",
+      "bytes": 529,
+      "sha256": "5b4eedb57acb59b09a5e06b3de2c0bafb123176840a2e962629e5c14feafa514"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/captures/full-attempt2.log.json",
+      "destination": "final/captures/full-attempt2.log.json",
+      "bytes": 529,
+      "sha256": "f0bde739108e00f0381b140c59d34bfed7fa270b5c7eb41748d9c37a903ced37"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/captures/full-attempt2.run-api.json.json",
+      "destination": "final/captures/full-attempt2.run-api.json.json",
+      "bytes": 509,
+      "sha256": "4d27c081bab113037d2aba3620542666a0c4605cefcdb8e4973122a946423cae"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/full-composite-audit.json",
+      "destination": "final/full-composite-audit.json",
+      "bytes": 247404,
+      "sha256": "5597280fcb53f0a49a21b009534720bbf2cbc5b165c3bab4fa479b9378b25e77"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/full-composite-results.json",
+      "destination": "final/full-composite-results.json",
+      "bytes": 1352373,
+      "sha256": "a3e8781dc3c50d83ec2da1b9495e1c110b3c6eb2cbf63abbb28fe5222fc21c82"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-audit/separate-doc-and-own-harness-audit.json",
+      "destination": "final/separate-doc-and-own-harness-audit.json",
+      "bytes": 16242,
+      "sha256": "fa9b55984c37afc51bcf0b58d4b0e522689e7aa628918b272d66014248e8ee79"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-first-audit-manifest.json",
+      "destination": "first-attempt-manifest.json",
+      "bytes": 22772,
+      "sha256": "d22c2b28c16d760ee3e874ed434f2a4845b7b479609fc6aa775ffbcd40f03096"
+    }
+  ],
+  "source_head": "ad0e7f447e7a67e4c00666207f537d2f260e498e",
+  "normal_run": 38836333333,
+  "full_run": 38836332567,
+  "latest_attempt": 2,
+  "destination": "lampOS/docs/verification/transport-native-composite-20261016"
+}

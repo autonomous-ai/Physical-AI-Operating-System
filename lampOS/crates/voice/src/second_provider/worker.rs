@@ -473,7 +473,8 @@ impl Heeding {
             return;
         };
         let levels: Levels = Arc::default();
-        let kept = levels.clone();
+        // Weak: the thread ends once this `Heeding` is gone (Second on #1028).
+        let kept = Arc::downgrade(&levels);
         let started = std::thread::Builder::new()
             .name("second-levels".into())
             .spawn(move || {
@@ -491,7 +492,10 @@ impl Heeding {
                         .and_then(|message| message.parse::<lamp_msgs::RoomSound>().ok())
                         .filter(|level| !level.own_voice)
                         .and_then(|level| Some(level.level_db - level.floor_db?));
-                    let Ok(mut levels) = kept.lock() else { return };
+                    let Some(levels) = kept.upgrade() else { return };
+                    let Ok(mut levels) = levels.lock() else {
+                        return;
+                    };
                     if let Some(rise) = rise {
                         levels.push_back((now_us, rise));
                     }

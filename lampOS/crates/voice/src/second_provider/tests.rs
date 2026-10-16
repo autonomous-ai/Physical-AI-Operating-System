@@ -1386,10 +1386,6 @@ async fn a_stop_goes_with_a_request_going_on_and_never_past_two_minutes() {
     assert!(!asked[3].contains(&stopped), "{:?}", asked[3]);
 }
 
-/// The first builder, 2026-10-17 02:48: with the down line on, a turn whose
-/// chat never began says "I can't think right now; give me a minute." as
-/// audio only, not as words, at most once a minute; with it off, nothing.
-
 /// The first builder, 2026-10-17 02:48: with the down line on, a spoken
 /// turn whose chat never began says "I can't think right now; give me a
 /// minute." as audio only, not as words, at most once a minute; a written

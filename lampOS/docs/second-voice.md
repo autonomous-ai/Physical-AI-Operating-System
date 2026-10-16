@@ -165,15 +165,19 @@ A base URL on `campaign-api.autonomous.ai` ending in `/ai` is given `/v1`
   announcement still comes before the first real answer, and a written
   turn never makes one. On lamp-4ace on 2026-10-16, 9 of 10 backup turns
   waited past 1.5 s.
-  With `LAMP_SECOND_DOWN_LINE=on`, a turn whose first round has not begun
-  within its bound says "I can't think right now; give me a minute."
+  With `LAMP_SECOND_DOWN_LINE=on`, a spoken turn whose first round has not
+  begun within its bound says "I can't think right now; give me a minute."
   (`DOWN_LINE`) instead of nothing, at most once a minute
   (`DOWN_LINE_EVERY`; the journal: `said it can't think right now`). The
   line is said once by this route's own voice after the first turn is out,
   never beside a turn's own chat and speech, while the relay answers, and
-  kept in memory, so it can still be said when the chat no longer answers.
-  A minute counts from when it was played, not from a try that failed. It goes as audio only, like the wait's sound. A look
-  keeps its own line. A speech that never rendered (the relay down since
+  kept in memory (at most 4 s), so it can still be said when the chat no
+  longer answers. A render that fails is journaled (`the down line could
+  not be said`) and tried again after the next turn. A minute counts from
+  when it was played, not from a try that failed. It goes as audio only,
+  like the wait's sound. A written turn, the lamp's own (a hello, a skill's
+  say, the news), never says it: said unasked it reads as a broken machine
+  (the reviewer on #1195). A look keeps its own line. A speech that never rendered (the relay down since
   start) leaves the turn silent, as before. On 2026-10-17 from 02:29 the
   relay's chat timed out at 40 s, then gave 401 after 60 s, while its
   speech to text answered in under a second (the sixth's relay log).

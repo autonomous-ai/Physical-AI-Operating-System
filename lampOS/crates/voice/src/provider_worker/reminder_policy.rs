@@ -96,11 +96,19 @@ fn delay(ms: u64) -> String {
 
 /// What the provider is asked to say for a due item. On time, or late by
 /// under [`ON_TIME_MS`], it is said as due now. Later, the delay is named
-/// once and plainly, in rounded words. Neither counts seconds, and neither
+/// once and plainly, in rounded words; an hour or more
+/// ([`crate::reminders::OVERDUE_MS`]), it is said gently as asked for
+/// earlier, with no delay named. Neither counts seconds, and neither
 /// calls the item a reminder or a timer unless its own words do.
 fn note(text: &str, late: bool, late_by_ms: Option<u64>) -> String {
     let late = late && late_by_ms.is_none_or(|ms| ms >= ON_TIME_MS);
-    let (data, how) = if late {
+    let earlier = late && late_by_ms.is_some_and(|ms| ms >= crate::reminders::OVERDUE_MS);
+    let (data, how) = if earlier {
+        (
+            serde_json::json!({"text":text,"earlier":true}),
+            "It was due a while ago and is only now being said, to someone at the lamp: say it once, gently, as something they had asked you to tell them earlier, for example \"You'd asked me to remind you to stretch, earlier.\" Do not say how late it is.",
+        )
+    } else if late {
         let by = late_by_ms.map(delay);
         (
             serde_json::json!({"text":text,"late":true,"late_by":by}),
@@ -170,19 +178,24 @@ mod tests {
             serde_json::json!({"text":"Tea","late":true,"late_by":"about 7 minutes"})
         );
         assert!(minutes.contains("Sorry, I'm a bit late"));
-        // Hours late, as id 12 on lamp-4ace: in hours.
+        // Just under an hour: still named.
         assert_eq!(
-            data(&note("stretch", true, Some(12 * 3_600_000)))["late_by"],
-            "about 12 hours"
+            data(&note("Tea", true, Some(59 * 60_000)))["late_by"],
+            "about 59 minutes"
         );
-        assert_eq!(
-            data(&note("stretch", true, Some(3_600_000)))["late_by"],
-            "about 60 minutes"
-        );
-        assert_eq!(
-            data(&note("stretch", true, Some(3 * 86_400_000)))["late_by"],
-            "about 3 days"
-        );
+        // An hour or more, as id 12 on lamp-4ace (twelve hours): gently, as
+        // asked for earlier, with no delay named.
+        for ms in [3_600_000, 12 * 3_600_000, 3 * 86_400_000] {
+            let earlier = note("stretch", true, Some(ms));
+            assert_eq!(
+                data(&earlier),
+                serde_json::json!({"text":"stretch","earlier":true})
+            );
+            assert!(earlier.contains("You'd asked me to remind you to stretch, earlier."));
+            assert!(earlier.contains("Do not say how late"));
+        }
+        assert_eq!(delay(12 * 3_600_000), "about 12 hours");
+        assert_eq!(delay(3 * 86_400_000), "about 3 days");
         // The unit follows the delay, then one rounding: no jump at 89.5
         // minutes or 35.5 hours (the reviewer on #1081).
         assert_eq!(delay(89 * 60_000 + 40_000), "about 90 minutes");

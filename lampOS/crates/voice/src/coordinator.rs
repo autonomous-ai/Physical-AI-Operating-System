@@ -2841,6 +2841,9 @@ fn conversation_with_gate(
     // when: someone was there then.
     let mut said_turn: Option<u64> = None;
     let mut said_at_us: Option<u64> = None;
+    // The overdue reminder last said to be waiting for someone, so that is
+    // said once for it.
+    let mut overdue_told: Option<lamp_schedule::delivery::PreparedToken> = None;
     // The turn last judged a sound and sent on only for the model to judge
     // (`LAMP_SHORT_SOUNDS`): until it is answered the lamp does not ponder
     // it, and the room and the provider do not count it as talk.
@@ -5369,6 +5372,23 @@ fn conversation_with_gate(
         } else {
             clock
         };
+        // Someone is at the lamp, as for the news: its eyes say so, or a
+        // person said something a moment ago. A reminder due an hour ago or
+        // more waits for that, and is never told to an empty room.
+        let someone_here = arrival
+            .as_ref()
+            .is_some_and(|arrival| arrival.present(clock))
+            || said_at_us
+                .is_some_and(|at| clock.saturating_sub(at) < crate::task_news::HEARD_WITHIN_US);
+        if let Some(offer) = reminders
+            .as_ref()
+            .and_then(|reminders| reminders.offer(reminder_now_us))
+            .filter(|offer| !offer.may_begin(someone_here))
+            && overdue_told.as_ref() != Some(&offer.token)
+        {
+            eprintln!("lamp-voice: a reminder due over an hour ago waits for someone at the lamp");
+            overdue_told = Some(offer.token);
+        }
         if let Some(reminders) = reminders.as_mut()
             && reply.is_none()
             && provider_queue.is_empty()
@@ -5391,6 +5411,7 @@ fn conversation_with_gate(
                 &mut second_look,
                 reminder_now_us,
             )
+            && offer.may_begin(someone_here)
             && let Some(ticket) = for_skill(
                 says.as_mut(),
                 crate::say::Source::Schedule,

@@ -25,6 +25,11 @@ fn speaking(value: Result<&str, &std::env::VarError>) -> bool {
 }
 pub const LEDGER_VARIABLE: &str = "LAMP_SCHEDULE_DELIVERY_DIR";
 pub const LEASE_US: u64 = 750_000;
+/// Due this long ago or more, a reminder is said only when someone is at the
+/// lamp, once and gently, as something asked for earlier, and is then
+/// acknowledged (the first builder, 2026-10-16: lamp-4ace's "stretch",
+/// twelve hours late, was never said and stayed pending).
+pub const OVERDUE_MS: u64 = 60 * 60_000;
 const POLL_TARGET_US: u64 = 2_000;
 const POLL_PACKETS: usize = 4;
 
@@ -39,6 +44,16 @@ pub(crate) struct Offer {
     pub expires_at_us: u64,
 }
 impl Offer {
+    /// Due an hour ago or more ([`OVERDUE_MS`]).
+    pub fn overdue(&self) -> bool {
+        self.late && self.late_by_ms.is_some_and(|ms| ms >= OVERDUE_MS)
+    }
+    /// Whether it may begin now: an overdue one only with someone at the
+    /// lamp, never into an empty room.
+    pub fn may_begin(&self, someone_here: bool) -> bool {
+        !self.overdue() || someone_here
+    }
+
     fn fresh(&self, now_us: u64) -> bool {
         self.token.key.validate().is_ok()
             && self.token.attempt > 0

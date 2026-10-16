@@ -440,3 +440,28 @@ fn parent_poll_cost() {
         "cases":report})
     );
 }
+
+/// The first builder, 2026-10-16: a reminder due an hour ago or more is
+/// said only when someone is at the lamp, never into an empty room; one due
+/// less long ago, or not late, begins as before.
+#[test]
+fn an_overdue_reminder_begins_only_with_someone_at_the_lamp() {
+    let late = |late: bool, late_by_ms: Option<u64>| Offer {
+        late,
+        late_by_ms,
+        ..offer()
+    };
+    let overdue = late(true, Some(12 * 3_600_000));
+    assert!(overdue.overdue());
+    assert!(!overdue.may_begin(false));
+    assert!(overdue.may_begin(true));
+    for begins in [
+        late(false, Some(0)),
+        late(true, Some(59 * 60_000)),
+        late(true, None),
+    ] {
+        assert!(!begins.overdue());
+        assert!(begins.may_begin(false));
+    }
+    assert!(late(true, Some(super::OVERDUE_MS)).overdue());
+}

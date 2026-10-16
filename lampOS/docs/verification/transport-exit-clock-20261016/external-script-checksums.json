@@ -1,0 +1,48 @@
+{
+  "date_from_date": "2026-10-16 08:37:44 +0700",
+  "scope": "Provenance only. These external gate/audit scripts are not included in the publication package. Raw commands, stage dates/exits and logs are retained separately.",
+  "scripts": [
+    {
+      "external_path": "/private/tmp/tests-823-transport-exit-baseline.py",
+      "sha256": "f34f585cfa715357870eca165071574cd393e95b76f3f5ebf414e68f6e7a3e48",
+      "bytes": 2594,
+      "copied_into_package": false
+    },
+    {
+      "external_path": "/private/tmp/tests-823-transport-exit-gate.py",
+      "sha256": "43aa498490d7200d9b0d782d0c507cfe25a1b63a30692a0e36904abd4c2bf420",
+      "bytes": 4449,
+      "copied_into_package": false
+    },
+    {
+      "external_path": "/private/tmp/tests-823-transport-exit-corrected-gate.py",
+      "sha256": "e4898ddb8e8e776cbb68f17504868c21c9db5ebfacd222cdcbb0710698c410fa",
+      "bytes": 4453,
+      "copied_into_package": false
+    },
+    {
+      "external_path": "/private/tmp/tests-823-review-transport-exit.py",
+      "sha256": "e9c6bca4e6ec7f583abefc488f8ffe82f0152c051e6367d256e59df3589ad8d5",
+      "bytes": 9460,
+      "copied_into_package": false
+    },
+    {
+      "external_path": "/private/tmp/tests-823-review-transport-exit-final.py",
+      "sha256": "fe97c969d72df1d63e42872da687f0b75ee7e7e2a72d4461f5e6200c01c1aecb",
+      "bytes": 9466,
+      "copied_into_package": false
+    },
+    {
+      "external_path": "/private/tmp/tests-823-audit-transport-exit-results.py",
+      "sha256": "b5a5fefa04b131e3d04f0ec8eb6fd933e9eae6771429bbfa3ff4e8e6881a630f",
+      "bytes": 10982,
+      "copied_into_package": false
+    },
+    {
+      "external_path": "/private/tmp/tests-823-package-transport-exit.py",
+      "sha256": "b7a416b18612422a37d15fce45449c41f8e7f839d486af15ce562341cb3ab6cb",
+      "bytes": 13266,
+      "copied_into_package": false
+    }
+  ]
+}

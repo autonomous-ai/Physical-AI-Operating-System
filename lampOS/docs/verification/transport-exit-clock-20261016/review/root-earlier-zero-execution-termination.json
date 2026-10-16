@@ -1,0 +1,11 @@
+{
+  "date": "2026-10-16 08:26:24 +0700",
+  "session": 52573,
+  "exit_code": 130,
+  "reason": "Source-review cleanup fix before first test execution",
+  "fmt_exit": 0,
+  "metadata_exit": 0,
+  "clippy_exit": 0,
+  "list": "Interrupted; not a completed inventory",
+  "tests_executed": 0
+}

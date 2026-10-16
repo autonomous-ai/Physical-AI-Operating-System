@@ -1,0 +1,57 @@
+[
+  {
+    "name": "fmt",
+    "command": [
+      "cargo",
+      "fmt",
+      "--all",
+      "--",
+      "--check"
+    ],
+    "cwd": "/private/tmp/lampos-tests-transport-exit-clock/lampOS",
+    "target": "/private/tmp/tests-823-memory-application-target",
+    "started": "2026-10-16 08:24:21 +0700",
+    "finished": "2026-10-16 08:24:27 +0700",
+    "exit_code": 0,
+    "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "name": "metadata",
+    "command": [
+      "cargo",
+      "metadata",
+      "--locked",
+      "--offline",
+      "--no-deps",
+      "--format-version",
+      "1"
+    ],
+    "cwd": "/private/tmp/lampos-tests-transport-exit-clock/lampOS",
+    "target": "/private/tmp/tests-823-memory-application-target",
+    "started": "2026-10-16 08:24:27 +0700",
+    "finished": "2026-10-16 08:24:27 +0700",
+    "exit_code": 0,
+    "raw_sha256": "70653a9af1c2cdb38a743c58f2297d5a5d109aa899b9e3d55ce980f7af6159fc"
+  },
+  {
+    "name": "clippy",
+    "command": [
+      "cargo",
+      "clippy",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-voice-eval",
+      "--all-targets",
+      "--",
+      "-D",
+      "warnings"
+    ],
+    "cwd": "/private/tmp/lampos-tests-transport-exit-clock/lampOS",
+    "target": "/private/tmp/tests-823-memory-application-target",
+    "started": "2026-10-16 08:24:27 +0700",
+    "finished": "2026-10-16 08:25:04 +0700",
+    "exit_code": 0,
+    "raw_sha256": "ca15a3c6f21ccdb19b8677d60b363306340e7f8630683e51b77661c1cc9b2d3d"
+  }
+]

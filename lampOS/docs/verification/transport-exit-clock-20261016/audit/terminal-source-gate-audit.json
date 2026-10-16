@@ -1,0 +1,54 @@
+{
+  "date_from_date": "2026-10-16 08:35:49 +0700",
+  "base": "69bae3831449bc03d1f11e3ed0c55eccfa1e6f3d",
+  "terminal_exec_session_id": 49062,
+  "root_reported_terminal_exit": 0,
+  "full_counts": {
+    "passed": 505,
+    "failed": 0,
+    "ignored": 0
+  },
+  "full_identity_result_proved_independently": true,
+  "all_completed_stage_commands_and_log_hashes_verified": true,
+  "format_strict_clippy_full_test_workspace_build_exit_zero": true,
+  "source_inputs_rehashed": 1022,
+  "all_gate_source_hashes_still_exact": true,
+  "reviewed_three_source_hashes_exact": {
+    "lampOS/crates/voice-eval/src/physical/mac.rs": "fe7c6e74eb2dda37b14e05b358207ee0a6e9fa1a5060924a41779b50d996f5ed",
+    "lampOS/crates/voice-eval/src/physical/transport_exit_clock_tests.rs": "32a653355cf0a2f42df38bc2e71d5d2ed682ff97cc2edb8321d32373b52910d3",
+    "lampOS/docs/voice-test-fixtures.md": "8ae2d7745236ce42fe60ac91c8b814f68c19bfdc75b96e282dfc73ff0d81b1f8"
+  },
+  "manifest_excludes_ignored_artifact_roots": [
+    ".cache",
+    ".git",
+    ".venv",
+    "__pycache__",
+    "node_modules",
+    "target"
+  ],
+  "manifest_file_kinds": {
+    ".toml": 48,
+    ".lock": 3,
+    ".rs": 970,
+    ".md": 1
+  },
+  "source_copy_scope": "Package copies only the explicitly reviewed three source paths and the two baseline existing source snapshots, plus source hashes/inverses; no ignored build/cache tree is copied.",
+  "workspace_packages": 38,
+  "reverse_dependents_on_lamp_voice_eval": [],
+  "first_gate_interrupted_before_tests": {
+    "date": "2026-10-16 08:26:24 +0700",
+    "session": 52573,
+    "exit_code": 130,
+    "reason": "Source-review cleanup fix before first test execution",
+    "fmt_exit": 0,
+    "metadata_exit": 0,
+    "clippy_exit": 0,
+    "list": "Interrupted; not a completed inventory",
+    "tests_executed": 0
+  },
+  "first_gate_not_a_completed_listing": true,
+  "corrected_full_each_test_once": true,
+  "selected_case_also_ran_once_in_the_separate_timing_gate": true,
+  "native_arm64_and_device_validation": "Not performed here; exact PR native check remains pending.",
+  "audit_gate_executions": 0
+}

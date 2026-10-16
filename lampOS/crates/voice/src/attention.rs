@@ -1240,6 +1240,17 @@ impl Attention {
         request == self.request && self.verdict.is_none()
     }
 
+    /// Whether `request` is the request in hand and its answer has been
+    /// judged.
+    pub fn judged(&self, request: u64) -> bool {
+        request == self.request && self.verdict.is_some()
+    }
+
+    /// The request in hand, for the journal.
+    pub fn in_hand_request(&self) -> u64 {
+        self.request
+    }
+
     /// Whether `request`'s answer is being held back.
     pub fn holds(&self, request: u64) -> bool {
         request == self.request && matches!(self.verdict, Some(Verdict::Hold(_)))
@@ -2411,6 +2422,20 @@ mod tests {
                 Verdict::Play("its name was heard in the room's sound")
             );
         }
+    }
+
+    /// #829, 17:21: output of a request that isn't the one in hand is never
+    /// judged, and the journal says so; the request in hand is judged once.
+    #[test]
+    fn only_the_request_in_hand_is_judged_and_it_says_so() {
+        let mut attention = Attention::default();
+        attention.began_at(36, 4, 10_000_000);
+        attention.began_at(37, 4, 11_000_000);
+        assert_eq!(attention.first_output(36, Room::Quiet, false), None);
+        assert!(!attention.judged(36) && attention.in_hand_request() == 37);
+        assert!(attention.first_output(37, Room::Quiet, false).is_some());
+        assert!(attention.judged(37));
+        assert_eq!(attention.first_output(37, Room::Quiet, false), None);
     }
 
     /// The name is the first thing said, a little before the voice is

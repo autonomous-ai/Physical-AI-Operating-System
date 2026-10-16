@@ -133,6 +133,14 @@ and never against: a held request is played, and the log says
 `its answer is played: the lamp's name was heard in the room's sound`.
 With no such part running, or no bus, the rule goes by the text alone.
 
+**Every verdict is in the journal** (the first builder, #829, 17:21: on
+lamp-4ace an answer to colleagues' Vietnamese at the desk played with no
+verdict line at all). Each answer let out says why, as each held one does:
+`its answer is played: <why>` from the Live worker, and the same from the
+second route. Output that comes for a request other than the one in hand,
+once another has begun, is never judged, and the journal says so once:
+`request N: its output came with request M in hand, and is not judged`.
+
 That narrows the cost above to the calls that part misses, which were
 three in twenty on its first measurement, and adds one: a line that begins
 with a name like the lamp's ("Hey Lan") now passes this rule in a busy

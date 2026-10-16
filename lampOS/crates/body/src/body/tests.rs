@@ -2207,6 +2207,125 @@ fn expression_is_held_to_its_own_reach_and_the_joints_and_does_not_stir_a_restin
     }
 }
 
+/// A lamp that stands at once, listens, speaks from six seconds to twelve
+/// and listens again, asked by Expression for `offsets` from `from` until
+/// `until`; `strains` as `Lamp::strains`. Each step: when, and the glimpse.
+fn speaking_run(
+    offsets: [f32; 3],
+    from: Duration,
+    until: Duration,
+    strains: Vec<(Duration, Duration, usize, u16)>,
+) -> (BodyReport, Vec<(Duration, Glimpse)>) {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(18));
+    lamp.arm_moves = true;
+    lamp.overload_clears = 1;
+    lamp.strains = strains;
+    let limits = Limits::folded_with(Tuning {
+        reach: [150, 15, 1, 250],
+        speed: 120,
+        servo_speed: 1_000,
+        servo_acceleration: 60,
+    })
+    .unwrap();
+    let time = clock.time.clone();
+    let mood_at = clock.time.clone();
+    let seen_at = clock.time.clone();
+    let mut seen = Vec::new();
+    let report = run_alive(
+        &mut lamp,
+        &mut clock,
+        limits,
+        Some(HOME),
+        Some(standing(100, 60)),
+        None,
+        move || {
+            let at = mood_at.get().as_millis();
+            Some(if (6_000..12_000).contains(&at) {
+                (Mood::Speaking, 60)
+            } else {
+                (Mood::Listening, 60)
+            })
+        },
+        move || Asked {
+            seen: None,
+            gesture: None,
+            expression: (time.get() >= from && time.get() < until).then_some(offsets),
+            called: false,
+        },
+        |glimpse| seen.push((seen_at.get(), *glimpse)),
+    );
+    (report, seen)
+}
+
+/// Speaking, a standing lamp leans toward the person by `LEAN`, eased in
+/// as the answer starts and out as it ends, no faster than the pose
+/// follows; and a turn of the base Expression asks while it speaks (a sway
+/// between sentences) is made, within 70 counts, and comes back.
+#[test]
+fn a_speaking_lamp_leans_in_and_back_and_its_base_sways_for_expression() {
+    let ms = Duration::from_millis;
+    let (report, seen) = speaking_run([0.0, 0.0, 52.0], ms(8_000), ms(9_500), vec![]);
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert!(report.retreats.is_empty(), "{:?}", report.retreats);
+    let at = |when: Duration| seen.iter().rfind(|step| step.0 < when).unwrap().1;
+    let stood = at(ms(6_000));
+    assert_eq!(stood.arm_goals, [2_650, 2_600], "{stood:?}");
+    let leaning = at(ms(11_900));
+    for (index, lean) in LEAN.iter().enumerate() {
+        let by = f32::from(leaning.arm_goals[index]) - f32::from(stood.arm_goals[index]);
+        assert!((by - lean).abs() <= 1.0, "{leaning:?}");
+    }
+    // Back as it stood once it listens again.
+    assert_eq!(at(ms(15_900)).arm_goals, stood.arm_goals);
+    // The base turned for the sway, by most of what was asked and never
+    // more, and came back.
+    let turned = seen
+        .iter()
+        .filter(|step| step.0 >= ms(8_000) && step.0 < ms(11_000))
+        .map(|step| step.1.goals[2].abs_diff(stood.goals[2]))
+        .max()
+        .unwrap();
+    assert!((35..=52).contains(&turned), "turned {turned}");
+    assert!(at(ms(11_900)).goals[2].abs_diff(stood.goals[2]) <= 6);
+    // Nothing leapt: no faster than 120 counts a second, 2.4 a step.
+    for pair in seen
+        .windows(2)
+        .filter(|pair| pair[0].0 >= ms(6_000) && pair[1].0 < ms(16_000))
+    {
+        let (was, is) = (pair[0].1, pair[1].1);
+        assert!(is.goals[2].abs_diff(was.goals[2]) <= 3, "{pair:?}");
+        for index in 0..2 {
+            assert!(
+                is.arm_goals[index].abs_diff(was.arm_goals[index]) <= 3,
+                "{pair:?}"
+            );
+        }
+    }
+}
+
+/// A base that meets resistance while Expression asks it to sway is left
+/// where it gave way: what Expression asks does not push it on.
+#[test]
+fn a_base_that_meets_a_hand_is_not_swayed_on_by_expression() {
+    let ms = Duration::from_millis;
+    let (report, seen) = speaking_run(
+        [0.0, 0.0, 52.0],
+        ms(8_000),
+        ms(10_500),
+        vec![(ms(8_200), ms(8_400), YAW, 300)],
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!(report.eased[2], 1, "{report:?}");
+    let gave = seen.iter().position(|step| step.1.eased[2] == 1).unwrap();
+    let held = seen[gave].1.goals[2];
+    // Held for two seconds, through the rest of what was asked.
+    assert!(
+        seen[gave..gave + usize::from(EASE_STEPS) - 1]
+            .iter()
+            .all(|step| step.1.goals[2] == held)
+    );
+}
+
 /// Without `rest_glance`, a lamp at rest writes exactly what it writes
 /// when nothing is asked of it.
 #[test]

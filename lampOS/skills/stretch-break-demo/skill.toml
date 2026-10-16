@@ -7,7 +7,10 @@ needs = ["eyes", "body"]
 [trigger]
 topic = "humans/faces/tracked"
 when = "present"          # a face there, continuously
-near = 0.14               # at the desk, not across the room: a face at least this share of the picture's height (Welcome back's, the voice's Arrival line)
+near = 0.14               # at the desk, not across the room: a face at least this share of the picture's height
+# Measured on two lamps, 16 Oct 2026: on lamp-06c1 seated at the desk 0.23
+# (median, least 0.17), standing beside it 0.15, at 1.5 m 0.11 (most 0.12),
+# at 3 m 0.06; on lamp-4ace the owner seated at the desk 0.16 to 0.27 (#705 18:15).
 for = "60s"               # the demo: a minute, not fifty (the real one is ../stretch-break)
 gap = "2m"                # looking away or leaning out of view does not end the sitting
 rearm = "leaves"          # once per sitting; again only after they have left

@@ -326,7 +326,9 @@ impl Moment {
     }
 
     /// The hard rules, by how things are now: someone talking to the lamp,
-    /// then a rule kept for what the ask would do.
+    /// then a rule kept for what the ask would do. A reminder the person set
+    /// is held by the first only: no kept rule about speaking first is
+    /// about what the person asked the lamp to say (the reviewer on #1003).
     fn hold(&self, act: &str, room_now: Now, unix_ms: u64) -> Option<Hold> {
         let kind = if act == "news" {
             Kind::News
@@ -335,6 +337,8 @@ impl Moment {
         };
         if room_now.talking {
             Some(Hold::Talking)
+        } else if act == REMINDER {
+            None
         } else if self.rules.hold(
             kind,
             unix_ms,
@@ -977,5 +981,123 @@ mod tests {
         assert_eq!(asked.load(std::sync::atomic::Ordering::SeqCst), 1);
         let totals = moment.totals();
         assert_eq!((totals.held_rule, totals.said, totals.decided), (3, 1, 4));
+    }
+
+    /// Every rule a person could keep: no hello and no news ever, quiet,
+    /// quiet mornings.
+    fn every_rule() -> Rules {
+        Rules {
+            person: "everyone".into(),
+            quiet: true,
+            quiet_mornings: true,
+            rules: 1,
+            hello: lamp_msgs::Unprompted {
+                never: true,
+                ..lamp_msgs::Unprompted::default()
+            },
+            news: lamp_msgs::Unprompted {
+                never: true,
+                ..lamp_msgs::Unprompted::default()
+            },
+        }
+    }
+
+    /// The reviewer on #1003: no rule kept about speaking first holds a
+    /// reminder the person set; only someone talking does. An unprompted
+    /// ask is held by the same rules, by the rule, no model asked.
+    #[test]
+    fn a_kept_rule_never_holds_a_reminder_and_still_holds_the_rest() {
+        let asked = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let mut moment = Moment::start(
+            Counted(asked.clone()),
+            Options::new(Duration::from_secs(1), None),
+        )
+        .unwrap();
+        moment.rules(every_rule());
+        let quiet = Now {
+            room: Room::Quiet,
+            someone_here: Some(true),
+            quiet_s: 300,
+            talking: false,
+            spoke_up_last_hour: 0,
+        };
+        let ask = |number: u64, act: &str| SkillAsk {
+            ask: number,
+            skill: "reminders".into(),
+            act: act.into(),
+            person: None,
+            away_min: None,
+            there_s: None,
+        };
+        let t = Instant::now();
+        let mut decide = |number: u64, act: &str, room_now: Now| {
+            moment.asked(&ask(number, act), t);
+            let decided = moment.turn(t, 1_000_000, room_now).expect("at once");
+            (
+                decided.decision.choice,
+                decided.decision.by,
+                decided.line.guard,
+            )
+        };
+        let rule = crate::policy::RULE.to_owned();
+        assert_eq!(
+            decide(1, REMINDER, quiet),
+            ("say_now".to_owned(), rule.clone(), None)
+        );
+        assert_eq!(
+            decide(
+                2,
+                REMINDER,
+                Now {
+                    talking: true,
+                    ..quiet
+                }
+            ),
+            ("wait".to_owned(), rule.clone(), Some(Hold::Talking))
+        );
+        assert_eq!(
+            decide(3, "unprompted", quiet),
+            ("wait".to_owned(), rule, Some(Hold::KeptRule))
+        );
+        assert_eq!(asked.load(std::sync::atomic::Ordering::SeqCst), 0);
+    }
+
+    /// The reviewer on #1003, the kept-rule twin of #1082's: a rule kept
+    /// while the question is out, its asker then gone, holds the ask by the
+    /// rule; the fallback's `say_now` is never taken.
+    #[test]
+    fn a_rule_kept_while_the_question_is_out_holds_it_when_the_asker_goes() {
+        let mut moment = Moment::start(Gone, Options::new(Duration::from_secs(3), None)).unwrap();
+        let quiet = Now {
+            room: Room::Quiet,
+            someone_here: Some(true),
+            quiet_s: 300,
+            talking: false,
+            spoke_up_last_hour: 0,
+        };
+        let t = Instant::now();
+        moment.asked(
+            &SkillAsk {
+                ask: 1,
+                skill: "stretch-break".into(),
+                act: "unprompted".into(),
+                person: None,
+                away_min: None,
+                there_s: None,
+            },
+            t,
+        );
+        assert!(moment.turn(t, 1_000_000, quiet).is_none(), "out");
+        moment.rules(every_rule());
+        let held = (0..500)
+            .find_map(|_| {
+                std::thread::sleep(Duration::from_millis(2));
+                moment.turn(t + Duration::from_millis(100), 1_000_000, quiet)
+            })
+            .expect("decided once the asker went");
+        assert_eq!(
+            (held.decision.choice.as_str(), held.line.guard),
+            ("wait", Some(Hold::KeptRule))
+        );
     }
 }

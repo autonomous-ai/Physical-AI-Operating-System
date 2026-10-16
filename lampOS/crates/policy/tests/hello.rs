@@ -526,6 +526,9 @@ fn a_failed_model_leaves_it_to_the_rule_in_time_for_the_voice() {
 #[test]
 fn with_the_gate_a_skills_ask_is_decided_by_its_question_and_names_the_ask() {
     let mut rig = Rig::with("gate", true, true);
+    // A rule kept, `quiet`: without `--rules` nothing below is held by it
+    // (the reviewer on #1003).
+    rig.keep(true);
     rig.ask(3_000_001, "hello");
     let shown = rig.shown();
     assert_eq!(

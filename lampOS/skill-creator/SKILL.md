@@ -32,9 +32,12 @@ when, and how it should feel in the room.
    at least one recording where it should act and one where it must not.
 5. **Install it** ([references/installing.md](references/installing.md)). It is live at once;
    no restart.
-6. **Tell them** in two sentences what it will do and when, and that they can
+6. **Show them**: play the "it acts" recording once on the lamp, so they see
+   and hear what it will do, then ask "Keep it?". They say keep it, or what to
+   change (go back to 3); nothing is kept that they have not seen.
+7. **Tell them** in two sentences what it will do and when, and that they can
    say "Lamp, stop doing ..." to turn it off.
-7. **Iterate** on what they say after living with it.
+8. **Iterate** on what they say after living with it.
 
 ## 1. Capture what they want
 
@@ -105,7 +108,17 @@ Copy the folder to the lamp's skills folder; the runtime reloads it live.
 [references/installing.md](references/installing.md) says how, and how to take it back out.
 Ask the owner before touching their lamp, and say what will move or light up.
 
-## 6. Tell them, and listen
+## 6. Show them before keeping it
+
+The owner keeps a skill only after seeing it. With the skill installed, play
+the case in which it must act once on the lamp, as fast as the runtime allows
+a person to watch it (`lamp-bus replay tests/<case>/<topic>.jsonl --speed 60`:
+the lamp's parts see the trigger, and the skill acts for real, in the room).
+Say first what is about to happen. Then ask "Keep it?": keep it, change it, or
+take it out ([installing.md](references/installing.md)). A skill they did not
+keep is removed.
+
+## 7. Tell them, and listen
 
 Tell the owner, in their words, what the lamp will now do and when, and how
 to stop it. After they have lived with it, ask what felt right and what felt

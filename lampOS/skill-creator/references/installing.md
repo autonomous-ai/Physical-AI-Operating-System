@@ -26,8 +26,12 @@ ssh orangepi@lamp-xxxx.local '
   rm -r /tmp/stretch-break'
 ```
 
-(A folder whose name starts with a dot is not a skill: the runtime skips it.
-*Proposed* to #938.)
+(A folder whose name starts with a dot is not a skill: the runtime skips it.)
+
+The runtime looks at the folder every two seconds and loads every skill again
+when a file other than a test changed; cooldowns are kept across a reload.
+Until the Policy's gate is built (#939), a lamp runs `lamp-skills` with
+`LAMP_SKILLS_ASK=skip` or nothing a skill starts is done.
 
 Then watch it load: the runtime says so on `skills/events`.
 

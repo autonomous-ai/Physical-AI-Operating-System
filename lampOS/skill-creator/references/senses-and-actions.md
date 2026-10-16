@@ -29,11 +29,11 @@ they disagree with this file, they are right.
 
 | Service | What it does |
 |---|---|
-| **say** (the voice) | The lamp says something, as a written turn through the voice's own gates (a person speaking, a conversation under way, the pause). Give it a note for the model ("They are back. Greet them in one short line."), not a script. Being built (#939); until then the runtime stubs it |
-| **light** (the actions part) | The lamp's light: on/off, one of ten colours, a level 1 to 5. A skill's light is a short change on top of the person's own light, never a replacement of it |
+| **say** (the voice) | The lamp says something, as a written turn through the voice's own gates. Give it a note for the model ("They are back. Greet them in one short line."), not a script. Being built (#939); until then nothing is spoken |
+| **light** (the actions part) | A colour, or dimmer by a step. Meant as a short change on top of the person's own light, but nothing gives their light back yet (#940): see skill-folder.md |
 | **body: gaze** | Look at a face, or a direction |
 | **body: gesture** | One of the body's six gestures: `nod`, `headshake`, `greeting`, `laugh`, `shy`, `stretching`. There is no droop, lean or bow yet: those come as move files |
-| **body: moves** | A move file from the skill's `moves/`, played within the body's limits (being built, #940) |
+| **body: moves** | Not yet: move files wait for #940, and the runtime refuses `body.move` |
 | **schedule** | Set, list, cancel reminders and timers |
 | **tasks** | Hand work to Claude Code or Codex |
 | **memory** | What the lamp remembers |
@@ -44,9 +44,9 @@ look at the picture itself, only at the faces the eyes report.
 
 ## Names in tests
 
-A test names each call by its service: `say`, `light`, `body.gaze`,
-`body.gesture`, `body.move`, `schedule`, `tasks`, `memory`. The runtime's
-own test runner (#938) is the truth if it names them otherwise.
+A skill's steps, and its tests, name four calls: `body.gaze`, `body.gesture`,
+`light` and `say`. Schedule, tasks and memory are services the lamp has, but
+a skill's steps cannot call them yet.
 
 ## The light's colours
 

@@ -38,17 +38,23 @@ tests/
 ```
 
 ```toml
-# expect.toml (proposed shape; the runtime's test runner, #938, decides)
 [[expect]]
-at = "50m"                 # about when, in recording time, within `within`
-within = "1m"
-call = "body.gesture"      # the service, as named in senses-and-actions.md
+at = "50m"                 # optional: when, from the case's first message
+within = "1m"              # optional; without it, exactly at
+call = "body.gaze"         # body.gaze, body.gesture, light or say
+args = { look_at = "face" }
+
+[[expect]]
+call = "body.gesture"
 args = { gesture = "stretching" }
 ```
 
 The `[[expect]]` entries are **all** the calls the case may make, in order:
-any other call fails it, so "exactly once" needs nothing more. A case where
-the skill must do nothing has no `[[expect]]` at all, only:
+any other call fails it, so "exactly once" needs nothing more. Arguments left
+out of `args` are not compared. The runtime gives: `body.gaze` `look_at`,
+`x`, `y`, `size`; `body.gesture` `gesture`; `light` `colour`, `level`, `for`,
+or `dim`, `until`; `say` `note`. A case where the skill must do nothing has
+no `[[expect]]`, only:
 
 ```toml
 none = true
@@ -58,18 +64,34 @@ none = true
 
 - **It acts**: the recording in which it must act, and what it calls.
 - **It does not act**: at least one of nobody there, too soon after the last
-  time (the cooldown, or before it re-arms), a person talking to the lamp,
-  the lamp paused. Talking and the pause are the runtime's own gates: their
-  cases check the runtime keeps the skill out (record `voice/state` showing
-  `listening` or `speaking` at the moment it would act, or `lamp/pause`), and
-  say whether it acts once they end.
+  time (the cooldown, or before it re-arms), a person talking to the lamp
+  (if the skill has a `[[while]]` on `voice/state`). The pause is the Policy's
+  gate (#939), which a test skips: a pause case waits for that gate.
 
-Run them with the runtime's test command on the folder (`lamp-skills test
-<folder>`, #938; `lamp-skills --help` says whether it exists). Until it
-does, say so in `tests/README.md`: which cases exist, which recording each
-needs, and that none has run. Do not write a test runner of your own.
+Run them with `lamp-skills test <folder>`: each case is replayed in the
+program (not on a bus), every message in order of its time, with the
+Policy's ask skipped. A case with no recording is counted and not run. Say in
+`tests/README.md` which cases exist, how each was made, and which passed. Do
+not write a test runner of your own. Before trusting a pass, change the
+skill so it should fail (a shorter `for`) and see the case fail.
 
-## Recording a case that does not exist yet
+## Making a case without waiting for the room
+
+A case can be made by publishing its messages with their times into a
+private bus while recording it:
+
+```sh
+lamp-bus --root /tmp/case-bus record tests/acts-after-50-minutes humans/faces/tracked voice/state &
+lamp-bus --root /tmp/case-bus pub humans/faces/tracked latest '{"faces":[]}' --type lamp_msgs/Faces --at-us 0
+# ... one pub for each message, --at-us in microseconds from the case's start
+kill %1
+```
+
+Publish faces at least every 2 s wherever a condition reads them (a face
+lasts 2 s), as the lamp's eyes do. Say in `tests/README.md` that the case was
+made this way, not recorded on a lamp.
+
+## Recording a case on the lamp
 
 Ask the owner first, say what will be recorded and for how long. Prefer
 recordings the lamp already has; ask the person beside the lamp only for

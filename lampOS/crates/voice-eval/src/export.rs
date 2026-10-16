@@ -651,6 +651,7 @@ const BUS_TOPICS: &[&str] = &[
     "attention/addressed",
     "attention/concentration",
     "board/state",
+    "body/gesture",
     "body/hand",
     "body/joint_states",
     "camera/image",

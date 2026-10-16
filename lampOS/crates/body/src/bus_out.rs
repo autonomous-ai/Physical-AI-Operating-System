@@ -1,7 +1,9 @@
 //! What the body says on the lamp's bus (`docs/bus.md`): where every joint
 //! is and where it was last asked to be (`body/joint_states`, the type
 //! `lamp_msgs::JointState`), and once a second how the body is
-//! (`diagnostics`, `lamp_msgs::Diagnostic`).
+//! (`diagnostics`, `lamp_msgs::Diagnostic`), whether a hand pushes it
+//! (`body/hand`), and each gesture that began, ended or was dropped
+//! (`body/gesture`, `lamp_msgs::BodyGesture`), as the journal says it.
 //!
 //! The body's loop reads and writes the servos every 20 ms and must never
 //! wait for anything else. So nothing is published from it: it offers a
@@ -12,7 +14,7 @@ use crate::{
     gesture::Mood,
 };
 use lamp_bus::{Bus, Publisher};
-use lamp_msgs::{Diagnostic, Hand, JointState, KeyValue, Level};
+use lamp_msgs::{BodyGesture, Diagnostic, GestureState, Hand, JointState, KeyValue, Level};
 use std::{
     f64::consts::TAU,
     io,
@@ -299,10 +301,107 @@ pub fn stopped(stop: &Stop) -> Diagnostic {
 }
 
 /// What the thread is given.
+// A step is what is sent most, every fourth step of the body's loop:
+// boxing it to make the rare variants' slots smaller would allocate on that
+// loop instead, which must never wait for anything.
+#[allow(clippy::large_enum_variant)]
 enum Out {
     /// A step, whether the lamp is paused, and when the body saw it.
     Step(Glimpse, bool, Instant),
     Stopped(Diagnostic),
+    Gesture(BodyGesture),
+}
+
+/// The one drop of a clip already playing (`body.rs`, a joint that could
+/// not keep up): it began, so it is said `over`, not `dropped`.
+const LET_GO: &str = "dropped: a joint could not keep up with it";
+
+/// One piece of gesture news: the gesture's name, what became of it, and
+/// for a drop, why.
+pub type GestureNews = (&'static str, GestureState, Option<&'static str>);
+
+/// What became of the gestures, step by step, as lamp-body's journal says
+/// it and `body/gesture` publishes it, so that the two never differ: each
+/// gesture dropped (`glimpse.gesture_fates` saying `dropped: ...`), and the
+/// gesture made changing (`glimpse.gesture`): `over` for the one before,
+/// if any, then `began` for the new one. At the run's end, `over` for the
+/// one it was making ([`GestureSaid::stopped`]).
+#[derive(Default)]
+pub struct GestureSaid {
+    making: Option<&'static str>,
+}
+
+impl GestureSaid {
+    /// This step's news. Drops first, as the journal says them.
+    pub fn step(&mut self, glimpse: &Glimpse) -> Vec<GestureNews> {
+        // The gesture it was making, let go in this step as it played (a
+        // joint that could not keep up): it began, so it is `over`, not
+        // `dropped`, which says one never began.
+        let let_go = self.making.filter(|_| glimpse.gesture != self.making);
+        // A gesture ended for a higher ask (#1239, `ended: by WHO`): it did
+        // not play out, and says `dropped`, not `over`, so that a skill
+        // waiting on it sends nothing more.
+        let ended = |name: &str| {
+            glimpse
+                .gesture_fates
+                .iter()
+                .any(|(ended, why)| ended == name && why.starts_with("ended"))
+        };
+        let mut said: Vec<GestureNews> = glimpse
+            .gesture_fates
+            .iter()
+            .filter(|(name, why)| {
+                (why.starts_with("dropped") && !(Some(*name) == let_go && *why == LET_GO))
+                    || why.starts_with("ended")
+            })
+            .map(|(name, why)| (name, GestureState::Dropped, Some(why)))
+            .collect();
+        if glimpse.gesture != self.making {
+            if let Some(name) = self.making
+                && !ended(name)
+            {
+                said.push((name, GestureState::Over, None));
+            }
+            if let Some(name) = glimpse.gesture {
+                said.push((name, GestureState::Began, None));
+            }
+            self.making = glimpse.gesture;
+        }
+        said
+    }
+
+    /// The run stopped (a goal refused, a surprise, asked to): `over` for
+    /// the gesture it was making, which no later step will end. A gesture
+    /// still waiting to begin is not in the glimpse, so nothing is said of
+    /// it.
+    pub fn stopped(&mut self) -> Vec<GestureNews> {
+        self.making
+            .take()
+            .map(|name| (name, GestureState::Over, None))
+            .into_iter()
+            .collect()
+    }
+}
+
+/// Says `news` at `step`: `began` and `over` to `journal` as lamp-body's
+/// lines (`gesture NAME`, `gesture over`; a drop's line is the fate's), and
+/// every piece on `body/gesture` through `bus`.
+pub fn tell(
+    news: &[GestureNews],
+    step: u64,
+    mut bus: Option<&mut BusOut>,
+    mut journal: impl FnMut(String),
+) {
+    for (name, state, _) in news {
+        match state {
+            GestureState::Began => journal(format!("lamp-body: step {step} gesture {name}")),
+            GestureState::Over => journal(format!("lamp-body: step {step} gesture over")),
+            GestureState::Dropped => {}
+        }
+        if let Some(bus) = bus.as_deref_mut() {
+            bus.gesture(name, *state);
+        }
+    }
 }
 
 /// The way to the thread that publishes.
@@ -311,6 +410,8 @@ pub struct BusOut {
     thread: Option<thread::JoinHandle<()>>,
     /// Steps the thread had no room for.
     pub let_go: u64,
+    /// `body/gesture` news the thread had no room for.
+    pub gestures_let_go: u64,
     /// The lamp is paused (`lamp/pause`): the state it says is `paused`.
     pub paused: bool,
 }
@@ -319,6 +420,8 @@ pub struct BusOut {
 struct Publishing {
     joints: Publisher,
     health: Publisher,
+    /// `body/gesture`.
+    gesture: Publisher,
     /// `body/hand`, said with every step passed on (every 80 ms), and when
     /// the push it says began.
     hand: Publisher,
@@ -342,9 +445,12 @@ impl Publishing {
             bus.publisher_declared(Diagnostic::TOPIC, &Diagnostic::declaration(), SOURCE)?;
         let mut hand = bus.publisher_declared(Hand::TOPIC, &Hand::declaration(), SOURCE)?;
         hand.expires_after(Some(LASTS));
+        let gesture =
+            bus.publisher_declared(BodyGesture::TOPIC, &BodyGesture::declaration(), SOURCE)?;
         Ok(Self {
             joints,
             health,
+            gesture,
             hand,
             pushed_since: None,
             started: Instant::now(),
@@ -434,6 +540,10 @@ impl BusOut {
                         let at_us = publishing.at_us();
                         let _ = publishing.health.publish_json(at_us, &report);
                     }
+                    Out::Gesture(gesture) => {
+                        let at_us = publishing.at_us();
+                        let _ = publishing.gesture.publish_json(at_us, &gesture);
+                    }
                 }
             }
         })?;
@@ -441,8 +551,22 @@ impl BusOut {
             steps,
             thread: Some(thread),
             let_go: 0,
+            gestures_let_go: 0,
             paused: false,
         })
+    }
+
+    /// What became of a gesture, for `body/gesture`: passed on whatever the
+    /// step, and never waited for. One the thread has no room for (the bus
+    /// stalled for a second) is let go and counted in `gestures_let_go`.
+    pub fn gesture(&mut self, name: &str, state: GestureState) {
+        let gesture = BodyGesture {
+            name: name.to_owned(),
+            state,
+        };
+        if self.steps.try_send(Out::Gesture(gesture)).is_err() {
+            self.gestures_let_go += 1;
+        }
     }
 
     /// A step of the body. One in [`EVERY_STEPS`] is passed on, and never
@@ -513,7 +637,7 @@ mod tests {
             limp: false,
             hand: false,
             tipping: Default::default(),
-            gesture_fate: None,
+            gesture_fates: Default::default(),
             looks_dropped: None,
         }
     }
@@ -817,6 +941,177 @@ mod tests {
         assert_eq!(last.level, Level::Error);
         assert_eq!(last.message, "stopped: shoulder is too warm (it reads 62)");
         assert_eq!(last.values[0].value, "stopping");
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn a_gesture_that_replaces_another_says_the_first_over_and_a_stop_ends_the_last() {
+        let mut said = GestureSaid::default();
+        let mut seen = glimpse(1);
+        seen.gesture = Some("idle");
+        assert_eq!(said.step(&seen), [("idle", GestureState::Began, None)]);
+        // The idle clip replaced by a nod in one step: over, then began.
+        seen.gesture = Some("nod");
+        assert_eq!(
+            said.step(&seen),
+            [
+                ("idle", GestureState::Over, None),
+                ("nod", GestureState::Began, None)
+            ]
+        );
+        // A nod let go as it played (a joint could not keep up): over, not
+        // dropped, since it began.
+        let mut let_go = glimpse(2);
+        let_go
+            .gesture_fates
+            .push(("nod", "dropped: a joint could not keep up with it"));
+        let mut playing = GestureSaid::default();
+        seen.gesture_fates = Default::default();
+        playing.step(&seen);
+        assert_eq!(playing.step(&let_go), [("nod", GestureState::Over, None)]);
+        // Another ask of the same clip, dropped in the step the first ends
+        // (the reviewer's probe, 12:46 on #1230): the second says
+        // `dropped`, the first `over`.
+        let mut ended = glimpse(3);
+        ended
+            .gesture_fates
+            .push(("nod", "dropped: another gesture plays"));
+        let mut same = GestureSaid::default();
+        same.step(&seen);
+        assert_eq!(
+            same.step(&ended),
+            [
+                (
+                    "nod",
+                    GestureState::Dropped,
+                    Some("dropped: another gesture plays")
+                ),
+                ("nod", GestureState::Over, None),
+            ]
+        );
+        // Two fates in a step: only the drop is news, and first.
+        seen.gesture_fates
+            .push(("shy", "dropped: another was asked after it"));
+        seen.gesture_fates.push(("nod", "taken: it plays"));
+        assert_eq!(
+            said.step(&seen),
+            [(
+                "shy",
+                GestureState::Dropped,
+                Some("dropped: another was asked after it")
+            )]
+        );
+        // The run stops mid-nod: over for it, once.
+        assert_eq!(said.stopped(), [("nod", GestureState::Over, None)]);
+        assert!(said.stopped().is_empty());
+    }
+
+    /// lamp-body's step and its stop say the news through [`tell`]: its
+    /// journal lines, and every piece on `body/gesture` (Fifth on #1230:
+    /// without the bus call, this fails).
+    #[test]
+    fn tell_says_the_journal_lines_and_publishes_every_piece() {
+        let root = std::path::PathBuf::from(format!("/tmp/lb-tell-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        let bus = Bus::new(&root).unwrap();
+        let mut gestures = bus
+            .subscribe_typed(BodyGesture::TOPIC, "test", BodyGesture::TYPE)
+            .unwrap();
+        let mut out = BusOut::on(&bus).unwrap();
+        let mut lines = Vec::new();
+        tell(
+            &[
+                ("shy", GestureState::Dropped, Some("dropped: paused")),
+                ("nod", GestureState::Began, None),
+            ],
+            7,
+            Some(&mut out),
+            |line| lines.push(line),
+        );
+        tell(
+            &[("nod", GestureState::Over, None)],
+            9,
+            Some(&mut out),
+            |line| lines.push(line),
+        );
+        assert_eq!(
+            lines,
+            [
+                "lamp-body: step 7 gesture nod",
+                "lamp-body: step 9 gesture over"
+            ]
+        );
+        let got: Vec<(String, GestureState)> = (0..3)
+            .map(|_| {
+                let gesture: BodyGesture = gestures
+                    .recv(Duration::from_secs(5))
+                    .unwrap()
+                    .expect("a gesture")
+                    .parse()
+                    .unwrap();
+                (gesture.name, gesture.state)
+            })
+            .collect();
+        assert_eq!(
+            got,
+            [
+                ("shy".into(), GestureState::Dropped),
+                ("nod".into(), GestureState::Began),
+                ("nod".into(), GestureState::Over),
+            ]
+        );
+        assert_eq!((out.let_go, out.gestures_let_go), (0, 0));
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn what_became_of_each_gesture_is_said_on_body_gesture_whatever_the_step() {
+        let root = std::path::PathBuf::from(format!("/tmp/lb-gest-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        let bus = Bus::new(&root).unwrap();
+        let mut gestures = bus
+            .subscribe_typed(BodyGesture::TOPIC, "test", BodyGesture::TYPE)
+            .unwrap();
+        let mut out = BusOut::on(&bus).unwrap();
+        let mut said = GestureSaid::default();
+        // A nod from step 1 to step 6, and a shy dropped at step 3: on
+        // steps that are not passed on as joint states (one in four).
+        for step in 0..8 {
+            let mut seen = glimpse(step);
+            seen.gesture = (1..6).contains(&step).then_some("nod");
+            if step == 3 {
+                seen.gesture_fates
+                    .push(("shy", "dropped: another gesture plays"));
+            }
+            for (name, state, _) in said.step(&seen) {
+                out.gesture(name, state);
+            }
+        }
+        let got: Vec<BodyGesture> = (0..3)
+            .map(|_| {
+                gestures
+                    .recv(Duration::from_secs(5))
+                    .unwrap()
+                    .expect("a gesture")
+                    .parse()
+                    .unwrap()
+            })
+            .collect();
+        let named = |name: &str, state| BodyGesture {
+            name: name.into(),
+            state,
+        };
+        assert_eq!(
+            got,
+            [
+                named("nod", GestureState::Began),
+                named("shy", GestureState::Dropped),
+                named("nod", GestureState::Over),
+            ]
+        );
+        assert_eq!(out.let_go, 0);
         std::fs::remove_dir_all(root).unwrap();
     }
 

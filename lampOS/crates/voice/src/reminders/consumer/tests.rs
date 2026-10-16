@@ -666,8 +666,11 @@ fn completed_playout_survives_both_real_store_reopens_then_acks_without_respeech
     );
 }
 
+/// Given up with nothing proven, an attempt stays pending and this voice
+/// does not offer it again; a voice started after it does (the first
+/// builder, 2026-10-16), since that voice's claim proves the old one gone.
 #[test]
-fn abandon_keeps_pending_and_restart_never_grants_the_uncertain_audio_again() {
+fn abandon_keeps_pending_and_only_a_later_voice_offers_it_again() {
     let (engine, socket) = served(1);
     let disk = Disk::default();
     let mut first = consumer(disk.clone());
@@ -683,24 +686,97 @@ fn abandon_keeps_pending_and_restart_never_grants_the_uncertain_audio_again() {
     assert!(
         matches!(first.outgoing.pop_front(), Some(FromWorker::Settled { token }) if token == offered.token)
     );
+    // The same voice holds it.
+    first.next_offer_us = 0;
+    let now = lamp_ipc::monotonic_us();
+    let report = due(&engine.lock().unwrap(), now);
+    first.tick(&socket.path(), Some(&report), now).unwrap();
+    no_offer(&first);
     drop(first);
     let mut restored = Consumer::new(
         DeliveryLedger::open(disk, OTHER_STORE).unwrap(),
         "consumer-two".into(),
     );
+    // Opening the ledger alone proves nothing: still held.
     let now = lamp_ipc::monotonic_us();
     let report = due(&engine.lock().unwrap(), now);
     restored.tick(&socket.path(), Some(&report), now).unwrap();
     no_offer(&restored);
     assert_eq!(engine.lock().unwrap().counts(&sample(1000)), (1, 1, 0));
+    // Holding the claim, as `run` does, it is offered again as a new attempt.
+    restored.retire_earlier_voices().unwrap();
+    let again = begin(&mut restored, &engine, &socket);
+    assert_eq!(again.token.key, offered.token.key);
+    assert!(again.token.attempt > offered.token.attempt);
     assert!(
         !socket
             .requests()
             .iter()
             .any(|r| matches!(r, Request::Ack { .. }))
     );
-    let view = restored.ledger.view(&offered.token.key).unwrap().unwrap();
-    assert!(view.completion.is_none() && view.ack.is_none() && view.resolution.is_none());
+}
+
+/// The first builder's test for lamp-4ace's ids 12 and 26 (2026-10-16):
+/// prepared, the voice restarts, offered again, said once, acknowledged.
+#[test]
+fn prepared_then_a_restart_is_offered_again_said_once_and_acknowledged() {
+    let (engine, socket) = served(1);
+    let disk = Disk::default();
+    let mut first = consumer(disk.clone());
+    let offered = begin(&mut first, &engine, &socket);
+    // The voice restarts with the attempt prepared and nothing after.
+    drop(first);
+    let mut restored = Consumer::new(
+        DeliveryLedger::open(disk.clone(), OTHER_STORE).unwrap(),
+        "consumer-two".into(),
+    );
+    restored.retire_earlier_voices().unwrap();
+    let again = begin(&mut restored, &engine, &socket);
+    assert_eq!(again.token.key, offered.token.key);
+    restored
+        .command(
+            ToWorker::Complete {
+                token: again.token.clone(),
+                proof: completion(&again.token),
+            },
+            lamp_ipc::monotonic_us(),
+        )
+        .unwrap();
+    restored.outgoing.clear();
+    for _ in 0..3 {
+        let now = lamp_ipc::monotonic_us();
+        let report = due(&engine.lock().unwrap(), now);
+        restored.tick(&socket.path(), Some(&report), now).unwrap();
+        no_offer(&restored);
+    }
+    assert_eq!(engine.lock().unwrap().counts(&sample(1000)), (0, 0, 0));
+    assert_eq!(
+        socket
+            .requests()
+            .iter()
+            .filter(|r| matches!(r, Request::Ack { .. }))
+            .count(),
+        1
+    );
+    let lines = &restored.journal.lines;
+    assert_eq!(
+        lines[0],
+        "reminder id 1 delivery 1: prepared by an earlier voice and never said: to be offered again"
+    );
+    assert!(
+        lines
+            .last()
+            .unwrap()
+            .starts_with("reminder id 1 delivery 1: resolved (AckConfirmed"),
+        "{lines:?}"
+    );
+    // A voice started after that has nothing to offer again.
+    let mut later = Consumer::new(
+        DeliveryLedger::open(disk, OTHER_STORE).unwrap(),
+        "consumer-three".into(),
+    );
+    later.retire_earlier_voices().unwrap();
+    assert!(later.retry.is_empty());
 }
 
 #[test]

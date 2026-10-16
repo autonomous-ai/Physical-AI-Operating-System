@@ -556,8 +556,9 @@ for each acknowledgement. Bus sequence is not a delivery identity.
 
 There is an unavoidable unproven boundary between sound finishing and durable
 completion evidence. A process or power failure there leaves this consumer's
-attempt uncertain and pending, with no automatic re-speech. An explicit later
-snooze may cause someone to hear it again. The implementation does not promise
+attempt uncertain and pending; the next voice offers it again (below), so it
+may be heard twice. An explicit later snooze may also cause someone to hear it
+again. The implementation does not promise
 exactly-once speech or that anyone heard it. First must test that window with real playout
 receipts, interruption, process restart, privacy changes, and the chosen
 consumer's persistent deduplication. The implementation below adds Voice and
@@ -677,10 +678,21 @@ proven resolved entries can be compacted, preserving a revision high-water mark.
 An offer withdrawn before admission or a provider deferral before any PCM may
 retry after explicit owner qualification, with at least five seconds between
 attempts. Partially spoken, failed, interrupted or crash-uncertain attempts stay
-pending without automatic re-speech. Inspect the current list and explicitly
-snooze or cancel them. Such an oldest entry does not starve other due work: a
-bounded page scan may select another pending item. There is no automatic replay
-based on elapsed time, a stale PID, a reopened ledger or reacquired claim.
+pending without re-speech while the voice that made them runs. Such an oldest
+entry does not starve other due work: a bounded page scan may select another
+pending item.
+
+A voice started after them offers them again (the first builder, 2026-10-16:
+on lamp-4ace two reminders prepared by voices since restarted stayed pending
+for ever and were never said). When the consumer starts it holds the
+per-UID claim, which moves to the voice that started it and is released only
+when that voice exits, so every earlier voice and any sound it could make has
+ended. Each entry an earlier consumer session prepared and never completed is
+retired with `PreviousProcessExited` and offered as a new attempt; the
+journal says `prepared by an earlier voice and never said: to be offered
+again`. One that was heard without proof may be said twice; that is chosen
+over one never said. There is still no replay on elapsed time, a stale PID or
+a reopened ledger alone.
 
 ## Task 6 service verification and handoff
 

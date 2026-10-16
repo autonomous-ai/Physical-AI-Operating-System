@@ -12,6 +12,7 @@ use lamp_schedule::{
     delivery::{
         AbsentEvidence, AckEvidence, Correlation, DeliveryKey, DeliveryLedger, Evidence,
         ItemEvidence, PendingEvidence, PreparedToken, QualifiedRetirement, Reconciled,
+        RetirementBasis,
     },
     engine::Persistence,
     protocol::Request,
@@ -286,6 +287,37 @@ impl<P: Persistence> Consumer<P> {
             .retain(|old| !matches!(old, FromWorker::Offer { .. } | FromWorker::Withdraw { .. }));
         self.next_offer_us = now.saturating_add(PACE_US);
         self.push(FromWorker::Settled { token })
+    }
+    /// Attempts an earlier voice prepared and never completed are offered
+    /// again (the first builder, 2026-10-16: ids 12 and 26 on lamp-4ace were
+    /// prepared by voices since restarted, and stayed pending for ever).
+    /// Call only while holding the consumer claim: the claim goes to the
+    /// voice and is released only when it exits, so holding it proves that
+    /// every earlier voice, and any sound it could make, has ended.
+    /// An attempt that was heard without its completion being proven is
+    /// offered again too, and may be said twice; one that is never said
+    /// again is worse.
+    fn retire_earlier_voices(&mut self) -> io::Result<()> {
+        for view in self.ledger.entries().map_err(invalid)? {
+            let token = view.prepared;
+            if view.completion.is_some()
+                || view.resolution.is_some()
+                || token.correlation.consumer_session == self.session
+            {
+                continue;
+            }
+            let proof = QualifiedRetirement {
+                correlation: token.correlation.clone(),
+                retired_by_session: self.session.clone(),
+                basis: RetirementBasis::PreviousProcessExited {},
+            };
+            self.journal.item(
+                &token.key,
+                "prepared by an earlier voice and never said: to be offered again",
+            );
+            self.retry.insert(token.key.clone(), (token, proof));
+        }
+        Ok(())
     }
     fn known(&self, key: &DeliveryKey) -> io::Result<bool> {
         Ok(self.ledger.view(key).map_err(invalid)?.is_some() && !self.retry.contains_key(key))
@@ -581,6 +613,9 @@ pub(super) fn run(ledger_dir: &Path, socket: &Path, root: &Path) -> io::Result<(
     let clock = lamp_controls::runtime::clock_id(None)?;
     let ledger = DeliveryLedger::open(Store::open(ledger_dir)?, &session).map_err(invalid)?;
     let mut consumer = Consumer::new(ledger, session);
+    // The claim taken above moved to the voice that started this consumer,
+    // so every earlier voice has exited.
+    consumer.retire_earlier_voices()?;
     let bus = Bus::new(root)?;
     let mut freshness = Freshness::default();
     let mut next = Instant::now();

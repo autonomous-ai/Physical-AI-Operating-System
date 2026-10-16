@@ -139,6 +139,10 @@ impl From<String> for Told {
 /// the time it was said. The worker's is the Live route's own rule
 /// (`worker::Heeding`, `crate::attention`).
 pub type Heed = Arc<dyn Fn(u64, (u64, u64), &str) -> Option<&'static str> + Send + Sync>;
+/// The lamp's eye for a look: the newest picture, as a JPEG, or why there
+/// is none (`worker::serve` reads the eyes' look file with the Live route's
+/// bounds).
+pub type Look = Arc<dyn Fn() -> Result<Vec<u8>, &'static str> + Send + Sync>;
 /// The engine's clock, for the announcement's spell.
 pub type Clock = Arc<dyn Fn() -> Instant + Send + Sync>;
 
@@ -258,6 +262,8 @@ pub struct Engine {
     /// `--sounds-checked`: a short sound is answered only when heard as a
     /// short word.
     sounds_checked: bool,
+    /// The eye a look reads, when the eyes keep a look file.
+    look: Option<Look>,
 }
 
 impl Engine {
@@ -295,6 +301,7 @@ impl Engine {
             turn: None,
             retired_through: 0,
             sounds_checked: false,
+            look: None,
         }
     }
 
@@ -323,6 +330,12 @@ impl Engine {
                 shared.cues = Some(Arc::default());
             }
         }
+        self
+    }
+
+    /// A look reads its picture with `look` (`LAMP_EYES_LOOK_FILE`).
+    pub fn looking(mut self, look: Look) -> Self {
+        self.look = Some(look);
         self
     }
 
@@ -402,14 +415,49 @@ impl Engine {
                 request,
                 session,
                 text,
+                look,
                 ..
             } => {
-                // `look` is ignored: this route has no eyes yet.
                 if !self.begin(request, session) {
                     return;
                 }
+                // The lamp taking a look: the eye's newest picture goes with
+                // the words, as on the Live route. With none, the model is
+                // told it saw nothing, never left to describe a picture it
+                // was not given (sixth-P2, #1044).
+                let picture = look
+                    .then(|| match self.look.as_ref().map(|look| look()) {
+                        Some(Ok(jpeg)) => Some(jpeg),
+                        Some(Err(why)) => {
+                            eprintln!(
+                                "lamp-voice second: the lamp looked: no picture with request {request}: {why}"
+                            );
+                            None
+                        }
+                        None => {
+                            eprintln!(
+                                "lamp-voice second: the lamp looked: no picture with request {request}: no look file"
+                            );
+                            None
+                        }
+                    })
+                    .flatten();
+                if let Some(jpeg) = &picture {
+                    eprintln!(
+                        "lamp-voice second: the lamp looked: a picture of {} bytes went with request {request}",
+                        jpeg.len()
+                    );
+                }
+                let text = if look && picture.is_none() {
+                    crate::speak_up::NO_LOOK_NOTE.to_owned()
+                } else {
+                    text
+                };
                 let shared = self.shared.clone();
-                let task = tokio::spawn(async move { answer(&shared, request, text, false).await });
+                let task =
+                    tokio::spawn(
+                        async move { answer(&shared, request, text, false, picture).await },
+                    );
                 self.turn = Some(Turn {
                     request,
                     audio: None,
@@ -620,7 +668,7 @@ async fn spoken(
             .await;
         return;
     }
-    answer(&shared, request, text, true).await;
+    answer(&shared, request, text, true, None).await;
 }
 
 /// How an answer stopped short.
@@ -652,8 +700,16 @@ async fn cue(shared: &Shared, request: u64, clip: Vec<i16>) -> Result<(), Stop> 
     Ok(())
 }
 
-/// Chat, speech and the turn's last events, for the person's `said`.
-async fn answer(shared: &Shared, request: u64, said: String, heard: bool) {
+/// Chat, speech and the turn's last events, for the person's `said`, with
+/// the picture of a look. The picture goes in this request only, never into
+/// the thread or a later turn's history.
+async fn answer(
+    shared: &Shared,
+    request: u64,
+    said: String,
+    heard: bool,
+    picture: Option<Vec<u8>>,
+) {
     // Started now, with the chat request, so it is ready first.
     let mut speech = JoinSet::new();
     let announcement = shared
@@ -674,13 +730,26 @@ async fn answer(shared: &Shared, request: u64, said: String, heard: bool) {
     if heard && let Some(cues) = &shared.cues {
         cues.render(&shared.services);
     }
-    let asked = Message::user(said);
+    // The picture of a look goes in round 1 only: a later round after a
+    // tool is asked with the words alone (the reviewer on #1075).
+    let mut seeing = picture.is_some();
+    let words = Message::user(said.clone());
+    let asked = match picture {
+        Some(jpeg) => Message::user_seeing(said, &jpeg),
+        None => Message::user(said),
+    };
     let writing = async move {
         let told = (shared.system)();
         let mut messages = vec![Message::system(told.text)];
         messages.extend(told.history);
         messages.push(asked);
-        for round in 1..=MAX_ROUNDS {
+        let asked_at = messages.len() - 1;
+        // A refused picture's retry keeps the one sound and its longer wait.
+        let mut cued = false;
+        let mut round = 0;
+        while round < MAX_ROUNDS {
+            round += 1;
+            let mut refused = false;
             let mut stream = shared.services.chat(messages.clone());
             let mut first = true;
             let mut split = Sentences::default();
@@ -690,13 +759,16 @@ async fn answer(shared: &Shared, request: u64, said: String, heard: bool) {
                 let next = if first && round == 1 {
                     let at = |after: Duration| begun + after;
                     let cues = shared.cues.as_ref().filter(|_| heard);
-                    let first_wait = if cues.is_some() {
+                    let first_wait = if cued {
+                        BEGIN_WITHIN_AFTER_CUE
+                    } else if cues.is_some() {
                         CUE_AFTER
                     } else {
                         BEGIN_WITHIN
                     };
                     let mut next = tokio::time::timeout_at(at(first_wait), stream.next()).await;
                     if next.is_err()
+                        && !cued
                         && let Some(cues) = cues
                     {
                         // One soft sound, then a longer wait; with no sound
@@ -708,6 +780,7 @@ async fn answer(shared: &Shared, request: u64, said: String, heard: bool) {
                                     began.elapsed().as_millis()
                                 );
                                 cue(shared, request, clip).await?;
+                                cued = true;
                                 BEGIN_WITHIN_AFTER_CUE
                             }
                             None => BEGIN_WITHIN,
@@ -728,10 +801,24 @@ async fn answer(shared: &Shared, request: u64, said: String, heard: bool) {
                     stream.next().await
                 };
                 let Some(event) = next else { break };
-                let event = event.map_err(|error| {
-                    eprintln!("lamp-voice second: request {request} chat round {round} failed after {} ms: {error}", began.elapsed().as_millis());
-                    Stop::Failed(fault(&error))
-                })?;
+                let event = match event {
+                    // A picture the chat refuses is no failure of the look:
+                    // asked once more, within the same bound, with the
+                    // no-look note (#1044).
+                    Err(net::Error::Status(status)) if seeing && first && round == 1 => {
+                        eprintln!(
+                            "lamp-voice second: request {request} the chat refused the look's picture ({status}); asked again without it"
+                        );
+                        messages[asked_at] = Message::user(crate::speak_up::NO_LOOK_NOTE);
+                        seeing = false;
+                        refused = true;
+                        break;
+                    }
+                    event => event.map_err(|error| {
+                        eprintln!("lamp-voice second: request {request} chat round {round} failed after {} ms: {error}", began.elapsed().as_millis());
+                        Stop::Failed(fault(&error))
+                    })?,
+                };
                 if first {
                     first = false;
                     eprintln!(
@@ -763,6 +850,10 @@ async fn answer(shared: &Shared, request: u64, said: String, heard: bool) {
                     ChatEvent::Done => break,
                 }
             }
+            if refused {
+                round -= 1;
+                continue;
+            }
             // Before the unfinished last words are said.
             if !calls.is_empty() {
                 let names: Vec<&str> = calls.iter().map(|call| call.name.as_str()).collect();
@@ -780,6 +871,9 @@ async fn answer(shared: &Shared, request: u64, said: String, heard: bool) {
             if calls.is_empty() {
                 return Ok(());
             }
+            if std::mem::take(&mut seeing) {
+                messages[asked_at] = words.clone();
+            }
             messages.push(Message::assistant_calls(Some(text), &calls));
             for call in &calls {
                 let result =
@@ -794,19 +888,25 @@ async fn answer(shared: &Shared, request: u64, said: String, heard: bool) {
     let saying = async {
         let mut after = false;
         while let Some((text, mut packets)) = queued.recv().await {
+            // The announcement is heard, not written: the coordinator reads
+            // an answer's opening words for its look ("Let me look.") and
+            // for the body's gesture, and they are the model's (#1075 on
+            // lamp-52e6: "My voice sounds… Let me look." took no look).
             // Sentences come trimmed: each after the first is said after a
             // space, so the lamp's words read "just now. Hmm," (#1014).
-            let words = ProviderOutput::Transcript {
-                request: Some(request),
-                text: if std::mem::replace(&mut after, true) {
-                    format!(" {text}")
-                } else {
-                    text
-                },
-                finished: false,
-            };
-            if !shared.emit(words).await {
-                return Err(Stop::Gone);
+            if text != ANNOUNCEMENT {
+                let words = ProviderOutput::Transcript {
+                    request: Some(request),
+                    text: if std::mem::replace(&mut after, true) {
+                        format!(" {text}")
+                    } else {
+                        text
+                    },
+                    finished: false,
+                };
+                if !shared.emit(words).await {
+                    return Err(Stop::Gone);
+                }
             }
             while let Some(packet) = packets.recv().await {
                 let samples = packet.map_err(|error| Stop::Failed(fault(&error)))?;

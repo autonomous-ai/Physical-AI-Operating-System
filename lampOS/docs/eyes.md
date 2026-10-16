@@ -190,7 +190,8 @@ poor light, and whether seeing changes what it says when nobody asked.
 
 What this changes about privacy, plainly: with the option on, a picture of
 whoever is in front of the lamp goes to the provider with what they say, as
-their voice already does. Nothing but the one newest frame is on the lamp.
+their voice already does; with `LAMP_VOICE_SECOND_CONFIG` set and Gemini
+away, a look's picture goes to the second voice's `llm_base_url` instead. Nothing but the one newest frame is on the lamp.
 The camera is still open only while the microphone is permitted. Without the
 option, and without the environment variable, everything is as it was.
 

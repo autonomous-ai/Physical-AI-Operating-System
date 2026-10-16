@@ -281,7 +281,10 @@ When the coordinator switches (below):
 - **One sentence:** "My voice sounds a little different just now." is said
   before the first answer when the route has not answered in the last 120 s
   (`ANNOUNCEMENT`, `ANNOUNCE_AFTER`), because the voice cannot be Gemini's.
-  It is not kept in the thread. Each sentence after it is said after a
+  It is not kept in the thread, and it is heard, not written: no
+  transcript of it goes to the coordinator, so an answer's opening words,
+  which it reads for a look ("Let me look.") and for the body's gesture,
+  are the model's. Each sentence after it is said after a
   space, so the lamp's words read "just now. Hmm," (#1014).
 - **As quiet as Gemini:** with `LAMP_ATTENTION` on, a spoken turn's words
   are judged by the Live route's own rule for whom it answers
@@ -560,14 +563,25 @@ and its authority kept fresh during the rest of startup.
 Reported by the builders:
 
 - **Facts not told:** the worker accepts the Gemini worker's flags, but
-  sight, `look`, the camera and air facts are not told to the text
-  model. A written turn's `look` is ignored. With `LAMP_SESSION_FACT`
-  and `LAMP_ROOM_FACTS` on, each turn's system message carries the facts a
-  Live session is told, in its words, after the memory note and before the
-  thread's recall: the session fact when no conversation is going on, and
-  the room as Gemini's worker publishes it (`room/state`) when it is known
-  and said in the last 3 s (`bus_out::room_now`; a worker that has stopped
-  leaves its last room kept, however old). Air facts wait for a stuffy spell of ten
+  sight, the camera and air facts are not told to the text model. A
+  written turn with `look` (the lamp taking a look) sends the eyes'
+  newest picture with its words, as an OpenAI image part (a JPEG `data:`
+  URL) to this route's `llm_base_url` (the company relay and the model
+  behind it, not Gemini), read from `LAMP_EYES_LOOK_FILE` with the Live route's bounds (1 s
+  and 64 KiB; with `LAMP_LOOK_FULL`, a full look's still and 184 KiB). The
+  picture goes in that turn's first chat round only, never into a round
+  after a tool, the thread or a later turn; a picture the chat refuses is
+  asked once more with the no-look note, within the 3 s bound.
+  With no fresh picture, or no look file, the Live route's no-look note
+  goes in place of the words (`speak_up::NO_LOOK_NOTE`): the model is told
+  it saw nothing, never left to describe a picture it was not given
+  (sixth-P2, #1044). With `LAMP_SESSION_FACT` and `LAMP_ROOM_FACTS` on,
+  each turn's system message carries the facts a Live session is told, in
+  its words, after the memory note and before the thread's recall: the
+  session fact when no conversation is going on, and the room as Gemini's
+  worker publishes it (`room/state`) when it is known and said in the last
+  3 s (`bus_out::room_now`; a worker that has stopped leaves its last room
+  kept, however old). Air facts wait for a stuffy spell of ten
   minutes, which this route, used only while Gemini is away, does not
   follow.
 - **Short sounds, by words alone:** with `LAMP_SHORT_SOUNDS=quiet-room-checked`

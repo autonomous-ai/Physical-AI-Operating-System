@@ -11,8 +11,9 @@ use std::sync::Arc;
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Message {
     pub role: &'static str,
+    /// Text, or for a look the text and its picture as parts.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub content: Option<String>,
+    pub content: Option<Value>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub tool_calls: Vec<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -23,7 +24,7 @@ impl Message {
     fn new(role: &'static str, content: Option<String>) -> Self {
         Self {
             role,
-            content,
+            content: content.map(Value::String),
             tool_calls: Vec::new(),
             tool_call_id: None,
         }
@@ -33,6 +34,17 @@ impl Message {
     }
     pub fn user(text: impl Into<String>) -> Self {
         Self::new("user", Some(text.into()))
+    }
+    /// What the person asked, with the picture the lamp's eye took for it,
+    /// as an OpenAI image part (a JPEG `data:` URL).
+    pub fn user_seeing(text: impl Into<String>, jpeg: &[u8]) -> Self {
+        use base64::{Engine, engine::general_purpose::STANDARD};
+        let mut message = Self::new("user", None);
+        message.content = Some(json!([
+            {"type": "text", "text": text.into()},
+            {"type": "image_url", "image_url": {"url": format!("data:image/jpeg;base64,{}", STANDARD.encode(jpeg))}},
+        ]));
+        message
     }
     pub fn assistant(text: impl Into<String>) -> Self {
         Self::new("assistant", Some(text.into()))

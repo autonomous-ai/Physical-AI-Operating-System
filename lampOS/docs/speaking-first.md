@@ -155,7 +155,10 @@ giving the model one with everything said was switched off).
   Without the variable nothing is asked, waited for or said differently.
 
 A picture leaves the lamp only on such a look: when a person has asked the
-lamp to and the lamp has said it will.
+lamp to and the lamp has said it will. With `LAMP_VOICE_SECOND_CONFIG` set
+and Gemini away, a look's picture goes to the second voice's `llm_base_url`
+(the company relay and the chat model behind it), not to Gemini
+([second-voice.md](second-voice.md)).
 
 Tried on lamp-4ace without a sound being played (`lamp-voice provider-check
 CONFIG --look PICTURE.jpg NOTE`): given a 21 KiB photograph of the office

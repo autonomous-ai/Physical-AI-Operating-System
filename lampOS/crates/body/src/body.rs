@@ -3324,14 +3324,19 @@ fn run_until_stopped(
             }
         }
         // Speaking, standing up and doing nothing else with its arm, it
-        // leans toward the person, and back once it is not. Not while a
-        // hand holds the arm (the hold below has it then), and nothing new
-        // while the wire is failing.
-        if !blind {
-            let leaning = mood == Mood::Speaking
-                && upright
-                && !gesturing
-                && stalls[3..].iter().all(|stall| stall.hold.is_none());
+        // leans toward the person, and back once it is not. While a hand
+        // holds the arm and the lamp still wants to lean, the lean stays
+        // exactly where it was, neither in nor out: the hold below lasts
+        // while what is wanted of the arm does not change, and a lean
+        // easing out by itself would end it with the hand still there and
+        // then lean into the hand again. Once the lean is no longer wanted
+        // (the answer is over, a gesture, folding) it eases out, which is
+        // a change of what is wanted and lets the hold go as any such
+        // change does. Nothing new while the wire is failing.
+        let leaning = mood == Mood::Speaking && upright && !gesturing;
+        let arm_held = stalls[3..].iter().any(|stall| stall.hold.is_some());
+        let still = blind || (leaning && arm_held);
+        if !still {
             let rate = step / LEAN_SECONDS.max(1.5 * LEAN[1].abs() / limits.speed);
             lean = (lean + if leaning { rate } else { -rate }).clamp(0.0, 1.0);
         }

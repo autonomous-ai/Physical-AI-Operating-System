@@ -2216,17 +2216,29 @@ fn speaking_run(
     until: Duration,
     strains: Vec<(Duration, Duration, usize, u16)>,
 ) -> (BodyReport, Vec<(Duration, Glimpse)>) {
+    speaking_run_with(offsets, from, until, strains, |_, _| {})
+}
+
+/// The same, with the lamp and its limits changed first.
+fn speaking_run_with(
+    offsets: [f32; 3],
+    from: Duration,
+    until: Duration,
+    strains: Vec<(Duration, Duration, usize, u16)>,
+    prepare: impl FnOnce(&mut Lamp, &mut Limits),
+) -> (BodyReport, Vec<(Duration, Glimpse)>) {
     let (mut lamp, mut clock) = folded(Duration::from_secs(18));
     lamp.arm_moves = true;
     lamp.overload_clears = 1;
     lamp.strains = strains;
-    let limits = Limits::folded_with(Tuning {
+    let mut limits = Limits::folded_with(Tuning {
         reach: [150, 15, 1, 250],
         speed: 120,
         servo_speed: 1_000,
         servo_acceleration: 60,
     })
     .unwrap();
+    prepare(&mut lamp, &mut limits);
     let time = clock.time.clone();
     let mood_at = clock.time.clone();
     let seen_at = clock.time.clone();
@@ -2324,6 +2336,33 @@ fn a_base_that_meets_a_hand_is_not_swayed_on_by_expression() {
             .iter()
             .all(|step| step.1.goals[2] == held)
     );
+}
+
+/// An elbow held by a hand as the lamp leans in to speak is held where the
+/// hand has it, and the lean waits: it does not ease out by itself, which
+/// would end the hold with the hand still there, and lean into the hand
+/// again. Only once the answer is over does the arm go back to standing.
+#[test]
+fn an_arm_held_while_it_speaks_is_not_leaned_into_again() {
+    let ms = Duration::from_millis;
+    let (report, seen) = speaking_run_with([0.0; 3], ms(0), ms(0), vec![], |lamp, limits| {
+        // From half a second into the answer, a hand keeps the elbow
+        // where it stands, and pushes back as hard as the arm does.
+        lamp.hand = Some((ms(6_500), ms(11_000), 2, 2_600.0));
+        lamp.strains = vec![(ms(6_500), ms(11_000), 2, 400)];
+        limits.give_way = Some(GiveWay::Return);
+    });
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!(report.stalls[4], 1, "it stopped pushing once: {report:?}");
+    let stalled = seen.iter().position(|step| step.1.stalls[4] == 1).unwrap();
+    let held = seen[stalled].1.arm_goals;
+    // Held there while it speaks: no lean, in or out.
+    for step in seen[stalled..].iter().filter(|step| step.0 < ms(12_000)) {
+        assert_eq!(step.1.arm_goals, held, "{step:?}");
+    }
+    // And standing as before once it listens again.
+    let after = seen.iter().rfind(|step| step.0 < ms(15_900)).unwrap().1;
+    assert_eq!(after.arm_goals, [2_650, 2_600], "{after:?}");
 }
 
 /// Without `rest_glance`, a lamp at rest writes exactly what it writes

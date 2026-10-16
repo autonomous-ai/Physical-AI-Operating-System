@@ -29,6 +29,7 @@ fn options(
         wait_for_room: false,
         ask_unclear: false,
         spoken_to,
+        voices: None,
     }
 }
 
@@ -622,4 +623,155 @@ async fn with_the_switch_two_lines_the_lamp_left_alone_end_its_conversation() {
     assert!(!after_lines_left_alone(&BETWEEN).await);
     // One: the conversation with the lamp is still going on, as before.
     assert!(after_lines_left_alone(&BETWEEN[..1]).await);
+}
+
+/// Voice prints made at once from the line's sound: one voice says 1s,
+/// another -1s.
+struct TwoVoices(std::collections::VecDeque<(u64, std::result::Result<Vec<f32>, String>)>);
+
+impl crate::same_voice::Printer for TwoVoices {
+    fn ask(&mut self, request: u64, samples: &[i16]) -> bool {
+        let print = if samples[0] > 0 {
+            vec![1.0, 0.0]
+        } else {
+            vec![0.0, 1.0]
+        };
+        self.0.push_back((request, Ok(print)));
+        true
+    }
+    fn answer(&mut self) -> Option<(u64, std::result::Result<Vec<f32>, String>)> {
+        self.0.pop_front()
+    }
+}
+
+/// A line of `blocks` 10 ms blocks of `voice`, said with the lamp quiet or
+/// over it, heard as `text` and answered: whether the answer's sound came
+/// out of the worker.
+async fn line(
+    rig: &mut LiveRig,
+    dial: &mut Dial,
+    over_the_lamp: bool,
+    voice: i16,
+    blocks: u64,
+    text: &str,
+) -> bool {
+    let owner = rig
+        .owner
+        .admit(real_time(), lamp_turn_owner::AdmittedInput::NewTurn)
+        .unwrap();
+    let request = owner.turn();
+    rig.publish();
+    let privacy_generation = rig.snapshot.microphone_generation();
+    rig.parent
+        .data
+        .send(ProviderInput::Start {
+            session: dial.session.get(),
+            request,
+            privacy_generation,
+            continues: false,
+            continues_cut_off: false,
+            over_the_lamp,
+        })
+        .unwrap();
+    // Each block sent once the socket takes it, the coordinator's lease
+    // kept fresh and what the worker sends the service read meanwhile, as a
+    // coordinator and a service would: a worker left waiting on the service
+    // stops reading its heartbeats.
+    let deadline = Instant::now() + Duration::from_secs(5);
+    for sequence in 1..=blocks {
+        let audio = ProviderInput::Audio {
+            request,
+            privacy_generation,
+            sequence,
+            read_completed_at_us: monotonic_us(),
+            samples: vec![voice; 160],
+        };
+        loop {
+            assert!(
+                Instant::now() < deadline,
+                "block {sequence} was never taken"
+            );
+            while dial
+                .service
+                .try_receive(Duration::from_millis(1))
+                .await
+                .is_some()
+            {}
+            if rig.heartbeat().is_err() {
+                continue;
+            }
+            match rig.parent.data.send(audio.clone()) {
+                Ok(()) => break,
+                Err(error) if error.kind() == io::ErrorKind::WouldBlock => {}
+                Err(error) => panic!("{error}"),
+            }
+        }
+    }
+    assert!(matches!(
+        rig.output().await,
+        ProviderOutput::Started { request: started, .. } if started == request
+    ));
+    rig.owner.input_ended(real_time(), owner).unwrap();
+    rig.publish();
+    rig.parent
+        .data
+        .send(ProviderInput::End {
+            request,
+            privacy_generation,
+            sound: false,
+            cut_in: false,
+        })
+        .unwrap();
+    loop {
+        let message = rig.service_message(dial).await;
+        if message["realtimeInput"].get("activityEnd").is_some() {
+            break;
+        }
+    }
+    dial.service.send(heard(text)).await;
+    dial.service.send(provider_audio(7, 240)).await;
+    dial.service.send(idle_complete()).await;
+    let mut played = false;
+    loop {
+        match rig.output().await {
+            ProviderOutput::Audio { request: of, .. } if of == request => played = true,
+            ProviderOutput::TurnComplete { request: of, .. } if of == request => break,
+            _ => {}
+        }
+    }
+    rig.owner.complete_turn(real_time(), owner).unwrap();
+    rig.publish();
+    played
+}
+
+/// #829, through the worker's own loop, with a conversation going on: after
+/// Daniel's call is answered, a line of 1.5 s in another voice is held, and
+/// one in his is played. Said over the lamp, or with no voice check, the
+/// other voice is played as before.
+#[tokio::test]
+async fn with_the_switch_and_a_voice_check_another_voice_is_no_part_of_the_conversation() {
+    const CALL: &str = "Hey Lamp, how much is one hundred dollars in euros?";
+    const SAMANTHA: &str = "Anyway, if we drop the trip we save almost half.";
+    let scene = |check: bool, over_the_lamp: bool, voice: i16| async move {
+        let mut options = options(true, quiet_going_on, crate::tools::Settings::default());
+        if check {
+            options.voices = Some(Box::new(TwoVoices(Default::default())));
+        }
+        let mut rig = LiveRig::start_with(quick_policy(), options);
+        let mut dial = rig.ready().await;
+        assert!(line(&mut rig, &mut dial, false, 1, 150, CALL).await);
+        let played = line(&mut rig, &mut dial, over_the_lamp, voice, 150, SAMANTHA).await;
+        rig.stop().await;
+        played
+    };
+    assert!(!scene(true, false, -1).await, "another voice was played");
+    assert!(scene(true, false, 1).await, "the same voice was held");
+    assert!(
+        scene(true, true, -1).await,
+        "a line over the lamp was judged"
+    );
+    assert!(
+        scene(false, false, -1).await,
+        "without the check it was held"
+    );
 }

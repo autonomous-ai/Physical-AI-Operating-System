@@ -1131,6 +1131,12 @@ questions. The lamp speaking again, an answer or its news, begins the
 count afresh. The name, a face turned to the lamp, or close and turned to
 it, still let an answer out. Not yet played.
 
+The first line of that talk, Samantha's "Anyway, …", came before any line
+was left alone, and rode on Daniel's conversation. With a voice model
+(`LAMP_SAME_VOICE_MODEL`, [same-voice.md](same-voice.md), "In the voice"),
+a line of 1.5 s or more, said with the lamp quiet, in a voice plainly not
+the conversation's, is no part of it.
+
 Beyond the reply to the lamp's news, the question about its work and the
 name without a face, the switch only holds: what the rule holds without it
 stays held.

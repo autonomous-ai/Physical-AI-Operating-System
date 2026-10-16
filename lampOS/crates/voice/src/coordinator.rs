@@ -2052,6 +2052,7 @@ fn provider_arguments(
     arguments.extend(crate::attention::arguments_from_environment());
     arguments.extend(crate::attention::passing_arguments_from_environment());
     arguments.extend(crate::attention::spoken_to_arguments_from_environment());
+    arguments.extend(crate::same_voice::arguments_from_environment());
     arguments.extend(crate::addressed::arguments_from_environment());
     arguments.extend(crate::attention::name_arguments_from_environment());
     arguments.extend(crate::called::arguments_from_environment());
@@ -6371,6 +6372,8 @@ fn commit_admitted_input(
         // model is told of a cut only after an end sent early.
         continues,
         continues_cut_off: false,
+        // Said over the lamp's reply: never judged for its voice (#829).
+        over_the_lamp: replacing,
     });
     let mut current = Reply {
         owner: turn,
@@ -6617,6 +6620,8 @@ fn continue_after_early_end(
         continues: cut_keeps_name,
         // The model is told this goes on from the request given up.
         continues_cut_off: true,
+        // Nothing of the answer given up was played.
+        over_the_lamp: false,
     });
     let mut current = Reply {
         owner: turn,
@@ -7750,6 +7755,7 @@ mod tests {
                 privacy_generation: 1,
                 continues: false,
                 continues_cut_off: false,
+                over_the_lamp: false,
             })
             .unwrap();
         request.confirm_start(1).unwrap();
@@ -8937,6 +8943,7 @@ mod tests {
             privacy_generation: 1,
             continues: false,
             continues_cut_off: false,
+            over_the_lamp: false,
         }
     }
 

@@ -130,6 +130,7 @@ fn run_with_notice_policy(
                     privacy_generation: 2,
                     continues: false,
                     continues_cut_off: false,
+                    over_the_lamp: false,
                 })
                 .unwrap();
         }

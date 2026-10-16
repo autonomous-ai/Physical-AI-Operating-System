@@ -9,11 +9,18 @@
 //! their power), with the utterance's mean taken off each band, as
 //! 3D-Speaker does before the model.
 //!
-//! Nothing on the lamp runs this yet. It is here to be measured: how often
-//! the same person is taken for another, and another for the same, on what
-//! the lamp's own microphone hears (`docs/same-voice.md`).
+//! Measured on what the lamp's own microphone hears (`docs/same-voice.md`):
+//! how often the same person is taken for another, and another for the
+//! same. The voice runs it as a child of its own (`lamp-same-voice serve`,
+//! [`serve`]) with `LAMP_SAME_VOICE_MODEL` set, and nothing else on the
+//! lamp runs it.
 use rustfft::{Fft, FftPlanner, num_complex::Complex};
-use std::{path::Path, sync::Arc};
+use std::{
+    io::{self, Read, Write},
+    path::Path,
+    sync::Arc,
+    time::Instant,
+};
 use tract_onnx::prelude::*;
 
 /// Samples a second, the only rate taken.
@@ -212,6 +219,86 @@ pub fn cosine(a: &[f32], b: &[f32]) -> Option<f32> {
     Some((dot / (aa.sqrt() * bb.sqrt())).clamp(-1.0, 1.0) as f32)
 }
 
+/// The most samples one request to [`serve`] may carry: 3 s.
+pub const MOST_SAMPLES: usize = 3 * RATE as usize;
+/// A request's header: its number (u64) and its count of samples (u32).
+pub const HEADER_BYTES: usize = 12;
+
+/// `lamp-same-voice serve MODEL`, the voice's child (#829): requests read
+/// from `input`, one answer line written to `output` for each, until
+/// `input` ends.
+///
+/// - **A request** is [`HEADER_BYTES`] bytes, the request's number (u64)
+///   and its count of samples (u32), both little-endian, then that many
+///   16-bit samples (16 kHz, one channel, little-endian).
+/// - **Its answer** is one line of JSON: `{"request":N,"print":[...],"ms":M}`
+///   with the print and how long it took, or `{"request":N,"error":"..."}`
+///   when no print could be made of it.
+/// - **First of all**, once the model is loaded: `{"ready":true,"loaded_ms":M}`.
+///
+/// A request of more than [`MOST_SAMPLES`] ends the serving with an error:
+/// the voice never sends one.
+pub fn serve(
+    input: &mut impl Read,
+    output: &mut impl Write,
+    loaded_ms: u128,
+    mut print: impl FnMut(&[f32]) -> Result<Vec<f32>, String>,
+) -> io::Result<()> {
+    writeln!(output, "{{\"ready\":true,\"loaded_ms\":{loaded_ms}}}")?;
+    output.flush()?;
+    loop {
+        let mut header = [0u8; HEADER_BYTES];
+        match input.read_exact(&mut header) {
+            Ok(()) => {}
+            Err(error) if error.kind() == io::ErrorKind::UnexpectedEof => return Ok(()),
+            Err(error) => return Err(error),
+        }
+        let request = u64::from_le_bytes(header[..8].try_into().expect("8 bytes"));
+        let count = u32::from_le_bytes(header[8..].try_into().expect("4 bytes")) as usize;
+        if count > MOST_SAMPLES {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("request {request}: {count} samples, more than {MOST_SAMPLES}"),
+            ));
+        }
+        let mut bytes = vec![0u8; count * 2];
+        input.read_exact(&mut bytes)?;
+        let samples: Vec<f32> = bytes
+            .chunks_exact(2)
+            .map(|pair| f32::from(i16::from_le_bytes([pair[0], pair[1]])) / 32_768.0)
+            .collect();
+        let started = Instant::now();
+        let line = match print(&samples) {
+            Ok(values) if !values.is_empty() && values.iter().all(|value| value.is_finite()) => {
+                let values: Vec<String> = values.iter().map(f32::to_string).collect();
+                format!(
+                    "{{\"request\":{request},\"print\":[{}],\"ms\":{}}}",
+                    values.join(","),
+                    started.elapsed().as_millis()
+                )
+            }
+            Ok(_) => format!("{{\"request\":{request},\"error\":\"no print\"}}"),
+            Err(why) => format!("{{\"request\":{request},\"error\":\"{}\"}}", escaped(&why)),
+        };
+        writeln!(output, "{line}")?;
+        output.flush()?;
+    }
+}
+
+/// `text` as it may stand inside a JSON string.
+fn escaped(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    for c in text.chars() {
+        match c {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            c if u32::from(c) < 0x20 => out.push_str(&format!("\\u{:04x}", u32::from(c))),
+            c => out.push(c),
+        }
+    }
+    out
+}
+
 /// A 16 kHz mono 16-bit WAV, in [-1, 1].
 pub fn read_wav(path: &Path) -> Result<Vec<f32>, String> {
     let said = |error: hound::Error| format!("{}: {error}", path.display());
@@ -263,6 +350,51 @@ mod tests {
             let mean: f32 = rows.iter().map(|row| row[band]).sum::<f32>() / rows.len() as f32;
             assert!(mean.abs() < 1e-3);
         }
+    }
+
+    /// A request as the voice writes it.
+    fn request(number: u64, samples: &[i16]) -> Vec<u8> {
+        let mut bytes = number.to_le_bytes().to_vec();
+        bytes.extend((samples.len() as u32).to_le_bytes());
+        bytes.extend(samples.iter().flat_map(|sample| sample.to_le_bytes()));
+        bytes
+    }
+
+    #[test]
+    fn serving_answers_each_request_with_its_print_or_why_not_until_its_input_ends() {
+        let mut input = request(7, &[16_384, -16_384]);
+        input.extend(request(8, &[]));
+        input.extend(request(9, &[1]));
+        let mut output = Vec::new();
+        let mut seen = Vec::new();
+        serve(&mut input.as_slice(), &mut output, 1_800, |samples| {
+            seen.push(samples.to_vec());
+            match samples.len() {
+                2 => Ok(vec![0.5, -0.25]),
+                0 => Err("shorter than \"one\" frame".into()),
+                _ => Ok(vec![f32::NAN]),
+            }
+        })
+        .unwrap();
+        assert_eq!(seen, [vec![0.5, -0.5], vec![], vec![1.0 / 32_768.0]]);
+        let lines: Vec<&str> = std::str::from_utf8(&output).unwrap().lines().collect();
+        assert_eq!(lines[0], r#"{"ready":true,"loaded_ms":1800}"#);
+        assert!(
+            lines[1].starts_with(r#"{"request":7,"print":[0.5,-0.25],"ms":"#),
+            "{}",
+            lines[1]
+        );
+        assert_eq!(
+            lines[2],
+            r#"{"request":8,"error":"shorter than \"one\" frame"}"#
+        );
+        assert_eq!(lines[3], r#"{"request":9,"error":"no print"}"#);
+        assert_eq!(lines.len(), 4);
+        // More than 3 s ends it; a request cut short is an error too.
+        let long = request(10, &vec![0; MOST_SAMPLES + 1]);
+        assert!(serve(&mut long.as_slice(), &mut Vec::new(), 0, |_| Ok(vec![1.0])).is_err());
+        let cut = &request(11, &[1, 2, 3])[..HEADER_BYTES + 2];
+        assert!(serve(&mut &cut[..], &mut Vec::new(), 0, |_| Ok(vec![1.0])).is_err());
     }
 
     #[test]

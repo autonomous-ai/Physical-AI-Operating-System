@@ -112,6 +112,7 @@ fn in_a_busy_room() -> Options {
         policy_holds: None,
         wait_for_room: false,
         spoken_to: false,
+        voices: None,
     }
 }
 

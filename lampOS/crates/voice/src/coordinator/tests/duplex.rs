@@ -1195,6 +1195,7 @@ fn provider_pcm_threshold_keeps_exactly_one_terminal_allowance_in_both_modes() {
             privacy_generation: privacy,
             continues: false,
             continues_cut_off: false,
+            over_the_lamp: false,
         });
         for n in 1..bound {
             queue_input(

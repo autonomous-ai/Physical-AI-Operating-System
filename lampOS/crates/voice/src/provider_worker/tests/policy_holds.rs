@@ -84,6 +84,7 @@ impl Desk {
             policy_holds: holds.then(|| self.bus.clone()),
             wait_for_room: false,
             spoken_to: false,
+            voices: None,
         }
     }
 

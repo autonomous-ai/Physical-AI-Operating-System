@@ -753,6 +753,7 @@ mod tests {
             privacy_generation: 1,
             continues: false,
             continues_cut_off: false,
+            over_the_lamp: false,
         }
     }
 

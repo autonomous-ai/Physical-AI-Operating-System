@@ -141,7 +141,13 @@ fn the_loader_refuses_what_it_cannot_do() {
         (
             "say = \"They are back at their desk. Greet them in one short line, by name if you know it.\"",
             "say = { from = \"schedule\", note = \"x\" }",
-            "did not match any variant",
+            "a say table has from and nothing else",
+        ),
+        // A say that is neither, told in plain words (Fourth on #1033).
+        (
+            "say = \"They are back at their desk. Greet them in one short line, by name if you know it.\"",
+            "say = 5",
+            "say is a note in words, or { from = \"schedule\" } or { from = \"tasks\" }",
         ),
         (
             "[ask]",
@@ -1013,6 +1019,15 @@ fn a_tool_needs_no_trigger_and_a_look_needs_a_tool() {
                 "tool = \"check_my_work\"\n[trigger]\ntopic = \"humans/faces/tracked\"\n[ask]\npolicy = \"nudge\"",
             ),
             "started by its tool alone",
+        ),
+        // What the voice keeps is never said from the model's call: a tool's
+        // run would drop it without a word (Fourth on #1033).
+        (
+            TUTOR.replace(
+                "say = \"Tutor: a hint or a question, never the answer.\"",
+                "say = { from = \"schedule\" }",
+            ),
+            "say.from, in a skill with a tool",
         ),
     ] {
         let error = load(&skill_with(&dir.path().join("bad"), "tutor", &toml)).unwrap_err();

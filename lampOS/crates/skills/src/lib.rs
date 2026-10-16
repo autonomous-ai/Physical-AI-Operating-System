@@ -90,23 +90,35 @@ struct AskFile {
 struct StepFile {
     body: Option<BodyFile>,
     light: Option<LightStep>,
-    say: Option<SayStep>,
+    /// A note in words, or `{ from = "schedule" | "tasks" }` for words the
+    /// voice keeps itself (#939): read by hand ([`say_step`]), so that a
+    /// wrong one is told in plain words.
+    say: Option<toml::Value>,
     look: Option<bool>,
 }
 
-/// `say`: a note, or `{ from = "schedule" | "tasks" }` for words the voice
-/// keeps itself (#939).
-#[derive(Deserialize)]
-#[serde(untagged)]
-enum SayStep {
-    Note(String),
-    From(SayFromFile),
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct SayFromFile {
-    from: String,
+/// What a `say` asks of the voice: a note it phrases, or what it keeps.
+fn say_step(say: toml::Value) -> Result<Call, String> {
+    const WHAT: &str = "say is a note in words, or { from = \"schedule\" } or { from = \"tasks\" }";
+    match say {
+        toml::Value::String(note) if note.trim().is_empty() => Err(WHAT.into()),
+        toml::Value::String(note) => Ok(Call::Say(note)),
+        toml::Value::Table(table) => {
+            let mut keys = table.keys();
+            if keys.next().map(String::as_str) != Some("from") || keys.next().is_some() {
+                return Err(format!("{WHAT}: a say table has from and nothing else"));
+            }
+            match table["from"].as_str() {
+                Some("schedule") => Ok(Call::SayFrom(Source::Schedule)),
+                Some("tasks") => Ok(Call::SayFrom(Source::Tasks)),
+                Some(other) => Err(format!(
+                    "say.from is \"schedule\" or \"tasks\", not {other:?}"
+                )),
+                None => Err(format!("{WHAT}: from is a word")),
+            }
+        }
+        _ => Err(WHAT.into()),
+    }
 }
 
 #[derive(Deserialize)]
@@ -574,23 +586,17 @@ pub fn load(dir: &Path) -> Result<Skill, String> {
             };
             steps.push(light_call(file).map_err(|why| format!("{place}: {why}"))?);
         }
-        match step.say {
-            Some(SayStep::Note(note)) if note.trim().is_empty() => {
-                return Err("say is a note in words".into());
+        if let Some(say) = step.say {
+            let call = say_step(say)?;
+            // A tool's run tells the model what to say, and what the voice
+            // keeps is not the model's to say (Fourth on #1033).
+            if matches!(call, Call::SayFrom(_)) && file.tool.is_some() {
+                return Err(
+                    "say.from, in a skill with a tool: what the voice keeps is said when a trigger starts the skill, never from the model's call"
+                        .into(),
+                );
             }
-            Some(SayStep::Note(note)) => steps.push(Call::Say(note)),
-            Some(SayStep::From(SayFromFile { from })) => {
-                steps.push(Call::SayFrom(match from.as_str() {
-                    "schedule" => Source::Schedule,
-                    "tasks" => Source::Tasks,
-                    _ => {
-                        return Err(format!(
-                            "say.from is \"schedule\" or \"tasks\", not {from:?}"
-                        ));
-                    }
-                }))
-            }
-            None => {}
+            steps.push(call);
         }
     }
     if steps

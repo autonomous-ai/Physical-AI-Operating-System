@@ -26,6 +26,9 @@ use std::{
 
 /// The coordinator renews authority at least this often.
 const CONTROL_LEASE_US: u64 = 250_000;
+/// The longest a backlog left by a stall may hold the fresh authority back
+/// before the controller counts as gone, as the Live worker (#784).
+const STALLED_CONTROL_US: u64 = 1_500_000;
 /// Control messages taken in one tick before input and output wait.
 const CONTROL_SLICE: usize = 16;
 /// Input commands taken in one tick, as the Live provider worker does.
@@ -43,6 +46,9 @@ struct Gate {
     last_control_us: u64,
     highest_seen: u64,
     retired_through: u64,
+    /// Authority snapshots that lapsed in the queue while this worker was
+    /// held up, since the last one installed.
+    skipped_expired: u32,
 }
 
 enum Drain {
@@ -59,6 +65,7 @@ impl Gate {
             last_control_us: now_us,
             highest_seen: 0,
             retired_through: 0,
+            skipped_expired: 0,
         }
     }
 
@@ -66,10 +73,27 @@ impl Gate {
     /// earlier request, no owner retires all seen, and an old owner coming
     /// back is a fault. The engine drops the retired requests' work.
     fn install(&mut self, now_us: u64, state: Snapshot, engine: &mut Engine) -> io::Result<()> {
-        self.fresh(now_us)?;
-        self.guard
-            .install(MonoTime::from_micros(now_us), state)
-            .map_err(io::Error::other)?;
+        match self.guard.install(MonoTime::from_micros(now_us), state) {
+            Ok(()) => {}
+            // Queued while this worker was held up (on lamp-4ace by the
+            // kernel re-tuning its SD/MMC hosts, #784; it ended the voice
+            // there on 2026-10-16, #960): it lapsed in the queue. Fresher
+            // ones follow it; the heartbeat in `drain` ends the route if
+            // none comes.
+            Err(lamp_turn_owner::Error::ExpiredState) => {
+                self.skipped_expired = self.skipped_expired.saturating_add(1);
+                return Ok(());
+            }
+            Err(error) => return Err(io::Error::other(error)),
+        }
+        if self.skipped_expired > 0 {
+            eprintln!(
+                "lamp-voice second: held up {} ms; {} lapsed authority snapshots skipped, going on",
+                now_us.saturating_sub(self.last_control_us) / 1_000,
+                self.skipped_expired
+            );
+            self.skipped_expired = 0;
+        }
         self.last_control_us = now_us;
         if let Some(owner) = state.owner() {
             if owner.turn() <= self.retired_through || owner.turn() < self.highest_seen {
@@ -86,11 +110,9 @@ impl Gate {
         Ok(())
     }
 
-    /// As the fixture's `fresh`, less its finite-run clock rules.
+    /// As the fixture's `fresh`, less its finite-run clock rules: judged
+    /// once the control queue is empty, so on the newest authority sent.
     fn fresh(&self, now_us: u64) -> io::Result<()> {
-        if now_us.saturating_sub(self.last_control_us) >= CONTROL_LEASE_US {
-            return Err(invalid("second route controller heartbeat expired"));
-        }
         if let Some(state) = self.guard.state()
             && (now_us >= state.expires_at().as_micros()
                 || (state.owner().is_some()
@@ -170,6 +192,7 @@ impl Gate {
     }
 
     fn drain(&mut self, control: &mut Channel, engine: &mut Engine) -> io::Result<Drain> {
+        let mut drained = Drain::Deferred;
         for _ in 0..CONTROL_SLICE {
             match control.receive()? {
                 Some(Control::Stop) => return Ok(Drain::Stopped),
@@ -180,10 +203,22 @@ impl Gate {
                 Some(Control::StartCapture | Control::ConnectReference { .. }) => {
                     return Err(invalid("invalid second route provider control"));
                 }
-                None => return Ok(Drain::Empty),
+                None => {
+                    drained = Drain::Empty;
+                    break;
+                }
             }
         }
-        Ok(Drain::Deferred)
+        // While a backlog left by a stall is still being read, the fresh
+        // authority may be further down it: the heartbeat is judged once
+        // the queue is empty, or after the longest stall a gap may be.
+        let silent = monotonic_us().saturating_sub(self.last_control_us);
+        if silent > STALLED_CONTROL_US
+            || (matches!(drained, Drain::Empty) && silent >= CONTROL_LEASE_US)
+        {
+            return Err(invalid("second route controller heartbeat expired"));
+        }
+        Ok(drained)
     }
 }
 
@@ -473,12 +508,12 @@ pub async fn run(
     'tick: loop {
         // The turn tasks run while this waits.
         ticker.tick().await;
-        gate.fresh(monotonic_us())?;
         match gate.drain(&mut channels.control, &mut engine)? {
             Drain::Stopped => return Ok(()),
             Drain::Deferred => continue,
             Drain::Empty => {}
         }
+        gate.fresh(monotonic_us())?;
         // As many inputs a tick as the Live worker takes: a line replayed
         // to this route arrives faster than it was spoken, and a packet
         // left waiting past its age bound is refused.
@@ -553,6 +588,51 @@ mod tests {
         fn speak(&self, _: String) -> BoxStream<'static, net::Result<Vec<i16>>> {
             Box::pin(stream::pending())
         }
+    }
+
+    /// #960, lamp-4ace 08:47:27: the worker was held up (#784's SD/MMC
+    /// stalls) while finishing a turn, and the authority queued meanwhile
+    /// had lapsed when it was read. That ended the route and the voice.
+    /// Lapsed snapshots are skipped and the next fresh one is taken.
+    #[tokio::test]
+    async fn authority_that_lapsed_in_the_queue_during_a_stall_is_skipped() {
+        let boot = BootId::new([7; 16]).unwrap();
+        let start_us = 10_000;
+        let at = |us| MonoTime::from_micros(us);
+        let mut owner = Controller::new(boot, at(start_us));
+        owner
+            .set_microphone_permission(at(start_us), Permission::Allowed)
+            .unwrap();
+        let renew = |owner: &mut Controller, now_us: u64| {
+            let until = at(now_us + 100_000);
+            owner
+                .set_capture(at(now_us), CaptureState::RetainingUntil(until))
+                .unwrap();
+            owner
+                .set_admission(at(now_us), AdmissionState::OpenUntil(until))
+                .unwrap();
+            owner.snapshot(at(now_us)).unwrap()
+        };
+        let mut engine = Engine::new(
+            Arc::new(Silent),
+            Told::default,
+            Arc::new(|_, _, _, _| Box::pin(async { serde_json::Value::Null })),
+        );
+        let mut gate = Gate::new(boot, start_us);
+        let first = renew(&mut owner, start_us);
+        gate.install(start_us, first, &mut engine).unwrap();
+        owner.admit(at(start_us), AdmittedInput::NewTurn).unwrap();
+        // Sent every few ms while the worker was held up for 300 ms.
+        let queued: Vec<_> = (1..=60)
+            .map(|step| renew(&mut owner, start_us + step * 5_000))
+            .collect();
+        let read_us = start_us + 300_000;
+        for snapshot in queued {
+            gate.install(read_us, snapshot, &mut engine).unwrap();
+        }
+        assert_eq!(gate.last_control_us, read_us);
+        assert_eq!(gate.skipped_expired, 0);
+        gate.fresh(read_us).unwrap();
     }
 
     #[tokio::test]

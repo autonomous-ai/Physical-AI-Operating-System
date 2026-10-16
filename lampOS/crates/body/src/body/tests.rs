@@ -6091,7 +6091,13 @@ fn one_bad_read_of_a_joint_is_counted_and_skipped() {
 /// be trusted: the body stops, naming the joint, and writes none of them.
 #[test]
 fn three_bad_reads_of_a_joint_in_a_row_stop_the_body_naming_it() {
-    let (report, elbow, _) = misread_4ace(vec![(Duration::from_secs(4), 2, 37_639, 3)]);
+    let (report, elbow, lamp) = misread_4ace(vec![(Duration::from_secs(4), 2, 37_639, 3)]);
+    // It stops on the third, not after more steps tried as a failed read.
+    let reads = lamp
+        .read_times
+        .iter()
+        .filter(|at| **at >= Duration::from_secs(4));
+    assert_eq!(reads.count(), 3, "{report:?}");
     assert!(
         matches!(
             report.stop,
@@ -6354,4 +6360,251 @@ fn a_steady_wrong_elbow_reading_before_cancelled_is_not_written_at_the_exit() {
             "{from} {reading}: {report:?}"
         );
     }
+}
+
+/// A hold where the arm is asks only for a reading the arm has held for a
+/// step: the elbow reads 200 counts off in the very step its servo flags a
+/// fault. The hold does not write that reading, and the run ends on the
+/// fault, not on the refused hold.
+#[test]
+fn a_hold_at_a_reading_that_just_jumped_is_not_written_and_the_fault_stands() {
+    let at = Duration::from_secs(4);
+    let (mut lamp, mut clock) = folded(Duration::from_secs(10));
+    lamp.arm_moves = true;
+    lamp.overload_clears = 1;
+    for (servo, position) in lamp
+        .servos
+        .iter_mut()
+        .zip([2_028.0, 2_054.0, 2_049.0, 2_047.0, 1_948.0])
+    {
+        servo.position = position;
+        servo.goal = position as u16;
+        servo.status = 0;
+    }
+    lamp.misreads = vec![(at, 2, 2_249, u8::MAX)];
+    lamp.event = Some((at, 2, Event::Flag(0x20)));
+    let limits = Limits {
+        wake: true,
+        rest_glance: true,
+        look_at_name: true,
+        ..gesture_limits()
+    };
+    let report = run_alive(
+        &mut lamp,
+        &mut clock,
+        limits,
+        Some([1_950, 2_043, 2_015]),
+        Some(lamp_4ace_standing().idling(true)),
+        None,
+        || Some((Mood::Resting, 0)),
+        Asked::default,
+        |_| {},
+    );
+    let elbow: Vec<u16> = lamp
+        .goals
+        .iter()
+        .flatten()
+        .filter(|(id, _)| *id == 3)
+        .map(|(_, goal)| *goal)
+        .collect();
+    assert!(
+        elbow.iter().all(|goal| goal.abs_diff(2_049) <= 50),
+        "{elbow:?} {:?}",
+        report.stop
+    );
+    assert!(
+        matches!(report.stop, Stop::Status { joint: 3, .. }),
+        "{report:?}"
+    );
+}
+
+/// Three bad reads in a row end the run on the third, whatever it is doing:
+/// the reads made from when they begin.
+fn reads_from(lamp: &Lamp, from: Duration) -> usize {
+    lamp.read_times.iter().filter(|at| **at >= from).count()
+}
+
+/// While the head wakes out of the base, three bad reads of the elbow stop
+/// the body on the third.
+#[test]
+fn three_bad_reads_while_waking_stop_the_body_on_the_third() {
+    let from = Duration::from_secs(2);
+    let (mut lamp, mut clock) = folded(Duration::from_secs(12));
+    lamp.servos[PITCH].position = 2_095.0;
+    lamp.servos[PITCH].goal = 2_095;
+    lamp.misreads = vec![(from, 2, 37_639, 3)];
+    let report = run(
+        &mut lamp,
+        &mut clock,
+        waking(),
+        Some(HOME),
+        || Some((Mood::Resting, 0)),
+        |_| {},
+    );
+    assert!(
+        matches!(report.stop, Stop::BadRead { joint: 3, .. }),
+        "{report:?}"
+    );
+    assert_eq!(reads_from(&lamp, from), 3, "{report:?}");
+}
+
+/// While the lamp lies let go under overload, three bad reads of the base
+/// stop the body on the third.
+#[test]
+fn three_bad_reads_while_let_go_stop_the_body_on_the_third() {
+    let from = Duration::from_secs(20);
+    let (mut lamp, mut clock) = folded(Duration::from_secs(60));
+    lamp.may_take_hold = true;
+    lamp.strains = vec![(Duration::from_secs(1), Duration::from_secs_f32(2.6), 2, 800)];
+    lamp.misreads = vec![(from, YAW, 37_639, 3)];
+    let report = run(
+        &mut lamp,
+        &mut clock,
+        releasing(),
+        Some(HOME),
+        || Some((Mood::Resting, 0)),
+        |_| {},
+    );
+    assert!(
+        matches!(report.stop, Stop::BadRead { joint: 1, .. }),
+        "{report:?}"
+    );
+    assert_eq!(reads_from(&lamp, from), 3, "{report:?}");
+}
+
+/// While a shoulder left up is lowered, three bad reads of the base stop
+/// the body on the third.
+#[test]
+fn three_bad_reads_while_lowering_the_shoulder_stop_the_body_on_the_third() {
+    let from = Duration::from_secs(10);
+    let (mut lamp, mut clock) = folded(Duration::from_secs(70));
+    lamp.may_take_hold = true;
+    lamp.arm_moves = true;
+    for (index, at) in [
+        (YAW, 1_979.0),
+        (1, 2_633.0),
+        (2, 2_074.0),
+        (ROLL, 2_101.0),
+        (PITCH, 2_029.0),
+    ] {
+        let servo = &mut lamp.servos[index];
+        (servo.position, servo.goal, servo.torque, servo.status) = (at, 0, 0, 0);
+    }
+    lamp.misreads = vec![(from, YAW, 37_639, 3)];
+    lamp.heavy = Some((PITCH, 1_850.0, 37.0, 232));
+    let limits = Limits {
+        force: Some(600),
+        torque_on: true,
+        wake: true,
+        ..Limits::folded_with(Tuning {
+            reach: [150, 15, 1, 250],
+            speed: 120,
+            servo_speed: 1_000,
+            servo_acceleration: 60,
+        })
+        .unwrap()
+    };
+    let up = Standing::new(
+        [2_053, 2_069],
+        [1_772, 2_035, 2_035, 2_657, 2_602],
+        100,
+        5,
+        90,
+        [560, 560],
+    )
+    .unwrap();
+    // Spoken to once it is awake.
+    let time = clock.time.clone();
+    let news = move || {
+        Some(if time.get() > Duration::from_secs(50) {
+            (Mood::Listening, 120)
+        } else {
+            (Mood::Resting, 0)
+        })
+    };
+    let report = run_standing(
+        &mut lamp,
+        &mut clock,
+        limits,
+        Some([1_771, 2_035, 2_035]),
+        Some(up),
+        news,
+        |_| {},
+    );
+    assert!(
+        matches!(report.stop, Stop::BadRead { joint: 1, .. }),
+        "{report:?}"
+    );
+    assert!(report.lowered.is_some(), "{report:?}");
+    assert_eq!(reads_from(&lamp, from), 3, "{report:?}");
+}
+
+/// While a shoulder left up is lowered, its servo flags a fault in the
+/// step it reads 200 counts off. The hold where it is asks only for a
+/// reading the arm has held for a step, so it does not write that one, and
+/// the run ends on the fault.
+#[test]
+fn a_fault_while_lowering_the_shoulder_stands_whatever_its_hold() {
+    let at = Duration::from_secs(10);
+    let (mut lamp, mut clock) = folded(Duration::from_secs(70));
+    lamp.may_take_hold = true;
+    lamp.arm_moves = true;
+    for (index, at) in [
+        (YAW, 1_979.0),
+        (1, 2_633.0),
+        (2, 2_074.0),
+        (ROLL, 2_101.0),
+        (PITCH, 2_029.0),
+    ] {
+        let servo = &mut lamp.servos[index];
+        (servo.position, servo.goal, servo.torque, servo.status) = (at, 0, 0, 0);
+    }
+    lamp.misreads = vec![(at, 1, 2_200, u8::MAX)];
+    lamp.event = Some((at, 1, Event::Flag(0x20)));
+    lamp.heavy = Some((PITCH, 1_850.0, 37.0, 232));
+    let limits = Limits {
+        force: Some(600),
+        torque_on: true,
+        wake: true,
+        ..Limits::folded_with(Tuning {
+            reach: [150, 15, 1, 250],
+            speed: 120,
+            servo_speed: 1_000,
+            servo_acceleration: 60,
+        })
+        .unwrap()
+    };
+    let up = Standing::new(
+        [2_053, 2_069],
+        [1_772, 2_035, 2_035, 2_657, 2_602],
+        100,
+        5,
+        90,
+        [560, 560],
+    )
+    .unwrap();
+    // Spoken to once it is awake.
+    let time = clock.time.clone();
+    let news = move || {
+        Some(if time.get() > Duration::from_secs(50) {
+            (Mood::Listening, 120)
+        } else {
+            (Mood::Resting, 0)
+        })
+    };
+    let report = run_standing(
+        &mut lamp,
+        &mut clock,
+        limits,
+        Some([1_771, 2_035, 2_035]),
+        Some(up),
+        news,
+        |_| {},
+    );
+    let shoulder = goals_of(&lamp, Joint::BasePitch);
+    assert!(!shoulder.contains(&2_200), "{shoulder:?}");
+    assert!(
+        matches!(report.stop, Stop::Status { joint: 2, .. }),
+        "{report:?}"
+    );
 }

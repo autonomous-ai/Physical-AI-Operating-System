@@ -2023,8 +2023,6 @@ fn take_hold<P: PortIo, R: Runtime>(
             let at = now[joint.index()].position;
             let _ = bus.write_goal(*joint, at, false);
         }
-        // One refused is not written; the reason not to go on stands.
-        bus.refused = None;
         return Err(Stop::Refused {
             why: format!("{joint} moved {by} counts when its torque came on"),
         });
@@ -2601,7 +2599,6 @@ fn run_on<P: PortIo, R: Runtime>(
                     }
                     // A hold refused is not written; the run ends on what
                     // ended it.
-                    bus.refused = None;
                     report.stop = stop;
                     return report;
                 }
@@ -2967,7 +2964,6 @@ fn run_on<P: PortIo, R: Runtime>(
                         report.held_at = Some(hold);
                     }
                 }
-                bus.refused = None;
                 report.stop = stop;
                 return report;
             }
@@ -4482,6 +4478,9 @@ fn run_on<P: PortIo, R: Runtime>(
                             hold = Some(at);
                         }
                     }
+                    // This hold asks the arm's last goal and head readings,
+                    // which pass today; a refusal of it must not outlive it
+                    // into the run that goes on.
                     bus.refused = None;
                     // A hand on it while it came up: as V1, it lets go again.
                     if let (true, Some(at), Stop::Load { .. } | Stop::Tracking { .. }) =

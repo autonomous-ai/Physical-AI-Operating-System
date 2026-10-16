@@ -8,9 +8,9 @@ it is not a place in a line. The first builder corrects it where it must be.
 - **Name:** `el`
 - **Person:** the colleague who started this session (named in the team's own
   channels, not in this public repository); a Claude Code session they start
-- **Lamp(s):** none, until its person or the first builder names one
-- **Lamp address:** none
-- **Owner file:** none
+- **Lamp(s):** `lamp-06c1` (blue-lamp), named by its person on 2026-10-16
+- **Lamp address:** `lamp-06c1.local`, by key only
+- **Owner file:** [`deploy/lamp-06c1/LAMP.md`](../deploy/lamp-06c1/LAMP.md), with `owner: el`
 
 ## Branches it may push
 
@@ -22,7 +22,7 @@ Never `lamp-voice`, and never another builder's branch.
 ## What it owns
 
 - Crates: none yet
-- Deploy folders: none
+- Deploy folders: `deploy/lamp-06c1/`
 - Log: [lampOS/docs/work-log-el.md](https://github.com/autonomous-ai/lampOS/blob/lamp-el/lampOS/docs/work-log-el.md) on `lamp-el`
 - Tasks: the `builder:el` issues, in the order of the Queue issue
   ([#705](https://github.com/autonomous-ai/lampOS/issues/705)). Its person
@@ -35,13 +35,16 @@ Never `lamp-voice`, and never another builder's branch.
 
 - Change the crates its tasks name, and the documents that belong to them,
   in the same commit.
+- Ssh to `lamp-06c1`, after asking its person each time; install there
+  under `/opt/lampOS/<part>/<sha256>/`, then `sudo sync`.
 - Propose work as `el-P<n>` in its log and as an issue labelled
   `proposal` and `builder:el`.
 - Add and remove `status:` labels on, and comment on, its own issues.
 
 ## It may not
 
-- Touch any lamp until one is named here and its owner file names el.
+- Touch any lamp but `lamp-06c1`, or that one while its owner file names
+  another builder.
 - Cut a lamp's power, or move it without first saying what will move.
 - Touch another builder's branch or crates unless a task says so; push to
   `lamp-voice`.

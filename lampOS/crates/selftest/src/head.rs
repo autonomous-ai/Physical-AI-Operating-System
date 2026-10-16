@@ -198,24 +198,47 @@ pub struct Sample {
     pub commanded: f64,
 }
 
-/// When the asked goal was met: the body's goal moved the asked way, has
-/// held still for a moment, and the joint is within [`NEAR`] of it. The
-/// goal's move in counts beside it, which the body may have cut.
-pub fn reached(goal_was: f64, sign: f64, samples: &[Sample]) -> Option<(Duration, f64)> {
+/// Where a move should bring the joint, in counts from where it began:
+/// what was asked, or less if the body cut its goal shorter (lamp-52e6's
+/// roll reaches one count). Never the written goal itself: lifting a
+/// relaxed head, the body writes its goal 40 counts past the pose it wants
+/// (`GLANCE_LIFT_LEAD`), because the head stops about 30 short of it.
+pub fn expected(goal_moved: f64, asked: f64) -> f64 {
+    goal_moved.min(asked)
+}
+
+/// When the move was met: the body's goal moved the asked way and has held
+/// still for a moment, and the joint is within [`NEAR`] of where it was
+/// asked to go from `start` ([`expected`]). That move in counts beside it.
+pub fn reached(
+    start: f64,
+    goal_was: f64,
+    sign: f64,
+    asked: f64,
+    samples: &[Sample],
+) -> Option<(Duration, f64)> {
     for (index, sample) in samples.iter().enumerate() {
         let moved = (sample.commanded - goal_was) * sign;
-        if moved < 1.0 || (sample.position - sample.commanded).abs() > NEAR {
+        if moved < 0.5 {
             continue;
         }
+        let wanted = expected(moved, asked);
+        if (sample.position - (start + sign * wanted)).abs() > NEAR {
+            continue;
+        }
+        // Unchanged since the last reading at least `STEADY` before.
         let since = sample.at.saturating_sub(STEADY);
-        let held = samples[..=index]
+        let Some(from) = samples[..index]
             .iter()
-            .rev()
-            .take_while(|earlier| earlier.at >= since)
+            .rposition(|earlier| earlier.at <= since)
+        else {
+            continue;
+        };
+        let held = samples[from..=index]
+            .iter()
             .all(|earlier| (earlier.commanded - sample.commanded).abs() < 0.5);
-        let long_enough = samples[..index].iter().any(|earlier| earlier.at <= since);
-        if held && long_enough {
-            return Some((sample.at, moved));
+        if held {
+            return Some((sample.at, wanted));
         }
     }
     None
@@ -232,7 +255,7 @@ pub enum Moved {
         goal: f64,
         back: Duration,
     },
-    /// The goal moved and the joint did not follow it in time.
+    /// The goal moved and the joint did not get where it was asked in time.
     NotReached { goal: f64, gap: f64 },
     /// Met, and not back where it began in time.
     NotBack { goal: f64, away: f64 },
@@ -356,7 +379,8 @@ fn unix_ms() -> u64 {
 }
 
 /// How long ago someone other than the self-test last asked on
-/// `expression/body`, by its kept value.
+/// `expression/body`, by its kept value: before the check, for the quiet
+/// minute. While it runs, [`Watch`] hears every request.
 fn others_asked(bus: &Bus) -> Option<Duration> {
     let message = bus.latest(ExpressionBody::TOPIC).ok()??;
     (message.header.source != SOURCE)
@@ -461,25 +485,54 @@ fn ease(share: f64) -> f64 {
     0.5 - 0.5 * (PI * share.clamp(0.0, 1.0)).cos()
 }
 
-/// What can end the check while it moves: a hand on the lamp, someone else
-/// asking the body, or the lamp leaving rest.
-fn interruption(
-    bus: &Bus,
-    began: Instant,
-    diagnostics: &mut lamp_bus::Subscriber,
-) -> Option<String> {
-    if pushed(bus) {
-        return Some("a hand was put on the lamp".into());
+/// What is listened to for the whole check: the body's reports, and every
+/// request on `expression/body`, so that another asker is seen whenever it
+/// asks, not only if its request is the newest kept.
+struct Watch {
+    diagnostics: lamp_bus::Subscriber,
+    asked: lamp_bus::Subscriber,
+}
+
+impl Watch {
+    fn on(bus: &Bus) -> Result<Self, String> {
+        let open = |topic: &str, type_name: &str| {
+            bus.subscribe_typed(topic, SOURCE, type_name)
+                .map_err(|error| format!("{topic} cannot be read: {error}"))
+        };
+        Ok(Self {
+            diagnostics: open(Diagnostic::TOPIC, Diagnostic::TYPE)?,
+            asked: open(ExpressionBody::TOPIC, ExpressionBody::TYPE)?,
+        })
     }
-    if others_asked(bus).is_some_and(|ago| ago < began.elapsed()) {
-        return Some("someone else asked the body to move".into());
+
+    /// What ends the check while it moves: a hand on the lamp, anyone else
+    /// asking the body, the lamp leaving rest, or its starting to fold.
+    fn interruption(&mut self, bus: &Bus) -> Option<String> {
+        if pushed(bus) {
+            return Some("a hand was put on the lamp".into());
+        }
+        let mut other = None;
+        while let Ok(Some(message)) = self.asked.recv(Duration::ZERO) {
+            if message.header.source != SOURCE {
+                other = Some(message.header.source);
+            }
+        }
+        if let Some(source) = other {
+            return Some(format!("{source} asked the body to move"));
+        }
+        if let Some(body) = body_report(&mut self.diagnostics, Duration::ZERO) {
+            if body.mood != "resting" {
+                return Some(format!("the lamp left rest: it is {}", body.mood));
+            }
+            if body.standing < STANDING {
+                return Some(format!(
+                    "the lamp began to fold (standing {:.2})",
+                    body.standing
+                ));
+            }
+        }
+        None
     }
-    if let Some(body) = body_report(diagnostics, Duration::ZERO)
-        && body.mood != "resting"
-    {
-        return Some(format!("the lamp left rest: it is {}", body.mood));
-    }
-    None
 }
 
 /// One move: eased out and held until met or [`REACH_WITHIN`], eased back,
@@ -487,10 +540,9 @@ fn interruption(
 fn one_move(
     bus: &Bus,
     asker: &mut Asker,
-    diagnostics: &mut lamp_bus::Subscriber,
+    watch: &mut Watch,
     joint: Joint,
     sign: f64,
-    checked_since: Instant,
 ) -> Result<Moved, String> {
     let Some((_, start, goal_was)) = read(bus, joint) else {
         return Err(format!(
@@ -516,12 +568,12 @@ fn one_move(
                 position,
                 commanded,
             });
-            met = reached(goal_was, sign, &samples);
+            met = reached(start, goal_was, sign, joint.counts(), &samples);
             if met.is_some() {
                 break;
             }
         }
-        if let Some(why) = interruption(bus, checked_since, diagnostics) {
+        if let Some(why) = watch.interruption(bus) {
             return Err(why);
         }
         std::thread::sleep(STEP);
@@ -538,13 +590,14 @@ fn one_move(
             .iter()
             .map(|s| (s.commanded - goal_was) * sign)
             .fold(0.0f64, f64::max);
-        if moved < 1.0 {
+        if moved < 0.5 {
             return Ok(Moved::NotTaken);
         }
+        let wanted = expected(moved, joint.counts());
         let gap = samples
             .last()
-            .map_or(f64::NAN, |s| (s.position - s.commanded).abs());
-        return Ok(Moved::NotReached { goal: moved, gap });
+            .map_or(f64::NAN, |s| (s.position - (start + sign * wanted)).abs());
+        return Ok(Moved::NotReached { goal: wanted, gap });
     };
     let mut away = f64::NAN;
     while letting_go.elapsed() < BACK_WITHIN {
@@ -558,8 +611,8 @@ fn one_move(
                 });
             }
         }
-        if pushed(bus) {
-            return Err("a hand was put on the lamp".into());
+        if let Some(why) = watch.interruption(bus) {
+            return Err(why);
         }
         std::thread::sleep(STEP);
     }
@@ -573,23 +626,13 @@ pub struct HeadMove<'a> {
 
 impl HeadMove<'_> {
     fn moves(&mut self, deadline: Instant) -> PartResult {
-        let mut diagnostics =
-            match self
-                .bus
-                .subscribe_typed(Diagnostic::TOPIC, SOURCE, Diagnostic::TYPE)
-            {
-                Ok(subscriber) => subscriber,
-                Err(error) => {
-                    return PartResult::new(
-                        PART,
-                        Verdict::Fail,
-                        &format!("{} cannot be read: {error}", Diagnostic::TOPIC),
-                    );
-                }
-            };
+        let mut watch = match Watch::on(self.bus) {
+            Ok(watch) => watch,
+            Err(why) => return PartResult::new(PART, Verdict::Fail, &why),
+        };
         let before = Before {
             occasion: self.occasion,
-            body: body_report(&mut diagnostics, REPORT_WITHIN),
+            body: body_report(&mut watch.diagnostics, REPORT_WITHIN),
             pushed: pushed(self.bus),
             others_asked: others_asked(self.bus),
         };
@@ -600,20 +643,12 @@ impl HeadMove<'_> {
             Ok(asker) => asker,
             Err(why) => return PartResult::new(PART, Verdict::Fail, &why),
         };
-        let checked_since = Instant::now();
         let mut tried = Vec::new();
         for (joint, sign) in MOVES {
             if Instant::now() + ONE_MOVE > deadline {
                 return judge(&tried, Some("out of time"));
             }
-            match one_move(
-                self.bus,
-                &mut asker,
-                &mut diagnostics,
-                joint,
-                sign,
-                checked_since,
-            ) {
+            match one_move(self.bus, &mut asker, &mut watch, joint, sign) {
                 Ok(moved) => {
                     let failed = matches!(moved, Moved::NotReached { .. } | Moved::NotBack { .. });
                     tried.push(Tried { joint, sign, moved });
@@ -732,11 +767,37 @@ mod tests {
             at(600, 1739.0, 1740.0),
         ];
         assert_eq!(
-            reached(1700.0, 1.0, &samples),
+            reached(1700.0, 1700.0, 1.0, 40.0, &samples),
             Some((Duration::from_millis(600), 40.0))
         );
         // The other way it was never met.
-        assert_eq!(reached(1700.0, -1.0, &samples), None);
+        assert_eq!(reached(1700.0, 1700.0, -1.0, 40.0, &samples), None);
+        // Lifting a relaxed head, the body writes its goal 40 past the pose
+        // it wants and the head stops about 30 short of that goal: met
+        // where it was asked to go, and the move is the asked 40.
+        let lifted = [
+            at(0, 1700.0, 1700.0),
+            at(300, 1680.0, 1650.0),
+            at(600, 1652.0, 1620.0),
+            at(700, 1650.0, 1620.0),
+            at(800, 1650.0, 1620.0),
+            at(900, 1650.0, 1620.0),
+        ];
+        assert_eq!(
+            reached(1700.0, 1700.0, -1.0, 40.0, &lifted),
+            Some((Duration::from_millis(800), 40.0))
+        );
+        // A relaxed head sits a few counts off its goal: judged from where
+        // the joint began.
+        let off = [
+            at(0, 1705.0, 1700.0),
+            at(300, 1745.0, 1740.0),
+            at(600, 1745.0, 1740.0),
+        ];
+        assert_eq!(
+            reached(1705.0, 1700.0, 1.0, 40.0, &off),
+            Some((Duration::from_millis(600), 40.0))
+        );
         // A goal cut to one count, as lamp-52e6's roll is, is met.
         let roll = [
             at(0, 2035.0, 2035.0),
@@ -744,7 +805,7 @@ mod tests {
             at(400, 2036.0, 2036.0),
         ];
         assert_eq!(
-            reached(2035.0, 1.0, &roll),
+            reached(2035.0, 2035.0, 1.0, 20.0, &roll),
             Some((Duration::from_millis(400), 1.0))
         );
         // A joint left behind its goal is not.
@@ -753,7 +814,7 @@ mod tests {
             at(300, 1700.0, 1740.0),
             at(600, 1701.0, 1740.0),
         ];
-        assert_eq!(reached(1700.0, 1.0, &stuck), None);
+        assert_eq!(reached(1700.0, 1700.0, 1.0, 40.0, &stuck), None);
     }
 
     fn done(joint: Joint, sign: f64) -> Tried {
@@ -845,11 +906,17 @@ mod tests {
         Follows,
         PitchStuck,
         TakesNothing,
+        /// Starts to fold a little over a second in.
+        Folds,
+        /// Expression asks too, a little over a second in.
+        OtherAsks,
     }
 
-    /// A body on `bus`: it takes requests on
-    /// `expression/body`, moves its goals at 120 counts a second, lets
-    /// the joints follow, and says it rests, standing, until stopped.
+    /// A body on `bus` as lamp-52e6's: it takes requests on
+    /// `expression/body`, moves its goals at 120 counts a second, writes a
+    /// lifting head's goal 40 counts ahead, where the head stops 30 short
+    /// (`GLANCE_LIFT_LEAD`), cuts the roll to one count, lets the joints
+    /// follow, and says it rests, standing, until stopped.
     fn body(
         root: std::path::PathBuf,
         fake: Fake,
@@ -866,6 +933,14 @@ mod tests {
             let mut asked = bus
                 .subscribe_typed(ExpressionBody::TOPIC, "body", ExpressionBody::TYPE)
                 .unwrap();
+            let mut expression = Asker::new(&bus).unwrap();
+            expression.out = bus
+                .publisher_declared(
+                    ExpressionBody::TOPIC,
+                    &ExpressionBody::declaration(),
+                    "expression",
+                )
+                .unwrap();
             let rest = [1771.0, 2035.0];
             let (mut goal, mut position) = (rest, rest);
             let mut offsets = None::<(BodyOffsets, u64)>;
@@ -880,16 +955,27 @@ mod tests {
                 let wanted = match offsets {
                     Some((o, until)) if until > now && !matches!(fake, Fake::TakesNothing) => [
                         rest[0] + (o.head_pitch * COUNTS_A_RADIAN).clamp(-50.0, 50.0),
-                        rest[1] + (o.head_roll * COUNTS_A_RADIAN).clamp(-25.0, 25.0),
+                        rest[1] + (o.head_roll * COUNTS_A_RADIAN).clamp(-1.0, 1.0),
                     ],
                     _ => rest,
                 };
+                let lead = if wanted[0] < rest[0] - 0.5 { 40.0 } else { 0.0 };
+                let goal_wanted = [wanted[0] - lead, wanted[1]];
                 for joint in 0..2 {
-                    goal[joint] += (wanted[joint] - goal[joint]).clamp(-2.4, 2.4);
+                    goal[joint] += (goal_wanted[joint] - goal[joint]).clamp(-2.4, 2.4);
+                    let short = if joint == 0 { lead * 0.75 } else { 0.0 };
                     if joint == 1 || !matches!(fake, Fake::PitchStuck) {
-                        position[joint] += (goal[joint] - position[joint]) * 0.5;
+                        position[joint] += (goal[joint] + short - position[joint]) * 0.5;
                     }
                 }
+                if matches!(fake, Fake::OtherAsks) && step == 60 {
+                    expression.ask(BodyOffsets::ZERO).unwrap();
+                }
+                let standing = if matches!(fake, Fake::Folds) && step >= 60 {
+                    0.6
+                } else {
+                    1.0
+                };
                 let radians = |counts: f64| counts / COUNTS_A_RADIAN;
                 let state = JointState {
                     name: ["base_yaw", "shoulder", "elbow", "head_roll", "head_pitch"]
@@ -907,7 +993,7 @@ mod tests {
                 joints.publish_json(now, &state).unwrap();
                 if step.is_multiple_of(10) {
                     diagnostics
-                        .publish_json(now, &report("resting", 1.0, 40))
+                        .publish_json(now, &report("resting", standing, 40))
                         .unwrap();
                 }
                 step += 1;
@@ -935,16 +1021,23 @@ mod tests {
         result
     }
 
+    // The requests' clock is named by this boot's id, which only Linux has.
+    #[cfg(target_os = "linux")]
     #[test]
     fn a_body_that_follows_passes_and_one_that_does_not_fails_or_is_not_checked() {
         let follows = run_against(Fake::Follows, "follows");
         assert_eq!(follows.verdict, Verdict::Pass, "{follows:?}");
-        assert!(
+        let value = |key: &str| {
             follows
                 .values
                 .iter()
-                .any(|v| v.key == "head_roll_plus_goal_counts" && v.value == "20")
-        );
+                .find(|v| v.key == key)
+                .map(|v| v.value.clone())
+        };
+        // Lifted as asked although the goal was written 40 ahead; the roll
+        // as far as the body cut it.
+        assert_eq!(value("head_pitch_minus_goal_counts").as_deref(), Some("40"));
+        assert_eq!(value("head_roll_plus_goal_counts").as_deref(), Some("1"));
         let stuck = run_against(Fake::PitchStuck, "stuck");
         assert_eq!(stuck.verdict, Verdict::Fail, "{stuck:?}");
         assert!(
@@ -954,5 +1047,16 @@ mod tests {
         );
         let deaf = run_against(Fake::TakesNothing, "deaf");
         assert_eq!(deaf.verdict, Verdict::NotChecked, "{deaf:?}");
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn another_asker_or_folding_during_the_moves_ends_them_not_checked() {
+        let other = run_against(Fake::OtherAsks, "other");
+        assert_eq!(other.verdict, Verdict::NotChecked, "{other:?}");
+        assert_eq!(other.reason, "stopped: expression asked the body to move");
+        let folds = run_against(Fake::Folds, "folds");
+        assert_eq!(folds.verdict, Verdict::NotChecked, "{folds:?}");
+        assert!(folds.reason.contains("began to fold"), "{}", folds.reason);
     }
 }

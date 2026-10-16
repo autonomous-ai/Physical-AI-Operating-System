@@ -93,6 +93,22 @@ must have stopped first; a shutdown black-write receipt **and** process exit
 are required before its replacement starts. SPI stays outside the privacy and
 audio owner loops. See [service privacy](service-privacy.md).
 
+The indicator never reads the bus itself (#795 review). One receive from the
+bus passes over any number of messages it refuses, so a flood of them on
+`voice/privacy` must not stand between the writer's Stop and expiry checks.
+- A thread of its own, `LeaseWatch` (`privacy_bus.rs`), reads the lease every
+  2 ms.
+- The writer takes the last lease found, if still fresh at that moment, or
+  the reader's failure. Its own Stop, Authority and expiry checks come first,
+  as before.
+- A refused message still ends the reader at once, and the writer blanks and
+  exits on that failure.
+- Tests: `the_lease_watch_answers_at_once_through_refused_input_and_lets_a_lease_expire`
+  (each answer under 5 ms during the flood, no lease past its freshness, the
+  failure kept) and
+  `stop_during_refused_input_on_the_lease_topic_is_served_at_once` (the
+  writer's real step, Stop served in under 10 ms, nothing red written).
+
 Design targets, not measured lamp results: actual line read to Controls
 publication within 50 ms; accepted mute to both capture gates closed within
 100 ms. Controls schedules line reads every 5 ms, publication at most every

@@ -16,6 +16,7 @@ lamp-skills`, which runs every skill's cases).
 | `quiet-when-short-sitting` | A face for 40 minutes, then none to minute 55 | Pass: nothing |
 | `quiet-until-they-leave` | A face for 3 hours, never leaving | Pass: once at 50 minutes, never again |
 | `quiet-while-talking` | A face for 58 minutes; `voice/state` listening at 48, speaking at 50, resting at 56 | Pass: nothing (the chance held back by the conversation is spent) |
+| `across-the-room` | `acts-after-50-minutes` with the face 0.04 of the picture tall, someone across the room (lamp-4ace, 2026-10-16 15:16, when it fired for them) | Pass: nothing (`near = 0.14`); without `near` it stretched at 50 minutes |
 | `quiet-when-paused` | Not recorded: waits for the Policy's gate (#939) | Not run |
 
 `quiet-when-paused` waits for the Policy's gate (#939), the one gate for

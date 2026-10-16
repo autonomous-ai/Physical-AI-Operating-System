@@ -330,7 +330,7 @@ impl People {
 }
 
 /// What the voice service asks of the eyes on their request socket: one
-/// line of JSON, `{"remember":"Minh"}`, `{"forget":"Minh"}`,
+/// line of JSON, `{"remember":"A"}`, `{"forget":"A"}`,
 /// `{"list":true}` or `{"who":true}`. Anything else is nothing.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Ask {
@@ -567,47 +567,44 @@ mod tests {
         let mut people = People::open(path.clone()).unwrap();
         assert_eq!(people.who(&print(0.3)), None);
         let kept = people
-            .remember("  Minh  ", vec![print(0.3), print(0.31)], 1)
+            .remember("  A  ", vec![print(0.3), print(0.31)], 1)
             .unwrap();
-        assert_eq!(kept, "Minh");
+        assert_eq!(kept, "A");
         let (name, how) = people.who(&print(0.3)).unwrap();
-        assert_eq!(name, "Minh");
+        assert_eq!(name, "A");
         assert!(how > 0.99);
         // Someone else is nobody.
         assert_eq!(people.who(&print(1.7)), None);
         // Kept across a restart, private.
         let again = People::open(path.clone()).unwrap();
-        assert_eq!(again.names(), vec!["Minh".to_owned()]);
+        assert_eq!(again.names(), vec!["A".to_owned()]);
         let mode = std::fs::metadata(&path).unwrap().permissions();
         assert_eq!(
             std::os::unix::fs::PermissionsExt::mode(&mode) & 0o777,
             0o600
         );
         // Asked again, the new prints replace the old.
-        people.remember("minh", vec![print(1.7)], 2).unwrap();
-        assert_eq!(people.names(), vec!["minh".to_owned()]);
+        people.remember("a", vec![print(1.7)], 2).unwrap();
+        assert_eq!(people.names(), vec!["a".to_owned()]);
         assert_eq!(people.who(&print(0.3)), None);
-        assert!(people.forget("MINH").unwrap());
-        assert!(!people.forget("Minh").unwrap());
+        assert!(people.forget("A").unwrap());
+        assert!(!people.forget("A").unwrap());
         assert!(People::open(path).unwrap().names().is_empty());
     }
 
     #[test]
     fn the_voice_asks_in_one_of_four_lines_and_anything_else_is_nothing() {
         assert_eq!(
-            ask_of(br#"{"remember":"Minh"}"#),
-            Some(Ask::Remember("Minh".into()))
+            ask_of(br#"{"remember":"A"}"#),
+            Some(Ask::Remember("A".into()))
         );
-        assert_eq!(
-            ask_of(br#"{"forget":"Minh"}"#),
-            Some(Ask::Forget("Minh".into()))
-        );
+        assert_eq!(ask_of(br#"{"forget":"A"}"#), Some(Ask::Forget("A".into())));
         assert_eq!(ask_of(br#"{"list":true}"#), Some(Ask::List));
         assert_eq!(ask_of(br#"{"who":true}"#), Some(Ask::Who));
         for nothing in [
             &br#"{"who":false}"#[..],
-            br#"{"remember":"Minh","forget":"Minh"}"#,
-            br#"{"remember":"Minh","extra":1}"#,
+            br#"{"remember":"A","forget":"A"}"#,
+            br#"{"remember":"A","extra":1}"#,
             br#"{}"#,
             b"who",
         ] {
@@ -617,7 +614,7 @@ mod tests {
 
     #[test]
     fn a_face_is_remembered_only_as_the_one_face_near_and_otherwise_says_why() {
-        let mut taking = Taking::new("Minh".into(), 0);
+        let mut taking = Taking::new("A".into(), 0);
         // Nobody there: said after a second and a half, not four.
         taking.look(&[], None);
         assert_eq!(taking.given_up(NOBODY_FOR_US - 1), None);
@@ -631,7 +628,7 @@ mod tests {
         assert_eq!(taking.given_up(TAKING_FOR_US), Some(NotTaken::TwoFaces));
         assert!(taking.taken().is_none());
         // One person at the lamp, five looks: taken.
-        let mut taking = Taking::new("Minh".into(), 0);
+        let mut taking = Taking::new("A".into(), 0);
         for n in 0..MOST_PRINTS {
             assert!(taking.taken().is_none());
             taking.look(&[0.2, 0.04], Some(print(0.3 + n as f32 * 0.001)));
@@ -644,27 +641,20 @@ mod tests {
     fn names_prints_and_people_are_bounded_and_a_bad_file_is_refused() {
         let path = file("bounds");
         let mut people = People::open(path.clone()).unwrap();
-        for bad in ["", "  ", "1Minh", "rm -rf /", "Minh;", &"a".repeat(41)] {
+        for bad in ["", "  ", "1A", "rm -rf /", "A;", &"a".repeat(41)] {
             assert!(
                 people.remember(bad, vec![print(0.3)], 1).is_err(),
                 "{bad:?}"
             );
         }
-        assert!(people.remember("Lan", vec![], 1).is_err());
+        assert!(people.remember("B", vec![], 1).is_err());
         assert!(
             people
-                .remember("Lan", vec![print(0.3); MOST_PRINTS + 1], 1)
+                .remember("B", vec![print(0.3); MOST_PRINTS + 1], 1)
                 .is_err()
         );
-        assert!(
-            people
-                .remember("Lan", vec![vec![0.5; PRINT - 1]], 1)
-                .is_err()
-        );
-        assert_eq!(
-            plain_name("Nguyễn Thị Lan").as_deref(),
-            Some("Nguyễn Thị Lan")
-        );
+        assert!(people.remember("B", vec![vec![0.5; PRINT - 1]], 1).is_err());
+        assert_eq!(plain_name("Nguyễn Thị B").as_deref(), Some("Nguyễn Thị B"));
         assert_eq!(plain_name("O’Brien").as_deref(), Some("O’Brien"));
         for n in 0..MOST_PEOPLE {
             let name = format!("Person {}", char::from(b'A' + n as u8));

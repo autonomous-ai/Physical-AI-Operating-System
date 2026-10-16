@@ -175,11 +175,11 @@ mod tests {
         assert!(!steady.halved(false, now));
         let mut now = 0;
         while now <= STEADY_FOR_US {
-            steady.look(1, at(0.1, 0.2), true, Some("Minh"), now);
+            steady.look(1, at(0.1, 0.2), true, Some("A"), now);
             now += LOOK_US;
         }
         assert!(steady.halved(false, now));
-        steady.look(1, at(0.1, 0.2), true, Some("Lan"), now);
+        steady.look(1, at(0.1, 0.2), true, Some("B"), now);
         assert!(!steady.halved(false, now));
     }
 }

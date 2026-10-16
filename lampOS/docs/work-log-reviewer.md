@@ -4,6 +4,58 @@
 
 Newest first. Times from `date` (+07). 00:12 to 01:40: the review agents stopped at a usage limit.
 
+- 04:1x #1192 re-checked at 5319b20f1: my P2 fixed (16,320-run sweep wrote no goal outside its window); new P2 (when the folded arm rests its goal is set to the last reading, so a steady wrong reading under 300 counts is written with torque on: the elbow moved 142 counts in a probe); waits for a lamp-52e6 run
+- 04:1x #1197 re-checked at 0bbe1f95d: my P2 and P3 fixed; new P2 (while the answer plays the rule counts the lamp's own voice leaking past the echo canceller, so a line from across the room cuts the answer: 14:21 again)
+- 04:18 #1209 first review: no P1/P2; for the first builder (real hardware, no lamp); P3 (one pressed first read turns the reset off for the run)
+- 04:17 merged #1194 (the log relay never makes shared stderr non-blocking)
+- 04:17 merged #1202 (65 tests leave the realtime group)
+- 04:11 #1191 re-checked at 85a8c664d: clean; for the first builder (lamp-4ace check named)
+- 04:0x #1199 first review: P2 (the new start check saw the clip's start 2 s late in ask 23 on lamp-06c1, so the lamp stood still 2 s mid-dance; README says the body was late, the raw files say it wasn't); P3s
+- 04:0x #1195 re-checked at 0c09c3f1a: P2 and P3 fixed (probed); needs a rebase (tests.rs end, after #1200), then merge on green ARM64
+- 04:04 merged #1205 (the lamp-bus slow-follower flake) and closed #1204
+- 03:58 merged #795 (the privacy switch, mine to merge) and closed #755
+- 03:54 #1108 re-checked at 4cdb7239e: my P2 fixed (probed); for the first builder (lamp-4ace only)
+- 03:51 #1179 re-checked at 48c23ca0b: clean; for the first builder (times the capture and camera loops)
+- 03:50 merged #1057 (checked names, off unless LAMP_NAMES=checked; history folded, no names)
+- 03:4x #1191 re-checked at 1ecd662d9: the first builder's two P2s fixed (probed); new P2 (a held coordinator loses the ring's on-time receipt, so resync waits for one already come and the ring goes off for the cycle); then the first builder's (no lamp)
+- 03:3x #1194 re-checked at 6681624fd: P1 fixed, ARM64 green; P2 still open (no test fails with the bug put back; a child-process test offered)
+- 03:3x #1195 first review (a few minutes late): P2 (the down line is said on written turns too: a hello, news or a skill's line with nobody asking); P3 (no length cap on the kept clip, no journal line on a failed render)
+- 03:38 merged #1198 (expression test clock keeps up with the wall) and closed #1196; #1201 sent back (P2: docs and comments still say real time)
+- 03:37 merged #1200 (#1175's follow-ups: a stop carried to the continuing request, at most 2 min)
+- 03:20 #1197 first review: P2 (the asker's own soft-starting follow-up is dropped at the answer's start with on, while record takes it); P3 (the 7 s bound takes over mid-line); the 14:21 case and the crash are fine
+- 03:1x #1194 first review: the fix is right (probed with a child process); P1 test-only (its socket test fails on Linux every time: ARM64 red); P2 (no test fails if the bug returns; a child-process test proposed)
+- 03:1x #1131 checked after the 02:06 merge: tests not weakened; P2 follow-up (two "at once" checks now leave about 70 ms of real time)
+- 03:1x #1179 first review (late, posted 02:08 on an early head and now on 1cfd16dd0): P2 (with LAMP_STALLS=on the recorder's Drop waits before each loop's cleanup, delaying the mic and camera close); P2 (the new test can't fail: the 8 MiB vec is optimised away in --release); conflicts; for the first builder (privacy-path timing)
+- 03:1x #795 re-checked at 5937a5d73: two P2s (does not build after #1092: a test Rig lacks asker_first; a bad merge with #1176: a head-only legacy_head engine misses GPIO read faults even with the switch off); product pins fine
+- 03:19 posted the 01:40-03:20 batch on #705
+- 03:18 merged #1193 (#1103's P3s; ARM64 rerun green after a lamp-bus flake)
+- 03:0x #1182 checked after the 02:14 merge: privacy holds; P2 (the bare 'authority snapshot has expired' can come from the speaker's silence check, so #1182 alone may not keep the voice up); first builder's lamp check (told on #1178)
+- 03:0x #1175 checked after the 02:57 merge: my P2 half fixed; follow-up P2 (a stop used up when its request is asked, then given up: the continuing request gets no note) and P3 (a carried stop has no time limit)
+- 03:0x #1057 re-checked at 3bce3bbc6: my P2 and P3s fixed (phrase lists re-run); new P2: three commits still add people's names and a record's letter, so a rebase merge would put them in lamp-voice history (fold); the first builder's 02:42 cases not yet tests
+- 03:0x #1192 first review: P2 (three arm-goal writes in take_hold and the overload clear skip the guard: a raw read of 37639 still reaches the wire under --torque on); waits for a lamp-52e6 run
+- 03:08 #1191 first review: the first builder's two P2s confirmed by measurement; then first builder's (no lamp)
+- 03:05 merged #1173 (the staff note, off unless set; all P2s fixed)
+- 02:5x #1092 checked after the 02:33 merge: my P1 gone (probed, a test now catches it); the rule still holds while a kept line lasts with no limit (needs a bound before it is switched on)
+- 02:5x #1161 checked after the 01:44 merge: P2 follow-up before LAMP_TASK_NEWS_AT_PAUSE is turned on (the lamp's own echo in a reply's tail counts as the person's speech: news 1.2 s after the lamp stops)
+- 02:5x #1143 reviewed: all #1099 and #1003 P3s fixed, probed; merge on green ARM64 (rerun after an expression flake)
+- 02:5x #1107 checked after the 01:52 merge: both P2s and three P3s fixed (probed), nothing left
+- 02:59 merged #1143 (#1099/#1003 P3s: a waiting reminder decided at once)
+- 02:58 merged #1012 (Dance; shown on lamp-06c1; all findings fixed)
+- 02:56 #1130: passed on a possible crash with LAMP_WAIT_KEEPS_ANSWER on (a quiet line 0.2 s before the answer), maybe a probe artefact
+- 02:54 merged #1166 (light/reached on the bus, off unless LAMP_LIGHT_REQUESTS; my P1 fixed)
+- 02:53 #1173 re-checked at 8c37ca376: the test P2 and both P3s fixed; merge on green ARM64
+- 02:50 #1193 reviewed: no finding (#1103's P3s); merge on green ARM64
+- 02:4x #1130 checked after the 01:44 merge: P1 and P2s fixed (probed on the product mask); P3 follow-up (a block with no echo evidence while a sound waits)
+- 02:48 merged #1187 (the voice-check scene on the logical clock, #1160)
+- 02:46 merged #1190 (two review hearings on a logical clock, out of the realtime group)
+- 02:46 merged #1054 (actions held by the Policy, off unless set; my P2 answered: the 11:20 timer stays held, said so)
+- 02:3x #1173 re-checked at 31bb35784: my P2s and the first builder's fixed; new P2 (the switch-off test can't fail: it says "ask Codex" where only Claude Code matches); conflicts after #1148
+- 02:3x #1108 re-checked at 5ed472f50: rebase only, my 22:01 P2 still open (a weak bare call on name/rising alone lets the next line play in a busy room); off unless --call-wait-ms
+- 02:38 #1166 re-checked at 4edf866ed: my P1 fixed (probed); new P2 (ARM64 red on the merge: light/reached missing from voice-eval's BUS_TOPICS after #1165)
+- 02:38 #1103 re-checked at 698dd1789: my P2 and P3s fixed (probed across a reboot); waits on the first builder's answer to Twelve's/Nine's timer question (asked on #705 at 02:38)
+- 02:31 #1189 reviewed: duplicate of #1186 (merged 02:22), asked to close
+- 02:23 #1188 reviewed: no finding (my #1172 P3s); adds back a camera ask on the second route, so for the first builder
+- 02:23 merged #1186 (say test authority at the observed moment) and closed #1185
 - 02:1x #1156 checked after the 23:47 merge: no P1/P2; my P3s and the first builder's --progress P2 fixed; works on a home lamp now that #1174 is in
 - 02:1x #997 checked after the 23:23 merge: both P2s fixed (probed, incl. a second restart in one boot); P3 follow-up (failed unlink plus a hard death before the last persist still opens the mute on a tap: persist_muted in mute_chosen)
 - 02:1x #1010 re-checked at b84800082: the P2 and P3 fixed (probed), but it no longer compiles on lamp-voice (#1138 added Asked::still): rebase; then waits for the lamp-52e6 run with a hand

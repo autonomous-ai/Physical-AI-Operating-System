@@ -1,18 +1,18 @@
-//! The self-test's speaker check (#812): `lamp-selftest` asks the voice to
-//! play its tone (`selftest/speaker/request`) and the voice answers what its
-//! microphone made of it (`selftest/speaker`). See `docs/selftest.md`.
+//! The self-test's speaker check (#812): `lamp-selftest` asks the voice
+//! (`selftest/speaker/request`) and the voice answers what its microphone
+//! made of the lamp's own last speaking turn (`selftest/speaker`); nothing
+//! is played. See `docs/speaker-check.md`.
 use crate::{Invalid, invalid};
 use lamp_bus::{Declaration, Kind};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
-/// A request to play the tone once.
+/// A request for the speaker check.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SpeakerCheckRequest {
     /// Names the request; the answer repeats it.
     pub id: String,
-    /// `factory` or `on_demand`. The voice plays for no other: a lamp in a
-    /// home does not beep by itself.
+    /// `factory` or `on_demand`, the occasions it is asked at.
     pub occasion: String,
 }
 
@@ -20,7 +20,7 @@ impl SpeakerCheckRequest {
     pub const TYPE: &str = "lamp_msgs/SpeakerCheckRequest";
     pub const VERSION: u32 = 1;
     pub const TOPIC: &str = "selftest/speaker/request";
-    /// The occasions the tone is played for.
+    /// The occasions it is answered for.
     pub const OCCASIONS: [&str; 2] = ["factory", "on_demand"];
 
     /// Each request is its own; one not taken within 10 s is stale.
@@ -34,7 +34,7 @@ impl SpeakerCheckRequest {
         }
         if !Self::OCCASIONS.contains(&self.occasion.as_str()) {
             return invalid(format!(
-                "the tone is played only for {}, not {:?}",
+                "the speaker check is answered only for {}, not {:?}",
                 Self::OCCASIONS.join(" or "),
                 self.occasion
             ));
@@ -52,16 +52,31 @@ pub struct SpeakerCheck {
     pub verdict: String,
     /// Why, for a person. Empty for a pass.
     pub reason: String,
-    /// The voice microphone's rise over the half second before, before the
-    /// echo canceller, in dB.
+    /// The voice microphone's loudest level while the lamp spoke, over the
+    /// room's level before it, before the echo canceller, in dB.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rise_db: Option<f32>,
-    /// From the tone's first chunk accepted by the speaker to that rise.
+    /// The echo path's delay. Measured only by the tone the check played
+    /// until #968; now always absent.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub delay_ms: Option<u32>,
-    /// How far the canceller took the tone down, in dB.
+    /// How far the canceller took the sound down at its loudest, in dB:
+    /// until #968 a tone's, at its peak; now the lamp's own speech, at the
+    /// turn's loudest 10 ms block.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cancelled_db: Option<f32>,
+    /// How far the canceller took the lamp's own speech down, in dB: the
+    /// median per 10 ms block within 20 dB of the loudest of its second
+    /// (`docs/speaker-check.md`). The figure the verdict is on.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cancelled_median_db: Option<f32>,
+    /// Some measured blocks had the residual at the evidence's floor: the
+    /// true figures are at least `cancelled_db` and `cancelled_median_db`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cancelled_lower_bound: Option<bool>,
+    /// How long before the answer the measured turn ended, in seconds.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub turn_age_s: Option<u32>,
 }
 
 impl SpeakerCheck {
@@ -121,6 +136,9 @@ mod tests {
             rise_db: Some(24.5),
             delay_ms: Some(70),
             cancelled_db: Some(18.0),
+            cancelled_median_db: Some(21.0),
+            cancelled_lower_bound: Some(true),
+            turn_age_s: Some(12),
         };
         assert_eq!(passed.check(), Ok(()));
         let text = serde_json::to_string(&passed).unwrap();
@@ -130,6 +148,9 @@ mod tests {
             rise_db: None,
             delay_ms: None,
             cancelled_db: None,
+            cancelled_median_db: None,
+            cancelled_lower_bound: None,
+            turn_age_s: None,
             ..passed.clone()
         };
         assert!(silent.check().is_err());

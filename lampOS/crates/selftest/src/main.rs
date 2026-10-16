@@ -91,8 +91,8 @@ fn main() -> ExitCode {
         bus: &bus,
         active: arguments.occasion != Occasion::FirstBoot,
     }));
-    // The tone is asked for only at the factory and on demand; at first
-    // boot the part says why it was not.
+    // The speaker check is asked for only at the factory and on demand; at
+    // first boot the part says why it was not.
     checks.push(Box::new(speaker::Speaker {
         bus: &bus,
         occasion: arguments.occasion,

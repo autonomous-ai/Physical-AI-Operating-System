@@ -718,3 +718,37 @@ fn a_skill_sound_is_refused_while_a_reply_or_a_candidate_is_open() {
         )))
     );
 }
+
+/// #1144: the ring asks for no frame while a skill's sound plays; the loop
+/// tells it so (`tell_ring_of_turn`), and only the head tap's "hm?" is shown.
+#[test]
+fn the_ring_prepares_no_frame_for_a_skill_sound() {
+    // Without telling the ring, a skill's sound turn gets a frame: the
+    // control.
+    let (mut says, _answered) = crate::say::Says::sound_for_test("chime", vec![500; 480]);
+    let mut owner = resting_owner();
+    let (mut reply, mut trace) = (None, SessionState::default());
+    let now_is = sound_now(&mut owner, &reply, &InputAdmission::default(), &says);
+    assert!(take_sound(
+        &mut says, &now_is, &mut owner, &mut reply, &mut trace
+    ));
+    let mut ring = crate::choreography::RingChoreographer::new(40).unwrap();
+    assert!(
+        ring.prepare(&mut owner, now()).unwrap().is_some(),
+        "the control shows the frame the sound must not have"
+    );
+    // Told as the loop tells it: nothing, in that pass and after.
+    let (mut says, _answered) = crate::say::Says::sound_for_test("chime", vec![500; 480]);
+    let mut owner = resting_owner();
+    let (mut reply, mut trace) = (None, SessionState::default());
+    let now_is = sound_now(&mut owner, &reply, &InputAdmission::default(), &says);
+    assert!(take_sound(
+        &mut says, &now_is, &mut owner, &mut reply, &mut trace
+    ));
+    let origin = reply.as_ref().unwrap().notice.origin();
+    assert_eq!(origin, SpeechOrigin::SkillSound);
+    let mut ring = crate::choreography::RingChoreographer::new(40).unwrap();
+    tell_ring_of_turn(&mut ring, Some(origin));
+    assert!(ring.prepare(&mut owner, now()).unwrap().is_none());
+    assert!(ring.prepare(&mut owner, now()).unwrap().is_none());
+}

@@ -17,8 +17,8 @@ pub(super) struct FailureNotices {
     language: Option<String>,
 }
 pub(super) struct Recording {
-    /// The provisioned notice; none for the self-test's tone, which is
-    /// made here and says nothing.
+    /// The provisioned notice; none for a sound made here (the head tap's
+    /// "hm?"), which says nothing.
     info: Option<NoticeInfo>,
     samples: Box<[i16]>,
 }
@@ -133,8 +133,6 @@ pub(super) const BACK_ONLINE_OWED_US: u64 = 60_000_000;
 pub(super) enum SpeechOrigin {
     Provider,
     FailureNotice,
-    /// The self-test's tone (`crate::speaker_check`): local PCM, no answer.
-    SelfTest,
     /// The head tap's "hm?" (`crate::head_cue`, #711): local PCM, no answer.
     HeadCue,
     /// A skill's own sound (`crate::say`, #938): local PCM, no answer.
@@ -148,14 +146,13 @@ impl SpeechOrigin {
     /// A turn that is only a short sound of the lamp's own, and none for the
     /// face, the head, the room or the voice's state.
     pub(super) fn unshown(self) -> bool {
-        matches!(self, Self::SelfTest | Self::HeadCue | Self::SkillSound)
+        matches!(self, Self::HeadCue | Self::SkillSound)
     }
     /// The trace's name for what plays.
     pub(super) fn trace_name(self) -> &'static str {
         match self {
             Self::Provider => "speaker",
             Self::FailureNotice => "failure_notice",
-            Self::SelfTest => "selftest_tone",
             Self::HeadCue => "head_tap_cue",
             Self::SkillSound => "skill_sound",
         }
@@ -170,13 +167,11 @@ pub(super) enum NoticeDelivery {
     Unselected,
     Skipped(Missing),
     Selected {
-        /// `FailureNotice`, `SelfTest` or `HeadCue`.
+        /// `FailureNotice`, `HeadCue` or `SkillSound`.
         origin: SpeechOrigin,
         recording: Arc<Recording>,
         cursor: usize,
         attempted_at_us: Option<u64>,
-        /// When the speaker first accepted frames of it.
-        first_accepted_at_us: Option<u64>,
         retired_at_us: Option<u64>,
         final_acceptance: Option<(u64, PlaybackCursor)>,
         gaps: u64,
@@ -189,10 +184,6 @@ impl NoticeDelivery {
             _ => SpeechOrigin::Provider,
         }
     }
-    /// The self-test's tone, ready to play from its first sample.
-    pub(super) fn tone(samples: Vec<i16>) -> Self {
-        Self::sound(SpeechOrigin::SelfTest, samples)
-    }
     /// A short sound of the lamp's own, made here, ready to play from its
     /// first sample.
     pub(super) fn sound(origin: SpeechOrigin, samples: Vec<i16>) -> Self {
@@ -204,30 +195,9 @@ impl NoticeDelivery {
             }),
             cursor: 0,
             attempted_at_us: None,
-            first_accepted_at_us: None,
             retired_at_us: None,
             final_acceptance: None,
             gaps: 0,
-        }
-    }
-    /// The speaker's first acceptance of frames of it, once.
-    pub(super) fn first_accepted(&mut self, at_us: u64) {
-        if let Self::Selected {
-            first_accepted_at_us: first @ None,
-            ..
-        } = self
-        {
-            *first = Some(at_us);
-        }
-    }
-    /// When the speaker first accepted frames of it.
-    pub(super) fn first_accepted_at_us(&self) -> Option<u64> {
-        match self {
-            Self::Selected {
-                first_accepted_at_us,
-                ..
-            } => *first_accepted_at_us,
-            _ => None,
         }
     }
     /// Whether all of it was played: its final sample retired.
@@ -363,6 +333,7 @@ impl NoticeDelivery {
             Self::Unselected => Value::Null,
             Self::Skipped(reason) => json!({"state":"skipped","reason":reason}),
             Self::Selected {
+                origin,
                 recording,
                 cursor,
                 attempted_at_us,
@@ -386,7 +357,7 @@ impl NoticeDelivery {
                         "retired_at_us":retired_at_us,"playback_gaps":gaps,
                         "answer":false,"acoustic_delivery_verified":false}),
                     None => json!({
-                        "state":state,"kind":"selftest_tone",
+                        "state":state,"kind":origin.trace_name(),
                         "frames":recording.samples.len(),
                         "reserved_frames":cursor,"attempted_at_us":attempted_at_us,
                         "retired_at_us":retired_at_us,"playback_gaps":gaps,
@@ -450,7 +421,6 @@ pub(super) fn select_failure_notice_in(
             recording: Arc::clone(recording),
             cursor: 0,
             attempted_at_us: None,
-            first_accepted_at_us: None,
             retired_at_us: None,
             final_acceptance: None,
             gaps: 0,

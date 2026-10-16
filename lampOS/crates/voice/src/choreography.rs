@@ -135,9 +135,8 @@ impl RingChoreographer {
         self.listening = listening;
     }
 
-    /// Whether the turn in hand is one the ring does not show: the
-    /// self-test's tone (`crate::speaker_check`). No frame is asked for
-    /// while it is.
+    /// Whether the turn in hand is one the ring does not show: a skill's
+    /// sound (`crate::say`). No frame is asked for while it is.
     pub fn set_unshown(&mut self, unshown: bool) {
         self.unshown = unshown;
     }

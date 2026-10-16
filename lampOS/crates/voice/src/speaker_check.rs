@@ -1,184 +1,191 @@
-//! The self-test's speaker check (#812): a short, quiet tone played through
-//! the voice's own speaker path, so the echo canceller has it as reference,
-//! and what the voice microphone made of it.
+//! The self-test's speaker check (#812): what the voice microphone made of
+//! the lamp's own last speaking turn. Nothing is played for it.
 //!
-//! The cleaned microphone sound cannot carry the tone: the canceller takes
-//! out exactly what the lamp plays. So the check reads each block's
-//! [`EchoEvidence`]: the level before cancellation rises while the tone
-//! plays (the speaker and the microphone work), the time from the first
-//! chunk to that rise is the echo path's delay, and the level after
-//! cancellation stays well under the rise (the canceller works).
+//! Each capture block's [`EchoEvidence`] says whether the speaker was being
+//! given sound, and the level before and after the echo canceller. While the
+//! lamp speaks, the level before rises over the room (the speaker and the
+//! microphone work), and the level after stays well under it (the canceller
+//! works). Two figures: before minus after at the turn's loudest block (as
+//! the tone's was at its peak), and the median per block of before minus
+//! after, over the blocks within [`WITHIN_LOUDEST_DB`] of the loudest of
+//! their second ([`WINDOW_BLOCKS`]), which decides; the median as
+//! `docs/verification/echo-lamp-52e6-20261016/aec-mics.sh` reads it from
+//! `duplex_hearing`'s one-second trails.
 //!
-//! Nothing here plays, reads a device or keeps a clock: the coordinator
-//! gives it times and levels. It never plays near a conversation, with the
-//! microphone not allowed, or at midday ([`may_play`]).
-use lamp_audio::evidence::EchoEvidence;
+//! Not a probe: a 600 Hz tone measured 3 to 19 dB on lamp-52e6, as AEC3
+//! does not adapt on a narrowband reference; pink noise and a quiet
+//! synthetic voice never reached the canceller, as mic2's chip gates them;
+//! a louder sound is not wanted from a lamp next to people (#705, #968).
+//!
+//! Nothing here reads a device or keeps a clock: the coordinator gives it
+//! the blocks and when each was read.
+use lamp_audio::evidence::{EchoEvidence, Level, QUIET_BLOCKS_CEILING};
 
-/// Speaker samples a second.
-pub const RATE: u32 = 24_000;
-/// The tone: well inside the band the canceller's evidence is measured in
-/// (4 kHz analysis) and one a small speaker plays.
-pub const HERTZ: f64 = 600.0;
-/// How long it plays.
-pub const PLAYS_MS: u32 = 300;
-/// How loud: quiet enough not to startle anyone in the room.
-pub const DBFS: f64 = -30.0;
-/// Fade in and out, so it starts and ends without a click.
-pub const FADE_MS: u32 = 10;
-/// Samples in one speaker chunk.
-pub const CHUNK: usize = 240;
-
-/// Nothing heard or said for this long before it plays (brain-build.md's
-/// rule for anything that could cut across a person).
-pub const QUIET_US: u64 = 45_000_000;
-/// Not between these local minutes of the day: 12:00 to 14:00.
-pub const MIDDAY: (u32, u32) = (12 * 60, 14 * 60);
-
-/// The level before the tone is the mean of this long before its first chunk.
-pub const BASELINE_US: u64 = 500_000;
-/// The rise over that, in dB, that counts as the tone heard.
+/// A turn ends when the speaker has been given nothing for this many blocks.
+pub const TURN_ENDS_QUIET_BLOCKS: u8 = QUIET_BLOCKS_CEILING;
+/// Fewest blocks of the lamp speaking for a turn to be measured: 4 s.
+pub const TURN_BLOCKS: usize = 400;
+/// Longest turn kept, in blocks (60 s); the rest of a longer one is not.
+pub const KEPT_BLOCKS: usize = 6_000;
+/// Blocks before a turn whose capture is the room's level.
+pub const ROOM_BLOCKS: usize = 50;
+/// Only blocks this close to the loudest of their second are measured, so
+/// the quiet ends of words, where the residual is at its floor, do not
+/// decide it, and quieter passages count as much as loud ones.
+pub const WITHIN_LOUDEST_DB: f32 = 20.0;
+/// The window the loudest is taken over: one second, as a trail.
+pub const WINDOW_BLOCKS: usize = 100;
+/// The rise over the room that counts as the lamp heard.
 pub const HEARD_RISE_DB: f32 = 10.0;
-/// Longest wait from the first chunk for the rise: past the canceller's
-/// 400 ms delay search and the tone itself.
-pub const LISTEN_US: u64 = 800_000;
-/// After cancellation the tone must be at least this much under the rise.
-pub const CANCELLED_DB: f32 = 6.0;
-
-/// The tone, a whole number of chunks, zero after the end of the sound.
-pub fn tone() -> Vec<i16> {
-    let length = (RATE * PLAYS_MS / 1_000) as usize;
-    let fade = (RATE * FADE_MS / 1_000) as usize;
-    let amplitude = 32_767.0 * 10f64.powf(DBFS / 20.0) * std::f64::consts::SQRT_2;
-    let mut samples: Vec<i16> = (0..length)
-        .map(|n| {
-            let edge = n.min(length - 1 - n);
-            let gain = if edge < fade {
-                0.5 - 0.5 * (std::f64::consts::PI * edge as f64 / fade as f64).cos()
-            } else {
-                1.0
-            };
-            let phase = 2.0 * std::f64::consts::PI * HERTZ * n as f64 / f64::from(RATE);
-            (amplitude * gain * phase.sin()).round() as i16
-        })
-        .collect();
-    samples.resize(length.div_ceil(CHUNK) * CHUNK, 0);
-    samples
-}
-
-/// What the voice knows when asked to play the tone.
-#[derive(Clone, Copy, Debug, Default)]
-pub struct Now {
-    pub at_us: u64,
-    /// The microphone is allowed by the privacy switch.
-    pub allowed: bool,
-    /// A turn is open: input, playback, a reply, or the keeper's pause.
-    pub busy: bool,
-    /// The last time anything was heard (voice activity) or said.
-    pub last_heard_us: Option<u64>,
-    pub last_said_us: Option<u64>,
-    /// Minutes since local midnight, if the local time is known.
-    pub local_minutes: Option<u32>,
-}
-
-/// Whether the tone may play now, or why not.
-pub fn may_play(now: &Now) -> Result<(), String> {
-    if !now.allowed {
-        return Err("the microphone is not allowed (privacy switch)".into());
-    }
-    if now.busy {
-        return Err("the voice is busy with a turn".into());
-    }
-    for (what, at) in [("heard", now.last_heard_us), ("said", now.last_said_us)] {
-        if let Some(at) = at
-            && now.at_us.saturating_sub(at) < QUIET_US
-        {
-            return Err(format!(
-                "something was {what} {:.0} s ago; the tone waits for 45 s of quiet",
-                now.at_us.saturating_sub(at) as f64 / 1e6
-            ));
-        }
-    }
-    match now.local_minutes {
-        None => Err("the local time is not known, so midday cannot be kept free".into()),
-        Some(m) if (MIDDAY.0..MIDDAY.1).contains(&m) => Err("not between 12:00 and 14:00".into()),
-        Some(_) => Ok(()),
-    }
-}
+/// The median removed must be at least this. The lamp's own speech got 54
+/// dB on mic2 and 27 dB on mic1 (lamp-52e6, #705).
+pub const CANCELLED_DB: f32 = 20.0;
 
 /// One capture block's levels, in dB.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Block {
-    pub at_us: u64,
     pub capture_db: f32,
     pub residual_db: f32,
 }
 
 impl Block {
-    pub fn of(at_us: u64, echo: &EchoEvidence) -> Self {
+    fn of(echo: &EchoEvidence) -> Self {
         Self {
-            at_us,
-            capture_db: f32::from(echo.capture_level.tenths_of_db()) / 10.0,
-            residual_db: f32::from(echo.residual_level.tenths_of_db()) / 10.0,
+            capture_db: db(echo.capture_level),
+            residual_db: db(echo.residual_level),
         }
     }
 }
 
-/// What the voice microphone made of the tone.
-#[derive(Clone, Debug, PartialEq)]
-pub enum Heard {
-    /// The rise over the level before, the delay from the first chunk to
-    /// it, and how far under the rise the cancelled level stayed.
-    Yes {
-        rise_db: f32,
-        delay_ms: u32,
-        cancelled_db: f32,
-    },
-    /// No rise within [`LISTEN_US`].
-    No { baseline_db: f32, loudest_db: f32 },
-    /// Too little before the tone to know the room's level.
-    NoBaseline,
+fn db(level: Level) -> f32 {
+    f32::from(level.tenths_of_db()) / 10.0
 }
 
-/// Judges the blocks around a tone whose first chunk was accepted at
-/// `started_us`.
-pub fn heard(blocks: &[Block], started_us: u64) -> Heard {
-    let before: Vec<f32> = blocks
-        .iter()
-        .filter(|b| b.at_us < started_us && b.at_us + BASELINE_US >= started_us)
-        .map(|b| b.capture_db)
-        .collect();
-    if before.len() < 10 {
-        return Heard::NoBaseline;
+/// What the voice microphone made of one speaking turn.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Measured {
+    /// Blocks of the lamp speaking.
+    pub blocks: u32,
+    /// The loudest capture over the room's level before the turn.
+    pub rise_db: f32,
+    /// Before minus after the canceller at the turn's loudest block.
+    pub cancelled_db: f32,
+    /// Median of before minus after the canceller, over the blocks within
+    /// [`WITHIN_LOUDEST_DB`] of the loudest of their second.
+    pub cancelled_median_db: f32,
+    /// Some of those blocks (the loudest among them) had the residual at the
+    /// evidence's floor, so the true figures are at least these.
+    pub lower_bound: bool,
+    /// When the turn's last speaking block was read, in the monotonic
+    /// microseconds the coordinator gives.
+    pub ended_at_us: u64,
+}
+
+/// Judges one turn's blocks, with the room's blocks before it; the turn's
+/// last block was read at `ended_at_us`.
+pub fn measure(room: &[Block], turn: &[Block], ended_at_us: u64) -> Option<Measured> {
+    if turn.len() < TURN_BLOCKS || room.is_empty() {
+        return None;
     }
-    let baseline = before.iter().sum::<f32>() / before.len() as f32;
-    let during: Vec<&Block> = blocks
+    let room_db = room.iter().map(|b| b.capture_db).sum::<f32>() / room.len() as f32;
+    let loudest = turn
         .iter()
-        .filter(|b| b.at_us >= started_us && b.at_us < started_us + LISTEN_US)
+        .max_by(|a, b| a.capture_db.total_cmp(&b.capture_db))?;
+    let floor = db(Level::FLOOR);
+    let near: Vec<&Block> = turn
+        .chunks(WINDOW_BLOCKS)
+        .flat_map(|second| {
+            let top = second
+                .iter()
+                .map(|b| b.capture_db)
+                .fold(f32::NEG_INFINITY, f32::max);
+            second
+                .iter()
+                .filter(move |b| b.capture_db >= top - WITHIN_LOUDEST_DB)
+        })
         .collect();
-    let loudest = during
-        .iter()
-        .map(|b| b.capture_db)
-        .fold(f32::NEG_INFINITY, f32::max);
-    let Some(onset) = during
-        .iter()
-        .find(|b| b.capture_db >= baseline + HEARD_RISE_DB)
-    else {
-        return Heard::No {
-            baseline_db: baseline,
-            loudest_db: loudest.max(baseline),
-        };
-    };
-    // How far the cancelled level stayed under the rise, at the tone's peak.
-    let peak = during
-        .iter()
-        .max_by(|a, b| a.capture_db.total_cmp(&b.capture_db))
-        .copied()
-        .copied()
-        .unwrap_or(**onset);
-    Heard::Yes {
-        rise_db: peak.capture_db - baseline,
-        delay_ms: ((onset.at_us - started_us) / 1_000) as u32,
-        cancelled_db: peak.capture_db - peak.residual_db,
+    let mut removed: Vec<f32> = near.iter().map(|b| b.capture_db - b.residual_db).collect();
+    removed.sort_by(f32::total_cmp);
+    Some(Measured {
+        blocks: turn.len() as u32,
+        rise_db: loudest.capture_db - room_db,
+        cancelled_db: loudest.capture_db - loudest.residual_db,
+        cancelled_median_db: removed[removed.len() / 2],
+        lower_bound: near.iter().any(|b| b.residual_db <= floor),
+        ended_at_us,
+    })
+}
+
+/// The blocks of the lamp's speaking turns, and the last one measured.
+#[derive(Default)]
+pub struct Turns {
+    room: std::collections::VecDeque<Block>,
+    current: Vec<Block>,
+    current_room: Vec<Block>,
+    current_ended_at_us: u64,
+    last: Option<Measured>,
+}
+
+impl Turns {
+    /// One capture block's evidence, read at `read_at_us`.
+    pub fn observe(&mut self, echo: &EchoEvidence, read_at_us: u64) {
+        let block = Block::of(echo);
+        if echo.render_quiet_blocks == 0 {
+            if self.current.is_empty() {
+                self.current_room = self.room.iter().copied().collect();
+            }
+            if self.current.len() < KEPT_BLOCKS {
+                self.current.push(block);
+            }
+            self.current_ended_at_us = read_at_us;
+            return;
+        }
+        if echo.render_quiet_blocks >= TURN_ENDS_QUIET_BLOCKS {
+            if let Some(measured) =
+                measure(&self.current_room, &self.current, self.current_ended_at_us)
+            {
+                self.last = Some(measured);
+            }
+            self.current.clear();
+            self.room.push_back(block);
+            while self.room.len() > ROOM_BLOCKS {
+                self.room.pop_front();
+            }
+        }
+    }
+
+    /// The last speaking turn of [`TURN_BLOCKS`] or more, measured.
+    pub fn last(&self) -> Option<&Measured> {
+        self.last.as_ref()
+    }
+}
+
+/// The verdict on a measured turn, or why none: `pass`, `fail` or
+/// `not_checked`, and the reason.
+pub fn verdict(last: Option<&Measured>) -> (&'static str, String) {
+    match last {
+        None => (
+            "not_checked",
+            format!(
+                "the lamp has not spoken for {} s at a stretch since the voice started",
+                TURN_BLOCKS / 100
+            ),
+        ),
+        Some(m) if m.rise_db < HEARD_RISE_DB => (
+            "fail",
+            format!(
+                "the voice microphone did not hear the lamp speak: {:.0} dB over the room at most",
+                m.rise_db
+            ),
+        ),
+        Some(m) if m.cancelled_median_db < CANCELLED_DB => (
+            "fail",
+            format!(
+                "the echo canceller took a median of only {:.1} dB off the lamp's own speech",
+                m.cancelled_median_db
+            ),
+        ),
+        Some(_) => ("pass", String::new()),
     }
 }
 
@@ -186,116 +193,112 @@ pub fn heard(blocks: &[Block], started_us: u64) -> Heard {
 mod tests {
     use super::*;
 
-    fn quiet(at_us: u64) -> Now {
-        Now {
-            at_us,
-            allowed: true,
-            busy: false,
-            last_heard_us: Some(at_us - 60_000_000),
-            last_said_us: None,
-            local_minutes: Some(9 * 60),
+    fn evidence(quiet: u8, capture_db: f32, residual_db: f32) -> EchoEvidence {
+        EchoEvidence {
+            blocks: 1,
+            render_active_blocks: 0,
+            render_quiet_blocks: quiet,
+            capture_level: Level::from_tenths_of_db((capture_db * 10.0) as i16),
+            residual_level: Level::from_tenths_of_db((residual_db * 10.0) as i16),
+            echo: None,
+        }
+    }
+
+    /// The room, then `blocks` of the lamp speaking, then quiet long enough
+    /// to end the turn.
+    fn turn(turns: &mut Turns, blocks: usize, capture_db: f32, residual_db: f32) {
+        for _ in 0..ROOM_BLOCKS {
+            turns.observe(&evidence(QUIET_BLOCKS_CEILING, -60.0, -61.0), 0);
+        }
+        for n in 0..blocks {
+            // Every tenth block is a quiet end of a word, far under the
+            // loudest: not measured.
+            let quiet = n % 10 == 9;
+            turns.observe(
+                &evidence(
+                    0,
+                    if quiet { capture_db - 30.0 } else { capture_db },
+                    if quiet { -61.0 } else { residual_db },
+                ),
+                n as u64 * 10_000,
+            );
+        }
+        for quiet in 1..=QUIET_BLOCKS_CEILING {
+            turns.observe(&evidence(quiet, -60.0, -61.0), 99_000_000);
         }
     }
 
     #[test]
-    fn the_tone_is_quiet_whole_chunks_and_fades() {
-        let tone = tone();
-        assert_eq!(tone.len() % CHUNK, 0);
-        assert_eq!(tone.len(), 7_200);
-        assert_eq!(tone[0], 0);
-        let peak = tone.iter().map(|s| s.unsigned_abs()).max().unwrap();
-        // -30 dBFS RMS of a sine peaks at about 1465.
-        assert!((1_400..1_500).contains(&peak), "{peak}");
-        assert!(tone[..24].iter().all(|s| s.unsigned_abs() < 1_000));
+    fn a_speaking_turn_gives_the_median_removed_near_its_loudest_and_its_rise() {
+        let mut turns = Turns::default();
+        turn(&mut turns, 500, -15.0, -65.0);
+        let last = turns.last().unwrap();
+        assert_eq!(last.blocks, 500);
+        assert_eq!(last.cancelled_median_db, 50.0);
+        assert_eq!(last.cancelled_db, 50.0);
+        assert_eq!(last.rise_db, 45.0);
+        assert_eq!(last.ended_at_us, 499 * 10_000);
+        assert!(!last.lower_bound);
+        assert_eq!(verdict(Some(last)).0, "pass");
     }
 
     #[test]
-    fn it_plays_only_after_45_s_of_quiet_with_the_microphone_allowed_and_not_at_midday() {
-        let at = 100_000_000;
-        assert_eq!(may_play(&quiet(at)), Ok(()));
-        let talked = Now {
-            last_said_us: Some(at - 10_000_000),
-            ..quiet(at)
-        };
-        assert!(may_play(&talked).unwrap_err().contains("said 10 s ago"));
-        assert!(
-            may_play(&Now {
-                allowed: false,
-                ..quiet(at)
+    fn a_quieter_second_counts_against_its_own_loudest() {
+        let room: Vec<Block> = (0..ROOM_BLOCKS)
+            .map(|_| Block {
+                capture_db: -60.0,
+                residual_db: -61.0,
             })
-            .unwrap_err()
-            .contains("privacy")
-        );
-        assert!(
-            may_play(&Now {
-                busy: true,
-                ..quiet(at)
-            })
-            .is_err()
-        );
-        let lunch = Now {
-            local_minutes: Some(12 * 60 + 30),
-            ..quiet(at)
-        };
-        assert!(may_play(&lunch).unwrap_err().contains("12:00"));
-        assert_eq!(
-            may_play(&Now {
-                local_minutes: Some(14 * 60),
-                ..quiet(at)
-            }),
-            Ok(())
-        );
-        assert!(
-            may_play(&Now {
-                local_minutes: None,
-                ..quiet(at)
-            })
-            .is_err()
-        );
-    }
-
-    /// Blocks every 10 ms: the room at -60 dB, the tone at -35 dB from
-    /// `echo_at_us` for 300 ms, cancelled to `residual` while it plays.
-    fn blocks(started_us: u64, echo_at_us: u64, residual: f32) -> Vec<Block> {
-        (0..150)
+            .collect();
+        // Two loud seconds removing 50 dB, three quiet ones removing 30 dB:
+        // against the turn's loudest the quiet ones would not count.
+        let turn: Vec<Block> = (0..500)
             .map(|n| {
-                let at_us = started_us - 600_000 + n * 10_000;
-                let playing = at_us >= echo_at_us && at_us < echo_at_us + 300_000;
-                Block {
-                    at_us,
-                    capture_db: if playing { -35.0 } else { -60.0 },
-                    residual_db: if playing { residual } else { -62.0 },
+                if n < 200 {
+                    Block {
+                        capture_db: -10.0,
+                        residual_db: -60.0,
+                    }
+                } else {
+                    Block {
+                        capture_db: -35.0,
+                        residual_db: -65.0,
+                    }
                 }
             })
-            .collect()
-    }
-
-    #[test]
-    fn a_tone_heard_gives_its_rise_delay_and_how_well_it_was_cancelled() {
-        let start = 10_000_000;
-        let result = heard(&blocks(start, start + 70_000, -55.0), start);
-        assert_eq!(
-            result,
-            Heard::Yes {
-                rise_db: 25.0,
-                delay_ms: 70,
-                cancelled_db: 20.0
-            }
-        );
-    }
-
-    #[test]
-    fn a_silent_speaker_or_a_missing_baseline_is_said() {
-        let start = 10_000_000;
-        let mut silent = blocks(start, start + 70_000, -55.0);
-        for block in &mut silent {
-            block.capture_db = -60.0;
-        }
-        assert!(matches!(heard(&silent, start), Heard::No { .. }));
-        let late: Vec<Block> = blocks(start, start + 70_000, -55.0)
-            .into_iter()
-            .filter(|b| b.at_us >= start)
             .collect();
-        assert_eq!(heard(&late, start), Heard::NoBaseline);
+        let measured = measure(&room, &turn, 0).unwrap();
+        assert_eq!(measured.cancelled_median_db, 30.0);
+        // At the loudest block, as the tone's peak was.
+        assert_eq!(measured.cancelled_db, 50.0);
+    }
+
+    #[test]
+    fn a_residual_at_the_floor_makes_the_figure_a_lower_bound() {
+        let mut turns = Turns::default();
+        turn(&mut turns, 500, -15.0, -200.0);
+        let last = turns.last().unwrap();
+        assert!(last.lower_bound);
+        assert_eq!(last.cancelled_median_db, -15.0 - db(Level::FLOOR));
+    }
+
+    #[test]
+    fn a_short_turn_is_not_measured_and_the_last_long_one_stands() {
+        let mut turns = Turns::default();
+        turn(&mut turns, 300, -15.0, -65.0);
+        assert!(turns.last().is_none());
+        assert!(verdict(None).1.contains("4 s"));
+        turn(&mut turns, 450, -15.0, -65.0);
+        turn(&mut turns, 100, -15.0, -20.0);
+        assert_eq!(turns.last().unwrap().blocks, 450);
+    }
+
+    #[test]
+    fn an_unheard_lamp_or_a_poor_canceller_fails() {
+        let mut turns = Turns::default();
+        turn(&mut turns, 500, -55.0, -65.0);
+        assert!(verdict(turns.last()).1.contains("did not hear"));
+        turn(&mut turns, 500, -15.0, -25.0);
+        assert!(verdict(turns.last()).1.contains("10.0 dB"));
     }
 }

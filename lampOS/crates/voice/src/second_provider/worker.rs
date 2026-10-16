@@ -226,6 +226,25 @@ impl Gate {
     }
 }
 
+/// Where the coordinator reads whether a slow first round makes a sound
+/// (sixth-P3, [`super::CUE_AFTER`]). `on` only.
+pub const WAIT_CUE_ENVIRONMENT: &str = "LAMP_SECOND_WAIT_CUE";
+/// The worker's flag for it, right after the second route's configuration.
+pub const WAIT_CUE_FLAG: &str = "--wait-cue";
+
+/// Whether the service's environment says `LAMP_SECOND_WAIT_CUE=on`.
+pub fn wait_cue_from_environment() -> bool {
+    std::env::var(WAIT_CUE_ENVIRONMENT).ok().as_deref() == Some("on")
+}
+
+/// Take a leading `--wait-cue` off the worker's flags.
+pub fn take_wait_cue(flags: &[String]) -> (bool, &[String]) {
+    match flags {
+        [flag, rest @ ..] if flag == WAIT_CUE_FLAG => (true, rest),
+        _ => (false, flags),
+    }
+}
+
 /// Whether this route checks short sounds: as the Live route does, only
 /// with `--sounds-checked` and `--attention` together.
 pub fn checks_sounds(files: &crate::provider_worker::Files) -> bool {
@@ -255,6 +274,7 @@ pub fn serve(
     provider_config: &Path,
     second_config: &Path,
     files: crate::provider_worker::Files,
+    wait_cue: bool,
 ) -> io::Result<()> {
     let character = crate::config::ProviderConfig::load(provider_config)?.instruction(false)?;
     let config = crate::second_config::load_from_path(second_config)?;
@@ -335,7 +355,9 @@ pub fn serve(
             .unwrap_or_else(|_| crate::tools::unavailable())
         })
     });
-    let mut engine = Engine::new(Arc::new(net), system, runner).checking_sounds(checked);
+    let mut engine = Engine::new(Arc::new(net), system, runner)
+        .checking_sounds(checked)
+        .waiting_with_a_sound(wait_cue);
     if files.attention {
         let heeding = Mutex::new(Heeding::new(
             files.attention_busy,

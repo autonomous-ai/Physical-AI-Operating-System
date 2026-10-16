@@ -78,6 +78,18 @@ pub const MAX_ROUNDS: usize = 4;
 /// done has to be said, or the person asks again and it is done twice
 /// (Second on #1049).
 pub const BEGIN_WITHIN: Duration = Duration::from_secs(3);
+/// With `LAMP_SECOND_WAIT_CUE=on` (sixth-P3, #754): a spoken turn whose
+/// first round has not begun this long after the words makes one soft
+/// sound, and then waits until [`BEGIN_WITHIN_AFTER_CUE`]: a "hmm" followed
+/// by silence is the worst of both (the first builder, 15:43). On lamp-4ace
+/// on 2026-10-16, 9 of 10 backup turns waited past 1.5 s.
+pub const CUE_AFTER: Duration = Duration::from_millis(1_500);
+pub const BEGIN_WITHIN_AFTER_CUE: Duration = Duration::from_millis(4_500);
+/// The sounds, said by this route's own voice, so at the reply's level.
+pub const CUE_WORDS: [&str; 3] = ["Hmm.", "Mm.", "Hm."];
+/// A sound is at most 0.6 s, its last 30 ms faded out.
+const CUE_MOST_SAMPLES: usize = net::TTS_SAMPLE_RATE as usize * 6 / 10;
+const CUE_FADE_SAMPLES: usize = net::TTS_SAMPLE_RATE as usize * 3 / 100;
 /// The tool whose call means the words were not for the lamp.
 const NOT_FOR_ME: &str = "not_for_me";
 /// Microphone packets (10 ms each) held while speech-to-text connects:
@@ -142,6 +154,67 @@ struct Shared {
     sequence: AtomicU64,
     out: mpsc::Sender<ProviderOutput>,
     heed: Option<Heed>,
+    /// The sounds made while a first round is awaited, when switched on.
+    cues: Option<Arc<Cues>>,
+}
+
+/// The wait's sounds, rendered once by [`Services::speak`] and kept in
+/// memory; none is written anywhere.
+#[derive(Default)]
+struct Cues {
+    clips: Mutex<Vec<Vec<i16>>>,
+    rendering: AtomicBool,
+    /// The clip played last, so the next is another.
+    last: AtomicU64,
+}
+
+impl Cues {
+    /// Render the sounds the first time a turn may need them.
+    fn render(self: &Arc<Self>, services: &Arc<dyn Services>) {
+        if self.rendering.swap(true, Ordering::AcqRel) {
+            return;
+        }
+        let cues = self.clone();
+        let services = services.clone();
+        tokio::spawn(async move {
+            for words in CUE_WORDS {
+                let mut clip = Vec::new();
+                let mut speech = services.speak(words.to_owned());
+                while let Some(Ok(packet)) = speech.next().await {
+                    clip.extend(packet);
+                    if clip.len() >= CUE_MOST_SAMPLES {
+                        break;
+                    }
+                }
+                if let Ok(mut clips) = cues.clips.lock()
+                    && !clip.is_empty()
+                {
+                    clips.push(soft(clip));
+                }
+            }
+        });
+    }
+
+    /// The next sound, never the one played last; none until rendered.
+    fn next(&self) -> Option<Vec<i16>> {
+        let clips = self.clips.lock().ok()?;
+        if clips.is_empty() {
+            return None;
+        }
+        let index = (self.last.fetch_add(1, Ordering::Relaxed) as usize + 1) % clips.len();
+        clips.get(index).cloned()
+    }
+}
+
+/// At most [`CUE_MOST_SAMPLES`], its end faded out, never louder than said.
+fn soft(mut clip: Vec<i16>) -> Vec<i16> {
+    clip.truncate(CUE_MOST_SAMPLES);
+    let len = clip.len();
+    let fade = CUE_FADE_SAMPLES.min(len);
+    for (index, sample) in clip[len - fade..].iter_mut().enumerate() {
+        *sample = (i32::from(*sample) * (fade - index) as i32 / fade as i32) as i16;
+    }
+    clip
 }
 
 struct Turn {
@@ -204,6 +277,7 @@ impl Engine {
                 sequence: AtomicU64::new(0),
                 out,
                 heed: None,
+                cues: None,
             }),
             output,
             urgent: VecDeque::new(),
@@ -224,6 +298,15 @@ impl Engine {
     pub fn heeding(mut self, heed: Heed) -> Self {
         if let Some(shared) = Arc::get_mut(&mut self.shared) {
             shared.heed = Some(heed);
+        }
+        self
+    }
+
+    /// A spoken turn whose first round is slow makes one soft sound
+    /// (`LAMP_SECOND_WAIT_CUE=on`, sixth-P3). Before any turn only.
+    pub fn waiting_with_a_sound(mut self, on: bool) -> Self {
+        if on && let Some(shared) = Arc::get_mut(&mut self.shared) {
+            shared.cues = Some(Arc::default());
         }
         self
     }
@@ -534,6 +617,26 @@ enum Stop {
     Gone,
 }
 
+/// One wait sound for `request`, as audio only: no words, so nothing of it
+/// is kept in the thread, and it does not count as an answer for the
+/// announcement's spell.
+async fn cue(shared: &Shared, request: u64, clip: Vec<i16>) -> Result<(), Stop> {
+    for part in clip.chunks(PACKET_SAMPLES) {
+        let audio = ProviderOutput::Audio {
+            request,
+            sequence: shared.sequence.fetch_add(1, Ordering::Relaxed) + 1,
+            provider_event_at_us: monotonic_us(),
+            source_frames: part.len(),
+            source_offset: 0,
+            samples: part.to_vec(),
+        };
+        if !shared.emit(audio).await {
+            return Err(Stop::Gone);
+        }
+    }
+    Ok(())
+}
+
 /// Chat, speech and the turn's last events, for the person's `said`.
 async fn answer(shared: &Shared, request: u64, said: String, heard: bool) {
     // Started now, with the chat request, so it is ready first.
@@ -551,6 +654,11 @@ async fn answer(shared: &Shared, request: u64, said: String, heard: bool) {
         started: false,
     };
     let began = Instant::now();
+    // The bounds below are on the runtime's clock, which a test can step.
+    let begun = tokio::time::Instant::now();
+    if heard && let Some(cues) = &shared.cues {
+        cues.render(&shared.services);
+    }
     let asked = Message::user(said);
     let writing = async move {
         let told = (shared.system)();
@@ -565,8 +673,33 @@ async fn answer(shared: &Shared, request: u64, said: String, heard: bool) {
             let mut calls = Vec::new();
             loop {
                 let next = if first && round == 1 {
-                    let by = tokio::time::Instant::from_std(began + BEGIN_WITHIN);
-                    match tokio::time::timeout_at(by, stream.next()).await {
+                    let at = |after: Duration| begun + after;
+                    let cues = shared.cues.as_ref().filter(|_| heard);
+                    let first_wait = if cues.is_some() {
+                        CUE_AFTER
+                    } else {
+                        BEGIN_WITHIN
+                    };
+                    let mut next = tokio::time::timeout_at(at(first_wait), stream.next()).await;
+                    if next.is_err()
+                        && let Some(cues) = cues
+                    {
+                        // One soft sound, then a longer wait; with no sound
+                        // ready yet, the plain bound.
+                        let bound = match cues.next() {
+                            Some(clip) => {
+                                eprintln!(
+                                    "lamp-voice second: request {request} made a sound while its chat had not begun in {} ms",
+                                    began.elapsed().as_millis()
+                                );
+                                cue(shared, request, clip).await?;
+                                BEGIN_WITHIN_AFTER_CUE
+                            }
+                            None => BEGIN_WITHIN,
+                        };
+                        next = tokio::time::timeout_at(at(bound), stream.next()).await;
+                    }
+                    match next {
                         Ok(next) => next,
                         Err(_) => {
                             eprintln!(

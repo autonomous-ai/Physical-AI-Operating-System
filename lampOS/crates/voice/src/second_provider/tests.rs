@@ -17,6 +17,8 @@ struct Script {
     asked: Mutex<Vec<Vec<Message>>>,
     /// A chat stream that, after its script, never ends.
     hold_chat: bool,
+    /// A chat's first event waits this long (on the test's clock).
+    first_event_after: Option<Duration>,
     /// Speech of this sentence starts late.
     slow: Option<&'static str>,
     /// Speech of this sentence never ends.
@@ -55,7 +57,14 @@ impl Services for Script {
         self.asked.lock().unwrap().push(messages);
         let events = self.chats.lock().unwrap().pop_front().unwrap();
         let token = self.token.clone();
-        let scripted = stream::iter(events);
+        let delay = self.first_event_after;
+        let scripted = stream::once(async move {
+            if let Some(delay) = delay {
+                tokio::time::sleep(delay).await;
+            }
+        })
+        .filter_map(|()| async { None })
+        .chain(stream::iter(events));
         if self.hold_chat {
             scripted
                 .chain(stream::pending().map(move |never: ()| {
@@ -470,6 +479,118 @@ async fn a_round_after_a_tool_ran_is_not_given_up() {
     assert!(seen[0].starts_with("Started"), "{seen:?}");
     assert_eq!(calls.lock().unwrap().len(), 1);
     assert_eq!(script.asked.lock().unwrap().len(), 2);
+}
+
+/// What a turn sent, through its last event: for each audio packet its
+/// first sample, words said as `said`, and how it ended.
+async fn sent(engine: &mut Engine) -> Vec<String> {
+    let mut sent = Vec::new();
+    loop {
+        match engine.next().await {
+            ProviderOutput::Audio { samples, .. } => sent.push(format!("audio:{}", samples[0])),
+            ProviderOutput::Transcript {
+                request: Some(_), ..
+            } => sent.push("said".into()),
+            ProviderOutput::TurnComplete { .. } => {
+                sent.push("complete".into());
+                return sent;
+            }
+            ProviderOutput::TurnFailed { .. } => {
+                sent.push("failed".into());
+                return sent;
+            }
+            _ => {}
+        }
+    }
+}
+
+/// Audio packets sent before the first words: the wait's sound.
+fn before_words(sent: &[String]) -> usize {
+    sent.iter()
+        .take_while(|event| event.starts_with("audio:"))
+        .count()
+}
+
+fn waiting(first_event_after: Option<Duration>, chats: Vec<Vec<net::Result<ChatEvent>>>) -> Engine {
+    let hold = chats.iter().all(Vec::is_empty);
+    let script = Arc::new(Script {
+        heard: Mutex::new([Ok("What time is it?".to_owned())].into()),
+        chats: Mutex::new(chats.into()),
+        first_event_after,
+        hold_chat: hold,
+        ..Script::default()
+    });
+    let (engine, _, _) = scripted(script);
+    engine.waiting_with_a_sound(true)
+}
+
+fn spoken_turn(engine: &mut Engine) {
+    engine.submit(start(1));
+    engine.submit(audio(1, 1));
+    engine.submit(end(1));
+}
+
+/// sixth-P3: a first round begun within 1.5 s makes no sound; one begun at
+/// 2 s makes one soft sound first, then the answer; one never begun makes
+/// the sound and ends silently at 4.5 s, not 3 s. A written turn never
+/// makes it.
+#[tokio::test(start_paused = true)]
+async fn a_slow_first_round_makes_one_soft_sound_and_waits_longer() {
+    let answer = || vec![vec![text("It is noon."), Ok(ChatEvent::Done)]];
+    let mut quick = waiting(Some(Duration::from_millis(1_000)), answer());
+    spoken_turn(&mut quick);
+    assert_eq!(before_words(&sent(&mut quick).await), 0);
+
+    let mut slow = waiting(Some(Duration::from_millis(2_000)), answer());
+    spoken_turn(&mut slow);
+    let heard = sent(&mut slow).await;
+    let sound = &heard[..before_words(&heard)];
+    assert!(!sound.is_empty(), "{heard:?}");
+    // The sound is one of the three, short and never louder than said.
+    assert!(
+        sound.iter().all(|packet| packet.as_str() <= "audio:4"),
+        "{sound:?}"
+    );
+    assert!(sound.len() * PACKET_SAMPLES <= 24_000 * 6 / 10);
+    assert_eq!(heard.last().map(String::as_str), Some("complete"));
+    assert!(heard.contains(&"said".to_owned()));
+
+    let mut never = waiting(None, vec![vec![]]);
+    let begun = tokio::time::Instant::now();
+    spoken_turn(&mut never);
+    let heard = sent(&mut never).await;
+    assert!(before_words(&heard) > 0, "{heard:?}");
+    assert!(!heard.contains(&"said".to_owned()));
+    assert!(
+        begun.elapsed() >= BEGIN_WITHIN_AFTER_CUE,
+        "{:?}",
+        begun.elapsed()
+    );
+
+    let mut written = waiting(Some(Duration::from_millis(2_000)), answer());
+    written.submit(written_turn(2, "What time is it?"));
+    assert_eq!(before_words(&sent(&mut written).await), 0);
+}
+
+fn written_turn(request: u64, words: &str) -> ProviderInput {
+    written(request, words)
+}
+
+/// The next sound is never the one played last.
+#[test]
+fn the_wait_sounds_take_turns() {
+    let cues = Cues::default();
+    assert!(cues.next().is_none());
+    *cues.clips.lock().unwrap() = vec![vec![1], vec![2], vec![3]];
+    let played: Vec<i16> = (0..6).map(|_| cues.next().unwrap()[0]).collect();
+    assert!(
+        played.windows(2).all(|pair| pair[0] != pair[1]),
+        "{played:?}"
+    );
+    // At most 0.6 s, and faded to quiet at its end.
+    let clip = soft(vec![1_000; 24_000]);
+    assert_eq!(clip.len(), 24_000 * 6 / 10);
+    assert!(clip.last().unwrap().abs() < 50);
 }
 
 #[tokio::test]

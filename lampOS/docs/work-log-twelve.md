@@ -270,3 +270,6 @@ Ready for lamp-voice: no (#1193 opened, ARM64 starting)
   kernel lines against 598 per 2 min before; it stays enabled there. Eyes
   run with this lamp's camera port. The voice still cannot speak
   (`quota_exceeded`).
+- 03:2x: #1193 merged by the reviewer (ARM64 green on its second attempt, the
+  first red only on the `lamp-bus` logging flake). List empty; asked the
+  first builder for the next.

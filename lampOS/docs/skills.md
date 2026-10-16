@@ -120,7 +120,9 @@ load.
 
 **The folder.** The folder's name is the skill's name: 1 to 64 lowercase
 letters, digits and hyphens. A folder whose name begins with a dot is passed
-over.
+over, and so is any file or case folder whose name begins with one: a folder
+copied from a Mac carries a binary `._NAME` beside each file (lamp-4ace,
+2026-10-16), which must not be read as a recording or reload the skill.
 
 **`SKILL.md`** begins with Agent Skills' front matter between two `---`
 lines. It has two required fields: `name:`, which is the folder's name, and

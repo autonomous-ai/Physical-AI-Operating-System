@@ -769,16 +769,27 @@ struct Line {
     payload_b64: Option<String>,
 }
 
+/// Whether a file or folder is hidden: its name begins with a dot. A folder
+/// copied from a Mac carries `._NAME` AppleDouble files beside each file,
+/// binary and named like it (lamp-4ace, 2026-10-16); they are not the
+/// skill's.
+pub fn hidden(path: &Path) -> bool {
+    path.file_name()
+        .is_some_and(|name| name.to_string_lossy().starts_with('.'))
+}
+
 /// Every message in the `.jsonl` files of `dir`, in the order of their
-/// `at_us`. Declaration lines are passed over.
+/// `at_us`. Declaration lines and hidden files are passed over.
 pub fn read_recordings(dir: &Path) -> Result<Vec<Recorded>, String> {
     let mut files: Vec<PathBuf> = fs::read_dir(dir)
         .map_err(|error| format!("{}: {error}", dir.display()))?
         .flatten()
         .map(|entry| entry.path())
         .filter(|path| {
-            path.extension()
-                .is_some_and(|extension| extension == "jsonl")
+            !hidden(path)
+                && path
+                    .extension()
+                    .is_some_and(|extension| extension == "jsonl")
         })
         .collect();
     files.sort();
@@ -913,7 +924,7 @@ pub fn run_tests(dir: &Path) -> Result<(usize, usize), String> {
         .map_err(|error| format!("tests/: {error}"))?
         .flatten()
         .map(|entry| entry.path())
-        .filter(|path| path.is_dir())
+        .filter(|path| path.is_dir() && !hidden(path))
         .collect();
     cases.sort();
     let (mut passed, mut unrecorded) = (0, 0);

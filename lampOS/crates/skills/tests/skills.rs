@@ -519,3 +519,37 @@ fn a_folder_beginning_with_a_dot_is_passed_over() {
     assert_eq!(skills.len(), 1);
     assert!(errors.is_empty(), "{errors:?}");
 }
+
+/// A skill folder copied from a Mac (`tar` without `COPYFILE_DISABLE=1`)
+/// has a binary `._NAME` beside each file, and `lamp-skills test` failed on
+/// them on lamp-4ace (2026-10-16): they are passed over, and the skill loads
+/// and passes as before.
+#[test]
+fn a_macs_appledouble_files_are_passed_over() {
+    let dir = tempfile::tempdir().unwrap();
+    let skill = welcome_back_with(dir.path(), "cooldown = \"20m\"", "cooldown = \"20m\"");
+    let clean = run_tests(&skill).unwrap();
+    let binary = [0u8, 5, 22, 7, 0, 2, 0, 0, 0xff, 0xfe, 0x80];
+    let mut beside = Vec::new();
+    let mut folders = vec![skill.clone()];
+    while let Some(folder) = folders.pop() {
+        for entry in fs::read_dir(&folder).unwrap().flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                folders.push(path.clone());
+            }
+            let name = format!("._{}", entry.file_name().to_string_lossy());
+            beside.push(folder.join(name));
+        }
+    }
+    for path in &beside {
+        fs::write(path, binary).unwrap();
+    }
+    assert!(
+        beside
+            .iter()
+            .any(|path| path.to_string_lossy().ends_with(".jsonl"))
+    );
+    load(&skill).unwrap();
+    assert_eq!(run_tests(&skill).unwrap(), clean);
+}

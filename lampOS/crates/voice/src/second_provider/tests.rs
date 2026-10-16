@@ -1389,13 +1389,24 @@ async fn a_stop_goes_with_a_request_going_on_and_never_past_two_minutes() {
 /// The first builder, 2026-10-17 02:48: with the down line on, a turn whose
 /// chat never began says "I can't think right now; give me a minute." as
 /// audio only, not as words, at most once a minute; with it off, nothing.
+
+/// The first builder, 2026-10-17 02:48: with the down line on, a spoken
+/// turn whose chat never began says "I can't think right now; give me a
+/// minute." as audio only, not as words, at most once a minute; a written
+/// turn (the lamp's own) never says it; with it off, nothing.
 #[tokio::test(start_paused = true)]
 async fn a_chat_that_never_begins_says_the_down_line_at_most_once_a_minute() {
     async fn turns(on: bool) -> Vec<Vec<String>> {
         let script = Arc::new(Script {
+            heard: Mutex::new(
+                std::iter::repeat_with(|| Ok("What time is it?".to_owned()))
+                    .take(5)
+                    .collect(),
+            ),
             chats: Mutex::new(
                 [
                     vec![text("It is noon."), Ok(ChatEvent::Done)],
+                    vec![],
                     vec![],
                     vec![],
                     vec![],
@@ -1408,10 +1419,23 @@ async fn a_chat_that_never_begins_says_the_down_line_at_most_once_a_minute() {
         let (engine, _, _) = scripted(script);
         let mut engine = engine.saying_when_down(on);
         let mut heard = Vec::new();
-        // The first, answered, renders the line after it is out.
-        for (request, wait) in [(1, 0), (2, 1), (3, 1), (4, 61)] {
+        // The first, answered, renders the line after it is out. The
+        // second, written, is the lamp's own and stays silent.
+        for (request, wait, spoken) in [
+            (1, 0, true),
+            (2, 1, false),
+            (3, 1, true),
+            (4, 1, true),
+            (5, 61, true),
+        ] {
             tokio::time::sleep(Duration::from_secs(wait)).await;
-            engine.submit(written(request, "What time is it?"));
+            if spoken {
+                engine.submit(start(request));
+                engine.submit(audio(request, 1));
+                engine.submit(end(request));
+            } else {
+                engine.submit(written(request, "Say hello."));
+            }
             heard.push(sent(&mut engine).await);
         }
         heard
@@ -1419,10 +1443,11 @@ async fn a_chat_that_never_begins_says_the_down_line_at_most_once_a_minute() {
     let line = format!("audio:{}", DOWN_LINE.len());
     let on = turns(true).await;
     assert!(!on[0].contains(&line), "{on:?}");
-    assert!(on[1].contains(&line), "{on:?}");
-    assert!(!on[1].iter().any(|event| event == "said"), "{on:?}");
-    assert_eq!(on[2], ["complete"]);
-    assert!(on[3].contains(&line), "{on:?}");
+    assert_eq!(on[1], ["complete"], "a written turn: {on:?}");
+    assert!(on[2].contains(&line), "{on:?}");
+    assert!(!on[2].iter().any(|event| event == "said"), "{on:?}");
+    assert_eq!(on[3], ["complete"]);
+    assert!(on[4].contains(&line), "{on:?}");
     let off = turns(false).await;
     assert!(off[1..].iter().all(|turn| turn == &["complete"]), "{off:?}");
 }

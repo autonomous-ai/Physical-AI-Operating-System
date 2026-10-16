@@ -77,14 +77,17 @@ fn inert_child() {
     let result = if mode == "hang_after_ready" {
         struct HangAfterReady(Channels);
         impl worker::Link for HangAfterReady {
-            fn control(&mut self, n: lamp_turn_owner::MonoTime) -> io::Result<Option<Control>> {
-                self.0.control.receive(n)
+            fn control(
+                &mut self,
+                now: &mut dyn FnMut() -> io::Result<lamp_turn_owner::MonoTime>,
+            ) -> io::Result<Option<Control>> {
+                self.0.control.receive_with(now)
             }
             fn command(
                 &mut self,
-                n: lamp_turn_owner::MonoTime,
+                now: &mut dyn FnMut() -> io::Result<lamp_turn_owner::MonoTime>,
             ) -> io::Result<Option<MotorCommand>> {
-                self.0.data.receive(n)
+                self.0.data.receive_with(now)
             }
             fn publish(&mut self, event: &Event, n: lamp_turn_owner::MonoTime) -> io::Result<()> {
                 self.0.control.send(event, n)?;

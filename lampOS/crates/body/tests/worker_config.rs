@@ -159,6 +159,38 @@ fn transport_preserves_original_sequence_age_and_boot() {
 }
 
 #[test]
+fn receive_with_reads_the_clock_after_the_packet_arrives() {
+    // #914: a packet sent after the receiver's clock read is not future-dated.
+    let parent = BootId::new([1; 16]).unwrap();
+    let worker = BootId::new([2; 16]).unwrap();
+    let (mut p, mut w) = Channels::pair(parent, worker).unwrap();
+    let read_before = MonoTime::from_micros(900);
+    p.control
+        .send(&Control::Stop {}, MonoTime::from_micros(1_000))
+        .unwrap();
+    let mut reads = 0;
+    assert!(matches!(
+        w.control.receive_with::<Control>(|| {
+            reads += 1;
+            Ok(MonoTime::from_micros(1_000))
+        }),
+        Ok(Some(Control::Stop {}))
+    ));
+    assert_eq!(reads, 1);
+    assert!(
+        w.control
+            .receive_with::<Control>(|| panic!("no packet, no clock read"))
+            .unwrap()
+            .is_none()
+    );
+    let (mut p, mut w) = Channels::pair(parent, worker).unwrap();
+    p.control
+        .send(&Control::Stop {}, MonoTime::from_micros(1_000))
+        .unwrap();
+    assert!(w.control.receive::<Control>(read_before).is_err());
+}
+
+#[test]
 fn oversized_serialization_does_not_consume_the_next_channel_sequence() {
     let parent = BootId::new([1; 16]).unwrap();
     let child = BootId::new([2; 16]).unwrap();

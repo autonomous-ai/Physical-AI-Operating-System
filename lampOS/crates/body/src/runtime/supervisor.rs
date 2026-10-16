@@ -549,7 +549,10 @@ impl Supervisor {
             if !self.connected || self.stopped {
                 return Ok(None);
             }
-            let event = self.channels.control.receive::<Event>(SystemClock.now())?;
+            let event = self
+                .channels
+                .control
+                .receive_with::<Event>(|| Ok(SystemClock.now()))?;
             if let Some(e) = &event {
                 self.event(e, SystemClock.now().as_micros())?;
             }

@@ -119,6 +119,8 @@ pub fn run(mut link: WorkerChannels, controller_boot: BootId) -> io::Result<()> 
 /// face is the eye ([`crate::ring_face`]), and looks where the eyes on the
 /// same bus see a person ([`crate::ring_sight`]). With `head_touch`, a hand
 /// kept on the head dims it, a countdown to sleep ([`crate::ring_head`]).
+/// With `light_requests`, lights asked for that lapse are shown over the
+/// person's ([`crate::ring_requests`], #940).
 #[cfg(target_os = "linux")]
 pub fn run_continuous(
     mut link: WorkerChannels,
@@ -128,9 +130,18 @@ pub fn run_continuous(
     eye: bool,
     eye_strong: bool,
     head_touch: bool,
+    light_requests: bool,
 ) -> io::Result<()> {
     let light = bus_root.and_then(|root| match RingLight::on(root) {
-        Ok(light) => Some(light),
+        Ok((mut light, begins)) => {
+            // Without them the ring still shows the person's light.
+            if light_requests
+                && let Err(error) = boot_clock().and_then(|clock| light.take_requests(root, &clock))
+            {
+                eprintln!("lamp-voice ring: lights asked for that lapse are not taken: {error}");
+            }
+            Some((light, begins))
+        }
         Err(error) => {
             eprintln!("lamp-voice ring: the lamp's light is not on the bus: {error}");
             None
@@ -172,6 +183,14 @@ pub fn run_continuous(
         }
         Err(error) => report_start_failure(&mut link, error),
     }
+}
+
+/// The host's boot, the clock a light request's claim is on.
+#[cfg(target_os = "linux")]
+fn boot_clock() -> io::Result<String> {
+    Ok(std::fs::read_to_string("/proc/sys/kernel/random/boot_id")?
+        .trim()
+        .to_owned())
 }
 
 fn check_runtime(started: u64, at: u64, continuous: bool) -> io::Result<()> {

@@ -577,7 +577,7 @@ fn run() -> Result<()> {
             channels.connect(Path::new(dir), role, true)?;
             lamp_voice::second_provider::worker::serve(channels, parent, Path::new(provider_config), Path::new(second_config), files)?;
         }
-        // worker ring DIR PARENT WORKER --continuous [--resting CEILING] [--bus-root DIR] [--eye] [--head-touch]
+        // worker ring DIR PARENT WORKER --continuous [--resting CEILING] [--bus-root DIR] [--eye] [--head-touch] [--light-requests]
         #[cfg(target_os = "linux")]
         [command, role, dir, parent, worker, mode, flags @ ..] if command == "worker" && role == "ring" && mode == "--continuous" => {
             let parent = parse_boot(parent)?;
@@ -593,12 +593,13 @@ fn run() -> Result<()> {
             let (eye, flags) = lamp_voice::ring_sight::take(flags);
             let (eye_strong, flags) = lamp_voice::ring_sight::take_strong(flags);
             let (head_touch, flags) = lamp_voice::ring_head::take(flags);
+            let (light_requests, flags) = lamp_voice::ring_light::take(flags);
             if !flags.is_empty() {
                 return Err(io::Error::new(io::ErrorKind::InvalidInput, "unknown ring worker option").into());
             }
             let mut channels = WorkerChannels::bind(Path::new(dir), role, parent, worker, true)?;
             channels.connect(Path::new(dir), role, true)?;
-            lamp_voice::ring_worker::run_continuous(channels, parent, ceiling, bus_root.as_deref(), eye, eye_strong, head_touch)?;
+            lamp_voice::ring_worker::run_continuous(channels, parent, ceiling, bus_root.as_deref(), eye, eye_strong, head_touch, light_requests)?;
         }
         [command,role,dir,parent,worker] if command=="worker" => {
             let parent=parse_boot(parent)?;

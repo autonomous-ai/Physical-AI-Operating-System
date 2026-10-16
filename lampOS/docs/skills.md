@@ -322,7 +322,11 @@ What is not done, and why:
    speaker**: every request carries its source, a priority and a lease that
    lapses unless renewed (Expression's leases already work this way). The
    order: a person (their voice, their hand) over safety, over the
-   conversation, over skills, over idle life.
+   conversation, over skills, over idle life. The light's is built behind
+   `LAMP_LIGHT_REQUESTS=on`: a skill asks on `light/request` and never
+   touches the person's light, which comes back by itself when the claim
+   lapses ([ring-choreography.md](ring-choreography.md#the-lamps-own-light)).
+   The body's is next.
 3. **The eyes publish `camera/image`** (a file and when it was taken), so a
    skill can look.
 4. **The body plays move files** from a skill, within its own speed and

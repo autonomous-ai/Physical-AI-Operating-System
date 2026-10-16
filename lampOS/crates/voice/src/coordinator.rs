@@ -2173,10 +2173,14 @@ fn spawn_rig(
     // And whether a hand kept on the head dims it, a countdown to sleep
     // (`LAMP_HEAD_TOUCH=on`, #711), which reads Controls on that bus.
     let ring_head = crate::ring_head::arguments_from_environment();
+    // And whether lights asked for that lapse are shown over the person's
+    // (`LAMP_LIGHT_REQUESTS=on`, #940), on that bus too.
+    let ring_requests = crate::ring_light::arguments_from_environment();
     if lifetime.continuous() {
         ring_arguments.extend(ring_bus.iter().map(String::as_str));
         ring_arguments.extend(ring_eye.iter().map(String::as_str));
         ring_arguments.extend(ring_head.iter().map(String::as_str));
+        ring_arguments.extend(ring_requests.iter().map(String::as_str));
     }
     let mut ring = if options.ring_channel_ceiling.is_some() {
         OptionalRing::spawn(&executable, directory, boot, &ring_arguments, || {

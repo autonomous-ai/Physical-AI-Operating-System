@@ -262,7 +262,30 @@ that takes the light (`src/ring_light.rs`). Started with
   finished, when that changes and once a second, each good for three
   seconds. A frame the ring refused (the privacy switch closed, a turn
   owning the lamp) says nothing, so `light/drawn` is what was on the ring,
-  where `light/state` is what was taken.
+  where `light/state` is what was taken;
+- with `--light-requests` (the coordinator adds it when the voice's unit
+  has `LAMP_LIGHT_REQUESTS=on`, #940) takes lights asked for that lapse on
+  `light/request` (`lamp_msgs/LightRequest`, `src/ring_requests.rs`): a
+  skill's glow, or anything else that must not leave the person's light
+  changed. Each asker (`claim.source`) has one request, its newest. The
+  ring shows the highest priority that holds on the host's boot clock
+  (`/proc/sys/kernel/random/boot_id`), the newest of equal priority, and
+  the person's light again once none does, with no one giving it back. An
+  asker gives the light back early by asking with a time already passed.
+  A claim holds 30 s at most, so a skill renews what it keeps. A
+  `light/command` read gives way every request below `person` whose claim
+  began before it, and it stays given way while its asker renews it
+  without a gap; the asker's next claim, after that one lapsed or was
+  given back, is heard again. A light read is the person asking whatever
+  its stamp: wall-clock stamps only order a request and a person's light
+  read in the same look, so a clock set back neither hides the person's
+  light nor holds a later request off. At most 16 askers are kept, a
+  request given way keeping its asker's place, so whatever is held can
+  always be given way; a request refused for want of a place is not held,
+  and its asker's next one is a new claim. 8 requests are read a look. A self-test's colour still comes
+  first. `light/state` goes on saying the person's light; `light/drawn`
+  says the request's while it is drawn. A boot clock that cannot be read
+  is said once and the ring takes the person's light alone.
 
 Whoever asks never writes the ring: the actions program publishes the
 light wanted and reads the state back ([actions.md](actions.md)). A bus

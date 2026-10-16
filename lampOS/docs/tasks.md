@@ -588,7 +588,29 @@ used only to say it.
   finished (idle with an answer), stopped, failed, or stopped to ask
   (`needs-input`); otherwise it ends as a failed read with code `working`,
   so the four observations a task may keep are not spent on work in
-  progress. Once one such observation is kept, the watch leaves that task.
+  progress. An idle answer is kept only when the next look finds the same
+  one, as Harness's own `wait` takes two looks at one turn for done: the
+  first ends as a failed read with code `idle_once`, the task remembers it
+  (`watch_idle`, kept across a restart), and the next look comes 10 s later
+  (`WATCH_CONFIRM_MS`) instead of on the usual schedule. A look that finds
+  it at work again, or a different answer, starts over. An agent can end a
+  turn while it waits on its own background work and then go on: on
+  lamp-75c9 on 2026-10-16, a task that ran `sleep 25` in the background read
+  idle → working → idle on one line before it was done. So "done" is told
+  about 10 s after the agent goes idle. A question (`needs-input`), a stop
+  or a failure is kept on the first look. A wait longer than the second
+  look still reads idle twice, and neither `show` nor Harness's own `wait`
+  (two looks about 3 s apart) can tell, so after an idle answer is kept the
+  watch goes on looking every 2 minutes for 10 (`WATCH_FOLLOW_MS`). The same
+  answer is only seen again; a different one, confirmed the same way, is
+  kept as a new observation, and the voice tells it as news of its own:
+  Harness gives that answer with the earlier one at its front ("…once it
+  finishes.done" on lamp-75c9), so when it begins with the task's earlier
+  idle answer, the voice is told only what comes after (`went_on` in
+  `task_news.rs`). A
+  question, a stop or a failure kept, or a task's four observations, end
+  it; what progress reads (`tasks/status`) is unchanged. Otherwise, once
+  such an observation is kept, the watch leaves that task.
   An asked read's receipt that a watch read replaces is dropped: a retry of
   that request finds the revision moved on and is refused, never run twice.
   Nothing is read while a launch or another read is in hand.

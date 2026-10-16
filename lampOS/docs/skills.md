@@ -299,14 +299,16 @@ As built on 2026-10-16 (#938, `crates/skills`, not yet run on a lamp):
   Each light step is asked of the ring on `light/request` from
   `skill:<name>` (cut to 64 characters) at `skill` priority, on the host's
   boot clock (`--boot-id` on a development host): a colour at its `level`,
-  or at the level the light has (the dimmest when that is not known); a dim
-  steps down from the light so far, never below 1, and is left out when no
-  light is on. Each ask holds 15 s and is asked again every 10 s while the
+  or at the level the light has (3, the middle, when that is not known, so
+  a skill that needs a level names it); a dim steps down from the light so
+  far, never below 1, and is left out when no light is on. Each ask holds 15 s and is asked again every 10 s while the
   run keeps the light, the same while as above; at the end it is given back
   by asking with a time already passed, and the ring shows the person's
   light again by itself. A person who asks for their light meanwhile ends
-  the glow at once (the ring's rule). With nothing taking `light/request`,
-  a light step is left out and `done` says the ring needs the switch. The
+  the glow at once (the ring's rule). With nothing taking `light/request`
+  (looked at on each step, so a ring that starts during a run is asked from
+  the next step), a light step is left out and `done` says the ring needs
+  the switch. The
   actions part is not called for the light. `done` says
   `light warm: asked of the ring at level 5` and
   `light given back: asked again with a time already passed`.

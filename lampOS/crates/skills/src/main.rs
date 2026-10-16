@@ -222,6 +222,7 @@ fn serve(
         bus.publisher_declared(SkillEvent::TOPIC, &SkillEvent::declaration(), "skills")?;
     let glows = if options.light_requests {
         Some(Glows {
+            bus: bus.clone(),
             clock_id: boot_clock(options.boot_id.as_deref())?,
             out: Arc::new(Mutex::new(bus.publisher_declared(
                 LightRequest::TOPIC,
@@ -714,12 +715,9 @@ fn perform(
     let is_light = |call: &Call| matches!(call, Call::Light { .. } | Call::Dim { .. });
     let mut said = Vec::new();
     // Asked of the ring, a light is never the person's to give back.
-    let mut glow = glows.filter(|_| calls.iter().any(is_light)).map(|glows| {
-        let taken = bus
-            .subscribers(LightRequest::TOPIC)
-            .is_ok_and(|subscribers| !subscribers.is_empty());
-        Glow::new(glows, skill, before.clone(), taken)
-    });
+    let mut glow = glows
+        .filter(|_| calls.iter().any(is_light))
+        .map(|glows| Glow::new(glows, skill, before.clone()));
     if glow.is_none() && before.is_none() && calls.iter().any(is_light) {
         said.push(
             "light: left alone, since the light shown is not known and could not be given back"

@@ -929,6 +929,21 @@ before the scope failed both every time (the seventh and the reviewer on
 just before the controls, inside the scope; `run_loop` passes its callers'
 as they were. With a 500 ms or 2 s sleep before the scope, both pass.
 
+The other four loop tests in `hand_controls` had the same gap on the host
+clock (#1220). Each pass of the loop checks physical privacy before it polls
+the controls, and the fixture's privacy worker says nothing. So a stall
+since `privacy_started` longer than privacy's freshness ended the loop on
+"physical privacy unavailable" before the head's stop, sleep or touch was
+seen. The reviewer saw `a_lamp_put_to_sleep_from_the_head…` fail 2 of 120
+under stress on #1215; a 120 ms sleep right after `privacy_started` failed
+it, `a_head_touch_stops…`, `a_head_touch_while_the_lamp_is_still_thinking…`
+and `conversation_sends_hand_stop_before_a_provider_fault_queued_in_the_same_tick`
+every time. Now `run_until_fault` and `run_until_error` take the owner and
+reply as `start` and run stepped, and the same-tick hand stop enters a scope
+before its owner is made, reads its peers on the test thread after the loop
+as before, and takes their Stop through the scope's teardown pump. With a
+120 ms or 1 s sleep there, all 16 pass. The assertions are unchanged.
+
 ## endpoint_session on pull requests, but for two (#823)
 
 `coordinator::tests::endpoint_session` holds 30 tests now. One is

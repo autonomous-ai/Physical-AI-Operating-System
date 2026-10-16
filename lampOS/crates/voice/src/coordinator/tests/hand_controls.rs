@@ -646,13 +646,32 @@ fn conversation_sends_hand_stop_before_a_provider_fault_queued_in_the_same_tick(
     };
     let directory = SessionDirectory::create().unwrap();
     let (speaker, mut speaker_peer, speaker_input) =
-        Worker::cooperative_fixture(&directory.path, "speaker");
+        Worker::cooperative_ready_fixture(&directory.path, "speaker");
     let (capture, capture_peer, capture_input) =
-        Worker::cooperative_fixture(&directory.path, "capture");
+        Worker::cooperative_ready_fixture(&directory.path, "capture");
     let (provider, mut provider_peer, provider_input) =
-        Worker::cooperative_fixture(&directory.path, "provider");
+        Worker::cooperative_ready_fixture(&directory.path, "provider");
     let (privacy, privacy_peer, privacy_input) =
-        Worker::cooperative_fixture(&directory.path, "privacy");
+        Worker::cooperative_ready_fixture(&directory.path, "privacy");
+    let pids = [&speaker, &capture, &provider, &privacy].map(|worker| worker.fixture_pid());
+    // Stepped from here, the owner made inside: on the host clock a stall
+    // before the loop's first pass could end it on physical privacy's
+    // freshness before the stop and the fault are seen (#1220). The peers
+    // are read after the loop, on this thread; a step reads none of them,
+    // and teardown takes each one's Stop here, on the same clock.
+    let clock = crate::scenario_clock::Scope::enter(Duration::from_secs(10)).unwrap();
+    let teardown = Rc::new(RefCell::new(Vec::<SteppedPeer>::new()));
+    let pumped = Rc::clone(&teardown);
+    clock
+        .set_pump(move |phase| {
+            if let crate::scenario_clock::Phase::Shutdown { deadline } = phase {
+                for peer in pumped.borrow_mut().iter_mut() {
+                    peer.read(deadline)?;
+                }
+            }
+            Ok(())
+        })
+        .unwrap();
     let mut rig = Rig {
         second: None,
         microphone: crate::options::Microphone::Mic2,
@@ -761,29 +780,26 @@ fn conversation_sends_hand_stop_before_a_provider_fault_queued_in_the_same_tick(
 
     // The mock peers close their own pipes on Stop. Every child has bounded
     // cooperative teardown, and Worker::drop still reaps on assertion failure.
-    let peers = [
-        (speaker_peer, speaker_input),
-        (capture_peer, capture_input),
-        (provider_peer, provider_input),
-        (privacy_peer, privacy_input),
-    ]
-    .map(|(mut peer, input)| {
-        std::thread::spawn(move || {
-            let deadline = Instant::now() + Duration::from_secs(3);
-            loop {
-                match peer.control.receive::<Control>().unwrap() {
-                    Some(Control::Stop) => {
-                        drop(input);
-                        return peer;
-                    }
-                    Some(Control::Authority { .. }) | None => {}
-                    Some(_) => panic!("unexpected command during hand-stop fixture cleanup"),
-                }
-                assert!(Instant::now() < deadline, "mock peer did not receive Stop");
-                std::thread::sleep(Duration::from_millis(1));
-            }
-        })
-    });
+    teardown.borrow_mut().extend(
+        [
+            (speaker_peer, speaker_input),
+            (capture_peer, capture_input),
+            (provider_peer, provider_input),
+            (privacy_peer, privacy_input),
+        ]
+        .into_iter()
+        .zip(pids)
+        .map(|((peer, input), pid)| SteppedPeer {
+            speaker: false,
+            peer,
+            input: Some(input),
+            pid,
+            keeping: false,
+            stopped: false,
+            told: Vec::new(),
+            chunks: Vec::new(),
+        }),
+    );
     let error = finish_active_run(
         &mut rig,
         &mut owner,
@@ -795,8 +811,8 @@ fn conversation_sends_hand_stop_before_a_provider_fault_queued_in_the_same_tick(
     .unwrap_err();
     assert!(error.to_string().contains("same-tick provider fault"));
     assert!(!error.to_string().contains("verified cleanup failed"));
-    for peer in peers {
-        drop(peer.join().unwrap());
+    for peer in teardown.take() {
+        assert!(peer.stopped, "mock peer did not receive Stop");
     }
     for worker in [
         &mut rig.speaker,
@@ -807,6 +823,7 @@ fn conversation_sends_hand_stop_before_a_provider_fault_queued_in_the_same_tick(
         assert!(worker.try_exit().unwrap().is_some());
     }
     drop(rig);
+    drop(clock);
     fs::remove_dir(&directory.path).unwrap();
 }
 
@@ -1029,26 +1046,27 @@ fn local_hand_stop_dispatch_latency() {
     );
 }
 
-/// The button's same-tick rig, run with `controls` and `reply` until a
-/// provider fault queued beside them ends the loop. Returns the trace, the
-/// reply left and every authority the speaker was sent before teardown.
+/// The button's same-tick rig, run with `controls` and the owner and reply
+/// `start` makes until a provider fault queued beside them ends the loop.
+/// Returns the trace, the reply left and every authority the speaker was sent
+/// before teardown.
 fn run_until_fault(
     controls: impl FnOnce() -> HandControls,
-    owner: Controller,
-    reply: Option<Reply>,
+    start: impl FnOnce() -> (Controller, Option<Reply>),
 ) -> (SessionState, Option<Reply>, Vec<Snapshot>) {
-    run_until_error(controls, owner, reply, "same-tick provider fault")
+    run_until_error(controls, start, "same-tick provider fault")
 }
 
 /// As [`run_until_fault`], for a loop that ends with an error saying
-/// `ended_by`: the provider's fault, or a mute that came first.
+/// `ended_by`: the provider's fault, or a mute that came first. Stepped: on
+/// the host clock a stall before the loop's first pass could end it on
+/// physical privacy's freshness before the controls are seen (#1220).
 fn run_until_error(
     controls: impl FnOnce() -> HandControls,
-    owner: Controller,
-    reply: Option<Reply>,
+    start: impl FnOnce() -> (Controller, Option<Reply>),
     ended_by: &str,
 ) -> (SessionState, Option<Reply>, Vec<Snapshot>) {
-    let ran = run_loop(controls, owner, reply, true);
+    let ran = run_loop_with(controls, start, true, Clocking::Stepped);
     assert!(ran.error.contains(ended_by), "{}", ran.error);
     (ran.trace, ran.left, ran.told)
 }
@@ -1374,9 +1392,14 @@ fn head_controls() -> HandControls {
 #[test]
 fn a_head_touch_stops_the_lamp_while_it_says_its_answer() {
     // #711: a hand on its head while it talks means "stop", as the button.
-    let (owner, current, _) = active_reply();
-    let turn = current.owner.turn();
-    let (trace, left, told) = run_until_fault(head_controls, owner, Some(current));
+    let turn = std::cell::Cell::new(None);
+    let talking = || {
+        let (owner, current, _) = active_reply();
+        turn.set(Some(current.owner.turn()));
+        (owner, Some(current))
+    };
+    let (trace, left, told) = run_until_fault(head_controls, talking);
+    let turn = turn.get().unwrap();
     assert!(left.is_none(), "the answer was dropped");
     assert!(told.last().is_some_and(|stopped| stopped.owner().is_none()));
     let cancel = trace
@@ -1394,12 +1417,13 @@ fn a_head_touch_stops_the_lamp_while_it_says_its_answer() {
 fn a_lamp_put_to_sleep_from_the_head_ends_its_conversation_as_a_mute_named_head_sleep() {
     // #711: sleep is the software mute with its reason; the answer goes as
     // for any mute, and the trace says why.
-    let (owner, current, _) = active_reply();
     let record = std::env::temp_dir().join("never-written-sleep.json");
     let (trace, left, _) = run_until_error(
         || HandControls::with_test_asleep("test-hand-clock", monotonic_us(), &record).unwrap(),
-        owner,
-        Some(current),
+        || {
+            let (owner, current, _) = active_reply();
+            (owner, Some(current))
+        },
         "software mute",
     );
     assert!(left.is_none(), "the answer was dropped");
@@ -1524,10 +1548,13 @@ fn head_tap_cue_decision_to_speaker_dispatch_latency() {
 #[test]
 fn a_head_touch_while_the_lamp_is_still_thinking_asks_nothing() {
     // Its answer has no sound yet: a pat on the head must not throw it away.
-    let (owner, mut current, _) = active_reply();
-    current.had_audio = false;
-    current.playback = None;
-    let (trace, left, _) = run_until_fault(head_controls, owner, Some(current));
+    let still_thinking = || {
+        let (owner, mut current, _) = active_reply();
+        current.had_audio = false;
+        current.playback = None;
+        (owner, Some(current))
+    };
+    let (trace, left, _) = run_until_fault(head_controls, still_thinking);
     assert!(left.is_some(), "the answer is kept");
     assert!(!trace.iter().any(|row| row["kind"] == "hand_control_cancel"));
     assert!(trace.iter().any(|row| row["kind"] == "head_touch_noticed"));

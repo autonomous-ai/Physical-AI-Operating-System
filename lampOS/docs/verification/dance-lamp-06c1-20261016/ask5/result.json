@@ -1,0 +1,10 @@
+{
+ "called": [
+  "the model called dance with {\"style\":\"calm\"}",
+  "the model called dance with {\"style\":\"calm\"}"
+ ],
+ "done": "after the say: spoken from 928 ms after the call for 20 ms; light warm: done; dim: done, dim: done; gesture dance_waltz: told the body; light given back to on warm at 1: it already was",
+ "speech_end_to_command_ms": 11,
+ "speech_end_to_motion_ms": 171,
+ "max_excursion_rad": 0.213
+}

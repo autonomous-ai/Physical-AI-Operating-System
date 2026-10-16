@@ -1,0 +1,4 @@
+{"topic":"voice/said","declaration":{"type":"lamp_msgs/Speech","version":1,"kind":"event"}}
+{"header":{"topic":"voice/said","kind":"event","enc":"json","type":"lamp_msgs/Speech","source":"voice","boot":"8d755158823960d5","seq":1,"at_us":2796846901,"at_unix_ms":1792131844963},"payload_b64":"eyJ0ZXh0IjoiSSdtIHVuYWJsZSB0byBkYW5jZSBzaW5jZSAiLCJmaW5pc2hlZCI6ZmFsc2UsInJlcXVlc3QiOjE1fQ=="}
+{"header":{"topic":"voice/said","kind":"event","enc":"json","type":"lamp_msgs/Speech","source":"voice","boot":"8d755158823960d5","seq":2,"at_us":2797208728,"at_unix_ms":1792131845325},"payload_b64":"eyJ0ZXh0IjoiSSBkb24ndCBoYXZlIGEgcGh5c2ljYWwiLCJmaW5pc2hlZCI6ZmFsc2UsInJlcXVlc3QiOjE1fQ=="}
+{"header":{"topic":"voice/said","kind":"event","enc":"json","type":"lamp_msgs/Speech","source":"voice","boot":"8d755158823960d5","seq":3,"at_us":2797353699,"at_unix_ms":1792131845470},"payload_b64":"eyJ0ZXh0IjoiIGJvZHkgdG8gbW92ZSBhcm91bmQuIiwiZmluaXNoZWQiOmZhbHNlLCJyZXF1ZXN0IjoxNX0="}

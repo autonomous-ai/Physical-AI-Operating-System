@@ -1,5 +1,7 @@
-//! Bounded adapter for the provisioned Harness CLI, pinned to the inspected
-//! 0e6b16d contract. Call only after the caller has durably recorded its attempt.
+//! Bounded adapter for the provisioned Harness CLI: the inspected 0e6b16d
+//! contract, with Harness 0.4.2's `--machine` for `new`, `show`, `ps` and
+//! `wait` (Harness's #1333, "read and wait on its harnesses"). Call only
+//! after the caller has durably recorded its attempt.
 //! A returned launch or transcript is never proof of task completion or speech.
 //! No mutation is retried, and killing this CLI cannot cancel remote work.
 use rustix::{
@@ -123,6 +125,21 @@ pub struct Listed {
     pub last_active_unix_ms: Option<u64>,
     pub about: Option<String>,
 }
+
+/// One harness `harness wait --any` came back for: its agent id and how it
+/// ended (`idle`, `needs-input`, `stopped`, `gone`, `closed` or `failed`).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Ended {
+    pub agent_id: String,
+    pub state: String,
+}
+
+/// How long one `harness wait` is held before it is started again, and how
+/// much longer than that the adapter allows it before it is killed.
+pub const WAIT_HELD: Duration = Duration::from_secs(600);
+const WAIT_SLACK: Duration = Duration::from_secs(30);
+/// No more agents than this are waited on in one `wait`.
+pub const MOST_WAITED: usize = 64;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -340,11 +357,12 @@ impl Cli {
         })
     }
 
-    fn cancelled(&self) -> bool {
+    fn cancelled(&self, also: Option<&AtomicBool>) -> bool {
         self.config
             .cancel
             .as_ref()
             .is_some_and(|cancel| cancel.load(Ordering::Acquire))
+            || also.is_some_and(|cancel| cancel.load(Ordering::Acquire))
     }
 
     pub fn launch(&self, launch: &Launch) -> LaunchOutcome {
@@ -462,6 +480,54 @@ impl Cli {
         parse_ps(&reply.stdout).map_err(str::to_string)
     }
 
+    /// A second adapter on the same CLI and settings, for `wait`
+    /// (`serve --push-wait`): held for minutes, it must never take the one
+    /// operation lane launches and reads share.
+    pub fn lane(&self) -> io::Result<Self> {
+        Self::new(self.config.clone(), self.caller_session.clone())
+    }
+
+    /// Harness's own `wait --any` on `agents`, all on `machine`: held until
+    /// one of them ends (two looks at one turn, every 3 s, in Harness
+    /// 0.4.17) or [`WAIT_HELD`] passes, which gives none. Never takes the
+    /// operation lock: launches and reads go on beside it. `cancel` ends it
+    /// early, as `cancelled`. A read only: it starts, stops and answers
+    /// nothing.
+    pub fn wait(
+        &self,
+        machine: &str,
+        agents: &[String],
+        cancel: &AtomicBool,
+    ) -> Result<Vec<Ended>, String> {
+        if !machine_id(machine) {
+            return Err("invalid_machine".into());
+        }
+        if agents.is_empty()
+            || agents.len() > MOST_WAITED
+            || agents.iter().any(|agent| !uuid(agent))
+        {
+            return Err("invalid_agent_id".into());
+        }
+        let reply = self
+            .run_cancellable(
+                &[
+                    "wait".into(),
+                    "--machine".into(),
+                    machine.into(),
+                    agents.join(",").into(),
+                    "--any".into(),
+                    "--timeout".into(),
+                    format!("{}s", WAIT_HELD.as_secs()).into(),
+                    "--json".into(),
+                ],
+                WAIT_HELD + WAIT_SLACK,
+                STDOUT_LIMIT,
+                Some(cancel),
+            )
+            .map_err(|error| error.code.to_string())?;
+        parse_wait(reply.code, &reply.stdout, agents).map_err(str::to_string)
+    }
+
     fn run(&self, args: &[OsString], timeout: Duration) -> Result<Reply, RunError> {
         self.run_bounded(args, timeout, STDOUT_LIMIT)
     }
@@ -472,11 +538,21 @@ impl Cli {
         timeout: Duration,
         stdout_limit: usize,
     ) -> Result<Reply, RunError> {
+        self.run_cancellable(args, timeout, stdout_limit, None)
+    }
+
+    fn run_cancellable(
+        &self,
+        args: &[OsString],
+        timeout: Duration,
+        stdout_limit: usize,
+        also: Option<&AtomicBool>,
+    ) -> Result<Reply, RunError> {
         let error = |code, spawned| RunError { code, spawned };
         if self.poisoned.load(Ordering::Acquire) {
             return Err(error("cleanup_incomplete", false));
         }
-        if self.cancelled() {
+        if self.cancelled(also) {
             return Err(error("cancelled", false));
         }
         if !executable_identity(&self.config.executable)
@@ -501,12 +577,12 @@ impl Cli {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .process_group(0);
-        if self.cancelled() {
+        if self.cancelled(also) {
             return Err(error("cancelled", false));
         }
         let child = command.spawn().map_err(|_| error("spawn_failed", false))?;
         let mut owned = OwnedChild::new(child);
-        let result = self.capture(&mut owned, deadline, stdout_limit);
+        let result = self.capture(&mut owned, deadline, stdout_limit, also);
         if !owned.finish() {
             self.poisoned.store(true, Ordering::Release);
             return Err(error("cleanup_incomplete", true));
@@ -519,6 +595,7 @@ impl Cli {
         owned: &mut OwnedChild,
         deadline: Instant,
         stdout_limit: usize,
+        also: Option<&AtomicBool>,
     ) -> Result<Reply, &'static str> {
         let mut stdout = owned.child.stdout.take().ok_or("pipe_failed")?;
         let mut stderr = owned.child.stderr.take().ok_or("pipe_failed")?;
@@ -531,7 +608,7 @@ impl Cli {
         let mut exit = None;
         let result = (|| loop {
             let now = Instant::now();
-            if self.cancelled() {
+            if self.cancelled(also) {
                 return Err("cancelled");
             }
             if now >= deadline {
@@ -548,17 +625,18 @@ impl Cli {
                     WaitId::Pid(owned.pid),
                     WaitIdOptions::EXITED | WaitIdOptions::NOHANG | WaitIdOptions::NOWAIT,
                 ) {
-                    Ok(Some(status)) => exit = Some((now, status.exit_status() == Some(0))),
+                    Ok(Some(status)) => exit = Some((now, status.exit_status())),
                     Ok(None) => {}
                     Err(error) if error == rustix::io::Errno::INTR => {}
                     Err(_) => return Err("wait_failed"),
                 }
             }
-            if let Some((at, success)) = exit {
+            if let Some((at, code)) = exit {
                 if stdout_done && stderr_done {
                     owned.exited_with_closed_pipes = true;
                     return Ok(Reply {
-                        success,
+                        success: code == Some(0),
+                        code,
                         stdout: output,
                     });
                 }
@@ -631,6 +709,7 @@ fn drain(
 
 struct Reply {
     success: bool,
+    code: Option<i32>,
     stdout: Vec<u8>,
 }
 struct RunError {
@@ -942,6 +1021,55 @@ pub fn parse_ps(bytes: &[u8]) -> Result<Vec<Listed>, &'static str> {
         });
     }
     Ok(listed)
+}
+
+#[derive(Deserialize)]
+struct WaitReply {
+    harnesses: Vec<WaitRow>,
+}
+#[derive(Deserialize)]
+struct WaitRow {
+    id: String,
+    state: String,
+}
+
+/// What `harness wait --any --json` says (Harness 0.4.17), by its exit:
+/// 0 an agent is idle, 3 one waits for the person, 4 one stopped or is
+/// gone, each with `harnesses` listing those that ended (`id`, `state`);
+/// 124 the time passed with none, which is no agent. Rows for agents not
+/// waited on, and `timeout` rows, are passed over. Anything else fails.
+pub fn parse_wait(
+    code: Option<i32>,
+    bytes: &[u8],
+    agents: &[String],
+) -> Result<Vec<Ended>, &'static str> {
+    match code {
+        Some(124) => return Ok(Vec::new()),
+        Some(0 | 3 | 4) => {}
+        _ => return Err("wait_failed"),
+    }
+    let reply: WaitReply = serde_json::from_slice(bytes).map_err(|_| "wait_invalid_reply")?;
+    if reply.harnesses.len() > MOST_LISTED {
+        return Err("wait_invalid_reply");
+    }
+    let mut ended = Vec::new();
+    for row in reply.harnesses {
+        if !token(&row.state, 32) {
+            return Err("wait_invalid_reply");
+        }
+        if row.state == "timeout" || !agents.contains(&row.id) {
+            continue;
+        }
+        ended.push(Ended {
+            agent_id: row.id,
+            state: row.state,
+        });
+    }
+    // An exit that says one ended, with none of ours listed, is not read.
+    if ended.is_empty() {
+        return Err("wait_invalid_reply");
+    }
+    Ok(ended)
 }
 
 /// At most `most` bytes of `text`, ended at a whole character, without

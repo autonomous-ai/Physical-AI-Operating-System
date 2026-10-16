@@ -77,6 +77,12 @@ how each task handed over is going with one `harness ps` a machine and puts
 it on the bus as `tasks/status`, without the agent's words: ["Progress on
 the bus"](#progress-on-the-bus-serve---progress-732) below.
 
+`--push-wait` (off unless set; #560, nine, 2026-10-16) holds Harness's own
+`wait` on the agents the watch looks at and reads an agent as soon as it
+ends, so a result is known within seconds rather than at the watch's next
+look: ["Watching"](#the-lamp-as-chief-of-staff-watching-and-telling-2026-10-15)
+below. It reads with the watch, so it refuses to go with `--no-watch`.
+
 `--bus-root ABS` selects an isolated bus for qualification. `--run-for-ms N`
 bounds an operator run to 1–86,400,000 ms; it does not cancel remote work.
 Linux reads its boot identity itself; development hosts require `--boot-id ID`.
@@ -190,14 +196,15 @@ for a mutation. It is not evidence that no commit or dispatch occurred.
 
 ## Harness adapter
 
-Only four argv forms are constructed, without a shell; the last only with
-`serve --progress`:
+Only five argv forms are constructed, without a shell; `ps` only with
+`serve --progress` and `wait` only with `serve --push-wait`:
 
 ```text
 harness machines --json
 harness new codex --machine <full-machine-id> <project> --name <unique-label> --mode auto --json --task <exact-text>
 harness show --machine <full-machine-id> <full-agent-id> --chars 4000 --json
 harness ps --machine <full-machine-id> --json
+harness wait --machine <full-machine-id> <agent-id>[,<agent-id>…] --any --timeout 600s --json
 ```
 
 `--mode auto` (Harness's default) since 2026-10-15, approved by the owner: the
@@ -308,6 +315,7 @@ rather than voicing a question it does not have.
 | CLI | One worker, one job/result slot; preflight/read 10 s each, new 60 s |
 | CLI capture | 64 KiB stdout, 16 KiB stderr; individual poll waits capped at 10 ms |
 | Progress (`--progress`) | One `ps` per machine per watch period, 10 s each; 256 KiB stdout; 256 harnesses a reply; a progress line cut to 2 KiB; memory only, at most 16 tasks |
+| Push (`--push-wait`) | One `wait` held per machine with watched tasks, on at most 64 agents, 600 s each (killed at 630 s), beside the CLI worker; the next on a machine no sooner than 3 s after one came back with an end, 30 s after one failed; 64 KiB stdout |
 | Private persistence | 8 MiB snapshot, 32 MiB database, 40 MiB journal; 4,096-byte pages |
 | SQLite | DELETE journal, FULL sync, fullfsync requested, 2 MiB cache, 50 ms busy wait, no mmap/WAL |
 | Diagnostics | Once a second, with early readiness changes; owner stale after 1,500 ms |
@@ -614,6 +622,27 @@ used only to say it.
   An asked read's receipt that a watch read replaces is dropped: a retry of
   that request finds the revision moved on and is refused, never run twice.
   Nothing is read while a launch or another read is in hand.
+- **The push** (`serve --push-wait`, #560: the first builder's bound is
+  that a person at the lamp hears a result within 20 s of the agent
+  settling, and a look every 30 s, then every 2 minutes, cannot meet it).
+  For each machine with tasks the watch looks at, one `harness wait
+  --machine M <agents> --any --json` is held on a lane of its own: it never
+  takes the CLI worker's one-at-a-time lane, so hand-overs and reads go on
+  beside it. Harness looks every 3 s and calls an agent done on two looks
+  at one turn (Harness 0.4.17), so it comes back within about 6 s of the
+  agent ending (exit 0 idle, 3 waiting for the person, 4 stopped or gone;
+  124 when its 600 s pass, and it is started again). The task of an agent
+  it names is read at once (`Engine::push`), and that read keeps an idle
+  answer on the spot: `wait`'s two looks stand for the watch's second
+  look. A task whose idle answer is kept is no longer watched, so it is
+  not waited on again; its follow-up stays on the watch's 2-minute looks,
+  since `wait` on an idle agent comes back at once. When the set of watched
+  agents on a machine changes, its `wait` is cancelled and started on the
+  new set. A failed `wait` is tried again after 30 s, and the watch's own
+  looks go on meanwhile as the backstop. One line in the journal for each
+  `wait` that comes back or fails. Not yet shown on a lamp: whether `wait
+  --machine` needs Harness's daemon running on the lamp, as `new --machine`
+  did in Ten's run on lamp-75c9, and what the held process costs there.
 - **Telling** (`crates/voice/src/task_news.rs`). A thread of the voice reads
   `list`, `get_task` and `get_observation` every 10 s and offers the newest
   settled observation of each task, if it was seen in this boot within the

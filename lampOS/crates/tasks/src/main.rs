@@ -53,6 +53,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     // (docs/joining.md). `--watch` is still taken, and changes nothing.
     let mut watch = true;
     let mut progress = false;
+    let mut push_wait = false;
     let mut seen = std::collections::BTreeSet::new();
     while let Some(arg) = args.next() {
         if !seen.insert(arg.clone()) {
@@ -64,6 +65,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             "--watch" => watch = true,
             "--no-watch" => watch = false,
             "--progress" => progress = true,
+            "--push-wait" => push_wait = true,
             "--dir" => dir = Some(PathBuf::from(args.next().ok_or("--dir needs a path")?)),
             "--socket" => socket = Some(PathBuf::from(args.next().ok_or("--socket needs a path")?)),
             "--voice-socket" => {
@@ -95,6 +97,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             _ => return Err("unknown option".into()),
         }
     }
+    if push_wait && !watch {
+        return Err("--push-wait reads with the watch; it cannot go with --no-watch".into());
+    }
     if !enabled {
         println!(
             "{{\"enabled\":false,\"message\":\"Tasks is off; supply --enable to start it.\"}}"
@@ -111,6 +116,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         run_for,
         watch,
         progress,
+        push_wait,
     };
     let clock = SystemClock::new(boot_id.as_deref())?;
     let executable = executable.ok_or("--harness is required")?;

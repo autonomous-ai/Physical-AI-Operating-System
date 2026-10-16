@@ -75,6 +75,7 @@ impl Running {
             run_for: None,
             watch: false,
             progress: false,
+            push_wait: false,
         };
         let mut running = Self {
             config,

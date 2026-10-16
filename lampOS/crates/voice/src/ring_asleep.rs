@@ -62,11 +62,19 @@ pub fn ceiling_at(since: Duration, ceiling: ChannelCeiling) -> ChannelCeiling {
         .expect("a share of a valid ceiling is valid")
 }
 
+/// The longest stopping waits for the painter. A kernel SPI write cannot be
+/// interrupted (`lamp_ring::linux`); a light that is stuck must not keep a
+/// healthy voice from waking, so past this the painter is left behind and
+/// the next cycle's ring worker, which is optional, finds the ring busy.
+pub const STOP_DEADLINE: Duration = Duration::from_secs(1);
+
 /// The asleep face painting from its own thread until stopped. Stopping, or
-/// dropping, waits for the ring to be black and the device closed.
+/// dropping, waits up to [`STOP_DEADLINE`] for the ring to be black and the
+/// device closed.
 pub struct Asleep {
     stop: Arc<AtomicBool>,
     thread: Option<JoinHandle<()>>,
+    done: Option<std::sync::mpsc::Receiver<()>>,
 }
 
 impl Asleep {
@@ -85,15 +93,21 @@ impl Asleep {
     {
         let stop = Arc::new(AtomicBool::new(false));
         let flag = stop.clone();
+        let (finished, done) = std::sync::mpsc::channel();
         let thread = std::thread::Builder::new()
             .name("ring-asleep".into())
             .spawn(move || {
                 if let Err(error) = paint(open, ceiling, &flag) {
                     eprintln!("lamp-voice ring: the asleep face stopped: {error}");
                 }
+                let _ = finished.send(());
             })
             .ok();
-        Self { stop, thread }
+        Self {
+            stop,
+            thread,
+            done: Some(done),
+        }
     }
 
     /// Stop painting: the ring is black and the device closed on return.
@@ -103,8 +117,20 @@ impl Asleep {
 
     fn finish(&mut self) {
         self.stop.store(true, Ordering::SeqCst);
-        if let Some(thread) = self.thread.take() {
+        let Some(thread) = self.thread.take() else {
+            return;
+        };
+        let finished = self
+            .done
+            .take()
+            .is_some_and(|done| done.recv_timeout(STOP_DEADLINE).is_ok());
+        if finished || thread.is_finished() {
             let _ = thread.join();
+        } else {
+            eprintln!(
+                "lamp-voice ring: the asleep face did not stop within {} ms (a ring write is stuck); going on without it",
+                STOP_DEADLINE.as_millis()
+            );
         }
     }
 }
@@ -201,6 +227,38 @@ mod tests {
             frames[1..frames.len() - 1]
                 .iter()
                 .any(|frame| *frame != EncodedFrame::black())
+        );
+    }
+
+    /// A sink whose writes never return once the face has begun: a stuck
+    /// SPI write.
+    struct Stuck(Arc<AtomicBool>);
+    impl FrameSink for Stuck {
+        fn write_frame(&mut self, frame: &EncodedFrame) -> io::Result<()> {
+            if *frame != EncodedFrame::black() {
+                self.0.store(true, Ordering::SeqCst);
+                loop {
+                    std::thread::sleep(Duration::from_secs(60));
+                }
+            }
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn a_stuck_ring_write_never_keeps_the_wait_from_returning() {
+        let stuck = Arc::new(AtomicBool::new(false));
+        let flag = stuck.clone();
+        let asleep = Asleep::start_with(move || AsleepRing::new(Stuck(flag)), ceiling(48));
+        while !stuck.load(Ordering::SeqCst) {
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        let began = Instant::now();
+        asleep.stop();
+        let took = began.elapsed();
+        assert!(
+            took >= STOP_DEADLINE && took < STOP_DEADLINE * 2,
+            "{took:?}"
         );
     }
 

@@ -66,6 +66,9 @@ Environment=LAMP_SAY=on
 Environment=LAMP_SAY_GROUP=lampos
 Environment=LAMP_ACTIONS_DIR=/run/lampos-actions
 Environment=LAMP_TASKS_DIR=/run/lampos-tasks
+# The tasks part runs only with Harness (its unit's condition): without it the voice says work
+# can't be handed on yet, not that a part failed (#811).
+Environment=LAMP_TASKS_NEEDS=/usr/local/bin/harness
 Environment=LAMP_SCHEDULE_TOOLS=on
 Environment=LAMP_SCHEDULE_SPEAK=on
 Environment=LAMP_SCHEDULE_SOCKET=/run/lampos-schedule/call.sock

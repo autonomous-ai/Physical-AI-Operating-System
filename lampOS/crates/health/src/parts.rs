@@ -172,6 +172,32 @@ fn said(item: &HealthItem) -> String {
     }
 }
 
+/// Parts off because a file each needs is not on the lamp (`--needs`): one
+/// that has not reported is listed as ok, "off: no <file>". The caller
+/// leaves them out of `expected` first, so none is missing and the level
+/// is untouched (an ok item lowers nothing); the result still passes
+/// `Health::check`. A part that reports anyway keeps its own report.
+pub fn mark_off(health: &mut Health, off: &[(String, String)]) {
+    for (name, path) in off {
+        if health.items.iter().any(|item| &item.name == name) {
+            continue;
+        }
+        let file = path.rsplit('/').next().unwrap_or(path);
+        health.items.push(HealthItem {
+            name: name.clone(),
+            level: Level::Ok,
+            message: one_line(&format!("off: no {file} on this lamp ({path})")),
+            age_ms: 0,
+        });
+    }
+    health.items.sort_by(|a, b| {
+        b.level
+            .rank()
+            .cmp(&a.level.rank())
+            .then_with(|| a.name.cmp(&b.name))
+    });
+}
+
 /// How the whole lamp is at `now`, from each part's newest report.
 ///
 /// - A part heard from within `stale_after` has the level and the message
@@ -192,31 +218,6 @@ fn said(item: &HealthItem) -> String {
 ///   reported`.
 ///
 /// What comes out passes `Health::check`.
-/// Parts off because a file each needs is not on the lamp (`--needs`): one
-/// that has not reported is listed as ok, "off: no <file>", so it is neither
-/// a fault nor missing. A part that reports anyway keeps its own report.
-pub fn mark_off(health: &mut Health, off: &[(String, String)]) {
-    for (name, path) in off {
-        health.missing.retain(|missing| missing != name);
-        if health.items.iter().any(|item| &item.name == name) {
-            continue;
-        }
-        let file = path.rsplit('/').next().unwrap_or(path);
-        health.items.push(HealthItem {
-            name: name.clone(),
-            level: Level::Ok,
-            message: one_line(&format!("off: no {file} on this lamp ({path})")),
-            age_ms: 0,
-        });
-    }
-    health.items.sort_by(|a, b| {
-        b.level
-            .rank()
-            .cmp(&a.level.rank())
-            .then_with(|| a.name.cmp(&b.name))
-    });
-}
-
 pub fn health(
     reports: &BTreeMap<String, Kept>,
     now: Instant,

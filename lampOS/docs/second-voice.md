@@ -545,10 +545,12 @@ Reported by the builders:
 - **Facts not told:** the worker accepts the Gemini worker's flags, but
   sight, `look`, the camera and air facts are not told to the text
   model. A written turn's `look` is ignored. With `LAMP_SESSION_FACT`
-  and `LAMP_ROOM_FACTS` on, each turn's system message ends with the facts
-  a Live session is told, in its words: the session fact when no
-  conversation is going on, and the room as Gemini's worker publishes it
-  (`room/state`) when it is known. Air facts wait for a stuffy spell of ten
+  and `LAMP_ROOM_FACTS` on, each turn's system message carries the facts a
+  Live session is told, in its words, after the memory note and before the
+  thread's recall: the session fact when no conversation is going on, and
+  the room as Gemini's worker publishes it (`room/state`) when it is known
+  and said in the last 3 s (`bus_out::room_now`; a worker that has stopped
+  leaves its last room kept, however old). Air facts wait for a stuffy spell of ten
   minutes, which this route, used only while Gemini is away, does not
   follow.
 - **Short sounds, by words alone:** with `LAMP_SHORT_SOUNDS=quiet-room-checked`

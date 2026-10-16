@@ -358,18 +358,39 @@ impl TapsIn {
 }
 
 /// How the room is, as the provider worker last published it
-/// (`room/state`, [`RoomOut`]): unknown when nothing fresh was.
+/// (`room/state`, [`RoomOut`]): unknown when nothing was in the last
+/// [`ROOM_FRESH_MS`]. `room/state` carries no expiry, and a worker that has
+/// stopped (when the second route stands in for Gemini's) leaves its last
+/// room kept however old.
 pub fn room_now(bus: &Bus) -> crate::room_told::Room {
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |since| since.as_millis().try_into().unwrap_or(u64::MAX));
     bus.latest(RoomState::TOPIC)
         .ok()
         .flatten()
         .filter(|message| !message.expired)
-        .and_then(|message| message.parse::<RoomState>().ok())
-        .map_or(crate::room_told::Room::Unknown, |room| match room.state {
-            Room::Unknown => crate::room_told::Room::Unknown,
-            Room::Quiet => crate::room_told::Room::Quiet,
-            Room::Busy => crate::room_told::Room::Busy,
+        .and_then(|message| {
+            let state = message.parse::<RoomState>().ok()?.state;
+            Some(room_at(state, message.header.at_unix_ms, now_ms))
         })
+        .unwrap_or(crate::room_told::Room::Unknown)
+}
+
+/// [`RoomOut`] says the room again every second; a value this old says
+/// nothing of now.
+pub const ROOM_FRESH_MS: u64 = 3_000;
+
+/// A published room stamped `at_ms`, read at `now_ms` (both wall clock).
+fn room_at(state: Room, at_ms: u64, now_ms: u64) -> crate::room_told::Room {
+    if now_ms.saturating_sub(at_ms) > ROOM_FRESH_MS {
+        return crate::room_told::Room::Unknown;
+    }
+    match state {
+        Room::Unknown => crate::room_told::Room::Unknown,
+        Room::Quiet => crate::room_told::Room::Quiet,
+        Room::Busy => crate::room_told::Room::Busy,
+    }
 }
 
 /// Whether the eyes see someone turned to the lamp now
@@ -592,6 +613,20 @@ mod tests {
         (Bus::new(&root).unwrap(), root)
     }
     const WAIT: Duration = Duration::from_millis(500);
+
+    /// A kept room older than `ROOM_FRESH_MS` is no room: the worker that
+    /// published it may have stopped (Third on #1032).
+    #[test]
+    fn a_kept_room_says_nothing_once_it_is_older_than_three_seconds() {
+        use crate::room_told::Room as Told;
+        let now = 100_000;
+        assert_eq!(room_at(Room::Busy, now - 1_000, now), Told::Busy);
+        assert_eq!(room_at(Room::Quiet, now - ROOM_FRESH_MS, now), Told::Quiet);
+        assert_eq!(room_at(Room::Busy, now - 10_000, now), Told::Unknown);
+        assert_eq!(room_at(Room::Unknown, now, now), Told::Unknown);
+        // A clock stepped back reads as fresh, not as never.
+        assert_eq!(room_at(Room::Busy, now + 500, now), Told::Busy);
+    }
 
     #[test]
     fn the_link_is_unavailable_only_after_its_grace_and_published_only_when_asked() {

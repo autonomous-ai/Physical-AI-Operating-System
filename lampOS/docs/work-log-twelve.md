@@ -103,3 +103,14 @@ Ready for lamp-voice: yes (#1009)
   green.
 - Not shown: the line-338 failure itself (its boundary, line 336, was). No
   lamp.
+
+## 2026-10-16 — the reply buffer capacity test taken
+
+Ready for lamp-voice: no
+
+- The first builder, on #705 at 12:16, gave twelve its list: (1) #1009 until
+  it merges, (2) `provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity`
+  (ReadTimeout, then ConnectionReset at its unwrap, red in the reviewer's
+  #985 gate at 11:42), deterministic from its cause, one pull request,
+  (3) then ask on #705 with what was found in the day's other red voice
+  tests. (2) has no issue; taken at 12:2x on `twelve/reply-buffer-capacity`.

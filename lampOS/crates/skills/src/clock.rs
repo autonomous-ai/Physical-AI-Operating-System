@@ -35,12 +35,34 @@ pub fn is_stepped() -> bool {
     STEPPED.load(Ordering::SeqCst)
 }
 
-/// Moves the clock `by` ahead at once.
-pub fn skip(by: Duration) {
-    SKIPPED_US.fetch_add(
-        u64::try_from(by.as_micros()).unwrap_or(u64::MAX),
-        Ordering::SeqCst,
-    );
+/// The most a test may skip in all: a year, so that the clock and any
+/// wait counted from it stay far inside what an `Instant` and a µs count
+/// hold.
+pub const MOST_SKIPPED: Duration = Duration::from_secs(365 * 24 * 3_600);
+
+/// Moves the clock `by` ahead at once, or refuses to, and leaves it, when
+/// the total skipped would pass [`MOST_SKIPPED`].
+pub fn skip(by: Duration) -> Result<(), String> {
+    let most = u64::try_from(MOST_SKIPPED.as_micros()).unwrap_or(u64::MAX);
+    let by_us = u64::try_from(by.as_micros()).unwrap_or(u64::MAX);
+    SKIPPED_US
+        .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |skipped| {
+            skipped
+                .checked_add(by_us)
+                .filter(|total| *total <= most)
+                .filter(|total| {
+                    Instant::now()
+                        .checked_add(Duration::from_micros(*total))
+                        .is_some()
+                        && lamp_ipc::monotonic_us().checked_add(*total).is_some()
+                })
+        })
+        .map(|_| ())
+        .map_err(|skipped| {
+            format!(
+                "a skip of {by_us} µs after {skipped} µs passes the most a test may skip, {most} µs"
+            )
+        })
 }
 
 fn skipped() -> Duration {
@@ -49,12 +71,14 @@ fn skipped() -> Duration {
 
 /// Now, on this clock.
 pub fn now() -> Instant {
-    Instant::now() + skipped()
+    let host = Instant::now();
+    // Never past what an `Instant` holds: [`skip`] keeps the total small.
+    host.checked_add(skipped()).unwrap_or(host)
 }
 
 /// Now in µs, on the host's monotonic clock and what was skipped.
 pub fn now_us() -> u64 {
-    lamp_ipc::monotonic_us() + SKIPPED_US.load(Ordering::SeqCst)
+    lamp_ipc::monotonic_us().saturating_add(SKIPPED_US.load(Ordering::SeqCst))
 }
 
 /// How long a poll for something else waits: no longer than a slice while
@@ -96,5 +120,37 @@ pub fn recv_timeout<T>(
             Err(mpsc::RecvTimeoutError::Timeout) => {}
             done => return done,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Without a test driving it (no `stepped()` in this process), the
+    /// clock is the host's: a sleep and a wait take their whole time.
+    #[test]
+    fn without_a_test_driving_it_a_wait_takes_its_whole_time() {
+        assert!(!is_stepped());
+        let wait = Duration::from_millis(120);
+        let began = Instant::now();
+        sleep(wait);
+        assert!(began.elapsed() >= wait, "{:?}", began.elapsed());
+        let (_keep, nothing) = mpsc::channel::<()>();
+        let began = Instant::now();
+        assert_eq!(
+            recv_timeout(&nothing, wait),
+            Err(mpsc::RecvTimeoutError::Timeout)
+        );
+        assert!(began.elapsed() >= wait, "{:?}", began.elapsed());
+        assert_eq!(poll(wait), wait);
+    }
+
+    /// A skip the total cannot hold is refused and leaves the clock.
+    #[test]
+    fn a_skip_past_the_most_is_refused() {
+        assert!(skip(Duration::MAX).is_err());
+        assert!(skip(MOST_SKIPPED + Duration::from_micros(1)).is_err());
+        assert_eq!(skipped(), Duration::ZERO);
     }
 }

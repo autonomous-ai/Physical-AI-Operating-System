@@ -16,7 +16,10 @@ use serde_json::json;
 use std::{
     collections::{HashMap, HashSet},
     io::{self, BufRead, BufReader, Read, Write},
-    os::unix::net::{UnixDatagram, UnixListener, UnixStream},
+    os::unix::{
+        fs::FileTypeExt,
+        net::{UnixDatagram, UnixListener, UnixStream},
+    },
     path::{Path, PathBuf},
     process::ExitCode,
     sync::{Arc, Mutex, mpsc},
@@ -233,18 +236,23 @@ struct Options {
 
 /// A skip of the clock asked on `--clock-control`, and where to say it is
 /// done.
-type Skip = (Duration, mpsc::Sender<()>);
+type Skip = (Duration, mpsc::Sender<Result<(), String>>);
 
 /// Listens on `path` for a test: each line `{"skip_us": N}` skips the
 /// program's clock N µs, which the main loop does, and is answered with
-/// `{"now_us": ...}` once it is done. Production has no such socket.
+/// `{"now_us": ...}` once it is done, or `{"error": ...}`. Production has
+/// no such socket.
 fn clock_control(path: &Path, skips: mpsc::Sender<Skip>) -> io::Result<()> {
-    let _ = std::fs::remove_file(path);
+    // An old socket of its own is taken over; anything else at `path` is
+    // left, and the bind fails on it.
+    if std::fs::symlink_metadata(path).is_ok_and(|meta| meta.file_type().is_socket()) {
+        std::fs::remove_file(path)?;
+    }
     let listener = UnixListener::bind(path)?;
     clock::stepped();
     std::thread::spawn(move || {
         for stream in listener.incoming().flatten() {
-            let mut lines = BufReader::new(&stream);
+            let mut lines = BufReader::new((&stream).take(8_192));
             let mut line = String::new();
             while lines.read_line(&mut line).is_ok_and(|read| read > 0) {
                 let by = serde_json::from_str::<serde_json::Value>(&line)
@@ -254,12 +262,14 @@ fn clock_control(path: &Path, skips: mpsc::Sender<Skip>) -> io::Result<()> {
                 let answer = match by {
                     Some(by) => {
                         let (done, taken) = mpsc::channel();
-                        if skips.send((Duration::from_micros(by), done)).is_err()
-                            || taken.recv().is_err()
-                        {
+                        if skips.send((Duration::from_micros(by), done)).is_err() {
                             return;
                         }
-                        json!({ "now_us": clock::now_us() })
+                        match taken.recv() {
+                            Ok(Ok(())) => json!({ "now_us": clock::now_us() }),
+                            Ok(Err(why)) => json!({ "error": why }),
+                            Err(_) => return,
+                        }
                     }
                     None => json!({ "error": "a line is {\"skip_us\": N}" }),
                 };
@@ -294,11 +304,13 @@ fn take_skips(
         if let Some((_, answers)) = &mut asking.gate {
             answer_asks(answers, &mut asking.waiting, engine, busy, out, runner);
         }
-        clock::skip(by);
+        let skipped = clock::skip(by);
+        // The asks now late are given up before any answer that came since.
+        give_up_late(&mut asking.waiting, out);
         if let Some((_, answers)) = &mut asking.gate {
             answer_asks(answers, &mut asking.waiting, engine, busy, out, runner);
         }
-        let _ = done.send(());
+        let _ = done.send(skipped);
     }
 }
 
@@ -736,6 +748,11 @@ fn answer_asks(
             let _ = start(run.skill, calls, busy, out, runner);
         }
     }
+    give_up_late(waiting, out);
+}
+
+/// The asks waiting past their `ASK_WAIT`, given up: nothing is done.
+fn give_up_late(waiting: &mut HashMap<u64, (lamp_skills::Run, Instant)>, out: &mut Publisher) {
     let now = clock::now();
     let late: Vec<u64> = waiting
         .iter()

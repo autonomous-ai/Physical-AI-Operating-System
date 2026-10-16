@@ -33,9 +33,12 @@ const RELOAD: Duration = Duration::from_secs(2);
 /// program's own waits are on it: a skill's `for`, a clip's length, a pose
 /// said again, the Policy's 2.5 s, the reload. A skip stands in for a wait
 /// the test would sit through; anything after it runs at the host's pace.
+/// [`Clock::host`] is the lamp's own instead: no flag, and each skip a real
+/// wait, so a few tests still run the waits a lamp runs.
 #[derive(Clone)]
 struct Clock {
-    socket: PathBuf,
+    /// The control socket; none on the host's clock.
+    socket: Option<PathBuf>,
     skipped_us: Arc<AtomicU64>,
 }
 
@@ -43,14 +46,25 @@ impl Clock {
     /// The clock of a program whose control socket is in `root`.
     fn at(root: &Path) -> Self {
         Self {
-            socket: root.join("clock.sock"),
+            socket: Some(root.join("clock.sock")),
             skipped_us: Arc::default(),
         }
     }
 
-    /// The flag that hands it to the program.
-    fn args(&self) -> [&OsStr; 2] {
-        ["--clock-control".as_ref(), self.socket.as_os_str()]
+    /// The host's clock, as on a lamp: the program is given no flag.
+    fn host() -> Self {
+        Self {
+            socket: None,
+            skipped_us: Arc::default(),
+        }
+    }
+
+    /// The flag that hands it to the program, if any.
+    fn args(&self) -> Vec<&OsStr> {
+        self.socket
+            .iter()
+            .flat_map(|socket| ["--clock-control".as_ref(), socket.as_os_str()])
+            .collect()
     }
 
     /// Now, on the program's clock.
@@ -61,9 +75,12 @@ impl Clock {
     /// Skips the program's clock `by`, once it has taken in what was
     /// published before.
     fn skip(&self, by: Duration) {
+        let Some(socket) = &self.socket else {
+            return std::thread::sleep(by);
+        };
         let deadline = Instant::now() + Duration::from_secs(10);
         let stream = loop {
-            match UnixStream::connect(&self.socket) {
+            match UnixStream::connect(socket) {
                 Ok(stream) => break stream,
                 Err(error) => {
                     assert!(Instant::now() < deadline, "no clock control: {error}");
@@ -76,6 +93,10 @@ impl Clock {
         // the program does once it has skipped.
         self.skipped_us.fetch_add(us, Ordering::SeqCst);
         writeln!(&stream, r#"{{"skip_us":{us}}}"#).unwrap();
+        // A program stuck before its loop fails the test, with why.
+        stream
+            .set_read_timeout(Some(Duration::from_secs(10)))
+            .unwrap();
         let mut line = String::new();
         BufReader::new(&stream).read_line(&mut line).unwrap();
         assert!(line.contains("now_us"), "{line}");
@@ -87,9 +108,14 @@ impl Clock {
     }
 
     /// Waits for the program to be up and to have looked at its folder once:
-    /// a skip of nothing, which its loop answers.
+    /// a skip of nothing, which its loop answers; on the host's clock, the
+    /// 300 ms it takes.
     fn started(&self) {
-        self.skip(Duration::ZERO);
+        self.skip(if self.socket.is_some() {
+            Duration::ZERO
+        } else {
+            Duration::from_millis(300)
+        });
     }
 }
 
@@ -465,6 +491,21 @@ fn the_program_on(
     wanted: usize,
     lighting: Ring,
 ) -> Seen {
+    the_program_timed(skill, skip, answers, level, faces, wanted, lighting, false)
+}
+
+/// The same, with `on_the_host` on the lamp's own clock, not a test's.
+#[allow(clippy::too_many_arguments)]
+fn the_program_timed(
+    skill: &str,
+    skip: bool,
+    answers: &'static [&'static str],
+    level: u8,
+    faces: usize,
+    wanted: usize,
+    lighting: Ring,
+    on_the_host: bool,
+) -> Seen {
     // Short: a socket's whole path has to fit in 103 bytes.
     let dir = tempfile::Builder::new()
         .prefix("sk")
@@ -482,7 +523,11 @@ fn the_program_on(
     let mood = UnixDatagram::bind(root.join("mood.sock")).unwrap();
     mood.set_read_timeout(Some(Duration::from_millis(1_500)))
         .unwrap();
-    let clock = Clock::at(root);
+    let clock = if on_the_host {
+        Clock::host()
+    } else {
+        Clock::at(root)
+    };
     let actions = UnixListener::bind(root.join("actions.sock")).unwrap();
     let (called, lights) = mpsc::channel();
     let ring = bus.clone();
@@ -1448,13 +1493,17 @@ fn a_reading_pose_is_held_on_the_mood_socket_for_its_for_and_then_let_go() {
         "body = { look_at = \"face\" }",
         "body = { mood = \"reading\", for = \"3s\" }",
     );
-    let seen = the_program_with(
+    // On the lamp's own clock, as a lamp runs it: the pose said again on
+    // the host's seconds.
+    let seen = the_program_timed(
         &reading,
         true,
         &[r#"{"event":"begun","at_us":5}"#, r#"{"outcome":"spoken"}"#],
         3,
         1,
         4,
+        Ring::Off,
+        true,
     );
     // Told at once when the say begins, then every second while it lasts:
     // three in all for 3 s, and then nothing, so the body comes back.
@@ -2189,6 +2238,61 @@ fn asking_the_policy_a_skill_acts_only_on_a_say_now_that_names_its_ask() {
     assert!(answered[5].why.contains("no longer holds"), "{answered:?}");
     // Only the first say_now was said, the late one passed over too.
     std::thread::sleep(Duration::from_millis(300));
+    assert_eq!(said.try_iter().count(), 0);
+}
+
+/// On the lamp's own clock, without `--clock-control`: a Policy that takes
+/// 2.8 s is given up at its 2.5 s, not before, and its late `say_now` is
+/// passed over.
+#[test]
+fn asking_the_policy_on_the_hosts_clock_gives_up_after_its_wait() {
+    // Short: a socket's whole path has to fit in 103 bytes.
+    let dir = tempfile::Builder::new()
+        .prefix("sh")
+        .tempdir_in("/tmp")
+        .unwrap();
+    let root = dir.path();
+    let bus = Bus::new(root.join("bus")).unwrap();
+    let mut events = bus.subscribe(SkillEvent::TOPIC, "test").unwrap();
+    let mut asks = bus.subscribe("skills/ask", "policy").unwrap();
+    let policy = bus.clone();
+    std::thread::spawn(move || {
+        let mut decisions = policy
+            .publisher_declared(
+                "policy/decisions",
+                &lamp_msgs::Decision::declaration(),
+                "policy",
+            )
+            .unwrap();
+        let message = loop {
+            if let Ok(Some(message)) = asks.recv(Duration::from_millis(100)) {
+                break message;
+            }
+        };
+        let ask: serde_json::Value = serde_json::from_slice(&message.payload).unwrap();
+        std::thread::sleep(Duration::from_millis(2_800));
+        decisions
+            .publish_json(
+                1,
+                &serde_json::json!({"about": "hello", "choice": "say_now", "shadow": false,
+                    "probability": 0.9, "answers": {}, "by": "rule", "took_ms": 3,
+                    "ask": ask["ask"]}),
+            )
+            .unwrap();
+    });
+    let clock = Clock::host();
+    let (_running, bus, said) = asking_the_policy_in(root, &clock);
+    let mut eyes = bus
+        .publisher_declared(Faces::TOPIC, &Faces::declaration(), "eyes")
+        .unwrap();
+    let face_at = a_face_appears(&mut eyes, &clock, false);
+    let answer = next_answer(&mut events, Instant::now() + Duration::from_secs(10));
+    let waited = face_at.elapsed();
+    assert_eq!(answer.allowed, Some(false), "{answer:?}");
+    assert!(answer.why.contains("did not answer"), "{answer:?}");
+    assert!(waited >= Duration::from_millis(2_500), "{waited:?}");
+    // The late say_now is passed over.
+    std::thread::sleep(Duration::from_millis(600));
     assert_eq!(said.try_iter().count(), 0);
 }
 

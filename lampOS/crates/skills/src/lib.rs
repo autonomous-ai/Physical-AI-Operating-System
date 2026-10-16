@@ -1259,14 +1259,49 @@ pub struct Made {
     pub call: Call,
 }
 
+/// A call of a skill's tool in a case, as the model makes it: `at` from
+/// the recording's first message.
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ToolCall {
+    pub name: String,
+    pub at: String,
+}
+
 /// The calls the skill in `dir` makes for one recording, with the ask skipped.
 pub fn replay(dir: &Path, recording: &Path) -> Result<Vec<Made>, String> {
+    replay_with(dir, recording, &[])
+}
+
+/// The same, with the model calling the skill's tool at the times of
+/// `tools`: each after the messages recorded at or before it. A call is
+/// made as the program would make it, its conditions checked on what has
+/// been replayed; one refused makes nothing. Each call is a fresh run: what
+/// the program does with a call while the last run is still under way
+/// (#1036, #1051) is not replayed.
+pub fn replay_with(dir: &Path, recording: &Path, tools: &[ToolCall]) -> Result<Vec<Made>, String> {
     let mut engine = Engine::new(vec![load(dir)?], true);
     let messages = read_recordings(recording)?;
     let first_us = messages.first().map_or(0, |message| message.header.at_us);
+    let mut calls: Vec<(u64, &str)> = tools
+        .iter()
+        .map(|tool| Ok((duration_us(&tool.at)?, tool.name.as_str())))
+        .collect::<Result<_, String>>()?;
+    calls.sort_by_key(|(at, _)| *at);
+    let mut calls = calls.into_iter().peekable();
     let mut made = Vec::new();
+    let mut call_tools = |engine: &Engine, made: &mut Vec<Made>, until_us: Option<u64>| {
+        while let Some((at, name)) =
+            calls.next_if(|(at, _)| until_us.is_none_or(|until| *at < until))
+        {
+            if let Ok(run) = engine.tool(name, first_us + at) {
+                made.extend(run.calls.into_iter().map(|call| Made { at_us: at, call }));
+            }
+        }
+    };
     for message in messages {
         let at_us = message.header.at_us;
+        call_tools(&engine, &mut made, Some(at_us - first_us));
         for run in engine.observe(
             &message.header.topic,
             at_us,
@@ -1279,6 +1314,7 @@ pub fn replay(dir: &Path, recording: &Path) -> Result<Vec<Made>, String> {
             }));
         }
     }
+    call_tools(&engine, &mut made, None);
     Ok(made)
 }
 
@@ -1289,6 +1325,9 @@ struct ExpectFile {
     none: bool,
     #[serde(default)]
     expect: Vec<ExpectedCall>,
+    /// The model calling the skill's tool, for a skill a person starts.
+    #[serde(default)]
+    call_tool: Vec<ToolCall>,
 }
 
 #[derive(Deserialize)]
@@ -1355,11 +1394,12 @@ pub fn run_tests(dir: &Path) -> Result<(usize, usize), String> {
                 "expect.toml says none = true or lists [[expect]], one of them".into(),
             ));
         }
-        if read_recordings(case)?.is_empty() {
+        // A case of a tool's call alone needs no recording.
+        if read_recordings(case)?.is_empty() && expect.call_tool.is_empty() {
             unrecorded += 1;
             continue;
         }
-        let made = replay(dir, case)?;
+        let made = replay_with(dir, case, &expect.call_tool)?;
         let names: Vec<_> = made
             .iter()
             .map(|made| (made.at_us, made.call.named()))

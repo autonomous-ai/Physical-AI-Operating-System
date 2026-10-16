@@ -1,0 +1,22 @@
+# The owner's run on lamp-4ace, 2026-10-16 16:47:40 to 16:50:10, made from its journal (no words): someone at the desk asks the lamp to check their work, and the model calls check_my_work at 16:47:56. At once: the look, the head down over the page held 2 minutes, the page lit, and the tutoring note for the answer, which then (on the lamp) asked for the page closer. The pose and the look come before any answer.
+[[call_tool]]
+name = "check_my_work"
+at = "16s"
+
+[[expect]]
+at = "16s"
+call = "look"
+
+[[expect]]
+at = "16s"
+call = "body.mood"
+args = { mood = "reading", for_ms = 120000 }
+
+[[expect]]
+at = "16s"
+call = "light"
+args = { colour = "white", for = "2m" }
+
+[[expect]]
+at = "16s"
+call = "say"

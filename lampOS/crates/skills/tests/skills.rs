@@ -1066,6 +1066,78 @@ fn a_reading_pose_is_held_on_the_mood_socket_for_its_for_and_then_let_go() {
     }
 }
 
+/// A case of a skill a person starts (#941, Desk tutor): `[[call_tool]]`
+/// makes the model's call at its time, after the messages recorded before
+/// it, its conditions judged on them.
+#[test]
+fn a_case_calls_the_skills_tool_at_its_time_and_needs_no_recording_for_it() {
+    let dir = tempfile::tempdir().unwrap();
+    let toml = TUTOR.replace(
+        "[[do]]",
+        "[[while]]\ntopic = \"voice/state\"\nfield = \"state\"\nequals = \"resting\"\n[[do]]",
+    );
+    let skill = skill_with(dir.path(), "tutor", &toml);
+    let case = skill.join("tests/asked");
+    fs::create_dir_all(&case).unwrap();
+    // voice/state: resting at 0, speaking at 10 s.
+    let header = |seq: u64, at: u64| {
+        format!(
+            r#"{{"header":{{"topic":"voice/state","kind":"latest","enc":"json","type":"lamp_msgs/VoiceState","source":"test","boot":"b","seq":{seq},"at_us":{at},"at_unix_ms":{}}},"payload_b64":"{}"}}"#,
+            1_792_000_000_000 + at / 1_000,
+            if seq == 1 {
+                "eyJzdGF0ZSI6InJlc3RpbmcifQ=="
+            } else {
+                "eyJzdGF0ZSI6InNwZWFraW5nIn0="
+            }
+        )
+    };
+    fs::write(
+        case.join("voice_state.jsonl"),
+        format!(
+            "{}\n{}\n{}\n",
+            r#"{"topic":"voice/state","declaration":{"type":"lamp_msgs/VoiceState","version":1,"kind":"latest"}}"#,
+            header(1, 0),
+            header(2, 10_000_000)
+        ),
+    )
+    .unwrap();
+    let expect = |text: &str| fs::write(case.join("expect.toml"), text).unwrap();
+    // Called at 5 s, while resting: its steps, at 5 s.
+    expect(
+        r#"
+[[call_tool]]
+name = "check_my_work"
+at = "5s"
+[[expect]]
+at = "5s"
+call = "look"
+[[expect]]
+at = "5s"
+call = "light"
+args = { colour = "white" }
+[[expect]]
+call = "say"
+"#,
+    );
+    assert_eq!(run_tests(&skill).unwrap(), (1, 0));
+    // Called at 12 s, after the lamp began speaking at 10 s: refused, nothing.
+    expect("none = true\n[[call_tool]]\nname = \"check_my_work\"\nat = \"12s\"\n");
+    assert_eq!(run_tests(&skill).unwrap(), (1, 0));
+    // The same, expecting its steps, fails: the call came after the message.
+    expect("[[call_tool]]\nname = \"check_my_work\"\nat = \"12s\"\n[[expect]]\ncall = \"look\"\n");
+    assert!(run_tests(&skill).unwrap_err().contains("made 0 calls"));
+    // A case that is only a call needs no recording, when nothing holds it back.
+    let plain = skill_with(&dir.path().join("plain"), "tutor", TUTOR);
+    let only = plain.join("tests/only");
+    fs::create_dir_all(&only).unwrap();
+    fs::write(
+        only.join("expect.toml"),
+        "[[call_tool]]\nname = \"check_my_work\"\nat = \"1s\"\n[[expect]]\ncall = \"look\"\n[[expect]]\ncall = \"light\"\n[[expect]]\ncall = \"say\"\n",
+    )
+    .unwrap();
+    assert_eq!(run_tests(&plain).unwrap(), (1, 0));
+}
+
 #[test]
 fn a_tool_needs_no_trigger_and_a_look_needs_a_tool() {
     let dir = tempfile::tempdir().unwrap();

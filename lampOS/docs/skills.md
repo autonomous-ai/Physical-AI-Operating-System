@@ -189,6 +189,15 @@ runtime gives are:
 - `say`: `note`, or `from` for what the voice keeps (`say = { from = … }`)
 - `look`: none
 
+A skill a person starts by its `tool` has the model's call in its case:
+`[[call_tool]]` with `name` and `at` (from the case's first message) makes
+the call after the messages recorded at or before that time, its
+conditions judged on them; a call refused makes nothing. A case that is
+only a call needs no recording. Each call is a fresh run: what the program
+does with a call while the last run is still under way (the look and the
+note again, the pose held again) is not replayed. Desk tutor's
+`a-page-held-too-far-is-asked-closer` is one.
+
 A case is replayed in the program, not on a bus. Every message of every file
 goes in the order of its `at_us` (the publisher's clock), with the ask
 skipped. Any call not listed fails the case. A case with no recording yet is

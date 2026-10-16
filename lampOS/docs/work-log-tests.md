@@ -1,5 +1,22 @@
 # Tests work log
 
+## 2026-10-16 22:49:56 +0700 — #823's goal met: the realtime group in 97.6 s
+
+Ready for lamp-voice: no (#1131 and #1162, waiting for their ARM64 runs)
+
+**Merged today:**
+- #1088 (20:48), #1109 (21:07), #1152 (21:24, the reviewer's P3s on #1088), #1101 (22:27) and #1104 (22:29);
+- the eighth's #900 put the motor tests on a stepped clock.
+
+**Full run 38924461963** on `lamp-voice` `5e5b1b4dd`, every test one at a time on four ARM64 runners: all 5,882 passed. With the 15 Oct filterset, the realtime group's 173 tests took **97.6 s**, against 977 s on 15 Oct and 256.6 s this morning. Every test was kept, and no assertion or bound changed. Posted on #823 and #705; I suggested closing #823 there.
+
+**Not done:** pull requests still skip the group. Some of what is left (`hung_worker…`, `capture_hold_worker`, `serve_session`) runs real processes and would not be safe at one test per core.
+
+**Next:**
+- **#1162:** `pilot_faults` leaves the group (12 of 12 four-way loaded runs here).
+- **#1131** (#1128): now one commit. It adds the capacity-paced interruption test on a paused clock: 2.2 s → 0.5 s, its 1 s bound read on Tokio's clock.
+- **#1160:** the fourth's `spoken_to` voice-check scene races a real 100 ms unanswered timeout. It failed on its own branch before my changes and twice locally, and passed 188 later runs on two builds. I'll put it on the logical clock after #1131.
+
 ## 2026-10-16 21:06:19 +0700 — #1088 merged; the reviewer's P3s answered; four branches rebased
 
 Ready for lamp-voice: yes (#1109, #1101, #1104, each again once its run on the new head is green); no (#1131, on #1104; #1152, waiting for its run)

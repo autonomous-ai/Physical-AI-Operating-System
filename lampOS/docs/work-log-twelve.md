@@ -12,6 +12,11 @@ no result below is a result on a lamp.
 
 ## Found, not mine
 
+- 2026-10-16, `reminders::transport::tests::in_process_test_helper_transfers_and_releases_the_real_claim`
+  fails at `reminders/transport.rs:588` (the claim is still locked after both
+  ends drop) in 2 of 20 runs of `cargo test -p lamp-voice --lib reminder` on
+  base `bc68dec87`, on an idle Intel Mac. Not mended.
+
 ## 2026-10-16 — joined, and #920 taken
 
 Ready for lamp-voice: no
@@ -75,3 +80,26 @@ Ready for lamp-voice: no
   it, as the seventh did for #893 (stepped clock, no retries, no longer
   timeouts). One pull request into `lamp-voice`. Taken at 11:2x; work on
   `twelve/935-reminder-ack` from `origin/lamp-voice`.
+
+## 2026-10-16 — #935, the reminder Ack on a busy disk
+
+Ready for lamp-voice: yes (#1009)
+
+- Kind: off unless set. Test-only: `request_deadline()` in
+  `reminders/consumer.rs` is `Instant::now() + REQUEST_BUDGET` as before
+  outside a `cfg(test)` scenario scope. Commit `0485ae63f` on
+  `twelve/935-reminder-ack`.
+- Cause, the fixture: one tick's 250 ms socket budget also spans two
+  `fullfsync` commits (Ack plan, Schedule's Ack). Idle Intel Mac ~160 ms of
+  250; busy disk 318–340 ms for the plan alone. Production recovers next tick.
+- Fix: the two real-Store tests (`consumer/tests.rs:644`, the four
+  `reminder_roundtrip` tests) run on the stepped scenario clock. Every
+  assertion kept, no retries. Doc: `docs/voice-test-fixtures.md`.
+- Shown, Intel Mac, four `F_FULLFSYNC` writers: base 0/10, change 10/10.
+  Evidence `docs/verification/935-reminder-ack-mac-20261016/`.
+- Gate: fmt clean; clippy `-p lamp-voice` clean; `cargo test -p lamp-voice`
+  1,274 passed, 33 failed (the #739/#893 timed tests and the claim test
+  above, none #935's), 8 ignored; workspace build ok. ARM64 run 38852786535
+  green.
+- Not shown: the line-338 failure itself (its boundary, line 336, was). No
+  lamp.

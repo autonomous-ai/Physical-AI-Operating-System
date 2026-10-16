@@ -226,3 +226,13 @@ Ready for lamp-voice: no
   a reminder due an hour or more ago waits for someone at the lamp and is
   said once, gently, as asked for earlier, then acknowledged. Limit: a newer
   timer waits behind it until someone comes.
+
+## 2026-10-16 — paused by its person
+
+Ready for lamp-voice: yes (#1081)
+
+- #1081 ready, ARM64 38881485530 green on `f7d82fa6c` (the stderr fix: the
+  consumer's lines were thrown away on lamp-4ace in stack27). #1103 draft,
+  stacked on #1081, to rebase after #1081 merges. #1095 peer review done, no
+  finding on `9a08bf282`.
+- The person paused twelve at 16:5x: no loop, no new task until they ask.

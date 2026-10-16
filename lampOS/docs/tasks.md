@@ -615,7 +615,14 @@ used only to say it.
   that request finds the revision moved on and is refused, never run twice.
   Nothing is read while a launch or another read is in hand.
 - **Telling** (`crates/voice/src/task_news.rs`). A thread of the voice reads
-  `list`, `get_task` and `get_observation` every 10 s and offers the newest
+  `list`, `get_task` and `get_observation` every 10 s, and at once when
+  `tasks/status` lists a task newly settled (#560: the tasks part publishes
+  it the moment it keeps the answer, so the news is not up to 10 s late; a
+  task stays listed for 2 minutes and wakes the reader once, by store, task
+  and when it settled). That needs the bus and `lamp-tasks serve
+  --progress`, which publishes the topic; without either it reads every
+  10 s as before, and says so in the journal if the bus cannot be had. It
+  offers the newest
   settled observation of each task, if it was seen in this boot within the
   last 12 hours and has not been told. The coordinator tells it as a turn the
   lamp begins itself (basis `lamp_tells_news`, record `task_news`) when the
@@ -1491,10 +1498,13 @@ is set, `LAMP_TASKS_DIR`, as for all task news).
   unfetched (#765 review, 2026-10-15, 16:02;
   `after_a_restart_another_line_at_the_same_count_is_fetched_and_offered`).
 
-**Without the switch** no thread is made, neither topic is subscribed to
-(no socket of the voice's in either directory), the tasks part is asked
-nothing but what it was asked before, and nothing more is kept:
-`without_the_switch_nothing_is_subscribed_asked_or_kept`
+**Without the switch** no progress thread is made, `policy/decisions` is
+not subscribed to (no socket of the voice's there), the tasks part is asked
+nothing but what it was asked before, and nothing more is kept. Since #560
+the voice listens on `tasks/status` all the same, with one socket of its
+own, only for a task newly settled, which has the settled news read at once
+("Telling", above):
+`without_the_switch_no_progress_is_listened_for_asked_or_kept`
 (`crates/voice/tests/progress_news.rs`), which also shows that only `on`
 turns it on.
 

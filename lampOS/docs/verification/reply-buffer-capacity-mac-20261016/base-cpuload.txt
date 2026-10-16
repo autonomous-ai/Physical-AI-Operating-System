@@ -1,0 +1,163 @@
+=== run 1
+
+running 1 test
+lamp-voice provider: held up 310 ms; 1 lapsed authority snapshots skipped, going on
+lamp-voice provider: connection lost (Gemini Live BarrierTimeout); output already received is still delivered
+
+thread 'provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity' (6138487) panicked at crates/voice/src/provider_worker.rs:5794:30:
+called `Result::unwrap()` on an `Err` value: Os { code: 54, kind: ConnectionReset, message: "Connection reset by peer" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity ... FAILED
+
+failures:
+
+failures:
+    provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1341 filtered out; finished in 6.67s
+=== run 2
+
+running 1 test
+lamp-voice provider: held up 283 ms; 1 lapsed authority snapshots skipped, going on
+lamp-voice provider: connection lost (Gemini Live BarrierTimeout); output already received is still delivered
+
+thread 'provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity' (6138621) panicked at crates/voice/src/provider_worker.rs:5794:30:
+called `Result::unwrap()` on an `Err` value: Os { code: 54, kind: ConnectionReset, message: "Connection reset by peer" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity ... FAILED
+
+failures:
+
+failures:
+    provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1341 filtered out; finished in 6.65s
+=== run 3
+
+running 1 test
+lamp-voice provider: connection lost (Gemini Live BarrierTimeout); output already received is still delivered
+
+thread 'provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity' (6138848) panicked at crates/voice/src/provider_worker.rs:5794:30:
+called `Result::unwrap()` on an `Err` value: Os { code: 54, kind: ConnectionReset, message: "Connection reset by peer" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity ... FAILED
+
+failures:
+
+failures:
+    provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1341 filtered out; finished in 2.51s
+=== run 4
+
+running 1 test
+lamp-voice provider: connection lost (Gemini Live BarrierTimeout); output already received is still delivered
+
+thread 'provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity' (6139011) panicked at crates/voice/src/provider_worker.rs:5794:30:
+called `Result::unwrap()` on an `Err` value: Os { code: 54, kind: ConnectionReset, message: "Connection reset by peer" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity ... FAILED
+
+failures:
+
+failures:
+    provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1341 filtered out; finished in 2.52s
+=== run 5
+
+running 1 test
+lamp-voice provider: held up 312 ms; 1 lapsed authority snapshots skipped, going on
+lamp-voice provider: connection lost (Gemini Live BarrierTimeout); output already received is still delivered
+
+thread 'provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity' (6139139) panicked at crates/voice/src/provider_worker.rs:5794:30:
+called `Result::unwrap()` on an `Err` value: Os { code: 54, kind: ConnectionReset, message: "Connection reset by peer" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity ... FAILED
+
+failures:
+
+failures:
+    provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1341 filtered out; finished in 6.66s
+=== run 6
+
+running 1 test
+lamp-voice provider: connection lost (Gemini Live BarrierTimeout); output already received is still delivered
+
+thread 'provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity' (6139366) panicked at crates/voice/src/provider_worker.rs:5794:30:
+called `Result::unwrap()` on an `Err` value: Os { code: 54, kind: ConnectionReset, message: "Connection reset by peer" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity ... FAILED
+
+failures:
+
+failures:
+    provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1341 filtered out; finished in 2.49s
+=== run 7
+
+running 1 test
+lamp-voice provider: connection lost (Gemini Live BarrierTimeout); output already received is still delivered
+
+thread 'provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity' (6139583) panicked at crates/voice/src/provider_worker.rs:5794:30:
+called `Result::unwrap()` on an `Err` value: Os { code: 54, kind: ConnectionReset, message: "Connection reset by peer" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity ... FAILED
+
+failures:
+
+failures:
+    provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1341 filtered out; finished in 2.58s
+=== run 8
+
+running 1 test
+lamp-voice provider: connection lost (Gemini Live BarrierTimeout); output already received is still delivered
+
+thread 'provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity' (6139809) panicked at crates/voice/src/provider_worker.rs:5794:30:
+called `Result::unwrap()` on an `Err` value: Os { code: 54, kind: ConnectionReset, message: "Connection reset by peer" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity ... FAILED
+
+failures:
+
+failures:
+    provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1341 filtered out; finished in 2.49s
+=== run 9
+
+running 1 test
+lamp-voice provider: connection lost (Gemini Live BarrierTimeout); output already received is still delivered
+
+thread 'provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity' (6139845) panicked at crates/voice/src/provider_worker.rs:5794:30:
+called `Result::unwrap()` on an `Err` value: Os { code: 54, kind: ConnectionReset, message: "Connection reset by peer" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity ... FAILED
+
+failures:
+
+failures:
+    provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1341 filtered out; finished in 6.85s
+=== run 10
+
+running 1 test
+lamp-voice provider: connection lost (Gemini Live BarrierTimeout); output already received is still delivered
+
+thread 'provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity' (6140072) panicked at crates/voice/src/provider_worker.rs:5794:30:
+called `Result::unwrap()` on an `Err` value: Os { code: 54, kind: ConnectionReset, message: "Connection reset by peer" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity ... FAILED
+
+failures:
+
+failures:
+    provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1341 filtered out; finished in 2.64s

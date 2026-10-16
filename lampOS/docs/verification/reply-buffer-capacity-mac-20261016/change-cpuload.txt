@@ -1,0 +1,70 @@
+=== run 1
+
+running 1 test
+MEASURED speaking_speed seconds=20 reply_buffer_s=5.0 hold_ms=4002 playback_finished_ms=24059 completion_received_ms=20005 starved_ms=0 service_wrote_in_ms=4794 packets=500 peak_backlog_s=5.00 (scripted service through output capacity to a local IPC reader and a modeled speaker, host)
+test provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1341 filtered out; finished in 24.09s
+=== run 2
+
+running 1 test
+MEASURED speaking_speed seconds=20 reply_buffer_s=5.0 hold_ms=4003 playback_finished_ms=24075 completion_received_ms=20005 starved_ms=3 service_wrote_in_ms=4853 packets=500 peak_backlog_s=5.00 (scripted service through output capacity to a local IPC reader and a modeled speaker, host)
+test provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1341 filtered out; finished in 24.11s
+=== run 3
+
+running 1 test
+MEASURED speaking_speed seconds=20 reply_buffer_s=5.0 hold_ms=4002 playback_finished_ms=24079 completion_received_ms=20007 starved_ms=0 service_wrote_in_ms=5169 packets=500 peak_backlog_s=5.00 (scripted service through output capacity to a local IPC reader and a modeled speaker, host)
+test provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1341 filtered out; finished in 24.11s
+=== run 4
+
+running 1 test
+MEASURED speaking_speed seconds=20 reply_buffer_s=5.0 hold_ms=4002 playback_finished_ms=24081 completion_received_ms=20269 starved_ms=1 service_wrote_in_ms=4970 packets=500 peak_backlog_s=5.00 (scripted service through output capacity to a local IPC reader and a modeled speaker, host)
+test provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1341 filtered out; finished in 24.12s
+=== run 5
+
+running 1 test
+MEASURED speaking_speed seconds=20 reply_buffer_s=5.0 hold_ms=4003 playback_finished_ms=24148 completion_received_ms=20008 starved_ms=3 service_wrote_in_ms=5595 packets=500 peak_backlog_s=4.99 (scripted service through output capacity to a local IPC reader and a modeled speaker, host)
+test provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1341 filtered out; finished in 24.19s
+=== run 6
+
+running 1 test
+MEASURED speaking_speed seconds=20 reply_buffer_s=5.0 hold_ms=4002 playback_finished_ms=24067 completion_received_ms=20006 starved_ms=1 service_wrote_in_ms=4964 packets=500 peak_backlog_s=5.00 (scripted service through output capacity to a local IPC reader and a modeled speaker, host)
+test provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1341 filtered out; finished in 24.10s
+=== run 7
+
+running 1 test
+MEASURED speaking_speed seconds=20 reply_buffer_s=5.0 hold_ms=4002 playback_finished_ms=24060 completion_received_ms=20004 starved_ms=1 service_wrote_in_ms=4674 packets=500 peak_backlog_s=5.00 (scripted service through output capacity to a local IPC reader and a modeled speaker, host)
+test provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1341 filtered out; finished in 24.08s
+=== run 8
+
+running 1 test
+MEASURED speaking_speed seconds=20 reply_buffer_s=5.0 hold_ms=4001 playback_finished_ms=24057 completion_received_ms=20004 starved_ms=2 service_wrote_in_ms=4678 packets=500 peak_backlog_s=5.00 (scripted service through output capacity to a local IPC reader and a modeled speaker, host)
+test provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1341 filtered out; finished in 24.09s
+=== run 9
+
+running 1 test
+MEASURED speaking_speed seconds=20 reply_buffer_s=5.0 hold_ms=4000 playback_finished_ms=24054 completion_received_ms=20005 starved_ms=0 service_wrote_in_ms=4634 packets=500 peak_backlog_s=5.00 (scripted service through output capacity to a local IPC reader and a modeled speaker, host)
+test provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1341 filtered out; finished in 24.08s
+=== run 10
+
+running 1 test
+MEASURED speaking_speed seconds=20 reply_buffer_s=5.0 hold_ms=4000 playback_finished_ms=24059 completion_received_ms=20004 starved_ms=2 service_wrote_in_ms=4784 packets=500 peak_backlog_s=5.00 (scripted service through output capacity to a local IPC reader and a modeled speaker, host)
+test provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1341 filtered out; finished in 24.08s

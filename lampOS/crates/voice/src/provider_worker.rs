@@ -5,6 +5,8 @@
 //! and Coordinated modes retain its terminal outcome while recovering without
 //! replay. Coordinated availability bypasses PCM credit, not ownership or the
 //! ordered answer stream. See `docs/provider-link-channel.md`.
+#[cfg(test)]
+use crate::scenario_clock::monotonic_us;
 use crate::{
     config::ProviderConfig,
     provider_flow::{OutputSender, PACKET_SAMPLES},
@@ -17,6 +19,7 @@ use lamp_gemini::{
     BarrierWait, Connect, Context, Discard, Error, Event, Failure, FailureReason, Notice,
     RequestId, SessionConfig, SessionId, Stage, StartRefusal, State, SuccessorStart, Supervisor,
 };
+#[cfg(not(test))]
 use lamp_ipc::monotonic_us;
 use lamp_turn_owner::{BootId, BoundaryGuard, MonoTime, Permission, Snapshot};
 use serde::{Deserialize, Serialize};
@@ -8622,6 +8625,10 @@ mod tests {
             // lost to an empty buffer up to then.
             let mut finished = None;
             loop {
+                // One coordinator tick is one scenario step, when a scope is
+                // active, however long the worker and the service held this
+                // thread since the last one.
+                crate::scenario_clock::step(crate::scenario_clock::Phase::Run).unwrap();
                 let hold = speaker.played >= pause_after && speaker.held < pause;
                 self.grant(&mut speaker, hold);
                 for wire in self.arrived() {
@@ -8714,7 +8721,21 @@ mod tests {
     }
     /// A `seconds` long answer through a reply buffer of `room` samples, with
     /// playback held for `pause` once five seconds have been played.
+    ///
+    /// The coordinator's input leases (100 ms) and the worker's heartbeat
+    /// bound (250 ms) run on the stepped scenario clock, two milliseconds per
+    /// coordinator tick. On this test's one thread the worker and the
+    /// scripted service decode and encode the largest messages between two
+    /// ticks; that held a tick back past 100 ms in debug builds, so the
+    /// coordinator lost the turn, the worker retired the answer it was still
+    /// receiving, and the session ended on BarrierTimeout or ReadTimeout. A
+    /// coordinator is a process of its own on a lamp. Playback, the pause and
+    /// the service's pacing stay on the host clock, which is what this
+    /// measures.
     async fn speaking_speed(seconds: u64, room: usize, pause: Duration) {
+        let scope =
+            crate::scenario_clock::Scope::enter(Duration::from_secs(seconds + 150)).unwrap();
+        scope.set_pump(|_| Ok(())).unwrap();
         let mut rig = LiveRig::start(quick_policy());
         let mut dial = rig.ready().await;
         let request = rig.speak(&mut dial, false, true).await;

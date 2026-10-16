@@ -121,15 +121,32 @@ pub fn load(folder: &Path) -> io::Result<Loaded> {
     Ok(loaded)
 }
 
+/// One open of the file, never blocking (a FIFO answers at once), its kind
+/// and size checked on that same handle and at most [`MOST_BYTES`] read from
+/// it: a file swapped after the check can neither be read whole nor hold
+/// the start (the fifth on #994).
 fn read(path: &Path) -> Result<File, String> {
-    let metadata = fs::metadata(path).map_err(|error| error.to_string())?;
+    use rustix::fs::{Mode, OFlags};
+    use std::io::Read;
+    let opened = rustix::fs::open(
+        path,
+        OFlags::RDONLY | OFlags::NONBLOCK | OFlags::CLOEXEC,
+        Mode::empty(),
+    )
+    .map_err(|error| io::Error::from(error).to_string())?;
+    let opened = std::fs::File::from(opened);
+    let metadata = opened.metadata().map_err(|error| error.to_string())?;
     if !metadata.is_file() {
         return Err("not a file".into());
     }
-    if metadata.len() > MOST_BYTES {
+    let mut text = Vec::new();
+    opened
+        .take(MOST_BYTES + 1)
+        .read_to_end(&mut text)
+        .map_err(|error| error.to_string())?;
+    if text.len() as u64 > MOST_BYTES {
         return Err(format!("longer than {MOST_BYTES} bytes"));
     }
-    let text = fs::read(path).map_err(|error| error.to_string())?;
     serde_json::from_slice(&text).map_err(|error| format!("not a move: {error}"))
 }
 
@@ -364,6 +381,39 @@ mod tests {
         let loaded = load(&folder.0).unwrap();
         assert!(loaded.refused.is_empty(), "{:?}", loaded.refused);
         assert_eq!(loaded.named("wiggle").unwrap().duration_us(), 1_500_000);
+    }
+
+    /// The fifth on #994: a FIFO among the moves is refused at once, never
+    /// waited on, and a file longer than the cap is refused from what is
+    /// read, not from a size looked at before.
+    #[test]
+    fn a_fifo_is_refused_at_once_and_a_long_file_by_what_is_read() {
+        let folder = Folder::new("fifo");
+        let fifo = folder.0.join("a-fifo.json");
+        assert!(
+            std::process::Command::new("mkfifo")
+                .arg(&fifo)
+                .status()
+                .unwrap()
+                .success()
+        );
+        folder.write("b-long.json", &" ".repeat(MOST_BYTES as usize + 1));
+        folder.write("c-ok.json", &good("ok"));
+        let started = std::time::Instant::now();
+        let loaded = load(&folder.0).unwrap();
+        assert!(started.elapsed() < std::time::Duration::from_secs(2));
+        let names: Vec<_> = loaded.moves.iter().map(|clip| clip.name).collect();
+        assert_eq!(names, ["ok"]);
+        let why = |file: &str| {
+            loaded
+                .refused
+                .iter()
+                .find(|(path, _)| path.ends_with(file))
+                .map(|(_, why)| why.clone())
+                .unwrap()
+        };
+        assert_eq!(why("a-fifo.json"), "not a file");
+        assert!(why("b-long.json").starts_with("longer than"));
     }
 
     #[test]

@@ -12,6 +12,7 @@ for = "60s"               # the demo: a minute, not fifty (the real one is ../st
 gap = "2m"                # looking away or leaning out of view does not end the sitting
 rearm = "leaves"          # once per sitting; again only after they have left
 cooldown = "5m"
+wait = "10m"              # talking when the minute comes: it stretches once the talk ends (#1021), as the real one
 
 [[while]]                 # not in the middle of a conversation
 topic = "voice/state"

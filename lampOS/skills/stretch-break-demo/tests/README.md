@@ -11,6 +11,7 @@ demo should do in them:
 | `acts-after-a-minute` | the real `acts-after-50-minutes` | looks at the face and stretches once, at about a minute |
 | `once-while-they-stay` | the real `quiet-until-they-leave` (3 hours, never leaving) | once at about a minute, never again |
 | `across-the-room` | the real `across-the-room` (a face 0.04 of the picture tall, as lamp-4ace saw at 15:16) | nothing |
+| `waits-for-the-talk-to-end` | the demo's sitting, `voice/state` talking from 30 s to 2 min 45 s (made by hand from the real recording's shape) | nothing at the minute; one stretch at the first face after the talk, 3 minutes (`wait`, #1021) |
 | `quiet-when-paused` | not recorded, as in the real one: waits for the Policy's gate (#939) | not run |
 
 The real `quiet-when-short-sitting` (40 minutes) and `quiet-while-talking`

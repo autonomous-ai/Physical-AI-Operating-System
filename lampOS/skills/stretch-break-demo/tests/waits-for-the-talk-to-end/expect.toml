@@ -1,0 +1,10 @@
+# The demo's sitting, talking with the lamp from 30 s to 2 min 45 s: nothing at the minute, then one stretch at the first face after the talk ends, 3 minutes (wait = "10m", #1021).
+[[expect]]
+at = "180s"
+within = "1s"
+call = "body.gaze"
+args = { look_at = "face" }
+
+[[expect]]
+call = "body.gesture"
+args = { gesture = "stretching" }

@@ -550,9 +550,12 @@ With the switch:
     in its last answer and the turn in hand agrees ("Shall I call you
     Jim?" "Yes."), not a yes to something asked since. Agreeing is an
     ordinary yes ("yes", "sure", "of course", "go ahead", "uh-huh",
-    "that's it", "vâng", "dạ", "đúng rồi", …) with nothing before it that
-    takes it back ("no", "not", …): "Sure, no problem!" agrees, "No, it's
-    …" doesn't.
+    "that's it", "vâng", "dạ", "có", "đúng rồi", …) with nothing anywhere
+    in the turn that takes it back ("no", "not", "không", "sai", …), but in
+    a yes that holds one ("no problem", "no worries", "why not", "don't
+    mind"). "Sure, no problem!" agrees; "Yeah, no, it's …", "Of course
+    not." and "Dạ không." don't (Ten and the reviewer on #1208: a
+    correction mostly comes right after the yes word).
 
   Each of the name's words must be among theirs, or its letters spelled
   one by one ("J-I-M"), the run being the name's word itself. One letter
@@ -633,7 +636,7 @@ and the ask's two new lines (the eyes);
 `a_name_given_is_told_from_talk_that_only_mentions_a_name`,
 `the_three_names_of_16_46_are_refused_or_read_back`,
 `a_name_said_before_is_kept_once_said_back_and_agreed_to`,
-`a_yes_is_any_ordinary_one_and_is_taken_back_only_before_it` and
+`a_yes_is_any_ordinary_one_and_any_no_takes_it_back` and
 `with_names_checked_only_a_name_they_said_reaches_the_eyes_and_one_face_keeps_one`
 (the voice, against a stand-in for the eyes on a real socket);
 `provider_worker::tests::names::with_names_checked_a_name_given_is_told_to_be_kept_and_plain_talk_is_not`

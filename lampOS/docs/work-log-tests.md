@@ -1,5 +1,15 @@
 # Tests work log
 
+## 2026-10-17 03:20:45 +0700 — #1187 and #1190 merged; the expression flake fixed (#1198); 59 tests leave the group (#1202)
+
+Ready for lamp-voice: yes (#1198); #1202 waits for its run
+
+**Merged:** #1190 at 02:46 (the review pair on the logical clock) and #1187 at 02:48 (#1160).
+
+**#1196 / #1198:** the second's flaky `lamp-expression::runtime sleep_name::a_clock_not_set_gives_no_night_and_a_set_one_does` (ARM64 run 38954300044) was refused as out of order, not stale. The service places each bus input at the injected `now` less its wall age, and `SleepingService::step` moved `now` by exactly 200 ms. A stall over 200 ms while publishing therefore placed the room before the previous step's. A 300 ms sleep after the room reproduced it every time. The helper now reads the wall before publishing too, and its clock moves on by any excess over the tick. With that, a 300 ms stall after the room and a 250 ms stall after the joints both pass. Normal runs see the same clock. ARM64 run 38959792094 on `9885c7e3f` was green, so it is ready.
+
+**#1202 (#823):** the evaluator's `serve_session`, `physical_loopback`, `serve_relay` and `final_dispatch` leave the realtime group, with the evaluator's audit-transport test and Records' real-reporter test: 59 tests that pull requests now run. All were already on Codex's explicit clocks (31.1 s one at a time in full run 38924461963). Qualified at `54be5904b`, each test in its own process: 570 runs 32 at once and 670 runs 48 at once on 16 cores, all passed. Only the filtersets and the doc change. The group keeps 34 tests (48.5 s).
+
 ## 2026-10-17 02:46:36 +0700 — #1131 and #1186 merged; #1187 and #1190 ready; two flaky tests found
 
 Ready for lamp-voice: yes (#1187, #1190)

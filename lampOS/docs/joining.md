@@ -392,12 +392,16 @@ builder has to read, place or close before anyone may do it.
   does not open issues, does not make labels, and puts no `builder:` label
   on any issue, its own name included (`status:` labels on its own issues
   stay its own, as "Claiming an issue" says).
-- **A proposal or a "Found, not mine"** is one comment on the Queue issue
-  ([#705](https://github.com/autonomous-ai/lampOS/issues/705)), headed
-  `<name>-P<n>` or `Found by <name>`, with what was seen, how to see it, and
-  what it would cost (and still a line in your log). The first builder
-  answers there: it opens an issue with an owner and a place in the Queue,
-  or says no. No answer means not taken up.
+- **A problem found while working** is a comment on the issue it belongs
+  to: the task you are on, or the issue of the part where it showed (for
+  example a flaky test of another part's: a comment on that part's open
+  issue). Only when no issue fits, it is one comment on the Queue issue
+  ([#705](https://github.com/autonomous-ai/lampOS/issues/705)). Head it
+  `<name>-P<n>` for a proposal or `Found by <name>` for a fault, with what
+  was seen, how to see it, and what it would cost (and still a line in
+  your log). The first builder answers there: it widens an issue, opens a
+  new one with an owner and a place in the Queue, or says no. No answer
+  means not taken up.
 - **A builder takes only an issue labelled `builder:<name>`** with its own
   name. Its person asking for another issue does not change that: the
   person asks the first builder on the Queue issue, and the builder waits

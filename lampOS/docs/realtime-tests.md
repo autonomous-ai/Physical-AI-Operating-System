@@ -53,14 +53,16 @@ The group is a nextest filterset, written three times in
 `.config/nextest.toml` (group override, `pr` exclusion, `realtime`
 selection), which must stay identical:
 
-- whole test binaries: `lamp-memory::health`,
-  `lamp-voice::capture_hold_worker` (the evaluator's four, `serve_session`,
-  `physical_loopback`, `serve_relay` and `final_dispatch`, left on
+- the whole test binary `lamp-voice::capture_hold_worker` (the evaluator's
+  four, `serve_session`, `physical_loopback`, `serve_relay` and
+  `final_dispatch`, and six of `lamp-memory::health`'s seven tests left on
   2026-10-17, below);
 - the whole module `coordinator::tests::endpoint_session` of `lamp-voice`'s
   unit tests (`coordinator::tests::early_end` and
   `coordinator::tests::pilot_faults` left on 2026-10-16, below);
-- single tests that took 4 s or more outside those, named exactly;
+- single tests that took 4 s or more outside those, named exactly, among
+  them `lamp-memory::health`'s
+  `the_environment_alone_does_not_enable_reporting_or_create_bus_data`;
 - tests with a real-clock bound that a loaded runner misses: none now. A
   test goes here only until it gets its own time; the bound the lamp runs
   with is never raised for it. `lamp-voice`'s `coordinator::motor::tests::native_head`
@@ -136,7 +138,7 @@ Review points:
 - Who decides that a red full run holds the next merge? The workflow only
   opens the issue; it does not block merging.
 - Does a pull request's run list the expected number of tests (every test
-  but the group's, 34 skipped as of 2026-10-17)?
+  but the group's, 28 skipped as of 2026-10-17)?
 
 ## The measured list
 
@@ -807,23 +809,36 @@ three filtersets, on 2026-10-17.
 
 `lamp-voice-eval`'s `serve_session`, `physical_loopback`, `serve_relay` and
 `final_dispatch`, with the evaluator's
-`physical::mac::audit_grant_tests::audit_transport_that_outlives_its_bound_is_killed_and_never_certified`
-and `lamp-records::records`'
-`real_reporter_reloads_switch_and_policy_and_requires_a_matching_receipt`,
-already run on explicit clocks (the sections above, and the Records reporting
-fixture clock). What is left of their time is real process work: 59 tests,
-31.1 s one at a time in full run 38924461963. Their host bounds are
+`physical::mac::audit_grant_tests::audit_transport_that_outlives_its_bound_is_killed_and_never_certified`,
+`lamp-records::records`'
+`real_reporter_reloads_switch_and_policy_and_requires_a_matching_receipt`
+and six of `lamp-memory::health`'s seven tests, already run on explicit
+clocks (the sections above, the Records reporting fixture clock and Memory's
+controlled fixture). What is left of their time is real process work: 65
+tests, 31.8 s one at a time in full run 38924461963. Their host bounds are
 watchdogs, each counted from its own wait: 30 s for a serve-fixture wait, the
-10 s stop grace, 4 s for each of Records' six status waits.
+10 s stop grace, 4 s for each of Records' six status waits, 8 s for each of
+Memory's readiness, log and exit waits.
+
+Memory's seventh,
+`the_environment_alone_does_not_enable_reporting_or_create_bus_data`, stays
+in the group by name: with no `--bus-root` the program makes no reporter, so
+there is no report clock to step, and the test watches for 2.2 s, twice, that
+nothing appears (4.4 s in that run).
 
 They were qualified the way a pull request runs them, each test in its own
 process, on the Intel Mac (16 cores) at `54be5904b`, release build: all 57
 of the four suites one at a time (39 s), then 570 runs (ten each, shuffled)
-32 at once, then 670 runs (the 570 and fifty of each single test) 48 at once.
-All 1,297 passed. At 48 at once the slowest
-`serve_session::stale_duplicate_reordered_foreign_and_lost_cues_end_the_conversation`
-took 43.5 s in all against 3.9 s alone on ARM64, and the Records test 3.6 s
-over its six waits. No test, assertion or bound changed. They left the group,
-in all three filtersets, on 2026-10-17, so pull requests run them again. The
-group keeps 34 tests (48.5 s in that run): `lamp-memory::health`,
-`capture_hold_worker`, `endpoint_session` and the two named single tests.
+32 at once, then 670 runs (the 570 and fifty of each single test) 48 at once,
+then 870 runs (the 570 and fifty of each of Memory's six) 48 at once. All
+2,167 passed. The slowest,
+`serve_session::stale_duplicate_reordered_foreign_and_lost_cues_end_the_conversation`,
+took 43.5 s in all in the second round and 85.8 s in the slower third,
+against 3.9 s alone on ARM64. The Records test took at most 3.6 s over its six
+waits, and Memory's slowest,
+`sqlite_reports_retained_counts_and_stays_well_after_caller_refusals`, 8.5 s
+over its many requests (0.035 s alone on ARM64). No test, assertion or
+bound changed. They left the group, in all three filtersets, on 2026-10-17,
+so pull requests run them again. The group keeps 28 tests (47.9 s in that
+run): `capture_hold_worker`, `endpoint_session` and three named single
+tests.

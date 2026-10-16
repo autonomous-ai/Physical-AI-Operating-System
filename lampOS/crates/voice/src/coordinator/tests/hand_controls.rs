@@ -1128,14 +1128,19 @@ fn run_loop(
     reply: Option<Reply>,
     fault_first: bool,
 ) -> Ran {
-    run_loop_with(controls, owner, reply, fault_first, Clocking::Host)
+    run_loop_with(
+        controls,
+        move || (owner, reply),
+        fault_first,
+        Clocking::Host,
+    )
 }
 
-/// As [`run_loop`], with the loop's time passing as `clocking` says.
+/// As [`run_loop`], with the loop's time passing as `clocking` says, and the
+/// owner and its reply made by `start` just before the controls.
 fn run_loop_with(
     controls: impl FnOnce() -> HandControls,
-    mut owner: Controller,
-    mut reply: Option<Reply>,
+    start: impl FnOnce() -> (Controller, Option<Reply>),
     fault_first: bool,
     clocking: Clocking,
 ) -> Ran {
@@ -1284,7 +1289,10 @@ fn run_loop_with(
     }
     let mut trace = SessionState::default();
     // Made last, just before the loop first polls it: a touch is fresh for
-    // 100 ms only.
+    // 100 ms only. Stepped, the owner and its reply are made here too, inside
+    // the scope, so starting the children cannot spend the owner's windows
+    // (the reviewer and the seventh on #1207).
+    let (mut owner, mut reply) = start();
     let mut controls = Some(controls());
     let error = conversation_with_controls(
         &mut rig,
@@ -1427,7 +1435,7 @@ fn head_tap() -> HandControls {
 #[test]
 fn a_tap_on_a_quiet_lamps_head_plays_its_hm_as_a_turn_of_its_own() {
     // #711: a soft "hm?", through the speaker path, nothing to the provider.
-    let ran = run_loop_with(head_tap, quiet_owner(), None, false, Clocking::Stepped);
+    let ran = run_loop_with(head_tap, || (quiet_owner(), None), false, Clocking::Stepped);
     let cue = ran
         .trace
         .iter()
@@ -1455,10 +1463,13 @@ fn a_tap_on_a_quiet_lamps_head_plays_its_hm_as_a_turn_of_its_own() {
 #[test]
 fn a_tap_while_the_lamp_is_still_thinking_keeps_its_answer_and_does_not_hum() {
     // Still thinking: the tap is noted, the answer kept, no hum.
-    let (owner, mut current, _) = active_reply();
-    current.had_audio = false;
-    current.playback = None;
-    let ran = run_loop_with(head_tap, owner, Some(current), false, Clocking::Stepped);
+    let still_thinking = || {
+        let (owner, mut current, _) = active_reply();
+        current.had_audio = false;
+        current.playback = None;
+        (owner, Some(current))
+    };
+    let ran = run_loop_with(head_tap, still_thinking, false, Clocking::Stepped);
     let cue = ran
         .trace
         .iter()

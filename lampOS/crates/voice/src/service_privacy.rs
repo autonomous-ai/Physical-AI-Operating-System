@@ -410,18 +410,40 @@ pub(crate) mod tests {
         (worker, task)
     }
 
+    /// Whether a missing executable starts a child here, as under user-mode
+    /// emulation (`qemu-aarch64` 7.2): `spawn` succeeds and the child exits
+    /// 127, so no wait can see `NotFound`. A real kernel never does, so CI
+    /// never skips, and fails if it would (#1212).
+    fn a_missing_executable_starts_here(executable: &Path) -> bool {
+        let Ok(mut child) = std::process::Command::new(executable).spawn() else {
+            return false;
+        };
+        let _ = child.wait();
+        assert!(
+            std::env::var_os("CI").is_none(),
+            "a missing executable started a child on CI"
+        );
+        eprintln!(
+            "skipped the NotFound part: a missing executable starts a child here, \
+             as under user-mode emulation"
+        );
+        true
+    }
+
     #[test]
     fn software_gate_waits_before_opening_any_privacy_worker() {
         let directory = SessionDirectory::create().unwrap();
         let absent_worker = directory.path.join("absent-privacy-worker");
-        let ungated = wait(&absent_worker, &Termination::inactive(), |_, _, _| {
-            panic!("the nonexistent worker cannot report a state")
-        })
-        .unwrap_err();
-        assert_eq!(
-            ungated.downcast_ref::<io::Error>().unwrap().kind(),
-            io::ErrorKind::NotFound
-        );
+        if !a_missing_executable_starts_here(&absent_worker) {
+            let ungated = wait(&absent_worker, &Termination::inactive(), |_, _, _| {
+                panic!("the nonexistent worker cannot report a state")
+            })
+            .unwrap_err();
+            assert_eq!(
+                ungated.downcast_ref::<io::Error>().unwrap().kind(),
+                io::ErrorKind::NotFound
+            );
+        }
         let calls = Cell::new(0);
         let error = wait_with_gate(
             // If the wait tries to spawn a child, it fails before the fourth

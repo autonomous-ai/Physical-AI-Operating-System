@@ -1,0 +1,22 @@
+diff --git a/lampOS/docs/verification/final-drain-clock-20261016/README.md b/lampOS/docs/verification/final-drain-clock-20261016/README.md
+index 1e7893c1e..8845971b5 100644
+--- a/lampOS/docs/verification/final-drain-clock-20261016/README.md
++++ b/lampOS/docs/verification/final-drain-clock-20261016/README.md
+@@ -1,6 +1,6 @@
+ # Final-dispatch delayed-line clock: first local qualification
+ 
+-Packaged <function <lambda> at 0x10ea975e0>, from shell date. Base `1fb07c6f57ee280a49de7b4ddd74008c2a32a20d`, branch `tests/823-final-drain-clock`. The first executable candidate gate passed **504 tests, zero failures, zero ignores**, plus workspace formatting, strict all-target Evaluator Clippy and the workspace build. Native ARM64 qualification remains pending.
++Packaged 2026-10-16 09:18:14 +0700, from shell date. Base `1fb07c6f57ee280a49de7b4ddd74008c2a32a20d`, branch `tests/823-final-drain-clock`. The first executable candidate gate passed **504 tests, zero failures, zero ignores**, plus workspace formatting, strict all-target Evaluator Clippy and the workspace build. Native ARM64 qualification remains pending.
+ 
+ The original `lamp-voice-eval::final_dispatch / a_session_end_first_seen_in_the_final_drain_withholds_and_is_kept` measured **1.272 s before → 0.444 s after**, one first sample per version using the same nextest command, default profile, one test thread and zero retries. This preserves the whole 300 ms logical delay, 800 ms dispatch target and every original assertion. Times are nextest's complete case durations, including fixture creation, real shell/pipe/reader and cleanup, excluding compilation and nextest startup. Shared host load was uncontrolled. This is no full-suite before/after, native, device, CI push-to-result or original-123 standalone serial result.
+ 
+diff --git a/lampOS/docs/verification/final-drain-clock-20261016/SHA256SUMS b/lampOS/docs/verification/final-drain-clock-20261016/SHA256SUMS
+index fb128da2e..76b8318eb 100644
+--- a/lampOS/docs/verification/final-drain-clock-20261016/SHA256SUMS
++++ b/lampOS/docs/verification/final-drain-clock-20261016/SHA256SUMS
+@@ -1,4 +1,4 @@
+-1244b6515ac717e968c3f5016d112b7570c9624c8e92e2effcd455fa08c46e7a  README.md
++b41be62a176a1688f8cd88ea02a74bb737c43e841918de587db06d2dbd1c02e5  README.md
+ 1ea59ea5cedf0481b8f527247512b104f248271df01666355b88e0dfebc6471b  audit/identity-execution-proof.json
+ 2bdd03aa5e08c4387a95d76ea1bc428b6bcbfab363db56966a3fb3db3ebf00ea  audit/original-case-timing.json
+ 86465bb792b7f9bea419228646be03a54fbc7fb4158a0e78a85407b6f8fa47c4  audit/per-binary-timing.json

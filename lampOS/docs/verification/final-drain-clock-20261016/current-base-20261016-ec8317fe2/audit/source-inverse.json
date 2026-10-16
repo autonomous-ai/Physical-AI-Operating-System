@@ -1,0 +1,120 @@
+{
+  "date_from_date": "2026-10-16 10:35:00 +0700",
+  "current_base": "ec8317fe2e9b3cc33eb775d4ac757057b72f21f4",
+  "current_head": "c2eacfa4e29a5c9db21d4d919a77d33ce8112238",
+  "files": [
+    {
+      "path": "lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "base_sha256": "600ad54a33c7a98ba0abf9c6aadeca366cb319d121b3847f36211cc5b0a30a29",
+      "candidate_sha256": "aca9379bbb7c993267251c1103a88f91d06ad8468e7f3cc936efb0d44797227c",
+      "reversed_sha256": "600ad54a33c7a98ba0abf9c6aadeca366cb319d121b3847f36211cc5b0a30a29",
+      "whole_file_exact": true,
+      "segments": [
+        {
+          "operation": "insert",
+          "base_lines": [
+            6,
+            5
+          ],
+          "candidate_lines": [
+            6,
+            7
+          ],
+          "base_bytes_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "candidate_bytes_sha256": "12449c48713976393e97c711bbbd11c553b0a81b2395893d285f56a8bcb745c4",
+          "base_text": "",
+          "candidate_text": "#[path = \"common/final_drain_clock.rs\"]\nmod final_drain_clock;\n"
+        },
+        {
+          "operation": "insert",
+          "base_lines": [
+            134,
+            133
+          ],
+          "candidate_lines": [
+            136,
+            143
+          ],
+          "base_bytes_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "candidate_bytes_sha256": "8b46750a16b3a421ffd71d3bd7966b89f322e11223043f2f0a734ae71eff792e",
+          "base_text": "",
+          "candidate_text": "        PhysicalBackend::new(\n            self.config(script),\n            &self.assets,\n            Box::new(Recording(self.starts.clone())),\n        )\n    }\n\n    fn config(&self, script: String) -> PhysicalConfig {\n"
+        },
+        {
+          "operation": "replace",
+          "base_lines": [
+            136,
+            136
+          ],
+          "candidate_lines": [
+            146,
+            146
+          ],
+          "base_bytes_sha256": "e1b13bf9fcd92ed3ce52eb31c262cc72f7367414e17aada865f51fd283be7b2f",
+          "candidate_bytes_sha256": "e0db12c0f00cbae186a62b68e911af454594e3f06bd47f64e1c1515adcf38308",
+          "base_text": "        let config = PhysicalConfig {\n",
+          "candidate_text": "        PhysicalConfig {\n"
+        },
+        {
+          "operation": "replace",
+          "base_lines": [
+            151,
+            156
+          ],
+          "candidate_lines": [
+            161,
+            161
+          ],
+          "base_bytes_sha256": "9ad127da57bc4d1ce41864d7dc7ee94bca1aa349836ab50069435dc3fbb71ef3",
+          "candidate_bytes_sha256": "e6b04491469722e8363a94e4044538e013a2a217e36b1e568ba60acb7b4c8f2e",
+          "base_text": "        };\n        PhysicalBackend::new(\n            config,\n            &self.assets,\n            Box::new(Recording(self.starts.clone())),\n        )\n",
+          "candidate_text": "        }\n"
+        },
+        {
+          "operation": "replace",
+          "base_lines": [
+            274,
+            274
+          ],
+          "candidate_lines": [
+            279,
+            280
+          ],
+          "base_bytes_sha256": "d88365e3eea20e3eb8b0ad4ce22942824bbd02e21f8f56e71a270be6e768d9d0",
+          "candidate_bytes_sha256": "6794b0db16fbf120d795ca56564531f96b477177a79033535a0db3a46ebea215",
+          "base_text": "    let mut backend = rig.backend(\n",
+          "candidate_text": "    let mut backend = final_drain_clock::backend(\n        &rig,\n"
+        }
+      ]
+    },
+    {
+      "path": "lampOS/docs/voice-test-fixtures.md",
+      "base_sha256": "8ae2d7745236ce42fe60ac91c8b814f68c19bfdc75b96e282dfc73ff0d81b1f8",
+      "candidate_sha256": "e6793bfdc94e95cf29393061638c6c0a418e109016a7c87c699c5b9df3bde98a",
+      "reversed_sha256": "8ae2d7745236ce42fe60ac91c8b814f68c19bfdc75b96e282dfc73ff0d81b1f8",
+      "whole_file_exact": true,
+      "segments": [
+        {
+          "operation": "insert",
+          "base_lines": [
+            336,
+            335
+          ],
+          "candidate_lines": [
+            336,
+            357
+          ],
+          "base_bytes_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "candidate_bytes_sha256": "84b6fde663b042115df565cdfd9a4b113138c757d12d7e24b7b2458779edc652",
+          "base_text": "",
+          "candidate_text": "\n## Delayed final-dispatch line fixture\n\nThe original final-drain session-end case explicitly selects a test-local\ndriver for its real shell and stdout pipe. The first `cat` must have returned\nand its complete line must be queued by the actual backend reader before\nlogical time advances. At the original 300 ms delay, a private FIFO releases\nthe unchanged later bytes. The second `cat` completion marker and the reader's\nsecond complete-frame count are both required before advancing farther.\n\nThe driver never consumes a backend line. The original 800 ms dispatch target\nand final drain still discover the terminal line, withhold playback and retain\nthe RunEnd for the runner. Clock reads are pure. Ordinary helper calls keep\ntheir host sleeps; this first migration does not control the closed-transport\ncase, whose real reader/channel closure needs separate evidence.\n\nControl writes are nonblocking. One immutable ten-second host watchdog bounds\nthe driver's progress checks; it does not interrupt blocking filesystem or OS\ncleanup calls. Dropping the driver attempts an abort token and closes its FIFO.\nThe backend retains ownership of stdin close, actual exit and its existing\ntwo-second kill/wait fallback, including abandonment before the child opens the\nFIFO. Neither a completion marker nor an empty queue certifies child reaping.\n"
+        }
+      ]
+    }
+  ],
+  "new_file_inverse": {
+    "path": "lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+    "absent_from_base": true,
+    "remove_new_file_restores_base": true
+  }
+}

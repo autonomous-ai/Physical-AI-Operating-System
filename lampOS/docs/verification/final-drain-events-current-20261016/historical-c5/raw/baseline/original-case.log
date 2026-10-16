@@ -1,0 +1,9 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.44s
+────────────
+ Nextest run ID b799030b-642b-4729-9bc7-0bcf7601a3c3 with nextest profile: default
+    Starting 3 tests across 1 binary (16 tests and 23 binaries skipped)
+        PASS [   1.263s] (1/3) lamp-voice-eval::final_dispatch a_relay_framing_error_first_seen_in_the_final_drain_withholds
+        PASS [   1.226s] (2/3) lamp-voice-eval::final_dispatch an_invalid_cue_first_seen_in_the_final_drain_withholds
+        PASS [   1.242s] (3/3) lamp-voice-eval::final_dispatch an_unobserved_event_in_the_final_drain_requires_revalidation
+────────────
+     Summary [   3.733s] 3 tests run: 3 passed, 16 skipped

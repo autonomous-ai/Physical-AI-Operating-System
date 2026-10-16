@@ -1,0 +1,4084 @@
+{
+  "date_from_date": "2026-10-16 10:35:36 +0700",
+  "references": {
+    "original_base": "1fb07c6f57ee280a49de7b4ddd74008c2a32a20d",
+    "c5": "c5bcc45b905458c1a8adcd8bcf06885f35dbfdf7",
+    "34ad": "34ad55e75beb7ae2a08732ad7ddfda38eb2071b6",
+    "base": "ec8317fe2e9b3cc33eb775d4ac757057b72f21f4",
+    "c2": "c2eacfa4e29a5c9db21d4d919a77d33ce8112238"
+  },
+  "only_c5_to_34ad_changes": [
+    "lampOS/docs/verification/final-drain-clock-20261016/README.md",
+    "lampOS/docs/verification/final-drain-clock-20261016/SHA256SUMS"
+  ],
+  "all_53_prior_evidence_blobs_and_modes_exact_34ad_to_c2": true,
+  "all_51_other_evidence_blobs_exact_c5_to_c2": true,
+  "owned_Rust_files_exact_c5_34ad_c2": true,
+  "current_head_diff_from_current_base_exact_3_source_plus_53_evidence": true,
+  "base_freeze_inputs_verified": 1066,
+  "candidate_freeze_inputs_verified": 1075,
+  "all_candidate_frozen_inputs_exact_to_worktree_and_HEAD": true,
+  "owned_sources": [
+    {
+      "path": "lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "versions": {
+        "original_base": {
+          "mode": "100644",
+          "git_blob": "b2e42e90d2c63d8ab9233b0ac1629a1b2a06f7a3",
+          "sha256": "600ad54a33c7a98ba0abf9c6aadeca366cb319d121b3847f36211cc5b0a30a29",
+          "bytes": 17804
+        },
+        "c5": {
+          "mode": "100644",
+          "git_blob": "4277acc6ae2690dbc7ec67e4557f46748b80a918",
+          "sha256": "aca9379bbb7c993267251c1103a88f91d06ad8468e7f3cc936efb0d44797227c",
+          "bytes": 17959
+        },
+        "34ad": {
+          "mode": "100644",
+          "git_blob": "4277acc6ae2690dbc7ec67e4557f46748b80a918",
+          "sha256": "aca9379bbb7c993267251c1103a88f91d06ad8468e7f3cc936efb0d44797227c",
+          "bytes": 17959
+        },
+        "base": {
+          "mode": "100644",
+          "git_blob": "b2e42e90d2c63d8ab9233b0ac1629a1b2a06f7a3",
+          "sha256": "600ad54a33c7a98ba0abf9c6aadeca366cb319d121b3847f36211cc5b0a30a29",
+          "bytes": 17804
+        },
+        "c2": {
+          "mode": "100644",
+          "git_blob": "4277acc6ae2690dbc7ec67e4557f46748b80a918",
+          "sha256": "aca9379bbb7c993267251c1103a88f91d06ad8468e7f3cc936efb0d44797227c",
+          "bytes": 17959
+        }
+      }
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+      "versions": {
+        "c5": {
+          "mode": "100644",
+          "git_blob": "72a2c0d9cbe1ffc01546fc08fb62d2398483b2e7",
+          "sha256": "fcc6988f7837440550a090ea6e2b04c9b9f569f3f7589558234780477880148e",
+          "bytes": 13432
+        },
+        "34ad": {
+          "mode": "100644",
+          "git_blob": "72a2c0d9cbe1ffc01546fc08fb62d2398483b2e7",
+          "sha256": "fcc6988f7837440550a090ea6e2b04c9b9f569f3f7589558234780477880148e",
+          "bytes": 13432
+        },
+        "c2": {
+          "mode": "100644",
+          "git_blob": "72a2c0d9cbe1ffc01546fc08fb62d2398483b2e7",
+          "sha256": "fcc6988f7837440550a090ea6e2b04c9b9f569f3f7589558234780477880148e",
+          "bytes": 13432
+        }
+      }
+    },
+    {
+      "path": "lampOS/docs/voice-test-fixtures.md",
+      "versions": {
+        "original_base": {
+          "mode": "100644",
+          "git_blob": "ec95b47db883f6020448a846130b2101e87ea4d1",
+          "sha256": "04bf0a07ddbd0e9de139988b65c51aa23a11bb1b542176a8185a473d923a19d4",
+          "bytes": 18358
+        },
+        "c5": {
+          "mode": "100644",
+          "git_blob": "be94a8f17a3ef93cfe9f1df834b3f2c689c0d01b",
+          "sha256": "bd618f4471d5ec69dad490abc9e4747a91fdb21ef9fb1033a1e9d8f20e332940",
+          "bytes": 19699
+        },
+        "34ad": {
+          "mode": "100644",
+          "git_blob": "be94a8f17a3ef93cfe9f1df834b3f2c689c0d01b",
+          "sha256": "bd618f4471d5ec69dad490abc9e4747a91fdb21ef9fb1033a1e9d8f20e332940",
+          "bytes": 19699
+        },
+        "base": {
+          "mode": "100644",
+          "git_blob": "4962dc1905d505be5ced683bba14948bdc87f47b",
+          "sha256": "8ae2d7745236ce42fe60ac91c8b814f68c19bfdc75b96e282dfc73ff0d81b1f8",
+          "bytes": 19642
+        },
+        "c2": {
+          "mode": "100644",
+          "git_blob": "212dfa0f16565e98cc00870b4a4beb4f74311857",
+          "sha256": "e6793bfdc94e95cf29393061638c6c0a418e109016a7c87c699c5b9df3bde98a",
+          "bytes": 20983
+        }
+      }
+    }
+  ],
+  "preserved_evidence": [
+    {
+      "path": "lampOS/docs/verification/final-drain-clock-20261016/README.md",
+      "c5": {
+        "mode": "100644",
+        "git_blob": "1e7893c1eafbd94967c4a2aa692dd9d882fa58ff"
+      },
+      "old": {
+        "mode": "100644",
+        "git_blob": "8845971b5ce3d99a2e8fde5796eb912ed4e06015"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "8845971b5ce3d99a2e8fde5796eb912ed4e06015"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-clock-20261016/SHA256SUMS",
+      "c5": {
+        "mode": "100644",
+        "git_blob": "fb128da2eee154cf461a7f47b891730a41c70035"
+      },
+      "old": {
+        "mode": "100644",
+        "git_blob": "76b8318eb3d5bfe117be08d7653c8a8a5865f718"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "76b8318eb3d5bfe117be08d7653c8a8a5865f718"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-clock-20261016/audit/identity-execution-proof.json",
+      "c5": {
+        "mode": "100644",
+        "git_blob": "e6f6e5b6c974b8cca5d78675e05c790d10d07c3f"
+      },
+      "old": {
+        "mode": "100644",
+        "git_blob": "e6f6e5b6c974b8cca5d78675e05c790d10d07c3f"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "e6f6e5b6c974b8cca5d78675e05c790d10d07c3f"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-clock-20261016/audit/original-case-timing.json",
+      "c5": {
+        "mode": "100644",
+        "git_blob": "1832813b530968923c496f1cb578acb6774a6450"
+      },
+      "old": {
+        "mode": "100644",
+        "git_blob": "1832813b530968923c496f1cb578acb6774a6450"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "1832813b530968923c496f1cb578acb6774a6450"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-clock-20261016/audit/per-binary-timing.json",
+      "c5": {
+        "mode": "100644",
+        "git_blob": "90fdf2487dc62c611fdd239f4bc0df15a3a90ecc"
+      },
+      "old": {
+        "mode": "100644",
+        "git_blob": "90fdf2487dc62c611fdd239f4bc0df15a3a90ecc"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "90fdf2487dc62c611fdd239f4bc0df15a3a90ecc"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-clock-20261016/audit/per-binary-timing.md",
+      "c5": {
+        "mode": "100644",
+        "git_blob": "5335fdbf272bc636aa7d5f79a79a796e05fa5b48"
+      },
+      "old": {
+        "mode": "100644",
+        "git_blob": "5335fdbf272bc636aa7d5f79a79a796e05fa5b48"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "5335fdbf272bc636aa7d5f79a79a796e05fa5b48"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-clock-20261016/audit/terminal-source-gate-audit.json",
+      "c5": {
+        "mode": "100644",
+        "git_blob": "81adbcca424a611ffd880d087ff605f8c730a823"
+      },
+      "old": {
+        "mode": "100644",
+        "git_blob": "81adbcca424a611ffd880d087ff605f8c730a823"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "81adbcca424a611ffd880d087ff605f8c730a823"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-clock-20261016/external-script-checksums.json",
+      "c5": {
+        "mode": "100644",
+        "git_blob": "d7151906ba646c0583e7a663bcec6ebd2615425a"
+      },
+      "old": {
+        "mode": "100644",
+        "git_blob": "d7151906ba646c0583e7a663bcec6ebd2615425a"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "d7151906ba646c0583e7a663bcec6ebd2615425a"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-clock-20261016/provenance.json",
+      "c5": {
+        "mode": "100644",
+        "git_blob": "ae818f77839b03954a59d8e95a8ef08482810778"
+      },
+      "old": {
+        "mode": "100644",
+        "git_blob": "ae818f77839b03954a59d8e95a8ef08482810778"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "ae818f77839b03954a59d8e95a8ef08482810778"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-clock-20261016/raw/baseline/gates.json",
+      "c5": {
+        "mode": "100644",
+        "git_blob": "7fed32dd5d233d83a52f8f882042edc529fd6990"
+      },
+      "old": {
+        "mode": "100644",
+        "git_blob": "7fed32dd5d233d83a52f8f882042edc529fd6990"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "7fed32dd5d233d83a52f8f882042edc529fd6990"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-clock-20261016/raw/baseline/list.log",
+      "c5": {
+        "mode": "100644",
+        "git_blob": "4b0200ecb46b3a993165f6a1ef7ca2f744ff0803"
+      },
+      "old": {
+        "mode": "100644",
+        "git_blob": "4b0200ecb46b3a993165f6a1ef7ca2f744ff0803"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "4b0200ecb46b3a993165f6a1ef7ca2f744ff0803"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-clock-20261016/raw/baseline/original-case.log",
+      "c5": {
+        "mode": "100644",
+        "git_blob": "da39349826902df77acad38774dc48d5a96ca499"
+      },
+      "old": {
+        "mode": "100644",
+        "git_blob": "da39349826902df77acad38774dc48d5a96ca499"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "da39349826902df77acad38774dc48d5a96ca499"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-clock-20261016/raw/baseline/source.json",
+      "c5": {
+        "mode": "100644",
+        "git_blob": "a1ba1a8cbd5698bce39c3955e60badbd5ad3c07f"
+      },
+      "old": {
+        "mode": "100644",
+        "git_blob": "a1ba1a8cbd5698bce39c3955e60badbd5ad3c07f"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "a1ba1a8cbd5698bce39c3955e60badbd5ad3c07f"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-clock-20261016/raw/first-gate/build.exit",
+      "c5": {
+        "mode": "100644",
+        "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+      },
+      "old": {
+        "mode": "100644",
+        "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-clock-20261016/raw/first-gate/build.log",
+      "c5": {
+        "mode": "100644",
+        "git_blob": "d6f296b439b0ac71cd857c04d74da81365d840e9"
+      },
+      "old": {
+        "mode": "100644",
+        "git_blob": "d6f296b439b0ac71cd857c04d74da81365d840e9"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "d6f296b439b0ac71cd857c04d74da81365d840e9"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-clock-20261016/raw/first-gate/clippy.exit",
+      "c5": {
+        "mode": "100644",
+        "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+      },
+      "old": {
+        "mode": "100644",
+        "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-clock-20261016/raw/first-gate/clippy.log",
+      "c5": {
+        "mode": "100644",
+        "git_blob": "1412116bef9024056d87462ec5478e38a29c69cf"
+      },
+      "old": {
+        "mode": "100644",
+        "git_blob": "1412116bef9024056d87462ec5478e38a29c69cf"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "1412116bef9024056d87462ec5478e38a29c69cf"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-clock-20261016/raw/first-gate/completed.json",
+      "c5": {
+        "mode": "100644",
+        "git_blob": "a7a891827bef23ae13ebac118ed315eacd13b610"
+      },
+      "old": {
+        "mode": "100644",
+        "git_blob": "a7a891827bef23ae13ebac118ed315eacd13b610"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "a7a891827bef23ae13ebac118ed315eacd13b610"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-clock-20261016/raw/first-gate/fmt.exit",
+      "c5": {
+        "mode": "100644",
+        "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+      },
+      "old": {
+        "mode": "100644",
+        "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-clock-20261016/raw/first-gate/fmt.log",
+      "c5": {
+        "mode": "100644",
+        "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+      },
+      "old": {
+        "mode": "100644",
+        "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-clock-20261016/raw/first-gate/gates.json",
+      "c5": {
+        "mode": "100644",
+        "git_blob": "af3ba3d83ccc45aefe5956367cea5b74ec38a4cd"
+      },
+      "old": {
+        "mode": "100644",
+        "git_blob": "af3ba3d83ccc45aefe5956367cea5b74ec38a4cd"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "af3ba3d83ccc45aefe5956367cea5b74ec38a4cd"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-clock-20261016/raw/first-gate/identity-proof.json",
+      "c5": {
+        "mode": "100644",
+        "git_blob": "06b941cc875cadbd22aef2272298eaee1feac1a9"
+      },
+      "old": {
+        "mode": "100644",
+        "git_blob": "06b941cc875cadbd22aef2272298eaee1feac1a9"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "06b941cc875cadbd22aef2272298eaee1feac1a9"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-clock-20261016/raw/first-gate/list.exit",
+      "c5": {
+        "mode": "100644",
+        "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+      },
+      "old": {
+        "mode": "100644",
+        "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-clock-20261016/raw/first-gate/list.log",
+      "c5": {
+        "mode": "100644",
+        "git_blob": "38bbddb18a4fa24acb9b8e0396c8d3344d573d3c"
+      },
+      "old": {
+        "mode": "100644",
+        "git_blob": "38bbddb18a4fa24acb9b8e0396c8d3344d573d3c"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "38bbddb18a4fa24acb9b8e0396c8d3344d573d3c"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-clock-20261016/raw/first-gate/metadata.exit",
+      "c5": {
+        "mode": "100644",
+        "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+      },
+      "old": {
+        "mode": "100644",
+        "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-clock-20261016/raw/first-gate/metadata.log",
+      "c5": {
+        "mode": "100644",
+        "git_blob": "d98f0a508f1977f0a03471af1d531e67c9be869d"
+      },
+      "old": {
+        "mode": "100644",
+        "git_blob": "d98f0a508f1977f0a03471af1d531e67c9be869d"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "d98f0a508f1977f0a03471af1d531e67c9be869d"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-clock-20261016/raw/first-gate/original-case.exit",
+      "c5": {
+        "mode": "100644",
+        "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+      },
+      "old": {
+        "mode": "100644",
+        "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-clock-20261016/raw/first-gate/original-case.log",
+      "c5": {
+        "mode": "100644",
+        "git_blob": "e67796ffbe5a462cd7595888306ed1458f9ac214"
+      },
+      "old": {
+        "mode": "100644",
+        "git_blob": "e67796ffbe5a462cd7595888306ed1458f9ac214"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "e67796ffbe5a462cd7595888306ed1458f9ac214"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-clock-20261016/raw/first-gate/source.json",
+      "c5": {
+        "mode": "100644",
+        "git_blob": "07256aef586f15057f17e0a5359018f9d33e641f"
+      },
+      "old": {
+        "mode": "100644",
+        "git_blob": "07256aef586f15057f17e0a5359018f9d33e641f"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "07256aef586f15057f17e0a5359018f9d33e641f"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-clock-20261016/raw/first-gate/tests.exit",
+      "c5": {
+        "mode": "100644",
+        "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+      },
+      "old": {
+        "mode": "100644",
+        "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-clock-20261016/raw/first-gate/tests.log",
+      "c5": {
+        "mode": "100644",
+        "git_blob": "d608d0927dcf617c2574096ad20117f087badfc7"
+      },
+      "old": {
+        "mode": "100644",
+        "git_blob": "d608d0927dcf617c2574096ad20117f087badfc7"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "d608d0927dcf617c2574096ad20117f087badfc7"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-clock-20261016/review/baseline-gate-input-audit.json",
+      "c5": {
+        "mode": "100644",
+        "git_blob": "600dad21f097941f3ad8ef95ac9a983c02d505ac"
+      },
+      "old": {
+        "mode": "100644",
+        "git_blob": "600dad21f097941f3ad8ef95ac9a983c02d505ac"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "600dad21f097941f3ad8ef95ac9a983c02d505ac"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-clock-20261016/review/baseline-source/lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "c5": {
+        "mode": "100644",
+        "git_blob": "b2e42e90d2c63d8ab9233b0ac1629a1b2a06f7a3"
+      },
+      "old": {
+        "mode": "100644",
+        "git_blob": "b2e42e90d2c63d8ab9233b0ac1629a1b2a06f7a3"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "b2e42e90d2c63d8ab9233b0ac1629a1b2a06f7a3"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-clock-20261016/review/baseline-source/lampOS/docs/voice-test-fixtures.md",
+      "c5": {
+        "mode": "100644",
+        "git_blob": "ec95b47db883f6020448a846130b2101e87ea4d1"
+      },
+      "old": {
+        "mode": "100644",
+        "git_blob": "ec95b47db883f6020448a846130b2101e87ea4d1"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "ec95b47db883f6020448a846130b2101e87ea4d1"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-clock-20261016/review/final-reviewed-source/lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+      "c5": {
+        "mode": "100644",
+        "git_blob": "72a2c0d9cbe1ffc01546fc08fb62d2398483b2e7"
+      },
+      "old": {
+        "mode": "100644",
+        "git_blob": "72a2c0d9cbe1ffc01546fc08fb62d2398483b2e7"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "72a2c0d9cbe1ffc01546fc08fb62d2398483b2e7"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-clock-20261016/review/final-reviewed-source/lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "c5": {
+        "mode": "100644",
+        "git_blob": "4277acc6ae2690dbc7ec67e4557f46748b80a918"
+      },
+      "old": {
+        "mode": "100644",
+        "git_blob": "4277acc6ae2690dbc7ec67e4557f46748b80a918"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "4277acc6ae2690dbc7ec67e4557f46748b80a918"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-clock-20261016/review/final-reviewed-source/lampOS/docs/voice-test-fixtures.md",
+      "c5": {
+        "mode": "100644",
+        "git_blob": "be94a8f17a3ef93cfe9f1df834b3f2c689c0d01b"
+      },
+      "old": {
+        "mode": "100644",
+        "git_blob": "be94a8f17a3ef93cfe9f1df834b3f2c689c0d01b"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "be94a8f17a3ef93cfe9f1df834b3f2c689c0d01b"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-clock-20261016/review/final-source-freeze.json",
+      "c5": {
+        "mode": "100644",
+        "git_blob": "5a1322383edc841b129e1af225be46956472765a"
+      },
+      "old": {
+        "mode": "100644",
+        "git_blob": "5a1322383edc841b129e1af225be46956472765a"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "5a1322383edc841b129e1af225be46956472765a"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-clock-20261016/review/first-reviewed-delta.diff",
+      "c5": {
+        "mode": "100644",
+        "git_blob": "823eb75f5685ec9f2a7103f468f00b7a29ae8f88"
+      },
+      "old": {
+        "mode": "100644",
+        "git_blob": "823eb75f5685ec9f2a7103f468f00b7a29ae8f88"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "823eb75f5685ec9f2a7103f468f00b7a29ae8f88"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-clock-20261016/review/first-reviewed-source/lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+      "c5": {
+        "mode": "100644",
+        "git_blob": "3b7e9e1be6b9b9ec66b4f56133367b5beccabf89"
+      },
+      "old": {
+        "mode": "100644",
+        "git_blob": "3b7e9e1be6b9b9ec66b4f56133367b5beccabf89"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "3b7e9e1be6b9b9ec66b4f56133367b5beccabf89"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-clock-20261016/review/first-reviewed-source/lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "c5": {
+        "mode": "100644",
+        "git_blob": "4277acc6ae2690dbc7ec67e4557f46748b80a918"
+      },
+      "old": {
+        "mode": "100644",
+        "git_blob": "4277acc6ae2690dbc7ec67e4557f46748b80a918"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "4277acc6ae2690dbc7ec67e4557f46748b80a918"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-clock-20261016/review/first-reviewed-source/lampOS/docs/voice-test-fixtures.md",
+      "c5": {
+        "mode": "100644",
+        "git_blob": "be94a8f17a3ef93cfe9f1df834b3f2c689c0d01b"
+      },
+      "old": {
+        "mode": "100644",
+        "git_blob": "be94a8f17a3ef93cfe9f1df834b3f2c689c0d01b"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "be94a8f17a3ef93cfe9f1df834b3f2c689c0d01b"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-clock-20261016/review/original-tests-proof.json",
+      "c5": {
+        "mode": "100644",
+        "git_blob": "8da1f33745ef526621ea41a91fbbcf7888877a3e"
+      },
+      "old": {
+        "mode": "100644",
+        "git_blob": "8da1f33745ef526621ea41a91fbbcf7888877a3e"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "8da1f33745ef526621ea41a91fbbcf7888877a3e"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-clock-20261016/review/reversed-source/lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "c5": {
+        "mode": "100644",
+        "git_blob": "b2e42e90d2c63d8ab9233b0ac1629a1b2a06f7a3"
+      },
+      "old": {
+        "mode": "100644",
+        "git_blob": "b2e42e90d2c63d8ab9233b0ac1629a1b2a06f7a3"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "b2e42e90d2c63d8ab9233b0ac1629a1b2a06f7a3"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-clock-20261016/review/reversed-source/lampOS/docs/voice-test-fixtures.md",
+      "c5": {
+        "mode": "100644",
+        "git_blob": "ec95b47db883f6020448a846130b2101e87ea4d1"
+      },
+      "old": {
+        "mode": "100644",
+        "git_blob": "ec95b47db883f6020448a846130b2101e87ea4d1"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "ec95b47db883f6020448a846130b2101e87ea4d1"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-clock-20261016/review/review-correction.diff",
+      "c5": {
+        "mode": "100644",
+        "git_blob": "16a90dd496d62c0ba271a5d0788fba7135a5e8ff"
+      },
+      "old": {
+        "mode": "100644",
+        "git_blob": "16a90dd496d62c0ba271a5d0788fba7135a5e8ff"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "16a90dd496d62c0ba271a5d0788fba7135a5e8ff"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-clock-20261016/review/review-result.json",
+      "c5": {
+        "mode": "100644",
+        "git_blob": "2a1fc981b6cee52b57de3faafb70ecefa75759f4"
+      },
+      "old": {
+        "mode": "100644",
+        "git_blob": "2a1fc981b6cee52b57de3faafb70ecefa75759f4"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "2a1fc981b6cee52b57de3faafb70ecefa75759f4"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-clock-20261016/review/review.md",
+      "c5": {
+        "mode": "100644",
+        "git_blob": "1de5f2f79d358ac4c7f96218f1955871c01e45a6"
+      },
+      "old": {
+        "mode": "100644",
+        "git_blob": "1de5f2f79d358ac4c7f96218f1955871c01e45a6"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "1de5f2f79d358ac4c7f96218f1955871c01e45a6"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-clock-20261016/review/source-freeze.json",
+      "c5": {
+        "mode": "100644",
+        "git_blob": "57ceaa39fc264a95f7c7c633e46f8c90f48d6f95"
+      },
+      "old": {
+        "mode": "100644",
+        "git_blob": "57ceaa39fc264a95f7c7c633e46f8c90f48d6f95"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "57ceaa39fc264a95f7c7c633e46f8c90f48d6f95"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-clock-20261016/review/source-inverse.json",
+      "c5": {
+        "mode": "100644",
+        "git_blob": "ff9c1cd6a0ae6871747eb22fc98f69548b80e576"
+      },
+      "old": {
+        "mode": "100644",
+        "git_blob": "ff9c1cd6a0ae6871747eb22fc98f69548b80e576"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "ff9c1cd6a0ae6871747eb22fc98f69548b80e576"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-clock-20261016/source/final/lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+      "c5": {
+        "mode": "100644",
+        "git_blob": "72a2c0d9cbe1ffc01546fc08fb62d2398483b2e7"
+      },
+      "old": {
+        "mode": "100644",
+        "git_blob": "72a2c0d9cbe1ffc01546fc08fb62d2398483b2e7"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "72a2c0d9cbe1ffc01546fc08fb62d2398483b2e7"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-clock-20261016/source/final/lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "c5": {
+        "mode": "100644",
+        "git_blob": "4277acc6ae2690dbc7ec67e4557f46748b80a918"
+      },
+      "old": {
+        "mode": "100644",
+        "git_blob": "4277acc6ae2690dbc7ec67e4557f46748b80a918"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "4277acc6ae2690dbc7ec67e4557f46748b80a918"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-clock-20261016/source/final/lampOS/docs/voice-test-fixtures.md",
+      "c5": {
+        "mode": "100644",
+        "git_blob": "be94a8f17a3ef93cfe9f1df834b3f2c689c0d01b"
+      },
+      "old": {
+        "mode": "100644",
+        "git_blob": "be94a8f17a3ef93cfe9f1df834b3f2c689c0d01b"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "be94a8f17a3ef93cfe9f1df834b3f2c689c0d01b"
+      }
+    }
+  ],
+  "upstream_changes": [
+    {
+      "path": "lampOS/Cargo.lock",
+      "old": {
+        "mode": "100644",
+        "git_blob": "a8f411e0571e2c658a29f9a89f6c81ff4eb9d728"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "957606464ad61f2e3c5a652b73ebb6885b3f297d"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/Cargo.toml",
+      "old": {
+        "mode": "100644",
+        "git_blob": "0f7ce266fb6ddfda78bce959200026354d477a76"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "5a6b745d437ff32d70a5cde48e079c66397d2b94"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/audio/src/notice.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "83fe84777927e8e009e011b16844f9577f1ff3c8"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "46ff7e66c05c084e0809ee50346c7f88aa50b486"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/camera/src/linux/params.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "0d3a43b79ba546a6935e884170226d52a2f0d809"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "e327cdd317e904e0a636c69c73a12eb750ff3ec8"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/camera/src/types.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "9b8a13bfc354e397550d63c401b104fb8c316ecf"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "21124805cacddccb8b5e66339cc3195505ce5fdc"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/camera/tests/lifecycle.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "ba517ec402d5ac3ee1e83f33cb3b86782efed25b"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "38cbd5063ed095fff1f3a9fcea5b00d1bb44ac50"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/expression/src/alive.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "cf87c7241fbe629dbdcf81821353f5ce117bf941"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "b3c9a4fc194308b8f6bdbb6c250b8f813babc765"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/expression/src/engine.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "16ec1eee9cd7786f4410e89bbf2f2ed55e826f8e"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "ee984f961e64fa798338bb6dc753b441052c75a3"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/expression/src/main.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "27d62a46cb060482a090c0f8d09cf4703fa33932"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "aedf0470bb0e2d907fb560a4bce495ac97687c7a"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/expression/src/runtime.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "c25d7a57455c4359a4736036b2527c169bdf6046"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "eefc051969e980ac8586567072e6917f7f335fa2"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/expression/tests/runtime.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "bfaa810b112f0d31eb2364a4ef955f70092b6022"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "61332fb98e638e135e3a6a7493ff4ae3e2ad365e"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/eyes/Cargo.toml",
+      "old": {
+        "mode": "100644",
+        "git_blob": "41f4052c437ed9277add81e082c47ac710a40392"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "e002730138934e8e29bbcb9ebeb0bc153a5abdfc"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/eyes/src/full_look.rs",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "bfd0a078841407505fc4a9aa9f6f50f9cc853391"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/eyes/src/kept.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "d9ae623f95206a2edadbdc015a294704189f819e"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "620ba2cfd3f4b946ddc4dc211cba3db15b330463"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/eyes/src/lib.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "867edf7af8049a2c69c6b527cbee2823d1fed329"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "8f7f18cdb7d97386e0f2ce73c4aa1722f44b7e19"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/eyes/src/main.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "e955bd6a490c119ff428f2fde513dd074ae9f27e"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "1e379c304bdc019cccaf8258524eaef8cf79df10"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/eyes/src/permit.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "e6e967e7c9bf3d89f988515a08fbe3586f498465"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "2c8525fa2be0c073636c3bc91aabeaa4901072de"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/health/src/board.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "a15d65c81d586ea7f5aa65ab3f5f85be71d4d9ad"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "07be91ac8525695dbcfbc2fecc66db44c3766936"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/health/src/main.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "fa86350bdc37c843f121dc836a8717c4d79a6051"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "96d6243a492c076044016614b25874522830d50e"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/health/src/parts.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "1a5d0f3b79b89ceddb960d0190891cdce1ec0403"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "e294f8484c1368971e1d740f04ccb6a08cc33feb"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/health/src/serve.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "ab7ab33df7a8f1b9b6f992ece96f88057d2530a1"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "3ed406a291040a92010086d9250ba49bf2ab9ab6"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/health/tests/board.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "30143d8bcb0011aca61174e4af935d7a8fc1de65"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "0e53a98b7bfb3fa6c70d3fb9d252096efaf1b1d0"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/health/tests/program.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "2ebd8b191252f10abbea71e9566b6b2e5ba9fd37"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "4b66efc2ea21f0f7b50b2a64220c05bc993399a8"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/health/tests/serve.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "8124d066fa04ffc0e1274d077cdf660fcbb26783"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "c7844c49117b5a05c576c7d87d1499f5db9af5cc"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/health/tests/tree/mod.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "edf8e758198604f2bdc65cbf44d0996118f5ea8b"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "61131a7436753bc36b5ce27b0bc9f2e16a3f122a"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/ipc/Cargo.toml",
+      "old": {
+        "mode": "100644",
+        "git_blob": "250129695129c1b5223bc559a0c28b587c925dee"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "d96ebdefd3046990ff838e29a4ef356b8a957281"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/ipc/src/clock.rs",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "eee4a7bd4199b98a4bfedaa8ffec99058d9b88a5"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/ipc/src/lib.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "c8758ecf83bff1d7933f4df5cc8c518ff9365d3a"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "41ee3e140025d4bc1bade3574226c60cf396aec4"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/msgs/src/lib.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "bd61b8d0aad6206c013ea6673bf34a0e0a6a1632"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "c2fe8dd308caf7cfdc990fdb44a6f77826effb9c"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/msgs/src/online.rs",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "99c5dc7e627ae1e50c1a0d75ddbccd8d45ba651c"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/msgs/src/skills.rs",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "b281a44ee50d940ddec1544f73233a4469542203"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/msgs/tests/skills.rs",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "5fe1a8389ede531c35f7c158c0301c522e51facb"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/policy/examples/progress_cost.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "cb6727531c9f74241fc70d0fe2957fb6fb869138"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "fb18b272325e9fbd1bca57d6be13d2e169987690"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/policy/src/bin/lamp-policy-judges.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "02db0345b8b1c777d20821f596166d80a642fbda"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "499e25a3b3b059dac1c35359892cf5086424beb0"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/policy/src/main.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "d47fb578db269736115f547ee4453de47f4a8852"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "a609b9bb21c8505c08a4c62af24daf04895c9035"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/policy/src/policy.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "4fa7efa4be940bffdf20edb1fe50ed9413a5c84b"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "50ecd18b7dfc8dcb8d0e448c88fb72d90a06c959"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/policy/tests/judges.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "3686931466dd3159d4497dbecac50670bef44f7c"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "c129489e4ce391b583cdd2ddf974409e6e29ee4e"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/policy/tests/policy.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "07a0b48e1e0232ddc6440f78df9264d6d5f895fe"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "83c6eea54ed3af8793032758bfc77b804c2ecdaf"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/policy/tests/program.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "9e160da4b96823e59f493645acca4b2bb51513e6"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "30ee9fea1ff1bb94175da83dd22e5e5593d7961d"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/policy/tests/progress.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "6934ca044a2b597d5d89af7b088f49c10a4423a9"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "86e49f709fe608c9d79a5e9bda465506669cbebc"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/schedule/src/main.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "5e1d47c36b62a03bb05ae8d663ccb42bde0bf0e1"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "a7257f3a900fac3a000ee70fb8c7349860a50f28"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/schedule/src/runtime.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "e0dda444f62003c530edb2c78628521f98e69f72"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "c8f0206d3b868c26157ebd3a6937977993293b74"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/schedule/tests/runtime.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "97f80b927a2703cced13d18dc3683a0441070c85"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "a0dad55f2ca4fdd5b9a701a44b0ef2c05e1f794b"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/skills/Cargo.toml",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "4e4f5b7add574f39427ee8e51b82bcddbb55f9f1"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/skills/src/lib.rs",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "1e8e1373519635af5b381280af828f9f02491a89"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/skills/src/main.rs",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "66ad8ff7be47cebe024f2a266a08ad01c347b58a"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/skills/tests/skills.rs",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "a7a1d710da81012623c8ed944deb02f498cd0db2"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/tasks/src/engine.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "3cf1665b45279eb3b88e9772207ee455a53eb8cd"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "b52c29f552fc20b84370b67a340bdca556cf108e"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/tasks/src/runtime.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "7cec5279158770a68a7b76ec2aa3ca513709f00f"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "2e4aba0433d53bf552f98b994ae9ce78f36ec898"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/update/src/fetch.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "e1c69939ba97d1d7d749b8781e36f873039c8fdc"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "a17f917e7d06f3bb1b30201965002e8d295c7fbc"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/update/src/install.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "d8f4c533096c4333b0330f96bc0b325e7b3293fb"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "19aab7bd4fbc5e434ae11d54ad18476667636787"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/update/tests/install.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "602d39912db997b31b2a8d61822b6ebddb12d35e"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "ec7d55dd777cc98332de4c4636daf66b6e51c404"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "c62744c60c173ee27cec320b27e3f5f22128656e"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "60aff5ba4c02a04b2f834853f2c94d56390ded8c"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "6ad2188d3ad7331509e5ca89dc70bf309304b83b"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "eeb3ee6e57b20648b73e8d120ddb14625bb83340"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "5f7073f991d1c1ea5ac56d5f5b390d9734d0faed"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "5699193e5c3cf8781c9ab7c94bc1eed43244c2ad"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_invocation_tests.rs",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "b1e41cccc159b893287f35fdde495142b62f807b"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/transport_exit_clock_tests.rs",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "2e115d201225a2272cefef1cdeca7041964cab46"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/common/serve_relay_clock.rs",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "7b57594e58776f711abf728f33408ce0ed1e0c61"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/serve_relay.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "91c1124e1be6be16c8cf0fb5959b03cfdcef1a13"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "9c3b33264152a6b500f24b0479d822c4163362af"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/body_link.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "ee71b8040b3271e68d93ca42a475f0015dffe715"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "307b795c1b5724ff4ce9a606cc189eff1c338666"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/bus_out.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "39ea919c3b3bd90c334123d28fabde8d0b1009db"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "5d1c85cb20a6e11912f49dc791252116907b6e11"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/camera_config.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "d48b86011ded156700cdd142bca35627b8139e74"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "d194fae479e3cfc541f615ac2fe52936d12970a3"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/choreography.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "603da7d3f2fdb547dd7790ad70c7988d5e6f86c5"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "85e37c323803097480fcb906f60ba56446872034"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/coordinator.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "8787a86a2a776c99538fef0992229cffc28b5009"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "308d14e708cd98d4136b253f9e9e449532c6f2f4"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/coordinator/cloud.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "1df212b423927f18891d4e37e6f54c9f138571ba"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "9c9dbca00365cb17ff92979c8d6c9ddfc5300caf"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/coordinator/notices.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "94d776048926f720b3e75aa831348a7cf0dfbdd2"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "340cb4a14ba602ca7430d3265be27ddc39c88b88"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/coordinator/speaker_tone.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "28d5db7d418e16f18706baef6ef023648934baaf"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "c3dc3140014282d9519f4f42ab4e9acc90e63fad"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/coordinator/tests/failure_notice.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "d236e7e95d8fd63314d37d1994fc99cc0271fc03"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "d6e787d7aae55d0a92c9de4260dbabe8f808fffb"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/coordinator/tests/turn_taking.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "5fb7095922a9a6b1651142512bda43d0e291bd00"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "ff553b2f27c4b0c23655b93b832dc2beecf0d23f"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/local_time.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "05a8e9814d9e5b2cb3b485b341ecbd46591cf150"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "46e56ca30834fff4b29d6c60b07ad0178b808e6b"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/main.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "b79590c336a2d98dfed5643174fa4d80568ee6ba"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "6c37b77155dc15f1722008dbf548adbd0d0a31d4"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/onboarding.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "75ae51c2273cf4b8f222a8f0eb156dbb810243d6"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "0c575c13e90fd4e8c30d5082fe45e206c482e503"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/provider_worker.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "5c21d463ab3ebf9a397c1e83c2a37a9dccdeda63"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "44ae871573cd7fb5965e9e20cdaf1044d3a856f2"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/ring_face.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "d53d4ea6a3cf034b78760a3ad356276faa1dd875"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "acf1db370c911f2affefd609a6ee862c79086780"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/ring_wire.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "e2b29e505fac198968f3305b6c7cd223fbf6ce57"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "faffce0b69e1dee04cce98a8105bb6f30320d414"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/second_provider/net/stt.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "c591fe9163c36ac117d1b66a77508f4c8c7b5219"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "6f54ed9ca09195b2c4fabf39e0b2ceec1077f90e"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/session_lifetime.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "74f5ca2d3451c947edfc493a0571a0259055d57a"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "de44b94fd56e4a010afd134d9ee48b98896aa78e"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/sight.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "a398e84f0d9e5208bc41c1754602211a40de1879"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "f6375495715f3efa45a897eab65842e2ebaa83b4"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/speak_up.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "59116aa278a8a18158bf05055667e99c783a105a"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "510f6e388346e9df8ef793cb64d46201b2b2bd41"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/tools.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "dc759062fbfc01a29e0c51226eeb72ecdd748948"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "cd0930ef7393479ae1ebd6b2be472262f434ce7d"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/voice/tests/camera_config.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "0c5143637aecc53402bd65cef7286289f1361137"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "f08376a26e75c57b3bad699851048d19958deab7"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/voice/tests/progress_news.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "5bdcfd7f0cd028058d3bb98a13d5b8d565728905"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "de9a6e915a2f31ee44d09c5eac51dc06046953fc"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/crates/voice/tests/ring_worker.rs",
+      "old": {
+        "mode": "100644",
+        "git_blob": "c28767d718f17316db7e10451013318c4731b257"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "079656a72e0deae6cf46e46430bd411439fdc514"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/deploy/product/README.md",
+      "old": {
+        "mode": "100644",
+        "git_blob": "60fab94cddc2ba7ffbe849a617db4b7ba60ba00e"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "0ec6632e30af20d4cc1acbaef581177373569152"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/deploy/product/lamp-setup-reset.service",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "4824b059cb3eae6b33df94cb61a211b247dfaf37"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/deploy/product/lamp-setup.service",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "9f878fb4357df5f4c65ab07f214f08e21498edb9"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/deploy/product/lampos-setup-done.path",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "e5768cef8220606b514124d85a7c7aa031ad68f6"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/deploy/units/README.md",
+      "old": {
+        "mode": "100644",
+        "git_blob": "acb9a5a108c6a971163495ebbfffae427a2438c3"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "1d272b3b6a4dba0af2abc6d0d44f49ae69103e22"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/deploy/units/lamp-skills.service",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "f233981ab15fb48aa5770aac4205712be45613e4"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/alive.md",
+      "old": {
+        "mode": "100644",
+        "git_blob": "b032c7afcec205df751ba347de2b98e880502e32"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "79644bb0d15f6fc9283c4fc67fb4087c0fd1ffde"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/attention.md",
+      "old": {
+        "mode": "100644",
+        "git_blob": "33f8ae54ce631842292cb1866b296e62695c0bb4"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "725f90ebf498c53d8dd287210a49888f935128bf"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/bus.md",
+      "old": {
+        "mode": "100644",
+        "git_blob": "2393157d27b982ef7513736d2001911c40e0e1fb"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "697c838470aa10e9959a4c7e5e07cf03e69b5fc2"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/camera-runtime.md",
+      "old": {
+        "mode": "100644",
+        "git_blob": "40a2b69ff1600e3c82b3f8eac9255c4176463a63"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "bf6b922733e76d95d84a2afb30c421302bb17794"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/eyes.md",
+      "old": {
+        "mode": "100644",
+        "git_blob": "430683263b9ae427c7c0231b7885f5e7be4e44f6"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "c95501c11c55ac2ca170e79d4d4a33ea80973115"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/failure-notices.md",
+      "old": {
+        "mode": "100644",
+        "git_blob": "68be804a7b8a6e1bde631e302a974a22361e50ea"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "732fb45d665d627808e0c8366e0cf94a4d2e4e0b"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/health.md",
+      "old": {
+        "mode": "100644",
+        "git_blob": "9ad4393462cf579399958cd01d5733c6cf040af4"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "0ac5b2265f8e2a0116e7caf5db0a2b3e6e3b7cb5"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/install.md",
+      "old": {
+        "mode": "100644",
+        "git_blob": "e46021de529ee6ac4297d53e540b624d8fe66ad2"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "a2367e6fe45a634afe06f7d24582d14f14f35674"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/msgs.md",
+      "old": {
+        "mode": "100644",
+        "git_blob": "6bba916c1e48478e53779848ed606765f8d5f4c9"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "123e03d5ce120187e90f266779bd3970ef1f5c45"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/offline.md",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "40722b9ac951ce761941ff346e8c4e0bb6e84646"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/onboarding.md",
+      "old": {
+        "mode": "100644",
+        "git_blob": "a2c737964e69a12881f441fc19f33023345887fd"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "77a155ba16122a5fd92c2bb6775119e467d24d51"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/policy.md",
+      "old": {
+        "mode": "100644",
+        "git_blob": "464286249a98cb54fc86ef524e8357bf5b2a10ee"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "d0e5a16bbb3d224ccc1f8c379814e26978026239"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/realtime-tests.md",
+      "old": {
+        "mode": "100644",
+        "git_blob": "747dddf670324205fc7f3b90544cc147ddb5128c"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "2d8adfbdcb3f41dc6a2acb3df19462f1585aa02e"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/ring-choreography.md",
+      "old": {
+        "mode": "100644",
+        "git_blob": "303cadc520d62616ecb8e92ee1fdbbf5d4e02c7b"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "e2f59ce6183b5393281e9f52a2124e944e9f8ada"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/schedule.md",
+      "old": {
+        "mode": "100644",
+        "git_blob": "bedb346a6d03f2944c8562f188ae56602763461e"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "14bcfedaa0d7029bb348fb0df6757c3bc90d0eff"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/second-voice.md",
+      "old": {
+        "mode": "100644",
+        "git_blob": "a302a40695cab5b4b5cb8ddfc95a8f580adde9a3"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "d7afbd7ad8158ae2d8a7cb53b50a30773962c81f"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/skills.md",
+      "old": {
+        "mode": "100644",
+        "git_blob": "f9e2d3ba52bd1014ec1eeb9451542855aa310bb4"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "169335c1f741d7e70cf3c743c90ee7be72f564b7"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/speaking-first.md",
+      "old": {
+        "mode": "100644",
+        "git_blob": "b7e9c23ed8192903b9e44f87fb2c46fc89a945a1"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "3470dc49cb8a65ddbf4ce4cb7951fe731dc4fcc6"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/tasks.md",
+      "old": {
+        "mode": "100644",
+        "git_blob": "9f9fb0d3f1918a9970fdb441977c5a070a33faa7"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "e992693655c08b4c9fea963495f0b2447a5cfac6"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/tools.md",
+      "old": {
+        "mode": "100644",
+        "git_blob": "b50f63666bb823d096c1b582e4ebbe22afe4a32b"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "432bd76e5811b2cda10098bd66cb09a6455d61dc"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/updates.md",
+      "old": {
+        "mode": "100644",
+        "git_blob": "5a35848aa8165aa2d7c7fb9353ed717e2eb122e6"
+      },
+      "current": {
+        "mode": "100644",
+        "git_blob": "9bfff14c3d64335037d71a1f617679d20012cdfb"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/full-look-held-lamp-52e6-20261016/README.md",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "93a310f2bc136803a8e3cc85d3a6a4e5e3088231"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/full-look-lamp-52e6-20261015/README.md",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "8547665819dab8100de25bb21b3e3204655265fb"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/full-look-lamp-52e6-20261015/eyes-journal.txt",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "c02891a9d8273fee8978d2ee6153faf949f5dc51"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/full-look-lamp-52e6-20261015/look-timing.txt",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "49b59f79ca17be6c77b542f6538eebda2b9efe6b"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/full-look-lamp-52e6-20261015/looks-after.txt",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "e5616ee6a8a6e98c9e880f47a1857f71b8ef7938"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/full-look-lamp-52e6-20261015/looks-before.txt",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "61c204b8787a926d5ea6ac618ae2f27d16f87322"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/README.md",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "7a01f7ba83a5c62f0bb2f65d3ed63a56c3360a30"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/SHA256SUMS",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "3ba86536cfbaee7f02b9287aac55c654cdba6e8a"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/README.md",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "133e798514375567a7916680a50e98e4f804bfad"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/SHA256SUMS",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "6b5e2918357595e34a59d498ccd1abfb7ee958f7"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/audit-command.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "9a778ed8ebe87f4e8f32f22688916304c66cc4d7"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/audit-command.log",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "fb8d1a7eac52babcbc41f717c21e5480f826e2a4"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/baseline-provenance.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "2c12c496fe53be90d83b4ab1ef9c17ef77ed0a87"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/build.log",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "0e887988a3fbbe140ad97a38d18444bf533141d2"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/clean-e5aa-baseline/baseline-list.exit",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/clean-e5aa-baseline/baseline-list.log",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "6cd3081941ef59d1cad0cf16e8aa4d5e0ce2a9a6"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/clean-e5aa-baseline/baseline-source.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "73f6f30ce4561b55347624aece51a13798e8c84a"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/clean-e5aa-baseline/gates.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "ca5148a9e11f15dde322db5240db180a4a36a37e"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/clippy.log",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "6569761fa425c146fd57dfd33d47ccf9fe67d37b"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/compiled-comparison.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "a87d19f7ab75c9c71ccba73042864c34ea0f3eab"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/completed.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "b9ccc5a6c7a4155aa37d6901d73dae91e41d28ac"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/fmt.log",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/gates.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "85f382ea4337660b5d9b641d53e518b570f5d807"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/list.log",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "bff546a58c93103b7bf660c78b759e57b7fd7cd1"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/metadata-command.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "e952a4fc5b2e02aa044111ace92aabe45fe4af70"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/metadata.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "b96a793f9c5b6ca42e3c57ea1e2fb41fc4282acc"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/metadata.stderr.log",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/result-audit.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "0d7f3182a29ff6799b3a3a65ffc79902f3d2245a"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/reverse-dependents.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "0c802fdd78ac28313e129c558577540aafc877ad"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/reviewed-integration/independent-inverse.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "c17d31e82714a839863563573e6384b795060cd0"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/reviewed-integration/root-independent-review.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "1041e0718f5a11a5d0b6059e97a94df902905eb0"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/reviewed-integration/source-proof.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "6f207cb5bd4752004f0977b09370156ebc423ba3"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/reviewed-integration/test-body-proof.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "f606e66ee4871849fefec8af37e96909247d7b04"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/root-result-audit.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "1b5bb55e95771111035338114ef85f0513fe6888"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/source.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "67537016eaae6c12845b3139b7e41817341c59c3"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/tests.log",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "7f7d1733961e1fa8aefe70188e9200bff6fc89d5"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/SHA256SUMS",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "aa3b9d6e11fcd66277a7e8fabc819f0683fad09f"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/base/lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "c62744c60c173ee27cec320b27e3f5f22128656e"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/base/lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "6ad2188d3ad7331509e5ca89dc70bf309304b83b"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/base/lampOS/crates/voice-eval/tests/serve_relay.rs",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "91c1124e1be6be16c8cf0fb5959b03cfdcef1a13"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/base/lampOS/docs/realtime-tests.md",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "747dddf670324205fc7f3b90544cc147ddb5128c"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/candidate/lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "60aff5ba4c02a04b2f834853f2c94d56390ded8c"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/candidate/lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "eeb3ee6e57b20648b73e8d120ddb14625bb83340"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/candidate/lampOS/crates/voice-eval/src/physical/serve_invocation_tests.rs",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "b1e41cccc159b893287f35fdde495142b62f807b"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/candidate/lampOS/crates/voice-eval/tests/common/serve_relay_clock.rs",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "7b57594e58776f711abf728f33408ce0ed1e0c61"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/candidate/lampOS/crates/voice-eval/tests/serve_relay.rs",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "9c3b33264152a6b500f24b0479d822c4163362af"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/candidate/lampOS/docs/realtime-tests.md",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "2d8adfbdcb3f41dc6a2acb3df19462f1585aa02e"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/clean-base.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "845dd5bf1b8f2b09586d0ac42b7ca813e239d5f3"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/doc-append.md",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "9f5ef1dcb67ba6e5e15116f015eaf7d49ee7b132"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/expected-identities-qualified-source-only.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "4c8dc38526147cf95c16062e74cdedfde8b31832"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/handoff.md",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "5cb6db9e2d41eaf5990a37b99275c34ba131ffce"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/independent-inverse.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "c17d31e82714a839863563573e6384b795060cd0"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/integration-tracked.diff",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "a2856bc58dd5e42b6cc60f922099cb79b308b49a"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/reversed/lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "c62744c60c173ee27cec320b27e3f5f22128656e"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/reversed/lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "6ad2188d3ad7331509e5ca89dc70bf309304b83b"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/reversed/lampOS/crates/voice-eval/tests/serve_relay.rs",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "91c1124e1be6be16c8cf0fb5959b03cfdcef1a13"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/reversed/lampOS/docs/realtime-tests.md",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "747dddf670324205fc7f3b90544cc147ddb5128c"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/root-independent-review.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "1041e0718f5a11a5d0b6059e97a94df902905eb0"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/source-proof.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "6f207cb5bd4752004f0977b09370156ebc423ba3"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/test-body-proof.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "f606e66ee4871849fefec8af37e96909247d7b04"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/preservation-audit.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "33ecb6b805c3b02ed1a764e0bfe8465457a13f84"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/provenance.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "54990fbbf953270f3b4dacfee8b7f38e384d186a"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/publication-input-manifest.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "b8173f02e46d330ad5ecd3478d02f24109358d1b"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/SHA256SUMS",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "9382695b2104ee3dc21f34d2ddf2491c28f56a61"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/base-inventory.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "3fded5c030ed75d990ac9d47d3e435a851ead945"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/base/lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "c62744c60c173ee27cec320b27e3f5f22128656e"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/base/lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "6ad2188d3ad7331509e5ca89dc70bf309304b83b"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/base/lampOS/crates/voice-eval/tests/serve_relay.rs",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "91c1124e1be6be16c8cf0fb5959b03cfdcef1a13"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/base/lampOS/docs/realtime-tests.md",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "9b8f6ef19114f5525417c81ab2c4828dc5f51c98"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/baseline-compiled-identities.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "b4a44383b9d0a731f2de0d6adc34591127ced24b"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/baseline-compiled-list.log",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "f1b58ac5747d7f1711bf327c89d6ad7db0b1a1df"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/candidate/lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "60aff5ba4c02a04b2f834853f2c94d56390ded8c"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/candidate/lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "eeb3ee6e57b20648b73e8d120ddb14625bb83340"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/candidate/lampOS/crates/voice-eval/src/physical/serve_invocation_tests.rs",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "b1e41cccc159b893287f35fdde495142b62f807b"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/candidate/lampOS/crates/voice-eval/tests/common/serve_relay_clock.rs",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "7b57594e58776f711abf728f33408ce0ed1e0c61"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/candidate/lampOS/crates/voice-eval/tests/serve_relay.rs",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "9c3b33264152a6b500f24b0479d822c4163362af"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/candidate/lampOS/docs/realtime-tests.md",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "e4bd25f904077f57930a614bba3b90eabad7c67d"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/doc-append.md",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "9f5ef1dcb67ba6e5e15116f015eaf7d49ee7b132"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/expected-after-identities-source-only.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "e39ccc835b755a5a74f701ae6ee874ab59889ed5"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/fake-lamp-live-body-reversed.rs",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "c62744c60c173ee27cec320b27e3f5f22128656e"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/final-evaluator-source.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "fe8c7313f20117f2f1edde172e68bcbda4c309da"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/final-status.txt",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "5add2861df619d0521207291e02fce708105730f"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/handoff.md",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "1d66d1dd71b0b7e67955832ba6312b7b54518fd6"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/initial-audit-interruption.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "7ed64e84c78ec940b0a2057b60097ab6cb79b1e6"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/original-six-preservation.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "2b78b673d5d231d1a1d80f770575f78efd3dcd8e"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/participant-only.diff",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "4990f76af3dc353318bfa4074319f9ac36248dbf"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/qualified-provenance.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "134151c4bd19db170fd9bedd91f4e5bd969f531b"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/reversed/lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "c62744c60c173ee27cec320b27e3f5f22128656e"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/reversed/lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "6ad2188d3ad7331509e5ca89dc70bf309304b83b"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/reversed/lampOS/crates/voice-eval/tests/serve_relay.rs",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "91c1124e1be6be16c8cf0fb5959b03cfdcef1a13"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/reversed/lampOS/docs/realtime-tests.md",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "9b8f6ef19114f5525417c81ab2c4828dc5f51c98"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-build.log",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "be7acde8519c45e0e9387cbd8c329c15657e2b16"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-clippy.log",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "4a72b6b16410e469095625b3ff199674d9e7b057"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-fmt.log",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-gates.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "576211c3d9f51ea7255bf55b5e2572e3eeaf3719"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-identity-proof.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "4d1db628a1db3620e7e8755bfc7dacc655662787"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-list.log",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "46cd98a52883817ba72e94e6d3ef1d9df0e133aa"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-result.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "7de0042c46fa1945858241048057788a03a4a61b"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-source-before.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "e8062c39755d457cc975b6f2e976c61ff22c1813"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-tests.log",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "8b2592e1bd656e31f54f517285498c86d4cc44c4"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/rustfmt.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "48e2b6b717c8eefeae79fcfac832b4e85075e55c"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/rustfmt.log",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/source-proof.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "5ee151a7cf18ac63aab12f0bc0d442481c375299"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/test-source-preservation.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "34cd06c7cc9f8c3d18303b5de68de8d223355d7c"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/handoff.md",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "7451c549165dafd23413bf82507c5dc11f672e75"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/integration-proof.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "6cf0074a1d99dfd4131854656663c1f7ca1965ea"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/participant-only.diff",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "a608f010b2f2dae720d893f05168e1c26b3b98f6"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-build.exit",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-build.finished",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "720b3672a2244fecd1d8d141b02de0a535e31bd2"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-build.log",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "b9e8fccbca762b31e4d7c89f9cc26b580e95c88a"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-build.started",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "f284f96cc95876c000ceb10c362f3e44869ca8b4"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-cache-reset.exit",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-cache-reset.finished",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "550e11184c033c0c30d6f704454424cb92fbf7a6"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-cache-reset.log",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "bc3ff9bd269206d310867f44792744e2043c3fe2"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-cache-reset.started",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "76f2a1cf66305d77a902cd7395e680cad3469956"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-clippy.exit",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-clippy.finished",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "31b6129dd98e5b78345b3ab25ee157a61ed1cef4"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-clippy.log",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "a45f14ad5fffed473dda42cf327444dbc3b4a552"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-clippy.started",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "e0c7ea786a7c71390867f56b1945b746f9d0db23"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-fmt.exit",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-fmt.finished",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "e0c7ea786a7c71390867f56b1945b746f9d0db23"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-fmt.log",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-fmt.started",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "550e11184c033c0c30d6f704454424cb92fbf7a6"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-gates.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "c64f57d86aa6a146e5f853c88252924071a8b556"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-list.exit",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-list.finished",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "b0f7cb64765aee178a850fcfad70c9a3ed9ce6bc"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-list.log",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "f4a8deb20f0fee428f5eac1e5a25d42aee0ba91e"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-list.started",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "31b6129dd98e5b78345b3ab25ee157a61ed1cef4"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-result.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "01a61184bd6794134af94417c36e2e413fe39762"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-source-before.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "60f9655e2821e2c4065987f2f767762f5d861842"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-tests.exit",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-tests.finished",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "f284f96cc95876c000ceb10c362f3e44869ca8b4"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-tests.log",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "156e06d9c237f3e4622eeeaae995e04552c6242d"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-tests.started",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "b0f7cb64765aee178a850fcfad70c9a3ed9ce6bc"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/source-audit.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "6fdccc4ffc20f616ea3283e092e76c23534fd0f4"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/pair/baseline.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "25b3d4ff02b1474ec972c95f59b65aa7dcbab6fb"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/pair/baseline.log",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "cbc3a7c4b9ab49ad392af99509f6da79fd4a461d"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/pair/comparison.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "9ab038808db0b3348136ec94fdaf4cbdeb899231"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/pair/migrated.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "19b183f6f6ad635c8606e8448423e5c551a8bae3"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/pair/migrated.log",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "e16edfd323a3fa773cade7d8ac95b3a6fbc4e19c"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/provenance.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "b8939cad204a588570c81a12e846b22db999d5a9"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/README.md",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "8ef985ca444fc4fedc58e73b802e6e7a6f76c73a"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/SHA256SUMS",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "15d3ed9ec4800a576c92409fa1e312190d317130"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/audit/identity-execution-proof.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "77977c8664a3742e88a0d2e5af400d9a8a784527"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/audit/original-case-timing.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "888ebe8055142cd4eb190c21b2f64fa69d785b8a"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/audit/per-binary-timing.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "192ff202913b8473957880571846cb0d22ae1132"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/audit/per-binary-timing.md",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "be4ca5b972f76ce02006e2aca71c5828cc511844"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/audit/terminal-source-gate-audit.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "bacceae6eb8dec3167ee5b4bfcdd087711d125ed"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/external-script-checksums.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "8cba39436949414df0528b164f0c13f84ad2c5a4"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/provenance.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "285479ee219577be10f1a7e8e12fe3275009598a"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/raw/baseline/gates.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "490e2c1122ee66c7cd7d13eff72c72bbfe47b831"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/raw/baseline/list.log",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "53119c9158388a54ff7a41b42af38a9d7f1d3e48"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/raw/baseline/original-case.log",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "84a4bb94c36adbe3315fef7534037cd3b5e5c978"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/raw/baseline/source.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "1bbfabe1ec1c7f46b579e25ac3ac1ac37fdb5397"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/raw/baseline/source/mac.rs",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "5f7073f991d1c1ea5ac56d5f5b390d9734d0faed"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/raw/baseline/source/voice-test-fixtures.md",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "ec95b47db883f6020448a846130b2101e87ea4d1"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/raw/corrected-gate/build.exit",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/raw/corrected-gate/build.log",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "40a2631c36ce87456e1397122c46dce1fe9bac5b"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/raw/corrected-gate/clippy.exit",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/raw/corrected-gate/clippy.log",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "2e218e477ec1b5cf51bb8b6ab97a310ca06ee247"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/raw/corrected-gate/completed.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "c2424521a0dba15dda39599669e3211210c426b3"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/raw/corrected-gate/fmt.exit",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/raw/corrected-gate/fmt.log",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/raw/corrected-gate/gates.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "851422f70c23475e9fe6f65f8db28999d631db02"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/raw/corrected-gate/identity-proof.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "a3182226b90b7682efa70dc80423434fee739ffd"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/raw/corrected-gate/list.exit",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/raw/corrected-gate/list.log",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "68721304bdb7e87c67e70f7eec88829d4d554569"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/raw/corrected-gate/metadata.exit",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/raw/corrected-gate/metadata.log",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "dfe4227a42e0595cf5432ada52df3d0bff922924"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/raw/corrected-gate/original-case.exit",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/raw/corrected-gate/original-case.log",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "cd47e8fbfa508ae2cb5c8d3fb24627ab8d896406"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/raw/corrected-gate/source.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "6df3be8ae12309ff68dc907e47360dd621c41081"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/raw/corrected-gate/tests.exit",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/raw/corrected-gate/tests.log",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "184e9a273811402c6f77bd6a832633d94a888c8f"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/raw/first-gate/clippy.exit",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/raw/first-gate/clippy.log",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "29cb89382132ab6509181abfbea6f147341d3121"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/raw/first-gate/fmt.exit",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/raw/first-gate/fmt.log",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/raw/first-gate/gates.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "4588cb0421542a5dca58739eecd4bab4d38e0522"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/raw/first-gate/list.log",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "d930a52577b0ba1e761f382b45b9dfb02ff05159"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/raw/first-gate/metadata.exit",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/raw/first-gate/metadata.log",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "dfe4227a42e0595cf5432ada52df3d0bff922924"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/raw/first-gate/source-review-stop.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "8d9cdc5398c5aaa26bdd053816798732bd34e94f"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/raw/first-gate/source.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "7b4ef067769ccb4f40d2dc64ee1bef626a692c75"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/raw/first-gate/terminated.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "2cbec95e3c962ee5364226663f4b6523c189a8ea"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/review/baseline/gates.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "490e2c1122ee66c7cd7d13eff72c72bbfe47b831"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/review/baseline/list.log",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "53119c9158388a54ff7a41b42af38a9d7f1d3e48"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/review/baseline/original-case.log",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "84a4bb94c36adbe3315fef7534037cd3b5e5c978"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/review/baseline/source.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "1bbfabe1ec1c7f46b579e25ac3ac1ac37fdb5397"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/review/baseline/source/mac.rs",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "5f7073f991d1c1ea5ac56d5f5b390d9734d0faed"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/review/baseline/source/voice-test-fixtures.md",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "ec95b47db883f6020448a846130b2101e87ea4d1"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/review/complete-reviewed-delta.diff",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "6ee780479a15df25713b73b640d32ad8bf184aba"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/review/original-tests-proof.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "7350ad81ed23182801beede24db444ba9b622c8c"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/review/review-result.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "4ec71c1f066a50a6fa0b0e6864dec7db80a348d1"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/review/review.md",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "d596630a638d6bb1490bd1fbbe36cd0ea75d6a98"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/review/reviewed-source/lampOS/crates/voice-eval/src/physical/mac.rs",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "5699193e5c3cf8781c9ab7c94bc1eed43244c2ad"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/review/reviewed-source/lampOS/crates/voice-eval/src/physical/transport_exit_clock_tests.rs",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "2e115d201225a2272cefef1cdeca7041964cab46"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/review/reviewed-source/lampOS/docs/voice-test-fixtures.md",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "4962dc1905d505be5ced683bba14948bdc87f47b"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/review/root-earlier-zero-execution-termination.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "2cbec95e3c962ee5364226663f4b6523c189a8ea"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/review/source-freeze.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "0d366f84dd9c7ba8eaa35e86a772d0c5d54d64ce"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/review/source-inverse.json",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "1ddda3a0172499fb54ae74651191f3148c21630a"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/source/final/lampOS/crates/voice-eval/src/physical/mac.rs",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "5699193e5c3cf8781c9ab7c94bc1eed43244c2ad"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/source/final/lampOS/crates/voice-eval/src/physical/transport_exit_clock_tests.rs",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "2e115d201225a2272cefef1cdeca7041964cab46"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/docs/verification/transport-exit-clock-20261016/source/final/lampOS/docs/voice-test-fixtures.md",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "4962dc1905d505be5ced683bba14948bdc87f47b"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/skills/welcome-back/SKILL.md",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "6dc0357b3d99f765d1d58ae2ff89e8d6b16da649"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/skills/welcome-back/lights/warm_glow.toml",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "f5c44d86786e3dc11ad6d374cba8ca8f29906afd"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/skills/welcome-back/skill.toml",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "a55c3e1ef6c13f10e3fe4b54f1e58c9066a2db00"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/skills/welcome-back/tests/back-after-ten-minutes/expect.toml",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "d217830011ecf120f9067683460e744674ce8f2d"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/skills/welcome-back/tests/back-after-ten-minutes/humans_faces_tracked.jsonl",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "bb2b65fb875542dd16206a789675658416370380"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/skills/welcome-back/tests/there-at-start-then-away/expect.toml",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "27b18901a8deba3a772000c5d02cda51bb018f8f"
+      },
+      "matches_current_base": true
+    },
+    {
+      "path": "lampOS/skills/welcome-back/tests/there-at-start-then-away/humans_faces_tracked.jsonl",
+      "old": null,
+      "current": {
+        "mode": "100644",
+        "git_blob": "02faf91dc9e4cff6e674419a229f30a71f5dbb21"
+      },
+      "matches_current_base": true
+    }
+  ],
+  "access": "Read-only Git/tree/blob and filesystem reads; scratch-only artifacts; no Cargo/test or gate status polling."
+}

@@ -1,0 +1,47 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+   Compiling lamp-bus v0.1.0 (/private/tmp/lampos-tests-final-drain-clock/lampOS/crates/bus)
+   Compiling lamp-ipc v0.1.0 (/private/tmp/lampos-tests-final-drain-clock/lampOS/crates/ipc)
+   Compiling lamp-turn-owner v0.1.0 (/private/tmp/lampos-tests-final-drain-clock/lampOS/crates/turn-owner)
+   Compiling lamp-msgs v0.1.0 (/private/tmp/lampos-tests-final-drain-clock/lampOS/crates/msgs)
+   Compiling lamp-turn-end-wire v0.1.0 (/private/tmp/lampos-tests-final-drain-clock/lampOS/crates/turn-end-wire)
+   Compiling lamp-audio v0.1.0 (/private/tmp/lampos-tests-final-drain-clock/lampOS/crates/audio)
+   Compiling lamp-keeper v0.1.0 (/private/tmp/lampos-tests-final-drain-clock/lampOS/crates/keeper)
+   Compiling lamp-body v0.1.0 (/private/tmp/lampos-tests-final-drain-clock/lampOS/crates/body)
+   Compiling lamp-schedule v0.1.0 (/private/tmp/lampos-tests-final-drain-clock/lampOS/crates/schedule)
+   Compiling lamp-controls v0.1.0 (/private/tmp/lampos-tests-final-drain-clock/lampOS/crates/controls)
+   Compiling lamp-records v0.1.0 (/private/tmp/lampos-tests-final-drain-clock/lampOS/crates/records)
+   Compiling lamp-camera v0.1.0 (/private/tmp/lampos-tests-final-drain-clock/lampOS/crates/camera)
+   Compiling lamp-ring v0.1.0 (/private/tmp/lampos-tests-final-drain-clock/lampOS/crates/ring)
+   Compiling winnow v1.0.4
+   Compiling lamp-voice v0.1.0 (/private/tmp/lampos-tests-final-drain-clock/lampOS/crates/voice)
+   Compiling toml_parser v1.1.5+spec-1.1.0
+   Compiling lamp-observer v0.1.0 (/private/tmp/lampos-tests-final-drain-clock/lampOS/crates/observer)
+   Compiling lamp-policy v0.1.0 (/private/tmp/lampos-tests-final-drain-clock/lampOS/crates/policy)
+   Compiling lamp-memory v0.1.0 (/private/tmp/lampos-tests-final-drain-clock/lampOS/crates/memory)
+   Compiling lamp-sound-fixtures v0.1.0 (/private/tmp/lampos-tests-final-drain-clock/lampOS/crates/sound-fixtures)
+   Compiling toml_datetime v1.1.2+spec-1.1.0
+   Compiling serde_spanned v1.1.2
+   Compiling toml v1.1.8+spec-1.1.0
+   Compiling lamp-tasks v0.1.0 (/private/tmp/lampos-tests-final-drain-clock/lampOS/crates/tasks)
+   Compiling jpeg-encoder v0.7.1
+   Compiling lamp-eyes v0.1.0 (/private/tmp/lampos-tests-final-drain-clock/lampOS/crates/eyes)
+   Compiling lamp-skills v0.1.0 (/private/tmp/lampos-tests-final-drain-clock/lampOS/crates/skills)
+   Compiling lamp-turn-end v0.1.0 (/private/tmp/lampos-tests-final-drain-clock/lampOS/crates/turn-end)
+   Compiling lamp-surround v0.1.0 (/private/tmp/lampos-tests-final-drain-clock/lampOS/crates/surround)
+   Compiling lamp-voice-eval v0.1.0 (/private/tmp/lampos-tests-final-drain-clock/lampOS/crates/voice-eval)
+   Compiling lamp-settings v0.1.0 (/private/tmp/lampos-tests-final-drain-clock/lampOS/crates/settings)
+   Compiling lamp-setup v0.1.0 (/private/tmp/lampos-tests-final-drain-clock/lampOS/crates/setup)
+   Compiling lamp-actions v0.1.0 (/private/tmp/lampos-tests-final-drain-clock/lampOS/crates/actions)
+   Compiling lamp-expression v0.1.0 (/private/tmp/lampos-tests-final-drain-clock/lampOS/crates/expression)
+   Compiling lamp-update v0.1.0 (/private/tmp/lampos-tests-final-drain-clock/lampOS/crates/update)
+   Compiling lamp-mood v0.1.0 (/private/tmp/lampos-tests-final-drain-clock/lampOS/crates/mood)
+   Compiling lamp-health v0.1.0 (/private/tmp/lampos-tests-final-drain-clock/lampOS/crates/health)
+   Compiling lamp-selftest v0.1.0 (/private/tmp/lampos-tests-final-drain-clock/lampOS/crates/selftest)
+   Compiling lamp-ears v0.1.0 (/private/tmp/lampos-tests-final-drain-clock/lampOS/crates/ears)
+   Compiling lamp-air v0.1.0 (/private/tmp/lampos-tests-final-drain-clock/lampOS/crates/air)
+   Compiling lamp-name v0.1.0 (/private/tmp/lampos-tests-final-drain-clock/lampOS/crates/name)
+   Compiling lamp-lean v0.1.0 (/private/tmp/lampos-tests-final-drain-clock/lampOS/crates/lean)
+   Compiling lamp-environment v0.1.0 (/private/tmp/lampos-tests-final-drain-clock/lampOS/crates/environment)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1m 43s

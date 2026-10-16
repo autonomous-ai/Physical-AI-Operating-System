@@ -1,0 +1,45 @@
+[
+  {
+    "name": "list",
+    "command": [
+      "cargo",
+      "nextest",
+      "list",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-voice-eval",
+      "--message-format",
+      "json"
+    ],
+    "started": "2026-10-16 09:32:13 +0700",
+    "finished": "2026-10-16 09:33:39 +0700",
+    "exit_code": 0,
+    "raw_sha256": "04bbb95eeaaf0ddb285028d490e0765927f836bbb3609a5196e7e2966cf6c262"
+  },
+  {
+    "name": "original-case",
+    "command": [
+      "cargo",
+      "nextest",
+      "run",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-voice-eval",
+      "--profile",
+      "default",
+      "--test-threads",
+      "1",
+      "--no-fail-fast",
+      "--retries",
+      "0",
+      "-E",
+      "binary_id(lamp-voice-eval::final_dispatch) & (test(=an_invalid_cue_first_seen_in_the_final_drain_withholds) | test(=a_relay_framing_error_first_seen_in_the_final_drain_withholds) | test(=an_unobserved_event_in_the_final_drain_requires_revalidation))"
+    ],
+    "started": "2026-10-16 09:33:39 +0700",
+    "finished": "2026-10-16 09:33:44 +0700",
+    "exit_code": 0,
+    "raw_sha256": "a1151937c4634a60d6bbf365e9e6d03ce755e2feeac3a0bc170915720a0189fd"
+  }
+]

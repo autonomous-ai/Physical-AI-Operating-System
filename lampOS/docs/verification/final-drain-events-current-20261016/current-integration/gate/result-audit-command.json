@@ -1,0 +1,13 @@
+{
+  "command": [
+    "python3",
+    "/private/tmp/tests-823-audit-final-drain-events-current.py"
+  ],
+  "started": "2026-10-16 10:44:17 +0700",
+  "finished": "2026-10-16 10:44:17 +0700",
+  "exit_code": 0,
+  "stdout_sha256": "aa5b16d03bed7b7b2c3c8a369717a9c24bce524869203a8699e9f89ebdd78841",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "gate_exec_session": 47449,
+  "observed_terminal_exit": 0
+}

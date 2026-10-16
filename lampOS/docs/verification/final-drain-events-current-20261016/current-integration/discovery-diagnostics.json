@@ -1,0 +1,15 @@
+{
+  "date_from_date": "2026-10-16 10:35:35 +0700",
+  "notes": [
+    {
+      "command": "cat .../gate/source.json",
+      "outcome": "No such file; the existing gate uses source-freeze.json, discovered before validation."
+    },
+    {
+      "command": "git show c2:lampOS/docs/verification/final-drain-fixture-20261016/README.md",
+      "outcome": "Requested path did not exist; no source or Git mutation resulted. The existing exact event history folder was then used."
+    }
+  ],
+  "raw_errors": "Tool transcript only; no standalone raw capture was made for these exploratory reads.",
+  "tests_executed": 0
+}

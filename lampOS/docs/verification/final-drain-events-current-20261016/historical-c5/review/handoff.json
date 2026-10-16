@@ -1,0 +1,16 @@
+{
+  "date_from_date": "2026-10-16 09:35:06 +0700",
+  "status": "external-only source proposal; unqualified; hold until #963 merge",
+  "base": "c5bcc45b905458c1a8adcd8bcf06885f35dbfdf7",
+  "patch": "/private/tmp/tests-823-final-drain-three-followup/followup.patch",
+  "patch_sha256": "f3322e61f6701bdd2c94fe4c11b27216f8b2c07ea5ba6dabbf7c4467f5a759a2",
+  "candidate_paths": [
+    "lampOS/crates/voice-eval/tests/final_dispatch.rs",
+    "lampOS/docs/voice-test-fixtures.md"
+  ],
+  "source_review_blockers": [],
+  "same_time_second_dispatch_static_path_verified": true,
+  "worktree_edits": false,
+  "cargo_or_tests_run": false,
+  "qualification_or_speedup_claim": false
+}

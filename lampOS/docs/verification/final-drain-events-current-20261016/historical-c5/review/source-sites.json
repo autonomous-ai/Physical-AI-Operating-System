@@ -1,0 +1,161 @@
+{
+  "date_from_date": "2026-10-16 09:35:06 +0700",
+  "base": "c5bcc45b905458c1a8adcd8bcf06885f35dbfdf7",
+  "sites": [
+    {
+      "path": "lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+      "anchor": "const ORIGIN_US:",
+      "lines": [
+        22
+      ]
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+      "anchor": "const DELAY_US:",
+      "lines": [
+        23
+      ]
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+      "anchor": "const HOST_WINDOW:",
+      "lines": [
+        24
+      ]
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+      "anchor": "fn prepare(",
+      "lines": [
+        58
+      ]
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+      "anchor": "fn written_and_enqueued_once(",
+      "lines": [
+        137
+      ]
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+      "anchor": "impl FixtureDriver for Driver",
+      "lines": [
+        157
+      ]
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+      "anchor": "impl Drop for Driver",
+      "lines": [
+        193
+      ]
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+      "anchor": "pub(super) fn backend<'a>",
+      "lines": [
+        201
+      ]
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+      "anchor": "fn note(",
+      "lines": [
+        2025
+      ]
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+      "anchor": "fn take(",
+      "lines": [
+        2072
+      ]
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+      "anchor": "SessionLine::Stdout {",
+      "lines": [
+        2213,
+        4302
+      ]
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+      "anchor": "fn wait_line(",
+      "lines": [
+        2324
+      ]
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+      "anchor": "fn receive_line(",
+      "lines": [
+        2343
+      ]
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+      "anchor": "impl Drop for PhysicalBackend<'_>",
+      "lines": [
+        2390
+      ]
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+      "anchor": "fn relay_reader_with_progress_capacity",
+      "lines": [
+        2427
+      ]
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+      "anchor": "let complete = matches!(",
+      "lines": [
+        2477
+      ]
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+      "anchor": "fn wait_child(",
+      "lines": [
+        2512
+      ]
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+      "anchor": "fn next_event(",
+      "lines": [
+        2777
+      ]
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+      "anchor": "fn inject(",
+      "lines": [
+        2928
+      ]
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+      "anchor": "while (self.now)().as_micros() < at_us",
+      "lines": [
+        2943
+      ]
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+      "anchor": "let held = self.session.as_ref()",
+      "lines": [
+        2987
+      ]
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+      "anchor": "let handle = self.player.start(",
+      "lines": [
+        3041
+      ]
+    }
+  ]
+}

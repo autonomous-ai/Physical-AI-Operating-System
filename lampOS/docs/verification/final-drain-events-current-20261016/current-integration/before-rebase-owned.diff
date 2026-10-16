@@ -1,0 +1,65 @@
+diff --git a/lampOS/crates/voice-eval/tests/final_dispatch.rs b/lampOS/crates/voice-eval/tests/final_dispatch.rs
+index 4277acc6a..259eb27e7 100644
+--- a/lampOS/crates/voice-eval/tests/final_dispatch.rs
++++ b/lampOS/crates/voice-eval/tests/final_dispatch.rs
+@@ -299,7 +299,8 @@ fn a_session_end_first_seen_in_the_final_drain_withholds_and_is_kept() {
+ #[test]
+ fn an_invalid_cue_first_seen_in_the_final_drain_withholds() {
+     let rig = Rig::new("disp-late-cue");
+-    let mut backend = rig.backend(
++    let mut backend = final_drain_clock::backend(
++        &rig,
+         &[start_line()],
+         "0.3",
+         &lines(&[cue_invalid()]),
+@@ -314,7 +315,13 @@ fn an_invalid_cue_first_seen_in_the_final_drain_withholds() {
+ #[test]
+ fn a_relay_framing_error_first_seen_in_the_final_drain_withholds() {
+     let rig = Rig::new("disp-late-frame");
+-    let mut backend = rig.backend(&[start_line()], "0.3", "not a relay line\n", Then::StayOpen);
++    let mut backend = final_drain_clock::backend(
++        &rig,
++        &[start_line()],
++        "0.3",
++        "not a relay line\n",
++        Then::StayOpen,
++    );
+     rig.begin(&mut backend);
+     let at = backend.now_us() + 800_000;
+     let injection = rig.inject(&mut backend, at);
+@@ -402,7 +409,13 @@ fn an_unobserved_event_in_the_final_drain_requires_revalidation() {
+     let rig = Rig::new("disp-revalidate");
+     let ready = json!({"type":"stdout","lamp_received_us":3,
+         "line":"{\"status\":\"listening_ready\"}"});
+-    let mut backend = rig.backend(&[start_line()], "0.3", &lines(&[ready]), Then::StayOpen);
++    let mut backend = final_drain_clock::backend(
++        &rig,
++        &[start_line()],
++        "0.3",
++        &lines(&[ready]),
++        Then::StayOpen,
++    );
+     rig.begin(&mut backend);
+     let at = backend.now_us() + 800_000;
+     let injection = rig.inject(&mut backend, at);
+diff --git a/lampOS/docs/voice-test-fixtures.md b/lampOS/docs/voice-test-fixtures.md
+index be94a8f17..5fa8b8f71 100644
+--- a/lampOS/docs/voice-test-fixtures.md
++++ b/lampOS/docs/voice-test-fixtures.md
+@@ -333,3 +333,16 @@ cleanup calls. Dropping the driver attempts an abort token and closes its FIFO.
+ The backend retains ownership of stdin close, actual exit and its existing
+ two-second kill/wait fallback, including abandonment before the child opens the
+ FIFO. Neither a completion marker nor an empty queue certifies child reaping.
++
++Three additional original final-drain cases explicitly select the same driver:
++invalid cue, malformed relay line, and unobserved listening readiness. They
++retain their original line authoring, 300 ms release, 800 ms dispatch target
++and assertions. A complete malformed line counts only after the real reader
++queues its parse error; the backend's final drain still decides protocol
++failure.
++
++In the readiness case, the first dispatch still withholds until the runner
++observes the pending `ListeningReady`. The original `next_event(now)` returns
++that event without advancing the clock. The original second injection at the
++same logical time performs its own final drain and must start the recording-only
++player once. It needs no additional clock advance or release.

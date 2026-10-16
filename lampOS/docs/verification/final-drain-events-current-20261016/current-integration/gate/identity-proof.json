@@ -1,0 +1,15 @@
+{
+  "date_from_date": "2026-10-16 10:39:16 +0700",
+  "base": "c2eacfa4e29a5c9db21d4d919a77d33ce8112238",
+  "head": "904e3d4777b2a405cc86f55a09dcafbac8854e66",
+  "before": 521,
+  "after": 521,
+  "ignored": 0,
+  "all_original_identities_and_ignore_flags_exact": true,
+  "additions": [],
+  "removals": [],
+  "reverse_dependents": [],
+  "baseline_sha256": "ef1eb720c23e7c3ae7bdf0e65fdbfe6d38dcd2cde670e368c6ef83bbb20a40f9",
+  "candidate_sha256": "094eadb305c6404bbe48ec5a3bf50e0d22a30710f18af034653d4d0033f49e86",
+  "baseline_not_recompiled": true
+}

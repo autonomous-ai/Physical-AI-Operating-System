@@ -1,0 +1,15 @@
+{
+  "command": [
+    "git",
+    "rebase",
+    "--onto",
+    "c2eacfa4e29a5c9db21d4d919a77d33ce8112238",
+    "c5bcc45b905458c1a8adcd8bcf06885f35dbfdf7"
+  ],
+  "cwd": "/private/tmp/lampos-tests-final-drain-events",
+  "started": "2026-10-16 10:34:00 +0700",
+  "finished": "2026-10-16 10:34:01 +0700",
+  "exit_code": 0,
+  "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "stderr_sha256": "a8cc27f490b4f46eb77aa59872d70e5775162e70a952bbaf509e9c63d8cdb57d"
+}

@@ -1,0 +1,14 @@
+{
+  "date_from_date": "2026-10-16 10:35:00 +0700",
+  "source": "gate/metadata.log",
+  "sha256": "4c4b32af233fb705c84224e2499d2b73b552179d451f32e2c38ba138c44019c3",
+  "package": "lamp-voice-eval",
+  "method": "The retained --no-deps metadata has no resolve graph. Scan every declared dependency of every workspace package, including all kinds and targets. None directly depends on lamp-voice-eval, so no workspace reverse path can start.",
+  "workspace_packages_scanned": 39,
+  "direct_dependents": [],
+  "reverse_dependents": [],
+  "full_affected_test_scope": [
+    "lamp-voice-eval"
+  ],
+  "workspace_build_scope": "workspace build remains a separate gate"
+}

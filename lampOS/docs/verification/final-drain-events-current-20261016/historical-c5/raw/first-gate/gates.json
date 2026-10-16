@@ -1,0 +1,140 @@
+[
+  {
+    "name": "fmt",
+    "command": [
+      "cargo",
+      "fmt",
+      "--all",
+      "--",
+      "--check"
+    ],
+    "cwd": "/private/tmp/lampos-tests-final-drain-events/lampOS",
+    "target": "/private/tmp/tests-823-memory-application-target",
+    "started": "2026-10-16 09:41:50 +0700",
+    "finished": "2026-10-16 09:41:56 +0700",
+    "exit_code": 0,
+    "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "name": "metadata",
+    "command": [
+      "cargo",
+      "metadata",
+      "--locked",
+      "--offline",
+      "--no-deps",
+      "--format-version",
+      "1"
+    ],
+    "cwd": "/private/tmp/lampos-tests-final-drain-events/lampOS",
+    "target": "/private/tmp/tests-823-memory-application-target",
+    "started": "2026-10-16 09:41:56 +0700",
+    "finished": "2026-10-16 09:41:56 +0700",
+    "exit_code": 0,
+    "raw_sha256": "7db1f7ac125652f2dfe37c58cee066ceac0078ce178a251792be9a22ae53a08b"
+  },
+  {
+    "name": "clippy",
+    "command": [
+      "cargo",
+      "clippy",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-voice-eval",
+      "--all-targets",
+      "--",
+      "-D",
+      "warnings"
+    ],
+    "cwd": "/private/tmp/lampos-tests-final-drain-events/lampOS",
+    "target": "/private/tmp/tests-823-memory-application-target",
+    "started": "2026-10-16 09:41:56 +0700",
+    "finished": "2026-10-16 09:42:27 +0700",
+    "exit_code": 0,
+    "raw_sha256": "c56e5a808ee5166d584d5b4299a7bd4ea8604a5c2ed661f34830c147264fc475"
+  },
+  {
+    "name": "list",
+    "command": [
+      "cargo",
+      "nextest",
+      "list",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-voice-eval",
+      "--message-format",
+      "json"
+    ],
+    "cwd": "/private/tmp/lampos-tests-final-drain-events/lampOS",
+    "target": "/private/tmp/tests-823-memory-application-target",
+    "started": "2026-10-16 09:42:27 +0700",
+    "finished": "2026-10-16 09:42:31 +0700",
+    "exit_code": 0,
+    "raw_sha256": "ea95bef2a7305f9e248f251367a8aa92b74c1fe3ebce3424aa0e7dedda381c1b"
+  },
+  {
+    "name": "original-case",
+    "command": [
+      "cargo",
+      "nextest",
+      "run",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-voice-eval",
+      "--profile",
+      "default",
+      "--test-threads",
+      "1",
+      "--no-fail-fast",
+      "--retries",
+      "0",
+      "-E",
+      "binary_id(lamp-voice-eval::final_dispatch) & (test(=an_invalid_cue_first_seen_in_the_final_drain_withholds) | test(=a_relay_framing_error_first_seen_in_the_final_drain_withholds) | test(=an_unobserved_event_in_the_final_drain_requires_revalidation))"
+    ],
+    "cwd": "/private/tmp/lampos-tests-final-drain-events/lampOS",
+    "target": "/private/tmp/tests-823-memory-application-target",
+    "started": "2026-10-16 09:42:31 +0700",
+    "finished": "2026-10-16 09:42:33 +0700",
+    "exit_code": 0,
+    "raw_sha256": "b3e9b3559b3f65017728619292dffa4b77b090d1d7a50f56b41978d65591bae3"
+  },
+  {
+    "name": "tests",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-voice-eval",
+      "--no-fail-fast",
+      "--",
+      "--test-threads=1"
+    ],
+    "cwd": "/private/tmp/lampos-tests-final-drain-events/lampOS",
+    "target": "/private/tmp/tests-823-memory-application-target",
+    "started": "2026-10-16 09:42:33 +0700",
+    "finished": "2026-10-16 09:45:50 +0700",
+    "exit_code": 0,
+    "raw_sha256": "e00d18e61dc9fb44e4e8659cbbe80d4871c9bbcf233a5f50e9be1db61bfc7772"
+  },
+  {
+    "name": "build",
+    "command": [
+      "cargo",
+      "build",
+      "--locked",
+      "--offline",
+      "--workspace"
+    ],
+    "cwd": "/private/tmp/lampos-tests-final-drain-events/lampOS",
+    "target": "/private/tmp/tests-823-memory-application-target",
+    "started": "2026-10-16 09:45:50 +0700",
+    "finished": "2026-10-16 09:47:18 +0700",
+    "exit_code": 0,
+    "raw_sha256": "53eb52aa6b7d37279ed5762097c58bd384364e7285bfe3cdb8135b6caf6ec377"
+  }
+]

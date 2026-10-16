@@ -1,0 +1,158 @@
+{
+  "date_from_date": "2026-10-16 10:35:35 +0700",
+  "base": "c2eacfa4e29a5c9db21d4d919a77d33ce8112238",
+  "head": "904e3d4777b2a405cc86f55a09dcafbac8854e66",
+  "rebase_clean": true,
+  "one_original_change_only": true,
+  "three_initializer_edits": [
+    {
+      "test": "an_invalid_cue_first_seen_in_the_final_drain_withholds",
+      "before": "    let mut backend = rig.backend(\n        &[start_line()],\n        \"0.3\",\n        &lines(&[cue_invalid()]),\n        Then::StayOpen,\n    );",
+      "after": "    let mut backend = final_drain_clock::backend(\n        &rig,\n        &[start_line()],\n        \"0.3\",\n        &lines(&[cue_invalid()]),\n        Then::StayOpen,\n    );"
+    },
+    {
+      "test": "a_relay_framing_error_first_seen_in_the_final_drain_withholds",
+      "before": "    let mut backend = rig.backend(&[start_line()], \"0.3\", \"not a relay line\\n\", Then::StayOpen);",
+      "after": "    let mut backend = final_drain_clock::backend(\n        &rig,\n        &[start_line()],\n        \"0.3\",\n        \"not a relay line\\n\",\n        Then::StayOpen,\n    );"
+    },
+    {
+      "test": "an_unobserved_event_in_the_final_drain_requires_revalidation",
+      "before": "    let mut backend = rig.backend(&[start_line()], \"0.3\", &lines(&[ready]), Then::StayOpen);",
+      "after": "    let mut backend = final_drain_clock::backend(\n        &rig,\n        &[start_line()],\n        \"0.3\",\n        &lines(&[ready]),\n        Then::StayOpen,\n    );"
+    }
+  ],
+  "doc_append": "\nThree additional original final-drain cases explicitly select the same driver:\ninvalid cue, malformed relay line, and unobserved listening readiness. They\nretain their original line authoring, 300 ms release, 800 ms dispatch target\nand assertions. A complete malformed line counts only after the real reader\nqueues its parse error; the backend's final drain still decides protocol\nfailure.\n\nIn the readiness case, the first dispatch still withholds until the runner\nobserves the pending `ListeningReady`. The original `next_event(now)` returns\nthat event without advancing the clock. The original second injection at the\nsame logical time performs its own final drain and must start the recording-only\nplayer once. It needs no additional clock advance or release.\n",
+  "whole_test_file_inverse_to_current_base_exact": true,
+  "rebased_test_source_matches_qualified_old_candidate": true,
+  "current_doc_prefix_and_original_append_exact": true,
+  "all13_original_test_bodies_exact_after_three_initializer_inverses": true,
+  "all_original_assertions_unchanged": true,
+  "body_proofs": [
+    {
+      "test": "a_known_session_end_withholds_dispatch",
+      "base_body_sha256": "28fec0d0aa3202191ac599cacb0bb4431507f84086beb03db9eb23d1dabe51db",
+      "candidate_body_sha256": "28fec0d0aa3202191ac599cacb0bb4431507f84086beb03db9eb23d1dabe51db",
+      "initializer_only": false,
+      "full_body_exact_after_inverse": true,
+      "all_assertions_preserved": true
+    },
+    {
+      "test": "a_known_invalid_cue_withholds_dispatch_as_a_protocol_failure",
+      "base_body_sha256": "2767ca691fa9003c8d800363701ad99efd014b490479000baab368f01838790b",
+      "candidate_body_sha256": "2767ca691fa9003c8d800363701ad99efd014b490479000baab368f01838790b",
+      "initializer_only": false,
+      "full_body_exact_after_inverse": true,
+      "all_assertions_preserved": true
+    },
+    {
+      "test": "a_known_run_end_cue_withholds_dispatch",
+      "base_body_sha256": "d59b45c7873df188dbc08939d2fa716f51a3602989f9300f524ca83356f2f023",
+      "candidate_body_sha256": "d59b45c7873df188dbc08939d2fa716f51a3602989f9300f524ca83356f2f023",
+      "initializer_only": false,
+      "full_body_exact_after_inverse": true,
+      "all_assertions_preserved": true
+    },
+    {
+      "test": "a_session_end_first_seen_in_the_final_drain_withholds_and_is_kept",
+      "base_body_sha256": "e2a92efa0e1915057da25e8703cd0c002d3d7c0e1e6c7b7aac8da7e7e6ce7154",
+      "candidate_body_sha256": "e2a92efa0e1915057da25e8703cd0c002d3d7c0e1e6c7b7aac8da7e7e6ce7154",
+      "initializer_only": false,
+      "full_body_exact_after_inverse": true,
+      "all_assertions_preserved": true
+    },
+    {
+      "test": "an_invalid_cue_first_seen_in_the_final_drain_withholds",
+      "base_body_sha256": "a294faab1b32d189e1ca6746808e60352a898270bbe052e6bfec6f715616d327",
+      "candidate_body_sha256": "64c3a3aa78d6e3658b20c7fe5b29bde08b5796be5303029b575aeee027c7af9c",
+      "initializer_only": true,
+      "full_body_exact_after_inverse": true,
+      "all_assertions_preserved": true
+    },
+    {
+      "test": "a_relay_framing_error_first_seen_in_the_final_drain_withholds",
+      "base_body_sha256": "f4e69c28390e6147a86e311e2bde471de30a533c7d57f8b34f1b0e4cefc1614a",
+      "candidate_body_sha256": "537cec0828f95dec44b4c8823325f11ddde59be1e536cd1489badc7e8d1fa663",
+      "initializer_only": true,
+      "full_body_exact_after_inverse": true,
+      "all_assertions_preserved": true
+    },
+    {
+      "test": "a_transport_closed_during_the_final_drain_withholds",
+      "base_body_sha256": "884952fd952766338f2795106924c3563a909539c9f8e961a11e93bd5bb63d28",
+      "candidate_body_sha256": "884952fd952766338f2795106924c3563a909539c9f8e961a11e93bd5bb63d28",
+      "initializer_only": false,
+      "full_body_exact_after_inverse": true,
+      "all_assertions_preserved": true
+    },
+    {
+      "test": "a_healthy_session_still_dispatches_once",
+      "base_body_sha256": "d18463f2ab44ae71d8f945cd18c2365345be5c80ae6094a4419f0bf60b0e2eef",
+      "candidate_body_sha256": "d18463f2ab44ae71d8f945cd18c2365345be5c80ae6094a4419f0bf60b0e2eef",
+      "initializer_only": false,
+      "full_body_exact_after_inverse": true,
+      "all_assertions_preserved": true
+    },
+    {
+      "test": "the_first_terminal_cause_wins_and_a_provider_failure_stays_provider_unavailable",
+      "base_body_sha256": "8313c4f450fa1dc57c982103bc8e162f0de01cd18dd470eaf2f62bf365030a39",
+      "candidate_body_sha256": "8313c4f450fa1dc57c982103bc8e162f0de01cd18dd470eaf2f62bf365030a39",
+      "initializer_only": false,
+      "full_body_exact_after_inverse": true,
+      "all_assertions_preserved": true
+    },
+    {
+      "test": "an_unobserved_event_in_the_final_drain_requires_revalidation",
+      "base_body_sha256": "3e98beae0ad6d99a2992150d93046dc6a2ddf1344d44bb11eead78744fc35366",
+      "candidate_body_sha256": "172a88f3c4e88ec13b72b0cc3cdf9db7f0526b858f31fe73bebff0cd909ddd29",
+      "initializer_only": true,
+      "full_body_exact_after_inverse": true,
+      "all_assertions_preserved": true
+    },
+    {
+      "test": "audit_physical_boundary_rejects_a_target_already_over_100ms_late",
+      "base_body_sha256": "fa6887eedc207608f0cc290897dc1464e011b0317e7e23e0219987517fe9de9c",
+      "candidate_body_sha256": "fa6887eedc207608f0cc290897dc1464e011b0317e7e23e0219987517fe9de9c",
+      "initializer_only": false,
+      "full_body_exact_after_inverse": true,
+      "all_assertions_preserved": true
+    },
+    {
+      "test": "audit_physical_boundary_does_not_dispatch_during_post_exit_trace_relay",
+      "base_body_sha256": "0329802249df2c310ef2412a4bcae4d67df38fdba965a286573fd508d47c2353",
+      "candidate_body_sha256": "0329802249df2c310ef2412a4bcae4d67df38fdba965a286573fd508d47c2353",
+      "initializer_only": false,
+      "full_body_exact_after_inverse": true,
+      "all_assertions_preserved": true
+    },
+    {
+      "test": "a_final_drain_that_exhausts_its_budget_requires_revalidation",
+      "base_body_sha256": "cab6d23b589aae57cedc1a0c2cb232d54525a2ecf4c2ee33a4dad36b5ecf4fa9",
+      "candidate_body_sha256": "cab6d23b589aae57cedc1a0c2cb232d54525a2ecf4c2ee33a4dad36b5ecf4fa9",
+      "initializer_only": false,
+      "full_body_exact_after_inverse": true,
+      "all_assertions_preserved": true
+    }
+  ],
+  "historical_files_preserved": 51,
+  "base_frozen_inputs_verified_against_git": 1075,
+  "unowned_base_inputs_exact": true,
+  "frozen_inputs": 1082,
+  "before_compiled": 521,
+  "after_expected": 521,
+  "expected_additions": [],
+  "expected_removals": [],
+  "ignored": 0,
+  "after_compilation_pending": true,
+  "source_files": [
+    {
+      "path": "lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "base_sha256": "aca9379bbb7c993267251c1103a88f91d06ad8468e7f3cc936efb0d44797227c",
+      "after_sha256": "c0e560a59dc6000e31a4418f1e7488bf18617d16601c8ae5adcf146f7e86e642"
+    },
+    {
+      "path": "lampOS/docs/voice-test-fixtures.md",
+      "base_sha256": "e6793bfdc94e95cf29393061638c6c0a418e109016a7c87c699c5b9df3bde98a",
+      "after_sha256": "7f23871cda72fd5c3567d2ecf14b68851e344dafe8264034fe97f82d267c708d"
+    }
+  ]
+}

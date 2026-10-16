@@ -1,0 +1,589 @@
+diff --git a/lampOS/crates/voice-eval/tests/common/final_drain_clock.rs b/lampOS/crates/voice-eval/tests/common/final_drain_clock.rs
+new file mode 100644
+index 000000000..72a2c0d9c
+--- /dev/null
++++ b/lampOS/crates/voice-eval/tests/common/final_drain_clock.rs
+@@ -0,0 +1,392 @@
++//! One explicit delayed-line fixture; real pipe enqueue and backend drain stay separate.
++use super::{Recording, Rig, Then, lines};
++use lamp_turn_owner::MonoTime;
++use lamp_voice_eval::{
++    Result,
++    physical::mac::{FixtureDriver, PhysicalBackend},
++};
++use rustix::fs::{OFlags, fcntl_getfl, fcntl_setfl};
++use serde_json::Value;
++use std::{
++    cell::Cell,
++    fs::{self, File, OpenOptions},
++    io::{self, Write},
++    path::{Path, PathBuf},
++    process::Command,
++    rc::Rc,
++    sync::atomic::{AtomicU64, Ordering},
++    thread,
++    time::{Duration, Instant},
++};
++
++const ORIGIN_US: u64 = 1_000_000;
++const DELAY_US: u64 = 300_000;
++const HOST_WINDOW: Duration = Duration::from_secs(10);
++const INITIAL: &[u8] = b"now-written\n";
++const LATER: &[u8] = b"later-written\n";
++
++struct State {
++    now: Cell<u64>,
++    released_at: Cell<Option<u64>>,
++}
++
++struct Driver {
++    state: Rc<State>,
++    control: File,
++    initial_marker: PathBuf,
++    later_marker: PathBuf,
++    deadline: Instant,
++    started: bool,
++    released: bool,
++}
++
++fn invalid(message: &str) -> io::Error {
++    io::Error::other(message)
++}
++
++fn marker(path: &Path, expected: &[u8]) -> io::Result<bool> {
++    match fs::read(path) {
++        Ok(bytes) if bytes == expected => Ok(true),
++        Ok(bytes) if expected.starts_with(&bytes) => Ok(false),
++        Ok(_) => Err(invalid("unexpected delayed-line completion marker")),
++        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(false),
++        Err(error) => Err(error),
++    }
++}
++
++impl Driver {
++    fn prepare(rig: &Rig, now: &[Value], later: &str) -> (Self, String) {
++        let deadline = Instant::now() + HOST_WINDOW;
++        fs::write(rig.dir.join("now.jsonl"), lines(now)).unwrap();
++        fs::write(rig.dir.join("later.jsonl"), later).unwrap();
++        let fifo = rig.dir.join("delayed-release.fifo");
++        assert!(
++            Command::new("mkfifo")
++                .args(["-m", "600"])
++                .arg(&fifo)
++                .status()
++                .unwrap()
++                .success()
++        );
++        // Opening both ends avoids a startup open race. Nonblocking writes
++        // fail closed instead of turning control or Drop into a host wait.
++        let control = OpenOptions::new()
++            .read(true)
++            .write(true)
++            .open(&fifo)
++            .unwrap();
++        let flags = fcntl_getfl(&control).unwrap();
++        fcntl_setfl(&control, flags | OFlags::NONBLOCK).unwrap();
++        let initial_marker = rig.dir.join("now-written");
++        let later_marker = rig.dir.join("later-written");
++        let script = format!(
++            "exec 3< '{fifo}'; \
++             cat '{now}' || exit 71; \
++             printf 'now-written\\n' > '{initial_marker}' || exit 72; \
++             IFS= read -r command <&3 || exit 0; \
++             case \"$command\" in release) ;; abort) exit 0 ;; *) exit 73 ;; esac; \
++             cat '{later}' || exit 74; \
++             printf 'later-written\\n' > '{later_marker}' || exit 75; \
++             while IFS= read -r runner_line; do :; done",
++            fifo = fifo.display(),
++            now = rig.dir.join("now.jsonl").display(),
++            later = rig.dir.join("later.jsonl").display(),
++            initial_marker = initial_marker.display(),
++            later_marker = later_marker.display(),
++        );
++        (
++            Self {
++                state: Rc::new(State {
++                    now: Cell::new(ORIGIN_US),
++                    released_at: Cell::new(None),
++                }),
++                control,
++                initial_marker,
++                later_marker,
++                deadline,
++                started: false,
++                released: false,
++            },
++            script,
++        )
++    }
++
++    fn check_host(&self) -> io::Result<()> {
++        if Instant::now() >= self.deadline {
++            Err(invalid("delayed-line fixture exceeded its host watchdog"))
++        } else {
++            Ok(())
++        }
++    }
++
++    fn written_and_enqueued(
++        &self,
++        path: &Path,
++        expected: &[u8],
++        enqueued: &AtomicU64,
++        count: u64,
++    ) -> io::Result<()> {
++        loop {
++            if self.written_and_enqueued_once(path, expected, enqueued, count)? {
++                return Ok(());
++            }
++            thread::sleep(Duration::from_millis(1));
++        }
++    }
++
++    fn written_and_enqueued_once(
++        &self,
++        path: &Path,
++        expected: &[u8],
++        enqueued: &AtomicU64,
++        count: u64,
++    ) -> io::Result<bool> {
++        self.check_host()?;
++        let written = marker(path, expected)?;
++        let actual = enqueued.load(Ordering::Acquire);
++        // A filesystem read may return after the watchdog. A late positive
++        // observation must not authorize another logical advance.
++        self.check_host()?;
++        if actual > count {
++            return Err(invalid("unexpected delayed-line relay frame count"));
++        }
++        Ok(written && actual == count)
++    }
++}
++
++impl FixtureDriver for Driver {
++    fn wait(
++        &mut self,
++        until: MonoTime,
++        _sent_frames: u64,
++        enqueued_frames: &AtomicU64,
++        _queue_drained: bool,
++    ) -> Result<()> {
++        self.check_host()?;
++        let until_us = until.as_micros();
++        if until_us < self.state.now.get() {
++            return Err(invalid("delayed-line fixture time regressed").into());
++        }
++        if !self.started {
++            // The original sleep follows completion of the first cat. A
++            // queued line alone does not prove that external cat has returned.
++            self.written_and_enqueued(&self.initial_marker, INITIAL, enqueued_frames, 1)?;
++            self.started = true;
++        }
++        let release_us = ORIGIN_US + DELAY_US;
++        if !self.released && until_us >= release_us {
++            self.check_host()?;
++            self.state.now.set(release_us);
++            self.control.write_all(b"release\n")?;
++            self.state.released_at.set(Some(release_us));
++            // Marker means cat returned. Only the real backend reader's
++            // second complete frame proves the line is queued for its drain.
++            self.written_and_enqueued(&self.later_marker, LATER, enqueued_frames, 2)?;
++            self.released = true;
++        }
++        self.check_host()?;
++        self.state.now.set(until_us);
++        Ok(())
++    }
++}
++
++impl Drop for Driver {
++    fn drop(&mut self) {
++        let _ = self.control.write_all(b"abort\n");
++        // Backend Drop still owns actual stdin close, child exit and kill/wait.
++        // If the child has not opened the FIFO, its existing fallback remains.
++    }
++}
++
++pub(super) fn backend<'a>(
++    rig: &'a Rig,
++    now: &[Value],
++    delay: &str,
++    later: &str,
++    then: Then,
++) -> PhysicalBackend<'a> {
++    assert_eq!(delay, "0.3");
++    assert!(matches!(then, Then::StayOpen));
++    assert_eq!(now.len(), 1);
++    assert_eq!(later.lines().count(), 1);
++    assert!(later.ends_with('\n'));
++    let (driver, script) = Driver::prepare(rig, now, later);
++    let clock = Rc::clone(&driver.state);
++    PhysicalBackend::new_with_clock(
++        rig.config(script),
++        &rig.assets,
++        Box::new(Recording(rig.starts.clone())),
++        move || MonoTime::from_micros(clock.now.get()),
++    )
++    .with_fixture_driver(driver)
++    .unwrap()
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++    use crate::{session_end, start_line};
++    use lamp_voice_eval::{events::EventKind, runner::Backend};
++    use std::process::{Child, ExitStatus, Stdio};
++
++    struct ChildGuard(Child);
++    impl Drop for ChildGuard {
++        fn drop(&mut self) {
++            let _ = self.0.kill();
++            let _ = self.0.wait();
++        }
++    }
++
++    fn wait_until(deadline: Instant, mut observed: impl FnMut() -> bool) {
++        loop {
++            assert!(Instant::now() < deadline, "real child progress missing");
++            let ready = observed();
++            assert!(
++                Instant::now() < deadline,
++                "real child progress was too late"
++            );
++            if ready {
++                return;
++            }
++            thread::sleep(Duration::from_millis(1));
++        }
++    }
++
++    fn child(script: String) -> ChildGuard {
++        ChildGuard(
++            Command::new("/bin/sh")
++                .args(["-c", &script, "relay"])
++                .stdin(Stdio::piped())
++                .stdout(Stdio::null())
++                .spawn()
++                .unwrap(),
++        )
++    }
++
++    fn exited(child: &mut ChildGuard, deadline: Instant) -> ExitStatus {
++        let mut status = None;
++        wait_until(deadline, || {
++            status = child.0.try_wait().unwrap();
++            status.is_some()
++        });
++        status.unwrap()
++    }
++
++    #[test]
++    fn a_complete_real_line_is_released_only_at_the_full_logical_boundary() {
++        let rig = Rig::new("disp-clock-boundary");
++        let mut backend = backend(
++            &rig,
++            &[start_line()],
++            "0.3",
++            &lines(&[session_end()]),
++            Then::StayOpen,
++        );
++        assert_eq!((backend.now_us(), backend.now_us()), (ORIGIN_US, ORIGIN_US));
++        rig.begin(&mut backend);
++        assert!(
++            backend
++                .next_event(ORIGIN_US + DELAY_US - 1)
++                .unwrap()
++                .is_none()
++        );
++        assert_eq!(backend.now_us(), ORIGIN_US + DELAY_US - 1);
++        assert!(!rig.dir.join("later-written").exists());
++        let event = backend.next_event(ORIGIN_US + DELAY_US).unwrap().unwrap();
++        assert!(matches!(event.kind, EventKind::RunEnd { .. }));
++        assert_eq!(backend.now_us(), ORIGIN_US + DELAY_US);
++        assert!(marker(&rig.dir.join("later-written"), LATER).unwrap());
++        assert_eq!(rig.starts.load(Ordering::SeqCst), 0);
++    }
++
++    #[test]
++    fn abandoning_the_initial_hold_stops_and_reaps_the_actual_shell() {
++        let rig = Rig::new("disp-clock-abort");
++        let (driver, script) = Driver::prepare(&rig, &[start_line()], &lines(&[session_end()]));
++        let deadline = driver.deadline;
++        let mut child = child(script);
++        wait_until(deadline, || {
++            marker(&driver.initial_marker, INITIAL).unwrap()
++        });
++        drop(driver);
++        assert!(exited(&mut child, deadline).success());
++        assert!(!rig.dir.join("later-written").exists());
++    }
++
++    #[test]
++    fn the_released_shell_exits_and_is_reaped_after_actual_stdin_eof() {
++        let rig = Rig::new("disp-clock-eof");
++        let (mut driver, script) = Driver::prepare(&rig, &[start_line()], &lines(&[session_end()]));
++        let deadline = driver.deadline;
++        let mut child = child(script);
++        wait_until(deadline, || {
++            marker(&driver.initial_marker, INITIAL).unwrap()
++        });
++        driver.control.write_all(b"release\n").unwrap();
++        wait_until(deadline, || marker(&driver.later_marker, LATER).unwrap());
++        drop(child.0.stdin.take());
++        assert!(exited(&mut child, deadline).success());
++    }
++
++    #[test]
++    fn an_expired_watchdog_cannot_release_data_or_advance_the_clock() {
++        let rig = Rig::new("disp-clock-watchdog");
++        let (mut driver, _) = Driver::prepare(&rig, &[start_line()], &lines(&[session_end()]));
++        driver.deadline = Instant::now();
++        let result = driver.wait(
++            MonoTime::from_micros(ORIGIN_US + DELAY_US),
++            0,
++            &AtomicU64::new(0),
++            false,
++        );
++        assert!(result.is_err());
++        assert_eq!(driver.state.now.get(), ORIGIN_US);
++        assert!(driver.state.released_at.get().is_none());
++        assert!(!rig.dir.join("later-written").exists());
++    }
++
++    #[test]
++    fn a_marker_or_an_enqueue_alone_never_completes_the_observation() {
++        let rig = Rig::new("disp-clock-both");
++        let (driver, _) = Driver::prepare(&rig, &[start_line()], &lines(&[session_end()]));
++        let enqueued = AtomicU64::new(1);
++        let ready = || {
++            driver
++                .written_and_enqueued_once(&driver.initial_marker, INITIAL, &enqueued, 1)
++                .unwrap()
++        };
++        assert!(!ready());
++        enqueued.store(0, Ordering::Release);
++        fs::write(&driver.initial_marker, INITIAL).unwrap();
++        assert!(!ready());
++        enqueued.store(1, Ordering::Release);
++        fs::write(&driver.initial_marker, b"now-writ").unwrap();
++        assert!(!ready());
++        fs::write(&driver.initial_marker, INITIAL).unwrap();
++        assert!(ready());
++        assert_eq!(driver.state.now.get(), ORIGIN_US);
++        assert!(driver.state.released_at.get().is_none());
++    }
++
++    #[test]
++    fn unexpected_marker_bytes_or_extra_frames_fail_the_observation() {
++        let rig = Rig::new("disp-clock-invalid");
++        let (driver, _) = Driver::prepare(&rig, &[start_line()], &lines(&[session_end()]));
++        fs::write(&driver.initial_marker, b"not-the-marker\n").unwrap();
++        let enqueued = AtomicU64::new(1);
++        assert!(
++            driver
++                .written_and_enqueued_once(&driver.initial_marker, INITIAL, &enqueued, 1)
++                .is_err()
++        );
++        fs::write(&driver.initial_marker, INITIAL).unwrap();
++        enqueued.store(2, Ordering::Release);
++        assert!(
++            driver
++                .written_and_enqueued_once(&driver.initial_marker, INITIAL, &enqueued, 1)
++                .is_err()
++        );
++        assert_eq!(driver.state.now.get(), ORIGIN_US);
++        assert!(driver.state.released_at.get().is_none());
++    }
++}
+diff --git a/lampOS/crates/voice-eval/tests/final_dispatch.rs b/lampOS/crates/voice-eval/tests/final_dispatch.rs
+index b2e42e90d..4277acc6a 100644
+--- a/lampOS/crates/voice-eval/tests/final_dispatch.rs
++++ b/lampOS/crates/voice-eval/tests/final_dispatch.rs
+@@ -3,6 +3,8 @@
+ //! writes scripted relay lines; a recording-only player shows whether audio
+ //! would have started. Nothing is played.
+ mod common;
++#[path = "common/final_drain_clock.rs"]
++mod final_drain_clock;
+ 
+ use lamp_voice_eval::{
+     events::EventKind,
+@@ -131,9 +133,17 @@ impl Rig {
+             now = self.dir.join("now.jsonl").display(),
+             later = self.dir.join("later.jsonl").display(),
+         );
++        PhysicalBackend::new(
++            self.config(script),
++            &self.assets,
++            Box::new(Recording(self.starts.clone())),
++        )
++    }
++
++    fn config(&self, script: String) -> PhysicalConfig {
+         let lamp_root = self.dir.join("lamp");
+         fs::create_dir_all(&lamp_root).unwrap();
+-        let config = PhysicalConfig {
++        PhysicalConfig {
+             lamp_command: vec!["/bin/sh".into(), "-c".into(), script, "relay".into()],
+             lamp_work_root: lamp_root.display().to_string(),
+             mode: LampMode::Fixture {
+@@ -148,12 +158,7 @@ impl Rig {
+             ring_channel_ceiling: None,
+             stimulus_source: StimulusSource::LoudspeakerSynthetic,
+             runtime_flags: Default::default(),
+-        };
+-        PhysicalBackend::new(
+-            config,
+-            &self.assets,
+-            Box::new(Recording(self.starts.clone())),
+-        )
++        }
+     }
+ 
+     fn begin(&self, backend: &mut PhysicalBackend<'_>) {
+@@ -271,7 +276,8 @@ fn a_known_run_end_cue_withholds_dispatch() {
+ #[test]
+ fn a_session_end_first_seen_in_the_final_drain_withholds_and_is_kept() {
+     let rig = Rig::new("disp-late-end");
+-    let mut backend = rig.backend(
++    let mut backend = final_drain_clock::backend(
++        &rig,
+         &[start_line()],
+         "0.3",
+         &lines(&[session_end()]),
+diff --git a/lampOS/docs/verification/final-drain-clock-20261016/README.md b/lampOS/docs/verification/final-drain-clock-20261016/README.md
+new file mode 100644
+index 000000000..8845971b5
+--- /dev/null
++++ b/lampOS/docs/verification/final-drain-clock-20261016/README.md
+@@ -0,0 +1,41 @@
++# Final-dispatch delayed-line clock: first local qualification
++
++Packaged 2026-10-16 09:18:14 +0700, from shell date. Base `1fb07c6f57ee280a49de7b4ddd74008c2a32a20d`, branch `tests/823-final-drain-clock`. The first executable candidate gate passed **504 tests, zero failures, zero ignores**, plus workspace formatting, strict all-target Evaluator Clippy and the workspace build. Native ARM64 qualification remains pending.
++
++The original `lamp-voice-eval::final_dispatch / a_session_end_first_seen_in_the_final_drain_withholds_and_is_kept` measured **1.272 s before → 0.444 s after**, one first sample per version using the same nextest command, default profile, one test thread and zero retries. This preserves the whole 300 ms logical delay, 800 ms dispatch target and every original assertion. Times are nextest's complete case durations, including fixture creation, real shell/pipe/reader and cleanup, excluding compilation and nextest startup. Shared host load was uncontrolled. This is no full-suite before/after, native, device, CI push-to-result or original-123 standalone serial result.
++
++## What changed
++
++Only the selected original's fixture initializer changes. The ordinary helper still uses its existing real sleep. Its existing configuration literal is extracted without changing values or construction order. A new integration-test-local module uses the already existing explicit `PhysicalBackend::new_with_clock` / `FixtureDriver` seam; no product implementation or default is edited.
++
++The first real `cat` must finish and the backend's actual reader must enqueue its complete line before time leaves the initial epoch. At the original 300 ms boundary a nonblocking private FIFO releases the unchanged later bytes through the actual shell stdout pipe. The second `cat` marker and actual cumulative enqueue count two are both required before further clock advance. The driver consumes no backend line: the original final drain at 800 ms still discovers the terminal line, withholds playback, and retains the RunEnd for the runner.
++
++Clock reads are pure. One immutable ten-second host deadline is checked before and after marker reads and before logical advances. It does not interrupt filesystem operations, spawn or OS cleanup. Driver Drop attempts an abort token and closes its FIFO; the existing backend still owns stdin close, real exit and its unchanged two-second kill/wait fallback.
++
++## Inventory and executable evidence
++
++The clean compiled inventory contains **498 identities with zero ignores**. The candidate retains every identity and ignore flag, adding exactly six reviewed helper tests for a total of **504**. All original 13 final-dispatch cases remain; 12 functions are byte-identical, and reversing only the selected initializer restores the thirteenth. The full original test file, including the extracted helper configuration, restores byte-exactly through the retained inverse. Root independently matches both baseline source/doc snapshots to immutable 1fb.
++
++The full serial Cargo gate executed all 504 identities exactly once across 24 binary paths, including one zero-test main binary. The selected original also appears once in its separate timing stage. Its two executions belong to distinct documented stages, not a failure retry. The six additions cover the exact release boundary through a real backend, held-shell actual exit/reap, released-shell actual stdin EOF/reap, expired-watchdog refusal, marker/enqueue conjunction and malformed/excess-frame rejection. The two predicate cases use explicit counters; they are not claimed as real reader observations.
++
++[Identity and execution proof](audit/identity-execution-proof.json), [case timing](audit/original-case-timing.json), [per-binary timing table](audit/per-binary-timing.md), [source review](review/review.md) and [terminal audit](audit/terminal-source-gate-audit.json) retain the exact evidence. The libtest binary durations sum to **167.54 s**; this is not the Cargo command's wall time or a baseline comparison. The full test stage ran 09:12:22–09:15:12 and workspace build finished 09:16:38 on 2026-10-16 (+0700), as retained from date. All 1,023 enumerated source inputs remained exact throughout the gate and the independent audit.
++
++Commands ran from `lampOS/` using Rust 1.96.0, locked/offline dependencies, two build jobs and incremental disabled:
++
++```sh
++cargo fmt --all -- --check
++cargo clippy --locked --offline -p lamp-voice-eval --all-targets -- -D warnings
++cargo nextest list --locked --offline -p lamp-voice-eval --message-format json
++cargo test --locked --offline -p lamp-voice-eval --no-fail-fast -- --test-threads=1
++cargo build --locked --offline --workspace
++```
++
++The same exact original-case nextest selector appears in both raw gate records. Cargo metadata finds no workspace reverse dependent on lamp-voice-eval. No test was ignored, retried or weakened.
++
++## Review history and limits
++
++Before any changed-source test ran, review corrected a late-positive watchdog acceptance gap and added the two predicate negatives. Both source-review versions and the exact correction/inverse remain retained. The first executable candidate passed without a test failure. The dated review's pending-gate statements remain unchanged; this later qualification supplies the execution result.
++
++No dedicated new regression executes abandonment before the initial marker. That path still relies on the unchanged backend cleanup owner and kill/wait fallback; the held-shell test starts after the marker. Actual transport closure for the original `Then::Close` case remains separate work, and only one original of the 13-case family migrates here. The original-123 serial target remains open.
++
++All raw logs and source copies are byte-exact. `provenance.json` maps copied files; `SHA256SUMS` covers every package file except itself. External Python orchestration is represented only by checksums and command descriptions. No Python or compiled artifact is committed, and no lamp/device was used.
+diff --git a/lampOS/docs/verification/final-drain-clock-20261016/SHA256SUMS b/lampOS/docs/verification/final-drain-clock-20261016/SHA256SUMS
+new file mode 100644
+index 000000000..76b8318eb
+--- /dev/null
++++ b/lampOS/docs/verification/final-drain-clock-20261016/SHA256SUMS
+@@ -0,0 +1,52 @@
++b41be62a176a1688f8cd88ea02a74bb737c43e841918de587db06d2dbd1c02e5  README.md
++1ea59ea5cedf0481b8f527247512b104f248271df01666355b88e0dfebc6471b  audit/identity-execution-proof.json
++2bdd03aa5e08c4387a95d76ea1bc428b6bcbfab363db56966a3fb3db3ebf00ea  audit/original-case-timing.json
++86465bb792b7f9bea419228646be03a54fbc7fb4158a0e78a85407b6f8fa47c4  audit/per-binary-timing.json
++cbc9a5b8d9ec6b05cbb15acf0e0400c1d2fae00157f464a0f0f4555bca9119e9  audit/per-binary-timing.md
++3f864e1c90364d93459da8bbac5b7b56c8deff044f11dfeb9f5dc6db521aa670  audit/terminal-source-gate-audit.json
++6a7cbd2422e68b1c87864ca3e89c05b134999ee2d4b60945887d922b8242a84c  external-script-checksums.json
++1c6a5dc3b6b14abdf97910de8acc05a51e8ac27f082c521ead5f85d99414f6f3  provenance.json
++1bc56e6d51f3d8813d5897c90abe259de1ed715a7c415b1cefcc44e6937f1234  raw/baseline/gates.json
++32b008ef2f57ea9d1854d916e412ebb10d0e4fa6ba4f08f8c69250abe5383f47  raw/baseline/list.log
++80f5bfe5e6558f61a7116e3b98cacdffbc8faffc4b71b0c602f31532f9e8be0a  raw/baseline/original-case.log
++26bce2f46178f9aacba7fc2fda00b4b87d4433aadae9abd1954128038f3028c1  raw/baseline/source.json
++9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa  raw/first-gate/build.exit
++7e7d9f643ebb51f5cb358aa2890ba0f3e081c9ed501707ba82a6bd3f02f93bd6  raw/first-gate/build.log
++9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa  raw/first-gate/clippy.exit
++1870f3726def04ac585248ea9f3e0a635104fe9a9aa8216569a9ac22e6a648d2  raw/first-gate/clippy.log
++865c5721247cdb051c6dcbc2ec315fa97375a391a7852d817a8f9d247b9d3fbd  raw/first-gate/completed.json
++9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa  raw/first-gate/fmt.exit
++e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  raw/first-gate/fmt.log
++d9cae151dde72939985d16b1214a11ae1ae0438415be6480457d6115c4f4b63a  raw/first-gate/gates.json
++9047e74296c630804c3ab367e16622ed8bdc007ab9dbf37a4cf9d617a8999a5c  raw/first-gate/identity-proof.json
++9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa  raw/first-gate/list.exit
++e43a8e204cb5d2d1e55fca6aa60c0589be88eed274d28d7d3098b20652dbdff3  raw/first-gate/list.log
++9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa  raw/first-gate/metadata.exit
++a6621ece2127e3e13253c22980e459a17b14f059a85b51a351c384c4a01036ae  raw/first-gate/metadata.log
++9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa  raw/first-gate/original-case.exit
++221f5d3f5a7844ea623cd7581a0752396c9f5d16e12a150aeb220d9c3c1e116d  raw/first-gate/original-case.log
++412f11ff830b62ee5d50119fea35201f66b55a1127c1b724ba73a7eb9fecc925  raw/first-gate/source.json
++9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa  raw/first-gate/tests.exit
++04fc2b165dee7bd15e932d47bce13a37f227c00382569b1f8dc7a8f6e7ae944b  raw/first-gate/tests.log
++b0bf9c39d0ad013abdb3ae590d84fc3d0d4d90a6f7b0469077a2306e1fc70cf6  review/baseline-gate-input-audit.json
++600ad54a33c7a98ba0abf9c6aadeca366cb319d121b3847f36211cc5b0a30a29  review/baseline-source/lampOS/crates/voice-eval/tests/final_dispatch.rs
++04bf0a07ddbd0e9de139988b65c51aa23a11bb1b542176a8185a473d923a19d4  review/baseline-source/lampOS/docs/voice-test-fixtures.md
++fcc6988f7837440550a090ea6e2b04c9b9f569f3f7589558234780477880148e  review/final-reviewed-source/lampOS/crates/voice-eval/tests/common/final_drain_clock.rs
++aca9379bbb7c993267251c1103a88f91d06ad8468e7f3cc936efb0d44797227c  review/final-reviewed-source/lampOS/crates/voice-eval/tests/final_dispatch.rs
++bd618f4471d5ec69dad490abc9e4747a91fdb21ef9fb1033a1e9d8f20e332940  review/final-reviewed-source/lampOS/docs/voice-test-fixtures.md
++73f9ef4ffe6e4363eb212d04605b8df2e5ebe100fa04815195d848a8765f5b11  review/final-source-freeze.json
++efcca827ee2255230c350136454830c71c1ef4fb7f80b8035b25fd1edc094824  review/first-reviewed-delta.diff
++effec55d65e691a0445a961d7f2331db4578c776e107a7a487c0340ab410c1c1  review/first-reviewed-source/lampOS/crates/voice-eval/tests/common/final_drain_clock.rs
++aca9379bbb7c993267251c1103a88f91d06ad8468e7f3cc936efb0d44797227c  review/first-reviewed-source/lampOS/crates/voice-eval/tests/final_dispatch.rs
++bd618f4471d5ec69dad490abc9e4747a91fdb21ef9fb1033a1e9d8f20e332940  review/first-reviewed-source/lampOS/docs/voice-test-fixtures.md
++b7400fa9da4aff98dc002628cb3ec82e7c05e83b7cf6bb32d4110d11a209b996  review/original-tests-proof.json
++600ad54a33c7a98ba0abf9c6aadeca366cb319d121b3847f36211cc5b0a30a29  review/reversed-source/lampOS/crates/voice-eval/tests/final_dispatch.rs
++04bf0a07ddbd0e9de139988b65c51aa23a11bb1b542176a8185a473d923a19d4  review/reversed-source/lampOS/docs/voice-test-fixtures.md
++09a05ab8b4bcf877dcef99c2da13a79c03468ce8163b20bc51e05a75c57a7e34  review/review-correction.diff
++b00d3764af92ad5ba2ddf13105ce808a4981323b4e32e959041ee16ba0eac8eb  review/review-result.json
++ae85e942900808321b7eb1711c924d7fa439a536c0d17d20726b2e55e546881d  review/review.md
++16d4c415e18a5cf76ee68d7ab642ee33b0b934e5f0729d95a9f131aac14c254a  review/source-freeze.json
++d649f699b556b97f0bf3f9a1b2f54bc488ae50ef4d348db835daae2e95511ff5  review/source-inverse.json
++fcc6988f7837440550a090ea6e2b04c9b9f569f3f7589558234780477880148e  source/final/lampOS/crates/voice-eval/tests/common/final_drain_clock.rs
++aca9379bbb7c993267251c1103a88f91d06ad8468e7f3cc936efb0d44797227c  source/final/lampOS/crates/voice-eval/tests/final_dispatch.rs
++bd618f4471d5ec69dad490abc9e4747a91fdb21ef9fb1033a1e9d8f20e332940  source/final/lampOS/docs/voice-test-fixtures.md
+diff --git a/lampOS/docs/voice-test-fixtures.md b/lampOS/docs/voice-test-fixtures.md
+index 4962dc190..212dfa0f1 100644
+--- a/lampOS/docs/voice-test-fixtures.md
++++ b/lampOS/docs/voice-test-fixtures.md
+@@ -333,3 +333,25 @@ not certify a synthetic exit or establish real-device shutdown latency.
+ The clock installation is compiled only for unit tests. Ordinary backend
+ construction, all integration tests and the runtime continue to use the same
+ system monotonic samples, 20 ms sleeps, exit checks and cleanup order.
++
++## Delayed final-dispatch line fixture
++
++The original final-drain session-end case explicitly selects a test-local
++driver for its real shell and stdout pipe. The first `cat` must have returned
++and its complete line must be queued by the actual backend reader before
++logical time advances. At the original 300 ms delay, a private FIFO releases
++the unchanged later bytes. The second `cat` completion marker and the reader's
++second complete-frame count are both required before advancing farther.
++
++The driver never consumes a backend line. The original 800 ms dispatch target
++and final drain still discover the terminal line, withhold playback and retain
++the RunEnd for the runner. Clock reads are pure. Ordinary helper calls keep
++their host sleeps; this first migration does not control the closed-transport
++case, whose real reader/channel closure needs separate evidence.
++
++Control writes are nonblocking. One immutable ten-second host watchdog bounds
++the driver's progress checks; it does not interrupt blocking filesystem or OS
++cleanup calls. Dropping the driver attempts an abort token and closes its FIFO.
++The backend retains ownership of stdin close, actual exit and its existing
++two-second kill/wait fallback, including abandonment before the child opens the
++FIFO. Neither a completion marker nor an empty queue certifies child reaping.

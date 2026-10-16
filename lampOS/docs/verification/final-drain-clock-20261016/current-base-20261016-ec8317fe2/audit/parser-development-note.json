@@ -1,0 +1,7 @@
+{
+  "date_from_date": "2026-10-16 10:34:58 +0700",
+  "external_first_script": "/private/tmp/tests-823-final-drain-current-source-audit-first.py",
+  "sha256": "34131203ddae01676545b85220f3eae47c32bca7db5e50794de0ba736ba01fa1",
+  "diagnostic": "Retained metadata was produced with --no-deps, so resolve is null. The initial read-only audit attempted to consume resolve.nodes. No Cargo/test/source operation occurred.",
+  "correction": "Inspect all declared workspace package dependencies. No package depends directly on lamp-voice-eval, so there is no workspace reverse dependency or path through another dependent. Do not claim a resolved external-dependency graph."
+}

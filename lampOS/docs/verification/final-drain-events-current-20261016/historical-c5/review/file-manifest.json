@@ -1,0 +1,101 @@
+{
+  "date_from_date": "2026-10-16 09:35:57 +0700",
+  "root": "/private/tmp/tests-823-final-drain-three-followup",
+  "payload_file_count": 18,
+  "self_exclusions": [
+    "file-manifest.json",
+    "SHA256SUMS"
+  ],
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 6817,
+      "sha256": "cb874d2b76a431f42263bcebfec06b23a07f27d93c987199768fa4305f78aa1d"
+    },
+    {
+      "path": "base/lampOS/crates/voice-eval/src/physical/mac.rs",
+      "bytes": 189541,
+      "sha256": "c14c40669ad423baf9c21672587bd6e97e47a64e102d6d22c2714e3e399d78e2"
+    },
+    {
+      "path": "base/lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+      "bytes": 13432,
+      "sha256": "fcc6988f7837440550a090ea6e2b04c9b9f569f3f7589558234780477880148e"
+    },
+    {
+      "path": "base/lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "bytes": 17959,
+      "sha256": "aca9379bbb7c993267251c1103a88f91d06ad8468e7f3cc936efb0d44797227c"
+    },
+    {
+      "path": "base/lampOS/docs/voice-test-fixtures.md",
+      "bytes": 19699,
+      "sha256": "bd618f4471d5ec69dad490abc9e4747a91fdb21ef9fb1033a1e9d8f20e332940"
+    },
+    {
+      "path": "base-capture.json",
+      "bytes": 1815,
+      "sha256": "15c13fcc904fb6f15bdf1ee7c6dbc203f44fc99d2da2b534dc0451576dc2ab1a"
+    },
+    {
+      "path": "candidate/lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "bytes": 18124,
+      "sha256": "c0e560a59dc6000e31a4418f1e7488bf18617d16601c8ae5adcf146f7e86e642"
+    },
+    {
+      "path": "candidate/lampOS/docs/voice-test-fixtures.md",
+      "bytes": 20464,
+      "sha256": "19e0b7dbf2dae4423a4e158acf2a4a53072fa7fa3832707d9f2ad6f532d591f0"
+    },
+    {
+      "path": "followup.patch",
+      "bytes": 2841,
+      "sha256": "f3322e61f6701bdd2c94fe4c11b27216f8b2c07ea5ba6dabbf7c4467f5a759a2"
+    },
+    {
+      "path": "handoff.json",
+      "bytes": 668,
+      "sha256": "223765bc7b554a082d4fefae75a248c283c5bf72a477f26250b83a568516b292"
+    },
+    {
+      "path": "initializer-edits.json",
+      "bytes": 2171,
+      "sha256": "816e433850bb4df51521ddf0d91cca1d11f98ead99a247ceae1f1ceec607f38d"
+    },
+    {
+      "path": "inputs/original-8ddff-final_dispatch.rs",
+      "bytes": 17628,
+      "sha256": "a804224a4d6e29316fbd8443ae063525b7039d13e5438b4a47458a3459237ada"
+    },
+    {
+      "path": "inputs/original123-inventory.json",
+      "bytes": 416179,
+      "sha256": "72d671f8b22246898f9142c0216c9fbced55e350e46b83ffec787c81496fb1fc"
+    },
+    {
+      "path": "inverse/lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "bytes": 17959,
+      "sha256": "aca9379bbb7c993267251c1103a88f91d06ad8468e7f3cc936efb0d44797227c"
+    },
+    {
+      "path": "inverse/lampOS/docs/voice-test-fixtures.md",
+      "bytes": 19699,
+      "sha256": "bd618f4471d5ec69dad490abc9e4747a91fdb21ef9fb1033a1e9d8f20e332940"
+    },
+    {
+      "path": "patch-application-proof.json",
+      "bytes": 2374,
+      "sha256": "e50fa2aec482be12d85dba5d400ab2ad1483bd6a4ca3d624079b5c55d5aec02d"
+    },
+    {
+      "path": "source-proof.json",
+      "bytes": 10325,
+      "sha256": "2f33d777645bdfbc56bb7f5fa88fda4ce26bcb000d0af6fbd27901fd517a3a29"
+    },
+    {
+      "path": "source-sites.json",
+      "bytes": 3626,
+      "sha256": "4485a3d1357e9df2572890e3a71d5b1cb54c23bd634a363677230c582c24cd03"
+    }
+  ]
+}

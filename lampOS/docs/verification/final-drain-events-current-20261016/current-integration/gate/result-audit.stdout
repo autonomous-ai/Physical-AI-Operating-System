@@ -1,0 +1,1 @@
+{"date": "2026-10-16 10:44:17 +0700", "result": "/private/tmp/tests-823-final-drain-events-current-integration/gate/result-audit.json", "sha256": "b8b11ecfdbb0c01b70cab1506813833ec24c172c988437efd644f24dce35b555", "counts": {"passed": 521, "failed": 0, "ignored": 0, "measured": 0, "filtered_out": 0}, "frozen_inputs": 1082, "historical_files": 51}

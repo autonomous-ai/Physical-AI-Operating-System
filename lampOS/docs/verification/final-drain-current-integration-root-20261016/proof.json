@@ -1,0 +1,40 @@
+{
+  "date_from_date": "2026-10-16 10:49:25 +0700",
+  "packages": [
+    {
+      "directory": "/private/tmp/tests-823-final-drain-current-publication",
+      "manifest_sha256": "368729de220d9c8de7fa58d05ab7abe5acb5e7959b8d3f06b04c4876f625e5bd",
+      "files": 60,
+      "compiled": 521,
+      "unique_once_only_passes": 521,
+      "binary_invocations": 24,
+      "counts": [
+        521,
+        0,
+        0
+      ],
+      "all_stage_exits_zero": true,
+      "full_log_sha256": "c1caa7fb47738f74f7af486aa236d8254dbf7d44d3ff3035f155b47205682ded",
+      "head": "c2eacfa4e29a5c9db21d4d919a77d33ce8112238",
+      "limits": "Local integration only. Native current-head pending/failed; no new timing pair or standalone original123 claim."
+    },
+    {
+      "directory": "/private/tmp/tests-823-final-drain-events-current-package",
+      "manifest_sha256": "23e6a0794cdc412b68ccbd09d30f5bfab83e84cb0fff95499e9e5475651cd165",
+      "files": 102,
+      "compiled": 521,
+      "unique_once_only_passes": 521,
+      "binary_invocations": 24,
+      "counts": [
+        521,
+        0,
+        0
+      ],
+      "all_stage_exits_zero": true,
+      "full_log_sha256": "ba4d7a169f6f214b0d5717a300de0c4c9307c770b9821bb1d53dadf713242d50",
+      "head": "904e3d4777b2a405cc86f55a09dcafbac8854e66",
+      "limits": "Local integration only. Native current-head pending/failed; no new timing pair or standalone original123 claim."
+    }
+  ],
+  "manual_source_review": "Three-event Git diff c2\u2192904 changes only three backend initializers and their doc append. All timings, stimuli and assertions remain; no helper/product change. Final-drain local package independently compares source inverses and preserves all13 original bodies."
+}

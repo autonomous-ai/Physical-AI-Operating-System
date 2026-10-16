@@ -1,0 +1,14 @@
+{
+  "date_from_date": "2026-10-16 10:41:31 +0700",
+  "original_historical_commit": "2d527a2f092585baf95994134330eb4b09a8f79d",
+  "corrected_historical_commit": "7009f58dcbcdf5d98acc29b67b763f45ab332efb",
+  "only_changed_paths": [
+    "lampOS/docs/verification/final-drain-events-20261016/README.md",
+    "lampOS/docs/verification/final-drain-events-20261016/SHA256SUMS"
+  ],
+  "source_exact_between_original_and_corrected": true,
+  "all_inner_history_checksums_verified": 50,
+  "all_historical_files_preserved_after_rebase": 51,
+  "correction_by_root_before_this_task": true,
+  "no_new_timing_execution": true
+}

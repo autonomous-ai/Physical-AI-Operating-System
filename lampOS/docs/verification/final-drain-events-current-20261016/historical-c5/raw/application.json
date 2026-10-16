@@ -1,0 +1,9 @@
+{
+  "date_from_date": "2026-10-16 09:41:45 +0700",
+  "base": "c5bcc45b905458c1a8adcd8bcf06885f35dbfdf7",
+  "candidate_sha256": {
+    "lampOS/crates/voice-eval/tests/final_dispatch.rs": "c0e560a59dc6000e31a4418f1e7488bf18617d16601c8ae5adcf146f7e86e642",
+    "lampOS/docs/voice-test-fixtures.md": "19e0b7dbf2dae4423a4e158acf2a4a53072fa7fa3832707d9f2ad6f532d591f0"
+  },
+  "script_sha256": "395586c776f0b791839f94ec36ac97c3e28d015b54eddd9f30a863ce082ed77d"
+}

@@ -1,5 +1,23 @@
 # Tests work log
 
+## 2026-10-16 10:50:34 +0700 — Current final-drain gates and first native blockers
+
+Ready for lamp-voice: no (#963 and its continuations)
+
+The corrected #963 head `c2eacfa4e29a5c9db21d4d919a77d33ce8112238`, integrated onto ec831, passes its first fresh local **521/0/0** gate, fmt, strict all-target Evaluator Clippy and workspace build. [Complete 60-file integration evidence](verification/final-drain-clock-20261016/current-base-20261016-ec8317fe2/README.md) preserves both complete documentation sections, the unchanged owned Rust files, all original 13 assertions, all prior 504 identities and exactly 17 upstream additions. Its clean current base is 515 plus six fixture tests. All 53 historical files remain exact after the timestamp correction.
+
+Current-head normal ARM64 **38846187840** failed before tests on the upstream `Reply.say` initializers (E0063 at coordinator.rs:6209 and :6279). Full **38846183455** shard 4 failed before compilation/tests on a crates.io hound index HTTP/2 framing error; its other shards continue. Raw failures and exact synthetic-merge provenance are being retained. Neither failed job is represented as a test result, and neither has been restarted. Upstream #976 has merged its compile fix; the next integration will include that actual fix before new qualification. The PR stays draft.
+
+The three-event continuation at `904e3d4777b2a405cc86f55a09dcafbac8854e66` on c2 has its own fresh **521/0/0**, exact 521-to-521 identities/ignore flags, fmt, strict Clippy and workspace build. [Complete 102-file current/historical evidence](verification/final-drain-events-current-20261016/README.md) preserves all 1,082 frozen inputs, all 51 historical files and only the same three initializer edits. [Root's independent reparse](verification/final-drain-current-integration-root-20261016/proof.json) verifies every compiled identity exactly once across 24 binary invocations in each current gate. No new timing pair was run; the historical c5 pair remains 3.733 → 1.322 s under uncontrolled host load. Its source branch remains local, awaiting the actual #963 merge.
+
+Closed transport passed its historical c5 **509/0/0** and first original-case **1.216 → 0.428 s**, preserving the 300/800 ms bounds and assertions. Its current c2 integration preserves all 108 historical files, both independent backend test modules and all 46 existing inline test bodies after the selected initializer inverse. The expected current gate is 521 plus five tests; it has started separately with frozen inputs. Gemini live Actor progress preparation is independently in its first five-package gate after a clean 2,726-identity baseline; no original scenario is migrated by that preparation.
+
+Ready for lamp-voice: yes (#966, under reviewer validation)
+
+#966 remains ready at 8de with first normal native **5,290/0/130**, all eighteen additions and the accepted #739 Motor identity passing once. Its retained local **2,710/1/15** failure remains disclosed without a causal claim or retry. The reviewer began independent qualification at 10:38.
+
+#783 is now closed by Eighth after #905 merged: the Tests sweep #839/#850 and whole-line boundary are delivered. Eighth reports 60 before/60 after and 300 before/300 after loaded isolated cases plus ten full policy runs passing; the original ARM64 failure was not reproduced, so those observations establish no reproduction-based fix proof. The fixed original 123 standalone serial under-120-second target in #823 remains unproved. No workflow, runner, settings, spending or device change.
+
 ## 2026-10-16 10:31:04 +0700 — Gemini actual task joins native green
 
 Ready for lamp-voice: yes (#966)

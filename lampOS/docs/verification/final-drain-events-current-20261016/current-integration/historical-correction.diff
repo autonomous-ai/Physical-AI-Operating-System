@@ -1,0 +1,22 @@
+diff --git a/lampOS/docs/verification/final-drain-events-20261016/README.md b/lampOS/docs/verification/final-drain-events-20261016/README.md
+index b78ce482b..bd6753d2f 100644
+--- a/lampOS/docs/verification/final-drain-events-20261016/README.md
++++ b/lampOS/docs/verification/final-drain-events-20261016/README.md
+@@ -1,6 +1,6 @@
+ # Three final-drain event fixtures: first local qualification
+ 
+-Packaged <function <lambda> at 0x108819430>, from shell date. Base and prerequisite: `c5bcc45b905458c1a8adcd8bcf06885f35dbfdf7` (#963). This continuation changes exactly three original test initializers plus documentation, using the prerequisite's unchanged explicit clock helper. Publication is held until that prerequisite merges. Native ARM64 qualification is pending.
++Packaged 2026-10-16 09:49:29 +0700, from shell date. Base and prerequisite: `c5bcc45b905458c1a8adcd8bcf06885f35dbfdf7` (#963). This continuation changes exactly three original test initializers plus documentation, using the prerequisite's unchanged explicit clock helper. Publication is held until that prerequisite merges. Native ARM64 qualification is pending.
+ 
+ The first local gate passed **504 / 0 / 0**, formatting, strict all-target Evaluator Clippy and workspace build. Before and after compiled lists are identical: no added, removed or newly ignored identity. The full gate executed every compiled identity exactly once across 24 binary paths (one contains no tests). All 1,031 enumerated Rust/TOML/lock/document inputs remained exact. Cargo metadata finds no workspace reverse dependent on Evaluator.
+ 
+diff --git a/lampOS/docs/verification/final-drain-events-20261016/SHA256SUMS b/lampOS/docs/verification/final-drain-events-20261016/SHA256SUMS
+index 99745b45c..a5d201fa3 100644
+--- a/lampOS/docs/verification/final-drain-events-20261016/SHA256SUMS
++++ b/lampOS/docs/verification/final-drain-events-20261016/SHA256SUMS
+@@ -1,4 +1,4 @@
+-8f15f1f5c5f054eb111ed69904bbeed7c5187262f42b0cf5eb22ed5d5d3bbab8  README.md
++a81ade1121792948e9d10c8fc4bf6b5d54a446bfaa93d5a44c3492eea2cf7773  README.md
+ ded97fc8dbf1d194d198bda80e78b391d9fe1a5e5a8c45922f7858a4370f2b7f  audit/identity-execution-proof.json
+ 3596b6cc9338f7b1ed51f83eee1d55db5b3de8de70d73ca3bf94071c07f207d2  audit/per-binary-timing.json
+ a22986dae773e3e9d42ac59b720b3c25f052bb0454621999d9558fda2553e91e  audit/per-binary-timing.md

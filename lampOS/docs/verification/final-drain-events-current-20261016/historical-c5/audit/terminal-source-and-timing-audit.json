@@ -1,0 +1,61 @@
+{
+  "date_from_date": "2026-10-16 09:48:14 +0700",
+  "base": "c5bcc45b905458c1a8adcd8bcf06885f35dbfdf7",
+  "full_counts": [
+    504,
+    0,
+    0
+  ],
+  "all504_identities_and_ignore_flags_preserved": true,
+  "no_new_or_removed_tests": true,
+  "source_inputs_exact": 1031,
+  "all_gate_commands_and_raw_hashes_verified": true,
+  "owned_source_paths": {
+    "lampOS/crates/voice-eval/tests/final_dispatch.rs": "c0e560a59dc6000e31a4418f1e7488bf18617d16601c8ae5adcf146f7e86e642",
+    "lampOS/docs/voice-test-fixtures.md": "19e0b7dbf2dae4423a4e158acf2a4a53072fa7fa3832707d9f2ad6f532d591f0"
+  },
+  "whole_test_file_restores_by_three_initializers_only": true,
+  "document_restores_by_append_inverse": true,
+  "helper_byte_exact_to_prerequisite": true,
+  "original_case_count": 3,
+  "before_case_seconds": {
+    "a_relay_framing_error_first_seen_in_the_final_drain_withholds": 1.263,
+    "an_invalid_cue_first_seen_in_the_final_drain_withholds": 1.226,
+    "an_unobserved_event_in_the_final_drain_requires_revalidation": 1.242
+  },
+  "after_case_seconds": {
+    "a_relay_framing_error_first_seen_in_the_final_drain_withholds": 0.442,
+    "an_invalid_cue_first_seen_in_the_final_drain_withholds": 0.442,
+    "an_unobserved_event_in_the_final_drain_requires_revalidation": 0.437
+  },
+  "same_exact_command": [
+    "cargo",
+    "nextest",
+    "run",
+    "--locked",
+    "--offline",
+    "-p",
+    "lamp-voice-eval",
+    "--profile",
+    "default",
+    "--test-threads",
+    "1",
+    "--no-fail-fast",
+    "--retries",
+    "0",
+    "-E",
+    "binary_id(lamp-voice-eval::final_dispatch) & (test(=an_invalid_cue_first_seen_in_the_final_drain_withholds) | test(=a_relay_framing_error_first_seen_in_the_final_drain_withholds) | test(=an_unobserved_event_in_the_final_drain_requires_revalidation))"
+  ],
+  "nextest_summary_seconds_before_after": [
+    3.733,
+    1.322
+  ],
+  "sample_count_each": 1,
+  "measurement_boundary": "Nextest per-case durations include fixture creation, real shell/pipe/reader, original assertions and cleanup. Summary includes all three serial case durations and scheduling, excluding compilation/runner startup. Shared macOS host load uncontrolled.",
+  "binary_duration_seconds_sum": 193.67,
+  "reverse_dependents": [],
+  "standalone123_or_native_timing_proof": false,
+  "native_qualification": "pending",
+  "gate_retry_count": 0,
+  "no_test_execution_during_audit": true
+}

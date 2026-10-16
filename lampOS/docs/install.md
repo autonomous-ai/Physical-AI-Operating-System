@@ -181,7 +181,9 @@ lacks: the voice's `LAMP_TASKS_DIR`, `LAMP_SCHEDULE_TOOLS`,
 `LAMP_SCHEDULE_TOOLS`; health's `--expect policy`. By joining.md's rule
 ("The switch is for that first minute, not for life") a switch on for
 lamp-4ace becomes the product's default, so the product takes lamp-4ace's
-set. Expression's catalogue differs too (`expression-alive-name-speech` on
+set, but for `LAMP_SPEAK_FIRST`: the product's hello is the Welcome back
+skill (`lamp-skills`, #811), spoken through the voice's say service, so the
+voice's own hello is off, as lamp-4ace now has it too. Expression's catalogue differs too (`expression-alive-name-speech` on
 lamp-4ace, `expression-alive` on lamp-52e6): the product takes lamp-4ace's.
 
 **Neither: the person's.** The time zone: `--utc-offset-minutes 420` in

@@ -814,8 +814,14 @@ async fn voice_line(
 /// get my message about the budget?" is no part of a conversation with the
 /// lamp, and its answer is held. Without the check her line is answered,
 /// and the budget line goes on with the conversation, as before.
-#[tokio::test]
+///
+/// On the logical clock (#1160): the worker has recorded the call's answer
+/// in the conversation before the next line's answer is judged, the order
+/// this scene means. In real time, at this test's pace, the two could fall
+/// the other way (fourth on #1160).
+#[tokio::test(start_paused = true)]
 async fn with_the_switch_and_a_voice_check_a_line_held_as_another_voice_counts_as_talk() {
+    let _clock = logical_clock();
     const CALL: &str = "Hey Lamp, how much is one hundred dollars in euros?";
     const SAMANTHA: &str = "Anyway, if we drop the trip we save almost half.";
     // Not "True, but …": the rule for whom a line answers takes "True," for

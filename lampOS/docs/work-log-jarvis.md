@@ -36,3 +36,23 @@ Ready for lamp-voice: no
   terms you two agreed"). jarvis still touches the lamp only once
   `deploy/lamp-06c1/LAMP.md` naming el and jarvis is on `lamp-voice`, and
   holds no part yet. No task yet.
+
+## 2026-10-16 — #999 Dance, taken; draft #1012
+
+Ready for lamp-voice: no (draft #1012, waiting on lamp-06c1)
+
+- Took [#999](https://github.com/autonomous-ai/lampOS/issues/999) at 11:32 (first
+  builder). Plan posted on #999; answered by the first builder (11:37) and the
+  fifth (11:4x): make the three `lamp-skills` additions, stacked on #984, with
+  a low steady warm glow, clips checked against the body's own table, and no
+  clip re-sent after a stop or a hand.
+- `jarvis/dance` = `lamp-voice` + #984 rebased (`7f62502a8`) + `0d568f60f`.
+  Kind: off unless set (only a model's call of the tool runs it).
+- Gate on the Mac, **Homebrew Rust 1.99, no rustup, no Docker**: fmt clean,
+  clippy `-D warnings` clean on lamp-skills, `cargo test -p lamp-skills` 23
+  passed 0 failed, `lamp-skills test skills/*` dance 5/5, workspace builds (one
+  Mac linker alignment warning, not this change). The 1.96 gate is the ARM64
+  run on #1012.
+- Not on a lamp. lamp-06c1 is held by el for the V2 bring-up until 13:30; I
+  install `lamp-skills` there under a `skills` hold after the release, and ask
+  our person before every ssh and before the lamp moves.

@@ -1134,6 +1134,14 @@ numbers:
   lamp-4ace (the head 68, the base resting short 44 to 72) and under the
   100 to 150 that lamp-52e6's shoulder pushes with for as long as it
   stands, 22 to 34 counts short of its goal.
+- A standing shoulder or elbow carries the arm, so for those two the
+  bound is the load each read once the lamp stood up (`stand` settled)
+  plus 100, never under 100; rising, folding or folded it is 100 again.
+  On lamp-4ace from 2026-10-15 to 16 the shoulder stood at a load of 112
+  (elbow 23) and its own weight made 426 shoulder `stalls` in 3 h 50 min
+  at rest. 100 over is twice the 50 lamp-52e6's standing shoulder wanders
+  (100 to 150) and far under a hand stopping the arm, which reads hundreds
+  (the arm's own bound, `--arm-load`, is 950). The head keeps 100.
 
 The report counts each joint's (`stalls`: head pitch, head roll, base yaw,
 shoulder, elbow) and the log says each one with the joints' positions and

@@ -138,6 +138,13 @@ const LIMP_LAG: u16 = 11;
 /// for as long as it stands, 22 to 34 counts short of its goal.
 const STALL_STEPS: u16 = 75;
 const STALL_LOAD: u16 = 100;
+/// A standing shoulder or elbow carries the arm: it counts as pushing only
+/// over the load it read once stood up plus this. On lamp-4ace the shoulder
+/// stands at 112 (elbow 23), and from 2026-10-15 to 16 that weight alone made
+/// 426 shoulder stalls in 3 h 50 min at rest; lamp-52e6's shoulder wanders
+/// 100 to 150 while it stands. 100 is twice that wander, and far under a
+/// hand stopping the arm, which reads hundreds (the arm's own bound is 950).
+const ARM_STALL_MARGIN: u16 = 100;
 const STALL_SLACK: u16 = 6;
 /// Arrived: this close to the wanted pose and this slow, for this many steps.
 const ARRIVED_COUNTS: f32 = 6.0;
@@ -1845,6 +1852,10 @@ struct Stall {
     /// after `HAND_STEPS` of them that place is forgotten, so a later stall
     /// there is a new one and counted.
     free: u16,
+    /// A standing arm joint's load as it read once stood up: it pushes only
+    /// over this plus `ARM_STALL_MARGIN`. None for the head, and for an arm
+    /// rising, folding or folded.
+    carries: Option<u16>,
 }
 
 impl Stall {
@@ -1852,11 +1863,14 @@ impl Stall {
     /// wanted. True when it has just been told to stop pushing; `again`
     /// then says whether that was where it last stopped (not to be counted).
     fn step(&mut self, goal: u16, is: Sample, wanted: u16) -> bool {
-        let pushing = goal.abs_diff(is.position) > STALL_SLACK && is.load > STALL_LOAD;
+        let bound = self.carries.map_or(STALL_LOAD, |load| {
+            STALL_LOAD.max(load.saturating_add(ARM_STALL_MARGIN))
+        });
+        let pushing = goal.abs_diff(is.position) > STALL_SLACK && is.load > bound;
         let away = self
             .last_at
             .is_some_and(|at| at.abs_diff(is.position) > STALL_SLACK);
-        self.free = if away && is.load <= STALL_LOAD {
+        self.free = if away && is.load <= bound {
             self.free.saturating_add(1)
         } else {
             0
@@ -3303,8 +3317,14 @@ pub(crate) fn run_alive(
             if standing.is_some() {
                 for (index, joint) in ARM.iter().enumerate() {
                     let is = samples[joint.index()];
-                    if stalls[3 + index].step(arm_written[index], is, arm_written[index]) {
-                        if !stalls[3 + index].again {
+                    let stall = &mut stalls[3 + index];
+                    if !(stand > 0.0 && stand_velocity == 0.0) {
+                        stall.carries = None;
+                    } else if stall.carries.is_none() {
+                        stall.carries = Some(is.load);
+                    }
+                    if stall.step(arm_written[index], is, arm_written[index]) {
+                        if !stall.again {
                             report.stalls[3 + index] = report.stalls[3 + index].saturating_add(1);
                         }
                         stopped_pushing[joint.index()] = true;

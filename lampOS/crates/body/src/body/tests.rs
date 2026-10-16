@@ -3453,16 +3453,21 @@ fn a_joint_pushing_without_moving_is_told_to_stop_after_a_second_and_a_half() {
     );
 }
 
-/// A standing shoulder that rests short of its goal and pushes is told to
-/// stop: its goal becomes where it is, and torque is never written off.
+/// A standing shoulder that rests short of its goal and is pushed well over
+/// what it stands with is told to stop: its goal becomes where it is, and
+/// torque is never written off.
 #[test]
 fn a_standing_shoulder_pushing_short_of_its_goal_is_told_to_stop_and_keeps_its_torque() {
     let (mut lamp, mut clock) = folded(Duration::from_secs(12));
     lamp.arm_moves = true;
     lamp.overload_clears = 1;
-    // As lamp-52e6's did: 30 counts short of where it stands, at 150.
+    // As lamp-52e6's did: 30 counts short of where it stands, at 150, its
+    // own weight and not counted; then a hand pushes it at 400.
     lamp.short = Some((1, 30.0));
-    lamp.strains = vec![(Duration::ZERO, Duration::from_secs(60), 1, 150)];
+    lamp.strains = vec![
+        (Duration::ZERO, Duration::from_secs(7), 1, 150),
+        (Duration::from_secs(7), Duration::from_secs(60), 1, 400),
+    ];
     let news = || Some((Mood::Listening, 100));
     let mut seen = Vec::new();
     let report = run_standing(
@@ -4655,4 +4660,39 @@ fn a_shoulder_resting_short_at_the_same_place_is_counted_once() {
         ..rest
     };
     assert_eq!(stop(&mut stall, 2_740, lifted), (1, 1));
+}
+
+#[test]
+fn a_standing_arm_carrying_its_own_weight_counts_no_stall_and_a_push_well_over_it_counts_one() {
+    // lamp-4ace's shoulder at rest: 30 counts short of its goal at load 112.
+    let mut stall = Stall {
+        carries: Some(112),
+        ..Stall::default()
+    };
+    let standing = Sample {
+        position: 2_000,
+        load: 112,
+        temperature: 40,
+        status: 0,
+    };
+    // An hour of steps, the goal moved a little now and then as a scene does.
+    for step in 0..180_000u32 {
+        let goal = 2_030 + (step / 3_000 % 5) as u16 * 10;
+        assert!(!stall.step(goal, standing, goal), "step {step}");
+    }
+    // A hand holding it at a load well over what it stands with.
+    let pushed = Sample {
+        load: 400,
+        ..standing
+    };
+    let counted = (0..u32::from(STALL_STEPS))
+        .filter(|_| stall.step(2_030, pushed, 2_030) && !stall.again)
+        .count();
+    assert_eq!(counted, 1);
+    // The head keeps 100: the same push of 112 counts there.
+    let mut head = Stall::default();
+    let counted = (0..u32::from(STALL_STEPS))
+        .filter(|_| head.step(2_030, standing, 2_030) && !head.again)
+        .count();
+    assert_eq!(counted, 1);
 }

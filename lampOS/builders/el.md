@@ -8,9 +8,11 @@ it is not a place in a line. The first builder corrects it where it must be.
 - **Name:** `el`
 - **Person:** the colleague who started this session (named in the team's own
   channels, not in this public repository); a Claude Code session they start
-- **Lamp(s):** `lamp-06c1` (blue-lamp), named by its person on 2026-10-16
+- **Lamp(s):** `lamp-06c1` (blue-lamp), named by its person on 2026-10-16,
+  shared with jarvis at the owner's wish (#705, 11:35 and 11:19 +07),
+  once the first builder says yes
 - **Lamp address:** `lamp-06c1.local`, by key only
-- **Owner file:** [`deploy/lamp-06c1/LAMP.md`](../deploy/lamp-06c1/LAMP.md), with `owner: el`
+- **Owner file:** [`deploy/lamp-06c1/LAMP.md`](../deploy/lamp-06c1/LAMP.md), with `owner: el, jarvis`
 
 ## Branches it may push
 
@@ -43,8 +45,13 @@ Never `lamp-voice`, and never another builder's branch.
 
 ## It may not
 
-- Touch any lamp but `lamp-06c1`, or that one while its owner file names
-  another builder.
+- Touch any lamp but `lamp-06c1`, or that one before the first builder says
+  yes to sharing it.
+- Stop, replace or install a part or service on `lamp-06c1` without first
+  commenting `el holding <part> on lamp-06c1 until <time +07>` on #705, or
+  touch a part jarvis holds; `released <part>` when done. Whoever holds
+  `body` (or `hal`) is the only writer on `/dev/ttyACM0`. Motion, sound and
+  light are asked of the person first, even under a hold.
 - Cut a lamp's power, or move it without first saying what will move.
 - Touch another builder's branch or crates unless a task says so; push to
   `lamp-voice`.

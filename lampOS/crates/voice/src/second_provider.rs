@@ -250,8 +250,9 @@ impl Cues {
     }
 }
 
-/// [`DOWN_LINE`], rendered by [`Services::speak`] while the relay answers and
-/// kept in memory, so it can be said when the chat no longer does.
+/// [`DOWN_LINE`], rendered by [`Services::speak`] after a turn, while the
+/// relay answers, and kept in memory, so it can be said when the chat no
+/// longer does.
 #[derive(Default)]
 struct DownLine {
     clip: Mutex<Option<Vec<i16>>>,
@@ -287,15 +288,20 @@ impl DownLine {
     }
 
     /// The line, if rendered and not said in the last [`DOWN_LINE_EVERY`].
-    fn take(&self) -> Option<Vec<i16>> {
-        let clip = self.clip.lock().ok()?.clone()?;
-        let mut said_at = self.said_at.lock().ok()?;
+    fn due(&self) -> Option<Vec<i16>> {
+        let said_at = *self.said_at.lock().ok()?;
         let now = tokio::time::Instant::now();
         if said_at.is_some_and(|at| now.duration_since(at) < DOWN_LINE_EVERY) {
             return None;
         }
-        *said_at = Some(now);
-        Some(clip)
+        self.clip.lock().ok()?.clone()
+    }
+
+    /// The line was played (Nine on #1195: a cue that failed keeps it due).
+    fn said(&self) {
+        if let Ok(mut said_at) = self.said_at.lock() {
+            *said_at = Some(tokio::time::Instant::now());
+        }
     }
 }
 
@@ -916,9 +922,6 @@ async fn answer(
     if heard && let Some(cues) = &shared.cues {
         cues.render(&shared.services);
     }
-    if let Some(down) = &shared.down {
-        down.render(&shared.services);
-    }
     // The picture of a look goes in round 1 only: a later round after a
     // tool is asked with the words alone (the reviewer on #1075).
     let mut seeing = picture.is_some();
@@ -992,11 +995,16 @@ async fn answer(
                             );
                             // Not nothing, when switched on: the line, as
                             // audio only, so it is no answer in the thread.
-                            if let Some(clip) = shared.down.as_ref().and_then(|down| down.take()) {
+                            if let Some((down, clip)) = shared
+                                .down
+                                .as_ref()
+                                .and_then(|down| Some((down, down.due()?)))
+                            {
+                                cue(shared, request, clip).await?;
+                                down.said();
                                 eprintln!(
                                     "lamp-voice second: request {request} said it can't think right now"
                                 );
-                                cue(shared, request, clip).await?;
                             }
                             return Err(Stop::Silent);
                         }
@@ -1169,6 +1177,11 @@ async fn answer(
         Err(Stop::Gone) => return,
     };
     shared.emit(last).await;
+    // Rendered after a turn is out, never beside its chat and speech on a
+    // slow relay (Nine on #1195).
+    if let Some(down) = &shared.down {
+        down.render(&shared.services);
+    }
 }
 
 type Packets = mpsc::Receiver<net::Result<Vec<i16>>>;

@@ -169,9 +169,10 @@ A base URL on `campaign-api.autonomous.ai` ending in `/ai` is given `/v1`
   within its bound says "I can't think right now; give me a minute."
   (`DOWN_LINE`) instead of nothing, at most once a minute
   (`DOWN_LINE_EVERY`; the journal: `said it can't think right now`). The
-  line is said once by this route's own voice at the first turn, while the
-  relay answers, and kept in memory, so it can still be said when the chat
-  no longer answers. It goes as audio only, like the wait's sound. A look
+  line is said once by this route's own voice after the first turn is out,
+  never beside a turn's own chat and speech, while the relay answers, and
+  kept in memory, so it can still be said when the chat no longer answers.
+  A minute counts from when it was played, not from a try that failed. It goes as audio only, like the wait's sound. A look
   keeps its own line. A speech that never rendered (the relay down since
   start) leaves the turn silent, as before. On 2026-10-17 from 02:29 the
   relay's chat timed out at 40 s, then gave 401 after 60 s, while its

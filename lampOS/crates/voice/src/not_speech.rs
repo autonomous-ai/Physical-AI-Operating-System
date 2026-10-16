@@ -202,6 +202,26 @@ pub fn names_a_function(opening: &str) -> bool {
         && name.split('_').all(|part| !part.is_empty())
 }
 
+/// Whether a piece of an answer is, whole, a function call written as words:
+/// a name as [`names_a_function`] reads one, alone or followed by its
+/// arguments in `{…}` or `(…)` (`not_for_me{}`, `print(default_api.x())`).
+/// On lamp-4ace on 2026-10-16 at 17:12 the lamp's words were
+/// `not_for_me{}`. Ordinary words with an underscore inside a sentence are
+/// not one.
+pub fn bare_call(piece: &str) -> bool {
+    let piece = piece.trim().trim_end_matches('.');
+    if !names_a_function(piece) {
+        return false;
+    }
+    let name_end = piece
+        .find(|c: char| !(c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_' || c == '.'))
+        .unwrap_or(piece.len());
+    let rest = piece[name_end..].trim();
+    rest.is_empty()
+        || (rest.starts_with('{') && rest.ends_with('}'))
+        || (rest.starts_with('(') && rest.ends_with(')'))
+}
+
 /// Where the coordinator reads whether, in a conversation, a turn heard in
 /// another script or as a number alone is asked again rather than answered
 /// (#926). Off unless set to [`UNCLEAR`].
@@ -723,6 +743,30 @@ mod tests {
             "Wait, wait, wait.",
         ] {
             assert_eq!(unclear_in_conversation(said, false, true), None, "{said}");
+        }
+    }
+
+    /// A call written as words is caught whole; words that merely contain
+    /// an underscore, or a sentence after a call, are not.
+    #[test]
+    fn a_bare_call_is_a_function_call_written_as_words() {
+        for call in [
+            "not_for_me{}",
+            " not_for_me ",
+            "not_for_me()",
+            "set_timer{\"minutes\": 5}",
+            "print(default_api.not_for_me())",
+            "not_for_me.",
+        ] {
+            assert!(bare_call(call), "{call}");
+        }
+        for words in [
+            "Sure.",
+            "It is noon.",
+            "not_for_me is a tool, sorry.",
+            "Hello there",
+        ] {
+            assert!(!bare_call(words), "{words}");
         }
     }
 }

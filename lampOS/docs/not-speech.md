@@ -397,6 +397,19 @@ told to the next session nor taken for a conversation going on. On
 lamp-4ace, in the next run in which it happened, "not_for_me()" came
 twice as an answer's text and neither was played.
 
+A call written as words is kept nowhere, on either route
+(`not_speech::bare_call`; lamp-4ace, 2026-10-16 17:12, the lamp's words were
+`not_for_me{}`):
+
+- `voice/said` (`bus_out::BusOut::said`, the one place both its senders go
+  through): an answer that opens with a function's name publishes none of
+  its words, and a piece that is a whole call is left out wherever it comes.
+- The thread: the same, a whole call later in an answer left out and the
+  rest kept.
+- The backup voice: a reply that is `not_for_me…` written as words ends the
+  turn in silence, as the call does, with no announcement; any other call
+  written as words is left out unsaid, and not run.
+
 ## Tests
 
 Neither rule has a test of its own: both are a few lines in the service's

@@ -412,11 +412,16 @@ impl Thread {
         if self.unsaid == Some(request) {
             return;
         }
-        if self.exchanges.back().map(|last| last.request) != Some(request) {
-            if crate::not_speech::names_a_function(text) {
-                self.unsaid = Some(request);
-                return;
-            }
+        let opening = self.exchanges.back().map(|last| last.request) != Some(request);
+        if opening && crate::not_speech::names_a_function(text) {
+            self.unsaid = Some(request);
+            return;
+        }
+        // A whole call later in an answer is left out, the rest kept.
+        if crate::not_speech::bare_call(text) {
+            return;
+        }
+        if opening {
             let asked = self
                 .heard_at
                 .is_some_and(|at| now.saturating_duration_since(at) <= ASKED_WITHIN);
@@ -1118,6 +1123,14 @@ mod tests {
         // The next answer is an answer.
         thread.lamp(8, "Yes?", start);
         assert!(thread.going_on(start));
+        // A whole call later in an answer is left out, its words kept
+        // (lamp-4ace, 2026-10-16 17:12: `not_for_me{}`).
+        thread.lamp(8, " not_for_me{}", start);
+        let told = thread.recall(start, 4_000).unwrap();
+        assert!(
+            told.contains("Yes?") && !told.contains("not_for_me"),
+            "{told}"
+        );
     }
 
     #[test]

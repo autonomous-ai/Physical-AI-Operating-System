@@ -464,6 +464,10 @@ pub struct BusOut {
     /// The turn whose input began last, if one has: what is heard is told
     /// as that turn's.
     heard_in: Option<u64>,
+    /// The answer whose words have begun to be said, and one that opened
+    /// with a function's name, whose words are none of the lamp's.
+    said_in: Option<u64>,
+    unsaid: Option<u64>,
 }
 
 impl BusOut {
@@ -499,6 +503,8 @@ impl BusOut {
             reported_at_us: None,
             down_since_us: None,
             heard_in: None,
+            said_in: None,
+            unsaid: None,
         })
     }
 
@@ -583,7 +589,24 @@ impl BusOut {
     }
 
     /// A piece of the provider's text of the lamp's answer to `request`.
+    /// A function's name written where it should have been called is never
+    /// said: an answer that opens with one has none of its words published,
+    /// as the thread keeps none of them, and a piece that is a whole call
+    /// (`not_for_me{}`) is left out wherever it comes (lamp-4ace,
+    /// 2026-10-16 17:12).
     pub fn said(&mut self, request: u64, text: &str, finished: bool, now_us: u64) {
+        if self.unsaid == Some(request) {
+            return;
+        }
+        let opening = self.said_in != Some(request);
+        if opening && crate::not_speech::names_a_function(text) {
+            self.unsaid = Some(request);
+            return;
+        }
+        if crate::not_speech::bare_call(text) {
+            return;
+        }
+        self.said_in = Some(request);
         let _ = self
             .said
             .publish_json(now_us, &speech(Some(request), text, finished));

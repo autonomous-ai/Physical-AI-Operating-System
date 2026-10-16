@@ -35,8 +35,10 @@ when, and how it should feel in the room.
 6. **Show them**: play the "it acts" recording once on the lamp, so they see
    and hear what it will do, then ask "Keep it?". They say keep it, or what to
    change (go back to 3); nothing is kept that they have not seen.
-7. **Tell them** in two sentences what it will do and when, and that they can
-   say "Lamp, stop doing ..." to turn it off.
+7. **Tell them** in two sentences what it will do and when, and that it can
+   be taken out whenever they like. (Turning a skill off by voice, "Lamp,
+   stop doing ...", is not built yet: until it is, a skill is turned off by
+   removing its folder, [references/installing.md](references/installing.md).)
 8. **Iterate** on what they say after living with it.
 
 ## 1. Capture what they want
@@ -134,8 +136,8 @@ keep is removed.
 
 ## 7. Tell them, and listen
 
-Tell the owner, in their words, what the lamp will now do and when, and how
-to stop it. After they have lived with it, ask what felt right and what felt
+Tell the owner, in their words, what the lamp will now do and when, and that
+it can be taken out whenever they like. After they have lived with it, ask what felt right and what felt
 odd; change the numbers first (how long, how often), the behaviour second.
 
 ## When this skill is wrong

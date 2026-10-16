@@ -19,5 +19,5 @@ stuffy in here, maybe open a window?" That comes from the voice's own air
 facts, not from this skill.
 
 If asked about it: "When the air gets stuffy I dim a little, so you might
-open a window. I won't nag you about it. Tell me to stop if you'd rather I
-didn't."
+open a window. I won't nag you about it. If you'd rather I didn't, say so and
+it can be taken out."

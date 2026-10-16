@@ -11,8 +11,7 @@
 The runtime (`lamp-skills`) reads this; its schema is in the lamp's
 `lampOS/docs/skills.md`, "The schema, as `lamp-skills` reads it", and that is
 the truth. **A key the runtime does not know refuses the whole skill**, and
-the runtime says why in its journal and on `skills/events`: write only the
-keys below.
+the runtime says why in its journal: write only the keys below.
 
 Refused for now, so never write them: `run.py`, a `tools` key,
 `body = { move = ... }` (move files, #940), `when = "leaves"` or

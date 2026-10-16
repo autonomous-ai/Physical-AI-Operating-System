@@ -1118,9 +1118,14 @@ after Samantha's "Daniel, are you coming to the meeting at two?", Daniel's
 "Yes, give me five minutes." set a timer again, and the lamp, which had
 just told him a story, said "Got it. Five minutes, starting now." Two more
 cases are now that person's, with the switch:
-- **A line that itself calls someone else by name** (`addresses_someone_else`
-  on its own text, `TO_ANOTHER`), in every room. The call and its reply can
-  come as one request, and the line before then calls no one.
+- **A line that itself calls someone else by name with a question to
+  them** (`addresses_someone_else` on its own text, and a "?" in it,
+  `TO_ANOTHER`), in every room. The call and its reply can come as one
+  request, and the line before then calls no one. A request to the lamp
+  that opens with a word and a comma ("Tomorrow, remind me to call the
+  bank.", "Seriously, what time is it?") is the lamp's: times and sentence
+  words like these are among the words that are no one's name (`NOT_NAMES`,
+  Second on #1090), and a line with no question puts none to anyone.
 - **In a busy room, a line that follows a question the lamp left
   unanswered** (`AFTER_QUESTION`): within the same 10 s of a line heard as
   a question (ending "?") whose answer was held or never came. Named or

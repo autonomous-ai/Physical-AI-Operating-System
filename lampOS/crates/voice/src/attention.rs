@@ -278,6 +278,37 @@ const NOT_NAMES: &[&str] = &[
     "lamb",
 ];
 
+/// Times and sentence words that open a request to the lamp, and are no
+/// one's name either: "Tomorrow, remind me…", "Seriously, what time is
+/// it?" (Second on #1090), and "True, but…", which held the next line as a
+/// reply to someone called True (#1030's worker test).
+const NOT_NAMES_OPENING: &[&str] = &[
+    "today",
+    "tomorrow",
+    "tonight",
+    "yesterday",
+    "later",
+    "morning",
+    "afternoon",
+    "evening",
+    "earlier",
+    "seriously",
+    "basically",
+    "maybe",
+    "perhaps",
+    "besides",
+    "however",
+    "otherwise",
+    "meanwhile",
+    "finally",
+    "next",
+    "again",
+    "plus",
+    "remember",
+    "quickly",
+    "true",
+];
+
 /// Whether what was heard calls someone other than the lamp by name: a name
 /// set off by a comma, opening it after any greeting ("Daniel, are you
 /// coming to the meeting at two?", "Hey Samantha, ...") or closing it ("Are
@@ -288,7 +319,10 @@ pub fn addresses_someone_else(heard: &str) -> bool {
     let is_name = |word: &str| {
         word.chars().next().is_some_and(char::is_uppercase)
             && word.chars().all(char::is_alphabetic)
-            && !NOT_NAMES.iter().any(|not| word.eq_ignore_ascii_case(not))
+            && !NOT_NAMES
+                .iter()
+                .chain(NOT_NAMES_OPENING)
+                .any(|not| word.eq_ignore_ascii_case(not))
             && !STAND_INS.iter().any(|not| word.eq_ignore_ascii_case(not))
     };
     let words: Vec<&str> = heard.split_whitespace().collect();
@@ -1013,7 +1047,9 @@ impl Attention {
             None
         } else if self.after_another {
             Some(ANSWERING_ANOTHER)
-        } else if addresses_someone_else(&self.heard) {
+        } else if addresses_someone_else(&self.heard) && self.heard.contains('?') {
+            // Only a question put to that person: a request that opens
+            // with a word and a comma is the lamp's (Second on #1090).
             Some(TO_ANOTHER)
         } else if self.after_question && room == Room::Busy {
             Some(AFTER_QUESTION)
@@ -1776,8 +1812,10 @@ mod tests {
         let trusted = |spoken_to: bool| {
             let mut attention = Attention::default();
             attention.speak_when_spoken_to(spoken_to);
+            // 11 s apart: past `ANOTHER_REPLY_US`, so that no line is a
+            // reply to the question before it (`AFTER_QUESTION`).
             for request in 1..=u64::from(FRESH_REQUESTS) + 1 {
-                attention.began_at(request, 9, request * 10_000_000);
+                attention.began_at(request, 9, request * 11_000_000);
                 attention.heard(BUDGET);
                 attention.first_output(request, Room::Busy, false);
             }
@@ -1974,6 +2012,29 @@ mod tests {
         };
         assert_eq!(together(Room::Quiet), Some(Verdict::Hold(TO_ANOTHER)));
         assert!(matches!(together(Room::Busy), Some(Verdict::Hold(_))));
+        // Second on #1090: requests to the lamp that open with a word and a
+        // comma are the lamp's, in a conversation with it.
+        for line in [
+            "Tomorrow, remind me to call the bank.",
+            "Tonight, set an alarm for seven.",
+            "Seriously, what time is it?",
+            "Basically, can you dim the light?",
+            "Maybe, turn it up a little.",
+            "Daniel's here, can you say hello?",
+            "True, but can you check the client's address?",
+        ] {
+            let mut attention = Attention::default();
+            attention.speak_when_spoken_to(true);
+            attention.began_at(50, 7, 10 * S);
+            attention.heard(line);
+            assert!(
+                matches!(
+                    attention.first_output_busy(50, Room::Quiet, true, false, None),
+                    Some(Verdict::Play(_))
+                ),
+                "{line}"
+            );
+        }
         // In a busy room, a reply to a question the lamp left unanswered.
         const ASKED: &str = "Are you coming to the meeting at two?";
         assert!(matches!(

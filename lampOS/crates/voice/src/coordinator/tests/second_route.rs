@@ -2,9 +2,12 @@
 //!
 //! Every test runs the real `conversation()` service loop and
 //! `finish_active_run` with cooperative child processes and real local IPC,
-//! as `pilot_faults` does. One test thread answers for capture, the speaker
-//! (with the production `BoundaryGuard`), the ring, the Live provider and
-//! the second route; privacy has its own thread. The Live peer answers with
+//! as `pilot_faults` does. The peers (capture, the speaker with the
+//! production `BoundaryGuard`, the ring, the Live provider, the second
+//! route and privacy) run in the test thread under the stepped scenario
+//! clock (`crate::scenario_clock`), as `pilot_faults`' stepped runs do, so
+//! a busy host cannot starve a peer past a freshness bound (lampOS#890).
+//! The Live peer answers with
 //! samples of 1,000 and the second route's with 2,000, so the speaker tells
 //! whose answer it played.
 //!
@@ -25,7 +28,6 @@ use std::{
         Arc, Mutex,
         atomic::{AtomicBool, Ordering},
     },
-    thread,
 };
 
 const PACKET: usize = crate::provider_flow::PACKET_SAMPLES;
@@ -219,10 +221,24 @@ struct Peer {
     role: &'static str,
     channels: WorkerChannels,
     input: Option<std::process::ChildStdin>,
+    child_pid: u32,
     stopped: bool,
     output: OutputSender,
     queued: VecDeque<ProviderOutput>,
     snapshot: Option<Snapshot>,
+}
+
+impl Peer {
+    /// The child exits once its input closes; in a shutdown step it is
+    /// waited for, as logical time does not pass there.
+    fn close_input(&mut self, deadline: Option<Instant>) -> io::Result<()> {
+        if self.input.take().is_some()
+            && let Some(deadline) = deadline
+        {
+            crate::scenario_clock::wait_child_exited(self.child_pid, deadline)?;
+        }
+        Ok(())
+    }
 }
 
 struct Peers {
@@ -260,7 +276,7 @@ impl Peers {
                 .is_some_and(|offset| (offset..offset + 60).contains(&frame))
     }
 
-    fn tick(&mut self) {
+    fn tick(&mut self, deadline: Option<Instant>) -> io::Result<()> {
         if let Some(when) = self.script.speak_again {
             let due = match when {
                 When::Settled(count) => self.settled >= count,
@@ -302,13 +318,14 @@ impl Peers {
                 });
         }
         for index in 0..self.peers.len() {
-            self.tick_peer(index);
+            self.tick_peer(index, deadline)?;
         }
+        Ok(())
     }
 
-    fn tick_peer(&mut self, index: usize) {
+    fn tick_peer(&mut self, index: usize, deadline: Option<Instant>) -> io::Result<()> {
         if self.peers[index].stopped {
-            return;
+            return Ok(());
         }
         let role = self.peers[index].role;
         for _ in 0..16 {
@@ -362,9 +379,9 @@ impl Peers {
                     }
                     let peer = &mut self.peers[index];
                     peer.stopped = true;
-                    peer.input.take();
+                    peer.close_input(deadline)?;
                     self.seen.lock().unwrap().stopped.push(role);
-                    return;
+                    return Ok(());
                 }
                 Ok(Some(_)) => {}
                 Ok(None) | Err(_) => break,
@@ -391,10 +408,11 @@ impl Peers {
             }
             _ => {}
         }
+        Ok(())
     }
 
     fn tick_capture(&mut self, index: usize) {
-        while Instant::now() >= self.next_capture {
+        while crate::scenario_clock::instant() >= self.next_capture {
             self.frames += 1;
             let frame = self.frames;
             if frame == 50
@@ -551,7 +569,7 @@ impl Peers {
     }
 
     fn tick_speaker(&mut self, index: usize) {
-        if Instant::now() < self.next_write {
+        if crate::scenario_clock::instant() < self.next_write {
             return;
         }
         let Ok(Some(chunk)) = self.peers[index].channels.data.receive::<SpeakerChunk>() else {
@@ -559,7 +577,7 @@ impl Peers {
         };
         self.next_write = self
             .next_write
-            .max(Instant::now() - Duration::from_millis(20))
+            .max(crate::scenario_clock::instant() - Duration::from_millis(20))
             + Duration::from_micros(chunk.samples.len() as u64 * 1_000 / 24);
         self.install(chunk.snapshot);
         let accepted = self
@@ -629,34 +647,33 @@ impl Peers {
     }
 }
 
-fn privacy_peer(
-    mut peer: Peer,
+struct PrivacyPeer {
+    peer: Peer,
     seen: Arc<Mutex<Seen>>,
     muted: Arc<AtomicBool>,
-    finished: Arc<AtomicBool>,
-) -> impl FnOnce() + Send + 'static {
-    move || {
-        let mut next = Instant::now();
-        while !finished.load(Ordering::SeqCst) {
-            while !peer.stopped
-                && let Ok(Some(control)) = peer.channels.control.receive::<Control>()
-            {
-                if matches!(control, Control::Stop) {
-                    peer.stopped = true;
-                    peer.input.take();
-                    seen.lock().unwrap().stopped.push("privacy");
-                }
+    next: Instant,
+}
+
+impl PrivacyPeer {
+    /// A fresh observation every 5 ms of scenario time.
+    fn tick(&mut self, deadline: Option<Instant>) -> io::Result<()> {
+        while !self.peer.stopped
+            && let Ok(Some(control)) = self.peer.channels.control.receive::<Control>()
+        {
+            if matches!(control, Control::Stop) {
+                self.peer.stopped = true;
+                self.peer.close_input(deadline)?;
+                self.seen.lock().unwrap().stopped.push("privacy");
             }
-            if !peer.stopped && Instant::now() >= next {
-                let _ = peer.channels.control.send(WorkerEvent::Privacy {
-                    acquired_at_us: monotonic_us(),
-                    muted: muted.load(Ordering::SeqCst),
-                });
-                next = Instant::now() + Duration::from_millis(5);
-            }
-            thread::sleep(Duration::from_millis(1));
         }
-        peer.input.take();
+        if !self.peer.stopped && crate::scenario_clock::instant() >= self.next {
+            let _ = self.peer.channels.control.send(WorkerEvent::Privacy {
+                acquired_at_us: monotonic_us(),
+                muted: self.muted.load(Ordering::SeqCst),
+            });
+            self.next = crate::scenario_clock::instant() + Duration::from_millis(5);
+        }
+        Ok(())
     }
 }
 
@@ -664,11 +681,12 @@ fn run(script: Script) -> Run {
     let directory = SessionDirectory::create().unwrap();
     let mut peers = Vec::new();
     let mut spawn = |role| {
-        let (worker, channels, input) = Worker::cooperative_fixture(&directory.path, role);
+        let (worker, channels, input) = Worker::cooperative_ready_fixture(&directory.path, role);
         peers.push(Peer {
             role,
             channels,
             input: Some(input),
+            child_pid: worker.fixture_pid(),
             stopped: false,
             output: OutputSender::default(),
             queued: VecDeque::new(),
@@ -703,6 +721,9 @@ fn run(script: Script) -> Run {
         let worker = spawn("second");
         rig.second = Some(second::Route::standing_by(worker, ready_link(1, 1)));
     }
+    // The clock starts once every child has crossed its startup barrier;
+    // the coordinator and the peers share it from here.
+    let clock_scope = crate::scenario_clock::Scope::enter(LIMIT * 2).unwrap();
     let mut owner = Controller::new(new_boot().unwrap(), now());
     let boot = owner.snapshot(now()).unwrap().boot();
     let mut startup = StartupEvents::default();
@@ -713,61 +734,60 @@ fn run(script: Script) -> Run {
             .unwrap();
     }
     let seen = Arc::new(Mutex::new(Seen::default()));
-    let finished = Arc::new(AtomicBool::new(false));
     let muted = Arc::new(AtomicBool::new(false));
     let privacy_at = peers.iter().position(|p| p.role == "privacy").unwrap();
-    let privacy = thread::spawn(privacy_peer(
-        peers.remove(privacy_at),
-        seen.clone(),
-        muted.clone(),
-        finished.clone(),
-    ));
-    let worker = thread::spawn({
-        let (seen, finished, muted) = (seen.clone(), finished.clone(), muted.clone());
-        move || {
-            let mut state = Peers {
-                script,
-                peers,
-                seen,
-                muted,
-                guard: BoundaryGuard::new(boot, now()),
-                capture_started: false,
-                frames: 0,
-                next_capture: Instant::now(),
-                next_write: Instant::now(),
-                cursor: 0,
-                accepted: 0,
-                speech_offset: None,
-                live_requests: Vec::new(),
-                ended: BTreeSet::new(),
-                settled: 0,
-                audio_sequence: 0,
-                link_dropped: false,
-                link_back: false,
-                live_ready_sent: false,
+    let mut privacy = PrivacyPeer {
+        peer: peers.remove(privacy_at),
+        seen: seen.clone(),
+        muted: muted.clone(),
+        next: crate::scenario_clock::instant(),
+    };
+    let mut state = Peers {
+        script,
+        peers,
+        seen: seen.clone(),
+        muted,
+        guard: BoundaryGuard::new(boot, now()),
+        capture_started: false,
+        frames: 0,
+        next_capture: crate::scenario_clock::instant(),
+        next_write: crate::scenario_clock::instant(),
+        cursor: 0,
+        accepted: 0,
+        speech_offset: None,
+        live_requests: Vec::new(),
+        ended: BTreeSet::new(),
+        settled: 0,
+        audio_sequence: 0,
+        link_dropped: false,
+        link_back: false,
+        live_ready_sent: false,
+    };
+    let started = crate::scenario_clock::instant();
+    let mut reported = false;
+    clock_scope
+        .set_pump(move |phase| {
+            // A real child's exit is not simulated: one deadline bounds the
+            // children a step stops, and shutdown brings its own budget.
+            let deadline = match phase {
+                crate::scenario_clock::Phase::Run => Instant::now() + Duration::from_millis(300),
+                crate::scenario_clock::Phase::Shutdown { deadline } => deadline,
             };
-            let started = Instant::now();
-            let mut reported = false;
-            while !finished.load(Ordering::SeqCst) {
-                if started.elapsed() > LIMIT && !reported {
-                    reported = true;
-                    if let Some(index) = state.index("capture") {
-                        let _ = state.peers[index]
-                            .channels
-                            .control
-                            .send(WorkerEvent::Fault {
-                                code: "second route scenario limit".into(),
-                            });
-                    }
+            if crate::scenario_clock::instant() - started > LIMIT && !reported {
+                reported = true;
+                if let Some(index) = state.index("capture") {
+                    let _ = state.peers[index]
+                        .channels
+                        .control
+                        .send(WorkerEvent::Fault {
+                            code: "second route scenario limit".into(),
+                        });
                 }
-                state.tick();
-                thread::sleep(Duration::from_millis(1));
             }
-            for peer in &mut state.peers {
-                peer.input.take();
-            }
-        }
-    });
+            privacy.tick(Some(deadline))?;
+            state.tick(Some(deadline))
+        })
+        .unwrap();
     let mut reply = None;
     let mut trace = SessionState::default();
     let result = conversation(
@@ -803,9 +823,7 @@ fn run(script: Script) -> Run {
         };
         exits.push((role, matches!(worker.try_exit(), Ok(Some(_)))));
     }
-    finished.store(true, Ordering::SeqCst);
-    worker.join().unwrap();
-    privacy.join().unwrap();
+    drop(clock_scope);
     let seen = std::mem::take(&mut *seen.lock().unwrap());
     Run {
         result,

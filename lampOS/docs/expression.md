@@ -200,9 +200,11 @@ With `serve --head-touch` it also reads the head's `controls/touch` and
 leaned into, a three-second hold puts it to sleep, a tap wakes it
 ([alive.md](alive.md), "The head"; #711). With it, where the voice says
 `voice/mute`, sleep follows the voice's mute with the reason `sleep`.
-No drift begins within 30 s of the body moving by itself (`BODY_QUIET_US`):
-a shift at rest of the body's own (`docs/body.md`) and a drift are one layer
-and never land back to back. It is seen on `body/joint_states`, which the
+No drift begins within 30 s of the body seen moving (`BODY_QUIET_US`): a
+shift at rest of the body's own (`docs/body.md`) and a drift are one layer
+and never land back to back. Any move counts, not only the body's shift: a
+gesture, or the look up at a tap falling back, holds a drift off too, so a
+drift that waits after a tap is meant. It is seen on `body/joint_states`, which the
 service already reads: a joint's goal going 0.04 rad/s or faster for 0.3 s
 (the breath and the drift go under 0.02, a shift 0.06 to 0.09; a goal that
 leaps once is not a move). The body keeps the same 30 s after a drift.

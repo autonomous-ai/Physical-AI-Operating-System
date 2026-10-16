@@ -612,9 +612,10 @@ pub(crate) struct Life {
     /// while that word was fresh.
     voice_said: Option<(u64, bool)>,
     voice_slept: bool,
-    /// The body moving by itself (a shift at rest, #933): the goals it last
-    /// said for its joints and when, since when they have gone fast, and
-    /// when it was last seen moving so.
+    /// The body seen moving (its own shift at rest, #933, a gesture, or
+    /// this layer's look up at a tap falling back): the goals it last said
+    /// for its joints and when, since when they have gone fast, and when it
+    /// was last seen moving so.
     body_goals: Option<(u64, Vec<f64>)>,
     body_fast_since: Option<u64>,
     body_moved_us: Option<u64>,
@@ -625,10 +626,13 @@ pub(crate) struct Life {
 pub const VOICE_MUTE_KEPT_US: u64 = 3_000_000;
 
 /// A shift the body makes by itself at rest and a drift are one layer: no
-/// drift begins this soon after the body was seen moving by itself (the
-/// body keeps the same window after a drift, #933).
+/// drift begins this soon after the body was seen moving (the body keeps
+/// the same window after a drift, #933). Any move counts, not only the
+/// body's own shift: a gesture, or this layer's look up at a tap falling
+/// back, holds a drift off too, as a living thing does not drift right
+/// after it moved for someone.
 pub const BODY_QUIET_US: u64 = 30_000_000;
-/// The body is seen moving by itself when the goal it says for a joint on
+/// The body is seen moving when the goal it says for a joint on
 /// `body/joint_states` goes this fast, in radians a second, for
 /// `BODY_MOVING_US` running. This layer's own breath and drift go under
 /// 0.02; a shift at rest goes 0.06 to 0.09; a goal that jumps once (a
@@ -717,9 +721,8 @@ impl Life {
         }
     }
 
-    /// The eyes' newest look: whom they see, how close and how still.
     /// The goals the body said for its joints (`body/joint_states`) at
-    /// `stamp_us`: whether it is moving by itself.
+    /// `stamp_us`: whether it is seen moving ([`BODY_FAST`]).
     pub(crate) fn joints(&mut self, stamp_us: u64, goals: &[f64]) {
         let fast = match &self.body_goals {
             Some((was_us, was)) if stamp_us > *was_us && was.len() == goals.len() => {
@@ -744,6 +747,7 @@ impl Life {
         self.body_goals = (!goals.is_empty()).then(|| (stamp_us, goals.to_vec()));
     }
 
+    /// The eyes' newest look: whom they see, how close and how still.
     pub(crate) fn faces(&mut self, stamp_us: u64, faces: &Faces, confidence: f32) {
         self.faces_at = Some(stamp_us);
         let seen: Vec<_> = faces

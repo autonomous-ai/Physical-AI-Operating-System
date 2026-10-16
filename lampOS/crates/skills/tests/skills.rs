@@ -129,7 +129,7 @@ fn the_loader_refuses_what_it_cannot_do() {
         (
             "[ask]",
             "[[do]]\nsay = \"And again.\"\n[ask]",
-            "one say a skill",
+            "one say or sound a skill",
         ),
         // Words the voice keeps (#939): only what it keeps, only `from`,
         // and still one say a skill.
@@ -152,7 +152,7 @@ fn the_loader_refuses_what_it_cannot_do() {
         (
             "[ask]",
             "[[do]]\nsay = { from = \"tasks\" }\n[ask]",
-            "one say a skill",
+            "one say or sound a skill",
         ),
     ] {
         let skill = welcome_back_with(&dir.path().join(why.replace(' ', "_")), from, to);
@@ -168,6 +168,138 @@ fn the_loader_refuses_what_it_cannot_do() {
     let skill = dir.path().join("renamed/hello");
     copy(&skills_root().join("welcome-back"), &skill);
     assert!(load(&skill).unwrap_err().contains("folder"));
+}
+
+/// A WAV of `frames` frames of a steady `level`, as `spec` says.
+fn wav(path: &Path, spec: hound::WavSpec, frames: usize, level: i16) {
+    fs::create_dir_all(path.parent().unwrap()).unwrap();
+    let mut writer = hound::WavWriter::create(path, spec).unwrap();
+    for _ in 0..frames * usize::from(spec.channels) {
+        writer.write_sample(level).unwrap();
+    }
+    writer.finalize().unwrap();
+}
+
+/// What the voice plays: 16-bit mono at 24 kHz.
+const MONO: hound::WavSpec = hound::WavSpec {
+    channels: 1,
+    sample_rate: 24_000,
+    bits_per_sample: 16,
+    sample_format: hound::SampleFormat::Int,
+};
+
+/// A short chime, under the voice.
+fn chime(path: &Path) {
+    wav(path, MONO, 4_800, 1_000);
+}
+
+/// A skill that chimes when someone appears.
+const CHIMES: &str = r#"
+[trigger]
+topic = "humans/faces/tracked"
+when = "appears"
+[ask]
+policy = "hello"
+[[do]]
+light = { colour = "warm" }
+sound = "ding"
+"#;
+
+#[test]
+fn a_short_sound_loads_and_a_long_loud_or_other_one_is_refused_with_why() {
+    let dir = tempfile::tempdir().unwrap();
+    let skill = skill_with(dir.path(), "chime", CHIMES);
+    let ding = skill.join("sounds/ding.wav");
+    assert_eq!(
+        load(&skill).unwrap_err(),
+        "sounds/ding.wav: not found",
+        "no file yet"
+    );
+    chime(&ding);
+    load(&skill).unwrap();
+    for (made, why) in [
+        (
+            (MONO, 24_000 * 3 + 1, 1_000),
+            "not 1 to 72000 frames (3 s at most)",
+        ),
+        (
+            (
+                hound::WavSpec {
+                    channels: 2,
+                    ..MONO
+                },
+                4_800,
+                1_000,
+            ),
+            "not 16-bit mono PCM at 24000 Hz",
+        ),
+        (
+            (
+                hound::WavSpec {
+                    sample_rate: 48_000,
+                    ..MONO
+                },
+                4_800,
+                1_000,
+            ),
+            "not 16-bit mono PCM at 24000 Hz",
+        ),
+        ((MONO, 4_800, 1_100), "louder than -30 dBFS RMS over 10 ms"),
+        ((MONO, 4_800, 9_000), "a peak past -12 dBFS"),
+    ] {
+        let ((spec, frames, level), path) = (made, &ding);
+        fs::remove_file(path).unwrap();
+        wav(path, spec, frames, level);
+        assert_eq!(load(&skill).unwrap_err(), format!("sounds/ding.wav: {why}"));
+    }
+    fs::remove_file(&ding).unwrap();
+    fs::write(&ding, "RIFF, but not").unwrap();
+    assert_eq!(load(&skill).unwrap_err(), "sounds/ding.wav: not a WAV file");
+    fs::remove_file(&ding).unwrap();
+    fs::create_dir(&ding).unwrap();
+    assert_eq!(
+        load(&skill).unwrap_err(),
+        "sounds/ding.wav: not a regular file"
+    );
+    fs::remove_dir(&ding).unwrap();
+    let elsewhere = dir.path().join("elsewhere.wav");
+    chime(&elsewhere);
+    std::os::unix::fs::symlink(&elsewhere, &ding).unwrap();
+    assert_eq!(
+        load(&skill).unwrap_err(),
+        "sounds/ding.wav: not a regular file"
+    );
+    fs::remove_file(&ding).unwrap();
+    fs::write(&ding, vec![0_u8; 44 + 2 * 72_000 + 4_096 + 1]).unwrap();
+    assert!(
+        load(&skill)
+            .unwrap_err()
+            .starts_with("sounds/ding.wav: more than")
+    );
+    // A name that is no file name, a say beside it, and a tool.
+    fs::remove_file(&ding).unwrap();
+    chime(&ding);
+    for (from, to, why) in [
+        (
+            r#"sound = "ding""#,
+            r#"sound = "../ding""#,
+            "not a file name in sounds/",
+        ),
+        (
+            r#"sound = "ding""#,
+            "sound = \"ding\"\nsay = \"Hello.\"",
+            "one say or sound a skill",
+        ),
+        (
+            "[trigger]",
+            "tool = \"chime\"\n[trigger]",
+            "sound, in a skill with a tool",
+        ),
+    ] {
+        fs::write(skill.join("skill.toml"), CHIMES.replace(from, to)).unwrap();
+        let error = load(&skill).unwrap_err();
+        assert!(error.contains(why), "{to}: {error}");
+    }
 }
 
 struct Running(Child);
@@ -342,7 +474,10 @@ fn the_program_on(
         (lighting == Ring::Asked).then(|| bus.subscribe(LightRequest::TOPIC, "ring").unwrap());
     let _running = Running(command.spawn().unwrap());
     std::thread::sleep(Duration::from_millis(300));
-    // Put in after the start: found by the reload.
+    // Put in after the start: found by the reload, with its sound first.
+    if skill.contains("sound = \"ding\"") {
+        chime(&root.join("skills/hello/sounds/ding.wav"));
+    }
     skill_with(&root.join("skills"), "hello", skill);
     let deadline = Instant::now() + Duration::from_secs(10);
     while bus.subscribers(Faces::TOPIC).unwrap().is_empty() {
@@ -684,6 +819,47 @@ fn a_say_from_the_voices_own_asks_for_it_by_source_and_moves_with_it() {
     assert!(done.contains("light warm: done"), "{done}");
     assert!(done.contains("say: spoken"), "{done}");
     assert!(done.contains("light given back to on blue at 3"), "{done}");
+}
+
+/// #938: the sound is asked of the voice's say service by its absolute
+/// path, the light comes with its `begun`, and what the voice says of it is
+/// in the run's `done`.
+#[test]
+fn a_sound_is_asked_of_the_voice_and_its_refusal_is_said_in_the_event() {
+    let seen = the_program_with(
+        CHIMES,
+        true,
+        &[r#"{"event":"begun","at_us":5}"#, r#"{"outcome":"spoken"}"#],
+        3,
+        1,
+        4,
+    );
+    let asked: serde_json::Value = serde_json::from_str(seen.asked.as_deref().unwrap()).unwrap();
+    assert_eq!(asked["skill"], "hello");
+    assert_eq!(asked["priority"], 5);
+    let path = asked["sound"].as_str().unwrap();
+    assert!(
+        path.starts_with('/') && path.ends_with("/skills/hello/sounds/ding.wav"),
+        "{path}"
+    );
+    assert!(asked.get("note").is_none());
+    let done = &seen.events[3].why;
+    assert!(done.contains("light warm: done"), "{done}");
+    assert!(done.contains("sound: spoken"), "{done}");
+    assert!(done.contains("light given back to on blue at 3"), "{done}");
+    let refused = the_program_with(
+        CHIMES,
+        true,
+        &[r#"{"outcome":"refused","why":"the lamp is speaking"}"#],
+        3,
+        1,
+        4,
+    );
+    assert_eq!(
+        refused.events[3].why,
+        "sound: refused (the lamp is speaking)"
+    );
+    assert_eq!(refused.lights.len(), 0, "nothing made with a sound refused");
 }
 
 #[test]

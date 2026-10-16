@@ -149,12 +149,13 @@ must not leave a step silently undone)*.
 | `trigger.wait` | no | With `rearm` or `when = "appears"`, at most `1h`: a chance held back by a `[[while]]` condition (someone talking) is kept while the trigger still holds, for at most this long, and taken at the trigger's first message after every condition holds again: the lamp acts once the talk ends, within the same sitting, instead of giving up its turn (#1021). It began waiting when the chance came; the trigger stopping (past its `gap`) ends it. Without it, a chance held back by a condition is spent. A chance held back by `absent_for` or the cooldown is spent either way |
 | `[[while]]` | no | Conditions that must also hold, all of them, on the newest value of each topic while that value lasts: a `topic` with `field` and one of `equals`, `not_equals` (anything else, #1140), `above` or `below`, or `humans/faces/tracked` with `present = true`; with `for`, it has also held that long, by the messages of its topic since this program started. It begins again after a value that expired, and when a reload changes the condition |
 | `[ask] policy` | yes, with a trigger | The Policy's question asked before anything is done *(chosen: required, since every trigger is something the lamp starts itself)*. A tool's call is not asked about: a person asked for it |
-| `[[do]]` | at least one | The steps, in order. Within one table: body, then light, then say |
+| `[[do]]` | at least one | The steps, in order. Within one table: body, then light, then say, then sound |
 | `do.body.look_at` | no | Only `"face"`. The largest face in view goes to the body's `gaze.sock` as the eyes send one (`{"face":{"x","y","size","turned":0}}`) |
 | `do.body.gesture` | no | One of the body's six gestures (`nod`, `headshake`, `greeting`, `laugh`, `shy`, `stretching`), sent to `mood.sock` as `{"gesture":NAME}` |
 | `do.body.mood` + `do.body.for` | no | A pose held: only `"reading"` (#1011: the head looks down at the desk and the arm leans forward). Sent to `mood.sock` as `{"mood":"reading","level":0}` when the step is made and again every second for `for` (more than 0, at most `2m`); the body lets it go 1.5 s after the last, and comes back. One without the other is refused |
 | `do.light` | no | A file in `lights/`, written as its name, or a table in place. A file `lights/NAME.toml` holds the same keys. `{ colour, level, for }` asks the actions part for `light_colour`, then steps the light to `level` (1 to 5) with `light_brighter` or `light_dimmer` calls, counted from the level `light/state` shows; with that level not known it is left and the run says so. `for` holds the light in a run with no say. `{ dim = N, until = "ends" }` asks for `light_dimmer` N times. A light is held until the run ends (the say ends, or the run's longest `for`) and is then given back; `until = "ends"` says so of a dim. With `LAMP_LIGHT_REQUESTS=on` it is asked of the ring instead, and the person's light is never touched (#940, below) |
 | `do.say` | no | A note for the voice to say in its own words, through the voice's say service (#954). One a skill. The run's other steps are made, in their order, when the voice begins the say, so the look and the light come with the words, and none if it is never begun. A light changed is given back when the say ends. In a tool's run the note goes to the model in the call's answer instead. Or `{ from = "schedule" }` or `{ from = "tasks" }`: words the voice keeps itself and says when asked, the reminder due or the news of work handed over (#939, (c), the first builder's 12:32). The voice keeps the words and their delivery (a reminder's acknowledgement, news told once); the skill says when, and moves and lights with them as with a note. Sent to the say service as `from` in place of `note`, at priority 8 for `schedule` and 5 for `tasks`. Any other `from`, another key beside it, or a `from` in a skill with a `tool` refuses the skill: what the voice keeps is said when a trigger starts the skill, never from the model's call (Fourth on #1033) |
+| `do.sound` | no | A file in `sounds/`, written as its name: `sound = "ding"` plays `sounds/ding.wav` (#938). Checked at load by the voice's own check (`lamp_voice::say::read_sound`), and the skill refused with why: a regular file, not a link, of at most 148,140 bytes; a WAV of 16-bit mono PCM at 24 kHz (the speaker path's rate), 1 frame to 3 s; no 10 ms of it louder than -30 dBFS RMS (well under the lamp's speech) and no sample past -12 dBFS. Played by the voice, through its say service (`LAMP_SAY=on`) as `{"sound": PATH}`, the file's absolute path; the voice reads it again, only from under the skills folder, and plays it as a turn of its own, so it never overlaps speech ([speaking-first.md](speaking-first.md), the say service). A lamp not at rest as a say needs it (paused, muted, speaking, listening, owing an answer, a reminder due, within 15 s of its last turn) does not play it, nor a second sound within 30 s, and the voice refuses it at once, never later; the run's `done` says why (`sound: refused (the lamp is speaking)`). One say or sound a skill: the run's other steps are made when the voice begins it, as with a say. Refused in a skill with a `tool`: a tool is called while the voice answers |
 | `do.look` | no | `true`: the voice's full look (#836). Only in a skill with a `tool` and no trigger: the call's answer tells the model to say "Let me take a look.", and the voice takes the look it already takes when the lamp says so, its still in the model's next turn |
 
 A duration is a whole number and one of `ms`, `s`, `m` or `h` (`"5m"`).
@@ -164,8 +165,9 @@ the pause or someone speaking: per the design above, the Policy is the one
 gate for everything the lamp starts itself (#939). Until that gate exists, a
 skill that must keep quiet in those cases says so with a `[[while]]`.
 
-**`moves/`, `sounds/`** may exist and are not read. The body plays only its
-six gestures, nothing plays a sound yet, and `body.move` is refused. A
+**`moves/`** may exist and is not read. The body plays only its six
+gestures, and `body.move` is refused. **`sounds/`** holds the files
+`do.sound` names; the others are not read. A
 **`run.py`** refuses the skill, because nothing runs it yet.
 
 **`tests/`** has one folder for each case. A case holds the `.jsonl` files
@@ -175,7 +177,7 @@ six gestures, nothing plays a sound yet, and `body.move` is refused. A
     [[expect]]
     at = "600s"                # optional: when, from the case's first message
     within = "1s"              # optional; without it, exactly
-    call = "body.gaze"         # body.gaze, body.gesture, body.mood, light or say
+    call = "body.gaze"         # body.gaze, body.gesture, body.mood, light, say or sound
     args = { look_at = "face" }
 
 A call matches when its name is the same and each argument named in `args`
@@ -187,6 +189,7 @@ runtime gives are:
 - `body.mood`: `mood`, `for_ms`
 - `light`: `colour`, `level`, `for`, or `dim`, `until`
 - `say`: `note`, or `from` for what the voice keeps (`say = { from = … }`)
+- `sound`: `sound`, the name in `sounds/`
 - `look`: none
 
 A skill a person starts by its `tool` has the model's call in its case:

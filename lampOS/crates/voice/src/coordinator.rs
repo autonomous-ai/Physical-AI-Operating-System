@@ -260,13 +260,20 @@ impl Reply {
         let Some(say) = self.say.take() else {
             return;
         };
-        let spoken = self.settled(speaker_pending)
-            && snapshot.owner().is_none()
-            && snapshot.microphone_permission() == Permission::Allowed
-            && matches!(self.cloud.outcome, Some(RequestOutcome::Complete))
-            && self.had_audio
-            && self.playback_gaps == 0
-            && self.notice.origin() == SpeechOrigin::Provider;
+        // A skill's sound is `spoken` when it was played whole, with no gap
+        // in its playback.
+        let sound = self.notice.origin() == SpeechOrigin::SkillSound
+            && self.settled(speaker_pending)
+            && self.notice.retired()
+            && self.playback_gaps == 0;
+        let spoken = sound
+            || self.settled(speaker_pending)
+                && snapshot.owner().is_none()
+                && snapshot.microphone_permission() == Permission::Allowed
+                && matches!(self.cloud.outcome, Some(RequestOutcome::Complete))
+                && self.had_audio
+                && self.playback_gaps == 0
+                && self.notice.origin() == SpeechOrigin::Provider;
         say.answer(if spoken {
             crate::say::Outcome::Spoken
         } else {
@@ -5514,6 +5521,49 @@ fn conversation_with_gate(
                 current.say = Some(ticket);
             }
         }
+        // A skill's own sound (#938): played now, as a turn of the lamp's
+        // own like the head tap's "hm?", only at rest as a say needs it;
+        // otherwise refused now with why. It never waits, so it never comes
+        // late. Its file was read on the asker's thread.
+        if let Some(says) = says.as_mut() {
+            let at_us = monotonic_us();
+            let now_is = skill_sound_now(
+                SoundGates {
+                    at_us,
+                    paused,
+                    snapshot: &snapshot,
+                    reply,
+                    provider_queue: &provider_queue,
+                    speaker_pending: &speaker_pending,
+                    playback_mask: &playback_mask,
+                    admission: &admission,
+                    submission_draining,
+                    heard_quiet: reminder_quiet(
+                        at_us,
+                        reminder_cycle_started_us,
+                        last_speech_us,
+                        last_capture,
+                    ),
+                    reply_owed: look_wanted.is_some(),
+                    reminder_waiting,
+                    since_turn_us: clock.saturating_sub(last_turn_us),
+                },
+                says,
+            );
+            if let Some(now_state) = play_skill_sound(
+                says,
+                &now_is,
+                at_us,
+                owner,
+                reply,
+                rig.playout_start,
+                trace,
+                |state| rig.publish(state),
+            )? {
+                snapshot = now_state;
+                last_publish = monotonic_us();
+            }
+        }
         // The self-test's tone, when asked for and the lamp is at rest; a
         // request it cannot take now is answered with why.
         if let Some(tone) = speaker_tone.as_mut()
@@ -6221,6 +6271,95 @@ fn decide_prospective_input(
         return Ok(None);
     };
     accepted_decision(admission.decide(evidence, context, at_us)?, trace)
+}
+
+/// What the say service's gates read for a skill's sound (#938).
+struct SoundGates<'a> {
+    at_us: u64,
+    paused: bool,
+    snapshot: &'a Snapshot,
+    reply: &'a Option<Reply>,
+    provider_queue: &'a VecDeque<ProviderInput>,
+    speaker_pending: &'a Option<PendingSpeaker>,
+    playback_mask: &'a PlaybackMask,
+    admission: &'a InputAdmission,
+    submission_draining: bool,
+    /// [`reminder_quiet`]: a fresh capture, and nothing heard for 1 s.
+    heard_quiet: bool,
+    /// The head cue's: the lamp said it would look, and owes the answer.
+    reply_owed: bool,
+    reminder_waiting: bool,
+    since_turn_us: u64,
+}
+
+/// The say service's gates, as a say has them, for a skill's sound: a
+/// reply or a candidate open, or anything still to play, is not rest.
+fn skill_sound_now(gates: SoundGates<'_>, says: &crate::say::Says) -> crate::say::SoundNow {
+    let at = MonoTime::from_micros(gates.at_us);
+    crate::say::SoundNow {
+        paused: gates.paused,
+        muted: gates.snapshot.microphone_permission() != Permission::Allowed,
+        speaking: gates.reply.is_some()
+            || !gates.provider_queue.is_empty()
+            || gates.speaker_pending.is_some()
+            || !gates.playback_mask.available(gates.at_us),
+        listening: gates.admission.owns_stream()
+            || !gates.admission.idle_for_reminder()
+            || gates.submission_draining
+            || !gates.snapshot.listening_ready(at)
+            || !gates.heard_quiet,
+        reply_owed: gates.reply_owed,
+        reminder_waiting: gates.reminder_waiting,
+        since_turn_us: gates.since_turn_us,
+        since_sound_us: says
+            .last_sound_us()
+            .map(|played| gates.at_us.saturating_sub(played)),
+    }
+}
+
+/// A skill's sound asked for, if one waits: played now as a turn of the
+/// lamp's own, on the head cue's speaker path, or refused now with why.
+/// The authority's new snapshot when it plays.
+#[allow(clippy::too_many_arguments)]
+fn play_skill_sound(
+    says: &mut crate::say::Says,
+    now_is: &crate::say::SoundNow,
+    at_us: u64,
+    owner: &mut Controller,
+    reply: &mut Option<Reply>,
+    playout_start: PlayoutStart,
+    trace: &mut SessionState,
+    publish: impl FnMut(Snapshot) -> io::Result<()>,
+) -> Result<Option<Snapshot>> {
+    let Some((samples, ticket)) = says.take_sound(at_us) else {
+        return Ok(None);
+    };
+    let decided = crate::say::may_play_sound(now_is);
+    record(
+        trace,
+        json!({"kind":"skill_sound","at_us":at_us,"skill":ticket.skill(),"plays":decided.is_ok(),"why":decided.err()}),
+    )?;
+    if let Err(why) = decided {
+        ticket.answer(crate::say::Outcome::Refused(why.into()));
+        return Ok(None);
+    }
+    let (snapshot, _) = speaker_tone::commit_sound_turn(
+        owner,
+        reply,
+        NoticeDelivery::sound(SpeechOrigin::SkillSound, samples),
+        "skill_sound",
+        "a skill's own sound: nothing heard, nothing sent to the provider",
+        0,
+        playout_start,
+        trace,
+        publish,
+    )?;
+    says.sound_played(at_us);
+    ticket.begun(monotonic_us());
+    if let Some(current) = reply.as_mut() {
+        current.say = Some(ticket);
+    }
+    Ok(Some(snapshot))
 }
 
 fn reminder_quiet(

@@ -2065,9 +2065,11 @@ dependencies = [
 name = "lamp-skills"
 version = "0.1.0"
 dependencies = [
+ "hound",
  "lamp-bus",
  "lamp-ipc",
  "lamp-msgs",
+ "lamp-voice",
  "serde",
  "serde_json",
  "tempfile",

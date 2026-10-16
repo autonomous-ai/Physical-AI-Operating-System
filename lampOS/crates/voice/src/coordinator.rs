@@ -3978,6 +3978,13 @@ fn conversation_with_gate(
                             }
                             let heard_on = reply.as_ref().map(|current| current.cloud.session);
                             cancel_reply(owner, reply, trace, "nothing_said")?;
+                            drop_unsaid_look(
+                                &mut look_wanted,
+                                look_held,
+                                turn,
+                                "its answer said nothing",
+                                trace,
+                            )?;
                             // An answer with no word in it is nothing said:
                             // someone who called the lamp by name is owed
                             // the second look all the same.
@@ -5129,6 +5136,13 @@ fn conversation_with_gate(
                             }
                             let heard_on = reply.as_ref().map(|current| current.cloud.session);
                             cancel_reply(owner, reply, trace, "nothing_said")?;
+                            drop_unsaid_look(
+                                &mut look_wanted,
+                                look_held,
+                                turn,
+                                "its answer said nothing",
+                                trace,
+                            )?;
                             if let Some(score) = second_look.finished(turn, true, monotonic_us()) {
                                 if let Some(session) = heard_on {
                                     second_look.heard_on(session);
@@ -5516,7 +5530,9 @@ fn conversation_with_gate(
             let by_tool = look_held
                 .filter(|(of, _)| *of == turn)
                 .map(|(_, session)| session);
+            let asked_again = asking.wanted().is_some_and(|(of, _)| of == turn);
             if (by_tool.is_none() || tool_look_due(reply.as_ref(), turn))
+                && !asked_again
                 && ask_for_still(&mut look, eyes_link.as_mut(), turn, clock, trace)?
                 && by_tool.is_some()
             {
@@ -5542,10 +5558,21 @@ fn conversation_with_gate(
                     look_wanted = None;
                     dropped("it could not begin in time", trace)?;
                 }
+                // An unclear turn is asked again first: "Sorry?" goes, not
+                // a still for an answer nobody heard.
+                None if asked_again => {
+                    look_wanted = None;
+                    dropped("its turn is asked again", trace)?;
+                }
                 // A tool's look goes only to the session that made the call:
-                // one renewed meanwhile never saw it.
+                // one renewed meanwhile never saw it, nor the second route,
+                // whose sessions are numbered apart (only Gemini's worker
+                // asks a tool's look).
                 None if by_tool.is_some_and(|session| {
-                    unasked_session(&cloud, paused).is_some_and(|ready| ready != session)
+                    rig.second
+                        .as_ref()
+                        .is_some_and(second::Route::second_active)
+                        || unasked_session(&cloud, paused).is_some_and(|ready| ready != session)
                 }) =>
                 {
                     look_wanted = None;
@@ -6964,6 +6991,29 @@ fn tool_look_due(reply: Option<&Reply>, turn: u64) -> bool {
     reply.is_none_or(|current| current.owner.turn() == turn && current.playback.is_some())
 }
 
+/// A look owed to `turn`, whose answer was cut off unsaid, is dropped and
+/// says so: no still goes for an answer nobody heard.
+fn drop_unsaid_look(
+    look_wanted: &mut Option<(u64, u64)>,
+    look_held: Option<(u64, u64)>,
+    turn: u64,
+    why: &str,
+    trace: &mut SessionState,
+) -> Result<()> {
+    if look_wanted.take_if(|(of, _)| *of == turn).is_some() {
+        let by = if look_held.is_some_and(|(of, _)| of == turn) {
+            "tool"
+        } else {
+            "words"
+        };
+        record(
+            trace,
+            json!({"kind":"look_dropped","turn":turn,"by":by,"why":why,"at_us":monotonic_us()}),
+        )?;
+    }
+    Ok(())
+}
+
 /// A skill's tool asked for a look in its answer (#941): the full look is
 /// taken for that turn as if the lamp had said it would look, whatever the
 /// model says. Only with a full look on (`LAMP_LOOK_FULL`), only for the
@@ -6977,11 +7027,21 @@ fn record_tool_look(
     look_wanted: &mut Option<(u64, u64)>,
     trace: &mut SessionState,
 ) -> Result<bool> {
-    if !full
-        || current != Some(request)
-        || last_reminder_turn.is_some_and(|reminder| request <= reminder)
-        || look_wanted.is_some_and(|(of, _)| of == request)
-    {
+    if !full || look_wanted.is_some_and(|(of, _)| of == request) {
+        return Ok(false);
+    }
+    let why = if current != Some(request) {
+        Some("its turn is not the one in hand")
+    } else if last_reminder_turn.is_some_and(|reminder| request <= reminder) {
+        Some("a reminder's turn")
+    } else {
+        None
+    };
+    if let Some(why) = why {
+        record(
+            trace,
+            json!({"kind":"look_dropped","turn":request,"by":"tool","why":why,"at_us":monotonic_us()}),
+        )?;
         return Ok(false);
     }
     *look_wanted = Some((request, monotonic_us()));

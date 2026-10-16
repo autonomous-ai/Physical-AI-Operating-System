@@ -119,13 +119,15 @@ fn a_tool_s_look_is_taken_only_with_a_full_look_and_only_for_the_turn_in_hand() 
     let mut wanted = None;
     // `LAMP_LOOK_FULL` off: the model's phrase is the look, as before.
     record_tool_look(false, 3, Some(3), None, &mut wanted, &mut trace).unwrap();
-    // A turn already over, or a reminder's.
+    assert_eq!(trace.len(), 0);
+    // A turn already over, or a reminder's: dropped, and each says so
+    // (the first builder's 23:16 P3 on #1146).
     record_tool_look(true, 3, Some(4), None, &mut wanted, &mut trace).unwrap();
     record_tool_look(true, 3, None, None, &mut wanted, &mut trace).unwrap();
     record_tool_look(true, 3, Some(3), Some(3), &mut wanted, &mut trace).unwrap();
     assert!(wanted.is_none());
-    assert_eq!(trace.len(), 0);
+    assert_eq!(trace.len(), 3);
     record_tool_look(true, 3, Some(3), Some(2), &mut wanted, &mut trace).unwrap();
     assert_eq!(wanted.map(|(turn, _)| turn), Some(3));
-    assert_eq!(trace.len(), 1);
+    assert_eq!(trace.len(), 4);
 }

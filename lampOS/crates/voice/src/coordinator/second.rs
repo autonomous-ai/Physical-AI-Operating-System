@@ -273,6 +273,11 @@ impl Route {
             .send(Control::Authority { snapshot })
     }
 
+    /// Whether the second route is the one answering now.
+    pub(super) fn second_active(&self) -> bool {
+        self.second_active
+    }
+
     /// The input in hand can be taken over: by the second route from
     /// Gemini, before any answer was heard, with every sent command kept.
     fn can_take(&self, current: &Reply) -> bool {

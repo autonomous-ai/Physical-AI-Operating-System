@@ -20,7 +20,7 @@ use lamp_turn_owner::{BootId, BoundaryGuard, MonoTime, Snapshot};
 use std::{
     io,
     path::{Path, PathBuf},
-    sync::Arc,
+    sync::{Arc, Mutex},
     time::{Duration, Instant, SystemTime},
 };
 
@@ -335,7 +335,21 @@ pub fn serve(
             .unwrap_or_else(|_| crate::tools::unavailable())
         })
     });
-    let engine = Engine::new(Arc::new(net), system, runner).checking_sounds(checked);
+    let mut engine = Engine::new(Arc::new(net), system, runner).checking_sounds(checked);
+    if files.attention {
+        let heeding = Mutex::new(Heeding::new(
+            files.attention_busy,
+            files.name_in_passing_ignored,
+            files.bus_root.as_deref(),
+            thread.clone(),
+        ));
+        engine = engine.heeding(Arc::new(move |request, said, heard| {
+            heeding
+                .lock()
+                .ok()
+                .and_then(|mut heeding| heeding.heed(request, said, heard))
+        }));
+    }
     tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()?
@@ -359,6 +373,148 @@ pub(crate) fn facts(session: bool, room: Option<crate::room_told::Room>) -> Stri
         .chain(room)
         .map(|fact| format!("\n\n{fact}"))
         .collect()
+}
+
+/// The Live route's rule for whom it answers (`crate::attention`, given
+/// with `--attention`), run on this route's spoken turns with what this
+/// route can give it: how the room is as Gemini's worker publishes it
+/// (`room/state`), the lamp's name as the part that listens for it hears it
+/// (`name/heard`), whether the eyes see someone turned to the lamp, and the
+/// thread (a conversation going on, the lamp's last line a question). On
+/// lamp-4ace on 2026-10-16 this route answered two remarks in a busy room
+/// that Gemini's session left alone, nobody facing and no name (#1014).
+///
+/// Not given: a tap on the head, the room microphone's rise
+/// (`--attention-near`) and whether it was said from close (`--addressed`),
+/// so a line in a busy room that only those would let through on the Live
+/// route is held here. Each turn is judged as a session's first: this
+/// route keeps no session that has heard enough to be trusted.
+pub(crate) struct Heeding {
+    attention: crate::attention::Attention,
+    strict: bool,
+    /// The bus, and the name's hearings on it since the last turn.
+    bus: Option<(lamp_bus::Bus, lamp_bus::Subscriber)>,
+    thread: Option<PathBuf>,
+}
+
+/// What the bus and the thread say as a spoken turn is judged.
+pub(crate) struct Signs {
+    pub room: crate::room_told::Room,
+    pub going_on: bool,
+    pub lamp_asked: bool,
+    pub turned: Option<bool>,
+    /// The name's hearings: when each began, by this process's clock, and
+    /// its score.
+    pub names: Vec<(u64, f32)>,
+}
+
+/// Hearings of the name read in one turn's judgement; more wait for the next.
+const NAMES_READ: usize = 64;
+
+impl Heeding {
+    pub(crate) fn new(
+        strict: bool,
+        name_in_passing_ignored: bool,
+        bus_root: Option<&Path>,
+        thread: Option<PathBuf>,
+    ) -> Self {
+        let mut attention = crate::attention::Attention::default();
+        attention.ignore_name_in_passing(name_in_passing_ignored);
+        let bus = bus_root.and_then(|root| {
+            let bus = lamp_bus::Bus::new(root).ok()?;
+            let names = bus
+                .subscribe_typed(
+                    lamp_msgs::NameHeard::TOPIC,
+                    "second",
+                    lamp_msgs::NameHeard::TYPE,
+                )
+                .inspect_err(|why| {
+                    eprintln!(
+                        "lamp-voice second: the lamp's name cannot be taken from the bus, so whom it answers goes without it: {why}"
+                    );
+                })
+                .ok()?;
+            Some((bus, names))
+        });
+        Self {
+            attention,
+            strict,
+            bus,
+            thread,
+        }
+    }
+
+    fn heed(&mut self, request: u64, said: (u64, u64), heard: &str) -> Option<&'static str> {
+        let signs = self.signs(request);
+        self.judge(request, said, heard, signs)
+    }
+
+    /// What the bus and the thread say now.
+    fn signs(&mut self, request: u64) -> Signs {
+        let (going_on, lamp_asked) = crate::thread::current(self.thread.as_deref(), |thread| {
+            (thread.going_on(Instant::now()), thread.lamp_asked(request))
+        })
+        .unwrap_or_default();
+        let mut signs = Signs {
+            room: crate::room_told::Room::Unknown,
+            going_on,
+            lamp_asked,
+            turned: None,
+            names: Vec::new(),
+        };
+        let Some((bus, names)) = &mut self.bus else {
+            return signs;
+        };
+        signs.room = crate::bus_out::room_now(bus);
+        signs.turned = crate::bus_out::someone_turned_to_lamp(bus);
+        let now_us = monotonic_us();
+        let now_ms = unix_ms(SystemTime::now());
+        for _ in 0..NAMES_READ {
+            let Ok(Some(message)) = names.recv(Duration::ZERO) else {
+                break;
+            };
+            if let Ok(name) = message.parse::<lamp_msgs::NameHeard>() {
+                // Its publisher's monotonic clock is its own: dated by the
+                // wall clock both share.
+                let ago_ms =
+                    now_ms.saturating_sub(message.header.at_unix_ms) + u64::from(name.ago_ms);
+                signs
+                    .names
+                    .push((now_us.saturating_sub(ago_ms * 1_000), name.score));
+            }
+        }
+        signs
+    }
+
+    /// The rule's verdict on a spoken turn: why it is not answered, or
+    /// nothing.
+    pub(crate) fn judge(
+        &mut self,
+        request: u64,
+        (began_us, ended_us): (u64, u64),
+        heard: &str,
+        signs: Signs,
+    ) -> Option<&'static str> {
+        let attention = &mut self.attention;
+        attention.began_at(request, request, began_us);
+        attention.ended(request, ended_us);
+        for (at_us, score) in signs.names {
+            attention.name_heard_scored(at_us, score);
+        }
+        attention.heard(heard);
+        attention.lamp_asked(signs.lamp_asked);
+        let turned = signs.turned.filter(|_| self.strict);
+        match attention.first_output_busy(request, signs.room, signs.going_on, self.strict, turned)
+        {
+            Some(crate::attention::Verdict::Hold(why)) => Some(why),
+            _ => None,
+        }
+    }
+}
+
+fn unix_ms(at: SystemTime) -> u64 {
+    at.duration_since(SystemTime::UNIX_EPOCH)
+        .map_or(0, |since| since.as_millis().try_into().unwrap_or(u64::MAX))
 }
 
 /// Whose the second route's turns are, and the Days note of that person's
@@ -473,10 +629,11 @@ pub(crate) fn keep(event: &ProviderOutput, file: Option<&Path>) {
             request: Some(request),
             text,
             ..
-        } if text != ANNOUNCEMENT => {
-            // Sentences come trimmed; the thread joins its pieces as given.
+        } if text.trim_start() != ANNOUNCEMENT => {
+            // Sentences come trimmed, those after the first with a space
+            // before; the thread joins its pieces as given.
             if let Ok(mut thread) = crate::thread::THREAD.lock() {
-                thread.lamp(*request, &format!("{text} "), now);
+                thread.lamp(*request, &format!("{} ", text.trim_start()), now);
             }
         }
         ProviderOutput::TurnComplete { request, .. } => {
@@ -622,6 +779,79 @@ mod tests {
             super::facts(false, Some(Room::Quiet)),
             format!("\n\n{}", crate::room_told::QUIET)
         );
+    }
+
+    /// The two remarks on lamp-4ace on 2026-10-16 that this route answered
+    /// and Gemini's session left alone (#1014): a busy room, no name, nobody
+    /// facing. Held, 0 of 2; a named question in the same room, and a
+    /// follow-up in a conversation with the lamp, are still answered.
+    #[test]
+    fn the_rule_holds_office_talk_and_lets_a_call_or_a_follow_up_through() {
+        use crate::room_told::Room;
+        let busy = |names: Vec<(u64, f32)>, going_on: bool| Signs {
+            room: Room::Busy,
+            going_on,
+            lamp_asked: false,
+            turned: Some(false),
+            names,
+        };
+        let said = (10_000_000, 11_500_000);
+        let mut heeding = Heeding::new(true, true, None, None);
+        for (request, remark) in [(202, "Did you see what he wants us to look"), (203, "Me.")] {
+            assert!(
+                heeding
+                    .judge(request, said, remark, busy(Vec::new(), false))
+                    .is_some(),
+                "{remark}"
+            );
+        }
+        // Named in the text, or heard plainly in the sound.
+        assert_eq!(
+            heeding.judge(
+                204,
+                said,
+                "Hey Lamp, what time is it?",
+                busy(Vec::new(), false)
+            ),
+            None
+        );
+        assert_eq!(
+            heeding.judge(
+                205,
+                said,
+                "What time is it?",
+                busy(vec![(9_800_000, 1.0)], false)
+            ),
+            None
+        );
+        // A hearing from before the line's window is not its call.
+        let later = (30_000_000, 31_500_000);
+        assert!(
+            heeding
+                .judge(
+                    206,
+                    later,
+                    "What time is it?",
+                    busy(vec![(25_000_000, 1.0)], false)
+                )
+                .is_some()
+        );
+        assert_eq!(
+            heeding.judge(
+                207,
+                said,
+                "And what about tomorrow?",
+                busy(Vec::new(), true)
+            ),
+            None
+        );
+        // Someone turned to the lamp, or a room not known to be busy.
+        let mut turned = busy(Vec::new(), false);
+        turned.turned = Some(true);
+        assert_eq!(heeding.judge(208, said, "Me.", turned), None);
+        let mut quiet = busy(Vec::new(), false);
+        quiet.room = Room::Quiet;
+        assert_eq!(heeding.judge(209, said, "Me.", quiet), None);
     }
 
     use super::*;

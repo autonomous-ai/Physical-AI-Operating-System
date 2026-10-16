@@ -14,6 +14,7 @@ pub mod annotations;
 pub mod canary;
 pub mod evaluate;
 pub mod events;
+pub mod export;
 pub mod fake;
 pub mod import;
 pub mod ledger;

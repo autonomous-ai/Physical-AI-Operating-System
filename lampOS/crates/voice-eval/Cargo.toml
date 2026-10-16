@@ -18,6 +18,7 @@ lamp-turn-owner = { path = "../turn-owner" }
 lamp-ipc = { path = "../ipc" }
 lamp-voice = { path = "../voice" }
 lamp-observer = { path = "../observer" }
+lamp-local-time = { path = "../local-time" }
 
 [lints]
 workspace = true

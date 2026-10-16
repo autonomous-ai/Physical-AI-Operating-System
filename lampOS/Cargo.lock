@@ -2228,6 +2228,7 @@ dependencies = [
  "hound",
  "lamp-audio",
  "lamp-ipc",
+ "lamp-local-time",
  "lamp-observer",
  "lamp-sound-fixtures",
  "lamp-turn-end",

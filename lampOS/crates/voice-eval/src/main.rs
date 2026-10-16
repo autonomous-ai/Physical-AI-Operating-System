@@ -47,6 +47,8 @@ const USAGE: &str = "usage:
       [--scenario ID] [--repetitions N] [--seed N] [--fake-profile ID] [--lamp-root NEW_ABS_DIR]
       [--fake-arg ARG]... [--player-fault N:late:MS|N:prepare|N:slow-prepare:MS]...
       [--recorder-fail-after-ms MS]
+  lamp-voice-eval export --since HH:MM:SS --until HH:MM:SS --out NEW_DIR [--sessions DIR]
+      [--journal JOURNAL_JSON] [--date YYYY-MM-DD] [--zone system|ZONE] [--wall-offset-us N]
   lamp-voice-eval lamp-session --runtime LAMP_LIVE --work NEW_ABS_DIR --seconds N
       (--fixture-reply WAV --fixture-sha256 SHA | --provider-config FILE | --serve-config FILE)
       [--noise-suppression on|off] [--diagnostics] [--allowance-seconds N]";
@@ -200,6 +202,24 @@ fn run() -> Result<i32> {
     }
     let mut args = Args { values: all };
     match command.as_str() {
+        "export" => {
+            let options = lamp_voice_eval::export::ExportOptions {
+                since: args.take("--since")?.ok_or_else(|| invalid(USAGE))?,
+                until: args.take("--until")?.ok_or_else(|| invalid(USAGE))?,
+                date: args.take("--date")?,
+                sessions: args.take("--sessions")?.map(PathBuf::from),
+                journal: args.take("--journal")?.map(PathBuf::from),
+                zone: args.take("--zone")?.unwrap_or_else(|| "system".into()),
+                wall_offset_us: args
+                    .take("--wall-offset-us")?
+                    .map(|value| value.parse())
+                    .transpose()?,
+                out: PathBuf::from(args.take("--out")?.ok_or_else(|| invalid(USAGE))?),
+            };
+            args.done()?;
+            let summary = lamp_voice_eval::export::export(&options)?;
+            println!("{summary}");
+        }
         "list" | "validate" => {
             let (catalog, plan) = load(&mut args)?;
             args.done()?;

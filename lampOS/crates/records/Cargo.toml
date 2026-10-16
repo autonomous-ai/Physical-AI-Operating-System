@@ -18,6 +18,7 @@ sha2.workspace = true
 rustix = { version = "=1.1.5", features = ["fs", "process", "pipe", "event"] }
 lamp-bus = { path = "../bus" }
 lamp-msgs = { path = "../msgs" }
+lamp-voice-processes = { path = "../voice-processes" }
 
 [lints]
 workspace = true

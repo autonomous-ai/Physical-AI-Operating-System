@@ -44,6 +44,28 @@ fn stt_check_options(rest: &[String]) -> Result<(u32, u32)> {
 
 fn run() -> Result<()> {
     let args = std::env::args().skip(1).collect::<Vec<_>>();
+    // The voice runs only as a command on its list, and a worker only in a
+    // role on it: the lists the records guard knows too
+    // (lamp-voice-processes, #1071).
+    if let Some(command) = args.first()
+        && lamp_voice_processes::Command::parse(command).is_none()
+    {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("command `{command}` is not on the voice's list (lamp-voice-processes)"),
+        )
+        .into());
+    }
+    if let [command, role, ..] = args.as_slice()
+        && command == lamp_voice_processes::Command::Worker.as_str()
+        && lamp_voice_processes::WorkerRole::parse(role).is_none()
+    {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("worker role `{role}` is not on the voice's list (lamp-voice-processes)"),
+        )
+        .into());
+    }
     match args.as_slice() {
         // How often a short sound got an answer, from the lamp's own
         // records (#800): one line a short turn, then counts. Reads only;

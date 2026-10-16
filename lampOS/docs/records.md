@@ -102,11 +102,10 @@ manager/process observations are checked for change. Ambiguity, missing
 visibility, a changed unit, unknown output arguments or an unavailable manager
 refuses the entire root. No producer or service process is signaled or frozen.
 The guard kills and reaps its own query child on a timeout or query failure.
-The voice's known processes are `serve` and its workers (`capture`, `speaker`,
-`provider`, `second`, `camera`, `ring`, `privacy`, `probe`), plus its
-reminders' `schedule-consumer`. A new worker role must be added to the guard
-when the voice gains one, or every pass refuses the root: the second voice's
-`second` worker did this on lamp-4ace for every hourly pass from 15 Oct 14:01.
+The voice's known processes, its commands and worker roles, come from the
+voice's own list, `lamp-voice-processes` ("The voice's own list" below). The
+guard keeps no copy: a copy missing `second` refused every hourly pass on
+lamp-4ace from 15 Oct 14:01.
 
 This relies on the **current trusted producer contract**:
 `crates/voice/src/coordinator.rs::run_source` exclusively creates `NEW_OUTPUT`
@@ -325,6 +324,10 @@ configuration disables cleanup, the reporter immediately says it is disabled
 and makes no disk measurement claim, without needing a saved result.
 IDs, paths, error details and transcript contents are excluded from the
 one-second diagnostic; the private result and stdout retain session IDs.
+One detail is the exception: after two cleanups in a row refused for a
+voice worker the guard does not know, the message names it, as
+`records refused: unknown voice worker `second``, and only when the role is
+a plain word (see "The voice's own list" below).
 A stopped reporter itself becomes stale normally. A missing bus does not
 block cleanup or any other component.
 
@@ -590,6 +593,54 @@ real run of the service at 20:05 both passed: 1.52 GB, nothing planned,
 nothing removed, no error. Under emulation the guard's 34 tests pass, and 22
 of the store's fail with "Function not implemented" (code 38), which is
 the emulator, not the change.
+
+## The voice's own list (thirteen, 2026-10-16, #1071)
+
+From 2026-10-15 14:01 every hourly run on lamp-4ace refused with "process …
+protection is incomplete: unknown voice worker command" (22 in 26 h; the
+sessions reached 1.69 GB of the 2 GB bound). The second voice's worker,
+`lamp-voice worker second`, was on no list the guard had. It was the third
+time: `lamp-turn-end` on 2026-10-14 and `schedule-consumer` on 2026-10-15
+went the same way, each noticed only in the journal.
+
+The voice's processes are now named once, in
+[`lamp-voice-processes`](../crates/voice-processes/src/lib.rs): its
+commands (`serve`, `directed`, `directed-fixture`, `camera-inspect`,
+`provider-check`, `schedule-consumer`, `worker`, and the read-only reports
+run by hand, `short-turns`, `stt-check`, `marked`, `turn-times`), its worker
+roles
+(`capture`, `speaker`, `provider`, `second`, `camera`, `ring`, `privacy`,
+`probe`) and its helpers (`lamp-turn-end`). Both crates use that list:
+
+- **The voice** runs only as a listed command: `lamp-voice WORD` refuses
+  any other first word before anything runs, and a test reads `main.rs`'s
+  dispatch and fails on a word not on the list
+  (`every_command_the_voice_dispatches_is_on_its_list_and_no_other_runs`).
+  It starts a worker only in a listed role. `Worker::spawn…`
+  refuses any other before it runs anything, and `lamp-voice worker ROLE`
+  refuses an unlisted role before its arguments are read. A role added to
+  the voice and not to the list fails the voice's own tests on the
+  builder's machine (`a_worker_role_not_on_the_voices_list_is_never_started`
+  in `crates/voice/tests/process.rs`), never first a cleanup on a lamp.
+- **The guard** knows exactly the listed commands and roles. Its
+  role-specific reading stays in the guard: `capture` and `speaker` name a
+  `--diagnostics` folder, `schedule-consumer` takes no other argument, and
+  each command's output argument is where it was. A test runs every listed
+  role and command through it, and one runs `worker second` with the
+  arguments lamp-4ace ran it with.
+- **When it still refuses**, the refusal names the role, when it is a plain
+  word (lower-case letters, digits and dashes, at most 32):
+  `unknown voice worker `X``, in the journal and in the private result. The
+  reporter counts the cleanups in a row refused for that, from the results
+  themselves, and from the second on its `records` diagnostic says
+  `records refused: unknown voice worker `X``, at error, in lamp-health. One
+  refused cleanup can be a worker caught as it starts; it keeps the usual
+  "the last cleanup failed for one or more roots". The unit's failure stays
+  in `systemctl --failed` as before.
+
+The reporter is still one of the templates beside the crate, not a product
+unit. Where it is not running, lamp-health shows nothing of this, and the
+journal line and `systemctl --failed` are where a refusal shows.
 
 ## Process-exit repair, development host, 2026-10-14
 

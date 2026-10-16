@@ -2,7 +2,7 @@ use lamp_records::{
     RunReport,
     config::{Config, absolute_path, invalid},
     json_file::{self, CONFIG_BYTES, REPORT_BYTES},
-    report::{Reporter, diagnostic},
+    report::{RefusedInARow, Reporter, diagnostic_after},
     run,
 };
 use std::{
@@ -171,6 +171,7 @@ fn reporting_with(
     let mut result_stamp = None;
     let mut cached: Option<RunReport> = None;
     let mut publisher: Option<Reporter> = None;
+    let mut refusals = RefusedInARow::default();
     let began = Instant::now();
     let mut last_error = None;
     loop {
@@ -194,6 +195,9 @@ fn reporting_with(
             Err(_) => Some("records configuration cannot be read".to_owned()),
         };
         let fallback;
+        // Cleanups in a row refused for an unknown voice worker, counted
+        // from the results themselves; a made-up status counts none (#1071).
+        let mut in_a_row = 0;
         let status = if let Some(error) = config_error {
             fallback = synthetic(&config, at, Some(error));
             &fallback
@@ -217,6 +221,7 @@ fn reporting_with(
                 .as_ref()
                 .filter(|report| report.config_fingerprint == config.fingerprint())
             {
+                in_a_row = refusals.observe(report);
                 report
             } else {
                 fallback = synthetic(
@@ -235,7 +240,7 @@ fn reporting_with(
             publisher
                 .as_mut()
                 .unwrap()
-                .publish(&diagnostic(Some(status), at))
+                .publish(&diagnostic_after(Some(status), at, in_a_row))
         })();
         if published.is_err() {
             publisher = None;

@@ -162,6 +162,78 @@ on the lamp. A "My skills" page in the lamp's app (on or off, what each did
 and when) comes once there are more than a handful. The store comes after
 launch.
 
+## V1's moves and emotions: what we take
+
+The owner, 08:00: "evaluate carefully to pick the good stuff from V1, not
+everything." All 29 of V1's recorded moves (`hal/recordings/*.csv`) were
+converted the way the first six were (offsets from the standing pose,
+scaled into the body's reach, slowed under its speed caps), built into an
+evaluation body on lamp-4ace, played one at a time between 08:02 and 08:21,
+and photographed from the iMac five times each, about 2.4 s apart (the
+sheets are in `~/lamp-camera/review/v1moves-a/sheets/` on the office
+iMac). Stills that far apart miss a quick move; the size and length below
+are from the converted data, and the owner sees the short list live.
+
+Criteria: does a person read it at once; would a living thing do it; is it
+visible at the size the body allows; is it short enough to be a gesture
+(three seconds or so) rather than a performance.
+
+| V1 move (V1's meaning) | Length, size | Seen | Verdict |
+|---|---|---|---|
+| nod, headshake, greeting, laugh, shy, stretching, idle | 3 to 10 s | In V2 since 14 Oct | Keep (already ported) |
+| acknowledge ("got it", micro-nod) | 8 s as recorded | Small | Keep, cut to its first nod (about 1.5 s) |
+| curious (tilts, looks around) | 10 s | A clear lean to one side | Keep the tilt only (about 3 s); the looking around goes |
+| happy_wiggle (good news) | 13 s | A clear sway, the most readable move of all | Keep, cut to about 4 s |
+| sad (droops slowly) | 10 s | A clear droop, head low for seconds | Keep as **caring**, for empathy only, about 5 s |
+| shock (jolts back) | 9 s | A clear recoil | Keep as **surprised**, smaller; a bang still gets the built-in single glance |
+| confused (head tilt side to side) | 20 s at this size | Tilted and lowered | Keep, cut to about 3 s: the lamp's "Sorry?" (#930) |
+| sleepy (droop with head catches) | 7 s | A small droop | Keep for Bedtime |
+| excited (vertical bounce) | 17 s | Barely visible at this size | Try cut to 3 s for Task news "done"; drop if it still reads as nothing |
+| listening (lean forward, head cock) | 4 s | Small | Drop: V2's listening pose already does it |
+| thinking_deep | The recording does not move | — | Drop: V2 looks away while thinking |
+| goodbye (wave) | 3.5 s, ends folded | — | Drop: it ends in another pose; the lamp folds by itself when left |
+| fear | 13 s, big head roll | Little | Drop: fear is not something a desk companion should show |
+| playful | 12 s | Little; no clear meaning | Drop for now; games later |
+| scanning (looks around) | 18 s | A clear turn | Keep for when a person asks ("look around for my keys"); never on its own (CLAUDE.md rule 8) |
+| music_groove, music_hiphop | 18 s | A big dip and rise, clearly a dance | Keep groove for Dance; hiphop is nearly the same recording, drop |
+| music_hype | 21 s | Fast (blurred stills) | Keep for Dance, energetic songs |
+| music_chill, music_waltz, music_jazz | 10 to 12 s | A sway, small | Keep chill and waltz for Dance; jazz to be judged live |
+| music_classical, music_rock | 11, 23 s | Little | Drop unless the live look says otherwise |
+
+V1's emotion table (`skills/emotion/SKILL.md`) paired each move with a
+light. Kept as named expressions, with the light toned to the lamp's own
+eye rather than V1's colours: **happy** (happy_wiggle, a warm sparkle),
+**curious** (the tilt, the eye's arc toward the person), **caring** (sad's
+droop, a slow warm breath), **surprised** (shock, one quick brightening),
+**sleepy** (sleepy, dimming), **acknowledge** (the short nod, a brief
+brighter eye), **confused** (the tilt, a soft pulse). V1's rainbow,
+coloured blinks per emotion and the "speaking wave rainbow" are dropped:
+they read as a gadget, not a creature.
+
+## V2's own behaviours: skill or reflex
+
+The owner, 08:00: skills are the fundamental part of how the lamp works;
+what was built one-off becomes skills. Each behaviour V2 has today, and
+where it goes:
+
+| Behaviour today | Where it lives now | Becomes |
+|---|---|---|
+| Hello when someone comes back to the desk | The voice (`speak_up.rs`), asking the Policy (#883) | Skill: Welcome back |
+| A reminder or timer coming due | The voice's reminder consumer | Skill: Reminders (setting one stays a voice tool) |
+| News of a task handed to Claude Code or Codex, and progress news | The voice (`task_news.rs`), the Policy's progress act | Skill: Task news |
+| Sleep at night, waking in the morning | Expression's catalogue (`alive`) | Skill: Bedtime and Morning, later |
+| Turning to a voice, looking away to think, back before its first word, nods while speaking | Voice, body, Expression | Built in: the conversation, under a second |
+| A tap on the head, a hand held on it, three seconds to sleep | Controls, Expression, voice (#711, #849) | Built in: a reflex, under 150 ms |
+| One startled glance at a bang | Expression (`Sudden`) | Built in: a reflex |
+| Giving way to a hand, rising when spoken to, folding when left alone, idle shifts | Body | Built in |
+| Eye contact (the head follows a face) | Eyes and body | Built in |
+| Taking a look when asked what it sees | A voice tool (#836) | Stays a tool; skills may call it |
+| Light, volume, timers, memory, faces, hand-overs | Voice tools and services | Stay tools and services; skills call them |
+| The privacy switch and the self-test | Voice, eyes, self-test | System, never a skill |
+
+Built-in gestures (the nod on "yes") use the same move and expression
+library as skills.
+
 ## The first skills
 
 | Skill | Trigger | What it does | Replaces |

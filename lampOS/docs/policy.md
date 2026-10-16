@@ -1332,7 +1332,12 @@ hello to its rule.
 A yes that comes back once someone has begun to talk is turned to `wait`.
 Asking never takes longer than 1.5 s, whatever `--deadline-ms` says
 (`hello::MOST_ASKING`): past it the rule answers, still inside the voice's
-2 s. An arrival not decided within those 2 s is let go (`hello_late`).
+2 s. The 2 s count from when the arrival was received: one that waited
+behind another is given only what is left of them, less 0.2 s for its
+answer to go out (`hello::time_left`, `ANSWER_MARGIN`), and the rule answers
+at once when nothing is left. An arrival not decided within those 2 s,
+waiting or asked about, is let go (`hello_late`): an answer that comes after
+them is never published and changes nothing kept (the reviewer on #958).
 
 **What is known, and shown.** The arrival (minutes away, seconds there,
 minutes since the last hello), and the room as the progress question has it
@@ -1398,7 +1403,11 @@ the voice's own hello waits. With `--gate`, which needs `--hello` and
   is: the same hard rules (someone talking, a hello within 20 minutes),
   the same question and the same log. The quiet it is shown is the
   policy's own (since anything was last said, or since it started), and
-  the last hello its own. The decision names the ask, not an arrival.
+  the last hello its own. The decision names the ask, not an arrival:
+  whether it came from a skill is carried with it from waiting to decided
+  (`Context::skill_ask`, written in the log only when true), so no other
+  ask can take its name (the reviewer on #958, 12:19). Its 2 s count from
+  its receipt, as an arrival's do.
   `--act hello` is needed because a skill told `say_now` says the hello
   itself: the decision must act, so that the 20 minutes are counted from
   it and the hello is counted once, as the lamp's own turn on
@@ -1422,8 +1431,12 @@ the voice's own hello waits. With `--gate`, which needs `--hello` and
     nobody is there, the room is busy, the lamp spoke up unasked twice in
     the hour, or it is before eight or after ten;
   - published with `about` `moment`, `shadow` false and the `ask`, and
-    written down with its state, as every decision is. An ask not decided
-    within 2 s, its asker no longer waiting, is let go and counted `late`.
+    written down with its state, as every decision is. An ask's 2 s count
+    from its receipt: one taken up after another is given only what is
+    left of them, less 0.2 s, and the rule answers at once when nothing is
+    left. An ask not decided within its 2 s, waiting or asked about, is let
+    go and counted `late`: an answer after them is never published (the
+    reviewer on #958, 12:19).
   
   The kept rules about speaking first (`--rules`, `news` limits) are the
   progress question's today and are to be obeyed here too.

@@ -249,10 +249,12 @@ pub struct Now {
 pub struct Moment {
     options: Options,
     judge_name: String,
-    states: mpsc::SyncSender<String>,
+    states: mpsc::SyncSender<(String, Duration)>,
     answers: mpsc::Receiver<Answered>,
     asker_gone: bool,
-    asking: Option<(Context, Instant)>,
+    /// The question out: what it is about, when it was sent, and when its
+    /// ask was received, which its 2 s count from.
+    asking: Option<(Context, Instant, Instant)>,
     waiting: VecDeque<(SkillAsk, Instant)>,
     totals: Totals,
 }
@@ -264,14 +266,14 @@ impl Moment {
         options: Options,
     ) -> io::Result<Self> {
         let judge_name = decider.name().to_owned();
-        let (states, asked) = mpsc::sync_channel::<String>(1);
+        let (states, asked) = mpsc::sync_channel::<(String, Duration)>(1);
         let (answered, answers) = mpsc::channel();
-        let deadline = options.deadline.min(MOST_ASKING);
         thread::Builder::new()
             .name("ask-moment".into())
             .spawn(move || {
                 let questions = questions();
-                for state in asked {
+                // Each state with what is left of its asker's wait.
+                for (state, deadline) in asked {
                     let started = Instant::now();
                     let answer = decider.ask(&state, &questions, deadline);
                     if answered.send((answer, started.elapsed())).is_err() {
@@ -313,22 +315,30 @@ impl Moment {
     /// hard rule or by putting the question. At most one decision a turn.
     pub fn turn(&mut self, now: Instant, unix_ms: u64, room_now: Now) -> Option<Decided> {
         if self.asking.is_some() {
-            return match self.answers.try_recv() {
-                Ok((answer, took)) => {
-                    let (context, _) = self.asking.take().expect("a question is out");
-                    // Someone began to talk while the model was asked: the
-                    // hard rule holds by how things are now.
-                    let held = room_now.talking.then_some(Hold::Talking);
-                    Some(self.decide(context, Some(answer), held, took, unix_ms))
-                }
+            let (answer, took) = match self.answers.try_recv() {
+                Ok((answer, took)) => Some((Some(answer), took)),
                 Err(mpsc::TryRecvError::Empty) => None,
                 Err(mpsc::TryRecvError::Disconnected) => {
                     self.asker_gone = true;
-                    let (context, sent) = self.asking.take().expect("a question is out");
-                    let took = now.saturating_duration_since(sent);
-                    Some(self.decide(context, None, None, took, unix_ms))
+                    Some((None, Duration::ZERO))
                 }
+            }?;
+            let (context, sent, received) = self.asking.take().expect("a question is out");
+            // An answer after its asker stopped waiting is let go, and
+            // counted late, never published as decided (the reviewer on
+            // #958, 12:19).
+            if now.saturating_duration_since(received) >= ASKER_WAITS {
+                self.totals.late += 1;
+                return None;
+            }
+            let took = match answer {
+                Some(_) => took,
+                None => now.saturating_duration_since(sent),
             };
+            // Someone began to talk while the model was asked: the hard
+            // rule holds by how things are now.
+            let held = (answer.is_some() && room_now.talking).then_some(Hold::Talking);
+            return Some(self.decide(context, answer, held, took, unix_ms));
         }
         while self
             .waiting
@@ -338,7 +348,7 @@ impl Moment {
             self.waiting.pop_front();
             self.totals.late += 1;
         }
-        let (ask, _) = self.waiting.pop_front()?;
+        let (ask, received) = self.waiting.pop_front()?;
         let context = Context {
             ask: ask.ask,
             skill: ask.skill,
@@ -359,9 +369,21 @@ impl Moment {
         if self.asker_gone {
             return Some(self.decide(context, None, None, Duration::ZERO, unix_ms));
         }
-        match self.states.try_send(state_text(&context)) {
+        // The model is given only what is left of the 2 s; with nothing
+        // left, the rule answers now.
+        let deadline = crate::hello::time_left(
+            ASKER_WAITS,
+            received,
+            now,
+            self.options.deadline.min(MOST_ASKING),
+        );
+        if deadline.is_zero() {
+            let failed = Some(Err(Failed::TimedOut));
+            return Some(self.decide(context, failed, None, Duration::ZERO, unix_ms));
+        }
+        match self.states.try_send((state_text(&context), deadline)) {
             Ok(()) => {
-                self.asking = Some((context, now));
+                self.asking = Some((context, now, received));
                 None
             }
             Err(_) => {
@@ -544,5 +566,117 @@ mod tests {
             .choice,
             Choice::SayNow
         );
+    }
+
+    /// Holds each asking until let go, and keeps the time each was given.
+    struct Held {
+        go: mpsc::Receiver<()>,
+        given: std::sync::Arc<std::sync::Mutex<Vec<Duration>>>,
+    }
+    impl Decider for Held {
+        fn ask(
+            &mut self,
+            _: &str,
+            _: &[(String, Question)],
+            deadline: Duration,
+        ) -> Result<Asked, Failed> {
+            self.given.lock().unwrap().push(deadline);
+            self.go.recv().map_err(|_| Failed::TimedOut)?;
+            Ok(Asked {
+                answers: BTreeMap::from([("good_moment".to_owned(), Answer::Noul(0.9))]),
+                model: "held".into(),
+                took: Duration::ZERO,
+                usage: None,
+                connection: None,
+            })
+        }
+        fn name(&self) -> &str {
+            "held"
+        }
+    }
+
+    /// The reviewer on #958 (12:19): an ask's 2 s count from when it was
+    /// received. A, asked at once, is given 1.5 s and answered in time; B,
+    /// received 0.1 s after A and taken up when A is decided at 1.5 s, is
+    /// given what is left (0.4 s), and its answer at 2.2 s is let go and
+    /// counted late, never published. One with too little left is answered
+    /// by the rule at once.
+    #[test]
+    fn an_asks_two_seconds_count_from_its_receipt_and_a_late_answer_is_let_go() {
+        let ms = Duration::from_millis;
+        let (go, gate) = mpsc::channel();
+        let given = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let decider = Held {
+            go: gate,
+            given: given.clone(),
+        };
+        let mut moment =
+            Moment::start(decider, Options::new(Duration::from_secs(3), None)).unwrap();
+        let ask = |number: u64| SkillAsk {
+            ask: number,
+            skill: "stretch-break".into(),
+            act: "unprompted".into(),
+            person: None,
+            away_min: None,
+            there_s: None,
+        };
+        let room_now = Now {
+            room: Room::Quiet,
+            someone_here: Some(true),
+            quiet_s: 300,
+            talking: false,
+            spoke_up_last_hour: 0,
+        };
+        // What the asker was given, once it has taken up `count` askings.
+        let given_now = |count: usize| {
+            for _ in 0..500 {
+                if given.lock().unwrap().len() >= count {
+                    break;
+                }
+                std::thread::sleep(ms(2));
+            }
+            given.lock().unwrap().clone()
+        };
+        let t = Instant::now();
+        moment.asked(&ask(1), t);
+        moment.asked(&ask(2), t + ms(100));
+        assert!(moment.turn(t, 1_000_000, room_now).is_none(), "A is out");
+        go.send(()).unwrap();
+        let a = (0..500)
+            .find_map(|_| {
+                std::thread::sleep(ms(2));
+                moment.turn(t + ms(1_500), 1_000_000, room_now)
+            })
+            .expect("A decided");
+        assert_eq!(
+            (a.decision.ask, a.decision.choice.as_str()),
+            (Some(1), "say_now")
+        );
+        assert!(
+            moment.turn(t + ms(1_500), 1_000_000, room_now).is_none(),
+            "B is out"
+        );
+        assert_eq!(given_now(2), [MOST_ASKING, ms(400)]);
+        go.send(()).unwrap();
+        for _ in 0..500 {
+            if moment.totals().late == 1 {
+                break;
+            }
+            let late = moment.turn(t + ms(2_200), 1_000_000, room_now);
+            assert!(late.is_none(), "B published late");
+            std::thread::sleep(ms(2));
+        }
+        assert_eq!((moment.totals().late, moment.totals().decided), (1, 1));
+        // Received at 3 s and taken up at 4.85 s: the rule, at once.
+        moment.asked(&ask(3), t + ms(3_000));
+        let ruled = moment
+            .turn(t + ms(4_850), 1_000_000, room_now)
+            .expect("the rule at once");
+        assert_eq!(
+            (ruled.decision.ask, ruled.decision.by.as_str()),
+            (Some(3), crate::policy::RULE)
+        );
+        assert_eq!(ruled.line.failed, Some("timed_out"));
+        assert_eq!(given_now(2).len(), 2);
     }
 }

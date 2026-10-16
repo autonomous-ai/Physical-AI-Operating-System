@@ -2549,6 +2549,70 @@ fn a_hold_from_before_the_answer_does_not_keep_it_from_leaning() {
     let largest = largest_arm_step(&seen, ms(7_000), ms(14_000));
     assert!(largest <= 2, "moved {largest} in a step");
 }
+
+/// The reviewer's 23:39 probe: the wire goes silent for four steps while
+/// the lamp leans. The lean is kept as it stands, not dropped and taken
+/// again: no arm goal written moves more than the lean's own step.
+#[test]
+fn a_wire_failing_mid_lean_keeps_the_lean_as_it_stands() {
+    let ms = Duration::from_millis;
+    let (mut lamp, mut clock) = folded(ms(14_000));
+    lamp.arm_moves = true;
+    lamp.overload_clears = 1;
+    lamp.silent_from = Some(ms(10_000));
+    lamp.silent_until = Some(ms(10_080));
+    let mut limits = Limits::folded_with(Tuning {
+        reach: [150, 15, 1, 250],
+        speed: 120,
+        servo_speed: 1_000,
+        servo_acceleration: 60,
+    })
+    .unwrap();
+    limits.give_way = Some(GiveWay::Return);
+    let mood_at = clock.time.clone();
+    let report = run_alive(
+        &mut lamp,
+        &mut clock,
+        limits,
+        Some(HOME),
+        Some(standing(100, 60)),
+        None,
+        move || {
+            let at = mood_at.get().as_millis();
+            Some(if (6_000..12_000).contains(&at) {
+                (Mood::Speaking, 60)
+            } else {
+                (Mood::Listening, 60)
+            })
+        },
+        Asked::default,
+        |_| {},
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert!(report.missed_reads >= 3, "{report:?}");
+    // Every arm goal written from 9 s until the stop, joint by joint.
+    for id in ARM.map(Joint::id) {
+        let written: Vec<u16> = lamp
+            .goals
+            .iter()
+            .zip(&lamp.goal_times)
+            .filter(|(_, at)| (ms(9_000)..ms(14_000)).contains(*at))
+            .flat_map(|(goals, _)| {
+                goals
+                    .iter()
+                    .filter(|(of, _)| *of == id)
+                    .map(|(_, goal)| *goal)
+            })
+            .collect();
+        let largest = written
+            .windows(2)
+            .map(|pair| pair[1].abs_diff(pair[0]))
+            .max()
+            .unwrap_or(0);
+        assert!(largest <= 2, "servo {id} moved {largest} in a write");
+    }
+}
+
 /// Without `rest_glance`, a lamp at rest writes exactly what it writes
 /// when nothing is asked of it.
 #[test]

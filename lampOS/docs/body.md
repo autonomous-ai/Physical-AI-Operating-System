@@ -621,8 +621,10 @@ and eased out as it ends. On by default; there is no flag.
   (`--speed`): at 120 that is under 60 counts a second at its fastest.
 - **When not.** Not while the lamp rises or folds, not while a gesture
   plays (the gesture moves the arm itself; the lean eases out and back in
-  after), not after it slumped, and nothing new while the wire fails. Every
-  arm check stays as it was: its load bound, its tracking, its warmth, and
+  after), and not after it slumped. While the wire fails the lean is kept as
+  it stands, a held place too: nothing new, and nothing dropped and taken
+  again once the wire answers
+  (`a_wire_failing_mid_lean_keeps_the_lean_as_it_stands`). Every arm check stays as it was: its load bound, its tracking, its warmth, and
   `--limp` and `--overload release`.
 - **A hand on the arm.** Under `--give-way`, a shoulder or an elbow that
   stops pushing against a hand is held where the hand has it. While the

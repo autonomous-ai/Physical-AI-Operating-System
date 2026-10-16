@@ -4,6 +4,15 @@
 
 Newest first. Times from `date` (+07).
 
+- 15:53 #1030 sent back: two P2s (the voice check runs on every event, not once per request; a held other-voice line counts toward nothing)
+- 15:53 merged #1078 (Stretch break near 0.14)
+- 15:51 #795 sent back: P2 — losing Controls can still make lamp-voice exit (worker's unreadable Fault counted as a cleanup failure at shutdown); earlier findings fixed except the privacy-switch.md:117 P3
+- 15:50 #970 left for the first builder: privacy (mic audio to the relay during a yield); all earlier findings fixed, P3s only
+- 15:50 #1010 sent back: 12:20 P2 fixed (probed); new P2: at the answer's end the hold lets go and the elbow goal jumps 40 counts in one step, pushing into a hand still there
+- 15:44 #993 sent back: both 11:35 P2s fixed (probed); new P2: during a skill's glow, 'light off' when the person's light is already off publishes nothing (actions reads light/state); crates/actions is not third's
+- 15:43 #990 re-checked: P2 fixed by a cargo fetch retry step; merge is DevOps's
+- 15:41 #873 left for the first builder: privacy (camera frames to the cloud with --images); otherwise ready, P3s only
+- 15:35 #968 sent back: Python still in the PR, cancelled_db still redefined (first builder's 10:21 ruling), no off-unless-set test
 - 15:25 #997 left for the first builder (privacy path: a head tap ends a mute), after its P1 (a tap can open a person's mute after a hard crash) and P2.
 - 15:25 #1057 sent back: rebase, and a P2 (`gives_a_name` takes questions about a name as a name given).
 - 15:22 #1063 sent back: P2 (a crashed tasks part is told as "not set up", since systemd removes its socket folder).

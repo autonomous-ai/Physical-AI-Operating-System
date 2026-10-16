@@ -5889,3 +5889,82 @@ fn an_arm_goal_outside_its_window_never_reaches_the_wire() {
         .collect();
     assert_eq!(elbow, [2_047, 2_090]);
 }
+
+/// lamp-4ace at 01:58:42 on 2026-10-17 (#705, the 02:05 P1): folded, at
+/// rest, its joints found at [2028, 2054, 2049, 2047, 1948], started as its
+/// unit starts it (`--stand 1772,2043,2015,2657,2602 --folded-arm
+/// 2048,2047 --stand-seconds 6 --awake-seconds 90 --idle on --wake on
+/// --rest-glance on --look-at-name on --home 1950,2043,2015`), with the
+/// elbow's goal register (42) reading 37639 (0x9307, as its journal
+/// showed) while the elbow sits at 2049. The body takes that register as the arm's last goal; folded, it is
+/// carried as the arm's goal; V1's anti-tip rule sees the lamp 47 mm back
+/// and cuts the head's first step home, and the cut's rounding clamps the
+/// elbow to 4095 and writes it: the lamp's own report, `cuts 1 ... 47.1 mm`,
+/// `stop: tracking, joint 3, goal 4095`. No goal outside a joint's own
+/// window (0..=4095, and here the way between folded and stood) may be
+/// written, whatever a register reads.
+#[test]
+fn an_elbow_goal_register_past_its_range_is_never_written_as_a_goal() {
+    for register in [37_639u16, 4_096] {
+        let (mut lamp, mut clock) = folded(Duration::from_secs(10));
+        lamp.arm_moves = true;
+        lamp.overload_clears = 1;
+        for (servo, at) in lamp
+            .servos
+            .iter_mut()
+            .zip([2_028.0, 2_054.0, 2_049.0, 2_047.0, 1_948.0])
+        {
+            servo.position = at;
+            servo.goal = at as u16;
+            servo.status = 0;
+        }
+        lamp.servos[2].goal = register;
+        let limits = Limits {
+            wake: true,
+            rest_glance: true,
+            look_at_name: true,
+            ..Limits::folded_with(Tuning {
+                reach: [150, 15, 1, 250],
+                speed: 120,
+                servo_speed: 1_000,
+                servo_acceleration: 60,
+            })
+            .unwrap()
+        };
+        let up = Standing::new(
+            [2_048, 2_047],
+            [1_772, 2_043, 2_015, 2_657, 2_602],
+            100,
+            6,
+            90,
+            [950, 950],
+        )
+        .unwrap()
+        .idling(true);
+        let report = run_alive(
+            &mut lamp,
+            &mut clock,
+            limits,
+            Some([1_950, 2_043, 2_015]),
+            Some(up),
+            None,
+            || Some((Mood::Resting, 0)),
+            Asked::default,
+            |_| {},
+        );
+        let elbow: Vec<u16> = lamp
+            .goals
+            .iter()
+            .flatten()
+            .filter(|(id, _)| *id == 3)
+            .map(|(_, goal)| *goal)
+            .collect();
+        assert!(
+            elbow.iter().all(|goal| (2_040..=2_610).contains(goal)),
+            "register {register}: elbow asked {elbow:?}, {:?}, {:?}",
+            report.stop,
+            report.tipping
+        );
+        assert_eq!(report.stop, Stop::Cancelled, "register {register}");
+    }
+}

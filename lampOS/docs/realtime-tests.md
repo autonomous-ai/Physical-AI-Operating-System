@@ -688,14 +688,14 @@ took 2.2 s one at a time in full run 38924461963 (29.7 s before). Its timing
 assertions are on scenario time, except two host-clock upper bounds in
 `sigterm_while_metadata_storage_is_stalled_stops_cleanly_and_reports_the_loss`:
 the real metadata finish within `FINISH_WAIT` plus 250 ms, and SIGTERM to
-every child reaped within 1 s. If one of them fails on a loaded pull-request
-runner, that one test goes back into the group by its exact name, not the
-module. So it left
-the group, in all three filtersets, on 2026-10-16, and runs on every pull
-request. On the Intel Mac four copies of the module at once, each running
-four tests at a time, passed 12 of 12 runs (540 test runs). The children
-they start and their cleanup stay on the host clock, as for the other
-coordinator fixtures outside the group.
+every child reaped within 1 s. The module left the group, in all three
+filtersets, on 2026-10-16, and runs on every pull request. On the Intel Mac
+four copies of the module at once, each running four tests at a time,
+passed 12 of 12 runs (540 test runs). The children they start and their
+cleanup stay on the host clock, as for the other coordinator fixtures
+outside the group. If one of the two host-clock bounds fails on a loaded
+pull-request runner, that one test goes back into the group by its exact
+name, not the module.
 
 ## early_end on one logical clock (#823)
 
@@ -788,4 +788,18 @@ Mac the two took 8.56 to 8.62 s before and 0.58 to 0.62 s after, passing
 10 of 10 alone and 18 of 18 with six copies at once; all 148 of
 `provider_worker`'s tests passed with the change. They left the
 group, in all three filtersets, on 2026-10-16.
+
+## The two review hearings on a logical clock (#823)
+
+`provider_worker::tests::review_2026_10_14::review_a_name_heard_after_a_requests_sound_ended_does_not_let_out_its_answer`
+and `review_sound_a_name_heard_as_a_request_began_lets_out_the_answer_the_rule_would_hold`
+waited four real seconds before saying a name on the bus, so that every
+other worker in the test binary reads it as four seconds old: 9.6 s for the
+two in full run 38924461963. They now run on `#[tokio::test(start_paused =
+true)]` with `logical_clock()` (#1131), and `name_heard`'s wait ticks the
+rig, so the four seconds pass in logical time. A worker dates a hearing from
+its own clock when it reads it (`began = now - ago_ms`, `crate::bus_out`), so
+another test's worker still reads it as four seconds old. The assertions and
+the `AGO_US` of four seconds are unchanged. They left the group, in all
+three filtersets, on 2026-10-17.
 

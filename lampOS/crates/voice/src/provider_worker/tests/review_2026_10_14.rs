@@ -23,6 +23,12 @@
 //!   milliseconds.
 //! - The tests here take turns ([`one_at_a_time`]), so that one's hearing
 //!   is never read by the other's worker.
+//!
+//! They run on a logical clock of their own (#823): a paused runtime and
+//! `logical_clock()`, so the four seconds pass in the rig's ticks, not on
+//! the host. A worker dates a hearing from its own clock when it reads it
+//! (`now - ago_ms`, `crate::bus_out`), so another test's worker, on the host
+//! clock, still reads it as four seconds old.
 use super::*;
 use lamp_msgs::NameHeard;
 use std::sync::atomic::AtomicBool;
@@ -78,7 +84,7 @@ impl Drop for Root {
 async fn name_heard(rig: &mut LiveRig, root: &Path, began_us: u64) {
     while monotonic_us() < began_us + AGO_US {
         rig.publish();
-        tokio::time::sleep(Duration::from_millis(5)).await;
+        rig.tick(Duration::from_millis(5)).await;
     }
     let mut says = lamp_bus::Bus::new(root)
         .unwrap()
@@ -135,8 +141,9 @@ fn heard(text: &str) -> serde_json::Value {
 /// (`docs/attention.md`); its reason is that the name is said at the start
 /// of what is said, or in the middle of it. A name that began after the
 /// request's sound ended was not said in it.
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn review_a_name_heard_after_a_requests_sound_ended_does_not_let_out_its_answer() {
+    let _clock = logical_clock();
     let _turn = one_at_a_time().await;
     let root = Root::new();
     let mut rig = LiveRig::start_with(quick_policy(), in_a_busy_room());
@@ -178,8 +185,9 @@ fn what(output: &ProviderOutput) -> String {
 /// The change itself, through the worker's own loop: the same request,
 /// the same busy room and new session, but the name heard as the request
 /// began. Its answer is played where the rule alone would hold it.
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn review_sound_a_name_heard_as_a_request_began_lets_out_the_answer_the_rule_would_hold() {
+    let _clock = logical_clock();
     let _turn = one_at_a_time().await;
     let root = Root::new();
     let mut rig = LiveRig::start_with(quick_policy(), in_a_busy_room());

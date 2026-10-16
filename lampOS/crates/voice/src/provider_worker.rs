@@ -2824,9 +2824,12 @@ impl ProviderIntake {
             // comes faster than speech (a held line replayed, lampOS#892).
             // The command waits here, first in line, and nothing more is
             // read; past ROOM_WAIT_US it goes, and a queue still full is
-            // the link's failure as before.
+            // the link's failure as before. A retired request's End owed
+            // for want of room goes first.
             let now_us = now();
-            if !input.has_room() && now_us.saturating_sub(retained.received_at_us) < ROOM_WAIT_US {
+            if (!input.has_room() || self.handoff.owes_end())
+                && now_us.saturating_sub(retained.received_at_us) < ROOM_WAIT_US
+            {
                 retained.awaiting_room = true;
                 self.retained = Some(retained);
                 break;
@@ -2989,6 +2992,13 @@ impl InputHandoff {
             && submitted.request.get() <= self.retired_through
         {
             if submitted.open {
+                // The End waits for room as any input does (lampOS#892):
+                // offered to a full queue it would end a healthy connection.
+                // It stays owed, and nothing is offered before it
+                // (`owes_end`); the retirement above is already done.
+                if !input.has_room() {
+                    return Ok(());
+                }
                 // Enqueued before any successor Start on the same FIFO. Merely
                 // dropping a root End that is still on the IPC socket would
                 // leave the Gemini actor's old input open and reject the Start.
@@ -3009,6 +3019,13 @@ impl InputHandoff {
             self.submitted = None;
         }
         Ok(())
+    }
+
+    /// A retired request's input is open and its End not yet queued.
+    fn owes_end(&self) -> bool {
+        self.submitted.is_some_and(|submitted| {
+            submitted.open && submitted.request.get() <= self.retired_through
+        })
     }
 
     /// The provider will not serve this request. Nothing further of it is
@@ -8889,6 +8906,132 @@ mod tests {
                 "the link was given up for a short stall: {wire:?}"
             );
         }
+        assert!(!rig.worker.is_finished());
+    }
+
+    /// The reviewer's second proof on lampOS#892: the request is cancelled
+    /// while the queue is full in the same stall. Its End (which writes
+    /// nothing: a cancelled activity is left for the next to continue) waits
+    /// for room as its audio did, goes before anything of the next request,
+    /// and the same connection serves the next request.
+    #[tokio::test]
+    async fn a_cancellation_in_a_short_stall_waits_for_room_and_keeps_the_link() {
+        let mut rig = LiveRig::start_capacity(
+            RecoveryPolicy {
+                outage_budget: Duration::from_secs(5),
+                require_context: false,
+                ..quick_policy()
+            },
+            Options::reporting(Reporting::Typed),
+            BARRIER,
+            false,
+            Continuation::Off,
+            2_048,
+        );
+        let mut dial = rig.ready().await;
+        let request = rig.speak(&mut dial, false, false).await;
+        let privacy_generation = rig.snapshot.microphone_generation();
+        // The service reads nothing for 90 ms, then what it is sent.
+        let mut service = dial.service;
+        let reader = tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(90)).await;
+            let mut blocks = 0;
+            while let Some(message) = service.try_receive(Duration::from_millis(300)).await {
+                if message["realtimeInput"].get("audio").is_some() {
+                    blocks += 1;
+                }
+            }
+            (blocks, service)
+        });
+        // Two blocks every 2 ms, by the clock, for 60 ms fill the queue;
+        // then it is cancelled.
+        let started = Instant::now();
+        let mut sequence = 1;
+        while started.elapsed() < Duration::from_millis(60) {
+            rig.publish();
+            while sequence < 1 + started.elapsed().as_millis() as u64 {
+                sequence += 1;
+                // A full socket keeps the rest at the source, as the coordinator does.
+                let _ = rig.parent.data.send(ProviderInput::Audio {
+                    request,
+                    privacy_generation,
+                    sequence,
+                    read_completed_at_us: monotonic_us(),
+                    samples: vec![3; 160],
+                });
+            }
+            tokio::time::sleep(Duration::from_millis(1)).await;
+        }
+        rig.owner
+            .cancel_turn(real_time(), rig.snapshot.owner().unwrap())
+            .unwrap();
+        let deadline = Instant::now() + Duration::from_millis(400);
+        while Instant::now() < deadline {
+            rig.publish();
+            while let Some(wire) = rig.take() {
+                assert!(
+                    !matches!(wire, Wire::Status(ProviderStatus::Unavailable { .. })),
+                    "the link was given up for a cancellation in a short stall: {wire:?}"
+                );
+            }
+            assert!(
+                !rig.worker.is_finished(),
+                "the worker ended on a cancellation in a short stall"
+            );
+            tokio::time::sleep(Duration::from_millis(2)).await;
+        }
+        let (blocks, service) = reader.await.unwrap();
+        assert!(blocks > 0);
+        // The same connection serves the next request, which continues the
+        // activity the cancelled one left open, through to its end.
+        dial.service = service;
+        let owner = rig
+            .owner
+            .admit(real_time(), AdmittedInput::NewTurn)
+            .unwrap();
+        let next = owner.turn();
+        assert!(next > request);
+        rig.publish();
+        let privacy_generation = rig.snapshot.microphone_generation();
+        for command in [
+            ProviderInput::Start {
+                session: dial.session.get(),
+                request: next,
+                privacy_generation,
+                continues: false,
+                continues_cut_off: false,
+            },
+            ProviderInput::Audio {
+                request: next,
+                privacy_generation,
+                sequence: 1,
+                read_completed_at_us: monotonic_us(),
+                samples: vec![3; 160],
+            },
+        ] {
+            rig.parent.data.send(&command).unwrap();
+        }
+        assert!(matches!(
+            rig.output().await,
+            ProviderOutput::Started { request: started, .. } if started == next
+        ));
+        rig.owner.input_ended(real_time(), owner).unwrap();
+        rig.publish();
+        rig.parent
+            .data
+            .send(&ProviderInput::End {
+                request: next,
+                privacy_generation,
+                sound: false,
+            })
+            .unwrap();
+        loop {
+            let message = rig.service_message(&mut dial).await;
+            if message["realtimeInput"].get("activityEnd").is_some() {
+                break;
+            }
+        }
+        assert!(rig.dials.try_recv().is_err(), "a new connection was made");
         assert!(!rig.worker.is_finished());
     }
 

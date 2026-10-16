@@ -4,7 +4,7 @@
 //! real model is asked.
 use lamp_bus::{Bus, Publisher, Subscriber};
 use lamp_msgs::{
-    Decision, Diagnostic, Face, Faces, Room, RoomState, Voice, VoiceArrival, VoiceState,
+    Decision, Diagnostic, Face, Faces, Room, RoomState, SkillAsk, Voice, VoiceArrival, VoiceState,
 };
 use lamp_policy::{
     attention,
@@ -92,6 +92,7 @@ struct Rig {
     running: Option<thread::JoinHandle<io::Result<policy::Totals>>>,
     saying: mpsc::Receiver<Note>,
     arrivals: Publisher,
+    skills: Publisher,
     voice: Publisher,
     decisions: Subscriber,
     shown: mpsc::Receiver<Value>,
@@ -100,6 +101,11 @@ struct Rig {
 
 impl Rig {
     fn new(name: &str, act: bool) -> Self {
+        Self::with(name, act, false)
+    }
+
+    /// With `gate`, as `lamp-policy --gate`: skills' asks are answered.
+    fn with(name: &str, act: bool, gate: bool) -> Self {
         let root = PathBuf::from(format!("/tmp/lph-{name}-{}", std::process::id()));
         let log_dir =
             std::env::temp_dir().join(format!("lamp-policy-hello-{name}-{}", std::process::id()));
@@ -120,6 +126,7 @@ impl Rig {
                 .subscribe_typed(Decision::TOPIC, "test", Decision::TYPE)
                 .unwrap(),
             arrivals: declared(VoiceArrival::TOPIC, VoiceArrival::declaration(), "voice"),
+            skills: declared(SkillAsk::TOPIC, SkillAsk::declaration(), "skills"),
             voice: declared(VoiceState::TOPIC, VoiceState::declaration(), "voice"),
             stop: Arc::new(AtomicBool::new(false)),
             running: None,
@@ -140,6 +147,7 @@ impl Rig {
             quiet_for: ms(400),
             at_most_every: Duration::from_secs(20 * 60),
             act,
+            gate,
             // No hour: the rule's answer must not hang on the time of day
             // the test is run at.
             ..hello::Options::new(Duration::from_secs(3), None)
@@ -203,6 +211,19 @@ impl Rig {
         self.voice.publish_json(0, &VoiceState { state }).unwrap();
     }
 
+    /// A skill asks whether the lamp may do `act`, as ask `number`.
+    fn ask(&mut self, number: u64, act: &str) {
+        let ask = SkillAsk {
+            ask: number,
+            skill: "welcome-back".into(),
+            act: act.into(),
+            person: None,
+            away_min: (act == "hello").then_some(42),
+            there_s: (act == "hello").then_some(3),
+        };
+        self.skills.publish_json(0, &ask).unwrap();
+    }
+
     /// The voice holds a hello for arrival `number`.
     fn arrive(&mut self, number: u64, since_hello_min: Option<u32>) {
         let arrival = VoiceArrival {
@@ -239,6 +260,20 @@ impl Rig {
             let decision: Decision = message.parse().unwrap();
             decision.check().unwrap();
             if decision.about == "hello" {
+                return decision;
+            }
+        }
+    }
+
+    /// The next decision on the bus that answers ask `number`.
+    fn answer_to(&mut self, number: u64) -> Decision {
+        let started = Instant::now();
+        loop {
+            let left = WAIT.saturating_sub(started.elapsed());
+            let message = self.decisions.recv(left).unwrap().expect("an answer");
+            let decision: Decision = message.parse().unwrap();
+            decision.check().unwrap();
+            if decision.ask == Some(number) {
                 return decision;
             }
         }
@@ -428,6 +463,63 @@ fn a_failed_model_leaves_it_to_the_rule_in_time_for_the_voice() {
     rig.stop();
 }
 
+/// #939: with `--gate`, a skill that asks to say hello is answered as the
+/// voice's arrivals are. The hello question is asked with its minutes away
+/// and seconds there, and its decision acts and names the ask, not an
+/// arrival. The next is held by the hard rule, the lamp having just been
+/// told to greet, with no model asked. An act not judged here yet is `wait`
+/// by the rule at once.
+#[test]
+fn with_the_gate_a_skills_hello_is_decided_and_names_the_ask() {
+    let mut rig = Rig::with("gate", true, true);
+    rig.ask(3_000_001, "hello");
+    let shown = rig.shown();
+    assert_eq!(
+        (
+            &shown["arrival"]["minutes_away"],
+            &shown["arrival"]["seconds_there"]
+        ),
+        (&Value::from(42), &Value::from(3))
+    );
+    rig.answer([0.9, 0.1]);
+    let decided = rig.decision();
+    assert_eq!(
+        (
+            decided.about.as_str(),
+            decided.choice.as_str(),
+            decided.shadow,
+            decided.ask,
+            decided.arrival
+        ),
+        ("hello", "say_now", false, Some(3_000_001), None)
+    );
+    rig.ask(3_000_002, "hello");
+    let held = rig.decision();
+    assert_eq!(
+        (held.choice.as_str(), held.by.as_str(), held.ask),
+        ("wait", "rule", Some(3_000_002))
+    );
+    rig.not_asked();
+    assert_eq!(rig.log(2)[1]["guard"], "greeted_recently");
+    rig.ask(3_000_003, "news");
+    let moment = rig.answer_to(3_000_003);
+    assert_eq!(
+        (
+            moment.about.as_str(),
+            moment.choice.as_str(),
+            moment.by.as_str(),
+            moment.ask
+        ),
+        ("moment", "wait", "rule", Some(3_000_003))
+    );
+    let report = rig.report();
+    assert!(
+        report.contains(&("skill_asks".into(), "3".into())),
+        "{report:?}"
+    );
+    rig.stop();
+}
+
 #[test]
 fn without_the_switch_arrivals_are_not_listened_to_and_the_report_is_as_before() {
     struct Never;
@@ -498,6 +590,12 @@ fn without_the_switch_arrivals_are_not_listened_to_and_the_report_is_as_before()
             .is_empty()
     );
     assert!(!root.join("voice/arrival").exists());
+    // Nor, without `--gate`, the skills' asks (#939).
+    assert!(
+        bus.subscribers(SkillAsk::TOPIC)
+            .unwrap_or_default()
+            .is_empty()
+    );
     stop.store(true, Ordering::Relaxed);
     running.join().unwrap().unwrap();
     let _ = fs::remove_dir_all(&root);

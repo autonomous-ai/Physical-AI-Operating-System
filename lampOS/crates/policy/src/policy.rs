@@ -26,8 +26,8 @@ use crate::{
 };
 use lamp_bus::{Bus, Notice, Publisher, Subscriber};
 use lamp_msgs::{
-    Decision, Diagnostic, Faces, Level, NameHeard, RoomState, Rules, Speech, TaskStatus, Voice,
-    VoiceArrival, VoiceState,
+    Decision, Diagnostic, Faces, Level, NameHeard, RoomState, Rules, SkillAsk, Speech, TaskStatus,
+    Voice, VoiceArrival, VoiceState,
 };
 use serde::{Serialize, de::DeserializeOwned};
 use std::{
@@ -107,6 +107,8 @@ pub struct Totals {
     pub unlogged: u64,
     /// Messages on the bus that could not be read as their type.
     pub unreadable: u64,
+    /// Skills' asks taken (`--gate`, #939).
+    pub skill_asks: u64,
 }
 
 /// One line the policy says about itself.
@@ -755,6 +757,8 @@ struct Policy<'a> {
     attention_shadow: bool,
     /// The hello question, only with `--hello` (`run_with_questions`).
     hello: Option<Hello>,
+    /// Skills' asks of an act not judged here yet, to be answered `wait`.
+    not_judged: Vec<u64>,
 }
 
 impl Policy<'_> {
@@ -947,6 +951,7 @@ impl Policy<'_> {
             request: utterance.request,
             task: None,
             arrival: None,
+            ask: None,
         });
         let at_unix_ms = unix_ms();
         self.watch = Some((
@@ -1095,6 +1100,27 @@ impl Policy<'_> {
             took_ms: line.took_ms,
             guard: line.guard,
         });
+    }
+
+    /// A skill's ask of an act not judged here yet (`news`, `unprompted`)
+    /// is answered `wait` by the rule at once, so that no asker waits for
+    /// nothing (#939: their question is to come).
+    fn not_judged_turn(&mut self) {
+        for ask in std::mem::take(&mut self.not_judged) {
+            self.publish(&Decision {
+                about: "moment".to_owned(),
+                choice: "wait".to_owned(),
+                probability: 0.0,
+                answers: BTreeMap::new(),
+                by: "rule".to_owned(),
+                took_ms: 0,
+                shadow: false,
+                request: None,
+                task: None,
+                arrival: None,
+                ask: Some(ask),
+            });
+        }
     }
 
     /// Take up a hello answer, or decide the next arrival, and publish and
@@ -1255,6 +1281,12 @@ impl Policy<'_> {
                     .with("hello_held_talking", totals.held_talking)
                     .with("hello_held_recent", totals.held_recent)
                     .with("hello_late", totals.late);
+                // Only with `--gate`.
+                let report = if hello.answers_skills() {
+                    report.with("skill_asks", self.totals.skill_asks)
+                } else {
+                    report
+                };
                 if hello.acts() {
                     report.with("hello_acts", true)
                 } else {
@@ -1428,6 +1460,13 @@ fn run_inner<D: Decider + Send + 'static>(
         Some(_) => Some(Ear::new(bus, VoiceArrival::TOPIC, VoiceArrival::TYPE)?),
         None => None,
     };
+    // Nor, without `--gate`, the skills' asks (#939).
+    let mut skill_asks = match hello.as_ref() {
+        Some(hello) if hello.answers_skills() => {
+            Some(Ear::new(bus, SkillAsk::TOPIC, SkillAsk::TYPE)?)
+        }
+        _ => None,
+    };
     let judge_name = decider.name().to_owned();
     let (judges, judge_log) = match local {
         Some(local_options) => (
@@ -1468,6 +1507,7 @@ fn run_inner<D: Decider + Send + 'static>(
         progress,
         attention_shadow: SHADOW && !options.act_attention,
         hello,
+        not_judged: Vec::new(),
     };
     policy.second();
     if let Some(judges) = policy.judges.take() {
@@ -1603,6 +1643,26 @@ fn run_inner<D: Decider + Send + 'static>(
             }
             arrivals.source(policy.say);
         }
+        // A skill asks whether the lamp may do something it would start
+        // itself, with `--gate` only (#939): a hello is put to the hello
+        // question. Nothing else is judged here yet, and is answered `wait`
+        // by the rule at once, so that no asker waits for nothing.
+        if let Some(skill_asks) = skill_asks.as_mut() {
+            for ask in skill_asks.take::<SkillAsk>(Duration::ZERO, unreadable, policy.say) {
+                if ask.check().is_err() {
+                    continue;
+                }
+                policy.totals.skill_asks += 1;
+                if ask.act == crate::hello::ABOUT {
+                    if let Some(hello) = policy.hello.as_mut() {
+                        hello.asked(&ask, now);
+                    }
+                } else {
+                    policy.not_judged.push(ask.ask);
+                }
+            }
+            skill_asks.source(policy.say);
+        }
         // How the work handed over is going, with `--progress` only.
         if let Some(tasks) = tasks.as_mut() {
             for status in tasks.take::<TaskStatus>(Duration::ZERO, unreadable, policy.say) {
@@ -1657,6 +1717,7 @@ fn run_inner<D: Decider + Send + 'static>(
         }
         policy.judge(now);
         policy.hello_turn(now);
+        policy.not_judged_turn();
         policy.progress_turn(now);
         policy.after(now);
         if now.saturating_duration_since(shown) >= EVERY_SECOND {

@@ -1386,6 +1386,39 @@ sound 6 s and 30 s after the turn began, and a turn cancelled before it),
 their first sound 1 s and 30 s after the person was listened to: none
 counted, and the rule says hello; two turns the lamp began itself: two).
 
+**Asked by a skill: the gate (#939, `--gate`).** The Policy is the one
+gate for everything the lamp starts itself (`docs/skills.md` on
+`lamp-voice`): a skill asks on `skills/ask` (`lamp_msgs::SkillAsk`, an
+event: the ask's number, the skill's name, the act, the person if known,
+and for a hello its minutes away and seconds there), and is answered by a
+`Decision` on `policy/decisions` that names the ask (`ask`), within the 2 s
+the voice's own hello waits. With `--gate`, which needs `--hello` and
+`--act hello`:
+- `act` `hello` is put to the hello question as an arrival of that number
+  is: the same hard rules (someone talking, a hello within 20 minutes),
+  the same question and the same log. The quiet it is shown is the
+  policy's own (since anything was last said, or since it started), and
+  the last hello its own. The decision names the ask, not an arrival.
+  `--act hello` is needed because a skill told `say_now` says the hello
+  itself: the decision must act, so that the 20 minutes are counted from
+  it and the hello is counted once, as the lamp's own turn on
+  `voice/state`, never also as a note chosen in shadow.
+- `news` and `unprompted` are not judged here yet: answered at once with
+  `about` `moment`, `wait`, `by` `rule`, so that no asker waits for
+  nothing. Their question is #939's next step.
+- An ask that fails its check (a skill's name, a known act, a hello
+  without its minutes and seconds) is passed over.
+
+The diagnostics add `skill_asks` (asks taken), with `--gate` only, and the
+start line `gate=true`. Without `--gate` the topic is not listened to.
+Run only one hello: with a skill greeting through the gate, the voice's
+own (`LAMP_SPEAK_FIRST`) is to be off. Test: `tests/hello.rs`,
+`with_the_gate_a_skills_hello_is_decided_and_names_the_ask` (asked with 42
+minutes away and 3 seconds there, `say_now` acting with `ask` and no
+`arrival`; the next held by `greeted_recently` with no model asked; `news`
+answered `moment`, `wait`, by rule; `skill_asks` 3), and without the
+switch nothing listens to `skills/ask`.
+
 **What is published and written.** On `policy/decisions`: `about` `hello`,
 `say_now` or `wait`, the probability, the two answers, `by`, `took_ms`,
 `shadow` (`false` only with `--act hello`) and `arrival`, the number

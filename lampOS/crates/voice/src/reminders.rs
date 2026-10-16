@@ -54,7 +54,9 @@ impl OverdueWait {
             return true;
         }
         if self.told.as_ref() != Some(&offer.token) {
-            eprintln!("lamp-voice: a reminder due over an hour ago waits for someone at the lamp");
+            eprintln!(
+                "lamp-voice: a reminder due over an hour ago, or by an unknown amount, waits for someone at the lamp"
+            );
             self.told = Some(offer.token.clone());
         }
         false

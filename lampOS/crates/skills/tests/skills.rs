@@ -495,6 +495,22 @@ light = { dim = 1 }
 }
 
 #[test]
+fn a_look_at_a_face_subscribes_to_the_faces_whatever_the_trigger() {
+    let dir = tempfile::tempdir().unwrap();
+    let skill = |name: &str, step: &str| {
+        let toml = format!(
+            "[trigger]\ntopic = \"air/state\"\nfield = \"co2_ppm\"\nabove = 1200\n\
+             [ask]\npolicy = \"nudge\"\n[[do]]\n{step}\n"
+        );
+        load(&skill_with(dir.path(), name, &toml)).unwrap()
+    };
+    let looks = Engine::new(vec![skill("looks", "body = { look_at = \"face\" }")], true);
+    assert_eq!(looks.topics(), ["air/state", Faces::TOPIC]);
+    let dims = Engine::new(vec![skill("dims", "light = { dim = 1 }")], true);
+    assert_eq!(dims.topics(), ["air/state"]);
+}
+
+#[test]
 fn a_folder_beginning_with_a_dot_is_passed_over() {
     let dir = tempfile::tempdir().unwrap();
     skill_with(dir.path(), ".draft", "not toml at all");

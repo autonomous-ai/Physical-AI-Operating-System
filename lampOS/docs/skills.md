@@ -216,7 +216,9 @@ As built on 2026-10-16 (#938, `crates/skills`, not yet run on a lamp):
   folder every two seconds, and loads them all again when a file other
   than a test changed. Cooldowns are kept across a reload.
 - It subscribes once to each topic that a trigger or a `[[while]]` names,
-  and keeps each topic's newest value. Time comes from its own monotonic
+  and to `humans/faces/tracked` for a skill that looks at a face, and keeps
+  each topic's newest value. A look uses only a list of faces whose lifespan
+  still lasts; with none, the other steps run without it. Time comes from its own monotonic
   clock, read when a message arrives.
 - **The ask.** The Policy's gate is not built yet (#939). With
   `LAMP_SKILLS_ASK=skip` it answers yes without asking; without it every

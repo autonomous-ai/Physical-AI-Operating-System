@@ -11,6 +11,12 @@
 //! the light on; brighter and dimmer are one level, and stop at the ends.
 //! A light that is off is not dark: the ring's owner keeps a faint glow,
 //! which is the sign that the lamp can hear, and the answer says so.
+//!
+//! While the ring shows something over the person's light (a skill's glow
+//! on `light/request`, #940, or a self-test's colour), the light it draws
+//! differs from the person's: then nothing is "already" so, and the
+//! person's light is asked for even when it is theirs, since a request
+//! from the person is what ends the glow (the reviewer on #993).
 
 use crate::Outcome;
 use lamp_msgs::Light as Wanted;
@@ -24,6 +30,11 @@ pub trait Light {
     fn shown(&mut self) -> Option<Wanted>;
     /// Ask for a light. False when the request could not even be made.
     fn ask(&mut self, light: &Wanted) -> bool;
+    /// Whether the ring draws something other than the person's light now
+    /// (a glow or a test over it). None known is not covered.
+    fn covered(&mut self) -> bool {
+        false
+    }
 }
 
 /// How long the owner has to show what was asked for.
@@ -53,7 +64,7 @@ fn set<L: Light>(light: &mut L, wanted: Wanted, said: String) -> Outcome {
 pub fn on<L: Light>(light: &mut L) -> Outcome {
     match light.shown() {
         None => Outcome::Failed(UNREAD.into()),
-        Some(now) if now.on => Outcome::Done("My light is already on.".into()),
+        Some(now) if now.on && !light.covered() => Outcome::Done("My light is already on.".into()),
         Some(now) => {
             let said = format!("My light is on, {}.", now.colour);
             set(light, Wanted { on: true, ..now }, said)
@@ -64,7 +75,9 @@ pub fn on<L: Light>(light: &mut L) -> Outcome {
 pub fn off<L: Light>(light: &mut L) -> Outcome {
     match light.shown() {
         None => Outcome::Failed(UNREAD.into()),
-        Some(now) if !now.on => Outcome::Done("My light is already off.".into()),
+        Some(now) if !now.on && !light.covered() => {
+            Outcome::Done("My light is already off.".into())
+        }
         Some(now) => set(light, Wanted { on: false, ..now }, OFF.into()),
     }
 }
@@ -76,7 +89,7 @@ pub fn colour<L: Light>(light: &mut L, name: &str) -> Outcome {
     }
     match light.shown() {
         None => Outcome::Failed(UNREAD.into()),
-        Some(now) if now.on && now.colour == name => {
+        Some(now) if now.on && now.colour == name && !light.covered() => {
             Outcome::Done(format!("My light is already {name}."))
         }
         Some(now) => set(
@@ -106,6 +119,9 @@ pub fn brighter<L: Light>(light: &mut L) -> Outcome {
         return set(light, Wanted { on: true, ..now }, said);
     }
     if now.level >= Wanted::BRIGHTEST {
+        if light.covered() {
+            return set(light, now, "My light is at its brightest.".into());
+        }
         return Outcome::Done("My light is already at its brightest.".into());
     }
     let level = now.level + 1;
@@ -126,9 +142,15 @@ pub fn dimmer<L: Light>(light: &mut L) -> Outcome {
         return Outcome::Failed(UNREAD.into());
     };
     if !now.on {
+        if light.covered() {
+            return set(light, now, OFF.into());
+        }
         return Outcome::Done("My light is already off.".into());
     }
     if now.level <= 1 {
+        if light.covered() {
+            return set(light, now, "My light is at its dimmest.".into());
+        }
         return Outcome::Done(
             "My light is already at its dimmest. I can switch it off if you like.".into(),
         );
@@ -154,6 +176,8 @@ pub struct BusLight {
 /// Where the executive asks, and where the ring's owner answers.
 pub const WANTED: &str = Wanted::TOPICS[0];
 pub const STATE: &str = Wanted::TOPICS[1];
+/// What the ring last drew at rest, from its own write receipts.
+pub const DRAWN: &str = "light/drawn";
 /// A state older than this, by the wall clock, is nobody's: its owner has
 /// stopped saying it.
 const STATE_LASTS_MS: u64 = 3_000;
@@ -195,6 +219,22 @@ impl Light for BusLight {
         let at_us = self.started.elapsed().as_micros() as u64;
         self.wanted.publish_json(at_us, light).is_ok()
     }
+    /// The newest light the ring drew, whatever its age: during a turn the
+    /// ring draws the turn's faces and says nothing of its light, so what
+    /// it last drew at rest stands. At worst a stale one asks once more for
+    /// the light that is already the person's, which changes nothing.
+    fn covered(&mut self) -> bool {
+        let drawn = self
+            .bus
+            .latest(DRAWN)
+            .ok()
+            .flatten()
+            .and_then(|message| message.parse::<Wanted>().ok());
+        match (drawn, self.shown()) {
+            (Some(drawn), Some(shown)) => drawn != shown,
+            _ => false,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -214,6 +254,8 @@ pub(crate) mod tests {
         pub shown: Option<Wanted>,
         pub obeys: bool,
         pub asked: Vec<Wanted>,
+        /// A glow or a test drawn over the person's light.
+        pub covered: bool,
     }
     impl Fake {
         pub(crate) fn showing(shown: Wanted) -> Self {
@@ -221,6 +263,7 @@ pub(crate) mod tests {
                 shown: Some(shown),
                 obeys: true,
                 asked: Vec::new(),
+                covered: false,
             }
         }
     }
@@ -238,6 +281,40 @@ pub(crate) mod tests {
             }
             true
         }
+        fn covered(&mut self) -> bool {
+            self.covered
+        }
+    }
+
+    /// The reviewer on #993: with a skill's glow drawn over the person's
+    /// light, asking for the light that is theirs is still asked, so the
+    /// ring hears the person and the glow ends, and nothing is said to be
+    /// "already" so.
+    #[test]
+    fn a_glow_over_the_light_is_ended_by_asking_for_the_persons_own_light() {
+        let covered = |shown: Wanted| Fake {
+            covered: true,
+            ..Fake::showing(shown)
+        };
+        let mut lamp = covered(light(true, "blue", 3));
+        assert_eq!(said(colour(&mut lamp, "blue")), "My light is blue now.");
+        assert_eq!(said(on(&mut lamp)), "My light is on, blue.");
+        assert_eq!(lamp.asked, [light(true, "blue", 3), light(true, "blue", 3)]);
+        let mut dark = covered(light(false, "warm", 1));
+        assert_eq!(
+            said(off(&mut dark)),
+            "My light is off. The faint glow that is left shows I am still listening."
+        );
+        assert_eq!(dark.asked, [light(false, "warm", 1)]);
+        assert_eq!(
+            said(dimmer(&mut dark)),
+            "My light is off. The faint glow that is left shows I am still listening."
+        );
+        let mut top = covered(light(true, "pink", 5));
+        assert_eq!(said(brighter(&mut top)), "My light is at its brightest.");
+        let mut bottom = covered(light(true, "pink", 1));
+        assert_eq!(said(dimmer(&mut bottom)), "My light is at its dimmest.");
+        assert_eq!((top.asked.len(), bottom.asked.len()), (1, 1));
     }
     fn said(outcome: Outcome) -> String {
         match outcome {
@@ -339,6 +416,7 @@ pub(crate) mod tests {
             shown: None,
             obeys: true,
             asked: Vec::new(),
+            covered: false,
         };
         assert_eq!(failed(on(&mut gone)), UNREAD);
         assert_eq!(failed(off(&mut gone)), UNREAD);
@@ -350,6 +428,7 @@ pub(crate) mod tests {
             shown: Some(light(false, "warm", 1)),
             obeys: false,
             asked: Vec::new(),
+            covered: false,
         };
         let started = Instant::now();
         assert_eq!(failed(on(&mut deaf)), UNCONFIRMED);
@@ -399,6 +478,18 @@ pub(crate) mod tests {
         std::thread::sleep(Duration::from_millis(540));
         assert_eq!(lamp.shown(), None);
         assert!(!lamp.there());
+        // What the ring drew, against the person's light: a glow over it is
+        // covered, the same light is not, and none drawn is not.
+        ring.expires_after(None);
+        ring.publish_json(4, &light(true, "blue", 1)).unwrap();
+        assert!(!lamp.covered(), "nothing drawn yet");
+        let mut drew = bus
+            .publisher_declared(DRAWN, &Wanted::declaration(), "ring")
+            .unwrap();
+        drew.publish_json(1, &light(true, "purple", 4)).unwrap();
+        assert!(lamp.covered());
+        drew.publish_json(2, &light(true, "blue", 1)).unwrap();
+        assert!(!lamp.covered());
         std::fs::remove_dir_all(root).unwrap();
     }
 }

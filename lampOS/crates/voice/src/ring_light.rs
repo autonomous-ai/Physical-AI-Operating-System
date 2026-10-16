@@ -646,6 +646,39 @@ mod tests {
         assert_eq!(take(&flags[1..]), (false, &flags[1..]));
     }
 
+    /// The reviewer on #993: off unless switched on. A ring without
+    /// `take_requests` takes no `light/request` at all: the same glow that a
+    /// switched-on ring shows leaves this one on the person's light.
+    #[test]
+    fn without_the_switch_a_light_request_changes_nothing() {
+        let root = Root::new("light-request-off");
+        let (mut ring, _) = RingLight::on(&root.0).unwrap();
+        let bus = Bus::new(&root.0).unwrap();
+        let mut asks = bus
+            .publisher_declared(Light::TOPICS[0], &Light::declaration(), "actions")
+            .unwrap();
+        let mut glows = bus
+            .publisher_declared(LightRequest::TOPIC, &LightRequest::declaration(), "skills")
+            .unwrap();
+        let mut at = 0u64;
+        ring.tick(at);
+        asks.publish_json(1, &light(true, "blue", 2)).unwrap();
+        assert_eq!(taken(&mut ring, &mut at), Lit::of(true, "blue", 2));
+        let glow = request(
+            "skill:welcome",
+            lamp_msgs::Priority::Skill,
+            at + 10_000_000,
+            "green",
+        );
+        glows.publish_json(1, &glow).unwrap();
+        for _ in 0..10 {
+            at += LOOK_EVERY_US;
+            assert_eq!(ring.tick(at), None);
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        assert_eq!(ring.face(), &light(true, "blue", 2));
+    }
+
     /// #940: a skill's glow is shown over the person's light while its
     /// claim holds, and the person's light comes back by itself when it
     /// lapses; `light/state` says the person's light all along.

@@ -163,6 +163,16 @@ could not confirm my speaker's volume changed.", "I asked for it but could
 not confirm my light changed.", and for anything not offered "I can't do
 that."
 
+While the ring draws something over the person's light (a skill's glow on
+`light/request`, #940, or a self-test's colour), what it last drew
+(`light/drawn`) differs from the person's light (`light/state`). Then
+nothing is "already" so: the person's light is asked for even when it is
+theirs, since the person's request is what ends the glow, and the answer
+is said as a change ("My light is blue now."). The newest light drawn
+counts whatever its age, since during a turn the ring draws the turn's
+faces; at worst it asks once more for the light that is already theirs
+(the reviewer on #993).
+
 The speaker's volume is one ALSA control (on lamp-4ace, `Speaker` on the
 card `allwinnerhdmi`: a hundred points over 30 dB). This program is its
 only writer. The light is not written here: the wanted light is published

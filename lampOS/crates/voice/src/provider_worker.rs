@@ -1129,6 +1129,10 @@ async fn serve_with_visual<C: Connect>(
     // The newest request whose output came with another in hand, and was
     // so never judged: said once (#829, 17:21).
     let mut unjudged_told: Option<u64> = None;
+    // The room microphone's rise over a request as the near rule judged it,
+    // and the request, for its journal lines (#829, the first builder at
+    // 15:23 and 17:09).
+    let mut judged_rise: Option<(u64, f32)> = None;
     let mut ears_read_at: Option<Instant> = None;
     let mut air_read_at: Option<Instant> = None;
     let mut told_session = None;
@@ -1358,9 +1362,19 @@ async fn serve_with_visual<C: Connect>(
                             None
                         };
                         match crate::called::busy_gate(busy_needs_face, busy, turned) {
-                            Err(why) => eprintln!(
-                                "lamp-voice provider: request {request}: the lamp's name was heard in a busy room and {why}; the model is not told"
-                            ),
+                            Err(why) => {
+                                // How close the voice was, so far, for the
+                                // first builder's tables (#829, 15:23).
+                                let rise = match attention.window().and_then(|window| {
+                                    rise_in(&ears_levels, window, monotonic_us())
+                                }) {
+                                    Some(rise) => format!("the room microphone {rise:.1} dB over its quiet"),
+                                    None => "no rise of the room microphone read".to_owned(),
+                                };
+                                eprintln!(
+                                    "lamp-voice provider: request {request}: the lamp's name was heard in a busy room and {why} ({rise}); the model is not told"
+                                );
+                            }
                             Ok(()) => match add_note(&provider, &mut intake.handoff.noted, open, crate::called::NOTE) {
                                 Ok(()) => eprintln!(
                                     "lamp-voice provider: request {request}: the model is told the lamp's name was heard"
@@ -1697,13 +1711,9 @@ async fn serve_with_visual<C: Connect>(
                                 && ears_bus.is_some()
                                 && let Some((began, ended)) = attention.window()
                             {
-                                let until = ended.unwrap_or_else(monotonic_us);
-                                let rise = ears_levels
-                                    .iter()
-                                    .filter(|(at, _)| (began..=until).contains(at))
-                                    .map(|(_, rise)| *rise)
-                                    .fold(f32::MIN, f32::max);
-                                attention.set_near(rise >= crate::attention::NEAR_RISE_DB);
+                                let rise = rise_in(&ears_levels, (began, ended), monotonic_us());
+                                attention.set_near(rise.is_some_and(|rise| rise >= crate::attention::NEAR_RISE_DB));
+                                judged_rise = rise.map(|rise| (request, rise));
                             }
                             // Said to the lamp from close to it, over the
                             // request's sound so far, if it was not judged
@@ -1802,12 +1812,20 @@ async fn serve_with_visual<C: Connect>(
                                     }),
                                 });
                             }
+                            // The rise the near rule judged, on the lines the
+                            // busy-room bars are set from: the true calls held
+                            // as well as the answers let out (the reviewer on
+                            // #1083).
+                            let rise = judged_rise
+                                .filter(|(of, _)| *of == request)
+                                .map(|(_, rise)| format!(" (the room microphone {rise:.1} dB over its quiet)"))
+                                .unwrap_or_default();
                             match verdict {
                                 Some(crate::attention::Verdict::Hold(why)) => {
-                                    eprintln!("lamp-voice provider: request {request}: its answer is held back: {why}");
+                                    eprintln!("lamp-voice provider: request {request}: its answer is held back: {why}{rise}");
                                 }
                                 Some(_) if attention.played_for_near() => {
-                                    eprintln!("lamp-voice provider: request {request}: its answer is played: its name was heard close to the lamp");
+                                    eprintln!("lamp-voice provider: request {request}: its answer is played: its name was heard close to the lamp{rise}");
                                 }
                                 Some(_) if attention.played_for_its_name() => {
                                     eprintln!("lamp-voice provider: request {request}: its answer is played: the lamp's name was heard in the room's sound");
@@ -3801,6 +3819,22 @@ fn add_note<C: Connect>(
     provider.try_note(request, &text)?;
     *noted = Some((request.get(), text));
     Ok(())
+}
+
+/// The room microphone's greatest rise over its quiet, in decibels, in a
+/// request's window so far (its sound's end, or now): nothing when no level
+/// was read in it.
+fn rise_in(
+    levels: &VecDeque<(u64, f32)>,
+    (began, ended): (u64, Option<u64>),
+    now_us: u64,
+) -> Option<f32> {
+    let until = ended.unwrap_or(now_us);
+    levels
+        .iter()
+        .filter(|(at, _)| (began..=until).contains(at))
+        .map(|(_, rise)| *rise)
+        .reduce(f32::max)
 }
 
 /// What a request's note says once `part` is added to what it was given.
@@ -6890,6 +6924,19 @@ mod tests {
         let end = rig.service_message(&mut dial).await;
         assert!(end["realtimeInput"].get("activityEnd").is_some(), "{end}");
         rig.stop().await;
+    }
+
+    /// The rise a request's journal lines give, and the near rule judges:
+    /// the greatest in its window, to its sound's end or now, and nothing
+    /// when no level was read in it.
+    #[test]
+    fn a_requests_rise_is_the_greatest_in_its_window() {
+        let levels = VecDeque::from([(5, 30.0), (10, 12.5), (12, 19.5), (15, 8.0), (30, 40.0)]);
+        assert_eq!(rise_in(&levels, (10, Some(15)), 99), Some(19.5));
+        assert_eq!(rise_in(&levels, (10, None), 20), Some(19.5));
+        assert_eq!(rise_in(&levels, (10, None), 30), Some(40.0));
+        assert_eq!(rise_in(&levels, (16, Some(29)), 99), None);
+        assert_eq!(rise_in(&VecDeque::new(), (0, None), 99), None);
     }
 
     /// The name and the room due in the same request go as one note, each

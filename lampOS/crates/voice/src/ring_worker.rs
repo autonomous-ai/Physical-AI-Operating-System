@@ -111,6 +111,18 @@ pub fn run(mut link: WorkerChannels, controller_boot: BootId) -> io::Result<()> 
     }
 }
 
+/// What the continuous ring runs with, as `lamp-voice ring` is started.
+#[cfg(target_os = "linux")]
+#[derive(Clone, Copy, Debug, Default)]
+pub struct RingOptions<'a> {
+    pub resting: Option<u16>,
+    pub bus_root: Option<&'a std::path::Path>,
+    pub eye: bool,
+    pub eye_strong: bool,
+    pub head_touch: bool,
+    pub light_requests: bool,
+}
+
 /// Supervisor-only lifetime selection. This removes the finite test ceiling,
 /// not the installed authority, parent transport or initial-lease watchdogs.
 /// With `bus_root`, the lamp's own light is taken from the bus there and
@@ -125,13 +137,16 @@ pub fn run(mut link: WorkerChannels, controller_boot: BootId) -> io::Result<()> 
 pub fn run_continuous(
     mut link: WorkerChannels,
     controller_boot: BootId,
-    resting: Option<u16>,
-    bus_root: Option<&std::path::Path>,
-    eye: bool,
-    eye_strong: bool,
-    head_touch: bool,
-    light_requests: bool,
+    options: RingOptions<'_>,
 ) -> io::Result<()> {
+    let RingOptions {
+        resting,
+        bus_root,
+        eye,
+        eye_strong,
+        head_touch,
+        light_requests,
+    } = options;
     let light = bus_root.and_then(|root| match RingLight::on(root) {
         Ok((mut light, begins)) => {
             // Without them the ring still shows the person's light.

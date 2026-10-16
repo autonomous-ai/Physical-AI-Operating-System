@@ -2932,6 +2932,9 @@ struct InputHandoff {
     /// The newest note given and to which request: a request sends only
     /// its newest, so what it was given goes with what it is given next.
     noted: Option<(u64, String)>,
+    /// The open request was only the lamp's name, its call's wait run out
+    /// (`ProviderInput::Called`): the model is told so with its End.
+    called: Option<u64>,
     authority: Option<Snapshot>,
     highest_seen: u64,
     retired_through: u64,
@@ -3332,25 +3335,17 @@ impl InputHandoff {
                     room.hearing(now_us);
                 }
             }
+            // Kept for its End: the note and the End go together, or the
+            // End alone (the reviewer on #992).
             ProviderInput::Called { .. } => {
                 self.require_open(request)?;
-                let text = note_text(self.noted.as_ref(), request.get(), CALLED_NOTE);
-                match input.note(request, &text) {
-                    Ok(()) => {
-                        self.noted = Some((request.get(), text));
-                        eprintln!(
-                            "lamp-voice provider: request {}: only the lamp's name was said, and the model is told so",
-                            request.get()
-                        );
-                    }
-                    Err(error) => eprintln!(
-                        "lamp-voice provider: request {}: the model could not be told only its name was said: {error}",
-                        request.get()
-                    ),
-                }
+                self.called = Some(request.get());
             }
             ProviderInput::End { sound, cut_in, .. } => {
                 self.require_open(request)?;
+                if self.called.take() == Some(request.get()) {
+                    self.tell_called(request, input);
+                }
                 if let Err(error) = input.end(request) {
                     return self.refused(request, error, input);
                 }
@@ -3434,6 +3429,35 @@ impl InputHandoff {
         Ok(())
     }
 
+    /// Tell the model, just before `request`'s End, that it was only the
+    /// lamp's name ([`CALLED_NOTE`]), if the link's input queue has room
+    /// for the note and the End both. The note is a nicety and the End is
+    /// not: with room for one, the End goes alone, and the connection is
+    /// never ended for want of room the note took.
+    fn tell_called(&mut self, request: RequestId, input: &impl InputSink) {
+        if !input.has_room_for(2) {
+            eprintln!(
+                "lamp-voice provider: request {}: only the lamp's name was said, but the link's input queue has no room for the note and the end: the model is not told",
+                request.get()
+            );
+            return;
+        }
+        let text = note_text(self.noted.as_ref(), request.get(), CALLED_NOTE);
+        match input.note(request, &text) {
+            Ok(()) => {
+                self.noted = Some((request.get(), text));
+                eprintln!(
+                    "lamp-voice provider: request {}: only the lamp's name was said, and the model is told so",
+                    request.get()
+                );
+            }
+            Err(error) => eprintln!(
+                "lamp-voice provider: request {}: the model could not be told only its name was said: {error}",
+                request.get()
+            ),
+        }
+    }
+
     fn require_open(&self, request: RequestId) -> Result<()> {
         if !self
             .submitted
@@ -3492,6 +3516,10 @@ trait InputSink {
     /// Whether the next command offered can be queued without ending the
     /// connection for want of room.
     fn has_room(&self) -> bool {
+        true
+    }
+    /// Whether the next `commands` offered one after another can.
+    fn has_room_for(&self, _commands: usize) -> bool {
         true
     }
 }
@@ -3577,6 +3605,9 @@ impl<C: Connect> InputSink for Supervisor<C> {
     }
     fn has_room(&self) -> bool {
         self.input_has_room()
+    }
+    fn has_room_for(&self, commands: usize) -> bool {
+        self.input_has_room_for(commands)
     }
 }
 
@@ -3864,6 +3895,7 @@ mod tests {
         End(u64),
         EndBlocked(u64),
         Retire(u64),
+        Note(u64, String),
     }
 
     /// Models FIFO submission and synchronous retirement, not cloud timing.
@@ -3884,6 +3916,8 @@ mod tests {
         overrun: Cell<bool>,
         /// Zero means the initial session (1); tests can install a replacement.
         session: Cell<u64>,
+        /// The free places in the link's input queue, if bounded.
+        room: Cell<Option<usize>>,
     }
     impl InputSink for RecordingSink {
         fn start(
@@ -3959,6 +3993,46 @@ mod tests {
         fn retire(&self, request: RequestId) {
             self.retired.set(self.retired.get().max(request.get()));
             self.calls.borrow_mut().push(Call::Retire(request.get()));
+        }
+        fn note(&self, request: RequestId, text: &str) -> lamp_gemini::Result<()> {
+            self.calls
+                .borrow_mut()
+                .push(Call::Note(request.get(), text.to_owned()));
+            Ok(())
+        }
+        fn has_room_for(&self, commands: usize) -> bool {
+            self.room.get().is_none_or(|room| room >= commands)
+        }
+    }
+
+    /// The reviewer on #992: a bare call's note goes with its End, and only
+    /// when the link's input queue has room for both, so the End never
+    /// meets a queue the note filled. With room for one, the End goes alone.
+    #[test]
+    fn a_bare_calls_note_goes_with_its_end_only_when_both_fit() {
+        for (room, told) in [(None, true), (Some(2), true), (Some(1), false)] {
+            let mut owner = controller();
+            let mut handoff = InputHandoff::default();
+            let sink = RecordingSink::default();
+            sink.room.set(room);
+            let request = authorize(&mut owner, &mut handoff);
+            handoff
+                .submit(start(request, &handoff), NOW, &sink)
+                .unwrap();
+            let called = ProviderInput::Called {
+                request,
+                privacy_generation: generation(&handoff),
+            };
+            handoff.submit(called, NOW, &sink).unwrap();
+            // Nothing goes for the call until its End.
+            assert_eq!(*sink.calls.borrow(), vec![Call::Start(request)]);
+            handoff.submit(end(request, &handoff), NOW, &sink).unwrap();
+            let mut expected = vec![Call::Start(request)];
+            if told {
+                expected.push(Call::Note(request, note_text(None, request, CALLED_NOTE)));
+            }
+            expected.push(Call::End(request));
+            assert_eq!(*sink.calls.borrow(), expected, "{room:?}");
         }
     }
 

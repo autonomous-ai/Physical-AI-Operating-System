@@ -922,11 +922,15 @@ then; an end sent early (`--early-end-ms`) is past telling. It isn't sent
 for a local-only turn (#830), whose request never went out, or when the
 queue to the worker is already at its bound (64 commands with the standard
 hold): the end keeps the one slot past the bound that it always had, and
-the note is left out. The second voice and the fixture provider take it
-and do nothing. Tests:
+the note is left out. The worker keeps it for the request's end, and
+sends the two together, the note first, only when the link's input queue
+to Gemini has room for both; with room for one, the end goes alone, so it
+never meets a queue the note filled (the reviewer on #992). The second
+voice and the fixture provider take it and do nothing. Tests:
 `a_bare_call_is_told_to_the_model_before_its_end` (the note reaches the
-service before the end) and
-`only_a_call_whose_wait_ran_out_is_told_to_the_model`. Not yet measured on
+service before the end),
+`only_a_call_whose_wait_ran_out_is_told_to_the_model` and
+`a_bare_calls_note_goes_with_its_end_only_when_both_fit`. Not yet measured on
 the lamp: "Hey Lamp." alone five times, and the busy-room scene again.
 
 Tests (`crates/voice/tests/call_wait.rs`, `options.rs`):

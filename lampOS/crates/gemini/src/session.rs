@@ -523,7 +523,12 @@ impl InputSender {
     /// offered is taken rather than ending the connection as
     /// [`Error::Backpressure`].
     pub fn has_room(&self) -> bool {
-        self.commands.capacity() > 0
+        self.has_room_for(1)
+    }
+    /// Whether the input queue has `commands` free places now, so that many
+    /// commands offered one after another are all taken.
+    pub fn has_room_for(&self, commands: usize) -> bool {
+        self.commands.capacity() >= commands
     }
     fn ensure_ready(&self) -> Result<()> {
         if self.shared.stop.borrow().is_some() || *self.state.borrow() != State::Ready {

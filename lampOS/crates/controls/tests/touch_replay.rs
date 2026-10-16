@@ -16,6 +16,7 @@ fn config(enabled: bool) -> TouchConfig {
         reset: None,
         head_pads: Vec::new(),
         strip_pads: Some((0..12).collect()),
+        ..TouchConfig::default()
     }
 }
 
@@ -198,7 +199,7 @@ fn blocked_or_faulted_strip_does_not_refresh_or_cancel_independent_gpio() {
     let mut cfg = config(true);
     cfg.head_pads = vec!["head-1".into()];
     let mut records = Vec::new();
-    for (index, at) in (0..=1_200_000).step_by(20_000).enumerate() {
+    for (index, at) in (0..=1_700_000).step_by(20_000).enumerate() {
         records.push(gpio(at, index as u64 + 1, at >= 600_000));
         if at <= 500_000 {
             records.push(strip(at, index as u64 + 1, 0));
@@ -212,7 +213,7 @@ fn blocked_or_faulted_strip_does_not_refresh_or_cancel_independent_gpio() {
             });
         }
     }
-    let (summary, output) = run(cfg, &records, Some(1_200_000));
+    let (summary, output) = run(cfg, &records, Some(1_700_000));
     assert_eq!(
         (summary.rejected, summary.faults, summary.events),
         (0, 1, 2)
@@ -601,4 +602,36 @@ fn cli_ready_replay_is_the_exact_labelled_reconstruction_with_authored_clock_and
     )
     .unwrap();
     assert_eq!(summary.rejected, 0);
+}
+
+/// #711: a push recorded from the body, before a head touch, makes the
+/// replay ask nothing of that touch, as the live runtime would.
+#[test]
+fn a_recorded_push_silences_the_head_in_replay() {
+    let mut cfg = config(true);
+    cfg.head_pads = vec!["head-1".into()];
+    cfg.strip_pads = None;
+    let touch: Vec<Record> = (0..=1_200_000)
+        .step_by(20_000)
+        .enumerate()
+        .map(|(index, at)| gpio(at, index as u64 + 1, at >= 600_000))
+        .collect();
+    let events = |records: &[Record]| -> usize {
+        let (_, output) = run(cfg.clone(), records, Some(1_200_000));
+        output.iter().map(|frame| frame.output.events.len()).sum()
+    };
+    assert_eq!(events(&touch), 1, "the touch, which stops a talking lamp");
+    let mut pushed = touch.clone();
+    let at = pushed
+        .iter()
+        .position(|record| record.now_us > 550_000)
+        .unwrap();
+    pushed.insert(
+        at,
+        Record {
+            now_us: 550_000,
+            input: Input::HeadPushed { pushed: true },
+        },
+    );
+    assert_eq!(events(&pushed), 0);
 }

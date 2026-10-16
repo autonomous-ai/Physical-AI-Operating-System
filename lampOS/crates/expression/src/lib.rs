@@ -10,7 +10,9 @@ pub mod runtime;
 mod speaking;
 
 pub use alive::{
-    Alive, Breath, DAYTIME_STALE_US, Drift, EYES_QUIET_US, RING_BREATH_US, Sleep, Wake, WorkLight,
+    Alive, Breath, DAYTIME_STALE_US, Drift, EYES_QUIET_US, HAND_FRESH_US, LEAN, LEAN_IN_US,
+    LEAN_OUT_US, LOOK_UP, LOOK_UP_FACE_US, LOOK_UP_FOR_US, LOOK_UP_IN_US, LOOK_UP_OUT_US,
+    LOOK_UP_TOWARD, RING_BREATH_US, Sleep, Wake, WorkLight,
 };
 pub use catalogue::*;
 pub use engine::*;

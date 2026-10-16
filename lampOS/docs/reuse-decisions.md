@@ -48,8 +48,9 @@ Retained safeguards: reset/Stop/write/Run ordering, checking reset state,
 initial held-contact suppression, fault as unknown rather than release,
 5 ms pad/10 ms contact and chord qualification, three-pad touch minimum,
 strict ordering/age, bounded delivery and inhibition before teardown. Changed
-product meanings: head/base Touch asks Stop or Attend; head/slow-base Stroke
-is separate from physical speed; stationary two-second base Hold asks Sleep
+product meanings: base Touch asks Stop or Attend; head Touch asks Stop or
+nothing, its short tap Attend or Wake, and a head hand Stroke at 1 s and Sleep
+at 3 s (#711); head/slow-base Stroke is separate from physical speed; stationary two-second base Hold asks Sleep
 or Wake according to the owner's contact-start lifecycle. No `Pet`, blind
 toggle, shutdown or direct owner callback is imported.
 

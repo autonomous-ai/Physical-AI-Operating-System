@@ -50,6 +50,65 @@ own fixed point, so some pixels sit one step higher. That keeps a dim breath
 smooth where a ceiling of 24 leaves the resting face two or three steps to
 work with. Nothing is dithered in time.
 
+### A hand kept on the head: the countdown (#711)
+
+Off unless set: `LAMP_HEAD_TOUCH=on` in the voice's unit, which the voice
+passes to its all-day ring worker as `--head-touch`
+(`crates/voice/src/ring_head.rs`); it needs `LAMP_BUS=on` and Controls run
+with `--touch`. The ring worker reads the head's state (`controls/touch_state`,
+the head's `held_us`) every 50 ms. From one second of a hand kept on the
+head (Controls' stroke) to three (its sleep), the whole face dims to 15 % of
+itself, eased like every other change: a countdown the person can see, and
+can stop by letting go, when it brightens again. Under a second nothing
+changes; a hand a push from the body spoiled has no time and dims nothing.
+It never makes the ring dark: what is shown still says the lamp hears. The
+sleep that follows at three seconds is not drawn here yet (#711): the ring
+worker is gone while the voice is muted.
+
+### A tap on the head at rest: the listening face (#711)
+
+Same switch and same worker. A tap on the head (Controls' `controls/touch`,
+a fresh, enabled head Tap from `controls`) and the head's hand time are read
+from the bus by a thread of the head's own (`ring_head.rs`), never by the
+ring's loop, which only reads the two numbers it last found, after each
+tick's Stop, Authority and expiry (#849 review, twice):
+- One receive from the bus passes over any number of messages it refuses, so
+  no count of receives would bound it. The loop does no bus work at all.
+- The test `a_flood_of_head_requests_never_holds_back_revocation_or_expiry`
+  floods `controls/touch` from four senders: valid taps through the bus, and
+  messages of another type written straight to the subscriber. While it goes
+  on, a 50 ms permit must blank within 150 ms and a Stop sent then must end
+  the worker within 50 ms.
+- It failed on the first head, which read the bus before the controls. On
+  the second head (at most four receives a tick, after the controls) this
+  fixture passes on Third's Mac. The reviewer's own fixture, a different
+  procedure on a Mac too, made that second head miss Stop by 485 ms. Why the
+  two procedures differ is not established. What this head guarantees is
+  structural: the ring's loop does no bus work, so no receive can stand
+  between it and its Stop, Authority and expiry.
+- The head's thread keeps the hand's time with its expiry, the state's stamp
+  plus Controls' 300 ms. The ring's loop checks that expiry itself, so if
+  the thread stalls, the hand lapses on time and stops dimming the face
+  (#849 review).
+- **Shown:** at rest, the resting face becomes the listening face, the one a
+  turn shows while it listens, for `TAP_LISTENS_US` (2 s, as long as a call
+  waits for the rest on lamp-4ace, #891).
+- **Speech in the window** is a turn, whose own listening face goes on from
+  there.
+- **Afterwards:** if nothing comes, the face settles back to its own light,
+  most of the way in about half a second (`SETTLE_EASE_US` 170 ms, 600 ms in
+  all), slower than the ring's usual easing, so it does not snap.
+- **The hum's own turn** owns the lamp for its 0.3 s, when no resting frame
+  may be shown. Each of its frames is the listening face instead
+  (`RingFrame::listening`, stamped by the coordinator for a `HeadCue` turn,
+  from the pass that admits it), so the face does not wait for the hum to end.
+- **Not changed:** other turns' faces, and the ring's refusal of a resting
+  frame when nobody may listen.
+
+It is one gesture with the voice's "hm?" ([attention.md](attention.md#a-tap-on-its-head-is-a-call-711))
+and Expression's look-up ([alive.md](alive.md)), all from the one tap event
+(First, #711, 05:05).
+
 ### The eye (task 34, #712)
 
 Off unless set: `LAMP_RING_EYE=on` (or `strong`, below) in the voice's unit, which the voice

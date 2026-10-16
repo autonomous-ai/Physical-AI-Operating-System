@@ -9,14 +9,42 @@ use crate::{
     touch_pins::TouchPinsConfig,
     touch_replay::{Input, Record},
 };
-use lamp_bus::{Bus, Published, Publisher};
+use lamp_bus::{Bus, Message, Published, Publisher};
 use lamp_msgs::{
-    ControlFault, ControlGesture, ControlsState, Diagnostic, Level, TouchEvent, TouchState,
+    ControlFault, ControlGesture, ControlsState, Diagnostic, Hand, Level, TouchEvent, TouchState,
 };
 use std::{fs::File, io, path::Path};
 
 pub const DRAIN_LIMIT: usize = 32;
 pub const STATE_EVERY_US: u64 = 20_000;
+/// How often the body's `body/hand` is looked at. The body says it with
+/// every step it passes on, every 80 ms.
+pub const HAND_EVERY_US: u64 = 20_000;
+
+/// Whether the body feels the head pushed by hand now (#711): a fresh
+/// `body/hand` from the body that says so. Missing, expired or from anyone
+/// else is not pushed, so a stopped body never silences the head.
+pub fn pushed_now(message: Option<&Message>, now_unix_ms: u64) -> bool {
+    message.is_some_and(|message| {
+        !message.expired
+            && !message.header.expired_at(now_unix_ms)
+            && message.header.source == "body"
+            && message.parse::<Hand>().is_ok_and(|hand| hand.pushed)
+    })
+}
+
+/// The body's hand, read from the bus at most every [`HAND_EVERY_US`].
+struct HandIn {
+    bus: Bus,
+    looked_us: Option<u64>,
+    pushed: bool,
+}
+
+fn unix_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |since| since.as_millis() as u64)
+}
 
 pub struct Service<G: PinReader, S: StripReader> {
     gpio: G,
@@ -35,6 +63,7 @@ pub struct Service<G: PinReader, S: StripReader> {
     last_strip_error: Option<String>,
     last_gpio_error: Option<String>,
     recorder: Option<crate::record::Recorder>,
+    hand: HandIn,
     _lock: File,
 }
 
@@ -115,8 +144,33 @@ impl<G: PinReader, S: StripReader> Service<G, S> {
             last_strip_error: None,
             last_gpio_error: None,
             recorder: None,
+            hand: HandIn {
+                bus: bus.clone(),
+                looked_us: None,
+                pushed: false,
+            },
             _lock: lock,
         })
+    }
+
+    /// Before the head's samples: a touch that begins while the head is
+    /// pushed asks nothing from its first sample.
+    fn look_at_hand(&mut self, now_us: u64) {
+        if self
+            .hand
+            .looked_us
+            .is_some_and(|at| now_us.saturating_sub(at) < HAND_EVERY_US)
+        {
+            return;
+        }
+        self.hand.looked_us = Some(now_us);
+        let latest = self.hand.bus.latest(Hand::TOPIC).ok().flatten();
+        let pushed = pushed_now(latest.as_ref(), unix_ms());
+        if pushed != self.hand.pushed {
+            self.hand.pushed = pushed;
+            self.record(now_us, Input::HeadPushed { pushed });
+            self.engine.set_head_pushed(pushed);
+        }
     }
 
     pub fn record_to(&mut self, path: &Path) -> io::Result<()> {
@@ -196,6 +250,7 @@ impl<G: PinReader, S: StripReader> Service<G, S> {
 
     pub fn step(&mut self, now: impl Fn() -> u64) -> TouchOutput {
         let began = now();
+        self.look_at_hand(began);
         let mut drained = 0;
         for _ in 0..DRAIN_LIMIT {
             match self.gpio.read(now()) {

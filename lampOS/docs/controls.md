@@ -40,8 +40,11 @@ of the lamp's current state or of an action applied.
 
 | Observation | While awake | Contact began asleep |
 |---|---|---|
-| Qualified head or three-pad base touch | Stop if speaking, Attend if quiet | Wake |
-| Continuously observed head hold, at least 500 ms | Stroke | No further request |
+| Qualified head touch (20 ms) | Stop if speaking, Notice (nothing asked) if quiet | No request |
+| Head tap: qualified, let go before 0.5 s from its first acquisition | Attend | Wake |
+| Head hand kept 1 s | Stroke | No request |
+| Head hand kept 3 s | Sleep | No request |
+| Qualified three-pad base touch | Stop if speaking, Attend if quiet | Wake |
 | Stationary qualified base held two seconds | Sleep | Wake |
 | Moving base contact | Slide; an eligible slow movement also emits Stroke | No further request |
 | Optional primary button, short release | Stop | Stop |
@@ -110,12 +113,44 @@ least one rank travelled, and mean travel at most two ranks/second over that
 moving span. This authored heuristic needs hands-on qualification; a pause
 followed by travel can lower its estimate.
 
-Known head inputs settle for 500 ms and qualify a touch for 20 ms. Head Stroke
-requires **actual continuous active observations** for 500 ms. V1 FastMode
-TTP223 pads can pulse for about 50–100 ms while a hand remains there: low
-gaps are not joined into an invented sustained hand. On such a unit Stroke
-may never occur. Touch remains useful. Polling can miss a pulse shorter than
-its interval; start qualification at 5 ms, and measure actual hand latency.
+Known head inputs settle for 500 ms and qualify a touch after 20 ms of
+unbroken active acquisitions. **The head carries every touch action**
+(the owner, 2026-10-15; [creature.md](creature.md#touch), #711), so a hand
+that stays must stay one hand: V1 FastMode TTP223 pads can pulse for about
+50–100 ms while a hand remains there, so released acquisitions shorter than
+the gap do not end a contact. Only an unbroken qualifying run starts the
+requests, so short blips joined by gaps never do. Three settings in the touch
+pins file, each optional, are to be sized from a recording of lamp-4ace's
+pads (First, #711):
+
+| Setting | Default | Bounds | What it does |
+|---|---|---|---|
+| `head_qualify_ms` | 20 | 20..200 | An unbroken active run this long qualifies a touch: the Stop |
+| `head_tap_min_ms` | 120 | qualify..499 | A tap is let go no sooner; just above the lone 117 ms edge lamp-4ace's journal showed at 19:25 with nobody known at the lamp |
+| `head_gap_ms` | 150 | 0..500 | Released acquisitions shorter than this do not end a hand |
+
+A lone short edge can therefore stop speech at 20 ms, as any touch does,
+but never asks the lamp to listen or wake. The contact's time,
+through such gaps, is `touch_state.held_us`, the countdown readers use;
+Stroke comes at 1 s and Hold (Sleep) at 3 s of it. A tap is confirmed only
+when the gap has passed with the head released, so Attend and Wake come
+one gap after the hand leaves; Stop comes at qualification, not at
+the release. After a Stroke the letting go asks nothing: it was affection.
+
+`TouchEngine::set_head_pushed` takes the body's "the head is being pushed by
+hand now". A contact that overlaps a push asks nothing more from then on and
+reports no `held_us`; a push felt before the touch qualifies stops even the
+Stop. A Stop already sent stands: waiting to feel a push would break the
+150 ms stop. In `--touch` serve, the runtime reads the body's `body/hand`
+(#848) every 20 ms, before each step's head samples, so a touch that begins
+during a push asks nothing from its first sample. Only a fresh message from
+the body that says `pushed` counts: missing, expired (the body gives each one
+at most a second) or from anyone else is not a push, so a stopped body never
+silences the head. A change is recorded as `head_pushed`, and a replay applies
+it as the runtime did. The body feels a push reliably with `--give-way`, on
+lamp-4ace since 2026-10-15 (the fifth, #703).
+Polling can miss a pulse shorter than its interval; start qualification at
+5 ms, and measure actual hand latency.
 
 Both sources preserve acquisition time and consecutive sequence, rejecting
 100 ms age/gaps, future/duplicate/reordered samples, wrong clocks, source
@@ -627,6 +662,7 @@ Voice's switches are independent and absent by default:
 | `--controls-stop` | Consume fresh, deduplicated Stop in the coordinator. |
 | `--controls-mute ABS_PRIVATE_RECORD` | Restore software mute and enable released-hold mute/fresh-second-hold clear. The parent directory must already exist, be trusted and private (0700). |
 | `--controls-bus-root ABS_PATH` | Override `LAMP_BUS_ROOT` or `/run/lampos-bus`; this option alone enables nothing. |
+| `LAMP_HEAD_TOUCH=on` (environment) | Consume the head pads' requests from `--touch` Controls (#711). A qualified head touch stops the lamp while it says its answer (its reply has audio or playback), through the same cancellation as Stop; while it is quiet or still thinking, it is only noted (`head_touch_noticed`). With `--controls-mute` too, a hand held 3 s on the head puts the lamp to sleep: the software mute with the reason `sleep`, traced as `head_sleep` (`hand_control_cancel` and `service_cycle_muted`); a later tap on the head wakes it through the saved clear, as the usual unmute does. A tap on a quiet lamp plays a soft "hm?" of its own, at most once in 30 s ([attention.md](attention.md#a-tap-on-its-head-is-a-call-711)). The voice then says `voice/mute` (muted, and `reason: sleep` while asleep) when it changes and every second, in a conversation and in the wait, from its one controls pump. Without `--controls-mute` a hold is not a sleep and `voice/mute` is not said. A head tap counts as a call for 2 s in the attention rule, the window the ring and Expression show, with `LAMP_BUS=on` ([attention.md](attention.md#a-tap-on-its-head-is-a-call-711)). A hand kept on the head dims the ring's face from 1 to 3 s, a countdown to sleep ([ring-choreography.md](ring-choreography.md#a-hand-kept-on-the-head-the-countdown-711)). |
 
 For example, append the selected options to `lamp-voice serve
 PRIVATE_CONFIG.json NEW_OUTPUT`. No controls clock/file read or pump starts
@@ -663,6 +699,25 @@ timestamps are rebased to the new boot while the muted value is preserved.
 The same-boot release watermark prevents a retained pre-clear hold from
 re-muting. The JSON file is private; no CLI edits it behind the live owner.
 
+**Sleep from the head is this mute with a reason (#711).** First decided it
+on #711: one way to switch the microphones off, kept across restarts and
+updates, so a lamp put to sleep stays asleep. `MuteRecord` has an optional
+`reason`, written only while muted (`"reason":"sleep"`); a record without it
+reads as before, and an unmuted record with one is refused.
+- `Receiver::request_sleep` takes a head Hold that `TouchReceiver` accepted:
+  muted, reason `sleep`, persisted as any new mute. A contact that began at
+  or before the last mute change or clear asks nothing, so a hand that woke
+  the lamp cannot send it back. A lamp already muted keeps its mute and
+  reason: sleep never takes over a person's privacy mute.
+- `Receiver::request_wake` takes a head Tap that `TouchReceiver` accepted,
+  only while the reason is `sleep`, only with `with_hold_clear`, only for a
+  tap that began after the owner's clear fence and the sleep, and released
+  within 500 ms. It marks the clear pending; the quiescent owner prepares,
+  saves and commits it exactly as for a clearing hold.
+- The button's hold still clears a sleep. A button hold that becomes a mute
+  instead makes the reason none: a person's privacy, which a tap never opens.
+- A rebased record keeps its reason across a machine reboot.
+
 Before audio starts, `arm_active` durably stores a conservative muted recovery
 record without changing the live preference. A crash, provider fault or failed
 cleanup therefore restores muted, even if no hand mute had been requested. This
@@ -689,7 +744,22 @@ has no hard userspace bound and happens only outside the urgent audio loop.
 
 The design target is **2 ms from coordinator observation to the local speaker
 stop-authority send**. `hand_control_cancel` names both timestamps and the
-original release separately. Injected-clock checks cover that software boundary;
+original release separately; for a head touch, `reason` is `head_stop` and
+`acquired_at_us` is Controls' qualifying acquisition.
+
+**The head's stop (#711), from the touch to the speaker:** Controls qualifies
+a touch after 20 ms of contact, at its next 5 ms acquisition; the bus and the
+pump bring it to the coordinator's poll; the same cancellation sends the
+speaker its stop. Measured on Third's Intel i7 Mac (macOS 26.6.2, release
+build, `head_touch_bus_to_poll_latency`, ignored by default), from the touch
+state and event being published on a real bus to the listener accepting it,
+three runs of 100: medians 2.0, 2.1 and 1.8 ms, p95 2.7 ms in each, and a
+worst of 2.9 ms in the first (the other two worsts were not kept).
+It is bounded by the pump's 2 ms tick. An earlier run once failed to deliver
+a touch within 2 s; it did not happen again in three runs, and the probe now
+prints the listener's counts if it does. The 150 ms target from the touch to
+silence still needs the lamp: the pad itself, the speaker worker and the
+device's own buffer are not in these numbers. Injected-clock checks cover that software boundary;
 GPIO recognition, bus/pump delivery, speaker processing and acoustic silence are
 outside it. Measured results belong in the qualification entry, with their
 machine and exact boundary, not inferred from this target.

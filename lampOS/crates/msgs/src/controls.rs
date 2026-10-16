@@ -326,6 +326,9 @@ pub enum TouchGesture {
 #[serde(rename_all = "snake_case")]
 pub enum TouchIntent {
     Stop,
+    /// Felt, and nothing asked: the owner may show it, and does nothing else
+    /// (a head touch while the lamp is quiet, before it is known to be a tap).
+    Notice,
     Attend,
     Stroke,
     Sleep,
@@ -437,15 +440,31 @@ impl TouchEvent {
                     && self.released_us == Some(self.observed_us)
                     && age >= 5_000_000
             }
+            // The head (#711, `docs/creature.md` "Touch"): a touch stops the
+            // lamp talking at once; only a short tap, let go, asks it to
+            // listen; a hand kept there is affection, and then sleep.
             (TouchSource::Head, TouchGesture::Touch) => {
-                pair == (TouchIntent::Stop, TouchIntent::Attend)
+                pair == (TouchIntent::Stop, TouchIntent::Notice)
                     && age >= 20_000
                     && self.released_us.is_none()
                     && self.active_mask != 0
             }
+            (TouchSource::Head, TouchGesture::Tap) => {
+                pair == (TouchIntent::Attend, TouchIntent::Attend)
+                    && self.active_mask == 0
+                    && self.released_us.is_some_and(|released| {
+                        (20_000..500_000).contains(&(released - self.began_us))
+                    })
+            }
             (TouchSource::Head, TouchGesture::Stroke) => {
                 pair == (TouchIntent::Stroke, TouchIntent::Stroke)
-                    && age >= 500_000
+                    && age >= 1_000_000
+                    && self.released_us.is_none()
+                    && self.active_mask != 0
+            }
+            (TouchSource::Head, TouchGesture::Hold) => {
+                pair == (TouchIntent::Sleep, TouchIntent::Sleep)
+                    && age >= 3_000_000
                     && self.released_us.is_none()
                     && self.active_mask != 0
             }
@@ -482,7 +501,7 @@ impl TouchEvent {
             (TouchSource::Primary, TouchGesture::Tap) => Some(TouchIntent::Stop),
             (TouchSource::Primary, TouchGesture::Hold) => Some(TouchIntent::SoftwareMute),
             (TouchSource::Reset, TouchGesture::Hold) => Some(TouchIntent::FactoryReset),
-            (TouchSource::Head, TouchGesture::Touch)
+            (TouchSource::Head, TouchGesture::Tap)
             | (TouchSource::Strip, TouchGesture::Touch | TouchGesture::Hold) => {
                 Some(TouchIntent::Wake)
             }
@@ -548,8 +567,10 @@ impl TouchSourceState {
                 .began_us
                 .is_some_and(|began| self.observed_us.is_none_or(|at| began > at))
             || self.held_us.is_some_and(|held| {
+                // A head hand lasts through a pulse's short released gap (#711).
+                let through_gap = self.source == TouchSource::Head && self.active == Some(false);
                 !self.armed
-                    || self.active != Some(true)
+                    || (self.active != Some(true) && !through_gap)
                     || self
                         .began_us
                         .zip(self.observed_us)

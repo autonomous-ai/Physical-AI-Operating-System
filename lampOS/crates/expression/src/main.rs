@@ -20,7 +20,7 @@ use std::{
     time::Duration,
 };
 
-const USAGE: &str = "lamp-expression serve [--enable] [--bus-root PATH] [--clock-id ID] [--catalogue FILE] [--record FILE] [--seconds N] [--utc-offset-minutes N] [--kernel-clock]\n\
+const USAGE: &str = "lamp-expression serve [--enable] [--bus-root PATH] [--clock-id ID] [--catalogue FILE] [--record FILE] [--seconds N] [--utc-offset-minutes N] [--kernel-clock] [--head-touch]\n\
 lamp-expression replay --input FILE [--output FILE] --clock-id ID [--enable] [--catalogue FILE] [--until-us N] [--long]\n\
 lamp-expression import --clock-id ID [--long] [--utc-offset-minutes N] FILE...\n\
 lamp-expression catalogue\n\
@@ -32,6 +32,8 @@ Output files are created new, never overwritten. Live --record is bounded to 64 
 --long lets replay and import take an hour (docs/alive.md). --utc-offset-minutes is the\n\
 local time's minutes east of UTC (420 in Vietnam), which a catalogue with sleep needs.\n\
 --kernel-clock gives the time of day only while the kernel says the clock is set.\n\
+--head-touch reads the head's requests from --touch Controls: a hand kept on the head is leaned\n\
+into, a three-second hold puts it to sleep, a tap wakes it (docs/alive.md, #711).\n\
 No command opens hardware, launches a provider, or changes a device's service settings.";
 
 #[derive(Debug, Default)]
@@ -50,6 +52,7 @@ struct Arguments {
     imports: Vec<PathBuf>,
     long: bool,
     utc_offset_minutes: Option<i32>,
+    head_touch: bool,
 }
 
 fn parse(arguments: impl IntoIterator<Item = String>) -> Result<Option<Arguments>, String> {
@@ -89,6 +92,7 @@ fn parse(arguments: impl IntoIterator<Item = String>) -> Result<Option<Arguments
                 "--seconds",
                 "--utc-offset-minutes",
                 "--kernel-clock",
+                "--head-touch",
             ]
             .contains(&option.as_str()),
             "replay" => [
@@ -118,6 +122,10 @@ fn parse(arguments: impl IntoIterator<Item = String>) -> Result<Option<Arguments
         }
         if option == "--long" {
             out.long = true;
+            continue;
+        }
+        if option == "--head-touch" {
+            out.head_touch = true;
             continue;
         }
         let value = arguments
@@ -270,11 +278,19 @@ fn run(args: Arguments) -> Result<(), Box<dyn std::error::Error>> {
     if args.kernel_clock {
         service = service.with_clock_check(lamp_ipc::clock_synced);
     }
+    if args.head_touch {
+        service = service.with_head_touch(&bus)?;
+    }
     eprintln!(
-        "lamp-expression: started mode={} clock_id={} root={}",
+        "lamp-expression: started mode={} clock_id={} root={}{}",
         if args.enabled { "enabled" } else { "shadow" },
         clock,
-        bus.root().display()
+        bus.root().display(),
+        if args.head_touch {
+            " head_touch=true"
+        } else {
+            ""
+        }
     );
     let began = lamp_ipc::monotonic_us();
     loop {

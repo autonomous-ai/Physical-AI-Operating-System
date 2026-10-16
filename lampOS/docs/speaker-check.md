@@ -47,7 +47,13 @@ through `dispatch_speaker_chunk` as the failure notice is
 (`SpeechOrigin::SelfTest`). So every chunk reaches `SpeakerChunk` under an
 output permit and becomes the echo canceller's reference, and the turn
 settles once its last chunk retires. The ring is told to show nothing before the
-turn is admitted, so not even the pass that admits it prepares a frame.
+turn is admitted, so not even the pass that admits it prepares a frame. The
+head tap's "hm?" (#711) is played the same way, through the same
+`commit_sound_turn`, as `SpeechOrigin::HeadCue`
+([attention.md](attention.md#a-tap-on-its-head-is-a-call-711)). The row for
+the first chunk reserved is named for what plays: `selftest_tone_attempted`
+for the tone (it was `failure_notice_attempted` before 2026-10-16), as its
+`_first_write` and `_final_sample_retired` rows always were.
 
 ## What it measures
 

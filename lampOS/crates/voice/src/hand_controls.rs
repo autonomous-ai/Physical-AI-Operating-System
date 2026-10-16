@@ -7,15 +7,18 @@
 //! cleanup, or a stop the service was asked for (SIGTERM, an update; #960),
 //! may disarm that guard, writing the live latch as it was. An unacknowledged request before any durable
 //! write cannot be promised to survive arbitrary storage/power failure.
-use lamp_bus::{Bus, Kind, Message, Notice, Subscriber};
-use lamp_controls::{mute::MuteRecord, receiver::Receiver};
-use lamp_msgs::{ControlGesture, ControlIntent, ControlsState};
+use lamp_bus::{Bus, Kind, Message, Notice, Publisher, Subscriber};
+use lamp_controls::{mute::MuteRecord, receiver::Receiver, touch_receiver::TouchReceiver};
+use lamp_msgs::{
+    ControlGesture, ControlIntent, ControlsState, MuteReason, TouchEvent, TouchGesture,
+    TouchSource, TouchState, VoiceMute,
+};
 use std::{
     io,
     path::{Path, PathBuf},
     sync::{
         Arc,
-        atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering},
+        atomic::{AtomicBool, AtomicU8, AtomicU64, AtomicUsize, Ordering},
         mpsc::{self, Receiver as ChannelReceiver, SyncSender, TryRecvError, TrySendError},
     },
     thread::{self, JoinHandle},
@@ -27,6 +30,8 @@ const POLL_LIMIT: usize = 16;
 const PUMP_TICK: Duration = Duration::from_millis(2);
 const RECONNECT_AFTER: Duration = Duration::from_millis(250);
 const FINAL_JOIN_WAIT: Duration = Duration::from_millis(20);
+/// `voice/mute` is said when it changes and at least this often.
+const MUTE_SAID_EVERY: Duration = Duration::from_secs(1);
 const SUBSCRIBER: &str = "voice_hand";
 
 fn invalid(message: &str) -> io::Error {
@@ -40,11 +45,30 @@ pub struct ControlsOptions {
     pub mute_record: Option<PathBuf>,
     /// Overrides `LAMP_BUS_ROOT`; neither setting alone enables consumption.
     pub bus_root: Option<PathBuf>,
+    /// The head pads' requests on `controls/touch` (#711): a qualified touch
+    /// stops the lamp while it speaks. With `mute_record` too, a hand held on
+    /// the head puts it to sleep (the software mute, reason `sleep`), a tap
+    /// wakes it, and `voice/mute` says which. `LAMP_HEAD_TOUCH=on`; off
+    /// unless set.
+    pub head_touch: bool,
+}
+
+/// `on` for the head pads' requests ([`ControlsOptions::head_touch`]).
+pub const HEAD_TOUCH_ENVIRONMENT: &str = "LAMP_HEAD_TOUCH";
+
+/// Whether the environment says `LAMP_HEAD_TOUCH=on`.
+pub fn head_touch_from_environment() -> bool {
+    std::env::var(HEAD_TOUCH_ENVIRONMENT).ok().as_deref() == Some("on")
 }
 
 impl ControlsOptions {
     pub fn enabled(&self) -> bool {
-        self.stop || self.mute_record.is_some()
+        self.stop || self.mute_record.is_some() || self.head_touch
+    }
+
+    /// Sleep from the head needs both its switch and the durable mute.
+    pub fn head_sleep(&self) -> bool {
+        self.head_touch && self.mute_record.is_some()
     }
 
     /// Shape checks only: disabled options never open a path or start a thread.
@@ -81,6 +105,17 @@ pub struct Observation {
     /// Earliest original release accepted for Stop/mute in this poll. Neither
     /// timestamp is speaker delivery or evidence of acoustic silence.
     pub acquired_at_us: Option<u64>,
+    /// The acquisition of a qualified head touch accepted in this poll
+    /// (#711). It asks a speaking lamp to stop and a quiet one nothing; the
+    /// coordinator, which knows which it is, decides.
+    pub head_touch_at_us: Option<u64>,
+    /// The acquisition of a head tap accepted in this poll (#711), and when
+    /// its hand arrived.
+    pub head_tap_at_us: Option<u64>,
+    pub head_tap_began_us: Option<u64>,
+    /// The software mute is set because a hand held on the head put the lamp
+    /// to sleep (#711); always with `muted`.
+    pub asleep: bool,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -104,6 +139,32 @@ struct Shared {
     queued: AtomicUsize,
     running: AtomicBool,
     stop: AtomicBool,
+    /// The live latch for `voice/mute` (#711): `LATCH_*`, set by the owner
+    /// and said by the pump.
+    latch: AtomicU8,
+}
+
+const LATCH_NONE: u8 = 0;
+const LATCH_OPEN: u8 = 1;
+const LATCH_MUTED: u8 = 2;
+const LATCH_ASLEEP: u8 = 3;
+
+fn latch_message(latch: u8) -> Option<VoiceMute> {
+    match latch {
+        LATCH_OPEN => Some(VoiceMute {
+            muted: false,
+            reason: None,
+        }),
+        LATCH_MUTED => Some(VoiceMute {
+            muted: true,
+            reason: None,
+        }),
+        LATCH_ASLEEP => Some(VoiceMute {
+            muted: true,
+            reason: Some(MuteReason::Sleep),
+        }),
+        _ => None,
+    }
 }
 
 fn add(counter: &AtomicU64, amount: u64) {
@@ -131,6 +192,8 @@ impl Shared {
 enum Input {
     State(Box<ControlsState>),
     Pet(ControlGesture),
+    TouchState(Box<TouchState>),
+    Touch(Box<TouchEvent>),
 }
 
 struct Queued {
@@ -180,6 +243,9 @@ pub struct HandControls {
     dirty: bool,
     armed: bool,
     persistence_failed: bool,
+    /// The head pads' requests, checked as Controls' own receiver does:
+    /// fresh, from the current Controls and reader, each once.
+    touch: Option<TouchReceiver>,
     // One handle for the entire service, not one per supervised audio cycle.
     _pump: Option<Pump>,
 }
@@ -200,6 +266,7 @@ impl HandControls {
                 stop: true,
                 ..Default::default()
             },
+            clock_id,
             MuteRecord::new(clock_id)?,
             input,
             shared,
@@ -207,6 +274,107 @@ impl HandControls {
         )?;
         enqueue(&sender, &owner.shared, Input::State(Box::new(state)));
         Ok(owner)
+    }
+
+    /// As [`Self::with_test_state`], for the head pads: their state, then
+    /// their events, as the touch runtime publishes them.
+    #[cfg(test)]
+    pub(crate) fn with_test_touch(
+        clock_id: &str,
+        started_us: u64,
+        state: TouchState,
+        events: Vec<TouchEvent>,
+    ) -> io::Result<Self> {
+        let (sender, input) = mpsc::sync_channel(QUEUE_CAPACITY);
+        let shared = Arc::new(Shared::default());
+        let owner = Self::from_parts(
+            ControlsOptions {
+                head_touch: true,
+                ..Default::default()
+            },
+            clock_id,
+            MuteRecord::new(clock_id)?,
+            input,
+            shared,
+            started_us,
+        )?;
+        enqueue(&sender, &owner.shared, Input::TouchState(Box::new(state)));
+        for event in events {
+            enqueue(&sender, &owner.shared, Input::Touch(Box::new(event)));
+        }
+        Ok(owner)
+    }
+
+    /// As [`Self::with_test_touch`], for a tap on the head (#711): the head
+    /// seen settled from `tapped_us - 900 ms`, a hand on it from `tapped_us`
+    /// for 200 ms, then off until `tapped_us + 400 ms`. Every step before
+    /// the tap is raised is taken now; the rest, the tap with it, wait in
+    /// the queue for the first poll. So a tap's hand began after its
+    /// reader was seen, as on a lamp, and the tap is fresh at that poll.
+    #[cfg(test)]
+    pub(crate) fn with_test_tap(clock_id: &str, tapped_us: u64) -> io::Result<Self> {
+        let (sender, input) = mpsc::sync_channel(QUEUE_CAPACITY);
+        let mut owner = Self::from_parts(
+            ControlsOptions {
+                head_touch: true,
+                ..Default::default()
+            },
+            clock_id,
+            MuteRecord::new(clock_id)?,
+            input,
+            Arc::new(Shared::default()),
+            tapped_us - 1_000_000,
+        )?;
+        let mut head = TestHead::new(clock_id, tapped_us - 900_000);
+        let mut ticks = head.run(tapped_us - 10_000, false);
+        ticks.extend(head.run(tapped_us + 190_000, true));
+        ticks.extend(head.run(tapped_us + 400_000, false));
+        let raised = ticks
+            .iter()
+            .position(|(_, _, events)| events.iter().any(|e| e.gesture == TouchGesture::Tap))
+            .expect("Controls raises a tap");
+        let waiting = ticks.split_off(raised);
+        for (at, state, events) in ticks {
+            enqueue(&sender, &owner.shared, Input::TouchState(Box::new(state)));
+            for event in events {
+                enqueue(&sender, &owner.shared, Input::Touch(Box::new(event)));
+            }
+            owner.poll_with_clock(|| at)?;
+        }
+        for (_, state, events) in waiting {
+            enqueue(&sender, &owner.shared, Input::TouchState(Box::new(state)));
+            for event in events {
+                enqueue(&sender, &owner.shared, Input::Touch(Box::new(event)));
+            }
+        }
+        // The queue's sender stays open: a closed one is input lost.
+        std::mem::forget(sender);
+        Ok(owner)
+    }
+
+    /// As [`Self::with_test_touch`], already put to sleep by a hand held on
+    /// the head (#711), its durable mute at `record` (never written here).
+    #[cfg(test)]
+    pub(crate) fn with_test_asleep(
+        clock_id: &str,
+        started_us: u64,
+        record: &Path,
+    ) -> io::Result<Self> {
+        let (_sender, input) = mpsc::sync_channel(QUEUE_CAPACITY);
+        let mut asleep = MuteRecord::new(clock_id)?;
+        assert!(asleep.request_sleep(started_us / 2));
+        Self::from_parts(
+            ControlsOptions {
+                head_touch: true,
+                mute_record: Some(record.to_path_buf()),
+                ..Default::default()
+            },
+            clock_id,
+            asleep,
+            input,
+            Arc::new(Shared::default()),
+            started_us,
+        )
     }
 
     /// Restore and validate durability before any Voice worker is opened.
@@ -231,13 +399,16 @@ impl HandControls {
         };
         let (sender, input) = mpsc::sync_channel(QUEUE_CAPACITY);
         let shared = Arc::new(Shared::default());
-        let mut controls = Self::from_parts(options.clone(), record, input, shared, now_us)?;
+        let mut controls =
+            Self::from_parts(options.clone(), &clock_id, record, input, shared, now_us)?;
         let root = options
             .bus_root
             .clone()
             .or_else(|| std::env::var_os(lamp_bus::ROOT_VARIABLE).map(PathBuf::from))
             .unwrap_or_else(|| PathBuf::from(lamp_bus::DEFAULT_ROOT));
         let pump_shared = Arc::clone(&controls.shared);
+        let head_touch = options.head_touch;
+        let say_mute = options.head_sleep();
         let (finished, completion) = mpsc::sync_channel(1);
         let worker = thread::Builder::new()
             .name("voice-hand-controls".into())
@@ -247,7 +418,7 @@ impl HandControls {
                     shared: Arc::clone(&pump_shared),
                     finished,
                 };
-                pump(root, sender, &pump_shared);
+                pump(root, head_touch, say_mute, sender, &pump_shared);
             })?;
         controls._pump = Some(Pump {
             thread: Some(worker),
@@ -259,6 +430,7 @@ impl HandControls {
 
     fn from_parts(
         options: ControlsOptions,
+        clock_id: &str,
         record: MuteRecord,
         input: ChannelReceiver<Queued>,
         shared: Arc<Shared>,
@@ -269,7 +441,12 @@ impl HandControls {
         } else {
             Receiver::new(record)?
         };
-        Ok(Self {
+        let touch = options
+            .head_touch
+            .then(|| TouchReceiver::new(clock_id))
+            .transpose()
+            .map_err(|_| invalid("head touch needs a valid controls clock"))?;
+        let controls = Self {
             options,
             receiver,
             input,
@@ -278,8 +455,27 @@ impl HandControls {
             dirty: false,
             armed: false,
             persistence_failed: false,
+            touch,
             _pump: None,
-        })
+        };
+        controls.share_latch();
+        Ok(controls)
+    }
+
+    /// The live latch for the pump to say on `voice/mute`, only where sleep
+    /// from the head is on.
+    fn share_latch(&self) {
+        if !self.options.head_sleep() {
+            return;
+        }
+        let latch = if !self.muted() {
+            LATCH_OPEN
+        } else if self.asleep() {
+            LATCH_ASLEEP
+        } else {
+            LATCH_MUTED
+        };
+        self.shared.latch.store(latch, Ordering::Release);
     }
 
     pub fn health(&self) -> Health {
@@ -296,6 +492,15 @@ impl HandControls {
 
     fn muted(&self) -> bool {
         self.options.mute_record.is_some() && self.receiver.mute_record().muted
+    }
+
+    /// The head pads' requests are read (`LAMP_HEAD_TOUCH=on`, #711).
+    pub fn head_touch(&self) -> bool {
+        self.options.head_touch
+    }
+
+    fn asleep(&self) -> bool {
+        self.options.mute_record.is_some() && self.receiver.mute_record().asleep()
     }
 
     fn fence_at(&mut self, now_us: u64) {
@@ -364,6 +569,27 @@ impl HandControls {
                     Ok(false) => {}
                     Err(_) => add(&self.shared.rejected, 1),
                 },
+                Input::TouchState(state) => {
+                    let accepted = self
+                        .touch
+                        .as_mut()
+                        .map(|touch| touch.observe(now_us, &state));
+                    match accepted {
+                        Some(Ok(events)) => events
+                            .iter()
+                            .for_each(|event| self.head_event(now_us, event, &mut observation)),
+                        Some(Err(_)) => add(&self.shared.rejected, 1),
+                        None => {}
+                    }
+                }
+                Input::Touch(event) => {
+                    let accepted = self.touch.as_mut().map(|touch| touch.event(now_us, &event));
+                    match accepted {
+                        Some(Ok(Some(event))) => self.head_event(now_us, &event, &mut observation),
+                        Some(Ok(None)) | None => {}
+                        Some(Err(_)) => add(&self.shared.rejected, 1),
+                    }
+                }
             }
         }
         // A full batch may have newer requests still queued. It cannot clear.
@@ -376,10 +602,59 @@ impl HandControls {
             self.fence_at(now_us);
         }
         observation.muted = self.muted();
-        if observation.stop || observation.mute_changed {
+        observation.asleep = self.asleep();
+        self.share_latch();
+        if observation.stop
+            || observation.mute_changed
+            || observation.head_touch_at_us.is_some()
+            || observation.head_tap_at_us.is_some()
+        {
             observation.observed_at_us = Some(now_us);
         }
         Ok(observation)
+    }
+
+    /// One accepted head request (#711): a touch for the coordinator to stop
+    /// on or note, a tap, and with the durable mute a hold's sleep and a
+    /// tap's wake. Sleep is the software mute with the reason `sleep`: it is
+    /// revoked and persisted as any mute. A wake only makes the clear
+    /// pending; the quiescent owner saves it before the latch opens.
+    fn head_event(&mut self, now_us: u64, event: &TouchEvent, observation: &mut Observation) {
+        if event.source != TouchSource::Head {
+            return;
+        }
+        let mute = self.options.mute_record.is_some();
+        match event.gesture {
+            TouchGesture::Touch => earlier(&mut observation.head_touch_at_us, event.observed_us),
+            TouchGesture::Hold if mute => {
+                match self
+                    .receiver
+                    .request_sleep(now_us, event.began_us, event.observed_us)
+                {
+                    Ok(true) => {
+                        self.dirty = true;
+                        observation.mute_changed = true;
+                        earlier(&mut observation.acquired_at_us, event.observed_us);
+                    }
+                    Ok(false) => {}
+                    Err(_) => add(&self.shared.rejected, 1),
+                }
+            }
+            TouchGesture::Tap => {
+                earlier(&mut observation.head_tap_at_us, event.observed_us);
+                earlier(&mut observation.head_tap_began_us, event.began_us);
+                if mute
+                    && let Some(released_us) = event.released_us
+                    && self
+                        .receiver
+                        .request_wake(now_us, event.began_us, released_us)
+                        .is_err()
+                {
+                    add(&self.shared.rejected, 1);
+                }
+            }
+            _ => {}
+        }
     }
 
     /// Discard any queued/previous clear before an active runtime transition.
@@ -439,6 +714,8 @@ impl HandControls {
         self.persist_muted()?;
         let allowed = self.after_persistence(now)?;
         observation.muted = self.muted();
+        observation.asleep = self.asleep();
+        self.share_latch();
         Ok((allowed, observation))
     }
 
@@ -534,19 +811,42 @@ fn wall_ms() -> u64 {
         })
 }
 
-fn parse(message: Message, state: bool, now_unix_ms: u64) -> io::Result<Input> {
+/// What one subscription carries.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Topic {
+    State,
+    Gesture,
+    /// The head pads' (`--touch` Controls; #711).
+    TouchState,
+    Touch,
+}
+
+fn parse(message: Message, topic: Topic, now_unix_ms: u64) -> io::Result<Input> {
     let header = &message.header;
-    let (topic, type_name, kind, ttl) = if state {
-        (ControlsState::TOPIC, ControlsState::TYPE, Kind::Latest, 300)
-    } else {
-        (
+    let state = topic == Topic::State;
+    let (name, type_name, kind, ttl) = match topic {
+        Topic::State => (ControlsState::TOPIC, ControlsState::TYPE, Kind::Latest, 300),
+        Topic::Gesture => (
             ControlGesture::TOPIC,
             ControlGesture::TYPE,
             Kind::Event,
             500,
-        )
+        ),
+        Topic::TouchState => (
+            TouchState::TOPIC,
+            TouchState::TYPE,
+            Kind::Latest,
+            lamp_msgs::TOUCH_STATE_TTL_US / 1_000,
+        ),
+        Topic::Touch => (
+            TouchEvent::TOPIC,
+            TouchEvent::TYPE,
+            Kind::Event,
+            lamp_msgs::TOUCH_EVENT_TTL_US / 1_000,
+        ),
     };
-    if header.topic != topic
+    let topic_name = name;
+    if header.topic != topic_name
         || header.source != "controls"
         || header.type_name.as_deref() != Some(type_name)
         || header.kind != kind
@@ -560,6 +860,21 @@ fn parse(message: Message, state: bool, now_unix_ms: u64) -> io::Result<Input> {
         || header.at_unix_ms > now_unix_ms.saturating_add(lamp_bus::EXPIRY_GRACE_MS)
     {
         return Err(invalid("invalid or expired hand controls envelope"));
+    }
+    if topic == Topic::TouchState {
+        // The payload names its Controls owner; the receiver fences it.
+        let payload: TouchState = message.parse()?;
+        payload
+            .check()
+            .map_err(|_| invalid("invalid touch state"))?;
+        return Ok(Input::TouchState(Box::new(payload)));
+    }
+    if topic == Topic::Touch {
+        let payload: TouchEvent = message.parse()?;
+        payload
+            .check()
+            .map_err(|_| invalid("invalid touch event"))?;
+        return Ok(Input::Touch(Box::new(payload)));
     }
     if state {
         let payload: ControlsState = message.parse()?;
@@ -608,7 +923,7 @@ fn enqueue(sender: &SyncSender<Queued>, shared: &Shared, input: Input) -> bool {
 
 fn read_one(
     subscriber: &mut Subscriber,
-    state: bool,
+    topic: Topic,
     sender: &SyncSender<Queued>,
     shared: &Shared,
 ) -> io::Result<bool> {
@@ -631,7 +946,7 @@ fn read_one(
             add(&shared.lost, message.gap);
             shared.fence();
         }
-        match parse(message, state, wall_ms()) {
+        match parse(message, topic, wall_ms()) {
             Ok(Input::Pet(event)) if event.intent != ControlIntent::Pet => {}
             Ok(input) => {
                 add(&shared.received, 1);
@@ -650,21 +965,84 @@ fn read_one(
     Ok(true)
 }
 
-fn subscriptions(root: &Path) -> io::Result<(Subscriber, Subscriber)> {
+type Connected = (Vec<(Subscriber, Topic)>, Option<Publisher>);
+
+fn subscriptions(root: &Path, head_touch: bool, say_mute: bool) -> io::Result<Connected> {
     let bus = Bus::new(root)?;
-    let state = bus.subscribe_typed(ControlsState::TOPIC, SUBSCRIBER, ControlsState::TYPE)?;
-    let pets = bus.subscribe_typed(ControlGesture::TOPIC, SUBSCRIBER, ControlGesture::TYPE)?;
-    Ok((state, pets))
+    let mut subscribed = vec![
+        (
+            bus.subscribe_typed(ControlsState::TOPIC, SUBSCRIBER, ControlsState::TYPE)?,
+            Topic::State,
+        ),
+        (
+            bus.subscribe_typed(ControlGesture::TOPIC, SUBSCRIBER, ControlGesture::TYPE)?,
+            Topic::Gesture,
+        ),
+    ];
+    if head_touch {
+        // State before events, as the touch runtime publishes them.
+        subscribed.push((
+            bus.subscribe_typed(TouchState::TOPIC, SUBSCRIBER, TouchState::TYPE)?,
+            Topic::TouchState,
+        ));
+        subscribed.push((
+            bus.subscribe_typed(TouchEvent::TOPIC, SUBSCRIBER, TouchEvent::TYPE)?,
+            Topic::Touch,
+        ));
+    }
+    let mute = say_mute
+        .then(|| bus.publisher_declared(VoiceMute::TOPIC, &VoiceMute::declaration(), "voice"))
+        .transpose()?;
+    Ok((subscribed, mute))
 }
 
-fn pump(root: PathBuf, sender: SyncSender<Queued>, shared: &Shared) {
+/// Says the owner's live latch on `voice/mute` when it changes and every
+/// second, so a part started later learns it within one. A failed send
+/// reconnects, as a failed read does.
+struct SaidMute {
+    latch: u8,
+    at: Option<std::time::Instant>,
+}
+
+impl SaidMute {
+    fn say(&mut self, publisher: &mut Publisher, shared: &Shared) -> io::Result<()> {
+        let latch = shared.latch.load(Ordering::Acquire);
+        let Some(message) = latch_message(latch) else {
+            return Ok(());
+        };
+        if latch == self.latch && self.at.is_some_and(|at| at.elapsed() < MUTE_SAID_EVERY) {
+            return Ok(());
+        }
+        publisher.publish_json(lamp_ipc::monotonic_us(), &message)?;
+        self.latch = latch;
+        self.at = Some(std::time::Instant::now());
+        Ok(())
+    }
+}
+
+fn pump(
+    root: PathBuf,
+    head_touch: bool,
+    say_mute: bool,
+    sender: SyncSender<Queued>,
+    shared: &Shared,
+) {
     while !shared.stop.load(Ordering::Acquire) {
         shared.fence();
-        if let Ok((mut state, mut pets)) = subscriptions(&root) {
+        if let Ok((mut subscribed, mut mute)) = subscriptions(&root, head_touch, say_mute) {
+            let mut said = SaidMute {
+                latch: LATCH_NONE,
+                at: None,
+            };
             'connected: while !shared.stop.load(Ordering::Acquire) {
+                if let Some(publisher) = &mut mute
+                    && said.say(publisher, shared).is_err()
+                {
+                    break 'connected;
+                }
                 for _ in 0..POLL_LIMIT / 2 {
-                    for (subscriber, is_state) in [(&mut state, true), (&mut pets, false)] {
-                        match read_one(subscriber, is_state, &sender, shared) {
+                    for (subscriber, topic) in &mut subscribed {
+                        match read_one(subscriber, *topic, &sender, shared) {
                             Ok(true) => {}
                             Ok(false) => return,
                             Err(_) => break 'connected,
@@ -679,6 +1057,81 @@ fn pump(root: PathBuf, sender: SyncSender<Queued>, shared: &Shared) {
             shared.fence();
             thread::park_timeout(RECONNECT_AFTER);
         }
+    }
+}
+
+/// Real head output from Controls' own recognizer (#711), for tests: the
+/// head settled, then a hand on it from `touched_us` for 30 ms; the state
+/// and events the touch runtime would publish at the end.
+#[cfg(test)]
+pub(crate) fn test_head_touch(clock_id: &str, touched_us: u64) -> (TouchState, Vec<TouchEvent>) {
+    let mut head = TestHead::new(clock_id, touched_us - 600_000);
+    let mut ticks = head.run(touched_us - 10_000, false);
+    ticks.extend(head.run(touched_us + 30_000, true));
+    let events = ticks
+        .iter()
+        .flat_map(|(_, _, events)| events.clone())
+        .collect();
+    (ticks.pop().unwrap().1, events)
+}
+
+/// Controls' own recognizer for the head, stepped every 10 ms with a hand on
+/// or off its pad, for tests (#711).
+#[cfg(test)]
+pub(crate) struct TestHead {
+    engine: lamp_controls::touch::TouchEngine,
+    clock_id: String,
+    next_us: u64,
+    sequence: u64,
+}
+
+#[cfg(test)]
+impl TestHead {
+    pub(crate) fn new(clock_id: &str, from_us: u64) -> Self {
+        let config = lamp_controls::touch::TouchConfig {
+            enabled: true,
+            head_pads: vec!["head-1".into()],
+            ..lamp_controls::touch::TouchConfig::default()
+        };
+        Self {
+            engine: lamp_controls::touch::TouchEngine::new(config, clock_id, "controls").unwrap(),
+            clock_id: clock_id.into(),
+            next_us: from_us,
+            sequence: 0,
+        }
+    }
+
+    /// Each 10 ms step through `until_us`: its time, the state the touch
+    /// runtime would publish then and the events it raised.
+    pub(crate) fn run(
+        &mut self,
+        until_us: u64,
+        on: bool,
+    ) -> Vec<(u64, TouchState, Vec<TouchEvent>)> {
+        let mut ticks = Vec::new();
+        while self.next_us <= until_us {
+            let at = self.next_us;
+            self.sequence += 1;
+            let sample = lamp_controls::touch::GpioSample {
+                stamp: lamp_msgs::ClockStamp {
+                    clock_id: self.clock_id.clone(),
+                    at_us: at,
+                    sequence: self.sequence,
+                },
+                session_id: "gpio".into(),
+                primary: None,
+                reset: None,
+                head_pads: vec![lamp_controls::input::Level {
+                    name: "head-1".into(),
+                    active: on,
+                }],
+            };
+            self.engine.ingest_gpio(at, sample).unwrap();
+            let output = self.engine.tick(at);
+            ticks.push((at, output.state, output.events));
+            self.next_us += 10_000;
+        }
+        ticks
     }
 }
 

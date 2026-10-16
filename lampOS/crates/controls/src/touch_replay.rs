@@ -24,12 +24,27 @@ pub struct Record {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Input {
-    Gpio { sample: GpioSample },
-    Strip { sample: StripSample },
-    GpioFault { fault: ControlFault },
-    StripFault { fault: ControlFault },
-    AllFault { fault: ControlFault },
+    Gpio {
+        sample: GpioSample,
+    },
+    Strip {
+        sample: StripSample,
+    },
+    GpioFault {
+        fault: ControlFault,
+    },
+    StripFault {
+        fault: ControlFault,
+    },
+    AllFault {
+        fault: ControlFault,
+    },
     Tick {},
+    /// The body began or stopped feeling the head pushed by hand
+    /// (`body/hand`, #711), as the runtime saw it.
+    HeadPushed {
+        pushed: bool,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -178,6 +193,10 @@ pub fn run(
                     Ok(())
                 }
                 Input::Tick {} => Ok(()),
+                Input::HeadPushed { pushed } => {
+                    engine.set_head_pushed(*pushed);
+                    Ok(())
+                }
             };
             if let Err(error) = result {
                 summary.rejected += 1;

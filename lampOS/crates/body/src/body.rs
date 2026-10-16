@@ -1443,8 +1443,10 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
     /// it is if it may be written, else `ARM_GOAL_STEP` from `from` toward it.
     /// A goal outside the joint's window, or more than `ARM_EASE_REACH`
     /// away, is left as it is for the guard to refuse at once: walking
-    /// toward it would carry the arm anywhere in its window.
-    fn eased(&self, joint: Joint, from: u16, goal: u16) -> u16 {
+    /// toward it would carry the arm anywhere in its window. So is any goal
+    /// of a folded arm at rest (`resting`): it has no hold to let go, and
+    /// its way back from a hand is already ramped.
+    fn eased(&self, joint: Joint, from: u16, goal: u16, resting: bool) -> u16 {
         let (low, high) = ARM
             .iter()
             .position(|arm| *arm == joint)
@@ -1452,6 +1454,7 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
         if self.goal_refused(joint, goal).is_none()
             || !(low..=high).contains(&goal)
             || goal.abs_diff(from) > ARM_EASE_REACH
+            || resting
         {
             goal
         } else if goal > from {
@@ -3891,7 +3894,8 @@ fn run_on<P: PortIo, R: Runtime>(
         // pose, was asked 2683 at once by a nod, and the lamp was let go.
         if standing.is_some() {
             for (index, joint) in ARM.into_iter().enumerate() {
-                arm_goals[index] = bus.eased(joint, arm_written[index], arm_goals[index]);
+                arm_goals[index] =
+                    bus.eased(joint, arm_written[index], arm_goals[index], arm_rests);
             }
         }
         still_steps = if goals != written || arm_goals != arm_written {

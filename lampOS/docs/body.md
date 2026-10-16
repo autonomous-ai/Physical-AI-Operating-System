@@ -169,7 +169,10 @@ is. A goal outside the joint's window, or more than 400 counts away
 largest over 378 simulated runs of every clip after a held arm on both
 lamps' flags was 318), is not eased toward: the guard refuses it at once
 (`an_arm_goal_outside_its_window_is_not_eased_toward`,
-`an_arm_goal_farther_than_a_hold_release_is_refused_not_eased_toward`). On lamp-52e6 on 2026-10-17 a standing shoulder held at 2,609, short of
+`an_arm_goal_farther_than_a_hold_release_is_refused_not_eased_toward`).
+Nor is any goal of a folded arm at rest: it has no hold to let go, and its
+way back from a hand is ramped already
+(`a_resting_arm_goal_more_than_a_step_away_is_refused_not_eased_toward`). On lamp-52e6 on 2026-10-17 a standing shoulder held at 2,609, short of
 its pose, was asked 2,683 at once by a nod, and the lamp was let go
 (`a_standing_session_never_moves_an_arm_goal_more_than_a_step_a_write`, with
 lamp-4ace's and lamp-52e6's flags, and

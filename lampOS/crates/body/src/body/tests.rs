@@ -7058,7 +7058,7 @@ fn an_arm_goal_outside_its_window_is_not_eased_toward() {
         let mut bus = Bus::new(&mut lamp, &mut clock, Some(lamp_4ace_standing()));
         bus.samples().unwrap();
         bus.send_goals(HOME, Some([2_050, 2_047])).unwrap();
-        let goal = bus.eased(Joint::ElbowPitch, 2_047, 4_095);
+        let goal = bus.eased(Joint::ElbowPitch, 2_047, 4_095, false);
         assert_eq!(goal, 4_095);
         assert!(bus.send_goals(HOME, Some([2_050, goal])).is_err());
         assert_eq!(
@@ -7071,7 +7071,7 @@ fn an_arm_goal_outside_its_window_is_not_eased_toward() {
             })
         );
         // Inside the window it still eases.
-        assert_eq!(bus.eased(Joint::ElbowPitch, 2_047, 2_400), 2_097);
+        assert_eq!(bus.eased(Joint::ElbowPitch, 2_047, 2_400, false), 2_097);
     }
     let elbow: Vec<u16> = lamp
         .goals
@@ -7167,7 +7167,7 @@ fn an_arm_goal_farther_than_a_hold_release_is_refused_not_eased_toward() {
         let mut bus = Bus::new(&mut lamp, &mut clock, Some(lamp_4ace_standing()));
         bus.samples().unwrap();
         bus.send_goals(HOME, Some([2_050, 2_049])).unwrap();
-        let goal = bus.eased(Joint::ElbowPitch, 2_049, 2_900);
+        let goal = bus.eased(Joint::ElbowPitch, 2_049, 2_900, false);
         assert_eq!(goal, 2_900);
         assert!(bus.send_goals(HOME, Some([2_050, goal])).is_err());
         assert_eq!(
@@ -7180,7 +7180,44 @@ fn an_arm_goal_farther_than_a_hold_release_is_refused_not_eased_toward() {
             })
         );
         // A hold let go, 318 off at most in the runs measured, still eases.
-        assert_eq!(bus.eased(Joint::ElbowPitch, 2_049, 2_367), 2_099);
+        assert_eq!(bus.eased(Joint::ElbowPitch, 2_049, 2_367, false), 2_099);
+    }
+    let elbow: Vec<u16> = lamp
+        .goals
+        .iter()
+        .flatten()
+        .filter(|(id, _)| *id == 3)
+        .map(|(_, goal)| *goal)
+        .collect();
+    assert_eq!(elbow, [2_049]);
+}
+
+/// The reviewer's 05:51 probe on #1192: a folded elbow at rest asked 2449,
+/// 400 from its goal and inside both its window and `ARM_EASE_REACH`. A
+/// resting arm has no hold to let go, so nothing eases it there: the guard
+/// refuses it at once, nothing written.
+#[test]
+fn a_resting_arm_goal_more_than_a_step_away_is_refused_not_eased_toward() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(1));
+    lamp.servos[2].status = 0;
+    lamp.servos[2].position = 2_049.0;
+    {
+        let mut bus = Bus::new(&mut lamp, &mut clock, Some(lamp_4ace_standing()));
+        bus.samples().unwrap();
+        bus.send_goals(HOME, Some([2_050, 2_049])).unwrap();
+        assert_eq!(bus.eased(Joint::ElbowPitch, 2_049, 2_449, false), 2_099);
+        let goal = bus.eased(Joint::ElbowPitch, 2_049, 2_449, true);
+        assert_eq!(goal, 2_449);
+        assert!(bus.send_goals(HOME, Some([2_050, goal])).is_err());
+        assert!(matches!(
+            bus.refused.take(),
+            Some(Stop::Window {
+                joint: 3,
+                goal: 2_449,
+                from: 2_049,
+                ..
+            })
+        ));
     }
     let elbow: Vec<u16> = lamp
         .goals

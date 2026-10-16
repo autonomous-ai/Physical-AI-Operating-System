@@ -338,19 +338,32 @@ line (16 kHz mono 16-bit) to this route's speech-to-text, as `CONFIG` (the
 file `LAMP_VOICE_SECOND_CONFIG` names) sets it up, and prints one line a
 round:
 - `connect_ms`: opening the stream;
-- `first_words_ms`: from the first audio sent to the first result with
-  words, interim or final (`SttStream::first_words`);
-- `audio_ms`: how long sending the line took;
-- `final_after_audio_ms`: from the line's end to its final words;
+- `first_words_ms`: from the first audio queued to the stream to the first
+  result with words parsed from it, interim or final
+  (`SttStream::first_words`);
+- `audio_ms`: how long queueing the line took;
+- `final_after_audio_ms`: from the line's last audio queued to its final
+  words;
 - `words`: the final words.
 
-The first `MS` of the line go at once, as a paused reply's held audio would
-(#828, step 2: a stop word heard during the pause), and the rest at the
-pace it was said. Three rounds and nothing held, unless said; at most 20
-rounds and 1,600 ms held. It reads the credential file the config names,
-so on a lamp it runs as the voice's user or root. The time to the first
-words is what a 1.1 s pause has to wait for: the relay's has not been
-measured yet.
+What it times is the client's queue to a parsed result. That isn't the
+moment audio leaves on the wire, and it isn't how long a stop takes on a
+lamp, which also has the pause, the decision and the speaker.
+
+The first `MS` of the line go at once as one message, standing in for a
+paused reply's held audio (#828, step 2: a stop word heard during the
+pause). The route sends 20 ms frames, and a pause that sends its held audio
+the route's way would send those frames back to back. The rest of the line
+goes at the pace it was said, in 20 ms frames. Three rounds and nothing
+held, unless said; at most 20 rounds and 1,600 ms held. It reads the
+credential file the config names, so on a lamp it runs as the voice's user
+or root.
+
+The sixth builder measured the relay with it on lamp-52e6 on 16 October,
+with synthetic voices (#828, 08:22). No words come before a line ends: the
+first came 0.22 to 0.30 s after its audio ended, and 0.24 to 0.38 s after a
+600 ms burst. A burst lost the end of "Hang on." and "Lamp, stop.", which
+came from `Finalize`, fixed in #956.
 
 ## Coordinator switch
 

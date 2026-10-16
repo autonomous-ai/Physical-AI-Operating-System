@@ -57,8 +57,10 @@ fn run() -> Result<()> {
         // voice's speech-to-text (its CONFIG, the file
         // LAMP_VOICE_SECOND_CONFIG names) gives back the first words of a
         // recorded line, 16 kHz mono (#828). The first MS of the line go at
-        // once, as a paused reply's held audio would; the rest at the pace
-        // it was said. One line a round, with the words heard.
+        // once, in one message (the route sends 20 ms frames); the rest at
+        // the pace it was said, in 20 ms frames. Its times run from audio
+        // queued to the stream to a result parsed from it: not the wire, and
+        // not a stop's latency. One line a round, with the words heard.
         [command, config, wav, rest @ ..] if command == "stt-check" && rest.len() <= 3 => {
             let (rounds, held_ms) = stt_check_options(rest)?;
             let config = lamp_voice::second_config::load_from_path(Path::new(config))?;

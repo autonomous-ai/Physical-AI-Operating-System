@@ -2994,6 +2994,39 @@ fn a_base_turned_300_counts_comes_home_without_moving_away_or_faster_than_waking
 }
 
 #[test]
+fn a_head_slumped_on_the_base_lifts_before_the_base_turns() {
+    // As lamp-52e6 on 2026-10-16: the head on its own base and the base
+    // turned, both to wake. The base must not drag the head across it.
+    let (mut lamp, mut clock) = folded(Duration::from_secs(40));
+    lamp.servos[PITCH].position = 2_095.0;
+    lamp.servos[PITCH].goal = 2_095;
+    lamp.servos[YAW].position = 2_115.0;
+    lamp.servos[YAW].goal = 2_115;
+    let report = run(
+        &mut lamp,
+        &mut clock,
+        waking(),
+        Some(HOME),
+        || Some((Mood::Resting, 0)),
+        |_| {},
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    let woke = report.woke.unwrap();
+    assert_eq!(woke.joints, vec!["wrist_pitch", "base_yaw"]);
+    let (pitch, yaw) = (
+        goals_of(&lamp, Joint::WristPitch),
+        goals_of(&lamp, Joint::BaseYaw),
+    );
+    let lifted = pitch.iter().position(|goal| *goal == 2_000).unwrap();
+    let turned = yaw.iter().position(|goal| *goal != 2_115).unwrap();
+    assert!(
+        lifted < turned,
+        "pitch home at {lifted}, yaw moved at {turned}"
+    );
+    assert_eq!(lamp.servos[YAW].goal, 2_015);
+}
+
+#[test]
 fn a_joint_beyond_what_waking_brings_back_is_refused() {
     let (mut lamp, mut clock) = folded(Duration::from_secs(2));
     lamp.servos[YAW].position = 2_465.0;
@@ -3680,14 +3713,15 @@ fn a_head_that_drooped_in_a_power_cut_is_lifted_home_with_lamp_52e6s_options() {
     assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
     assert!(report.standing.is_some(), "{report:?}");
     let woke = report.woke.unwrap();
-    // All three come home with the head, at its pace.
+    // All three come home, the base after the head.
     assert_eq!(woke.joints, vec!["wrist_pitch", "wrist_roll", "base_yaw"]);
     assert_eq!(
         (woke.from, woke.to),
         (vec![2_034, 2_100, 1_958], vec![1_771, 2_035, 2_035])
     );
-    // A stir that reaches 80 counts ahead, a pause, then the rest of 263.
-    assert!((19.0..23.0).contains(&woke.seconds), "{}", woke.seconds);
+    // A stir that reaches 80 counts ahead, a pause, then the rest of 263;
+    // then the base's 77, in its stir and a pause.
+    assert!((26.0..30.0).contains(&woke.seconds), "{}", woke.seconds);
     // Lifting, it read 320 and lagged its goal by 37, and was let.
     assert!(report.peak_load[0] >= 320, "{:?}", report.peak_load);
     // Never toward the base.
@@ -3740,7 +3774,7 @@ fn a_head_that_cannot_lift_ends_the_wake_held_where_it_is_and_says_how_far_it_go
 /// stayed 32 counts short of home. It has woken there, and runs from there.
 #[test]
 fn a_head_that_settles_32_short_of_home_wakes_there_and_runs_from_where_it_is() {
-    let (mut lamp, mut clock) = folded(Duration::from_secs(40));
+    let (mut lamp, mut clock) = folded(Duration::from_secs(50));
     lamp.may_take_hold = true;
     for (index, at) in [(YAW, 1_979.0), (ROLL, 2_101.0), (PITCH, 2_029.0)] {
         let servo = &mut lamp.servos[index];
@@ -3775,7 +3809,13 @@ fn a_head_that_settles_32_short_of_home_wakes_there_and_runs_from_where_it_is() 
     // Its home is where it settled; nothing pushes at the gap.
     assert_eq!(report.home, Some([1_803, 2_035, 2_035]));
     let pitch = goals_of(&lamp, Joint::WristPitch);
-    let settled = pitch.iter().position(|goal| *goal == 1_771).unwrap() + 1;
+    // Home stays its goal while the base wakes after it; then the run's.
+    let home = pitch.iter().position(|goal| *goal == 1_771).unwrap();
+    let settled = home
+        + pitch[home..]
+            .iter()
+            .position(|goal| *goal != 1_771)
+            .unwrap();
     assert_eq!(pitch[settled], 1_803);
     assert!(
         pitch[settled..].iter().all(|goal| *goal >= 1_803),

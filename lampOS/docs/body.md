@@ -327,9 +327,15 @@ is found is its home and there is nothing to wake to):
   fifths of the body's own speed. Every goal starts where the joint is, so
   nothing jumps; each joint only ever moves from where it was found toward
   its home, so the head found on the base only ever rises away from it.
-  The head pressed on the base at 2,095 on lamp-4ace's home of 1,950 takes
-  about 12 s; lamp-52e6's head drooped to 2,034, about 21 s; a base turned
-  300 counts, about 24 s.
+  The head's pitch and roll go first; the base turns only once they have
+  arrived or settled (below), with its own stir and pause. On lamp-52e6 on
+  2026-10-16, slumped with its head resting on its own base, the three
+  woke together and the base, dragging the head across the base's top,
+  read a load of 224 over its 220 and the run ended; by hand the base
+  turns freely. The head pressed on the base at 2,095 on lamp-4ace's home
+  of 1,950 takes about 12 s; lamp-52e6's head drooped to 2,034 with its
+  base 77 off, about 28 s; a base turned 300 counts, about 24 s. A head
+  and a base each 400 off take about a minute.
 - On the way it reads all five joints every step. A changed status byte, a
   shoulder or an elbow that moves more than 15 counts (on lamp-4ace the
   shoulder swayed 7 as the base turned 189 counts of its wake, one over the
@@ -355,7 +361,8 @@ is found is its home and there is nothing to wake to):
   (400)"). 400 is about 35 degrees: a head on the base was 145 from
   lamp-4ace's home, and lamp-52e6's home pitch of 1,771 would put its head
   on the base some 300 away. Farther than that, a joint is somewhere no lamp
-  has been seen. The whole 400 at the wake's speed takes 31 s, inside the
+  has been seen. The whole 400 at the wake's speed takes 31 s for a
+  joint, the head's and then the base's about a minute, inside the
   90 s systemd gives a service to say it is ready; the body says it is ready
   only once it has woken and its loop runs.
 - On a lamp given `--stand`, an arm found with its elbow folded (within 80

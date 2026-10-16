@@ -197,9 +197,11 @@ mod tests {
         assert!(frames.len() >= 4, "{}", frames.len());
         assert_eq!(frames[0], EncodedFrame::black());
         assert_eq!(*frames.last().unwrap(), EncodedFrame::black());
-        assert!(frames[1..frames.len() - 1]
-            .iter()
-            .any(|frame| *frame != EncodedFrame::black()));
+        assert!(
+            frames[1..frames.len() - 1]
+                .iter()
+                .any(|frame| *frame != EncodedFrame::black())
+        );
     }
 
     #[test]

@@ -264,8 +264,9 @@ is not. One JSON line in:
 - Exactly one of `note`, an instruction the model phrases (as the hello's
   and the news'), `text`, words to say as they are (the model is told
   "Say exactly these words, in your own voice, and nothing else:" before
-  them), at most 900 bytes with no control characters, and `from`, words
-  the voice keeps itself (below).
+  them), at most 900 bytes with no control characters, `from`, words
+  the voice keeps itself (below), and `sound`, a skill's own short sound
+  (below).
 - `priority`, 0 to 9, 5 if left out: higher first, the oldest first among
   equals.
 - `expires_in_ms`, 1 ms to an hour, from when its line was read: not begun
@@ -294,6 +295,29 @@ open until then:
   1 s of being taken (one deadline for the line, so that a client sending a
   little at a time cannot keep its place), 16 already waiting, or the voice
   going.
+
+**A skill's own sound** (#938, a skill's `sounds/`): `{"skill": "chime",
+"sound": "/var/lib/lampOS/skills/chime/sounds/ding.wav", "priority": 5,
+"expires_in_ms": 30000}`, the absolute path of a WAV, at most 1,024 bytes.
+It never waits for the lamp to be at rest: at the voice's next pass it is
+refused at once, `{"outcome":"refused","why":…}`, when the lamp is paused
+(`the lamp is paused`), muted by the privacy switch (`the lamp is muted`),
+speaking (a reply, queued output, a speaker write pending or the playback
+mask: `the lamp is speaking`) or listening (someone's input taken, a
+submission draining, or listening not ready: `the lamp is listening`); or
+when the file is not one the voice plays (`say::read_sound`, the reason
+never names the path): a regular file and not a link, at most 148,140
+bytes by its metadata before it is read, a WAV of 16-bit mono PCM at the
+speaker path's 24 kHz, 1 frame to 3 s, and no 10 ms of it louder than
+-20 dBFS RMS, the lamp's speech, so that a sound stays under the voice.
+`lamp-skills` checks the same when it loads the skill; this is the check
+that counts. Otherwise it is played as a turn of the lamp's own, as the
+head tap's "hm?" is: through the voice's speaker path, so it never overlaps
+speech and the echo canceller has it, no provider request, no face on the
+ring. `begun` comes as it is begun, and `spoken` means played whole
+(`dropped` otherwise: a person speaking over it ends it as any turn). The
+voice traces `skill_sound` with the skill, whether it plays and why not.
+The file is read on the voice's loop: at most 148 KB.
 
 **When it is said.** After a due reminder and before the hello and the
 news, through a reminder's gates: no reply owed or queued, the speaker

@@ -260,13 +260,18 @@ impl Reply {
         let Some(say) = self.say.take() else {
             return;
         };
-        let spoken = self.settled(speaker_pending)
-            && snapshot.owner().is_none()
-            && snapshot.microphone_permission() == Permission::Allowed
-            && matches!(self.cloud.outcome, Some(RequestOutcome::Complete))
-            && self.had_audio
-            && self.playback_gaps == 0
-            && self.notice.origin() == SpeechOrigin::Provider;
+        // A skill's sound is `spoken` when it was played whole.
+        let sound = self.notice.origin() == SpeechOrigin::SkillSound
+            && self.settled(speaker_pending)
+            && self.notice.retired();
+        let spoken = sound
+            || self.settled(speaker_pending)
+                && snapshot.owner().is_none()
+                && snapshot.microphone_permission() == Permission::Allowed
+                && matches!(self.cloud.outcome, Some(RequestOutcome::Complete))
+                && self.had_audio
+                && self.playback_gaps == 0
+                && self.notice.origin() == SpeechOrigin::Provider;
         say.answer(if spoken {
             crate::say::Outcome::Spoken
         } else {
@@ -5477,6 +5482,56 @@ fn conversation_with_gate(
             ticket.begun(monotonic_us());
             if let Some(current) = reply.as_mut() {
                 current.say = Some(ticket);
+            }
+        }
+        // A skill's own sound (#938): played now, as a turn of the lamp's
+        // own like the head tap's "hm?", only at rest; otherwise refused now
+        // with why. It never waits, so it never comes late.
+        if let Some(says) = says.as_mut()
+            && let Some((path, ticket)) = says.take_sound(say_now_us)
+        {
+            let at_us = monotonic_us();
+            let now_is = crate::say::SoundNow {
+                paused,
+                muted: snapshot.microphone_permission() != Permission::Allowed,
+                speaking: reply.is_some()
+                    || !provider_queue.is_empty()
+                    || speaker_pending.is_some()
+                    || !playback_mask.available(at_us),
+                listening: admission.owns_stream()
+                    || !admission.idle_for_reminder()
+                    || submission_draining
+                    || !snapshot.listening_ready(MonoTime::from_micros(at_us)),
+            };
+            // ponytail: read on the loop's pass; a file of at most 150 KB.
+            let sound = crate::say::may_play_sound(&now_is)
+                .map_err(str::to_owned)
+                .and_then(|()| crate::say::read_sound(&path));
+            record(
+                trace,
+                json!({"kind":"skill_sound","at_us":at_us,"skill":ticket.skill(),"plays":sound.is_ok(),"why":sound.as_ref().err()}),
+            )?;
+            match sound {
+                Err(why) => ticket.answer(crate::say::Outcome::Refused(why)),
+                Ok(samples) => {
+                    let (now_state, _) = speaker_tone::commit_sound_turn(
+                        owner,
+                        reply,
+                        NoticeDelivery::sound(SpeechOrigin::SkillSound, samples),
+                        "skill_sound",
+                        "a skill's own sound: nothing heard, nothing sent to the provider",
+                        0,
+                        rig.playout_start,
+                        trace,
+                        |state| rig.publish(state),
+                    )?;
+                    snapshot = now_state;
+                    last_publish = monotonic_us();
+                    ticket.begun(monotonic_us());
+                    if let Some(current) = reply.as_mut() {
+                        current.say = Some(ticket);
+                    }
+                }
             }
         }
         // The self-test's tone, when asked for and the lamp is at rest; a

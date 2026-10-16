@@ -137,6 +137,8 @@ pub(super) enum SpeechOrigin {
     SelfTest,
     /// The head tap's "hm?" (`crate::head_cue`, #711): local PCM, no answer.
     HeadCue,
+    /// A skill's own sound (`crate::say`, #938): local PCM, no answer.
+    SkillSound,
 }
 impl SpeechOrigin {
     /// Played from a recording held here, not from the provider.
@@ -146,7 +148,7 @@ impl SpeechOrigin {
     /// A turn that is only a short sound of the lamp's own, and none for the
     /// face, the head, the room or the voice's state.
     pub(super) fn unshown(self) -> bool {
-        matches!(self, Self::SelfTest | Self::HeadCue)
+        matches!(self, Self::SelfTest | Self::HeadCue | Self::SkillSound)
     }
     /// The trace's name for what plays.
     pub(super) fn trace_name(self) -> &'static str {
@@ -155,6 +157,7 @@ impl SpeechOrigin {
             Self::FailureNotice => "failure_notice",
             Self::SelfTest => "selftest_tone",
             Self::HeadCue => "head_tap_cue",
+            Self::SkillSound => "skill_sound",
         }
     }
 }

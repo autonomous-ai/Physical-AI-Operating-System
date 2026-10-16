@@ -29,6 +29,13 @@
 //!   `spoken` on the same proof. With `LAMP_SCHEDULE_SPEAK=skill` or
 //!   `LAMP_TASK_NEWS=skill`, the source waits for such an ask, at most
 //!   [`SKILL_WAITS_US`], and then says it itself.
+//! - **A skill's own sound** (#938, `sounds/`): in place of the words,
+//!   `sound` is the absolute path of a short WAV ([`read_sound`]'s limits).
+//!   It is taken at the voice's next pass and played at once as a turn of
+//!   the lamp's own, as the head tap's "hm?" is, through the same speaker
+//!   path, so it never overlaps speech; or refused at once, with why, when
+//!   the lamp is paused, muted, speaking or listening ([`may_play_sound`]).
+//!   `spoken` then means played whole.
 //!
 //! Nothing of what is said is logged: the skill's name, the priority and
 //! the outcome only.
@@ -36,7 +43,7 @@ use serde::Deserialize;
 use serde_json::json;
 use std::{
     fs,
-    io::{self, Read, Write},
+    io::{self, Cursor, Read, Write},
     os::unix::{
         fs::{DirBuilderExt, PermissionsExt},
         net::{UnixListener, UnixStream},
@@ -146,12 +153,13 @@ impl Outcome {
 }
 
 /// What to say: an instruction the model phrases, words to say as they
-/// are, or words the voice keeps itself.
+/// are, or words the voice keeps itself; or a skill's own sound, no words.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Words {
     Note(String),
     Text(String),
     From(Source),
+    Sound(PathBuf),
 }
 
 impl Words {
@@ -161,7 +169,7 @@ impl Words {
         match self {
             Self::Note(note) => Some(note.clone()),
             Self::Text(text) => Some(format!("{AS_WRITTEN} {text}")),
-            Self::From(_) => None,
+            Self::From(_) | Self::Sound(_) => None,
         }
     }
 }
@@ -205,6 +213,8 @@ struct Wire {
     #[serde(default)]
     from: Option<String>,
     #[serde(default)]
+    sound: Option<String>,
+    #[serde(default)]
     priority: Option<u8>,
     expires_in_ms: u64,
 }
@@ -223,13 +233,20 @@ pub fn parse(line: &str) -> Result<Request, String> {
     {
         return Err("skill is 1 to 64 of a-z, 0-9, - and _".into());
     }
-    let words = match (wire.note, wire.text, wire.from) {
-        (Some(note), None, None) => Words::Note(note),
-        (None, Some(text), None) => Words::Text(text),
-        (None, None, Some(from)) => {
+    let words = match (wire.note, wire.text, wire.from, wire.sound) {
+        (Some(note), None, None, None) => Words::Note(note),
+        (None, Some(text), None, None) => Words::Text(text),
+        (None, None, Some(from), None) => {
             Words::From(Source::named(&from).ok_or_else(|| "from is schedule or tasks".to_owned())?)
         }
-        _ => return Err("exactly one of note, text and from".into()),
+        (None, None, None, Some(sound)) => {
+            if !sound.starts_with('/') || sound.len() > 1_024 || sound.chars().any(char::is_control)
+            {
+                return Err("sound is an absolute path of at most 1024 bytes".into());
+            }
+            Words::Sound(PathBuf::from(sound))
+        }
+        _ => return Err("exactly one of note, text, from and sound".into()),
     };
     if let Words::Note(said) | Words::Text(said) = &words
         && (said.trim().is_empty()
@@ -483,9 +500,28 @@ impl Says {
             })
     }
 
-    /// The next say of its own: a `from` ask waits for its source.
+    /// The next say of its own: a `from` ask waits for its source, and a
+    /// sound is taken by [`Self::take_sound`].
     fn next_index(&self) -> Option<usize> {
-        self.next_of(|words| !matches!(words, Words::From(_)))
+        self.next_of(|words| !matches!(words, Words::From(_) | Words::Sound(_)))
+    }
+
+    /// Take the next sound asked for, to play it now or refuse it now: a
+    /// sound never waits for the lamp to be at rest.
+    pub fn take_sound(&mut self, now_us: u64) -> Option<(PathBuf, Ticket)> {
+        self.expire(now_us);
+        let index = self.next_of(|words| matches!(words, Words::Sound(_)))?;
+        let waiting = self.waiting.remove(index);
+        let Words::Sound(path) = waiting.request.words else {
+            unreachable!("next_of chose a sound");
+        };
+        Some((
+            path,
+            Ticket {
+                skill: waiting.request.skill,
+                answer: Some(waiting.answer),
+            },
+        ))
     }
 
     /// The quiet the next say needs since the last turn, if one waits.
@@ -715,10 +751,248 @@ fn read_line_within(stream: &UnixStream, within: Duration) -> Result<String, &'s
     }
 }
 
+/// A skill's sound is played at this rate, the speaker path's.
+pub const SOUND_RATE: u32 = 24_000;
+/// The longest sound: a chime, not a song.
+pub const SOUND_MOST_FRAMES: u32 = SOUND_RATE * 3;
+/// The largest file, checked before it is read: the samples, the header
+/// and room for a few small chunks beside them.
+pub const SOUND_MOST_BYTES: u64 = 44 + 2 * SOUND_MOST_FRAMES as u64 + 4_096;
+/// No 10 ms of it louder than this, as RMS: the lamp's speech, taken as
+/// about -20 dBFS (`crate::head_cue`). A sound stays under the voice.
+pub const SOUND_LOUDEST_DBFS: f64 = -20.0;
+/// The window the loudness is measured over: one speaker chunk, 10 ms.
+const SOUND_WINDOW: usize = 240;
+
+/// A skill's sound read and checked: a regular file of at most
+/// [`SOUND_MOST_BYTES`] (by its metadata, before it is read), a WAV of
+/// 16-bit mono PCM at [`SOUND_RATE`], 1 to [`SOUND_MOST_FRAMES`] frames,
+/// never louder than [`SOUND_LOUDEST_DBFS`]. `lamp-skills` checks the same
+/// at load (`crates/skills`); this is the check that counts, since the
+/// voice plays it. The reason never repeats the path.
+pub fn read_sound(path: &Path) -> Result<Vec<i16>, String> {
+    let regular = |metadata: &fs::Metadata| {
+        if !metadata.is_file() {
+            Err("not a regular file".to_owned())
+        } else if metadata.len() > SOUND_MOST_BYTES {
+            Err(format!("more than {SOUND_MOST_BYTES} bytes"))
+        } else {
+            Ok(())
+        }
+    };
+    regular(&fs::symlink_metadata(path).map_err(|_| "not found".to_owned())?)?;
+    let file = fs::File::open(path).map_err(|_| "not readable".to_owned())?;
+    regular(&file.metadata().map_err(|_| "not readable".to_owned())?)?;
+    let mut bytes = Vec::new();
+    file.take(SOUND_MOST_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|_| "not readable".to_owned())?;
+    if bytes.len() as u64 > SOUND_MOST_BYTES {
+        return Err(format!("more than {SOUND_MOST_BYTES} bytes"));
+    }
+    decode_sound(&bytes)
+}
+
+/// [`read_sound`]'s checks of what the file holds.
+pub fn decode_sound(bytes: &[u8]) -> Result<Vec<i16>, String> {
+    let reader = hound::WavReader::new(Cursor::new(bytes)).map_err(|_| "not a WAV file")?;
+    let spec = reader.spec();
+    if spec.channels != 1
+        || spec.bits_per_sample != 16
+        || spec.sample_format != hound::SampleFormat::Int
+        || spec.sample_rate != SOUND_RATE
+    {
+        return Err(format!("not 16-bit mono PCM at {SOUND_RATE} Hz"));
+    }
+    if !(1..=SOUND_MOST_FRAMES).contains(&reader.duration()) {
+        return Err(format!(
+            "not 1 to {SOUND_MOST_FRAMES} frames ({} s at most)",
+            SOUND_MOST_FRAMES / SOUND_RATE
+        ));
+    }
+    let samples = reader
+        .into_samples::<i16>()
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|_| "a WAV file cut short")?;
+    let loudest = samples
+        .chunks(SOUND_WINDOW)
+        .map(|window| {
+            let power = window.iter().map(|&s| f64::from(s).powi(2)).sum::<f64>();
+            (power / window.len() as f64).sqrt()
+        })
+        .fold(0.0, f64::max);
+    if loudest > 32_767.0 * 10f64.powf(SOUND_LOUDEST_DBFS / 20.0) {
+        return Err(format!(
+            "louder than {SOUND_LOUDEST_DBFS} dBFS RMS over 10 ms"
+        ));
+    }
+    Ok(samples)
+}
+
+/// What the voice knows when a sound is taken.
+#[derive(Clone, Copy)]
+pub struct SoundNow {
+    /// The keeper has paused the lamp.
+    pub paused: bool,
+    /// The microphone is not allowed: the privacy switch.
+    pub muted: bool,
+    /// A turn, its reply or its playback is under way.
+    pub speaking: bool,
+    /// Someone's input is being taken, or listening is not ready.
+    pub listening: bool,
+}
+
+/// Whether a skill's sound plays now, or why not: only a lamp at rest
+/// plays it, and it never waits for one.
+pub fn may_play_sound(now: &SoundNow) -> Result<(), &'static str> {
+    if now.paused {
+        Err("the lamp is paused")
+    } else if now.muted {
+        Err("the lamp is muted")
+    } else if now.speaking {
+        Err("the lamp is speaking")
+    } else if now.listening {
+        Err("the lamp is listening")
+    } else {
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::io::BufReader;
+
+    /// A WAV of `samples`, as `spec` says.
+    fn wav(spec: hound::WavSpec, samples: &[i16]) -> Vec<u8> {
+        let mut bytes = Cursor::new(Vec::new());
+        let mut writer = hound::WavWriter::new(&mut bytes, spec).unwrap();
+        for &sample in samples {
+            writer.write_sample(sample).unwrap();
+        }
+        writer.finalize().unwrap();
+        bytes.into_inner()
+    }
+
+    const MONO: hound::WavSpec = hound::WavSpec {
+        channels: 1,
+        sample_rate: SOUND_RATE,
+        bits_per_sample: 16,
+        sample_format: hound::SampleFormat::Int,
+    };
+
+    #[test]
+    fn a_short_quiet_sound_is_read_and_a_long_loud_or_other_one_is_refused() {
+        let chime = vec![1_000_i16; 4_800];
+        assert_eq!(decode_sound(&wav(MONO, &chime)).unwrap(), chime);
+        let long = vec![0_i16; SOUND_MOST_FRAMES as usize + 1];
+        assert!(
+            decode_sound(&wav(MONO, &long))
+                .unwrap_err()
+                .contains("frames")
+        );
+        let loud = vec![10_000_i16; 4_800];
+        assert!(
+            decode_sound(&wav(MONO, &loud))
+                .unwrap_err()
+                .contains("louder")
+        );
+        let stereo = hound::WavSpec {
+            channels: 2,
+            ..MONO
+        };
+        assert!(
+            decode_sound(&wav(stereo, &chime))
+                .unwrap_err()
+                .contains("mono")
+        );
+        let fast = hound::WavSpec {
+            sample_rate: 48_000,
+            ..MONO
+        };
+        assert!(decode_sound(&wav(fast, &chime)).unwrap_err().contains("Hz"));
+        assert_eq!(decode_sound(b"not a wav").unwrap_err(), "not a WAV file");
+        let dir = socket_dir("sound");
+        fs::create_dir_all(&dir).unwrap();
+        assert_eq!(read_sound(&dir).unwrap_err(), "not a regular file");
+        let file = dir.join("chime.wav");
+        fs::write(&file, wav(MONO, &chime)).unwrap();
+        assert_eq!(read_sound(&file).unwrap(), chime);
+        let link = dir.join("link.wav");
+        std::os::unix::fs::symlink(&file, &link).unwrap();
+        assert_eq!(read_sound(&link).unwrap_err(), "not a regular file");
+        let big = dir.join("big.wav");
+        fs::write(&big, vec![0_u8; SOUND_MOST_BYTES as usize + 1]).unwrap();
+        assert!(read_sound(&big).unwrap_err().starts_with("more than"));
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_sound_is_refused_while_the_lamp_speaks_and_played_at_rest() {
+        let rest = SoundNow {
+            paused: false,
+            muted: false,
+            speaking: false,
+            listening: false,
+        };
+        assert_eq!(may_play_sound(&rest), Ok(()));
+        let speaking = SoundNow {
+            speaking: true,
+            ..rest
+        };
+        assert_eq!(may_play_sound(&speaking), Err("the lamp is speaking"));
+        let paused = SoundNow {
+            paused: true,
+            ..speaking
+        };
+        assert_eq!(may_play_sound(&paused), Err("the lamp is paused"));
+        let muted = SoundNow {
+            muted: true,
+            ..rest
+        };
+        assert_eq!(may_play_sound(&muted), Err("the lamp is muted"));
+        let listening = SoundNow {
+            listening: true,
+            ..rest
+        };
+        assert_eq!(may_play_sound(&listening), Err("the lamp is listening"));
+    }
+
+    #[test]
+    fn a_sound_is_asked_by_its_path_and_taken_apart_from_the_says() {
+        let asked = parse(
+            r#"{"skill":"chime","sound":"/var/lib/lampOS/skills/chime/sounds/ding.wav","expires_in_ms":60000}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            asked.words,
+            Words::Sound("/var/lib/lampOS/skills/chime/sounds/ding.wav".into())
+        );
+        assert_eq!(asked.words.turn(), None);
+        assert!(parse(r#"{"skill":"chime","sound":"sounds/ding.wav","expires_in_ms":1}"#).is_err());
+        assert!(
+            parse(r#"{"skill":"chime","sound":"/a.wav","note":"Hi.","expires_in_ms":1}"#).is_err()
+        );
+        let (mut says, ask) = Says::by_hand();
+        let (answer, answered) = mpsc::channel();
+        ask.send(Asked {
+            request: asked,
+            answer,
+            expires_at_us: 60_000_000,
+        })
+        .unwrap();
+        says.poll(0);
+        assert_eq!(says.quiet_needed_us(), None, "a sound is no say");
+        assert!(says.take(0).is_none());
+        let (path, ticket) = says.take_sound(0).unwrap();
+        assert!(path.ends_with("ding.wav"));
+        ticket.answer(Outcome::Refused("the lamp is speaking".into()));
+        assert_eq!(
+            answered.recv().unwrap(),
+            Answer::Done(Outcome::Refused("the lamp is speaking".into()))
+        );
+        assert!(says.take_sound(0).is_none());
+    }
 
     /// An ask as the socket hands it on, expiring at `expires_at_us`.
     fn asked(skill: &str, priority: u8, expires_at_us: u64) -> (Asked, mpsc::Receiver<Answer>) {
@@ -875,7 +1149,7 @@ mod tests {
             ),
             (
                 r#"{"skill":"x","from":"tasks","note":"n","expires_in_ms":5}"#,
-                "exactly one of note, text and from",
+                "exactly one of note, text, from and sound",
             ),
         ] {
             assert_eq!(parse(line).unwrap_err(), why, "{line}");
@@ -1147,7 +1421,7 @@ mod tests {
             exchange(&path, "{\"skill\":\"x\",\"expires_in_ms\":5}\n"),
             format!(
                 "{}\n",
-                Outcome::Refused("exactly one of note, text and from".into()).line()
+                Outcome::Refused("exactly one of note, text, from and sound".into()).line()
             )
         );
         let client = {

@@ -441,5 +441,7 @@ fn consume(mut sink: impl Sink, incoming: Receiver<Packet>, counts: &Counts) {
     }
 }
 
+pub mod keep;
+
 #[cfg(test)]
 mod tests;

@@ -159,16 +159,46 @@ headers plus base64 payloads, not receive timestamps. It can append and stops
 that file when full; it does not rotate an ongoing shared log or enforce a
 lifetime total across capture directories. It provides no crash-durable or
 whole-final-line guarantee on a failed disk write. No log history is retained
-by this logger or follower, and no record is delivered when nobody listens.
+by the logger or by `logs`, and no record is delivered when nobody listens;
+`keep-logs`, below, is what keeps it.
 
-Keeping useful logs for a next-morning diagnosis is **not completed by this
-slice**. It needs an opt-in bounded persistent writer and the image/service
-owner's integration under #737, including startup, permissions, retention,
-disk-failure behavior and visibility of loss. The existing Records adapter
-recognizes only closed voice-service metadata sessions; it must not be pointed
-at a shared-log directory as if that directory had an ownership contract.
-Do not vacuum the shared journal or silently enable transcript storage to fill
-that gap.
+### Kept for the next morning: `keep-logs`
+
+`lamp-bus keep-logs DIR` is the opt-in, bounded writer that keeps the stream
+on disk (`crates/bus/src/logging/keep.rs`, #699). Nothing starts it.
+
+    lamp-bus keep-logs /var/lib/lampos/logs --level info --file-kb 2048 --files 10
+
+- **What a line is.** One JSON object per validated log at `--level` or
+  above (info): `at_unix_ms` (the log's `created_unix_ms`), `level`,
+  `part`, `code`, `message`, `attempt`, and its bus identity `boot`,
+  `bus_seq`, `bus_gap`, `restarted`. Text stays JSON-escaped, so a line is
+  always one line.
+- **Bounds.** Files are `DIR/logs.NNNNNNNN.jsonl`. Each start opens the next
+  number, so a restart begins a new file. A file is closed before a line
+  would take it past `--file-kb` (2048, from 64 to 65536), and only the
+  newest `--files` (10, from 2 to 100) are kept: 20 MiB at most by default,
+  V1's Go logger's 2 MB times ten. The oldest of its own files is removed
+  as a new one opens. Nothing else in `DIR` is read or removed, and `DIR`
+  must already exist: a missing one exits 1, and it is never created.
+  Files are made `0640`.
+- **Loss is visible.** `bus_gap` and `restarted` say what the bus lost or
+  where a publisher began again. A line that cannot be written (a full or
+  failing card) is counted, said once on stderr until writing works again,
+  and the next line written carries `unwritten_before` with the count. The
+  end says how many were kept, not written and passed over.
+- **Durability.** Data is synced at most once a second while lines come,
+  and at each new file and the end. A power cut loses about a second at
+  most. SIGTERM ends it without the last sync; what it wrote is already
+  with the kernel. Only the keeper waits on the disk: the bus keeps every
+  publisher apart from a slow subscriber, as for `logs`.
+
+What is still the image/service owner's, under #737: the unit that starts
+it, the folder, its owner and group, and whether a lamp runs it at all. The
+existing Records adapter recognizes only closed voice-service metadata
+sessions; it must not be pointed at this folder as if it had an ownership
+contract. Do not vacuum the shared journal or silently enable transcript
+storage to fill a gap.
 
 ## Privacy, reuse and evidence limits
 

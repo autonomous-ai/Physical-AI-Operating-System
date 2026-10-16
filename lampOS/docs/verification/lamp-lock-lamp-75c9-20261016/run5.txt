@@ -1,0 +1,27 @@
+lamp-75c9 is free
+
+12:45:18 start
+lamp-75c9 acquired by eighth
+command done
+lamp-75c9 released
+rc=0
+12:45:29 end
+lamp-75c9 is free
+status rc=0
+
+lamp-75c9 acquired by eighth
+--- status at ~5s
+  holder: eighth
+  since: 2026-10-16 12:45:38 +0700
+  renewed: 2026-10-16 12:45:43 +0700
+  renewed_epoch: 1792129543
+  last renewed 0s ago
+--- status at ~10s
+  holder: eighth
+  since: 2026-10-16 12:45:38 +0700
+  renewed: 2026-10-16 12:45:47 +0700
+  renewed_epoch: 1792129547
+  last renewed 2s ago
+lamp-75c9 released
+run rc=0
+lamp-75c9 is free

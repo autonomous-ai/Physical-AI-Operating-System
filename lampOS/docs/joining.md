@@ -421,6 +421,57 @@ decisions stay in Git, so an outage stops the conversation, not the record.
 
 Decided: adopted, ordered by the Queue issue.
 
+## Sharing a lamp (`eighth-P1`, decided 2026-10-15)
+
+Proposed by the eighth builder at its person's request (#833), adopted by
+the first builder for every lamp shared by more than one builder
+(lamp-52e6, lamp-75c9), with a lease in place of a person's removal (the
+first builder, 18:54, on the owner's suggestion). lamp-4ace stays the first
+builder's alone and needs no lock. A lamp's owner file names one builder,
+but several collaborators, and their agents on several machines, share a
+lamp. A lock on one machine is not seen from another, so the lock lives on
+the lamp.
+
+- **The lock is `~orangepi/lamp.lock` on the lamp.** It holds `holder:`,
+  `session:`, `machine:`, `for:`, `since:` and `renewed:`, one per line
+  (the two times also as seconds, by the lamp's clock).
+- **Take it before you use the lamp**, and release it when you stop: every
+  ssh session, every install or test on it, and every step a person does
+  on it at an agent's request. Waiting on a person is not using it: release.
+- **`lampOS/tools/lamp-lock.sh <lamp> try|acquire|renew|release|status`**
+  does this over ssh. Every step runs on the lamp in one ssh call under
+  `flock` on `~/.lamp.lock.mutex`, so a take and a release never
+  interleave. `acquire` waits while another holds it; `release` and
+  `renew` act only on a lock whose holder and session equal yours exactly.
+  A lamp that cannot be reached is exit 3, never "free" or "released". A
+  jump host goes in `LAMP_SSH_OPTS` (`-J <host>`).
+- **It is a lease.** The holder renews it every **5 minutes** while it uses
+  the lamp (`renew`). A lock not renewed for **10 minutes** has expired:
+  `status` says so, and the next take replaces it. The take first appends
+  the old lock to `~/lamp.lock.log` on the lamp as an attempt, then "taken
+  by" once the lock is replaced, or "could not replace it" if it was not
+  (exit 3, saying the lock is unchanged). No one removes another's lock by
+  hand.
+- **A test on the lamp runs only under the lock:**
+  `lamp-lock.sh <lamp> run <holder> <session> "<what>" -- <command>` takes
+  the lock, renews it while the command runs, and releases it when the
+  command ends, also on failure or interrupt. The command runs in a process
+  group of its own, and `run` stops the whole group (TERM, then KILL after
+  10 s) before it releases: when the command ends, when the lock is lost,
+  and when no renewal has been confirmed for 9 minutes (a lamp out of reach,
+  or a call that hangs), so the work never outlives its lease. A renewal
+  call still running when the command ends is stopped with everything it
+  started, and run waits at most 15 s for that before it releases. A `run` under
+  a lock the same holder and session already hold leaves it to whoever took
+  it. Run from a terminal, the command's input is `/dev/null` (otherwise
+  the terminal would stop it, and the lock would be kept with nothing
+  running); an interactive session on the lamp, such as `ssh` with a shell,
+  goes between `acquire` and `release` instead.
+- `lampOS/tools/lamp-lock-test.sh` tests the script with no lamp, through a
+  stand-in for ssh.
+- The owner file (`LAMP.md`) still says who may act on a lamp at all; the
+  lock says who is acting on it now.
+
 ## Working with the person beside the lamp
 
 - **Before anything moves, say what will move and how far**, and what will

@@ -1,0 +1,137 @@
+start 2026-10-16 00:18:44 +0700
+$ lamp-lock try eighth f3397175-dd31-4329-af84-66604ca5e620 #834: the lock's own test on lamp-75c9 (lock files only)
+lamp-75c9 is held:
+  holder: nine
+  session: b418fcd1
+  machine: <laptop>
+  for: 830 voice starting offline: read-only survey, then a test run
+  since: 2026-10-16 00:18:33 +0700
+  since_epoch: 1792084713
+  renewed: 2026-10-16 00:18:33 +0700
+  renewed_epoch: 1792084713
+  last renewed 12s ago
+rc=1
+$ lamp-lock status
+lamp-75c9 is held:
+  holder: nine
+  session: b418fcd1
+  machine: <laptop>
+  for: 830 voice starting offline: read-only survey, then a test run
+  since: 2026-10-16 00:18:33 +0700
+  since_epoch: 1792084713
+  renewed: 2026-10-16 00:18:33 +0700
+  renewed_epoch: 1792084713
+  last renewed 12s ago
+rc=1
+$ lamp-lock try other s.2 a rival
+lamp-75c9 is held:
+  holder: nine
+  session: b418fcd1
+  machine: <laptop>
+  for: 830 voice starting offline: read-only survey, then a test run
+  since: 2026-10-16 00:18:33 +0700
+  since_epoch: 1792084713
+  renewed: 2026-10-16 00:18:33 +0700
+  renewed_epoch: 1792084713
+  last renewed 13s ago
+rc=1
+$ lamp-lock release eighth f3397175.
+refusing: lamp-75c9 is not held by eighth (session f3397175.):
+  holder: nine
+  session: b418fcd1
+  machine: <laptop>
+  for: 830 voice starting offline: read-only survey, then a test run
+  since: 2026-10-16 00:18:33 +0700
+  since_epoch: 1792084713
+  renewed: 2026-10-16 00:18:33 +0700
+  renewed_epoch: 1792084713
+rc=1
+$ lamp-lock renew eighth f3397175-dd31-4329-af84-66604ca5e620
+lamp-75c9: our lock is gone (taken or released)
+rc=1
+$ lamp-lock run eighth f3397175-dd31-4329-af84-66604ca5e620 nested -- ssh -o BatchMode=yes orangepi@lamp-75c9.local uname -m; command -v flock; cat ~/lamp.lock
+00:18:48 waiting for lamp-75c9:
+  holder: nine
+  session: b418fcd1
+  machine: <laptop>
+  for: 830 voice starting offline: read-only survey, then a test run
+  since: 2026-10-16 00:18:33 +0700
+  since_epoch: 1792084713
+  renewed: 2026-10-16 00:18:33 +0700
+  renewed_epoch: 1792084713
+  last renewed 15s ago
+00:19:19 waiting for lamp-75c9:
+  holder: nine
+  session: b418fcd1
+  machine: <laptop>
+  for: 830 voice starting offline: read-only survey, then a test run
+  since: 2026-10-16 00:18:33 +0700
+  since_epoch: 1792084713
+  renewed: 2026-10-16 00:18:33 +0700
+  renewed_epoch: 1792084713
+  last renewed 46s ago
+rc=124
+$ lamp-lock status
+lamp-75c9 is held:
+  holder: nine
+  session: b418fcd1
+  machine: <laptop>
+  for: 830 voice starting offline: read-only survey, then a test run
+  since: 2026-10-16 00:18:33 +0700
+  since_epoch: 1792084713
+  renewed: 2026-10-16 00:18:33 +0700
+  renewed_epoch: 1792084713
+  last renewed 75s ago
+rc=1
+$ (over ssh) set renewed_epoch to 1
+$ lamp-lock status
+lamp-75c9 is held:
+  holder: nine
+  session: b418fcd1
+  machine: <laptop>
+  for: 830 voice starting offline: read-only survey, then a test run
+  since: 2026-10-16 00:18:33 +0700
+  since_epoch: 1792084713
+  renewed: 2026-10-16 00:18:33 +0700
+  renewed_epoch: 1
+  last renewed 1792084788s ago, expired
+rc=1
+$ lamp-lock try other s.2 expiry test
+replaced an expired lock (1792084789s without renewal):
+holder: nine
+session: b418fcd1
+machine: <laptop>
+for: 830 voice starting offline: read-only survey, then a test run
+since: 2026-10-16 00:18:33 +0700
+since_epoch: 1792084713
+renewed: 2026-10-16 00:18:33 +0700
+renewed_epoch: 1
+lamp-75c9 acquired by other
+rc=0
+$ (over ssh) tail -10 ~/lamp.lock.log
+for: #812 selftest: survey, install lamp-selftest, run
+--- 2026-10-16 00:19:50 +0700 expired after 1792084789s, taken by other (s.2)
+holder: nine
+session: b418fcd1
+machine: <laptop>
+for: 830 voice starting offline: read-only survey, then a test run
+since: 2026-10-16 00:18:33 +0700
+since_epoch: 1792084713
+renewed: 2026-10-16 00:18:33 +0700
+renewed_epoch: 1
+$ lamp-lock renew eighth f3397175-dd31-4329-af84-66604ca5e620
+lamp-75c9: our lock is gone (taken or released)
+rc=1
+$ lamp-lock release other s.2
+lamp-75c9 released
+rc=0
+$ lamp-lock run eighth f3397175-dd31-4329-af84-66604ca5e620 run with renewal -- bash -c sleep 5; ssh -o BatchMode=yes orangepi@lamp-75c9.local 'grep renewed ~/lamp.lock'
+lamp-75c9 acquired by eighth
+renewed: 2026-10-16 00:19:58 +0700
+renewed_epoch: 1792084798
+lamp-75c9 released
+rc=0
+$ lamp-lock status
+lamp-75c9 is free
+rc=0
+end 2026-10-16 00:20:00 +0700

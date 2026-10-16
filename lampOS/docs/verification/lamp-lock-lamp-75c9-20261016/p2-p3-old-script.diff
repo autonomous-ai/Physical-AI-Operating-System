@@ -1,0 +1,2 @@
+240a241
+>         [[ -z ${LAMP_LOCK_TEST_FORKED:-} ]] || { : >"$LAMP_LOCK_TEST_FORKED"; while :; do sleep 0.1; done; }

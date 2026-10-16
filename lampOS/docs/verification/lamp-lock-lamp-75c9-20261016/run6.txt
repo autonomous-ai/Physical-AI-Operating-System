@@ -1,0 +1,10 @@
+lamp-75c9 is free
+status rc=0
+15:11:16 start
+lamp-75c9 acquired by eighth
+read:[]
+lamp-75c9 released
+run rc=0
+15:11:21 end
+lamp-75c9 is free
+status rc=0

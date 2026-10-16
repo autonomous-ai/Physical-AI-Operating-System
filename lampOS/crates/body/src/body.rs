@@ -269,6 +269,20 @@ const GESTURE_WAIT: Duration = Duration::from_secs(3);
 const GESTURE_STEP: [f32; 5] = [24.0, 34.0, 26.0, 21.0, 21.0];
 /// The farthest a gesture takes each of those from where the lamp has it.
 const GESTURE_REACH: [f32; 5] = [220.0, 220.0, 170.0, 360.0, 360.0];
+/// While it speaks, a lamp standing at its full height leans toward the
+/// person: the shoulder and the elbow this many counts from the pose it
+/// stands in (about four and five degrees), eased in as the answer starts
+/// and out as it ends. Toward the person is the way V1's nod (`nod.csv`)
+/// takes both as the head dips: down. That clip goes to 77 and 120 and
+/// keeps the lamp's weight inside `motion.max_cog_offset_mm` (22 mm);
+/// about half of each moves the centre of gravity a few millimetres
+/// whichever way the calibration has the joints. The base turning
+/// and a lean are what read from the front, where the head is a disc
+/// facing the person (#933, lamp-4ace, 2026-10-16).
+pub const LEAN: [f32; 2] = [-45.0, -60.0];
+/// The lean takes at least this long each way, and longer if its farther
+/// joint would go faster than the pose follows at (`Limits::speed`).
+const LEAN_SECONDS: f32 = 1.5;
 /// While a gesture plays, and for half a second after, a joint of the head
 /// may be this far from its goal and read this load before the gesture is
 /// dropped; the shoulder and the elbow may be this far from theirs. A quick
@@ -2801,6 +2815,8 @@ fn run_until_stopped(
     let mut slump_again: Option<(Joint, u16)> = None;
     let mut left_as_is = false;
     let mut slumped = false;
+    // How far into its lean a speaking lamp is, 0 to 1 (`LEAN`).
+    let mut lean = 0.0f32;
     let mut started = bus.runtime.now();
     // The step the schedule counts from: it starts again after a rest.
     let mut first_step = 0u64;
@@ -3044,6 +3060,24 @@ fn run_until_stopped(
             asleep = [false; 3];
             for (goal, offset) in arm_goals.iter_mut().zip(&gesture_now[3..]) {
                 *goal = (f32::from(*goal) + offset).round().clamp(0.0, 4_095.0) as u16;
+            }
+        }
+        // Speaking, standing up and doing nothing else with its arm, it
+        // leans toward the person, and back once it is not. Not while a
+        // hand holds the arm (the hold below has it then), and nothing new
+        // while the wire is failing.
+        if !blind {
+            let leaning = mood == Mood::Speaking
+                && upright
+                && !gesturing
+                && stalls[3..].iter().all(|stall| stall.hold.is_none());
+            let rate = step / LEAN_SECONDS.max(1.5 * LEAN[1].abs() / limits.speed);
+            lean = (lean + if leaning { rate } else { -rate }).clamp(0.0, 1.0);
+        }
+        if lean > 0.0 && standing.is_some() && !slumped && !arm_rests {
+            let share = smooth(lean);
+            for (goal, by) in arm_goals.iter_mut().zip(LEAN) {
+                *goal = (f32::from(*goal) + by * share).round().clamp(0.0, 4_095.0) as u16;
             }
         }
         let mut face = None;

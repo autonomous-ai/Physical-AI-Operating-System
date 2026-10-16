@@ -599,6 +599,48 @@ the head) 0.45 s into the line; the name was heard 0.55 to 0.95 s after
 glance 83 to 135 ms later. A call with somebody in view has not been seen
 on a lamp.
 
+## Leaning toward the person while it speaks
+
+For #933. From the front, where the person sits, the head is a disc facing
+them: a few degrees of pitch or roll cannot be seen (lamp-4ace,
+2026-10-16). What reads is the base turning and the arm leaning. So a
+lamp standing at its full height leans toward the person while it speaks:
+the shoulder and the elbow come `LEAN` = 45 and 60 counts (about four and
+five degrees) from the pose it stands in, eased in as the answer starts
+and eased out as it ends. On by default; there is no flag.
+
+- **Which way.** Down on both, the way V1's nod (`nod.csv`) takes them as
+  the head dips toward the person.
+- **How far.** That nod goes to 77 and 120 counts and keeps the lamp's
+  weight inside V1's `motion.max_cog_offset_mm` (22 mm). About half of each
+  moves the centre of gravity a few millimetres, whichever way the shared
+  calibration has the joints (worked out with V1's
+  `hal/drivers/motors/recording_stability.py` on `robots/lamp/urdf`).
+- **How fast.** At least 1.5 s each way with an eased start and end, and
+  longer if the elbow would otherwise go faster than the pose follows at
+  (`--speed`): at 120 that is under 60 counts a second at its fastest.
+- **When not.** Not while the lamp rises or folds, not while a gesture
+  plays (the gesture moves the arm itself; the lean eases out and back in
+  after), not while a hand holds the shoulder or the elbow (the hold has
+  them), not after it slumped, and nothing new while the wire fails. Every
+  arm check stays as it was: its load bound, its tracking, its warmth, and
+  `--limp` and `--overload release`.
+
+With Expression on, a turn of the base that it asks while the lamp speaks,
+a sway between sentences, is taken as any other turn it asks: within 70
+counts, around the turn the pose already wants, at the speed the pose
+follows at, and not for a base that has met resistance (see below). The
+body takes it from `base_yaw` in `expression/body`; no new field.
+
+Against simulated servos (`a_speaking_lamp_leans_in_and_back_and_its_base_sways_for_expression`,
+`a_base_that_meets_a_hand_is_not_swayed_on_by_expression`): standing at
+2,650 and 2,600, speaking for six seconds, the arm reached 2,605 and 2,540
+and was back at 2,650 and 2,600 within four seconds of listening again; a
+turn of 52 counts asked for 1.5 s moved the base's goal 35 to 52 and back,
+no goal moving more than 3 counts in a step; and a base that met
+resistance as the turn was asked stayed where it gave way for the two
+seconds after.
+
 ## What Expression may add
 
 On lamp-4ace since 2026-10-14, 10:05, switched on. What it did there is
@@ -613,7 +655,8 @@ in the body's unit (and the bus on), the body listens to `expression/body`
 - **What is taken.** The head's pitch, the head's roll and the base's
   turn, in radians, turned into counts (652 to a radian). A positive pitch
   dips the head, as in the body's own poses. The shoulder and the elbow
-  are the arm that carries the lamp and are not moved for expression. A
+  are the arm that carries the lamp and are not moved for expression (the
+  body leans them itself while the lamp speaks, above). A
   gaze is not taken: the body already looks at the face its own eyes
   report. A request for stillness adds nothing.
 - **How it is applied.** Added to the pose the mood wants, before

@@ -155,6 +155,7 @@ fn main() -> io::Result<()> {
         store_id: STORE.into(),
         run: 1,
         unread: vec![],
+        settled: Vec::new(),
         tasks: vec![TaskProgress {
             task: 3,
             engine: "claude".into(),

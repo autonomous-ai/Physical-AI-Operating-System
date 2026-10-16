@@ -418,10 +418,17 @@ fn owner<C: Clock>(
                             code: "not_read",
                             message: "That task is watched, and its progress has not been read yet.",
                         }),
-                        None => Err(EngineError {
-                            code: "not_found",
-                            message: "No task with that ID is being read for progress.",
-                        }),
+                        // Let go because its agent settled: what it ended
+                        // in, while it is on `tasks/status` as settled,
+                        // never `not_found` (Ten and Nine on #705, problem
+                        // 3 (b)). Its words are `get_observation`'s.
+                        None => match tracker.settled_of(*id) {
+                            Some(settled) => engine.identified(json!({"id":id,"settled":settled})),
+                            None => Err(EngineError {
+                                code: "not_found",
+                                message: "No task with that ID is being read for progress.",
+                            }),
+                        },
                     };
                     requests = requests.saturating_add(1);
                     let _ = work.response.try_send(answer);
@@ -475,6 +482,12 @@ fn owner<C: Clock>(
         // next read.
         if moved && let Some(tracker) = tracker.as_mut() {
             tracker.watching(&engine.watched(&clock.sample()?));
+        }
+        // A task let go because its agent settled is said so a while
+        // (#1021); looked at each turn, so that it also leaves on time.
+        if let Some(tracker) = tracker.as_mut() {
+            let found = engine.settled_within(&clock.sample()?, crate::progress::SETTLED_FOR_MS);
+            tracker.settled(&found, unix_ms());
         }
         if let Some(tracker) = tracker.as_mut()
             && let Some(fresh) = tracker.take(engine.store_id())

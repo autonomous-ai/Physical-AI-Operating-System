@@ -681,6 +681,19 @@ pub struct Watched {
     pub accepted_ago_ms: Option<u64>,
 }
 
+/// A task whose agent settled ([`Engine::settled_within`]), as the watch's
+/// own read found it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Settled {
+    pub task_id: u64,
+    /// Who had it, as the task's target names it (`claude`, `codex`).
+    pub engine: String,
+    /// As Harness wrote it: `idle`, `needs-input`, `stopped` or `failed`.
+    pub state: String,
+    /// How long ago that read found it settled, by this boot's clock.
+    pub ago_ms: u64,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ObservationJob {
     pub task_id: u64,
@@ -1430,6 +1443,49 @@ impl<P: Persistence> Engine<P> {
         task.updated = at;
         self.save(next)?;
         Ok(true)
+    }
+
+    /// Every task whose newest observation is settled (#1021): finished with
+    /// an answer, stopped to ask, stopped or failed, kept less than
+    /// `within_ms` ago in this boot. The watch lets such a task go at once;
+    /// this is what is said of it after. Only while the watch's read is the
+    /// task's latest and did not find the agent back at work: what the
+    /// person asked to have read, or anything read with the watch off or
+    /// after it let the task go for its age, has been heard already or is
+    /// not news (Fourth on #1048). Timed from when the answer was first kept
+    /// (`observed`), which a later look that finds it again does not move:
+    /// a task stays listed while such a look is under way, and does not
+    /// come back with a new time after it (Ten on #1145, with its follow
+    /// looks). Reads nothing and changes nothing.
+    pub fn settled_within(&self, now: &Clock, within_ms: u64) -> Vec<Settled> {
+        self.state
+            .tasks
+            .iter()
+            .filter_map(|task| {
+                let read = task.read.as_ref().filter(|read| read.watch)?;
+                if read.state == ReadState::Failed && read.code.as_deref() == Some("working") {
+                    return None;
+                }
+                let newest = task.observations.last()?;
+                let found = &newest.observed;
+                if !settled(&newest.data) || found.boot_id != now.boot_id {
+                    return None;
+                }
+                let ago_ms = now.monotonic_ms.checked_sub(found.monotonic_ms)?;
+                if ago_ms >= within_ms {
+                    return None;
+                }
+                Some(Settled {
+                    task_id: task.id,
+                    engine: serde_json::to_value(task.launch.target.engine)
+                        .ok()?
+                        .as_str()?
+                        .to_owned(),
+                    state: newest.data.state.clone(),
+                    ago_ms,
+                })
+            })
+            .collect()
     }
 
     /// Every task the watch looks at now ([`Watched`]), whether or not a
@@ -3145,11 +3201,142 @@ mod tests {
             task(&engine).observations[0].data.answer,
             "Lumi, Sunny and Archie."
         );
+        // Let go, and said settled for a while after, by this boot's clock
+        // (#1021); never by another boot's.
+        assert!(engine.watched(&clock(done + 1_000)).is_empty());
+        assert_eq!(
+            engine.settled_within(&clock(done + 1_000), 120_000),
+            [Settled {
+                task_id: id,
+                engine: "codex".into(),
+                state: "idle".into(),
+                ago_ms: 1_000,
+            }]
+        );
+        assert!(
+            engine
+                .settled_within(&clock(done + 120_000), 120_000)
+                .is_empty()
+        );
+        let elsewhere = Clock {
+            boot_id: "another-boot".into(),
+            monotonic_ms: done + 1_000,
+        };
+        assert!(engine.settled_within(&elsewhere, 120_000).is_empty());
         assert!(!engine.watch(&clock(done + WATCH_AT_MOST_MS / 2)).unwrap());
         // The watch's reads are stored as such and reopen.
         assert!(stored(&memory).tasks[0].read.as_ref().unwrap().watch);
         let reopened = Engine::open(memory, targets(), STORE, RESTART, &clock(done + 1)).unwrap();
         assert_eq!(reopened.state.tasks[0].observations.len(), 1);
+    }
+
+    /// Only the watch's own read makes a task settled news, and only while
+    /// it is the task's latest (Fourth on #1048): what the person asked to
+    /// have read, they have heard.
+    #[test]
+    fn only_the_watchs_own_latest_read_makes_a_task_settled_news() {
+        let (mut engine, _) = opened();
+        let id = accepted(&mut engine, 10);
+        // Someone asks, and the read finds it finished: not news, and the
+        // watch has nothing left to look at.
+        let asked = Request::Observe {
+            guard: guard(&engine, "observe"),
+            id,
+        };
+        engine.handle(&asked, &clock(20), false).unwrap();
+        let job = engine.begin_observation(&clock(20)).unwrap().unwrap();
+        engine
+            .finish_observation(&job, data("Lumi, Sunny and Archie."), &clock(30))
+            .unwrap();
+        assert!(engine.settled_within(&clock(40), 120_000).is_empty());
+        assert!(!engine.watch(&clock(30 + WATCH_EARLY_MS)).unwrap());
+        // Another (its own store: the agent is the same), which the watch
+        // finds asking the person: news, until someone asks to have it read.
+        let (mut engine, _) = opened();
+        let other = accepted(&mut engine, 10);
+        assert!(engine.watch(&clock(10 + WATCH_EARLY_MS)).unwrap());
+        let job = engine
+            .begin_observation(&clock(10 + WATCH_EARLY_MS))
+            .unwrap()
+            .unwrap();
+        let found = 10 + WATCH_EARLY_MS + 5;
+        let asks = Observation {
+            state: "needs-input".into(),
+            ask: Some("Which colour?".into()),
+            ..data("I need one thing.")
+        };
+        engine
+            .finish_observation(&job, asks, &clock(found))
+            .unwrap();
+        let said: Vec<(u64, String, u64)> = engine
+            .settled_within(&clock(found + 10), 120_000)
+            .into_iter()
+            .map(|settled| (settled.task_id, settled.state, settled.ago_ms))
+            .collect();
+        assert_eq!(said, [(other, "needs-input".to_owned(), 10)]);
+        let asked = Request::Observe {
+            guard: guard(&engine, "observe"),
+            id: other,
+        };
+        engine.handle(&asked, &clock(found + 20), false).unwrap();
+        assert!(
+            engine
+                .settled_within(&clock(found + 20), 120_000)
+                .is_empty()
+        );
+    }
+
+    /// Ten on #1145 (its follow looks at an idle answer it kept): a later
+    /// look of the watch at a task it found settled neither takes it off
+    /// the list while under way nor gives it a new time when it finds the
+    /// same answer again; one that finds the agent back at work does take
+    /// it off. Its two minutes count from the first finding.
+    #[test]
+    fn a_later_look_neither_hides_a_settled_task_nor_moves_its_time() {
+        let (mut engine, _) = opened();
+        let id = accepted(&mut engine, 10);
+        assert!(engine.watch(&clock(10 + WATCH_EARLY_MS)).unwrap());
+        let job = engine
+            .begin_observation(&clock(10 + WATCH_EARLY_MS))
+            .unwrap()
+            .unwrap();
+        let found = 10 + WATCH_EARLY_MS + 5;
+        // Asking the person: kept on the first look, with #1145 too (which
+        // keeps an idle answer only on a second).
+        let asks = Observation {
+            state: "needs-input".into(),
+            ask: Some("Which colour?".into()),
+            ..data("I need one thing.")
+        };
+        engine
+            .finish_observation(&job, asks, &clock(found))
+            .unwrap();
+        let listed = |engine: &Engine<Memory>, at: u64| -> Vec<(u64, u64)> {
+            engine
+                .settled_within(&clock(at), 120_000)
+                .into_iter()
+                .map(|settled| (settled.task_id, settled.ago_ms))
+                .collect()
+        };
+        assert_eq!(listed(&engine, found + 1_000), [(id, 1_000)]);
+        // A later look of the watch under way.
+        let index = find(&engine.state, id).unwrap();
+        let mut read = engine.state.tasks[index].read.clone().unwrap();
+        read.state = ReadState::Attempting;
+        read.finished = None;
+        engine.state.tasks[index].read = Some(read.clone());
+        assert_eq!(listed(&engine, found + 2_000), [(id, 2_000)]);
+        // It found the same answer again: the first finding's time stands.
+        read.state = ReadState::Finished;
+        engine.state.tasks[index].read = Some(read.clone());
+        engine.state.tasks[index].observations[0].seen_count += 1;
+        assert_eq!(listed(&engine, found + 3_000), [(id, 3_000)]);
+        assert!(listed(&engine, found + 120_000).is_empty());
+        // It found the agent back at work: off the list at once.
+        read.state = ReadState::Failed;
+        read.code = Some("working".into());
+        engine.state.tasks[index].read = Some(read);
+        assert!(listed(&engine, found + 4_000).is_empty());
     }
 
     #[test]

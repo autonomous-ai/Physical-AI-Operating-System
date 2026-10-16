@@ -1182,6 +1182,7 @@ mod tests {
             store_id: "0123456789abcdef0123456789abcdef".into(),
             run,
             unread: vec![],
+            settled: Vec::new(),
             tasks: vec![TaskProgress {
                 task: 3,
                 engine: "codex".into(),
@@ -1385,6 +1386,7 @@ mod tests {
                     store_id: "0123456789abcdef0123456789abcdef".into(),
                     run: RUN_A,
                     unread: vec![],
+                    settled: Vec::new(),
                     tasks: vec![],
                 });
                 progress.voice(Voice::Listening, then);
@@ -1607,6 +1609,7 @@ mod tests {
             store_id: "0123456789abcdef0123456789abcdef".into(),
             run: RUN_B,
             unread: vec![3],
+            settled: Vec::new(),
             tasks: vec![],
         });
         let kept = &progress.tasks[&3];
@@ -1631,6 +1634,7 @@ mod tests {
             store_id: "0123456789abcdef0123456789abcdef".into(),
             run: RUN_B,
             unread: vec![3],
+            settled: Vec::new(),
             tasks: vec![],
         });
         missed.status(status_of(RUN_B, 1, AgentState::Working));
@@ -1641,6 +1645,7 @@ mod tests {
             store_id: "0123456789abcdef0123456789abcdef".into(),
             run: RUN_B,
             unread: vec![],
+            settled: Vec::new(),
             tasks: vec![],
         });
         assert!(progress.tasks.is_empty());

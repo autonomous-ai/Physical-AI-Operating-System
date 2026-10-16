@@ -112,6 +112,7 @@ impl Place {
             store_id: STORE.into(),
             run,
             unread: vec![],
+            settled: Vec::new(),
             tasks: vec![TaskProgress {
                 task: 3,
                 engine: "claude".into(),
@@ -137,6 +138,7 @@ impl Place {
             store_id: STORE.into(),
             run,
             unread: vec![],
+            settled: Vec::new(),
             tasks: Vec::new(),
         };
         self.status.publish_json(0, &status).unwrap();

@@ -252,6 +252,7 @@ impl Rig {
             store_id: STORE.into(),
             run: RUN,
             unread: vec![],
+            settled: Vec::new(),
             tasks: vec![TaskProgress {
                 task: 3,
                 engine: "claude".into(),

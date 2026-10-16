@@ -173,3 +173,19 @@ Ready for lamp-voice: #974 yes (ARM64 green); #978 when its ARM64 run is green
 - #978 (`nine/offline-face`, `a87fd0b47`): `lamp-expression --offline-face`
   draws listening as not ready while `lamp/online` says offline. Expression
   tests and workspace build clean; ARM64 run 38847656338.
+
+## 2026-10-16 — the afternoon's merges and what waits
+
+Ready for lamp-voice: #997, #1102 (with #1120, #1102 first), #1052 green
+
+- Merged into `lamp-voice` since the morning: #989, #986, #1008, #1043,
+  #1046, #1050, #1055, #1018, #1041, #1063, #1118 (lookup) and #1105 (heat).
+- #997 (`ba41bbe0f`): a restored mute's marker names its guard record
+  (`clock_id`, `through_us`), so a marker left by a failed unlink never opens
+  a person's mute after a restart. Voice suite 1404 passed. Awaits the
+  reviewer's re-check.
+- #1102: install never copies V1's key after a reset. To merge as a pair
+  with the third's #1120, #1102 first.
+- #1052: models from the `models-2026-10-16` release, rebased to
+  `9ef2faf43`, green.
+- #990 waits on DevOps. Proved #811's Harness-at-boot on lamp-75c9 and undid it.

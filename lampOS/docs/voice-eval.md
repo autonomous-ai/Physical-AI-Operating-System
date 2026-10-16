@@ -496,6 +496,54 @@ cargo run -p lamp-voice-eval -- render-stimuli .cache/acoustic NEW_REPORT.json  
 Every failed attempt carries a reproduction command; fake attempts reproduce
 exactly with `--attempt-seed`.
 
+## A session's minutes, with no words: `export` (#1119)
+
+Builders without the lamp make test cases from what it did. `export` takes a
+window of a lamp's session and keeps only what holds no words:
+
+    lamp-voice-eval export --since 17:13:00 --until 17:16:00 --out NEW_DIR \
+        --sessions /var/lib/lampOS/voice/sessions --journal journal.json
+
+with the journal as `journalctl -o json --since 17:10 --until 17:20 >
+journal.json`. Times are the lamp's local wall time (`--zone system` unless
+given) on `--date YYYY-MM-DD` (today's unless given). It runs on the lamp, or
+on a copy of its sessions and journal.
+
+- **The voice's trace** (`events-*.jsonl` under `--sessions`, any depth):
+  each event keeps its `kind` and `at_us`, its top-level numbers and
+  booleans, and the strings of a few fields the voice's code fills from a
+  closed set (`outcome`, `reason`, `phase`, `link`, `admission_basis`, ...)
+  when the value is one lower-case word of letters, digits and `_`.
+  Nested objects, arrays, every other string, and any event whose kind is
+  not such a word are left out and counted. A `transcript` keeps who (`heard`
+  when it has no turn, `lamp` when it has one), its length in characters,
+  its turn and whether it was final: never its text.
+- **The parts' journal** (`--journal`): only lines whose shape is known are
+  read, into numbers and plain words: the Policy's `decision`, `progress
+  decision`, `hello decision` and `outcome of decision` lines (their
+  `key=value` pairs), the body's `step N gesture NAME`, its faces (`mood`,
+  `across`, `down`, `size`) and its goals, and a skill's `SKILL Stage` (its
+  why is left out). Every other line is left out and counted by part.
+- **Wall time.** The voice's `at_us` is the monotonic clock the journal also
+  writes, so the journal's own pairs give the boot's offset; without a
+  journal, `--wall-offset-us`, or this machine's clocks now (right only on
+  the lamp, in the same boot). `summary.json` says which.
+
+It writes a new folder (0700, files 0600): `events.jsonl` (both, in time
+order, each with `at_us`, `wall` and `source`), `summary.json` (counts by
+kind, and by kind and plain-word value, such as
+`turn_finished.outcome=user_interrupted`), `left-out.json` (what was left
+out, counted, never what it said) and `case/voice_state.jsonl`: `voice/state`
+as `lamp-bus record` writes a topic, from 0, for a skill's `tests/` case.
+That state is derived, not recorded (the voice does not write it to its
+trace): listening from `input_admitted`, thinking from `local_endpoint`,
+speaking from `speaker_first_write`, resting from `turn_finished`.
+
+`a_session_full_of_words_exports_none_of_them` fills every text field, a
+name, a tool's arguments, an unknown kind and field, a closed-set field
+holding a sentence, and journal lines with distinct words, and fails if any
+byte of the output holds one.
+
 ## Physical runner (prepared, not executed)
 
 When Lamp returns, the operator first performs the readiness checks in the

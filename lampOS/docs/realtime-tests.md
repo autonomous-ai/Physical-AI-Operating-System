@@ -535,6 +535,20 @@ limit (200 to 500 ms), still fails. Two injected 1.3 s delays at
 With the reorder the faces are followed only by the joints' publication, so
 that window is a single publication, not removed.
 
+A second limit, found on ARM64 (#1196): the service places each bus input at
+its injected `now` less its wall age, and the sleeping-name fixture moved
+`now` on by exactly one 200 ms tick a step. A stall of more than a tick
+anywhere in a step's publications made the room older by more than the clock
+had moved, so it was placed before the previous step's room and refused as
+out of order, long before its 2 s limit. The fixture now reads the wall clock
+before publishing too, and when publishing took longer than a tick its clock
+moves on by the excess, as a lamp's would. No placed time goes backwards
+whatever the stall; below a 200 ms stall the clock moves exactly as before. A
+300 ms stall after the room and a 250 ms stall after the joints, in a
+throwaway copy, both pass with it; the 300 ms one failed before, with the
+refusal seen on ARM64. A stall longer than an input's own limit is still
+refused as stale, as it would be on a lamp.
+
 ## Coordinated Serve-session fixtures (#823)
 
 `ClockedServeFixture` coordinates the real relay process, fake Serve runtime,

@@ -225,9 +225,15 @@ with whoever asked, and leaves the talk across the room alone.
   asker at its last chance, it takes no turn and the lamp keeps the
   answer: the candidate is let go as for the floor hold. One still
   waiting when the answer begins to play goes on being judged on its own
-  blocks, the rule hearing them over the answer, until its last chance:
-  well under the asker then, it is let go and the answer plays; otherwise
-  it is judged as anything said over the lamp's voice. Left to the duplex
+  blocks until its last chance, the rule hearing over the answer only
+  those the render does not explain, as the duplex rule hears a person
+  over the lamp (`Hearing::heard(…).person()`). The lamp's own voice let
+  through by the canceller is as loud as a person on a fifth of its blocks
+  on lamp-4ace (`duplex-listening.md`), and judged on it a line from
+  across the room took the turn from the answer (the reviewer on #1197).
+  At its last chance, well under the asker then, it is let go and the
+  answer plays; otherwise it is judged as anything said over the lamp's
+  voice. Left to the duplex
   rule, a line from across the room was admitted a block into the answer
   and replaced it, as "¿Qué?" replaced the answer at 14:21. Judged at the
   answer's first block, the asker's own follow-up opening with a soft
@@ -346,6 +352,11 @@ with whoever asked, and leaves the talk across the room alone.
     ±2,000, the answer beginning during the soft part: taken, with `on`,
     `record` and off alike, and nothing recorded (the reviewer's probe on
     #1197, where it was let go on its soft start).
+  - `with_asker_first_the_lamps_own_voice_over_a_line_is_not_its_level`:
+    the same line at ±300, the microphone at ±1,201 from the answer's
+    first block with the render explaining it (the lamp's voice 4.4 dB
+    under the asker): let go at its last chance, and the answer is not cut.
+    Counting the leak, it took the turn.
   Each fails with its change taken out. The name's part is shown by the
   rule's own test only.
 - A staged busy room on lamp-4ace (`hold.sh`: three lines between two

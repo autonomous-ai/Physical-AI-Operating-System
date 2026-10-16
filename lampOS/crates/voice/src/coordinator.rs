@@ -4551,10 +4551,22 @@ fn conversation_with_gate(
                     {
                         rule.asking(current.owner.turn(), heard_level);
                     } else if current.local_input_ended
-                        && (current.playback.is_none() || asker_waited.is_some())
+                        && (current.playback.is_none()
+                            || asker_waited.is_some()
+                                && frame.echo.as_ref().is_some_and(|evidence| {
+                                    lamp_audio::duplex::Hearing::EVALUATED
+                                        .heard(frame.probability, evidence)
+                                        .person()
+                                }))
                     {
                         // Over the answer too, while the rule waits on a
-                        // line begun before it: its own blocks decide it.
+                        // line begun before it: its own blocks decide it,
+                        // those the render does not explain, as the duplex
+                        // rule hears a person over the lamp. The lamp's own
+                        // voice let through by the canceller is as loud as
+                        // a person on a fifth of its blocks on lamp-4ace,
+                        // and judged on it a line from across the room took
+                        // the turn from the answer (the reviewer on #1197).
                         rule.heard(frame.read_completed_at_us, heard_level);
                     }
                     // Recorded only, what `on` would still be judging.

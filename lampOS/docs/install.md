@@ -302,9 +302,9 @@ reads itself:
   board has them).
 - The update trust root, `/etc/lampOS/update/key.pub`, put there at the
   factory. Setup does not write it.
-- The lamp's device key: V1's `llm_api_key` in `/root/config/config.json`
-  (V1's image provisions it), or `/etc/lampOS/voice/credential` written at
-  the factory.
+- No voice key: it is the user's (the owner on #806, 2026-10-16 16:13).
+  Setup takes it from the account page or the app; on a lamp that ran V1,
+  install copies V1's `llm_api_key` once (step 6). The factory writes none.
 - The zone data in `/usr/share/zoneinfo`, and `/etc/timezone` or
   `/etc/localtime`.
 - For setup (#806): nginx installed and not enabled, with the setup site;
@@ -369,10 +369,11 @@ As root, on a lamp with the base image (`crates/update/src/install.rs`):
    install (lamp-4ace's own pins), is the lamp's: it is kept, and said
    (`kept /etc/lampOS/controls/controls-pins.json: …`). With `--setup on`
    (off unless set), setup's two settings are among them, exactly the setup
-   crate's `fixtures/serve-own-page.json` (setup's own page on port 80; it
-   asks for no voice key, the lamp's own device key being install's to
-   write, #806) and `fixtures/reset-plan-product.json` (the reset stops
-   `lampos.target`, there being no keeper, and keeps the device key). With them and no marker the lamp starts setup at
+   crate's `fixtures/serve-own-page.json` (setup's own page on port 80) and
+   `fixtures/reset-plan-product.json` (the reset stops `lampos.target`, there
+   being no keeper). Which key setup takes and whether a reset wipes it are
+   setup's (#806; the owner's 16:13 decision: setup takes the user's, a reset
+   wipes it). With them and no marker the lamp starts setup at
    boot, so a lamp set up by hand, whose updater is upgraded by rerunning
    install, is never given them by default. Rerunning install is
    how the updater upgrades itself, so this holds at every run (the
@@ -387,17 +388,20 @@ As root, on a lamp with the base image (`crates/update/src/install.rs`):
    Writes the voice's service, `/etc/lampOS/voice/provider.json`
    (`deploy/product/settings/voice-provider.json`: V1's route, the
    campaign-api proxy's Gemini Live path, `resumption` off because the proxy
-   does not forward it; the first builder on #806, 2026-10-16 12:36), and the
-   lamp's device key, `/etc/lampOS/voice/credential`, taken from V1's
-   `llm_api_key` in `/root/config/config.json`. Both root's and 0600, as the
-   voice requires, and kept up to date as the settings are: while each is
+   does not forward it). The voice's key, `/etc/lampOS/voice/credential`, is
+   the user's (the owner on #806, 2026-10-16 16:13): setup takes it, and a
+   reset wipes it. On a lamp that ran V1, install copies V1's `llm_api_key`
+   from `/root/config/config.json`, but only into a lamp that never had one
+   from install: a key install wrote that is now gone was removed on purpose
+   (a reset), and V1's config, which may still hold the previous owner's, is
+   never used to put it back (said instead). Both files root's and 0600, as
+   the voice requires, and kept up to date as the settings are: while each is
    still what an install wrote (its SHA-256 in `state.json`), a newer
-   provider, or a key V1 rotated in its config, replaces it; one written at
-   the factory or changed on the lamp is kept, and said. The key is never
-   said; with none in V1's config, install says the voice cannot reach its
-   service until the factory writes it. The customer never types a key.
-   The same device key is the Policy's judge key, `/etc/lampOS/policy/jev.key`
-   (root's, 0600, handed in by systemd; kept up to date the same way), and
+   provider, or a key V1 rotated in its config, replaces it; one setup wrote,
+   or changed on the lamp, is kept, and said. The key is never said; with
+   none, install says the voice cannot reach its service until setup takes
+   the user's. The same key is the Policy's judge key, `/etc/lampOS/policy/jev.key`
+   (root's, 0600, handed in by systemd; the same rules), and
    the product Policy asks Jev through V1's route, the campaign-api proxy, as
    V1's Jev client does (#811 point 2).
    It never writes `/etc/lampOS/body/lamp.env`, and says that the body waits

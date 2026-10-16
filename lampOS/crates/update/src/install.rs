@@ -183,16 +183,17 @@ pub const TMPFILES: &str = include_str!("../../../deploy/product/lampos.conf");
 pub const TMPFILES_PATH: &str = "/etc/tmpfiles.d/lampos.conf";
 /// The lamp's zone, for the parts that take it (docs/install.md).
 pub const ZONE_PATH: &str = "/etc/lampOS/zone.env";
-/// The voice's service: V1's route, the campaign-api proxy with the lamp's own
-/// device key (the first builder on #806, 2026-10-16 12:36). Private, as the
-/// voice requires (`read_private`: the process user's, 0600), and written only
-/// where missing.
+/// The voice's service: V1's route, the campaign-api proxy with the user's
+/// key. Private, as the voice requires (`read_private`: the process user's,
+/// 0600), kept up to date while it is install's own.
 pub const PROVIDER_PATH: &str = "/etc/lampOS/voice/provider.json";
 pub const PROVIDER: &str = include_str!("../../../deploy/product/settings/voice-provider.json");
-/// The lamp's device key, as `provider.json` names it. The customer never
-/// types or sees it: on a lamp made with V1's image it is V1's `llm_api_key`.
+/// The voice's key, as `provider.json` names it. It is the user's (the owner on
+/// #806, 2026-10-16 16:13): setup takes it from the account page or the app,
+/// and a reset wipes it. On a lamp that ran V1, install copies V1's
+/// `llm_api_key` once, into a lamp that never had one.
 pub const CREDENTIAL_PATH: &str = "/etc/lampOS/voice/credential";
-/// The Policy's judge key: the same device key, for V1's route to Jev
+/// The Policy's judge key: the same key, for V1's route to Jev
 /// (`deploy/product/lamp-policy.service`; the first builder on #811, 13:09:
 /// provision it like the voice's).
 pub const JEV_KEY_PATH: &str = "/etc/lampOS/policy/jev.key";
@@ -486,26 +487,28 @@ pub fn install(
         say,
         &mut |state| save(&records, state),
     )?;
-    // The voice's service and the lamp's device key, private. Each is
-    // install's while it is still what an install wrote, so a newer
-    // provider, or a device key V1 rotated in its config, reaches the lamp;
-    // one written at the factory, or changed on the lamp, is kept (the
-    // reviewer, thirteen, on #1050).
+    // The voice's service and the user's key, private. Each is install's
+    // while it is still what an install wrote, so a newer provider, or a key
+    // V1 rotated in its config, reaches the lamp; one setup wrote, or one
+    // changed on the lamp, is kept (the reviewer, thirteen, on #1050). The key
+    // is the user's (the owner on #806, 16:13): V1's is copied only into a lamp
+    // that never had one from install. One install wrote that is now gone was
+    // removed on purpose (a reset wipes it with the person's data), and V1's
+    // config, which may still hold the previous owner's, never puts it back.
     let key = device_key(config);
     let mut private: Vec<(&str, &str)> = vec![(PROVIDER_PATH, PROVIDER)];
-    match &key {
-        Some(key) => {
-            private.push((CREDENTIAL_PATH, key));
-            private.push((JEV_KEY_PATH, key));
-        }
-        None => {
-            for (path, part) in [(CREDENTIAL_PATH, "the voice"), (JEV_KEY_PATH, "the Policy")] {
-                if !config.on(path).exists() {
-                    say(&format!(
-                        "no device key: {part} cannot reach its service until {path} holds the lamp's key (none in {V1_CONFIG})"
-                    ));
-                }
-            }
+    for (path, part) in [(CREDENTIAL_PATH, "the voice"), (JEV_KEY_PATH, "the Policy")] {
+        let there = config.on(path).exists();
+        let had = state.settings.contains_key(path);
+        match &key {
+            Some(key) if there || !had => private.push((path, key)),
+            _ if there => {}
+            Some(_) => say(&format!(
+                "{path} was removed since install wrote it (a reset?): V1's key is not put back; setup takes the user's"
+            )),
+            None => say(&format!(
+                "no key: {part} cannot reach its service until setup takes the user's into {path} (none in {V1_CONFIG})"
+            )),
         }
     }
     let wrote = changed.len();
@@ -523,9 +526,7 @@ pub fn install(
             .iter()
             .any(|line| line == &format!("wrote {path}"))
         {
-            say(&format!(
-                "the device key was taken from {V1_CONFIG} into {path}"
-            ));
+            say(&format!("V1's key was taken from {V1_CONFIG} into {path}"));
         }
     }
     // Made 0755 here on a blank lamp. One made closed before (lamp-4ace's is

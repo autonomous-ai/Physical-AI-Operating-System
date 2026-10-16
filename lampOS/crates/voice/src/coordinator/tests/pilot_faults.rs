@@ -713,11 +713,13 @@ impl Peers {
             Act::StallSpeakerPartial => self.speaker = SpeakerMode::Partial,
             Act::Sigterm => {
                 self.seen.lock().unwrap().sigterm_sent_at = Some(Instant::now());
-                rustix::process::kill_process(
-                    rustix::process::getpid(),
-                    rustix::process::Signal::TERM,
-                )
-                .unwrap();
+                // A real SIGTERM through the installed handler, raised on this
+                // thread: its handler has run before raise returns. A signal
+                // to the whole process may be taken by another thread later,
+                // and a stepped run kept its scenario clock moving meanwhile
+                // (0.27 to 1.7 s on a loaded host), long enough for the notice
+                // to finish before the stop was seen.
+                signal_hook::low_level::raise(signal_hook::consts::SIGTERM).unwrap();
             }
             Act::ProviderFault => {
                 if let Some(provider) = self.peers.iter_mut().find(|p| p.role == "provider") {

@@ -640,3 +640,17 @@ Still separate: the cross-cycle
 `rapid_mute_and_reopen_never_overlaps_workers_or_carries_speech_across` stays
 Threaded, `provider_terminal`'s same cause is #975 (PR #982), and the
 original-123 realtime-group denominator above stays frozen.
+
+## Pilot SIGTERM raised on the stepping thread (#739)
+
+`pilot_faults`'s `Act::Sigterm` used to send SIGTERM to the whole process.
+Any thread could take that signal, and the handler could run late on a loaded
+host. The stepped scenario clock kept moving in the meantime: the stop was
+seen 0.27 to 1.7 s of scenario time after it was sent. That let
+`sigterm_while_the_failure_notice_plays_stops_cleanly` play its notice to the
+final sample, which failed 2 to 6 of 40 runs with 20 `yes` workers. The act
+now raises the same SIGTERM on its own thread, which runs the installed
+handler before `raise` returns. The production `Termination` path, every
+assertion and every bound are unchanged. The three `sigterm_while_*` pilot
+cases then passed 40/40 under 20 `yes` workers and 20/20 under SIGSTOP 80 ms
+every 300 ms.

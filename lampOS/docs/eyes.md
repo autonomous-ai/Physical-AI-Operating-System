@@ -347,12 +347,21 @@ the two corners of the mouth. From every camera frame while there is a
 face (not only the four a second the detector looks at), the lower face
 (from the nose down to 2.5 times the nose-to-lips drop below the lips, so
 a dropping jaw stays in it; twice the mouth's width) and a band round the
-eyes are each read as 16 by 12 points. A frame whose eyes changed by more
-than 10 grey levels on average since the frame before is a head (or the
-light) moving, and is left out (`HEAD_MOVED`). Otherwise the share of the
+eyes are each read as 16 by 12 points. Each frame is first lined up with
+the one before: the shift of up to 6 pixels each way (`SEARCH`) that makes
+the band round the eyes change least is how far the face moved in the
+picture, the lower face is read shifted by as much, and the shifts add up
+so the regions follow the face (the lamp's head follows it, so the face
+always slides a little). A frame whose eyes, once lined up, still changed
+by more than 10 grey levels on average is a head turning or nodding (or
+the light), and is left out (`HEAD_MOVED`). Otherwise the share of the
 lower face's points that changed by at least 12 grey levels (`CHANGED`)
 is the mouth's movement, and a share of 0.15 is "fully moving"
-(`FULL_SHARE`). All three are first guesses, for the raw run to set. The
+(`FULL_SHARE`). All four numbers are first guesses, for the raw run to
+set. 6 pixels: the gaze turns the head at 50 counts a second at most
+(about 4.4 degrees a second, [body.md](body.md)), 0.6 degrees a frame at 7
+frames a second, 2.5 to 3.4 pixels at 320 pixels over 60 to 78 degrees,
+with as much again for the person's own sway. The
 score is the mean over the frames kept in the 1.2 s before the newest
 frame read, and needs five frames in the window. Between two looks a face
 is read where the last look found it; a face that moved is read afresh.
@@ -369,10 +378,12 @@ face whose every frame was left out says 0 with `head_moved` equal to
 left out.
 
 With `LAMP_EYES_MOUTH_RAW=on` as well, each mouth also carries `raw`, each
-frame in its window as numbers only: `taken_us`, the lower face's mean
-change (`lower_mean`), its share of points past 8, 12 and 16 grey levels
-(`lower_share8`, `lower_share12`, `lower_share16`) and the eyes' mean
-change (`eyes_mean`). Readers of the first version read both new fields as
+frame in its window as numbers only: `taken_us`, the shift it was lined
+up by (`shift_x`, `shift_y`, in the detector's pixels), the lower face's
+mean change lined up (`lower_mean`), its share of points past 8, 12 and 16
+grey levels (`lower_share8`, `lower_share12`, `lower_share16`), and the
+eyes' mean change where they were (`eyes_mean`) and lined up
+(`eyes_after`). Readers of the first version read both new fields as
 absent. Without the switch no
 frame is read for mouths, the topic is not declared, and every message on
 `humans/faces/tracked` is byte for byte what it was (a test).
@@ -404,6 +415,17 @@ levels, inside the noise. Chewing's jaw fell below the region. Hence the
 share of changed points, the eyes as a gate only, and the deeper region,
 with the raw changes said for the next run to set their numbers. The process: 22 MB, 15% of one core, as before; the board at 51 to
 52 degrees.
+
+**Third run, 2026-10-16 (the raw changes).** The medians of each frame's
+raw changes (each frame once, from 0.5 s into each prompt) were alike
+everywhere: talking QUIET `lower_mean` 10.6 and `lower_share12` 0.286
+against SPEAK 11.8 and 0.297, silent 10.9 and 0.260, with `eyes_mean`
+19 to 24 in all of them; chewing's 4 to 7. The whole face changed by 10
+to 20 grey levels between frames even with nobody speaking: the lamp's
+head followed the face (the body's gaze ran in the second and third runs;
+in the first, with the body off, the changes were small), and the regions
+stayed where the face was found. Hence the line-up above, with the shift
+and the eyes' change after it said in `raw`.
 
 **What it cannot do.** Tell talking from chewing, laughing or a smile; see
 a mouth behind a hand, in a face turned side on, or in a face too small:

@@ -138,3 +138,37 @@ window, `lower_mean`, `lower_share8`, `lower_share12`, `lower_share16` and
 `eyes_mean` (numbers only, with the frame's `taken_us`; count each frame
 once). One more ten-minute run answers both whether the new score parts
 SPEAK from QUIET and, if not, which step and gate would.
+
+## Third run, 2026-10-16: the whole face moved between frames
+
+With the raw changes said (build `d214fe838`, `~/mouths-run3` on the Mac;
+the person followed every prompt), the medians of each frame's raw values,
+each frame once (by `taken_us`), from 0.5 s into each prompt:
+
+| Scene | Prompt | `lower_mean` | `lower_share12` | `eyes_mean` |
+|---|---|---|---|---|
+| talking | QUIET | 10.6 | 0.286 | 20.9 |
+| talking | SPEAK | 11.8 | 0.297 | 20.3 |
+| over | QUIET | 9.2 | 0.229 | 18.9 |
+| over | SPEAK | 10.8 | 0.255 | 24.1 |
+| silent | QUIET | 10.9 | 0.260 | 21.7 |
+| chewing | QUIET | 6.6 | 0.156 | 13.2 |
+| chewing | CHEW | 4.3 | 0.068 | 9.5 |
+| chewing | SMILE | 6.4 | 0.161 | 14.3 |
+
+Every frame changed by 10 to 20 grey levels, silent or not: the whole face
+shifted between frames. The lamp's head follows the face (the body's gaze
+ran in the second and third runs; in the first, with the body off, the raw
+changes were small), while the regions stayed where the face was found,
+read at the nearest pixels, so the face slid under them.
+
+The fix (`mouth.rs`): each frame is lined up with the one before by the
+band round the eyes (the integer shift within 6 pixels each way that makes
+it change least; the gaze moves the face 2.5 to 3.4 pixels a frame at
+most), the lower face is read at that shift, the shifts add up so the
+regions follow the face, and the head gate reads the eyes' change after
+the line-up. `raw` now also says `shift_x`, `shift_y` and `eyes_after`. A
+test slides a textured picture 2 pixels left and 1 up a frame (16 and 8 in
+all): it reads still, with every shift found; the same slide with the lips
+moving reads as a mouth. `mouths.sh` now ends by printing these medians
+for every raw field (`raw-medians.txt`), so the next run reports itself.

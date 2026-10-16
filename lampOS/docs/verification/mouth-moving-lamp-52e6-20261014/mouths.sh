@@ -13,10 +13,12 @@
 # the end, whatever happens.
 #
 # The eyes also say each frame's raw changes (LAMP_EYES_MOUTH_RAW=on): the
-# lower face's mean change and its share of points past 8, 12 and 16 grey,
-# and the eyes' mean change, with each frame's taking time. They stay in the
+# shift each frame was lined up by, the lower face's mean change and its
+# share of points past 8, 12 and 16 grey, and the eyes' mean change before
+# and after the line-up, with each frame's taking time. They stay in the
 # .mouths files whole, to set the step, the full share and the head gate
-# from (a frame is in several messages: count each taken_us once).
+# from (a frame is in several messages: count each taken_us once); the
+# run ends by printing each prompt's median of each (raw-medians.txt).
 set -eu
 LAMP=$1 SHA=$2 OUT=$3 BUS=${4:-'~/fifth-lamp-bus'}
 DROP=/etc/systemd/system/lamp-eyes.service.d/mouth-trial.conf
@@ -115,3 +117,33 @@ for marks in "$OUT"/*.marks; do
             }
             END { for (l in sum) printf "%s %s mean %.3f over %d scores\n", name, l, sum[l] / count[l], count[l] }'
 done | sort | tee "$OUT/summary.txt"
+
+# Each scene: the median of each raw field while each prompt was shown,
+# each frame once (by taken_us), from 0.5 s into the prompt.
+python3 -I - "$OUT" <<'PY' | tee "$OUT/raw-medians.txt"
+import glob, json, os, statistics, sys
+out = sys.argv[1]
+decode = json.JSONDecoder().raw_decode
+for marks in sorted(glob.glob(os.path.join(out, "*.marks"))):
+    name = os.path.basename(marks)[:-6]
+    at = [(float(t), label) for t, label in (line.split() for line in open(marks))]
+    frames = {}
+    for line in open(os.path.join(out, name + ".mouths")):
+        try:
+            _, end = decode(line)
+            body, _ = decode(line, end + 1)
+        except ValueError:
+            continue
+        for mouth in body.get("mouths", []):
+            for raw in mouth.get("raw") or []:
+                frames[raw["taken_us"]] = raw
+    by = {}
+    for taken, raw in frames.items():
+        shown = [(t, l) for t, l in at if t <= taken / 1e6]
+        if shown and shown[-1][1] != "end" and taken / 1e6 >= shown[-1][0] + 0.5:
+            by.setdefault(shown[-1][1], []).append(raw)
+    for label, raws in sorted(by.items()):
+        keys = sorted(k for k in raws[0] if k != "taken_us")
+        cols = " ".join(f"{k} {statistics.median(r[k] for r in raws):.3f}" for k in keys)
+        print(f"{name} {label} frames {len(raws)} {cols}")
+PY

@@ -7,8 +7,9 @@
 #[cfg(target_os = "linux")]
 pub fn store_cannot_run_here() -> bool {
     use rustix::fs::{CWD, Mode, OFlags, ResolveFlags, openat2};
+    use std::io::Write;
     static MISSING: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-    *MISSING.get_or_init(|| {
+    let missing = *MISSING.get_or_init(|| {
         let probe = openat2(
             CWD,
             "/",
@@ -16,19 +17,23 @@ pub fn store_cannot_run_here() -> bool {
             Mode::empty(),
             ResolveFlags::empty(),
         );
-        if !matches!(probe, Err(rustix::io::Errno::NOSYS)) {
-            return false;
-        }
+        matches!(probe, Err(rustix::io::Errno::NOSYS))
+    });
+    if missing {
         assert!(
             std::env::var_os("CI").is_none(),
             "openat2 is not implemented (ENOSYS) on CI: the store's tests must run there"
         );
-        eprintln!(
+        // Straight to stderr, beside the test's name: libtest captures
+        // `eprintln!` and shows it only for a failing test (the reviewer on
+        // #1211).
+        let _ = writeln!(
+            std::io::stderr(),
             "skipped: openat2 is not implemented here (ENOSYS, as under user-mode \
              emulation), and the store refuses to run without it"
         );
-        true
-    })
+    }
+    missing
 }
 
 #[cfg(not(target_os = "linux"))]

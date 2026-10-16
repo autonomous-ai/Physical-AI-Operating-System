@@ -47,7 +47,12 @@ treated so:
   began again (the first builder, #829, 16:33). The record's `not_speech`
   then says `after_stop`, and the journal "a short sound just after the
   lamp was stopped is not taken as a request". Real words, 30 blocks or
-  more, are taken as always.
+  more, are taken as always. A real short word in those 4 s goes too, in
+  every mode, `quiet-room-checked` among them: someone who stops the lamp
+  by mistake and says "Go on." gets nothing, and says it again after the
+  4 s or at more length. `not_speech.after_stop` in the record counts what
+  that costs. A Stop pressed while the lamp was not speaking opens no 4 s
+  (Second on #1107).
 - one that took the turn from the lamp's own answer (a quick "stop" over
   it), or from something that had itself been said (the short second half
   of a sentence after a pause). At first any turn that took over from

@@ -3355,7 +3355,10 @@ fn conversation_with_gate(
                 use crate::receipt_history::{
                     CAPTURE_GAP, HAND_STOP, HEAD_SLEEP, HEAD_STOP, SOFTWARE_MUTED,
                 };
-                if (stop || head_stop) && !muted {
+                // Only a Stop that cut the lamp's speech: after an idle
+                // Stop, "Lamp?" or "Hi." is taken as always (Second on
+                // #1107).
+                if (head_stop || stop && speaking) && !muted {
                     stopped_at_us = Some(observed_at_us);
                 }
                 let reason = if asleep {

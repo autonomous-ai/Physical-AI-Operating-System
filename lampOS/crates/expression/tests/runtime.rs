@@ -786,3 +786,41 @@ fn without_a_pause_said_expression_asks_exactly_as_before() {
     };
     assert_eq!(asked(None), asked(Some(false)));
 }
+
+/// #830: `--offline-face` reads `lamp/online`: only a fresh, valid "offline"
+/// counts; online, unknown or nothing published does not.
+#[test]
+fn offline_face_reads_only_a_fresh_offline_from_lamp_online() {
+    let root = Root::new();
+    let bus = Bus::new(&root.0).unwrap();
+    assert!(!runtime::offline_in(
+        bus.latest(lamp_msgs::Online::TOPIC).unwrap()
+    ));
+    let mut out = bus
+        .publisher_declared(
+            lamp_msgs::Online::TOPIC,
+            &lamp_msgs::Online::declaration(),
+            "health",
+        )
+        .unwrap();
+    for (online, from, down, offline) in [
+        (Some(false), "voice", Some(12), true),
+        (Some(true), "voice", None, false),
+        (None, "", None, false),
+    ] {
+        out.publish_json(
+            1,
+            &lamp_msgs::Online {
+                online,
+                from: from.into(),
+                down_for_s: down,
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            runtime::offline_in(bus.latest(lamp_msgs::Online::TOPIC).unwrap()),
+            offline,
+            "{online:?}"
+        );
+    }
+}

@@ -48,6 +48,17 @@ pub const HEAD_INPUTS: [(&str, &str); 3] = [
     (TouchState::TOPIC, TouchState::TYPE),
     (VoiceMute::TOPIC, VoiceMute::TYPE),
 ];
+
+/// Whether a `lamp/online` message says the internet cannot be reached: only
+/// a fresh, valid one with `online` false. Stale, absent or unknown is not.
+pub fn offline_in(message: Option<lamp_bus::Message>) -> bool {
+    message
+        .filter(|message| !message.expired)
+        .and_then(|message| message.parse::<lamp_msgs::Online>().ok())
+        .filter(|online| online.check().is_ok())
+        .is_some_and(|online| online.online == Some(false))
+}
+
 /// How often the live service tells the planner the local time of day.
 pub const DAYTIME_EVERY_US: u64 = 60_000_000;
 const DRAIN_LIMIT: usize = 32;
@@ -326,6 +337,9 @@ pub struct Service {
     /// Asked before each time of day is given: only a clock it says is
     /// set gives one (`--kernel-clock`, #830). None: every clock does.
     clock_set: Option<fn() -> Option<bool>>,
+    /// Reads `lamp/online` once a second for the listening face
+    /// (`--offline-face`, #830), and when it last did.
+    online: Option<(Bus, Option<u64>)>,
     /// The clock was last found not set: said once until it is.
     clock_unset: bool,
     /// The keeper's pause (`lamp/pause`), read as the body reads it: paused,
@@ -386,6 +400,7 @@ impl Service {
             local: None,
             last_daytime: None,
             clock_set: None,
+            online: None,
             clock_unset: false,
             pause: lamp_body::pause_in::PauseIn::on(bus.clone()),
             paused: false,
@@ -420,6 +435,13 @@ impl Service {
         self
     }
 
+    /// Draws listening as not ready while `lamp/online` says the internet
+    /// cannot be reached (#830). A value gone stale, or none, is online.
+    pub fn with_offline_face(mut self, bus: &Bus) -> Self {
+        self.online = Some((bus.clone(), None));
+        self
+    }
+
     /// Gives the time of day only while `set` says the clock is set. With
     /// none given the lamp knows no night, so it does not fall asleep or
     /// wake by a wrong clock (#830, `docs/offline.md`).
@@ -432,6 +454,13 @@ impl Service {
     /// sleeping through any behavior. Each valid topic has a bounded budget.
     pub fn step(&mut self, now: impl Fn() -> u64, wall_ms: u64) -> Output {
         let began = now();
+        if let Some((bus, looked)) = self.online.as_mut()
+            && looked.is_none_or(|at| began.saturating_sub(at) >= 1_000_000)
+        {
+            *looked = Some(began);
+            let offline = offline_in(bus.latest(lamp_msgs::Online::TOPIC).ok().flatten());
+            self.engine.set_offline(offline);
+        }
         // The zone or offset given, and a minute since the last (#820).
         let due = self.local.is_some()
             && self

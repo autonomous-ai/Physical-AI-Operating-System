@@ -944,3 +944,22 @@ fn catalogue_compatible_extra_clips_need_no_engine_changes() {
     let out = engine.tick(130_000);
     assert!(has(&out, "nod in a pause") && has(&out, "small extra nod"));
 }
+
+/// #830: while the lamp cannot reach the internet, listening is not drawn
+/// as ready; online again, it is, at once.
+#[test]
+fn offline_listening_is_not_drawn_as_ready() {
+    let mut engine = engine();
+    heartbeat(&mut engine, 10_000, Voice::Thinking);
+    let listen = |engine: &mut Engine, at: u64| {
+        send(
+            engine,
+            Input::Voice(voice(at, at + 2, Voice::Listening, VoiceEvent::Interrupted)),
+        );
+        engine.tick(at).light.unwrap().face
+    };
+    engine.set_offline(true);
+    assert_eq!(listen(&mut engine, 270_000), ExpressionFace::Unavailable);
+    engine.set_offline(false);
+    assert_eq!(listen(&mut engine, 370_000), ExpressionFace::Listening);
+}

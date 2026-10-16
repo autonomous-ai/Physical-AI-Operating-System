@@ -867,6 +867,42 @@ impl Hand {
     }
 }
 
+/// What became of a gesture (`body/gesture`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GestureState {
+    /// The body began playing it.
+    Began,
+    /// It ended: played out, or let go as it played.
+    Over,
+    /// Asked of the body and dropped before it began (paused, held by a
+    /// hand, busy, another playing, ...), or ended for a higher ask before
+    /// it played out: no `over` follows.
+    Dropped,
+}
+
+/// A gesture of the body's began, ended or was dropped (`body/gesture`),
+/// said where lamp-body's journal says `gesture NAME`, `gesture over` and
+/// `gesture NAME dropped: ...`. Read-only: nothing on the bus asks for a
+/// gesture here. `name` is the clip's (`nod`, `dance_groove`, the body's
+/// own `idle` and its shifts).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BodyGesture {
+    pub name: String,
+    pub state: GestureState,
+}
+
+impl BodyGesture {
+    pub const TYPE: &str = "lamp_msgs/BodyGesture";
+    pub const VERSION: u32 = 1;
+    pub const TOPIC: &str = "body/gesture";
+
+    /// Each one is news once.
+    pub fn declaration() -> Declaration {
+        Declaration::new(Self::TYPE, Self::VERSION, Kind::Event)
+    }
+}
+
 /// Why the voice switched its microphones off (#711). None is the mute as it
 /// always was: a person's privacy, cleared only by a fresh hold.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -968,9 +1004,12 @@ impl Rules {
     }
 }
 
-/// The body's topic beside the first ones.
+/// The body's topics beside the first ones.
 pub fn body_topics() -> Vec<(&'static str, Declaration)> {
-    vec![(Hand::TOPIC, Hand::declaration())]
+    vec![
+        (Hand::TOPIC, Hand::declaration()),
+        (BodyGesture::TOPIC, BodyGesture::declaration()),
+    ]
 }
 
 /// The voice's mute and its reason (#711), beside the first topics.
@@ -1723,6 +1762,33 @@ mod tests {
         assert_eq!(
             (declared.type_name.as_str(), declared.kind),
             (Hand::TYPE, Kind::Latest)
+        );
+    }
+
+    #[test]
+    fn a_body_gesture_says_its_name_and_what_became_of_it() {
+        for (state, word) in [
+            (GestureState::Began, "began"),
+            (GestureState::Over, "over"),
+            (GestureState::Dropped, "dropped"),
+        ] {
+            round_trip(
+                &BodyGesture {
+                    name: "nod".into(),
+                    state,
+                },
+                &format!("{{\"name\":\"nod\",\"state\":\"{word}\"}}"),
+            );
+        }
+        assert!(
+            !first_topics()
+                .iter()
+                .any(|(name, _)| *name == BodyGesture::TOPIC)
+        );
+        let declared = declaration_of(BodyGesture::TOPIC).unwrap();
+        assert_eq!(
+            (declared.type_name.as_str(), declared.kind),
+            (BodyGesture::TYPE, Kind::Event)
         );
     }
 

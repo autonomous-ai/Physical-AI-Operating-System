@@ -788,15 +788,44 @@ pub struct Glimpse {
     pub hand: bool,
     /// What V1's anti-tip rule has done so far.
     pub tipping: Tipping,
-    /// A gesture asked on the mood socket that was taken or dropped on
-    /// this step: its name and why, for the journal. Only those asked from
-    /// outside: never the body's own shifts at rest or its glance for a
-    /// call. One refused by V1's anti-tip rule is said by [`Tipping`].
-    pub gesture_fate: Option<(&'static str, &'static str)>,
+    /// The gestures asked on the mood socket that were taken or dropped on
+    /// this step: each one's name and why, for the journal and
+    /// `body/gesture`. Only those asked from outside: never the body's own
+    /// shifts at rest or its glance for a call. One refused by V1's
+    /// anti-tip rule is `dropped: it would tip`, and said by [`Tipping`] too.
+    pub gesture_fates: Fates,
     /// Why a face the eyes report is not looked at now, for a body with
     /// eyes: paused, folded, or neither listening nor speaking. `None`
     /// while one would be.
     pub looks_dropped: Option<&'static str>,
+}
+
+/// The gestures asked from outside that were taken or dropped on one step,
+/// in order: more than one when, say, one waiting is dropped as another
+/// is asked and that one begins in the same step. At most four are kept.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize)]
+pub struct Fates([Option<(&'static str, &'static str)>; 4]);
+
+impl Fates {
+    /// One more, after those already said this step.
+    pub fn push(&mut self, fate: (&'static str, &'static str)) {
+        if let Some(slot) = self.0.iter_mut().find(|slot| slot.is_none()) {
+            *slot = Some(fate);
+        }
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&'static str, &'static str)> + '_ {
+        self.0.iter().flatten().copied()
+    }
+}
+
+impl IntoIterator for Fates {
+    type Item = (&'static str, &'static str);
+    type IntoIter = std::iter::Flatten<std::array::IntoIter<Option<Self::Item>, 4>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter().flatten()
+    }
 }
 
 /// What V1's anti-tip rule ([`crate::cog`]) did in a run.
@@ -2196,7 +2225,7 @@ fn glimpse_of(template: Glimpse, step: u64, now: &[Sample; 5], goals: [u16; 3]) 
         look: [0.0; 2],
         face: None,
         gesture: None,
-        gesture_fate: None,
+        gesture_fates: Fates::default(),
         ..template
     }
 }
@@ -2321,9 +2350,11 @@ fn let_go<P: PortIo, R: Runtime>(
                 report.peak_temperature[index] = report.peak_temperature[index].max(is.temperature);
             }
             let mut glimpse = glimpse_of(template, report.steps, now, template.goals);
-            glimpse.gesture_fate = asked_now
-                .gesture
-                .map(|clip| (clip.name, "dropped: it has let go and lies limp"));
+            if let Some(clip) = asked_now.gesture {
+                glimpse
+                    .gesture_fates
+                    .push((clip.name, "dropped: it has let go and lies limp"));
+            }
             watch(&glimpse);
         }
         match (failed, read) {
@@ -3428,7 +3459,7 @@ fn run_on<P: PortIo, R: Runtime>(
     // The awake window from before the gesture waiting was taken, and the
     // one it opened: a pause gives that one back, so the lamp folds.
     let mut pending_window: Option<(Option<Duration>, Option<Duration>)> = None;
-    let mut gesture_fate: Option<(&'static str, &'static str)> = None;
+    let mut gesture_fates = Fates::default();
     let mut gesture_now = [0.0f32; 5];
     let mut gesture_cooling = 0u16;
     // Steps are being cut short by the anti-tip rule.
@@ -3664,7 +3695,7 @@ fn run_on<P: PortIo, R: Runtime>(
             if asked_now.paused {
                 if let Some((clip, _)) = pending.filter(|(clip, _)| from_outside(clip)) {
                     pending = None;
-                    gesture_fate = Some((clip.name, "dropped: paused"));
+                    gesture_fates.push((clip.name, "dropped: paused"));
                 }
                 if let Some((before, opened)) = pending_window.take()
                     && awake_until == opened
@@ -3859,21 +3890,21 @@ fn run_on<P: PortIo, R: Runtime>(
                 None
             };
             match dropped {
-                Some(why) => gesture_fate = Some((clip.name, why)),
+                Some(why) => gesture_fates.push((clip.name, why)),
                 None => {
                     // Asked over a gesture playing: it ends now and eases
                     // out at the gesture's own step, and this one waits
                     // until it has.
                     if let Some((old, _)) = playing.filter(|(old, _)| !idle::is_move(old)) {
                         if from_outside(old) {
-                            gesture_fate = Some((old.name, crate::moves::ended(asked_by)));
+                            gesture_fates.push((old.name, crate::moves::ended(asked_by)));
                         }
                         playing = None;
                         yielding = true;
                         easing_out = Some((0, gesture_now, gesture_moved));
                     }
                     if let Some((old, _)) = pending.filter(|(old, _)| from_outside(old)) {
-                        gesture_fate = Some((old.name, "dropped: another was asked after it"));
+                        gesture_fates.push((old.name, "dropped: another was asked after it"));
                     }
                     // Woken, it waits as long as rising takes; still
                     // rising, as long as the rest of the rise; and then as
@@ -3919,7 +3950,7 @@ fn run_on<P: PortIo, R: Runtime>(
             } else if now.saturating_sub(since) >= GESTURE_WAIT {
                 pending = None;
                 if from_outside(clip) {
-                    gesture_fate = Some((
+                    gesture_fates.push((
                         clip.name,
                         "dropped: stale, it was not standing 3 s after it could have been",
                     ));
@@ -3947,6 +3978,9 @@ fn run_on<P: PortIo, R: Runtime>(
                 playing = None;
                 report.tipping.refused += 1;
                 report.tipping.last_refused = at;
+                if from_outside(clip) {
+                    gesture_fates.push((clip.name, "dropped: it would tip"));
+                }
             } else if mm >= cog::CLIP_MM * cog::WARN_SHARE {
                 report.tipping.close += 1;
                 report.tipping.last_close = at;
@@ -3957,7 +3991,7 @@ fn run_on<P: PortIo, R: Runtime>(
             && since == now
             && from_outside(clip)
         {
-            gesture_fate = Some((
+            gesture_fates.push((
                 clip.name,
                 if woke {
                     "taken: it was folded and stood up for it"
@@ -4587,7 +4621,7 @@ fn run_on<P: PortIo, R: Runtime>(
             limp: false,
             hand: held.iter().any(|held| *held),
             tipping: report.tipping,
-            gesture_fate: gesture_fate.take(),
+            gesture_fates: std::mem::take(&mut gesture_fates),
             looks_dropped,
         };
         watch(&glimpse);
@@ -4763,8 +4797,8 @@ fn run_on<P: PortIo, R: Runtime>(
                 if let Some((clip, _)) = playing.take() {
                     report.gestures_dropped += 1;
                     if from_outside(clip) {
-                        gesture_fate =
-                            Some((clip.name, "dropped: a joint could not keep up with it"));
+                        gesture_fates
+                            .push((clip.name, "dropped: a joint could not keep up with it"));
                     }
                 }
                 over_load[index] = 0;

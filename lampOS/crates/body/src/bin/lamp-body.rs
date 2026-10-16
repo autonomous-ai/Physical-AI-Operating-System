@@ -934,7 +934,7 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
     let asked_to_stand = arguments.standing.is_some();
     let mut told_whether_it_stands = false;
     let mut face_said = 0u64;
-    let mut gesture_said: Option<&'static str> = None;
+    let mut gesture_said = lamp_body::bus_out::GestureSaid::default();
     let mut tipping_said = lamp_body::body::Tipping::default();
     let mut looks_said: Option<&'static str> = None;
     let mut fate_said = Hush::default();
@@ -1034,19 +1034,22 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
         }
         tipping_said = tipping;
         // Each gesture asked from outside, taken or dropped, and why.
-        // Under --arbitration on, with who asked for it when it said.
+        // Under --arbitration on, with who asked for it when it said. A
+        // drop is also said on `body/gesture`, each time (the journal says
+        // the same line once in five seconds).
         let source = |name: &str| match &*asked_by.borrow() {
             Some((asked, source)) if *asked == name => format!(" (asked by {source})"),
             _ => String::new(),
         };
-        if let Some((name, why)) = glimpse.gesture_fate
-            && let Some(line) = fate_said.due(
+        for (name, why) in glimpse.gesture_fates {
+            if let Some(line) = fate_said.due(
                 format!("gesture {name} {why}{}", source(name)),
                 std::time::Instant::now(),
-            )
-        {
-            eprintln!("lamp-body: step {} {line}", glimpse.step);
+            ) {
+                eprintln!("lamp-body: step {} {line}", glimpse.step);
+            }
         }
+        let gestures = gesture_said.step(glimpse);
         // Whether a face in view is looked at, when that changes: a skill's
         // look and the eyes' come on one socket and read the same.
         if (glimpse.face.is_some() || paused.get()) && glimpse.looks_dropped != looks_said {
@@ -1059,13 +1062,9 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
                 None => eprintln!("lamp-body: step {} a face is looked at", glimpse.step),
             }
         }
-        if glimpse.gesture != gesture_said {
-            gesture_said = glimpse.gesture;
-            match glimpse.gesture {
-                Some(name) => eprintln!("lamp-body: step {} gesture {name}", glimpse.step),
-                None => eprintln!("lamp-body: step {} gesture over", glimpse.step),
-            }
-        }
+        lamp_body::bus_out::tell(&gestures, glimpse.step, bus.as_mut(), |line| {
+            eprintln!("{line}");
+        });
         // What the eyes report and where that has it look, at most every
         // five seconds: for setting the two numbers of --gaze on a lamp.
         // Twice a second filled the journal on a day of faces at desks.
@@ -1268,12 +1267,19 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
     if let Some(choice) = &arguments.gaze {
         let _ = std::fs::remove_file(&choice.socket);
     }
+    // The gesture it was making ends with the run: said `over`, on the
+    // journal and the bus, before the body's last word.
+    let stopped_making = gesture_said.stopped();
+    let last_step = result.body.as_ref().map_or(0, |body| body.steps);
+    lamp_body::bus_out::tell(&stopped_making, last_step, bus.as_mut(), |line| {
+        eprintln!("{line}, as the run stopped");
+    });
     // The body's last word on the bus: that it has stopped, and why.
     if let Some(bus) = bus {
-        if bus.let_go > 0 {
+        if bus.let_go > 0 || bus.gestures_let_go > 0 {
             eprintln!(
-                "lamp-body: {} steps were not published: the bus thread had no room",
-                bus.let_go
+                "lamp-body: {} steps and {} body/gesture messages were not published: the bus thread had no room",
+                bus.let_go, bus.gestures_let_go
             );
         }
         match &result.body {

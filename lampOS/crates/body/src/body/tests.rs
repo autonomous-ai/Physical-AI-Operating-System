@@ -5863,7 +5863,7 @@ fn skill_run(
         news,
         move || ask(time.get()),
         |glimpse| {
-            fates.extend(glimpse.gesture_fate);
+            fates.extend(glimpse.gesture_fates);
             steps.push((seen_at.get(), glimpse.stand, glimpse.gesture));
         },
     );
@@ -5976,7 +5976,7 @@ fn a_lamp_held_by_a_hand_drops_a_gesture_and_says_so() {
         },
         |glimpse| {
             told.set(glimpse.hand);
-            fates.extend(glimpse.gesture_fate);
+            fates.extend(glimpse.gesture_fates);
             stood.push(glimpse.stand);
         },
     );
@@ -8482,7 +8482,7 @@ fn arbitrated_run(
             _ => (Asked::default(), Priority::Conversation),
         },
         |glimpse| {
-            fates.extend(glimpse.gesture_fate);
+            fates.extend(glimpse.gesture_fates);
             seen.push((
                 seen_at.get(),
                 glimpse.gesture,
@@ -8718,7 +8718,7 @@ fn a_skill_move_asked_while_a_hand_holds_the_lamp_is_dropped_by_the_hand() {
         },
         |glimpse| {
             told.set(glimpse.hand);
-            fates.extend(glimpse.gesture_fate);
+            fates.extend(glimpse.gesture_fates);
         },
     );
     assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
@@ -8772,7 +8772,7 @@ fn a_slump_during_an_ease_back_leaves_no_offset_after_the_take_up() {
             _ => (Asked::default(), Priority::Conversation),
         },
         |glimpse| {
-            fates.extend(glimpse.gesture_fate);
+            fates.extend(glimpse.gesture_fates);
             limp.push(glimpse.limp);
             seen.push((
                 seen_at.get(),
@@ -9078,4 +9078,308 @@ fn a_reading_lamp_makes_the_whole_of_a_gestures_pitch() {
             );
         }
     }
+}
+
+/// What `body/gesture` says of a run of [`skill_run`]'s kind: each
+/// gesture's name and what became of it, step by step, through the same
+/// [`crate::bus_out::GestureSaid`] that lamp-body's journal reads.
+fn gestures_said(
+    seconds: u64,
+    mut ask: impl FnMut(Duration) -> Asked,
+) -> Vec<(&'static str, lamp_msgs::GestureState)> {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(seconds));
+    lamp.arm_moves = true;
+    lamp.overload_clears = 1;
+    let time = clock.time.clone();
+    let mut said = crate::bus_out::GestureSaid::default();
+    let mut gestures = Vec::new();
+    let report = run_alive(
+        &mut lamp,
+        &mut clock,
+        gesture_limits(),
+        Some(HOME),
+        Some(standing(100, 5)),
+        None,
+        || Some((Mood::Resting, 0)),
+        move || ask(time.get()),
+        |glimpse| {
+            gestures.extend(
+                said.step(glimpse)
+                    .into_iter()
+                    .map(|(name, state, _)| (name, state)),
+            );
+        },
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    gestures
+}
+
+/// A nod asked of a folded lamp: `body/gesture` says it began once the
+/// lamp stood up, then that it was over, in that order, and nothing else.
+#[test]
+fn a_nod_says_began_and_then_over_on_body_gesture() {
+    use lamp_msgs::GestureState::{Began, Over};
+    let said = gestures_said(14, once(Duration::from_secs(1), false));
+    assert_eq!(said, [("nod", Began), ("nod", Over)]);
+}
+
+/// Paused while it rises for a nod: the nod is dropped, and `body/gesture`
+/// says so; it never began, so no `over` follows.
+#[test]
+fn a_pause_during_the_rise_says_dropped_on_body_gesture() {
+    use lamp_msgs::GestureState::Dropped;
+    let mut asked = false;
+    let said = gestures_said(16, move |now| {
+        if now >= Duration::from_millis(1_500) {
+            return Asked::PAUSED;
+        }
+        let due = !asked && now >= Duration::from_secs(1);
+        asked |= due;
+        Asked {
+            gesture: due.then_some(&crate::clips::NOD),
+            ..Asked::default()
+        }
+    });
+    assert_eq!(said, [("nod", Dropped)]);
+}
+
+/// A gesture past V1's tip-over line, asked from outside, is refused whole
+/// before it moves anything: `body/gesture` says it `dropped` (Fifth on
+/// #1230), and nothing began.
+#[test]
+fn a_gesture_the_anti_tip_rule_refuses_says_dropped_on_body_gesture() {
+    use lamp_msgs::GestureState::Dropped;
+    let mut asked = false;
+    let said = gestures_said(10, move |now| {
+        let due = !asked && now >= Duration::from_secs(1);
+        asked |= due;
+        Asked {
+            gesture: due.then_some(&PAST_THE_LINE),
+            ..Asked::default()
+        }
+    });
+    assert_eq!(said, [("past_the_line", Dropped)]);
+}
+
+/// A nod waiting for the lamp to stand, and a shy asked in the step it
+/// stands, which begins then: the nod's `dropped` and the shy's `taken`
+/// are both kept, in that one step's glimpse (Fifth and the reviewer on
+/// #1230).
+#[test]
+fn two_fates_in_one_step_are_both_kept() {
+    // When the nod alone begins: the step the lamp stands.
+    let (_, _, steps) = skill_run(
+        14,
+        standing(100, 5),
+        gesture_limits(),
+        |_| {},
+        || Some((Mood::Resting, 0)),
+        once(Duration::from_secs(1), false),
+    );
+    let stands = steps.iter().find(|s| s.2 == Some("nod")).unwrap().0;
+    let mut both = false;
+    for back_ms in [0u64, 20, 40, 60] {
+        let at = stands - Duration::from_millis(back_ms);
+        let (mut lamp, mut clock) = folded(Duration::from_secs(14));
+        lamp.arm_moves = true;
+        lamp.overload_clears = 1;
+        let time = clock.time.clone();
+        let mut asked = [false; 2];
+        let mut in_one = Vec::new();
+        run_alive(
+            &mut lamp,
+            &mut clock,
+            gesture_limits(),
+            Some(HOME),
+            Some(standing(100, 5)),
+            None,
+            || Some((Mood::Resting, 0)),
+            move || {
+                let now = time.get();
+                let when = [Duration::from_secs(1), at];
+                let due = (0..2).find(|i| !asked[*i] && now >= when[*i]);
+                if let Some(i) = due {
+                    asked[i] = true;
+                }
+                Asked {
+                    gesture: due.map(|i| [&crate::clips::NOD, &crate::clips::SHY][i]),
+                    ..Asked::default()
+                }
+            },
+            |glimpse| {
+                let fates: Vec<_> = glimpse.gesture_fates.iter().collect();
+                if fates.len() > 1 {
+                    in_one.push(fates);
+                }
+            },
+        );
+        both |= in_one.iter().any(|fates| {
+            fates
+                == &[
+                    ("nod", "dropped: another was asked after it"),
+                    ("shy", "taken: it was folded and stood up for it"),
+                ]
+        });
+    }
+    assert!(
+        both,
+        "no step's glimpse had the nod dropped and the shy taken"
+    );
+}
+
+/// [`arbitrated_run`]'s lamp under `Limits::arbitration`, with what
+/// `body/gesture` says of each gesture through [`crate::bus_out::GestureSaid`].
+fn arbitrated_said(
+    asks: Vec<(Duration, &'static Clip, Priority)>,
+    seconds: u64,
+) -> Vec<(&'static str, lamp_msgs::GestureState)> {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(seconds));
+    lamp.arm_moves = true;
+    lamp.overload_clears = 1;
+    let limits = Limits {
+        arbitration: true,
+        ..gesture_limits()
+    };
+    let time = clock.time.clone();
+    let mut asks = VecDeque::from(asks);
+    let mut said = crate::bus_out::GestureSaid::default();
+    let mut gestures = Vec::new();
+    let report = run_arbitrated(
+        &mut lamp,
+        &mut clock,
+        limits,
+        Some(HOME),
+        Some(standing(100, 60)),
+        None,
+        || Some((Mood::Speaking, 60)),
+        move || match asks.front() {
+            Some((at, clip, by)) if time.get() >= *at => {
+                let asked = Asked {
+                    gesture: Some(*clip),
+                    ..Asked::default()
+                };
+                let by = *by;
+                asks.pop_front();
+                (asked, by)
+            }
+            _ => (Asked::default(), Priority::Conversation),
+        },
+        |glimpse| {
+            gestures.extend(
+                said.step(glimpse)
+                    .into_iter()
+                    .map(|(name, state, _)| (name, state)),
+            );
+        },
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    gestures
+}
+
+/// A skill's stretch ended for the conversation's nod (#1239, `ended: by
+/// conversation`) did not play out: `body/gesture` says it `dropped`, with
+/// no `over`, and the nod began after it (the fifth on #1230).
+#[test]
+fn a_gesture_ended_for_a_higher_ask_says_dropped_not_over() {
+    use lamp_msgs::GestureState::{Began, Dropped, Over};
+    let said = arbitrated_said(
+        vec![
+            (
+                Duration::from_secs(8),
+                &crate::clips::STRETCHING,
+                Priority::Skill,
+            ),
+            (
+                Duration::from_millis(11_200),
+                &crate::clips::NOD,
+                Priority::Conversation,
+            ),
+        ],
+        16,
+    );
+    let stretching: Vec<_> = said
+        .iter()
+        .filter(|(name, _)| *name == "stretching")
+        .collect();
+    assert_eq!(
+        stretching,
+        [&("stretching", Began), &("stretching", Dropped)],
+        "{said:?}"
+    );
+    let nod = said
+        .iter()
+        .position(|news| *news == ("nod", Began))
+        .unwrap();
+    let dropped = said
+        .iter()
+        .position(|news| *news == ("stretching", Dropped))
+        .unwrap();
+    assert!(dropped < nod, "{said:?}");
+    assert!(!said.contains(&("stretching", Over)), "{said:?}");
+}
+
+/// A skill's stretch asked while the conversation's nod plays (#1239,
+/// `dropped: busy, conversation`): `body/gesture` says it `dropped`.
+#[test]
+fn an_ask_dropped_as_busy_says_dropped() {
+    use lamp_msgs::GestureState::Dropped;
+    let ms = Duration::from_millis;
+    let said = arbitrated_said(
+        vec![
+            (ms(500), &crate::clips::NOD, Priority::Conversation),
+            (ms(1_500), &crate::clips::STRETCHING, Priority::Skill),
+        ],
+        10,
+    );
+    let stretching: Vec<_> = said
+        .iter()
+        .filter(|(name, _)| *name == "stretching")
+        .collect();
+    assert_eq!(stretching, [&("stretching", Dropped)], "{said:?}");
+}
+
+/// A skill's stretch asked while a hand holds the lamp (#1239, `dropped:
+/// held by a hand`): `body/gesture` says it `dropped`.
+#[test]
+fn an_ask_dropped_as_held_by_a_hand_says_dropped() {
+    use lamp_msgs::GestureState::Dropped;
+    let ms = Duration::from_millis;
+    let (mut lamp, mut clock) = folded(Duration::from_secs(8));
+    lamp.hand = Some((ms(1_500), ms(4_500), YAW, f32::from(HOME[2]) + 40.0));
+    lamp.strains = vec![(ms(1_500), ms(4_500), YAW, 120)];
+    let held = Rc::new(Cell::new(false));
+    let told = held.clone();
+    let mut asked = false;
+    let mut said = crate::bus_out::GestureSaid::default();
+    let mut gestures = Vec::new();
+    let report = run_arbitrated(
+        &mut lamp,
+        &mut clock,
+        Limits {
+            arbitration: true,
+            ..giving_way(GiveWay::Return)
+        },
+        Some(HOME),
+        Some(standing(100, 5)),
+        None,
+        || Some((Mood::Resting, 0)),
+        move || {
+            let due = !asked && held.get();
+            asked |= due;
+            let asked = Asked {
+                gesture: due.then_some(&crate::clips::STRETCHING),
+                ..Asked::default()
+            };
+            (asked, Priority::Skill)
+        },
+        |glimpse| {
+            told.set(glimpse.hand);
+            gestures.extend(said.step(glimpse));
+        },
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!(
+        gestures,
+        [("stretching", Dropped, Some("dropped: held by a hand"))]
+    );
 }

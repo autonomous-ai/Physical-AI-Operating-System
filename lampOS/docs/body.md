@@ -1312,8 +1312,9 @@ What the body does with the request:
   the hour known (`lamp-policy --utc-offset-minutes` or `--zone`). With
   `LAMP_SKILLS_ASK=skip`, nothing does.
 - Each gesture asked, taken or dropped, is one journal line with why; one
-  refused by the anti-tip rule is said by its own line instead ("Not
-  tipping over" below):
+  refused by the anti-tip rule is `dropped: it would tip`, besides its own
+  line ("Not tipping over" below), and the gesture it was making when the
+  run stops ends with `gesture over, as the run stopped`:
 
   ```text
   lamp-body: step N gesture stretching taken: it was folded and stood up for it
@@ -1327,6 +1328,8 @@ What the body does with the request:
   lamp-body: step N gesture nod dropped: another was asked after it
   lamp-body: step N gesture nod dropped: stale, it was not standing 3 s after it could have been
   lamp-body: step N gesture nod dropped: a joint could not keep up with it
+  lamp-body: step N gesture past_the_line dropped: it would tip
+  lamp-body: step N gesture over, as the run stopped
   lamp-body: step N gesture stretching dropped: held by a hand (asked by skill:stretch-break)
   lamp-body: step N gesture stretching dropped: busy, conversation (asked by skill:stretch-break)
   lamp-body: step N gesture stretching ended: by conversation
@@ -1647,6 +1650,8 @@ before.
 | --- | --- | --- | --- |
 | `body/joint_states` | `lamp_msgs/JointState` | every fourth step: 12.5 a second | Where each joint is, how fast it is turning, how hard its servo is working, and where it was last asked to be |
 | `diagnostics` | `lamp_msgs/Diagnostic` | once a second, and once more when it stops | How the body is, under the name `body` |
+| `body/hand` | `lamp_msgs/Hand` | with every step passed on | Whether a hand pushes it (below, "A hand on the bus") |
+| `body/gesture` | `lamp_msgs/BodyGesture` | an event, each time, whatever the step | What became of a gesture: `{"name", "state"}`, `began` when the body begins it, `over` when it ends (played out, let go as it played, replaced by another, whose `began` follows its `over`, or ended by the run stopping: a goal refused, a surprise, asked to), `dropped` when one asked is dropped before it began (paused, a hand, held by a hand or busy under arbitration, another playing or asked after it, slumped, stale, refused whole by the anti-tip rule as `dropped: it would tip`) or one playing is ended for a higher ask (`ended: by WHO`, #1239), which no `over` follows. A gesture still waiting to begin when the run stops is not in the body's last step, so nothing is said of it. Several in one step are each said. Said where the journal says `gesture NAME`, `gesture over` and `gesture NAME dropped: ...` (one `GestureSaid` reads both), so the two never differ, but for the journal saying a repeated drop once in five seconds. Read-only: it asks nothing and changes no motion. A gesture let go as it played (a joint could not keep up) began, so it says `over`, not `dropped`, though its journal line says `dropped: a joint could not keep up with it`. One the publishing thread has no room for is let go and counted apart from the steps (`gestures_let_go`); lamp-body's last line says both counts |
 
 The joints are `base_yaw`, `shoulder`, `elbow`, `head_roll`, `head_pitch`,
 in the order of their servos' numbers, 1 to 5.

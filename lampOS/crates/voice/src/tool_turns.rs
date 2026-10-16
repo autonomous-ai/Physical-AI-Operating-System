@@ -404,8 +404,20 @@ pub fn summary_of(all: &[Value], script: &[Scripted]) -> Value {
                     .is_some_and(|said| said.contains("Claude Code"))
             })
             .count();
+        // Of those that called the function expected, how many spoke
+        // before the call (a lead-in, #799): on lamp-4ace on 2026-10-16 a
+        // lead-in asked for before the call came without the call at all.
+        let lead_ins = rows
+            .iter()
+            .filter(|row| {
+                scripted.expects.is_some()
+                    && row["called"].as_str() == scripted.expects
+                    && row["lead_in_ms"].as_f64().is_some_and(|ms| ms > 0.0)
+            })
+            .count();
         let mut out = medians(&rows);
         out["as_expected"] = json!(as_expected);
+        out["lead_ins"] = json!(lead_ins);
         out["offered"] = json!(offered);
         each.insert(scripted.label.to_owned(), out);
     }
@@ -598,7 +610,7 @@ mod tests {
             stand_in(crate::agent_tasks::START, &json!({}), true)["next"]
                 .as_str()
                 .unwrap()
-                .starts_with("If you already said the task back")
+                .starts_with("If you already said the task back, now only ask")
         );
         // Every function the script expects is one the voice declares.
         let place = crate::agent_tasks::Place {
@@ -650,6 +662,10 @@ mod tests {
         }
         let row = |scripted: &Scripted, called: Option<&str>, said: &str| {
             let mut timeline = Timeline::default();
+            // A read-back said before its call, as the lead-in asks (#799).
+            if said.starts_with("Claude Code can write that story about a lamp") {
+                timeline.audio(9_600, 700_000);
+            }
             if let Some(name) = called {
                 timeline.call(name, 900_000);
                 timeline.answered(905_000);
@@ -675,6 +691,11 @@ mod tests {
                 "Here is chapter one. ",
             ),
             row(story, None, "Here is chapter one. "),
+            row(
+                story,
+                Some(crate::agent_tasks::START),
+                "Claude Code can write that story about a lamp who learns to sing. Shall I start it?",
+            ),
             row(own, None, "Here is chapter one. "),
             // The regression of 2026-10-16, as the person heard it.
             row(
@@ -689,8 +710,12 @@ mod tests {
             ),
         ];
         let summary = summary_of(&rows, HAND_OVERS);
-        assert_eq!(summary["each"]["story_asked"]["n"], 2);
-        assert_eq!(summary["each"]["story_asked"]["as_expected"], 1);
+        assert_eq!(summary["each"]["story_asked"]["n"], 3);
+        assert_eq!(summary["each"]["story_asked"]["as_expected"], 2);
+        // One of the two that called said the read-back first, 0.4 s of it.
+        assert_eq!(summary["each"]["story_asked"]["lead_ins"], 1);
+        assert_eq!(rows[2]["lead_in_ms"], 400.0);
+        assert_eq!(summary["each"]["own_story"]["lead_ins"], 0);
         assert_eq!(summary["each"]["own_story"]["as_expected"], 1);
         assert_eq!(
             (

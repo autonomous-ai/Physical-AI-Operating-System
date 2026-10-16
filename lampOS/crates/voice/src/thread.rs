@@ -756,14 +756,23 @@ impl Recalling {
     }
 
     /// `config` with the functions declared now. The executive's come and
-    /// go with the executive; a list the link would refuse leaves the
-    /// session without any.
+    /// go with the executive. One the link would refuse is left out, the
+    /// rest are kept, and the journal says which and why (#799): no setting
+    /// leaves a session without functions, or says nothing.
     fn equipped(&self, config: SessionConfig) -> SessionConfig {
         let mut tools = crate::tools::declared(&self.tools);
         if self.name_signal && tools.len() < lamp_gemini::MAX_TOOLS {
             tools.push(crate::attention::name_tool());
         }
-        config.clone().tools(tools).unwrap_or(config)
+        let (kept, left_out) = crate::tools::admitted(tools);
+        if !left_out.is_empty() {
+            eprintln!(
+                "lamp-voice: left out of the session, which the link would refuse, keeping the other {}: {}",
+                kept.len(),
+                left_out.join(", ")
+            );
+        }
+        config.clone().tools(kept).unwrap_or(config)
     }
 
     /// The configuration for a session opened now, told the time and this

@@ -69,7 +69,10 @@ functions appear when it starts and go when its directory does. It is all
 or nothing: a file over 64 KiB, one that is not that shape, a function the
 provider link would refuse (a name that is not `[a-z][a-z0-9_]{0,47}`, a
 description over 1,024 bytes, parameters that are not an object or are over
-4,096 bytes) or a name twice leaves the session with none of them. At most
+4,096 bytes) or a name twice leaves the session with none of them, and the
+journal says why, by name and never a description's words (`lamp-voice: the
+executive's functions are left out of the session: tools.json has what the
+link would refuse: Light Off (a name the link does not take)`; #799). At most
 32 functions reach a session, the voice's own included; `not_for_me` in the
 file is ignored.
 
@@ -380,12 +383,37 @@ before the call, what a person says while they reach for something. With
 
 | Function | Said before the call | Told after its answer (`next`) |
 |---|---|---|
-| `start_agent_task` | the read-back and its question: the task in one short sentence (with who will do it, when there is a choice), and whether to start it | if that was said, nothing more; if not, the read-back |
+| `start_agent_task` | the read-back, as a statement: the task in one short sentence (with who will do it, when there is a choice); then the call at once | if that was said, only the question whether to start it ("Shall I start it?"); if not, the read-back and the question |
 | `confirm_agent_task` | in a few words that it is giving it to whoever will do it ("Okay, giving that to Claude Code.") | they have heard that; add only, in a few words, that you will tell them when it is done, unless already said |
 | `check_agent_task` | in a few words that it is looking ("Let me see how it's going.") | as without the switch |
 
 For `start_agent_task` the lead-in is the read-back itself, not a word
-before it, so the turn does not say the task twice. The functions, their
+before it, so the turn does not say the task twice. Its question comes after
+the call, from the answer, while the read-back is still being played: a
+question said before a call ends a spoken turn, and the call need not come.
+
+**What went wrong on lamp-4ace on 2026-10-16 (00:03 to 00:11, #799).** With
+the lead-in, work asked of the staff (`LAMP_TASKS_ASKED=on`) and `LAMP_TASKS_WHO=on`,
+the model called no function in either round, not even `check_agent_task`,
+and made up what became of the work. Two causes, both mended:
+- With two of the staff to choose from (lamp-4ace's tasks part has Claude
+  Code and Codex: work was prepared for Codex there on 2026-10-15),
+  `start_agent_task`'s description was 1,036 bytes, and the link takes at
+  most 1,024. A list with one
+  function it would refuse left the session with **no function at all**
+  (`thread::equipped`), and nothing said so. Now only that function is left
+  out, the rest are kept, and the journal says so (`lamp-voice: left out of
+  the session, which the link would refuse, keeping the other N:
+  start_agent_task (1036 bytes described)`, `tools::admitted`; a name given
+  twice and a function past 32 are left out the same way). A test holds
+  every description under the limit for every combination of the switches
+  with one, two or three of the staff
+  (`every_description_fits_the_service_whatever_the_switches`), and another
+  every function of the voice's own with all its switches on. The lead-in
+  sentence is the shortest that says it (1,005 bytes with three of the staff).
+- The read-back and its question were asked for before the call. Now only
+  the read-back is, as a statement, "then call it at once", and the
+  question comes from the answer. The functions, their
 parameters and their order are the same either way (a test). Without the
 switch every description and every `next` is byte for byte as before
 (`without_the_switch_or_anyone_else_to_name_the_functions_are_exactly_as_before`,
@@ -410,11 +438,17 @@ hand-over and its yes in one session, and three stories in a row. Only the
 last line of each request is recorded, the lines before it setting the
 scene: three stories in a row shows the third, after two in the session.
 Each summary line counts per request how often the model called what was
-expected (`as_expected`), how often what the lamp said named Claude Code
-(`offered`), and says `asked_switch`:
+expected (`as_expected`), how many of those spoke before the call
+(`lead_ins`), how often what the lamp said named Claude Code
+(`offered`), and says `asked_switch` and `lead_in`:
 
     lamp-voice provider-check /etc/lampOS/voice/provider.json --hand-overs 5
     LAMP_TASKS_ASKED=on lamp-voice provider-check /etc/lampOS/voice/provider.json --hand-overs 5
+    LAMP_TASKS_ASKED=on LAMP_TOOL_LEAD_IN=on lamp-voice provider-check /etc/lampOS/voice/provider.json --hand-overs 5
+
+`provider-check` declares the functions with one of the staff (`who`
+off), so the length that left lamp-4ace's sessions without functions does
+not arise there; the test above covers it.
 
 **From the lamp's own turns:**
 

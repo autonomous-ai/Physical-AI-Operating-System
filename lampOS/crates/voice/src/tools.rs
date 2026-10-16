@@ -404,28 +404,45 @@ fn a_skills(directory: &Path, name: &str) -> bool {
 /// The executive's list, or nothing: a missing file, one too large, one
 /// that is not `{"tools":[...]}`, or one with a function the provider link
 /// would refuse or a name twice. All or nothing, so that a session is
-/// never opened with half of what the executive can do.
+/// never opened with half of what the executive can do. A file there and
+/// refused is said in the journal, with why (#799): no setting leaves the
+/// lamp without the executive's functions and says nothing.
 fn catalog(path: &Path) -> Vec<Tool> {
+    read_catalog(path).unwrap_or_else(|why| {
+        eprintln!("lamp-voice: the executive's functions are left out of the session: {why}");
+        Vec::new()
+    })
+}
+
+/// [`catalog`]'s list, empty with no file, or why a file there is refused:
+/// names and sizes only, never a description's words.
+fn read_catalog(path: &Path) -> Result<Vec<Tool>, String> {
     #[derive(serde::Deserialize)]
     struct Catalog {
         tools: Vec<Tool>,
     }
-    let read = || -> Option<Vec<Tool>> {
-        let file = std::fs::File::open(path).ok()?;
-        let mut text = String::new();
-        file.take(MAX_CATALOG_BYTES + 1)
-            .read_to_string(&mut text)
-            .ok()?;
-        if text.len() as u64 > MAX_CATALOG_BYTES {
-            return None;
-        }
-        let tools = serde_json::from_str::<Catalog>(&text).ok()?.tools;
-        let sound = tools.iter().enumerate().all(|(index, tool)| {
-            tool.validate().is_ok() && tools[..index].iter().all(|other| other.name != tool.name)
-        });
-        sound.then_some(tools)
+    let Ok(file) = std::fs::File::open(path) else {
+        return Ok(Vec::new());
     };
-    read().unwrap_or_default()
+    let mut text = String::new();
+    file.take(MAX_CATALOG_BYTES + 1)
+        .read_to_string(&mut text)
+        .map_err(|error| format!("{} could not be read ({})", CATALOG_FILE, error.kind()))?;
+    if text.len() as u64 > MAX_CATALOG_BYTES {
+        return Err(format!("{CATALOG_FILE} is over {MAX_CATALOG_BYTES} bytes"));
+    }
+    let tools = serde_json::from_str::<Catalog>(&text)
+        .map_err(|_| format!("{CATALOG_FILE} is not {{\"tools\":[...]}} of functions"))?
+        .tools;
+    let (kept, left_out) = admitted(tools);
+    if left_out.is_empty() {
+        Ok(kept)
+    } else {
+        Err(format!(
+            "{CATALOG_FILE} has what the link would refuse: {}",
+            left_out.join(", ")
+        ))
+    }
 }
 
 /// What to do with one call.
@@ -687,9 +704,154 @@ pub fn exchange_up_to(socket: &Path, line: &Value, deadline: Duration, most: u64
     serde_json::from_slice(&answer).ok()
 }
 
+/// The functions of `tools` the service's link takes, in their order, and
+/// each it would refuse, left out, by name and why: a description or
+/// parameters it would not take (the length of the description given), a
+/// name given twice, or past [`lamp_gemini::MAX_TOOLS`]. One refused
+/// function used to leave a session with none at all (`thread::equipped`);
+/// on lamp-4ace on 2026-10-16 one description 12 bytes too long would have
+/// done that, and nothing said so (#799). Names and lengths only:
+/// descriptions are the voice's own fixed words or the executive's.
+pub fn admitted(tools: Vec<Tool>) -> (Vec<Tool>, Vec<String>) {
+    let mut kept: Vec<Tool> = Vec::new();
+    let mut left_out = Vec::new();
+    for tool in tools {
+        let name = said_name(&tool.name);
+        if tool.validate().is_err() {
+            left_out.push(format!("{name} ({})", fault(&tool)));
+        } else if kept.iter().any(|earlier| earlier.name == tool.name) {
+            left_out.push(format!("{name} (a name given twice)"));
+        } else if kept.len() == lamp_gemini::MAX_TOOLS {
+            left_out.push(format!("{name} (past {})", lamp_gemini::MAX_TOOLS));
+        } else {
+            kept.push(tool);
+        }
+    }
+    (kept, left_out)
+}
+
+/// A function's name as the journal may show it: one line, at most 48
+/// characters, whatever a file gave.
+fn said_name(name: &str) -> String {
+    name.chars().take(48).flat_map(char::escape_debug).collect()
+}
+
+/// What of `tool` the link would refuse, found by the link's own check
+/// with each part in turn made plain, so that its rules are not written
+/// twice.
+fn fault(tool: &Tool) -> String {
+    let passes = |change: &dyn Fn(&mut Tool)| {
+        let mut changed = tool.clone();
+        change(&mut changed);
+        changed.validate().is_ok()
+    };
+    if passes(&|tool| tool.description = "a".into()) {
+        format!("{} bytes described", tool.description.len())
+    } else if passes(&|tool| tool.name = "a".into()) {
+        "a name the link does not take".into()
+    } else if passes(&|tool| tool.parameters = None) {
+        "parameters the link does not take".into()
+    } else {
+        "more than one part the link does not take".into()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// #799: a function the link would refuse is left out and named; the
+    /// rest are kept, and the link takes them.
+    #[test]
+    fn a_function_the_link_refuses_is_left_out_by_name_and_the_rest_are_kept() {
+        let tool = |name: &str, bytes: usize| Tool {
+            name: name.into(),
+            description: "x".repeat(bytes),
+            parameters: None,
+            silent: false,
+        };
+        let link = || {
+            lamp_gemini::SessionConfig::new(
+                lamp_gemini::GOOGLE_ENDPOINT,
+                lamp_gemini::Credential::api_key("test-only").unwrap(),
+            )
+            .unwrap()
+        };
+        let all = vec![
+            tool("not_for_me", 9),
+            tool("start_agent_task", 1_036),
+            tool("confirm_agent_task", 1_024),
+            tool("not_for_me", 9),
+        ];
+        assert!(
+            link().tools(all.clone()).is_err(),
+            "the whole list is refused"
+        );
+        let (kept, left_out) = admitted(all);
+        let names: Vec<&str> = kept.iter().map(|tool| tool.name.as_str()).collect();
+        assert_eq!(names, ["not_for_me", "confirm_agent_task"]);
+        assert_eq!(
+            left_out,
+            [
+                "start_agent_task (1036 bytes described)",
+                "not_for_me (a name given twice)"
+            ]
+        );
+        assert!(link().tools(kept).is_ok());
+        let many: Vec<Tool> = (0..=lamp_gemini::MAX_TOOLS)
+            .map(|index| tool(&format!("f{index}"), 9))
+            .collect();
+        let (kept, left_out) = admitted(many);
+        assert_eq!(
+            (kept.len(), left_out),
+            (32, vec!["f32 (past 32)".to_owned()])
+        );
+        assert_eq!(admitted(Vec::new()), (Vec::new(), Vec::new()));
+        // What is at fault, by the link's own check; a name on one line.
+        let mut odd = tool("light_on", 9);
+        odd.parameters = Some(json!(["not", "an", "object"]));
+        let mut both = tool("Bad\nName", 2_000);
+        both.parameters = Some(json!([]));
+        let (_, left_out) = admitted(vec![odd, tool("Bad\nName", 9), both]);
+        assert_eq!(
+            left_out,
+            [
+                "light_on (parameters the link does not take)",
+                "Bad\\nName (a name the link does not take)",
+                "Bad\\nName (more than one part the link does not take)"
+            ]
+        );
+    }
+
+    /// #799: with every switch of the voice's own on, the name signal
+    /// included, none of its functions is one the link would refuse.
+    #[test]
+    fn with_every_switch_on_the_voices_own_functions_are_a_list_the_link_takes() {
+        let settings = Settings {
+            decline: true,
+            exec: None,
+            memory: Some("/run/lampos-memory/memory.sock".into()),
+            clock: true,
+            tasks: Some(crate::agent_tasks::Place {
+                directory: "/run/lampos-tasks".into(),
+                target: crate::agent_tasks::DEFAULT_TARGET.into(),
+                who: true,
+                lead_in: true,
+                asked: true,
+            }),
+            schedule_tools: true,
+            schedule_speak: true,
+            who: Some("/run/lampos-eyes/request.sock".into()),
+            mark: Some("/var/lib/lampos-voice/session".into()),
+            onboarding: Some("/var/lib/lampos-voice/onboarding.json".into()),
+        };
+        let mut tools = declared(&settings);
+        tools.push(crate::attention::name_tool());
+        let count = tools.len();
+        let (kept, left_out) = admitted(tools);
+        assert!(left_out.is_empty(), "{left_out:?}");
+        assert_eq!(kept.len(), count);
+    }
     use std::os::unix::net::UnixListener;
 
     fn directory(name: &str) -> PathBuf {
@@ -1237,11 +1399,39 @@ mod tests {
             write(unsound);
             assert_eq!(declared(&with).len(), 1, "{unsound}");
         }
+        // And each is said, with why (#799).
+        let refused = |text: &str| {
+            write(text);
+            read_catalog(&dir.join(CATALOG_FILE)).unwrap_err()
+        };
+        assert_eq!(
+            refused(
+                r#"{"tools":[{"name":"light_on","description":"ok"},{"name":"Light Off","description":"bad name"}]}"#
+            ),
+            "tools.json has what the link would refuse: Light Off (a name the link does not take)"
+        );
+        assert_eq!(
+            refused(
+                r#"{"tools":[{"name":"light_on","description":"a"},{"name":"light_on","description":"b"}]}"#
+            ),
+            "tools.json has what the link would refuse: light_on (a name given twice)"
+        );
+        assert_eq!(
+            refused("not json"),
+            "tools.json is not {\"tools\":[...]} of functions"
+        );
         write(&format!(
             r#"{{"tools":[{{"name":"light_on","description":"a"}}],"pad":"{}"}}"#,
             "p".repeat(MAX_CATALOG_BYTES as usize)
         ));
         assert_eq!(declared(&with).len(), 1);
+        assert_eq!(
+            read_catalog(&dir.join(CATALOG_FILE)).unwrap_err(),
+            format!("tools.json is over {MAX_CATALOG_BYTES} bytes")
+        );
+        // No file: no executive, nothing to say.
+        std::fs::remove_file(dir.join(CATALOG_FILE)).unwrap();
+        assert_eq!(read_catalog(&dir.join(CATALOG_FILE)), Ok(Vec::new()));
         std::fs::remove_dir_all(dir).unwrap();
     }
 

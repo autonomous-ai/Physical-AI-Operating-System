@@ -335,26 +335,30 @@ pub fn judge(tried: &[Tried], interrupted: Option<&str>) -> PartResult {
             &format!("stopped: {why}"),
         ));
     }
-    let taken = |joint: Joint| {
+    // Every asked move is judged: each must have been taken and done.
+    let done = |joint: Joint, sign: f64| {
         tried
             .iter()
-            .any(|t| t.joint == joint && matches!(t.moved, Moved::Done { .. }))
+            .any(|t| t.joint == joint && t.sign == sign && matches!(t.moved, Moved::Done { .. }))
     };
-    if !taken(Joint::Pitch) && !taken(Joint::Roll) {
+    let missing: Vec<String> = MOVES
+        .iter()
+        .filter(|(joint, sign)| !done(*joint, *sign))
+        .map(|(joint, sign)| format!("{} {}", joint.name(), way(*joint, *sign)))
+        .collect();
+    if missing.len() == MOVES.len() {
         return PartResult::new(
             PART,
             Verdict::NotChecked,
             "the body took no move: it runs without LAMP_EXPRESSION_BODY=on, or with --rest-glance off",
         );
     }
-    for joint in [Joint::Pitch, Joint::Roll] {
-        if !taken(joint) {
-            return with_values(PartResult::new(
-                PART,
-                Verdict::NotChecked,
-                &format!("the body did not move {}'s goal either way", joint.name()),
-            ));
-        }
+    if !missing.is_empty() {
+        return with_values(PartResult::new(
+            PART,
+            Verdict::NotChecked,
+            &format!("the body did not move the goal for {}", missing.join(", ")),
+        ));
     }
     with_values(PartResult::new(PART, Verdict::Pass, ""))
 }
@@ -578,9 +582,13 @@ fn one_move(
         }
         std::thread::sleep(STEP);
     }
-    // Let go the way it was asked: eased back.
+    // Let go the way it was asked: eased back. Each request is renewed
+    // only if nothing has ended the check.
     let letting_go = Instant::now();
     while letting_go.elapsed() < EASE {
+        if let Some(why) = watch.interruption(bus) {
+            return Err(why);
+        }
         let share = 1.0 - ease(letting_go.elapsed().as_secs_f64() / EASE.as_secs_f64());
         asker.ask(joint.offsets(target * share))?;
         std::thread::sleep(STEP);
@@ -601,6 +609,11 @@ fn one_move(
     };
     let mut away = f64::NAN;
     while letting_go.elapsed() < BACK_WITHIN {
+        // Looked at before a return is taken as done, so nothing that came
+        // during it is missed.
+        if let Some(why) = watch.interruption(bus) {
+            return Err(why);
+        }
         if let Some((_, position, _)) = read(bus, joint) {
             away = (position - start).abs();
             if away <= NEAR {
@@ -610,9 +623,6 @@ fn one_move(
                     back: letting_go.elapsed(),
                 });
             }
-        }
-        if let Some(why) = watch.interruption(bus) {
-            return Err(why);
         }
         std::thread::sleep(STEP);
     }
@@ -895,6 +905,37 @@ mod tests {
         assert!(result.reason.contains("LAMP_EXPRESSION_BODY"));
         let pitch_only = [done(Joint::Pitch, -1.0), done(Joint::Pitch, 1.0)];
         assert!(judge(&pitch_only, None).reason.contains("head_roll"));
+        // Each asked move is judged: one never taken is not a pass.
+        let not_taken = |joint, sign| Tried {
+            joint,
+            sign,
+            moved: Moved::NotTaken,
+        };
+        let one_down_missing = [
+            done(Joint::Pitch, -1.0),
+            not_taken(Joint::Pitch, 1.0),
+            done(Joint::Roll, 1.0),
+            done(Joint::Roll, -1.0),
+        ];
+        let result = judge(&one_down_missing, None);
+        assert_eq!(result.verdict, Verdict::NotChecked);
+        assert_eq!(
+            result.reason,
+            "the body did not move the goal for head_pitch down"
+        );
+        let one_sided_roll = [
+            done(Joint::Pitch, -1.0),
+            done(Joint::Pitch, 1.0),
+            done(Joint::Roll, 1.0),
+            not_taken(Joint::Roll, -1.0),
+        ];
+        let result = judge(&one_sided_roll, None);
+        assert_eq!(result.verdict, Verdict::NotChecked);
+        assert!(
+            result.reason.ends_with("head_roll the other way"),
+            "{}",
+            result.reason
+        );
         let cut = judge(&pitch_only, Some("a hand was put on the lamp"));
         assert_eq!(cut.verdict, Verdict::NotChecked);
         assert_eq!(cut.reason, "stopped: a hand was put on the lamp");
@@ -910,6 +951,9 @@ mod tests {
         Folds,
         /// Expression asks too, a little over a second in.
         OtherAsks,
+        /// Starts to fold as the last move, the roll the other way, is
+        /// being eased back.
+        FoldsLettingGoLast,
     }
 
     /// A body on `bus` as lamp-52e6's: it takes requests on
@@ -944,10 +988,23 @@ mod tests {
             let rest = [1771.0, 2035.0];
             let (mut goal, mut position) = (rest, rest);
             let mut offsets = None::<(BodyOffsets, u64)>;
+            let (mut deepest_roll, mut folding) = (0.0f64, false);
             let mut step = 0u64;
             while !stop.load(std::sync::atomic::Ordering::Relaxed) {
                 while let Ok(Some(message)) = asked.recv(Duration::ZERO) {
                     if let Ok(request) = message.parse::<ExpressionBody>() {
+                        let roll = request.offsets.head_roll;
+                        deepest_roll = deepest_roll.min(roll);
+                        if matches!(fake, Fake::FoldsLettingGoLast)
+                            && !folding
+                            && deepest_roll < 0.0
+                            && roll > deepest_roll * 0.9
+                        {
+                            folding = true;
+                            diagnostics
+                                .publish_json(lamp_ipc::monotonic_us(), &report("resting", 0.6, 40))
+                                .unwrap();
+                        }
                         offsets = Some((request.offsets, request.lease.valid_until_us));
                     }
                 }
@@ -971,7 +1028,7 @@ mod tests {
                 if matches!(fake, Fake::OtherAsks) && step == 60 {
                     expression.ask(BodyOffsets::ZERO).unwrap();
                 }
-                let standing = if matches!(fake, Fake::Folds) && step >= 60 {
+                let standing = if (matches!(fake, Fake::Folds) && step >= 60) || folding {
                     0.6
                 } else {
                     1.0
@@ -1058,5 +1115,9 @@ mod tests {
         let folds = run_against(Fake::Folds, "folds");
         assert_eq!(folds.verdict, Verdict::NotChecked, "{folds:?}");
         assert!(folds.reason.contains("began to fold"), "{}", folds.reason);
+        // While the last move is let go, too: never a pass.
+        let late = run_against(Fake::FoldsLettingGoLast, "late");
+        assert_eq!(late.verdict, Verdict::NotChecked, "{late:?}");
+        assert!(late.reason.contains("began to fold"), "{}", late.reason);
     }
 }

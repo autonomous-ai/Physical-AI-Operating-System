@@ -87,9 +87,36 @@ impl LightRequest {
     }
 }
 
+/// A light asked for on `light/request` that the ring has drawn long enough
+/// to have eased in (`light/reached`): said once each time a request's light
+/// comes to be shown, so its asker can wait for it before it goes on (a
+/// skill's look over a page it lit, #1146). Nothing is said for a light the
+/// ring never drew: the privacy switch closed, the person's light over it, or
+/// a request that lapsed first.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LightReached {
+    /// The request's `claim.source`.
+    pub source: String,
+    pub light: Light,
+}
+
+impl LightReached {
+    pub const TYPE: &str = "lamp_msgs/LightReached";
+    pub const VERSION: u32 = 1;
+    pub const TOPIC: &str = "light/reached";
+
+    /// Each is a message of its own: one asker's must not hide another's.
+    pub fn declaration() -> Declaration {
+        Declaration::new(Self::TYPE, Self::VERSION, Kind::Event)
+    }
+}
+
 /// The requests to actuators beside the first topics (#940).
 pub fn arbitration_topics() -> Vec<(&'static str, Declaration)> {
-    vec![(LightRequest::TOPIC, LightRequest::declaration())]
+    vec![
+        (LightRequest::TOPIC, LightRequest::declaration()),
+        (LightReached::TOPIC, LightReached::declaration()),
+    ]
 }
 
 #[cfg(test)]
@@ -160,6 +187,29 @@ mod tests {
         assert_eq!(
             (declared.type_name.as_str(), declared.kind),
             (LightRequest::TYPE, Kind::Event)
+        );
+    }
+
+    #[test]
+    fn a_light_reached_names_its_asker_and_the_light() {
+        let reached = LightReached {
+            source: "skill:desk-tutor".into(),
+            light: Light::new(true, "white", 5).unwrap(),
+        };
+        let text = serde_json::to_string(&reached).unwrap();
+        assert_eq!(
+            text,
+            "{\"source\":\"skill:desk-tutor\",\
+             \"light\":{\"on\":true,\"colour\":\"white\",\"level\":5}}"
+        );
+        assert_eq!(
+            serde_json::from_str::<LightReached>(&text).unwrap(),
+            reached
+        );
+        let declared = crate::declaration_of(LightReached::TOPIC).unwrap();
+        assert_eq!(
+            (declared.type_name.as_str(), declared.kind),
+            (LightReached::TYPE, Kind::Event)
         );
     }
 }

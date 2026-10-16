@@ -590,15 +590,22 @@ fn service(
                         let pixels: [_; PIXEL_COUNT] =
                             face.render(frame.mood(), frame.level, monotonic_us(), ceiling.get());
                         match ring.show(&pixels, ceiling, frame.permit) {
-                            Ok(write) => link.publish(WorkerEvent::Ring {
-                                report: RingFeedback::Presented {
-                                    owner: frame.permit.owner(),
-                                    phase: frame.phase,
-                                    requested_at_us: frame.requested_at_us,
-                                    write_started_at_us: write.started_at().as_micros(),
-                                    write_finished_at_us: write.finished_at().as_micros(),
-                                },
-                            })?,
+                            Ok(write) => {
+                                // A turn's frame shows the lamp's light too:
+                                // a skill's light reached counts it (#1146).
+                                if let Some(light) = light.as_mut() {
+                                    light.frame_drawn(write.finished_at().as_micros());
+                                }
+                                link.publish(WorkerEvent::Ring {
+                                    report: RingFeedback::Presented {
+                                        owner: frame.permit.owner(),
+                                        phase: frame.phase,
+                                        requested_at_us: frame.requested_at_us,
+                                        write_started_at_us: write.started_at().as_micros(),
+                                        write_finished_at_us: write.finished_at().as_micros(),
+                                    },
+                                })?
+                            }
                             Err(error) => match error.cause {
                                 Failure::Authority(reason)
                                     if error.cleanup_error.is_none() && !ring.is_faulted() =>

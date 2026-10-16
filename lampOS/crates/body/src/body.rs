@@ -2740,7 +2740,7 @@ fn run_until_stopped(
     let mut pending: Option<(&'static Clip, Duration)> = None;
     let mut gesture_now = [0.0f32; 5];
     let mut gesture_cooling = 0u16;
-    // The last step was cut short by the anti-tip rule.
+    // Steps are being cut short by the anti-tip rule.
     let mut tipping = false;
     // Looks in a row in which its eyes reported a face.
     let mut faces_running = 0u8;
@@ -3313,8 +3313,17 @@ fn run_until_stopped(
                     velocity[index] = 0.0;
                 }
                 goals = head;
-                if standing.is_some() {
+                if let Some(up) = standing {
                     arm_goals = arm;
+                    // The arm likewise: its way up or down is taken back to
+                    // where the step stopped, so the rise or fold does not
+                    // run on without it and jump once the rule lets go.
+                    if !arm_rests && arm != arm_to {
+                        stand = unsmooth(on_the_way(up, arm).0);
+                        stand_velocity = 0.0;
+                        home_now = home_with(home, standing, stand);
+                        (low, high) = bounds(home_now, stand);
+                    }
                 }
                 if !tipping {
                     report.tipping.cuts += 1;
@@ -3322,7 +3331,10 @@ fn run_until_stopped(
                     report.tipping.would_mm = cog::lean_back_mm(to) as f32;
                 }
             }
-            tipping = share < 1.0;
+            // Held at the line, the next step may creep a count inside it:
+            // the run of cuts ends only once what is asked is a millimetre
+            // inside, so a lamp held there is counted once.
+            tipping = share < 1.0 || (tipping && cog::lean_back_mm(to) > ceiling - 1.0);
         }
         still_steps = if goals != written || arm_goals != arm_written {
             0

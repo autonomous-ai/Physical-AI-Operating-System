@@ -2382,7 +2382,7 @@ fn a_lamp_is_not_stood_up_farther_back_than_v1s_line() {
             expression: None,
             called: false,
         },
-        |glimpse| steps.push((glimpse.goals, glimpse.arm_goals)),
+        |glimpse| steps.push((glimpse.goals, glimpse.arm_goals, glimpse.stand)),
     );
     assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
     assert!(report.stood);
@@ -2391,12 +2391,19 @@ fn a_lamp_is_not_stood_up_farther_back_than_v1s_line() {
     assert!(report.tipping.would_mm > 22.0);
     let most = steps
         .iter()
-        .map(|(head, arm)| back(*head, *arm))
+        .map(|(head, arm, _)| back(*head, *arm))
         .fold(0.0, f64::max);
     assert!(most <= 22.0 && most > 21.5, "{most}");
     // It stood as far as the line, not where it was told.
-    let lowest = steps.iter().map(|(_, arm)| arm[0]).min().unwrap();
+    let lowest = steps.iter().map(|(_, arm, _)| arm[0]).min().unwrap();
     assert!(lowest > 1_850 && lowest < 2_050, "{lowest}");
+    // Held there as the head is: its way up goes no farther than the
+    // arm, so nothing is left to jump the rest once the rule lets go.
+    for (_, arm, stand) in &steps {
+        let way = 2_050.0 + (1_800.0 - 2_050.0) * smooth(*stand);
+        assert!((f32::from(arm[0]) - way).abs() <= 2.0, "{arm:?} at {stand}");
+    }
+    assert!(steps.last().unwrap().2 < 1.0);
 }
 
 #[test]

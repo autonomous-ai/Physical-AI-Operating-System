@@ -931,8 +931,11 @@ V1 also cut a step short the same way. Halving ten times, it found the
 largest share of the step from the last goals that stays inside the limit,
 and wrote that. A pose already past the limit may only come forward. "Behind"
 means along the arm's own heading, with base yaw left out. While a step is
-held short, what follows the mood is held there with it, so nothing jumps
-when the rule lets go. The check is made once, where the goals of every
+held short, what follows the mood is held there with it, and a rise or fold
+is taken back to where the arm stopped (the lamp then counts as not yet
+stood up), so nothing jumps when the rule lets go. A lamp held at the line
+is journaled once: the run of cuts ends only once what is asked is 1 mm
+inside it. The check is made once, where the goals of every
 step are made, just before they are written. That covers the mood's pose,
 the eyes, Expression, gestures, moves and standing up, and anything that
 later adds to the same goals. The other goal writes in `src/body.rs` move

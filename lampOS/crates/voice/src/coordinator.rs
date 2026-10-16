@@ -5781,6 +5781,9 @@ fn conversation_with_gate(
             match reply.as_ref().map(|current| current.owner.turn()) {
                 _ if gone => {
                     look_wanted = None;
+                    // The tool's look is over: the second route's own "Let
+                    // me take a look." on this turn asks for its own.
+                    look_held = None;
                     dropped("the session that made the call has gone", trace)?;
                 }
                 Some(current) if current == turn => {}

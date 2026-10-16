@@ -822,7 +822,39 @@ fn after_a_new_cycle_the_last_cycle_s_written_turn_number_spoken_asks_for_the_st
     let mut test = Test::new();
     test.followup(crate::speak_up::LOOK_FULL_NOTE, true, "lamp_looks");
     let written = test.reply.as_ref().unwrap().owner.turn();
-    let _owner = cycle_controller(crate::process::new_boot().unwrap());
+    // Through the service cycle's own start (`run_inner`), which stops at a
+    // head with no camera right after it makes the cycle's turn owner.
+    let motor = crate::options::MotorOptions {
+        worker: "absent-motor-worker".into(),
+        config: "absent-motor-config".into(),
+        head: Some(crate::options::HeadOptions {
+            plan: "absent-plan".into(),
+            channel: "absent-channel".into(),
+        }),
+    };
+    let error = run_inner(
+        ProviderSource::Fixture {
+            wav: Path::new("absent.wav"),
+            sha256: "",
+        },
+        Lifetime::Serve,
+        &mut SessionState::default(),
+        None,
+        crate::options::DirectedOptions::default(),
+        None,
+        Some(&motor),
+        &mut true,
+        &FailureNotices::none(),
+        &mut None,
+        &Termination::inactive(),
+        &mut None,
+        &mut None,
+    )
+    .unwrap_err();
+    assert!(
+        error.to_string().contains("requires prepared camera"),
+        "{error}"
+    );
     let (mut opening, mut wanted) = (None, None);
     record_look_intent(
         true,

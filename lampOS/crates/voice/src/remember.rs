@@ -892,7 +892,11 @@ impl DaysClient {
         self.open_session_within(session, deadline.min(FIRST_READ), person)
     }
 
-    fn open_session_within(
+    /// [`Self::open_session_for`] within `deadline` instead of the voice's
+    /// 300 ms: for a test against the real store that checks what is
+    /// opened, not how fast. Each open commits with a full fsync, which a
+    /// loaded disk can take past 300 ms (#948).
+    pub fn open_session_within(
         &self,
         session: u64,
         deadline: Duration,

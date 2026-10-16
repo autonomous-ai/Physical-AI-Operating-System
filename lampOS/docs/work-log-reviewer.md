@@ -1,9 +1,69 @@
 # Reviewer work log
 
+## 2026-10-17 (the same Claude session, after midnight)
+
+Newest first. Times from `date` (+07). 00:12 to 01:40: the review agents stopped at a usage limit.
+
+- 02:1x #1156 checked after the 23:47 merge: no P1/P2; my P3s and the first builder's --progress P2 fixed; works on a home lamp now that #1174 is in
+- 02:1x #997 checked after the 23:23 merge: both P2s fixed (probed, incl. a second restart in one boot); P3 follow-up (failed unlink plus a hard death before the last persist still opens the mute on a tap: persist_muted in mute_chosen)
+- 02:1x #1010 re-checked at b84800082: the P2 and P3 fixed (probed), but it no longer compiles on lamp-voice (#1138 added Asked::still): rebase; then waits for the lamp-52e6 run with a hand
+- 02:14 merged #1184 (install reads records with Records::state; no V1 key after a set-aside)
+- 02:08 merged #1180 (spoken-to tests hold the one thread one at a time)
+- 02:01 #1184 reviewed: no finding (install reads records with Records::state; no V1 key after records set aside); merge on green ARM64
+- 02:00 #1012 re-checked: every earlier finding fixed, the long dance shown on lamp-06c1; needs a rebase after #1091/#1080
+- 01:5x #1165 and #1170 checked (merged 01:47): no leak, the export ids don't link back, all my #1134 findings fixed by #1170
+- 01:5x #1175 first review: P2 (the stop note is lost when the request after the stop is never asked: the stopped story can begin again on the second voice); waits on #1148 then #1107; conflicts
+- 01:5x #795 re-checked at 9b0202dbc: clean (P2 fixed, probed; the lamp-06c1 run still covers it), P3s only; needs a rebase after #1176, then I merge on green ARM64
+- 01:58 #1094 re-checked: all 13 findings fixed (merged by the first builder); main-side adapter work noted on #701
+- 01:57 #1115 re-checked: both P1s fixed (probed); new P2 at 667057f65 (a hand turning the base during the lowering ends the run), fixed after in 64ac1f45c (unchecked); waits for lamp step 4
+- 01:57 merged #1172 (no phrase look in the lamp's own turns; only removes camera uses; my 2 P2s fixed)
+- 01:54 #1168 checked after the 01:52 merge: my P2 fixed (heard_last taken at every start, same session, the one just before)
+- 01:52 #1180 reviewed: no finding (test-only lock for the one thread); merge on green ARM64
+- 01:47 #1176 checked after the 01:44 merge: no P1/P2; #1167's findings fixed; four P3s; told El what the lamp should do
+- 01:46 merged #1100 (steady person; both privacy P2s fixed and probed on both routes)
+- 01:44 back after the usage limit (00:12-01:40); merged #1174, #1177; restarted first reviews
+- 01:42 merged #1177 (Expression doc comments, #1138 P3s)
+- 01:42 merged #1174 (product lamp-tasks unit with --progress --push-wait; lamp-4ace half taken out after my P2)
+- 00:08 #1177 reviewed: no finding (doc comments only, #1138 P3s); merge on green ARM64
+- 00:01 #1092 re-checked at d0682b1cd: CHANGES (P1: a short quiet word past 0.8 s ends the voice loop; P2s: 5 s rests on one sound, record and on judge at different blocks); the four earlier P2s fixed
+
 ## 2026-10-16, from 15:06 (Claude session, taking over from Codex)
 
 Newest first. Times from `date` (+07).
 
+- 23:5x #1096 checked after the 23:40 merge: P2 and P3s fixed; P3 (light/drawn only from resting frames, so a same-turn "off" under a turn's glow says already off)
+- 23:5x #1069 re-checked: both P2s fixed, P3s only (a lookup does count, unlike the doc); merged by the first builder meanwhile
+- 23:56 merged #1083 (rise lines only, after its rebase on #1126; my P3 taken)
+- 23:50 #1153 checked after the 22:37 merge: P2 follow-up (the 30 s not-speaking rule delays the hello, so it greets someone it answered 30 s before); P3s
+- 23:50 #1138 checked after the 23:38 merge: no P1/P2 (worst frame 4.52 mm, one layer, no dip); P3s
+- 23:4x #1146 checked after the 23:16 merge: the first builder's three P2s fixed; mine only when the model calls before it speaks (P2 follow-up: with a lead-in the still is asked as the pose starts)
+- 23:49 #1163 checked after the 23:42 merge: P2 and P3s fixed (3 looks a minute, not 300); two new doc/journal P3s; lamp-cb94 count was on the earlier head
+- 23:45 #1174 sent back: P2 (the lamp-4ace unit gains --push-wait but still pins the 02:11 lamp-tasks build, which refuses that option, so lamp-tasks would not start); product half fine
+- 23:40 #1010 sent back: P2 (the new !blind in lean_arm drops the lean on a wire hiccup: two 60-count jumps on 4 missed reads); asked for a lamp-52e6 answer with a hand on the elbow
+- 23:36 #1167 checked after the 23:22 merge: reset safe; two P2s before the next product install (doc says head touch reaches the voice: it doesn't; head Pet lost under --touch); told on #705
+- 23:34 merged #1169 (docs: the two host-clock bounds left in pilot_faults; my #1162 P3)
+- 23:2x #1107 re-checked at 789a03565: still CHANGES (rebase only, my P2 not fixed; new P2: #1137's close rule keeps a tap's sound inside the 4 s, so it reaches the model with no after_stop)
+- 23:29 #1164 checked after the merge: the BASHPID fallback is right on real bash 3.2; P3: the lock test needs Linux tools, so it can't run on a Mac
+- 23:27 #1083 re-checked: no blocking finding (rise lines only; the day/night rule moved to draft #1158); conflicts with #1126, rebase then merge
+- 23:26 #1057 sent back: P2 (the 15:33 fix went too far: "Please remember my name is …" and "Can you call me …?" give no note now); the first builder's 18:00 cases not on the head yet. Reposted my 15:33 without a misheard record's letter (18:12 rule)
+- 23:26 merged #1157 (lamp-tasks push wait, off unless --push-wait; my P2 fixed: back-off per agent)
+- 23:24 #1168 sent back: P2 (heard_last is the last words heard by any request: a successor of a request dropped before its words is asked with an older request's words, any session; probed)
+- 23:17 closed #1140 (#1153) and #949 (#996) by hand: both merged by the first builder, issues left open
+- 23:16 #968 sent back: P2 (Python added then removed across commits, so a rebase merge puts it in lamp-voice's history: fold); needs a rebase after #1144; all 7 earlier findings fixed
+- 23:16 #1000 checked after the 22:30 merge: P2 fixed; closed #906 by hand
+- 23:12 #1163 sent back: P2 (a sensor that answers its name but fails every ready is retried every 200 ms: 600 journal lines a minute, worse than today); third has no lamp, so after the fix it needs Twelve's lamp-cb94 count or goes to the first builder
+- 23:07 #1103 sent back: P2 (overdue() is false while the wall clock is untrusted, so after every product boot an overdue reminder is said into an empty room as due now)
+- 23:07 #1054 sent back: P2 (the 11:20 "Set a timer for 1 minute" it was written for is still held at 0.6); cancel_reminder P2 fixed at e3c566f7e
+- 23:07 merged #1162 (pilot_faults leaves the realtime group; P3: two host-clock bounds left in one test)
+- 23:03 merged #1126 (every verdict in the journal; rebased after #1030, both sides kept)
+- 23:02 merged #1003 (--rules for the hello and skill asks; my P2 fixed; two P3s left)
+- 23:00 merged #1159 (a full look with no still is a look on the second voice: 5 s and its line; my #1154 P3)
+- 22:56 #1159 reviewed: no finding (my #1154 P3 fixed); merge on green ARM64
+- 22:49 #1144 reviewed: no finding, ready (the first builder's four P2s fixed); merged at 22:50 by another hand
+- 22:47 #1157 sent back: P2 (a stuck agent's backoff covers the whole machine, so another task's end there can be told 20 s late); P3 (a --push-wait store is refused by an older lamp-tasks); the eighth's P2 fixed in cd6bf9f36
+- 22:36 #1154 checked after the merge: sound; one P3 (a full look with no still is look:false, keeps 3 s and ends silent)
+- 22:23 #1146 sent back: P2 (the still is asked before Desk tutor's lean starts, so the picture can be of the head still up); camera path, so the first builder's after the fix
+- 22:17 #1130 sent back: P1 (on the product mask a sound past the 1 s wait is rejected, retained history 128 < 130 blocks, so the follow-up is lost); P2s (switch-off untested; "short" is only up to 0.75 s; the lamp's name unused)
 - 22:33 #1100 re-checked at fdf036b0d: 21:32 case fixed, two new P2s (newcomer who never counts; second route never notices the 30 s gone). #1101, #1104, #1132, #1075, #996, #900, #1137 merged by the first builder meanwhile. Re-checks started: #997, #795, #1003, #968+#1010, #1094+#1115, #1000, #1069; first review #1134. Flake noted on #705 (hand_controls hand stop before provider fault, 2 of 4).
 - 22:27 merged #1030 (the voice check, off unless LAMP_SAME_VOICE_MODEL; both P2s fixed)
 - 22:20 #1145 checked after the merge: sound; one P3 (went_on cuts an earlier answer that was never told)

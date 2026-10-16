@@ -603,7 +603,11 @@ used only to say it.
   (two looks about 3 s apart) can tell, so after an idle answer is kept the
   watch goes on looking every 2 minutes for 10 (`WATCH_FOLLOW_MS`). The same
   answer is only seen again; a different one, confirmed the same way, is
-  kept as a new observation, and the voice tells it as news of its own. A
+  kept as a new observation, and the voice tells it as news of its own:
+  Harness gives that answer with the earlier one at its front ("…once it
+  finishes.done" on lamp-75c9), so when it begins with the task's earlier
+  idle answer, the voice is told only what comes after (`went_on` in
+  `task_news.rs`). A
   question, a stop or a failure kept, or a task's four observations, end
   it; what progress reads (`tasks/status`) is unchanged. Otherwise, once
   such an observation is kept, the watch leaves that task.

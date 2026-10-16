@@ -448,7 +448,23 @@ fn read_once(
             ) else {
                 continue;
             };
-            if let Some(note) = note(&task, &observation["data"], age_ms) {
+            let mut data = observation["data"].clone();
+            // The watch follows an idle answer and keeps the end the agent
+            // went on to; Harness gives that answer with the earlier one at
+            // its front (lamp-75c9, 2026-10-16, "…once it finishes.done"),
+            // which was told already: only what came after is news.
+            if let Some(earlier) = earlier_idle(&task, observation_id).and_then(|earlier_id| {
+                ask(
+                    socket,
+                    &json!({"op":"get_observation","id":id,"observation_id":earlier_id}),
+                )
+            }) && let Some(rest) = went_on(
+                earlier["data"]["answer"].as_str().unwrap_or_default(),
+                data["answer"].as_str().unwrap_or_default(),
+            ) {
+                data["answer"] = json!(rest);
+            }
+            if let Some(note) = note(&task, &data, age_ms) {
                 news.push(News {
                     key,
                     note,
@@ -462,6 +478,26 @@ fn read_once(
             _ => return news,
         }
     }
+}
+
+/// The newest observation before `observation_id` in which the task's agent
+/// had finished with an answer: what a later answer may begin with.
+fn earlier_idle(task: &Value, observation_id: u64) -> Option<u64> {
+    task["observations"]
+        .as_array()?
+        .iter()
+        .filter(|observation| observation["state"].as_str() == Some("idle"))
+        .filter_map(|observation| observation["id"].as_u64())
+        .filter(|id| *id < observation_id)
+        .max()
+}
+
+/// What `answer` says after `earlier`, when it begins with it: the part of
+/// the agent's answer that is new. None when it does not, or adds nothing.
+fn went_on<'a>(earlier: &str, answer: &'a str) -> Option<&'a str> {
+    let earlier = earlier.trim();
+    let rest = answer.trim_start().strip_prefix(earlier)?.trim();
+    (!earlier.is_empty() && !rest.is_empty()).then_some(rest)
 }
 
 /// The task's newest observation in which its agent had finished, stopped,
@@ -994,6 +1030,37 @@ mod tests {
             seen(4, "needs-input", "boot-a", NOW)
         ]);
         assert_eq!(newest_settled(&task("codex", asking), &now()), Some((4, 0)));
+    }
+
+    #[test]
+    fn an_answer_that_went_on_is_told_from_where_the_earlier_one_ended() {
+        let earlier = "The sleep is running in the background, and I'll reply once it finishes.";
+        assert_eq!(
+            went_on(
+                earlier,
+                "The sleep is running in the background, and I'll reply once it finishes.done"
+            ),
+            Some("done")
+        );
+        assert_eq!(
+            went_on(earlier, &format!("{earlier}\n\nAll done.")),
+            Some("All done.")
+        );
+        // Not the same beginning, the same answer, or nothing earlier: as is.
+        assert_eq!(went_on(earlier, "Done: slept 90 s."), None);
+        assert_eq!(went_on(earlier, earlier), None);
+        assert_eq!(went_on("", "done"), None);
+        // Only an earlier finished answer is looked at, the newest before.
+        let observations = json!([
+            seen(1, "idle", "boot-a", 10),
+            seen(2, "needs-input", "boot-a", 20),
+            seen(3, "idle", "boot-a", 30),
+            seen(5, "idle", "boot-a", 50),
+        ]);
+        let task = task("claude", observations);
+        assert_eq!(earlier_idle(&task, 5), Some(3));
+        assert_eq!(earlier_idle(&task, 3), Some(1));
+        assert_eq!(earlier_idle(&task, 1), None);
     }
 
     #[test]

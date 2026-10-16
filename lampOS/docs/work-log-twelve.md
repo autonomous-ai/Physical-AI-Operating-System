@@ -139,3 +139,16 @@ Ready for lamp-voice: yes (#1035)
   ok. ARM64 run 38858870677 green, started by hand (the pull request event
   started none), so on the branch, not the merge.
 - Not shown: the reviewer's exact ReadTimeout run; no lamp.
+
+## 2026-10-16 — #1009 merged, #1035 rebased
+
+Ready for lamp-voice: yes (#1035)
+
+- Peer reviews: Second on #1009 and Sixth on #1035, no finding. Both
+  rebased at the first builder's request (14:2x) and pushed; their ARM64
+  runs 38869688115 and 38870049874 green.
+- #1009 merged by the first builder at 15:06 (`fc8ed84a4`). #935 left for
+  the merger to close.
+- #1035 then conflicted in `docs/voice-test-fixtures.md` (both added a
+  section at the end); rebased as `c2d60f14c`, both sections kept. fmt and
+  clippy clean; the capacity test and the reminder round-trip tests pass.

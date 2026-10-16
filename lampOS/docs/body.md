@@ -625,20 +625,32 @@ and eased out as it ends. On by default; there is no flag.
   arm check stays as it was: its load bound, its tracking, its warmth, and
   `--limp` and `--overload release`.
 - **A hand on the arm.** Under `--give-way`, a shoulder or an elbow that
-  stops pushing against a hand is held where the hand has it for as long
-  as what is wanted of it does not change. While the lamp still wants to
-  lean, the lean stays exactly where it was, neither in nor out, so the
-  hold lasts and the lamp does not lean into the hand again. Once the lean
-  is no longer wanted (the answer over, a gesture, folding) the hold is let
-  go and the lean eases out from where the hand held the arm, not from the
-  lean it was asked: no goal moves more than the lean's own step, and none
-  goes past the held place toward the hand, whether the hand has gone or is
-  still there (`an_arm_held_while_it_speaks_is_not_leaned_into_again`,
+  stops pushing against a hand is held where the hand has it. While the
+  lamp wants to lean and the hand still reads on that joint (a load over
+  its stall bound), the lean stays exactly where it was, neither in nor
+  out, so the lamp does not lean into the hand again. The hold is taken
+  into the lean once the lean eases out (the answer over, a gesture,
+  folding), or once the lean is wanted and nothing reads on the joint any
+  more, including a hold made before the answer. From then on the joint
+  goes from where it was held toward where the lean wants it. That place
+  is kept as an offset from the pose, so it folds with the rest of the
+  arm. It moves no more than the lean's own step, and not at all toward a
+  hand that still reads on it. So no goal jumps back into the lean, none
+  goes past the held place toward a hand that is there, and a hand that
+  has gone does not keep the next answer from leaning
+  (`an_arm_held_while_it_speaks_is_not_leaned_into_again`,
   `a_lean_eases_out_from_where_a_hand_held_it`,
-  `a_lean_eases_out_from_a_hand_still_there_after_the_answer`). Before
-  #1010's 15:49 review the hold was let go only once the easing goal was 20
-  counts from the held one, and the goal then jumped back into the
-  half-eased lean, 40 counts into the hand in one step.
+  `a_lean_eases_out_from_a_hand_still_there_after_the_answer`,
+  `a_hand_letting_go_mid_ease_out_leaves_no_jump`,
+  `a_held_shoulder_eases_out_as_an_elbow_does`,
+  `a_held_lean_folds_with_the_arm_without_a_jump`,
+  `a_hand_gone_does_not_keep_the_next_answer_from_leaning`,
+  `a_hold_from_before_the_answer_does_not_keep_it_from_leaning`). In
+  #1010's reviews the held place was first kept by the hold alone, which
+  let go 20 counts into the ease-out and jumped 40 counts back into the
+  hand. Then it was kept as a fixed count, which stayed put through a fold
+  and jumped 134–156 counts at the end, and was held again with no hand
+  there, so the next answer did not lean.
 
 With Expression on, a turn of the base that it asks while the lamp speaks,
 a sway between sentences, is taken as any other turn it asks: within 70

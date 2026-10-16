@@ -61,6 +61,13 @@ jobs:
     name: lampOS — build and test on Linux ARM64 (${{ matrix.shard }}/${{ strategy.job-total }})
     runs-on: ubuntu-22.04-arm
     timeout-minutes: 90
+    # Three of four full runs that failed on 2026-10-16 died fetching a crate
+    # ("curl failed", "[16] Error in the HTTP2 framing layer") before any test
+    # ran, and passed when run again (#874). Cargo then fetches over HTTP/1.1
+    # and tries a download ten times, not three.
+    env:
+      CARGO_HTTP_MULTIPLEXING: 'false'
+      CARGO_NET_RETRY: '10'
     strategy:
       fail-fast: false
       matrix:

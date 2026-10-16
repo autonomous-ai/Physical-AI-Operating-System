@@ -946,6 +946,11 @@ fn make(call: &Call, sockets: &Sockets, bus: &Bus) -> String {
             json!({ "gesture": name }).to_string(),
             &sockets.mood,
         ),
+        Call::Move(clip) => tell(
+            &format!("move {}", clip.name),
+            json!({ "move": clip }).to_string(),
+            &sockets.mood,
+        ),
         Call::Light { colour, level, .. } => {
             let mut said = actions(
                 &format!("light {colour}"),

@@ -16,8 +16,15 @@
 //! not is refused with the reason, and the others are still taken. It is
 //! asked for by name as a gesture is (`{"gesture":"wiggle"}` on the mood
 //! socket), and played as one, only while the lamp stands.
+//!
+//! A skill sends its own move whole on the mood socket instead
+//! (`{"move":{"name":...,"step_ms":...,"frames":[...]}}`, [`Sent`]): held
+//! here to the same [`check`] (`lamp-skills` checks it the same way when it
+//! loads the skill), then played as a gesture is, through the same
+//! smoothing, speed limits and anti-tip rule ([`crate::cog`]) as the body's
+//! own, and only as a gesture may be: never paused, held or slumped.
 use crate::clips::{self, Clip};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::{
     fs, io,
     path::{Path, PathBuf},
@@ -38,6 +45,10 @@ pub const MOST_MOVES: usize = 64;
 pub const MOST_ENTRIES: usize = 1_024;
 /// A move's file is at most this long.
 const MOST_BYTES: u64 = 256 * 1024;
+/// The mood socket reads a datagram of at most this many bytes: more than
+/// any move [`check`] takes, as `serde_json` writes it (251 frames of at
+/// most 27 bytes).
+pub const MOST_DATAGRAM: usize = 16 * 1024;
 const SHORTEST_US: u64 = 1_500_000;
 const LONGEST_US: u64 = 10_000_000;
 
@@ -56,12 +67,96 @@ impl Loaded {
     }
 }
 
-#[derive(Deserialize)]
+/// A move as its file holds it and a skill sends it.
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
-struct File {
-    name: String,
-    step_ms: u16,
-    frames: Vec<[i16; 5]>,
+pub struct Move {
+    pub name: String,
+    pub step_ms: u16,
+    pub frames: Vec<[i16; 5]>,
+}
+
+/// At most this many times a run a sent move takes the place of one of the
+/// same name; past it, a changed move is refused until the body restarts.
+pub const MOST_REPLACED: usize = 64;
+
+/// Moves a skill sent whole on the mood socket, one a name: the same move
+/// sent again plays what was kept, and a changed one of the same name (a
+/// skill edited and reloaded) takes its place, at most [`MOST_REPLACED`]
+/// times a run (a replaced move stays in memory, as it may still be
+/// playing). A name a `--moves` file holds is refused ([`Sent::besides`]).
+#[derive(Debug, Default)]
+pub struct Sent {
+    kept: Vec<&'static Clip>,
+    replaced: usize,
+    files: Vec<&'static str>,
+}
+
+impl Sent {
+    /// None sent yet, beside the moves read from `--moves`, whose names a
+    /// sent move may not take.
+    pub fn besides(files: &Loaded) -> Self {
+        Self {
+            files: files.moves.iter().map(|clip| clip.name).collect(),
+            ..Self::default()
+        }
+    }
+
+    /// The clip of a `{"move":{...}}` datagram, or why the body cannot play
+    /// it; `None` for a datagram that is not a move.
+    pub fn take(&mut self, datagram: &[u8]) -> Option<Result<&'static Clip, String>> {
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct Message {
+            #[serde(rename = "move")]
+            sent: serde_json::Value,
+        }
+        let message: Message = serde_json::from_slice(datagram).ok()?;
+        Some(self.keep(message.sent))
+    }
+
+    fn keep(&mut self, sent: serde_json::Value) -> Result<&'static Clip, String> {
+        let sent: Move =
+            serde_json::from_value(sent).map_err(|error| format!("not a move: {error}"))?;
+        check(&sent).map_err(|why| format!("move {:?}: {why}", sent.name))?;
+        if self.files.contains(&sent.name.as_str()) {
+            return Err(format!(
+                "move {:?}: a --moves file's move has the name",
+                sent.name
+            ));
+        }
+        let same_name = self.kept.iter().position(|clip| clip.name == sent.name);
+        if let Some(kept) = same_name.map(|at| self.kept[at])
+            && kept.step_ms == sent.step_ms
+            && kept.frames == sent.frames
+        {
+            return Ok(kept);
+        }
+        if same_name.is_none() && self.kept.len() >= MOST_MOVES {
+            return Err(format!(
+                "move {:?}: {MOST_MOVES} moves of other names were sent already, none of a new name until the body restarts",
+                sent.name
+            ));
+        }
+        if same_name.is_some() && self.replaced >= MOST_REPLACED {
+            return Err(format!(
+                "move {:?}: sent moves were changed {MOST_REPLACED} times already, none changed again until the body restarts",
+                sent.name
+            ));
+        }
+        // ponytail: a replaced move stays in memory (it may still be
+        // playing; at most 7 KB each, 64 a run); own the frames (`Arc`)
+        // if skills must be edited more than that in one run.
+        let clip = keep(sent);
+        match same_name {
+            Some(at) => {
+                self.kept[at] = clip;
+                self.replaced += 1;
+            }
+            None => self.kept.push(clip),
+        }
+        Ok(clip)
+    }
 }
 
 /// Read every `*.json` in `folder`. A folder that cannot be read is an
@@ -113,7 +208,15 @@ pub fn load(folder: &Path) -> io::Result<Loaded> {
     files.sort();
     let mut loaded = Loaded::default();
     for path in files {
-        match read(&path).and_then(|file| check(file, &loaded)) {
+        let taken = read(&path).and_then(|file| {
+            check(&file)?;
+            // The first file in name order keeps the name.
+            if loaded.named(&file.name).is_some() {
+                return Err(format!("{:?} is already another file's move", file.name));
+            }
+            Ok(keep(file))
+        });
+        match taken {
             Ok(clip) => loaded.moves.push(clip),
             Err(why) => loaded.refused.push((path, why)),
         }
@@ -121,7 +224,10 @@ pub fn load(folder: &Path) -> io::Result<Loaded> {
     Ok(loaded)
 }
 
-fn read(path: &Path) -> Result<File, String> {
+/// One move file: refused unless a regular file of at most 256 KiB, before
+/// it is read, and then unless JSON of exactly a move's three fields. Not
+/// [`check`]ed.
+pub fn read(path: &Path) -> Result<Move, String> {
     let metadata = fs::metadata(path).map_err(|error| error.to_string())?;
     if !metadata.is_file() {
         return Err("not a file".into());
@@ -133,9 +239,11 @@ fn read(path: &Path) -> Result<File, String> {
     serde_json::from_slice(&text).map_err(|error| format!("not a move: {error}"))
 }
 
-/// A move this body can play, or why not.
-fn check(file: File, loaded: &Loaded) -> Result<&'static Clip, String> {
-    let name = file.name;
+/// Whether this body can play the move, or why not: the bounds the
+/// built-in clips keep. Whether it may play now, from the pose it is in
+/// (the anti-tip rule), is the body's to judge as it begins.
+pub fn check(file: &Move) -> Result<(), String> {
+    let name = &file.name;
     if name.is_empty()
         || name.len() > 32
         || !name
@@ -146,20 +254,14 @@ fn check(file: File, loaded: &Loaded) -> Result<&'static Clip, String> {
             "{name:?} is not a name: 1 to 32 of a-z, 0-9, - and _"
         ));
     }
-    if clips::named(&name).is_some()
-        || name == clips::CALLED.name
-        || crate::idle::is_move_name(&name)
+    if clips::named(name).is_some() || name == clips::CALLED.name || crate::idle::is_move_name(name)
     {
         return Err(format!("{name:?} is one of the body's own gestures"));
-    }
-    // The first file in name order keeps the name.
-    if loaded.named(&name).is_some() {
-        return Err(format!("{name:?} is already another file's move"));
     }
     if !(40..=1_000).contains(&file.step_ms) {
         return Err(format!("step_ms {} is not from 40 to 1000", file.step_ms));
     }
-    let frames = file.frames;
+    let frames = &file.frames;
     let duration_us = (frames.len().saturating_sub(1) as u64) * u64::from(file.step_ms) * 1_000;
     if !(SHORTEST_US..=LONGEST_US).contains(&duration_us) {
         return Err(format!(
@@ -191,11 +293,16 @@ fn check(file: File, loaded: &Loaded) -> Result<&'static Clip, String> {
             }
         }
     }
-    Ok(Box::leak(Box::new(Clip {
-        name: Box::leak(name.into_boxed_str()),
+    Ok(())
+}
+
+/// A checked move as a clip that lasts as long as the body.
+fn keep(file: Move) -> &'static Clip {
+    Box::leak(Box::new(Clip {
+        name: Box::leak(file.name.into_boxed_str()),
         step_ms: file.step_ms,
-        frames: Box::leak(frames.into_boxed_slice()),
-    })))
+        frames: Box::leak(file.frames.into_boxed_slice()),
+    }))
 }
 
 #[cfg(test)]
@@ -371,18 +478,111 @@ mod tests {
     }
 
     #[test]
+    fn a_move_sent_whole_is_checked_as_a_file_is_and_kept_once() {
+        let mut sent = Sent::default();
+        let datagram = format!("{{\"move\":{}}}", good("wiggle"));
+        assert!(datagram.len() < MOST_DATAGRAM);
+        let first = sent.take(datagram.as_bytes()).unwrap().unwrap();
+        assert_eq!(first.name, "wiggle");
+        assert_eq!(first.at(1_000_000), Some([40.0, 0.0, 0.0, 0.0, 0.0]));
+        // The same move again plays what was kept.
+        let again = sent.take(datagram.as_bytes()).unwrap().unwrap();
+        assert!(std::ptr::eq(first, again));
+        assert_eq!(sent.kept.len(), 1);
+        // Edited, the same name takes the new frames' place.
+        let edited = datagram.replace("[40,0,0,0,0]", "[38,0,0,0,0]");
+        let edited = sent.take(edited.as_bytes()).unwrap().unwrap();
+        assert_eq!(edited.at(1_000_000), Some([38.0, 0.0, 0.0, 0.0, 0.0]));
+        assert_eq!(sent.kept.len(), 1);
+        // Past 64 names a new name is refused; an old one still plays.
+        for n in 1..MOST_MOVES {
+            let other = format!("{{\"move\":{}}}", good(&format!("m{n}")));
+            sent.take(other.as_bytes()).unwrap().unwrap();
+        }
+        let new = format!("{{\"move\":{}}}", good("one-more"));
+        let why = sent.take(new.as_bytes()).unwrap().unwrap_err();
+        assert!(why.contains("64 moves of other names"), "{why}");
+        assert!(sent.take(datagram.as_bytes()).unwrap().is_ok());
+        assert_eq!(sent.kept.len(), MOST_MOVES);
+        // Changed again and again, a move is changed 64 times a run and then
+        // refused with why; what was kept last still plays.
+        let changed =
+            |n: i16| datagram.replace("[40,0,0,0,0]", &format!("[{},0,0,0,0]", 30 + n % 2));
+        let mut n = 0;
+        let why = loop {
+            match sent.take(changed(n).as_bytes()).unwrap() {
+                Ok(_) => n += 1,
+                Err(why) => break why,
+            }
+        };
+        assert!(why.contains("changed 64 times"), "{why}");
+        assert_eq!(sent.replaced, MOST_REPLACED);
+        assert!(sent.take(changed(n - 1).as_bytes()).unwrap().is_ok());
+        // A name a --moves file holds is refused with why.
+        const WIGGLE: Clip = Clip {
+            name: "wiggle",
+            step_ms: 100,
+            frames: &[[0; 5], [20, 0, 0, 0, 0], [0; 5]],
+        };
+        let files = Loaded {
+            moves: vec![&WIGGLE],
+            refused: Vec::new(),
+        };
+        let why = Sent::besides(&files)
+            .take(datagram.as_bytes())
+            .unwrap()
+            .unwrap_err();
+        assert!(why.contains("a --moves file's move has the name"), "{why}");
+        let mut sent = Sent::default();
+        // One the body cannot play is refused with why.
+        let far = datagram.replace("[40,0,0,0,0]", "[40,0,151,0,0]");
+        let why = sent.take(far.as_bytes()).unwrap().unwrap_err();
+        assert!(
+            why.contains("\"wiggle\"") && why.contains("farther than 150"),
+            "{why}"
+        );
+        let nod = format!("{{\"move\":{}}}", good("nod"));
+        assert!(
+            sent.take(nod.as_bytes())
+                .unwrap()
+                .unwrap_err()
+                .contains("own gestures")
+        );
+        assert!(sent.take(br#"{"move":{"name":"x"}}"#).unwrap().is_err());
+        // A gesture or a mood is not a move.
+        assert!(sent.take(br#"{"gesture":"nod"}"#).is_none());
+        assert!(sent.take(br#"{"mood":"listening","level":3}"#).is_none());
+        // The widest move check could take (not one it takes) fits in a datagram.
+        let largest = Move {
+            name: "a".repeat(32),
+            step_ms: 40,
+            frames: (0..251)
+                .map(|at| {
+                    if at == 0 || at == 250 {
+                        [0; 5]
+                    } else {
+                        [-200, -200, -150, -350, -350]
+                    }
+                })
+                .collect(),
+        };
+        let text = serde_json::json!({ "move": largest }).to_string();
+        assert!(text.len() < MOST_DATAGRAM, "{}", text.len());
+    }
+
+    #[test]
     fn the_promise_is_the_built_in_clips_own() {
         // Every built-in clip would be taken as a move file.
         for clip in clips::ALL.into_iter().chain([&clips::CALLED]) {
             if clip.duration_us() < SHORTEST_US {
                 continue;
             }
-            let file = File {
+            let file = Move {
                 name: format!("{}-again", clip.name),
                 step_ms: clip.step_ms,
                 frames: clip.frames.to_vec(),
             };
-            assert!(check(file, &Loaded::default()).is_ok(), "{}", clip.name);
+            assert!(check(&file).is_ok(), "{}", clip.name);
         }
     }
 }

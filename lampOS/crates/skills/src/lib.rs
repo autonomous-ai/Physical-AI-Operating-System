@@ -138,6 +138,9 @@ fn say_step(say: toml::Value) -> Result<Call, String> {
 struct BodyFile {
     look_at: Option<String>,
     gesture: Option<String>,
+    /// A file in `moves/`.
+    #[serde(rename = "move")]
+    clip: Option<String>,
     mood: Option<String>,
     #[serde(rename = "for")]
     lasting: Option<String>,
@@ -257,6 +260,10 @@ pub enum Call {
     Gaze { face: Option<(f32, f32, f32)> },
     /// A gesture by name, to the body's mood socket.
     Gesture(String),
+    /// A move of the skill's own (`moves/NAME.json`), checked as the body
+    /// checks it, sent whole to the body's mood socket and played there as
+    /// a gesture.
+    Move(lamp_body::moves::Move),
     /// A pose held on the body's mood socket for `lasting_us`, said again
     /// every second; the body comes back when it is no longer said.
     Mood { mood: String, lasting_us: u64 },
@@ -327,6 +334,7 @@ impl Call {
                 ("body.gaze", args)
             }
             Self::Gesture(name) => ("body.gesture", json!({ "gesture": name })),
+            Self::Move(clip) => ("body.move", json!({ "move": clip.name })),
             Self::Mood { mood, lasting_us } => (
                 "body.mood",
                 json!({ "mood": mood, "for_ms": lasting_us / 1_000 }),
@@ -619,6 +627,9 @@ pub fn load(dir: &Path) -> Result<Skill, String> {
                 }
                 steps.push(Call::Gesture(gesture));
             }
+            if let Some(clip) = body.clip {
+                steps.push(Call::Move(move_file(dir, &clip)?));
+            }
             match (body.mood, body.lasting) {
                 (None, None) => {}
                 (Some(mood), Some(lasting)) => {
@@ -709,6 +720,25 @@ pub fn load(dir: &Path) -> Result<Skill, String> {
 /// no peak past -12 dBFS), so that the two never differ.
 pub fn check_sound(path: &Path) -> Result<(), String> {
     lamp_voice::say::read_sound(path).map(drop)
+}
+
+/// `moves/NAME.json`, held to what the body takes (`lamp_body::moves::check`):
+/// the body's own clips' bounds, length and rate. Whether it may play from
+/// the pose the lamp is in is the body's to judge as it begins.
+fn move_file(dir: &Path, name: &str) -> Result<lamp_body::moves::Move, String> {
+    if !plain_name(name) {
+        return Err(format!("move {name:?} is not a file name in moves/"));
+    }
+    let place = format!("moves/{name}.json");
+    // The body's own reader: a regular file of at most 256 KiB, looked at
+    // before it is read, so a pipe or a huge file never stalls the load.
+    let clip =
+        lamp_body::moves::read(&dir.join(&place)).map_err(|why| format!("{place}: {why}"))?;
+    if clip.name != name {
+        return Err(format!("{place} names {:?}, not {name:?}", clip.name));
+    }
+    lamp_body::moves::check(&clip).map_err(|why| format!("{place}: {why}"))?;
+    Ok(clip)
 }
 
 fn light_call(file: LightFile) -> Result<Call, String> {

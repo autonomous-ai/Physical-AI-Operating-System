@@ -2349,6 +2349,48 @@ fn a_gesture_past_v1s_tip_over_line_is_refused_whole_and_one_inside_it_plays() {
     assert_eq!(report.tipping, Tipping::default());
 }
 
+/// A skill's move, sent whole on the mood socket (`{"move":{...}}`),
+/// becomes a gesture like the body's own and is played the same way: a
+/// move with `nod`'s frames writes every goal `nod` writes, and one inside
+/// the move rules but past V1's 22 mm (the shoulder and elbow swung their
+/// whole 350 counts) is refused whole by the anti-tip rule, which the
+/// journal says as `anti-tip: REFUSED gesture NAME`.
+#[test]
+fn a_skills_move_plays_as_a_kept_move_does_and_one_past_v1s_line_is_refused() {
+    let mut sent = crate::moves::Sent::default();
+    let mut send = |name: &str, step_ms: u16, frames: &[[i16; 5]]| {
+        let datagram =
+            serde_json::json!({ "move": { "name": name, "step_ms": step_ms, "frames": frames }})
+                .to_string();
+        sent.take(datagram.as_bytes()).unwrap().unwrap()
+    };
+    let nod = &crate::clips::NOD;
+    let nod_again = send("nod-again", nod.step_ms, nod.frames);
+    let (kept, _, kept_steps) = gesture_run(&crate::clips::NOD, Duration::from_secs(8), 12, |_| {});
+    let (skills, _, skills_steps) = gesture_run(nod_again, Duration::from_secs(8), 12, |_| {});
+    assert_eq!(skills.gestures, 1, "{skills:?}");
+    assert_eq!(skills.tipping, Tipping::default());
+    let goals = |steps: &[Step]| -> Vec<_> { steps.iter().map(|s| (s.0, s.2, s.3)).collect() };
+    assert_eq!(goals(&skills_steps), goals(&kept_steps));
+    assert_eq!(kept.gestures, 1);
+    assert!(skills_steps.iter().any(|s| s.1 == Some("nod-again")));
+    // Past the line: refused whole, named, and nothing of it played.
+    let swing: Vec<[i16; 5]> = (0..=40i16)
+        .map(|step| {
+            let counts = 35 * step.min(10).min(40 - step);
+            [0, 0, 0, counts, -counts]
+        })
+        .collect();
+    let past = send("past-the-line", 50, &swing);
+    let (report, lamp, seen) = gesture_run(past, Duration::from_secs(8), 12, |_| {});
+    assert_eq!(report.tipping.refused, 1, "{:?}", report.tipping);
+    let (name, _, mm) = report.tipping.last_refused.unwrap();
+    assert_eq!(name, "past-the-line");
+    assert!(mm > 22.0, "{mm}");
+    assert!(seen.iter().all(|step| step.1.is_none()));
+    assert_eq!((lamp.servos[1].goal, lamp.servos[2].goal), (2_050, 2_047));
+}
+
 /// V1's anti-tip rule: no goal leans the lamp back past 22 mm while it
 /// rises, nor past where it is once it stands (16 mm, and it is past
 /// that): a standing pose behind that line is stopped short of, and said.

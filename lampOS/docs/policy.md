@@ -105,8 +105,10 @@ only, and the progress question obeys it as one more hard rule after its
 own two (`crates/policy/src/rules.rs`):
 - `quiet` holds always;
 - `quiet_mornings` holds before noon at the lamp, by
-  `--utc-offset-minutes`; without that the local time is not known, and it
-  holds all day, since a rule kept is obeyed whenever it may hold;
+  `--utc-offset-minutes` or `--zone` (the zone's offset at that moment, so
+  noon moves with summer time); without either the local time is not
+  known, and it holds all day, since a rule kept is obeyed whenever it may
+  hold;
 - of `news`: `never` holds always; `not_before_minute` holds before that
   minute and `not_from_minute` from it on, both all day with the local
   time not known; `not_while_talking` holds while the room (`room/state`)

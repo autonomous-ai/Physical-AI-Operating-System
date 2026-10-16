@@ -732,7 +732,12 @@ impl Progress {
         } else if self.rules.hold(
             Kind::News,
             unix_ms,
-            self.options.utc_offset_minutes,
+            // The zone's offset at this moment, so a kept morning ends at
+            // the zone's noon across daylight saving (#820).
+            self.options
+                .local
+                .as_ref()
+                .map(|local| local.offset_minutes_at(unix_ms)),
             room == Room::Quiet,
         ) {
             Some(Hold::KeptRule)
@@ -1649,7 +1654,7 @@ mod tests {
         let now = Instant::now();
         progress.status(status(5, AgentState::Working));
         progress.status(status(6, AgentState::Working));
-        let task = progress.next(now).unwrap();
+        let task = progress.next(now, 0, Room::Quiet).unwrap();
         let hour = |unix_ms| progress.context(task, now, unix_ms, Room::Quiet, None).hour;
         assert_eq!(hour(1_768_449_600_000), Some(23));
         assert_eq!(hour(1_784_084_400_000), Some(23));
@@ -1686,8 +1691,14 @@ mod tests {
     fn a_kept_rule_holds_progress_news_and_no_model_is_asked() {
         // 2026-10-16 08:59 at a lamp seven hours east of UTC, and its noon.
         let (hanoi_0859, hanoi_noon) = (1_792_115_940_000, 1_792_115_940_000 + 181 * 60_000);
-        let mut progress =
-            Progress::start(Never, Options::new(Duration::from_secs(1), Some(7 * 60))).unwrap();
+        let mut progress = Progress::start(
+            Never,
+            Options::new(
+                Duration::from_secs(1),
+                Some(Arc::new(LocalTime::Offset(7 * 60))),
+            ),
+        )
+        .unwrap();
         let now = Instant::now();
         progress.status(status(1, AgentState::Working));
         progress.status(status(2, AgentState::Working));
@@ -1730,6 +1741,31 @@ mod tests {
         );
         assert_eq!(decided.decision.choice, "wait");
         assert_eq!(Hold::KeptRule.as_str(), "kept_rule");
+    }
+
+    /// #820: with a zone, a kept morning ends at the zone's noon on that
+    /// day, daylight saving included; a fixed offset of the winter's is an
+    /// hour late in summer.
+    #[test]
+    fn with_a_zone_a_kept_morning_ends_at_the_zones_noon() {
+        // 2026-07-15 15:30 and 16:30 UTC: 11:30 and 12:30 in New York (EDT).
+        let (york_1130, york_1230) = (1_784_129_400_000, 1_784_133_000_000);
+        let york = Arc::new(LocalTime::zone("America/New_York").unwrap());
+        let mut progress =
+            Progress::start(Never, Options::new(Duration::from_secs(1), Some(york))).unwrap();
+        let now = Instant::now();
+        progress.status(status(1, AgentState::Working));
+        progress.status(status(2, AgentState::Working));
+        progress.rules(rules(false, true));
+        assert_eq!(progress.next(now, york_1130, Room::Quiet), None);
+        assert_eq!(progress.next(now, york_1230, Room::Quiet), Some(3));
+        let winter = Arc::new(LocalTime::Offset(-300));
+        let mut fixed =
+            Progress::start(Never, Options::new(Duration::from_secs(1), Some(winter))).unwrap();
+        fixed.status(status(1, AgentState::Working));
+        fixed.status(status(2, AgentState::Working));
+        fixed.rules(rules(false, true));
+        assert_eq!(fixed.next(now, york_1230, Room::Quiet), None);
     }
 
     /// The reviewer on #937 (08:06): asked in a quiet room with news not

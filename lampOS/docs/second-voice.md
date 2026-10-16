@@ -403,8 +403,11 @@ and its authority kept fresh during the rest of startup.
   line, with nothing more read from the coordinator, for up to
   `ROOM_WAIT_US` (250 ms, past the write bound), and then goes, a queue
   still full being the link's failure as before. What the coordinator
-  sends meanwhile waits in its own socket and queue, in order. At the pace
-  of speech the queue never fills, so ordinary input is not changed.
+  sends meanwhile waits in its own socket and queue, in order. The End a
+  cancellation owes an open request waits for room the same way (the
+  retirement itself stays immediate), and nothing of the next request is
+  offered before it. At the pace of speech the queue never fills, so
+  ordinary input is not changed.
 - **Without a configured route** `Rig::second` is `None`, the three
   intercepts (the send site, the output receipt, the gate's `movable`) are
   the old calls, and nothing else changes.

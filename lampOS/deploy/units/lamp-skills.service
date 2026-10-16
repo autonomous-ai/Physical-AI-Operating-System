@@ -18,7 +18,7 @@ Group=@LAMP_USER@
 Slice=lampos-parts.slice
 Nice=10
 Environment=LAMP_SKILLS_ASK=skip
-ExecStart=/opt/lampOS/skills/@SKILLS_SHA256@/lamp-skills --dir /var/lib/lampOS/skills --bus-root /run/lampos-bus --gaze-socket /run/lampos-body/gaze.sock --mood-socket /run/lampos-body/mood.sock --actions-socket @ACTIONS_DIR@/call.sock --say-socket /run/lampos-say/say.sock
+ExecStart=/opt/lampOS/skills/@SKILLS_SHA256@/lamp-skills --dir /var/lib/lampOS/skills --bus-root /run/lampos-bus --gaze-socket /run/lampos-body/gaze.sock --mood-socket /run/lampos-body/mood.sock --actions-socket @ACTIONS_DIR@/call.sock --say-socket /run/lampos-say/say.sock --tools-dir @ACTIONS_DIR@/skills
 Restart=on-failure
 RestartSec=5s
 StandardInput=null

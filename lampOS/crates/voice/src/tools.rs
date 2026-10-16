@@ -80,6 +80,10 @@ pub const SCHEDULE_NAMES: [&str; 6] = [
 pub const CATALOG_FILE: &str = "tools.json";
 /// The executive's socket, in its directory.
 pub const CALL_SOCKET: &str = "call.sock";
+/// The skills' folder in the executive's directory: `lamp-skills --tools-dir`
+/// keeps its own `tools.json` and `call.sock` there, read and called the
+/// same way, after the executive's.
+pub const SKILLS_DIR: &str = "skills";
 /// The longest a call waits for the executive, connecting included. A
 /// person hears nothing while it waits.
 pub const ASK_DEADLINE: Duration = Duration::from_millis(1_500);
@@ -358,19 +362,43 @@ pub fn declared(settings: &Settings) -> Vec<Tool> {
             catalog(&directory.join(CATALOG_FILE))
                 .into_iter()
                 .filter(|tool| {
-                    tool.name != NOT_FOR_ME
-                        && tool.name != THE_TIME
-                        && !crate::remember::is_tool(&tool.name)
-                        && !crate::agent_tasks::is_tool(&tool.name)
-                        && !crate::known_faces::is_tool(&tool.name)
-                        && !crate::marked::is_tool(&tool.name)
-                        && !crate::onboarding::is_tool(&tool.name)
+                    !voices_own(&tool.name)
                         && (settings.schedule_tools || !is_schedule_tool(&tool.name))
                 })
                 .take(room),
         );
+        // The skills' after the executive's: a name already told stays its.
+        let skills = catalog(&directory.join(SKILLS_DIR).join(CATALOG_FILE));
+        let room = lamp_gemini::MAX_TOOLS - tools.len();
+        let fresh: Vec<Tool> = skills
+            .into_iter()
+            .filter(|tool| {
+                !voices_own(&tool.name)
+                    && !is_schedule_tool(&tool.name)
+                    && !tools.iter().any(|told| told.name == tool.name)
+            })
+            .take(room)
+            .collect();
+        tools.extend(fresh);
     }
     tools
+}
+
+/// A name the voice routes itself, whether or not it is switched on.
+fn voices_own(name: &str) -> bool {
+    name == NOT_FOR_ME
+        || name == THE_TIME
+        || crate::remember::is_tool(name)
+        || crate::agent_tasks::is_tool(name)
+        || crate::known_faces::is_tool(name)
+        || crate::marked::is_tool(name)
+        || crate::onboarding::is_tool(name)
+}
+
+/// Whether the skills run `name` and the executive does not.
+fn a_skills(directory: &Path, name: &str) -> bool {
+    let has = |path: PathBuf| catalog(&path).iter().any(|tool| tool.name == name);
+    !has(directory.join(CATALOG_FILE)) && has(directory.join(SKILLS_DIR).join(CATALOG_FILE))
 }
 
 /// The executive's list, or nothing: a missing file, one too large, one
@@ -460,7 +488,11 @@ pub fn route(settings: &Settings, name: &str) -> Route {
                 && !crate::remember::is_tool(name)
                 && !crate::agent_tasks::is_tool(name) =>
         {
-            Route::Executive(directory.clone())
+            if a_skills(directory, name) {
+                Route::Executive(directory.join(SKILLS_DIR))
+            } else {
+                Route::Executive(directory.clone())
+            }
         }
         _ => Route::Nobody,
     }
@@ -1345,6 +1377,45 @@ mod tests {
         };
         assert_eq!(route(&exec, crate::marked::MARK), Route::Nobody);
         assert!(crate::marked::tool().validate().is_ok());
+    }
+
+    #[test]
+    fn the_skills_tools_are_told_after_the_executives_and_go_to_the_skills() {
+        let dir = directory("skills");
+        let settings = Settings {
+            exec: Some(dir.clone()),
+            ..Default::default()
+        };
+        // Nothing written by the skills: nothing changes.
+        std::fs::write(
+            dir.join(CATALOG_FILE),
+            r#"{"tools":[{"name":"light_on","description":"Turn the light on."}]}"#,
+        )
+        .unwrap();
+        assert_eq!(declared(&settings).len(), 1);
+        assert_eq!(
+            route(&settings, "check_my_work"),
+            Route::Executive(dir.clone())
+        );
+        std::fs::create_dir(dir.join(SKILLS_DIR)).unwrap();
+        std::fs::write(
+            dir.join(SKILLS_DIR).join(CATALOG_FILE),
+            r#"{"tools":[{"name":"check_my_work","description":"When someone asks the lamp to check their work."},
+            {"name":"light_on","description":"A name the executive has."},
+            {"name":"not_for_me","description":"A name the voice keeps."}]}"#,
+        )
+        .unwrap();
+        let names: Vec<String> = declared(&settings)
+            .into_iter()
+            .map(|tool| tool.name)
+            .collect();
+        assert_eq!(names, ["light_on", "check_my_work"]);
+        assert_eq!(
+            route(&settings, "check_my_work"),
+            Route::Executive(dir.join(SKILLS_DIR))
+        );
+        assert_eq!(route(&settings, "light_on"), Route::Executive(dir.clone()));
+        std::fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]

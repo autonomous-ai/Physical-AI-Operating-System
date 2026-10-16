@@ -3,7 +3,7 @@
 //! actions part's sockets stood in for.
 use lamp_bus::Bus;
 use lamp_msgs::{Faces, Light, SkillEvent, SkillStage};
-use lamp_skills::{Call, Engine, load, load_all, read_recordings, run_tests};
+use lamp_skills::{Admission, Call, Engine, load, load_all, read_recordings, run_tests};
 use std::{
     fs,
     io::{BufRead, BufReader, Write},
@@ -798,4 +798,200 @@ fn a_macs_appledouble_files_are_passed_over() {
     );
     load(&skill).unwrap();
     assert_eq!(run_tests(&skill).unwrap(), clean);
+}
+
+/// Desk tutor's shape (#941): started by its tool alone, it lights the
+/// page and has the voice take its full look.
+const TUTOR: &str = r#"
+needs = ["eyes", "voice", "light"]
+tool = "check_my_work"
+[[do]]
+light = { colour = "white", for = "1s" }
+look = true
+say = "Tutor: a hint or a question, never the answer."
+"#;
+
+#[test]
+fn a_tool_needs_no_trigger_and_a_look_needs_a_tool() {
+    let dir = tempfile::tempdir().unwrap();
+    let skill = load(&skill_with(dir.path(), "tutor", TUTOR)).unwrap();
+    assert_eq!(skill.tool.as_deref(), Some("check_my_work"));
+    assert!(skill.triggers.is_empty());
+    for (toml, why) in [
+        (TUTOR.replace("check_my_work", "Check My Work"), "tool \""),
+        (TUTOR.replace("tool = \"check_my_work\"", ""), "a trigger or a tool"),
+        (
+            TUTOR.replace(
+                "tool = \"check_my_work\"",
+                "tool = \"check_my_work\"\n[trigger]\ntopic = \"humans/faces/tracked\"\n[ask]\npolicy = \"nudge\"",
+            ),
+            "started by its tool alone",
+        ),
+    ] {
+        let error = load(&skill_with(&dir.path().join("bad"), "tutor", &toml)).unwrap_err();
+        assert!(error.contains(why), "{toml}: {error}");
+    }
+}
+
+#[test]
+fn a_tools_call_runs_only_while_its_conditions_hold_on_values_that_last() {
+    let dir = tempfile::tempdir().unwrap();
+    let toml = TUTOR.replace(
+        "[[do]]",
+        "[[while]]\ntopic = \"voice/state\"\nfield = \"state\"\nequals = \"resting\"\nfor = \"30s\"\n[[do]]",
+    );
+    let mut engine = Engine::new(
+        vec![load(&skill_with(dir.path(), "tutor", &toml)).unwrap()],
+        false,
+    );
+    let s = 1_000_000;
+    let resting = br#"{"state":"resting"}"#;
+    // Never seen.
+    assert!(engine.tool("check_my_work", 0).is_err());
+    engine.observe("voice/state", 0, resting, None);
+    // Not yet for its 30 s, then it has.
+    assert!(engine.tool("check_my_work", 10 * s).is_err());
+    assert!(engine.tool("check_my_work", 31 * s).is_ok());
+    // False.
+    engine.observe("voice/state", 40 * s, br#"{"state":"speaking"}"#, None);
+    assert!(engine.tool("check_my_work", 41 * s).is_err());
+    // A value lasting 60 s: held 30 s within it, then expired.
+    engine.observe("voice/state", 100 * s, resting, Some(60_000));
+    assert!(engine.tool("check_my_work", 131 * s).is_ok());
+    assert!(engine.tool("check_my_work", 161 * s).is_err());
+}
+
+#[test]
+fn an_expired_queued_call_is_never_committed() {
+    // The caller gave up while the call waited in the queue: the loop
+    // cannot commit it after, and a committed call cannot be given up.
+    let late = Admission::default();
+    assert!(late.cancel());
+    assert!(!late.commit());
+    let taken = Admission::default();
+    assert!(taken.commit());
+    assert!(!taken.cancel());
+}
+
+#[test]
+fn a_declared_tool_is_in_the_tools_file_and_a_call_runs_the_skills_steps() {
+    // Short: a socket's whole path has to fit in 103 bytes.
+    let dir = tempfile::Builder::new()
+        .prefix("st")
+        .tempdir_in("/tmp")
+        .unwrap();
+    let root = dir.path();
+    fs::create_dir(root.join("skills")).unwrap();
+    let bus = Bus::new(root.join("bus")).unwrap();
+    let mut events = bus.subscribe(SkillEvent::TOPIC, "test").unwrap();
+    let mut ring = bus
+        .publisher_declared("light/state", &Light::declaration(), "ring")
+        .unwrap();
+    let actions = UnixListener::bind(root.join("actions.sock")).unwrap();
+    let (called, lights) = mpsc::channel();
+    // The actions part, saying the colour it shows as the real one does.
+    let shown = bus.clone();
+    std::thread::spawn(move || {
+        let mut shown = shown
+            .publisher_declared("light/state", &Light::declaration(), "ring")
+            .unwrap();
+        for stream in actions.incoming().flatten() {
+            let mut line = String::new();
+            BufReader::new(&stream).read_line(&mut line).unwrap();
+            let call: serde_json::Value = serde_json::from_str(&line).unwrap();
+            if let Some(colour) = call["args"]["colour"].as_str() {
+                shown
+                    .publish_json(1, &Light::new(true, colour, 3).unwrap())
+                    .unwrap();
+            }
+            (&stream)
+                .write_all(b"{\"ok\":true,\"result\":{}}\n")
+                .unwrap();
+            let _ = called.send(line);
+        }
+    });
+    let tools = root.join("tools");
+    let _running = Running(
+        Command::new(env!("CARGO_BIN_EXE_lamp-skills"))
+            .args([
+                "--dir".as_ref(),
+                root.join("skills").as_os_str(),
+                "--bus-root".as_ref(),
+                root.join("bus").as_os_str(),
+                "--actions-socket".as_ref(),
+                root.join("actions.sock").as_os_str(),
+                "--tools-dir".as_ref(),
+                tools.as_os_str(),
+            ])
+            .spawn()
+            .unwrap(),
+    );
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while !tools.join("call.sock").exists() {
+        assert!(Instant::now() < deadline, "no call.sock");
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    // No skill with a tool: no tools file.
+    std::thread::sleep(Duration::from_millis(300));
+    assert!(!tools.join("tools.json").exists());
+    skill_with(&root.join("skills"), "tutor", TUTOR);
+    let file = loop {
+        if let Ok(text) = fs::read_to_string(tools.join("tools.json")) {
+            break serde_json::from_str::<serde_json::Value>(&text).unwrap();
+        }
+        assert!(Instant::now() < deadline, "no tools file");
+        std::thread::sleep(Duration::from_millis(50));
+    };
+    assert_eq!(
+        file,
+        serde_json::json!({"tools":[{"name":"check_my_work","description":"A test."}]})
+    );
+    // The voice's call, as it asks the actions part.
+    let call = |name: &str| {
+        let stream = std::os::unix::net::UnixStream::connect(tools.join("call.sock")).unwrap();
+        writeln!(&stream, r#"{{"op":"call","name":"{name}","args":{{}}}}"#).unwrap();
+        let mut line = String::new();
+        BufReader::new(&stream).read_line(&mut line).unwrap();
+        serde_json::from_str::<serde_json::Value>(&line).unwrap()
+    };
+    // The light as shown just before the call, fresh.
+    ring.publish_json(1, &Light::new(true, "blue", 3).unwrap())
+        .unwrap();
+    let asked = Instant::now();
+    let answer = call("check_my_work");
+    assert!(
+        asked.elapsed() < Duration::from_millis(500),
+        "{:?}",
+        asked.elapsed()
+    );
+    assert_eq!(answer["ok"], true, "{answer}");
+    let next = answer["result"]["next"].as_str().unwrap();
+    assert!(
+        next.starts_with("Say only \"Let me take a look.\""),
+        "{next}"
+    );
+    assert!(next.ends_with("never the answer."), "{next}");
+    // Again while the page is still lit: refused, not told to look.
+    let again = call("check_my_work");
+    assert_eq!(again["ok"], false, "{again}");
+    assert_eq!(again["error"], "I'm still doing that.");
+    assert_eq!(call("nobody_has_this")["ok"], false);
+    let mut seen = Vec::new();
+    while !seen
+        .iter()
+        .any(|event: &SkillEvent| event.stage == SkillStage::Done)
+        && Instant::now() < deadline
+    {
+        if let Some(message) = events.recv(Duration::from_millis(100)).unwrap() {
+            seen.push(message.parse().unwrap());
+        }
+    }
+    assert_eq!(stages(&seen), [SkillStage::Triggered, SkillStage::Done]);
+    let lights: Vec<String> = lights.try_iter().collect();
+    // The page lit, and after its second given back.
+    assert!(
+        lights[0].contains("\"light_colour\"") && lights[0].contains("white"),
+        "{lights:?}"
+    );
+    assert!(lights[1].contains("blue"), "{lights:?}");
 }

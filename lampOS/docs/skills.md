@@ -135,7 +135,8 @@ must not leave a step silently undone)*.
 | Key | Required | What it is |
 |---|---|---|
 | `needs` | no | The parts it uses (`eyes`, `ears`, `air`, `voice`, `body`, `light`, ...). Kept, not checked yet |
-| `[trigger]` or `[[trigger]]` | yes | When the skill runs: one table, or several, each checked on its own |
+| `[trigger]` or `[[trigger]]` | yes, unless it has a `tool` | When the skill runs: one table, or several, each checked on its own |
+| `tool` | no | A function the model may call, which runs the steps (below, "Tools for the model"). A lowercase letter, then at most 47 lowercase letters, digits and `_`. It is described to the model with `SKILL.md`'s description, which is then at most 1,024 bytes and says when to call it |
 | `trigger.topic` | yes | The topic it listens to |
 | `trigger.field` with one of `equals`, `above`, `below` | yes, except on `humans/faces/tracked` | What a message must show for the trigger to hold. A number is compared as a number, anything else exactly. On `humans/faces/tracked` without them, it holds while a face is in view |
 | `trigger.when` | no | `present` (the default): it holds, and has held for `for`. `appears`: it holds where it did not just before, once each time. `leaves` and `changes` are refused for now |
@@ -146,12 +147,13 @@ must not leave a step silently undone)*.
 | `trigger.rearm` | no | `leaves` or `ends`, which mean the same: once each time it holds, and again only after it stopped. Without it, `present` runs at every message once `for` has passed, as often as `cooldown` lets it |
 | `trigger.cooldown` | no | Not again within this long of the last run. A run the Policy refused does not count |
 | `[[while]]` | no | Conditions that must also hold, all of them, on the newest value of each topic while that value lasts: a `topic` with `field` and one of `equals`, `above` or `below`, or `humans/faces/tracked` with `present = true`; with `for`, it has also held that long, by the messages of its topic since this program started. It begins again after a value that expired, and when a reload changes the condition |
-| `[ask] policy` | yes | The Policy's question asked before anything is done *(chosen: required, since every trigger is something the lamp starts itself)* |
+| `[ask] policy` | yes, with a trigger | The Policy's question asked before anything is done *(chosen: required, since every trigger is something the lamp starts itself)*. A tool's call is not asked about: a person asked for it |
 | `[[do]]` | at least one | The steps, in order. Within one table: body, then light, then say |
 | `do.body.look_at` | no | Only `"face"`. The largest face in view goes to the body's `gaze.sock` as the eyes send one (`{"face":{"x","y","size","turned":0}}`) |
 | `do.body.gesture` | no | One of the body's six gestures (`nod`, `headshake`, `greeting`, `laugh`, `shy`, `stretching`), sent to `mood.sock` as `{"gesture":NAME}` |
 | `do.light` | no | A file in `lights/`, written as its name, or a table in place. A file `lights/NAME.toml` holds the same keys. `{ colour, level, for }` asks the actions part for `light_colour`. *Not carried out yet:* `level` (1 to 5) and `for`. `{ dim = N, until = "ends" }` asks for `light_dimmer` N times. *Not carried out yet:* `until` |
-| `do.say` | no | A note for the voice to say in its own words, through the voice's say service (#954). One a skill. The run's other steps are made, in their order, when the voice begins the say, so the look and the light come with the words, and none if it is never begun. A light changed is given back when the say ends |
+| `do.say` | no | A note for the voice to say in its own words, through the voice's say service (#954). One a skill. The run's other steps are made, in their order, when the voice begins the say, so the look and the light come with the words, and none if it is never begun. A light changed is given back when the say ends. In a tool's run the note goes to the model in the call's answer instead |
+| `do.look` | no | `true`: the voice's full look (#836). Only in a skill with a `tool` and no trigger: the call's answer tells the model to say "Let me take a look.", and the voice takes the look it already takes when the lamp says so, its still in the model's next turn |
 
 A duration is a whole number and one of `ms`, `s`, `m` or `h` (`"5m"`).
 
@@ -162,9 +164,7 @@ skill that must keep quiet in those cases says so with a `[[while]]`.
 
 **`moves/`, `sounds/`** may exist and are not read. The body plays only its
 six gestures, nothing plays a sound yet, and `body.move` is refused. A
-**`tools`** key in `skill.toml` is refused until `lamp-skills` writes tools
-beside the actions part's `tools.json`. A **`run.py`** refuses the skill,
-because nothing runs it yet.
+**`run.py`** refuses the skill, because nothing runs it yet.
 
 **`tests/`** has one folder for each case. A case holds the `.jsonl` files
 `lamp-bus record` wrote and an `expect.toml`. The expect file lists, as
@@ -184,6 +184,7 @@ runtime gives are:
 - `body.gesture`: `gesture`
 - `light`: `colour`, `level`, `for`, or `dim`, `until`
 - `say`: `note`
+- `look`: none
 
 A case is replayed in the program, not on a bus. Every message of every file
 goes in the order of its `at_us` (the publisher's clock), with the ask
@@ -212,7 +213,7 @@ Its own process, its own owner, like every part
 
 As built on 2026-10-16 (#938, `crates/skills`, not yet run on a lamp):
 
-    lamp-skills [--dir DIR] [--bus-root DIR] [--gaze-socket PATH] [--mood-socket PATH] [--actions-socket PATH] [--say-socket PATH]
+    lamp-skills [--dir DIR] [--bus-root DIR] [--gaze-socket PATH] [--mood-socket PATH] [--actions-socket PATH] [--say-socket PATH] [--tools-dir DIR]
     lamp-skills test SKILL_DIR...
 
 - It loads every folder in `--dir` (`/var/lib/lampOS/skills`), looks at the
@@ -296,11 +297,40 @@ What is not done, and why:
 
 ### Tools for the model
 
-A skill may declare tools: a service call or a function in `run.py`.
-`lamp-skills` writes them beside the actions part's `tools.json`, which the
-voice reads at every session open, so a new skill reaches Gemini without a
-change to the voice. A skill's description is always in the lamp's
-instructions; its body is loaded when it is used.
+A skill may declare a tool the model may call. `lamp-skills` writes them
+beside the actions part's `tools.json`, which the voice reads at every
+session open, so a new skill reaches Gemini without a change to the voice.
+
+As built (#941, the first builder's decision of 09:51; not yet run on a
+lamp): `tool = "check_my_work"` in `skill.toml`, described to the model with
+`SKILL.md`'s description, which says when to call it. With `--tools-dir DIR`
+(the unit template gives `@ACTIONS_DIR@/skills`), `lamp-skills` keeps
+`DIR/tools.json`, written whole at each load and removed when no skill has
+a tool, and answers on `DIR/call.sock` the way the actions part does
+([tools.md](tools.md#the-skills)). A call runs the skill's steps without
+asking the Policy, since a person asked: the body and the light are made
+as in any run, the light given back after its `for`, and the voice is
+answered at once, before they are made, with what the model is to do
+next (`{"next": "..."}`): with `look = true`, to say only "Let me take a
+look.", which is what makes the voice take its full look (#836) and hand
+the still to the model's next turn; with `say`, the note. A name two
+skills give is the first's, by folder. Without `--tools-dir`, or with no
+skill that has a tool, nothing changes.
+
+A call is refused, in words the lamp can say, and nothing is done, when the
+skill's `[[while]]` conditions do not hold as a trigger would need them
+(on a value that still lasts, for their `for`), and when its last run is
+still under way. A call the listener gave up on after a second, waiting
+for the program's loop, is never run afterwards: whichever comes first,
+the run or the giving up, settles it.
+
+Not done: a tool takes no arguments, and a function in `run.py` is not
+run. The look happens only on a voice with its look on (`LAMP_EYES_LOOK_FILE`,
+with `LAMP_LOOK_FULL=on` for the full one), and only if the model's answer
+begins with those words. A `tools.json` left by a `lamp-skills` that was
+killed stays until it starts again; a call then is answered as not
+running. Desk tutor (`ten/desk-tutor`) is not on `lamp-voice`, so the test
+uses a folder of its shape.
 
 ### Reflexes stay in the body and Expression
 

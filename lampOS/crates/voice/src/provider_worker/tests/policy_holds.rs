@@ -46,8 +46,13 @@ impl Desk {
                 let _ = stream.write_all(b"{\"ok\":true,\"result\":{\"volume\":60}}\n");
             }
         });
-        // Short: a socket's whole path must fit in 103 bytes.
-        let bus = std::path::PathBuf::from(format!("/tmp/lph-{tag}-{}", std::process::id()));
+        // Short: a socket's whole path must fit in 103 bytes. Numbered, so
+        // that two tests in one process that use the same tag never share a
+        // bus or remove each other's (the three `spoken_to` cases of
+        // `after_a_line_answered_by` all use "sto").
+        static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+        let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let bus = std::path::PathBuf::from(format!("/tmp/lph-{tag}-{}-{n}", std::process::id()));
         let _ = std::fs::remove_dir_all(&bus);
         std::fs::create_dir_all(&bus).unwrap();
         let decisions = lamp_bus::Bus::new(&bus)

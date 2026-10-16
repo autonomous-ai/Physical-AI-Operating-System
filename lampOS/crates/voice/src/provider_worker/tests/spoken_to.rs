@@ -486,18 +486,30 @@ async fn news_whose_sound_a_cancellation_dropped_before_it_went_is_no_news() {
     assert!(!after_queued_news(true).await);
 }
 
+/// Tests that own the conversation take turns: it is the process's
+/// (`crate::thread::THREAD`), so two at once in one test binary would
+/// replace each other's in the middle (`cargo test`, #1181).
+static OWN_CONVERSATION: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 /// Gives the test a room and a conversation of its own, as the worker keeps
 /// them (the room for its thread, the conversation for the process), and
-/// puts the ones before back when dropped, even when the test fails.
+/// puts the ones before back when dropped, even when the test fails. It
+/// holds the conversation's turn until then.
 struct OwnRoom {
     room: Option<crate::room_told::RoomTold>,
     thread: Option<crate::thread::Thread>,
     unanswered: u32,
+    // Declared last: released after `drop` has put the ones before back.
+    _turn: std::sync::MutexGuard<'static, ()>,
 }
 
 impl OwnRoom {
     fn fresh() -> Self {
+        let turn = OWN_CONVERSATION
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         Self {
+            _turn: turn,
             room: Some(std::mem::take(
                 &mut *crate::room_told::room()
                     .lock()

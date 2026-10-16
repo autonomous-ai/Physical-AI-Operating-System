@@ -129,3 +129,17 @@ Ready for lamp-voice: yes (#1012); no (#1042 and #1066 are drafts)
   - #1066 at `734ef43ad`, with `wait = "10m"` and the dim through `Glow`, ARM64 38937225467 (green on the rerun of one `lamp-voice` timing test).
 - **#1151,** this role file, was merged onto `lamp-voice`.
 - **Gates:** run on the Mac, **Homebrew Rust 1.99, no rustup, no Docker**. Clippy on `lamp-skills` runs with `--no-deps`, because 1.99 fails a new lint in `crates/turn-end-wire` (not ours, from `lamp-voice`).
+
+## 2026-10-17 early — #1012 merged; its second-clip regression fixed as #1199
+
+Ready for lamp-voice: yes (#1199)
+
+- **#1012 (Dance)** was merged by the reviewer at 02:58, as `a69958046`.
+- **A regression from its last P3 fix,** found on lamp-06c1 at 02:58 (ask 19): a long dance played one clip, and the body dropped the second.
+- **#1199** (`jarvis/dance-second-clip`, from `lamp-voice`): the start is counted only on movement in the clip's own first direction, and the next clip is timed from then.
+  - Kind: changes only when Dance's second clip is sent.
+- **On lamp-06c1,** with `lamp-skills` `ac50ab14` and voice `a338f9b1`: asks 22 and 23 played both grooves, one with the body beginning 2,072 ms late. The evidence is in `8efe6c951`.
+- **ARM64:** 38963695870 green.
+- **#1042 and #1066** are one commit each on `lamp-voice` `2af77006d` (ARM64 38960088546 and 38959815527), and stay drafts.
+- **#999** stays open until #1199 merges.
+- **Gate:** on the Mac, **Homebrew Rust 1.99, no rustup, no Docker**, with clippy `--no-deps` (1.99 fails `crates/turn-end-wire`, not ours).

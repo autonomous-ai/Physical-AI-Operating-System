@@ -1080,8 +1080,8 @@ fn nothing_yet(error: &io::Error) -> bool {
 }
 
 /// Each arm goal is kept this far either side of the joint's way between
-/// folded and stood up: the most a gesture (360) and the lean (60) add to
-/// it.
+/// folded and stood up: the most a gesture adds to it (360,
+/// `GESTURE_REACH`), and 60 to spare.
 const ARM_WINDOW_MARGIN: u16 = 420;
 /// The most an arm goal moves from the last one written in a step: a rise
 /// moves it a few counts, a gesture 21 (`GESTURE_STEP`), an arm let go by a

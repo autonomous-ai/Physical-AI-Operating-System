@@ -147,10 +147,10 @@ every hold) and `Bus::write_goal`, one joint's goal by itself (taking hold of
 a joint found without torque, telling an overloaded one to stop pushing),
 and both ask it first. Head and base goals are asked too, and only to be 0
 to 4,095: their goals are bounded where they are made, and the head is sent
-home in one write at the end. It must be inside
-its joint's window: the joint's way between `--folded-arm` and `--stand`,
-with 420 counts either side (the most a gesture, 360, and the lean, 60, add
-to it). On lamp-4ace that is shoulder 1,628 to 3,077 and elbow 1,627 to
+home in one write at the end. An arm goal must be inside its joint's
+window: the joint's way between `--folded-arm` and `--stand`,
+with 420 counts either side (the most a gesture adds to it, 360, and 60 to
+spare). On lamp-4ace that is shoulder 1,628 to 3,077 and elbow 1,627 to
 3,022. It must also be within 50 counts of the arm goal last written (a rise
 moves it a few counts a step, a gesture 21, and an arm let go by a hand
 goes back down to its resting goal at 50 a step), or lie between that goal
@@ -180,8 +180,13 @@ and within 80 counts (`Standing::FOUND_SLACK`) of where the joint is found;
 otherwise the arm's goal is where it is. The anti-tip model refuses a count
 outside 0 to 4,095 instead of clamping it (below). What wrote 37,639 into
 that register is not known: the body is the only thing in lampOS that writes
-goals. The tests are `a_goal_register_far_from_the_arm_is_not_taken_as_its_goal`
-and `an_arm_goal_outside_its_window_never_reaches_the_wire`.
+goals. The tests are `a_goal_register_far_from_the_arm_is_not_taken_as_its_goal`,
+`an_elbow_goal_register_past_its_range_is_never_written_as_a_goal`,
+`an_arm_goal_outside_its_window_never_reaches_the_wire`,
+`an_arm_joint_taken_hold_of_outside_its_window_is_not_given_that_goal`,
+`an_arm_goal_is_never_more_than_a_step_from_the_last_unless_it_holds_where_the_arm_is`,
+`a_head_goal_past_the_servos_range_never_reaches_the_wire` and
+`the_hold_after_a_surprise_writes_the_arm_where_it_was_last_read`.
 
 ### Every position read checked before it is used
 

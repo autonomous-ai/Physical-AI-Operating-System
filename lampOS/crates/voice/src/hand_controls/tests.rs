@@ -568,6 +568,31 @@ fn active_guard_changes_restart_state_but_not_live_preference() {
     );
 }
 
+/// #960: releasing the guard writes the live latch as it was, so a lamp
+/// muted by its person stays muted after a requested stop, and one that was
+/// listening comes back listening.
+#[test]
+fn releasing_the_guard_keeps_a_mute_the_person_chose() {
+    let directory = Directory::new();
+    let (mut owner, sender) = fixture(options(false, Some(&directory.file())));
+    owner.arm_active().unwrap();
+    let mute = gesture(ControlIntent::SoftwareMute, 1, 4_000_000);
+    observe(
+        &mut owner,
+        &sender,
+        state(1, 4_000_000, Some(mute)),
+        4_000_000,
+    );
+    assert!(owner.muted());
+    owner.disarm_after_cleanup().unwrap();
+    assert!(
+        MuteRecord::load(&directory.file(), CLOCK, 4_000_000)
+            .unwrap()
+            .muted,
+        "a chosen mute survives the stop"
+    );
+}
+
 #[test]
 fn arm_failure_refuses_audio_and_failed_new_mute_keeps_durable_guard() {
     let directory = Directory::new();

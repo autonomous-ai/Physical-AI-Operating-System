@@ -46,9 +46,12 @@ bounded controls pump survives these cycles; it never opens an audio device.
 Accepted head pats remain metadata reports during the quiet wait as well as an
 active conversation; they do not clear either privacy gate or request speech.
 A conservative muted recovery record is saved before audio opens, and is
-disarmed only after verified clean exit. Crash/fault recovery consequently
-requires another explicit hold even if no mute was acknowledged before the
-fault. See [controls](controls.md#voice-and-physical-privacy) for the switches,
+disarmed only after verified clean exit, or after a stop the service was
+asked for (SIGTERM or SIGINT, as for an update or a restart) whose cleanup
+reported a fault (#960): the latch is then written as it was, muted only if
+it was muted. Crash/fault recovery consequently requires another explicit
+hold even if no mute was acknowledged before the fault; a requested stop does
+not. See [controls](controls.md#voice-and-physical-privacy) for the switches,
 durability protocol, clear fences and physical acceptance procedure.
 
 Unmute creates fresh controller/worker/provider identities. Old PCM, prospective

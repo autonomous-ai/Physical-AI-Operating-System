@@ -383,3 +383,29 @@ including exactly one Ack request. Outside a scope nothing changes: the
 budget is still `Instant::now() + REQUEST_BUDGET`, and the consumer tests
 that hold it (a slow Get withdraws the offer, a delayed prepare cannot
 publish an expired offer) stay on the host clock.
+
+## Speaking speed through a small reply buffer
+
+`provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity`
+(and the ignored sixty-second and three-minute answers, through the same
+`speaking_speed`) failed in the reviewer's #985 gate with a ReadTimeout and
+then a ConnectionReset at the rig's heartbeat. The test plays the
+coordinator, the provider worker and the scripted service as tasks on one
+thread. Between two coordinator ticks the worker and the service decode and
+encode the largest messages, which in a debug build held a tick back by
+60–99 ms on an idle Intel Mac and by 101–144 ms in the runs that failed.
+Past 100 ms the coordinator's capture and admission leases lapsed, the
+controller gave up the turn, and the worker retired the answer it was still
+receiving: what arrived after that put the session behind a barrier, which
+the script's 3 s network stall ended with BarrierTimeout, or later
+ReadTimeout. The worker then stopped and the next heartbeat met a reset.
+On a lamp the coordinator is a process of its own.
+
+`speaking_speed` now enters a scenario scope, and each coordinator tick of
+`play_at_speaking_speed` is one 2 ms step. The provider worker reads
+`scenario_clock::monotonic_us` under `cfg(test)`, so its 250 ms heartbeat
+bound and the authority it installs are on the same steps as the
+coordinator's 100 ms leases. Playback, the four-second hold, the service's
+pacing and every assertion on them stay on the host clock. Under 24
+CPU-bound processes on the same Mac, the test passed 0 of 10 runs before
+(all BarrierTimeout) and 10 of 10 after.

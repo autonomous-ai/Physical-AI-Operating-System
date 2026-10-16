@@ -6183,3 +6183,64 @@ fn an_arm_goal_is_never_more_than_a_step_from_the_last_unless_it_holds_where_the
         .collect();
     assert_eq!(elbow, [2_047]);
 }
+
+/// The seventh's probe on #1192: lamp-4ace folded at rest, the elbow truly
+/// at 2049, reads 900 counts off from the last step before it is asked to
+/// stop on. That reading is never written back as the elbow's goal at the
+/// exit, however long it stays.
+#[test]
+fn an_elbow_read_far_off_in_the_last_step_is_not_written_back_at_the_exit() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(10));
+    lamp.overload_clears = 1;
+    for (servo, at) in lamp
+        .servos
+        .iter_mut()
+        .zip([2_028.0, 2_054.0, 2_049.0, 2_047.0, 1_948.0])
+    {
+        servo.position = at;
+        servo.goal = at as u16;
+        servo.status = 0;
+    }
+    lamp.event = Some((Duration::from_millis(9_980), 2, Event::Push(900.0)));
+    let limits = Limits {
+        wake: true,
+        rest_glance: true,
+        look_at_name: true,
+        ..gesture_limits()
+    };
+    let report = run_alive(
+        &mut lamp,
+        &mut clock,
+        limits,
+        Some([1_950, 2_043, 2_015]),
+        Some(lamp_4ace_standing().idling(true)),
+        None,
+        || Some((Mood::Resting, 0)),
+        Asked::default,
+        |_| {},
+    );
+    let elbow: Vec<u16> = lamp
+        .goals
+        .iter()
+        .flatten()
+        .filter(|(id, _)| *id == 3)
+        .map(|(_, goal)| *goal)
+        .collect();
+    assert!(
+        elbow.iter().all(|goal| goal.abs_diff(2_049) <= 50),
+        "{elbow:?} {:?}",
+        report.stop
+    );
+    // It stays there, so three reads in a row are bad: the body stops on it.
+    assert!(
+        matches!(
+            report.stop,
+            Stop::BadRead {
+                joint: 3,
+                position: 2_949,
+                from: 2_049,
+            }
+        ),
+        "{report:?}"
+    );
+}

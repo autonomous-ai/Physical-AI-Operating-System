@@ -1124,10 +1124,12 @@ struct Bus<'a, P, R> {
     arm_windows: [(u16, u16); 2],
     /// An arm goal refused before it was written: the run ends on it.
     refused: Option<Stop>,
-    /// Each joint's last good position and when it was read, whether that
-    /// was within `ARM_GOAL_STEP` of the good one before it, the goal last
-    /// written to it, its bad reads in all and in a row (`samples`).
-    good: [Option<(u16, Duration)>; 5],
+    /// When positions were last read, each joint's last good position,
+    /// whether that was within `ARM_GOAL_STEP` of the good one before it,
+    /// the goal last written to it, its bad reads in all and in a row
+    /// (`samples`).
+    read_at: Option<Duration>,
+    good: [Option<u16>; 5],
     steady: [bool; 5],
     goals: [Option<u16>; 5],
     bad_reads: [u16; 5],
@@ -1141,6 +1143,7 @@ impl<'a, P: PortIo, R: Runtime> Bus<'a, P, R> {
             runtime,
             arm_windows: arm_windows(standing),
             refused: None,
+            read_at: None,
             good: [None; 5],
             steady: [true; 5],
             goals: [None; 5],
@@ -1258,28 +1261,33 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
     /// the read fails. `BAD_READS_IN_ROW` of one joint end the run.
     fn judge_positions(&mut self, samples: &mut [Sample; 5]) -> Result<(), String> {
         let now = self.runtime.now();
+        // Since the last read, not the last good one: a bad value that
+        // stays is not let in by the time it has stayed.
+        let steps = self.read_at.map_or(1, |at| {
+            now.saturating_sub(at)
+                .as_micros()
+                .div_ceil(TICK.as_micros())
+                .max(1)
+        });
+        self.read_at = Some(now);
+        let reach = u128::from(READ_JUMP) * steps;
         for (index, sample) in samples.iter_mut().enumerate() {
             let read = sample.position;
+            let off = |from: u16| u128::from(read.abs_diff(from)) > reach;
             let bad = read > 4_095
-                || self.good[index].is_some_and(|(good, at)| {
-                    let steps = (now.saturating_sub(at).as_micros())
-                        .div_ceil(TICK.as_micros())
-                        .max(1);
-                    let reach = u128::from(READ_JUMP) * steps;
-                    let off = |from: u16| u128::from(read.abs_diff(from)) > reach;
-                    off(good) && self.goals[index].is_none_or(off)
-                });
+                || self.good[index]
+                    .is_some_and(|good| off(good) && self.goals[index].is_none_or(off));
             if !bad {
                 self.steady[index] =
-                    self.good[index].is_none_or(|(good, _)| read.abs_diff(good) <= ARM_GOAL_STEP);
-                self.good[index] = Some((read, now));
+                    self.good[index].is_none_or(|good| read.abs_diff(good) <= ARM_GOAL_STEP);
+                self.good[index] = Some(read);
                 self.bad_in_row[index] = 0;
                 continue;
             }
             self.bad_reads[index] = self.bad_reads[index].saturating_add(1);
             self.bad_in_row[index] = self.bad_in_row[index].saturating_add(1);
             let joint = Joint::ALL[index].id();
-            let good = self.good[index].map(|(good, _)| good);
+            let good = self.good[index];
             if self.bad_in_row[index] >= BAD_READS_IN_ROW {
                 let stop = Stop::BadRead {
                     joint,
@@ -1441,7 +1449,7 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
     fn goal_refused(&self, joint: Joint, goal: u16) -> Option<Stop> {
         let index = ARM.iter().position(|arm| *arm == joint)?;
         let (low, high) = self.arm_windows[index];
-        let read = self.good[joint.index()].map(|(at, _)| at);
+        let read = self.good[joint.index()];
         let from = self.goals[joint.index()].or(read);
         let allowed = (low..=high).contains(&goal)
             && (from.is_none_or(|from| goal.abs_diff(from) <= ARM_GOAL_STEP)

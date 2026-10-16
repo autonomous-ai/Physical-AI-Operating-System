@@ -184,8 +184,9 @@ and `an_arm_goal_outside_its_window_never_reaches_the_wire`.
 Every position the body reads passes one place, `Bus::judge_positions` in
 `src/body.rs`, before anything uses it. A position is a bad read if it is
 outside 0 to 4,095, or more than 300 counts (`READ_JUMP`) per 20 ms step
-from the joint's last good reading and as far from the goal last written to
-it. An STS3215 turns at most about 3,000 counts a second unloaded; at 4,096
+since the last read from the joint's last good reading, and as far from the
+goal last written to it. The steps are counted since the last read, not the
+last good one, so a bad value that stays does not become good by staying. An STS3215 turns at most about 3,000 counts a second unloaded; at 4,096
 a step is 82 counts, and 300 is near four times that. A bad read is counted
 in the end report (`bad_reads`, yaw, shoulder, elbow, roll, pitch) and
 replaced by the joint's last good reading, so it never becomes a goal, a
@@ -203,8 +204,10 @@ Why, lamp-4ace on 2026-10-17 at 01:58:39. The body ended on `Cancelled`, and
 its exit sent the arm's last positions back as goals, raw. One elbow reading
 of 37,639 went out as the elbow's goal. The tests are
 `an_elbow_read_past_its_range_just_before_cancelled_is_never_written_as_a_goal`,
-`one_bad_read_of_a_joint_is_counted_and_skipped` and
-`three_bad_reads_of_a_joint_in_a_row_stop_the_body_naming_it`.
+`one_bad_read_of_a_joint_is_counted_and_skipped`,
+`three_bad_reads_of_a_joint_in_a_row_stop_the_body_naming_it` and
+`an_elbow_read_far_off_in_the_last_step_is_not_written_back_at_the_exit`
+(2,049 read as 2,949 from the last step on).
 
 ## What moves it
 

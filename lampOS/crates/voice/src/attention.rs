@@ -540,6 +540,11 @@ const NAMED: &str = "its name was heard in the room's sound";
 /// A request that begins inside it keeps it however long it goes on.
 pub const TAPPED_BEFORE_US: u64 = 2_000_000;
 const TAPPED: &str = "someone tapped its head to talk to it";
+/// A request that begins this long after one that was only the lamp's name
+/// (the call's wait ran out, #891) is that call's (#829, the first builder
+/// at 16:32: "Lamp," then "Check my work." was held in a busy room by day).
+pub const AFTER_CALL_US: u64 = 3_000_000;
+const AFTER_CALL: &str = "it follows the lamp's name said alone";
 
 /// The provider worker's flag for taking the head's taps (#711), given
 /// with `LAMP_HEAD_TOUCH=on`. The worker reads them from the bus, so they
@@ -690,6 +695,10 @@ pub struct Attention {
     /// request in hand ([`TAPPED_BEFORE_US`]).
     tapped_us: Option<u64>,
     tapped: bool,
+    /// The newest request that was only the lamp's name, and when it ended;
+    /// and whether the request in hand began within [`AFTER_CALL_US`] of it.
+    bare_call_us: Option<(u64, u64)>,
+    after_call: bool,
     /// The surest the name was heard for the request in hand, and
     /// whether a voice close to the lamp was heard in it.
     best_score: f32,
@@ -840,6 +849,9 @@ impl Attention {
         self.tapped = self.tapped_us.is_some_and(|tapped| {
             tapped <= now_us && tapped.saturating_add(TAPPED_BEFORE_US) >= now_us
         });
+        self.after_call = self.bare_call_us.is_some_and(|(call, ended)| {
+            call != request && ended <= now_us && ended.saturating_add(AFTER_CALL_US) >= now_us
+        });
     }
 
     /// A request began on `session` at `now_us` that continues the one in
@@ -850,6 +862,7 @@ impl Attention {
     /// Anything else is as for [`Self::began_at`].
     pub fn continued_at(&mut self, request: u64, session: u64, now_us: u64) {
         let tapped = session == self.session && self.began_us.is_some() && self.tapped;
+        let after_call = session == self.session && self.began_us.is_some() && self.after_call;
         let after_another = self.after_another;
         let after_question = self.after_question;
         let after_unanswered = self.after_unanswered;
@@ -878,6 +891,14 @@ impl Attention {
             self.after_unanswered = after_unanswered;
         }
         self.tapped |= tapped;
+        self.after_call |= after_call;
+    }
+
+    /// The request `request` was only the lamp's name, its call's wait run
+    /// out, and it ended at `at_us`: what begins within [`AFTER_CALL_US`]
+    /// is called (#829, 16:32).
+    pub fn bare_call(&mut self, request: u64, at_us: u64) {
+        self.bare_call_us = Some((request, at_us));
     }
 
     /// The sound of `request` stopped being sent at `at_us`: the person
@@ -1150,6 +1171,13 @@ impl Attention {
         // a short sound after a tap is still judged as a sound, above.
         if self.tapped && !own {
             let verdict = Verdict::Play(TAPPED);
+            self.verdict = Some(verdict);
+            return Some(verdict);
+        }
+        // So is the lamp's name said alone just before: the request after
+        // it is what the person called the lamp for.
+        if self.after_call && !own {
+            let verdict = Verdict::Play(AFTER_CALL);
             self.verdict = Some(verdict);
             return Some(verdict);
         }
@@ -2516,6 +2544,39 @@ mod tests {
     /// The name is the first thing said, a little before the voice is
     /// sure someone is speaking. It counts for the request that begins
     /// then, and for no later one.
+    /// #829, the first builder at 16:32, the owner on lamp-4ace: "Lamp,"
+    /// said alone (its call's wait ran out, and the model was told only the
+    /// name came), then "Check my work." as a request of its own, which
+    /// was held in a busy room by day with nobody turned. It begins within
+    /// `AFTER_CALL_US` of the call, and is played. Later, or the call's own
+    /// request, it is judged as before.
+    #[test]
+    fn a_request_just_after_the_lamps_name_said_alone_is_called() {
+        const S: u64 = 1_000_000;
+        let after = |gap_us: u64| {
+            let mut attention = Attention::default();
+            attention.speak_when_spoken_to(true);
+            attention.began_at(20, 3, 10 * S);
+            attention.heard("Lamp.");
+            attention.ended(20, 11 * S);
+            attention.bare_call(20, 13 * S);
+            attention.began_at(21, 3, 13 * S + gap_us);
+            attention.heard("Check my work.");
+            attention.first_output_busy(21, Room::Busy, false, true, Some(false))
+        };
+        assert_eq!(after(800_000), Some(Verdict::Play(AFTER_CALL)));
+        assert_eq!(after(AFTER_CALL_US), Some(Verdict::Play(AFTER_CALL)));
+        assert!(matches!(after(AFTER_CALL_US + 1), Some(Verdict::Hold(_))));
+        // The call's own request is not called by itself.
+        let mut attention = Attention::default();
+        attention.bare_call(20, 13 * S);
+        attention.began_at(20, 3, 13 * S + 500_000);
+        assert!(matches!(
+            attention.first_output_busy(20, Room::Busy, false, true, Some(false)),
+            Some(Verdict::Hold(_))
+        ));
+    }
+
     #[test]
     fn the_name_heard_as_a_request_began_plays_it_and_is_not_carried_to_the_next() {
         let second = 1_000_000u64;

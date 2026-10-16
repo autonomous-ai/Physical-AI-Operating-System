@@ -801,6 +801,18 @@ first, so a cough after a tap is not taken for a question.
 A tap read more than 2 s after its release, or the same tap again, counts for
 nothing. Later requests are judged as before.
 
+**So does the lamp's name said alone** (#829, the first builder at 16:32).
+On lamp-4ace the owner said "Lamp," and paused. Its call's wait ran out
+(#891), and the model was told only the name had come. Then "Check my
+work." came as a request of its own, and was held in a busy room by day
+with nobody seen turned: "its name was heard in the sound, and nobody is
+turned to the lamp". Now a request that begins within 3 s
+(`AFTER_CALL_US`) of the end of one that was only the name
+(`ProviderInput::Called`, then its End) is let out as the tap's is, in
+every room and every form of the rule. The bare call's own request isn't
+called by itself. A short sound is still judged as one first. The
+Policy's hold for the lamp's actions (#1054) is Second's side of it.
+
 **The "hm?"** (`crates/voice/src/head_cue.rs`, First's design on #711): a tap
 on a quiet lamp's head plays a soft hum of its own, two short tones rising
 like a question (330 and 415 Hz with two soft overtones, 110 and 160 ms with

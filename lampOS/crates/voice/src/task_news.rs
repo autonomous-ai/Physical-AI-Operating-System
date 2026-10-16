@@ -481,7 +481,9 @@ impl TaskNews {
     /// together; one waiting for the person, one that stopped, a hand-over
     /// that failed and progress are told on their own. Fewer go together
     /// when one note would keep too little of each answer
-    /// ([`TOGETHER_ANSWER_LEAST`]).
+    /// ([`TOGETHER_ANSWER_LEAST`]). The coordinator does not tell
+    /// together while news waits for a skill ([`by_skill`]), which tells
+    /// each task in its own run (#1042).
     pub fn tell_together(&mut self) -> Option<News> {
         let mut news = self.tell()?;
         let Some(first) = news.finished.clone() else {

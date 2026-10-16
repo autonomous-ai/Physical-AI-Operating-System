@@ -684,7 +684,13 @@ SIGTERM raised on the stepping thread is the section above (#739).
 
 Since #972 and #973 every `coordinator::tests::pilot_faults` scenario runs on
 the stepped fixture, and none waits on the real clock: the module's 45 tests
-took 2.2 s one at a time in full run 38924461963 (29.7 s before). So it left
+took 2.2 s one at a time in full run 38924461963 (29.7 s before). Its timing
+assertions are on scenario time, except two host-clock upper bounds in
+`sigterm_while_metadata_storage_is_stalled_stops_cleanly_and_reports_the_loss`:
+the real metadata finish within `FINISH_WAIT` plus 250 ms, and SIGTERM to
+every child reaped within 1 s. If one of them fails on a loaded pull-request
+runner, that one test goes back into the group by its exact name, not the
+module. So it left
 the group, in all three filtersets, on 2026-10-16, and runs on every pull
 request. On the Intel Mac four copies of the module at once, each running
 four tests at a time, passed 12 of 12 runs (540 test runs). The children

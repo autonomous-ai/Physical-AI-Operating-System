@@ -1,0 +1,1046 @@
+{
+  "from_date": "2026-10-16 07:43:25 +0700",
+  "base": "e5aa43747ec1540893b4da4509d14288e7e70806",
+  "branch": "tests/823-serve-relay-current",
+  "root": "/private/tmp/lampos-tests-serve-relay-current",
+  "source_files": [
+    "lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+    "lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+    "lampOS/crates/voice-eval/src/physical/serve_invocation_tests.rs",
+    "lampOS/crates/voice-eval/tests/serve_relay.rs",
+    "lampOS/crates/voice-eval/tests/common/serve_relay_clock.rs",
+    "lampOS/docs/realtime-tests.md"
+  ],
+  "historical_files": [
+    "lampOS/docs/verification/serve-relay-original-six-20261016/README.md",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/SHA256SUMS",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/SHA256SUMS",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/base/lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/base/lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/base/lampOS/crates/voice-eval/tests/serve_relay.rs",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/base/lampOS/docs/realtime-tests.md",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/base-inventory.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/baseline-compiled-identities.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/baseline-compiled-list.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/candidate/lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/candidate/lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/candidate/lampOS/crates/voice-eval/src/physical/serve_invocation_tests.rs",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/candidate/lampOS/crates/voice-eval/tests/common/serve_relay_clock.rs",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/candidate/lampOS/crates/voice-eval/tests/serve_relay.rs",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/candidate/lampOS/docs/realtime-tests.md",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/doc-append.md",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/expected-after-identities-source-only.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/fake-lamp-live-body-reversed.rs",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/final-evaluator-source.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/final-status.txt",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/handoff.md",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/initial-audit-interruption.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/original-six-preservation.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/participant-only.diff",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/qualified-provenance.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/reversed/lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/reversed/lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/reversed/lampOS/crates/voice-eval/tests/serve_relay.rs",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/reversed/lampOS/docs/realtime-tests.md",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-build.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-clippy.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-fmt.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-gates.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-identity-proof.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-list.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-result.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-source-before.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-tests.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/rustfmt.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/rustfmt.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/source-proof.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/test-source-preservation.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/handoff.md",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/integration-proof.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/participant-only.diff",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-build.exit",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-build.finished",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-build.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-build.started",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-cache-reset.exit",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-cache-reset.finished",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-cache-reset.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-cache-reset.started",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-clippy.exit",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-clippy.finished",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-clippy.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-clippy.started",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-fmt.exit",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-fmt.finished",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-fmt.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-fmt.started",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-gates.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-list.exit",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-list.finished",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-list.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-list.started",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-result.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-source-before.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-tests.exit",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-tests.finished",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-tests.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-tests.started",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/source-audit.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/pair/baseline.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/pair/baseline.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/pair/comparison.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/pair/migrated.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/pair/migrated.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/provenance.json"
+  ],
+  "new_verification_folder": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437",
+  "new_verification_files": [
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/README.md",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/SHA256SUMS",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/audit-command.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/audit-command.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/baseline-provenance.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/build.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/clean-e5aa-baseline/baseline-list.exit",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/clean-e5aa-baseline/baseline-list.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/clean-e5aa-baseline/baseline-source.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/clean-e5aa-baseline/gates.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/clippy.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/compiled-comparison.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/completed.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/fmt.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/gates.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/list.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/metadata-command.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/metadata.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/metadata.stderr.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/result-audit.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/reverse-dependents.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/reviewed-integration/independent-inverse.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/reviewed-integration/root-independent-review.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/reviewed-integration/source-proof.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/reviewed-integration/test-body-proof.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/root-result-audit.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/source.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/tests.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/SHA256SUMS",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/base/lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/base/lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/base/lampOS/crates/voice-eval/tests/serve_relay.rs",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/base/lampOS/docs/realtime-tests.md",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/candidate/lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/candidate/lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/candidate/lampOS/crates/voice-eval/src/physical/serve_invocation_tests.rs",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/candidate/lampOS/crates/voice-eval/tests/common/serve_relay_clock.rs",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/candidate/lampOS/crates/voice-eval/tests/serve_relay.rs",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/candidate/lampOS/docs/realtime-tests.md",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/clean-base.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/doc-append.md",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/expected-identities-qualified-source-only.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/handoff.md",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/independent-inverse.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/integration-tracked.diff",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/reversed/lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/reversed/lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/reversed/lampOS/crates/voice-eval/tests/serve_relay.rs",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/reversed/lampOS/docs/realtime-tests.md",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/root-independent-review.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/source-proof.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/test-body-proof.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/preservation-audit.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/provenance.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/publication-input-manifest.json"
+  ],
+  "files": [
+    "lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+    "lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+    "lampOS/crates/voice-eval/src/physical/serve_invocation_tests.rs",
+    "lampOS/crates/voice-eval/tests/common/serve_relay_clock.rs",
+    "lampOS/crates/voice-eval/tests/serve_relay.rs",
+    "lampOS/docs/realtime-tests.md",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/README.md",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/SHA256SUMS",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/README.md",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/SHA256SUMS",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/audit-command.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/audit-command.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/baseline-provenance.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/build.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/clean-e5aa-baseline/baseline-list.exit",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/clean-e5aa-baseline/baseline-list.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/clean-e5aa-baseline/baseline-source.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/clean-e5aa-baseline/gates.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/clippy.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/compiled-comparison.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/completed.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/fmt.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/gates.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/list.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/metadata-command.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/metadata.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/metadata.stderr.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/result-audit.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/reverse-dependents.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/reviewed-integration/independent-inverse.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/reviewed-integration/root-independent-review.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/reviewed-integration/source-proof.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/reviewed-integration/test-body-proof.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/root-result-audit.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/source.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/tests.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/SHA256SUMS",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/base/lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/base/lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/base/lampOS/crates/voice-eval/tests/serve_relay.rs",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/base/lampOS/docs/realtime-tests.md",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/candidate/lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/candidate/lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/candidate/lampOS/crates/voice-eval/src/physical/serve_invocation_tests.rs",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/candidate/lampOS/crates/voice-eval/tests/common/serve_relay_clock.rs",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/candidate/lampOS/crates/voice-eval/tests/serve_relay.rs",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/candidate/lampOS/docs/realtime-tests.md",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/clean-base.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/doc-append.md",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/expected-identities-qualified-source-only.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/handoff.md",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/independent-inverse.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/integration-tracked.diff",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/reversed/lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/reversed/lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/reversed/lampOS/crates/voice-eval/tests/serve_relay.rs",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/reversed/lampOS/docs/realtime-tests.md",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/root-independent-review.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/source-proof.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/test-body-proof.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/preservation-audit.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/provenance.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/publication-input-manifest.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/SHA256SUMS",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/base-inventory.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/base/lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/base/lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/base/lampOS/crates/voice-eval/tests/serve_relay.rs",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/base/lampOS/docs/realtime-tests.md",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/baseline-compiled-identities.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/baseline-compiled-list.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/candidate/lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/candidate/lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/candidate/lampOS/crates/voice-eval/src/physical/serve_invocation_tests.rs",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/candidate/lampOS/crates/voice-eval/tests/common/serve_relay_clock.rs",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/candidate/lampOS/crates/voice-eval/tests/serve_relay.rs",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/candidate/lampOS/docs/realtime-tests.md",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/doc-append.md",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/expected-after-identities-source-only.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/fake-lamp-live-body-reversed.rs",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/final-evaluator-source.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/final-status.txt",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/handoff.md",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/initial-audit-interruption.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/original-six-preservation.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/participant-only.diff",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/qualified-provenance.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/reversed/lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/reversed/lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/reversed/lampOS/crates/voice-eval/tests/serve_relay.rs",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/reversed/lampOS/docs/realtime-tests.md",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-build.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-clippy.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-fmt.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-gates.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-identity-proof.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-list.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-result.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-source-before.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-tests.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/rustfmt.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/rustfmt.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/source-proof.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/test-source-preservation.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/handoff.md",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/integration-proof.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/participant-only.diff",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-build.exit",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-build.finished",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-build.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-build.started",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-cache-reset.exit",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-cache-reset.finished",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-cache-reset.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-cache-reset.started",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-clippy.exit",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-clippy.finished",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-clippy.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-clippy.started",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-fmt.exit",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-fmt.finished",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-fmt.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-fmt.started",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-gates.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-list.exit",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-list.finished",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-list.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-list.started",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-result.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-source-before.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-tests.exit",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-tests.finished",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-tests.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-tests.started",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/source-audit.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/pair/baseline.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/pair/baseline.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/pair/comparison.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/pair/migrated.json",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/pair/migrated.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/provenance.json"
+  ],
+  "force_add_files": [
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/audit-command.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/build.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/clean-e5aa-baseline/baseline-list.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/clippy.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/fmt.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/list.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/metadata.stderr.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/tests.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/baseline-compiled-list.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-build.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-clippy.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-fmt.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-list.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-tests.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/current/rustfmt.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-build.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-cache-reset.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-clippy.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-fmt.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-list.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-tests.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/pair/baseline.log",
+    "lampOS/docs/verification/serve-relay-original-six-20261016/pair/migrated.log"
+  ],
+  "manifest": [
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+      "bytes": 24315,
+      "sha256": "b9637518aaf8e0dffc587273ab0c5e19c6ff1d72337796c71a4d0832cb4f1327"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+      "bytes": 27980,
+      "sha256": "b9cd63c46803efe08cdc32b9d308612b7a9b54b937b193b73f87624b1124c4db"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_invocation_tests.rs",
+      "bytes": 4289,
+      "sha256": "89f89a010c4a240aa699fd37fb49e0a2c4f2ed8f65ce77332c5c9b575e3d12dc"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/common/serve_relay_clock.rs",
+      "bytes": 16129,
+      "sha256": "60f5ee58ee905b285ea54c5d6c1a2159964e97a2945a79654d283ca14d0ee9cb"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/serve_relay.rs",
+      "bytes": 9396,
+      "sha256": "836a72136db9573ca12e8b4aeab77ff95e42010cf71fcd652da6318945ec7bf2"
+    },
+    {
+      "path": "lampOS/docs/realtime-tests.md",
+      "bytes": 41562,
+      "sha256": "981533204642dea719671a55cc02d71f9a9a3462a43596a4dfbf05261f487105"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/README.md",
+      "bytes": 2947,
+      "sha256": "645177916015a3b25e9752b2037d7e9c256bc2c34a7785c7ecdb43bea92f8a2e"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/SHA256SUMS",
+      "bytes": 7887,
+      "sha256": "1457a42327ab21d60790cd85189867064474579e14cc48aaae54d963f8e3434b"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/README.md",
+      "bytes": 3961,
+      "sha256": "f34c70b42e38170fedab3af4e78ec4fec7951833499e346584cac84b50ad5947"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/SHA256SUMS",
+      "bytes": 5695,
+      "sha256": "2880049830b8ff46451ae7ec927c4a20985f17540d52ee6d2e1e62accbf83db6"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/audit-command.json",
+      "bytes": 426,
+      "sha256": "ea04a8cd86b8da4bc21c858c97747516f4294cc700ab577529c3657e9eef6718"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/audit-command.log",
+      "bytes": 375,
+      "sha256": "9e75403e7678630b28ac97239f95634e1eb2a7421f127eeb9498a58162c3e1de"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/baseline-provenance.json",
+      "bytes": 79880,
+      "sha256": "68f6692f0589c5d97b4430e4038967f95cacd8b7f5b5ee9be90caf93d84ed870"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/build.log",
+      "bytes": 4052,
+      "sha256": "d8557784b2d3a30eb6201b32cbf5d3130d8e84d0017ac4f7a531597d846e4ce1"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/clean-e5aa-baseline/baseline-list.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/clean-e5aa-baseline/baseline-list.log",
+      "bytes": 413045,
+      "sha256": "3f7c4bcc4dfb7853d57c4b9cb2dfddc925356e4853895e499ebd19d8f96ea9e5"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/clean-e5aa-baseline/baseline-source.json",
+      "bytes": 101684,
+      "sha256": "afccf50c12903cc51b7d56a97a74c2067a5a046e82decf2c2194252bcfb15545"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/clean-e5aa-baseline/gates.json",
+      "bytes": 2484,
+      "sha256": "71b20fc209a81974428f06f4eb42800168d380569b8451b74bf199ad13468fde"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/clippy.log",
+      "bytes": 1925,
+      "sha256": "18ff799f72e7ec7312c85338505a9089adc4742792a27f8c028880badf2aaa1a"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/compiled-comparison.json",
+      "bytes": 77395,
+      "sha256": "28e94ca35cea77f975b54cdda708decfe19ac25746eb45ac86ae922eb86ce5aa"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/completed.json",
+      "bytes": 5320,
+      "sha256": "46335c0a33ac76c938b4d0bef0ffe9415cfeb9a47c14ec7df7c257ebcd6ce792"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/fmt.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/gates.json",
+      "bytes": 4619,
+      "sha256": "bd6faffab73db0d896fa2995aebc66c25a9c065a37c109dc9dd6c1573f6fc940"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/list.log",
+      "bytes": 94244,
+      "sha256": "7531d5b001f8bd92aa34023d287fcdaf5baa09cfa2dc123a393967a18d4b752a"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/metadata-command.json",
+      "bytes": 541,
+      "sha256": "57d34a8cebacc83e7dc5cfe3bc026983aa4e6c02e95307e8fef21e5a7481e351"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/metadata.json",
+      "bytes": 2184466,
+      "sha256": "12eaa56f7281c706286ac7ffcf0bdaded287d837484edb3ba0ccab2add58de32"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/metadata.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/result-audit.json",
+      "bytes": 136647,
+      "sha256": "bff080a166242455e87b829577bed98ceb50ec49b70eb8aa17bce3ab6b9d5d1e"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/reverse-dependents.json",
+      "bytes": 451,
+      "sha256": "af5282c35d800fc2ce8abd62006d3a4af48c5933d5f1ff83959a7d2cd3a993e6"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/reviewed-integration/independent-inverse.json",
+      "bytes": 5059,
+      "sha256": "8d38393ef489737b49c20d7b73de2d0453b8674b362e044ac570ac50abebc0b8"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/reviewed-integration/root-independent-review.json",
+      "bytes": 373,
+      "sha256": "6462e5306c319dcd05686715d396cb67534bb5d96482e9c60867b76836c80fe8"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/reviewed-integration/source-proof.json",
+      "bytes": 20927,
+      "sha256": "c59ec9aad2dd59d91054e39b6b2918b43b7788d98b7de48a974e6469abc9ab59"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/reviewed-integration/test-body-proof.json",
+      "bytes": 139828,
+      "sha256": "2c30008d3da4fabb753075a9f85ec53aba4f1cfb549c9f10e2f690ab3820e00b"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/root-result-audit.json",
+      "bytes": 1163,
+      "sha256": "7ea7836ad6c53225dfc4b39831b3e1463b21c9232da444144995646fca30380f"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/source.json",
+      "bytes": 194848,
+      "sha256": "b1fe292076a765493bb8e504a24daba4b0f7c6d36b073b996f96cb8cce5ef8bf"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/tests.log",
+      "bytes": 55430,
+      "sha256": "d91f2f6f3ac5413b280fda09fa8af5266dfff260a061f7d49564a85350a84eb1"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/SHA256SUMS",
+      "bytes": 2423,
+      "sha256": "418bf774e37ac9ab77bb47f14a92ea9a827fa011466fb98a196009ca79b2baa8"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/base/lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+      "bytes": 22868,
+      "sha256": "7707b987700293a31096338ccd4364e34aa70bce59bca2dd3c1cdaef15c0c9a1"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/base/lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+      "bytes": 27975,
+      "sha256": "df424358eb99ab6982ef8cd3ea3d7484f55bf3c033aabcf29ca0b07c0df5ab0a"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/base/lampOS/crates/voice-eval/tests/serve_relay.rs",
+      "bytes": 10467,
+      "sha256": "53f5cc802a0101518da7214b63b77e052b3406fe1b5db3ce43d5c0c305145bf5"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/base/lampOS/docs/realtime-tests.md",
+      "bytes": 39693,
+      "sha256": "379e5b356b4e69322609ce87f44ab61fd3632b969f09afcde56f7cc8f73c4f68"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/candidate/lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+      "bytes": 24315,
+      "sha256": "b9637518aaf8e0dffc587273ab0c5e19c6ff1d72337796c71a4d0832cb4f1327"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/candidate/lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+      "bytes": 27980,
+      "sha256": "b9cd63c46803efe08cdc32b9d308612b7a9b54b937b193b73f87624b1124c4db"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/candidate/lampOS/crates/voice-eval/src/physical/serve_invocation_tests.rs",
+      "bytes": 4289,
+      "sha256": "89f89a010c4a240aa699fd37fb49e0a2c4f2ed8f65ce77332c5c9b575e3d12dc"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/candidate/lampOS/crates/voice-eval/tests/common/serve_relay_clock.rs",
+      "bytes": 16129,
+      "sha256": "60f5ee58ee905b285ea54c5d6c1a2159964e97a2945a79654d283ca14d0ee9cb"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/candidate/lampOS/crates/voice-eval/tests/serve_relay.rs",
+      "bytes": 9396,
+      "sha256": "836a72136db9573ca12e8b4aeab77ff95e42010cf71fcd652da6318945ec7bf2"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/candidate/lampOS/docs/realtime-tests.md",
+      "bytes": 41562,
+      "sha256": "981533204642dea719671a55cc02d71f9a9a3462a43596a4dfbf05261f487105"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/clean-base.json",
+      "bytes": 125343,
+      "sha256": "f106d3fa1225517ac8d1b45e15b0e57103f896604809d407a86abda7ed8a77ba"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/doc-append.md",
+      "bytes": 1869,
+      "sha256": "3f13c1b83bf4287b396119763207c442f1e55281f58c7e5cd69089e1cd5d845e"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/expected-identities-qualified-source-only.json",
+      "bytes": 98162,
+      "sha256": "29d9f545a727190ee2bc8afea17aea22fde9541c7ce313db05e56852364229e5"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/handoff.md",
+      "bytes": 3037,
+      "sha256": "dff0e46d7777d2ae21812b1448a37d6b88bc72528a1aecd0deb5904254a7b463"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/independent-inverse.json",
+      "bytes": 5059,
+      "sha256": "8d38393ef489737b49c20d7b73de2d0453b8674b362e044ac570ac50abebc0b8"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/integration-tracked.diff",
+      "bytes": 8394,
+      "sha256": "526a157c0b10f762ecb0d2ef98c50ef04467c3cecacb35d2ee736ad9deaae232"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/reversed/lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+      "bytes": 22868,
+      "sha256": "7707b987700293a31096338ccd4364e34aa70bce59bca2dd3c1cdaef15c0c9a1"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/reversed/lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+      "bytes": 27975,
+      "sha256": "df424358eb99ab6982ef8cd3ea3d7484f55bf3c033aabcf29ca0b07c0df5ab0a"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/reversed/lampOS/crates/voice-eval/tests/serve_relay.rs",
+      "bytes": 10467,
+      "sha256": "53f5cc802a0101518da7214b63b77e052b3406fe1b5db3ce43d5c0c305145bf5"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/reversed/lampOS/docs/realtime-tests.md",
+      "bytes": 39693,
+      "sha256": "379e5b356b4e69322609ce87f44ab61fd3632b969f09afcde56f7cc8f73c4f68"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/root-independent-review.json",
+      "bytes": 373,
+      "sha256": "6462e5306c319dcd05686715d396cb67534bb5d96482e9c60867b76836c80fe8"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/source-proof.json",
+      "bytes": 20927,
+      "sha256": "c59ec9aad2dd59d91054e39b6b2918b43b7788d98b7de48a974e6469abc9ab59"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/test-body-proof.json",
+      "bytes": 139828,
+      "sha256": "2c30008d3da4fabb753075a9f85ec53aba4f1cfb549c9f10e2f690ab3820e00b"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/preservation-audit.json",
+      "bytes": 19893,
+      "sha256": "18e2e76a401a7c0b9a47a8ae321a8d908917381f7187668725a12ea92fc9bc44"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/provenance.json",
+      "bytes": 23829,
+      "sha256": "1350eb262ee6fc3b09e971719e2e5d5d8030d7c622e371b7cfae3fb0f5080bda"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/publication-input-manifest.json",
+      "bytes": 37864,
+      "sha256": "c5d883a5956a5e109a2f55e67e4307f29ff7522b93b3eb008df8f588fcc0621a"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/SHA256SUMS",
+      "bytes": 3250,
+      "sha256": "887a4ab78a0ae2c5372849b55015a193c6b88135d31422ff66d0fb2a96efd305"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/base-inventory.json",
+      "bytes": 2003639,
+      "sha256": "3b8cd75241b83983efba96fb3ddd0422aa4c0dd7258f154276cc08bc8a731ae4"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/base/lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+      "bytes": 22868,
+      "sha256": "7707b987700293a31096338ccd4364e34aa70bce59bca2dd3c1cdaef15c0c9a1"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/base/lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+      "bytes": 27975,
+      "sha256": "df424358eb99ab6982ef8cd3ea3d7484f55bf3c033aabcf29ca0b07c0df5ab0a"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/base/lampOS/crates/voice-eval/tests/serve_relay.rs",
+      "bytes": 10467,
+      "sha256": "53f5cc802a0101518da7214b63b77e052b3406fe1b5db3ce43d5c0c305145bf5"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/base/lampOS/docs/realtime-tests.md",
+      "bytes": 37178,
+      "sha256": "ba461e398f74366f6eee76616e8569a932f591556ab811582952b187089b3f0d"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/baseline-compiled-identities.json",
+      "bytes": 89994,
+      "sha256": "d6e77730ec64e28062b3b5859960e6bb593d73dbb15a3488d7e35ca135dccd8b"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/baseline-compiled-list.log",
+      "bytes": 90846,
+      "sha256": "f3cdb16af11865447b2510a1c9b8183a60238e424ff1892fdda39c4a28936ddd"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/candidate/lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+      "bytes": 24315,
+      "sha256": "b9637518aaf8e0dffc587273ab0c5e19c6ff1d72337796c71a4d0832cb4f1327"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/candidate/lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+      "bytes": 27980,
+      "sha256": "b9cd63c46803efe08cdc32b9d308612b7a9b54b937b193b73f87624b1124c4db"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/candidate/lampOS/crates/voice-eval/src/physical/serve_invocation_tests.rs",
+      "bytes": 4289,
+      "sha256": "89f89a010c4a240aa699fd37fb49e0a2c4f2ed8f65ce77332c5c9b575e3d12dc"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/candidate/lampOS/crates/voice-eval/tests/common/serve_relay_clock.rs",
+      "bytes": 16129,
+      "sha256": "60f5ee58ee905b285ea54c5d6c1a2159964e97a2945a79654d283ca14d0ee9cb"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/candidate/lampOS/crates/voice-eval/tests/serve_relay.rs",
+      "bytes": 9396,
+      "sha256": "836a72136db9573ca12e8b4aeab77ff95e42010cf71fcd652da6318945ec7bf2"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/candidate/lampOS/docs/realtime-tests.md",
+      "bytes": 39047,
+      "sha256": "e7b9bc1d977eadae3c11e79f60517af4089a607bc052de5a7af29aad63a5c2a4"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/doc-append.md",
+      "bytes": 1869,
+      "sha256": "3f13c1b83bf4287b396119763207c442f1e55281f58c7e5cd69089e1cd5d845e"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/expected-after-identities-source-only.json",
+      "bytes": 92705,
+      "sha256": "9bde6d0fdd5a1b7d67bc62f000a1e9663d494fc37b7a74a50511343cda30c15a"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/fake-lamp-live-body-reversed.rs",
+      "bytes": 22868,
+      "sha256": "7707b987700293a31096338ccd4364e34aa70bce59bca2dd3c1cdaef15c0c9a1"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/final-evaluator-source.json",
+      "bytes": 9986,
+      "sha256": "9b459beaf84513cfd07678ce9bd8c870b525a4b6ce8e72a58120ef8bdeba9808"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/final-status.txt",
+      "bytes": 326,
+      "sha256": "c885d1f10f892608a93137048befd119f67c053d08fd512aeb5e08f726bd27a5"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/handoff.md",
+      "bytes": 8766,
+      "sha256": "b15bb7682ae20bb9fddc60215f9307857aa8c18296d9386598a84ed8fe73d625"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/initial-audit-interruption.json",
+      "bytes": 669,
+      "sha256": "93eebf7782fba64462288c86303aef7fc03da7b56721bd9529aad7ca8d6f18f9"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/original-six-preservation.json",
+      "bytes": 1756,
+      "sha256": "19c7d45b18537de5184f618d46d135e17e486174a65a724f78ed7f0657f8b3af"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/participant-only.diff",
+      "bytes": 28932,
+      "sha256": "5c6c74d14027c669d6c51ff026dec2b086beeb32fa6cca257c61e075a2667b1e"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/qualified-provenance.json",
+      "bytes": 6284,
+      "sha256": "8cf213d92fa0dbf69de6a0bc770a5309a5acadd742d6f127877051ae144425df"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/reversed/lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+      "bytes": 22868,
+      "sha256": "7707b987700293a31096338ccd4364e34aa70bce59bca2dd3c1cdaef15c0c9a1"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/reversed/lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+      "bytes": 27975,
+      "sha256": "df424358eb99ab6982ef8cd3ea3d7484f55bf3c033aabcf29ca0b07c0df5ab0a"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/reversed/lampOS/crates/voice-eval/tests/serve_relay.rs",
+      "bytes": 10467,
+      "sha256": "53f5cc802a0101518da7214b63b77e052b3406fe1b5db3ce43d5c0c305145bf5"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/reversed/lampOS/docs/realtime-tests.md",
+      "bytes": 37178,
+      "sha256": "ba461e398f74366f6eee76616e8569a932f591556ab811582952b187089b3f0d"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-build.log",
+      "bytes": 4130,
+      "sha256": "0593ebdf950efccd7c43f908a3bc83fa63b5b3061e1a023e2f0c4c10bdcf87f7"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-clippy.log",
+      "bytes": 1961,
+      "sha256": "c0fdafa7306d68c2bc2b7c5275544c80167dd4e6192830c7057e6502c9e17e04"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-fmt.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-gates.json",
+      "bytes": 2184,
+      "sha256": "ecf11bdabf5a9f862d936d931504318d686fb16ea4cc098a4e6cf5f7f8024165"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-identity-proof.json",
+      "bytes": 1684,
+      "sha256": "165564cdad4aad105b44da0eab5d90a2ab1a014aa83e6aa571416859efb1aa4a"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-list.log",
+      "bytes": 94560,
+      "sha256": "289507be44695732000e861fff0ac2fc21ed023b3f2803b56264f75ec34fd062"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-result.json",
+      "bytes": 162,
+      "sha256": "b8ac2958a849561f28e6b44176d2bfb537011bf5f9ccd536cb6a78f93f327c0f"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-source-before.json",
+      "bytes": 10010,
+      "sha256": "d5fbbd28bcd9c647ea26f243b1238f7defd1feee4517d8ad4173903207853eb6"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-tests.log",
+      "bytes": 55597,
+      "sha256": "f3c416961d6b46908ae2bd044a8e8a49e85dc9cd66a6db2f6183a6d910836c9e"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/rustfmt.json",
+      "bytes": 764,
+      "sha256": "6dde399a818f00dfeb911d3b2bdc670ad43e772c72d4c7b2985c8fa5fabcea43"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/rustfmt.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/source-proof.json",
+      "bytes": 5571,
+      "sha256": "a6e12f18bd4fcbec5238a76f2b6255e8a3ae62e2880d7a256fb97ad15793c1af"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/test-source-preservation.json",
+      "bytes": 158151,
+      "sha256": "fe9079ad8107ebb4a14633c7c0f4e332af87c0e840cf9ac8e3150a3be4735437"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/handoff.md",
+      "bytes": 8415,
+      "sha256": "3a67724efc8bec997d327815394a60027de0ab5b22daae2ccbc81f3575e80d0e"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/integration-proof.json",
+      "bytes": 2526,
+      "sha256": "6fb8446153c07862dc03dee5f5a699d64760118a1a9ef9c47108b873ff3490a6"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/participant-only.diff",
+      "bytes": 29539,
+      "sha256": "703ea63c313a37d5de9bb55e1877733862b64650201d3d77cdcdaa47b4760d10"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-build.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-build.finished",
+      "bytes": 26,
+      "sha256": "8488e710432dd119f46afc4c84018a24605019a74679a93d97d11bf90f520387"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-build.log",
+      "bytes": 4247,
+      "sha256": "bc8572ede6d7334449fcf44bde5d7f0ee338c59e8e1f172f274b89c8af561996"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-build.started",
+      "bytes": 26,
+      "sha256": "fa738cb2df11f57a2dcef228d4c50c382982b7f6622548a835ebdb19a64ba72c"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-cache-reset.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-cache-reset.finished",
+      "bytes": 26,
+      "sha256": "b5cb7a10fefda6251c69e4d871448b3e38f971cc96d4c81589150b2e9dc110bc"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-cache-reset.log",
+      "bytes": 38,
+      "sha256": "89c67c37054b22a98e8ebfeed811161595d5fb482955e983e61e301bdb69313b"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-cache-reset.started",
+      "bytes": 26,
+      "sha256": "6a2f888ba09d8d2f9e4d7c4faf1f652f1b718539c334255fb6b66620193d31e9"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-clippy.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-clippy.finished",
+      "bytes": 26,
+      "sha256": "7d344e78ccec6b3ece7f8fb89ac3526e0c5b53642c318e470691aa31be8cf4d5"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-clippy.log",
+      "bytes": 2015,
+      "sha256": "22e776addb6b66fa93d23c4f1a8944d150893e5d0717af24c86637cb7632412e"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-clippy.started",
+      "bytes": 26,
+      "sha256": "b59d8411ad8506a7af6666cd8be820927febab38d8f26d612f1614f382de0f13"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-fmt.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-fmt.finished",
+      "bytes": 26,
+      "sha256": "b59d8411ad8506a7af6666cd8be820927febab38d8f26d612f1614f382de0f13"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-fmt.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-fmt.started",
+      "bytes": 26,
+      "sha256": "b5cb7a10fefda6251c69e4d871448b3e38f971cc96d4c81589150b2e9dc110bc"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-gates.json",
+      "bytes": 3789,
+      "sha256": "3a5d9dd3bb992af584e2145d191c0be06a1f5ac62998e9e58e94d83d7889a7d9"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-list.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-list.finished",
+      "bytes": 26,
+      "sha256": "82a7a227c20fc5ec47d2710ec3dd57efa2fecff5a960fc01339323df6342dea4"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-list.log",
+      "bytes": 80457,
+      "sha256": "d60b7fac8d4a02af20027701a41d2e77a3f3ed327f931bd3a196af249f1d7195"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-list.started",
+      "bytes": 26,
+      "sha256": "7d344e78ccec6b3ece7f8fb89ac3526e0c5b53642c318e470691aa31be8cf4d5"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-result.json",
+      "bytes": 2117,
+      "sha256": "037af01ec7971538768764b5472d6ce6a7aad6843fbc271cb01b668d89adc1f9"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-source-before.json",
+      "bytes": 8971,
+      "sha256": "9ed0f6ed928da881fa96d9c16598b3e2b00c82aba5268522bf25f1a9e2f3c24b"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-tests.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-tests.finished",
+      "bytes": 26,
+      "sha256": "fa738cb2df11f57a2dcef228d4c50c382982b7f6622548a835ebdb19a64ba72c"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-tests.log",
+      "bytes": 45717,
+      "sha256": "5f7a19d112219a98e54538c1fc03be22f1f321b900717ae831c0c58d146ed9ed"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-tests.started",
+      "bytes": 26,
+      "sha256": "82a7a227c20fc5ec47d2710ec3dd57efa2fecff5a960fc01339323df6342dea4"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/source-audit.json",
+      "bytes": 18418,
+      "sha256": "e2009f5dc51d1fc1b185728139426245f94125e40b0a566a55de0470b24d1dde"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/pair/baseline.json",
+      "bytes": 949,
+      "sha256": "82e704d01da164f756f02704b278e56d0d5d3bea88bb3892f1c9a279577bdd49"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/pair/baseline.log",
+      "bytes": 1037,
+      "sha256": "64955ad6a02de351306d3b67ab470e08a6f4a73a6f3a02ca86a26632f51a50f7"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/pair/comparison.json",
+      "bytes": 1818,
+      "sha256": "9cdc559512d849f4e598797f770b5b7693ee81597e2270e782ce4dab0c8c80eb"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/pair/migrated.json",
+      "bytes": 1585,
+      "sha256": "49d713f85f98b8e1207a699670cd2089d872a63305060d34deda9e2713b98f57"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/pair/migrated.log",
+      "bytes": 1055,
+      "sha256": "f99b91b168a2455b1083b87ea41667d1d71f86e5cf85f5d9c81767cc3c28bb21"
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/provenance.json",
+      "bytes": 20555,
+      "sha256": "44f9a00e1e05f543aa57e4c2299284597c2fd2849c240c6bdb13d27a9b1f329e"
+    }
+  ],
+  "source_proof": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/source-proof.json",
+  "fresh_gate": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/completed.json",
+  "fresh_result_audit": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/result-audit.json",
+  "independent_result_audit": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/root-result-audit.json",
+  "fresh_gate_passed": true,
+  "native_pending": true,
+  "pr_body": {
+    "path": "/private/tmp/tests-823-serve-relay-current-pr-body.md",
+    "bytes": 3133,
+    "sha256": "3ef41fd7ee5082b829dbc4625defeb724541d9ca6cd7b0cf23608b0202ec8eed"
+  },
+  "historical_80_and_reviewed_six_unchanged": true,
+  "checksums": {
+    "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/SHA256SUMS",
+    "bytes": 5695,
+    "sha256": "2880049830b8ff46451ae7ec927c4a20985f17540d52ee6d2e1e62accbf83db6"
+  }
+}

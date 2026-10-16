@@ -1,0 +1,14 @@
+{
+  "command": [
+    "gh",
+    "api",
+    "repos/autonomous-ai/lampOS/actions/runs/38831310695/attempts/2"
+  ],
+  "started_from_date": "2026-10-16 08:22:48 +0700",
+  "finished_from_date": "2026-10-16 08:22:48 +0700",
+  "exit_code": 0,
+  "stdout": "raw/full-attempt2.run-api.json",
+  "stderr": "raw/full-attempt2.run-api.json.stderr",
+  "stdout_sha256": "3cf6a26648d02bd460ca506162e2fa1feb95fe4a5e7b466a161aed163f5d283e",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

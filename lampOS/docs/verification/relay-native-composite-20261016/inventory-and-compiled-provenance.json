@@ -1,0 +1,19 @@
+{
+  "date_from_date": "2026-10-16 08:16:36 +0700",
+  "fixed_inventory_path": "/private/tmp/lampos-tests-inventory/lampOS/docs/verification/realtime-inventory-20261015/inventory.json",
+  "fixed_inventory_commit": "4596d2cac9e25e31bc2b3509ad565ffde66a5ab1",
+  "fixed_inventory_sha256": "72d671f8b22246898f9142c0216c9fbced55e350e46b83ffec787c81496fb1fc",
+  "fixed_inventory_count": 123,
+  "derived_919_inventory_membership_exact": true,
+  "compiled_508_path": "/private/tmp/tests-823-serve-relay-current-gate/list.log",
+  "compiled_508_sha256": "7531d5b001f8bd92aa34023d287fcdaf5baa09cfa2dc123a393967a18d4b752a",
+  "compiled_508_ignore_count": 0,
+  "original_six_source": "/private/tmp/tests-823-serve-relay-current-gate/result-audit.json",
+  "original_six_source_sha256": "bff080a166242455e87b829577bed98ceb50ec49b70eb8aa17bce3ab6b9d5d1e",
+  "new_ten_source": "/private/tmp/tests-823-serve-relay-current-gate/baseline-provenance.json",
+  "new_ten_source_sha256": "68f6692f0589c5d97b4430e4038967f95cacd8b7f5b5ee9be90caf93d84ed870",
+  "source_manifest_sha256": "b1fe292076a765493bb8e504a24daba4b0f7c6d36b073b996f96cb8cce5ef8bf",
+  "evaluator_frozen_source_count": 79,
+  "evaluator_frozen_sources_match_both_remote_heads": true,
+  "timing_boundary": "Sums of printed test process durations across concurrent native shards; not a standalone serial 123 run or a paired native timing experiment."
+}

@@ -1,0 +1,1793 @@
+{
+  "path": "/private/tmp/tests-823-relay-native-final-audit/raw/normal-attempt1.log",
+  "sha256": "cb966ad56ed61c98e0e748561300653f734e24d006600286185ae28af1477bec",
+  "counts": {
+    "1": 5204
+  },
+  "ordinal_proofs": [
+    {
+      "shard": 1,
+      "count": 5204,
+      "exact_ordinals": "1..5204",
+      "every_total_equals_count": true,
+      "nextest_summary_agrees": true
+    }
+  ],
+  "checkouts": [
+    {
+      "shard": 1,
+      "head": "c8f8fb249b3e4165e0c9370110bf3f9dc5efe1b7",
+      "line": 263
+    }
+  ],
+  "starts": [
+    {
+      "shard": 1,
+      "line": 542,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-16T00:56:23.9638362Z     Starting 5204 tests across 274 binaries (130 tests and 8 binaries skipped, including 93 tests and 6 binaries via profile.pr.default-filter)"
+    }
+  ],
+  "summaries": [
+    {
+      "shard": 1,
+      "line": 5748,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-16T00:57:52.5544230Z      Summary [  88.591s] 5204 tests run: 5204 passed, 130 skipped"
+    }
+  ],
+  "doc_harness_summaries": [
+    {
+      "shard": 1,
+      "line": 5760,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-16T00:57:52.8644375Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 5766,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-16T00:57:52.8852087Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 5772,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-16T00:57:53.0417057Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 5778,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-16T00:57:53.2961494Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 5786,
+      "passed": 2,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-16T00:57:53.7218653Z test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 5793,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-16T00:57:53.8317109Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 5799,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-16T00:57:54.0114641Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 5805,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-16T00:57:54.0347423Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 5811,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-16T00:57:54.0623774Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 5817,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-16T00:57:54.1944243Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 5823,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-16T00:57:54.2498182Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 5829,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-16T00:57:54.3590589Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 5835,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-16T00:57:54.3972389Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 5842,
+      "passed": 1,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-16T00:57:54.7435606Z test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 5849,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-16T00:57:54.7790227Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 5855,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-16T00:57:54.8244042Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 5861,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-16T00:57:54.9458947Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 5867,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-16T00:57:55.0038926Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 5874,
+      "passed": 1,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-16T00:57:55.6513329Z test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 5881,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-16T00:57:55.6827308Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 5887,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-16T00:57:55.7248706Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 5893,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-16T00:57:55.8721432Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 5899,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-16T00:57:55.9541412Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 5905,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-16T00:57:55.9821553Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 5911,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-16T00:57:56.0094766Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 5917,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-16T00:57:56.1760044Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 5923,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-16T00:57:56.2115796Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 5929,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-16T00:57:56.2898160Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 5935,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-16T00:57:56.3468511Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 5941,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-16T00:57:56.4024609Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 5947,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-16T00:57:56.8385513Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 5953,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-16T00:57:56.9966090Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 5959,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-16T00:57:57.0363478Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 5965,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-16T00:57:57.0664373Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 5971,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-16T00:57:57.1266066Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 5977,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-16T00:57:57.2130469Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 5983,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-16T00:57:58.1638361Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 5989,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-16T00:57:58.6691895Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 6012,
+      "passed": 12,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-16T00:58:05.5983280Z test result: 12 passed; 0 failed"
+    }
+  ],
+  "failure_markers": [],
+  "date_from_date": "2026-10-16 08:16:36 +0700",
+  "run": 38831311751,
+  "attempt": 1,
+  "head": "917a19c5c36bdecb965f404385df386c16b22af4",
+  "run_conclusion": "success",
+  "event": "pull_request",
+  "jobs": [
+    {
+      "id": 116750485393,
+      "run_id": 38831311751,
+      "workflow_name": "lampOS on ARM64",
+      "head_branch": "tests/823-serve-relay-current",
+      "run_url": "https://api.github.com/repos/autonomous-ai/lampOS/actions/runs/38831311751",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOSxRYh88AAAAbLt8HkQ",
+      "head_sha": "917a19c5c36bdecb965f404385df386c16b22af4",
+      "url": "https://api.github.com/repos/autonomous-ai/lampOS/actions/jobs/116750485393",
+      "html_url": "https://github.com/autonomous-ai/lampOS/actions/runs/38831311751/job/116750485393",
+      "status": "completed",
+      "conclusion": "success",
+      "created_at": "2026-10-16T00:45:39Z",
+      "started_at": "2026-10-16T00:45:49Z",
+      "completed_at": "2026-10-16T00:58:14Z",
+      "name": "lampOS \u2014 build and test on Linux ARM64 (1/1)",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-10-16T00:45:50Z",
+          "completed_at": "2026-10-16T00:45:51Z"
+        },
+        {
+          "name": "system packages",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2026-10-16T00:45:51Z",
+          "completed_at": "2026-10-16T00:46:09Z"
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-10-16T00:46:09Z",
+          "completed_at": "2026-10-16T00:46:14Z"
+        },
+        {
+          "name": "Rust 1.96.0",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4,
+          "started_at": "2026-10-16T00:46:14Z",
+          "completed_at": "2026-10-16T00:46:20Z"
+        },
+        {
+          "name": "Run actions/cache@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5,
+          "started_at": "2026-10-16T00:46:20Z",
+          "completed_at": "2026-10-16T00:46:59Z"
+        },
+        {
+          "name": "Run taiki-e/install-action@v2",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6,
+          "started_at": "2026-10-16T00:46:59Z",
+          "completed_at": "2026-10-16T00:47:01Z"
+        },
+        {
+          "name": "build (release, the lamps' binaries)",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7,
+          "started_at": "2026-10-16T00:47:01Z",
+          "completed_at": "2026-10-16T00:49:51Z"
+        },
+        {
+          "name": "test (full run, every test one at a time; otherwise without the realtime group, in parallel)",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 8,
+          "started_at": "2026-10-16T00:49:51Z",
+          "completed_at": "2026-10-16T00:57:52Z"
+        },
+        {
+          "name": "doc tests and the own-harness tests (nextest runs neither)",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 9,
+          "started_at": "2026-10-16T00:57:52Z",
+          "completed_at": "2026-10-16T00:58:05Z"
+        },
+        {
+          "name": "SHA-256 of each binary",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 10,
+          "started_at": "2026-10-16T00:58:05Z",
+          "completed_at": "2026-10-16T00:58:06Z"
+        },
+        {
+          "name": "Run actions/upload-artifact@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 11,
+          "started_at": "2026-10-16T00:58:06Z",
+          "completed_at": "2026-10-16T00:58:11Z"
+        },
+        {
+          "name": "Post Run actions/cache@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 21,
+          "started_at": "2026-10-16T00:58:11Z",
+          "completed_at": "2026-10-16T00:58:11Z"
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 22,
+          "started_at": "2026-10-16T00:58:11Z",
+          "completed_at": "2026-10-16T00:58:11Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 23,
+          "started_at": "2026-10-16T00:58:11Z",
+          "completed_at": "2026-10-16T00:58:11Z"
+        }
+      ],
+      "check_run_url": "https://api.github.com/repos/autonomous-ai/lampOS/check-runs/116750485393",
+      "labels": [
+        "ubuntu-22.04-arm"
+      ],
+      "runner_id": 1000057923,
+      "runner_name": "GitHub Actions 1000057923",
+      "runner_group_id": 0,
+      "runner_group_name": "GitHub Actions"
+    },
+    {
+      "id": 116754218482,
+      "run_id": 38831311751,
+      "workflow_name": "lampOS on ARM64",
+      "head_branch": "tests/823-serve-relay-current",
+      "run_url": "https://api.github.com/repos/autonomous-ai/lampOS/actions/runs/38831311751",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOSxRYh88AAAAbLxf98g",
+      "head_sha": "917a19c5c36bdecb965f404385df386c16b22af4",
+      "url": "https://api.github.com/repos/autonomous-ai/lampOS/actions/jobs/116754218482",
+      "html_url": "https://github.com/autonomous-ai/lampOS/actions/runs/38831311751/job/116754218482",
+      "status": "completed",
+      "conclusion": "skipped",
+      "created_at": "2026-10-16T00:58:15Z",
+      "started_at": "2026-10-16T00:58:15Z",
+      "completed_at": "2026-10-16T00:58:14Z",
+      "name": "report-full-run-failure",
+      "steps": [],
+      "check_run_url": "https://api.github.com/repos/autonomous-ai/lampOS/check-runs/116754218482",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "runner_id": null,
+      "runner_name": null,
+      "runner_group_id": null,
+      "runner_group_name": null
+    }
+  ],
+  "unique_results": 5204,
+  "counts_by_status": {
+    "PASS": 5204
+  },
+  "memberships": {
+    "original123": {
+      "expected": 123,
+      "covered": 0,
+      "results": [],
+      "missing": [
+        [
+          "lamp-actions::server",
+          "the_light_is_offered_when_its_owner_appears_and_withdrawn_when_it_goes"
+        ],
+        [
+          "lamp-health::program",
+          "between_two_healths_five_seconds_apart_the_program_is_not_taken_for_gone"
+        ],
+        [
+          "lamp-memory::health",
+          "a_failed_legacy_write_stays_warn_through_reads_until_a_write_succeeds"
+        ],
+        [
+          "lamp-memory::health",
+          "a_store_that_cannot_open_never_claims_readiness_and_any_delivered_report_is_warn"
+        ],
+        [
+          "lamp-memory::health",
+          "a_working_bus_that_fails_stays_failed_until_publication_really_recovers"
+        ],
+        [
+          "lamp-memory::health",
+          "an_unusable_bus_does_not_prevent_serving_and_reports_recover_when_it_returns"
+        ],
+        [
+          "lamp-memory::health",
+          "legacy_reports_retained_counts_and_stays_well_after_caller_refusals"
+        ],
+        [
+          "lamp-memory::health",
+          "sqlite_reports_retained_counts_and_stays_well_after_caller_refusals"
+        ],
+        [
+          "lamp-memory::health",
+          "the_environment_alone_does_not_enable_reporting_or_create_bus_data"
+        ],
+        [
+          "lamp-records::records",
+          "real_reporter_reloads_switch_and_policy_and_requires_a_matching_receipt"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::early_end::a_lone_lamp_and_a_pause_and_the_question_go_as_one_request"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::early_end::a_name_note_told_with_a_request_ended_early_does_not_survive_it"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::early_end::an_answer_that_arrives_after_the_lamp_is_sure_begins_400_ms_sooner_than_without"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::early_end::an_answer_that_arrives_before_the_lamp_is_sure_begins_at_that_moment"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::early_end::an_answer_with_nothing_said_before_the_lamp_is_sure_is_never_played"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::early_end::lamp_stop_over_an_answer_stops_it_and_only_the_answer_to_the_whole_is_played"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::early_end::quiet_to_the_end_the_answer_starts_when_the_lamp_is_sure_and_not_before"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::early_end::speech_resumed_at_three_tenths_nothing_of_the_first_answer_is_played_and_one_turn_is_heard"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::early_end::speech_resumed_at_three_tenths_under_the_lamps_duplex_policy"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::early_end::the_link_dropping_in_between_fails_the_request_unheard_and_the_next_is_answered"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::early_end::without_the_option_every_message_and_record_is_what_it_was"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::endpoint_session::a_complete_verdict_ends_at_one_second_and_its_answer_plays"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::endpoint_session::a_worker_failure_falls_back_through_recovery_and_then_resumes"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::endpoint_session::a_worker_still_loading_leaves_the_baseline_window"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::endpoint_session::complete_verdict_ends_early_but_resumed_speech_keeps_the_turn"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::endpoint_session::confirmed_endpoint_exit_keeps_the_restartable_mute"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::endpoint_session::duplex_complete_verdict_ends_at_one_second_and_its_answer_plays"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::endpoint_session::duplex_missing_model_session_ends_on_the_unchanged_silence_fallback"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::endpoint_session::hung_worker_never_delays_capture_endpoint_or_session_end"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::endpoint_session::missing_model_session_ends_on_the_unchanged_silence_fallback"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::endpoint_session::mute_then_reopen_never_overlaps_endpoint_workers"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::endpoint_session::rapid_resumes_never_end_the_turn_early"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::endpoint_session::unconfirmed_endpoint_exit_fails_mute_cleanup_and_never_reopens_service"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::endpoint_session::verdicts_after_the_result_timeout_fall_back_on_every_turn"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::pilot_faults::a_paused_lamp_takes_no_question_and_says_why"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::pilot_faults::a_turn_under_way_when_paused_is_finished_and_the_next_is_not_taken"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::pilot_faults::camera_loss_during_an_answer_revokes_only_sight"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::pilot_faults::capture_fault_during_output_cancels_the_answer_and_ends_the_run"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::pilot_faults::capture_stall_during_a_question_ends_the_run_without_an_answer"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::pilot_faults::control_one_question_is_answered_once_then_mute_ends_the_run"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::pilot_faults::control_progress_without_settlement_is_bounded_under_v1_baseline"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::pilot_faults::control_progress_without_settlement_is_bounded_under_vad_only"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::pilot_faults::distinct_rejects_an_item_that_returns_later"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::pilot_faults::duplex_control_answers_once"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::pilot_faults::duplex_stalled_speaker_is_bounded"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::pilot_faults::failure_notice_plays_once_keeps_the_failure_and_yields_to_the_next_owner"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::pilot_faults::failure_notice_yields_mid_play_to_a_new_owner_under_vad_only"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::pilot_faults::mute_while_answer_speech_is_queued_cuts_it_and_never_resumes"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::pilot_faults::mute_while_the_failure_notice_plays_cuts_it_and_keeps_the_failure"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::pilot_faults::partial_write_then_stall_is_bounded_under_v1_baseline"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::pilot_faults::partial_write_then_stall_is_bounded_under_vad_only"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::pilot_faults::provider_failure_before_output_settles_failed_without_speech"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::pilot_faults::provider_failure_during_output_never_becomes_a_completed_answer"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::pilot_faults::provider_process_lost_before_output_ends_the_run_without_speech"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::pilot_faults::provider_process_lost_during_output_stops_speech_and_fails_the_turn"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::pilot_faults::provider_worker_fault_during_output_fails_the_turn_and_ends_the_run"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::pilot_faults::rapid_mute_and_reopen_never_overlaps_workers_or_carries_speech_across"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::pilot_faults::readiness_publishes_the_link_state_it_was_validated_against"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::pilot_faults::resumed_the_lamp_answers_again"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::pilot_faults::ring_fault_during_an_answer_keeps_the_conversation_and_cleans_up"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::pilot_faults::ring_lost_without_blanking_keeps_the_answer_but_cleanup_fails_truthfully"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::pilot_faults::sigterm_while_answer_speech_is_pending_stops_cleanly"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::pilot_faults::sigterm_while_metadata_storage_is_stalled_stops_cleanly_and_reports_the_loss"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::pilot_faults::sigterm_while_the_failure_notice_plays_stops_cleanly"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::pilot_faults::speaker_progress_is_due_strictly_after_lease_plus_report_age"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::pilot_faults::stalled_speaker_during_output_is_bounded_and_never_completes_the_answer"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::pilot_faults::stalled_speaker_under_vad_only_is_bounded_too"
+        ],
+        [
+          "lamp-voice",
+          "coordinator::tests::pilot_faults::terminal_provider_link_during_output_settles_failed_and_ends_service"
+        ],
+        [
+          "lamp-voice",
+          "provider_worker::tests::kept_start::with_no_first_answer_the_patience_ends_in_the_strict_timeout_and_no_end"
+        ],
+        [
+          "lamp-voice",
+          "provider_worker::tests::resumed_question_survives_a_silent_service_and_the_assumption_is_reported"
+        ],
+        [
+          "lamp-voice",
+          "provider_worker::tests::review_2026_10_14::review_a_name_heard_after_a_requests_sound_ended_does_not_let_out_its_answer"
+        ],
+        [
+          "lamp-voice",
+          "provider_worker::tests::review_2026_10_14::review_sound_a_name_heard_as_a_request_began_lets_out_the_answer_the_rule_would_hold"
+        ],
+        [
+          "lamp-voice",
+          "provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity"
+        ],
+        [
+          "lamp-voice-eval",
+          "physical::mac::audit_grant_tests::audit_transport_that_outlives_its_bound_is_killed_and_never_certified"
+        ],
+        [
+          "lamp-voice-eval::final_dispatch",
+          "a_final_drain_that_exhausts_its_budget_requires_revalidation"
+        ],
+        [
+          "lamp-voice-eval::final_dispatch",
+          "a_healthy_session_still_dispatches_once"
+        ],
+        [
+          "lamp-voice-eval::final_dispatch",
+          "a_known_invalid_cue_withholds_dispatch_as_a_protocol_failure"
+        ],
+        [
+          "lamp-voice-eval::final_dispatch",
+          "a_known_run_end_cue_withholds_dispatch"
+        ],
+        [
+          "lamp-voice-eval::final_dispatch",
+          "a_known_session_end_withholds_dispatch"
+        ],
+        [
+          "lamp-voice-eval::final_dispatch",
+          "a_relay_framing_error_first_seen_in_the_final_drain_withholds"
+        ],
+        [
+          "lamp-voice-eval::final_dispatch",
+          "a_session_end_first_seen_in_the_final_drain_withholds_and_is_kept"
+        ],
+        [
+          "lamp-voice-eval::final_dispatch",
+          "a_transport_closed_during_the_final_drain_withholds"
+        ],
+        [
+          "lamp-voice-eval::final_dispatch",
+          "an_invalid_cue_first_seen_in_the_final_drain_withholds"
+        ],
+        [
+          "lamp-voice-eval::final_dispatch",
+          "an_unobserved_event_in_the_final_drain_requires_revalidation"
+        ],
+        [
+          "lamp-voice-eval::final_dispatch",
+          "audit_physical_boundary_does_not_dispatch_during_post_exit_trace_relay"
+        ],
+        [
+          "lamp-voice-eval::final_dispatch",
+          "audit_physical_boundary_rejects_a_target_already_over_100ms_late"
+        ],
+        [
+          "lamp-voice-eval::final_dispatch",
+          "the_first_terminal_cause_wins_and_a_provider_failure_stays_provider_unavailable"
+        ],
+        [
+          "lamp-voice-eval::physical_loopback",
+          "a_transport_that_closes_mid_trace_invalidates_the_attempt"
+        ],
+        [
+          "lamp-voice-eval::physical_loopback",
+          "cue_triggered_acknowledgment_is_injected_during_playback_and_scored"
+        ],
+        [
+          "lamp-voice-eval::physical_loopback",
+          "directed_followup_waits_for_whole_reply_completion_then_admits_a_new_turn"
+        ],
+        [
+          "lamp-voice-eval::physical_loopback",
+          "directed_interruption_during_second_occurrence_preserves_owner_and_yields"
+        ],
+        [
+          "lamp-voice-eval::physical_loopback",
+          "directed_missing_or_stale_retirement_never_falls_back_to_a_timer_or_final_trace"
+        ],
+        [
+          "lamp-voice-eval::physical_loopback",
+          "directed_mode_keeps_provider_fault_and_asset_restrictions"
+        ],
+        [
+          "lamp-voice-eval::physical_loopback",
+          "directed_natural_interruption_runs_during_reply_with_original_cancel_reason"
+        ],
+        [
+          "lamp-voice-eval::physical_loopback",
+          "directed_two_occurrences_wait_for_true_completion_before_followup"
+        ],
+        [
+          "lamp-voice-eval::physical_loopback",
+          "echo_only_window_passes_through_the_relay_without_extra_admissions"
+        ],
+        [
+          "lamp-voice-eval::physical_loopback",
+          "missing_or_stale_whole_completion_withholds_followup_after_valid_retirement"
+        ],
+        [
+          "lamp-voice-eval::physical_loopback",
+          "physical_next_turn_ready_follows_lamp_voice_readiness_cues"
+        ],
+        [
+          "lamp-voice-eval::physical_loopback",
+          "undelivered_stimuli_are_withheld_not_scored_as_silence"
+        ],
+        [
+          "lamp-voice-eval::serve_relay",
+          "a_closed_runner_transport_stops_the_runtime_through_the_same_path"
+        ],
+        [
+          "lamp-voice-eval::serve_relay",
+          "a_nonzero_runtime_exit_after_clean_metadata_is_a_relay_error"
+        ],
+        [
+          "lamp-voice-eval::serve_relay",
+          "a_runner_stop_is_one_sigterm_and_a_clean_reaped_end"
+        ],
+        [
+          "lamp-voice-eval::serve_relay",
+          "a_runtime_that_ignores_sigterm_is_force_killed_and_never_clean"
+        ],
+        [
+          "lamp-voice-eval::serve_relay",
+          "the_hard_deadline_stops_the_runtime_and_is_an_error"
+        ],
+        [
+          "lamp-voice-eval::serve_relay",
+          "the_pilot_runtime_settings_reach_the_serve_child_exactly"
+        ],
+        [
+          "lamp-voice-eval::serve_session",
+          "a_declared_capture_end_before_the_next_prompt_and_its_window_withholds_it"
+        ],
+        [
+          "lamp-voice-eval::serve_session",
+          "a_late_first_copy_or_failed_player_withholds_every_later_turn"
+        ],
+        [
+          "lamp-voice-eval::serve_session",
+          "a_nonzero_runtime_exit_never_completes_a_serve_attempt"
+        ],
+        [
+          "lamp-voice-eval::serve_session",
+          "a_provider_outage_is_waited_out_by_event_and_a_terminal_link_ends_it"
+        ],
+        [
+          "lamp-voice-eval::serve_session",
+          "a_recorder_that_exits_zero_mid_conversation_withholds_the_rest_and_certifies_nothing"
+        ],
+        [
+          "lamp-voice-eval::serve_session",
+          "a_room_recording_that_ends_early_withholds_the_rest"
+        ],
+        [
+          "lamp-voice-eval::serve_session",
+          "a_runtime_stop_mute_or_ignored_sigterm_is_retained_and_reaped"
+        ],
+        [
+          "lamp-voice-eval::serve_session",
+          "an_extra_candidate_during_the_wait_withholds_the_rest"
+        ],
+        [
+          "lamp-voice-eval::serve_session",
+          "delayed_readiness_is_awaited_by_event_not_by_completion"
+        ],
+        [
+          "lamp-voice-eval::serve_session",
+          "normal_eight_turn_conversation_in_one_serve_session"
+        ],
+        [
+          "lamp-voice-eval::serve_session",
+          "serve_readiness_comes_only_from_the_fresh_cue_never_from_stdout"
+        ],
+        [
+          "lamp-voice-eval::serve_session",
+          "stale_duplicate_reordered_foreign_and_lost_cues_end_the_conversation"
+        ],
+        [
+          "lamp-voice-eval::serve_session",
+          "startup_cues_stay_fresh_through_a_slow_transport_and_a_slow_first_preparer"
+        ],
+        [
+          "lamp-voice-eval::serve_session",
+          "the_runner_forwards_pilot_runtime_settings_through_the_relay"
+        ],
+        [
+          "lamp-voice::capture_hold_worker",
+          "a_microphone_busy_for_a_moment_at_start_is_opened_once_it_is_free"
+        ],
+        [
+          "lamp-voice::capture_hold_worker",
+          "another_microphone_is_handed_on_at_once_and_its_early_sound_is_not_accounted_for"
+        ],
+        [
+          "lamp-voice::capture_hold_worker",
+          "mic1_frames_wait_four_blocks_with_their_own_times_and_a_stop_drops_what_is_held"
+        ],
+        [
+          "lamp-voice::capture_hold_worker",
+          "mic1_muted_while_frames_are_held_hands_none_of_them_on"
+        ]
+      ],
+      "printed_seconds_sum": "0"
+    },
+    "relay_original6": {
+      "expected": 6,
+      "covered": 0,
+      "results": [],
+      "missing": [
+        [
+          "lamp-voice-eval::serve_relay",
+          "a_closed_runner_transport_stops_the_runtime_through_the_same_path"
+        ],
+        [
+          "lamp-voice-eval::serve_relay",
+          "a_nonzero_runtime_exit_after_clean_metadata_is_a_relay_error"
+        ],
+        [
+          "lamp-voice-eval::serve_relay",
+          "a_runner_stop_is_one_sigterm_and_a_clean_reaped_end"
+        ],
+        [
+          "lamp-voice-eval::serve_relay",
+          "a_runtime_that_ignores_sigterm_is_force_killed_and_never_clean"
+        ],
+        [
+          "lamp-voice-eval::serve_relay",
+          "the_hard_deadline_stops_the_runtime_and_is_an_error"
+        ],
+        [
+          "lamp-voice-eval::serve_relay",
+          "the_pilot_runtime_settings_reach_the_serve_child_exactly"
+        ]
+      ],
+      "printed_seconds_sum": "0"
+    },
+    "relay_new10": {
+      "expected": 10,
+      "covered": 4,
+      "results": [
+        {
+          "status": "PASS",
+          "seconds": "0.004",
+          "ordinal": 4760,
+          "total": 5204,
+          "binary": "lamp-voice-eval",
+          "test": "physical::fake_lamp::invocation_tests::a_written_invocation_without_a_successful_flush_has_no_receipt",
+          "shard": 1,
+          "line": 5302
+        },
+        {
+          "status": "PASS",
+          "seconds": "0.004",
+          "ordinal": 4762,
+          "total": 5204,
+          "binary": "lamp-voice-eval",
+          "test": "physical::fake_lamp::invocation_tests::invalid_invocation_prefixes_fail_before_any_clock_or_hook",
+          "shard": 1,
+          "line": 5304
+        },
+        {
+          "status": "PASS",
+          "seconds": "0.004",
+          "ordinal": 4763,
+          "total": 5204,
+          "binary": "lamp-voice-eval",
+          "test": "physical::fake_lamp::invocation_tests::only_the_leading_control_pair_is_removed_from_the_parser_view",
+          "shard": 1,
+          "line": 5305
+        },
+        {
+          "status": "PASS",
+          "seconds": "0.006",
+          "ordinal": 4764,
+          "total": 5204,
+          "binary": "lamp-voice-eval",
+          "test": "physical::fake_lamp::invocation_tests::invocation_and_direct_paths_keep_the_same_parser_and_mode_errors",
+          "shard": 1,
+          "line": 5306
+        }
+      ],
+      "missing": [
+        [
+          "lamp-voice-eval::serve_relay",
+          "serve_relay_clock::tests::an_expired_host_boundary_fails_before_another_step_or_clock_advance"
+        ],
+        [
+          "lamp-voice-eval::serve_relay",
+          "serve_relay_clock::tests::polls_preserve_two_milliseconds_and_stop_at_each_original_boundary"
+        ],
+        [
+          "lamp-voice-eval::serve_relay",
+          "serve_relay_clock::tests::real_runner_eof_holds_time_until_the_relay_reports_its_signal"
+        ],
+        [
+          "lamp-voice-eval::serve_relay",
+          "serve_relay_clock::tests::runtime_completion_never_advances_time_or_claims_relay_exit"
+        ],
+        [
+          "lamp-voice-eval::serve_relay",
+          "serve_relay_clock::tests::the_real_stop_keeps_the_full_delay_and_original_bytes_once"
+        ],
+        [
+          "lamp-voice-eval::serve_relay",
+          "serve_relay_clock::tests::unwinding_releases_the_real_runner_reader_and_control_socket"
+        ]
+      ],
+      "printed_seconds_sum": "0.018"
+    }
+  },
+  "evaluator_compiled_count": 508,
+  "evaluator_pr_filter_excluded_count": 52,
+  "evaluator_expected_normal_count": 456,
+  "evaluator_actual_normal_count": 456,
+  "evaluator_exact_expected_identities": true,
+  "evaluator_excluded_identities": [
+    [
+      "lamp-voice-eval",
+      "physical::mac::audit_grant_tests::audit_transport_that_outlives_its_bound_is_killed_and_never_certified"
+    ],
+    [
+      "lamp-voice-eval::final_dispatch",
+      "a_final_drain_that_exhausts_its_budget_requires_revalidation"
+    ],
+    [
+      "lamp-voice-eval::final_dispatch",
+      "a_healthy_session_still_dispatches_once"
+    ],
+    [
+      "lamp-voice-eval::final_dispatch",
+      "a_known_invalid_cue_withholds_dispatch_as_a_protocol_failure"
+    ],
+    [
+      "lamp-voice-eval::final_dispatch",
+      "a_known_run_end_cue_withholds_dispatch"
+    ],
+    [
+      "lamp-voice-eval::final_dispatch",
+      "a_known_session_end_withholds_dispatch"
+    ],
+    [
+      "lamp-voice-eval::final_dispatch",
+      "a_relay_framing_error_first_seen_in_the_final_drain_withholds"
+    ],
+    [
+      "lamp-voice-eval::final_dispatch",
+      "a_session_end_first_seen_in_the_final_drain_withholds_and_is_kept"
+    ],
+    [
+      "lamp-voice-eval::final_dispatch",
+      "a_transport_closed_during_the_final_drain_withholds"
+    ],
+    [
+      "lamp-voice-eval::final_dispatch",
+      "an_invalid_cue_first_seen_in_the_final_drain_withholds"
+    ],
+    [
+      "lamp-voice-eval::final_dispatch",
+      "an_unobserved_event_in_the_final_drain_requires_revalidation"
+    ],
+    [
+      "lamp-voice-eval::final_dispatch",
+      "audit_physical_boundary_does_not_dispatch_during_post_exit_trace_relay"
+    ],
+    [
+      "lamp-voice-eval::final_dispatch",
+      "audit_physical_boundary_rejects_a_target_already_over_100ms_late"
+    ],
+    [
+      "lamp-voice-eval::final_dispatch",
+      "the_first_terminal_cause_wins_and_a_provider_failure_stays_provider_unavailable"
+    ],
+    [
+      "lamp-voice-eval::physical_loopback",
+      "a_transport_that_closes_mid_trace_invalidates_the_attempt"
+    ],
+    [
+      "lamp-voice-eval::physical_loopback",
+      "cue_triggered_acknowledgment_is_injected_during_playback_and_scored"
+    ],
+    [
+      "lamp-voice-eval::physical_loopback",
+      "directed_followup_waits_for_whole_reply_completion_then_admits_a_new_turn"
+    ],
+    [
+      "lamp-voice-eval::physical_loopback",
+      "directed_interruption_during_second_occurrence_preserves_owner_and_yields"
+    ],
+    [
+      "lamp-voice-eval::physical_loopback",
+      "directed_missing_or_stale_retirement_never_falls_back_to_a_timer_or_final_trace"
+    ],
+    [
+      "lamp-voice-eval::physical_loopback",
+      "directed_mode_keeps_provider_fault_and_asset_restrictions"
+    ],
+    [
+      "lamp-voice-eval::physical_loopback",
+      "directed_natural_interruption_runs_during_reply_with_original_cancel_reason"
+    ],
+    [
+      "lamp-voice-eval::physical_loopback",
+      "directed_two_occurrences_wait_for_true_completion_before_followup"
+    ],
+    [
+      "lamp-voice-eval::physical_loopback",
+      "echo_only_window_passes_through_the_relay_without_extra_admissions"
+    ],
+    [
+      "lamp-voice-eval::physical_loopback",
+      "missing_or_stale_whole_completion_withholds_followup_after_valid_retirement"
+    ],
+    [
+      "lamp-voice-eval::physical_loopback",
+      "physical_next_turn_ready_follows_lamp_voice_readiness_cues"
+    ],
+    [
+      "lamp-voice-eval::physical_loopback",
+      "undelivered_stimuli_are_withheld_not_scored_as_silence"
+    ],
+    [
+      "lamp-voice-eval::serve_relay",
+      "a_closed_runner_transport_stops_the_runtime_through_the_same_path"
+    ],
+    [
+      "lamp-voice-eval::serve_relay",
+      "a_nonzero_runtime_exit_after_clean_metadata_is_a_relay_error"
+    ],
+    [
+      "lamp-voice-eval::serve_relay",
+      "a_runner_stop_is_one_sigterm_and_a_clean_reaped_end"
+    ],
+    [
+      "lamp-voice-eval::serve_relay",
+      "a_runtime_that_ignores_sigterm_is_force_killed_and_never_clean"
+    ],
+    [
+      "lamp-voice-eval::serve_relay",
+      "serve_relay_clock::tests::an_expired_host_boundary_fails_before_another_step_or_clock_advance"
+    ],
+    [
+      "lamp-voice-eval::serve_relay",
+      "serve_relay_clock::tests::polls_preserve_two_milliseconds_and_stop_at_each_original_boundary"
+    ],
+    [
+      "lamp-voice-eval::serve_relay",
+      "serve_relay_clock::tests::real_runner_eof_holds_time_until_the_relay_reports_its_signal"
+    ],
+    [
+      "lamp-voice-eval::serve_relay",
+      "serve_relay_clock::tests::runtime_completion_never_advances_time_or_claims_relay_exit"
+    ],
+    [
+      "lamp-voice-eval::serve_relay",
+      "serve_relay_clock::tests::the_real_stop_keeps_the_full_delay_and_original_bytes_once"
+    ],
+    [
+      "lamp-voice-eval::serve_relay",
+      "serve_relay_clock::tests::unwinding_releases_the_real_runner_reader_and_control_socket"
+    ],
+    [
+      "lamp-voice-eval::serve_relay",
+      "the_hard_deadline_stops_the_runtime_and_is_an_error"
+    ],
+    [
+      "lamp-voice-eval::serve_relay",
+      "the_pilot_runtime_settings_reach_the_serve_child_exactly"
+    ],
+    [
+      "lamp-voice-eval::serve_session",
+      "a_declared_capture_end_before_the_next_prompt_and_its_window_withholds_it"
+    ],
+    [
+      "lamp-voice-eval::serve_session",
+      "a_late_first_copy_or_failed_player_withholds_every_later_turn"
+    ],
+    [
+      "lamp-voice-eval::serve_session",
+      "a_nonzero_runtime_exit_never_completes_a_serve_attempt"
+    ],
+    [
+      "lamp-voice-eval::serve_session",
+      "a_provider_outage_is_waited_out_by_event_and_a_terminal_link_ends_it"
+    ],
+    [
+      "lamp-voice-eval::serve_session",
+      "a_recorder_that_exits_zero_mid_conversation_withholds_the_rest_and_certifies_nothing"
+    ],
+    [
+      "lamp-voice-eval::serve_session",
+      "a_room_recording_that_ends_early_withholds_the_rest"
+    ],
+    [
+      "lamp-voice-eval::serve_session",
+      "a_runtime_stop_mute_or_ignored_sigterm_is_retained_and_reaped"
+    ],
+    [
+      "lamp-voice-eval::serve_session",
+      "an_extra_candidate_during_the_wait_withholds_the_rest"
+    ],
+    [
+      "lamp-voice-eval::serve_session",
+      "delayed_readiness_is_awaited_by_event_not_by_completion"
+    ],
+    [
+      "lamp-voice-eval::serve_session",
+      "normal_eight_turn_conversation_in_one_serve_session"
+    ],
+    [
+      "lamp-voice-eval::serve_session",
+      "serve_readiness_comes_only_from_the_fresh_cue_never_from_stdout"
+    ],
+    [
+      "lamp-voice-eval::serve_session",
+      "stale_duplicate_reordered_foreign_and_lost_cues_end_the_conversation"
+    ],
+    [
+      "lamp-voice-eval::serve_session",
+      "startup_cues_stay_fresh_through_a_slow_transport_and_a_slow_first_preparer"
+    ],
+    [
+      "lamp-voice-eval::serve_session",
+      "the_runner_forwards_pilot_runtime_settings_through_the_relay"
+    ]
+  ],
+  "source_proof": "source-and-published-infra-audit.json",
+  "evaluator_all_frozen_sources_match_both_heads": [
+    {
+      "path": "lampOS/crates/voice-eval/Cargo.toml",
+      "sha256": "9854d29463c6671cc2ffcd83181d58e440a72f5be81df2e154d9bf2c1fee753d",
+      "git_blob_sha": "639c9d822bf8ea38b188049b874465fb03f60056",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/examples/turn_end_replay.rs",
+      "sha256": "0736c3570330e103935aa973ae82d7409aac94a4a0e9e48bf22041839582e5f8",
+      "git_blob_sha": "52db965487b732a2e483656f77a3e4bb1bcc1fbe",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/annotations.rs",
+      "sha256": "4fb5c60ca3f1ef6a3db0abae07fa1c16d591a70bebed449af0fa81e9e7c596b4",
+      "git_blob_sha": "53b3a198886b1c92333980b12a6d4d02cef2ed53",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/canary.rs",
+      "sha256": "72afae19e592bb4e1d22ce07ab7207dccbe024f2e9486691496a4abb0bfbf532",
+      "git_blob_sha": "775a00c724e086d9888656b2e710917d24fc7aca",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/evaluate.rs",
+      "sha256": "a468fc9830fe0458eee3d7e5260678dca3bd097d32b7ba8c2b3af08b71ddbcaa",
+      "git_blob_sha": "d87d19dd7491defc147a5333159abc2338141004",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/events.rs",
+      "sha256": "67e018ce75908dd01d65222c527941af9f7055f62be10cde5cc51fa80fada264",
+      "git_blob_sha": "d3d21cee2e66eb943ffa4f421e7070ba3b00ce69",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/fake.rs",
+      "sha256": "2ee95c261a7781b66e68d9e137d102150904b663d066df1ba3f185918c13e956",
+      "git_blob_sha": "45b9fd16a4b7397d5407752ee1882158f4f71ea5",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/import.rs",
+      "sha256": "dc1ac848261f4b2ba912c6ee823792dca9e02aa76d16df32c4485988ec0d5102",
+      "git_blob_sha": "bc72275f4dcc6594ece6365f7b448ac227b062f4",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/ledger.rs",
+      "sha256": "83b0a2e57558df2e221e95e411b740c2113638a9ade3a8b71763129bb10640dd",
+      "git_blob_sha": "11b4f2a46f7cfa254fd31fee686010c745e8ec48",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/lib.rs",
+      "sha256": "adc758bc6178462e0d11f803bb6e43c7e68e64e72fa617d6c58f6149a0c57df0",
+      "git_blob_sha": "7feeaba796ec94b758f338c9c1a8bd0822fc1a9c",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/main.rs",
+      "sha256": "1751caa8d8246f8217674397c2c979bab40dc6eaa3d81834784e88cc29ef6607",
+      "git_blob_sha": "31cdcbb226a8dd64362b74bfbf134a6310685084",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/backend_clock_tests.rs",
+      "sha256": "4ca9f50df684e9aa33e9c00dba6533df37d9d4e7563d0e5b1031aae8afb63e96",
+      "git_blob_sha": "01414d712d2d5bea391f159f3a222dd958297680",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/backend_progress_tests.rs",
+      "sha256": "9fcc0168aeb882e513823932b97f6e2b77d4cbc1c4fd1f9e90279539d9cd15cb",
+      "git_blob_sha": "4f40836d4c566d2b5ad0b7468feeb6398adb9b3c",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/channel_closed_peer_tests.rs",
+      "sha256": "e9469a7b2c0ce0a988d69f46d064162214a1af8a2eefb54c2dd07e1a85c1fbba",
+      "git_blob_sha": "5f81f714b755fa98300acfddf48d14167ce3250e",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+      "sha256": "b9637518aaf8e0dffc587273ab0c5e19c6ff1d72337796c71a4d0832cb4f1327",
+      "git_blob_sha": "60aff5ba4c02a04b2f834853f2c94d56390ded8c",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fake_runtime_clock_tests.rs",
+      "sha256": "06572780eeb16d10975437ddcec6b1b82944d570373d10312e763f4a2c73467a",
+      "git_blob_sha": "368cfdfb75d80d1a6ad528e71a83bf07c7585422",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fake_serve.rs",
+      "sha256": "5168b08f121fc374972f9a1bb10f86e30396c83c17ee12c2ea9858cd74ef780d",
+      "git_blob_sha": "0552e11ede2f9d2445f0ce7052a9968a92a28d5f",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fake_serve_clock_tests.rs",
+      "sha256": "62cfe2296fc9a83c4f2f3cf85325639843e11f46ed1afc4bc2625339407f27fe",
+      "git_blob_sha": "b4ac3bf52b620f908eef083e68df4c32b42b4bee",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fake_serve_progress_tests.rs",
+      "sha256": "43af2f78890ec502bc3d12cd95214bf2aaa65578eeac1e9abaa1a6c4d0611f7a",
+      "git_blob_sha": "7e42d084b28fb4f4437fb77aec6af1df254a17e2",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+      "sha256": "b9cd63c46803efe08cdc32b9d308612b7a9b54b937b193b73f87624b1124c4db",
+      "git_blob_sha": "eeb3ee6e57b20648b73e8d120ddb14625bb83340",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_control.rs",
+      "sha256": "ca68dec8488bc9e86f42c8801ba4185a901f02d71c2879691bdb8351899fb412",
+      "git_blob_sha": "b490286eac17b89789f041c8a7cb764b26669c24",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_control_tests.rs",
+      "sha256": "90dab0a1075f0fbb819d819f391aede2994363c3238e54445a5a73e5f12f604a",
+      "git_blob_sha": "a4f498d17a7ca829ca14ed0c276a20aa111e00ed",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_driver.rs",
+      "sha256": "3e4a99a9e5029b7c770b2420c4df70271c5702e30c6f97a3dcfc954fce1871d9",
+      "git_blob_sha": "651371addfeb2f435f5d2cbe3f78b915f0a40b6b",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_players.rs",
+      "sha256": "2378acf5a32c53b013cc90b96d827bdb82307dbb054d7c94e30ede8752dc5dab",
+      "git_blob_sha": "abae84d648558e3aacd5a1bd721a31cb279d31ee",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/framing.rs",
+      "sha256": "afcaa6bf289f2a86f77c91def156d129704cb3331a539fa8cb784872cfdeb9fd",
+      "git_blob_sha": "e26e3a629f73b4af787fbebdcbc0e076eac3be44",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+      "sha256": "c14c40669ad423baf9c21672587bd6e97e47a64e102d6d22c2714e3e399d78e2",
+      "git_blob_sha": "5f7073f991d1c1ea5ac56d5f5b390d9734d0faed",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mod.rs",
+      "sha256": "c55ab4bd4fad65b806f4e66f533d7334f947c25c87d8d072ce69ff848db2e582",
+      "git_blob_sha": "2533d3ec5fec304bdfd8ba0ee53ccd76d8f2844f",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/prepared_player_clock_tests.rs",
+      "sha256": "df9cc11554b19af4c4663d3cf1d67bd5f26afe8521b7c3620597c9936d1d1b61",
+      "git_blob_sha": "e58ecf057d3b8166c705679f27f377fd50c38df2",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/prepared_player_progress_tests.rs",
+      "sha256": "1ac1f3a24b267c0968fe291befbd65739c06a1baf4e2f5c9b24eca8f841055b7",
+      "git_blob_sha": "7837c6cefb4d99d40e792c9d3aa6b061251ff225",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/protocol.rs",
+      "sha256": "ed7dee2694a8dfdca12feb021e73e29905cba62e6875603f7af09b12b3c93bf9",
+      "git_blob_sha": "3a2d2a920dc08a049d8243bd2b32636748bebc8b",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_backend_tests.rs",
+      "sha256": "a9ed66168aea14d40b3ae28a17c46450ca8e966e6d6f46f550565daea2e7bbde",
+      "git_blob_sha": "3d54e47ccb7e322ea94cf4b3d386527d0c47dd49",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_clock_tests.rs",
+      "sha256": "034b041b6c280b6f9c5beeeedd6c1aad735a86c3f1f923920f779ae4f7f3331c",
+      "git_blob_sha": "f396cf404045e5bc0cc937113c7175c8c11d963a",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_fixture_commands_tests.rs",
+      "sha256": "500cd9e92ed12a7328f67d99c60d68105f5130f31d8db2ecd76265fd5fb01d37",
+      "git_blob_sha": "09baee6367ec334b374ceef776ee86ada815accb",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_fixture_control_tests.rs",
+      "sha256": "3e9c7eb09f574cbda46a06fb9ac452993df5a9b4417c5f0d9691f9deba27cf80",
+      "git_blob_sha": "4c95588be7f3a6fc87c5699c075472c207e8a560",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_fixture_driver_tests.rs",
+      "sha256": "da5c382c25fd8d63f7fac9e3ff17d6caff216df95ae2289af40da6c1225c3ff1",
+      "git_blob_sha": "e39523e145946d8abbf9db35e7f09337ffecfda3",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/relay_progress_tests.rs",
+      "sha256": "71e2bcc10a20f9dd77f26fba869a487bde99bbc0e8752793e3ecad2633c46d9f",
+      "git_blob_sha": "5e4d846be06b0ff67c989aa27284072579ad668a",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_fixture_commands_tests.rs",
+      "sha256": "54f60e0f676d94989b5220f707f9c5c085cbec83de0aa0e0a3d4ba5f892642ea",
+      "git_blob_sha": "7fe279f964078ea5230b825c2763aa55a771fc50",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_fixture_control_tests.rs",
+      "sha256": "fdb57e00dd9e3028ae6f5a5aa6df81d1147bee4fc582ad00b117368951b80bcf",
+      "git_blob_sha": "d039b7223a3d2017736b274042cdc9beff79c69f",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_fixture_driver.rs",
+      "sha256": "3ba9b3405c82198e4c56e4baa3c982be74d8a2e0588766be11c34a2fa62e8014",
+      "git_blob_sha": "a48027b45440280d42ac494460c7c84b47d2742f",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_invocation_tests.rs",
+      "sha256": "89f89a010c4a240aa699fd37fb49e0a2c4f2ed8f65ce77332c5c9b575e3d12dc",
+      "git_blob_sha": "b1e41cccc159b893287f35fdde495142b62f807b",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_relay_progress_tests.rs",
+      "sha256": "d7ccf7f0ddcd46a07d9d6cfc768d5126d507c133b0b708dc69881f124f238ed4",
+      "git_blob_sha": "faf69d92eb7a1854fa1292e9379f3c2b8a17446f",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/session.rs",
+      "sha256": "660cea49d4e1389ad23e5786a5efded083e7f6d98912dfc9ad9887dad85ccd24",
+      "git_blob_sha": "60389096fc0dbcdaff83d02373ad1385068eb03c",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_clock_tests.rs",
+      "sha256": "7478dae0e6ca89f1cae6b1aee14c22f5aa0871e5151ea50681a480d48baa1dea",
+      "git_blob_sha": "986ad4e2f0403f04869362a09489c20ecb593e9a",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_commands_tests.rs",
+      "sha256": "dee37c32bd463a6603ab0b2f1dc5f0b2a9ae4b62da98b26a9b9aea560b7ef7c1",
+      "git_blob_sha": "a5183477681c04fb3e6e6074b8b471cac5a89a7d",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_control_tests.rs",
+      "sha256": "1032118bfae8aec9a555f87ca6f3f334c16599c361a90b38768d5c1d454d3359",
+      "git_blob_sha": "85c4462fea1f29ad07a9eb396d069715fc3a0193",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_driver_tests.rs",
+      "sha256": "0026046f596309aa8cc2698de1893825d0b4d006e5f7951a5af81d1158a85187",
+      "git_blob_sha": "76ff530509d334ce232997e80253d7818af68e52",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/plan.rs",
+      "sha256": "2c392083ad5be9fee67b4fe4906569b9aaa824376a9cdfb560cb4d98045ba356",
+      "git_blob_sha": "30ba1d89254d2af0fae8ad8eeea9067aa2dd903c",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/playback.rs",
+      "sha256": "9fc58c446c44fbab2480accacbab5125610149429f084c697eb2769f55fbae9c",
+      "git_blob_sha": "0d393254b3ffa0d56ec3bb18c600abe1f63379ee",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/record.rs",
+      "sha256": "273f735e33b7987ca878c589a28a0bb70d9aaa49a4daf1a11bc14a471bbf0e73",
+      "git_blob_sha": "7448ec77056a7082e44f19b389582f88a00a5247",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/report.rs",
+      "sha256": "9ab88d7da6fe9b62bd5002f2d185acc4f1a5db5b0d0950630a7793fcf8222d68",
+      "git_blob_sha": "1fd85cb0529e6beec9e8fe1f6da9d424a0d16fd0",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/runner.rs",
+      "sha256": "8a33b5c626e6f85136080b0023fa8da992e7242e60e96af1d9d85db3db4c59e6",
+      "git_blob_sha": "b27d2b8cae693243550159bd2acc751b69568471",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/stats.rs",
+      "sha256": "7e22c732fd2d8f2e95d3d411b85609add32edaad8e8cf216703ca5461ddbc5f8",
+      "git_blob_sha": "4f0b25067617e1f83edf862a2bb91ad43546e2ec",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/stimulus.rs",
+      "sha256": "af932750edcb1347f97c477ca654eb448e2127cac1dc151a980e94f4c42e175a",
+      "git_blob_sha": "c3875e100585d48cd4f83bc4e3b42d80b9994b25",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/target_audio.rs",
+      "sha256": "bf09af85c195c023bd91853ac476b3f602d74ceab2ac6496430e7290b979a7dc",
+      "git_blob_sha": "07231ec26cc4a21d41e917d1d458c4809836c79c",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/acceptance_boundaries.rs",
+      "sha256": "525d3d6bb744bc02d2e813bb0d5596b82f4d4dcd36b30378de3efcb057f924bc",
+      "git_blob_sha": "84def713f4133f7e227183f86a8d07f77a527c72",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/answer_review.rs",
+      "sha256": "54f0f7df24ddda86bf702d535f344d70c961eded126fd0ad57f5f69957493885",
+      "git_blob_sha": "f9983c24556a1040f1112f6a2ae846415185c1c5",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/audit_final_dispatch.rs",
+      "sha256": "688ec4f9ec50e7f26e2e0efd97f061f5744f13e7f85f307ad9ca529ba45b146f",
+      "git_blob_sha": "a0bbe66498132df5280af6cff16c6c2d3e7230ab",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/audit_importer.rs",
+      "sha256": "9ff483cbc358a0c39d26a7fd7b67e413868843771c3835c449f84208fa563ec0",
+      "git_blob_sha": "cf4d5d36e6710786fbf4ea120feee230966c58f4",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/audit_runner_dispatch.rs",
+      "sha256": "2d7a83137a49f160c147decdee27cd5f8a49715655929c2b6c9a008139174f9a",
+      "git_blob_sha": "d69cae1adab13d1a3c801d86da41f700f5be97c0",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/canary_plan.rs",
+      "sha256": "d9aac255b58008e51b66b099a938729aa251958cd0f4118e6a09d062585bfb92",
+      "git_blob_sha": "ea9fd70beb74015441b643f4def592a42dff46a0",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/common/mod.rs",
+      "sha256": "39d30134e50f4f0b291c1bc78f36a9b87a11f9ae8f65872a43eb3dc94e7a102d",
+      "git_blob_sha": "94a8bc6083bc805ec4eea2f1b2d2e7a903cf8ffd",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/common/serve_relay_clock.rs",
+      "sha256": "60f5ee58ee905b285ea54c5d6c1a2159964e97a2945a79654d283ca14d0ee9cb",
+      "git_blob_sha": "7b57594e58776f711abf728f33408ce0ed1e0c61",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/evaluator.rs",
+      "sha256": "1ec1e23cdfa2acd5847e982352ca9e3ea09cad9195d41d0bd6de4f5463826874",
+      "git_blob_sha": "a770ee34393ead6824491036e362cd11afebc007",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/fake_runtime.rs",
+      "sha256": "37707ba30007771d2abd19c14687f1f3ca73299b1c250ece2564e873b2413c86",
+      "git_blob_sha": "439647333dda5069e31c0600dc9836f198e9da95",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "sha256": "600ad54a33c7a98ba0abf9c6aadeca366cb319d121b3847f36211cc5b0a30a29",
+      "git_blob_sha": "b2e42e90d2c63d8ab9233b0ac1629a1b2a06f7a3",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/fixtures/recording-import-examples.json",
+      "sha256": "82719a71ce44e175a6cba1591640eead0c7bca9819cbf4cd1208f6133ae0c4f4",
+      "git_blob_sha": "0c88432622d2a99ce11bbd1acc2a08a36ad355d5",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/next_turn_ready.rs",
+      "sha256": "66ff9408a1ce150fa5fedb649506f55aa51e2794e523eebcb154026316d4770f",
+      "git_blob_sha": "7fce980cc803b7888082a7ba0660513e30a68098",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/physical_loopback.rs",
+      "sha256": "de31d80698e7188af40278c9e982eceed0c15a1ccf8fe42323365dca028d3d98",
+      "git_blob_sha": "79d38c237b8bdbcecfe36df194c7c3b2b333185c",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/playback_occurrences.rs",
+      "sha256": "46b845dc3e597476203f6826be3cb16673069ce1d19f99f60e99d84ff85c75cd",
+      "git_blob_sha": "dbf0a138a7e0003bf0d576434942bc37c28696b9",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/provider_failed.rs",
+      "sha256": "ecee93a72313d1c2b9af53c7821f476c9b501fac9acd7b227052fb2b9f902022",
+      "git_blob_sha": "9dd4a95962e21d04f16df64c60cc8d54044d0bd6",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/recording_evidence.rs",
+      "sha256": "b41f7b0a176723b61944392262205f9a96cda9d43f13d936cc8158b8ae4887c6",
+      "git_blob_sha": "29060a0ce9d0d046a4481145347e54b6369d85a4",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/recording_import.rs",
+      "sha256": "5e3bee18d84ffc8c8faa1d5f4d5bd30db8a334fd31e0ee6c6e2b6220b866d14e",
+      "git_blob_sha": "ed0bc8644e89df45d7fdf7942aeae2929afc1919",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/relay_clock.rs",
+      "sha256": "7de3f59adc480869877fdb75109412f959745c13ba57b855e4aebf2bf56504b6",
+      "git_blob_sha": "8b3293f1fee08f045b2e9a2cfd8697e7f100e1ca",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/relay_hardening.rs",
+      "sha256": "ba0d39f2b2f2c4e809ff65ed90fa84d1857c64fd25d9ab072384ddd306769b82",
+      "git_blob_sha": "fd9958aa36de4d8b3af0149c5048481de7a78028",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/report_validity.rs",
+      "sha256": "69c9c5b33d02bab0c4b7262f4773e122d37ba58a7315c117660a340b91db18dc",
+      "git_blob_sha": "12cbf5fe69f1f54bd78a9b25dfd246b9c292aa9e",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/serve_plan.rs",
+      "sha256": "d67f787f3bd35a54e4da0894a2da5749ef8b8441e3f27803597895667d22bf63",
+      "git_blob_sha": "c0b69ea0d925cd0477cd2858084f70cc540bb44c",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/serve_relay.rs",
+      "sha256": "836a72136db9573ca12e8b4aeab77ff95e42010cf71fcd652da6318945ec7bf2",
+      "git_blob_sha": "9c3b33264152a6b500f24b0479d822c4163362af",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/serve_session.rs",
+      "sha256": "1850248165b8c7d5022ec06f3267b5de1a829fa375135cdda26aa3bfe539b905",
+      "git_blob_sha": "6f0366528b278b5f494e435e39062d4917ddbc78",
+      "both_remote_commits_match": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/target_audio.rs",
+      "sha256": "3248cc8ae4d32d73659a20f33d08bcc1758e9a5e2f64113287316761dd256892",
+      "git_blob_sha": "64cbe0077041a4fa6305221e04126125f3e78c5c",
+      "both_remote_commits_match": true
+    }
+  ],
+  "normal_does_not_qualify_original123": true,
+  "normal_does_not_run_six_new_helpers": true
+}

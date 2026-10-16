@@ -1,5 +1,15 @@
 # Tests work log
 
+## 2026-10-16 08:35:33 +0700 — Relay native coverage complete
+
+Ready for lamp-voice: yes, Relay #942 at `917a19c5c36bdecb965f404385df386c16b22af4`
+
+[Native evidence](verification/relay-native-composite-20261016/README.md) and [independent root audit](verification/relay-native-root-audit-20261016/README.md) retain normal **5,204 unique PASS** and full **5,321 unique PASS**, with all fixed original 123, all ten additions and all 508 Evaluator identities exactly once. Full qualification is a composite: shard 3's first build failed before tests on a serde download; only that unexecuted job was restarted. The earlier three successful shard logs and execution times remain exact, although GitHub assigned new attempt-2 record IDs. No failed or successful test was retried.
+
+The original six Relay printed durations sum to **0.397 s** and all 123 to **207.660 s** across shards/attempts. These are not a controlled native pair or the requested standalone serial result. The historical local pair keeps its original source/load limitations. The normal run's existing filter executes four additions and excludes the Relay binary; full covers all ten.
+
+The separate current69bae transport-expiry preparation passes **505/0/0**, formatting, strict Evaluator Clippy and workspace build, with all 1,022 frozen inputs unchanged. Its final independent source review preserves all 27 old inline tests and 104 assertions. Source/evidence publication and native qualification follow; no original 123 target claim. Audio/Provider remain blocked on the unclassified exact #935 failure; capacity/Moments keep their earlier gate failures. #783 loaded qualification remains with Eighth.
+
 ## 2026-10-16 08:18:06 +0700 — Audio and Provider first gates retain the same reminder failure
 
 Ready for lamp-voice: no (new Audio, Provider and transport-expiry work); #942 still qualifies its full run

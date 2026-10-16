@@ -1,0 +1,14 @@
+{
+  "command": [
+    "gh",
+    "api",
+    "repos/autonomous-ai/lampOS/contents/lampOS/docs/verification/relay-native-first-shard-failure-20261016?ref=b65454e57bb30fb4a8dd57fe53528d2b3aecc5e2"
+  ],
+  "started_from_date": "2026-10-16 08:08:57 +0700",
+  "finished_from_date": "2026-10-16 08:08:58 +0700",
+  "exit_code": 0,
+  "stdout": "raw/published-infra-directory.json",
+  "stderr": "raw/published-infra-directory.json.stderr",
+  "stdout_sha256": "9d8c3867ffc56419f2c4ab0bb34681a0c8ad2b1e15d32e32fe421c2f64546b94",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

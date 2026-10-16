@@ -1,0 +1,117 @@
+{
+  "date_from_date": "2026-10-16 08:26:49 +0700",
+  "first_capture_count": 75,
+  "first_capture_bytes_unchanged": true,
+  "final_copies": [
+    {
+      "source": "/private/tmp/tests-823-relay-native-final-audit/raw/full-attempt2.head-commit.json",
+      "destination": "raw/full-attempt2.head-commit.json",
+      "bytes": 1121,
+      "sha256": "b9e4c0370c164f4103a9095bac9ce15da2fa473b44eb8424d557c8122188a24c",
+      "byte_exact": true
+    },
+    {
+      "source": "/private/tmp/tests-823-relay-native-final-audit/raw/full-attempt2.head-commit.json.stderr",
+      "destination": "raw/full-attempt2.head-commit.json.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "byte_exact": true
+    },
+    {
+      "source": "/private/tmp/tests-823-relay-native-final-audit/raw/full-attempt2.jobs-api.json",
+      "destination": "raw/full-attempt2.jobs-api.json",
+      "bytes": 14327,
+      "sha256": "01dea8fa138baa7e60f801cfef92b46c52543fd8dcae00eea85fa291669981a9",
+      "byte_exact": true
+    },
+    {
+      "source": "/private/tmp/tests-823-relay-native-final-audit/raw/full-attempt2.jobs-api.json.stderr",
+      "destination": "raw/full-attempt2.jobs-api.json.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "byte_exact": true
+    },
+    {
+      "source": "/private/tmp/tests-823-relay-native-final-audit/raw/full-attempt2.log",
+      "destination": "raw/full-attempt2.log",
+      "bytes": 1759668,
+      "sha256": "5ba3f41d022bb3b4742922316097372b79545ecc1fe251529bf5dd2db8dfcb56",
+      "byte_exact": true
+    },
+    {
+      "source": "/private/tmp/tests-823-relay-native-final-audit/raw/full-attempt2.log.stderr",
+      "destination": "raw/full-attempt2.log.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "byte_exact": true
+    },
+    {
+      "source": "/private/tmp/tests-823-relay-native-final-audit/raw/full-attempt2.run-api.json",
+      "destination": "raw/full-attempt2.run-api.json",
+      "bytes": 12773,
+      "sha256": "3cf6a26648d02bd460ca506162e2fa1feb95fe4a5e7b466a161aed163f5d283e",
+      "byte_exact": true
+    },
+    {
+      "source": "/private/tmp/tests-823-relay-native-final-audit/raw/full-attempt2.run-api.json.stderr",
+      "destination": "raw/full-attempt2.run-api.json.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "byte_exact": true
+    },
+    {
+      "source": "/private/tmp/tests-823-relay-native-final-audit/captures/full-attempt2.head-commit.json.json",
+      "destination": "captures/full-attempt2.head-commit.json.json",
+      "bytes": 534,
+      "sha256": "2a6ee5f526384e3fb7ae5e7f95bbc0937ce36bc3be037f99ace7a2b1101fb57b",
+      "byte_exact": true
+    },
+    {
+      "source": "/private/tmp/tests-823-relay-native-final-audit/captures/full-attempt2.jobs-api.json.json",
+      "destination": "captures/full-attempt2.jobs-api.json.json",
+      "bytes": 529,
+      "sha256": "8159b574c8d2f9b78d97b785313b61cc2dc24e07d871d7d91fb567d4924f9964",
+      "byte_exact": true
+    },
+    {
+      "source": "/private/tmp/tests-823-relay-native-final-audit/captures/full-attempt2.log.json",
+      "destination": "captures/full-attempt2.log.json",
+      "bytes": 529,
+      "sha256": "fbf742b2b1c856ccbefd5c235833274fc9c881c702b60764654704680c216be4",
+      "byte_exact": true
+    },
+    {
+      "source": "/private/tmp/tests-823-relay-native-final-audit/captures/full-attempt2.run-api.json.json",
+      "destination": "captures/full-attempt2.run-api.json.json",
+      "bytes": 509,
+      "sha256": "7ebc4354540b818594119cb240a3d891ee6141407d25a4475627a06f500d0e99",
+      "byte_exact": true
+    },
+    {
+      "source": "/private/tmp/tests-823-relay-native-final-audit/full-composite-audit.json",
+      "destination": "full-composite-audit.json",
+      "bytes": 84294,
+      "sha256": "c5b61b8152e9a8da8352cbc4c06880dc64c79837374822e6dd5c884910811a98",
+      "byte_exact": true
+    },
+    {
+      "source": "/private/tmp/tests-823-relay-native-final-audit/full-composite-results.json",
+      "destination": "full-composite-results.json",
+      "bytes": 1343048,
+      "sha256": "db684bb69ee9d07485b95525937080fe3fb03dda4926e4ed73afe44370f39537",
+      "byte_exact": true
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/942-38831310695-attempt2.json",
+      "destination": "root-terminal-attempt2.json",
+      "bytes": 11192,
+      "sha256": "87fcdfcc8a6849e6c3d9b81768e899a9bf77bc1e8ad3b77f88847cfe2a5b6b32",
+      "byte_exact": true
+    }
+  ],
+  "publication_destination": "lampOS/docs/verification/relay-native-composite-20261016",
+  "source_head": "917a19c5c36bdecb965f404385df386c16b22af4",
+  "normal_run": 38831311751,
+  "full_run": 38831310695,
+  "full_run_attempt": 2
+}

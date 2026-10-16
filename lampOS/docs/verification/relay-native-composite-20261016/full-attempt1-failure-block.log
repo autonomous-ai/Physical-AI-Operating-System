@@ -1,0 +1,17 @@
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T00:46:18.6323907Z error: failed to get `serde` as a dependency of package `lamp-sound-fixtures v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/sound-fixtures)`
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T00:46:18.6324839Z 
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T00:46:18.6324948Z Caused by:
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T00:46:18.6325249Z   failed to load source for dependency `serde`
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T00:46:18.6325481Z 
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T00:46:18.6325664Z Caused by:
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T00:46:18.6326186Z   unable to update registry `crates-io`
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T00:46:18.6326400Z 
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T00:46:18.6326512Z Caused by:
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T00:46:18.6326962Z   download of se/rd/serde failed
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T00:46:18.6327138Z 
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T00:46:18.6327246Z Caused by:
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T00:46:18.6327543Z   curl failed
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T00:46:18.6327682Z 
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T00:46:18.6327766Z Caused by:
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T00:46:18.6328158Z   [55] Failed sending data to the peer (OpenSSL SSL_read: SSL_ERROR_SYSCALL, errno 0)
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-16T00:46:18.6360243Z ##[error]Process completed with exit code 101.

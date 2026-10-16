@@ -1,0 +1,13 @@
+# Native Relay audit method
+
+The complete GitHub CLI logs and GitHub REST responses are retained unedited. Each capture records its command, local `date` timestamps, exit status, and stdout/stderr SHA-256. Derived result rows retain the raw log line number, binary, test name, status, duration, ordinal, partition size, and shard.
+
+The audit counts complete nextest `PASS`, `FAIL`, and `LEAK` result rows. It checks every `(binary, test)` identity for uniqueness, each shard's exact ordinal range, the printed nextest start and summary counts, every job and step conclusion, all checkout commits, and all printed error markers. Cargo doc tests and the separate own-harness tests are checked separately; they are not added to the nextest total.
+
+The fixed 123-test inventory is the byte-exact JSON originally published at `4596d2cac9e25e31bc2b3509ad565ffde66a5ab1`, with SHA-256 `72d671f8b22246898f9142c0216c9fbced55e350e46b83ffec787c81496fb1fc`. Its identities are independently checked against the earlier 919 membership audit. The ten Relay additions and six original Relay cases come from the retained fresh e5aa local compiled comparison and result proof. The normal run's Evaluator membership must equal all 508 compiled identities minus the existing 52 PR-profile exclusions: exactly 456 tests, including four new invocation tests. The full Relay binary, including its six new helper tests, is excluded by that existing normal-PR filter.
+
+Source identity uses GitHub commit and recursive tree responses, complete checkout hashes, and locally computed Git blob hashes. All 79 frozen Evaluator inputs match both the full-run head and the normal run's merge commit. The six changed source/doc files, workflow, and nextest configuration are also retained as exact source snapshots. This does not claim that every unrelated workspace input in the merge commit equals the full-run branch head.
+
+The first shard 3 failure is preserved in both original API form and CLI form. Removing exactly the two CLI tab-separated job/step prefixes reproduces the published 29,901-byte API log; no timestamp or message text is changed. The first root comparison failed before its restart API call because it compared the prefixed and unprefixed forms directly. Its corrected byte comparison and job-only restart receipt are retained. The raw CLI download is not a second execution.
+
+Any later composite must retain the failed first attempt, prove shards 1, 2, and 4 have byte-exact unchanged logs, and count those first-attempt results only once. Only the previously unexecuted shard 3 may contribute later results. Printed duration sums across those partitions are neither a standalone serial 123-test measurement nor a controlled native before/after timing comparison.

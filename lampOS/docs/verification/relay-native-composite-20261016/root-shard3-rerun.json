@@ -1,0 +1,16 @@
+{
+  "date": "2026-10-16 08:08:42 +0700",
+  "command": [
+    "gh",
+    "api",
+    "--method",
+    "POST",
+    "repos/autonomous-ai/lampOS/actions/jobs/116750485039/rerun"
+  ],
+  "exit_code": 0,
+  "stdout": "{}",
+  "stderr": "",
+  "scope": "only unexecuted infrastructure-failed shard3",
+  "test_retries": false,
+  "raw_hash_check_note": "CLI log adds two tab-delimited fields; stripping those fields exactly restores previously preserved API bytes. First root check compared unstripped hashes and stopped before API mutation."
+}

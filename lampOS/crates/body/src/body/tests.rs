@@ -2617,6 +2617,25 @@ fn a_wire_failing_mid_lean_keeps_the_lean_as_it_stands() {
     }
 }
 
+/// The reviewer's 23:39 probe: asked to stop mid-answer with a hand still
+/// pressing the elbow down past the lean. Leaving, no stall check runs, so
+/// the hand's offset is not kept: the elbow folds to its folded pose.
+#[test]
+fn a_hand_on_the_elbow_does_not_take_the_fold_past_its_pose() {
+    let ms = Duration::from_millis;
+    let (report, seen) = held_lean_run(ms(11_000), &[(6_000, 12_000)], |lamp| {
+        lamp.hand = Some((ms(6_500), ms(15_000), 2, 2_450.0));
+        lamp.strains = vec![(ms(6_500), ms(15_000), 2, 400)];
+    });
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    let last = seen.last().unwrap().1;
+    assert_eq!(last.arm_goals[1], 2_047, "{last:?}");
+    assert!(
+        seen.iter().all(|step| step.1.arm_goals[1] >= 2_047),
+        "went past the fold"
+    );
+}
+
 /// Without `rest_glance`, a lamp at rest writes exactly what it writes
 /// when nothing is asked of it.
 #[test]

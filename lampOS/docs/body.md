@@ -651,7 +651,9 @@ and eased out as it ends. On by default; there is no flag.
   goes from where it was held toward where the lean wants it. That place
   is kept as an offset from the pose, so it folds with the rest of the
   arm. It moves no more than the lean's own step, and not at all toward a
-  hand that still reads on it. So no goal jumps back into the lean, none
+  hand that still reads on it, except once the lamp is leaving: no stall
+  check runs then, so a hand keeps nothing and the arm folds to its folded
+  pose. So no goal jumps back into the lean, none
   goes past the held place toward a hand that is there, and a hand that
   has gone does not keep the next answer from leaning
   (`an_arm_held_while_it_speaks_is_not_leaned_into_again`,
@@ -661,7 +663,8 @@ and eased out as it ends. On by default; there is no flag.
   `a_held_shoulder_eases_out_as_an_elbow_does`,
   `a_held_lean_folds_with_the_arm_without_a_jump`,
   `a_hand_gone_does_not_keep_the_next_answer_from_leaning`,
-  `a_hold_from_before_the_answer_does_not_keep_it_from_leaning`). In
+  `a_hold_from_before_the_answer_does_not_keep_it_from_leaning`,
+  `a_hand_on_the_elbow_does_not_take_the_fold_past_its_pose`). In
   #1010's reviews the held place was first kept by the hold alone, which
   let go 20 counts into the ease-out and jumped 40 counts back into the
   hand. Then it was kept as a fixed count, which stayed put through a fold

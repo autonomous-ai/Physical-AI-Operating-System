@@ -96,14 +96,18 @@ impl Heard {
     }
 
     /// A request that goes on from the one before began: the words heard
-    /// are its too, and the note the one before was given went with it
-    /// (a request given up takes its note with it), so it is told afresh
-    /// (the reviewer on #1173: "ask Codex," heard after an early end).
-    pub fn went_on(&mut self, request: u64, over: bool) {
+    /// are its too (the reviewer on #1173: "ask Codex," heard after an
+    /// early end). When the one before was cut off and given up
+    /// (`cut_off`), the note it was given went with it, so it is told
+    /// afresh; otherwise what it was told stands and is not told again
+    /// (the first builder on #1173).
+    pub fn went_on(&mut self, request: u64, over: bool, cut_off: bool) {
         let words = std::mem::take(&mut self.words);
+        let told = if cut_off { None } else { self.told.take() };
         *self = Self {
             request: Some(request),
             words,
+            told,
             over,
             ..Self::default()
         };
@@ -188,12 +192,16 @@ mod tests {
         heard.too_late();
         assert_eq!(heard.piece(" a haiku"), None);
         // The rest of it, after an early end: the words go on, told afresh.
-        heard.went_on(8, false);
+        heard.went_on(8, false, true);
         assert_eq!(heard.told(), None);
         assert_eq!(
             heard.piece(" a haiku"),
             Some((8, " Hey Lamp, ask Codex to write a haiku"))
         );
+        // Going on from one not cut off: what it was told stands.
+        heard.tell(note(&["Codex"]));
+        heard.went_on(9, false, false);
+        assert_eq!(heard.told(), Some(note(&["Codex"]).as_str()));
         heard.began(9, false);
         assert_eq!(heard.piece(" thanks"), Some((9, " thanks")));
         // Begun over the lamp's answer: nothing is matched.

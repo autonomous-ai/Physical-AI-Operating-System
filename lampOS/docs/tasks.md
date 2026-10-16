@@ -1007,8 +1007,10 @@ With `LAMP_STAFF_NOTE=on` (the provider worker's `--staff-note`, after
   late for that request. The rest of it, which the model answers as one
   (`provider_worker::CUT_OFF_NOTE`), is told, beside the note that it is
   the rest (`a_request_that_goes_on_from_one_cut_off_is_told_what_the_words_before_named`;
-  the reviewer on #1173). The one before was given up and took its note
-  with it, so a note given there is given again.
+  the reviewer on #1173). After a cut-off the one before was given up and
+  took its note with it, so a note given there is given again; after a plain
+  `continues` what it was told stands and is not given twice (the first
+  builder on #1173).
 - **A request begun over the lamp's own answer** (`over_the_lamp`) gets no
   note: its words may be the lamp's read-back ("… to Codex. Shall I start
   it?") with a "yes" said over it, and a note would invite a second start

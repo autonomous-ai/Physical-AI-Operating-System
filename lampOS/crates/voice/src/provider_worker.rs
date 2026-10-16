@@ -1738,8 +1738,8 @@ async fn serve_with_visual<C: Connect>(
                         Event::InputStarted { lineage, .. } => {
                             let request = lineage.request.get();
                             let over = intake.handoff.over_the_lamp == Some(request);
-                            if intake.handoff.went_on == Some(request) {
-                                staff_heard.went_on(request, over);
+                            if let Some((_, cut_off)) = intake.handoff.went_on.filter(|(went, _)| *went == request) {
+                                staff_heard.went_on(request, over, cut_off);
                                 Some("")
                             } else {
                                 staff_heard.began(request, over);
@@ -3321,9 +3321,10 @@ struct InputHandoff {
     /// end, as its Start said (`ProviderInput::Start::continues`).
     continued: Option<u64>,
     /// The newest request that goes on from the one before, as its Start
-    /// said (`continues` or `continues_cut_off`): its words are the
-    /// earlier one's too, for the staff's note (`crate::staff_note`).
-    went_on: Option<u64>,
+    /// said (`continues` or `continues_cut_off`), and whether the one
+    /// before was cut off and given up: its words are the earlier one's
+    /// too, for the staff's note (`crate::staff_note`).
+    went_on: Option<(u64, bool)>,
     /// The newest request begun over the lamp's own answer
     /// (`ProviderInput::Start::over_the_lamp`): its words may be the
     /// lamp's, so it gets no staff's note.
@@ -3661,7 +3662,7 @@ impl InputHandoff {
                     self.continued = Some(request.get());
                 }
                 if continues || continues_cut_off {
-                    self.went_on = Some(request.get());
+                    self.went_on = Some((request.get(), continues_cut_off));
                 }
                 if over_the_lamp {
                     self.over_the_lamp = Some(request.get());
@@ -7341,7 +7342,9 @@ mod tests {
         rig.owner
             .complete_turn(real_time(), rig.snapshot.owner().unwrap())
             .unwrap();
-        let rest = rig.speak_as(&mut dial, false, false, false, true, false).await;
+        let rest = rig
+            .speak_as(&mut dial, false, false, false, true, false)
+            .await;
         dial.service
             .send(heard(" to write a haiku about coffee."))
             .await;
@@ -7364,7 +7367,9 @@ mod tests {
         let home = crate::process::SessionDirectory::create().unwrap();
         let mut rig = staff_noted_rig(&home);
         let mut dial = rig.ready().await;
-        let request = rig.speak_as(&mut dial, false, false, false, false, true).await;
+        let request = rig
+            .speak_as(&mut dial, false, false, false, false, true)
+            .await;
         dial.service
             .send(json!({"serverContent":{"inputTranscription":{"text":"to ask Claude Code. Yes, go ahead."}}}))
             .await;

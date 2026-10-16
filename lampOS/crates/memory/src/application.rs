@@ -169,6 +169,16 @@ fn local(arguments: &Arguments) -> io::Result<LocalTime> {
     }
 }
 
+/// The start line with `--memory-days`: it names the zone when `--zone` is
+/// given, and is the same as before otherwise (#820).
+fn days_start_line(arguments: &Arguments) -> String {
+    let zone = arguments
+        .zone
+        .as_ref()
+        .map_or_else(String::new, |zone| format!(" zone={zone}"));
+    format!("started memory_days=true{zone}; the model adapter is not configured")
+}
+
 fn serve(arguments: &Arguments, server: Server, health: Option<&State>) -> io::Result<()> {
     if arguments.memory_days {
         let mut store = lamp_memory::days::Days::open(
@@ -186,7 +196,7 @@ fn serve(arguments: &Arguments, server: Server, health: Option<&State>) -> io::R
                 .and_then(|()| store.health_counts());
             health.counts(counts.map_err(io::Error::other));
         }
-        log("started memory_days=true; the model adapter is not configured");
+        log(&days_start_line(arguments));
         return server.run_reporting(&mut store, &mut now_unix_ms, &mut log, health);
     }
     let mut store = Store::open(

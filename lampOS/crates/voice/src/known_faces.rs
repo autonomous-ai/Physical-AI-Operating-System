@@ -475,8 +475,16 @@ fn gives_a_name_in(sentence: &str, speaks_of_my_name: bool) -> bool {
     let name_first = |i: usize| {
         let word = lower[i].trim_end_matches("'s");
         let pointing = ["that", "this", "it", "here", "there", "which"].contains(&word);
+        // Someone else's words: "He said Jim is my name." (the reviewer on
+        // #1224).
+        let reported = i
+            .checked_sub(1)
+            .and_then(at)
+            .is_some_and(|before| ["said", "says", "told", "tells", "tell"].contains(&before));
         !pointing
+            && !reported
             && !QUESTION.contains(&word)
+            && !NOT_A_NAME.contains(&word)
             && match (at(i + 1), at(i + 2), at(i + 3)) {
                 (Some("my"), Some("name"), _) => lower[i].ends_with("'s") && named(i),
                 (Some("is"), Some("my"), Some("name")) => named(i),
@@ -490,10 +498,14 @@ fn gives_a_name_in(sentence: &str, speaks_of_my_name: bool) -> bool {
         (Some("i"), Some("am"), Some("called")) => named(i + 3),
         (Some("i'm"), _, _) => named(i + 1),
         (Some("i"), Some("am"), _) => named(i + 2),
-        // An introduction of themselves: "Lamp, this is Jim.", the name
-        // ending it. "This is Jim, my colleague." introduces someone else
-        // (Ten on #1224).
-        (Some("this"), Some("is"), _) => named(i + 2) && lower.len() == i + 3,
+        // An introduction of themselves: "This is Jim speaking.", "Hi Lamp,
+        // this is Jim here.", or in a request that says "my name". A bare
+        // "Lamp, this is Jim." at a desk mostly introduces a friend, and the
+        // eyes would file the friend's name on the one face they see (the
+        // reviewer on #1224).
+        (Some("this"), Some("is"), _) => {
+            named(i + 2) && (matches!(at(i + 3), Some("speaking" | "here")) || speaks_of_my_name)
+        }
         (Some("it's"), _, _) => speaks_of_my_name && named(i + 1),
         (Some("it"), Some("is"), _) => speaks_of_my_name && named(i + 2),
         _ => name_first(i),
@@ -919,7 +931,8 @@ mod tests {
             "Do you remember my name is Jim?",
             // The reviewer on #1057 at 03:49: names given with no note.
             "Will you remember my name? It's Jim.",
-            "Lamp, this is Jim.",
+            "This is Jim speaking.",
+            "Hi Lamp, this is Jim here.",
             "Jim's my name.",
             "Jim is my name.",
             "My name? It is Jim.",
@@ -949,7 +962,17 @@ mod tests {
             "What's my name? It's Monday.",
             "This is great.",
             "Is my name right?",
-            // Ten on #1224: someone else introduced, or named.
+            // Ten and the reviewer on #1224: someone else introduced, or
+            // named, or quoted; a place; the lamp's own name.
+            "Lamp, this is Jim.",
+            "This is Jim.",
+            "Hey Lamp, this is Jim!",
+            "Lamp, this is Jim. He sits next to me.",
+            "Who is this? This is Jim.",
+            "He said Jim is my name.",
+            "He said \"Jim is my name.\"",
+            "This is Hanoi.",
+            "Lamp's my name.",
             "Lamp, this is Jim, my colleague.",
             "This is Jim from accounts.",
             "What's his name? It's Bob.",

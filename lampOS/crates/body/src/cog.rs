@@ -191,26 +191,16 @@ mod tests {
         assert_eq!(limit_lean_back(back, stand, LOOK_MM), (stand, 1.0));
     }
 
-    /// Clips known to be past V1's line, refused at runtime until #1058
-    /// trims them to 20 mm or less (`surprised` reaches 25.7 mm here;
-    /// `excited` and `dance_groove` reach 23.3 and 23.5 mm as #1058 has
-    /// them). Remove each from this list once it is trimmed.
-    const KNOWN_OVER: [&str; 3] = ["surprised", "excited", "dance_groove"];
-
     /// Every built-in clip, on each deployed lamp's standing pose, passes
     /// V1's rule, so no regenerated clip is refused at runtime: no frame
     /// within 85% of 22 mm off the axis (so not even said), and none leans
-    /// the lamp back past 16 mm. Only the clips in [`KNOWN_OVER`] are let
-    /// off; any other clip that fails fails here. The folded poses are
-    /// inside 22 mm.
+    /// the lamp back past 16 mm, with no clip let off. The folded poses
+    /// are inside 22 mm.
     #[test]
-    fn every_built_in_clip_passes_v1s_rule_but_the_three_known_over_it() {
+    fn every_built_in_clip_passes_v1s_rule() {
         for (lamp, stand, folded) in LAMPS {
             assert!(off_axis_mm(by_id(folded)) < CLIP_MM, "{lamp}");
             for clip in clips::ALL.iter().chain([&&clips::CALLED]) {
-                if KNOWN_OVER.contains(&clip.name) {
-                    continue;
-                }
                 let (frame, mm) = worst_frame(stand, clip.frames);
                 assert!(
                     mm < CLIP_MM * WARN_SHARE,

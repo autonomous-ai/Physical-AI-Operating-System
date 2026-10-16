@@ -952,18 +952,15 @@ behind its axis. Standing it sits 2.7 mm in front. That is why the 16 mm
 bound applies only to a lamp that stands. A test (`cog::tests`) checks that
 every built-in clip passes the rule on both lamps' standing poses. No frame
 may come within 85% of 22 mm, and no frame may lean the lamp back past 16 mm.
-A regenerated clip therefore cannot be refused at runtime. The test lets off
-exactly three clips, named in it (`KNOWN_OVER`): `surprised`, `excited` and
-`dance_groove`. Here `surprised` reaches 25.7 mm at frame 30 (the shoulder
-332 counts back with the head). As #1058 has them, `excited` reaches 23.3 mm
-and `dance_groove` 23.5 mm. #1058 trims all three to 20 mm or less. Until
-then they are refused when asked for, so "wow" gets no gesture. No other clip
-leans the lamp back more than 7.3 mm. The journal has one line each time the
+A regenerated clip therefore cannot be refused at runtime. No clip is let
+off: since #1058 trimmed `surprised`, `excited` and `dance_groove`, every clip
+is 18 mm or less at its worst frame (`surprised`, 18.0 mm), and none leans
+the lamp back more than 8.8 mm (`dance_groove`). The journal has one line each time the
 rule acts. A refused gesture's line names the clip, its worst frame and the
 millimetres:
 
 ```text
-lamp-body: step N anti-tip: REFUSED gesture surprised: frame 30 takes the centre of gravity 25.7 mm off the base's axis, over V1's 22 mm (1 so far)
+lamp-body: step N anti-tip: REFUSED gesture <clip>: frame <n> takes the centre of gravity <mm> mm off the base's axis, over V1's 22 mm (1 so far)
 lamp-body: step N anti-tip: cut a move short that would lean the lamp back 26.9 mm, over its 22 mm (V1's rule; 1 so far)
 ```
 

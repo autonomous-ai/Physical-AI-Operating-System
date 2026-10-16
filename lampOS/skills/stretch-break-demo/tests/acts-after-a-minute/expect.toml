@@ -1,0 +1,10 @@
+# The real case's recording (a face for 55 minutes, looking away twice for under a minute): the demo acts once, at about a minute.
+[[expect]]
+at = "1m"
+within = "1m"
+call = "body.gaze"
+args = { look_at = "face" }
+
+[[expect]]
+call = "body.gesture"
+args = { gesture = "stretching" }

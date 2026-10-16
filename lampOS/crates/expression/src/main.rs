@@ -210,6 +210,14 @@ fn local_time(
     })
 }
 
+/// ` zone=NAME` for the start line when `--zone` is given, as the Policy says
+/// it; nothing otherwise, so a start without the flag reads as before (#820).
+fn zone_note(args: &Arguments) -> String {
+    args.zone
+        .as_ref()
+        .map_or_else(String::new, |zone| format!(" zone={zone}"))
+}
+
 fn catalogue(path: Option<&PathBuf>) -> Result<Catalogue, Box<dyn std::error::Error>> {
     let Some(path) = path else {
         return Ok(Catalogue::builtin());
@@ -292,6 +300,7 @@ fn run(args: Arguments) -> Result<(), Box<dyn std::error::Error>> {
     // Read before `args` is taken apart: a zone that cannot be found ends the
     // start before anything else.
     let local = local_time(&args)?;
+    let zone = zone_note(&args);
     let bus = match args.bus_root {
         Some(path) => Bus::new(path)?,
         None => Bus::from_environment()?,
@@ -312,10 +321,11 @@ fn run(args: Arguments) -> Result<(), Box<dyn std::error::Error>> {
         service = service.with_head_touch(&bus)?;
     }
     eprintln!(
-        "lamp-expression: started mode={} clock_id={} root={}{}",
+        "lamp-expression: started mode={} clock_id={} root={}{}{}",
         if args.enabled { "enabled" } else { "shadow" },
         clock,
         bus.root().display(),
+        zone,
         if args.head_touch {
             " head_touch=true"
         } else {
@@ -469,5 +479,22 @@ mod tests {
             local_time(&serve).unwrap(),
             Some(lamp_expression::local_time::LocalTime::Offset(420))
         ));
+    }
+
+    #[test]
+    fn the_start_line_names_the_zone_only_when_one_is_given() {
+        assert_eq!(
+            zone_note(&args("serve --zone system").unwrap().unwrap()),
+            " zone=system"
+        );
+        assert_eq!(
+            zone_note(&args("serve --zone America/New_York").unwrap().unwrap()),
+            " zone=America/New_York"
+        );
+        assert_eq!(
+            zone_note(&args("serve --utc-offset-minutes 420").unwrap().unwrap()),
+            ""
+        );
+        assert_eq!(zone_note(&args("serve").unwrap().unwrap()), "");
     }
 }

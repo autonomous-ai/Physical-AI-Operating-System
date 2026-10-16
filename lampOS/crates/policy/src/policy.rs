@@ -1291,6 +1291,13 @@ impl Policy<'_> {
             .with("decided", self.totals.decided)
             .with("by_rule", self.totals.by_rule)
             .with("shadow", self.attention_shadow);
+        // Whether anything on the lamp listens for its name, as found this
+        // second; left out when nothing does, so the report is as it was.
+        let report = if self.name_listening {
+            report.with("name_listening", true)
+        } else {
+            report
+        };
         // Only with `--progress`: without it the report is as it was.
         let report = match self.progress.as_ref() {
             Some(progress) => {

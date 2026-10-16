@@ -144,7 +144,11 @@ topic). Not shown on a lamp.
 
 Once a second it also says how it is itself, on `diagnostics`
 (`lamp_msgs/Diagnostic`, under the name `policy`), with how many
-decisions it has made and how many of them by the rule:
+decisions it has made and how many of them by the rule, and
+`name_listening` `true` while something on the lamp listens for its name
+(`name/heard` has a live publisher, looked at in that same second; left
+out when nothing does). The tests wait for that instead of sleeping
+through the second (#1060):
 
 | Level | Message | When |
 |---|---|---|

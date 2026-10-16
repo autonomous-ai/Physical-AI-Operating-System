@@ -102,7 +102,14 @@ Environment=LAMP_EYES_PRESENCE_FILE=/run/lampos-eyes/present
 # Remembering a face when asked, a hello by name, and the name told with what a known person says
 # (lampOS/docs/eyes.md, "Who is there"); the eyes' known file is beside this socket.
 Environment=LAMP_EYES_WHO_SOCKET=/run/lampos-eyes/who.sock
-Environment=LAMP_SPEAK_FIRST=on
+# The hello is Welcome back's now (lamp-skills.service here, #938): the voice's own is off, so only
+# one greets, and its moments are still recorded. Put the line back to have the voice greet again,
+# and stop lamp-skills.service.
+# Environment=LAMP_SPEAK_FIRST=on
+# The say service, for lamp-skills to have the lamp speak (#954, lampOS/docs/speaking-first.md):
+# its socket's group is orangepi, the user lamp-skills runs as. A voice without #954 ignores both.
+Environment=LAMP_SAY=on
+Environment=LAMP_SAY_GROUP=orangepi
 # Let the lamp take a look when it says "Let me look" (lampOS/docs/speaking-first.md): the eyes'
 # newest frame goes to the model with that one request and with no other.
 Environment=LAMP_EYES_LOOK_FILE=/run/lampos-eyes/sight.jpg

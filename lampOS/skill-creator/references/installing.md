@@ -10,6 +10,10 @@ with no restart, and gone at once when removed.
   up or speak) and when.
 - Check the skill's tests passed ([testing.md](testing.md)), or say plainly
   that it is untested.
+- Tell the owner what the runtime does not do yet: until the Policy's gate
+  (#939), **a skill acts even while the lamp is paused**, and keeps out of a
+  conversation only if it has a `[[while]]` on `voice/state`. Install only if
+  they accept that.
 
 ## Install
 

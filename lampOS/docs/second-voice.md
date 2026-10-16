@@ -152,7 +152,9 @@ A base URL on `campaign-api.autonomous.ai` ending in `/ai` is given `/v1`
   slower to read, and on lamp-52e6 one of two real looks went past 3 s.
   Past it the lamp says "I couldn't get a good look." (`COULD_NOT_LOOK`;
   journal: `look round had not begun in … ms`) rather than nothing after
-  "Let me look." (the first builder, 2026-10-16 21:25).
+  "Let me look." (the first builder, 2026-10-16 21:25). A full look
+  (`LAMP_LOOK_FULL=on`) whose still never came arrives as the no-look note
+  without `look`, and is a look all the same: 5 s, then the line.
   With `LAMP_SECOND_WAIT_CUE=on` (sixth-P3), a spoken turn whose first
   round has not begun 1.5 s after the words makes one soft sound ("Hmm.",
   "Mm." or "Hm.", the next never the last one played), and is then given up

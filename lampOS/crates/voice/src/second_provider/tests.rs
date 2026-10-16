@@ -1086,3 +1086,47 @@ async fn a_look_waits_five_seconds_and_then_says_it_could_not_look() {
         "{after:?}"
     );
 }
+
+/// A full look whose still never came arrives as the no-look note without
+/// `look`: it is a look all the same, with 5 s and the line, never a silent
+/// end at 3 s (the reviewer on #1154).
+#[tokio::test(start_paused = true)]
+async fn a_full_look_without_its_still_still_says_it_could_not_look() {
+    let script = Arc::new(Script {
+        chats: Mutex::new([vec![text("My eye was shut."), Ok(ChatEvent::Done)]].into()),
+        first_event_after: Some(Duration::from_secs(60)),
+        ..Script::default()
+    });
+    let (mut engine, _, _) = scripted(script.clone());
+    engine.submit(ProviderInput::Written {
+        request: 1,
+        session: 1,
+        privacy_generation: 1,
+        text: crate::speak_up::NO_LOOK_NOTE.into(),
+        look: false,
+    });
+    let begun = tokio::time::Instant::now();
+    let mut said = Vec::new();
+    loop {
+        match engine.next().await {
+            ProviderOutput::Transcript {
+                request: Some(_),
+                text,
+                ..
+            } => said.push(text),
+            ProviderOutput::TurnComplete { .. } => break,
+            ProviderOutput::TurnFailed { .. } => panic!("failed"),
+            _ => {}
+        }
+    }
+    assert_eq!(said, [COULD_NOT_LOOK]);
+    assert!(
+        begun.elapsed() >= LOOK_BEGIN_WITHIN,
+        "{:?}",
+        begun.elapsed()
+    );
+    assert_eq!(
+        script.asked.lock().unwrap()[0].last(),
+        Some(&Message::user(crate::speak_up::NO_LOOK_NOTE))
+    );
+}

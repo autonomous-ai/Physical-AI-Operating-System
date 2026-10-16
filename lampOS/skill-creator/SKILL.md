@@ -47,7 +47,10 @@ Get these, from what they said first and as few questions as possible:
 
 - **When**: what in the room starts it. Translate their words into a sense:
   "when I sit down" is a face appearing; "if it gets stuffy" is CO2 high;
-  "when I've been at it too long" is a face present for a long time.
+  "when I've been at it too long" is a face present for a long time. "When I
+  ask you to" is not a sense: it is a `tool` the model calls
+  ([references/skill-folder.md](references/skill-folder.md)), and it takes no
+  number: "for 25 minutes" is the voice's own timer, not the skill's.
 - **What it does**: with the body, the light, the voice. Prefer the body and
   the light; speak only if they asked for speech or it is the point.
 - **How often at most**: every skill has a cooldown. If they did not say,
@@ -83,7 +86,7 @@ do this here?
 ```
 <name>/
   SKILL.md      name, description, and how the lamp talks about it
-  skill.toml    needs, triggers, ask, do, tools
+  skill.toml    needs, a trigger (or a tool), ask, do
   tests/        recordings of the bus and what the skill should do in each
   moves/ lights/ sounds/   optional data
 ```

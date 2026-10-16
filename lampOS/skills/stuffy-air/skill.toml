@@ -21,8 +21,9 @@ policy = "nudge"
 
 [[do]]
 # A shade dimmer than the person's light, until the air clears. NOT TO BE
-# INSTALLED YET: lamp-skills carries out the dim but not `until` (#938), so
-# nothing would give the person's light back; that waits for the third's
+# INSTALLED YET: lamp-skills carries out the dim but not `until` (#938), and
+# gives the person's light back when the run ends, at once: a blink, not a
+# dim held while the air is stuffy. Holding it waits for the third's
 # arbitration and leases (#940).
 light = { dim = 1, until = "ends" }
 

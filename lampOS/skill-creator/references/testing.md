@@ -53,7 +53,7 @@ The `[[expect]]` entries are **all** the calls the case may make, in order:
 any other call fails it, so "exactly once" needs nothing more. Arguments left
 out of `args` are not compared. The runtime gives: `body.gaze` `look_at`,
 `x`, `y`, `size`; `body.gesture` `gesture`; `light` `colour`, `level`, `for`,
-or `dim`, `until`; `say` `note`. A case where the skill must do nothing has
+or `dim`, `until`; `say` `note`; `look`, none. A case where the skill must do nothing has
 no `[[expect]]`, only:
 
 ```toml
@@ -88,7 +88,20 @@ kill %1
 ```
 
 Publish faces at least every 2 s wherever a condition reads them (a face
-lasts 2 s), as the lamp's eyes do. Say in `tests/README.md` that the case was
+lasts 2 s), as the lamp's eyes do.
+
+Each message must have its type's shape, or the case reads nothing. Every
+type's fields are in the lamp's `lampOS/docs/msgs.md` (the code is
+`crates/msgs`); the ones skills use most, as `lamp-bus pub` takes them:
+
+| Topic | `--type` | A message |
+|---|---|---|
+| `humans/faces/tracked` | `lamp_msgs/Faces` | `{"faces":[{"id":"a1","xmin":0.3,"ymin":0.2,"xmax":0.6,"ymax":0.6,"confidence":0.9}]}`, or `{"faces":[]}` for nobody |
+| `voice/state` | `lamp_msgs/VoiceState` | `{"state":"resting"}` (`listening`, `thinking`, `speaking`) |
+| `air/state` | `lamp_msgs/AirState` | `{"co2_ppm":1300,"feel":"stuffy","pm2_5":4.0,"humidity":50.0,"temperature":30.0}` |
+| `schedule/due` | `lamp_msgs/ScheduleDue` | `{"stamp":{"clock_id":"case-clock","at_us":0,"sequence":1},"store_id":"0123456789abcdef0123456789abcdef","revision":1,"enabled":true,"ready":true,"pending":0,"waiting_for_clock":0}`; with `pending` above 0, also `"oldest":{"id":1,"delivery":1,"due_unix_ms":...,"late":false}` |
+
+For any other topic, read its type in `docs/msgs.md` before writing a case. Say in `tests/README.md` that the case was
 made this way, not recorded on a lamp.
 
 ## Recording a case on the lamp

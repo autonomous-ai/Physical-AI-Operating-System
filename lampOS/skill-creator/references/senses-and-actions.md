@@ -10,14 +10,14 @@ they disagree with this file, they are right.
 | Topic | What it says | Good for |
 |---|---|---|
 | `humans/faces/tracked` | The faces in view: a passing id, where, whether turned to the lamp. Said a few times a second while the camera is open | Someone arrives, is there, leaves; looks at the lamp |
-| `voice/heard`, `voice/said` | What a person said, what the lamp said (text) | Reacting to words; rarely needed: the voice already answers |
+| `voice/heard`, `voice/said` | What a person said, what the lamp said (text) | Rarely: a trigger matches the whole text exactly, so it cannot hear a request in someone's own words or a number in it. For "when I ask, do X", use a `tool` (skill-folder.md); a spoken timer or reminder ("focus for 25 minutes") is the voice's own (`set_timer`), not a skill's |
 | `voice/state` | Resting, listening, thinking, speaking | Keeping out of a conversation |
 | `room/state` | Unknown, quiet, busy | Doing nothing in a busy room |
 | `name/heard` | The lamp's name was heard, how sure | |
 | `controls/gesture`, `controls/state` | A touch gesture on the head or base; button holds | Answering a touch |
 | `ears/level`, `ears/sudden` | The room's loudness every 100 ms; a sudden sound | Quiet hours, a bang |
 | `air/state` | Every 5 s: `co2_ppm`, `pm2_5` (and `pm1_0`, `pm4_0`, `pm10`), `humidity`, `temperature` (inside the base, warmed by the lamp: not the room's), and `feel`, the lamp's own judgement from the CO2: `fresh` (under 800 ppm), `fine` (to 1,200), `stuffy` (to 2,000), `very_stuffy`, `unknown`. Any of the numbers can be missing | Stuffy air: trigger on `feel`, the lamp's own word, rather than a number of your own |
-| `schedule/due` | A reminder or timer is due | Reminders |
+| `schedule/due` | How many reminders and timers are due (`pending`), and whether Schedule really serves them (`enabled`; false in shadow mode). Not which one or what kind: a skill cannot tell its own timer from any other (#939) | Answering any due reminder or timer |
 | `tasks/status` | How work handed to Claude Code or Codex is going | Task news |
 | `body/joint_states`, `body/hand` | Where each joint is; a hand pushing the lamp | Not moving against a hand |
 | `light/state` | The light the person asked for | |
@@ -29,8 +29,9 @@ they disagree with this file, they are right.
 
 | Service | What it does |
 |---|---|
-| **say** (the voice) | The lamp says something, as a written turn through the voice's own gates. Give it a note for the model ("They are back. Greet them in one short line."), not a script. Being built (#939); until then nothing is spoken |
-| **light** (the actions part) | A colour, or dimmer by a step. Meant as a short change on top of the person's own light, but nothing gives their light back yet (#940): see skill-folder.md |
+| **say** (the voice) | The lamp says something, as a written turn through the voice's own gates (the say service, #954; the voice runs it with `LAMP_SAY=on`). Give it a note for the model ("They are back. Greet them in one short line."), not a script |
+| **light** (the actions part) | A colour for a while, or dimmer by a step: a short change on top of the person's own light, which is given back after (skill-folder.md). Its level is not set yet |
+| **look** (the voice) | In a skill with a `tool` only: the voice's full look at what is in front of the lamp, for the model's answer |
 | **body: gaze** | Look at a face, or a direction |
 | **body: gesture** | One of the body's six gestures: `nod`, `headshake`, `greeting`, `laugh`, `shy`, `stretching`. There is no droop, lean or bow yet: those come as move files |
 | **body: moves** | Not yet: move files wait for #940, and the runtime refuses `body.move` |
@@ -44,8 +45,8 @@ look at the picture itself, only at the faces the eyes report.
 
 ## Names in tests
 
-A skill's steps, and its tests, name four calls: `body.gaze`, `body.gesture`,
-`light` and `say`. Schedule, tasks and memory are services the lamp has, but
+A skill's steps, and its tests, name five calls: `body.gaze`, `body.gesture`,
+`light`, `say` and `look`. Schedule, tasks and memory are services the lamp has, but
 a skill's steps cannot call them yet.
 
 ## The light's colours

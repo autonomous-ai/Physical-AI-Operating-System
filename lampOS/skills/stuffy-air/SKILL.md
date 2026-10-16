@@ -5,8 +5,9 @@ description: While the air at the desk is stuffy, the lamp dims a shade (and, on
 
 # Stuffy air
 
-**Not to be installed yet:** the lamp cannot yet give your light back after
-dimming it (#940), so it would stay dimmed.
+**Not to be installed yet:** the lamp gives your light back as soon as its
+run ends, and cannot yet hold the dim while the air stays stuffy (`until`,
+#940), so it would only blink a shade darker.
 
 When the air has been stuffy for about ten minutes and someone is at the
 desk, the lamp dims its light a shade for as long as the air stays stuffy,

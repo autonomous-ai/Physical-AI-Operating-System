@@ -90,6 +90,8 @@ pub const BEGIN_WITHIN_AFTER_CUE: Duration = Duration::from_millis(4_500);
 /// first builder, 21:25). Past it, after "Let me look.", the lamp says
 /// [`COULD_NOT_LOOK`] rather than nothing.
 pub const LOOK_BEGIN_WITHIN: Duration = Duration::from_secs(5);
+/// What the lamp says when a look's first round has not begun within
+/// [`LOOK_BEGIN_WITHIN`]: after "Let me look.", silence reads as broken.
 pub const COULD_NOT_LOOK: &str = "I couldn't get a good look.";
 /// The sounds, said by this route's own voice, so at the reply's level.
 pub const CUE_WORDS: [&str; 3] = ["Hmm.", "Mm.", "Hm."];
@@ -459,9 +461,14 @@ impl Engine {
                 } else {
                     text
                 };
+                // A full look whose still never came reaches here as the
+                // no-look note without `look` (`sight::Look::turn`): a
+                // look all the same, with its 5 s and its line (the reviewer
+                // on #1154).
+                let looking = look || text == crate::speak_up::NO_LOOK_NOTE;
                 let shared = self.shared.clone();
                 let task = tokio::spawn(async move {
-                    answer(&shared, request, text, false, look, picture).await
+                    answer(&shared, request, text, false, looking, picture).await
                 });
                 self.turn = Some(Turn {
                     request,

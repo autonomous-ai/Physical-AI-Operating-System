@@ -180,20 +180,24 @@ the ask, or a side outside 320 to 4096, asks nothing):
 
 1. The head is the body's. It already turns to the face the eyes see
    (`--gaze-socket`) and to a call (`--look-at-name on`); nothing new is
-   asked of it. The still waits for it to stop: `body/joint_states` on the
-   bus, read twenty times a second, with `base_yaw`, `head_pitch` and
-   `head_roll` each turning slower than 25 counts a second (two counts in
-   the 80 ms over which the body works out a joint's speed) and staying
-   within 6 counts (0.0092 rad) of where it was when it stopped, for 0.3 s.
-   Where a joint was asked to be is not looked at. The first build also
-   wanted each within 6 counts of its goal and its goal unchanged, and on
-   lamp-4ace every still waited the whole 2 s (2,000 to 2,125 ms, #842): a
-   head at rest stands short of its goal under its own weight (`head_roll`
-   at 2,051 against 2,044, 7 counts, in
+   asked of it. The still waits only while the head moves, as
+   `body/joint_states` on the bus says (read twenty times a second):
+   `base_yaw`, `head_pitch` or `head_roll` turning faster than 25 counts a
+   second (two counts in the 80 ms over which the body works out a joint's
+   speed), or asked to a place more than 32 counts from where it stands. A
+   head that is not moving and was not asked to is taken at once, with no
+   fixed wait: the build before waited for 0.3 s of stillness on every
+   look with a body (366 and 836 ms on lamp-52e6 with a turn,
+   `verification/full-look-held-lamp-52e6-20261016`), and the first build also wanted
+   each joint within 6 counts of its goal, so on lamp-4ace every still
+   waited the whole 2 s (2,000 to 2,125 ms, #842). A head at rest stands
+   short of its goal under its own weight (`head_roll` at 2,051 against
+   2,044, 7 counts, in
    `verification/rest-glance-lamp-4ace-20261014/journal.txt`) and the body
-   nudges its resting goals by up to 7 counts. A head following a slow move
-   at 50 counts a second is turning; one moved more slowly than 25 drifts
-   past 6 counts and is waited for again. A head that moves again before the
+   nudges its resting goals by up to 7 counts, both well inside 32. Only
+   when the body does not say how fast the joints turn does the still wait
+   0.3 s with each head joint within 6 counts (0.0092 rad) of where it
+   stopped. A head that moves again before the
    frame comes is waited for again. It waits at most 2 s in all. With no
    joint states on the bus (no body, `LAMP_BUS` off on either side) it does
    not wait; a paused body's joints do not turn.

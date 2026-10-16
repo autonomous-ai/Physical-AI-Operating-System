@@ -55,7 +55,13 @@ still verifies their exit and required local-revocation, teardown or black-write
 receipts. A missing receipt, failed exit or forced termination blocks reopening;
 contained presentation failure alone is not permission to skip cleanup. Lost
 freshness, unknown status, mandatory worker/provider faults and invalid messages
-remain service errors. A previous runtime
+remain service errors on the direct GPIO route. On the Controls route
+(`LAMP_PRIVACY_CONTROLS=on`, [privacy-switch.md](privacy-switch.md)) a switch
+that cannot be read (no source, a fault, stale or broken evidence, its worker
+ended) is closed instead: the cycle ends as a fresh mute does, with the same
+verified cleanup, and the wait reads the switch again each second with a fresh
+worker, so the voice stays up with its microphones shut and never crash-loops
+(#795; lamp-4ace, 2026-10-16). A failed cleanup still ends it. A previous runtime
 error cannot hide a shutdown failure. The combined error retains both causes
 and does not expose a restartable physical- or software-mute token.
 

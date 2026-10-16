@@ -29,6 +29,7 @@ fn fixture_with_command(directory: &SessionDirectory, command: &str) -> (Rig, Pe
             capture,
             provider,
             privacy,
+            privacy_controls: false,
             ring: Some(ring).into(),
             camera: None,
             motor: None,

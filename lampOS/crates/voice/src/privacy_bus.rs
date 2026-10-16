@@ -380,10 +380,48 @@ impl Drop for LeaseWatch {
     }
 }
 
+/// The switch's evidence could not be had or used: none, a fault, stale,
+/// broken or discontinuous. Not a crash: the worker says so to the voice
+/// (`WorkerEvent::Fault`, [`UNREADABLE`]) and ends cleanly, so the voice
+/// keeps the microphones closed and reads again with a fresh worker (#795).
+#[derive(Debug)]
+struct Unreadable(String);
+impl std::fmt::Display for Unreadable {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+impl std::error::Error for Unreadable {}
+
+/// How the worker's fault code begins when the switch could not be read.
+pub const UNREADABLE: &str = "privacy switch unreadable: ";
+
+fn unreadable(why: impl std::fmt::Display) -> Box<dyn std::error::Error + Send + Sync> {
+    Box::new(Unreadable(why.to_string()))
+}
+
 /// The only publisher of `voice/privacy`. A bus stall cannot renew its lease;
 /// Voice and Ears independently expire their final-boundary permissions.
+/// Evidence that cannot be had ends it cleanly, said as [`UNREADABLE`];
+/// anything else ends it as an error.
 pub fn run(
     mut channels: WorkerChannels,
+    controller: BootId,
+    root: &Path,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    match serve(&mut channels, controller, root) {
+        Err(error) if error.is::<Unreadable>() => {
+            channels.control.send(WorkerEvent::Fault {
+                code: format!("{UNREADABLE}{error}"),
+            })?;
+            Ok(())
+        }
+        other => other,
+    }
+}
+
+fn serve(
+    channels: &mut WorkerChannels,
     controller: BootId,
     root: &Path,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -405,7 +443,7 @@ pub fn run(
     let began = lamp_ipc::monotonic_us();
     channels.control.send(WorkerEvent::Ready)?;
     loop {
-        if !authority(&mut channels, &mut guard)? {
+        if !authority(channels, &mut guard)? {
             return Ok(());
         }
         let now = lamp_ipc::monotonic_us();
@@ -419,17 +457,19 @@ pub fn run(
         let mut empty = false;
         for _ in 0..DRAIN_LIMIT {
             let before = counters(&subscriber);
-            let message = subscriber.recv(Duration::ZERO)?;
+            let message = subscriber.recv(Duration::ZERO).map_err(unreadable)?;
             if before != counters(&subscriber) {
-                return Err(invalid("invalid Controls message discarded").into());
+                return Err(unreadable("invalid Controls message discarded"));
             }
             let Some(message) = message else {
                 empty = true;
                 break;
             };
             let now = lamp_ipc::monotonic_us();
-            if let Some(value) = fence.accept(&message, now, wall_ms())? {
-                let muted = value.muted.ok_or_else(|| invalid("missing switch level"))?;
+            if let Some(value) = fence.accept(&message, now, wall_ms()).map_err(unreadable)? {
+                let muted = value
+                    .muted
+                    .ok_or_else(|| unreadable("missing switch level"))?;
                 gate.observe(value.stamp.sequence, value.stamp.at_us, now, muted);
                 // Revoke the main owner before any Bus publication/disk work.
                 channels.control.send(WorkerEvent::Privacy {
@@ -440,11 +480,11 @@ pub fn run(
             }
         }
         if !empty {
-            return Err(invalid("Controls privacy drain overflow").into());
+            return Err(unreadable("Controls privacy drain overflow"));
         }
-        notices(&mut subscriber)?;
+        notices(&mut subscriber).map_err(unreadable)?;
         // Revocation arriving during Bus I/O wins before another lease.
-        if !authority(&mut channels, &mut guard)? {
+        if !authority(channels, &mut guard)? {
             return Ok(());
         }
         let now = lamp_ipc::monotonic_us();
@@ -453,7 +493,7 @@ pub fn run(
                 .is_some_and(|age| age < PRIVACY_FRESH_US)
         });
         if physical.is_none() && now.saturating_sub(began) >= PRIVACY_FRESH_US {
-            return Err(invalid("physical privacy source expired").into());
+            return Err(unreadable("physical privacy source expired"));
         }
         if let Some(state) = guard.state() {
             let permitted = empty && physical.is_some() && gate.permitted(state, now);

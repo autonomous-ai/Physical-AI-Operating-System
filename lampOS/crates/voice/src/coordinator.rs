@@ -617,6 +617,10 @@ struct Rig {
     capture: Worker,
     speaker: Worker,
     privacy: Worker,
+    /// The privacy worker reads Controls' switch (`LAMP_PRIVACY_CONTROLS=on`):
+    /// a switch it cannot read closes the cycle as a mute does, for the
+    /// service to wait and read again, never ending it (#795).
+    privacy_controls: bool,
     ring: OptionalRing,
     camera: Option<OptionalCamera>,
     motor: Option<OptionalMotor>,
@@ -755,6 +759,11 @@ impl Rig {
         Ok(())
     }
     fn running(&mut self) -> io::Result<()> {
+        if self.privacy_controls {
+            self.privacy
+                .check_running()
+                .map_err(service_privacy::unavailable_io)?;
+        }
         for worker in [
             &mut self.provider,
             &mut self.capture,
@@ -2539,6 +2548,7 @@ fn spawn_rig(
         capture,
         speaker,
         privacy,
+        privacy_controls: privacy_root.is_some(),
         ring,
         camera,
         motor: None,
@@ -3505,16 +3515,32 @@ fn conversation_with_gate(
         // Privacy always precedes input, model output, or actuator work.
         // A later fresh mute cannot relabel an already-lost sensor lease as a
         // healthy user-mute lifecycle that permits automatic reopening.
+        // On the Controls route a switch that cannot be read is closed, not
+        // a fault: the cycle ends as a mute does and the service reads again
+        // (#795). The direct GPIO route keeps ending on it.
+        let privacy_controls = rig.privacy_controls;
+        let lost = |why: String| -> Box<dyn std::error::Error + Send + Sync> {
+            if privacy_controls {
+                service_privacy::unavailable(why)
+            } else {
+                io::Error::other(why).into()
+            }
+        };
         if lifetime.continuous()
             && privacy_sequence != 0
             && gate.state(now()) == PrivacyState::Unavailable
         {
-            return Err(
-                io::Error::other("service privacy freshness lost before next observation").into(),
-            );
+            return Err(lost(
+                "service privacy freshness lost before next observation".into(),
+            ));
         }
         for _ in 0..16 {
-            let Some(event) = rig.privacy.channels.control.receive::<WorkerEvent>()? else {
+            let received = rig.privacy.channels.control.receive::<WorkerEvent>();
+            let received = match received {
+                Err(error) if privacy_controls => return Err(service_privacy::unavailable(error)),
+                received => received?,
+            };
+            let Some(event) = received else {
                 break;
             };
             match event {
@@ -3534,10 +3560,9 @@ fn conversation_with_gate(
                     if lifetime.continuous() {
                         match gate.state(now()) {
                             PrivacyState::Unavailable => {
-                                return Err(io::Error::other(
-                                    "invalid or stale service privacy observation",
-                                )
-                                .into());
+                                return Err(lost(
+                                    "invalid or stale service privacy observation".into(),
+                                ));
                             }
                             PrivacyState::Muted => {
                                 let observed_at_us = monotonic_us();
@@ -3551,7 +3576,7 @@ fn conversation_with_gate(
                         }
                     }
                 }
-                WorkerEvent::Fault { code } => return Err(io::Error::other(code).into()),
+                WorkerEvent::Fault { code } => return Err(lost(code)),
                 _ => return Err(io::Error::other("unexpected privacy event").into()),
             }
         }
@@ -3575,9 +3600,7 @@ fn conversation_with_gate(
                         || session_instant().saturating_duration_since(privacy_started)
                             >= Duration::from_micros(gate.freshness_us()) =>
                 {
-                    return Err(
-                        io::Error::other("physical privacy unavailable; not a user mute").into(),
-                    );
+                    return Err(lost("physical privacy unavailable; not a user mute".into()));
                 }
                 _ => {}
             }
@@ -3750,7 +3773,7 @@ fn conversation_with_gate(
             }
         }
         if permitted && !can_open {
-            return Err(io::Error::other("physical privacy closed or lost freshness").into());
+            return Err(lost("physical privacy closed or lost freshness".into()));
         }
         if can_open && !permitted {
             owner.set_microphone_permission(now(), Permission::Allowed)?;
@@ -8688,6 +8711,7 @@ mod tests {
             capture,
             provider,
             privacy,
+            privacy_controls: false,
             ring: Some(ring).into(),
             camera: None,
             motor: None,

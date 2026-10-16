@@ -5,7 +5,9 @@ use crate::{
     privacy_bus,
     process::{RingStartup, SessionDirectory, Worker, new_boot},
     ring_wire::{RingBlankReason, RingFeedback},
-    service_privacy::{self, Result, WaitOutcome, finish},
+    service_privacy::{
+        self, Result, WaitOutcome, finish, is_unavailable, unavailable, unavailable_io,
+    },
     termination::Termination,
     wire::{Control, WorkerEvent},
 };
@@ -17,15 +19,60 @@ use std::{
     time::{Duration, Instant},
 };
 
+/// How long the selected route waits before reading an unreadable switch
+/// again, with a fresh worker.
+const UNREADABLE_RETRY: Duration = Duration::from_secs(1);
+
 pub(crate) fn wait_selected(
     executable: &Path,
     termination: &Termination,
-    on_state: impl FnMut(PrivacyState, BootId, u64) -> Result<()>,
-    additional_gate: impl FnMut() -> Result<bool>,
+    mut on_state: impl FnMut(PrivacyState, BootId, u64) -> Result<()>,
+    mut additional_gate: impl FnMut() -> Result<bool>,
 ) -> Result<WaitOutcome> {
-    match privacy_bus::root_from_environment()? {
-        None => service_privacy::wait_with_gate(executable, termination, on_state, additional_gate),
-        Some(root) => wait(executable, &root, termination, on_state, additional_gate),
+    let Some(root) = privacy_bus::root_from_environment()? else {
+        return service_privacy::wait_with_gate(executable, termination, on_state, additional_gate);
+    };
+    unreadable_retried(termination, UNREADABLE_RETRY, || {
+        wait(
+            executable,
+            &root,
+            termination,
+            &mut on_state,
+            &mut additional_gate,
+        )
+    })
+}
+
+/// A switch that cannot be read keeps the lamp closed and is read again,
+/// each `retry`, by a fresh wait whose workers were cleaned up and verified;
+/// it never ends the service (#795). Each new reason is said once.
+fn unreadable_retried(
+    termination: &Termination,
+    retry: Duration,
+    mut wait: impl FnMut() -> Result<WaitOutcome>,
+) -> Result<WaitOutcome> {
+    let mut said: Option<String> = None;
+    loop {
+        match wait() {
+            Err(error) if is_unavailable(&*error) => {
+                let why = error.to_string();
+                if said.as_deref() != Some(why.as_str()) {
+                    eprintln!(
+                        "lamp-voice: the microphones stay closed and the switch is read again each {} ms: {why}",
+                        retry.as_millis()
+                    );
+                    said = Some(why);
+                }
+                let until = Instant::now() + retry;
+                while Instant::now() < until {
+                    if termination.signal_name().is_some() {
+                        return Ok(WaitOutcome::Stopped);
+                    }
+                    std::thread::sleep(Duration::from_millis(20).min(retry));
+                }
+            }
+            other => return other,
+        }
     }
 }
 
@@ -116,7 +163,13 @@ fn run(
                     waiting
                         .step(&mut worker, None, &mut on_state, &mut additional_gate)
                         .map(|_| ())
-                        .map_err(|error| io::Error::other(error.to_string()))
+                        .map_err(|error| {
+                            if is_unavailable(&*error) {
+                                unavailable_io(error)
+                            } else {
+                                io::Error::other(error.to_string())
+                            }
+                        })
                 })?;
                 match started {
                     RingStartup::Ready(child) => indicator = Some(child),
@@ -241,12 +294,12 @@ impl Waiting {
         // Slow durable software-clear work happens while no audio exists. Age
         // the physical evidence again afterward; never reuse an old Allowed.
         let software_allowed = additional_gate()?;
-        worker.check_running()?;
+        worker.check_running().map_err(unavailable)?;
         let at = monotonic_us();
         if self.sequence != 0
             && self.gate.state(MonoTime::from_micros(at)) == PrivacyState::Unavailable
         {
-            return Err(io::Error::other("Controls privacy freshness lost while waiting").into());
+            return Err(unavailable("Controls privacy freshness lost while waiting"));
         }
         if self
             .last_publish
@@ -256,7 +309,8 @@ impl Waiting {
             worker
                 .channels
                 .control
-                .send(Control::Authority { snapshot })?;
+                .send(Control::Authority { snapshot })
+                .map_err(unavailable)?;
             if let Some(indicator) = indicator {
                 let _ = indicator
                     .channels
@@ -267,7 +321,12 @@ impl Waiting {
         }
         let mut empty = false;
         for _ in 0..16 {
-            match worker.channels.control.receive::<WorkerEvent>()? {
+            match worker
+                .channels
+                .control
+                .receive::<WorkerEvent>()
+                .map_err(unavailable)?
+            {
                 Some(WorkerEvent::Privacy {
                     acquired_at_us,
                     muted,
@@ -285,13 +344,12 @@ impl Waiting {
                     if self.gate.state(MonoTime::from_micros(monotonic_us()))
                         == PrivacyState::Unavailable
                     {
-                        return Err(io::Error::other(
+                        return Err(unavailable(
                             "invalid Controls privacy observation while waiting",
-                        )
-                        .into());
+                        ));
                     }
                 }
-                Some(WorkerEvent::Fault { code }) => return Err(io::Error::other(code).into()),
+                Some(WorkerEvent::Fault { code }) => return Err(unavailable(code)),
                 Some(_) => {
                     return Err(io::Error::other("unexpected Controls privacy wait event").into());
                 }
@@ -307,7 +365,7 @@ impl Waiting {
             && (self.sequence != 0
                 || self.started.elapsed() >= Duration::from_micros(PRIVACY_FRESH_US))
         {
-            return Err(io::Error::other("Controls privacy unavailable while waiting").into());
+            return Err(unavailable("Controls privacy unavailable while waiting"));
         }
         if self.previous != Some(physical) {
             on_state(physical, self.boot, at)?;
@@ -325,7 +383,13 @@ impl Waiting {
 fn cleanup(privacy: &mut Worker, mut indicator: Option<&mut Worker>) -> io::Result<()> {
     let stopped_at = monotonic_us();
     let deadline = Instant::now() + Duration::from_millis(300);
-    let mut error = privacy.channels.control.send(Control::Stop).err();
+    // A worker that already ended on its own (an unreadable switch, #795)
+    // cannot take a Stop: its exit status, read below, is the verification.
+    let mut error = match privacy.channels.control.send(Control::Stop) {
+        Ok(()) => None,
+        Err(_) if matches!(privacy.try_exit(), Ok(Some(_))) => None,
+        Err(failure) => Some(failure),
+    };
     if let Some(child) = &mut indicator
         && let Err(failure) = child.channels.control.send(Control::Stop)
     {
@@ -442,6 +506,88 @@ mod tests {
     use super::*;
     use crate::service_privacy::tests::{Script, mock};
     use std::sync::{Arc, atomic::AtomicBool};
+
+    /// lamp-4ace, 2026-10-16 10:04: a switch Controls could not read sent
+    /// the voice into a crash loop. Now each wait that ends on it, with
+    /// verified cleanup, is followed by another after the retry, and the
+    /// first that is allowed or stopped is the outcome.
+    #[test]
+    fn an_unreadable_switch_is_read_again_and_never_ends_the_service() {
+        let mut waits = 0;
+        let outcome =
+            unreadable_retried(&Termination::inactive(), Duration::from_millis(1), || {
+                waits += 1;
+                if waits < 3 {
+                    Err(unavailable("physical privacy acquisition unavailable"))
+                } else {
+                    Ok(WaitOutcome::Allowed)
+                }
+            })
+            .unwrap();
+        assert_eq!((outcome, waits), (WaitOutcome::Allowed, 3));
+        // The worker's exit carried by an io::Error counts the same.
+        let mut waits = 0;
+        unreadable_retried(&Termination::inactive(), Duration::from_millis(1), || {
+            waits += 1;
+            if waits == 1 {
+                Err(unavailable_io("privacy worker exited: exit status: 0").into())
+            } else {
+                Ok(WaitOutcome::Stopped)
+            }
+        })
+        .unwrap();
+        assert_eq!(waits, 2);
+    }
+
+    /// A worker that ended cleanly on its own, saying the switch was
+    /// unreadable, has gone before its Stop: that is verified cleanup, so
+    /// the wait can be tried again.
+    #[test]
+    fn a_worker_that_ended_cleanly_before_its_stop_is_verified_cleanup() {
+        let directory = SessionDirectory::create().unwrap();
+        let (mut worker, peer, input) = Worker::cooperative_fixture(&directory.path, "privacy");
+        drop(peer);
+        drop(input);
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while !matches!(worker.try_exit(), Ok(Some(_))) {
+            assert!(Instant::now() < deadline, "the fixture did not end");
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        assert!(worker.channels.control.send(Control::Stop).is_err());
+        cleanup(&mut worker, None).unwrap();
+        drop(worker);
+        let _ = fs::remove_dir(&directory.path);
+    }
+
+    #[test]
+    fn a_stop_while_it_waits_to_read_again_ends_the_wait_and_other_errors_still_end_it() {
+        let outcome = unreadable_retried(&Termination::signaled(), Duration::from_secs(60), || {
+            Err(unavailable("no switch"))
+        })
+        .unwrap();
+        assert_eq!(outcome, WaitOutcome::Stopped);
+        // A failed cleanup hides the unreadable switch: it ends the service.
+        let mut waits = 0;
+        let error = unreadable_retried(&Termination::inactive(), Duration::from_millis(1), || {
+            waits += 1;
+            finish(
+                Err::<WaitOutcome, _>(unavailable("no switch")),
+                Err(io::Error::other("worker still open")),
+            )
+        })
+        .unwrap_err();
+        assert_eq!(waits, 1);
+        assert!(
+            error.to_string().contains("verified cleanup failed"),
+            "{error}"
+        );
+        // So does any other error.
+        let error = unreadable_retried(&Termination::inactive(), Duration::from_millis(1), || {
+            Err(io::Error::other("software mute store failed").into())
+        })
+        .unwrap_err();
+        assert!(!is_unavailable(&*error));
+    }
 
     #[test]
     fn selected_wait_observes_while_software_muted_without_granting() {

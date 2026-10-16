@@ -12,7 +12,12 @@ Without it, a pins file that has a `privacy` section is refused, as it was befor
 the section existed.
 
 Controls takes the single GPIO request for `/dev/gpiochip1`, line 9, pull-up,
-electrical LOW = muted. Header pin 11 is the task's hardware-team mapping,
+electrical LOW = muted. A line it cannot take (another process still holds
+it, as the voice's direct path does on a lamp moving to this route, or this
+user may not open it) is asked for again each second, with the reason said
+once in its log; until then every acquisition is unknown with a fault. Its
+start line says whether the route is on (`privacy route on: /dev/gpiochip1
+line 9`), or that the switch is on and the pins file has no privacy section. Header pin 11 is the task's hardware-team mapping,
 not a measurement made by Third. The explicit pins-profile addition is:
 
 ```json
@@ -31,7 +36,11 @@ The selected publishers and subscribers rescan Bus registrations and retained
 state every 5 ms; the ordinary 200 ms discovery interval exceeds this route's
 50 ms freshness limit. Unselected services retain their existing cadence.
 Invalid types, publisher or reader changes, future/stale evidence, reordered
-messages, skipped Bus publications and receive overflow end this worker.
+messages, skipped Bus publications and receive overflow end this worker. It
+ends cleanly, telling the voice the switch is unreadable (a fault beginning
+`privacy switch unreadable: `), and the voice keeps the microphones closed and
+reads again with a fresh worker each second instead of exiting (#795). Any
+other failure of the worker is still an abnormal exit that ends the service.
 Source acquisition sequence can advance several times between publications;
 it must advance, but need not be consecutive at the consumer.
 
@@ -88,7 +97,11 @@ During the quiet physical-mute wait a separate ring worker may show the V1
 dark-red indication: a four-second breath with red 2–10 and green/blue zero.
 It requires fresh physical LOW and matching denied owner authority. Software
 mute alone, missing evidence and an open switch do not authorize that light.
-It neither paints a listening cue nor grants capture. The existing active ring
+It neither paints a listening cue nor grants capture. It shows only a verified
+LOW: while the switch cannot be read (#795) the voice is closed and the ring
+shows nothing of privacy, as the ring crate requires of unknown evidence;
+whether an unreadable switch should show the muted face too is open on #795.
+The existing active ring
 must have stopped first; a shutdown black-write receipt **and** process exit
 are required before its replacement starts. SPI stays outside the privacy and
 audio owner loops. See [service privacy](service-privacy.md).

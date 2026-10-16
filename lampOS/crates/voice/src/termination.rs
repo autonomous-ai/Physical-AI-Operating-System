@@ -24,6 +24,14 @@ impl Termination {
             registrations: Vec::new(),
         }
     }
+    /// As if SIGTERM had come.
+    #[cfg(test)]
+    pub(crate) fn signaled() -> Self {
+        Self {
+            signal: Arc::new(AtomicUsize::new(SIGTERM as usize)),
+            registrations: Vec::new(),
+        }
+    }
     pub(crate) fn install() -> io::Result<Self> {
         let mut request = Self {
             signal: Arc::new(AtomicUsize::new(0)),

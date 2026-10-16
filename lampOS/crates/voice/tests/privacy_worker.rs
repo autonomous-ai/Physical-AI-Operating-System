@@ -455,18 +455,29 @@ fn selected_worker_requires_authority_latches_low_and_recovers_only_after_verifi
     );
 }
 
+/// Losing Controls is a switch that cannot be read, not a crash (#795): the
+/// worker says so (`UNREADABLE`) and ends cleanly, and its lease expires on
+/// its own whatever authority the voice still holds.
 #[test]
-fn losing_controls_ends_the_real_worker_and_expires_its_lease_despite_current_allowed_authority() {
+fn losing_controls_ends_the_real_worker_cleanly_saying_so_and_expires_its_lease() {
     let mut rig = Rig::start(Permission::Allowed);
     rig.until(|value| value.permitted);
     let produced = rig.producer.finish();
     let last_acquired = rig.producer.last_us.load(Ordering::Acquire);
     let deadline = Instant::now() + WAIT;
+    let mut said_unreadable = false;
     loop {
         if rig.worker.as_mut().unwrap().check_running().is_err() {
             break;
         }
         if let Err(error) = rig.tick() {
+            if error
+                .to_string()
+                .contains(lamp_voice::privacy_bus::UNREADABLE)
+            {
+                said_unreadable = true;
+                continue;
+            }
             if rig.worker.as_mut().unwrap().check_running().is_err() {
                 break;
             }
@@ -495,10 +506,15 @@ fn losing_controls_ends_the_real_worker_and_expires_its_lease_despite_current_al
         "controller authority must still be current"
     );
     let mut worker = rig.worker.take().unwrap();
-    let error = worker
+    // A Fault said just before the exit may still be queued.
+    while let Ok(Some(event)) = worker.channels.control.receive::<WorkerEvent>() {
+        said_unreadable |= matches!(&event, WorkerEvent::Fault { code }
+            if code.starts_with(lamp_voice::privacy_bus::UNREADABLE));
+    }
+    assert!(said_unreadable, "the worker says the switch is unreadable");
+    worker
         .shutdown()
-        .expect_err("producer loss must be an abnormal exit");
-    assert!(error.to_string().contains("exited abnormally"), "{error}");
+        .expect("an unreadable switch ends the worker cleanly");
     drop(worker);
     let retained: MicrophonePrivacy = Bus::new(rig.root.0.join("bus"))
         .unwrap()

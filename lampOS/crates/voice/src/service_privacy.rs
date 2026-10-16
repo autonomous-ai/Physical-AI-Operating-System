@@ -1,5 +1,7 @@
 //! A service restart token comes from a physical or software mute, followed by
-//! verified cleanup. Unknown privacy and failed cleanup are never resumable.
+//! verified cleanup. Unknown privacy is never resumable on the direct GPIO
+//! route; on the Controls route it is closed and read again
+//! ([`PrivacyUnavailable`], #795). Failed cleanup never is.
 use std::{fmt, io};
 
 pub(crate) type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
@@ -29,6 +31,48 @@ impl fmt::Display for SoftwareMute {
     }
 }
 impl std::error::Error for SoftwareMute {}
+
+/// The selected Controls route's switch could not be read: no source, a
+/// fault, stale or broken evidence, or its worker gone (#795; lamp-4ace,
+/// 2026-10-16 10:04, a crash loop). Closed, as a mute is: the microphones
+/// stay shut, and after verified cleanup the service waits for fresh
+/// evidence instead of exiting. Reopening still needs that evidence and its
+/// steady open time. Only the selected route raises it; the direct GPIO
+/// route keeps ending on unknown privacy.
+#[derive(Debug)]
+pub(crate) struct PrivacyUnavailable {
+    pub(crate) why: String,
+}
+impl fmt::Display for PrivacyUnavailable {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "privacy switch unreadable: {}", self.why)
+    }
+}
+impl std::error::Error for PrivacyUnavailable {}
+
+/// A [`PrivacyUnavailable`] for `why`.
+pub(crate) fn unavailable(why: impl fmt::Display) -> Box<dyn std::error::Error + Send + Sync> {
+    Box::new(PrivacyUnavailable {
+        why: why.to_string(),
+    })
+}
+
+/// The same, carried by an `io::Error` where only that fits.
+pub(crate) fn unavailable_io(why: impl fmt::Display) -> io::Error {
+    io::Error::other(PrivacyUnavailable {
+        why: why.to_string(),
+    })
+}
+
+/// Whether `error` is a [`PrivacyUnavailable`], itself or inside an
+/// `io::Error`. A failed cleanup never is: [`finish`] hides it.
+pub(crate) fn is_unavailable(error: &(dyn std::error::Error + 'static)) -> bool {
+    error.is::<PrivacyUnavailable>()
+        || error
+            .downcast_ref::<io::Error>()
+            .and_then(io::Error::get_ref)
+            .is_some_and(|inner| inner.is::<PrivacyUnavailable>())
+}
 
 #[derive(Debug)]
 struct CleanupFailed {

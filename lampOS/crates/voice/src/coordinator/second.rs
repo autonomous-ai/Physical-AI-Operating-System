@@ -956,6 +956,7 @@ mod tests {
                     capture,
                     provider: second_worker,
                     privacy,
+                    privacy_controls: false,
                     ring: None.into(),
                     camera: None,
                     motor: None,

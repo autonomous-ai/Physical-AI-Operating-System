@@ -321,6 +321,32 @@ every other answer at 0 the probability is 0.78, which is `look_up`. The
 rule, for its part, then answers only in conversation. Decisions made now
 will read as more reserved than the measurement, which had the room.
 
+**A second judgement, in shadow: `--attention-next` (#1040).** The fit
+counts a reply to the lamp against answering: `follows_lamp` −0.136, and
+being in conversation −0.206. Yet on lamp-4ace on 2026-10-16 the answer
+told such replies apart. Of the first builder's 79 hand-read `stay_quiet`
+decisions in conversation, the 33 said to the lamp had a median
+`follows_lamp` of 0.60, and the 46 not had 0.29. With the switch, each
+decision is also judged by `attention::combine_next`: the same sum and, in
+conversation only, 3 for each unit of `follows_lamp` above 0.55. The term
+is one-sided, so the second judgement is never below today's, and out of
+conversation it is the same. The 3 and the 0.55 are a logistic fit of
+those 79 labels on `follows_lamp` alone (+3.02, centred at 0.55), with
+each row left out in turn. With it, 13 of the 33 said to the lamp leave
+`stay_quiet` (to `look_up`) and none of the 46 not. The other three answers
+in the rows (`calls_lamp`, `lamp_could_answer`, `others_business`) add
+nothing on the rows left out. The second judgement is written on the
+decision's line as `next` (`probability`, `choice`, `from_rule`), left out
+when the rule decided. The diagnostics count the decisions whose two
+choices differ (`attention_next_differs`) and the start line says
+`attention_next=true`. It is never published and nothing acts on it. A day
+of it on lamp-4ace, with the lines where the choices differ read by hand,
+says whether it goes live. The full refit still needs the day's answers
+in conversation labelled as well (#873's `lamp-policy-replay --again …
+--labels … --refit`). Test: `tests/policy.rs`,
+`with_attention_next_a_second_judgement_is_written_beside_and_nothing_published_changes`,
+and `attention::tests::the_next_judgement_raises_a_reply_to_the_lamp_in_conversation_only`.
+
 ## Shadow mode
 
 Every decision is published with `shadow: true` and nothing subscribes to

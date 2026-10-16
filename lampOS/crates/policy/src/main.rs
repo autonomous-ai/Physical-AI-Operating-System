@@ -31,7 +31,7 @@ use std::{
     time::Duration,
 };
 
-const USAGE: &str = "usage: lamp-policy --key-file ABSOLUTE_PATH --log-dir ABSOLUTE_DIR [--endpoint URL] [--model NAME] [--deadline-ms N] [--bus-root ABSOLUTE_DIR] [--progress] [--hello] [--utc-offset-minutes N | --zone system|NAME] [--act progress] [--act hello] [--rules] [--act attention] [--gate] [--images MODEL [--sight-file ABSOLUTE_PATH]]";
+const USAGE: &str = "usage: lamp-policy --key-file ABSOLUTE_PATH --log-dir ABSOLUTE_DIR [--endpoint URL] [--model NAME] [--deadline-ms N] [--bus-root ABSOLUTE_DIR] [--progress] [--hello] [--utc-offset-minutes N | --zone system|NAME] [--act progress] [--act hello] [--rules] [--act attention] [--attention-next] [--gate] [--images MODEL [--sight-file ABSOLUTE_PATH]]";
 const HELP: &str = "The lamp's policy, in shadow mode: judges whether each thing the voice hears was said to\n\
 the lamp, publishes the decision on the bus (policy/decisions) and writes it down. Nothing\n\
 acts on it. See docs/policy.md.\n\
@@ -63,6 +63,12 @@ acts on it. See docs/policy.md.\n\
                  first (memory/rules): never, not in the mornings, not before or from a time of\n\
                  day (by --utc-offset-minutes; all day without it), not while they talk; no model\n\
                  is asked then. Needs --progress. Off unless set\n\
+  --attention-next\n\
+                 also judge each attention question a second time, in shadow (#1040): in a\n\
+                 conversation with the lamp, 3 for each unit of follows_lamp above 0.55 added to the\n\
+                 sum, never less than today's. Written on the decision's line as next and counted in\n\
+                 the diagnostics (attention_next_differs); never published, never acted on. Off\n\
+                 unless set\n\
   --gate         also answer a skill that asks (skills/ask) whether the lamp may say hello, tell\n\
                  news or start something itself, with the hello question or a moment question\n\
                  of its own: the decision names the ask. Needs --hello and --act hello\n\
@@ -102,6 +108,9 @@ struct Arguments {
     rules: bool,
     /// Skills' asks are answered (`--gate`, #939): off unless set.
     gate: bool,
+    /// The second attention judgement, in shadow (`--attention-next`,
+    /// #1040): off unless set.
+    attention_next: bool,
     /// The images model asked with the eyes' frame (`--images`, #871): off
     /// unless set.
     images: Option<String>,
@@ -117,6 +126,7 @@ fn parse(arguments: impl Iterator<Item = String>) -> Result<Option<Arguments>, S
     let mut rules = false;
     let mut zone = None;
     let mut gate = false;
+    let mut attention_next = false;
     let (mut images, mut sight_file) = (None, None);
     let mut arguments = arguments;
     while let Some(option) = arguments.next() {
@@ -128,11 +138,13 @@ fn parse(arguments: impl Iterator<Item = String>) -> Result<Option<Arguments>, S
             || option == "--hello"
             || option == "--rules"
             || option == "--gate"
+            || option == "--attention-next"
         {
             let flag = match option.as_str() {
                 "--progress" => &mut progress,
                 "--hello" => &mut hello,
                 "--rules" => &mut rules,
+                "--attention-next" => &mut attention_next,
                 _ => &mut gate,
             };
             if std::mem::replace(flag, true) {
@@ -249,6 +261,7 @@ fn parse(arguments: impl Iterator<Item = String>) -> Result<Option<Arguments>, S
         act_attention,
         rules,
         gate,
+        attention_next,
         images,
         sight_file,
     }))
@@ -275,6 +288,9 @@ fn questions(arguments: &Arguments) -> String {
     }
     if arguments.gate {
         said.push_str(" gate=true");
+    }
+    if arguments.attention_next {
+        said.push_str(" attention_next=true");
     }
     let acting: Vec<&str> = [
         (arguments.act_progress, "progress"),
@@ -391,6 +407,7 @@ fn run(arguments: &Arguments) -> io::Result<()> {
             progress,
             hello,
             pictures,
+            attention_next: arguments.attention_next,
         },
     )
     .map(|_| ())
@@ -457,6 +474,7 @@ mod tests {
                 act_attention: false,
                 rules: false,
                 gate: false,
+                attention_next: false,
                 images: None,
                 sight_file: None,
             }
@@ -480,6 +498,7 @@ mod tests {
                 act_attention: false,
                 rules: false,
                 gate: false,
+                attention_next: false,
                 images: None,
                 sight_file: None,
             }
@@ -543,6 +562,12 @@ mod tests {
             .unwrap();
         assert!(ruled.progress && ruled.rules && !ruled.act_progress);
         assert_eq!(questions(&ruled), " progress=true rules=true");
+        // The second attention judgement, in shadow (#1040).
+        let next = of("--log-dir /d --key-file /k --attention-next")
+            .unwrap()
+            .unwrap();
+        assert!(next.attention_next && !next.act_attention);
+        assert_eq!(questions(&next), " attention_next=true");
         // The hello question, and both acting.
         let both = of("--log-dir /d --hello --progress --act hello --act progress --key-file /k")
             .unwrap()
@@ -614,6 +639,7 @@ mod tests {
             "--key-file /k --log-dir /d --gate",
             "--key-file /k --log-dir /d --hello --gate",
             "--key-file /k --log-dir /d --hello --act hello --gate --gate",
+            "--key-file /k --log-dir /d --attention-next --attention-next",
             "--key-file /k --log-dir /d --progress --act progress --act progress",
             "--key-file /k --log-dir /d --progress --act",
             "--key-file /k --log-dir /d --utc-offset-minutes 841",

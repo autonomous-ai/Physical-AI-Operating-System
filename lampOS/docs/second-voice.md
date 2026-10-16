@@ -261,6 +261,16 @@ order is kept. A written turn is the same from the chat on.
   at every start, so none are kept for a later request. A request given up
   before its speech to text finished has no words to give: its successor is
   asked with its own words alone (the reviewer on #1168).
+- **The first request after a stop is told of it.** With
+  `LAMP_STOP_TOLD=on`, the first request after a hand or the head stopped
+  the lamp carries `after_stop`. Gemini is told so with `STOPPED_NOTE`. This
+  route gives the same note as a system message just before the person's
+  words, in that chat only, so the stopped story is not begun again.
+  A request with `after_stop` that is never asked (it heard nothing, was
+  held as a short sound or not said to the lamp, or was replaced before its
+  chat) leaves the note to the request begun right after it in the same
+  session, so a cough after a stop does not use it up (the reviewer on
+  #1175). It is told once, with the chat that is asked.
 - **Each turn is one person's**, as a Live session is since #775: before
   the chat, the thread is opened for whoever the eyes count at the lamp
   (`Sessions::open`, read only as the turn opens: someone else known after

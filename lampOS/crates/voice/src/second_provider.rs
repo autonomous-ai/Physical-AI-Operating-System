@@ -171,6 +171,9 @@ struct Shared {
     /// The words last heard, with their request: a request that goes on
     /// from one given up after an early end begins with them.
     heard_last: Mutex<Option<(u64, String)>>,
+    /// The request a stop is to be told beside (`after_stop`), until a chat
+    /// is asked for it: one never asked gives it to the next.
+    stop_untold: Mutex<Option<u64>>,
 }
 
 /// The wait's sounds, rendered once by [`Services::speak`] and kept in
@@ -309,6 +312,7 @@ impl Engine {
                 heed: None,
                 cues: None,
                 heard_last: Mutex::new(None),
+                stop_untold: Mutex::new(None),
             }),
             output,
             urgent: VecDeque::new(),
@@ -363,6 +367,7 @@ impl Engine {
                 request,
                 session,
                 continues_cut_off,
+                after_stop,
                 ..
             } => {
                 let previous = self.begun_last;
@@ -385,6 +390,19 @@ impl Engine {
                 let before = last
                     .filter(|(of, _)| continues_cut_off && previous == Some((*of, session)))
                     .map(|(_, words)| words);
+                // A stop not yet told: this request's own, or one left by the
+                // request begun just before it in this session, which was
+                // never asked (heard nothing, held, or replaced before its
+                // chat). Told once, with the chat that is asked (the
+                // reviewer on #1175: a cough after a stop must not use it up).
+                if let Ok(mut untold) = self.shared.stop_untold.lock() {
+                    let left = untold
+                        .take()
+                        .is_some_and(|of| previous == Some((of, session)));
+                    if after_stop || left {
+                        *untold = Some(request);
+                    }
+                }
                 let (audio, heard) = mpsc::channel(AUDIO_QUEUE);
                 let sound = Arc::new(AtomicBool::new(false));
                 let checked = self.sounds_checked.then(|| sound.clone());
@@ -496,7 +514,7 @@ impl Engine {
                 let looking = look || text == crate::speak_up::NO_LOOK_NOTE;
                 let shared = self.shared.clone();
                 let task = tokio::spawn(async move {
-                    answer(&shared, request, text, false, looking, picture).await
+                    answer(&shared, request, text, false, looking, picture, None).await
                 });
                 self.turn = Some(Turn {
                     request,
@@ -726,7 +744,16 @@ async fn spoken(
             .await;
         return;
     }
-    answer(&shared, request, text, true, false, None).await;
+    // The first request asked after a hand or the head stopped the lamp: the
+    // model is told so, as Gemini is (`STOPPED_NOTE`, #1148), so the story
+    // that was stopped is not begun again.
+    let note = shared
+        .stop_untold
+        .lock()
+        .ok()
+        .and_then(|mut untold| untold.take_if(|of| *of == request))
+        .map(|_| crate::provider_worker::STOPPED_NOTE);
+    answer(&shared, request, text, true, false, None, note).await;
 }
 
 /// How an answer stopped short.
@@ -768,6 +795,7 @@ async fn answer(
     heard: bool,
     looking: bool,
     picture: Option<Vec<u8>>,
+    note: Option<&'static str>,
 ) {
     // Started now, with the chat request, so it is ready first.
     let mut speech = JoinSet::new();
@@ -801,6 +829,9 @@ async fn answer(
         let told = (shared.system)();
         let mut messages = vec![Message::system(told.text)];
         messages.extend(told.history);
+        // A note beside the request, never anyone's words (as on the Live
+        // route, where a note goes beside what the model hears).
+        messages.extend(note.map(Message::system));
         messages.push(asked);
         let asked_at = messages.len() - 1;
         let mut round = 0;

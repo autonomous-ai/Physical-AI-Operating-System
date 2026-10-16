@@ -619,6 +619,7 @@ mod tests {
             who: false,
             lead_in: false,
             asked: false,
+            needs: None,
         };
         let declared: Vec<String> = crate::agent_tasks::tools(&place)
             .into_iter()

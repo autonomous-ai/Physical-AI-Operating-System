@@ -114,6 +114,12 @@ pub const TARGET_FLAG: &str = "--tasks-target";
 pub const WHO_FLAG: &str = "--tasks-who";
 pub const LEAD_IN_FLAG: &str = "--tasks-lead-in";
 pub const ASKED_FLAG: &str = "--tasks-asked";
+/// The file the tasks part needs to run at all (#811: on a home lamp, the
+/// Harness program its unit's condition names). While it is missing, a call
+/// that cannot reach the part is told it isn't set up; otherwise as a part
+/// not running. Unset, always the latter.
+pub const NEEDS_ENVIRONMENT: &str = "LAMP_TASKS_NEEDS";
+pub const NEEDS_FLAG: &str = "--tasks-needs";
 pub const DEFAULT_TARGET: &str = "office";
 /// The model's two functions.
 pub const START: &str = "start_agent_task";
@@ -657,6 +663,8 @@ pub struct Place {
     pub lead_in: bool,
     /// Work asked of the staff is handed over every time ([`ASKED_FLAG`]).
     pub asked: bool,
+    /// The file the tasks part needs ([`NEEDS_FLAG`]).
+    pub needs: Option<PathBuf>,
 }
 
 /// The provider worker's arguments for what the environment says.
@@ -667,6 +675,7 @@ pub fn arguments_from_environment() -> Vec<String> {
         std::env::var(WHO_ENVIRONMENT).ok().as_deref(),
         std::env::var(LEAD_IN_ENVIRONMENT).ok().as_deref(),
         std::env::var(ASKED_ENVIRONMENT).ok().as_deref(),
+        std::env::var(NEEDS_ENVIRONMENT).ok().as_deref(),
     )
 }
 
@@ -676,6 +685,7 @@ fn arguments(
     who: Option<&str>,
     lead_in: Option<&str>,
     asked: Option<&str>,
+    needs: Option<&str>,
 ) -> Vec<String> {
     let Some(directory) = directory.filter(|path| Path::new(path).is_absolute()) else {
         return Vec::new();
@@ -694,6 +704,10 @@ fn arguments(
     if asked == Some("on") {
         arguments.push(ASKED_FLAG.to_owned());
     }
+    if let Some(needs) = needs.filter(|path| Path::new(path).is_absolute()) {
+        arguments.push(NEEDS_FLAG.to_owned());
+        arguments.push(needs.to_owned());
+    }
     arguments
 }
 
@@ -705,7 +719,7 @@ fn alias(text: &str) -> bool {
 }
 
 /// Take a leading `--tasks-dir DIR [--tasks-target ALIAS] [--tasks-who]
-/// [--tasks-lead-in] [--tasks-asked]` off the flags.
+/// [--tasks-lead-in] [--tasks-asked] [--tasks-needs PATH]` off the flags.
 pub fn take(flags: &[String]) -> std::io::Result<(Option<Place>, &[String])> {
     let [flag, rest @ ..] = flags else {
         return Ok((None, flags));
@@ -740,6 +754,15 @@ pub fn take(flags: &[String]) -> std::io::Result<(Option<Place>, &[String])> {
         [flag, rest @ ..] if flag == ASKED_FLAG => (true, rest),
         _ => (false, rest),
     };
+    let (needs, rest) = match rest {
+        [flag, path, rest @ ..] if flag == NEEDS_FLAG => {
+            if !Path::new(path).is_absolute() {
+                return Err(std::io::Error::other("--tasks-needs must be absolute"));
+            }
+            (Some(PathBuf::from(path)), rest)
+        }
+        _ => (None, rest),
+    };
     Ok((
         Some(Place {
             directory: PathBuf::from(directory),
@@ -747,6 +770,7 @@ pub fn take(flags: &[String]) -> std::io::Result<(Option<Place>, &[String])> {
             who,
             lead_in,
             asked,
+            needs,
         }),
         rest,
     ))
@@ -777,14 +801,15 @@ pub fn run(
 pub const NOT_SET_UP: &str =
     "I can't hand work on to another computer yet: that isn't set up on this lamp.";
 
-/// What the model is told when the tasks part did not answer: with no socket
-/// at all the part was never started (no fault); a socket that does not
-/// answer is a part not running ([`crate::tools::unavailable`]).
+/// What the model is told when the tasks part did not answer: not set up
+/// only while the file it needs is missing, as its unit's condition decides
+/// (the reviewer on #1063: a crashed part's socket is gone too, since systemd
+/// removes its runtime folder, and that is a fault); in every other case a
+/// part not running ([`crate::tools::unavailable`]).
 fn unreached(place: &Place) -> Value {
-    if place.directory.join("request.sock").exists() {
-        crate::tools::unavailable()
-    } else {
-        json!({"error": NOT_SET_UP})
+    match &place.needs {
+        Some(needs) if !needs.exists() => json!({"error": NOT_SET_UP}),
+        _ => crate::tools::unavailable(),
     }
 }
 
@@ -1166,36 +1191,56 @@ mod tests {
         sync::mpsc,
     };
 
-    /// #811: on a lamp whose tasks part is not there (no Harness), every
-    /// task call is told in light words that work can't be handed on yet,
-    /// not that a part of the lamp failed.
+    /// #811, with the reviewer's P2: a lamp whose tasks part needs a file
+    /// that is not there (no Harness) tells the model in light words that
+    /// work can't be handed on yet. A part that needs it and has it, but
+    /// whose socket is gone (crashed: systemd removed its folder), is a fault;
+    /// so is any part with no `needs` given.
     #[test]
-    fn with_no_tasks_part_on_the_lamp_the_model_is_told_it_is_not_set_up() {
-        // A folder with no tasks socket in it.
+    fn only_a_tasks_part_missing_what_it_needs_is_told_not_set_up() {
         let directory =
             std::env::temp_dir().join(format!("agent-not-set-up-{}", std::process::id()));
         let _ = std::fs::create_dir_all(&directory);
-        let place = Place {
+        let place = |needs: Option<&str>| Place {
             directory: directory.clone(),
             target: "office".into(),
             who: false,
             lead_in: false,
             asked: false,
+            needs: needs.map(PathBuf::from),
         };
+        let told = |place: &Place, name: &str, args: Value| {
+            let call = ToolCall {
+                id: "c".into(),
+                name: name.into(),
+                args,
+            };
+            run(place, &call, 3, true, Duration::from_millis(200)).0
+        };
+        let missing = place(Some("/nonexistent/harness"));
+        let there = place(Some("/"));
+        let unset = place(None);
         // Starting and checking ask the tasks part; a confirm with nothing
         // prepared never gets that far.
         for (name, args) in [
             (START, json!({"task":"Write hello.txt"})),
             (CHECK, json!({})),
         ] {
-            let call = ToolCall {
-                id: "c".into(),
-                name: name.into(),
-                args,
-            };
-            let (told, _) = run(&place, &call, 3, true, Duration::from_millis(200));
-            assert_eq!(told["error"], NOT_SET_UP, "{name}");
-            assert_ne!(told, crate::tools::unavailable());
+            assert_eq!(
+                told(&missing, name, args.clone())["error"],
+                NOT_SET_UP,
+                "{name}"
+            );
+            assert_eq!(
+                told(&there, name, args.clone()),
+                crate::tools::unavailable(),
+                "{name}"
+            );
+            assert_eq!(
+                told(&unset, name, args),
+                crate::tools::unavailable(),
+                "{name}"
+            );
         }
         let _ = std::fs::remove_dir_all(&directory);
     }
@@ -1225,20 +1270,49 @@ mod tests {
 
     #[test]
     fn the_switch_is_an_absolute_directory_and_an_alias_and_is_taken_from_the_front() {
-        assert!(arguments(None, None, None, None, None).is_empty());
-        assert!(arguments(Some("relative"), None, None, None, None).is_empty());
+        assert!(arguments(None, None, None, None, None, None).is_empty());
+        assert!(arguments(Some("relative"), None, None, None, None, None).is_empty());
         assert_eq!(
-            arguments(Some("/run/t"), None, None, None, None),
+            arguments(Some("/run/t"), None, None, None, None, None),
             [FLAG, "/run/t"]
         );
         assert_eq!(
-            arguments(Some("/run/t"), Some("m2"), None, None, None),
+            arguments(Some("/run/t"), Some("m2"), None, None, None, None),
             [FLAG, "/run/t", TARGET_FLAG, "m2"]
         );
         assert_eq!(
-            arguments(Some("/run/t"), Some("no spaces"), None, None, None),
+            arguments(Some("/run/t"), Some("no spaces"), None, None, None, None),
             [FLAG, "/run/t"]
         );
+        assert_eq!(
+            arguments(
+                Some("/run/t"),
+                None,
+                None,
+                None,
+                None,
+                Some("/usr/local/bin/harness")
+            ),
+            [FLAG, "/run/t", NEEDS_FLAG, "/usr/local/bin/harness"]
+        );
+        assert_eq!(
+            arguments(Some("/run/t"), None, None, None, None, Some("relative")),
+            [FLAG, "/run/t"]
+        );
+        let needs: Vec<String> = [
+            "--tasks-dir",
+            "/run/t",
+            "--tasks-needs",
+            "/usr/local/bin/harness",
+        ]
+        .map(String::from)
+        .into();
+        let (place, rest) = take(&needs).unwrap();
+        assert_eq!(
+            place.unwrap().needs.as_deref(),
+            Some(Path::new("/usr/local/bin/harness"))
+        );
+        assert!(rest.is_empty());
         let flags: Vec<String> = ["--tasks-dir", "/run/t", "--other"]
             .map(String::from)
             .into();
@@ -1251,6 +1325,7 @@ mod tests {
                 who: false,
                 lead_in: false,
                 asked: false,
+                needs: None,
             })
         );
         assert_eq!(rest, &flags[2..]);
@@ -1317,6 +1392,7 @@ mod tests {
             who: false,
             lead_in: false,
             asked: false,
+            needs: None,
         };
         let call = |name: &str, args: Value| ToolCall {
             id: "c".into(),
@@ -1399,6 +1475,7 @@ mod tests {
             who: false,
             lead_in: false,
             asked: false,
+            needs: None,
         };
         let call = |name: &str, args: Value| ToolCall {
             id: "c".into(),
@@ -1446,6 +1523,7 @@ mod tests {
             who: false,
             lead_in: false,
             asked: false,
+            needs: None,
         };
         let call = |task: &str| ToolCall {
             id: "c".into(),
@@ -1495,6 +1573,7 @@ mod tests {
             who: false,
             lead_in: false,
             asked: false,
+            needs: None,
         };
         let task = json!({"ok":true,"text":"Suggest three names","target":{"engine":"claude"},
             "observations":[{"id":4,"state":"idle"}]});
@@ -1552,6 +1631,7 @@ mod tests {
             who: false,
             lead_in: false,
             asked: false,
+            needs: None,
         };
         let _seen = tasks_part(
             directory,
@@ -1728,6 +1808,7 @@ mod tests {
             who,
             lead_in: false,
             asked: false,
+            needs: None,
         }
     }
 
@@ -1819,20 +1900,27 @@ mod tests {
             "Tell them in a few natural words that you are handing it to Claude Code now and will let them know when it is done, the way a chief of staff would (\"Sure, I'm giving that to Claude Code. I'll tell you when it's done.\"). It has not been taken up yet: do not say it has."
         );
         assert_eq!(
-            arguments(Some("/run/t"), None, None, Some("on"), None),
+            arguments(Some("/run/t"), None, None, Some("on"), None, None),
             [FLAG, "/run/t", LEAD_IN_FLAG]
         );
         assert_eq!(
-            arguments(Some("/run/t"), Some("m2"), Some("on"), Some("on"), None),
+            arguments(
+                Some("/run/t"),
+                Some("m2"),
+                Some("on"),
+                Some("on"),
+                None,
+                None
+            ),
             [FLAG, "/run/t", TARGET_FLAG, "m2", WHO_FLAG, LEAD_IN_FLAG]
         );
         for not_on in [None, Some("yes"), Some("ON"), Some("1")] {
             assert_eq!(
-                arguments(Some("/run/t"), None, None, not_on, None),
+                arguments(Some("/run/t"), None, None, not_on, None, None),
                 [FLAG, "/run/t"]
             );
         }
-        assert!(arguments(None, None, None, Some("on"), None).is_empty());
+        assert!(arguments(None, None, None, Some("on"), None, None).is_empty());
         let flags: Vec<String> = [FLAG, "/run/t", WHO_FLAG, LEAD_IN_FLAG, "--other"]
             .map(String::from)
             .into();
@@ -2146,19 +2234,20 @@ mod tests {
                 Some("office-claude"),
                 Some("on"),
                 None,
+                None,
                 None
             ),
             [FLAG, "/run/t", TARGET_FLAG, "office-claude", WHO_FLAG]
         );
         assert_eq!(
-            arguments(Some("/run/t"), None, Some("on"), None, None),
+            arguments(Some("/run/t"), None, Some("on"), None, None, None),
             [FLAG, "/run/t", WHO_FLAG]
         );
         assert_eq!(
-            arguments(Some("/run/t"), None, Some("yes"), None, None),
+            arguments(Some("/run/t"), None, Some("yes"), None, None, None),
             [FLAG, "/run/t"]
         );
-        assert!(arguments(None, None, Some("on"), None, None).is_empty());
+        assert!(arguments(None, None, Some("on"), None, None, None).is_empty());
         let flags: Vec<String> = [
             FLAG,
             "/run/t",
@@ -2178,6 +2267,7 @@ mod tests {
                 who: true,
                 lead_in: false,
                 asked: false,
+                needs: None,
             })
         );
         assert_eq!(rest, ["--other"]);
@@ -2366,12 +2456,19 @@ mod tests {
         assert_eq!(noted(None, Some(&on)), Some(note));
 
         assert_eq!(
-            arguments(Some("/run/t"), None, Some("on"), Some("on"), Some("on")),
+            arguments(
+                Some("/run/t"),
+                None,
+                Some("on"),
+                Some("on"),
+                Some("on"),
+                None
+            ),
             [FLAG, "/run/t", WHO_FLAG, LEAD_IN_FLAG, ASKED_FLAG]
         );
         for not_on in [None, Some("yes"), Some("ON"), Some("1")] {
             assert_eq!(
-                arguments(Some("/run/t"), None, None, None, not_on),
+                arguments(Some("/run/t"), None, None, None, not_on, None),
                 [FLAG, "/run/t"]
             );
         }

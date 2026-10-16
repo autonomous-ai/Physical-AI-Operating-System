@@ -65,16 +65,22 @@ impl Idler {
         Duration::from_secs_f64(drawn * (1.0 + (ALONE_STRETCH - 1.0) * lonely))
     }
 
-    /// The next move: any but the last one.
-    pub fn pick(&mut self) -> &'static Clip {
-        let others = MOVES.len() - usize::from(self.last.is_some());
-        let mut index = (self.next() % others as u64) as usize;
-        if self.last.is_some_and(|last| index >= last) {
-            index += 1;
-        }
+    /// The next move: any but the last one. The two tilts only for a head
+    /// that tilts when it stands (`--stand-roll` past `--reach`'s roll):
+    /// elsewhere their roll is left out and both are the same small lift.
+    pub fn pick(&mut self, tilts: bool) -> &'static Clip {
+        let open: Vec<usize> = (0..MOVES.len())
+            .filter(|index| Some(*index) != self.last)
+            .filter(|index| tilts || !is_tilt(MOVES[*index]))
+            .collect();
+        let index = open[(self.next() % open.len() as u64) as usize];
         self.last = Some(index);
         MOVES[index]
     }
+}
+
+fn is_tilt(clip: &Clip) -> bool {
+    clip.name == clips::TILT_LEFT.name || clip.name == clips::TILT_RIGHT.name
 }
 
 #[cfg(test)]
@@ -131,7 +137,7 @@ mod tests {
     #[test]
     fn a_move_is_never_the_one_before_and_all_of_them_come() {
         let mut idler = Idler::new(11);
-        let picks: Vec<&str> = (0..400).map(|_| idler.pick().name).collect();
+        let picks: Vec<&str> = (0..400).map(|_| idler.pick(true).name).collect();
         assert!(picks.windows(2).all(|pair| pair[0] != pair[1]), "{picks:?}");
         for shift in MOVES {
             let count = picks.iter().filter(|name| **name == shift.name).count();
@@ -139,5 +145,12 @@ mod tests {
         }
         assert!(MOVES.iter().all(|shift| is_move(shift)));
         assert!(!is_move(&clips::CALLED) && !is_move(&clips::NOD));
+        // A head that does not tilt standing: no tilts, the other two by turns.
+        let picks: Vec<&str> = (0..20).map(|_| idler.pick(false).name).collect();
+        assert!(
+            picks.iter().all(|name| !name.starts_with("tilt")),
+            "{picks:?}"
+        );
+        assert!(picks.windows(2).all(|pair| pair[0] != pair[1]), "{picks:?}");
     }
 }

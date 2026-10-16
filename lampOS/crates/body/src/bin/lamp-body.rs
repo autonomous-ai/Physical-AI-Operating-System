@@ -939,15 +939,17 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
         looking,
         news,
         || {
+            let now_us = lamp_ipc::monotonic_us();
             let asked = lamp_body::body::Asked {
                 seen: eyes(),
                 gesture: gesture_asked.take(),
-                expression: expression.as_mut().and_then(|asked| {
-                    asked.offsets(lamp_ipc::monotonic_us(), |why| {
-                        eprintln!("lamp-body: {why}")
-                    })
-                }),
+                expression: expression
+                    .as_mut()
+                    .and_then(|asked| asked.offsets(now_us, |why| eprintln!("lamp-body: {why}"))),
                 called: name.as_mut().is_some_and(|name| name.called()),
+                still: expression
+                    .as_ref()
+                    .is_some_and(|asked| asked.holding(now_us)),
             };
             // Read all the same, so that nothing kept from before the pause
             // is acted on after it.

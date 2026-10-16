@@ -93,6 +93,13 @@ impl Requests {
         Ok(())
     }
 
+    /// Whether the planner asks for stillness now, with a live lease.
+    pub fn holding(&self, now_us: u64) -> bool {
+        self.newest
+            .as_ref()
+            .is_some_and(|request| request.hold && request.lease.valid_at(&self.clock_id, now_us))
+    }
+
     /// What to add to the pose at `now_us`: counts for the head's pitch,
     /// its roll and the base's turn. A positive pitch dips the head, as in
     /// the body's own poses. Nothing when nothing is asked, when what was
@@ -198,6 +205,11 @@ impl ExpressionIn {
             }
         }
         self.requests.offsets(now_us)
+    }
+
+    /// Whether stillness is asked now.
+    pub fn holding(&self, now_us: u64) -> bool {
+        self.requests.holding(now_us)
     }
 }
 

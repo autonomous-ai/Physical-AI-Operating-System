@@ -866,22 +866,33 @@ then: anything alive that stands with nothing to do does. Not on a clock
 (until 2026-10-16 it was every 18 s, `idle` after `idle` all afternoon on
 lamp-4ace, #705): each wait is drawn at random from 40 s to 3 min, and drawn
 longer the longer nobody has been near (no face in the last look and only
-rest heard), up to three times as long after ten minutes alone. Each shift
-is one of four small moves, never the one made last (`crate::idle`):
+rest heard), up to three times as long after ten minutes alone. A lamp
+folds `--awake-seconds` after the last mood or face, and folded it never
+shifts, so with the 90 s the deployed units are given the stretch is at
+most about 1.3 times; the longer stretches need somebody near enough to keep
+it up, or a longer awake. A hand on the lamp is not somebody near. Each
+shift is one of four small moves, never the one made last (`crate::idle`):
 
 | Move | Lasts | Mostly |
 | --- | --- | --- |
 | `idle` | 10.0 s | the old runtime's idle loop at half its size (table above) |
-| `tilt_left`, `tilt_right` | 3.2 s | head roll 25 to one side, the head lifting 10 |
+| `tilt_left`, `tilt_right` | 3.2 s | head roll 25 to one side, the head lifting 10; only on a head that tilts standing (`--stand-roll` past `--reach`'s roll), as elsewhere the roll is left out and both are the same lift under a degree. No deployed unit gives `--stand-roll`, so there it is `idle` and `look_up` by turns |
 | `look_up` | 3.2 s | the head lifts 50 |
 
 The three head moves stay inside the reach of a glance at rest
-(`REST_GLANCE_REACH`) and move neither the base nor the arm. No shift
+(`REST_GLANCE_REACH`) and move neither the base nor the arm; they pass
+V1's anti-tip rule with the built-in clips (`cog.rs`). No shift
 while it is folded, rising or folding, while a mood other than rest is
-heard (someone talking to it, a call taken as listening), while a glance,
-a call or another gesture plays or waits, or while a joint has given way
-to a hand or is in one; any of these lets a shift under way go and starts
-the wait again, so no shift comes right after it. A gesture that is asked
+heard (someone talking to it, a call taken as listening), while a call or
+another gesture plays or waits, while the head or the base has given way to
+a hand or is in one (a hand on the shoulder or the elbow is not looked at),
+or while stillness is asked (Expression's `hold` for someone working under
+the light, or a pause); any of these lets a shift under way go and starts
+the wait again, so no shift comes right after it. Expression's rest
+stream under `--rest-glance` (renewed every 20 ms at rest, zeros or a
+breath) is not a reason: the shift plays over it and replaces its offsets
+while it lasts. Until 2026-10-16 evening it was, and no deployed lamp
+shifted at all. A gesture that is asked
 for replaces a shift. Each run draws from its own seed (the clock at start;
 tests pass one with `Standing::seeded`). The report counts shifts apart
 from gestures (`idles`); the journal names each (`gesture tilt_left`).

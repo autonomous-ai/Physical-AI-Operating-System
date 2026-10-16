@@ -200,7 +200,11 @@ mod tests {
     fn every_built_in_clip_passes_v1s_rule() {
         for (lamp, stand, folded) in LAMPS {
             assert!(off_axis_mm(by_id(folded)) < CLIP_MM, "{lamp}");
-            for clip in clips::ALL.iter().chain([&&clips::CALLED]) {
+            for clip in clips::ALL
+                .iter()
+                .chain([&&clips::CALLED])
+                .chain(crate::idle::MOVES.iter())
+            {
                 let (frame, mm) = worst_frame(stand, clip.frames);
                 assert!(
                     mm < CLIP_MM * WARN_SHARE,

@@ -2041,6 +2041,7 @@ fn gesture_run(
                 gesture: due.then_some(clip),
                 expression: None,
                 called: false,
+                still: false,
             }
         },
         |glimpse| {
@@ -2106,6 +2107,7 @@ fn expression_run_with(
             gesture: None,
             expression: (time.get() >= from && time.get() < until).then_some(offsets),
             called: false,
+            still: false,
         },
         |glimpse| seen.push((seen_at.get(), glimpse.goals)),
     );
@@ -2381,6 +2383,7 @@ fn a_lamp_is_not_stood_up_farther_back_than_v1s_line() {
             gesture: None,
             expression: None,
             called: false,
+            still: false,
         },
         |glimpse| steps.push((glimpse.goals, glimpse.arm_goals, glimpse.stand)),
     );
@@ -2436,6 +2439,7 @@ fn a_gesture_waits_for_a_lamp_that_is_rising_and_is_forgotten_by_one_that_is_not
             gesture: (!std::mem::replace(&mut asked_once, true)).then_some(&crate::clips::NOD),
             expression: None,
             called: false,
+            still: false,
         },
         |_| {},
     );
@@ -2510,6 +2514,7 @@ fn the_heads_pitch_is_never_asked_under_its_floor_whatever_adds_up() {
                 gesture: due.then_some(&crate::clips::STRETCHING),
                 expression: None,
                 called: false,
+                still: false,
             }
         },
         |glimpse| {
@@ -2582,6 +2587,7 @@ fn shifts_at_rest(
     mood: Mood,
     share: u8,
     bumps: Option<u64>,
+    stream: Option<fn(Duration) -> Asked>,
 ) -> (BodyReport, Vec<Shift>) {
     let (mut lamp, mut clock) = folded(Duration::from_secs(minutes * 60));
     lamp.arm_moves = true;
@@ -2596,6 +2602,7 @@ fn shifts_at_rest(
     }
     let limits = Limits {
         give_way: bumps.map(|_| GiveWay::Return),
+        rest_glance: stream.is_some(),
         ..Limits::folded_with(Tuning {
             reach: [150, 15, 1, 250],
             speed: 120,
@@ -2606,6 +2613,7 @@ fn shifts_at_rest(
     };
     let time = clock.time.clone();
     let watched = clock.time.clone();
+    let heard = clock.time.clone();
     let mut shifts: Vec<Shift> = Vec::new();
     let mut playing: Option<(Duration, &'static str)> = None;
     let report = run_alive(
@@ -2622,7 +2630,7 @@ fn shifts_at_rest(
                 (mood, 0)
             })
         },
-        Asked::default,
+        move || stream.map_or_else(Asked::default, |stream| stream(heard.get())),
         |glimpse| {
             let shift = glimpse
                 .gesture
@@ -2647,7 +2655,7 @@ fn shifts_at_rest(
 /// twice running. The first comes at least 40 s after it was spoken to.
 #[test]
 fn standing_with_nothing_to_do_it_shifts_rarely_irregularly_and_never_the_same_twice() {
-    let (report, shifts) = shifts_at_rest(true, 20, Mood::Resting, 100, None);
+    let (report, shifts) = shifts_at_rest(true, 20, Mood::Resting, 100, None, None);
     assert_eq!(report.idles as usize, shifts.len());
     assert!(shifts.len() >= 4, "{shifts:?}");
     assert!(
@@ -2677,7 +2685,7 @@ fn standing_with_nothing_to_do_it_shifts_rarely_irregularly_and_never_the_same_t
     }
     assert!(report.retreats.is_empty());
     // Not asked to, it stands still.
-    let (report, shifts) = shifts_at_rest(false, 10, Mood::Resting, 100, None);
+    let (report, shifts) = shifts_at_rest(false, 10, Mood::Resting, 100, None, None);
     assert_eq!((report.idles, shifts.len()), (0, 0));
 }
 
@@ -2686,21 +2694,54 @@ fn standing_with_nothing_to_do_it_shifts_rarely_irregularly_and_never_the_same_t
 #[test]
 fn it_does_not_shift_while_talked_to_folded_or_held() {
     for mood in [Mood::Listening, Mood::Speaking, Mood::Thinking] {
-        let (report, _) = shifts_at_rest(true, 10, mood, 100, None);
+        let (report, _) = shifts_at_rest(true, 10, mood, 100, None, None);
         assert_eq!(report.idles, 0, "{mood:?}");
     }
-    let (report, _) = shifts_at_rest(true, 10, Mood::Resting, 60, None);
+    let (report, _) = shifts_at_rest(true, 10, Mood::Resting, 60, None, None);
     assert_eq!(report.idles, 0);
     // A bump every 30 s: always inside the shortest wait.
-    let (report, _) = shifts_at_rest(true, 10, Mood::Resting, 100, Some(30));
+    let (report, _) = shifts_at_rest(true, 10, Mood::Resting, 100, Some(30), None);
     assert!(report.eased[1] >= 15, "{report:?}");
     assert_eq!(report.idles, 0, "{report:?}");
+}
+
+/// Expression's rest stream, renewed every step under `--rest-glance`
+/// (zeros, or a small breath), is no reason not to shift: the shift plays
+/// over it as with no stream. Stillness asked of it (a hold) and a pause
+/// are: no shift at all.
+#[test]
+fn it_shifts_over_expressions_rest_stream_and_not_while_held_still_or_paused() {
+    let (_, alone) = shifts_at_rest(true, 20, Mood::Resting, 100, None, None);
+    let zeros: fn(Duration) -> Asked = |_| Asked {
+        expression: Some([0.0; 3]),
+        ..Asked::default()
+    };
+    let breath: fn(Duration) -> Asked = |at| Asked {
+        expression: Some([(at.as_secs_f32() * 1.2).sin() * 4.0, 0.0, 0.0]),
+        ..Asked::default()
+    };
+    for stream in [zeros, breath] {
+        let (report, shifts) = shifts_at_rest(true, 20, Mood::Resting, 100, None, Some(stream));
+        assert_eq!(report.idles as usize, shifts.len());
+        assert!(shifts.len() >= 4, "{shifts:?}");
+        let names = |all: &[Shift]| all.iter().map(|shift| shift.2).collect::<Vec<_>>();
+        assert_eq!(names(&shifts), names(&alone));
+    }
+    let held: fn(Duration) -> Asked = |_| Asked {
+        still: true,
+        ..Asked::default()
+    };
+    let paused: fn(Duration) -> Asked = |_| Asked::PAUSED;
+    for stream in [held, paused] {
+        let (report, _) = shifts_at_rest(true, 10, Mood::Resting, 100, None, Some(stream));
+        assert_eq!(report.idles, 0);
+    }
 }
 
 /// Spoken to in the middle of a shift, it lets the shift go at once.
 #[test]
 fn spoken_to_in_the_middle_of_a_shift_it_lets_it_go_at_once() {
-    let (_, shifts) = shifts_at_rest(true, 5, Mood::Resting, 100, None);
+    let (_, shifts) = shifts_at_rest(true, 5, Mood::Resting, 100, None, None);
     let (from, _, _) = shifts[0];
     let again = from + Duration::from_secs(1);
     let (mut lamp, mut clock) = folded(again + Duration::from_secs(10));
@@ -2777,6 +2818,7 @@ fn it_stands_up_for_somebody_in_front_of_it_and_stays_up_while_they_are_there() 
                     gesture: None,
                     expression: None,
                     called: false,
+                    still: false,
                 }
             },
             |glimpse| stood.push((watched.get(), glimpse.stand)),
@@ -2846,6 +2888,7 @@ fn paused_with_somebody_still_in_front_of_it_a_standing_lamp_folds() {
                 gesture: None,
                 expression: None,
                 called: false,
+                still: false,
             }
         },
         |glimpse| stood.push((watched.get(), glimpse.stand)),
@@ -4576,6 +4619,7 @@ fn called_run(
                 gesture: None,
                 expression: None,
                 called,
+                still: false,
             }
         },
         |glimpse| {

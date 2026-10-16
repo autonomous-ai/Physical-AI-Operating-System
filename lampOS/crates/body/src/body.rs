@@ -305,6 +305,9 @@ pub struct Asked {
     /// The lamp's name was heard since the last step (`name/heard`), and
     /// was fresh when it came. Taken only under `Limits::look_at_name`.
     pub called: bool,
+    /// Stillness is asked: Expression holds the lamp still for someone
+    /// working under it, or the lamp is paused. No shift at rest.
+    pub still: bool,
 }
 
 impl Asked {
@@ -316,6 +319,7 @@ impl Asked {
         gesture: None,
         expression: None,
         called: false,
+        still: true,
     };
 }
 
@@ -2056,6 +2060,7 @@ pub(crate) fn run_looking(
         gesture: None,
         expression: None,
         called: false,
+        still: false,
     };
     run_alive(
         io, runtime, limits, home, standing, looking, news, asked, watch,
@@ -3015,8 +3020,12 @@ fn run_until_stopped(
         // now and then, not on a clock: after a wait drawn at random, longer
         // the longer nobody has been near, and each time a different small
         // move (`crate::idle`). It stops the moment there is something to do:
-        // a mood, a call, a glance, another gesture, a hand on it. Each of
-        // those starts the wait again, so no shift comes right after one.
+        // a mood, a call, another gesture, a hand on the head or the base,
+        // stillness asked (Expression holding, or a pause). Each of those
+        // starts the wait again, so no shift comes right after one.
+        // Expression's rest stream (zeros or a breath, renewed every step
+        // under `--rest-glance`) does not: the shift replaces its offsets
+        // while it plays.
         if faces_running > 0 || mood != Mood::Resting {
             alone_since = now;
         }
@@ -3025,8 +3034,7 @@ fn run_until_stopped(
             && mood == Mood::Resting
             && pending.is_none()
             && (playing.is_none() || idling)
-            && !glance
-            && glance_from.is_none()
+            && !asked_now.still
             && easing == [0; 3]
             && in_hand == [0; 3];
         if !quiet {
@@ -3038,7 +3046,7 @@ fn run_until_stopped(
             match idle_due {
                 None => idle_due = Some(now + idler.gap(now.saturating_sub(alone_since))),
                 Some(due) if now >= due && standing.is_some_and(|up| up.idle) => {
-                    playing = Some((idler.pick(), now));
+                    playing = Some((idler.pick(limits.stand_roll > limits.roll), now));
                     report.idles += 1;
                     idle_due = None;
                 }

@@ -33,9 +33,9 @@
 //!   that opened softly ("um, and…") lost 0.4 s of its start, and the asker
 //!   just after someone across the room lost 0.22 s, because a judgement
 //!   at 60 ms over the last half second cleared them. Speech still waiting
-//!   when the answer begins to play has its last chance then: kept, it is
-//!   let go and the answer plays (left to the duplex rule, it was admitted
-//!   a block into the answer and replaced it).
+//!   when the answer begins to play is judged on until its last chance:
+//!   kept then, it is let go and the answer plays (left to the duplex rule,
+//!   it was admitted a block into the answer and replaced it).
 //! - **It ends** [`KEEPS_FOR_US`] after the asker stopped, played or not:
 //!   an answer held back never plays, and a person who took their question
 //!   back ("never mind") is heard again then. A line it kept is kept until

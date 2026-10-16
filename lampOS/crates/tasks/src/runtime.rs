@@ -48,11 +48,6 @@ pub const WAIT_AGAIN: Duration = Duration::from_secs(3);
 /// After a `wait` failed, the next on that machine starts no sooner than
 /// this; the watch's own looks go on meanwhile.
 pub const WAIT_BACKOFF: Duration = Duration::from_secs(30);
-/// After this many `wait`s in a row came back on the same agents with none
-/// of them let go (Harness says idle while `show` still finds the agent at
-/// work), the next waits [`WAIT_BACKOFF`] instead of [`WAIT_AGAIN`], so a
-/// stuck case does not cost a `show` every 3 s (#1157 review).
-pub const WAIT_QUICK_MOST: u32 = 3;
 
 fn invalid(message: &'static str) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidInput, message)
@@ -436,7 +431,7 @@ fn owner<C: Clock>(
         let mut moved = false;
         if waits.lane.is_some() {
             let now = clock.sample()?;
-            waits.tend(&engine.watched(&now), Instant::now());
+            waits.tend(&engine.watched(&now), &engine.pushed(), Instant::now());
         }
         if let Ok(outcome) = outcomes.try_recv() {
             moved = true;
@@ -589,9 +584,6 @@ struct Waits {
     /// that gave it: a cancelled `wait` that answers late, after another on
     /// the same agents replaced it, is dropped (#1157 review).
     next: u64,
-    /// The agents each machine's `wait`s last came back on, and how many in
-    /// a row did with that set unchanged.
-    quick: BTreeMap<String, (Vec<String>, u32)>,
 }
 /// What one `wait` came back with: its machine, its number, and the ends it
 /// brought or why it failed.
@@ -612,14 +604,17 @@ impl Waits {
             pushes: BTreeSet::new(),
             ended: mpsc::channel(),
             next: 0,
-            quick: BTreeMap::new(),
         }
     }
 
     /// Takes what came back, and holds one `wait` a machine on exactly the
     /// agents the watch looks at there: one whose set changed is cancelled
-    /// and started again with the new set.
-    fn tend(&mut self, watched: &[Watched], now: Instant) {
+    /// and started again with the new set. A task already pushed and not
+    /// yet read, or whose latest read was a push (`pushed`), is left out
+    /// until the watch's own next read of it: one agent Harness keeps
+    /// calling done never holds up the others on its machine (the reviewer
+    /// on #1157).
+    fn tend(&mut self, watched: &[Watched], pushed: &BTreeSet<u64>, now: Instant) {
         let Some(lane) = self.lane.clone() else {
             return;
         };
@@ -628,7 +623,6 @@ impl Waits {
                 continue;
             };
             let took = held.began.elapsed().as_millis();
-            let agents = held.agents.clone();
             self.held.remove(&machine);
             match result {
                 Ok(ended) if ended.is_empty() => {}
@@ -653,18 +647,7 @@ impl Waits {
                         "tasks: wait on {machine} came back after {took} ms: {}",
                         named.join(", ")
                     );
-                    let quick = self.quick.entry(machine.clone()).or_default();
-                    if quick.0 == agents {
-                        quick.1 = quick.1.saturating_add(1);
-                    } else {
-                        *quick = (agents, 1);
-                    }
-                    let again = if quick.1 >= WAIT_QUICK_MOST {
-                        WAIT_BACKOFF
-                    } else {
-                        WAIT_AGAIN
-                    };
-                    self.rest.insert(machine, now + again);
+                    self.rest.insert(machine, now + WAIT_AGAIN);
                 }
                 Err(code) if code == "cancelled" => {}
                 Err(code) => {
@@ -674,7 +657,10 @@ impl Waits {
             }
         }
         let mut wanted: BTreeMap<&str, BTreeSet<&str>> = BTreeMap::new();
-        for task in watched {
+        for task in watched
+            .iter()
+            .filter(|task| !pushed.contains(&task.task_id) && !self.pushes.contains(&task.task_id))
+        {
             wanted
                 .entry(task.machine_id.as_str())
                 .or_default()
@@ -1295,16 +1281,16 @@ mod tests {
     fn a_cancelled_waits_late_answer_never_untracks_the_wait_that_replaced_it() {
         let lane = Arc::new(SlowLane::default());
         let mut waits = Waits::new(Some(lane.clone()));
-        waits.tend(&watched(&["a"]), Instant::now());
+        waits.tend(&watched(&["a"]), &BTreeSet::new(), Instant::now());
         settle(&lane, 1);
-        waits.tend(&watched(&["a", "b"]), Instant::now());
+        waits.tend(&watched(&["a", "b"]), &BTreeSet::new(), Instant::now());
         settle(&lane, 2);
-        waits.tend(&watched(&["a"]), Instant::now());
+        waits.tend(&watched(&["a"]), &BTreeSet::new(), Instant::now());
         settle(&lane, 3);
         // Long enough for the first to answer, tending all the while.
         let until = Instant::now() + Duration::from_millis(600);
         while Instant::now() < until {
-            waits.tend(&watched(&["a"]), Instant::now());
+            waits.tend(&watched(&["a"]), &BTreeSet::new(), Instant::now());
             thread::sleep(Duration::from_millis(5));
         }
         assert_eq!(
@@ -1323,52 +1309,94 @@ mod tests {
         }
     }
 
-    /// A lane that comes back at once, each time, with its one agent idle.
+    /// A lane that comes back at once naming "a" whenever it is asked about
+    /// it (Harness calls it done while `show` finds it at work), and holds a
+    /// wait without it until "b" is let go.
     #[derive(Default)]
-    struct QuickLane {
-        calls: AtomicU64,
+    struct StuckLane {
+        asked: Mutex<Vec<Vec<String>>>,
+        b_ends: AtomicBool,
     }
-    impl WaitLane for QuickLane {
-        fn wait(&self, _: &str, agents: &[String], _: &AtomicBool) -> Result<Vec<Ended>, String> {
-            self.calls.fetch_add(1, Ordering::SeqCst);
-            Ok(vec![Ended {
-                agent_id: agents[0].clone(),
-                state: "idle".into(),
-            }])
+    impl WaitLane for StuckLane {
+        fn wait(
+            &self,
+            _: &str,
+            agents: &[String],
+            cancel: &AtomicBool,
+        ) -> Result<Vec<Ended>, String> {
+            self.asked.lock().unwrap().push(agents.to_vec());
+            let end = |agent: &str| {
+                Ok(vec![Ended {
+                    agent_id: agent.into(),
+                    state: "idle".into(),
+                }])
+            };
+            if agents.iter().any(|agent| agent == "a") {
+                return end("a");
+            }
+            while !cancel.load(Ordering::Acquire) {
+                if self.b_ends.load(Ordering::Acquire) {
+                    return end("b");
+                }
+                thread::sleep(Duration::from_millis(2));
+            }
+            Err("cancelled".into())
         }
     }
 
-    /// #1157 review: Harness says idle while the store still finds the
-    /// agent at work. After three such returns in a row the next waits
-    /// WAIT_BACKOFF, not WAIT_AGAIN; a new set starts the count again.
+    /// The reviewer on #1157: task 1's agent is stuck (Harness calls it done,
+    /// `show` finds it unanswered) and task 2 is on the same machine. Once
+    /// task 1 is pushed, its agent is left out until the watch's own read of
+    /// it, and task 2's end is still pushed within WAIT_AGAIN and a few ticks.
     #[test]
-    fn waits_that_keep_coming_back_on_the_same_agents_back_off() {
-        let lane = Arc::new(QuickLane::default());
+    fn one_stuck_agent_never_holds_up_the_others_on_its_machine() {
+        let lane = Arc::new(StuckLane::default());
         let mut waits = Waits::new(Some(lane.clone()));
+        let both = watched(&["a", "b"]);
         let start = Instant::now();
-        let mut at = start;
-        let tend_until_back = |waits: &mut Waits, at: Instant, set: &[&str], calls: u64| {
-            waits.tend(&watched(set), at);
+        let tend_until = |waits: &mut Waits,
+                          pushed: &BTreeSet<u64>,
+                          at: Instant,
+                          done: &dyn Fn(&Waits) -> bool| {
             let until = Instant::now() + Duration::from_secs(2);
-            while lane.calls.load(Ordering::SeqCst) < calls || !waits.held.is_empty() {
-                assert!(Instant::now() < until, "wait {calls} never came back");
-                waits.tend(&watched(set), at);
+            while !done(waits) {
+                assert!(
+                    Instant::now() < until,
+                    "asked: {:?}",
+                    lane.asked.lock().unwrap()
+                );
+                waits.tend(&both, pushed, at);
                 thread::sleep(Duration::from_millis(2));
             }
         };
-        for calls in 1..=WAIT_QUICK_MOST as u64 {
-            tend_until_back(&mut waits, at, &["a"], calls);
-            assert!(waits.pushes.contains(&1));
-            at += WAIT_AGAIN;
-        }
-        // The third came back: the next is WAIT_BACKOFF away, not 3 s.
-        let rest = waits.rest["m"];
-        assert_eq!(rest, at - WAIT_AGAIN + WAIT_BACKOFF);
-        waits.tend(&watched(&["a"]), at);
-        assert!(waits.held.is_empty());
-        // Another set on the machine counts afresh.
-        tend_until_back(&mut waits, rest, &["a", "b"], WAIT_QUICK_MOST as u64 + 1);
-        assert_eq!(waits.rest["m"], rest + WAIT_AGAIN);
+        // The first wait names "a" at once: task 1 is pushed.
+        tend_until(&mut waits, &BTreeSet::new(), start, &|w| {
+            w.pushes.contains(&1)
+        });
+        // Its push is taken, and the read leaves it watched: from now on it
+        // is a pushed task, left out until the watch reads it again.
+        waits.pushes.remove(&1);
+        let pushed = BTreeSet::from([1]);
+        let after = start + WAIT_AGAIN;
+        tend_until(&mut waits, &pushed, after, &|w| !w.held.is_empty());
+        assert_eq!(
+            *lane.asked.lock().unwrap(),
+            vec![vec!["a".to_owned(), "b".to_owned()], vec!["b".to_owned()]]
+        );
+        // Task 2's agent ends: pushed at once, not 30 s later.
+        lane.b_ends.store(true, Ordering::Release);
+        tend_until(&mut waits, &pushed, after, &|w| w.pushes.contains(&2));
+        // The watch reads task 1 again (no longer a pushed read): it is
+        // waited on once more.
+        waits.pushes.remove(&2);
+        let watch_read = after + WAIT_AGAIN;
+        tend_until(&mut waits, &BTreeSet::new(), watch_read, &|w| {
+            w.pushes.contains(&1)
+        });
+        assert_eq!(
+            lane.asked.lock().unwrap().last().unwrap(),
+            &vec!["a".to_owned(), "b".to_owned()]
+        );
     }
 
     fn root() -> tempfile::TempDir {

@@ -38,7 +38,6 @@ filter = '''
   | (binary_id(lamp-records::records) & test(=real_reporter_reloads_switch_and_policy_and_requires_a_matching_receipt))
   | (binary_id(lamp-actions::server) & test(=the_light_is_offered_when_its_owner_appears_and_withdrawn_when_it_goes))
   | (binary_id(lamp-voice) & test(/^coordinator::motor::tests::native_head::/))
-  | (binary_id(lamp-body) & test(=runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only))
 '''
 test-group = 'realtime'
 
@@ -67,7 +66,6 @@ not (
   | (binary_id(lamp-records::records) & test(=real_reporter_reloads_switch_and_policy_and_requires_a_matching_receipt))
   | (binary_id(lamp-actions::server) & test(=the_light_is_offered_when_its_owner_appears_and_withdrawn_when_it_goes))
   | (binary_id(lamp-voice) & test(/^coordinator::motor::tests::native_head::/))
-  | (binary_id(lamp-body) & test(=runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only))
 )
 '''
 
@@ -94,5 +92,4 @@ default-filter = '''
   | (binary_id(lamp-records::records) & test(=real_reporter_reloads_switch_and_policy_and_requires_a_matching_receipt))
   | (binary_id(lamp-actions::server) & test(=the_light_is_offered_when_its_owner_appears_and_withdrawn_when_it_goes))
   | (binary_id(lamp-voice) & test(/^coordinator::motor::tests::native_head::/))
-  | (binary_id(lamp-body) & test(=runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only))
 '''

@@ -705,10 +705,18 @@ With the switch:
 - **The words asked for after 100 ms of stillness**
   (`FINALIZE_AFTER_STILL_BLOCKS`). Through the relay they came about 0.25 s
   after a stop phrase ended (the sixth builder, #828, 08:22), inside the
-  400 ms of stillness after which the rule resumes.
+  400 ms of stillness after which the rule resumes. A block counts as still
+  only 300 ms after the lamp stops (`clear_after_blocks`), so for a "Stop."
+  that ends as the lamp yields the commit comes about 0.65 s after it: the
+  lamp is silent from the yield, and only the decision comes later (the
+  reviewer on #970).
+- **A hand Stop, a head touch, mute or privacy closes it** (`close`): the
+  duplex rule's yield, which a hand Stop leaves in force, is let be until
+  it ends, not begun again and called unheard (the reviewer on #970).
 - **A stop phrase commits the yield** (`stop_phrase`: "stop", "wait",
   "enough", "pause", "quiet", "hush", "shush", "hold on", "hang on", alone
-  or among other words). The reply ends as for any interruption, and what
+  or among other words, but not right after "don't", "not" or "never":
+  "Don't stop" is no stop, the reviewer on #970). The reply ends as for any interruption, and what
   was said goes to the provider, which answers ("Okay."). Any other words
   let stillness resume the reply as before, and no words resume it at the
   deadline.
@@ -716,7 +724,7 @@ With the switch:
   outcome is recorded as `stop_words`, with `stop` and how many words, or
   `words: null` when it ended before they came; the words themselves aren't
   recorded. The journal says the same in one line a yield ("a yield's words
-  came: 1 words, a stop phrase", "a yield ended before its words came").
+  came: 1 word, a stop phrase", "a yield ended before its words came").
   Counted against the played cut-ins, these show how often a one-word stop
   made the lamp yield at all: that half is the canceller's, not this one's
   (the first builder, 09:49: a lone "Stop." yielded 0 of 3 that morning).

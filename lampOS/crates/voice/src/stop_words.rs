@@ -52,17 +52,29 @@ const STOP_WORDS: &[&str] = &["stop", "wait", "enough", "pause", "quiet", "hush"
 /// Two words that do the same together: "Hold on.", "Hang on."
 const STOP_PAIRS: &[(&str, &str)] = &[("hold", "on"), ("hang", "on")];
 
+/// Words that, just before a stop word, turn it round: "Don't stop.", "No,
+/// never stop." (the reviewer on #970).
+const NOT: &[&str] = &[
+    "don't", "dont", "not", "never", "doesn't", "didn't", "won't", "can't", "cannot",
+];
+
 /// Whether what was heard tells the lamp to stop.
 pub fn stop_phrase(heard: &str) -> bool {
     let words: Vec<String> = heard
-        .split(|c: char| !c.is_alphanumeric())
+        .replace('\u{2019}', "'")
+        .split(|c: char| !(c.is_alphanumeric() || c == '\''))
+        .map(|word| word.trim_matches('\''))
         .filter(|word| !word.is_empty())
         .map(str::to_lowercase)
         .collect();
-    words.iter().any(|word| STOP_WORDS.contains(&word.as_str()))
-        || words
-            .windows(2)
-            .any(|pair| STOP_PAIRS.contains(&(pair[0].as_str(), pair[1].as_str())))
+    let turned = |at: usize| at > 0 && NOT.contains(&words[at - 1].as_str());
+    words
+        .iter()
+        .enumerate()
+        .any(|(at, word)| STOP_WORDS.contains(&word.as_str()) && !turned(at))
+        || words.windows(2).enumerate().any(|(at, pair)| {
+            STOP_PAIRS.contains(&(pair[0].as_str(), pair[1].as_str())) && !turned(at)
+        })
 }
 
 /// Where a yield's words come from.
@@ -107,6 +119,10 @@ pub struct StopWords {
     yielded: bool,
     asked: bool,
     told: bool,
+    /// The microphone was closed ([`Self::close`]): the duplex rule's
+    /// yield, which a hand Stop or a head touch leaves in force, is not a
+    /// new one, and is let be until it ends (the reviewer on #970).
+    closed: bool,
 }
 
 impl StopWords {
@@ -118,6 +134,7 @@ impl StopWords {
             yielded: false,
             asked: false,
             told: false,
+            closed: false,
         }
     }
 
@@ -135,6 +152,12 @@ impl StopWords {
         captured_at_us: u64,
         samples: &[i16],
     ) -> Tell {
+        if self.closed {
+            if yielded {
+                return Tell::Nothing;
+            }
+            self.closed = false;
+        }
         if replying && !self.replying {
             self.ears.ready();
             self.rested = false;
@@ -197,6 +220,7 @@ impl StopWords {
             self.rested = true;
         }
         self.replying = false;
+        self.closed = true;
     }
 }
 
@@ -608,9 +632,16 @@ mod tests {
             "Hang",
             "On the other hand.",
             "",
+            // Turned round (the reviewer on #970).
+            "Don't stop.",
+            "No, don't stop.",
+            "Don\u{2019}t stop, I love this part.",
+            "Never stop.",
         ] {
             assert!(!stop_phrase(not), "{not}");
         }
+        // A stop word after one that is turned round still counts.
+        assert!(stop_phrase("Don't worry, stop."));
     }
 
     /// What the scripted ears were told, and the words they give.
@@ -735,6 +766,12 @@ mod tests {
         );
         words.close();
         words.close();
+        // The reviewer on #970: a hand Stop leaves the duplex rule's yield in
+        // force; it is not begun again, and not called unheard when it ends.
+        assert_eq!(
+            words.block(true, true, Some(3), None, 0, &block(40)),
+            Tell::Nothing
+        );
         assert_eq!(
             words.block(true, false, None, None, 0, &block(5)),
             Tell::Nothing
@@ -745,6 +782,11 @@ mod tests {
             [
                 "ready", "hear 2", "forget", "hear 4", "forget", "rest", "ready"
             ]
+        );
+        // The next yield is heard again.
+        assert_eq!(
+            words.block(true, true, Some(0), None, 0, &block(6)),
+            Tell::Await
         );
     }
 

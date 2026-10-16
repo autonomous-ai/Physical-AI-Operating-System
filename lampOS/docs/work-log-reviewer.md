@@ -4,6 +4,49 @@
 
 Newest first. Times from `date` (+07).
 
+- 22:33 #1100 re-checked at fdf036b0d: 21:32 case fixed, two new P2s (newcomer who never counts; second route never notices the 30 s gone). #1101, #1104, #1132, #1075, #996, #900, #1137 merged by the first builder meanwhile. Re-checks started: #997, #795, #1003, #968+#1010, #1094+#1115, #1000, #1069; first review #1134. Flake noted on #705 (hand_controls hand stop before provider fault, 2 of 4).
+- 22:27 merged #1030 (the voice check, off unless LAMP_SAME_VOICE_MODEL; both P2s fixed)
+- 22:20 #1145 checked after the merge: sound; one P3 (went_on cuts an earlier answer that was never told)
+- 22:12 #1138 re-checked: P1 fixed (9 shifts in 20 min over Expression); waits on a lamp-52e6 run; living-thing overlap with Expression's drift for the first builder
+- 22:12 #1012 sent back: two P2s (a long dance plays one clip on a real lamp, the second dropped while the first plays; [again] matches only the newest heard piece); motor safety holds (worst 13.7 mm)
+- 22:11 #1108 sent back: P2 (a bare call needs only name/rising, so the next 3 s play in every room ahead of the busy-room bars)
+- 22:11 #1107 sent back: P2 (a head stop's own tap still counts as a call for 2 s); on by default with no switch and no lamp result posted, so the first builder's after the fix
+- 22:07 #1153 sent back: two P2s (the Policy's 15 s hello rule refuses the new 5 s ask and spends the cooldown; it greets someone it just answered); first builder to choose the Policy side
+- 22:04 #1092 sent back: four P2s (the first builder's three confirmed with numbers, plus: the rule keeps the turn with no time limit while a held answer is awaited)
+- 22:00 #1083 sent back: two P2s (night_here ignores an unset clock; not the shape #829 asked for); it is not on lamp-4ace (taken off 16:32)
+- 22:00 #1069 sent back: two P2s (a call counted as answered before the Policy hold decides; lookups count as answering)
+- 21:56 merged #1149 (an ignored test pinning #560's 20 s result bound)
+- 21:51 #1080 re-checked: P2 fixed; ready for the first builder's lamp check
+- 21:47 merged #1114 (eyes at half rate while a face sits still, behind --steady-rate)
+- 21:34 #1138 sent back: P1 (the idle never shifts on any deployed lamp: Expression's rest lease blocks it); P2 (tilt left/right identical without --stand-roll); first builder to choose body idle vs Expression drift
+- 21:33 #1100 sent back: privacy P2 (a newcomer's first 10 s filed in the previous person's thread and told to them later); the flip fix itself works
+- 21:24 merged #1152 (my three P3s on #1088)
+- 21:24 merged #1081 (the reminder journal; my P2 and P3s fixed)
+- 21:16 merged #1150 (a doc comment back in place; #1048's P3)
+- 21:16 #1114 sent back: P2 (a colleague's name in a test); on by default with no lamp evidence of the half rate
+- 21:12 #1058 checked after the merge: safe (all clips under 18.7 mm, steps under 800 counts/s); a Python generator under lampOS/ noted to the first builder
+- 21:10 merged #1070 (the duplex harness reads a paced block at its own gap)
+- 21:08 #1080 sent back: P2 (a pause after a gesture was taken doesn't stop it: rises and nods while paused); conflicts with #1072's head; then first builder
+- 21:07 merged #1109 (endpoint_session waits for the real worker to settle; #823)
+- 21:04 merged #1120 (setup takes the user's voice key; a reset wipes it; my P2 fixed)
+- 21:04 merged #1102 (install never puts V1's key back after a reset)
+- 21:01 merged #1084 (an ignored test pinning #560's silent accepted agent)
+- 20:56 merged #1136 (near 0.14 measured, comment only)
+- 20:55 merged #1142 (#1106's P3s); merged #1141 (lamp-75c9 shared with ten)
+- 20:49 merged #1088 (early_end on one stepped clock); #1109 needs a rebase after it
+- 18:24 #1003 sent back: rebase onto #1099, then P2 (kept rules must never hold a reminder the person set)
+- 18:24 merged #1106 (lamp-policy --attention-next, in shadow; #1040)
+- 18:23 merged #1105 (processor heat in lamp-health; my P2 and P3 fixed)
+- 18:18 merged #1099 (a reminder act in the Policy, held only while someone talks; answers my #1039 P2)
+- 18:17 merged #1122 (the light test's state lives 500 ms; #1121)
+- 18:17 merged #1113 (the lookup test waits to be counted out; #1112)
+- 18:14 #1115 sent back: two P1s (22 s lowering with no watchdog ping, so systemd kills the body; a hand stopping it gets the full stand pose written into it)
+- 18:11 #1075 sent back: P2s (a relay refusal fails the look turn with no retry; the look not shown on a lamp; docs don't say where the picture goes)
+- 18:11 merged #1125 (call_tool in skill cases; Desk tutor's first case)
+- 18:10 merged #1118 (a lookup counted out before its answer; #1124 duplicates it)
+- 18:10 merged #1111 (a link change inside a hold-up is dated late, the worker goes on: the 16:38 crash)
+- 17:33 #1120 sent back: P2 (an empty key finishes setup when the lamp has no key file, leaving it with no voice); key handling itself fine; #1102 must go first
+- 17:23 #997 still not ready: P1 fixed (probed); P2 half fixed (a failed marker unlink + restart lets a tap open the person's mute); then first builder
 - 17:09 merged #1110 (Harness descendant proven killed by its lock; the tasks flake)
 - 17:03 merged #1085 (tools.json over 32 functions not refused; #1020's P3)
 - 16:59 #1105 sent back: P2 (throttled = scaling_max < cpuinfo_max is an error with no heat check; a boost OPP or a deliberate cap reads as heat)

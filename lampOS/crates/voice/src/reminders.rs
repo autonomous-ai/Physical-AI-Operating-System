@@ -30,6 +30,40 @@ pub const LEASE_US: u64 = 750_000;
 /// acknowledged (the first builder, 2026-10-16: lamp-4ace's "stretch",
 /// twelve hours late, was never said and stayed pending).
 pub const OVERDUE_MS: u64 = 60 * 60_000;
+
+/// Someone is at the lamp, as for the news: the eyes say a face is there
+/// (`present`), or a person said something within the last two minutes. A
+/// TV's speech counts too, as it does for the news.
+pub(crate) fn someone_here(present: bool, said_at_us: Option<u64>, now_us: u64) -> bool {
+    present
+        || said_at_us
+            .is_some_and(|at| now_us.saturating_sub(at) < crate::task_news::HEARD_WITHIN_US)
+}
+
+/// The overdue reminder last said to be waiting for someone, so the
+/// journal says it once for each attempt.
+#[derive(Default)]
+pub(crate) struct OverdueWait {
+    told: Option<PreparedToken>,
+}
+impl OverdueWait {
+    /// Whether `offer` may begin now. While it may not, the journal says
+    /// once for its attempt that it waits.
+    pub(crate) fn may_begin(&mut self, offer: &Offer, someone_here: bool) -> bool {
+        if offer.may_begin(someone_here) {
+            return true;
+        }
+        if self.told.as_ref() != Some(&offer.token) {
+            eprintln!("lamp-voice: a reminder due over an hour ago waits for someone at the lamp");
+            self.told = Some(offer.token.clone());
+        }
+        false
+    }
+    #[cfg(test)]
+    pub(crate) fn told(&self) -> Option<&PreparedToken> {
+        self.told.as_ref()
+    }
+}
 const POLL_TARGET_US: u64 = 2_000;
 const POLL_PACKETS: usize = 4;
 
@@ -44,9 +78,13 @@ pub(crate) struct Offer {
     pub expires_at_us: u64,
 }
 impl Offer {
-    /// Due an hour ago or more ([`OVERDUE_MS`]).
+    /// Due an hour ago or more ([`OVERDUE_MS`]), or due by an unknown
+    /// amount: Schedule gives no lateness while the wall clock is not
+    /// trusted (the first minute after a boot), and that is never taken
+    /// for on time (the reviewer on #1103).
     pub fn overdue(&self) -> bool {
-        self.late && self.late_by_ms.is_some_and(|ms| ms >= OVERDUE_MS)
+        self.late_by_ms
+            .is_none_or(|ms| self.late && ms >= OVERDUE_MS)
     }
     /// Whether it may begin now: an overdue one only with someone at the
     /// lamp, never into an empty room.

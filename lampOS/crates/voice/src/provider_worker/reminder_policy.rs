@@ -102,7 +102,9 @@ fn delay(ms: u64) -> String {
 /// calls the item a reminder or a timer unless its own words do.
 fn note(text: &str, late: bool, late_by_ms: Option<u64>) -> String {
     let late = late && late_by_ms.is_none_or(|ms| ms >= ON_TIME_MS);
-    let earlier = late && late_by_ms.is_some_and(|ms| ms >= crate::reminders::OVERDUE_MS);
+    // An unknown lateness is never on time: said gently, as asked for
+    // earlier, as an overdue one is (the reviewer on #1103).
+    let earlier = late_by_ms.is_none_or(|ms| late && ms >= crate::reminders::OVERDUE_MS);
     let (data, how) = if earlier {
         (
             serde_json::json!({"text":text,"earlier":true}),
@@ -201,11 +203,15 @@ mod tests {
         assert_eq!(delay(89 * 60_000 + 40_000), "about 90 minutes");
         assert_eq!(delay(90 * 60_000), "about 2 hours");
         assert_eq!(delay(35 * 3_600_000 + 2_400_000), "about 36 hours");
-        // Late with no delay known (recovered after time off): late, unnamed.
-        assert_eq!(
-            data(&note("Tea", true, None)),
-            serde_json::json!({"text":"Tea","late":true,"late_by":null})
-        );
+        // No delay known (the wall clock not yet trusted after a boot, or
+        // recovered after time off): never said as on time; gently, as asked
+        // for earlier (the reviewer on #1103).
+        for late in [true, false] {
+            assert_eq!(
+                data(&note("Tea", late, None)),
+                serde_json::json!({"text":"Tea","earlier":true})
+            );
+        }
         for said in [on_time, seconds, minutes] {
             assert!(said.contains("Never count seconds"));
             assert!(said.contains("do not call it a reminder or a timer"));

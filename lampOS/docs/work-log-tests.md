@@ -1,5 +1,15 @@
 # Tests work log
 
+## 2026-10-16 08:47:17 +0700 — Transport-expiry PR starts native qualification
+
+Ready for lamp-voice: no, #957 at `ad0e7f447e7a67e4c00666207f537d2f260e498e`
+
+[Transport-clock #957](https://github.com/autonomous-ai/lampOS/pull/957) preserves the selected original's four certification assertions and all 27 existing inline tests/104 assertions. Current 69bae baseline 498 identities remain with seven added boundaries; the complete local gate is **505/0/0**, with fmt, strict Clippy and workspace build passing. The exact first local pair is **5.055 → 0.047 s**, same original selector/serial default profile/zero retries. All 1,022 source inputs stayed frozen. The full five-second logical deadline, same real sleep 30 child, actual kill/reap and ordinary host-clock path remain. Host load was uncontrolled and the fixture watchdog only bounds checks before logical advances; this is not device latency or the full 123 result.
+
+Normal **38836333333** and full **38836332567** are running. [First full shard 3 infrastructure failure](verification/transport-native-first-failure-20261016/README.md) preserves the rustls-platform-verifier-android registry download's curl 55/TLS failure and skipped test step. Other jobs continue; no test or job has been restarted at capture. The reviewer will receive the PR ready only after its own native qualification.
+
+Relay #942 remains ready with complete published normal/full coverage. The next Gemini preparation is collecting a clean current 69bae compiled baseline before source edits; its task-join design preserves merged withdrawn-call tracking absent from the earlier e5aa planning snapshot. A source-only delayed-line audit is also underway. The released old prototype build cache was cleared to recover 9.9 GiB; source and raw evidence remain. The original 123 standalone serial target and Eighth's #783 loaded qualification remain open.
+
 ## 2026-10-16 08:35:33 +0700 — Relay native coverage complete
 
 Ready for lamp-voice: yes, Relay #942 at `917a19c5c36bdecb965f404385df386c16b22af4`

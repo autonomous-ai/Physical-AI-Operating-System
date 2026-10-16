@@ -4604,7 +4604,14 @@ fn conversation_with_gate(
             last_publish = monotonic_us();
         }
         if provider_control_empty {
-            second::flush(rig, &cloud, reply, &mut provider_queue)?;
+            second::flush(
+                rig,
+                &mut cloud,
+                &mut output_flow,
+                reply,
+                &mut provider_queue,
+                trace,
+            )?;
         }
         outage.note_delivery(reply);
         select_failure_notice_in(notices, reply, &speaker_pending, &mut outage, trace)?;

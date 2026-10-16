@@ -80,6 +80,9 @@ struct Script {
     /// Privacy reports muted a second after the second route's worker
     /// exited, instead of after `turns`.
     mute_after_second_dies: bool,
+    /// The Live link is Ready again, with a new session, at this capture
+    /// frame, whatever turn is in hand.
+    live_back_at_frame: Option<u64>,
     turn_taking: TurnTaking,
 }
 
@@ -96,6 +99,7 @@ impl Script {
             second_dies: None,
             standby_dies_at: None,
             mute_after_second_dies: false,
+            live_back_at_frame: None,
             turn_taking: TurnTaking::V1Baseline,
         }
     }
@@ -310,8 +314,15 @@ impl Peers {
         {
             self.muted.store(true, Ordering::SeqCst);
         }
-        if let Some(after) = self.script.live_back_after
-            && self.settled >= after
+        let live_back_due = self
+            .script
+            .live_back_after
+            .is_some_and(|after| self.settled >= after)
+            || self
+                .script
+                .live_back_at_frame
+                .is_some_and(|frame| self.frames >= frame);
+        if live_back_due
             && self.link_dropped
             && !self.link_back
             && let Some(index) = self.index("provider")
@@ -1236,4 +1247,51 @@ fn a_second_worker_that_exits_mid_line_leaves_no_queued_input_behind() {
     assert_eq!(dropped[0]["active"], true);
     assert_eq!(run.finished(1)["outcome"], "second_route_failed");
     assert!(run.played(1).is_empty());
+}
+
+/// (m) #960, lamp-4ace 09:03-09:06: on the second route in a busy room the
+/// lamp is never between turns. Gemini's link is Ready again while the
+/// second route still answers, and someone speaks over it: that new turn
+/// is Gemini's, not the second route's.
+#[test]
+fn a_turn_begun_while_the_second_route_answers_goes_to_gemini_once_ready() {
+    let _one = super::pilot_faults::one_session();
+    let run = run(Script {
+        second_packets: 60,
+        speak_again: Some(When::Accepted(8)),
+        turns: 2,
+        live_back_at_frame: Some(85),
+        turn_taking: TurnTaking::VadOnly,
+        ..Script::question(Live::DropLink)
+    });
+    run.assert_clean();
+    let switches = run.events("voice_route_switched");
+    let whys: Vec<_> = switches
+        .iter()
+        .map(|e| e["why"].as_str().unwrap().to_owned())
+        .collect();
+    assert_eq!(
+        whys,
+        ["live_link_changed", "live_link_ready"],
+        "{switches:?}"
+    );
+    let (turn, session) = run
+        .seen
+        .live
+        .iter()
+        .rev()
+        .find_map(|i| match i {
+            ProviderInput::Start {
+                request, session, ..
+            } => Some((*request, *session)),
+            _ => None,
+        })
+        .unwrap();
+    assert!(turn > 1);
+    assert_eq!(session, 2);
+    assert_eq!(switches[1]["turn"], turn);
+    whole_line(&run.seen.live, turn);
+    assert!(!run.seen.second.iter().any(|i| request_of(i) == turn));
+    assert!(run.played(1).iter().all(|&v| v == SECOND));
+    assert_eq!(run.played(turn), vec![LIVE; 48]);
 }

@@ -33,7 +33,9 @@
 //! a code value or an error kind, never what a person said: a person's words
 //! that become a reason go to `marked/`, not the trace). Whoever adds a field
 //! there, or makes one of them echo a person's word, makes this tool export
-//! it: add it here only when its values come from code.
+//! it: add it here only when its values come from code. A left-out bus
+//! message is counted under its topic only when the topic is one of
+//! lampOS's ([`BUS_TOPICS`]), else as `other`.
 //!
 //! What it writes, into a new folder: `events.jsonl` (both, in time order,
 //! each with `at_us` and the local wall time), `summary.json` (counts by kind,
@@ -531,13 +533,63 @@ const VOICE_STATE_TOPIC: &str = "voice/state";
 /// `lamp_msgs::Voice`, as the bus writes it.
 const VOICE_STATES: [&str; 4] = ["resting", "listening", "thinking", "speaking"];
 
-/// A topic's name, when it is one: lower-case words joined by `/`, `_`, `-`.
-fn topic_name(text: &str) -> bool {
-    (1..=64).contains(&text.len())
-        && text.bytes().all(|byte| {
-            byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'/' | b'_' | b'-')
-        })
-}
+/// The lampOS bus topics a left-out message is counted under: every
+/// `TOPIC` in `crates/msgs` (a test holds this to them) and the few the parts
+/// name in their own code. Any other topic is counted as `other`, so a topic
+/// name never carries anything else into `left-out.json`.
+const BUS_TOPICS: &[&str] = &[
+    "air/state",
+    "attention/addressed",
+    "attention/concentration",
+    "board/state",
+    "body/hand",
+    "body/joint_states",
+    "camera/image",
+    "controls/gesture",
+    "controls/state",
+    "controls/touch",
+    "controls/touch_state",
+    "diagnostics",
+    "ears/level",
+    "ears/sudden",
+    "expression/body",
+    "expression/light",
+    "expression/state",
+    "humans/faces/tracked",
+    "lamp/health",
+    "lamp/online",
+    "lamp/pause",
+    "lamp/selftest",
+    "light/command",
+    "light/drawn",
+    "light/request",
+    "light/state",
+    "light/test",
+    "memory/rules",
+    "mic2/audio",
+    "mood/state",
+    "name/heard",
+    "name/rising",
+    "policy/decisions",
+    "room/state",
+    "schedule/due",
+    "selftest/speaker",
+    "selftest/speaker/request",
+    "skills/ask",
+    "skills/events",
+    "tasks/status",
+    "voice/activity",
+    "voice/arrival",
+    "voice/heard",
+    "voice/link",
+    "voice/mute",
+    "voice/playout",
+    "voice/progress",
+    "voice/said",
+    "voice/sound",
+    "voice/state",
+    "voice/timing",
+];
 
 /// Standard base64, as `lamp-bus record` writes payloads.
 fn unbase64(text: &str) -> Option<Vec<u8>> {
@@ -585,9 +637,13 @@ fn unit(value: Option<&Value>) -> Option<Value> {
 /// by one of the export's own (`f1`, `f2`, ...), the same for the same id:
 /// the recorded id never leaves. A face without a whole box is left out.
 fn faces(payload: &Value, ids: &mut BTreeMap<String, String>, left: &mut LeftOut) -> Option<Value> {
-    let mut dropped = 0;
+    let list = payload.get("faces")?.as_array()?;
+    // Whatever the payload holds beside `faces` is left out and counted.
+    let mut dropped = payload.as_object().map_or(0, |object| {
+        object.keys().filter(|key| *key != "faces").count()
+    }) as u64;
     let mut kept = Vec::new();
-    for face in payload.get("faces")?.as_array()? {
+    for face in list {
         let Some(face) = face.as_object() else {
             dropped += 1;
             continue;
@@ -668,7 +724,11 @@ fn bus_messages(
         }
         let header = &value["header"];
         let topic = header["topic"].as_str().unwrap_or_default();
-        let counted = if topic_name(topic) { topic } else { "other" };
+        let counted = if BUS_TOPICS.contains(&topic) {
+            topic
+        } else {
+            "other"
+        };
         let (Some(at_us), Some(at_unix_ms)) =
             (header["at_us"].as_u64(), header["at_unix_ms"].as_u64())
         else {
@@ -891,13 +951,6 @@ pub fn export(options: &ExportOptions) -> Result<Value> {
     for (wall_ms, event) in &mut rows {
         let kind = event["kind"].as_str().unwrap_or_default().to_owned();
         *counts.entry(kind.clone()).or_default() += 1;
-        if kind == "voice_state"
-            && let Some(state) = event.get("state").and_then(Value::as_str)
-        {
-            *counts
-                .entry(format!("voice_state.state={state}"))
-                .or_default() += 1;
-        }
         for key in WORD_FIELDS {
             if let Some(value) = event.get(*key).and_then(Value::as_str) {
                 *counts.entry(format!("{kind}.{key}={value}")).or_default() += 1;
@@ -1157,11 +1210,12 @@ mod tests {
             "confidence": 0.9, "yaw": 0.1, "facing": true, "name": SECRETS[10], "label": SECRETS[11]});
         let lines = [
             r#"{"topic":"humans/faces/tracked","declaration":{"type":"lamp_msgs/Faces","version":1,"kind":"latest"}}"#.to_owned(),
-            line("humans/faces/tracked", 1, json!({"faces": [face.clone()]})),
+            line("humans/faces/tracked", 1, json!({"faces": [face.clone()], "person": SECRETS[10]})),
             line("humans/faces/tracked", 2, json!({"faces": [face, {"id": "b", "xmin": 0.1}]})),
             line("voice/state", 2, json!({"state": "listening"})),
             line("voice/state", 3, json!({"state": SECRETS[13]})),
             line("humans/names", 3, json!({"name": SECRETS[10]})),
+            line("humans/known/annasmith", 3, json!({})),
             line(SECRETS[12], 3, json!({})),
             format!("not a recording {}", SECRETS[13]),
         ];
@@ -1377,11 +1431,48 @@ mod tests {
         assert_eq!(states[1]["header"]["at_us"], 1_000_000);
         let left: Value =
             serde_json::from_str(&fs::read_to_string(out.join("left-out.json")).unwrap()).unwrap();
-        assert_eq!(left["bus_fields_by_topic"]["humans/faces/tracked"], 5);
-        assert_eq!(left["bus_messages_by_topic"]["humans/names"], 1);
+        // The name and label of the face twice, its id-less second face's
+        // fields... and `person` beside `faces` (the reviewer's P3 on #1165).
+        assert_eq!(left["bus_fields_by_topic"]["humans/faces/tracked"], 6);
         assert_eq!(left["bus_messages_by_topic"]["voice/state"], 1);
-        assert_eq!(left["bus_messages_by_topic"]["other"], 1);
+        // `humans/names`, `humans/known/annasmith` and a secret topic are not
+        // lampOS's topics: counted as `other`, never by their names.
+        assert_eq!(left["bus_messages_by_topic"]["other"], 3);
+        assert!(
+            left["bus_messages_by_topic"]
+                .get("humans/known/annasmith")
+                .is_none()
+        );
+        // One recorded state, counted once (the reviewer's P2 on #1165).
+        let counts = &summary["counts"];
+        assert_eq!(counts["voice_state"], 1);
+        assert_eq!(counts["voice_state.state=listening"], 1);
         assert_eq!(left["bus_messages_by_topic"]["unreadable"], 1);
+    }
+
+    /// Every topic `crates/msgs` names is one a left-out message may be
+    /// counted under, so a new topic there is not silently `other`.
+    #[test]
+    fn the_bus_topics_hold_every_topic_the_messages_name() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../msgs/src");
+        let mut named = Vec::new();
+        for entry in fs::read_dir(&root).unwrap().flatten() {
+            let text = fs::read_to_string(entry.path()).unwrap_or_default();
+            for line in text.lines() {
+                let line = line.trim();
+                if line.starts_with("pub const ")
+                    && line.contains("TOPIC")
+                    && let Some((_, rest)) = line.split_once("&str = \"")
+                    && let Some((topic, _)) = rest.split_once('"')
+                {
+                    named.push(topic.to_owned());
+                }
+            }
+        }
+        assert!(named.len() >= 40, "{named:?}");
+        for topic in &named {
+            assert!(BUS_TOPICS.contains(&topic.as_str()), "{topic}");
+        }
     }
 
     /// #1119's "done when": a skill's case rebuilt from `export` output alone
@@ -1426,6 +1517,25 @@ mod tests {
                     .map(|made| format!("{} {:?}", made.at_us, made.call))
                     .collect()
             };
+            // Each topic's messages all come through, so a case that expects
+            // no call still fails when the export keeps no faces.
+            let messages = |path: &Path| {
+                fs::read_to_string(path).map_or(0, |text| {
+                    text.lines()
+                        .filter(|line| line.contains("\"header\""))
+                        .count()
+                })
+            };
+            for file in ["humans_faces_tracked.jsonl", "voice_state.jsonl"] {
+                let recorded = messages(&recording.join(file));
+                if recorded > 0 {
+                    assert_eq!(
+                        messages(&dir.0.join("out/case").join(file)),
+                        recorded,
+                        "{case} {file}"
+                    );
+                }
+            }
             let original = made(&recording);
             assert_eq!(made(&dir.0.join("out/case")), original, "{case}");
             if case == "acts-after-50-minutes" {

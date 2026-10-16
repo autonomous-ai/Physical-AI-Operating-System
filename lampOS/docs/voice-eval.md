@@ -548,7 +548,9 @@ out, counted, never what it said) and a skill's `tests/` case in `case/`, each
 topic as `lamp-bus record` writes it: `voice_state.jsonl`, and
 `humans_faces_tracked.jsonl` when `--bus` held faces. The case's files share
 one start, timed by the monotonic `at_us` the voice's trace and the bus both
-carry. `voice/state` is the recorded one when `--bus` has it, else derived
+carry. That assumes each publisher stamps `CLOCK_MONOTONIC`: true of
+`voice/state` on lamp-cb94, not of `ears/level` there (its `at_us` was about
+3,486 s off), so a topic from another clock would land in the wrong place. `voice/state` is the recorded one when `--bus` has it, else derived
 (the voice does not write it to its trace): listening from `input_admitted`,
 thinking from `local_endpoint`, speaking from `speaker_first_write`, resting
 from `turn_finished`. `summary.json` says which.
@@ -572,6 +574,9 @@ only as one lower-case word. Those fields are trusted to be filled by code
 from a closed set; a person's words that become a reason go to `marked/`,
 never the trace. A field added there, or one made to echo what a person
 said, would be exported: add a field only when its values come from code.
+A left-out bus message is counted under its topic only when the topic is one
+of lampOS's (`BUS_TOPICS`, held to every `TOPIC` in `crates/msgs` by a test),
+else as `other`; anything beside a payload's `faces` is left out and counted.
 
 ## Physical runner (prepared, not executed)
 

@@ -72,10 +72,14 @@ struct Script {
     /// Gemini's link is not Ready at startup: it is Ready at this capture
     /// frame (10 ms each), or never.
     live_late: Option<Option<u64>>,
-    /// The second route's worker exits on its first Start (#960).
-    second_dies: bool,
+    /// The second route's worker exits as this many of its inputs arrive
+    /// (1: on its Start) (#960).
+    second_dies: Option<usize>,
     /// The standby's worker exits at this capture frame (#960).
     standby_dies_at: Option<u64>,
+    /// Privacy reports muted a second after the second route's worker
+    /// exited, instead of after `turns`.
+    mute_after_second_dies: bool,
     turn_taking: TurnTaking,
 }
 
@@ -89,8 +93,9 @@ impl Script {
             turns: 1,
             live_back_after: None,
             live_late: None,
-            second_dies: false,
+            second_dies: None,
             standby_dies_at: None,
+            mute_after_second_dies: false,
             turn_taking: TurnTaking::V1Baseline,
         }
     }
@@ -268,6 +273,8 @@ struct Peers {
     link_dropped: bool,
     link_back: bool,
     live_ready_sent: bool,
+    /// The capture frame at which the second route's worker exited.
+    second_died_at: Option<u64>,
 }
 
 impl Peers {
@@ -293,7 +300,14 @@ impl Peers {
                 self.speech_offset = Some(self.frames);
             }
         }
-        if self.settled >= self.script.turns {
+        // A voice still serving a second after its second route died can
+        // be muted then, which ends the run cleanly.
+        if self.settled >= self.script.turns
+            || (self.script.mute_after_second_dies
+                && self
+                    .second_died_at
+                    .is_some_and(|frame| self.frames >= frame + 100))
+        {
             self.muted.store(true, Ordering::SeqCst);
         }
         if let Some(after) = self.script.live_back_after
@@ -518,6 +532,19 @@ impl Peers {
             let Ok(Some(input)) = self.peers[index].channels.data.receive::<ProviderInput>() else {
                 break;
             };
+            if !live
+                && self
+                    .script
+                    .second_dies
+                    .is_some_and(|after| self.seen.lock().unwrap().second.len() + 1 >= after)
+            {
+                // Its process exits; it reads and says nothing more.
+                self.second_died_at.get_or_insert(self.frames);
+                let peer = &mut self.peers[index];
+                peer.stopped = true;
+                peer.input.take();
+                return;
+            }
             {
                 let mut seen = self.seen.lock().unwrap();
                 let log = if live {
@@ -531,13 +558,6 @@ impl Peers {
                 ProviderInput::Start {
                     request, session, ..
                 } => {
-                    if !live && self.script.second_dies {
-                        // Its process exits; nothing more of it is heard.
-                        let peer = &mut self.peers[index];
-                        peer.stopped = true;
-                        peer.input.take();
-                        return;
-                    }
                     if live {
                         self.live_requests.push(request);
                     }
@@ -786,6 +806,7 @@ fn run(script: Script) -> Run {
         link_dropped: false,
         link_back: false,
         live_ready_sent: false,
+        second_died_at: None,
     };
     let started = crate::scenario_clock::instant();
     let mut reported = false;
@@ -1150,7 +1171,7 @@ fn the_live_worker_waits_for_room_only_with_a_second_route() {
 fn a_second_worker_that_exits_is_dropped_and_the_voice_goes_on() {
     let _one = super::pilot_faults::one_session();
     let run = run(Script {
-        second_dies: true,
+        second_dies: Some(1),
         speak_again: Some(When::Settled(1)),
         turns: 2,
         ..Script::question(Live::Fail(Fault::QuotaExceeded))
@@ -1196,4 +1217,23 @@ fn a_standby_that_exits_is_dropped_and_gemini_answers() {
     assert!(run.events("voice_route_switched").is_empty());
     whole_line(&run.seen.live, 1);
     assert_eq!(run.played(1), vec![LIVE; 48]);
+}
+
+/// (l) #960, the reviewer's P2: the active second worker exits mid-line
+/// while the question is still being said, with input queued for it that
+/// it never took. That input goes with the turn, and the voice goes on.
+#[test]
+fn a_second_worker_that_exits_mid_line_leaves_no_queued_input_behind() {
+    let _one = super::pilot_faults::one_session();
+    let run = run(Script {
+        second_dies: Some(40),
+        mute_after_second_dies: true,
+        ..Script::question(Live::DropLink)
+    });
+    run.assert_clean();
+    let dropped = run.events("voice_route_dropped");
+    assert_eq!(dropped.len(), 1, "{}", run.summary());
+    assert_eq!(dropped[0]["active"], true);
+    assert_eq!(run.finished(1)["outcome"], "second_route_failed");
+    assert!(run.played(1).is_empty());
 }

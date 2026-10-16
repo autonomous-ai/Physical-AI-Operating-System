@@ -471,7 +471,11 @@ and its authority kept fresh during the rest of startup.
   before anything else of the tick touches it (`second::dropped_if_gone`).
   Standing by, the route goes and Gemini goes on. Active, Gemini's worker
   is put back first and the turn the route held ends
-  (`second_route_failed`); the next turn is Gemini's. Recorded as
+  (`second_route_failed`) as a turn the provider interrupted does: its
+  unsent input and unwritten speech go, and the rest of a line still
+  being said is drained rather than taken for a new request; the next
+  turn is Gemini's. The 50 ms health check leaves the second worker to
+  this. Recorded as
   `voice_route_dropped` (`status`, `active`). An authority that cannot
   reach it is not an error either. A worker that dies inside the very
   tick that touches it still ends the voice, as before.

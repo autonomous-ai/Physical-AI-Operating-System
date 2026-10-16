@@ -124,14 +124,20 @@ struct NativeLink {
     signals: Signals,
 }
 impl Link for NativeLink {
-    fn control(&mut self, n: lamp_turn_owner::MonoTime) -> io::Result<Option<Control>> {
+    fn control(
+        &mut self,
+        now: &mut dyn FnMut() -> io::Result<lamp_turn_owner::MonoTime>,
+    ) -> io::Result<Option<Control>> {
         if self.signals.fd.read_signal()?.is_some() {
             return Ok(Some(Control::Stop {}));
         }
-        self.channels.control(n)
+        self.channels.control(now)
     }
-    fn command(&mut self, n: lamp_turn_owner::MonoTime) -> io::Result<Option<wire::Command>> {
-        self.channels.command(n)
+    fn command(
+        &mut self,
+        now: &mut dyn FnMut() -> io::Result<lamp_turn_owner::MonoTime>,
+    ) -> io::Result<Option<wire::Command>> {
+        self.channels.command(now)
     }
     fn publish(&mut self, e: &Event, n: lamp_turn_owner::MonoTime) -> io::Result<()> {
         self.channels.publish(e, n)
@@ -259,11 +265,11 @@ fn opening_controls(link: &mut impl Link, guard: &mut BoundaryGuard) -> io::Resu
     let clock = SystemClock;
     let mut drained = false;
     for _ in 0..worker::CONTROL_BUDGET {
-        let n = clock.now();
-        let Some(c) = link.control(n)? else {
+        let Some(c) = link.control(&mut || Ok(clock.now()))? else {
             drained = true;
             break;
         };
+        let n = clock.now();
         match c {
             Control::Stop {} => return Ok(true),
             Control::Cancel { motion } => link.publish(

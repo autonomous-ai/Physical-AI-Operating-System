@@ -60,12 +60,21 @@ impl Channel {
         Ok(())
     }
     pub fn receive<T: DeserializeOwned>(&mut self, now: MonoTime) -> io::Result<Option<T>> {
+        self.receive_with(|| Ok(now))
+    }
+    /// Reads the clock only once a datagram has arrived, so a packet sent
+    /// after the caller's last clock read is never judged future-dated.
+    pub fn receive_with<T: DeserializeOwned>(
+        &mut self,
+        now: impl FnOnce() -> io::Result<MonoTime>,
+    ) -> io::Result<Option<T>> {
         let mut bytes = [0; MAX_DATAGRAM_BYTES];
         let n = match self.endpoint.try_recv(&mut bytes) {
             Ok(n) => n,
             Err(e) if e.kind() == io::ErrorKind::WouldBlock => return Ok(None),
             Err(e) => return Err(e),
         };
+        let now = now()?;
         let p: Packet<T> = serde_json::from_slice(&bytes[..n]).map_err(invalid)?;
         if p.boot != self.peer
             || self.received.checked_add(1) != Some(p.sequence)

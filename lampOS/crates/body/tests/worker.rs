@@ -70,15 +70,21 @@ fn cancellation_between_data_receive_and_bus_tick_never_writes_stale_segment() {
         close: Option<lamp_turn_owner::Snapshot>,
     }
     impl Link for Across {
-        fn control(&mut self, n: lamp_turn_owner::MonoTime) -> io::Result<Option<Control>> {
-            self.child.control.receive(n)
+        fn control(
+            &mut self,
+            now: &mut dyn FnMut() -> io::Result<lamp_turn_owner::MonoTime>,
+        ) -> io::Result<Option<Control>> {
+            self.child.control.receive_with(now)
         }
-        fn command(&mut self, n: lamp_turn_owner::MonoTime) -> io::Result<Option<Command>> {
-            let c = self.child.data.receive(n)?;
+        fn command(
+            &mut self,
+            now: &mut dyn FnMut() -> io::Result<lamp_turn_owner::MonoTime>,
+        ) -> io::Result<Option<Command>> {
+            let c = self.child.data.receive_with(&mut *now)?;
             if let Some(snapshot) = self.close.take() {
                 self.parent
                     .control
-                    .send(&Control::Authority { snapshot }, n)?;
+                    .send(&Control::Authority { snapshot }, now()?)?;
             }
             Ok(c)
         }
@@ -372,13 +378,20 @@ fn data_held_behind_urgent_control_retains_original_age_and_cannot_renew() {
         once: bool,
     }
     impl Link for Flood {
-        fn control(&mut self, n: lamp_turn_owner::MonoTime) -> io::Result<Option<Control>> {
-            self.child.control.receive(n)
+        fn control(
+            &mut self,
+            now: &mut dyn FnMut() -> io::Result<lamp_turn_owner::MonoTime>,
+        ) -> io::Result<Option<Control>> {
+            self.child.control.receive_with(now)
         }
-        fn command(&mut self, n: lamp_turn_owner::MonoTime) -> io::Result<Option<Command>> {
-            let c = self.child.data.receive(n)?;
+        fn command(
+            &mut self,
+            now: &mut dyn FnMut() -> io::Result<lamp_turn_owner::MonoTime>,
+        ) -> io::Result<Option<Command>> {
+            let c = self.child.data.receive_with(&mut *now)?;
             if self.once {
                 self.once = false;
+                let n = now()?;
                 for _ in 0..15 {
                     self.parent.control.send(
                         &Control::Authority {

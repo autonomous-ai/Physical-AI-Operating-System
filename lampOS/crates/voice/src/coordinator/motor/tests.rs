@@ -261,11 +261,17 @@ struct TestLink {
     directory: PathBuf,
 }
 impl Link for TestLink {
-    fn control(&mut self, n: MonoTime) -> io::Result<Option<Control>> {
-        self.channels.control.receive(n)
+    fn control(
+        &mut self,
+        now: &mut dyn FnMut() -> io::Result<MonoTime>,
+    ) -> io::Result<Option<Control>> {
+        self.channels.control.receive_with(now)
     }
-    fn command(&mut self, n: MonoTime) -> io::Result<Option<Command>> {
-        self.channels.data.receive(n)
+    fn command(
+        &mut self,
+        now: &mut dyn FnMut() -> io::Result<MonoTime>,
+    ) -> io::Result<Option<Command>> {
+        self.channels.data.receive_with(now)
     }
     fn publish(&mut self, e: &Event, n: MonoTime) -> io::Result<()> {
         if matches!(e, Event::Ready { .. }) {

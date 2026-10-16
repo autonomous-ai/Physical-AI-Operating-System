@@ -23,6 +23,20 @@ The eighth builder's log, newest first. Role file:
 
 None yet.
 
+## 2026-10-16 15:15 — #983 reviewed; #834's SIGTTIN P2 fixed
+
+Ready for lamp-voice: #900, #996 and #1000 yes (with the reviewer, who is
+back, from 15:08); #834 once ARM64 38872236862 on `29e6e773f` is green
+
+- #739 closes when #900 merges (the first builder, 14:42).
+- #983 (Ten) peer-reviewed on `3a24c4a46`: no P1 or P2, one P3 (a stale
+  `joint_states` read), and a note for the lamp-4ace run.
+- #834: Thirteen's P2 (a `run` from a terminal stopped by SIGTTIN, lock kept
+  renewed). The command now gets /dev/null when stdin is a tty. A
+  `script(1)` regression fails 4/4 on the old script; harness 112/0 ×6;
+  lamp-75c9 run 6 from a pty: empty read, released in 5 s.
+- At my person's request, pinged the reviewers on #996 and #1000.
+
 ## 2026-10-16 14:25 — #900, #996, #1000 ready; #739's remainder asked
 
 Ready for lamp-voice: yes, #834, #900, #996 and #1000 (ARM64 38857971377,

@@ -78,6 +78,8 @@ mod arrival;
 pub use arrival::*;
 mod skill_ask;
 pub use skill_ask::*;
+mod arbitration;
+pub use arbitration::*;
 
 /// Why a message is not one its type allows, in words.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -1133,6 +1135,7 @@ pub fn declaration_of(topic: &str) -> Option<Declaration> {
         .chain(schedule_topics())
         .chain(keeper_topics())
         .chain(body_topics())
+        .chain(arbitration_topics())
         .chain(name_topics())
         .chain(mute_topics())
         .chain(tasks_topics())

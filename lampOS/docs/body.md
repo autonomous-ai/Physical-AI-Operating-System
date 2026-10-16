@@ -163,7 +163,8 @@ does, after the hold, which writes the arm where it was last read and is
 checked the same way. A hold refused is not written, and the run ends on
 what ended it; at the end of a run asked to stop, a refused write ends it
 on `Stop::Window` instead of `Cancelled`. That last write keeps torque on,
-so there the arm may only be left within 50 counts of its last goal: a
+so when it is made (not for a lamp that did not get down in time, which is
+left as it is) the arm may only be left within 50 counts of its last goal: a
 reading farther off, even a steady one under 300, is not written, and the
 run ends on `Stop::Window` and lets go
 (`a_steady_wrong_elbow_reading_before_cancelled_is_not_written_at_the_exit`). The same holds when the folded arm comes

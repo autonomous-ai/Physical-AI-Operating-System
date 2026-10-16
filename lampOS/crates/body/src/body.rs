@@ -4579,11 +4579,16 @@ fn run_on<P: PortIo, R: Runtime>(
         let arm_at = report.last.map_or(arm_written, |last| {
             ARM.map(|joint| last[joint.index()].position)
         });
-        // This write keeps torque on, so the arm may only be left a step
-        // from its last goal: a reading farther off, even a steady one, is
-        // not written, and the run ends on `Stop::Window` and lets go.
+        // A lamp that did not get down in time writes nothing. This write
+        // keeps torque on, so the arm may only be left a step from its last
+        // goal: a reading farther off, even a steady one, is not written,
+        // and the run ends on `Stop::Window` and lets go.
+        let writes =
+            stand <= 0.0 && (written != home || (standing.is_some() && arm_written != arm_at));
         let off = (0..2).find(|index| {
-            standing.is_some() && arm_at[*index].abs_diff(arm_written[*index]) > ARM_GOAL_STEP
+            writes
+                && standing.is_some()
+                && arm_at[*index].abs_diff(arm_written[*index]) > ARM_GOAL_STEP
         });
         if let Some(index) = off {
             bus.refused = Some(Stop::Window {
@@ -4592,10 +4597,7 @@ fn run_on<P: PortIo, R: Runtime>(
                 window: bus.arm_windows[index],
                 from: arm_written[index],
             });
-        } else if stand <= 0.0
-            && (written != home || (standing.is_some() && arm_written != arm_at))
-            && bus.send_goals(home, standing.map(|_| arm_at)).is_ok()
-        {
+        } else if writes && bus.send_goals(home, standing.map(|_| arm_at)).is_ok() {
             report.goal_writes += 1;
         }
     } else if let Some(last) = report.last {

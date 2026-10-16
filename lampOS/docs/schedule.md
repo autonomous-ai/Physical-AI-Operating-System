@@ -609,6 +609,19 @@ and slow storage cannot renew an old observation. Cancellation, snooze, changed 
 stalled consumer withdraws queued/current reminder audio through Voice's normal
 owner revocation. These are host targets and bounds, not measured acoustic stops.
 
+The child journals (stderr, so the voice's journal) one line,
+`lamp-voice schedule-consumer: ...`, each time what it does with a due item
+changes, and never one per tick: `due, offered to the voice (attempt N)`,
+`withdrawn: <why>` or `not offered: <why>`, `said; its completion is kept, to
+be acknowledged`, `not said: given back before any of it played, to be
+offered again`, `held: an attempt may have been heard and was never proven
+said, so it is not offered again`, and `resolved (<resolution>), not
+offered`. When the due notice itself cannot be read or trusted it says
+`due reminders unavailable: <why>` once, and `due reminders available` once
+it can again. It remembers the last line of 64 items. The parent says
+`lamp-voice: Schedule consumer failed (<why>); due reminders wait for a
+restart` when the child is lost.
+
 Admission requires current microphone retention/privacy, ready provider, no
 reply, queued input, speaker receipt or draining/prospective utterance, and one
 second of fresh local silence. A promised camera look and the existing

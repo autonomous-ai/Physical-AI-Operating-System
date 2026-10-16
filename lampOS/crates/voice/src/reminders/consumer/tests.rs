@@ -1153,3 +1153,69 @@ fn outgoing_queue_is_bounded_and_replacing_an_offer_never_discards_settlement() 
     assert!(consumer.push(FromWorker::Idle {}).is_err());
     assert_eq!(consumer.outgoing.len(), QUEUE);
 }
+
+/// The first builder, 2026-10-16: due reminders on lamp-4ace were never
+/// said, and nothing said where they stopped. What became of each due item
+/// is one journal line when it changes, never one per tick.
+#[test]
+fn the_journal_says_what_became_of_each_due_item_once_per_change() {
+    let (engine, socket) = served(1);
+    let mut said = consumer(Disk::default());
+    complete_current(&mut said, &engine, &socket);
+    for _ in 0..3 {
+        let now = lamp_ipc::monotonic_us();
+        let report = due(&engine.lock().unwrap(), now);
+        said.tick(&socket.path(), Some(&report), now).unwrap();
+    }
+    let lines = &said.journal.lines;
+    assert_eq!(lines.len(), 3, "{lines:?}");
+    assert_eq!(
+        lines[0],
+        "reminder id 1 delivery 1: due, offered to the voice (attempt 1)"
+    );
+    assert_eq!(
+        lines[1],
+        "reminder id 1 delivery 1: said; its completion is kept, to be acknowledged"
+    );
+    assert!(
+        lines[2].starts_with("reminder id 1 delivery 1: resolved (AckConfirmed"),
+        "{lines:?}"
+    );
+
+    // Given up with nothing proven: held, said once however often it ticks.
+    let (engine, socket) = served(1);
+    let mut held = consumer(Disk::default());
+    let offered = begin(&mut held, &engine, &socket);
+    held.command(
+        ToWorker::Abandon {
+            token: offered.token,
+        },
+        lamp_ipc::monotonic_us(),
+    )
+    .unwrap();
+    for _ in 0..3 {
+        let now = lamp_ipc::monotonic_us();
+        let report = due(&engine.lock().unwrap(), now);
+        held.tick(&socket.path(), Some(&report), now).unwrap();
+    }
+    assert_eq!(held.journal.lines.len(), 2, "{:?}", held.journal.lines);
+    assert_eq!(
+        held.journal.lines[1],
+        format!("reminder id 1 delivery 1: {HELD}")
+    );
+
+    // Due work that cannot be read is said once, and its return once.
+    let mut journal = Journal::default();
+    for _ in 0..3 {
+        journal.due(Some("Schedule due is missing".into()));
+    }
+    journal.due(None);
+    journal.due(None);
+    assert_eq!(
+        journal.lines,
+        [
+            "due reminders unavailable: Schedule due is missing",
+            "due reminders available"
+        ]
+    );
+}

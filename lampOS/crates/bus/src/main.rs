@@ -3,7 +3,7 @@
 //! Everything here goes through the library the lamp's processes use, so a
 //! `tap` is an ordinary subscriber and can be as slow as it likes without a
 //! publisher noticing.
-use lamp_bus::logging::{Log, LogLevel};
+use lamp_bus::logging::{Log, LogLevel, keep::Kept};
 use lamp_bus::{Bus, Declaration, Header, Kind, Message, Notice, Publisher, Subscriber};
 use serde::Deserialize;
 use std::{
@@ -40,6 +40,13 @@ usage: lamp-bus [--root PATH] COMMAND ...
       Follow validated operational logs, optionally one part, at LEVEL or
       higher (info). Levels: debug, info, warn, error, fatal. Count only
       matching logs. No history or persistent storage is implied.
+  keep-logs DIR [--level LEVEL] [--file-kb N] [--files N] [--seconds S]
+      Keep validated logs at LEVEL or higher (info) on disk, one JSON line
+      each with its bus identity, in DIR/logs.NNNNNNNN.jsonl: a new file at
+      each start, files of at most N KiB (2048, 64 to 65536), only the
+      newest N files (10, 2 to 100). DIR must exist; nothing else in it is
+      touched. Lines that could not be written are counted in the next.
+      Synced at most once a second. Until killed, or for S seconds.
   latest TOPIC
       Print the topic's current value, expired or not. Status 1 if it keeps
       none.
@@ -59,8 +66,9 @@ The root is --root, else $LAMP_BUS_ROOT, else /run/lampos-bus.
 ";
 
 /// Every option takes one value.
-const OPTIONS: [&str; 10] = [
+const OPTIONS: [&str; 12] = [
     "root", "name", "count", "seconds", "max-mb", "speed", "at-us", "type", "part", "level",
+    "file-kb", "files",
 ];
 
 /// A wait is cut into pieces this long: an empty one is when a subscriber
@@ -234,6 +242,33 @@ fn run(given: impl Iterator<Item = String>) -> Result<ExitCode, Failure> {
                 part.as_deref(),
                 level,
                 count,
+                seconds.map(Duration::from_secs_f64),
+            )
+        }
+        "keep-logs" => {
+            let level = arguments
+                .option::<LogLevel>("level", "debug, info, warn, error or fatal")?
+                .unwrap_or(LogLevel::Info);
+            let file_kb = arguments
+                .option::<u64>("file-kb", "a whole number")?
+                .unwrap_or(2_048);
+            let files = arguments
+                .option::<usize>("files", "a whole number")?
+                .unwrap_or(10);
+            let seconds = arguments.amount("seconds")?;
+            let words = arguments.words(1, 1)?;
+            if !(64..=65_536).contains(&file_kb) {
+                return Err(Failure::Usage("--file-kb is from 64 to 65536".into()));
+            }
+            if !(2..=100).contains(&files) {
+                return Err(Failure::Usage("--files is from 2 to 100".into()));
+            }
+            let kept = Kept::open(Path::new(&words[0]), file_kb * 1_024, files)?;
+            let subscriber = bus.subscribe_typed(Log::TOPIC, "keep_logs", Log::TYPE)?;
+            keep_logs(
+                subscriber,
+                kept,
+                level,
                 seconds.map(Duration::from_secs_f64),
             )
         }
@@ -591,6 +626,61 @@ fn logs(
     } else {
         ExitCode::SUCCESS
     })
+}
+
+/// Keep the logs on disk until killed or for `lasting`. A write that fails
+/// is said once until one works again; what it lost is counted in the files.
+fn keep_logs(
+    mut subscriber: Subscriber,
+    mut kept: Kept,
+    level: LogLevel,
+    lasting: Option<Duration>,
+) -> Result<ExitCode, Failure> {
+    let until = lasting.map(|lasting| Instant::now() + lasting);
+    eprintln!(
+        "lamp-bus: keep-logs: keeping {} and above in {}",
+        level.as_str(),
+        kept.path().display()
+    );
+    let mut invalid = 0;
+    let mut failing = false;
+    let said = |result: io::Result<()>, failing: &mut bool| match result {
+        Ok(()) if *failing => {
+            eprintln!("lamp-bus: keep-logs: writing again");
+            *failing = false;
+        }
+        Err(error) if !*failing => {
+            eprintln!("lamp-bus: keep-logs: cannot write, counting what is lost: {error}");
+            *failing = true;
+        }
+        _ => {}
+    };
+    while let Some(wait) = tick(until) {
+        if let Err(error) = kept.sync_if_due(Instant::now()) {
+            said(Err(error), &mut failing);
+        }
+        let Some(message) = subscriber.recv(wait)? else {
+            continue;
+        };
+        let Ok(log) = Log::from_message(&message) else {
+            invalid += 1;
+            continue;
+        };
+        if log.level < level {
+            continue;
+        }
+        let result = kept.keep(&log, &message, Instant::now());
+        said(result, &mut failing);
+    }
+    if let Err(error) = kept.sync() {
+        eprintln!("lamp-bus: keep-logs: the last lines may not be on disk: {error}");
+    }
+    let rejected = invalid + subscriber.malformed() + subscriber.wrong_type();
+    eprintln!(
+        "lamp-bus: keep-logs: kept {}, could not write {}, passed over {rejected} malformed or non-log messages",
+        kept.lines, kept.lost
+    );
+    Ok(ExitCode::SUCCESS)
 }
 
 const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";

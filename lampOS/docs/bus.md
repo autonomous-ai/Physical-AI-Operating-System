@@ -220,6 +220,7 @@ a full one loses the newest message, where ROS drops the oldest.
     lamp-bus hz mic2/audio --seconds 5              # rate, gaps between messages, age, what was missed
     lamp-bus tap voice/heard --count 5              # header, then the payload if JSON, else <N bytes>
     lamp-bus logs --part body --level warn           # validated operational logs, warn and above
+    lamp-bus keep-logs /var/lib/lampos/logs          # the same, kept on disk in bounded files (logging.md)
     lamp-bus latest body/joint_states               # status 1 if the topic keeps none
     lamp-bus pub room/state latest '"quiet"'        # as lamp_bus_cli, at_us 0 unless --at-us
     lamp-bus pub room/state latest '"quiet"' --type lamp_msgs/RoomState

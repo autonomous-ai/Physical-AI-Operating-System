@@ -304,3 +304,74 @@ fn a_closed_stdout_ends_following_without_affecting_the_publisher() {
             .is_ok()
     );
 }
+
+/// #699: the shared log kept on disk, at its level, one JSON line each with
+/// its bus identity, in a new file under the folder given.
+#[test]
+fn kept_logs_land_in_a_file_at_their_level_with_their_bus_identity() {
+    let root = Root::new();
+    let folder = std::env::temp_dir().join(format!("lk{}", std::process::id()));
+    let _ = fs::remove_dir_all(&folder);
+    fs::create_dir_all(&folder).unwrap();
+    let keeper = Running::start(
+        &root,
+        &[
+            "keep-logs",
+            folder.to_str().unwrap(),
+            "--level",
+            "warn",
+            "--seconds",
+            "2",
+        ],
+    );
+    root.socket();
+    let mut body = root
+        .bus()
+        .publisher_declared(Log::TOPIC, &Log::declaration(), "body")
+        .unwrap();
+    body.publish_json(1, &log("body", LogLevel::Info, 1, "too quiet"))
+        .unwrap();
+    body.publish_json(2, &log("body", LogLevel::Warn, 2, "a hand on the head"))
+        .unwrap();
+    body.publish_json(3, &log("body", LogLevel::Error, 3, "two\nlines"))
+        .unwrap();
+    let output = keeper.output();
+    let said = String::from_utf8_lossy(&output.stderr).into_owned();
+    assert!(output.status.success(), "{said}");
+    assert!(said.contains("kept 2, could not write 0"), "{said}");
+    let text = fs::read_to_string(folder.join("logs.00000001.jsonl")).unwrap();
+    let lines: Vec<serde_json::Value> = text
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect();
+    assert_eq!(lines.len(), 2, "{text}");
+    assert_eq!(lines[0]["level"], "warn");
+    assert_eq!(lines[0]["bus_seq"], 2);
+    assert_eq!(lines[1]["message"], "two\nlines");
+    assert_eq!(lines[1]["bus_gap"], 0);
+    let _ = fs::remove_dir_all(&folder);
+}
+
+#[test]
+fn keep_logs_options_are_checked_before_anything_is_kept() {
+    let root = Root::new();
+    for arguments in [
+        &["keep-logs"][..],
+        &["keep-logs", "/tmp", "/var"],
+        &["keep-logs", "/tmp", "--file-kb", "63"],
+        &["keep-logs", "/tmp", "--file-kb", "65537"],
+        &["keep-logs", "/tmp", "--files", "1"],
+        &["keep-logs", "/tmp", "--files", "101"],
+        &["keep-logs", "/tmp", "--level", "warning"],
+        &["keep-logs", "/tmp", "--part", "body"],
+    ] {
+        let output = root.command(arguments).output().unwrap();
+        assert_eq!(output.status.code(), Some(2), "{arguments:?}");
+        assert!(String::from_utf8_lossy(&output.stderr).contains("usage:"));
+    }
+    let missing = root
+        .command(&["keep-logs", "/nonexistent/lamp-logs", "--seconds", "0"])
+        .output()
+        .unwrap();
+    assert_eq!(missing.status.code(), Some(1));
+}

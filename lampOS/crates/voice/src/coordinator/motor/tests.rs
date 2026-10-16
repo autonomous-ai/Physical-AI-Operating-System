@@ -19,8 +19,114 @@ use std::{
     collections::VecDeque,
     os::unix::fs::PermissionsExt,
     rc::Rc,
+    sync::atomic::{AtomicBool, AtomicU64, Ordering},
     time::{Duration, Instant},
 };
+
+/// A stepped fixture shares the parent's scenario time with its child through
+/// two files in the session directory: the parent writes the instant of each
+/// step, and the child writes the instant it has finished. Neither moves on
+/// before the other, so a host pause in either process changes no deadline.
+const SCENARIO_NOW: &str = "scenario-now";
+const SCENARIO_DONE: &str = "scenario-done";
+/// Written by a child that has finished, so the parent stops waiting for it.
+const SCENARIO_FINISHED: u64 = u64::MAX;
+/// Host bound for one side waiting on the other; never a protocol deadline.
+const SCENARIO_WATCHDOG: Duration = Duration::from_secs(30);
+
+static STEPPED: AtomicBool = AtomicBool::new(false);
+static STEPPED_NOW_US: AtomicU64 = AtomicU64::new(0);
+
+/// The child's clock: the parent's last step when stepped, the host otherwise.
+#[derive(Clone, Copy)]
+struct FixtureClock;
+impl control::Clock for FixtureClock {
+    fn now(&self) -> MonoTime {
+        if STEPPED.load(Ordering::SeqCst) {
+            MonoTime::from_micros(STEPPED_NOW_US.load(Ordering::SeqCst))
+        } else {
+            SystemClock.now()
+        }
+    }
+}
+
+fn read_instant(path: &Path) -> Option<u64> {
+    let bytes = fs::read(path).ok()?;
+    Some(u64::from_le_bytes(bytes.as_slice().try_into().ok()?))
+}
+
+/// Replaced by rename, so a reader sees the old instant or the new one whole.
+fn write_instant(path: &Path, at_us: u64) {
+    let partial = path.with_extension("partial");
+    fs::write(&partial, at_us.to_le_bytes()).unwrap();
+    fs::rename(&partial, path).unwrap();
+}
+
+/// The child waits for the parent's next step after `after`.
+fn next_step(session: &Path, after: u64) -> u64 {
+    let until = Instant::now() + SCENARIO_WATCHDOG;
+    loop {
+        if let Some(at_us) = read_instant(&session.join(SCENARIO_NOW))
+            && at_us > after
+        {
+            return at_us;
+        }
+        assert!(Instant::now() < until, "stepped parent stopped stepping");
+        std::thread::park_timeout(Duration::from_micros(50));
+    }
+}
+
+/// The parent's half of one step: publish the instant, then wait until the
+/// child has polled at it, has finished, or has exited.
+fn step_child(session: &Path, pid: &Cell<Option<u32>>) -> io::Result<()> {
+    let at_us = monotonic_us();
+    write_instant(&session.join(SCENARIO_NOW), at_us);
+    let until = Instant::now() + SCENARIO_WATCHDOG;
+    loop {
+        if read_instant(&session.join(SCENARIO_DONE)).is_some_and(|done| done >= at_us) {
+            return Ok(());
+        }
+        if pid.get().is_none() {
+            pid.set(
+                fs::read_to_string(session.join("child-pid"))
+                    .ok()
+                    .and_then(|text| text.trim().parse().ok()),
+            );
+        }
+        // Until the child has started it cannot answer; once it has exited it
+        // never will. Neither may hold the parent's time still forever.
+        if let Some(child) = pid.get() {
+            match crate::scenario_clock::wait_child_exited(child, Instant::now()) {
+                Err(error) if error.kind() == io::ErrorKind::TimedOut => {}
+                _ => return Ok(()),
+            }
+        }
+        if Instant::now() >= until {
+            return Err(io::Error::new(
+                io::ErrorKind::TimedOut,
+                "stepped motor child did not finish its step",
+            ));
+        }
+        std::thread::park_timeout(Duration::from_micros(50));
+    }
+}
+
+/// Enter a scenario scope whose every step waits for the fixture's child.
+fn stepped_scope(session: &Path) -> crate::scenario_clock::Scope {
+    let scope = crate::scenario_clock::Scope::enter(SCENARIO_WATCHDOG).unwrap();
+    let session = session.to_path_buf();
+    let pid = Cell::new(None);
+    scope.set_pump(move |_| step_child(&session, &pid)).unwrap();
+    scope
+}
+
+/// One step of a parent polling loop: a scenario step when stepped, else a
+/// one millisecond pause as before.
+fn pause() {
+    if !crate::scenario_clock::step(crate::scenario_clock::Phase::Run).unwrap() {
+        std::thread::park_timeout(Duration::from_millis(1));
+    }
+}
 
 fn config() -> Config {
     Config {
@@ -167,7 +273,7 @@ impl BusPort for Port {
     }
 }
 struct InertBackend {
-    core: MotorControl<Port, SystemClock>,
+    core: MotorControl<Port, FixtureClock>,
     bad_cleanup: bool,
     receipt: PathBuf,
     position_writes: Rc<Cell<usize>>,
@@ -277,7 +383,24 @@ impl Link for TestLink {
         if matches!(e, Event::Ready { .. }) {
             eprintln!("motor_fixture_phase=ready_send at_us={}", monotonic_us());
         }
-        self.channels.control.send(e, n)?;
+        let sent = self.channels.control.send(e, n);
+        if matches!(
+            e,
+            Event::Rejected { .. }
+                | Event::Inhibited { .. }
+                | Event::Stopped { .. }
+                | Event::Fault { .. }
+        ) {
+            // A fixture that ends early says why; the parent prints this file.
+            // Written after the send, so it never delays a receipt that a
+            // host-clock deadline is waiting for.
+            eprintln!(
+                "motor_fixture_event={e:?} worker_now_us={} at_us={}",
+                n.as_micros(),
+                monotonic_us()
+            );
+        }
+        sent?;
         if matches!(e, Event::Stopped { .. }) && self.mode == "gated_exit_failure" {
             let until = Instant::now() + Duration::from_secs(2);
             while !self.directory.join("go").exists() {
@@ -327,6 +450,13 @@ fn inert_child() {
     ))
     .unwrap();
     let valid = c.validate().unwrap();
+    let session = directory.parent().unwrap().to_path_buf();
+    let stepped = session.join(SCENARIO_NOW).exists();
+    if stepped {
+        fs::write(session.join("child-pid"), std::process::id().to_string()).unwrap();
+        STEPPED_NOW_US.store(next_step(&session, 0), Ordering::SeqCst);
+        STEPPED.store(true, Ordering::SeqCst);
+    }
     let mut channels = Channels::bind(&directory, parent, own, true).unwrap();
     eprintln!(
         "motor_fixture_phase=channels_bound at_us={}",
@@ -354,7 +484,7 @@ fn inert_child() {
             emitted_mask: emitted_mask.clone(),
             fail_discard: mode == "discard",
         },
-        SystemClock,
+        FixtureClock,
         parent,
         own,
         &valid.unit,
@@ -373,7 +503,7 @@ fn inert_child() {
     };
     let worker = worker::Worker::new(
         backend,
-        SystemClock,
+        FixtureClock,
         parent,
         own,
         c.placement_source,
@@ -385,7 +515,24 @@ fn inert_child() {
         mode,
         directory,
     };
-    let result = worker::run(worker, &mut link);
+    let result = if stepped {
+        // worker::run's loop, with each sleep replaced by the next step.
+        let mut worker = worker;
+        loop {
+            let polled = worker.poll(&mut link);
+            let at_us = STEPPED_NOW_US.load(Ordering::SeqCst);
+            write_instant(&session.join(SCENARIO_DONE), at_us);
+            if !matches!(polled, Ok(false)) {
+                break;
+            }
+            STEPPED_NOW_US.store(next_step(&session, at_us), Ordering::SeqCst);
+        }
+        let finished = worker.finish(&mut link);
+        write_instant(&session.join(SCENARIO_DONE), SCENARIO_FINISHED);
+        finished
+    } else {
+        worker::run(worker, &mut link)
+    };
     eprintln!(
         "motor_fixture_phase=worker_finished result={result:?} at_us={}",
         monotonic_us()
@@ -399,6 +546,29 @@ fn quoted(value: &str) -> String {
 }
 fn fixture(mode: &str) -> (crate::process::SessionDirectory, OptionalMotor, Controller) {
     let (dir, prepared) = prepare_fixture(mode);
+    start_fixture(mode, dir, prepared)
+}
+/// `fixture`, with parent and child on one stepped clock from before the
+/// child starts. The scope must outlive every use of the motor.
+fn stepped_fixture(
+    mode: &str,
+) -> (
+    crate::scenario_clock::Scope,
+    crate::process::SessionDirectory,
+    OptionalMotor,
+    Controller,
+) {
+    let (dir, prepared) = prepare_fixture(mode);
+    write_instant(&dir.path.join(SCENARIO_NOW), 0);
+    let scope = stepped_scope(&dir.path);
+    let (dir, motor, controller) = start_fixture(mode, dir, prepared);
+    (scope, dir, motor, controller)
+}
+fn start_fixture(
+    mode: &str,
+    dir: crate::process::SessionDirectory,
+    prepared: PreparedMotor,
+) -> (crate::process::SessionDirectory, OptionalMotor, Controller) {
     let mut controller = Controller::new(new_boot().unwrap(), time());
     controller
         .set_microphone_permission(time(), Permission::Allowed)
@@ -452,14 +622,16 @@ fn prepare_fixture(mode: &str) -> (crate::process::SessionDirectory, PreparedMot
     // frozen inode before timing the real supervisor/worker protocol. This arm
     // exits before exporting worker arguments or binding/opening any resource.
     // It does not establish motor Ready, and no supervisor deadline changes.
-    preflight(
-        &prepared.executable.path,
-        crate::process::WORKER_STARTUP_TIMEOUT,
-    )
-    .unwrap();
+    preflight(&prepared.executable.path, PREFLIGHT_TIMEOUT).unwrap();
     assert!(!prepared.directory.exists());
     (dir, prepared)
 }
+
+/// The fixture's own first exec of a fresh script, before any supervisor
+/// deadline runs. macOS checks a new executable on its first exec, which took
+/// over the 3 s worker startup bound on a loaded Mac (2026-10-15); this wait
+/// is the fixture's, so it is not that production bound.
+const PREFLIGHT_TIMEOUT: Duration = Duration::from_secs(15);
 
 fn preflight(executable: &Path, timeout: Duration) -> io::Result<()> {
     use std::process::{Command as ProcessCommand, Stdio};
@@ -561,17 +733,14 @@ fn frozen_fixture_preflight_is_not_motor_startup() {
 fn fixture_preflight_rejects_missing_wrong_and_failed_markers_and_reaps() {
     for body in ["exit 0", "printf X; exit 0", "printf R; exit 7"] {
         let dir = crate::process::SessionDirectory::create().unwrap();
-        let script = dir.path.join("preflight");
         let pid_file = dir.path.join("pid");
-        fs::write(
-            &script,
-            format!(
-                "#!/bin/sh\nprintf '%s' \"$$\" >{}\n{body}\n",
+        let script = self_test_script(
+            &dir.path,
+            &format!(
+                "printf '%s' \"$$\" >{}\n{body}",
                 quoted(pid_file.to_str().unwrap())
             ),
-        )
-        .unwrap();
-        fs::set_permissions(&script, fs::Permissions::from_mode(0o700)).unwrap();
+        );
         assert!(preflight(&script, crate::process::WORKER_STARTUP_TIMEOUT).is_err());
         assert_preflight_reaped(&pid_file);
         fs::remove_dir_all(&dir.path).unwrap();
@@ -581,21 +750,46 @@ fn fixture_preflight_rejects_missing_wrong_and_failed_markers_and_reaps() {
 #[test]
 fn fixture_preflight_marker_without_exit_times_out_and_reaps() {
     let dir = crate::process::SessionDirectory::create().unwrap();
-    let script = dir.path.join("preflight");
     let pid_file = dir.path.join("pid");
-    fs::write(
-        &script,
-        format!(
-            "#!/bin/sh\nprintf '%s' \"$$\" >{}\nprintf R\nexec sleep 60\n",
+    let script = self_test_script(
+        &dir.path,
+        &format!(
+            "printf '%s' \"$$\" >{}\nprintf R\nexec sleep 60",
             quoted(pid_file.to_str().unwrap())
         ),
-    )
-    .unwrap();
-    fs::set_permissions(&script, fs::Permissions::from_mode(0o700)).unwrap();
+    );
     let error = preflight(&script, crate::process::WORKER_STARTUP_TIMEOUT).unwrap_err();
     assert_eq!(error.kind(), io::ErrorKind::TimedOut);
     assert_preflight_reaped(&pid_file);
     fs::remove_dir_all(&dir.path).unwrap();
+}
+
+/// A preflight self-test's script, executed once untimed before the test
+/// times it: a fresh script's first exec is the platform's check (over 3 s
+/// on a loaded Mac, 2026-10-15), not what these tests bound. The warm-up run
+/// exits before the body.
+fn self_test_script(dir: &Path, body: &str) -> PathBuf {
+    let script = dir.join("preflight");
+    fs::write(
+        &script,
+        format!("#!/bin/sh\n[ \"$1\" = warm-up ] && exit 0\n{body}\n"),
+    )
+    .unwrap();
+    fs::set_permissions(&script, fs::Permissions::from_mode(0o700)).unwrap();
+    let until = Instant::now() + PREFLIGHT_TIMEOUT;
+    let warm = loop {
+        match std::process::Command::new(&script).arg("warm-up").status() {
+            // As in `preflight`: another thread's fork may still hold the script open.
+            Err(error)
+                if error.kind() == io::ErrorKind::ExecutableFileBusy && Instant::now() < until =>
+            {
+                std::thread::sleep(Duration::from_millis(5));
+            }
+            status => break status.unwrap(),
+        }
+    };
+    assert!(warm.success(), "preflight self-test warm-up: {warm}");
+    script
 }
 
 fn assert_preflight_reaped(pid_file: &Path) {
@@ -608,19 +802,32 @@ fn assert_preflight_reaped(pid_file: &Path) {
     );
 }
 
+/// The first 2 KiB the owned fixture child wrote, for a failure message.
+fn child_output(motor: &OptionalMotor) -> String {
+    motor
+        .prepared
+        .as_ref()
+        .and_then(|prepared| File::open(prepared.directory.join("child-output")).ok())
+        .map(|file| {
+            let mut bytes = Vec::new();
+            file.take(2048).read_to_end(&mut bytes).unwrap();
+            String::from_utf8_lossy(&bytes).into_owned()
+        })
+        .unwrap_or_default()
+}
 fn wait(
     motor: &mut OptionalMotor,
     c: &mut Controller,
     mut predicate: impl FnMut(&OptionalMotor) -> bool,
 ) {
-    let until = Instant::now() + Duration::from_secs(2);
+    let until = crate::scenario_clock::instant() + Duration::from_secs(2);
     let mut last = 0;
     let mut last_poll = Instant::now();
     let mut largest_poll_gap = Duration::ZERO;
     while !predicate(motor) {
         largest_poll_gap = largest_poll_gap.max(last_poll.elapsed());
         assert!(
-            Instant::now() < until,
+            crate::scenario_clock::instant() < until,
             "owned child timed out: adapter={:?}; connected={}; ready={}; reaped={}; supervisor={:?}; largest_poll_gap_us={}; output={}",
             motor.failure(),
             motor.child.as_ref().is_some_and(Supervisor::connected),
@@ -628,16 +835,7 @@ fn wait(
             motor.reaped(),
             motor.child.as_ref().and_then(Supervisor::failure),
             largest_poll_gap.as_micros(),
-            motor
-                .prepared
-                .as_ref()
-                .and_then(|prepared| File::open(prepared.directory.join("child-output")).ok())
-                .map(|file| {
-                    let mut bytes = Vec::new();
-                    file.take(2048).read_to_end(&mut bytes).unwrap();
-                    String::from_utf8_lossy(&bytes).into_owned()
-                })
-                .unwrap_or_default()
+            child_output(motor)
         );
         if monotonic_us() - last >= 10_000 {
             motor.publish(c.snapshot(time()).unwrap());
@@ -645,7 +843,7 @@ fn wait(
         }
         motor.poll(|_| {});
         last_poll = Instant::now();
-        std::thread::park_timeout(Duration::from_millis(1));
+        pause();
     }
     // Read terminal packets that raced the observed child exit.
     for _ in 0..2 {

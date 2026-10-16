@@ -244,6 +244,44 @@ refreshes that same owner's existing 500 ms capture/admission lease, as live
 capture would. It neither creates a replacement owner nor enlarges the
 lease. Original audio-dispatch and cleanup assertions remain.
 
+## Head qualification on one clock
+
+The head-qualification fixtures (`motor/tests/native_head.rs`) run the real
+Supervisor, Driver, qualification and worker against an inert child process.
+On the host clock they failed under load: on 2026-10-15, on an Apple M-series
+Mac at load average 14 to 37, 6 of 60 runs of these 11 tests. A pause of either
+process for longer than one of production's own bounds expired a segment
+(`SegmentExpired`), a 100 ms fixture lease or a 100 ms packet age. Widening
+the fixture's inputs to the largest values production accepts only halved that
+(10 of 200), since pauses over 600 ms were seen.
+
+So parent and child share one stepped clock: in ten of the eleven tests, including the two that start the motor after the head (`fixture("startup")` before, now `stepped_fixture("startup")`). The eleventh, `native_head_binding_changes_only_explicit_camera_boot`, checks a config binding and starts no child. Since then the module runs on pull requests again; it is no longer in the realtime group (`realtime-tests.md`). `stepped_fixture` writes
+`scenario-now` in the session directory before the child starts, and enters a
+`scenario_clock` scope whose every step writes the parent's instant there and
+waits until the child has written the same instant to `scenario-done`. The
+child sees the file, reads its time from it (`FixtureClock`, for its motor
+core and worker), and in place of `worker::run`'s sleep waits for the next
+step after each poll. A finished child writes `u64::MAX`, and a child that has
+exited ends the parent's wait. Time therefore moves only in 2 ms steps that
+both processes have finished, and no host pause reaches a deadline.
+
+The parent's Supervisor measures its deadlines on the same clock:
+`Supervisor<C: Clock = SystemClock>` in `crates/body/src/runtime/supervisor.rs`,
+with `spawn_with_clock`, and the qualification's polls read `supervisor.now()`.
+Production builds name `SystemClock` everywhere, through `Supervisor::spawn`,
+and the voice's motor adapter and head driver read `lamp_ipc::monotonic_us`;
+only `cfg(test)` builds read the scenario clock, which is the host clock in a
+test that enters no scope. Every production constant, deadline and order is
+unchanged, and the fixtures again use their original 30 ms segment, 100 ms
+lease and 400 ms step bound. The 15 s preflight wait stays: it is the fixture's
+own first exec of a fresh script, before any Supervisor deadline, and it ran
+past the 3 s worker startup bound once under load. Real watchdogs (30 s each
+way, the scope's own) end a stalled scenario as a failure.
+
+When a fixture child ends early it logs every Rejected, Inhibited, Stopped or
+Fault event to its `child-output`, and the parent's failure message includes
+that file's first 2 KiB.
+
 ## Qualification and limits
 
 Run from `lampOS/`:

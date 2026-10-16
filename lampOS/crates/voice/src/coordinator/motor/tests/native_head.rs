@@ -81,13 +81,14 @@ fn exchange(
 fn attached(
     mode: &str,
 ) -> (
+    crate::scenario_clock::Scope,
     crate::process::SessionDirectory,
     OptionalMotor,
     Controller,
     Driver,
     Endpoint,
 ) {
-    let (dir, mut m, mut c) = fixture(mode);
+    let (scope, dir, mut m, mut c) = stepped_fixture(mode);
     wait(&mut m, &mut c, OptionalMotor::is_ready);
     let (runtime, peer) = Endpoint::pair().unwrap();
     let session = c.snapshot(time()).unwrap().boot();
@@ -99,7 +100,7 @@ fn attached(
     ))
     .unwrap();
     let d = m.head.take().unwrap();
-    (dir, m, c, d, peer)
+    (scope, dir, m, c, d, peer)
 }
 #[test]
 fn native_head_four_explicit_actions_use_original_owner_and_reap() {
@@ -110,7 +111,7 @@ fn native_head_six_explicit_actions_prepare_profile_then_new_requests() {
     run_sequence("profile", true);
 }
 fn run_sequence(mode: &str, profile: bool) {
-    let (dir, mut m, mut c, mut d, peer) = attached(mode);
+    let (_scope, dir, mut m, mut c, mut d, peer) = attached(mode);
     refresh(&mut m, &mut c);
     let owner = c.admit(time(), AdmittedInput::NewTurn).unwrap();
     let mut actions = vec![
@@ -159,7 +160,7 @@ fn run_sequence(mode: &str, profile: bool) {
             Some(&f),
         );
         assert!(r.error.is_none(), "{:?}", r.error);
-        let until = Instant::now() + Duration::from_millis(400);
+        let until = crate::scenario_clock::instant() + Duration::from_millis(400);
         let target = match action {
             Action::InspectProfile => Stage::ProfileInspected,
             Action::PrepareProfile => Stage::New,
@@ -170,14 +171,15 @@ fn run_sequence(mode: &str, profile: bool) {
         };
         while m.qualification_stage() != target {
             assert!(
-                Instant::now() < until,
-                "phase {:?}, failure {:?}",
+                crate::scenario_clock::instant() < until,
+                "phase {:?}, failure {:?}, {action:?}; child: {}",
                 m.qualification_stage(),
-                m.failure()
+                m.failure(),
+                child_output(&m)
             );
             refresh(&mut m, &mut c);
             m.poll(|_| {});
-            std::thread::park_timeout(Duration::from_millis(1));
+            pause();
         }
     }
     wait(&mut m, &mut c, OptionalMotor::reaped);
@@ -193,7 +195,7 @@ fn run_sequence(mode: &str, profile: bool) {
 }
 #[test]
 fn native_head_no_owner_no_capture_or_no_frame_never_grants() {
-    let (dir, mut m, mut c, mut d, peer) = attached("normal");
+    let (_scope, dir, mut m, mut c, mut d, peer) = attached("normal");
     let f = frame(&mut c, 1);
     let r = exchange(
         &mut d,
@@ -237,7 +239,7 @@ fn native_head_no_owner_no_capture_or_no_frame_never_grants() {
 }
 #[test]
 fn native_head_owner_cancel_between_ticket_and_action_never_dispatches() {
-    let (dir, mut m, mut c, mut d, peer) = attached("normal");
+    let (_scope, dir, mut m, mut c, mut d, peer) = attached("normal");
     refresh(&mut m, &mut c);
     let owner = c.admit(time(), AdmittedInput::NewTurn).unwrap();
     let f = frame(&mut c, 1);
@@ -280,7 +282,7 @@ fn native_head_owner_cancel_between_ticket_and_action_never_dispatches() {
 }
 #[test]
 fn native_head_privacy_at_dispatch_closes_optional_only() {
-    let (dir, mut m, mut c, mut d, peer) = attached("normal");
+    let (_scope, dir, mut m, mut c, mut d, peer) = attached("normal");
     refresh(&mut m, &mut c);
     let owner = c.admit(time(), AdmittedInput::NewTurn).unwrap();
     let f = frame(&mut c, 1);
@@ -315,7 +317,7 @@ fn native_head_privacy_at_dispatch_closes_optional_only() {
 }
 #[test]
 fn native_head_stale_or_foreign_frame_cannot_grant() {
-    let (dir, mut m, mut c, mut d, peer) = attached("normal");
+    let (_scope, dir, mut m, mut c, mut d, peer) = attached("normal");
     refresh(&mut m, &mut c);
     c.admit(time(), AdmittedInput::NewTurn).unwrap();
     for sequence in 1..=3 {
@@ -368,7 +370,7 @@ fn native_head_binding_changes_only_explicit_camera_boot() {
 #[test]
 fn native_head_replayed_receipt_and_changed_camera_grant_are_terminal() {
     for changed_grant in [false, true] {
-        let (dir, mut m, mut c, mut d, peer) = attached("normal");
+        let (_scope, dir, mut m, mut c, mut d, peer) = attached("normal");
         refresh(&mut m, &mut c);
         let owner = c.admit(time(), AdmittedInput::NewTurn).unwrap();
         let f = frame(&mut c, 1);
@@ -411,7 +413,7 @@ fn native_head_replayed_receipt_and_changed_camera_grant_are_terminal() {
 }
 #[test]
 fn native_head_absence_of_explicit_next_action_never_schedules_return() {
-    let (dir, mut m, mut c, mut d, peer) = attached("normal");
+    let (_scope, dir, mut m, mut c, mut d, peer) = attached("normal");
     refresh(&mut m, &mut c);
     let owner = c.admit(time(), AdmittedInput::NewTurn).unwrap();
     let f = frame(&mut c, 1);
@@ -459,7 +461,7 @@ fn native_head_absence_of_explicit_next_action_never_schedules_return() {
 
 #[test]
 fn native_head_initial_privacy_acquisition_is_not_a_revoke_or_grant() {
-    let (dir, mut m, mut c) = fixture("startup");
+    let (_scope, dir, mut m, mut c) = stepped_fixture("startup");
     let (runtime, peer) = Endpoint::pair().unwrap();
     let session = c.snapshot(time()).unwrap().boot();
     m.attach_head(Driver::test_driver(
@@ -509,7 +511,7 @@ fn native_head_initial_privacy_acquisition_is_not_a_revoke_or_grant() {
 
 #[test]
 fn native_head_startup_announcement_has_no_input_or_motion_authority() {
-    let (dir, mut m, mut c) = fixture("startup");
+    let (_scope, dir, mut m, mut c) = stepped_fixture("startup");
     let (runtime, peer) = Endpoint::pair().unwrap();
     let session = c.snapshot(time()).unwrap().boot();
     m.attach_head(Driver::test_driver(

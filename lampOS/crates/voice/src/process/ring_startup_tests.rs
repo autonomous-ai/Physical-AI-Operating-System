@@ -13,10 +13,21 @@ impl ChildFixture {
         let executable = directory.path.join("fake-ring");
         let identity = directory.path.join("identity");
         fs::write(&executable, format!(
-            "#!/bin/sh\nprintf '%s\\n%s\\n%s\\n' \"$4\" \"$5\" \"$$\" > '{}'\nexec /bin/sleep 60\n",
+            "#!/bin/sh\nif [ \"$1\" = --fixture-preflight ]; then exit 0; fi\nprintf '%s\\n%s\\n%s\\n' \"$4\" \"$5\" \"$$\" > '{}'\nexec /bin/sleep 60\n",
             identity.display()
         )).unwrap();
         fs::set_permissions(&executable, fs::Permissions::from_mode(0o700)).unwrap();
+        // macOS checks a fresh executable on its first exec, which took over
+        // the 3 s worker startup bound on a loaded Mac (2026-10-15). Pay that
+        // here, before any startup deadline runs; this arm writes nothing.
+        let preflight = Command::new(&executable)
+            .arg("--fixture-preflight")
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .unwrap();
+        assert!(preflight.success(), "fake ring preflight: {preflight}");
         Self {
             directory,
             executable,

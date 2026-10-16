@@ -1,0 +1,16 @@
+
+running 11 tests
+test coordinator::motor::tests::native_head::native_head_binding_changes_only_explicit_camera_boot ... ok
+test coordinator::motor::tests::native_head::native_head_startup_announcement_has_no_input_or_motion_authority ... ok
+test coordinator::motor::tests::native_head::native_head_privacy_at_dispatch_closes_optional_only ... ok
+test coordinator::motor::tests::native_head::native_head_owner_cancel_between_ticket_and_action_never_dispatches ... ok
+test coordinator::motor::tests::native_head::native_head_stale_or_foreign_frame_cannot_grant ... ok
+test coordinator::motor::tests::native_head::native_head_initial_privacy_acquisition_is_not_a_revoke_or_grant ... ok
+test coordinator::motor::tests::native_head::native_head_absence_of_explicit_next_action_never_schedules_return ... ok
+test coordinator::motor::tests::native_head::native_head_replayed_receipt_and_changed_camera_grant_are_terminal ... ok
+test coordinator::motor::tests::native_head::native_head_no_owner_no_capture_or_no_frame_never_grants ... ok
+test coordinator::motor::tests::native_head::native_head_four_explicit_actions_use_original_owner_and_reap ... ok
+test coordinator::motor::tests::native_head::native_head_six_explicit_actions_prepare_profile_then_new_requests ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 1156 filtered out; finished in 0.51s
+

@@ -508,6 +508,8 @@ mod fixture_tests {
         let deadline = Instant::now() + WORKER_STARTUP_TIMEOUT;
         crate::scenario_clock::wait_child_exited(pid, deadline).unwrap();
         crate::scenario_clock::wait_child_exited(pid, deadline).unwrap();
+        // A deadline already passed is a one-shot probe: it still sees the exit.
+        crate::scenario_clock::wait_child_exited(pid, Instant::now()).unwrap();
         let status = worker
             .try_exit()
             .unwrap()

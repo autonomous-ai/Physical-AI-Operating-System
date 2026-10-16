@@ -1,6 +1,8 @@
 //! Explicit attended qualification over the live controller's actual authority.
 //! Static clearance is provisioned by an operator; fresh frames prove only
 //! camera lineage/freshness. They never infer clearance or grant ownership.
+#[cfg(test)]
+use crate::scenario_clock::monotonic_us;
 use crate::{
     camera_worker::FrameMetadata,
     coordinator::motor::{OptionalMotor, PlacementBinding},
@@ -10,7 +12,9 @@ use lamp_body::runtime::{
     qualification::{HeadPlan, Phase},
     wire::Observation,
 };
-use lamp_ipc::{Endpoint, MAX_DATAGRAM_BYTES, monotonic_us};
+#[cfg(not(test))]
+use lamp_ipc::monotonic_us;
+use lamp_ipc::{Endpoint, MAX_DATAGRAM_BYTES};
 use lamp_turn_owner::{BootId, Controller, MonoTime, OutputKind, TurnOwner};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};

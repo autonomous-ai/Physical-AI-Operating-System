@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Loaded qualification of eighth/motor-clock (#739 part 2) on this Linux laptop.
+set -u
+export PATH="$HOME/.cargo/bin:$PATH"
+W=<worktree>/lampOS; Q=<scratch>/qual-motor-20261016
+cd $W
+export CARGO_TARGET_DIR=$HOME/.cache/lampos-target-eighth
+git -C $W rev-parse HEAD > $Q/head
+cargo test -q -p lamp-voice --no-run 2>&1 | tail -2
+BIN=$(cargo test -q -p lamp-voice --lib --no-run --message-format=json 2>/dev/null | jq -r 'select(.profile.test==true and .target.kind[0]=="lib") | .executable' | tail -1)
+echo "bin $BIN" > $Q/bin
+# load: release builds of the workspace in their own target dir, over and over
+( while :; do CARGO_TARGET_DIR=$HOME/.cache/lampos-load cargo build -q --release --workspace -j 20 >/dev/null 2>&1; rm -rf $HOME/.cache/lampos-load/release; done ) & LOAD=$!
+( while :; do echo "$(date +%H:%M:%S) $(cut -d' ' -f1-3 /proc/loadavg)"; sleep 30; done ) > $Q/loadavg.txt & SAMP=$!
+trap 'kill $LOAD $SAMP 2>/dev/null; pkill -f lampos-load; exit' EXIT INT TERM
+sleep 60
+for i in $(seq 1 60); do
+  $BIN native_head > $Q/native-$i.txt 2>&1; echo "native $i rc=$? $(grep -o 'test result.*' $Q/native-$i.txt) $(date +%H:%M:%S)" >> $Q/summary.txt
+done
+for i in $(seq 1 10); do
+  cargo test -p lamp-voice -- --test-threads=1 > $Q/full-$i.txt 2>&1; echo "full $i rc=$? $(grep -c '^test result: ok' $Q/full-$i.txt) ok-suites, failed: $(grep -E '^    [a-z_:]+$' $Q/full-$i.txt | tr '\n' ' ') $(date +%H:%M:%S)" >> $Q/summary.txt
+done
+echo done >> $Q/summary.txt

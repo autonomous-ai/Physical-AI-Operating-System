@@ -67,7 +67,9 @@ pub const RESET_HOLD_US: u64 = 5_000_000;
 /// The reset button arms only after it has read released this long running:
 /// a line that rests pressed (a pad driving it low) and lifts briefly never
 /// arms, so two short lifts 5 s apart are never a reset (the reviewer on
-/// #1167). The primary button arms on its first released read, as before.
+/// #1167). A line read pressed through all of its first second never arms
+/// in that run (the reviewer on #1176 and #1209). The primary button arms on
+/// its first released read, as before.
 pub const RESET_ARM_US: u64 = 1_000_000;
 pub const MAX_PENDING_EVENTS: usize = 64;
 pub const MAX_RETIRED_READERS: usize = 32;
@@ -346,6 +348,11 @@ struct Button {
     arm_after_us: u64,
     /// Since when it has read released, while not yet armed.
     released_since: Option<u64>,
+    /// When it was first read in this run, and, once known, whether it read
+    /// pressed through all of its first `arm_after_us`. Both kept through
+    /// [`Button::reset`].
+    first_us: Option<u64>,
+    pressed_at_start: Option<bool>,
 }
 impl Button {
     fn arming_after(arm_after_us: u64) -> Self {
@@ -358,11 +365,32 @@ impl Button {
         *self = Self {
             counter: self.counter,
             arm_after_us: self.arm_after_us,
+            first_us: self.first_us,
+            pressed_at_start: self.pressed_at_start,
             ..Self::default()
         };
     }
+    /// A button that arms only after a released while (the reset), read
+    /// pressed through all of that first while: it never arms in this run.
+    /// One released read in it is enough, so a line still charging through
+    /// its pull-up, or a hand that leaves the button within that second, is
+    /// not refused (the reviewer on #1209).
+    fn refused(&self) -> bool {
+        self.pressed_at_start == Some(true)
+    }
     fn observe(&mut self, active: bool, at: u64) -> Result<Option<Contact>, InputError> {
         let previous = self.raw.replace(active);
+        if self.arm_after_us > 0 && self.pressed_at_start.is_none() {
+            let first = *self.first_us.get_or_insert(at);
+            if !active {
+                self.pressed_at_start = Some(false);
+            } else if at.saturating_sub(first) >= self.arm_after_us {
+                self.pressed_at_start = Some(true);
+            }
+        }
+        if self.refused() {
+            return Ok(None);
+        }
         if !self.armed {
             // Released long enough running, it arms; pressed, it starts over.
             self.contact = None;
@@ -598,6 +626,12 @@ impl TouchEngine {
     /// contact that overlaps a push asks for nothing more (#711).
     pub fn set_head_pushed(&mut self, pushed: bool) {
         self.head.pushed = pushed;
+    }
+    /// Whether the reset line read pressed through all of its first second,
+    /// so never arms until Controls starts again: a line that rests pressed
+    /// is not a reset button (the reviewer on #1176).
+    pub fn reset_refused(&self) -> bool {
+        self.reset.refused()
     }
     pub fn config(&self) -> &TouchConfig {
         &self.config

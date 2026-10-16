@@ -85,15 +85,35 @@ primary action from just the valid-looking portion. The head pads enter it
 only with `"legacy_head": true` in the pins, for a lamp whose voice and
 Expression do not read `controls/touch` yet (the product's, the reviewer on
 #1167): a pat is then still the old engine's `Pet` on `controls/gesture`,
-which wakes a lamp asleep at night, and `head_active` on `controls/state`,
-which the voice counts. Never with `LAMP_HEAD_TOUCH=on` or Expression's
-`--head-touch`: a three-second hold would put the lamp to sleep and its
-release, a `Pet`, wake it again.
+which wakes a lamp asleep at night, and `head_active` on `controls/state`.
+A `Pet` never touches the mute, nothing reads `head_active`, and the voice
+counts pets only for its trace. `legacy_head` goes only with neither
+`LAMP_HEAD_TOUCH=on` nor Expression's `--head-touch`, which read the head
+from `controls/touch`. And `--head-touch` goes only with the voice's
+`LAMP_HEAD_TOUCH=on` and `--controls-mute`: without the voice's sleep mute,
+a hand held 3 s puts the face to sleep with the microphones open (the
+reviewer on #1176). Install's test
+`head_touch_comes_whole_and_never_beside_the_old_engines_head` holds the
+product's units and pins to both. With no head pads, `legacy_head` is
+ignored, and the journal says so (`legacy_head ignored: the pins name no
+head pads`): the old engine would have nothing to read, and its refused
+reads took the touch path's GPIO down with it. It is ignored rather than
+refused, so a pins file install kept does not stop the button and the
+reset (#1209).
 
 The reset button arms only after it has read released for one second
 running (`RESET_ARM_US`), and the touch pins require it pulled up: a line
 that rests pressed and lifts briefly is never a reset, so two short lifts
-5 s apart cannot wipe the person's data (the reviewer on #1167).
+5 s apart cannot wipe the person's data (the reviewer on #1167). A reset
+line that reads pressed through all of its first second never arms until
+Controls starts again, and the journal says so once (`hand: reset read
+pressed through its first second: …`): a line that rests pressed is not a
+reset button, even if it lifts for a second later (the reviewer on #1176).
+One released read in that second is enough, so a line still charging
+through its pull-up, or a hand leaving the button as Controls starts, does
+not turn the reset off (#1209). The journal's
+`hand: reset held … let go` line ends `enabled:`, which is Controls'
+`--enable`, not whether `lamp-setup watch-reset` acted.
 
 ### Geometry, qualification and missing evidence
 

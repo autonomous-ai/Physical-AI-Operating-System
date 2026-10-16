@@ -1,8 +1,9 @@
 //! The decision "is this a good moment for the lamp to start this itself?"
 //! (`docs/policy.md`, "Asked by a skill: the gate"), for a skill's ask whose
 //! act is `news` (news of work) or `unprompted` (anything else the lamp
-//! would start: a stretch break, stuffy air), #939. A hello is the hello
-//! question's ([`crate::hello`]).
+//! would start: a stretch break, stuffy air), #939. A `reminder` the person
+//! set is decided here too, by the hard rule alone, with no model asked
+//! ([`REMINDER`]). A hello is the hello question's ([`crate::hello`]).
 //!
 //! One hard rule sits before the decider: never while anyone is talking to
 //! the lamp (the voice listening, thinking or speaking, or anything heard
@@ -46,12 +47,14 @@ pub const ASKER_WAITS: Duration = Duration::from_secs(2);
 const MOST_WAITING: usize = 4;
 /// What the rule gives when no model answers. Authored, not measured.
 pub const RULE_YES: f32 = 0.6;
+pub const RULE_NO: f32 = 0.1;
 /// The act of a reminder the person set, now due (the Reminders skill,
 /// #939): not the lamp's to time. Only someone talking to the lamp holds
-/// it; no model is asked, and neither the hour, the room nor how often the
-/// lamp spoke up count, since the person asked for it.
+/// it; no model is asked, and neither the hour, the room, how often the
+/// lamp spoke up nor a rule kept about speaking first count, since the
+/// person asked for it. One waiting is decided at once, even while a
+/// question is out.
 pub const REMINDER: &str = "reminder";
-pub const RULE_NO: f32 = 0.1;
 
 /// How the question is asked (`lamp-policy --gate`).
 #[derive(Clone, Debug)]
@@ -111,6 +114,7 @@ fn room_told(room: Room) -> &'static str {
 fn what_told(act: &str) -> &'static str {
     match act {
         "news" => "tell one short piece of news about work it handed to a coding agent",
+        REMINDER => "say a reminder the person set, now due",
         _ => "start something small itself, such as inviting a stretch or noting the air",
     }
 }
@@ -183,7 +187,7 @@ pub fn combine(
 /// The judgement when no model answers: yes unless nobody is known to be
 /// there, the room is known to be busy, the lamp spoke up unasked twice or
 /// more in the hour, or it is before eight in the morning or after ten at
-/// night (when the hour is known).
+/// night (when the hour is known). For a reminder the person set: yes.
 pub fn fallback(context: &Context) -> Judgement {
     // A reminder the person set: yes, whatever the room or the hour.
     let yes = context.act == REMINDER
@@ -356,8 +360,8 @@ impl Moment {
         }
     }
 
-    /// A skill asks whether the lamp may start `news` or something
-    /// `unprompted` now. Any other ask is passed over. Past [`MOST_WAITING`]
+    /// A skill asks whether the lamp may start `news`, something
+    /// `unprompted` or a `reminder` now. Any other ask is passed over. Past [`MOST_WAITING`]
     /// the oldest is let go.
     pub fn asked(&mut self, ask: &SkillAsk, now: Instant) {
         if ask.check().is_err() || !["news", REMINDER, "unprompted"].contains(&ask.act.as_str()) {
@@ -370,9 +374,38 @@ impl Moment {
         self.waiting.push_back((ask.clone(), now));
     }
 
+    /// What is known of `ask` now.
+    fn context(&self, ask: SkillAsk, room_now: Now, unix_ms: u64) -> Context {
+        Context {
+            ask: ask.ask,
+            skill: ask.skill,
+            act: ask.act,
+            someone_here: room_now.someone_here,
+            quiet_s: room_now.quiet_s,
+            room: room_now.room,
+            spoke_up_last_hour: room_now.spoke_up_last_hour,
+            hour: self
+                .options
+                .local
+                .as_ref()
+                .map(|local| local.hour_of_day(unix_ms)),
+        }
+    }
+
     /// Take up an answer if one has come; else decide the next ask, by the
     /// hard rule or by putting the question. At most one decision a turn.
     pub fn turn(&mut self, now: Instant, unix_ms: u64, room_now: Now) -> Option<Decided> {
+        // A reminder needs no model: one waiting is decided at once, by the
+        // hard rule, even while a question is out or other asks wait before
+        // it, so it is never let go late behind them (the reviewer on #1099).
+        if let Some(index) = self.waiting.iter().position(|(ask, at)| {
+            ask.act == REMINDER && now.saturating_duration_since(*at) < ASKER_WAITS
+        }) {
+            let (ask, _) = self.waiting.remove(index).expect("found above");
+            let context = self.context(ask, room_now, unix_ms);
+            let held = self.hold(&context.act, room_now, unix_ms);
+            return Some(self.decide(context, None, held, Duration::ZERO, unix_ms));
+        }
         if self.asking.is_some() {
             let (answer, took) = match self.answers.try_recv() {
                 Ok((answer, took)) => Some((Some(answer), took)),
@@ -410,20 +443,7 @@ impl Moment {
             self.totals.late += 1;
         }
         let (ask, received) = self.waiting.pop_front()?;
-        let context = Context {
-            ask: ask.ask,
-            skill: ask.skill,
-            act: ask.act,
-            someone_here: room_now.someone_here,
-            quiet_s: room_now.quiet_s,
-            room: room_now.room,
-            spoke_up_last_hour: room_now.spoke_up_last_hour,
-            hour: self
-                .options
-                .local
-                .as_ref()
-                .map(|local| local.hour_of_day(unix_ms)),
-        };
+        let context = self.context(ask, room_now, unix_ms);
         if let Some(hold) = self.hold(&context.act, room_now, unix_ms) {
             return Some(self.decide(context, None, Some(hold), Duration::ZERO, unix_ms));
         }
@@ -1098,6 +1118,59 @@ mod tests {
         assert_eq!(
             (held.decision.choice.as_str(), held.line.guard),
             ("wait", Some(Hold::KeptRule))
+        );
+    }
+
+    /// The reviewer on #1099: a reminder needs no model, so it is decided at
+    /// once though news is out with the model and an unprompted ask waits
+    /// before it; the question out and the ask waiting are as they were.
+    #[test]
+    fn a_reminder_is_decided_at_once_behind_a_question_out_and_another_ask() {
+        let (_go, gate) = mpsc::channel();
+        let given = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let decider = Held {
+            go: gate,
+            given: given.clone(),
+        };
+        let mut moment =
+            Moment::start(decider, Options::new(Duration::from_secs(3), None)).unwrap();
+        let quiet = Now {
+            room: Room::Quiet,
+            someone_here: Some(true),
+            quiet_s: 300,
+            talking: false,
+            spoke_up_last_hour: 0,
+        };
+        let ask = |number: u64, act: &str| SkillAsk {
+            ask: number,
+            skill: "reminders".into(),
+            act: act.into(),
+            person: None,
+            away_min: None,
+            there_s: None,
+        };
+        let t = Instant::now();
+        moment.asked(&ask(1, "news"), t);
+        assert!(moment.turn(t, 1_000_000, quiet).is_none(), "news is out");
+        moment.asked(&ask(2, "unprompted"), t);
+        moment.asked(&ask(3, REMINDER), t);
+        let said = moment
+            .turn(t + Duration::from_millis(10), 1_000_000, quiet)
+            .expect("the reminder at once");
+        assert_eq!(
+            (
+                said.decision.ask,
+                said.decision.choice.as_str(),
+                said.decision.by.as_str()
+            ),
+            (Some(3), "say_now", crate::policy::RULE)
+        );
+        assert!(moment.busy(), "the news out and the ask waiting");
+        assert!(
+            moment
+                .turn(t + Duration::from_millis(20), 1_000_000, quiet)
+                .is_none(),
+            "nothing else decided"
         );
     }
 }

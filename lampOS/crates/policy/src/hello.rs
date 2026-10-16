@@ -480,7 +480,8 @@ impl Hello {
     }
 
     /// With the moment question beside it (`--gate`, #939): skills' asks
-    /// of news and of anything else unprompted are put to it, with what
+    /// of news, of anything else unprompted and of a reminder are put to
+    /// it, with what
     /// this question knows of who is talking and how often the lamp spoke
     /// up unasked.
     pub fn with_moment(mut self, moment: crate::moment::Moment) -> Self {
@@ -493,8 +494,8 @@ impl Hello {
         self.moment.as_ref().map(crate::moment::Moment::totals)
     }
 
-    /// A skill's ask of news or of anything else unprompted, put to the
-    /// moment question. False when there is none to take it.
+    /// A skill's ask of news, of anything else unprompted or of a reminder,
+    /// put to the moment question. False when there is none to take it.
     pub fn asked_moment(&mut self, ask: &lamp_msgs::SkillAsk, now: Instant) -> bool {
         match self.moment.as_mut() {
             Some(moment) => {

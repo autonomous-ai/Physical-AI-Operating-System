@@ -1750,8 +1750,10 @@ the voice's own hello waits. With `--gate`, which needs `--hello` and
   the rule at once, with no model asked and nothing recorded as failed. The
   hour, the room, whether anyone is at the lamp and how often it spoke up
   do not count, as the person asked for it; neither do the kept rules about
-  speaking first. It waits only behind a question already out (at most
-  1.5 s, inside its 2 s). Test: `moment::tests::a_reminder_is_said_by_the_rule_alone_and_held_only_while_someone_talks`.
+  speaking first. It is decided at once, even while a question is out or
+  other asks wait before it, so it is never let go late behind them (the
+  reviewer on #1099). Tests: `moment::tests::a_reminder_is_said_by_the_rule_alone_and_held_only_while_someone_talks`,
+  `moment::tests::a_reminder_is_decided_at_once_behind_a_question_out_and_another_ask`.
 - An ask that fails its check (a skill's name, a known act, a hello
   without its minutes and seconds) is passed over.
 

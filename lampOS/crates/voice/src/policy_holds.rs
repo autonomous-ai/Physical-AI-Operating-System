@@ -43,7 +43,20 @@
 //!   The second voice (`crate::second_provider`) has no bus: its actions run
 //!   as before.
 //!
-//! Nothing of what was heard is read here: the decision's choice only.
+//! - **A reply to the lamp is not held from its schedule** (#1040): a
+//!   `stay_quiet` whose `follows_lamp` answer is [`FOLLOWS_FROM`] or more
+//!   ([`Verdict::StayQuietFollowing`]) still holds the volume, the light
+//!   and the executive's functions, but not `set_timer`, `set_reminder` or
+//!   `cancel_reminder`. On lamp-4ace on 2026-10-16 at 11:20 "Set a timer for
+//!   1 minute", said to the lamp in a conversation with it, was held, and no
+//!   timer was set: the fitted weights count a follow-up to the lamp against
+//!   answering, though Jev's `follows_lamp` told the lamp's lines apart
+//!   (median 0.60 on 33 said to the lamp, 0.29 on 46 not). A timer nobody
+//!   asked for is a smaller harm than one asked for and not set. Until the
+//!   weights are fitted again (#1040).
+//!
+//! Nothing of what was heard is read here: the decision's choice and its
+//! `follows_lamp` answer only.
 use serde_json::{Value, json};
 use std::{collections::VecDeque, io, path::Path, time::Duration};
 
@@ -56,6 +69,12 @@ pub const WAIT: Duration = Duration::from_secs(2);
 /// A hearing of the name at this score or more lets the action run, as the
 /// Policy counts the name heard (`lamp_policy::attention::NAME_HEARD_FROM`).
 pub const NAME_FROM: f32 = 0.9;
+/// A `follows_lamp` answer this high or more makes a `stay_quiet` a reply
+/// to the lamp, for its schedule ([`Verdict::StayQuietFollowing`]). On the
+/// first builder's 79 hand-read `stay_quiet` turns in conversation on
+/// 2026-10-16: 17 of the 33 said to the lamp and 6 of the 46 not are this
+/// high (0.5: 19 and 14; 0.7: 14 and 1).
+pub const FOLLOWS_FROM: f32 = 0.6;
 /// What the model is told of an action held.
 pub const HELD: &str = "Not done: it was not clear that was said to you. Say nothing at all.";
 /// Turns whose decisions are kept: some minutes' worth.
@@ -122,17 +141,23 @@ pub enum Gate {
 pub enum Verdict {
     /// `stay_quiet`: not for the lamp.
     StayQuiet,
+    /// `stay_quiet`, but said back to the lamp about what it last said, by
+    /// the decision's `follows_lamp` ([`FOLLOWS_FROM`]): its schedule is not
+    /// held (#1040).
+    StayQuietFollowing,
     /// `answer` or `look_up`: the lamp's.
     TakenUp,
 }
 
 /// The gate for an action, from its turn's verdict if one has come,
-/// whether the name was heard in the turn, and how long the action has
-/// waited.
-pub fn gate(verdict: Option<Verdict>, name_heard: bool, waited: Duration) -> Gate {
+/// whether the name was heard in the turn, how long the action has waited,
+/// and whether it is one of the schedule's ([`SCHEDULE_HELD`]).
+pub fn gate(verdict: Option<Verdict>, name_heard: bool, waited: Duration, schedule: bool) -> Gate {
     match verdict {
         _ if name_heard => Gate::Run,
         Some(Verdict::StayQuiet) => Gate::Hold,
+        Some(Verdict::StayQuietFollowing) if schedule => Gate::Run,
+        Some(Verdict::StayQuietFollowing) => Gate::Hold,
         Some(Verdict::TakenUp) => Gate::Run,
         None if waited < WAIT => Gate::Wait,
         None => Gate::Run,
@@ -180,10 +205,14 @@ impl Verdicts {
         let Some(request) = decision.request else {
             return;
         };
-        let verdict = if decision.choice == "stay_quiet" {
-            Verdict::StayQuiet
-        } else {
-            Verdict::TakenUp
+        let follows = decision
+            .answers
+            .get("follows_lamp")
+            .is_some_and(|yes| *yes >= FOLLOWS_FROM);
+        let verdict = match (decision.choice.as_str(), follows) {
+            ("stay_quiet", true) => Verdict::StayQuietFollowing,
+            ("stay_quiet", false) => Verdict::StayQuiet,
+            _ => Verdict::TakenUp,
         };
         if let Some(known) = self.decided.iter_mut().find(|(turn, _)| *turn == request) {
             known.1 = verdict;
@@ -223,16 +252,63 @@ mod tests {
         .unwrap()
     }
 
+    /// #1040: a `stay_quiet` whose `follows_lamp` is 0.6 or more is a reply
+    /// to the lamp; below it, or with no such answer, it is not.
+    #[test]
+    fn a_stay_quiet_that_follows_the_lamp_is_told_apart_by_its_follows_lamp() {
+        let (mut verdicts, dir) = verdicts("follows");
+        for (follows, request) in [(Some(0.7), 1), (Some(0.6), 2), (Some(0.59), 3), (None, 4)] {
+            let mut value =
+                serde_json::to_value(decision("attention", "stay_quiet", false, Some(request)))
+                    .unwrap();
+            if let Some(follows) = follows {
+                value["answers"] = json!({"calls_lamp": 0.05, "follows_lamp": follows});
+            }
+            verdicts.took(&serde_json::from_value(value).unwrap());
+        }
+        let read: Vec<Option<Verdict>> = (1..=4).map(|request| verdicts.verdict(request)).collect();
+        assert_eq!(
+            read,
+            [
+                Some(Verdict::StayQuietFollowing),
+                Some(Verdict::StayQuietFollowing),
+                Some(Verdict::StayQuiet),
+                Some(Verdict::StayQuiet)
+            ]
+        );
+        // An answer is taken up whatever it follows.
+        let mut value =
+            serde_json::to_value(decision("attention", "answer", false, Some(5))).unwrap();
+        value["answers"] = json!({"follows_lamp": 0.1});
+        verdicts.took(&serde_json::from_value(value).unwrap());
+        assert_eq!(verdicts.verdict(5), Some(Verdict::TakenUp));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
     #[test]
     fn an_action_runs_unless_the_turn_was_judged_not_for_the_lamp_and_the_name_was_not_heard() {
         let short = Duration::from_millis(300);
-        assert_eq!(gate(Some(Verdict::StayQuiet), false, short), Gate::Hold);
-        assert_eq!(gate(Some(Verdict::StayQuiet), true, short), Gate::Run);
-        assert_eq!(gate(Some(Verdict::TakenUp), false, short), Gate::Run);
-        assert_eq!(gate(None, false, short), Gate::Wait);
-        assert_eq!(gate(None, true, short), Gate::Run);
+        assert_eq!(
+            gate(Some(Verdict::StayQuiet), false, short, false),
+            Gate::Hold
+        );
+        assert_eq!(
+            gate(Some(Verdict::StayQuiet), true, short, false),
+            Gate::Run
+        );
+        assert_eq!(gate(Some(Verdict::TakenUp), false, short, false), Gate::Run);
+        assert_eq!(gate(None, false, short, false), Gate::Wait);
+        assert_eq!(gate(None, true, short, false), Gate::Run);
         // Past the wait it runs as today.
-        assert_eq!(gate(None, false, WAIT), Gate::Run);
+        assert_eq!(gate(None, false, WAIT, false), Gate::Run);
+        // A reply to the lamp (#1040): its schedule runs, the rest is held.
+        let following = Some(Verdict::StayQuietFollowing);
+        assert_eq!(gate(following, false, short, true), Gate::Run);
+        assert_eq!(gate(following, false, short, false), Gate::Hold);
+        assert_eq!(
+            gate(Some(Verdict::StayQuiet), false, short, true),
+            Gate::Hold
+        );
         assert_eq!(held()["done"], false);
         assert!(HELD.contains("Say nothing"));
     }
@@ -327,9 +403,17 @@ mod tests {
             let (mut verdicts, dir) = verdicts("late");
             verdicts.took(&decision("attention", a, false, Some(1)));
             let waited = Duration::from_millis(500);
-            assert_eq!(gate(verdicts.verdict(2), false, waited), Gate::Wait, "{a}");
+            assert_eq!(
+                gate(verdicts.verdict(2), false, waited, false),
+                Gate::Wait,
+                "{a}"
+            );
             verdicts.took(&decision("attention", b, false, Some(2)));
-            assert_eq!(gate(verdicts.verdict(2), false, waited), expected, "{a}");
+            assert_eq!(
+                gate(verdicts.verdict(2), false, waited, false),
+                expected,
+                "{a}"
+            );
             std::fs::remove_dir_all(&dir).unwrap();
         }
     }

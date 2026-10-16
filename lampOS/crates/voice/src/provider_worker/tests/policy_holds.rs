@@ -91,8 +91,18 @@ impl Desk {
 
     /// The Policy decides about what was said in turn `request`, for real.
     pub(super) fn decide(&mut self, request: Option<u64>, choice: &str) {
+        self.decide_with(request, choice, json!({}));
+    }
+
+    /// The same, with the model's answers.
+    pub(super) fn decide_with(
+        &mut self,
+        request: Option<u64>,
+        choice: &str,
+        answers: serde_json::Value,
+    ) {
         let decision = json!({"about": "attention", "choice": choice, "probability": 0.235,
-                              "answers": {}, "by": "typesafe/jev-1.13-20260917",
+                              "answers": answers, "by": "typesafe/jev-1.13-20260917",
                               "took_ms": 540, "shadow": false, "request": request});
         self.decisions.publish_json(0, &decision).unwrap();
     }
@@ -440,5 +450,52 @@ async fn a_timer_in_a_turn_the_policy_judged_not_for_the_lamp_is_not_set() {
         json!({"done": false, "next": crate::policy_holds::HELD})
     );
     assert!(desk.asked.try_recv().is_err(), "set_timer was run");
+    rig.stop().await;
+}
+
+/// #1040: on lamp-4ace on 2026-10-16 at 11:20 "Set a timer for 1 minute",
+/// said to the lamp in a conversation with it, was held. A `stay_quiet`
+/// whose `follows_lamp` is 0.6 or more does not hold the schedule: the
+/// timer is set. The volume in such a turn is still held.
+#[tokio::test]
+async fn a_timer_in_a_turn_that_follows_the_lamp_is_set_though_the_policy_said_stay_quiet() {
+    let mut desk = Desk::new("follows");
+    let mut rig = LiveRig::start_with(quick_policy(), desk.options(true));
+    let mut dial = rig.ready().await;
+    let request = rig.speak(&mut dial, false, true).await;
+    desk.decide_with(
+        Some(request),
+        "stay_quiet",
+        json!({"calls_lamp": 0.05, "follows_lamp": 0.72}),
+    );
+    dial.service
+        .send(json!({"toolCall":{"functionCalls":[
+            {"id":"t1","name":"set_timer","args":{"minutes":1}}
+        ]}}))
+        .await;
+    let told = rig.service_message(&mut dial).await;
+    assert_ne!(
+        response(&told),
+        json!({"done": false, "next": crate::policy_holds::HELD})
+    );
+    assert!(desk.asked.try_recv().is_ok(), "set_timer was not run");
+    rig.stop().await;
+
+    let mut desk = Desk::new("follows-volume");
+    let mut rig = LiveRig::start_with(quick_policy(), desk.options(true));
+    let mut dial = rig.ready().await;
+    let request = rig.speak(&mut dial, false, true).await;
+    desk.decide_with(
+        Some(request),
+        "stay_quiet",
+        json!({"calls_lamp": 0.05, "follows_lamp": 0.72}),
+    );
+    dial.service.send(volume_up("v1")).await;
+    let told = rig.service_message(&mut dial).await;
+    assert_eq!(
+        response(&told),
+        json!({"done": false, "next": crate::policy_holds::HELD})
+    );
+    assert!(desk.asked.try_recv().is_err(), "volume_up was run");
     rig.stop().await;
 }

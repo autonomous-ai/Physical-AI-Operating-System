@@ -964,6 +964,20 @@ said to someone else, set a five-minute timer; the first builder on #908),
 waits for the Policy's attention decision about its turn. The schedule's
 other three, `list_reminders`, `repeat_reminder` and `snooze_reminder`, are
 not held (the first builder, 05:57), nor is any other call:
+- **A reply to the lamp keeps its schedule** (#1040). A `stay_quiet` whose
+  `follows_lamp` answer is 0.6 or more (`policy_holds::FOLLOWS_FROM`) still
+  holds the volume, the light and the executive's functions, but not the
+  schedule's three. On lamp-4ace on 2026-10-16 at 11:20 "Set a timer for 1
+  minute", said to the lamp in a conversation with it, was held and no
+  timer was set: the fitted weights count a follow-up to the lamp against
+  answering, though `follows_lamp` told the lamp's lines apart (median 0.60
+  on 33 said to it, 0.29 on 46 not, the first builder's reading; at 0.6 or
+  more, 17 of the 33 and 6 of the 46, against 19 and 14 at 0.5). A timer
+  nobody asked for is a smaller harm than one asked for and not set. The
+  journal says why it ran: `the turn follows the lamp's last line, and the
+  schedule is not held from it`. Until the weights are fitted again
+  (#1040). Tests: `policy_holds::tests::a_stay_quiet_that_follows_the_lamp_is_told_apart_by_its_follows_lamp`,
+  `provider_worker::tests::policy_holds::a_timer_in_a_turn_that_follows_the_lamp_is_set_though_the_policy_said_stay_quiet`.
 - **The turn's decision** is an attention decision the Policy publishes
   for real (`policy/decisions`, `about` `attention`, `shadow` false:
   `lamp-policy --act attention`) about the turn **by its number**

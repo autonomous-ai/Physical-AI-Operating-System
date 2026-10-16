@@ -2454,11 +2454,18 @@ impl ToolDesk {
                 .as_ref()
                 .and_then(|verdicts| verdicts.verdict(request));
             let waited = Duration::from_micros(now.saturating_sub(parked.called_us));
-            match crate::policy_holds::gate(verdict, parked.turn.name_heard, waited) {
+            let schedule = matches!(
+                crate::tools::route(&self.settings, &parked.call.name),
+                crate::tools::Route::Schedule(_)
+            );
+            match crate::policy_holds::gate(verdict, parked.turn.name_heard, waited, schedule) {
                 crate::policy_holds::Gate::Wait => self.parked.push(parked),
                 crate::policy_holds::Gate::Run => {
                     let why = match verdict {
                         _ if parked.turn.name_heard => "its name was heard",
+                        Some(crate::policy_holds::Verdict::StayQuietFollowing) => {
+                            "the turn follows the lamp's last line, and the schedule is not held from it"
+                        }
                         Some(_) => "the Policy took the turn as the lamp's",
                         None => "no decision came in time",
                     };

@@ -42,6 +42,18 @@ const (
 	amazonSPSellerIDHint     = "The Seller ID looks like A1B2C3D4E5F6G7 (letters and numbers only). Find it in Seller Central under Account Info → Merchant Token."
 )
 
+// maskAmazonSecret redacts a saved credential for display: dots, plus the last 4 characters when the value is
+// long enough that those reveal nothing useful. A short or empty value shows dots only (or nothing).
+func maskAmazonSecret(v string) string {
+	if v == "" {
+		return ""
+	}
+	if len(v) < 24 {
+		return "••••••••"
+	}
+	return "••••••••" + v[len(v)-4:]
+}
+
 // amazonSPSellerIDRE is the shape of a seller (merchant) ID: 8 to 20 letters and digits.
 var amazonSPSellerIDRE = regexp.MustCompile(`^[A-Z0-9]{8,20}$`)
 
@@ -90,7 +102,11 @@ type amazonSPInfoResponse struct {
 	SellerID        string `json:"seller_id,omitempty"`
 	HasSecret       bool   `json:"has_secret"`
 	HasRefreshToken bool   `json:"has_refresh_token"`
-	ObtainedAt      int64  `json:"obtained_at,omitempty"`
+	// SecretHint and RefreshTokenHint are masked: dots plus the last 4 characters of a long value, so the page
+	// can show which saved value is which. The full values never leave the device.
+	SecretHint       string `json:"client_secret_hint,omitempty"`
+	RefreshTokenHint string `json:"refresh_token_hint,omitempty"`
+	ObtainedAt       int64  `json:"obtained_at,omitempty"`
 }
 
 type amazonSPToken struct {
@@ -271,6 +287,7 @@ func (h *DeviceMQTTHandler) SetAmazonSP(c *gin.Context) {
 	c.JSON(http.StatusOK, serializers.ResponseSuccess(amazonSPInfoResponse{
 		Connector: amazonSPConnectorCode, Connected: true, Region: region, ClientID: clientID, SellerID: sellerID,
 		HasSecret: true, HasRefreshToken: true, ObtainedAt: creds.ObtainedAt,
+		SecretHint: maskAmazonSecret(clientSecret), RefreshTokenHint: maskAmazonSecret(refresh),
 	}))
 }
 
@@ -296,10 +313,12 @@ func (h *DeviceMQTTHandler) GetAmazonSP(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, serializers.ResponseSuccess(amazonSPInfoResponse{
 		Connector: amazonSPConnectorCode, Connected: true, Region: creds.Credentials["region"], ClientID: clientID,
-		SellerID:        creds.Credentials["seller_id"],
-		HasSecret:       creds.Credentials["client_secret"] != "",
-		HasRefreshToken: creds.Credentials["refresh_token"] != "",
-		ObtainedAt:      creds.ObtainedAt,
+		SellerID:         creds.Credentials["seller_id"],
+		HasSecret:        creds.Credentials["client_secret"] != "",
+		HasRefreshToken:  creds.Credentials["refresh_token"] != "",
+		SecretHint:       maskAmazonSecret(creds.Credentials["client_secret"]),
+		RefreshTokenHint: maskAmazonSecret(creds.Credentials["refresh_token"]),
+		ObtainedAt:       creds.ObtainedAt,
 	}))
 }
 
@@ -354,6 +373,8 @@ func (h *DeviceMQTTHandler) updateAmazonSPSellerID(c *gin.Context, sellerID stri
 		Connector: amazonSPConnectorCode, Connected: true, Region: creds.Credentials["region"],
 		ClientID: creds.Credentials["client_id"], SellerID: sellerID,
 		HasSecret: creds.Credentials["client_secret"] != "", HasRefreshToken: creds.Credentials["refresh_token"] != "",
-		ObtainedAt: creds.ObtainedAt,
+		SecretHint:       maskAmazonSecret(creds.Credentials["client_secret"]),
+		RefreshTokenHint: maskAmazonSecret(creds.Credentials["refresh_token"]),
+		ObtainedAt:       creds.ObtainedAt,
 	}))
 }

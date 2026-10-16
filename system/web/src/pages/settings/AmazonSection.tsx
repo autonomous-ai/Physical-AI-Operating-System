@@ -58,6 +58,7 @@ function AmazonDirectCard({ onConnected }: { onConnected: (connected: boolean) =
   const [region, setRegion] = useState("na");
   const [connectedRegion, setConnectedRegion] = useState("");
   const [savedSellerId, setSavedSellerId] = useState("");
+  const [saved, setSaved] = useState<{ clientId: string; secret: string; refresh: string }>({ clientId: "", secret: "", refresh: "" });
   const [sellerId, setSellerId] = useState("");
   const [clientId, setClientId] = useState("");
   const [clientSecret, setClientSecret] = useState("");
@@ -72,6 +73,7 @@ function AmazonDirectCard({ onConnected }: { onConnected: (connected: boolean) =
         setConnectedRegion(r.region ?? "");
         setSavedSellerId(r.seller_id ?? "");
         setSellerId(r.seller_id ?? "");
+        setSaved({ clientId: r.client_id ?? "", secret: r.client_secret_hint ?? "", refresh: r.refresh_token_hint ?? "" });
         onConnected(!!r.connected);
       })
       .catch(() => {})
@@ -94,6 +96,7 @@ function AmazonDirectCard({ onConnected }: { onConnected: (connected: boolean) =
       setConnectedRegion(r.region ?? region);
       setSavedSellerId(r.seller_id ?? "");
       setSellerId(r.seller_id ?? "");
+      setSaved({ clientId: r.client_id ?? "", secret: r.client_secret_hint ?? "", refresh: r.refresh_token_hint ?? "" });
       onConnected(!!r.connected);
       reset();
       toast.success("Amazon connected.");
@@ -128,6 +131,7 @@ function AmazonDirectCard({ onConnected }: { onConnected: (connected: boolean) =
       setConnectedRegion("");
       setSavedSellerId("");
       setSellerId("");
+      setSaved({ clientId: "", secret: "", refresh: "" });
       onConnected(false);
       toast.success("Amazon disconnected.");
     } catch (err) {
@@ -194,18 +198,24 @@ function AmazonDirectCard({ onConnected }: { onConnected: (connected: boolean) =
           <select id="amazon_sp_region" value={region} onChange={(e) => setRegion(e.target.value)} style={inputStyle}>
             {REGIONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
           </select>
-          <FieldLabel htmlFor="amazon_sp_client_id">Client ID</FieldLabel>
+          <FieldLabel htmlFor="amazon_sp_client_id">Client ID{connected && saved.clientId ? " (saved)" : ""}</FieldLabel>
           <input id="amazon_sp_client_id" type="text" value={clientId} onChange={(e) => setClientId(e.target.value)}
-            placeholder="amzn1.application-oa2-client.…" autoComplete="off" spellCheck={false}
+            placeholder={connected && saved.clientId ? saved.clientId : "amzn1.application-oa2-client.…"} autoComplete="off" spellCheck={false}
             style={{ ...inputStyle, fontFamily: "monospace" }} />
-          <FieldLabel htmlFor="amazon_sp_client_secret">Client secret</FieldLabel>
+          <FieldLabel htmlFor="amazon_sp_client_secret">Client secret{connected && saved.secret ? " (saved)" : ""}</FieldLabel>
           <input id="amazon_sp_client_secret" type="password" value={clientSecret} onChange={(e) => setClientSecret(e.target.value)}
-            placeholder="paste the client secret" autoComplete="new-password" spellCheck={false}
+            placeholder={connected && saved.secret ? saved.secret : "paste the client secret"} autoComplete="new-password" spellCheck={false}
             style={{ ...inputStyle, fontFamily: "monospace" }} />
-          <FieldLabel htmlFor="amazon_sp_refresh_token">Refresh token</FieldLabel>
+          <FieldLabel htmlFor="amazon_sp_refresh_token">Refresh token{connected && saved.refresh ? " (saved)" : ""}</FieldLabel>
           <input id="amazon_sp_refresh_token" type="password" value={refreshToken} onChange={(e) => setRefreshToken(e.target.value)}
-            placeholder="Atzr|…" autoComplete="new-password" spellCheck={false}
+            placeholder={connected && saved.refresh ? saved.refresh : "Atzr|…"} autoComplete="new-password" spellCheck={false}
             style={{ ...inputStyle, fontFamily: "monospace" }} />
+          {connected && (
+            <div style={{ fontSize: 12, color: C.textDim, lineHeight: 1.5, marginBottom: 12 }}>
+              Saved values are shown masked (only the last 4 characters of the secret and token). To replace them, enter
+              all three again and press <b>Reconnect</b>; the Seller ID can be saved on its own.
+            </div>
+          )}
           <FieldLabel htmlFor="amazon_sp_seller_id">Seller ID (needed to post or change listings)</FieldLabel>
           <input id="amazon_sp_seller_id" type="text" value={sellerId} onChange={(e) => setSellerId(e.target.value)}
             placeholder="A1B2C3D4E5F6G7" autoComplete="off" spellCheck={false}

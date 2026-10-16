@@ -624,6 +624,9 @@ export interface AmazonSPInfo {
   seller_id?: string;
   has_secret: boolean;
   has_refresh_token: boolean;
+  /** Masked (dots plus the last 4 characters of a long value); the full values never reach the browser. */
+  client_secret_hint?: string;
+  refresh_token_hint?: string;
   obtained_at?: number;
 }
 

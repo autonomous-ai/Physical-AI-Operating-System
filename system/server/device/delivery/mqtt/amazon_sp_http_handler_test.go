@@ -321,3 +321,39 @@ func TestSetAmazonSP_SellerIDAloneNeedsAConnection(t *testing.T) {
 		t.Fatalf("%d %s", w.Code, w.Body.String())
 	}
 }
+
+func TestMaskAmazonSecret(t *testing.T) {
+	if got := maskAmazonSecret(""); got != "" {
+		t.Errorf("empty -> %q", got)
+	}
+	if got := maskAmazonSecret("short-secret"); got != "••••••••" || strings.Contains(got, "short") {
+		t.Errorf("short value must show dots only, got %q", got)
+	}
+	long := "Atzr|abcdefghijklmnopqrstuvwxyz0123456789WXYZ"
+	got := maskAmazonSecret(long)
+	if got != "••••••••WXYZ" || strings.Contains(got, "abcdef") {
+		t.Errorf("long value -> %q", got)
+	}
+}
+
+func TestAmazonSP_StatusShowsMaskedHintsNeverTheValues(t *testing.T) {
+	e := newAmazonSPTestEnv(t, okLWA())
+	b := spBody()
+	b["client_secret"] = "amzn-secret-0123456789abcdefghij-SECR"
+	b["refresh_token"] = "Atzr|0123456789abcdefghijklmnopqrstuv-RFSH"
+	e.do(http.MethodPut, "/api/device/connectors/amazon_sp", b)
+	for _, path := range []string{"GET"} {
+		w := e.do(path, "/api/device/connectors/amazon_sp", nil)
+		body := w.Body.String()
+		for _, full := range []string{b["client_secret"], b["refresh_token"]} {
+			if strings.Contains(body, full) {
+				t.Fatalf("a full secret leaked: %s", body)
+			}
+		}
+		for _, want := range []string{`"client_secret_hint":"••••••••SECR"`, `"refresh_token_hint":"••••••••RFSH"`, `"client_id":"` + b["client_id"] + `"`} {
+			if !strings.Contains(body, want) {
+				t.Errorf("status misses %s: %s", want, body)
+			}
+		}
+	}
+}

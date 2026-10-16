@@ -141,7 +141,8 @@ pub(super) fn configured(value: Option<OsString>) -> Option<PathBuf> {
 }
 
 /// The `worker second` arguments: the Live worker's, its configuration
-/// first, then the second route's, then its flags but `--keep-link`.
+/// first, then the second route's, then its flags but `--keep-link` and
+/// `--wait-for-room`, which are for Gemini's link.
 pub(super) fn arguments(provider: &[String], second_config: &Path) -> io::Result<Vec<String>> {
     let (config, flags) = provider
         .split_first()
@@ -153,7 +154,10 @@ pub(super) fn arguments(provider: &[String], second_config: &Path) -> io::Result
     arguments.extend(
         flags
             .iter()
-            .filter(|flag| *flag != crate::provider_worker::KEEP_LINK_FLAG)
+            .filter(|flag| {
+                *flag != crate::provider_worker::KEEP_LINK_FLAG
+                    && *flag != crate::provider_worker::WAIT_FOR_ROOM_FLAG
+            })
             .cloned(),
     );
     Ok(arguments)
@@ -717,6 +721,7 @@ mod tests {
             "--thread-file",
             "/t",
             "--keep-link",
+            "--wait-for-room",
             "--tools",
         ]
         .map(String::from)

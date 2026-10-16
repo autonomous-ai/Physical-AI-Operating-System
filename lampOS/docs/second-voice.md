@@ -398,19 +398,22 @@ and its authority kept fresh during the rest of startup.
   lamp-52e6 (PR #885 run 2, lampOS#892), and the second route answered.
   The pace alone does not hold through a write that stalls: a 90 ms stall,
   within the link's 200 ms write bound, still filled the queue at two a
-  tick. So Gemini's provider worker offers a command only when the queue
-  has room (`InputSender::has_room`); one that finds it full waits, first in
+  tick. So, with a second route configured, the coordinator gives Gemini's
+  provider worker `--wait-for-room`, and the worker offers a command only
+  when the queue has room (`InputSender::has_room`); one that finds it full waits, first in
   line, with nothing more read from the coordinator, for up to
   `ROOM_WAIT_US` (250 ms, past the write bound), and then goes, a queue
   still full being the link's failure as before. What the coordinator
   sends meanwhile waits in its own socket and queue, in order. The End a
   cancellation owes an open request waits for room the same way (the
   retirement itself stays immediate), and nothing of the next request is
-  offered before it. At the pace of speech the queue never fills, so
-  ordinary input is not changed.
+  offered before it. This changes how Gemini's worker meets a full queue
+  for all its input, not only a replay, but only on a lamp with a second
+  route.
 - **Without a configured route** `Rig::second` is `None`, the three
   intercepts (the send site, the output receipt, the gate's `movable`) are
-  the old calls, and nothing else changes.
+  the old calls, Gemini's worker is not given `--wait-for-room` (a full
+  queue ends its connection as it always has), and nothing else changes.
 - Trace: `voice_route_switched` (`to`, `why`, `turn`, `replayed_commands`,
   and the failure's `stage` and `reason`); `voice_route_held` (`turn`,
   `held_ms`, `to`: `live` or `second`) when a startup hold ends; the standby's startup link

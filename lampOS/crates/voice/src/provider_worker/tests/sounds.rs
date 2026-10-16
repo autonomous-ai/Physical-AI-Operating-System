@@ -17,6 +17,7 @@ fn checked(on: bool) -> Options {
         sounds_checked: on,
         name_in_passing_ignored: false,
         policy_holds: None,
+        wait_for_room: false,
     }
 }
 

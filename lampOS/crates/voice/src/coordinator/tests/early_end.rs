@@ -1520,8 +1520,15 @@ fn without_the_option_every_message_and_record_is_what_it_was() {
     let config = std::path::Path::new("/private/provider.json");
     for lifetime in [Lifetime::Serve, Lifetime::Finite(60)] {
         assert_eq!(
-            provider_arguments(ProviderSource::Gemini(config), &on, lifetime, None).unwrap(),
-            provider_arguments(ProviderSource::Gemini(config), &options, lifetime, None).unwrap()
+            provider_arguments(ProviderSource::Gemini(config), &on, lifetime, None, false).unwrap(),
+            provider_arguments(
+                ProviderSource::Gemini(config),
+                &options,
+                lifetime,
+                None,
+                false
+            )
+            .unwrap()
         );
         let mut with = run_start_record(&on, lifetime, false, false, None, false);
         let without = run_start_record(&options, lifetime, false, false, None, false);

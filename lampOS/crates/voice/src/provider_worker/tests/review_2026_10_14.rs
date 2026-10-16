@@ -109,6 +109,7 @@ fn in_a_busy_room() -> Options {
         sounds_checked: false,
         name_in_passing_ignored: false,
         policy_holds: None,
+        wait_for_room: false,
     }
 }
 

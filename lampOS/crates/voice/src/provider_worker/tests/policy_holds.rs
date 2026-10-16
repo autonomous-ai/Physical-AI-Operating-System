@@ -81,6 +81,7 @@ impl Desk {
             sounds_checked: false,
             name_in_passing_ignored: false,
             policy_holds: holds.then(|| self.bus.clone()),
+            wait_for_room: false,
         }
     }
 

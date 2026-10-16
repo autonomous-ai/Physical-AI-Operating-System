@@ -1955,6 +1955,7 @@ fn provider_arguments(
     options: &DirectedOptions,
     lifetime: Lifetime,
     camera: Option<&PreparedCamera>,
+    wait_for_room: bool,
 ) -> io::Result<Vec<String>> {
     // A service that runs all day never gives its provider link up.
     let keep_link = lifetime.continuous() && matches!(source, ProviderSource::Gemini(_));
@@ -1968,6 +1969,10 @@ fn provider_arguments(
     arguments.extend(crate::air_told::arguments_from_environment());
     if keep_link {
         arguments.push(crate::provider_worker::KEEP_LINK_FLAG.to_owned());
+    }
+    // A second route's held line is replayed faster than speech (#892).
+    if wait_for_room {
+        arguments.push(crate::provider_worker::WAIT_FOR_ROOM_FLAG.to_owned());
     }
     arguments.extend(crate::tools::arguments_from_environment());
     arguments.extend(crate::attention::arguments_from_environment());
@@ -2005,14 +2010,21 @@ fn spawn_rig(
     // Model loading overlaps the remaining startup; nothing waits for it.
     let endpoint = EndpointRig::start(&options, &executable);
     let provider_boot = new_boot()?;
-    let arguments = provider_arguments(source, &options, lifetime, camera.as_ref())?;
     // A service that runs all day may keep a second voice route standing by.
-    let second_arguments = second::configured(
+    let second_config = second::configured(
         std::env::var_os(crate::second_config::SECOND_CONFIG_ENV)
             .filter(|_| lifetime.continuous() && matches!(source, ProviderSource::Gemini(_))),
-    )
-    .map(|config| second::arguments(&arguments, &config))
-    .transpose()?;
+    );
+    let arguments = provider_arguments(
+        source,
+        &options,
+        lifetime,
+        camera.as_ref(),
+        second_config.is_some(),
+    )?;
+    let second_arguments = second_config
+        .map(|config| second::arguments(&arguments, &config))
+        .transpose()?;
     let arguments: Vec<&str> = arguments.iter().map(String::as_str).collect();
     let mut provider = Worker::spawn_with_boot_and_tick(
         &executable,

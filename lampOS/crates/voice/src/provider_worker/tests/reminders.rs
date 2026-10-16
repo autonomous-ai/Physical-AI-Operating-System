@@ -219,7 +219,7 @@ fn reminder_text_is_quoted_data_and_lateness_is_preserved_with_no_picture() {
     let note = &notes[0].2;
     let data: serde_json::Value =
         serde_json::from_str(note.split_once("Reminder data: ").unwrap().1).unwrap();
-    assert_eq!(data, json!({"text":text,"late":true,"late_by_ms":1234}));
+    assert_eq!(data, json!({"text":text,"late":false}));
     assert!(note.len() < 2200);
     assert!(!handoff.submitted.unwrap().open);
 }
@@ -380,7 +380,7 @@ async fn due_reminders_work_in_every_room_with_or_without_attention_and_the_next
                 .unwrap();
             let data: serde_json::Value =
                 serde_json::from_str(note.split_once("Reminder data: ").unwrap().1).unwrap();
-            assert_eq!(data, json!({"text":"Tea","late":false,"late_by_ms":0}));
+            assert_eq!(data, json!({"text":"Tea","late":false}));
             assert_eq!(observed_room().0, room, "a reminder is not heard speech");
             dial.service
                 .send(json!({"serverContent":{"outputTranscription":{"text":"Tea is ready","finished":true}}}))

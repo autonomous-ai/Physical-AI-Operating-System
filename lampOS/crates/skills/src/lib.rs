@@ -586,17 +586,27 @@ impl Engine {
         topics
     }
 
+    /// The newest value of `topic`, if it still lasts at `now_us`.
+    fn fresh<'a>(
+        latest: &'a HashMap<String, (Value, u64, Option<u64>)>,
+        topic: &str,
+        now_us: u64,
+    ) -> Option<&'a Value> {
+        latest
+            .get(topic)
+            .filter(|(_, at_us, lasting_us)| {
+                lasting_us.is_none_or(|lasting| now_us < at_us + lasting)
+            })
+            .map(|(value, _, _)| value)
+    }
+
     fn condition_holds(
         latest: &HashMap<String, (Value, u64, Option<u64>)>,
         condition: &Condition,
         now_us: u64,
     ) -> bool {
-        latest
-            .get(&condition.topic)
-            .is_some_and(|(value, at_us, lasting_us)| {
-                lasting_us.is_none_or(|lasting| now_us < at_us + lasting)
-                    && condition.test.holds(value)
-            })
+        Self::fresh(latest, &condition.topic, now_us)
+            .is_some_and(|value| condition.test.holds(value))
     }
 
     /// A message on `topic`, at `now_us`. A payload that is not JSON is
@@ -706,8 +716,9 @@ impl Engine {
                     Some(true),
                 ));
                 watch.ran_us = Some(now_us);
-                // The face to look at: the largest in view now.
-                let face = self.latest.get(Faces::TOPIC).and_then(|(faces, _, _)| {
+                // The face to look at: the largest in the newest list of
+                // faces that still lasts. With none, the other steps go on.
+                let face = Self::fresh(&self.latest, Faces::TOPIC, now_us).and_then(|faces| {
                     serde_json::from_value::<Faces>(faces.clone())
                         .ok()?
                         .faces

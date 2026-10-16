@@ -245,10 +245,13 @@ case "$CMD" in
     # carry the work past the lamp's lease).
     (
       call=
+      # This subshell's own PID. Bash 3.2 (macOS) has no BASHPID, and $$ is
+      # run's shell, so it is read from a child that replaces $( )'s fork.
+      self=${BASHPID:-$(exec sh -c 'echo "$PPID"')}
       # Stopped by run's exit: stop every child, with what it started. Bash runs
       # this between commands, so a renewal call forked just before its PID
       # was kept in $call is already a child here, and is stopped too.
-      trap 'for c in $(pgrep -P "$BASHPID"); do kill_tree "$c"; done; wait || true; exit 0' TERM
+      trap 'for c in $(pgrep -P "$self"); do kill_tree "$c"; done; wait || true; exit 0' TERM
       confirmed=$taken next=$((taken + RENEW))
       # The command is stopped from here, TERM then KILL, even while run's
       # own shell is still waiting for it.

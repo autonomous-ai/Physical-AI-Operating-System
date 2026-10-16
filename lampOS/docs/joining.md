@@ -497,7 +497,8 @@ the lamp.
   running); an interactive session on the lamp, such as `ssh` with a shell,
   goes between `acquire` and `release` instead.
 - `lampOS/tools/lamp-lock-test.sh` tests the script with no lamp, through a
-  stand-in for ssh.
+  stand-in for ssh, twice: as it is, and with no `BASHPID`, as under
+  macOS's bash 3.2.
 - The owner file (`LAMP.md`) still says who may act on a lamp at all; the
   lock says who is acting on it now.
 

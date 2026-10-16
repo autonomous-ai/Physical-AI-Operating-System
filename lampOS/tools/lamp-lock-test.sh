@@ -3,10 +3,18 @@
 # here, with HOME a temporary directory. Run: lampOS/tools/lamp-lock-test.sh
 set -uo pipefail
 
-LOCK=$(cd "$(dirname "$0")" && pwd)/lamp-lock.sh
+SCRIPT=$(cd "$(dirname "$0")" && pwd)/lamp-lock.sh
+LOCK=$SCRIPT
 T=$(mktemp -d)
 trap 'rm -rf "$T"' EXIT
 mkdir -p "$T/lamp"
+# Run a second time with no BASHPID, as on macOS's bash 3.2 (#705, 22:26):
+# the script is sourced by a shell that has dropped it.
+if [[ -n ${LAMP_LOCK_TEST_NO_BASHPID:-} ]]; then
+  printf '#!/usr/bin/env bash\nunset BASHPID\n. %q "$@"\n' "$SCRIPT" >"$T/lamp-lock.sh"
+  chmod +x "$T/lamp-lock.sh"
+  LOCK=$T/lamp-lock.sh
+fi
 
 # The stand-in: drops ssh's options and the host, runs the rest locally.
 # FAKE_DOWN set, or FAKE_DOWN_FILE present, makes it fail as ssh does when
@@ -104,6 +112,7 @@ L try bob s2 "x"; check "a fresh lock with a bad stamp is held" 1 $?
 # run: releases what it took, also on failure.
 reset
 L run alice s1 "cmd" -- true; check "run" 0 $?
+! grep -q "unbound variable" "$T/out"; check "run says nothing of an unset variable" 0 $?
 [[ ! -e $T/lamp/lamp.lock ]]; check "run released" 0 $?
 L run alice s1 "cmd" -- false; check "run passes the exit code" 1 $?
 [[ ! -e $T/lamp/lamp.lock ]]; check "run released after failure" 0 $?
@@ -186,6 +195,7 @@ reset
 LAMP_LOCK_RENEW=1 L run alice s1 "ends mid-renewal" -- bash -c "touch '$T/hang'; sleep 3"
 check "a command ending during a hung renewal" 0 $?
 ! pgrep -f "^sleep 60$" >/dev/null; check "the hung renewal call is stopped with run" 0 $?
+! grep -q "unbound variable" "$T/out"; check "the renewer's stop says nothing of an unset variable" 0 $?
 [[ ! -e $T/lamp/lamp.lock ]]; check "and the lock released" 0 $?
 rm -f "$T/hang"
 
@@ -275,10 +285,11 @@ fi
 
 # The bound cannot be set past the lease's last minute.
 reset
-grep -q 'STOP <= 540' "$LOCK"; check "the bound is capped at 540 s" 0 $?
+grep -q 'STOP <= 540' "$SCRIPT"; check "the bound is capped at 540 s" 0 $?
 
 sleep 1
 ! pgrep -f "^sleep 60$" >/dev/null; check "no hung call is left running" 0 $?
 
-echo "lamp-lock: $pass passed, $fail failed"
-[[ $fail -eq 0 ]]
+echo "lamp-lock${LAMP_LOCK_TEST_NO_BASHPID:+ (no BASHPID)}: $pass passed, $fail failed"
+[[ $fail -eq 0 ]] || exit 1
+[[ -n ${LAMP_LOCK_TEST_NO_BASHPID:-} ]] || LAMP_LOCK_TEST_NO_BASHPID=1 "$0"

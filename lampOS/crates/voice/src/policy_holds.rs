@@ -46,13 +46,16 @@
 //! - **A reply to the lamp is not held from its schedule** (#1040): a
 //!   `stay_quiet` whose `follows_lamp` answer is [`FOLLOWS_FROM`] or more
 //!   ([`Verdict::StayQuietFollowing`]) still holds the volume, the light
-//!   and the executive's functions, but not `set_timer`, `set_reminder` or
-//!   `cancel_reminder`. On lamp-4ace on 2026-10-16 at 11:20 "Set a timer for
+//!   and the executive's functions, but not `set_timer` or `set_reminder`
+//!   ([`SETS`]). On lamp-4ace on 2026-10-16 at 11:20 "Set a timer for
 //!   1 minute", said to the lamp in a conversation with it, was held, and no
 //!   timer was set: the fitted weights count a follow-up to the lamp against
 //!   answering, though Jev's `follows_lamp` told the lamp's lines apart
 //!   (median 0.60 on 33 said to the lamp, 0.29 on 46 not). A timer nobody
-//!   asked for is a smaller harm than one asked for and not set. Until the
+//!   asked for is a smaller harm than one asked for and not set, and it can
+//!   be cancelled by asking. Not so `cancel_reminder`, which stays held: a
+//!   wrong cancel is silent, nothing puts the reminder back, and the person
+//!   finds out only when it does not come (Fourth on #1054). Until the
 //!   weights are fitted again (#1040).
 //!
 //! Nothing of what was heard is read here: the decision's choice and its
@@ -88,6 +91,11 @@ const KEPT: usize = 16;
 /// 05:57).
 pub const SCHEDULE_HELD: [&str; 3] = ["set_timer", "set_reminder", "cancel_reminder"];
 
+/// Of [`SCHEDULE_HELD`], the two that a reply to the lamp still runs
+/// ([`Verdict::StayQuietFollowing`]): they set something to come, which can
+/// be cancelled by asking. `cancel_reminder` is not one (Fourth on #1054).
+pub const SETS: [&str; 2] = ["set_timer", "set_reminder"];
+
 /// Whether a call, by its route and its name, waits for the Policy's
 /// decision: every one of the executive's, and the schedule's in
 /// [`SCHEDULE_HELD`].
@@ -97,6 +105,12 @@ pub fn holds(route: &crate::tools::Route, name: &str) -> bool {
         crate::tools::Route::Schedule(_) => SCHEDULE_HELD.contains(&name),
         _ => false,
     }
+}
+
+/// Whether a call, by its route and its name, is one the schedule sets
+/// ([`SETS`]), which a reply to the lamp still runs.
+pub fn sets(route: &crate::tools::Route, name: &str) -> bool {
+    matches!(route, crate::tools::Route::Schedule(_)) && SETS.contains(&name)
 }
 
 /// The worker's argument for the switch in the environment.
@@ -142,8 +156,8 @@ pub enum Verdict {
     /// `stay_quiet`: not for the lamp.
     StayQuiet,
     /// `stay_quiet`, but said back to the lamp about what it last said, by
-    /// the decision's `follows_lamp` ([`FOLLOWS_FROM`]): its schedule is not
-    /// held (#1040).
+    /// the decision's `follows_lamp` ([`FOLLOWS_FROM`]): what it sets on the
+    /// schedule ([`SETS`]) is not held (#1040).
     StayQuietFollowing,
     /// `answer` or `look_up`: the lamp's.
     TakenUp,
@@ -151,12 +165,12 @@ pub enum Verdict {
 
 /// The gate for an action, from its turn's verdict if one has come,
 /// whether the name was heard in the turn, how long the action has waited,
-/// and whether it is one of the schedule's ([`SCHEDULE_HELD`]).
-pub fn gate(verdict: Option<Verdict>, name_heard: bool, waited: Duration, schedule: bool) -> Gate {
+/// and whether it sets something on the schedule ([`sets`]).
+pub fn gate(verdict: Option<Verdict>, name_heard: bool, waited: Duration, sets: bool) -> Gate {
     match verdict {
         _ if name_heard => Gate::Run,
         Some(Verdict::StayQuiet) => Gate::Hold,
-        Some(Verdict::StayQuietFollowing) if schedule => Gate::Run,
+        Some(Verdict::StayQuietFollowing) if sets => Gate::Run,
         Some(Verdict::StayQuietFollowing) => Gate::Hold,
         Some(Verdict::TakenUp) => Gate::Run,
         None if waited < WAIT => Gate::Wait,
@@ -301,9 +315,22 @@ mod tests {
         assert_eq!(gate(None, true, short, false), Gate::Run);
         // Past the wait it runs as today.
         assert_eq!(gate(None, false, WAIT, false), Gate::Run);
-        // A reply to the lamp (#1040): its schedule runs, the rest is held.
+        // A reply to the lamp (#1040): what it sets on the schedule runs,
+        // the rest is held, a cancel among them (Fourth on #1054).
         let following = Some(Verdict::StayQuietFollowing);
-        assert_eq!(gate(following, false, short, true), Gate::Run);
+        let schedule =
+            crate::tools::Route::Schedule(std::path::PathBuf::from("/run/lamp-schedule"));
+        for (name, run) in [
+            ("set_timer", Gate::Run),
+            ("set_reminder", Gate::Run),
+            ("cancel_reminder", Gate::Hold),
+        ] {
+            assert_eq!(
+                gate(following, false, short, sets(&schedule, name)),
+                run,
+                "{name}"
+            );
+        }
         assert_eq!(gate(following, false, short, false), Gate::Hold);
         assert_eq!(
             gate(Some(Verdict::StayQuiet), false, short, true),
@@ -311,6 +338,24 @@ mod tests {
         );
         assert_eq!(held()["done"], false);
         assert!(HELD.contains("Say nothing"));
+    }
+
+    /// Only the schedule's `set_timer` and `set_reminder` are what a reply
+    /// to the lamp still runs: never a cancel, and never another route's
+    /// function of the same name.
+    #[test]
+    fn only_the_schedule_s_two_that_set_run_on_a_reply_to_the_lamp() {
+        use crate::tools::Route;
+        let place = std::path::PathBuf::from("/run/lamp-actions");
+        for name in crate::tools::SCHEDULE_NAMES {
+            assert_eq!(
+                sets(&Route::Schedule(place.clone()), name),
+                ["set_timer", "set_reminder"].contains(&name),
+                "{name}"
+            );
+        }
+        assert!(!sets(&Route::Executive(place), "set_timer"));
+        assert!(!sets(&Route::Nobody, "set_reminder"));
     }
 
     /// The executive's functions and the schedule's three that set or take

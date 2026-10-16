@@ -48,7 +48,8 @@ const USAGE: &str = "usage:
       [--fake-arg ARG]... [--player-fault N:late:MS|N:prepare|N:slow-prepare:MS]...
       [--recorder-fail-after-ms MS]
   lamp-voice-eval export --since HH:MM:SS --until HH:MM:SS --out NEW_DIR [--sessions DIR]
-      [--journal JOURNAL_JSON] [--date YYYY-MM-DD] [--zone system|ZONE] [--wall-offset-us N]
+      [--journal JOURNAL_JSON] [--bus LAMP_BUS_RECORD]... [--date YYYY-MM-DD] [--zone system|ZONE]
+      [--wall-offset-us N]
   lamp-voice-eval lamp-session --runtime LAMP_LIVE --work NEW_ABS_DIR --seconds N
       (--fixture-reply WAV --fixture-sha256 SHA | --provider-config FILE | --serve-config FILE)
       [--noise-suppression on|off] [--diagnostics] [--allowance-seconds N]";
@@ -209,6 +210,11 @@ fn run() -> Result<i32> {
                 date: args.take("--date")?,
                 sessions: args.take("--sessions")?.map(PathBuf::from),
                 journal: args.take("--journal")?.map(PathBuf::from),
+                bus: args
+                    .take_all("--bus")?
+                    .into_iter()
+                    .map(PathBuf::from)
+                    .collect(),
                 zone: args.take("--zone")?.unwrap_or_else(|| "system".into()),
                 wall_offset_us: args
                     .take("--wall-offset-us")?

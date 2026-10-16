@@ -2231,6 +2231,7 @@ dependencies = [
  "lamp-ipc",
  "lamp-local-time",
  "lamp-observer",
+ "lamp-skills",
  "lamp-sound-fixtures",
  "lamp-turn-end",
  "lamp-turn-end-wire",

@@ -377,7 +377,7 @@ fn tool_call(
         // Each look comes with the head down over the page again: only the
         // run's poses are made again, never its light (#1051, Ten's P2).
         for call in made.iter().filter(|call| matches!(call, Call::Mood { .. })) {
-            make(call, &runner.sockets);
+            make(call, &runner.sockets, &runner.bus);
         }
     }
     if made.is_empty() || under_way {
@@ -510,10 +510,12 @@ fn perform(
             match call {
                 Call::Light { lasting, .. } => {
                     changed.coloured = true;
-                    changed.lasting_us = lasting
-                        .as_deref()
-                        .and_then(|text| duration_us(text).ok())
-                        .unwrap_or(0);
+                    changed.lasting_us = changed.lasting_us.max(
+                        lasting
+                            .as_deref()
+                            .and_then(|text| duration_us(text).ok())
+                            .unwrap_or(0),
+                    );
                 }
                 Call::Dim { steps, .. } => changed.dimmed += steps,
                 // The run lasts while the pose is held.
@@ -522,7 +524,7 @@ fn perform(
                 }
                 _ => {}
             }
-            said.push(make(call, sockets));
+            said.push(make(call, sockets, bus));
         }
     };
     match note {
@@ -563,16 +565,7 @@ fn give_back(before: &Light, now: Option<Light>, sockets: &Sockets) -> String {
             done.push(call("light_colour", json!({ "colour": before.colour })));
         }
         match &now {
-            Some(now) => {
-                let (name, steps) = if now.level < before.level {
-                    ("light_brighter", before.level - now.level)
-                } else {
-                    ("light_dimmer", now.level - before.level)
-                };
-                for _ in 0..steps {
-                    done.push(call(name, json!({})));
-                }
-            }
+            Some(now) => done.extend(step(now.level, before.level, sockets)),
             None => done.push("its level is not known, so it is left".into()),
         }
     }
@@ -587,6 +580,19 @@ fn give_back(before: &Light, now: Option<Light>, sockets: &Sockets) -> String {
             done.join(", ")
         }
     )
+}
+
+/// Steps the light from level `from` to `to`, a `light_brighter` or
+/// `light_dimmer` call a level, and says how each went.
+fn step(from: u8, to: u8, sockets: &Sockets) -> Vec<String> {
+    let (name, steps) = if from < to {
+        ("light_brighter", to - from)
+    } else {
+        ("light_dimmer", from - to)
+    };
+    (0..steps)
+        .map(|_| answer(action(&sockets.actions, name, json!({}))))
+        .collect()
 }
 
 fn answer(result: io::Result<String>) -> String {
@@ -629,7 +635,7 @@ fn say(path: &Path, skill: &str, note: &str, mut begun: impl FnMut()) -> String 
 }
 
 /// Makes one call and says how it went.
-fn make(call: &Call, sockets: &Sockets) -> String {
+fn make(call: &Call, sockets: &Sockets, bus: &Bus) -> String {
     let tell = |what: &str, text: String, path: &Path| {
         let sent = UnixDatagram::unbound().and_then(|body| body.send_to(text.as_bytes(), path));
         match sent {
@@ -665,21 +671,25 @@ fn make(call: &Call, sockets: &Sockets) -> String {
                 "light_colour",
                 json!({ "colour": colour }),
             );
-            // No call sets a level.
-            if level.is_some() {
-                said.push_str(" (its level is not carried out yet)");
+            // No call sets a level: it is stepped to, from the level shown.
+            if let Some(level) = level {
+                match light_now(bus) {
+                    Some(now) if now.level == *level => {}
+                    Some(now) => {
+                        said.push_str(&format!(", to level {level}: "));
+                        said.push_str(&step(now.level, *level, sockets).join(", "));
+                    }
+                    None => said.push_str(", its level is not known, so it is left"),
+                }
             }
             said
         }
-        Call::Dim { steps, until_ends } => {
-            let mut said: Vec<String> = (0..*steps)
-                .map(|_| actions("dim", "light_dimmer", json!({})))
-                .collect();
-            if *until_ends {
-                said.push("until it ends is not carried out yet".into());
-            }
-            said.join(", ")
-        }
+        // Held until the run ends, `until = "ends"` or not: `perform` gives
+        // it back then.
+        Call::Dim { steps, .. } => (0..*steps)
+            .map(|_| actions("dim", "light_dimmer", json!({})))
+            .collect::<Vec<_>>()
+            .join(", "),
         Call::Mood { mood, lasting_us } => {
             // Said again every second, as the body needs it at least every
             // 1.5 s (#1011); when it stops being said, the body comes back.

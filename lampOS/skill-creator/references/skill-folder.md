@@ -138,8 +138,8 @@ In order. Within one table: body, then light, then say.
 | `body = { look_at = "face" }` | Turn to the largest face in view |
 | `body = { gesture = "..." }` | One of `nod`, `headshake`, `greeting`, `laugh`, `shy`, `stretching` |
 | `body = { mood = "reading", for = "20s" }` | A pose held for `for` (more than 0, at most `2m`): `reading` is the only one, the head down over the desk and the arm leaning forward (#1011). The run lasts while it is held. Both keys or neither |
-| `light = { colour = "...", level = 1..5, for = "4s" }` | Carried out: the colour, for `for` (at most `10m`), then the person's light is given back; with a `say`, it is given back when the say ends. **Not carried out yet**: `level` |
-| `light = { dim = 1, until = "ends" }` | Carried out: dimmer by N steps, given back when the run ends (at once, in a run with no `say`). **Not carried out yet**: `until` |
+| `light = { colour = "...", level = 1..5, for = "4s" }` | The colour, then stepped to `level` from the level shown; `for` holds it in a run with no say. Given back when the run ends |
+| `light = { dim = 1, until = "ends" }` | Dimmer by N steps, held until the run ends (the say ends, or its longest `for`), then given back |
 | `light = "NAME"` | The same keys from `lights/NAME.toml` |
 | `say = "..."` | A note for the voice to say in its own words through its say service (#954), never a script or a number to compare. One a skill. The other steps are made when the voice begins the say, so the look and the light come with the words, and none if it never begins. In a tool's run, the note goes to the model instead |
 | `look = true` | Only in a skill with a `tool` and no trigger: the voice's full look (above) |

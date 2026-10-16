@@ -827,8 +827,8 @@ fn config_source_interval_and_frame_bounds_are_validated_before_port_open() {
         let mut cfg = config();
         match case {
             0 => cfg.width = 0,
-            1 => cfg.width = 1281,
-            2 => cfg.height = 961,
+            1 => cfg.width = MAX_WIDTH + 1,
+            2 => cfg.height = MAX_HEIGHT + 1,
             3 => cfg.max_frame_bytes = MAX_FRAME_BYTES + 1,
             4 => cfg.max_frame_bytes = 3,
             5 => cfg.buffers = 1,
@@ -839,11 +839,11 @@ fn config_source_interval_and_frame_bounds_are_validated_before_port_open() {
 }
 
 #[test]
-fn the_lamp_camera_s_modes_up_to_1280_by_960_are_accepted_and_larger_are_not() {
+fn every_mjpg_mode_the_lamp_camera_lists_is_accepted_and_larger_are_not() {
     // MJPG sizes the ZVCAI 01da:5875 lists on lamp-52e6 (2026-10-15). With
     // the height bound at 720, 1280x960 was refused before the device was
     // touched ("camera did not open: InvalidData None"), and a full look
-    // (#836) never opened.
+    // (#836) never opened. Up to 3264x2448 since #941, for handwriting.
     let listed = [
         (3264, 2448),
         (2592, 1944),
@@ -868,9 +868,17 @@ fn the_lamp_camera_s_modes_up_to_1280_by_960_are_accepted_and_larger_are_not() {
         };
         assert_eq!(
             cfg.validate().is_ok(),
-            width <= 1280 && height <= 960,
+            width <= 3264 && height <= 2448,
             "{width}x{height}"
         );
+    }
+    for (width, height) in [(3266, 2448), (3264, 2450), (4096, 3072)] {
+        let cfg = CaptureConfig {
+            width,
+            height,
+            ..config()
+        };
+        assert!(cfg.validate().is_err(), "{width}x{height}");
     }
 }
 

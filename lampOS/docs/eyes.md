@@ -174,7 +174,9 @@ time after the detector's decode), so `lamp-policy --images` (#873) and
 anything else reading the sight file still finds a picture under a second
 old at any time; a stream fallen back to 320 by 240 is kept as it comes.
 The still never goes there. `--full-look-file` holds only a still taken
-when the voice service asks, `{"look_full":ID}` on `--permit-socket` (an id from 1):
+when the voice service asks, `{"look_full":ID}` on `--permit-socket` (an id from 1),
+or `{"look_full":ID,"side":PIXELS}` for a larger one (below; anything else in
+the ask, or a side outside 320 to 4096, asks nothing):
 
 1. The head is the body's. It already turns to the face the eyes see
    (`--gaze-socket`) and to a call (`--look-at-name on`); nothing new is
@@ -200,7 +202,12 @@ when the voice service asks, `{"look_full":ID}` on `--permit-socket` (an id from
    shrunk to 1024 across by averaging, and encoded (`jpeg-encoder`, pure
    Rust) at quality 85, 75, 65 or 50, the first that fits 64 KiB less 64
    bytes, smaller again if none does. 64 KiB is the provider's image bound
-   (`lamp_gemini::MAX_IMAGE_BYTES`).
+   (`lamp_gemini::MAX_IMAGE_BYTES`). Each size is tried at quality 50 first,
+   and one that does not fit even then is shrunk without the other three
+   (the same still as before, in fewer encodes). An ask with a side
+   (`full_look::Ask::bounds`) is made the same way to that side across, never
+   enlarged, and to 184 KiB less 64 bytes (`full_look::LARGE_MOST_BYTES`);
+   `--full-look-file` takes up to 184 KiB. Without a side nothing changes.
 3. It is marked with the ask's id: a JPEG comment right after the start of
    the image, `lamp-look ID` (`full_look::tagged`), a number and nothing
    more. The voice service takes a still only with its own ask's id, so a
@@ -244,7 +251,7 @@ the full size again (try N)") and the usual "camera open, W by H" after it.
 Resetting the camera's USB port to end a refusal is the fifth builder's
 idea, not built here.
 
-The size is at most 1280 by 960, the camera runtime's bound
+The size is at most 3264 by 2448, the camera runtime's bound
 ([camera-runtime.md](camera-runtime.md)); larger is refused at start. On
 lamp-52e6 on 2026-10-15 the first build asked for 1280 by 960 against the
 runtime's old bound of 1280 by 720: every open at the full size was refused
@@ -252,10 +259,10 @@ before the device was touched ("camera did not open: InvalidData None"),
 and the eyes ran at 320 by 240. With the height raised, the second run was
 refused at SetFormat: the camera sizes a 1280 by 960 MJPG buffer at
 2,457,600 bytes (two a pixel; `v4l2-ctl` on lamp-52e6), over the runtime's
-2 MiB frame bound, now 4 MiB. The eyes' frame buffer is that size (4 MiB,
-was 2). The bound is now 960 high; 1280 by 960 is
-the whole 4:3 picture of this camera at 1280 across (it also lists
-1600x1200 up to 3264x2448, which the runtime does not take).
+2 MiB frame bound, then 4 MiB. The eyes' frame buffer is that size. Since
+#941 the bound is the camera's largest listed mode, 3264 by 2448, and the
+frame bound 16 MiB (two bytes a pixel is 15,980,544 there; the frame buffer
+is allocated zeroed, and only what a frame uses is touched).
 
 Measured on a laptop (Apple M-series, release build), not yet on a lamp: a
 1280 by 960 synthetic frame of 548 KB made into a 768 by 576 still of
@@ -276,6 +283,49 @@ On the voice service's side, `LAMP_LOOK_FULL=on` ([speaking-first.md](speaking-f
 and a voice service without it look with the working frame, as before. Privacy is as before: the still goes with the one look it
 was taken for, is on the lamp for at most 15 s, in memory, and is never kept
 or logged.
+
+#### A larger still for writing on paper (#941)
+
+Desk tutor reads handwriting, which a 1024-across still of a page does not
+keep. The ask names the still's longer side, `"side":3264` for the whole
+frame of a camera run at `--full-look 3264x2448`, and the still is made to
+184 KiB instead of 64. Why 184 KiB: the provider worker sends a still as
+base64 in one websocket message, and `lamp_gemini` bounds every message at
+`MAX_WIRE_BYTES`, 256 KiB (its write buffer `MAX_WIRE_BYTES` + 4 KiB, so a
+larger message fails to send). 184 KiB is 245 KiB as base64, which leaves
+room for the look's note (`MAX_NOTE_BYTES`, 1 KiB) and the JSON. Google's
+own request bound is far above that; the 256 KiB message bound is the real
+one. Two more bounds sit on the voice service's side and are not changed
+here: `lamp_gemini::MAX_IMAGE_BYTES` (64 KiB) in `encode_written_turn` and
+`try_image`, and `sight::fresh_within`, which refuses a file larger than
+that. Until the look that asks for a side lets a still of 184 KiB through
+both (with Desk tutor's skill tool, #941), a large still is made and not
+sent. What the model makes of it is set by its own media resolution:
+`small_pictures` (`MEDIA_RESOLUTION_LOW`) would undo the detail.
+
+The camera runs at the large size all the time rather than switching for
+the one look. A switch is a stop (`DRIVER_TEARDOWN_BUDGET_US`, 250 ms
+bound, #921) and a start (about 50 ms on lamp-52e6, past 100 ms for minutes
+after some closes, #911, up to `OPEN_BUDGET_US` 2 s), then the first frames
+while exposure settles, and the same again to go back: from about 0.3 s to
+past 4 s added to a look, and on lamp-52e6 and lamp-4ace a start after a
+close is refused for 6 to 18 minutes now and then (#763), which would leave
+someone sitting at the desk with the lamp unable to see them. One mode costs
+the decode instead, on every look. Measured on a laptop (Apple M-series,
+release build, `full_look::tests::the_camera_s_largest_frame_fits_the_larger_bound`),
+a synthetic 3264 by 2448 frame of 3.27 MB, noisier than a page of paper:
+the detector's decode 37 to 50 ms (one run 227 ms), the working frame 41 to
+62 ms, and a still of 1377 by 1033 and 186,605 bytes in 222 to 509 ms (500 ms
+before the quality-50-first order). That is six and a half times 1280 by
+960's pixels, and a look decodes the frame twice (detector and working frame); at
+320 by 240 a look takes 64 to 81 ms on lamp-52e6, so expect several hundred
+ms a look on the lamp, fewer looks a second while a face is followed, and
+more heat. Still to be measured on lamp-52e6: the rate the camera gives at
+3264x2448 (the eyes ask for 10 a second), a look's ms and the eyes'
+processor time at 1280x960 and 3264x2448, and how long the still takes. A
+still that takes longer than the voice service's `STILL_WAIT` (2.6 s from
+the ask, with up to 2 s of it settling) goes unsent. If the large size is
+too slow, 2592x1944 or 2048x1536 are the knob.
 
 ## Which face
 
@@ -459,7 +509,7 @@ looking.
 lamp-eyes --device /dev/video0 --lock-directory /home/WORKER/private-camera-locks --usb 01da:5875@3-1.1.4 --model /opt/lampOS/eyes/face_detection_yunet_2023mar.onnx --permit-socket /run/lampos-eyes/permit.sock --body-socket /run/lampos-body/gaze.sock
 ```
 
-Every option shown is required; `--sight-file ABSOLUTE_PATH`, `--leave-still-faces on` and `--full-look 1280x960 --full-look-file /run/lampos-eyes/full-look.jpg` may be added.
+Every option shown is required; `--sight-file ABSOLUTE_PATH`, `--leave-still-faces on` and `--full-look 1280x960 --full-look-file /run/lampos-eyes/full-look.jpg` (up to `3264x2448`) may be added.
 `--usb` is `VENDOR:PRODUCT@TOPOLOGY`, the two numbers as four hex digits; the
 lock directory must be private to the user it runs as. A camera that does not open, or fails, is tried again every five
 seconds while permission lasts. A start is given a 2 s budget (`OPEN_BUDGET_US`)

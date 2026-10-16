@@ -64,9 +64,10 @@ Already exported bytes or cloud requests cannot be retracted by this library.
 
 There are exactly three construction-time storage slots: one read scratch
 buffer, one newest pending frame, and one in-flight handoff. Each configured
-capacity is 4 bytes through 4 MiB, so application frame storage is at most 12 MiB
+capacity is 4 bytes through 16 MiB, so application frame storage is at most 48 MiB
 (4 MiB since #836: a UVC driver sizes a 1280x960 MJPG buffer at 2,457,600 bytes,
-two a pixel, which 2 MiB refused at SetFormat). A caller sets its own capacity;
+two a pixel, which 2 MiB refused at SetFormat; 16 MiB since #941, for 3264x2448
+at the same two a pixel, 15,980,544 bytes). A caller sets its own capacity;
 the eyes' working 320x240 stream needs 153,600.
 Poll and handoff swap these buffers without frame-sized allocation or cloning.
 The slice passed to the port is capped by the validated negotiated `size_image`.
@@ -100,7 +101,7 @@ frame/capture identity exhaustion faults.
 ## Explicit negotiation and timestamp meaning
 
 The first codec contract is MJPG only. Configuration requires a source label,
-exact dimensions (up to 1280x960; 1280x960 since #836, for the eyes' full look), an optional rational frame interval, a frame
+exact dimensions (up to 3264x2448, the lamps' camera's largest MJPG mode; 1280x960 since #836 and 3264x2448 since #941, for the eyes' full look of writing on paper), an optional rational frame interval, a frame
 byte ceiling, and 2–4 requested buffers. Actual negotiation must report the same
 source and dimensions, MJPG, nonzero bounded `size_image`, and 2 through the
 requested number of buffers. If an interval was explicitly requested, an actual
@@ -223,8 +224,10 @@ queue abstraction.
 The driver is asked for 2–4 buffers and must return 2 through the requested
 count. **Every** returned layout is checked before the first mapping: expected
 index, unique offset, checked offset/length, and an image-sized length of at most
-4 MiB. There are at most four mappings (16 MiB mapped bytes) plus the three
-application slots (12 MiB). These are application/mapping ceilings, not a claim
+16 MiB. There are at most four mappings (64 MiB mapped bytes) plus the three
+application slots (48 MiB). A mapping is the negotiated mode's size: the eyes'
+two buffers are 153,600 bytes each at 320x240 and about 16 MB each only at
+3264x2448. These are application/mapping ceilings, not a claim
 about total RSS or memory a faulty kernel allocated before returning REQBUFS.
 
 Each slot moves through mapped, queued and dequeued ownership. Only a successful

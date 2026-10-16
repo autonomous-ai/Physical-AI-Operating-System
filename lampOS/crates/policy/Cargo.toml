@@ -25,6 +25,8 @@ rustls = { version = "0.23", default-features = false, features = ["ring", "std"
 webpki-roots = "1"
 lamp-bus = { path = "../bus" }
 lamp-msgs = { path = "../msgs" }
+# The hour of the day across daylight saving (#820).
+lamp-local-time = { path = "../local-time" }
 
 [lints]
 workspace = true

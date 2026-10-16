@@ -126,7 +126,10 @@ fn main() -> io::Result<()> {
             pause: Duration::from_millis(300),
             act_attention: false,
         };
-        let progress = progress::Options::new(Duration::from_secs(1), Some(420));
+        let progress = progress::Options::new(
+            Duration::from_secs(1),
+            Some(std::sync::Arc::new(progress::LocalTime::Offset(420))),
+        );
         thread::spawn(move || {
             policy::run_with_progress(&bus, AtOnce, &options, &stop, &mut |_| {}, AtOnce, progress)
         })

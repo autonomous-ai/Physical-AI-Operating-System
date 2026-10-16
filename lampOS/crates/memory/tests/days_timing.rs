@@ -53,7 +53,7 @@ fn fixture(root: &Path) -> Options {
     Options {
         dir: root.join("store"),
         keep_days: 30,
-        utc_offset_minutes: 0,
+        local: lamp_memory::store::LocalTime::Offset(0),
     }
 }
 
@@ -164,7 +164,7 @@ fn file_and_ranked_reads_have_the_same_socket_boundary_and_corpus() {
                 Options {
                     dir: root.join("store"),
                     keep_days: 30,
-                    utc_offset_minutes: 0,
+                    local: lamp_memory::store::LocalTime::Offset(0),
                 },
                 NOW,
             )

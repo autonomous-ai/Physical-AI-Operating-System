@@ -92,7 +92,7 @@ What lamp-4ace's units read today (`deploy/lamp-4ace/`):
 | Wi-Fi | V1's `wpa_supplicant-wlan0.conf` | The same file, mode 0600. |
 | The voice's service | `/etc/lampOS/voice/provider.json`, which names a credential file | The credential file; `provider.json` comes with the release. |
 | Update trust | `/etc/lampOS/update/key.pub` | Nothing: a trust root belongs in the image, not on a page anyone near the lamp can open. |
-| Time zone | Schedule takes `--zone Asia/Ho_Chi_Minh`; Memory and Expression take `--utc-offset-minutes 420` | `/etc/localtime` and `/etc/timezone`; the parts read the system zone. A fixed offset is wrong across daylight saving, so Memory and Expression need a zone name, not minutes, before a lamp ships outside Vietnam. |
+| Time zone | Schedule takes `--zone Asia/Ho_Chi_Minh`; Memory, Expression and the policy take `--utc-offset-minutes 420` | `/etc/localtime` and `/etc/timezone`. Memory, Expression and the policy take `--zone system` (#820), which follows the file across daylight saving and takes up the zone setup writes without a restart; their units still pass the offset until First switches them. |
 | The person's name | Not read by any part yet | A private file the voice gives the model with its instruction. |
 
 ## The person's data, which reset wipes

@@ -20,9 +20,9 @@ use std::{
     time::Duration,
 };
 
-const USAGE: &str = "lamp-expression serve [--enable] [--bus-root PATH] [--clock-id ID] [--catalogue FILE] [--record FILE] [--seconds N] [--utc-offset-minutes N] [--head-touch]\n\
+const USAGE: &str = "lamp-expression serve [--enable] [--bus-root PATH] [--clock-id ID] [--catalogue FILE] [--record FILE] [--seconds N] [--utc-offset-minutes N | --zone system|NAME] [--head-touch]\n\
 lamp-expression replay --input FILE [--output FILE] --clock-id ID [--enable] [--catalogue FILE] [--until-us N] [--long]\n\
-lamp-expression import --clock-id ID [--long] [--utc-offset-minutes N] FILE...\n\
+lamp-expression import --clock-id ID [--long] [--utc-offset-minutes N | --zone system|NAME] FILE...\n\
 lamp-expression catalogue\n\
 lamp-expression clock [--clock-id ID]\n\n\
 Default is shadow mode: no body or light command is published.\n\
@@ -30,7 +30,9 @@ Replay writes one JSON line per injected 20 ms clock step and never touches a bu
 Live timestamps use lamp-ipc CLOCK_MONOTONIC microseconds; Linux defaults to its boot ID.\n\
 Output files are created new, never overwritten. Live --record is bounded to 64 MiB.\n\
 --long lets replay and import take an hour (docs/alive.md). --utc-offset-minutes is the\n\
-local time's minutes east of UTC (420 in Vietnam), which a catalogue with sleep needs.\n\
+local time's minutes east of UTC (420 in Vietnam), the same all year; --zone system reads the\n\
+lamp's own time zone (or names one), follows its daylight saving and takes up a zone setup\n\
+changes without a restart. A catalogue with sleep needs one.\n\
 --head-touch reads the head's requests from --touch Controls: a hand kept on the head is leaned\n\
 into, a three-second hold puts it to sleep, a tap wakes it (docs/alive.md, #711).\n\
 No command opens hardware, launches a provider, or changes a device's service settings.";
@@ -51,6 +53,7 @@ struct Arguments {
     long: bool,
     utc_offset_minutes: Option<i32>,
     head_touch: bool,
+    zone: Option<String>,
 }
 
 fn parse(arguments: impl IntoIterator<Item = String>) -> Result<Option<Arguments>, String> {
@@ -90,6 +93,7 @@ fn parse(arguments: impl IntoIterator<Item = String>) -> Result<Option<Arguments
                 "--seconds",
                 "--utc-offset-minutes",
                 "--head-touch",
+                "--zone",
             ]
             .contains(&option.as_str()),
             "replay" => [
@@ -102,7 +106,8 @@ fn parse(arguments: impl IntoIterator<Item = String>) -> Result<Option<Arguments
                 "--long",
             ]
             .contains(&option.as_str()),
-            "import" => ["--clock-id", "--long", "--utc-offset-minutes"].contains(&option.as_str()),
+            "import" => ["--clock-id", "--long", "--utc-offset-minutes", "--zone"]
+                .contains(&option.as_str()),
             "clock" => option == "--clock-id",
             _ => false,
         };
@@ -155,6 +160,12 @@ fn parse(arguments: impl IntoIterator<Item = String>) -> Result<Option<Arguments
                         .ok_or("--utc-offset-minutes must be -720..840")?,
                 )
             }
+            "--zone" => {
+                if value.is_empty() || value.len() > 64 {
+                    return Err("--zone is system or a time zone's name".into());
+                }
+                out.zone = Some(value)
+            }
             "--until-us" => {
                 out.until = Some(
                     value
@@ -174,7 +185,22 @@ fn parse(arguments: impl IntoIterator<Item = String>) -> Result<Option<Arguments
     if ["replay", "import"].contains(&out.command.as_str()) && out.clock.is_none() {
         return Err("replay/import needs the recording's --clock-id".into());
     }
+    if out.zone.is_some() && out.utc_offset_minutes.is_some() {
+        return Err("--zone and --utc-offset-minutes are one or the other".into());
+    }
     Ok(Some(out))
+}
+
+/// The local time `--zone` or `--utc-offset-minutes` gives, if either (#820).
+fn local_time(
+    args: &Arguments,
+) -> Result<Option<lamp_expression::local_time::LocalTime>, Box<dyn std::error::Error>> {
+    use lamp_expression::local_time::LocalTime;
+    Ok(match (&args.zone, args.utc_offset_minutes) {
+        (Some(zone), _) => Some(LocalTime::zone(zone)?),
+        (None, Some(offset)) => Some(LocalTime::Offset(offset)),
+        (None, None) => None,
+    })
 }
 
 fn catalogue(path: Option<&PathBuf>) -> Result<Catalogue, Box<dyn std::error::Error>> {
@@ -217,8 +243,8 @@ fn run(args: Arguments) -> Result<(), Box<dyn std::error::Error>> {
     }
     if args.command == "import" {
         let mut imported = replay::import_bus_bounded(&args.imports, &clock, bounds(args.long))?;
-        if let Some(offset) = args.utc_offset_minutes {
-            replay::add_daytime(&mut imported, offset)?;
+        if let Some(local) = local_time(&args)? {
+            replay::add_local_daytime(&mut imported, &local)?;
         }
         let mut stdout = io::stdout().lock();
         for record in imported.records {
@@ -237,9 +263,10 @@ fn run(args: Arguments) -> Result<(), Box<dyn std::error::Error>> {
             .as_ref()
             .is_some_and(|alive| alive.sleep.is_some())
         && args.utc_offset_minutes.is_none()
+        && args.zone.is_none()
     {
         return Err(
-            "a catalogue with sleep needs --utc-offset-minutes, or it never knows it is night"
+            "a catalogue with sleep needs --zone or --utc-offset-minutes, or it never knows it is night"
                 .into(),
         );
     }
@@ -255,6 +282,9 @@ fn run(args: Arguments) -> Result<(), Box<dyn std::error::Error>> {
         eprintln!("lamp-expression: replay {summary:?}; simulated request timing only");
         return Ok(());
     }
+    // Read before `args` is taken apart: a zone that cannot be found ends the
+    // start before anything else.
+    let local = local_time(&args)?;
     let bus = match args.bus_root {
         Some(path) => Bus::new(path)?,
         None => Bus::from_environment()?,
@@ -265,8 +295,8 @@ fn run(args: Arguments) -> Result<(), Box<dyn std::error::Error>> {
         .map(|path| runtime::Recorder::new(path, 64 * 1024 * 1024))
         .transpose()?;
     let mut service = runtime::Service::new(&bus, catalogue, args.enabled, &clock)?;
-    if let Some(offset) = args.utc_offset_minutes {
-        service = service.with_local_time(offset);
+    if let Some(local) = local {
+        service = service.with_local(local);
     }
     if args.head_touch {
         service = service.with_head_touch(&bus)?;
@@ -388,6 +418,9 @@ mod tests {
             "serve --utc-offset-minutes -721",
             "serve --utc-offset-minutes seven",
             "replay --input f --clock-id t --utc-offset-minutes 420",
+            "replay --input f --clock-id t --zone system",
+            "serve --zone system --utc-offset-minutes 420",
+            "serve --zone",
             "clock --long",
         ] {
             assert!(args(input).is_err(), "{input}");
@@ -410,5 +443,21 @@ mod tests {
         assert!(import.long);
         assert_eq!(import.utc_offset_minutes, Some(-300));
         assert_eq!(import.imports.len(), 2);
+        // #820: a zone in place of the offset, followed across its clock changes.
+        let zoned = args("serve --zone system").unwrap().unwrap();
+        assert_eq!(zoned.zone.as_deref(), Some("system"));
+        assert_eq!(zoned.utc_offset_minutes, None);
+        let named = args("import --clock-id t --zone America/New_York a")
+            .unwrap()
+            .unwrap();
+        assert!(matches!(
+            local_time(&named).unwrap(),
+            Some(lamp_expression::local_time::LocalTime::Zone(_))
+        ));
+        assert!(local_time(&args("serve --zone Nowhere/City").unwrap().unwrap()).is_err());
+        assert!(matches!(
+            local_time(&serve).unwrap(),
+            Some(lamp_expression::local_time::LocalTime::Offset(420))
+        ));
     }
 }

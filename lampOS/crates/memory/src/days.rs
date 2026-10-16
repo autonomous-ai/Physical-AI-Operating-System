@@ -5,7 +5,9 @@
 //! and comes back through a generation-checked apply; no model is called here.
 use crate::{
     search,
-    store::{self, Ask, Day, Entry, Exchange, Kept, Kind, Options, Person, Removed, Status},
+    store::{
+        self, Ask, Day, Entry, Exchange, Kept, Kind, LocalTime, Options, Person, Removed, Status,
+    },
     tidy,
 };
 use rusqlite::{Connection, OptionalExtension, Transaction, params};
@@ -114,7 +116,7 @@ pub struct Days {
     db: Connection,
     dir: PathBuf,
     keep_days: u32,
-    offset: i32,
+    local: LocalTime,
     now: u64,
     _held: File,
 }
@@ -141,7 +143,11 @@ fn private_file(path: &Path) -> Result<()> {
 
 impl Days {
     pub fn open(options: Options, now: u64) -> Result<Self> {
-        if options.keep_days == 0 || !(-720..=840).contains(&options.utc_offset_minutes) {
+        let offset_out_of_range = matches!(
+            options.local,
+            LocalTime::Offset(minutes) if !(-720..=840).contains(&minutes)
+        );
+        if options.keep_days == 0 || offset_out_of_range {
             return Err(bad("invalid retention or UTC offset"));
         }
         store::private_dir(&options.dir)?;
@@ -175,7 +181,7 @@ impl Days {
             db,
             dir: options.dir,
             keep_days: options.keep_days,
-            offset: options.utc_offset_minutes,
+            local: options.local,
             now,
             _held: held,
         };
@@ -250,7 +256,7 @@ impl Days {
                         Some(record)
                             if record.id > 0
                                 && record.id < i64::MAX as u64
-                                && Day::of(record.at_unix_ms, self.offset).is_some() =>
+                                && Day::at(record.at_unix_ms, &self.local).is_some() =>
                         {
                             let count: u64 = tx.query_row(
                                 "SELECT count(*) FROM entries WHERE person=?",
@@ -263,7 +269,7 @@ impl Days {
                                     "the import exceeds the per-person record limit",
                                 ));
                             }
-                            insert_record(&tx, &record, self.offset, record.at_unix_ms)?;
+                            insert_record(&tx, &record, &self.local, record.at_unix_ms)?;
                             tx.execute(
                                 "UPDATE people SET next_id=max(next_id,?2) WHERE person=?1",
                                 params![person.as_str(), record.id + 1],
@@ -310,11 +316,11 @@ impl Days {
     pub fn maintain(&mut self, now: u64) -> Result<u64> {
         // A backwards clock cannot revive old data or move last use backwards.
         self.now = self.now.max(now);
-        let day = Day::of(
-            self.now.saturating_sub(u64::from(self.keep_days) * DAY_MS),
-            self.offset,
-        )
-        .map_or_else(|| "1970-01-01".into(), |d| d.to_string());
+        // Today's local day, less the days kept, as the journal store
+        // counts them: a day around a clock change is 23 or 25 hours.
+        let day = Day::at(self.now, &self.local)
+            .and_then(|today| today.before(self.keep_days))
+            .map_or_else(|| "1970-01-01".into(), |d| d.to_string());
         let unused = self.now.saturating_sub(UNUSED_DAYS * DAY_MS);
         let tx = self.db.transaction()?;
         tx.execute("DELETE FROM doomed", [])?;
@@ -393,7 +399,7 @@ impl Days {
         sources: &[u64],
         rules: &[u64],
     ) -> Result<u64> {
-        if Day::of(at, self.offset).is_none() {
+        if Day::at(at, &self.local).is_none() {
             return Err(Error::new(
                 "bad_time",
                 "the timestamp is outside 1970 through 9999",
@@ -438,7 +444,7 @@ impl Days {
             supersedes: None,
             active: true,
         };
-        insert_record(&tx, &record, self.offset, self.now)?;
+        insert_record(&tx, &record, &self.local, self.now)?;
         if let Some(scope) = ruled {
             let rid: i64 = tx.query_row(
                 "SELECT rid FROM entries WHERE person=? AND id=?",
@@ -1058,7 +1064,7 @@ impl Days {
                     supersedes: proposal.supersedes,
                     active: true,
                 },
-                self.offset,
+                &self.local,
                 self.now,
             )?;
             ids.push(id);
@@ -1186,8 +1192,8 @@ fn validate_sources(db: &Connection, person: &Person, ids: &[u64], required: boo
     }
     Ok(())
 }
-fn insert_record(db: &Connection, r: &Record, offset: i32, used: u64) -> Result<()> {
-    let day = Day::of(r.at_unix_ms, offset)
+fn insert_record(db: &Connection, r: &Record, local: &LocalTime, used: u64) -> Result<()> {
+    let day = Day::at(r.at_unix_ms, local)
         .ok_or_else(|| Error::new("bad_time", "the timestamp is outside 1970 through 9999"))?
         .to_string();
     let category = r.category.as_ref().map(category_name);
@@ -1274,6 +1280,39 @@ fn erase(tx: &Transaction<'_>) -> Result<u64> {
 mod tests {
     use super::*;
 
+    /// #844: retention counts New York's local days, as the journal store
+    /// does, across both of its 2026 clock changes, kept a day: Oct 31's
+    /// exchange stays at 23:30 on Nov 1 (a 25-hour day), and Mar 7's goes
+    /// at 00:30 on Mar 9 (after a 23-hour day). The same when it is opened
+    /// again then, which maintains at once.
+    #[test]
+    fn retention_counts_local_days_across_both_clock_changes() {
+        for (name, at, now, kept) in [
+            ("autumn", 1_793_462_400_000, 1_793_593_800_000, 1),
+            ("spring", 1_772_902_800_000, 1_773_030_600_000, 0),
+        ] {
+            let dir =
+                std::env::temp_dir().join(format!("lamp-days-dst-{name}-{}", std::process::id()));
+            let _ = fs::remove_dir_all(&dir);
+            let options = || Options {
+                dir: dir.clone(),
+                keep_days: 1,
+                local: LocalTime::zone("America/New_York").unwrap(),
+            };
+            let everyone = Person::everyone();
+            let mut store = Days::open(options(), at).unwrap();
+            store.append(&everyone, at, "here", "yes", &[]).unwrap();
+            store.maintain(now).unwrap();
+            let exchanges = |store: &Days| store.status(Some(&everyone)).unwrap()[0].exchanges;
+            assert_eq!(exchanges(&store), kept, "{name}");
+            drop(store);
+            let reopened = Days::open(options(), now).unwrap();
+            assert_eq!(exchanges(&reopened), kept, "{name}, reopened");
+            drop(reopened);
+            fs::remove_dir_all(dir).unwrap();
+        }
+    }
+
     #[test]
     fn the_live_connection_requests_durable_commits_and_private_deletion() {
         let dir = std::env::temp_dir().join(format!("lamp-days-pragmas-{}", std::process::id()));
@@ -1282,7 +1321,7 @@ mod tests {
             Options {
                 dir: dir.clone(),
                 keep_days: 30,
-                utc_offset_minutes: 0,
+                local: LocalTime::Offset(0),
             },
             1_791_892_800_000,
         )

@@ -92,6 +92,10 @@ const PROGRESS_WAIT: Duration = Duration::from_millis(200);
 /// How long the settled watcher waits for a status before it looks again
 /// whether it is to stop.
 const SETTLED_WAIT: Duration = Duration::from_millis(200);
+/// The least time between two reads a settled task wakes: a settled list
+/// that keeps changing never has the tasks part read back to back (the
+/// first builder on #1156).
+const WOKEN_GAP: Duration = Duration::from_secs(1);
 
 /// What wakes the reading thread before its next read.
 #[derive(Debug, PartialEq, Eq)]
@@ -244,6 +248,18 @@ impl TaskNews {
         bus: Option<&Bus>,
         progress: bool,
     ) -> Option<Self> {
+        Self::start_with_clock(directory, told_file, bus, progress, boot_clock)
+    }
+
+    /// [`Self::start`], with the tasks part's clock read from `clock`: a
+    /// test's own, where there is no `/proc` (the first builder on #1156).
+    pub fn start_with_clock(
+        directory: &Path,
+        told_file: PathBuf,
+        bus: Option<&Bus>,
+        progress: bool,
+        clock: fn() -> Option<BootClock>,
+    ) -> Option<Self> {
         let directory = directory.to_path_buf();
         let (offer, offered) = mpsc::channel();
         let (told, heard_told) = mpsc::channel();
@@ -256,10 +272,18 @@ impl TaskNews {
             match bus.subscribe_typed(TaskStatus::TOPIC, "voice", TaskStatus::TYPE) {
                 Ok(statuses) => {
                     let (wake, stopping) = (told.clone(), stopping.clone());
-                    std::thread::Builder::new()
+                    // Without the watcher news is still read every
+                    // `READ_EVERY` (the first builder on #1156).
+                    if let Err(error) = std::thread::Builder::new()
                         .name("lamp-voice-task-settled".into())
                         .spawn(move || wake_on_settled(statuses, &wake, &stopping))
-                        .ok()?;
+                    {
+                        eprintln!(
+                            "lamp-voice: task news cannot watch {}, so it reads every {} s: {error}",
+                            TaskStatus::TOPIC,
+                            READ_EVERY.as_secs()
+                        );
+                    }
                 }
                 Err(error) => eprintln!(
                     "lamp-voice: task news cannot subscribe to {}, so it reads every {} s: {error}",
@@ -302,14 +326,7 @@ impl TaskNews {
         std::thread::Builder::new()
             .name("lamp-voice-task-news".into())
             .spawn(move || {
-                read_forever(
-                    &directory,
-                    &told_file,
-                    &offer,
-                    &heard_told,
-                    &shared,
-                    &boot_clock,
-                )
+                read_forever(&directory, &told_file, &offer, &heard_told, &shared, &clock)
             })
             .ok()?;
         Some(Self {
@@ -415,8 +432,10 @@ fn read_forever(
         // just after news was told told the same news three times, each
         // time before this thread's next pass had kept it. A task newly
         // settled ends the wait (#560), including one seen while the read
-        // above was under way.
-        let next = std::time::Instant::now() + READ_EVERY;
+        // above was under way, though never sooner than `WOKEN_GAP` after
+        // that read.
+        let read_at = std::time::Instant::now();
+        let mut next = read_at + READ_EVERY;
         loop {
             let left = next.saturating_duration_since(std::time::Instant::now());
             if left.is_zero() {
@@ -424,7 +443,7 @@ fn read_forever(
             }
             match told.recv_timeout(left) {
                 Ok(Wake::Told(key)) => keep_told(told_file, &key),
-                Ok(Wake::Settled) => break,
+                Ok(Wake::Settled) => next = next.min(read_at + WOKEN_GAP),
                 Err(mpsc::RecvTimeoutError::Timeout) => break,
                 Err(mpsc::RecvTimeoutError::Disconnected) => return,
             }
@@ -475,9 +494,9 @@ fn wake_on_settled(mut statuses: Subscriber, wake: &Sender<Wake>, stopping: &Ato
 /// The boot and its clock as the tasks part keeps them (`CLOCK_BOOTTIME`,
 /// which `/proc/uptime` reads).
 #[derive(Clone, Debug)]
-struct BootClock {
-    boot_id: String,
-    ms: u64,
+pub struct BootClock {
+    pub boot_id: String,
+    pub ms: u64,
 }
 
 fn boot_clock() -> Option<BootClock> {
@@ -1945,6 +1964,12 @@ mod tests {
             "{:?}",
             read.duration_since(woke)
         );
+        // Woken again at once: read again, but not sooner than a second
+        // after that read (the first builder on #1156).
+        wake.send(Wake::Settled).unwrap();
+        let again = lists.recv_timeout(READ_EVERY).unwrap();
+        let gap = again.duration_since(read);
+        assert!(gap >= WOKEN_GAP && gap < READ_EVERY / 2, "{gap:?}");
         drop(wake);
         reader.join().unwrap();
         std::fs::remove_dir_all(root).unwrap();

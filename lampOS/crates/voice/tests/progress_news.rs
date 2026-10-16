@@ -12,7 +12,7 @@ use lamp_policy::{
     policy::{self, Options},
     progress,
 };
-use lamp_voice::task_news::{News, TaskNews, progress_on};
+use lamp_voice::task_news::{BootClock, News, TaskNews, progress_on};
 use serde_json::{Value, json};
 use std::{
     collections::BTreeMap,
@@ -576,13 +576,21 @@ fn without_the_switch_no_progress_is_listened_for_asked_or_kept() {
         assert!(!progress_on(value), "{value:?}");
     }
     assert!(progress_on(Some("on")));
-    // As the voice starts without the switch: the lamp's bus, progress off.
+    // As the voice starts without the switch: the lamp's bus, progress off;
+    // with a clock of the test's own, so that it reads here too (on the
+    // lamp it is `/proc`'s).
     let mut place = Place::new("off");
-    let mut news = TaskNews::start(
+    let mut news = TaskNews::start_with_clock(
         &place.root.join("tasks"),
         place.told.clone(),
         Some(&place.bus),
         false,
+        || {
+            Some(BootClock {
+                boot_id: "boot-a".into(),
+                ms: 50_000_000,
+            })
+        },
     )
     .unwrap();
     place.work(1);
@@ -607,12 +615,7 @@ fn without_the_switch_no_progress_is_listened_for_asked_or_kept() {
     assert!(asked.iter().all(|op| op == "list"), "{asked:?}");
     assert!(!place.told.exists());
     // A task settled has it read at once, not at the next ten-second read
-    // (#560). The reader reads only where the tasks part's clock can be
-    // read (`/proc`: the lamp, and the ARM64 run); on a Mac it never reads,
-    // and `task_news::tests` shows the same with a clock of its own.
-    if !Path::new("/proc/uptime").exists() {
-        return;
-    }
+    // (#560).
     let lists = asked.len();
     assert!(lists > 0, "the first read, as the reader starts");
     place.settle();

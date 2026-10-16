@@ -1340,8 +1340,10 @@ identity run it, and `serde_json` reads it.
   the longest read, from handing it to the CLI worker to its outcome) and
   `status_published`.
 
-**Without the switch** nothing of this runs: no `ps`, the `tasks/status`
-topic is never made (no directory, declaration or value on the bus), the
+**Without the switch** nothing of this runs: no `ps`, the tasks part never
+makes the `tasks/status` topic (no declaration or value on the bus; its
+directory and `subs/` are there only for the voice's own socket, since the
+voice subscribes wherever the bus is, for a task newly settled, #560), the
 diagnostics carry exactly the keys they did, and `get_progress` is refused
 with `progress_off`, which no client sent before. The store's files are
 untouched either way: progress is memory only. Tests:
@@ -1543,8 +1545,9 @@ For the first builder; nothing here was run on a lamp.
    `--progress --utc-offset-minutes 420`) and `Environment=LAMP_PROGRESS_NEWS=on`
    to `lamp-voice.service`; `sudo systemctl daemon-reload`, restart both.
    `journalctl -u lamp-policy -n 5` ends `progress=true act=progress`;
-   `lamp-bus info policy/decisions` and `lamp-bus info tasks/status` each
-   list a `voice.` subscriber.
+   `lamp-bus info policy/decisions` lists a `voice.` subscriber, and
+   `lamp-bus info tasks/status` two: progress's, and the one that listens
+   for a task newly settled (#560).
 3. In three terminals:
 
    ```sh

@@ -1234,11 +1234,15 @@ identity run it, and `serde_json` reads it.
   failed), and the task leaves `tasks` at once, so its last `ps` state may
   still be `working` and `idle` is often never published (Jarvis, for Task
   news). Such a task is said in `settled` instead, for two minutes from
-  the watch's read that found it so (`Engine::settled_within`, by this
-  boot's clock), and only while that read is the task's latest: a task the
-  person asked to have read, or one read with the watch off (`--no-watch`)
-  or after it was let go for age, is not listed, as the person has heard it
-  or it is not news (Fourth on #1048). The read is kept in the store, so a
+  when its settled answer was first kept (the newest observation's
+  `observed`, by this boot's clock; `Engine::settled_within`), and only
+  while the watch's read is the task's latest and did not find the agent
+  back at work: a task the person asked to have read, or one read with the
+  watch off (`--no-watch`) or after it was let go for age, is not listed,
+  as the person has heard it or it is not news (Fourth on #1048). A later
+  look of the watch (#1145's follow looks) neither takes it off while under
+  way nor gives it a new time when it finds the same answer, so it is
+  never listed twice for one answer (Ten on #1145). The read is kept in the store, so a
   restart of the tasks part inside the two minutes lists it again in its
   first value. Two minutes: long enough for a skill that triggers on it
   (Task news, per task, as it appears in `settled`, #1042), short enough to

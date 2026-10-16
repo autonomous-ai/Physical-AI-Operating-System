@@ -286,6 +286,14 @@ fn serve(
     for path in [&config.credential, &config.name, &config.marker] {
         let _ = std::fs::remove_file(path.with_extension("lamp-setup-tmp"));
     }
+    // One look at the networks while the radio is still a station: as the
+    // hotspot it may refuse to scan (V1 lists networks in station mode only).
+    // A radio that is down fails at once; the page then waits on its own scans.
+    let before_hotspot = lamp_setup::scan::scan(&config.interface).ok();
+    eprintln!(
+        "lamp-setup: {} networks seen before the hotspot",
+        before_hotspot.as_ref().map_or(0, Vec::len)
+    );
     // The hotspot first: on a fresh image it is what names the lamp.
     let status = lamp_setup::serve::start(
         &config,
@@ -341,6 +349,13 @@ fn serve(
             move || lamp_setup::scan::scan(&interface)
         }),
         scanned: Mutex::new(None),
+        last_good: Mutex::new(before_hotspot),
+    });
+    // A few scans as the hotspot before anyone asks, so the page's first ask
+    // finds a fresh list: early, while nobody is likely on the hotspot yet.
+    std::thread::spawn({
+        let shared = Arc::clone(&shared);
+        move || lamp_setup::http::warm(&shared, 3, Duration::from_secs(5))
     });
     let web_stop = config.web_stop.clone();
     let runtime = tokio::runtime::Builder::new_current_thread()

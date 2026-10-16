@@ -88,6 +88,13 @@ pub const PAUSE_US: u64 = 1_000_000;
 /// (someone answering begins 0.2 to 1.5 s after), and a friend with news
 /// lets them have it (the first builder on #1161).
 pub const AFTER_LAMP_US: u64 = 3_000_000;
+/// Speech heard this soon after the lamp's own words stop is their tail,
+/// not someone starting: the detector fires on the lamp's own cancelled
+/// voice, and the microphone took up to 270 ms to fall back to its floor
+/// after a reply (`duplex-listening.md`). The duplex mask's wait before it
+/// hears anyone in the clear (`Hearing::clear_after_blocks`, 10 ms each).
+pub const LAMP_TAIL_US: u64 =
+    lamp_audio::duplex::Hearing::EVALUATED.clear_after_blocks as u64 * 10_000;
 
 /// Whether news is told at the first pause ([`AT_PAUSE_ENVIRONMENT`]):
 /// `on`, and nothing else.
@@ -99,8 +106,9 @@ pub fn at_pause(value: Option<&str>) -> bool {
 /// since the last turn, by or to the lamp (`last_turn_us`); or, `at_pause`,
 /// the first pause: [`PAUSE_US`] since the turn, with nobody heard speaking
 /// for as long (`speech_paused`, as the coordinator judges it for a
-/// reminder), and, when the lamp's own words (`lamp_spoke_us`) came after
-/// anyone's speech (`last_speech_us`), [`AFTER_LAMP_US`] since them.
+/// reminder), and, unless anyone's speech (`last_speech_us`) was heard past
+/// the tail of the lamp's own words (`lamp_spoke_us`, [`LAMP_TAIL_US`]),
+/// [`AFTER_LAMP_US`] since them.
 pub fn quiet_for_news(
     at_pause: bool,
     now_us: u64,
@@ -114,7 +122,8 @@ pub fn quiet_for_news(
         return since_turn >= QUIET_US;
     }
     let after_the_lamp = lamp_spoke_us.is_none_or(|spoke| {
-        spoke < last_speech_us || now_us.saturating_sub(spoke) >= AFTER_LAMP_US
+        spoke.saturating_add(LAMP_TAIL_US) < last_speech_us
+            || now_us.saturating_sub(spoke) >= AFTER_LAMP_US
     });
     speech_paused && since_turn >= PAUSE_US && after_the_lamp
 }
@@ -2130,6 +2139,18 @@ mod tests {
         assert_eq!(first_told(true, ended, &answered, &lamp), Some(42));
         let asked = [(ended - 6 * S, ended - 5 * S)];
         assert_eq!(first_told(true, ended, &asked, &lamp), Some(30));
+        // The reviewer on #1161: the lamp's own voice, scored as speech for
+        // 0.2 s after its words end while the microphone falls back to its
+        // floor, is not someone starting: still 3 s, not 1.2 s.
+        let echoed = [(ended - 6 * S, ended - 5 * S), (ended, ended + 200_000)];
+        assert_eq!(first_told(true, ended, &echoed, &lamp), Some(30));
+        // A quick "yes" begun inside that tail and ending past it is the
+        // person's: told 1 s after it, at 1.6 s.
+        let yes = [
+            (ended - 6 * S, ended - 5 * S),
+            (ended + 250_000, ended + 600_000),
+        ];
+        assert_eq!(first_told(true, ended, &yes, &lamp), Some(16));
         // Without the switch, 15 s after the last turn either way.
         assert_eq!(first_told(false, ended, &asked, &lamp), Some(150));
     }

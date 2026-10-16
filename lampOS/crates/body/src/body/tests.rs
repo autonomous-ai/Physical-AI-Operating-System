@@ -2042,6 +2042,7 @@ fn gesture_run(
                 expression: None,
                 called: false,
                 still: false,
+                paused: false,
             }
         },
         |glimpse| {
@@ -2108,6 +2109,7 @@ fn expression_run_with(
             expression: (time.get() >= from && time.get() < until).then_some(offsets),
             called: false,
             still: false,
+            paused: false,
         },
         |glimpse| seen.push((seen_at.get(), glimpse.goals)),
     );
@@ -2384,6 +2386,7 @@ fn a_lamp_is_not_stood_up_farther_back_than_v1s_line() {
             expression: None,
             called: false,
             still: false,
+            paused: false,
         },
         |glimpse| steps.push((glimpse.goals, glimpse.arm_goals, glimpse.stand)),
     );
@@ -2440,6 +2443,7 @@ fn a_gesture_waits_for_a_lamp_that_is_rising_and_is_forgotten_by_one_that_is_not
             expression: None,
             called: false,
             still: false,
+            paused: false,
         },
         |_| {},
     );
@@ -2515,6 +2519,7 @@ fn the_heads_pitch_is_never_asked_under_its_floor_whatever_adds_up() {
                 expression: None,
                 called: false,
                 still: false,
+                paused: false,
             }
         },
         |glimpse| {
@@ -2929,6 +2934,7 @@ fn it_stands_up_for_somebody_in_front_of_it_and_stays_up_while_they_are_there() 
                     expression: None,
                     called: false,
                     still: false,
+                    paused: false,
                 }
             },
             |glimpse| stood.push((watched.get(), glimpse.stand)),
@@ -2999,6 +3005,7 @@ fn paused_with_somebody_still_in_front_of_it_a_standing_lamp_folds() {
                 expression: None,
                 called: false,
                 still: false,
+                paused: false,
             }
         },
         |glimpse| stood.push((watched.get(), glimpse.stand)),
@@ -4730,6 +4737,7 @@ fn called_run(
                 expression: None,
                 called,
                 still: false,
+                paused: false,
             }
         },
         |glimpse| {
@@ -5221,4 +5229,199 @@ fn a_standing_arm_carrying_its_own_weight_counts_no_stall_and_a_push_well_over_i
         .filter(|_| head.step(2_030, standing, 2_030) && !head.again)
         .count();
     assert_eq!(counted, 1);
+}
+
+/// What a run with a gesture asked from outside said of it, and each step:
+/// when, how far up it stood, the gesture being made.
+type Fates = (
+    BodyReport,
+    Vec<(&'static str, &'static str)>,
+    Vec<(Duration, f32, Option<&'static str>)>,
+);
+
+/// A folded lamp that may stand, asked by `ask` at each step, in the mood
+/// `news` says. `prepare` sets up the servos.
+fn skill_run(
+    seconds: u64,
+    limits: Limits,
+    prepare: impl FnOnce(&mut Lamp),
+    news: impl FnMut() -> Option<(Mood, u8)>,
+    mut ask: impl FnMut(Duration) -> Asked,
+) -> Fates {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(seconds));
+    lamp.arm_moves = true;
+    lamp.overload_clears = 1;
+    prepare(&mut lamp);
+    let time = clock.time.clone();
+    let seen_at = clock.time.clone();
+    let mut fates = Vec::new();
+    let mut steps = Vec::new();
+    let report = run_alive(
+        &mut lamp,
+        &mut clock,
+        limits,
+        Some(HOME),
+        Some(standing(100, 5)),
+        None,
+        news,
+        move || ask(time.get()),
+        |glimpse| {
+            fates.extend(glimpse.gesture_fate);
+            steps.push((seen_at.get(), glimpse.stand, glimpse.gesture));
+        },
+    );
+    (report, fates, steps)
+}
+
+/// A gesture asked once, at `at`.
+fn once(at: Duration, paused: bool) -> impl FnMut(Duration) -> Asked {
+    let mut asked = false;
+    move |now| {
+        let due = !asked && now >= at;
+        asked |= due;
+        Asked {
+            gesture: due.then_some(&crate::clips::NOD),
+            ..if paused {
+                Asked::PAUSED
+            } else {
+                Asked::default()
+            }
+        }
+    }
+}
+
+fn gesture_limits() -> Limits {
+    Limits::folded_with(Tuning {
+        reach: [150, 15, 1, 250],
+        speed: 120,
+        servo_speed: 1_000,
+        servo_acceleration: 60,
+    })
+    .unwrap()
+}
+
+/// A skill's gesture asked of a folded lamp at rest (lamp-4ace, 15:16 on
+/// 2026-10-16: `stretching` asked at `stand 0.00`, and nothing): it stands
+/// up for it as for any mood but rest, then plays it, and says so once.
+#[test]
+fn a_gesture_asked_of_a_folded_lamp_stands_it_up_and_then_plays() {
+    let (report, fates, steps) = skill_run(
+        14,
+        gesture_limits(),
+        |_| {},
+        || Some((Mood::Resting, 0)),
+        once(Duration::from_secs(1), false),
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert!(report.stood);
+    assert_eq!(report.gestures, 1, "{report:?}");
+    assert_eq!(fates, [("nod", "taken: it was folded and stood up for it")]);
+    // Folded when asked; it played only once it stood at its full height.
+    let asked = steps
+        .iter()
+        .rfind(|s| s.0 < Duration::from_secs(1))
+        .unwrap();
+    assert_eq!(asked.1, 0.0);
+    let began = steps.iter().find(|s| s.2.is_some()).unwrap();
+    assert_eq!(began.1, 1.0);
+    assert!(began.0 > Duration::from_secs(4), "{:?}", began.0);
+    assert!(steps.iter().filter(|s| s.1 < 1.0).all(|s| s.2.is_none()));
+}
+
+/// Paused (`lamp/pause`), the same gesture is dropped and said, and the
+/// lamp stays folded.
+#[test]
+fn a_paused_lamp_drops_a_gesture_and_says_so() {
+    let (report, fates, steps) = skill_run(
+        8,
+        gesture_limits(),
+        |_| {},
+        || Some((Mood::Resting, 0)),
+        once(Duration::from_secs(1), true),
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert!(!report.stood);
+    assert_eq!(report.gestures, 0);
+    assert_eq!(fates, [("nod", "dropped: paused")]);
+    assert!(steps.iter().all(|s| s.1 == 0.0 && s.2.is_none()));
+}
+
+/// Held by a hand where it gave way, it is asked nothing new: the gesture
+/// is dropped and said.
+#[test]
+fn a_lamp_held_by_a_hand_drops_a_gesture_and_says_so() {
+    let ms = Duration::from_millis;
+    let (mut lamp, mut clock) = folded(Duration::from_secs(8));
+    lamp.hand = Some((ms(1_500), ms(4_500), YAW, f32::from(HOME[2]) + 40.0));
+    lamp.strains = vec![(ms(1_500), ms(4_500), YAW, 120)];
+    let held = Rc::new(Cell::new(false));
+    let told = held.clone();
+    let mut asked = false;
+    let mut fates = Vec::new();
+    let report = run_alive(
+        &mut lamp,
+        &mut clock,
+        giving_way(GiveWay::Return),
+        Some(HOME),
+        None,
+        None,
+        || Some((Mood::Listening, 100)),
+        move || {
+            let due = !asked && held.get();
+            asked |= due;
+            Asked {
+                gesture: due.then_some(&crate::clips::NOD),
+                ..Asked::default()
+            }
+        },
+        |glimpse| {
+            told.set(glimpse.hand);
+            fates.extend(glimpse.gesture_fate);
+        },
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!(report.gestures, 0);
+    assert_eq!(fates, [("nod", "dropped: a hand holds it")]);
+}
+
+/// A lamp that let go under overload is not stood up by a gesture: while
+/// it lies limp, and once taken up again where it slumped, each is dropped
+/// and said.
+#[test]
+fn a_slumped_lamp_is_not_stood_up_by_a_gesture() {
+    let secs = Duration::from_secs;
+    let mut asked = [false; 2];
+    let (report, fates, steps) = skill_run(
+        135,
+        Limits {
+            force: Some(600),
+            ..releasing()
+        },
+        |lamp| {
+            lamp.may_take_hold = true;
+            lamp.strains = vec![(secs(1), secs(3), 2, 500)];
+        },
+        || Some((Mood::Resting, 0)),
+        move |now| {
+            let at = [secs(10), secs(130)];
+            let due = (0..2).find(|i| !asked[*i] && now >= at[*i]);
+            if let Some(i) = due {
+                asked[i] = true;
+            }
+            Asked {
+                gesture: due.map(|_| &crate::clips::NOD),
+                ..Asked::default()
+            }
+        },
+    );
+    assert_eq!(report.released.len(), 1, "{report:?}");
+    assert_eq!(report.gestures, 0);
+    assert_eq!(
+        fates,
+        [
+            ("nod", "dropped: it has let go and lies limp"),
+            ("nod", "dropped: it let go and lies where it slumped"),
+        ]
+    );
+    assert!(steps.iter().all(|s| s.1 == 0.0 && s.2.is_none()));
 }

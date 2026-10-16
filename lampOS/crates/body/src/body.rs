@@ -290,6 +290,11 @@ const COMPANY_SIGHTS: u8 = 6;
 const CALLED_FOR: Duration = Duration::from_secs(2);
 const CALLED_EVERY: Duration = Duration::from_secs(10);
 
+/// A gesture asked on the mood socket, not one the body makes of itself.
+fn from_outside(clip: &Clip) -> bool {
+    clip.name != clips::IDLE.name && clip.name != clips::CALLED.name
+}
+
 /// What reaches the body from outside in one step, besides the mood: what
 /// its eyes saw, and a gesture it was asked to make.
 #[derive(Clone, Copy, Debug, Default)]
@@ -308,18 +313,23 @@ pub struct Asked {
     /// Stillness is asked: Expression holds the lamp still for someone
     /// working under it, or the lamp is paused. No shift at rest.
     pub still: bool,
+    /// Paused by the keeper (`lamp/pause`): a gesture asked is dropped and
+    /// said, and nothing else is taken.
+    pub paused: bool,
 }
 
 impl Asked {
     /// What a paused lamp is asked: nothing, and it sees nobody. With no
     /// look at all, a face counted before the pause kept it standing for
-    /// good (lamp-52e6, 2026-10-15, still up six minutes into a pause).
+    /// good (lamp-52e6, 2026-10-15, still up six minutes into a pause). A
+    /// gesture asked while paused is passed on only to be dropped and said.
     pub const PAUSED: Asked = Asked {
         seen: Some(Seen { face: None }),
         gesture: None,
         expression: None,
         called: false,
         still: true,
+        paused: true,
     };
 }
 
@@ -743,6 +753,15 @@ pub struct Glimpse {
     pub hand: bool,
     /// What V1's anti-tip rule has done so far.
     pub tipping: Tipping,
+    /// A gesture asked on the mood socket that was taken or dropped on
+    /// this step: its name and why, for the journal. Only those asked from
+    /// outside: never the body's own shifts at rest or its glance for a
+    /// call. One refused by V1's anti-tip rule is said by [`Tipping`].
+    pub gesture_fate: Option<(&'static str, &'static str)>,
+    /// Why a face the eyes report is not looked at now, for a body with
+    /// eyes: paused, folded, or neither listening nor speaking. `None`
+    /// while one would be.
+    pub looks_dropped: Option<&'static str>,
 }
 
 /// What V1's anti-tip rule ([`crate::cog`]) did in a run.
@@ -1728,6 +1747,7 @@ fn glimpse_of(template: Glimpse, step: u64, now: &[Sample; 5], goals: [u16; 3]) 
         look: [0.0; 2],
         face: None,
         gesture: None,
+        gesture_fate: None,
         ..template
     }
 }
@@ -1837,7 +1857,7 @@ fn let_go<P: PortIo, R: Runtime>(
         if !matches!(bus.runtime.cancelled(), Ok(false)) {
             return Err(Stop::Cancelled);
         }
-        let _ = (news(), asked());
+        let (_, asked_now) = (news(), asked());
         let failed = torque_off(bus, report, &mut holding);
         report.steps += 1;
         let read = bus.samples();
@@ -1848,7 +1868,11 @@ fn let_go<P: PortIo, R: Runtime>(
                 report.peak_load[index] = report.peak_load[index].max(is.load);
                 report.peak_temperature[index] = report.peak_temperature[index].max(is.temperature);
             }
-            watch(&glimpse_of(template, report.steps, now, template.goals));
+            let mut glimpse = glimpse_of(template, report.steps, now, template.goals);
+            glimpse.gesture_fate = asked_now
+                .gesture
+                .map(|clip| (clip.name, "dropped: it has let go and lies limp"));
+            watch(&glimpse);
         }
         match (failed, read) {
             (None, Ok(now)) => {
@@ -2074,6 +2098,7 @@ pub(crate) fn run_looking(
         expression: None,
         called: false,
         still: false,
+        paused: false,
     };
     run_alive(
         io, runtime, limits, home, standing, looking, news, asked, watch,
@@ -2761,6 +2786,10 @@ fn run_until_stopped(
     // gesture is given.
     let mut playing: Option<(&'static Clip, Duration)> = None;
     let mut pending: Option<(&'static Clip, Duration)> = None;
+    // The gesture waiting stood a folded lamp up; and what to say of a
+    // gesture asked from outside, on the next glimpse.
+    let mut pending_woke = false;
+    let mut gesture_fate: Option<(&'static str, &'static str)> = None;
     let mut gesture_now = [0.0f32; 5];
     let mut gesture_cooling = 0u16;
     // Steps are being cut short by the anti-tip rule.
@@ -2962,6 +2991,12 @@ fn run_until_stopped(
         if slumped && leaving.is_none() && (mood != Mood::Resting || company) {
             slumped = false;
         }
+        // A hand holds a joint where it gave way: a gesture is not begun.
+        let in_hand_now = easing.iter().any(|left| *left > 0);
+        // A gesture asked of a folded lamp stands it up first, as any
+        // mood but rest does (#1011); not a lamp that is stopping, held,
+        // slumped or paused.
+        let mut woke_for_gesture = false;
         // A lamp that is folded, or folding, looks at nobody.
         let mut awake_now = leaving.is_none() && !slumped;
         if let Some(up) = standing.filter(|_| !slumped) {
@@ -2969,6 +3004,15 @@ fn run_until_stopped(
             // It does not fold away from a person who is still there.
             if mood != Mood::Resting || company {
                 awake_until = Some(now + up.awake);
+            }
+            if asked_now.gesture.is_some()
+                && !asked_now.paused
+                && leaving.is_none()
+                && !in_hand_now
+                && awake_until.is_none_or(|until| now >= until)
+            {
+                awake_until = Some(now + up.awake);
+                woke_for_gesture = true;
             }
             let tired = retreats >= Standing::RETREATS_ALLOWED
                 || tired_until.is_some_and(|until| now < until);
@@ -3091,18 +3135,53 @@ fn run_until_stopped(
                 Some(_) => {}
             }
         }
-        if let Some(clip) = asked_now.gesture
-            && (playing.is_none() || idling)
-        {
-            pending = Some((clip, now));
+        if let Some(clip) = asked_now.gesture {
+            let dropped = if asked_now.paused {
+                Some("dropped: paused")
+            } else if leaving.is_some() {
+                Some("dropped: it is stopping")
+            } else if slumped {
+                Some("dropped: it let go and lies where it slumped")
+            } else if in_hand_now {
+                Some("dropped: a hand holds it")
+            } else if standing.is_none() {
+                Some("dropped: it does not stand this run")
+            } else if !(playing.is_none() || idling) {
+                Some("dropped: another gesture plays")
+            } else {
+                None
+            };
+            match dropped {
+                Some(why) => gesture_fate = Some((clip.name, why)),
+                None => {
+                    if let Some((old, _)) = pending.filter(|(old, _)| from_outside(old)) {
+                        gesture_fate = Some((old.name, "dropped: another was asked after it"));
+                    }
+                    // Woken, it waits as long as rising takes, and then
+                    // as long as any gesture waits for a rising lamp.
+                    let rising = standing
+                        .filter(|_| woke_for_gesture)
+                        .map_or(0.0, |up| up.seconds);
+                    pending = Some((clip, now + Duration::from_secs_f32(rising)));
+                    pending_woke = woke_for_gesture;
+                }
+            }
         }
+        let mut began_woke = None;
         if let Some((clip, since)) = pending {
             if upright {
                 playing = Some((clip, now));
                 pending = None;
                 report.gestures += 1;
+                began_woke = Some(pending_woke);
             } else if now.saturating_sub(since) >= GESTURE_WAIT {
                 pending = None;
+                if from_outside(clip) {
+                    gesture_fate = Some((
+                        clip.name,
+                        "dropped: stale, it was not standing 3 s after it could have been",
+                    ));
+                }
             }
         }
         // V1's anti-tip rule (src/cog.rs, V1 `check_stable`): a gesture any
@@ -3130,6 +3209,20 @@ fn run_until_stopped(
                 report.tipping.close += 1;
                 report.tipping.last_close = at;
             }
+        }
+        // Taken, unless the anti-tip rule refused it just now (said there).
+        if let (Some(woke), Some((clip, since))) = (began_woke, playing)
+            && since == now
+            && from_outside(clip)
+        {
+            gesture_fate = Some((
+                clip.name,
+                if woke {
+                    "taken: it was folded and stood up for it"
+                } else {
+                    "taken: it plays"
+                },
+            ));
         }
         // A face found while it glances for its caller: the gaze has them.
         if faces_running > 0 {
@@ -3169,6 +3262,17 @@ fn run_until_stopped(
             }
         }
         let mut face = None;
+        let looks_dropped = if gaze.is_none() {
+            None
+        } else if asked_now.paused {
+            Some("paused")
+        } else if !awake_now {
+            Some("folded or folding")
+        } else if !matches!(mood, Mood::Listening | Mood::Speaking) {
+            Some("neither listening nor speaking")
+        } else {
+            None
+        };
         if let Some(gaze) = gaze.as_mut() {
             let seen = asked_now.seen;
             face = seen
@@ -3575,6 +3679,8 @@ fn run_until_stopped(
             limp: false,
             hand: held.iter().any(|held| *held),
             tipping: report.tipping,
+            gesture_fate: gesture_fate.take(),
+            looks_dropped,
         };
         watch(&glimpse);
         // A joint pushing at a goal it does not reach, and not moving, is
@@ -3743,8 +3849,12 @@ fn run_until_stopped(
             {
                 // The gesture asked more of this joint than it gave: the
                 // gesture is let go, and the lamp goes on as it was.
-                if playing.take().is_some() {
+                if let Some((clip, _)) = playing.take() {
                     report.gestures_dropped += 1;
+                    if from_outside(clip) {
+                        gesture_fate =
+                            Some((clip.name, "dropped: a joint could not keep up with it"));
+                    }
                 }
                 over_load[index] = 0;
                 off_track[index] = 0;

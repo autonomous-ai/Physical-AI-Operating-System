@@ -305,6 +305,10 @@ fn a_lost_recurring_ack_receipt_cannot_ack_the_next_occurrence_after_restart() {
     };
     let receipt = e.answer(request.clone(), &at).unwrap();
     drop(e);
+    // A day on, the next occurrence is due (the ack stepped to the one still
+    // ahead, #811); the replayed request must not acknowledge it.
+    at.boot_ms += 1000;
+    at.unix_ms += 86_400_000;
     let mut e = open(disk, &at);
     e.tick(&at).unwrap();
     assert_eq!(due(&e, &at).oldest.unwrap().delivery, 2);
@@ -494,6 +498,95 @@ fn after_a_reboot_with_the_clock_a_day_behind_nothing_calendar_timed_acts_until_
     assert!(shown.oldest.unwrap().late);
 }
 
+/// #811, the first builder's 13:21: after three days off, a daily reminder
+/// is delivered once, at its newest missed occurrence and marked late, then
+/// goes on to the next one still ahead. Nobody hears 'late' four times.
+#[test]
+fn after_three_days_off_a_daily_reminder_is_delivered_once_late_then_goes_on() {
+    const DAY: i64 = 86_400_000;
+    let disk = Disk::default();
+    let mut e = open(disk.clone(), &now(0));
+    create(
+        &mut e,
+        &now(0),
+        When::Daily {
+            time: "09:00".into(),
+            zone: None,
+        },
+    );
+    let first = get(&mut e, &now(0), 1)["due_unix_ms"].as_i64().unwrap();
+    drop(e);
+
+    // Off from before the first 09:00 until an hour after the fourth.
+    let mut at = now(0);
+    at.boot_id = "boot-b".into();
+    at.boot_ms = 1_000;
+    at.unix_ms = first + 3 * DAY + 3_600_000;
+    let mut e = open(disk, &at);
+    e.tick(&at).unwrap();
+    let shown = due(&e, &at);
+    assert_eq!(shown.pending, 1);
+    let oldest = shown.oldest.unwrap();
+    assert!(oldest.late);
+    let item = get(&mut e, &at, 1);
+    assert_eq!(
+        item["due_unix_ms"].as_i64(),
+        Some(first + 3 * DAY),
+        "the newest one"
+    );
+    ack(&mut e, &at, 1, oldest.delivery);
+
+    // Nothing more today; tomorrow's comes on time.
+    at.boot_ms += 60_000;
+    at.unix_ms += 60_000;
+    e.tick(&at).unwrap();
+    assert_eq!(due(&e, &at).pending, 0);
+    assert_eq!(
+        get(&mut e, &at, 1)["due_unix_ms"].as_i64(),
+        Some(first + 4 * DAY)
+    );
+    at.boot_ms += 1_000;
+    at.unix_ms = first + 4 * DAY;
+    e.tick(&at).unwrap();
+    let shown = due(&e, &at);
+    assert_eq!(shown.pending, 1);
+    assert!(!shown.oldest.unwrap().late);
+}
+
+/// The third's review of #1046: the oldest pending notice is chosen by the
+/// occurrence each stands for. A daily missed for three days is due at its
+/// newest 09:00, so a one-off that fell due an hour before that comes first.
+#[test]
+fn after_time_off_the_oldest_notice_is_chosen_by_the_occurrence_shown() {
+    const DAY: i64 = 86_400_000;
+    let disk = Disk::default();
+    let mut e = open(disk.clone(), &now(0));
+    create(
+        &mut e,
+        &now(0),
+        When::Daily {
+            time: "09:00".into(),
+            zone: None,
+        },
+    );
+    let first = get(&mut e, &now(0), 1)["due_unix_ms"].as_i64().unwrap();
+    // A one-off at 08:00 three days on: an hour before the newest 09:00.
+    let mut later = now(1_000);
+    later.unix_ms = first + 3 * DAY - 3_600_000 - 60_000;
+    let set = create(&mut e, &later, When::After { seconds: 60 });
+    assert_eq!(set["id"], 2);
+    drop(e);
+    let mut at = now(0);
+    at.boot_id = "boot-b".into();
+    at.boot_ms = 1_000;
+    at.unix_ms = first + 3 * DAY + 1_800_000;
+    let mut e = open(disk, &at);
+    e.tick(&at).unwrap();
+    let shown = due(&e, &at);
+    assert_eq!(shown.pending, 2);
+    assert_eq!(shown.oldest.unwrap().id, 2, "the one-off fell due first");
+}
+
 #[test]
 fn untrusted_wall_time_cannot_create_a_false_reboot_deadline() {
     let mut at = now(0);
@@ -514,8 +607,11 @@ fn backward_elapsed_clock_or_boot_replacement_is_refused_within_one_owner() {
     at.boot_id = "other".into();
     assert_eq!(e.tick(&at).unwrap_err().code, "clock");
 }
+/// Long downtime: the occurrences missed are not said one after another
+/// (#811, the first builder's 13:21); the newest is said once, then the
+/// repeat goes on from the next one still ahead.
 #[test]
-fn long_downtime_retains_each_recurring_occurrence_until_acknowledged() {
+fn long_downtime_says_only_the_newest_missed_occurrence_once() {
     let disk = Disk::default();
     let mut e = open(disk.clone(), &now(0));
     create(
@@ -531,16 +627,19 @@ fn long_downtime_retains_each_recurring_occurrence_until_acknowledged() {
     let mut at = now(1);
     at.unix_ms = first + 25 * 86_400_000;
     let mut e = open(disk, &at);
-    for occurrence in 1..=26 {
-        e.tick(&at).unwrap();
-        let n = due(&e, &at).oldest.unwrap();
-        assert_eq!(n.delivery, occurrence);
-        assert_eq!(n.due_unix_ms, first + (occurrence as i64 - 1) * 86_400_000);
-        ack(&mut e, &at, 1, occurrence);
-    }
+    e.tick(&at).unwrap();
+    let n = due(&e, &at).oldest.unwrap();
+    assert_eq!(n.delivery, 1);
+    assert_eq!(n.due_unix_ms, first + 25 * 86_400_000);
+    assert!(n.late);
+    ack(&mut e, &at, 1, 1);
     e.tick(&at).unwrap();
     assert!(due(&e, &at).oldest.is_none());
     assert_eq!(e.counts(&at).0, 1);
+    assert_eq!(
+        get(&mut e, &at, 1)["due_unix_ms"].as_i64(),
+        Some(first + 26 * 86_400_000)
+    );
 }
 #[test]
 fn snoozing_invalidates_old_delivery_but_does_not_shift_the_repeat_anchor() {

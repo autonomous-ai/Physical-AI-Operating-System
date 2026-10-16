@@ -4,13 +4,13 @@
 use lamp_body::calibration::UnitId;
 use std::{ffi::OsString, path::PathBuf};
 
-const USAGE: &str = "lamp-body --device ABSOLUTE_PATH --unit-id EXPLICIT_ID --lock-directory PRIVATE_ABSOLUTE_DIRECTORY --mood-socket ABSOLUTE_PATH [--home PITCH,ROLL,YAW] [--reach UP,DOWN,ROLL,YAW] [--speed COUNTS_PER_SECOND] [--servo-speed N] [--servo-acceleration N] [--stand PITCH,ROLL,YAW,SHOULDER,ELBOW --folded-arm SHOULDER,ELBOW [--stand-share PERCENT] [--stand-seconds N] [--awake-seconds N] [--arm-load SHOULDER,ELBOW] [--idle on|off]] [--gaze-socket ABSOLUTE_PATH --gaze YAW,PITCH [--gaze-reach YAW,PITCH]] [--stand-roll COUNTS] [--force-limit N] [--torque on|off] [--wake on|off] [--give-way return|stay|off] [--limp on|off] [--overload release] [--rest-glance on|off] [--pitch-window LOW,HIGH] [--look-at-name on|off]\n\nOwns the servo port and moves head pitch, head roll and base yaw a few degrees around\na home pose (the one given, in encoder counts, or else where they are found), for the mood\nit is told on the socket. Without --stand it never touches the shoulder or the elbow, and\nwithout --stand or --torque on it writes torque only off, on all five, as a run ends on a surprise\nor a start is refused for heat or load. With --stand (which needs --home and --folded-arm) it also raises the shoulder and\nthe elbow to that pose when a mood other than rest arrives, folds them down again\n--awake-seconds after the last one, and writes torque once to a shoulder or elbow found\nwith an old overload latched. With --gaze-socket and --gaze it takes where a face is from\nlamp-eyes on that socket ({\"face\":{...}} or {\"face\":null}) and, while the lamp listens\nor speaks, turns the head to it in small corrections: --gaze is the counts of base yaw and of\nhead pitch, signed, that bring a face from the right and from the bottom edge of the picture\nto its middle. Refuses to start unless the three joints have torque on, a clear\nstatus and the head is inside its start window; one found as hot or as loaded as a run stops\nat is refused with torque off on all five, so that nothing pushes on until the next start. With --torque on it first takes hold of a\njoint found without torque (the three always, the shoulder and the elbow with --stand):\nits goal is written as where it is, then torque on, and if it then moves more than 12 counts\nit does not start. With --wake on and --home, a joint found outside where it may start\n(the head out of its start window, or a joint farther from home than it may be found) but within\n400 counts of home is not refused: before anything else it is brought home slowly, a small stir,\na pause, then an eased rise at 20 counts a second at most, never away from home, the head\nfirst and the base once the head is up; an arm found off\nits way is not lowered, and the lamp runs folded. By default --give-way return and --limp on
+const USAGE: &str = "lamp-body --device ABSOLUTE_PATH --unit-id EXPLICIT_ID --lock-directory PRIVATE_ABSOLUTE_DIRECTORY --mood-socket ABSOLUTE_PATH [--home PITCH,ROLL,YAW] [--reach UP,DOWN,ROLL,YAW] [--speed COUNTS_PER_SECOND] [--servo-speed N] [--servo-acceleration N] [--stand PITCH,ROLL,YAW,SHOULDER,ELBOW --folded-arm SHOULDER,ELBOW [--stand-share PERCENT] [--stand-seconds N] [--awake-seconds N] [--arm-load SHOULDER,ELBOW] [--idle on|off]] [--gaze-socket ABSOLUTE_PATH --gaze YAW,PITCH [--gaze-reach YAW,PITCH]] [--stand-roll COUNTS] [--force-limit N] [--torque on|off] [--wake on|off] [--give-way return|stay|off] [--limp on|off] [--overload release] [--rest-glance on|off] [--pitch-window LOW,HIGH] [--look-at-name on|off] [--moves ABSOLUTE_DIR]\n\nOwns the servo port and moves head pitch, head roll and base yaw a few degrees around\na home pose (the one given, in encoder counts, or else where they are found), for the mood\nit is told on the socket. Without --stand it never touches the shoulder or the elbow, and\nwithout --stand or --torque on it writes torque only off, on all five, as a run ends on a surprise\nor a start is refused for heat or load. With --stand (which needs --home and --folded-arm) it also raises the shoulder and\nthe elbow to that pose when a mood other than rest arrives, folds them down again\n--awake-seconds after the last one, and writes torque once to a shoulder or elbow found\nwith an old overload latched. With --gaze-socket and --gaze it takes where a face is from\nlamp-eyes on that socket ({\"face\":{...}} or {\"face\":null}) and, while the lamp listens\nor speaks, turns the head to it in small corrections: --gaze is the counts of base yaw and of\nhead pitch, signed, that bring a face from the right and from the bottom edge of the picture\nto its middle. Refuses to start unless the three joints have torque on, a clear\nstatus and the head is inside its start window; one found as hot or as loaded as a run stops\nat is refused with torque off on all five, so that nothing pushes on until the next start. With --torque on it first takes hold of a\njoint found without torque (the three always, the shoulder and the elbow with --stand):\nits goal is written as where it is, then torque on, and if it then moves more than 12 counts\nit does not start. With --wake on and --home, a joint found outside where it may start\n(the head out of its start window, or a joint farther from home than it may be found) but within\n400 counts of home is not refused: before anything else it is brought home slowly, a small stir,\na pause, then an eased rise at 20 counts a second at most, never away from home, the head\nfirst and the base once the head is up; an arm found off\nits way is not lowered, and the lamp runs folded. By default --give-way return and --limp on
 (--give-way off is the body as it was before them, and --limp off keeps giving way without the
 slump). With --give-way, a joint that pushes at its goal without moving for\n1.5 s is told to stop (its goal becomes where it is; torque is never written off); with\n--give-way stay, a head or base joint that gave way and is moved more than 15 counts by\na hand for over a second stays where it was put. With --limp on as well, as the old runtime
 did, a head or base joint that a hand stops and still pushes a second later makes the lamp
 slump (torque off on all five, held again 5 s later where it lies; after an overload, 120 s);
 a hand never ends the run, and a head roll or base found beyond 400 counts of home at start is
-taken hold of where it lies. With --overload release, any joint that\nreads a load of 800 of 1000 (80% of --force-limit for a joint held to one) for 1.5 s has\ntorque switched off on all five, so the lamp slumps; 120 s later each is held where it is\n(its goal, then torque on) and the head is brought home as --wake does, while the arm\nwaits where it slumped until the lamp is next asked to stand; a second time within ten\nminutes ends the run with torque off. With --rest-glance on, a lamp at rest takes what\nExpression asks of the head (50 counts of pitch, 25 of roll at most, never the base or the arm)\nand comes back to rest when it runs out. --pitch-window is this lamp's own window for the\nhead's pitch while it is beside the base (by default lamp-4ace's, 1740,2030): never under\nthe head's floor (1670), around --home's pitch, and inside the servo's own limits or it does\nnot start. With --look-at-name on, the lamp's name heard on the bus\n(name/heard) while it does not speak is taken as being spoken to for two seconds: it rises,\nlooks up and turns to a face at once; with nobody in view it glances a little to one side and\nthe other once it stands, and lets it go. At most once in ten seconds. Stops at the first surprise, holding\nwhere it is, then, as the old runtime did, lets go: torque off on all five. Ends on SIGINT or SIGTERM after easing back to where it started.\nThe mood socket takes datagrams of JSON: {\"mood\":\"resting|listening|thinking|speaking\",\"level\":0..255}.\nA lamp standing at its full height also makes a gesture asked for there: {\"gesture\":\"nod\"}\n(nod, headshake, greeting, laugh, shy, stretching).\nPrints one JSON report when it ends.\n";
+taken hold of where it lies. With --overload release, any joint that\nreads a load of 800 of 1000 (80% of --force-limit for a joint held to one) for 1.5 s has\ntorque switched off on all five, so the lamp slumps; 120 s later each is held where it is\n(its goal, then torque on) and the head is brought home as --wake does, while the arm\nwaits where it slumped until the lamp is next asked to stand; a second time within ten\nminutes ends the run with torque off. With --rest-glance on, a lamp at rest takes what\nExpression asks of the head (50 counts of pitch, 25 of roll at most, never the base or the arm)\nand comes back to rest when it runs out. --pitch-window is this lamp's own window for the\nhead's pitch while it is beside the base (by default lamp-4ace's, 1740,2030): never under\nthe head's floor (1670), around --home's pitch, and inside the servo's own limits or it does\nnot start. With --look-at-name on, the lamp's name heard on the bus\n(name/heard) while it does not speak is taken as being spoken to for two seconds: it rises,\nlooks up and turns to a face at once; with nobody in view it glances a little to one side and\nthe other once it stands, and lets it go. At most once in ten seconds. Stops at the first surprise, holding\nwhere it is, then, as the old runtime did, lets go: torque off on all five. Ends on SIGINT or SIGTERM after easing back to where it started.\nThe mood socket takes datagrams of JSON: {\"mood\":\"resting|listening|thinking|speaking\",\"level\":0..255}.\nA lamp standing at its full height also makes a gesture asked for there: {\"gesture\":\"nod\"}\n(nod, headshake, greeting, laugh, shy, stretching). With --moves, the moves in that folder\n(NAME.json, docs/body.md) are read at start and asked for by name the same way; one this body\ncannot play is refused with why, and a folder that cannot be read leaves the body's own.\nPrints one JSON report when it ends.\n";
 
 #[derive(Debug)]
 struct Arguments {
@@ -35,6 +35,7 @@ struct Arguments {
     rest_glance: bool,
     pitch_window: Option<(u16, u16)>,
     look_at_name: bool,
+    moves: Option<PathBuf>,
 }
 
 /// What `--give-way` said; the body's own type is built for Linux only.
@@ -111,6 +112,7 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
     let mut rest_glance = None;
     let mut pitch_window = None;
     let mut look_at_name = None;
+    let mut moves = None;
     while let Some(key) = args.next() {
         if key == "--help" {
             if device.is_some()
@@ -142,6 +144,7 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
                 || rest_glance.is_some()
                 || pitch_window.is_some()
                 || look_at_name.is_some()
+                || moves.is_some()
                 || args.next().is_some()
             {
                 return Err("--help must be used alone");
@@ -328,6 +331,7 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
                     _ => return Err("--overload is release"),
                 });
             }
+            Some("--moves") if moves.is_none() => moves = Some(PathBuf::from(value)),
             Some("--look-at-name") if look_at_name.is_none() => {
                 look_at_name = Some(match value.to_str() {
                     Some("on") => true,
@@ -441,6 +445,7 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
         rest_glance: rest_glance.unwrap_or(true),
         pitch_window,
         look_at_name: look_at_name.unwrap_or(true),
+        moves,
     };
     if result.limp && result.give_way.is_none() {
         return Err("--limp on needs --give-way return or stay");
@@ -452,6 +457,7 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
     for path in [&result.device, &result.lock_directory, &result.mood_socket]
         .into_iter()
         .chain(gaze_path)
+        .chain(result.moves.as_ref())
     {
         if !path.is_absolute()
             || path.as_os_str().len() > 100
@@ -480,16 +486,51 @@ fn mood_of(datagram: &[u8]) -> Option<(lamp_body::gesture::Mood, u8)> {
 }
 
 /// A gesture asked for by the voice service: `{"gesture":"nod"}` and nothing
-/// else in it, naming a clip this body has.
+/// else in it, naming a clip this body has, its own or a move read from
+/// `--moves`.
 #[cfg_attr(not(any(target_os = "linux", test)), allow(dead_code))]
-fn gesture_of(datagram: &[u8]) -> Option<&'static lamp_body::clips::Clip> {
+fn gesture_of(
+    datagram: &[u8],
+    moves: &lamp_body::moves::Loaded,
+) -> Option<&'static lamp_body::clips::Clip> {
     #[derive(serde::Deserialize)]
     #[serde(deny_unknown_fields)]
     struct Message<'a> {
         gesture: &'a str,
     }
     let message: Message = serde_json::from_slice(datagram).ok()?;
-    lamp_body::clips::named(message.gesture)
+    lamp_body::clips::named(message.gesture).or_else(|| moves.named(message.gesture))
+}
+
+/// The moves in `--moves`, read once at start. A refused move and a folder
+/// that cannot be read are said, and the body runs with what it has.
+#[cfg_attr(not(any(target_os = "linux", test)), allow(dead_code))]
+fn moves_of(folder: Option<&std::path::Path>) -> lamp_body::moves::Loaded {
+    let Some(folder) = folder else {
+        return lamp_body::moves::Loaded::default();
+    };
+    match lamp_body::moves::load(folder) {
+        Ok(loaded) => {
+            for (path, why) in &loaded.refused {
+                eprintln!("lamp-body: move {} refused: {why}", path.display());
+            }
+            let names: Vec<_> = loaded.moves.iter().map(|clip| clip.name).collect();
+            eprintln!(
+                "lamp-body: {} moves from {}: {}",
+                names.len(),
+                folder.display(),
+                names.join(", ")
+            );
+            loaded
+        }
+        Err(error) => {
+            eprintln!(
+                "lamp-body: the moves in {} cannot be read, so only the body's own: {error}",
+                folder.display()
+            );
+            lamp_body::moves::Loaded::default()
+        }
+    }
 }
 
 fn main() -> std::process::ExitCode {
@@ -548,6 +589,7 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
         arguments.rest_glance,
         arguments.pitch_window,
         arguments.look_at_name,
+        arguments.moves,
     );
     Err("the body requires Linux; no device was opened".into())
 }
@@ -583,6 +625,7 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
     }
     let moods = UnixDatagram::bind(&arguments.mood_socket)?;
     moods.set_nonblocking(true)?;
+    let moves = moves_of(arguments.moves.as_deref());
     let old_mask = SigSet::thread_get_mask()?;
     let mut mask = SigSet::empty();
     mask.add(Signal::SIGINT);
@@ -606,7 +649,7 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
         let mut datagram = [0u8; 128];
         for _ in 0..32 {
             match moods.recv(&mut datagram) {
-                Ok(length) => match gesture_of(&datagram[..length]) {
+                Ok(length) => match gesture_of(&datagram[..length], &moves) {
                     Some(clip) => gesture_asked.set(Some(clip)),
                     None => latest = mood_of(&datagram[..length]).or(latest),
                 },
@@ -1338,6 +1381,31 @@ mod tests {
         }
     }
 
+    /// A folder of moves is a short absolute path, and none unless given;
+    /// one that cannot be read leaves the body's own gestures.
+    #[test]
+    fn moves_are_a_folder_given_as_a_short_absolute_path() {
+        let with = |more: &[&'static str]| parse(args(&[&FULL[..], more].concat()));
+        assert_eq!(with(&[]).unwrap().unwrap().moves, None);
+        assert_eq!(
+            with(&["--moves", "/var/lib/lampos/moves"])
+                .unwrap()
+                .unwrap()
+                .moves,
+            Some(PathBuf::from("/var/lib/lampos/moves"))
+        );
+        for refused in [
+            &["--moves", "moves"][..],
+            &["--moves", "/var/../moves"],
+            &["--moves", "/a", "--moves", "/b"],
+        ] {
+            assert!(with(refused).is_err(), "{refused:?}");
+        }
+        let unread = moves_of(Some(std::path::Path::new("/nonexistent/lamp-moves")));
+        assert!(unread.moves.is_empty());
+        assert!(moves_of(None).moves.is_empty());
+    }
+
     /// Turning to a call is on or off, and off unless given.
     #[test]
     fn look_at_name_is_on_or_off_and_on_unless_turned_off() {
@@ -1420,6 +1488,17 @@ mod tests {
 
     #[test]
     fn a_gesture_is_asked_for_by_the_name_of_a_clip_and_nothing_else() {
+        const WIGGLE: lamp_body::clips::Clip = lamp_body::clips::Clip {
+            name: "wiggle",
+            step_ms: 100,
+            frames: &[[0; 5], [20, 0, 0, 0, 0], [0; 5]],
+        };
+        let none = lamp_body::moves::Loaded::default();
+        let moves = lamp_body::moves::Loaded {
+            moves: vec![&WIGGLE],
+            refused: Vec::new(),
+        };
+        let gesture_of = |datagram: &[u8]| gesture_of(datagram, &moves);
         assert_eq!(
             gesture_of(br#"{"gesture":"nod"}"#).map(|clip| clip.name),
             Some("nod")
@@ -1428,6 +1507,12 @@ mod tests {
             gesture_of(br#"{"gesture":"headshake"}"#).map(|clip| clip.name),
             Some("headshake")
         );
+        // A move read from --moves, by its name, and not without it.
+        assert_eq!(
+            gesture_of(br#"{"gesture":"wiggle"}"#).map(|clip| clip.name),
+            Some("wiggle")
+        );
+        assert!(super::gesture_of(br#"{"gesture":"wiggle"}"#, &none).is_none());
         for ignored in [
             &br#"{"gesture":"dance"}"#[..],
             br#"{"gesture":"nod","scale":3}"#,

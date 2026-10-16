@@ -293,7 +293,9 @@ What is not done, and why:
 3. **The eyes publish `camera/image`** (a file and when it was taken), so a
    skill can look.
 4. **The body plays move files** from a skill, within its own speed and
-   force limits.
+   force limits. Loading is built: `lamp-body --moves DIR` reads
+   `NAME.json` moves at start, held to the built-in clips' bounds, and
+   plays one by name as a gesture ([body.md](body.md#moves-from-files)).
 
 ### Tools for the model
 

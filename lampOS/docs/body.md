@@ -845,6 +845,40 @@ The gestures need the servos' own speed bound out of the way:
 `--servo-speed 1000`. The shoulder's and the elbow's are written as 800 or
 more for a lamp that stands.
 
+### Moves from files
+
+With `--moves DIR` (#940, [skills.md](skills.md)) the body also reads the
+moves in that folder once at start (`src/moves.rs`), one a file,
+`NAME.json`:
+
+```json
+{"name": "wiggle", "step_ms": 50, "frames": [[0, 0, 0, 0, 0], [4, 0, 2, 6, 6], [0, 0, 0, 0, 0]]}
+```
+
+Each frame is offsets in encoder counts for head pitch, head roll, base
+yaw, shoulder and elbow, as the clips above. A move is asked for by name on
+the mood socket as they are (`{"gesture":"wiggle"}`) and played exactly as a
+gesture: only on a standing lamp, with the same bounds, drop rules and
+report counts. It is held to what the generator promises the clips:
+
+- a name of 1 to 32 of `a-z`, `0-9`, `-` and `_`, not one of the body's
+  own gestures (nor `called`), and not another file's (the first file in
+  name order keeps it);
+- `step_ms` from 40 to 1000, and 1.5 to 10 s in all;
+- the first and the last frame nothing;
+- no joint farther than 200, 200, 150, 350 and 350 counts, nor asked to
+  go faster than 900, 1,300, 1,000, 800 and 800 counts a second (with a
+  count of rounding at each end of a step).
+
+A file that breaks any of these, is not JSON of exactly these three fields
+or is longer than 256 KiB is refused, and its reason is said in the log.
+The others are still taken. At most 64 are read, in the order of their file
+names; Mac `._` files and anything hidden are passed over. A folder that
+cannot be read is said once, and the body runs with its own gestures. The
+start says how many moves it took and their names. Which part asks for a
+move, and how the body weighs it against Expression and the eyes, is the
+body's arbitration (#940), not built yet.
+
 ## Running it
 
 ```text

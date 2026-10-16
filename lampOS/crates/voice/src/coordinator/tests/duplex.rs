@@ -99,6 +99,21 @@ impl Harness {
         }
         harness
     }
+    /// The same on the test's own scenario clock, for a paced run
+    /// ([`Self::at`]): the session loop's own reads of the clock, the turn
+    /// owner's among them, then follow the paced reads and never pass them.
+    /// On the host's clock a host woken late past a paced read had given
+    /// the owner a later time already, and the next block's read failed
+    /// with `ClockRegression` (a full serial run on 17 October). Keep the
+    /// scope until the harness is gone.
+    pub(super) fn keeping_first_words_paced(
+        kept: bool,
+        blocks: usize,
+    ) -> (crate::scenario_clock::Scope, Self) {
+        let clock = crate::scenario_clock::Scope::enter(Duration::from_secs(30)).unwrap();
+        clock.set_pump(|_| Ok(())).unwrap();
+        (clock, Self::keeping_first_words(kept, blocks))
+    }
     /// A reply of `blocks` speaker blocks whose samples count up from zero,
     /// so that what reaches the speaker can be checked for order and loss.
     pub(super) fn new(policy: TurnTaking, blocks: usize) -> Self {
@@ -166,10 +181,15 @@ impl Harness {
         // would refuse past 50 ms: #936's paced test failed so once in a
         // full serial run on 16 October. What reads the block judges it by
         // this time, not the host's.
+        // On a scenario clock ([`Self::keeping_first_words_paced`]) time
+        // moves only by its own steps, 2 ms each.
+        let step = || crate::scenario_clock::step(crate::scenario_clock::Phase::Run).unwrap();
         if self.gap_us > 0 {
             let at = self.last_read + self.gap_us;
             while monotonic_us() < at {
-                std::thread::sleep(std::time::Duration::from_micros(500));
+                if !step() {
+                    std::thread::sleep(std::time::Duration::from_micros(500));
+                }
             }
             return at;
         }
@@ -179,7 +199,9 @@ impl Harness {
             if at > self.last_read {
                 return at;
             }
-            std::hint::spin_loop();
+            if !step() {
+                std::hint::spin_loop();
+            }
         }
     }
     /// One pass of the session loop for one capture block: hear it, let
@@ -493,7 +515,7 @@ fn a_person_over_the_lamp_stops_the_speaker_then_interrupts_with_their_opening_w
 /// says what it dropped. Without first words kept, as before.
 #[test]
 fn first_words_older_than_the_provider_takes_are_dropped_before_the_commit() {
-    let mut h = Harness::keeping_first_words(true, 400);
+    let (_clock, mut h) = Harness::keeping_first_words_paced(true, 400);
     h.blocks(30, 0.1, Some(evidence(0, OWN)));
     // Blocks 31 to 92, 40 ms apart (the detector takes no gap over 50 ms):
     // first words under the lamp, then a breath, 2.5 s in all.

@@ -165,8 +165,13 @@ pub fn lookup_within(
     std::thread::Builder::new()
         .name("lamp-update-lookup".into())
         .spawn(move || {
-            let _counted = counted;
-            let _ = tell.send(lookup(&name, port));
+            let answer = lookup(&name, port);
+            // Counted out before the answer is sent, so a caller that has it
+            // never finds this lookup still running: a redirect's lookup,
+            // made at once after the first answered, is not refused as "an
+            // earlier name lookup has not ended" (Tests, #1112).
+            drop(counted);
+            let _ = tell.send(answer);
         })
         .map_err(|error| format!("{host}: {error}"))?;
     match told.recv_timeout(limit) {
@@ -734,5 +739,24 @@ mod tests {
             web.fetch(missing, 4096, &mut Vec::new()),
             Err(Fetch::Missing)
         );
+    }
+
+    /// Tests on #1112: once a caller has a lookup's answer, the lookup is no
+    /// longer counted, so the next one (a redirect's) starts at once.
+    #[test]
+    fn an_answered_lookup_is_counted_out_before_its_answer_arrives() {
+        static COUNTED: AtomicUsize = AtomicUsize::new(0);
+        for round in 0..200 {
+            let found = lookup_within(
+                "updates.example",
+                443,
+                Duration::from_secs(5),
+                &COUNTED,
+                1,
+                |_, port| Ok(vec![SocketAddr::from(([127, 0, 0, 1], port))]),
+            );
+            assert!(found.is_ok(), "round {round}: {found:?}");
+            assert_eq!(COUNTED.load(Ordering::Acquire), 0, "round {round}");
+        }
     }
 }

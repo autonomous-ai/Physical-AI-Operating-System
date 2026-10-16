@@ -901,7 +901,13 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
                 choice.awake,
                 choice.load,
             )
-            .map(|standing| standing.idling(choice.idle))
+            .map(|standing| {
+                // Each run draws its own waits and moves.
+                let seed = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map_or(0, |since| since.as_nanos() as u64);
+                standing.idling(choice.idle).seeded(seed)
+            })
         })
         .transpose()?;
     // What Expression asks of the head, if the unit says so. Looked at

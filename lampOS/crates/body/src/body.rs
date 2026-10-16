@@ -35,6 +35,7 @@ use crate::{
     cog,
     gaze::{Gaze, Looking, Seen},
     gesture::{Gestures, Mood, Pose},
+    idle,
     inspection::{Interest, PortIo, Runtime},
     protocol::{ReadOnlyRequest, ReadWindow, StatusFlags, StatusParser},
 };
@@ -283,10 +284,6 @@ const GESTURE_COOL_STEPS: u16 = 25;
 /// somebody is taken to be in front of the lamp: it stands up for them and
 /// stays up while they are there.
 const COMPANY_SIGHTS: u8 = 6;
-/// A lamp that may idle and has stood at rest this long shifts a little by
-/// itself, and waits this long after one shift before the next.
-const IDLE_AFTER: Duration = Duration::from_secs(4);
-const IDLE_EVERY: Duration = Duration::from_secs(8);
 /// Under `Limits::look_at_name`: a call is taken as being spoken to for
 /// this long, which the voice's own listening takes over if the person
 /// goes on; and a call this soon after the last one is let go.
@@ -363,6 +360,8 @@ pub struct Standing {
     pub load: [u16; 2],
     /// Standing with nothing to do, it shifts a little now and then.
     pub idle: bool,
+    /// Seeds the draw of when it shifts and how (`crate::idle`).
+    pub idle_seed: u64,
 }
 
 impl Standing {
@@ -419,6 +418,7 @@ impl Standing {
             awake: Duration::from_secs(u64::from(awake)),
             load,
             idle: false,
+            idle_seed: 0,
         })
     }
 
@@ -426,6 +426,11 @@ impl Standing {
     /// not.
     pub fn idling(self, idle: bool) -> Self {
         Self { idle, ..self }
+    }
+
+    /// The same, its shifts drawn from this seed.
+    pub fn seeded(self, idle_seed: u64) -> Self {
+        Self { idle_seed, ..self }
     }
 }
 
@@ -2744,8 +2749,11 @@ fn run_until_stopped(
     let mut tipping = false;
     // Looks in a row in which its eyes reported a face.
     let mut faces_running = 0u8;
-    // When a lamp standing at rest next shifts by itself.
+    // When a lamp standing at rest next shifts by itself, what draws when
+    // and how, and since when nobody has been near.
     let mut idle_due: Option<Duration> = None;
+    let mut idler = idle::Idler::new(standing.map_or(0, |up| up.idle_seed));
+    let mut alone_since = bus.runtime.now();
     let step = TICK.as_secs_f32();
     // A look away begins with a glance of GLANCE counts of the base's
     // turn: within the folded reach that is all of it, as it always was.
@@ -2881,7 +2889,7 @@ fn run_until_stopped(
             report.calls += 1;
             // Not over a gesture under way; over shifting at rest, yes.
             if faces_running == 0
-                && playing.is_none_or(|(clip, _)| clip.name == clips::IDLE.name)
+                && playing.is_none_or(|(clip, _)| idle::is_move(clip))
                 && pending.is_none()
             {
                 let rising = standing.map_or(0.0, |up| up.seconds);
@@ -3004,21 +3012,35 @@ fn run_until_stopped(
             && !blind
             && standing.is_some_and(|up| up.share >= 1.0 && stand >= 1.0 && stand_velocity == 0.0);
         // Anything alive that stands with nothing to do shifts a little
-        // now and then. It stops the moment there is something to do.
-        let idling = playing.is_some_and(|(clip, _)| clip.name == clips::IDLE.name);
-        if !(upright && mood == Mood::Resting && pending.is_none()) {
+        // now and then, not on a clock: after a wait drawn at random, longer
+        // the longer nobody has been near, and each time a different small
+        // move (`crate::idle`). It stops the moment there is something to do:
+        // a mood, a call, a glance, another gesture, a hand on it. Each of
+        // those starts the wait again, so no shift comes right after one.
+        if faces_running > 0 || mood != Mood::Resting {
+            alone_since = now;
+        }
+        let idling = playing.is_some_and(|(clip, _)| idle::is_move(clip));
+        let quiet = upright
+            && mood == Mood::Resting
+            && pending.is_none()
+            && (playing.is_none() || idling)
+            && !glance
+            && glance_from.is_none()
+            && easing == [0; 3]
+            && in_hand == [0; 3];
+        if !quiet {
             idle_due = None;
             if idling {
                 playing = None;
             }
         } else if playing.is_none() {
             match idle_due {
-                None => idle_due = Some(now + IDLE_AFTER),
+                None => idle_due = Some(now + idler.gap(now.saturating_sub(alone_since))),
                 Some(due) if now >= due && standing.is_some_and(|up| up.idle) => {
-                    playing = Some((&clips::IDLE, now));
+                    playing = Some((idler.pick(), now));
                     report.idles += 1;
-                    idle_due =
-                        Some(now + Duration::from_micros(clips::IDLE.duration_us()) + IDLE_EVERY);
+                    idle_due = None;
                 }
                 Some(_) => {}
             }

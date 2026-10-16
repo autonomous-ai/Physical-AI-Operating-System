@@ -69,6 +69,43 @@ pub const CALLED: Clip = Clip {
     ],
 };
 
+/// Small moves of the head alone for a lamp at rest to shift by now and
+/// then (`crate::idle`): eased out over a second, held a second, eased back.
+/// Inside the reach of a glance at rest (`body::REST_GLANCE_REACH`, about
+/// four degrees of pitch and two of roll); the base and the arm are not
+/// moved. Not in [`ALL`]: nobody asks for them by name. A lift of the head
+/// is a pitch below nothing, as in `IDLE`.
+pub const TILT_LEFT: Clip = Clip {
+    name: "tilt_left",
+    step_ms: 200,
+    frames: &tilt(-1, -10),
+};
+pub const TILT_RIGHT: Clip = Clip {
+    name: "tilt_right",
+    step_ms: 200,
+    frames: &tilt(1, -10),
+};
+pub const LOOK_UP: Clip = Clip {
+    name: "look_up",
+    step_ms: 200,
+    frames: &tilt(0, -50),
+};
+
+/// Eased out, held and eased back: roll `side` times 25 counts, pitch `lift`.
+const fn tilt(side: i16, lift: i16) -> [[i16; 5]; 17] {
+    const EASE: [i16; 17] = [
+        0, 8, 28, 52, 76, 92, 100, 100, 100, 100, 100, 92, 76, 52, 28, 8, 0,
+    ];
+    let mut frames = [[0i16; 5]; 17];
+    let mut index = 0;
+    while index < 17 {
+        frames[index][0] = lift * EASE[index] / 100;
+        frames[index][1] = side * 25 * EASE[index] / 100;
+        index += 1;
+    }
+    frames
+}
+
 /// The clip of this name.
 pub fn named(name: &str) -> Option<&'static Clip> {
     ALL.into_iter().find(|clip| clip.name == name)
@@ -120,6 +157,25 @@ mod tests {
             }
         }
         assert_eq!(named("dance"), None);
+    }
+
+    #[test]
+    fn the_small_moves_at_rest_move_the_head_alone_inside_a_glance_at_rest() {
+        let reach = crate::body::REST_GLANCE_REACH;
+        for clip in [&TILT_LEFT, &TILT_RIGHT, &LOOK_UP] {
+            assert_eq!(named(clip.name), None);
+            assert_eq!(clip.duration_us(), 3_200_000, "{}", clip.name);
+            assert_eq!(clip.frames[0], [0; 5]);
+            assert_eq!(clip.frames[clip.frames.len() - 1], [0; 5]);
+            for frame in clip.frames {
+                assert!(f32::from(frame[0].abs()) <= reach[0], "{}", clip.name);
+                assert!(f32::from(frame[1].abs()) <= reach[1], "{}", clip.name);
+                assert_eq!(frame[2..], [0; 3], "{}", clip.name);
+            }
+        }
+        assert_eq!(TILT_LEFT.frames[8], [-10, -25, 0, 0, 0]);
+        assert_eq!(TILT_RIGHT.frames[8], [-10, 25, 0, 0, 0]);
+        assert_eq!(LOOK_UP.frames[8], [-50, 0, 0, 0, 0]);
     }
 
     #[test]

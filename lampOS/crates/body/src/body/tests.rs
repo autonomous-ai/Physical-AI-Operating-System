@@ -2570,72 +2570,172 @@ fn stood_up_the_head_tilts_to_listen_and_folded_it_does_not() {
     assert!(tilt(0.0).1 <= 1);
 }
 
-#[test]
-fn standing_with_nothing_to_do_it_shifts_now_and_then_and_stops_when_spoken_to() {
-    // Spoken to for two seconds, then left standing for a minute.
-    let run_with = |idle: bool, spoken_again_at: Option<u64>| {
-        let (mut lamp, mut clock) = folded(Duration::from_secs(40));
-        lamp.arm_moves = true;
-        lamp.overload_clears = 1;
-        let limits = Limits::folded_with(Tuning {
+/// A shift at rest seen in a run: when it began, when it ended, which.
+type Shift = (Duration, Duration, &'static str);
+
+/// Spoken to for two seconds, then left standing for `minutes`, in `mood`
+/// after that, with a hand bumping the head's tilt every `bumps` seconds
+/// if given (and giving way to it): the shifts it made.
+fn shifts_at_rest(
+    idle: bool,
+    minutes: u64,
+    mood: Mood,
+    share: u8,
+    bumps: Option<u64>,
+) -> (BodyReport, Vec<Shift>) {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(minutes * 60));
+    lamp.arm_moves = true;
+    lamp.overload_clears = 1;
+    if let Some(every) = bumps {
+        lamp.strains = (1..minutes * 60 / every)
+            .map(|at| {
+                let from = Duration::from_secs(at * every);
+                (from, from + Duration::from_millis(200), ROLL, 217)
+            })
+            .collect();
+    }
+    let limits = Limits {
+        give_way: bumps.map(|_| GiveWay::Return),
+        ..Limits::folded_with(Tuning {
             reach: [150, 15, 1, 250],
             speed: 120,
             servo_speed: 1_000,
             servo_acceleration: 60,
         })
-        .unwrap();
-        let time = clock.time.clone();
-        let watched = clock.time.clone();
-        let mut seen: Vec<(Duration, Option<&'static str>, Mood)> = Vec::new();
-        let report = run_alive(
-            &mut lamp,
-            &mut clock,
-            limits,
-            Some(HOME),
-            Some(standing(100, 120).idling(idle)),
-            None,
-            move || {
-                let at = time.get().as_secs();
-                let spoken = at < 2 || spoken_again_at.is_some_and(|again| at >= again);
-                Some(if spoken {
-                    (Mood::Listening, 100)
-                } else {
-                    (Mood::Resting, 0)
-                })
-            },
-            Asked::default,
-            |glimpse| seen.push((watched.get(), glimpse.gesture, glimpse.mood)),
-        );
-        assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
-        (report, seen)
+        .unwrap()
     };
-    // It stands by five seconds, rests four, shifts for ten, rests eight,
-    // shifts again.
-    let (report, seen) = run_with(true, None);
-    assert_eq!(
-        (report.idles, report.gestures, report.gestures_dropped),
-        (2, 0, 0)
+    let time = clock.time.clone();
+    let watched = clock.time.clone();
+    let mut shifts: Vec<Shift> = Vec::new();
+    let mut playing: Option<(Duration, &'static str)> = None;
+    let report = run_alive(
+        &mut lamp,
+        &mut clock,
+        limits,
+        Some(HOME),
+        Some(standing(share, 3_600).idling(idle).seeded(5)),
+        None,
+        move || {
+            Some(if time.get() < Duration::from_secs(2) {
+                (Mood::Listening, 100)
+            } else {
+                (mood, 0)
+            })
+        },
+        Asked::default,
+        |glimpse| {
+            let shift = glimpse
+                .gesture
+                .filter(|name| idle::MOVES.iter().any(|shift| shift.name == *name));
+            match (playing, shift) {
+                (None, Some(name)) => playing = Some((watched.get(), name)),
+                (Some((from, name)), now) if now != Some(name) => {
+                    shifts.push((from, watched.get(), name));
+                    playing = now.map(|name| (watched.get(), name));
+                }
+                _ => {}
+            }
+        },
     );
-    let first = seen.iter().find(|step| step.1 == Some("idle")).unwrap().0;
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    (report, shifts)
+}
+
+/// Left standing at rest, it shifts now and then: never sooner than 40 s
+/// after the last shift ended, nor later than three minutes (alone for
+/// minutes, a little later), no two waits alike, and never the same move
+/// twice running. The first comes at least 40 s after it was spoken to.
+#[test]
+fn standing_with_nothing_to_do_it_shifts_rarely_irregularly_and_never_the_same_twice() {
+    let (report, shifts) = shifts_at_rest(true, 20, Mood::Resting, 100, None);
+    assert_eq!(report.idles as usize, shifts.len());
+    assert!(shifts.len() >= 4, "{shifts:?}");
     assert!(
-        first > Duration::from_secs(8) && first < Duration::from_secs(11),
-        "{first:?}"
+        shifts[0].0 >= Duration::from_secs(2) + idle::GAP_LEAST,
+        "{shifts:?}"
     );
+    let mut waits: Vec<Duration> = shifts
+        .windows(2)
+        .map(|pair| pair[1].0 - pair[0].1)
+        .collect();
+    for (wait, pair) in waits.iter().zip(shifts.windows(2)) {
+        assert!(*wait >= idle::GAP_LEAST, "{shifts:?}");
+        // Alone for at most 20 minutes: at most three times the longest.
+        assert!(*wait <= idle::GAP_MOST * 3 + TICK, "{shifts:?}");
+        assert_ne!(pair[0].2, pair[1].2, "{shifts:?}");
+    }
+    waits.sort();
+    waits.dedup();
+    assert_eq!(waits.len(), shifts.len() - 1, "{shifts:?}");
+    // Each move is played whole, as recorded.
+    for (from, to, name) in &shifts {
+        let clip = idle::MOVES
+            .iter()
+            .find(|shift| shift.name == *name)
+            .unwrap();
+        assert!((*to - *from).abs_diff(Duration::from_micros(clip.duration_us())) <= TICK * 2);
+    }
     assert!(report.retreats.is_empty());
     // Not asked to, it stands still.
-    let (report, seen) = run_with(false, None);
+    let (report, shifts) = shifts_at_rest(false, 10, Mood::Resting, 100, None);
+    assert_eq!((report.idles, shifts.len()), (0, 0));
+}
+
+/// Never while someone talks near it, never folded or half up, and never
+/// while a hand is on it: each push on the head starts the wait again.
+#[test]
+fn it_does_not_shift_while_talked_to_folded_or_held() {
+    for mood in [Mood::Listening, Mood::Speaking, Mood::Thinking] {
+        let (report, _) = shifts_at_rest(true, 10, mood, 100, None);
+        assert_eq!(report.idles, 0, "{mood:?}");
+    }
+    let (report, _) = shifts_at_rest(true, 10, Mood::Resting, 60, None);
     assert_eq!(report.idles, 0);
-    assert!(seen.iter().all(|step| step.1.is_none()));
-    // Spoken to in the middle of a shift, it lets the shift go at once.
-    let (report, seen) = run_with(true, Some(14));
-    assert_eq!(report.idles, 1);
-    let last = seen.iter().rfind(|step| step.1 == Some("idle")).unwrap().0;
-    assert!(last < Duration::from_millis(14_100), "{last:?}");
-    assert!(
-        seen.iter()
-            .filter(|step| step.2 == Mood::Listening && step.0 >= Duration::from_secs(14))
-            .all(|step| step.1.is_none())
+    // A bump every 30 s: always inside the shortest wait.
+    let (report, _) = shifts_at_rest(true, 10, Mood::Resting, 100, Some(30));
+    assert!(report.eased[1] >= 15, "{report:?}");
+    assert_eq!(report.idles, 0, "{report:?}");
+}
+
+/// Spoken to in the middle of a shift, it lets the shift go at once.
+#[test]
+fn spoken_to_in_the_middle_of_a_shift_it_lets_it_go_at_once() {
+    let (_, shifts) = shifts_at_rest(true, 5, Mood::Resting, 100, None);
+    let (from, _, _) = shifts[0];
+    let again = from + Duration::from_secs(1);
+    let (mut lamp, mut clock) = folded(again + Duration::from_secs(10));
+    lamp.arm_moves = true;
+    lamp.overload_clears = 1;
+    let time = clock.time.clone();
+    let watched = clock.time.clone();
+    let mut seen: Vec<(Duration, Option<&'static str>)> = Vec::new();
+    let report = run_alive(
+        &mut lamp,
+        &mut clock,
+        Limits::folded_with(Tuning {
+            reach: [150, 15, 1, 250],
+            speed: 120,
+            servo_speed: 1_000,
+            servo_acceleration: 60,
+        })
+        .unwrap(),
+        Some(HOME),
+        Some(standing(100, 3_600).idling(true).seeded(5)),
+        None,
+        move || {
+            let at = time.get();
+            Some(if at < Duration::from_secs(2) || at >= again {
+                (Mood::Listening, 100)
+            } else {
+                (Mood::Resting, 0)
+            })
+        },
+        Asked::default,
+        |glimpse| seen.push((watched.get(), glimpse.gesture)),
     );
+    assert_eq!(report.idles, 1);
+    let last = seen.iter().rfind(|step| step.1.is_some()).unwrap().0;
+    assert!(last >= from && last < again + TICK * 5, "{last:?}");
 }
 
 #[test]
@@ -4412,7 +4512,8 @@ type CalledStep = (Duration, Option<&'static str>, f32, u16);
 
 /// A folded lamp at rest, called by its name at `calls` (seconds), with a
 /// face in view from `face_from` on if given, in `mood` throughout; once
-/// stood, shifting now and then at rest if `idle`.
+/// stood, shifting now and then at rest if `idle`: then it stays up and
+/// runs until 20 s past the last call, as shifts are a minute or more apart.
 fn called_run(
     look_at_name: bool,
     idle: bool,
@@ -4420,7 +4521,11 @@ fn called_run(
     calls: &'static [u64],
     face_from: Option<u64>,
 ) -> (BodyReport, Lamp, Vec<CalledStep>) {
-    let (mut lamp, mut clock) = folded(Duration::from_secs(20));
+    let (run_for, awake) = match calls.last() {
+        Some(last) if idle => (20 + last, 3_600),
+        _ => (20, 30),
+    };
+    let (mut lamp, mut clock) = folded(Duration::from_secs(run_for));
     lamp.arm_moves = true;
     lamp.overload_clears = 1;
     let limits = Limits {
@@ -4443,7 +4548,7 @@ fn called_run(
         &mut clock,
         limits,
         Some(HOME),
-        Some(standing(100, 30).idling(idle)),
+        Some(standing(100, awake).idling(idle)),
         Some(Looking::new([342, 200], [250, 120]).unwrap()),
         move || Some((mood, 0)),
         move || {
@@ -4537,20 +4642,30 @@ fn called_with_a_face_in_view_it_does_not_glance_and_speaking_it_takes_no_call()
     assert_eq!(report.calls, 0);
 }
 
-/// A lamp that stands and shifts now and then at rest, called again after
-/// ten seconds: the shift gives way to the glance.
+/// A lamp that stands and shifts now and then at rest, called again in the
+/// middle of a shift: the shift gives way to the glance.
 #[test]
 fn a_call_is_glanced_for_over_a_shift_at_rest() {
-    let (report, _, seen) = called_run(true, true, Mood::Resting, &[1, 13], None);
+    // When its first shift begins, called once (and again far later).
+    let (_, _, seen) = called_run(true, true, Mood::Resting, &[1, 400], None);
+    let shift = seen
+        .iter()
+        .find(|step| step.1.is_some_and(|name| name != "called"))
+        .unwrap()
+        .0
+        .as_secs()
+        + 1;
+    let calls: &'static [u64] = Box::leak(vec![1, shift].into_boxed_slice());
+    let (report, _, seen) = called_run(true, true, Mood::Resting, calls, None);
     assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
     assert!(report.idles >= 1, "{report:?}");
     assert_eq!((report.calls, report.gestures), (2, 2), "{report:?}");
     let second = seen
         .iter()
-        .find(|step| step.0 >= Duration::from_secs(13) && step.1 == Some("called"))
+        .find(|step| step.0 >= Duration::from_secs(shift) && step.1 == Some("called"))
         .unwrap()
         .0;
-    assert!(second < Duration::from_millis(13_300), "{second:?}");
+    assert!(second < Duration::from_secs(shift) + Duration::from_millis(300));
 }
 
 /// As V1: a base held by a hand a second after it stopped hands over to

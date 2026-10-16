@@ -50,8 +50,9 @@ changed):
 - In the other moods: pitch, roll and the base's turn, cut to 60, 45 and
   70 counts, and the body's 20-count rest applies.
 - The body has its own idle (`--idle on`, on lamp-4ace): a standing lamp at
-  rest plays the old runtime's 10 s `idle` clip (the arm sways about 40
-  counts, the head lifts 47) every 18 s or so. While a body clip plays,
+  rest shifts by one of four small moves (the old runtime's 10 s `idle`
+  clip, a small tilt either way, a look up) after a random wait of 40 s to
+  3 min, longer when nobody has been near (`docs/body.md`, since 2026-10-16). While a body clip plays,
   Expression's offsets are not added.
 
 - Taken: the breath and the drift lift the head only, within what lamp-4ace's

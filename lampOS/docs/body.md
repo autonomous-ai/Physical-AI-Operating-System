@@ -861,12 +861,30 @@ What the body does with the request:
 - One any frame of which would take the lamp more than 22 mm off its
   base's axis is refused whole ("Not tipping over" below).
 
-With `--idle on` a lamp that has stood at rest for four seconds plays `idle`
-by itself, the old runtime's idle loop at half its size, and again eight
-seconds after each one ends: anything alive that stands with nothing to do
-shifts a little now and then. It lets the shift go the moment a mood other
-than rest arrives, and a gesture that is asked for replaces it. The report
-counts them apart from gestures (`idles`).
+With `--idle on` a lamp standing at rest shifts a little by itself now and
+then: anything alive that stands with nothing to do does. Not on a clock
+(until 2026-10-16 it was every 18 s, `idle` after `idle` all afternoon on
+lamp-4ace, #705): each wait is drawn at random from 40 s to 3 min, and drawn
+longer the longer nobody has been near (no face in the last look and only
+rest heard), up to three times as long after ten minutes alone. Each shift
+is one of four small moves, never the one made last (`crate::idle`):
+
+| Move | Lasts | Mostly |
+| --- | --- | --- |
+| `idle` | 10.0 s | the old runtime's idle loop at half its size (table above) |
+| `tilt_left`, `tilt_right` | 3.2 s | head roll 25 to one side, the head lifting 10 |
+| `look_up` | 3.2 s | the head lifts 50 |
+
+The three head moves stay inside the reach of a glance at rest
+(`REST_GLANCE_REACH`) and move neither the base nor the arm. No shift
+while it is folded, rising or folding, while a mood other than rest is
+heard (someone talking to it, a call taken as listening), while a glance,
+a call or another gesture plays or waits, or while a joint has given way
+to a hand or is in one; any of these lets a shift under way go and starts
+the wait again, so no shift comes right after it. A gesture that is asked
+for replaces a shift. Each run draws from its own seed (the clock at start;
+tests pass one with `Standing::seeded`). The report counts shifts apart
+from gestures (`idles`); the journal names each (`gesture tilt_left`).
 
 A head that does not tilt when it stands (`--stand-roll` not given) does not
 tilt in a gesture either: the roll in a clip is left out. On lamp-4ace that

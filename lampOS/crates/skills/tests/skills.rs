@@ -1318,3 +1318,234 @@ fn a_repeat_tool_call_holds_the_runs_pose_again_and_only_that() {
     let lights: Vec<String> = lights.try_iter().collect();
     assert_eq!(lights.len(), 1, "{lights:?}");
 }
+
+/// A hello on every face that appears after a second without one.
+fn hello_after_a_second() -> String {
+    AT_ONCE
+        .replace("light = { colour = \"warm\" }\n", "")
+        .replace("near = 0.14", "absent_for = \"1s\"")
+}
+
+/// The program with `LAMP_SKILLS_ASK=policy` on a bus of its own in `root`,
+/// once its hello is loaded, and the voice's say service stood in for: each
+/// line it is asked to say, and when.
+fn asking_the_policy_in(root: &Path) -> (Running, Bus, mpsc::Receiver<(String, Instant)>) {
+    fs::create_dir(root.join("skills")).unwrap();
+    let bus = Bus::new(root.join("bus")).unwrap();
+    let voice = UnixListener::bind(root.join("say.sock")).unwrap();
+    let (heard, asked) = mpsc::channel();
+    std::thread::spawn(move || {
+        for stream in voice.incoming().flatten() {
+            let mut line = String::new();
+            BufReader::new(&stream).read_line(&mut line).unwrap();
+            let _ = heard.send((line, Instant::now()));
+            (&stream).write_all(b"{\"outcome\":\"spoken\"}\n").unwrap();
+        }
+    });
+    let mut command = Command::new(env!("CARGO_BIN_EXE_lamp-skills"));
+    command
+        .args([
+            "--dir".as_ref(),
+            root.join("skills").as_os_str(),
+            "--bus-root".as_ref(),
+            root.join("bus").as_os_str(),
+            "--gaze-socket".as_ref(),
+            root.join("gaze.sock").as_os_str(),
+            "--say-socket".as_ref(),
+            root.join("say.sock").as_os_str(),
+        ])
+        .env("LAMP_SKILLS_ASK", "policy");
+    let running = Running(command.spawn().unwrap());
+    std::thread::sleep(Duration::from_millis(300));
+    skill_with(&root.join("skills"), "hello", &hello_after_a_second());
+    let deadline = Instant::now() + Duration::from_secs(20);
+    while bus.subscribers(Faces::TOPIC).unwrap().is_empty() {
+        assert!(Instant::now() < deadline, "the skill was never loaded");
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    (running, bus, asked)
+}
+
+/// Nobody for a little over a second, then a face, and `leave`: gone again
+/// at once. When the face was published.
+fn a_face_appears(eyes: &mut lamp_bus::Publisher, leave: bool) -> Instant {
+    eyes.publish_json(1, &serde_json::json!({"faces": []}))
+        .unwrap();
+    std::thread::sleep(Duration::from_millis(1_300));
+    eyes.publish_json(1, &serde_json::from_str::<serde_json::Value>(FACE).unwrap())
+        .unwrap();
+    let at = Instant::now();
+    if leave {
+        eyes.publish_json(1, &serde_json::json!({"faces": []}))
+            .unwrap();
+    }
+    at
+}
+
+/// The next `answered` event, within `deadline`.
+fn next_answer(events: &mut lamp_bus::Subscriber, deadline: Instant) -> SkillEvent {
+    while Instant::now() < deadline {
+        if let Some(message) = events.recv(Duration::from_millis(100)).unwrap() {
+            let event: SkillEvent = message.parse().unwrap();
+            if event.stage == SkillStage::Answered {
+                return event;
+            }
+        }
+    }
+    panic!("no answer in time");
+}
+
+/// With `LAMP_SKILLS_ASK=policy` a skill asks on `skills/ask` (#958's
+/// `SkillAsk`) and acts only on a `say_now` not in shadow that names its
+/// ask while its trigger still holds: a hello with its minutes away and
+/// seconds there (after an answer to another ask, passed over), then a
+/// `wait`, a `say_now` in shadow, one without `shadow`, one too late and
+/// one after the face has gone, each left undone.
+#[test]
+fn asking_the_policy_a_skill_acts_only_on_a_say_now_that_names_its_ask() {
+    // Short: a socket's whole path has to fit in 103 bytes.
+    let dir = tempfile::Builder::new()
+        .prefix("sp")
+        .tempdir_in("/tmp")
+        .unwrap();
+    let root = dir.path();
+    // The Policy stood in for, an ask at a time: its choice, `shadow`,
+    // how long it takes, and whether it first answers another ask.
+    let script: [(&str, Option<bool>, u64, bool); 6] = [
+        ("say_now", Some(false), 0, true),
+        ("wait", Some(false), 0, false),
+        ("say_now", Some(true), 0, false),
+        ("say_now", None, 0, false),
+        ("say_now", Some(false), 2_800, false),
+        ("say_now", Some(false), 300, false),
+    ];
+    let bus = Bus::new(root.join("bus")).unwrap();
+    let mut events = bus.subscribe(SkillEvent::TOPIC, "test").unwrap();
+    let (questions, put) = mpsc::channel::<serde_json::Value>();
+    let policy = bus.clone();
+    let mut asks = policy.subscribe("skills/ask", "policy").unwrap();
+    std::thread::spawn(move || {
+        let mut decisions = policy
+            .publisher_declared(
+                "policy/decisions",
+                &lamp_msgs::Decision::declaration(),
+                "policy",
+            )
+            .unwrap();
+        for (choice, shadow, takes_ms, other_first) in script {
+            let message = loop {
+                if let Ok(Some(message)) = asks.recv(Duration::from_millis(100)) {
+                    break message;
+                }
+            };
+            let ask: serde_json::Value = serde_json::from_slice(&message.payload).unwrap();
+            let _ = questions.send(ask.clone());
+            let number = ask["ask"].as_u64().unwrap();
+            let mut decision = serde_json::json!({"about": "hello", "choice": choice,
+                "probability": 0.9, "answers": {}, "by": "rule", "took_ms": 3});
+            if let Some(shadow) = shadow {
+                decision["shadow"] = shadow.into();
+            }
+            if other_first {
+                decision["ask"] = (number + 1).into();
+                decisions.publish_json(1, &decision).unwrap();
+            }
+            std::thread::sleep(Duration::from_millis(takes_ms));
+            decision["ask"] = number.into();
+            decisions.publish_json(1, &decision).unwrap();
+        }
+    });
+    let (_running, bus, said) = asking_the_policy_in(root);
+    let mut eyes = bus
+        .publisher_declared(Faces::TOPIC, &Faces::declaration(), "eyes")
+        .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(40);
+    let mut answered = Vec::new();
+    let mut face_to_say = None;
+    for cycle in 0..script.len() {
+        let face_at = a_face_appears(&mut eyes, cycle == 5);
+        answered.push(next_answer(&mut events, deadline));
+        if cycle == 0 {
+            let (_, said_at) = said.recv_timeout(Duration::from_secs(2)).unwrap();
+            face_to_say = Some(said_at - face_at);
+        }
+    }
+    let face_to_say = face_to_say.unwrap();
+    println!("face published to say asked, the Policy answering at once: {face_to_say:?}");
+    // The Policy's own time is nothing here: what is left is the bus and
+    // the program, well under its old 250 ms wait.
+    assert!(face_to_say < Duration::from_millis(100), "{face_to_say:?}");
+    let put: Vec<serde_json::Value> = put.try_iter().collect();
+    assert_eq!(put.len(), script.len(), "{put:?}");
+    assert_eq!(put[0]["skill"], "hello");
+    assert_eq!(put[0]["act"], "hello");
+    assert!(put[0]["away_min"].is_u64() && put[0]["there_s"].is_u64());
+    let numbers: Vec<u64> = put.iter().map(|ask| ask["ask"].as_u64().unwrap()).collect();
+    assert!(numbers[0] > 0 && numbers.windows(2).all(|pair| pair[0] < pair[1]));
+    let allowed: Vec<Option<bool>> = answered.iter().map(|event| event.allowed).collect();
+    assert_eq!(
+        allowed,
+        [
+            Some(true),
+            Some(false),
+            Some(false),
+            Some(false),
+            Some(false),
+            Some(false)
+        ],
+        "{answered:?}"
+    );
+    assert!(answered[1].why.contains("wait"), "{answered:?}");
+    assert!(answered[2].why.contains("in shadow"), "{answered:?}");
+    assert!(answered[3].why.contains("in shadow"), "{answered:?}");
+    assert!(answered[4].why.contains("did not answer"), "{answered:?}");
+    assert!(answered[5].why.contains("no longer holds"), "{answered:?}");
+    // Only the first say_now was said, the late one passed over too.
+    std::thread::sleep(Duration::from_millis(300));
+    assert_eq!(said.try_iter().count(), 0);
+}
+
+/// With nobody on `skills/ask` (the Policy down, or without `--gate`) the
+/// run is refused at once, not after the Policy's 2.5 s.
+#[test]
+fn asking_the_policy_with_nobody_to_answer_is_no_at_once() {
+    let dir = tempfile::Builder::new()
+        .prefix("sn")
+        .tempdir_in("/tmp")
+        .unwrap();
+    let (_running, bus, said) = asking_the_policy_in(dir.path());
+    let mut events = bus.subscribe(SkillEvent::TOPIC, "test").unwrap();
+    let mut eyes = bus
+        .publisher_declared(Faces::TOPIC, &Faces::declaration(), "eyes")
+        .unwrap();
+    let face_at = a_face_appears(&mut eyes, false);
+    let answer = next_answer(&mut events, Instant::now() + Duration::from_secs(5));
+    assert!(face_at.elapsed() < Duration::from_secs(1), "{answer:?}");
+    assert_eq!(answer.allowed, Some(false));
+    assert!(answer.why.contains("nobody is subscribed"), "{answer:?}");
+    assert_eq!(said.try_iter().count(), 0);
+}
+
+/// A skill that is not a hello asks the act its `[ask] policy` names, news
+/// or anything else as unprompted, without a hello's minutes and seconds.
+#[test]
+fn asking_the_policy_a_skill_that_is_not_a_hello_asks_its_act() {
+    let dir = tempfile::tempdir().unwrap();
+    for (policy, act) in [("news", "news"), ("nudge", "unprompted")] {
+        let toml =
+            hello_after_a_second().replace("policy = \"hello\"", &format!("policy = \"{policy}\""));
+        let skill = skill_with(dir.path(), policy, &toml);
+        let mut engine = Engine::new(vec![load(&skill).unwrap()], false).asking_the_policy();
+        assert!(
+            engine
+                .observe(Faces::TOPIC, 0, NOBODY.as_bytes(), None)
+                .is_empty()
+        );
+        let runs = engine.observe(Faces::TOPIC, 2_000_000, FACE.as_bytes(), None);
+        assert_eq!(runs.len(), 1);
+        assert_eq!(
+            runs[0].ask,
+            Some(serde_json::json!({"skill": policy, "act": act}))
+        );
+    }
+}

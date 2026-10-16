@@ -226,9 +226,36 @@ As built on 2026-10-16 (#938, `crates/skills`, not yet run on a lamp):
   each topic's newest value. A look uses only a list of faces whose lifespan
   still lasts; with none, the other steps run without it. Time comes from its own monotonic
   clock, read when a message arrives.
-- **The ask.** The Policy's gate is not built yet (#939). With
-  `LAMP_SKILLS_ASK=skip` it answers yes without asking; without it every
-  run is answered no and nothing is done. `answered` says which.
+- **The ask.** `LAMP_SKILLS_ASK` says how a run that a trigger starts is
+  allowed (a tool's run is asked for by a person and never is):
+  - `policy`: the Policy's gate (#958, `lamp-policy --gate`). The run's
+    question goes on `skills/ask` as #958's `lamp_msgs::SkillAsk` (written
+    as JSON until that type is on `lamp-voice`): the ask's number (this
+    clock in µs, always above the last), the skill, the act (`[ask]
+    policy` `hello` or `news`, anything else `unprompted`) and, for a
+    hello, `away_min` and `there_s` from its trigger. With nobody
+    subscribed to `skills/ask` (the Policy down, or without `--gate`) the
+    run is refused at once. The run waits for the `Decision` on
+    `policy/decisions` that names the ask, looked for every 5 ms while one
+    waits (face published to say asked: 6 to 13 ms in 10 runs on a Mac,
+    the Policy answering at once): a `say_now` with `shadow: false` starts
+    it; one in shadow (or without `shadow`),
+    any other choice, or no answer within 2.5 s (the Policy's own 2 s and
+    the bus) leaves it undone. On a `say_now` the run is made again from
+    the newest values (a look at where the face is now), and dropped if its
+    trigger no longer holds or its conditions fail (the person has gone).
+    The trigger's cooldown counts from the ask.
+
+    With `lamp-policy --act hello`, a `say_now` counts as the lamp's hello
+    on the Policy's side and starts its 20-minute block, even when
+    lamp-skills then does not greet: the answer came after 2.5 s, the
+    person had gone, or the skill's last run was still under way. Until
+    lamp-skills tells the Policy, such a hello is lost for those 20 minutes.
+  - `skip`: yes without asking.
+  - unset: no, and nothing is done.
+
+  `answered` says which, and with the Policy its choice, the decision's
+  `about` and who decided.
 - **The steps.** `look_at`, `gesture` and `mood` are datagrams to the
   body's `gaze.sock` and `mood.sock` (default `/run/lampos-body/`), never
   waited for. A `mood` is said again every second on a thread of its own

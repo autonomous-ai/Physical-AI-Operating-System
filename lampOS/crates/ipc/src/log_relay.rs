@@ -13,6 +13,19 @@
 //! waiting on it: what the journal will not take is dropped, counted, and
 //! the count said once the journal takes lines again. A writer only ever
 //! writes into a pipe that is being emptied.
+//!
+//! The real stderr is never made non-blocking: `O_NONBLOCK` belongs to the
+//! open file, which every process holding it shares. A worker's stderr is
+//! its parent's relay pipe; a worker's relay that set it there made the
+//! parent's own stderr non-blocking, and the parent's next `eprintln!` into
+//! a full pipe would have panicked (the eighth on #1178). The relay instead
+//! writes in a way of its own that never waits ([`Journal`]): on Linux it
+//! sends to a socket (the journal's stream) with `MSG_DONTWAIT`, and writes
+//! to a pipe (a worker's stderr) through a file of its own on that pipe,
+//! opened non-blocking from `/proc`; to anything else only when `poll` says
+//! there is room.
+#[cfg(target_os = "linux")]
+use rustix::fd::AsRawFd;
 use rustix::{
     event::{PollFd, PollFlags, Timespec},
     fd::{AsFd, OwnedFd},
@@ -48,7 +61,6 @@ const RETRY: Timespec = Timespec {
 /// take are counted in the value returned. An error leaves stderr as it was.
 pub fn install() -> io::Result<Arc<AtomicU64>> {
     let real = rustix::io::fcntl_dupfd_cloexec(io::stderr().as_fd(), 3)?;
-    rustix::io::ioctl_fionbio(&real, true)?;
     let (read, write) = rustix::pipe::pipe()?;
     rustix::io::fcntl_setfd(&read, rustix::io::FdFlags::CLOEXEC)?;
     let dropped = Arc::new(AtomicU64::new(0));
@@ -159,7 +171,7 @@ enum Seam {
 }
 
 /// Drain `from` until every writer has closed it, and pass what it holds to
-/// `to`, which is non-blocking: never wait on `to`, never fail.
+/// `to`: never wait on `to` ([`write_now`]), never fail.
 pub fn relay(from: OwnedFd, to: OwnedFd, dropped: &AtomicU64) {
     relay_holding(from, to, dropped, &AtomicUsize::new(0));
 }
@@ -175,6 +187,7 @@ fn relay_seamed(
     holding: &AtomicUsize,
     seam: &mut dyn FnMut(Seam),
 ) {
+    let to = Journal::new(to);
     let mut held: Vec<u8> = Vec::new();
     // How much of the first held line has gone already: a line once begun
     // is finished, never cut, so the journal never gets half of one.
@@ -237,7 +250,7 @@ fn relay_seamed(
                 None if ended || held.len() >= LONGEST_LINE => held.len(),
                 None => break,
             };
-            match rustix::io::write(&to, &held[begun..end]) {
+            match write_now(&to, &held[begun..end]) {
                 Ok(0) => break,
                 Ok(n) => {
                     begun += n;
@@ -257,7 +270,6 @@ fn relay_seamed(
                 }
             }
         }
-        holding.store(held.len(), Ordering::SeqCst);
         let now = dropped.load(Ordering::Relaxed);
         if held.is_empty() && begun == 0 && now != told {
             let line = format!(
@@ -265,13 +277,114 @@ fn relay_seamed(
                 program(),
                 now - told
             );
-            if matches!(rustix::io::write(&to, line.as_bytes()), Ok(n) if n == line.len()) {
-                told = now;
+            match write_now(&to, line.as_bytes()) {
+                Ok(0) | Err(_) => {}
+                // Told. Part of it taken: the rest is held, as a line begun.
+                Ok(n) => {
+                    told = now;
+                    if n < line.len() {
+                        held.extend_from_slice(line.as_bytes());
+                        begun = n;
+                    }
+                }
             }
         }
+        holding.store(held.len(), Ordering::SeqCst);
         if ended {
             return;
         }
+    }
+}
+
+/// The real stderr, as the relay writes it: never waiting on it, and
+/// never making it non-blocking for anyone else (see the module's doc).
+struct Journal {
+    fd: OwnedFd,
+    way: Way,
+}
+
+enum Way {
+    /// Linux: a socket, sent to with `MSG_DONTWAIT`, which Linux keeps
+    /// whatever the socket's room, so all of it can be used.
+    #[cfg(target_os = "linux")]
+    Sent,
+    /// Linux: a pipe, through a file of the relay's own on it, opened
+    /// non-blocking: its flag is no one else's.
+    #[cfg(target_os = "linux")]
+    Own,
+    /// Anything else: only when `poll` says there is room, and at most
+    /// `PIPE_BUF` at a time, which a pipe takes whole or not at all and a
+    /// socket below its low-water mark; a socket also with `MSG_DONTWAIT`.
+    /// Another writer can still take a pipe's room between the two calls,
+    /// and the write then waits until the pipe is read.
+    Polled { socket: bool },
+}
+
+impl Journal {
+    fn new(fd: OwnedFd) -> Self {
+        let socket = rustix::net::sockopt::socket_type(&fd).is_ok();
+        #[cfg(target_os = "linux")]
+        {
+            if socket {
+                return Journal { fd, way: Way::Sent };
+            }
+            if let Some(own) = reopened(&fd) {
+                return Journal {
+                    fd: own,
+                    way: Way::Own,
+                };
+            }
+        }
+        Journal {
+            fd,
+            way: Way::Polled { socket },
+        }
+    }
+}
+
+/// A file of this process's own on the pipe `fd` is, opened write-only and
+/// non-blocking through `/proc`. Only a pipe: a regular file opened so would
+/// be written from its start. None where that cannot be done.
+#[cfg(target_os = "linux")]
+fn reopened(fd: &OwnedFd) -> Option<OwnedFd> {
+    use std::os::unix::fs::{FileTypeExt, OpenOptionsExt};
+    let path = format!("/proc/self/fd/{}", fd.as_raw_fd());
+    if !std::fs::metadata(&path).ok()?.file_type().is_fifo() {
+        return None;
+    }
+    let own = std::fs::OpenOptions::new()
+        .write(true)
+        .custom_flags(libc::O_NONBLOCK)
+        .open(&path)
+        .ok()?;
+    Some(own.into())
+}
+
+/// Write what `to` takes now ([`Journal`]): `AGAIN` when it has no room.
+fn write_now(to: &Journal, bytes: &[u8]) -> Result<usize, Errno> {
+    let socket = match to.way {
+        #[cfg(target_os = "linux")]
+        Way::Sent => return rustix::net::send(&to.fd, bytes, rustix::net::SendFlags::DONTWAIT),
+        #[cfg(target_os = "linux")]
+        Way::Own => return rustix::io::write(&to.fd, bytes),
+        Way::Polled { socket } => socket,
+    };
+    let mut fds = [PollFd::new(&to.fd, PollFlags::OUT)];
+    let now = Timespec {
+        tv_sec: 0,
+        tv_nsec: 0,
+    };
+    match rustix::event::poll(&mut fds, Some(&now)) {
+        // Room, or a broken stream whose write says why.
+        Ok(n) if n > 0 => {}
+        Ok(_) => return Err(Errno::AGAIN),
+        Err(error) => return Err(error),
+    }
+    let piece = &bytes[..bytes.len().min(rustix::pipe::PIPE_BUF)];
+    if socket {
+        rustix::net::send(&to.fd, piece, rustix::net::SendFlags::DONTWAIT)
+    } else {
+        rustix::io::write(&to.fd, piece)
     }
 }
 
@@ -279,6 +392,111 @@ fn relay_seamed(
 mod tests {
     use super::*;
     use std::time::{Duration, Instant};
+
+    /// Whether an ordinary 1 MiB write to `to`, full, waits, as on a
+    /// blocking file, rather than returning at once, as on a non-blocking
+    /// one; reading `other_end` (the test's own, a file of its own) then
+    /// empties it. More than either buffer holds: a socket the relay polls
+    /// (macOS) is full for `poll` before its buffer is.
+    fn waits_when_full(to: &OwnedFd, other_end: &OwnedFd) -> bool {
+        const SIZE: usize = 1 << 20;
+        rustix::io::ioctl_fionbio(other_end, true).unwrap();
+        let writer = rustix::io::dup(to).unwrap();
+        let blocked = std::thread::spawn(move || {
+            let bytes = vec![b'z'; SIZE];
+            rustix::io::write(&writer, &bytes)
+        });
+        std::thread::sleep(Duration::from_millis(100));
+        let waited = !blocked.is_finished();
+        let mut buffer = vec![0u8; 65_536];
+        let started = Instant::now();
+        while !blocked.is_finished() {
+            let _ = rustix::io::read(other_end, &mut buffer);
+            assert!(started.elapsed() < Duration::from_secs(5), "never drained");
+        }
+        while rustix::io::read(other_end, &mut buffer).is_ok_and(|n| n > 0) {}
+        waited && blocked.join().unwrap() == Ok(SIZE)
+    }
+
+    /// Fills `to` with [`write_now`] until it takes no more.
+    fn filled(to: &Journal) -> usize {
+        let mut written = 0;
+        let started = Instant::now();
+        loop {
+            match write_now(to, &[b'x'; 4096]) {
+                Ok(n) => written += n,
+                Err(Errno::AGAIN) => return written,
+                Err(error) => panic!("{error}"),
+            }
+            assert!(started.elapsed() < Duration::from_secs(5), "never full");
+        }
+    }
+
+    /// The eighth on #1178: a worker's stderr is its parent's relay pipe, and
+    /// `O_NONBLOCK` set there was set on the parent's stderr too. A blocking
+    /// pipe and a blocking socket, full, are never waited on, and never made
+    /// non-blocking, whichever way the relay writes them.
+    #[test]
+    fn a_full_blocking_pipe_or_socket_is_never_waited_on_nor_made_nonblocking() {
+        let (read, pipe) = rustix::pipe::pipe().unwrap();
+        let own = Journal::new(rustix::io::dup(&pipe).unwrap());
+        #[cfg(target_os = "linux")]
+        assert!(matches!(own.way, Way::Own), "a pipe of its own from /proc");
+        let polled = Journal {
+            fd: rustix::io::dup(&pipe).unwrap(),
+            way: Way::Polled { socket: false },
+        };
+        for journal in [own, polled] {
+            assert!(filled(&journal) > 0);
+            let started = Instant::now();
+            assert_eq!(write_now(&journal, b"one more line\n"), Err(Errno::AGAIN));
+            assert!(started.elapsed() < Duration::from_millis(100));
+            // The pipe stays as its owner made it: a parent's `eprintln!`
+            // into it waits for room, never fails.
+            assert!(waits_when_full(&pipe, &read));
+        }
+        let (socket, peer) = rustix::net::socketpair(
+            rustix::net::AddressFamily::UNIX,
+            rustix::net::SocketType::STREAM,
+            rustix::net::SocketFlags::empty(),
+            None,
+        )
+        .unwrap();
+        let journal = Journal::new(rustix::io::dup(&socket).unwrap());
+        #[cfg(target_os = "linux")]
+        assert!(matches!(journal.way, Way::Sent), "sent to");
+        assert!(filled(&journal) > 0);
+        assert_eq!(write_now(&journal, b"one more line\n"), Err(Errno::AGAIN));
+        assert!(waits_when_full(&socket, &peer));
+    }
+
+    /// A relay whose stderr is a full blocking pipe, as a worker's is when
+    /// its parent's relay falls behind, still reads its own pipe and ends
+    /// when every writer has gone: what it could not pass on is counted.
+    #[test]
+    fn a_relay_into_a_full_blocking_pipe_goes_on_and_counts_what_it_drops() {
+        let (from, into) = rustix::pipe::pipe().unwrap();
+        let (_parent_read, parent) = rustix::pipe::pipe().unwrap();
+        filled(&Journal::new(rustix::io::dup(&parent).unwrap()));
+        let dropped = Arc::new(AtomicU64::new(0));
+        let counted = dropped.clone();
+        let relay = std::thread::spawn(move || super::relay(from, parent, &counted));
+        for _ in 0..40 {
+            rustix::io::write(&into, &[b'y'; 4095]).unwrap();
+            rustix::io::write(&into, b"\n").unwrap();
+        }
+        drop(into);
+        let started = Instant::now();
+        while !relay.is_finished() {
+            assert!(
+                started.elapsed() < Duration::from_secs(5),
+                "the relay waited on a full pipe"
+            );
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        relay.join().unwrap();
+        assert!(dropped.load(Ordering::Relaxed) > 0);
+    }
 
     fn nonblocking_pipe() -> (OwnedFd, OwnedFd) {
         let (read, write) = rustix::pipe::pipe().unwrap();

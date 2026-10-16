@@ -184,8 +184,21 @@ day every lampOS part (actions, air, body, controls, ears, expression, eyes,
 health, memory, name, policy, schedule, tasks: `let _log =
 lamp_ipc::log_relay::guard();` as the first line of `main`), starts by
 putting a pipe of its own on stderr (`crates/ipc/src/log_relay.rs`). A thread
-drains that pipe at once and copies whole lines to the real stderr, the
-journal's stream, with non-blocking writes. When the journal does not take
+drains that pipe at once and copies whole lines to the real stderr without
+waiting on it. On Linux it sends to a socket (the journal's stream) with
+`MSG_DONTWAIT`, and writes to a pipe (a worker's stderr, its parent's relay
+pipe) through a file of its own on that pipe, opened write-only and
+non-blocking from `/proc/self/fd`. Anywhere else (macOS) it writes only when
+`poll` says there is room, at most `PIPE_BUF` at a time; another writer that
+takes a pipe's room between the two calls can still make it wait until the
+pipe is read. It never sets `O_NONBLOCK` on the real stderr: that flag
+belongs to the open file, and a worker's stderr is its parent's relay pipe,
+so a worker's relay that set it made the coordinator's own stderr
+non-blocking, and the coordinator's next `eprintln!` into a full pipe would
+have panicked (the eighth on #1178). `tests/relay_shared.rs` runs a real
+worker on a parent's pipe and fails if the worker's relay leaves that pipe
+non-blocking. A worker's line over 4 KiB can reach its parent's pipe in
+pieces, with another writer's line between them. When the journal does not take
 them, up to 64 KiB is held, the oldest whole lines are dropped, and the
 count is said once lines go through again ("N log lines dropped because the
 journal did not take them"). A line already begun is always finished.

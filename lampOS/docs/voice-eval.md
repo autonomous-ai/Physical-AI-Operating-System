@@ -524,7 +524,9 @@ on a copy of its sessions and journal.
   `key=value` pairs, only for the keys the Policy writes: any other key is
   left out and counted, even with a one-word value), the body's `step N gesture NAME`, its faces (`mood`,
   `across`, `down`, `size`) and its goals, and a skill's `SKILL Stage` (its
-  why is left out). Every other line is left out and counted by part.
+  why is left out). Every other line is left out and counted by part: one
+  of lampOS's units (`deploy/product/*.service`), else `other`, so no other
+  program's name or tag is written.
 - **The bus** (`--bus FILE`, repeatable: `lamp-bus record` files, such as
   `lamp-bus record DIR humans/faces/tracked voice/state` makes): only
   `humans/faces/tracked` and `voice/state`. A face keeps its box, confidence,
@@ -539,6 +541,19 @@ on a copy of its sessions and journal.
   writes, so the journal's own pairs give the boot's offset; without a
   journal, `--wall-offset-us`, or this machine's clocks now (right only on
   the lamp, in the same boot). `summary.json` says which.
+- **One boot.** The monotonic clock starts again at every boot, and the
+  sessions folder keeps sessions from earlier boots, whose times repeat.
+  A session's folder is named by lamp-voice's systemd `INVOCATION_ID`: with
+  a journal that has lamp-voice's lines for the offset's boot, a session is
+  read only when its name is one of their `_SYSTEMD_INVOCATION_ID`s.
+  Otherwise it is read only when its last event, mapped to the wall, is
+  within a minute of its files' modification time (keep it when copying:
+  `tar` does). `left-out.json`'s `sessions_skipped` counts the others by why
+  (`other_boot`, `far_from_file_time`); `summary.json` says how many were
+  read and how they were told apart. A bus recording needs neither: its
+  window is its own wall time.
+- **The window first.** An event outside `--since`..`--until` is neither
+  kept nor counted, so `left-out.json` speaks of the window only.
 
 It writes a new folder (0700, files 0600): `events.jsonl` (both, in time
 order, each with `at_us`, `wall` and `source`), `summary.json` (counts by
@@ -550,10 +565,12 @@ topic as `lamp-bus record` writes it: `voice_state.jsonl`, and
 one start, timed by the monotonic `at_us` the voice's trace and the bus both
 carry. That assumes each publisher stamps `CLOCK_MONOTONIC`: true of
 `voice/state` on lamp-cb94, not of `ears/level` there (its `at_us` was about
-3,486 s off), so a topic from another clock would land in the wrong place. `voice/state` is the recorded one when `--bus` has it, else derived
-(the voice does not write it to its trace): listening from `input_admitted`,
-thinking from `local_endpoint`, speaking from `speaker_first_write`, resting
-from `turn_finished`. `summary.json` says which.
+3,486 s off), so a topic from another clock would land in the wrong place.
+`voice/state` is the recorded one when `--bus` has it, else built from the
+trace as `bus_out::state` publishes it (the voice does not write the state
+itself): from `ring_requested.phase` while a turn owns the ring (`listening`
+listening, `waiting` thinking, `speaking` speaking), and resting at
+`turn_finished`. `summary.json` says which.
 
 `stretch_breaks_cases_rebuilt_from_the_export_replay_the_same` exports
 Stretch break's own recorded cases through `--bus` and replays `case/` with
@@ -570,8 +587,11 @@ one.
 
 **The trust boundary.** A string is kept only from a field the export names
 (the voice's `WORD_FIELDS`, the Policy's `POLICY_KEYS` in `export.rs`), and
-only as one lower-case word. Those fields are trusted to be filled by code
-from a closed set; a person's words that become a reason go to `marked/`,
+only as one lower-case word. Every event's `kind`, and the name of every
+top-level field kept for its number or boolean, is copied as well when it is
+one such word. All of these are trusted to be filled by code from a closed
+set: a kind or a key name is written in the voice's source, never taken from
+what was heard; a person's words that become a reason go to `marked/`,
 never the trace. A field added there, or one made to echo what a person
 said, would be exported: add a field only when its values come from code.
 A left-out bus message is counted under its topic only when the topic is one

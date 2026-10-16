@@ -379,6 +379,10 @@ As root, on a lamp with the base image (`crates/update/src/install.rs`):
    the factory or changed on the lamp is kept, and said. The key is never
    said; with none in V1's config, install says the voice cannot reach its
    service until the factory writes it. The customer never types a key.
+   The same device key is the Policy's judge key, `/etc/lampOS/policy/jev.key`
+   (root's, 0600, handed in by systemd; kept up to date the same way), and
+   the product Policy asks Jev through V1's route, the campaign-api proxy, as
+   V1's Jev client does (#811 point 2).
    It never writes `/etc/lampOS/body/lamp.env`, and says that the body waits
    for it.
 7. Records the build and the folders it made in

@@ -580,6 +580,18 @@ in `/etc/lampOS/policy/jev.key`, readable by root alone, and systemd hands
 the service its own copy (`LoadCredential`); the log is in
 `/var/lib/lampos-policy`, which only the service's user can enter.
 
+**On a home lamp** (#811) the product unit asks Jev through V1's route, the
+campaign-api proxy (`--endpoint
+https://campaign-api.autonomous.ai/api/v1/ai/v1/jev/decisions`), as V1's own
+Jev client does, and `jev.key` is the lamp's own device key, written by
+`lamp-update install` from V1's config. Tried from lamp-75c9 on 2026-10-16
+with one synthetic question in this request's form and that lamp's key: 200,
+`typesafe/jev-1.13-20260917`, the answer in its usual shape, with the
+`User-Agent` `lamp-policy` sends (Cloudflare refuses Python's default one).
+Each of those two requests opened a new connection and took 6.7 s and 2.4 s;
+the service keeps its connection, but how a first asking through the proxy
+fits the 3 s deadline is not yet measured.
+
 Its first run there, a synthetic voice through a loudspeaker with nobody
 in the office, eight lines played and seven heard as separate utterances:
 

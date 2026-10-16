@@ -549,7 +549,10 @@ whatever the stall; below a 200 ms stall the clock moves exactly as before. A
 300 ms stall after the room and a 250 ms stall after the joints, in a
 throwaway copy, both pass with it; the 300 ms one failed before, with the
 refusal seen on ARM64. A stall longer than an input's own limit is still
-refused as stale, as it would be on a lamp.
+refused as stale, as it would be on a lamp. The activity `speech()` sends
+has only 50 ms of slack: it is 250 ms old by design against its 300 ms
+limit, so in the step after it a publishing stall of 250 ms or more is
+refused, as it was before (the reviewer on #1198).
 
 ## Coordinated Serve-session fixtures (#823)
 
@@ -857,3 +860,32 @@ so pull requests run them again. The group keeps 38 tests:
 `capture_hold_worker` (5), `endpoint_session` (30) and three named single
 tests. In that run it was 28 tests and 47.9 s; `endpoint_session` has gained
 ten since, the fourth's `with_asker_first_*` among them.
+
+## The two head taps on the stepped clock (#1206)
+
+`coordinator::tests::hand_controls`' `a_tap_on_a_quiet_lamps_head_plays_its_hm_as_a_turn_of_its_own`
+and `a_tap_while_the_lamp_is_still_thinking_keeps_its_answer_and_does_not_hum`
+date their tap 420 ms back, so it is 20 ms old when the loop first polls it,
+against its 100 ms freshness. On the host clock, whatever happens between
+making the tap and that first poll has 80 ms. The ARM64 emulator takes
+longer: under podman/qemu on the Intel Mac, at `7ec04da05`, release, the
+quiet-lamp test failed 5 of 5 runs at "the tap is judged". Native CI passes
+both.
+
+They now run on the stepped scenario clock (`run_loop_with(…,
+Clocking::Stepped)`). The four fixture workers' sides are read on the test
+thread before each 2 ms step, as their threads read them on the host clock,
+and a Stop closes the child's input and waits for its exit, as
+`provider_terminal` does. `HandControls::poll`, `fence_clear` and
+`quiescent_observation` read `scenario_clock::monotonic_us` under
+`cfg(test)`, as `coordinator.rs` does. Without a scope that is the host
+clock, so the other `hand_controls` tests, every other test and the lamp's
+build are unchanged. The bus publication and `restore`'s start stay on
+`lamp_ipc::monotonic_us`. The assertions are unchanged. The other
+`run_loop` callers (a fault on the first tick) and the ignored latency probe
+stay on the host clock.
+
+On the Intel Mac, a 200 ms or 2 s sleep injected just after the tap is
+made, or 5 ms in every step, still passes both; on the host clock the 200 ms
+sleep fails both. Under qemu, on the same commit with this change, both
+passed 5 of 5 runs.

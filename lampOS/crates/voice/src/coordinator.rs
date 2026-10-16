@@ -4488,7 +4488,11 @@ fn conversation_with_gate(
                         })
                     {
                         rule.asking(current.owner.turn(), heard_level);
-                    } else if current.local_input_ended && current.playback.is_none() {
+                    } else if current.local_input_ended
+                        && (current.playback.is_none() || asker_waited.is_some())
+                    {
+                        // Over the answer too, while the rule waits on a
+                        // line begun before it: its own blocks decide it.
                         rule.heard(frame.read_completed_at_us, heard_level);
                     }
                     // Recorded only, what `on` would still be judging.
@@ -4775,9 +4779,23 @@ fn conversation_with_gate(
                                 .saturating_add(crate::turn_taking::HISTORY_US),
                         )
                         .saturating_sub(ASKER_LAST_CHANCE_US);
+                    // A line the rule waits on is judged on its own blocks
+                    // until its last chance, though the answer begins over
+                    // it: the asker going on after a soft "um" still takes
+                    // the turn (the reviewer on #1197). Judged at the
+                    // answer's first block, it was let go on its soft start.
+                    let waited = asker_waited.is_some_and(|(id, _, _)| id == candidate.id);
+                    if !waited {
+                        asker_waited = None;
+                    }
+                    let over_answer = reply
+                        .as_ref()
+                        .is_some_and(|current| current.playback.is_some());
                     let judged = reply
                         .as_ref()
-                        .filter(|current| current.local_input_ended && current.playback.is_none())
+                        .filter(|current| {
+                            current.local_input_ended && (current.playback.is_none() || waited)
+                        })
                         .and_then(|current| {
                             let turn = current.owner.turn();
                             // Nor does one whose utterance has ended, which
@@ -4792,35 +4810,6 @@ fn conversation_with_gate(
                                     .judge(turn, own_start_us, at_us, last_chance),
                             ))
                         });
-                    // The answer began while the rule waited on this one: it
-                    // is this line's last chance. Well under the asker, it is
-                    // let go, as it would have been, so the answer plays:
-                    // left to the duplex rule, it was admitted a block into
-                    // the answer and replaced it. Otherwise the duplex rule
-                    // judges it from now.
-                    if judged.is_none()
-                        && asker_waited.is_some_and(|(id, _, _)| id == candidate.id)
-                        && let Some((_, turn, start)) = asker_waited.take()
-                        && let Some(rule) = asker_first.as_mut()
-                        && let crate::asker_first::Judgement::Keep(kept) =
-                            rule.judge(turn, start, at_us, true)
-                    {
-                        if let Some(rejection) = admission.release_prospective(monotonic_us())? {
-                            record_input_rejection(trace, rejection)?;
-                        }
-                        detector.clear_prospective();
-                        rule.kept_line(at_us);
-                        record_asker_first(
-                            rule,
-                            trace,
-                            turn,
-                            at_us,
-                            kept,
-                            true,
-                            "as_its_answer_began",
-                        )?;
-                        continue;
-                    }
                     match judged {
                         // Neither let go nor admitted: on a later block.
                         Some((turn, crate::asker_first::Judgement::Wait))
@@ -4834,7 +4823,12 @@ fn conversation_with_gate(
                         Some((turn, crate::asker_first::Judgement::Wait)) => {
                             asker_shadow = Some((turn, own_start_us, last_chance_at_us));
                         }
+                        // Well under the asker at its last chance, it is let
+                        // go, so the answer plays, if it has begun: left to
+                        // the duplex rule then, it was admitted a block into
+                        // the answer and replaced it.
                         Some((turn, crate::asker_first::Judgement::Keep(kept))) => {
+                            asker_waited = None;
                             let acts = asker_mode == crate::asker_first::Mode::On;
                             if acts {
                                 if let Some(rejection) =
@@ -4853,14 +4847,18 @@ fn conversation_with_gate(
                                     at_us,
                                     kept,
                                     acts,
-                                    "at_its_last_chance",
+                                    if over_answer {
+                                        "after_its_answer_began"
+                                    } else {
+                                        "at_its_last_chance"
+                                    },
                                 )?;
                             }
                             if acts {
                                 continue;
                             }
                         }
-                        _ => {}
+                        _ => asker_waited = None,
                     }
                     let Some(accepted) = decide_prospective_input(
                         &playback_mask,

@@ -2484,13 +2484,40 @@ fn with_asker_first_the_lamps_echo_is_not_the_askers_level() {
     assert!(session.events("asker_first").is_empty());
 }
 
+/// The first request answered 0.6 s after its end, with echo evidence as
+/// lamp-4ace's microphone gives it, and no later one; the asker at ±2,000
+/// in blocks 50 to 150, then `script` at `levels`.
+fn answer_begins_over(mode: crate::asker_first::Mode, script: Script, levels: Levels) -> Session {
+    let session = run_policy_with_peers(
+        TurnTaking::Duplex,
+        6,
+        script,
+        EndpointRig::double(delayed(0.95, Duration::from_millis(60))),
+        Some(ProviderReply {
+            after_end: Duration::from_millis(600),
+            packets: 5,
+            only_first: true,
+        }),
+        None,
+        PeerMode::Stepped,
+        Lamp {
+            end_silence_blocks: Some(60),
+            asker_first: mode,
+            levels: Some(levels),
+            echo: true,
+            ..Lamp::default()
+        },
+    );
+    session.result.as_ref().unwrap();
+    session
+}
+
 /// The answer begins while the rule waits on a line from across the room.
-/// That is the line's last chance: well
-/// under the asker, it is let go and the answer plays on. It was admitted a
-/// block into the answer and replaced it, as "¿Qué?" replaced the answer at
-/// 14:21. A line at ±300 begins 0.4 s after the asker's turn ended, and the
-/// answer begins 0.2 s into it; with echo evidence, as lamp-4ace's
-/// microphone gives it, the rest of the line is under the lamp's voice.
+/// The line is still judged on its own blocks until its last chance: well
+/// under the asker then, it is let go and the answer plays on. Left to the
+/// duplex rule, it was admitted a block into the answer and replaced it, as
+/// "¿Qué?" replaced the answer at 14:21. A line at ±300 begins 0.4 s after
+/// the asker's turn ended, and the answer begins 0.2 s into it.
 #[test]
 fn with_asker_first_a_line_the_answer_begins_over_is_let_go_and_the_answer_plays() {
     use crate::asker_first::Mode;
@@ -2509,31 +2536,7 @@ fn with_asker_first_a_line_the_answer_begins_over_is_let_go_and_the_answer_plays
             _ => 20,
         }
     }
-    let run = |mode| {
-        let session = run_policy_with_peers(
-            TurnTaking::Duplex,
-            6,
-            script,
-            EndpointRig::double(delayed(0.95, Duration::from_millis(60))),
-            Some(ProviderReply {
-                after_end: Duration::from_millis(600),
-                packets: 5,
-                only_first: true,
-            }),
-            None,
-            PeerMode::Stepped,
-            Lamp {
-                end_silence_blocks: Some(60),
-                asker_first: mode,
-                levels: Some(levels),
-                echo: true,
-                ..Lamp::default()
-            },
-        );
-        session.result.as_ref().unwrap();
-        session
-    };
-    let session = run(Mode::On);
+    let session = answer_begins_over(Mode::On, script, levels);
     assert_eq!(
         session.seen.requests.len(),
         1,
@@ -2544,7 +2547,7 @@ fn with_asker_first_a_line_the_answer_begins_over_is_let_go_and_the_answer_plays
     assert_eq!(said.len(), 1, "{said:?}");
     assert_eq!(
         (said[0]["acted"].as_bool(), said[0]["judged"].as_str()),
-        (Some(true), Some("as_its_answer_began")),
+        (Some(true), Some("after_its_answer_began")),
         "{said:?}"
     );
     // The answer began before the line was let go, and was not cut.
@@ -2558,11 +2561,52 @@ fn with_asker_first_a_line_the_answer_begins_over_is_let_go_and_the_answer_plays
         "{finished:?}"
     );
     // Without the rule the line takes the turn before the answer comes.
-    let without = run(Mode::Off);
+    let without = answer_begins_over(Mode::Off, script, levels);
     assert_eq!(
         without.seen.requests.len(),
         2,
         "{:?}",
         without.seen.requests
     );
+}
+
+/// The reviewer's probe on #1197: the asker goes on 0.47 s after their
+/// turn ended with 0.2 s of "um" at ±300, then their own ±2,000, and the
+/// answer begins during the "um". Judged at the answer's first block, on
+/// its soft start alone, it was let go and the asker was not heard at all.
+/// Judged on its own blocks until its last chance, it takes the turn, as
+/// with the rule off; and nothing is recorded, as with `record`.
+#[test]
+fn with_asker_first_the_askers_soft_start_over_the_answers_start_takes_the_turn() {
+    use crate::asker_first::Mode;
+    let _one = one_session();
+    fn script(block: u64) -> f32 {
+        if (50..150).contains(&block) || (235..335).contains(&block) {
+            SPEECH
+        } else {
+            QUIET
+        }
+    }
+    fn levels(block: u64) -> i16 {
+        match block {
+            50..150 => 2_000,
+            235..255 => 300,
+            255..335 => 2_000,
+            _ => 20,
+        }
+    }
+    for mode in [Mode::On, Mode::Record, Mode::Off] {
+        let session = answer_begins_over(mode, script, levels);
+        assert_eq!(
+            session.seen.requests.len(),
+            2,
+            "{mode:?}: {:?}",
+            session.seen.requests
+        );
+        assert!(
+            session.events("asker_first").is_empty(),
+            "{mode:?}: {:?}",
+            session.events("asker_first")
+        );
+    }
 }

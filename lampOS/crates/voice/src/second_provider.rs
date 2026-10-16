@@ -286,7 +286,15 @@ impl DownLine {
                 }
             }
             match line.clip.lock() {
-                Ok(mut kept) if !clip.is_empty() => *kept = Some(clip),
+                Ok(mut kept) if !clip.is_empty() => {
+                    // The real length, for whether the 4 s cap ever cuts it
+                    // (the reviewer on #1195).
+                    eprintln!(
+                        "lamp-voice second: the down line is {} ms",
+                        clip.len() as u64 * 1000 / 24_000
+                    );
+                    *kept = Some(clip);
+                }
                 _ => {
                     eprintln!(
                         "lamp-voice second: the down line could not be said; trying again after the next turn"

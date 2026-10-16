@@ -55,14 +55,16 @@ story" from the Mac each (11:55 and 11:57), then `lamp-selftest
 | `49e21b21` (blocks within 20 dB of the turn's loudest) | `not_checked`: "the lamp has not spoken for 4 s at a stretch" | pass, rise 72.8 dB, cancelled 30.7 dB | 39 dB (666 blocks) |
 | `70b4341c` (within 20 dB of the loudest of each second, as the trails) | — | **pass, rise 67.6 dB, cancelled 42.8 dB**, no residual at the floor | 39 dB (479 blocks, 260 at the trail's -75 floor) |
 | `34299662` (the same rule, rebased onto lamp-voice; one story at 14:27, the answer about 9.5 s) | — | **pass, rise 70.7 dB, cancelled 37.4 dB**, twice (14:28:18 and 14:28:27, the same turn), no residual at the floor | — |
+| `dfe6f54d` (the build of `24fe57cb9`, `cancelled_db` at the loudest block; run at 16:15) | — | **pass, rise 68.2 dB, `cancelled_db` 44.6 dB, `cancelled_median_db` 43.4 dB**, `turn_age_s` 63 | — |
 
 The second rule is the script's; its figure reads lower only because the
 trail's letters stop at -75 dBFS where the voice's evidence goes to -96.
 The voice did not restart in any run. The first two builds were made
 before the branch was rebased onto lamp-voice's head cue (#711); the
-rebased build `34299662` was run at 14:28. In these runs `cancelled_db` was
-the median; it is now `cancelled_median_db`, and `cancelled_db` is the
-figure at the turn's loudest block, as the tone's was at its peak.
+rebased build `34299662` was run at 14:28. In those three runs
+`cancelled_db` was the median; it is now `cancelled_median_db`, and
+`cancelled_db` is the figure at the turn's loudest block, as the tone's
+was at its peak. The 16:15 run of `dfe6f54d` is the one with both figures.
 
 ## A sentence spoken over the story
 

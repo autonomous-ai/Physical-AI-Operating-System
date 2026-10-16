@@ -214,3 +214,15 @@ Ready for lamp-voice: yes (#1081)
   38877109897 green.
 - Not shown: on a lamp. List item 2 (an hours-overdue reminder) is open, to
   decide with the first builder.
+
+## 2026-10-16 — #1095 reviewed, overdue reminders as #1103
+
+Ready for lamp-voice: no
+
+- Peer review of Thirteen's #1095 on `af351c72a`: no P1 or P2; one P3
+  (`short-turns` and `stt-check` are voice commands not on the new list, so
+  the guard still refuses a cleanup while one runs).
+- The first builder's item 2 is draft #1103 (`ab1deded3`, stacked on #1081):
+  a reminder due an hour or more ago waits for someone at the lamp and is
+  said once, gently, as asked for earlier, then acknowledged. Limit: a newer
+  timer waits behind it until someone comes.

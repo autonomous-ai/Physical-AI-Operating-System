@@ -457,6 +457,63 @@ async fn a_timer_in_a_turn_the_policy_judged_not_for_the_lamp_is_not_set() {
 /// said to the lamp in a conversation with it, was held. A `stay_quiet`
 /// whose `follows_lamp` is 0.6 or more does not hold the schedule: the
 /// timer is set. The volume in such a turn is still held.
+/// #1054, the quiet-room case #1090 leaves (the first builder's 15:39 on
+/// #829): "Yes, give me five minutes." after someone else's "Are you coming
+/// to the meeting at two?", which the lamp left unanswered, follows that
+/// line, not the lamp. Though the Policy's `follows_lamp` is 0.72, the timer
+/// is held, as in any `stay_quiet`.
+#[tokio::test]
+async fn a_timer_in_a_turn_after_a_line_the_lamp_left_unanswered_is_held() {
+    let mut desk = Desk::new("after-other");
+    // With the voice's own rule for whom it answers (`--attention`), which
+    // follows each line: in a quiet room, nobody near.
+    let options = Options {
+        attention: Some(|| (crate::room_told::Room::Quiet, false)),
+        ..desk.options(true)
+    };
+    let mut rig = LiveRig::start_with(quick_policy(), options);
+    let mut dial = rig.ready().await;
+    let first = rig.speak(&mut dial, false, true).await;
+    dial.service
+        .send(json!({"serverContent":{"inputTranscription":{"text":"Are you coming to the meeting at two?"}}}))
+        .await;
+    dial.service.send(idle_complete()).await;
+    loop {
+        match rig.output().await {
+            ProviderOutput::Audio { request, .. } if request == first => {
+                panic!("the line was answered")
+            }
+            ProviderOutput::TurnComplete { request, .. } if request == first => break,
+            _ => {}
+        }
+    }
+    rig.owner
+        .complete_turn(real_time(), rig.snapshot.owner().unwrap())
+        .unwrap();
+    rig.publish();
+    let request = rig.speak(&mut dial, false, true).await;
+    dial.service
+        .send(json!({"serverContent":{"inputTranscription":{"text":"Yes, give me five minutes."}}}))
+        .await;
+    desk.decide_with(
+        Some(request),
+        "stay_quiet",
+        json!({"calls_lamp": 0.05, "follows_lamp": 0.72}),
+    );
+    dial.service
+        .send(json!({"toolCall":{"functionCalls":[
+            {"id":"t1","name":"set_timer","args":{"minutes":5}}
+        ]}}))
+        .await;
+    let told = rig.service_message(&mut dial).await;
+    assert_eq!(
+        response(&told),
+        json!({"done": false, "next": crate::policy_holds::HELD})
+    );
+    assert!(desk.asked.try_recv().is_err(), "set_timer was run");
+    rig.stop().await;
+}
+
 #[tokio::test]
 async fn a_timer_in_a_turn_that_follows_the_lamp_is_set_though_the_policy_said_stay_quiet() {
     let mut desk = Desk::new("follows");

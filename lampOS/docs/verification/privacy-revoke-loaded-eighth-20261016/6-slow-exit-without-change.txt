@@ -1,0 +1,190 @@
+=== slow/without-1
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_finished_worker_that_takes_300_ms_to_exit ... FAILED
+
+failures:
+
+---- coordinator::motor::tests::privacy_revoke_survives_a_finished_worker_that_takes_300_ms_to_exit stdout ----
+
+thread 'coordinator::motor::tests::privacy_revoke_survives_a_finished_worker_that_takes_300_ms_to_exit' (3585691) panicked at crates/voice/src/coordinator/motor/tests.rs:1302:5:
+Err(Custom { kind: Other, error: "motor cleanup unconfirmed: Some(\"motor inhibited: ControlLost\"); None" }); supervisor=Some("motor inhibited: ControlLost"); child_finish=Ok("ControlLost")
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    coordinator::motor::tests::privacy_revoke_survives_a_finished_worker_that_takes_300_ms_to_exit
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.02s
+
+=== slow/without-2
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_finished_worker_that_takes_300_ms_to_exit ... FAILED
+
+failures:
+
+---- coordinator::motor::tests::privacy_revoke_survives_a_finished_worker_that_takes_300_ms_to_exit stdout ----
+
+thread 'coordinator::motor::tests::privacy_revoke_survives_a_finished_worker_that_takes_300_ms_to_exit' (3585696) panicked at crates/voice/src/coordinator/motor/tests.rs:1302:5:
+Err(Custom { kind: Other, error: "motor cleanup unconfirmed: Some(\"motor inhibited: ControlLost\"); None" }); supervisor=Some("motor inhibited: ControlLost"); child_finish=Ok("ControlLost")
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    coordinator::motor::tests::privacy_revoke_survives_a_finished_worker_that_takes_300_ms_to_exit
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.03s
+
+=== slow/without-3
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_finished_worker_that_takes_300_ms_to_exit ... FAILED
+
+failures:
+
+---- coordinator::motor::tests::privacy_revoke_survives_a_finished_worker_that_takes_300_ms_to_exit stdout ----
+
+thread 'coordinator::motor::tests::privacy_revoke_survives_a_finished_worker_that_takes_300_ms_to_exit' (3585701) panicked at crates/voice/src/coordinator/motor/tests.rs:1302:5:
+Err(Custom { kind: Other, error: "motor cleanup unconfirmed: Some(\"motor inhibited: ControlLost\"); None" }); supervisor=Some("motor inhibited: ControlLost"); child_finish=Ok("ControlLost")
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    coordinator::motor::tests::privacy_revoke_survives_a_finished_worker_that_takes_300_ms_to_exit
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.03s
+
+=== slow/without-4
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_finished_worker_that_takes_300_ms_to_exit ... FAILED
+
+failures:
+
+---- coordinator::motor::tests::privacy_revoke_survives_a_finished_worker_that_takes_300_ms_to_exit stdout ----
+
+thread 'coordinator::motor::tests::privacy_revoke_survives_a_finished_worker_that_takes_300_ms_to_exit' (3585706) panicked at crates/voice/src/coordinator/motor/tests.rs:1302:5:
+Err(Custom { kind: Other, error: "motor cleanup unconfirmed: Some(\"motor inhibited: ControlLost\"); None" }); supervisor=Some("motor inhibited: ControlLost"); child_finish=Ok("ControlLost")
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    coordinator::motor::tests::privacy_revoke_survives_a_finished_worker_that_takes_300_ms_to_exit
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.02s
+
+=== slow/without-5
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_finished_worker_that_takes_300_ms_to_exit ... FAILED
+
+failures:
+
+---- coordinator::motor::tests::privacy_revoke_survives_a_finished_worker_that_takes_300_ms_to_exit stdout ----
+
+thread 'coordinator::motor::tests::privacy_revoke_survives_a_finished_worker_that_takes_300_ms_to_exit' (3585711) panicked at crates/voice/src/coordinator/motor/tests.rs:1302:5:
+Err(Custom { kind: Other, error: "motor cleanup unconfirmed: Some(\"motor inhibited: ControlLost\"); None" }); supervisor=Some("motor inhibited: ControlLost"); child_finish=Ok("ControlLost")
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    coordinator::motor::tests::privacy_revoke_survives_a_finished_worker_that_takes_300_ms_to_exit
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.03s
+
+=== slow/without-6
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_finished_worker_that_takes_300_ms_to_exit ... FAILED
+
+failures:
+
+---- coordinator::motor::tests::privacy_revoke_survives_a_finished_worker_that_takes_300_ms_to_exit stdout ----
+
+thread 'coordinator::motor::tests::privacy_revoke_survives_a_finished_worker_that_takes_300_ms_to_exit' (3585716) panicked at crates/voice/src/coordinator/motor/tests.rs:1302:5:
+Err(Custom { kind: Other, error: "motor cleanup unconfirmed: Some(\"motor inhibited: ControlLost\"); None" }); supervisor=Some("motor inhibited: ControlLost"); child_finish=Ok("ControlLost")
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    coordinator::motor::tests::privacy_revoke_survives_a_finished_worker_that_takes_300_ms_to_exit
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.03s
+
+=== slow/without-7
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_finished_worker_that_takes_300_ms_to_exit ... FAILED
+
+failures:
+
+---- coordinator::motor::tests::privacy_revoke_survives_a_finished_worker_that_takes_300_ms_to_exit stdout ----
+
+thread 'coordinator::motor::tests::privacy_revoke_survives_a_finished_worker_that_takes_300_ms_to_exit' (3585721) panicked at crates/voice/src/coordinator/motor/tests.rs:1302:5:
+Err(Custom { kind: Other, error: "motor cleanup unconfirmed: Some(\"motor inhibited: ControlLost\"); None" }); supervisor=Some("motor inhibited: ControlLost"); child_finish=Ok("ControlLost")
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    coordinator::motor::tests::privacy_revoke_survives_a_finished_worker_that_takes_300_ms_to_exit
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.03s
+
+=== slow/without-8
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_finished_worker_that_takes_300_ms_to_exit ... FAILED
+
+failures:
+
+---- coordinator::motor::tests::privacy_revoke_survives_a_finished_worker_that_takes_300_ms_to_exit stdout ----
+
+thread 'coordinator::motor::tests::privacy_revoke_survives_a_finished_worker_that_takes_300_ms_to_exit' (3585726) panicked at crates/voice/src/coordinator/motor/tests.rs:1302:5:
+Err(Custom { kind: Other, error: "motor cleanup unconfirmed: Some(\"motor inhibited: ControlLost\"); None" }); supervisor=Some("motor inhibited: ControlLost"); child_finish=Ok("ControlLost")
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    coordinator::motor::tests::privacy_revoke_survives_a_finished_worker_that_takes_300_ms_to_exit
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.03s
+
+=== slow/without-9
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_finished_worker_that_takes_300_ms_to_exit ... FAILED
+
+failures:
+
+---- coordinator::motor::tests::privacy_revoke_survives_a_finished_worker_that_takes_300_ms_to_exit stdout ----
+
+thread 'coordinator::motor::tests::privacy_revoke_survives_a_finished_worker_that_takes_300_ms_to_exit' (3585731) panicked at crates/voice/src/coordinator/motor/tests.rs:1302:5:
+Err(Custom { kind: Other, error: "motor cleanup unconfirmed: Some(\"motor inhibited: ControlLost\"); None" }); supervisor=Some("motor inhibited: ControlLost"); child_finish=Ok("ControlLost")
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    coordinator::motor::tests::privacy_revoke_survives_a_finished_worker_that_takes_300_ms_to_exit
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.03s
+
+=== slow/without-10
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_finished_worker_that_takes_300_ms_to_exit ... FAILED
+
+failures:
+
+---- coordinator::motor::tests::privacy_revoke_survives_a_finished_worker_that_takes_300_ms_to_exit stdout ----
+
+thread 'coordinator::motor::tests::privacy_revoke_survives_a_finished_worker_that_takes_300_ms_to_exit' (3585736) panicked at crates/voice/src/coordinator/motor/tests.rs:1302:5:
+Err(Custom { kind: Other, error: "motor cleanup unconfirmed: Some(\"motor inhibited: ControlLost\"); None" }); supervisor=Some("motor inhibited: ControlLost"); child_finish=Ok("ControlLost")
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    coordinator::motor::tests::privacy_revoke_survives_a_finished_worker_that_takes_300_ms_to_exit
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.03s
+

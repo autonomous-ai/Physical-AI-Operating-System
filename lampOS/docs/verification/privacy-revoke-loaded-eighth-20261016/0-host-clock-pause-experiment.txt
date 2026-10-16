@@ -1,0 +1,260 @@
+=== exp949/p0-1
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1314 filtered out; finished in 0.09s
+
+=== exp949/p0-2
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1314 filtered out; finished in 0.08s
+
+=== exp949/p0-3
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1314 filtered out; finished in 0.07s
+
+=== exp949/p0-4
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1314 filtered out; finished in 0.08s
+
+=== exp949/p0-5
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1314 filtered out; finished in 0.08s
+
+=== exp949/p0-6
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1314 filtered out; finished in 0.08s
+
+=== exp949/p0-7
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1314 filtered out; finished in 0.08s
+
+=== exp949/p0-8
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1314 filtered out; finished in 0.08s
+
+=== exp949/p0-9
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1314 filtered out; finished in 0.08s
+
+=== exp949/p0-10
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1314 filtered out; finished in 0.08s
+
+=== exp949/p30-1
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... FAILED
+
+failures:
+
+---- coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write stdout ----
+
+thread 'coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write' (3486168) panicked at crates/voice/src/coordinator/motor/tests.rs:1059:5:
+Err(Custom { kind: Other, error: "motor cleanup unconfirmed: Some(\"motor inhibit acknowledgement timed out\"); None" }); supervisor=Some("motor inhibit acknowledgement timed out"); child_finish=Err(Os { code: 2, kind: NotFound, message: "No such file or directory" })
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1314 filtered out; finished in 0.10s
+
+=== exp949/p30-2
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... FAILED
+
+failures:
+
+---- coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write stdout ----
+
+thread 'coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write' (3486173) panicked at crates/voice/src/coordinator/motor/tests.rs:1059:5:
+Err(Custom { kind: Other, error: "motor cleanup unconfirmed: Some(\"motor inhibit acknowledgement timed out\"); None" }); supervisor=Some("motor inhibit acknowledgement timed out"); child_finish=Err(Os { code: 2, kind: NotFound, message: "No such file or directory" })
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1314 filtered out; finished in 0.11s
+
+=== exp949/p30-3
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... FAILED
+
+failures:
+
+---- coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write stdout ----
+
+thread 'coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write' (3486178) panicked at crates/voice/src/coordinator/motor/tests.rs:1059:5:
+Err(Custom { kind: Other, error: "motor cleanup unconfirmed: Some(\"motor inhibit acknowledgement timed out\"); None" }); supervisor=Some("motor inhibit acknowledgement timed out"); child_finish=Err(Os { code: 2, kind: NotFound, message: "No such file or directory" })
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1314 filtered out; finished in 0.11s
+
+=== exp949/p30-4
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... FAILED
+
+failures:
+
+---- coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write stdout ----
+
+thread 'coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write' (3486183) panicked at crates/voice/src/coordinator/motor/tests.rs:1059:5:
+Err(Custom { kind: Other, error: "motor cleanup unconfirmed: Some(\"motor inhibit acknowledgement timed out\"); None" }); supervisor=Some("motor inhibit acknowledgement timed out"); child_finish=Err(Os { code: 2, kind: NotFound, message: "No such file or directory" })
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1314 filtered out; finished in 0.11s
+
+=== exp949/p30-5
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... FAILED
+
+failures:
+
+---- coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write stdout ----
+
+thread 'coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write' (3486188) panicked at crates/voice/src/coordinator/motor/tests.rs:1059:5:
+Err(Custom { kind: Other, error: "motor cleanup unconfirmed: Some(\"motor inhibit acknowledgement timed out\"); None" }); supervisor=Some("motor inhibit acknowledgement timed out"); child_finish=Err(Os { code: 2, kind: NotFound, message: "No such file or directory" })
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1314 filtered out; finished in 0.11s
+
+=== exp949/p30-6
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... FAILED
+
+failures:
+
+---- coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write stdout ----
+
+thread 'coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write' (3486197) panicked at crates/voice/src/coordinator/motor/tests.rs:1059:5:
+Err(Custom { kind: Other, error: "motor cleanup unconfirmed: Some(\"motor inhibit acknowledgement timed out\"); None" }); supervisor=Some("motor inhibit acknowledgement timed out"); child_finish=Err(Os { code: 2, kind: NotFound, message: "No such file or directory" })
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1314 filtered out; finished in 0.11s
+
+=== exp949/p30-7
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... FAILED
+
+failures:
+
+---- coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write stdout ----
+
+thread 'coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write' (3486225) panicked at crates/voice/src/coordinator/motor/tests.rs:1059:5:
+Err(Custom { kind: Other, error: "motor cleanup unconfirmed: Some(\"motor inhibit acknowledgement timed out\"); None" }); supervisor=Some("motor inhibit acknowledgement timed out"); child_finish=Err(Os { code: 2, kind: NotFound, message: "No such file or directory" })
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1314 filtered out; finished in 0.10s
+
+=== exp949/p30-8
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... FAILED
+
+failures:
+
+---- coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write stdout ----
+
+thread 'coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write' (3486242) panicked at crates/voice/src/coordinator/motor/tests.rs:1059:5:
+Err(Custom { kind: Other, error: "motor cleanup unconfirmed: Some(\"motor inhibit acknowledgement timed out\"); None" }); supervisor=Some("motor inhibit acknowledgement timed out"); child_finish=Err(Os { code: 2, kind: NotFound, message: "No such file or directory" })
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1314 filtered out; finished in 0.11s
+
+=== exp949/p30-9
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... FAILED
+
+failures:
+
+---- coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write stdout ----
+
+thread 'coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write' (3486258) panicked at crates/voice/src/coordinator/motor/tests.rs:1059:5:
+Err(Custom { kind: Other, error: "motor cleanup unconfirmed: Some(\"motor inhibit acknowledgement timed out\"); None" }); supervisor=Some("motor inhibit acknowledgement timed out"); child_finish=Err(Os { code: 2, kind: NotFound, message: "No such file or directory" })
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1314 filtered out; finished in 0.11s
+
+=== exp949/p30-10
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... FAILED
+
+failures:
+
+---- coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write stdout ----
+
+thread 'coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write' (3486265) panicked at crates/voice/src/coordinator/motor/tests.rs:1059:5:
+Err(Custom { kind: Other, error: "motor cleanup unconfirmed: Some(\"motor inhibit acknowledgement timed out\"); None" }); supervisor=Some("motor inhibit acknowledgement timed out"); child_finish=Err(Os { code: 2, kind: NotFound, message: "No such file or directory" })
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1314 filtered out; finished in 0.11s
+

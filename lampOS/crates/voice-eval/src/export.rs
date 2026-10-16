@@ -18,6 +18,13 @@
 //!   shape is known, read into numbers and plain words (the Policy's
 //!   decisions and outcomes, the body's gestures, faces and goals, a skill's
 //!   stage). Every other line is left out and counted by its part.
+//! - **The bus** (`--bus`, `lamp-bus record` files): only
+//!   `humans/faces/tracked` and `voice/state`. A face keeps its box, its
+//!   confidence, its yaw and whether it faced the lamp; its passing id is
+//!   replaced by the export's own (`f1`, `f2`, ...) and every other field is
+//!   left out and counted. A state keeps one of the four `lamp_msgs::Voice`
+//!   words. Every other topic is left out and counted. The eyes write no face
+//!   boxes to the journal, so a recording is the only source of faces.
 //!
 //! **The trust boundary.** A string is kept only from a field this file
 //! names: the voice's [`WORD_FIELDS`] and the Policy's [`POLICY_KEYS`], and
@@ -33,8 +40,11 @@
 //! and by kind and plain-word value, such as
 //! `turn_finished.outcome=user_interrupted`), `left-out.json` (what was left
 //! out, counted), and `case/voice_state.jsonl`, `voice/state` as a
-//! `lamp-bus record` file a skill test replays, derived from the turn's
-//! events (below).
+//! `lamp-bus record` file a skill test replays (as recorded on `--bus`, else
+//! derived from the turn's events, below), and `case/humans_faces_tracked.jsonl`
+//! when `--bus` held faces. The case's files share one start, timed by the
+//! monotonic `at_us` the voice's trace and the bus both carry, so a replay
+//! keeps their order and gaps.
 use crate::{Result, invalid};
 use lamp_local_time::LocalTime;
 use serde_json::{Map, Value, json};
@@ -110,6 +120,10 @@ pub struct ExportOptions {
     pub sessions: Option<PathBuf>,
     /// `journalctl -o json` output.
     pub journal: Option<PathBuf>,
+    /// `lamp-bus record` files (`humans_faces_tracked.jsonl`,
+    /// `voice_state.jsonl`): the faces in view and the voice's state as the
+    /// bus carried them.
+    pub bus: Vec<PathBuf>,
     /// `system` or an IANA zone name.
     pub zone: String,
     /// Wall clock minus the monotonic clock, in microseconds, for the boot
@@ -161,6 +175,11 @@ pub struct LeftOut {
     pub journal_lines: BTreeMap<String, u64>,
     /// `key=value` pairs left out of a known journal line, by its kind.
     pub journal_pairs: BTreeMap<String, u64>,
+    /// Recorded bus messages left out, by topic (`other` when the topic's
+    /// name is not a plain topic name), declaration lines not counted.
+    pub bus_messages: BTreeMap<String, u64>,
+    /// Fields left out of a kept bus message, by topic.
+    pub bus_fields: BTreeMap<String, u64>,
 }
 
 impl LeftOut {
@@ -171,6 +190,8 @@ impl LeftOut {
             "voice_fields_by_kind": self.voice_fields,
             "journal_lines_by_part": self.journal_lines,
             "journal_pairs_by_kind": self.journal_pairs,
+            "bus_messages_by_topic": self.bus_messages,
+            "bus_fields_by_topic": self.bus_fields,
         })
     }
 }
@@ -503,6 +524,212 @@ fn base64(bytes: &[u8]) -> String {
     text
 }
 
+/// The topics read from a `lamp-bus record` file. Every other topic is left
+/// out and counted.
+const FACES_TOPIC: &str = "humans/faces/tracked";
+const VOICE_STATE_TOPIC: &str = "voice/state";
+/// `lamp_msgs::Voice`, as the bus writes it.
+const VOICE_STATES: [&str; 4] = ["resting", "listening", "thinking", "speaking"];
+
+/// A topic's name, when it is one: lower-case words joined by `/`, `_`, `-`.
+fn topic_name(text: &str) -> bool {
+    (1..=64).contains(&text.len())
+        && text.bytes().all(|byte| {
+            byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'/' | b'_' | b'-')
+        })
+}
+
+/// Standard base64, as `lamp-bus record` writes payloads.
+fn unbase64(text: &str) -> Option<Vec<u8>> {
+    let value = |byte: u8| -> Option<u32> {
+        Some(match byte {
+            b'A'..=b'Z' => byte - b'A',
+            b'a'..=b'z' => byte - b'a' + 26,
+            b'0'..=b'9' => byte - b'0' + 52,
+            b'+' => 62,
+            b'/' => 63,
+            _ => return None,
+        } as u32)
+    };
+    let text = text.trim_end_matches('=').as_bytes();
+    let mut bytes = Vec::with_capacity(text.len() * 3 / 4);
+    for chunk in text.chunks(4) {
+        if chunk.len() == 1 {
+            return None;
+        }
+        let mut word = 0u32;
+        for (index, byte) in chunk.iter().enumerate() {
+            word |= value(*byte)? << (18 - 6 * index);
+        }
+        bytes.push((word >> 16) as u8);
+        if chunk.len() > 2 {
+            bytes.push((word >> 8) as u8);
+        }
+        if chunk.len() > 3 {
+            bytes.push(word as u8);
+        }
+    }
+    Some(bytes)
+}
+
+/// A number from 0 to 1, as a face's edges and confidence are.
+fn unit(value: Option<&Value>) -> Option<Value> {
+    let value = value?;
+    (0.0..=1.0)
+        .contains(&value.as_f64()?)
+        .then(|| value.clone())
+}
+
+/// A `lamp_msgs::Faces` payload with only its boxes, confidences, yaws and
+/// whether each face was turned to the lamp. A face's passing id is replaced
+/// by one of the export's own (`f1`, `f2`, ...), the same for the same id:
+/// the recorded id never leaves. A face without a whole box is left out.
+fn faces(payload: &Value, ids: &mut BTreeMap<String, String>, left: &mut LeftOut) -> Option<Value> {
+    let mut dropped = 0;
+    let mut kept = Vec::new();
+    for face in payload.get("faces")?.as_array()? {
+        let Some(face) = face.as_object() else {
+            dropped += 1;
+            continue;
+        };
+        let mut out = Map::new();
+        let edges = ["xmin", "ymin", "xmax", "ymax", "confidence"]
+            .into_iter()
+            .map(|key| unit(face.get(key)).map(|value| (key, value)))
+            .collect::<Option<Vec<_>>>();
+        let (Some(id), Some(edges)) = (face.get("id").and_then(Value::as_str), edges) else {
+            dropped += 1;
+            continue;
+        };
+        let next = format!("f{}", ids.len() + 1);
+        let id = ids.entry(id.to_owned()).or_insert(next).clone();
+        out.insert("id".into(), id.into());
+        for (key, value) in edges {
+            out.insert(key.into(), value);
+        }
+        if let Some(yaw) = face
+            .get("yaw")
+            .and_then(Value::as_f64)
+            .filter(|yaw| yaw.is_finite())
+        {
+            out.insert("yaw".into(), json!(yaw));
+        }
+        if let Some(facing) = face.get("facing").and_then(Value::as_bool) {
+            out.insert("facing".into(), facing.into());
+        }
+        dropped += face
+            .keys()
+            .filter(|key| {
+                !matches!(
+                    key.as_str(),
+                    "id" | "xmin" | "ymin" | "xmax" | "ymax" | "confidence" | "yaw" | "facing"
+                )
+            })
+            .count() as u64;
+        kept.push(Value::Object(out));
+    }
+    if dropped > 0 {
+        *left.bus_fields.entry(FACES_TOPIC.into()).or_default() += dropped;
+    }
+    Some(json!({ "faces": kept }))
+}
+
+/// One recorded bus message kept: its topic, the publisher's monotonic
+/// `at_us` (the clock the voice's trace has too, on the same lamp), its
+/// wall `at_unix_ms`, `expires_ms`, and its word-free payload.
+struct BusMessage {
+    topic: &'static str,
+    at_us: u64,
+    at_unix_ms: u64,
+    expires_ms: Option<u64>,
+    payload: Value,
+}
+
+/// One message of a case: monotonic `at_us`, wall `at_unix_ms`,
+/// `expires_ms`, payload.
+type CaseMessage = (u64, u64, Option<u64>, Value);
+
+/// The kept messages of `lamp-bus record` lines within the window.
+fn bus_messages(
+    text: &str,
+    since_ms: u64,
+    until_ms: u64,
+    ids: &mut BTreeMap<String, String>,
+    left: &mut LeftOut,
+) -> Vec<BusMessage> {
+    let mut kept = Vec::new();
+    for line in text.lines() {
+        let Ok(value) = serde_json::from_str::<Value>(line) else {
+            *left.bus_messages.entry("unreadable".into()).or_default() += 1;
+            continue;
+        };
+        if value.get("declaration").is_some() {
+            continue;
+        }
+        let header = &value["header"];
+        let topic = header["topic"].as_str().unwrap_or_default();
+        let counted = if topic_name(topic) { topic } else { "other" };
+        let (Some(at_us), Some(at_unix_ms)) =
+            (header["at_us"].as_u64(), header["at_unix_ms"].as_u64())
+        else {
+            *left.bus_messages.entry(counted.into()).or_default() += 1;
+            continue;
+        };
+        if !(since_ms..=until_ms).contains(&at_unix_ms) {
+            continue;
+        }
+        let payload = value["payload_b64"]
+            .as_str()
+            .and_then(unbase64)
+            .and_then(|bytes| serde_json::from_slice::<Value>(&bytes).ok());
+        let message = match (topic, payload) {
+            (FACES_TOPIC, Some(payload)) => {
+                faces(&payload, ids, left).map(|payload| (FACES_TOPIC, payload))
+            }
+            (VOICE_STATE_TOPIC, Some(payload)) => payload["state"]
+                .as_str()
+                .and_then(|state| VOICE_STATES.into_iter().find(|known| *known == state))
+                .map(|state| (VOICE_STATE_TOPIC, json!({ "state": state }))),
+            _ => None,
+        };
+        match message {
+            Some((topic, payload)) => kept.push(BusMessage {
+                topic,
+                at_us,
+                at_unix_ms,
+                expires_ms: header["expires_ms"].as_u64(),
+                payload,
+            }),
+            None => *left.bus_messages.entry(counted.into()).or_default() += 1,
+        }
+    }
+    kept
+}
+
+/// A topic's messages as `lamp-bus record` writes them, a declaration
+/// first, each message's `at_us` from `base_us`, the case's start: one
+/// monotonic clock for every topic, so a replay keeps their order and gaps.
+fn case_file(topic: &str, type_name: &str, messages: &[CaseMessage], base_us: u64) -> String {
+    let mut case =
+        json!({"topic": topic, "declaration": {"type": type_name, "version": 1, "kind": "latest"}})
+            .to_string();
+    case.push('\n');
+    for (seq, (at_us, at_unix_ms, expires_ms, payload)) in messages.iter().enumerate() {
+        let mut header = json!({"topic": topic, "kind": "latest", "enc": "json", "type": type_name,
+            "source": "lamp_voice_eval_export", "boot": "0000000000001119", "seq": seq + 1,
+            "at_us": at_us.saturating_sub(base_us), "at_unix_ms": at_unix_ms});
+        if let Some(expires_ms) = expires_ms {
+            header["expires_ms"] = json!(expires_ms);
+        }
+        case.push_str(
+            &json!({"header": header, "payload_b64": base64(payload.to_string().as_bytes())})
+                .to_string(),
+        );
+        case.push('\n');
+    }
+    case
+}
+
 fn write_new(path: &Path, bytes: &[u8]) -> Result<()> {
     let mut file = fs::OpenOptions::new()
         .write(true)
@@ -515,8 +742,8 @@ fn write_new(path: &Path, bytes: &[u8]) -> Result<()> {
 
 /// Export the window. Returns the summary it wrote.
 pub fn export(options: &ExportOptions) -> Result<Value> {
-    if options.sessions.is_none() && options.journal.is_none() {
-        return Err(invalid("export needs --sessions, --journal or both"));
+    if options.sessions.is_none() && options.journal.is_none() && options.bus.is_empty() {
+        return Err(invalid("export needs --sessions, --journal or --bus"));
     }
     let zone = LocalTime::zone(&options.zone)?;
     let now_ms = crate::ledger::unix_ms();
@@ -611,14 +838,66 @@ pub fn export(options: &ExportOptions) -> Result<Value> {
             }
         }
     }
+    // The bus: the faces in view, and the voice's state as it was published.
+    let mut ids = BTreeMap::new();
+    let mut recorded_faces = Vec::new();
+    let mut recorded_states = Vec::new();
+    for file in &options.bus {
+        for message in bus_messages(
+            &read_bounded(file)?,
+            since_ms,
+            until_ms,
+            &mut ids,
+            &mut left,
+        ) {
+            let wall_ms = message.at_unix_ms;
+            let mut event = Map::new();
+            match message.topic {
+                FACES_TOPIC => {
+                    let count = message.payload["faces"].as_array().map_or(0, Vec::len);
+                    event.insert("kind".into(), "faces_tracked".into());
+                    event.insert("faces".into(), count.into());
+                    event.insert("boxes".into(), message.payload["faces"].clone());
+                    recorded_faces.push((
+                        message.at_us,
+                        message.at_unix_ms,
+                        message.expires_ms,
+                        message.payload,
+                    ));
+                }
+                _ => {
+                    event.insert("kind".into(), "voice_state".into());
+                    event.insert("state".into(), message.payload["state"].clone());
+                    recorded_states.push((
+                        message.at_us,
+                        message.at_unix_ms,
+                        message.expires_ms,
+                        message.payload,
+                    ));
+                }
+            }
+            event.insert("at_us".into(), message.at_us.into());
+            event.insert("source".into(), "bus".into());
+            rows.push((wall_ms, event));
+        }
+    }
     rows.sort_by_key(|(wall, event)| (*wall, event["at_us"].as_u64()));
     states.sort_unstable();
+    recorded_faces.sort_by_key(|(at_us, ..)| *at_us);
+    recorded_states.sort_by_key(|(at_us, ..)| *at_us);
 
     let mut counts: BTreeMap<String, u64> = BTreeMap::new();
     let mut lines = String::new();
     for (wall_ms, event) in &mut rows {
         let kind = event["kind"].as_str().unwrap_or_default().to_owned();
         *counts.entry(kind.clone()).or_default() += 1;
+        if kind == "voice_state"
+            && let Some(state) = event.get("state").and_then(Value::as_str)
+        {
+            *counts
+                .entry(format!("voice_state.state={state}"))
+                .or_default() += 1;
+        }
         for key in WORD_FIELDS {
             if let Some(value) = event.get(*key).and_then(Value::as_str) {
                 *counts.entry(format!("{kind}.{key}={value}")).or_default() += 1;
@@ -629,29 +908,42 @@ pub fn export(options: &ExportOptions) -> Result<Value> {
         lines.push('\n');
     }
 
-    // The case: `voice/state` as `lamp-bus record` writes a topic, its first
-    // message at 0, as the skills' recorded cases have it.
-    let mut case = String::from(
-        "{\"topic\":\"voice/state\",\"declaration\":{\"type\":\"lamp_msgs/VoiceState\",\"version\":1,\"kind\":\"latest\"}}\n",
-    );
-    let first_us = states.first().map(|(at, _, _)| *at).unwrap_or_default();
-    let mut last = None;
-    let mut seq = 0;
-    for (at_us, wall_ms, state) in &states {
-        if last == Some(*state) {
-            continue;
+    // The case: each topic as `lamp-bus record` writes it, all from one
+    // start, the first message of any of them, as the skills' recorded cases
+    // have it. `voice/state` as the bus carried it when it was recorded,
+    // else derived from the turn's events.
+    let (state_messages, state_from) = if recorded_states.is_empty() {
+        let mut derived: Vec<CaseMessage> = Vec::new();
+        let mut last = None;
+        for (at_us, wall_ms, state) in &states {
+            if last == Some(*state) {
+                continue;
+            }
+            last = Some(*state);
+            derived.push((*at_us, *wall_ms, None, json!({ "state": state })));
         }
-        last = Some(*state);
-        seq += 1;
-        let payload = json!({"state": state}).to_string();
-        let header = json!({"topic":"voice/state","kind":"latest","enc":"json","type":"lamp_msgs/VoiceState",
-            "source":"lamp_voice_eval_export","boot":"0000000000001119","seq":seq,
-            "at_us":at_us - first_us,"at_unix_ms":wall_ms});
-        case.push_str(
-            &json!({"header": header, "payload_b64": base64(payload.as_bytes())}).to_string(),
-        );
-        case.push('\n');
-    }
+        (
+            derived,
+            "derived from the turn's events: input_admitted listening, local_endpoint thinking, speaker_first_write speaking, turn_finished resting",
+        )
+    } else {
+        (recorded_states, "recorded: voice/state from --bus")
+    };
+    let base_us = state_messages
+        .iter()
+        .chain(&recorded_faces)
+        .map(|(at_us, ..)| *at_us)
+        .min()
+        .unwrap_or_default();
+    let case = case_file(
+        VOICE_STATE_TOPIC,
+        "lamp_msgs/VoiceState",
+        &state_messages,
+        base_us,
+    );
+    let faces_case = (!recorded_faces.is_empty())
+        .then(|| case_file(FACES_TOPIC, "lamp_msgs/Faces", &recorded_faces, base_us));
+    let seq = state_messages.len();
 
     let summary = json!({
         "window": {"since": options.since, "until": options.until,
@@ -661,7 +953,9 @@ pub fn export(options: &ExportOptions) -> Result<Value> {
         "events": rows.len(),
         "counts": counts,
         "voice_state_messages": seq,
-        "voice_state_from": "derived from the turn's events: input_admitted listening, local_endpoint thinking, speaker_first_write speaking, turn_finished resting",
+        "voice_state_from": state_from,
+        "faces_messages": recorded_faces.len(),
+        "faces_seen": ids.len(),
     });
 
     fs::DirBuilder::new().mode(0o700).create(&options.out)?;
@@ -678,6 +972,12 @@ pub fn export(options: &ExportOptions) -> Result<Value> {
         format!("{:#}\n", left.json()).as_bytes(),
     )?;
     write_new(&options.out.join("case/voice_state.jsonl"), case.as_bytes())?;
+    if let Some(faces_case) = faces_case {
+        write_new(
+            &options.out.join("case/humans_faces_tracked.jsonl"),
+            faces_case.as_bytes(),
+        )?;
+    }
     Ok(summary)
 }
 
@@ -698,6 +998,10 @@ mod tests {
         "Brindlewick",
         "lanternfjord",
         "velvetquokka",
+        "Pemberly",
+        "quillmouse",
+        "Ottoline",
+        "nightjarvane",
     ];
 
     struct Dir(PathBuf);
@@ -831,12 +1135,42 @@ mod tests {
             date: Some("2026-10-16".into()),
             sessions: Some(sessions),
             journal,
+            bus: Vec::new(),
             zone: "Asia/Ho_Chi_Minh".into(),
             wall_offset_us: None,
             out: dir.join("out"),
         }
     }
 
+    /// A `lamp-bus record` file: faces whose passing id, extra fields and
+    /// labels hold words, a voice state that is not one, and topics the
+    /// export does not read.
+    fn bus_fixture(dir: &Path) -> PathBuf {
+        let line = |topic: &str, seconds: u64, payload: Value| {
+            json!({"header": {"topic": topic, "kind": "latest", "enc": "json", "source": "eyes",
+                "boot": "0123456789abcdef", "seq": seconds, "at_us": 5_000_000_000 + seconds * 1_000_000,
+                "at_unix_ms": BASE_MS + seconds * 1000, "expires_ms": 2000},
+                "payload_b64": base64(payload.to_string().as_bytes())})
+            .to_string()
+        };
+        let face = json!({"id": SECRETS[12], "xmin": 0.3, "ymin": 0.2, "xmax": 0.6, "ymax": 0.6,
+            "confidence": 0.9, "yaw": 0.1, "facing": true, "name": SECRETS[10], "label": SECRETS[11]});
+        let lines = [
+            r#"{"topic":"humans/faces/tracked","declaration":{"type":"lamp_msgs/Faces","version":1,"kind":"latest"}}"#.to_owned(),
+            line("humans/faces/tracked", 1, json!({"faces": [face.clone()]})),
+            line("humans/faces/tracked", 2, json!({"faces": [face, {"id": "b", "xmin": 0.1}]})),
+            line("voice/state", 2, json!({"state": "listening"})),
+            line("voice/state", 3, json!({"state": SECRETS[13]})),
+            line("humans/names", 3, json!({"name": SECRETS[10]})),
+            line(SECRETS[12], 3, json!({})),
+            format!("not a recording {}", SECRETS[13]),
+        ];
+        let path = dir.join("bus.jsonl");
+        fs::write(&path, lines.join("\n") + "\n").unwrap();
+        path
+    }
+
+    /// Everything the export wrote, the case files' payloads decoded.
     fn all_output(out: &Path) -> String {
         let mut text = String::new();
         for name in [
@@ -844,8 +1178,19 @@ mod tests {
             "summary.json",
             "left-out.json",
             "case/voice_state.jsonl",
+            "case/humans_faces_tracked.jsonl",
         ] {
-            text.push_str(&fs::read_to_string(out.join(name)).unwrap());
+            let Ok(file) = fs::read_to_string(out.join(name)) else {
+                continue;
+            };
+            for line in file.lines() {
+                let value: Value = serde_json::from_str(line).unwrap_or(Value::Null);
+                if let Some(payload) = value["payload_b64"].as_str() {
+                    text.push_str(&String::from_utf8(unbase64(payload).unwrap()).unwrap());
+                    text.push('\n');
+                }
+            }
+            text.push_str(&file);
         }
         text
     }
@@ -854,8 +1199,12 @@ mod tests {
     fn a_session_full_of_words_exports_none_of_them() {
         let dir = temp("words");
         let (sessions, journal) = fixture(&dir.0);
-        export(&options(&dir.0, sessions, Some(journal))).unwrap();
-        let text = all_output(&dir.0.join("out"));
+        let mut words = options(&dir.0, sessions, Some(journal));
+        words.bus = vec![bus_fixture(&dir.0)];
+        export(&words).unwrap();
+        let out = dir.0.join("out");
+        assert!(out.join("case/humans_faces_tracked.jsonl").exists());
+        let text = all_output(&out);
         for secret in SECRETS {
             let lower = secret.to_lowercase();
             assert!(
@@ -981,5 +1330,107 @@ mod tests {
         assert!(!plain_word("it's"));
         assert!(!plain_word(""));
         assert!(!plain_word(&"a".repeat(49)));
+    }
+
+    #[test]
+    fn faces_from_the_bus_keep_boxes_and_lose_their_ids_and_words() {
+        let dir = temp("faces");
+        let (sessions, _) = fixture(&dir.0);
+        let mut bus = options(&dir.0, sessions, None);
+        bus.wall_offset_us = Some(OFFSET_US as i64);
+        bus.bus = vec![bus_fixture(&dir.0)];
+        let summary = export(&bus).unwrap();
+        assert_eq!(summary["faces_messages"], 2);
+        assert_eq!(
+            summary["faces_seen"], 1,
+            "the face without a box is left out"
+        );
+        assert_eq!(
+            summary["voice_state_from"],
+            "recorded: voice/state from --bus"
+        );
+        let out = dir.0.join("out");
+        let case: Vec<Value> = fs::read_to_string(out.join("case/humans_faces_tracked.jsonl"))
+            .unwrap()
+            .lines()
+            .map(|line| serde_json::from_str(line).unwrap())
+            .collect();
+        assert_eq!(case[0]["declaration"]["type"], "lamp_msgs/Faces");
+        let payload: Value =
+            serde_json::from_slice(&unbase64(case[1]["payload_b64"].as_str().unwrap()).unwrap())
+                .unwrap();
+        assert_eq!(
+            payload,
+            json!({"faces": [{"id": "f1", "xmin": 0.3, "ymin": 0.2, "xmax": 0.6, "ymax": 0.6,
+                "confidence": 0.9, "yaw": 0.1, "facing": true}]})
+        );
+        assert_eq!(case[1]["header"]["expires_ms"], 2000);
+        // Faces and the recorded voice state share one start: the first
+        // face at 0, the state a second later.
+        assert_eq!(case[1]["header"]["at_us"], 0);
+        let states: Vec<Value> = fs::read_to_string(out.join("case/voice_state.jsonl"))
+            .unwrap()
+            .lines()
+            .map(|line| serde_json::from_str(line).unwrap())
+            .collect();
+        assert_eq!(states.len(), 2, "the declaration and `listening` only");
+        assert_eq!(states[1]["header"]["at_us"], 1_000_000);
+        let left: Value =
+            serde_json::from_str(&fs::read_to_string(out.join("left-out.json")).unwrap()).unwrap();
+        assert_eq!(left["bus_fields_by_topic"]["humans/faces/tracked"], 5);
+        assert_eq!(left["bus_messages_by_topic"]["humans/names"], 1);
+        assert_eq!(left["bus_messages_by_topic"]["voice/state"], 1);
+        assert_eq!(left["bus_messages_by_topic"]["other"], 1);
+        assert_eq!(left["bus_messages_by_topic"]["unreadable"], 1);
+    }
+
+    /// #1119's "done when": a skill's case rebuilt from `export` output alone
+    /// makes what the recording it came from made. Stretch break's cases are
+    /// `lamp-bus record` files: exported through `--bus`, then replayed by
+    /// `lamp-skills` as its own tests are.
+    #[test]
+    fn stretch_breaks_cases_rebuilt_from_the_export_replay_the_same() {
+        let skill = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../skills/stretch-break");
+        for case in [
+            "acts-after-50-minutes",
+            "across-the-room",
+            "waits-for-the-talk-to-end",
+        ] {
+            let recording = skill.join("tests").join(case);
+            let dir = temp(case);
+            let files = fs::read_dir(&recording)
+                .unwrap()
+                .flatten()
+                .map(|entry| entry.path())
+                .filter(|path| {
+                    path.extension()
+                        .is_some_and(|extension| extension == "jsonl")
+                })
+                .collect();
+            let rebuilt = ExportOptions {
+                since: "00:00:00".into(),
+                until: "23:59:59".into(),
+                date: Some("2026-10-16".into()),
+                sessions: None,
+                journal: None,
+                bus: files,
+                zone: "Etc/UTC".into(),
+                wall_offset_us: Some(0),
+                out: dir.0.join("out"),
+            };
+            export(&rebuilt).unwrap();
+            let made = |from: &Path| -> Vec<String> {
+                lamp_skills::replay(&skill, from)
+                    .unwrap()
+                    .iter()
+                    .map(|made| format!("{} {:?}", made.at_us, made.call))
+                    .collect()
+            };
+            let original = made(&recording);
+            assert_eq!(made(&dir.0.join("out/case")), original, "{case}");
+            if case == "acts-after-50-minutes" {
+                assert!(!original.is_empty(), "the case acts");
+            }
+        }
     }
 }

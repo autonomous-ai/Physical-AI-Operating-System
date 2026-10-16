@@ -525,6 +525,16 @@ on a copy of its sessions and journal.
   left out and counted, even with a one-word value), the body's `step N gesture NAME`, its faces (`mood`,
   `across`, `down`, `size`) and its goals, and a skill's `SKILL Stage` (its
   why is left out). Every other line is left out and counted by part.
+- **The bus** (`--bus FILE`, repeatable: `lamp-bus record` files, such as
+  `lamp-bus record DIR humans/faces/tracked voice/state` makes): only
+  `humans/faces/tracked` and `voice/state`. A face keeps its box, confidence,
+  yaw and whether it faced the lamp; its passing id becomes the export's own
+  (`f1`, `f2`, ...), and every other field is left out and counted. A state
+  keeps one of `resting`, `listening`, `thinking`, `speaking`. Every other
+  topic is left out and counted. The eyes write no face boxes to the journal,
+  so a recording is the only source of faces: start one before the minutes
+  you want (`lamp-bus record /tmp/rec humans/faces/tracked voice/state
+  --seconds 3600`).
 - **Wall time.** The voice's `at_us` is the monotonic clock the journal also
   writes, so the journal's own pairs give the boot's offset; without a
   journal, `--wall-offset-us`, or this machine's clocks now (right only on
@@ -534,17 +544,27 @@ It writes a new folder (0700, files 0600): `events.jsonl` (both, in time
 order, each with `at_us`, `wall` and `source`), `summary.json` (counts by
 kind, and by kind and plain-word value, such as
 `turn_finished.outcome=user_interrupted`), `left-out.json` (what was left
-out, counted, never what it said) and `case/voice_state.jsonl`: `voice/state`
-as `lamp-bus record` writes a topic, from 0, for a skill's `tests/` case.
-That state is derived, not recorded (the voice does not write it to its
-trace): listening from `input_admitted`, thinking from `local_endpoint`,
-speaking from `speaker_first_write`, resting from `turn_finished`.
+out, counted, never what it said) and a skill's `tests/` case in `case/`, each
+topic as `lamp-bus record` writes it: `voice_state.jsonl`, and
+`humans_faces_tracked.jsonl` when `--bus` held faces. The case's files share
+one start, timed by the monotonic `at_us` the voice's trace and the bus both
+carry. `voice/state` is the recorded one when `--bus` has it, else derived
+(the voice does not write it to its trace): listening from `input_admitted`,
+thinking from `local_endpoint`, speaking from `speaker_first_write`, resting
+from `turn_finished`. `summary.json` says which.
+
+`stretch_breaks_cases_rebuilt_from_the_export_replay_the_same` exports
+Stretch break's own recorded cases through `--bus` and replays `case/` with
+`lamp-skills`: it makes the same calls at the same times as the recordings
+did (#1119's "done when").
 
 `a_session_full_of_words_exports_none_of_them` fills every text field, a
 name, a tool's arguments, an unknown kind and field, a closed-set field
-holding a sentence, and journal lines with distinct words (a Policy line's
-unknown keys among them, one lower-case word each), and fails if any byte of
-the output holds one.
+holding a sentence, journal lines (a Policy line's unknown keys among them,
+one lower-case word each) and a bus recording (a face's passing id, name and
+label, a voice state that is not one, an unknown topic) with distinct words,
+and fails if any byte of the output, the case files' payloads decoded, holds
+one.
 
 **The trust boundary.** A string is kept only from a field the export names
 (the voice's `WORD_FIELDS`, the Policy's `POLICY_KEYS` in `export.rs`), and

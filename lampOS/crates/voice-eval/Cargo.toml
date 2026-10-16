@@ -28,3 +28,6 @@ workspace = true
 # process, so a profile can be measured on recorded speech without a lamp.
 lamp-turn-end = { path = "../turn-end" }
 lamp-turn-end-wire = { path = "../turn-end-wire" }
+# The export's case files replayed through a real skill (#1119): what it
+# makes from them is what the skill made from the recording they came from.
+lamp-skills = { path = "../skills" }

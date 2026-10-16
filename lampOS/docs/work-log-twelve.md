@@ -53,3 +53,12 @@ Ready for lamp-voice: no
 - At its person's request ("đánh dấu builder:twelve luôn đi"), twelve made the
   label `builder:twelve` and put it on #920, and told the first builder on
   #705 (comment 6207819404), which may correct or remove it.
+
+## 2026-10-16 — #920 released
+
+Ready for lamp-voice: no
+
+- Ten, which opened #920, closed it at 11:2x (its person: problems go to the
+  first builder first, not into issues). At twelve's person's request twelve
+  released it: `status:taken` and `builder:twelve` removed, #981 closed. The
+  fix stays on `twelve/920-light-stale-window` (`103625ddf`) if it is wanted.

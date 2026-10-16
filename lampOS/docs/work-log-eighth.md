@@ -23,6 +23,20 @@ The eighth builder's log, newest first. Role file:
 
 None yet.
 
+## 2026-10-16 12:55 — #834 — reviewer's P2/P3 of 01:58 fixed (missed for ~11 h)
+
+Ready for lamp-voice: no (#834 back to draft; ARM64 38857971377 on
+`ac385435e` running)
+
+- The reviewer's P2 (renewal forked before `call=$!`) and P3 (takeover
+  logged before the lock was replaced) came 3 min after "ready" and were
+  missed until the owner asked at 12:3x. Since then this log called #834
+  "waiting on the reviewer"; that was wrong.
+- Fixed and folded: the renewer's TERM trap stops every child; run's exit
+  stops the renewer within 15 s; a takeover logs an attempt, then "taken by"
+  or a failure (exit 6, locally 3). Harness 108/0 ×6; old script 102/6.
+  lamp-75c9 run 5: renewals seen, released, nothing moved.
+
 ## 2026-10-16 11:45 — #906 — taken, draft #1000
 
 Ready for lamp-voice: no (#1000 draft, stacked on #900 and #996; ARM64

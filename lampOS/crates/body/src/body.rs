@@ -872,10 +872,6 @@ pub struct BodyReport {
     /// yaw, shoulder, elbow, roll, pitch. None was used.
     pub bad_reads: [u16; 5],
     pub peak_load: [u16; 3],
-    /// The highest temperature byte each commanded joint answered with on
-    /// any one read, °C as the servo reports it: a single misread counts
-    /// (`one_hot_reading_while_it_moves_is_not_heat`), so it is not how warm
-    /// the servo got. Heat is judged on `Limits::temperature_steps` reads.
     pub peak_temperature: [u8; 3],
     /// Times each commanded joint met resistance and was left where it was.
     pub eased: [u16; 3],
@@ -916,8 +912,6 @@ pub struct BodyReport {
     /// It left its folded pose at least once.
     pub stood: bool,
     pub arm_peak_load: [u16; 2],
-    /// Likewise the shoulder and the elbow, any one read: lamp-52e6's arm
-    /// answers 150 now and then while it stands, among reads of 43 to 50.
     pub arm_peak_temperature: [u8; 2],
     /// Each time the arm was sent back down, and why.
     pub retreats: Vec<String>,

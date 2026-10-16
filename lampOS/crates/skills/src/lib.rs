@@ -124,7 +124,7 @@ pub struct Skill {
 }
 
 /// What a message must show for a trigger or a condition to hold.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 enum Test {
     /// A face in the list of `humans/faces/tracked`, at least this share of
     /// the picture's height.
@@ -153,7 +153,7 @@ impl Test {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 struct Condition {
     topic: String,
     test: Test,
@@ -459,6 +459,17 @@ pub fn load(dir: &Path) -> Result<Skill, String> {
             steps.push(Call::Say(say));
         }
     }
+    if steps
+        .iter()
+        .filter(|step| matches!(step, Call::Say(_)))
+        .count()
+        > 1
+    {
+        return Err(
+            "one say a skill: its other steps are made, in their order, when the voice begins it"
+                .into(),
+        );
+    }
     Ok(Skill {
         name,
         description,
@@ -476,8 +487,10 @@ fn light_call(file: LightFile) -> Result<Call, String> {
         Some("ends") => true,
         Some(other) => return Err(format!("until = {other:?}: only \"ends\"")),
     };
-    if let Some(lasting) = &file.lasting {
-        duration_us(lasting)?;
+    if let Some(lasting) = &file.lasting
+        && duration_us(lasting)? > 600_000_000
+    {
+        return Err("a light's for is at most 10m".into());
     }
     match (file.colour, file.dim) {
         (Some(colour), None) => {
@@ -586,8 +599,21 @@ impl Engine {
         }
     }
 
+    /// The skills loaded again. A timed condition keeps when it began to
+    /// hold only if it is the same condition as before.
     pub fn replace(&mut self, skills: Vec<Skill>) {
-        self.skills = skills;
+        let old = std::mem::replace(&mut self.skills, skills);
+        let new = &self.skills;
+        let condition = |skills: &[Skill], name: &str, index: usize| {
+            skills
+                .iter()
+                .find(|skill| skill.name == name)
+                .and_then(|skill| skill.conditions.get(index).cloned())
+        };
+        self.holding.retain(|(name, index), _| {
+            let before = condition(&old, name, *index);
+            before.is_some() && before == condition(new, name, *index)
+        });
     }
 
     pub fn skills(&self) -> &[Skill] {
@@ -660,6 +686,9 @@ impl Engine {
         let lifespan_us = expires_ms
             .or((topic == Faces::TOPIC).then_some(FACE_LIFESPAN_MS))
             .map(|ms| ms * 1_000);
+        // A timed condition held only while its topic's value lasted: after a
+        // value that expired, it begins again.
+        let lasted = Self::fresh(&self.latest, topic, now_us).is_some();
         self.latest
             .insert(topic.to_owned(), (value.clone(), now_us, lifespan_us));
         for skill in &self.skills {
@@ -668,8 +697,10 @@ impl Engine {
                     continue;
                 }
                 let key = (skill.name.clone(), index);
-                if condition.test.holds(&value) {
+                if condition.test.holds(&value) && lasted {
                     self.holding.entry(key).or_insert(now_us);
+                } else if condition.test.holds(&value) {
+                    self.holding.insert(key, now_us);
                 } else {
                     self.holding.remove(&key);
                 }

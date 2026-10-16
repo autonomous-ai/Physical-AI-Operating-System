@@ -142,8 +142,16 @@ fn publish(out: &mut Publisher, mut event: SkillEvent) {
 }
 
 /// The light shown now, if the ring's owner has said.
+/// The light shown now, if the ring's owner has said within 3 s (as the
+/// actions part counts it).
 fn light_now(bus: &Bus) -> Option<Light> {
-    bus.latest(Light::TOPICS[1]).ok()??.parse().ok()
+    let message = bus.latest(Light::TOPICS[1]).ok()??;
+    let now_ms = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .map_or(0, |since| since.as_millis() as u64);
+    (now_ms.saturating_sub(message.header.at_unix_ms) <= 3_000)
+        .then(|| message.parse().ok())
+        .flatten()
 }
 
 fn serve(dir: &Path, root: Option<PathBuf>, sockets: &Sockets, skip_ask: bool) -> io::Result<()> {
@@ -155,6 +163,8 @@ fn serve(dir: &Path, root: Option<PathBuf>, sockets: &Sockets, skip_ask: bool) -
         bus.publisher_declared(SkillEvent::TOPIC, &SkillEvent::declaration(), "skills")?;
     let (finished, done) = mpsc::channel::<SkillEvent>();
     let mut engine = Engine::new(Vec::new(), skip_ask);
+    // One run a skill at a time: what is under way, by skill.
+    let mut busy = std::collections::HashSet::new();
     let mut subscribers: Vec<Subscriber> = Vec::new();
     let mut seen = None;
     let mut looked: Option<Instant> = None;
@@ -169,6 +179,7 @@ fn serve(dir: &Path, root: Option<PathBuf>, sockets: &Sockets, skip_ask: bool) -
     );
     loop {
         while let Ok(event) = done.try_recv() {
+            busy.remove(&event.skill);
             publish(&mut out, event);
         }
         if looked.is_none_or(|at| at.elapsed() >= RELOAD_EVERY) {
@@ -228,12 +239,26 @@ fn serve(dir: &Path, root: Option<PathBuf>, sockets: &Sockets, skip_ask: bool) -
                 if run.calls.is_empty() {
                     continue;
                 }
-                // A run waits on the voice for as long as the say takes: its
-                // own thread, so the skills go on listening.
-                let (sockets, finished) = (sockets.clone(), finished.clone());
+                if !busy.insert(run.skill.clone()) {
+                    publish(
+                        &mut out,
+                        SkillEvent {
+                            skill: run.skill,
+                            stage: SkillStage::Done,
+                            why: "not made: its last run is still under way".into(),
+                            allowed: None,
+                        },
+                    );
+                    continue;
+                }
+                // A run waits on the voice for as long as the say takes (at
+                // most SAY_TIMEOUT a line) or a light's for (at most 10 min):
+                // its own thread, one a skill, so the skills go on listening.
+                // ponytail: a skill removed meanwhile still finishes its run.
+                let (sockets, finished, bus) = (sockets.clone(), finished.clone(), bus.clone());
                 let before = light_now(&bus);
                 std::thread::spawn(move || {
-                    let why = perform(&run.skill, &run.calls, &sockets, before);
+                    let why = perform(&run.skill, &run.calls, &sockets, &bus, before);
                     let _ = finished.send(SkillEvent {
                         skill: run.skill,
                         stage: SkillStage::Done,
@@ -258,7 +283,13 @@ struct Changed {
 /// are made when the voice begins it, so the look and the light come with
 /// the words, and none if it is never begun. A light changed is given back
 /// when the say ends, or after its `for`.
-fn perform(skill: &str, calls: &[Call], sockets: &Sockets, before: Option<Light>) -> String {
+fn perform(
+    skill: &str,
+    calls: &[Call],
+    sockets: &Sockets,
+    bus: &Bus,
+    before: Option<Light>,
+) -> String {
     let is_light = |call: &Call| matches!(call, Call::Light { .. } | Call::Dim { .. });
     let mut said = Vec::new();
     if before.is_none() && calls.iter().any(is_light) {
@@ -307,31 +338,40 @@ fn perform(skill: &str, calls: &[Call], sockets: &Sockets, before: Option<Light>
     if let Some(before) = before
         && (changed.coloured || changed.dimmed > 0)
     {
-        said.push(give_back(&before, &changed, sockets));
+        said.push(give_back(&before, light_now(bus), sockets));
     }
     said.join("; ")
 }
 
-/// The light as it was: off, or its colour again and the steps dimmed
-/// brightened back.
-fn give_back(before: &Light, changed: &Changed, sockets: &Sockets) -> String {
+/// The light as it was before the run, from the light shown now: off, or
+/// its colour again and its level stepped back. With the light now not
+/// known, its colour only.
+fn give_back(before: &Light, now: Option<Light>, sockets: &Sockets) -> String {
+    let call = |name: &str, args: serde_json::Value| answer(action(&sockets.actions, name, args));
     let mut done = Vec::new();
     if !before.on {
-        done.push(answer(action(&sockets.actions, "light_off", json!({}))));
-    } else {
-        if changed.coloured {
-            done.push(answer(action(
-                &sockets.actions,
-                "light_colour",
-                json!({ "colour": before.colour }),
-            )));
+        if now.as_ref().is_none_or(|now| now.on) {
+            done.push(call("light_off", json!({})));
         }
-        for _ in 0..changed.dimmed {
-            done.push(answer(action(
-                &sockets.actions,
-                "light_brighter",
-                json!({}),
-            )));
+    } else {
+        if now
+            .as_ref()
+            .is_none_or(|now| !now.on || now.colour != before.colour)
+        {
+            done.push(call("light_colour", json!({ "colour": before.colour })));
+        }
+        match &now {
+            Some(now) => {
+                let (name, steps) = if now.level < before.level {
+                    ("light_brighter", before.level - now.level)
+                } else {
+                    ("light_dimmer", now.level - before.level)
+                };
+                for _ in 0..steps {
+                    done.push(call(name, json!({})));
+                }
+            }
+            None => done.push("its level is not known, so it is left".into()),
         }
     }
     format!(
@@ -339,7 +379,11 @@ fn give_back(before: &Light, changed: &Changed, sockets: &Sockets) -> String {
         if before.on { "on" } else { "off" },
         before.colour,
         before.level,
-        done.join(", ")
+        if done.is_empty() {
+            "it already was".into()
+        } else {
+            done.join(", ")
+        }
     )
 }
 

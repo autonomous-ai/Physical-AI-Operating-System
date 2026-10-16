@@ -126,6 +126,11 @@ fn the_loader_refuses_what_it_cannot_do() {
         ),
         ("look_at = \"face\"", "gesture = \"dance\"", "not one of"),
         ("[ask]", "[later]", "unknown field"),
+        (
+            "[ask]",
+            "[[do]]\nsay = \"And again.\"\n[ask]",
+            "one say a skill",
+        ),
     ] {
         let skill = welcome_back_with(&dir.path().join(why.replace(' ', "_")), from, to);
         let error = load(&skill).unwrap_err();
@@ -180,6 +185,20 @@ say = "Greet them."
 /// published, and the voice's say service answers with `answers`, a line
 /// each, 200 ms apart.
 fn the_program(skip: bool, answers: &'static [&'static str]) -> Seen {
+    the_program_with(AT_ONCE, skip, answers, 3, 1, if skip { 4 } else { 3 })
+}
+
+/// The same with this skill, the light blue at `level`, `faces` lists with a
+/// face 50 ms apart, until `wanted` events have come. The actions part
+/// keeps a light as the real one does, and says it on `light/state`.
+fn the_program_with(
+    skill: &str,
+    skip: bool,
+    answers: &'static [&'static str],
+    level: u8,
+    faces: usize,
+    wanted: usize,
+) -> Seen {
     // Short: a socket's whole path has to fit in 103 bytes.
     let dir = tempfile::Builder::new()
         .prefix("sk")
@@ -189,20 +208,31 @@ fn the_program(skip: bool, answers: &'static [&'static str]) -> Seen {
     fs::create_dir(root.join("skills")).unwrap();
     let bus = Bus::new(root.join("bus")).unwrap();
     let mut events = bus.subscribe(SkillEvent::TOPIC, "test").unwrap();
-    let mut shown = bus
-        .publisher_declared("light/state", &Light::declaration(), "ring")
-        .unwrap();
-    shown
-        .publish_json(1, &Light::new(true, "blue", 3).unwrap())
-        .unwrap();
     let gaze = UnixDatagram::bind(root.join("gaze.sock")).unwrap();
     gaze.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
     let actions = UnixListener::bind(root.join("actions.sock")).unwrap();
     let (called, lights) = mpsc::channel();
+    let ring = bus.clone();
     std::thread::spawn(move || {
+        let mut shown = ring
+            .publisher_declared("light/state", &Light::declaration(), "ring")
+            .unwrap();
+        let mut light = Light::new(true, "blue", level).unwrap();
         for stream in actions.incoming().flatten() {
             let mut line = String::new();
             BufReader::new(&stream).read_line(&mut line).unwrap();
+            let call: serde_json::Value = serde_json::from_str(&line).unwrap();
+            match call["name"].as_str().unwrap() {
+                "light_colour" => {
+                    light.on = true;
+                    light.colour = call["args"]["colour"].as_str().unwrap().into();
+                }
+                "light_dimmer" => light.level = light.level.saturating_sub(1).max(1),
+                "light_brighter" => light.level = (light.level + 1).min(5),
+                "light_off" => light.on = false,
+                _ => {}
+            }
+            shown.publish_json(1, &light).unwrap();
             (&stream)
                 .write_all(b"{\"ok\":true,\"result\":{}}\n")
                 .unwrap();
@@ -246,24 +276,30 @@ fn the_program(skip: bool, answers: &'static [&'static str]) -> Seen {
     let _running = Running(command.spawn().unwrap());
     std::thread::sleep(Duration::from_millis(300));
     // Put in after the start: found by the reload.
-    skill_with(&root.join("skills"), "hello", AT_ONCE);
+    skill_with(&root.join("skills"), "hello", skill);
     let deadline = Instant::now() + Duration::from_secs(10);
     while bus.subscribers(Faces::TOPIC).unwrap().is_empty() {
         assert!(Instant::now() < deadline, "the skill was never loaded");
         std::thread::sleep(Duration::from_millis(50));
     }
-    let mut faces = bus
+    // The light as shown just before the face, fresh.
+    bus.publisher_declared("light/state", &Light::declaration(), "ring")
+        .unwrap()
+        .publish_json(1, &Light::new(true, "blue", level).unwrap())
+        .unwrap();
+    let mut eyes = bus
         .publisher_declared(Faces::TOPIC, &Faces::declaration(), "eyes")
         .unwrap();
-    faces
-        .publish_json(
+    for _ in 0..faces {
+        eyes.publish_json(
             1,
             &serde_json::json!({"faces": [{"id": "a1", "xmin": 0.25, "ymin": 0.25,
                 "xmax": 0.75, "ymax": 0.5, "confidence": 0.9}]}),
         )
         .unwrap();
+        std::thread::sleep(Duration::from_millis(50));
+    }
     let mut seen = Vec::new();
-    let wanted = if skip { 4 } else { 3 };
     while seen.len() < wanted && Instant::now() < deadline {
         if let Some(message) = events.recv(Duration::from_millis(100)).unwrap() {
             seen.push(message.parse::<SkillEvent>().unwrap());
@@ -280,6 +316,72 @@ fn the_program(skip: bool, answers: &'static [&'static str]) -> Seen {
         lights: lights.try_iter().collect(),
         asked: asked.try_recv().ok(),
     }
+}
+
+/// A light that dims a step while it greets.
+const DIMS: &str = r#"
+[trigger]
+topic = "humans/faces/tracked"
+when = "appears"
+[ask]
+policy = "hello"
+[[do]]
+light = { dim = 1 }
+say = "Greet them."
+"#;
+
+#[test]
+fn a_dim_at_the_lowest_level_changes_nothing_and_is_given_back_as_nothing() {
+    let seen = the_program_with(
+        DIMS,
+        true,
+        &[r#"{"event":"begun","at_us":5}"#, r#"{"outcome":"spoken"}"#],
+        1,
+        1,
+        4,
+    );
+    let done = &seen.events[3].why;
+    assert!(
+        done.contains("light given back to on blue at 1: it already was"),
+        "{done}"
+    );
+    assert_eq!(seen.lights.len(), 1, "{:?}", seen.lights);
+    // At 3 the dim is given back with one step brighter.
+    let seen = the_program_with(
+        DIMS,
+        true,
+        &[r#"{"event":"begun","at_us":5}"#, r#"{"outcome":"spoken"}"#],
+        3,
+        1,
+        4,
+    );
+    assert!(
+        seen.lights[1].contains("light_brighter"),
+        "{:?}",
+        seen.lights
+    );
+    assert_eq!(seen.lights.len(), 2, "{:?}", seen.lights);
+}
+
+#[test]
+fn a_skill_runs_once_at_a_time_and_says_so_when_it_cannot() {
+    // Present and no cooldown: every list with a face triggers it, while the
+    // first say still waits on the voice.
+    let present = AT_ONCE.replace("when = \"appears\"", "when = \"present\"");
+    let seen = the_program_with(
+        &present,
+        true,
+        &[r#"{"event":"begun","at_us":5}"#, r#"{"outcome":"spoken"}"#],
+        3,
+        3,
+        12,
+    );
+    let refused = seen
+        .events
+        .iter()
+        .filter(|event| event.why == "not made: its last run is still under way")
+        .count();
+    assert_eq!(refused, 2, "{:?}", seen.events);
 }
 
 fn stages(events: &[SkillEvent]) -> Vec<SkillStage> {
@@ -581,6 +683,77 @@ fn a_look_at_a_face_subscribes_to_the_faces_whatever_the_trigger() {
     assert_eq!(looks.topics(), ["air/state", Faces::TOPIC]);
     let dims = Engine::new(vec![skill("dims", "light = { dim = 1 }")], true);
     assert_eq!(dims.topics(), ["air/state"]);
+}
+
+/// Air above the line, with a condition that someone has been at the desk
+/// for 30 s.
+fn sat_for_thirty(dir: &Path, name: &str, condition: &str) -> PathBuf {
+    skill_with(
+        dir,
+        name,
+        &format!(
+            "[trigger]\ntopic = \"air/state\"\nfield = \"co2_ppm\"\nabove = 1200\n\
+             [[while]]\n{condition}\nfor = \"30s\"\n\
+             [ask]\npolicy = \"nudge\"\n[[do]]\nlight = {{ dim = 1 }}\n"
+        ),
+    )
+}
+
+#[test]
+fn a_timed_condition_begins_again_after_its_value_expired() {
+    let dir = tempfile::tempdir().unwrap();
+    let skill = sat_for_thirty(
+        dir.path(),
+        "sat",
+        "topic = \"humans/faces/tracked\"\npresent = true",
+    );
+    let high = r#"{"co2_ppm":1300,"feel":"stuffy"}"#;
+    // A face at 0 s, its list lasting 2 s, then nothing until 31 s: the 29 s
+    // between are not 30 s of someone there.
+    let gap = [
+        (0, Faces::TOPIC, FACE),
+        (31, Faces::TOPIC, FACE),
+        (31, "air/state", high),
+    ];
+    assert!(runs_at(&skill, &gap).is_empty());
+    // A face every second for 31 s is.
+    let mut held: Vec<_> = (0..=31).map(|at| (at, Faces::TOPIC, FACE)).collect();
+    held.push((31, "air/state", high));
+    assert_eq!(runs_at(&skill, &held).len(), 1);
+}
+
+#[test]
+fn a_condition_changed_by_a_reload_begins_again() {
+    let dir = tempfile::tempdir().unwrap();
+    let speaking = sat_for_thirty(
+        dir.path(),
+        "talk",
+        "topic = \"voice/state\"\nfield = \"state\"\nequals = \"speaking\"",
+    );
+    let mut engine = Engine::new(vec![load(&speaking).unwrap()], true);
+    let state = |word: &str| format!(r#"{{"state":"{word}"}}"#);
+    let high = br#"{"co2_ppm":1300,"feel":"stuffy"}"#;
+    // Speaking from 0 s: the same condition, reloaded, keeps its time.
+    engine.observe("voice/state", 0, state("speaking").as_bytes(), None);
+    engine.replace(vec![load(&speaking).unwrap()]);
+    assert_eq!(engine.observe("air/state", 31_000_000, high, None).len(), 1);
+    // The same slot edited to resting: its first resting sample at 40 s
+    // does not inherit 0 s.
+    let mut engine = Engine::new(vec![load(&speaking).unwrap()], true);
+    engine.observe("voice/state", 0, state("speaking").as_bytes(), None);
+    let resting = sat_for_thirty(
+        &dir.path().join("edited"),
+        "talk",
+        "topic = \"voice/state\"\nfield = \"state\"\nequals = \"resting\"",
+    );
+    engine.replace(vec![load(&resting).unwrap()]);
+    engine.observe("voice/state", 40_000_000, state("resting").as_bytes(), None);
+    assert!(
+        engine
+            .observe("air/state", 41_000_000, high, None)
+            .is_empty()
+    );
+    assert_eq!(engine.observe("air/state", 71_000_000, high, None).len(), 1);
 }
 
 #[test]

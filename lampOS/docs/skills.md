@@ -143,13 +143,13 @@ must not leave a step silently undone)*.
 | `trigger.absent_for` | no | `appears` only: at least this long before, it did not hold. At the program's start nothing has been away: someone there at the first message is not greeted |
 | `trigger.rearm` | no | `leaves` or `ends`, which mean the same: once each time it holds, and again only after it stopped. Without it, `present` runs at every message once `for` has passed, as often as `cooldown` lets it |
 | `trigger.cooldown` | no | Not again within this long of the last run. A run the Policy refused does not count |
-| `[[while]]` | no | Conditions that must also hold, all of them, on the newest value of each topic while that value lasts: a `topic` with `field` and one of `equals`, `above` or `below`, or `humans/faces/tracked` with `present = true`; with `for`, it has also held that long, by the messages of its topic since this program started |
+| `[[while]]` | no | Conditions that must also hold, all of them, on the newest value of each topic while that value lasts: a `topic` with `field` and one of `equals`, `above` or `below`, or `humans/faces/tracked` with `present = true`; with `for`, it has also held that long, by the messages of its topic since this program started. It begins again after a value that expired, and when a reload changes the condition |
 | `[ask] policy` | yes | The Policy's question asked before anything is done *(chosen: required, since every trigger is something the lamp starts itself)* |
 | `[[do]]` | at least one | The steps, in order. Within one table: body, then light, then say |
 | `do.body.look_at` | no | Only `"face"`. The largest face in view goes to the body's `gaze.sock` as the eyes send one (`{"face":{"x","y","size","turned":0}}`) |
 | `do.body.gesture` | no | One of the body's six gestures (`nod`, `headshake`, `greeting`, `laugh`, `shy`, `stretching`), sent to `mood.sock` as `{"gesture":NAME}` |
 | `do.light` | no | A file in `lights/`, written as its name, or a table in place. A file `lights/NAME.toml` holds the same keys. `{ colour, level, for }` asks the actions part for `light_colour`. *Not carried out yet:* `level` (1 to 5) and `for`. `{ dim = N, until = "ends" }` asks for `light_dimmer` N times. *Not carried out yet:* `until` |
-| `do.say` | no | A note for the voice to say in its own words, through the voice's say service (#954). The run's other steps are made when the voice begins the say, so the look and the light come with the words, and none if it is never begun. A light changed is given back when the say ends |
+| `do.say` | no | A note for the voice to say in its own words, through the voice's say service (#954). One a skill. The run's other steps are made, in their order, when the voice begins the say, so the look and the light come with the words, and none if it is never begun. A light changed is given back when the say ends |
 
 A duration is a whole number and one of `ms`, `s`, `m` or `h` (`"5m"`).
 
@@ -235,14 +235,17 @@ As built on 2026-10-16 (#938, `crates/skills`, not yet run on a lamp):
   `{"skill","note","priority":5,"expires_in_ms":30000}`, then a `begun`
   line when the voice starts the turn, then one outcome (`spoken`,
   `dropped`, `expired` or `refused`). A run waits for it in a thread of its
-  own. The other steps are made at `begun`; a say never begun moves
-  nothing and lights nothing.
+  own, one a skill at a time: a trigger while its run is under way is told
+  in `done` as `not made: its last run is still under way`. A light's `for`
+  is at most 10 minutes. The other steps are made at `begun`; a say never
+  begun moves nothing and lights nothing.
 - **The light is given back.** Before a run, the light shown is read from
   `light/state`. When the say ends, however it ends, or after a light's
-  `for` in a run with no say, it is set back: off if it was off, else its
-  colour again, and each step dimmed brightened back. If `light/state` has
-  no value, a light step is left out: a skill never leaves someone's light
-  changed.
+  `for` in a run with no say, it is set back from the light shown then:
+  off if it was off, else its colour again and its level stepped back to
+  the one before. A dim at the lowest level that changed nothing is given
+  back as nothing. If `light/state` has said nothing for 3 s, a light step
+  is left out: a skill never leaves someone's light changed.
 - `done` says how each step went: `look at the face: told the body`,
   `light warm: done`, `say: spoken`, `light given back to on blue at 3:
   done`, or why not.

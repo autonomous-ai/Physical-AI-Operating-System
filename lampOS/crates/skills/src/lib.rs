@@ -28,10 +28,12 @@ struct SkillFile {
     #[serde(default)]
     needs: Vec<String>,
     /// One `[trigger]` table, or `[[trigger]]` tables.
-    trigger: toml::Value,
+    trigger: Option<toml::Value>,
     #[serde(default, rename = "while")]
     conditions: Vec<TestFile>,
-    ask: AskFile,
+    ask: Option<AskFile>,
+    /// A function the model may call, which runs the steps.
+    tool: Option<String>,
     #[serde(rename = "do")]
     steps: Vec<StepFile>,
 }
@@ -83,6 +85,7 @@ struct StepFile {
     body: Option<BodyFile>,
     light: Option<LightStep>,
     say: Option<String>,
+    look: Option<bool>,
 }
 
 #[derive(Deserialize)]
@@ -119,7 +122,11 @@ pub struct Skill {
     pub needs: Vec<String>,
     pub triggers: Vec<Trigger>,
     conditions: Vec<Condition>,
+    /// The Policy's question; empty for a skill started by its tool alone.
     pub policy: String,
+    /// The function the model may call to run the steps, described to it
+    /// with the skill's description.
+    pub tool: Option<String>,
     steps: Vec<Call>,
 }
 
@@ -202,6 +209,9 @@ pub enum Call {
     Dim { steps: u8, until_ends: bool },
     /// A note for the voice to say in its own words.
     Say(String),
+    /// The voice's full look (#836), which it takes when the lamp says it
+    /// will look. Only in a skill its tool starts.
+    Look,
 }
 
 impl Call {
@@ -240,6 +250,7 @@ impl Call {
                 ("light", args)
             }
             Self::Say(note) => ("say", json!({ "note": note })),
+            Self::Look => ("look", json!({})),
         }
     }
 }
@@ -374,8 +385,9 @@ pub fn load(dir: &Path) -> Result<Skill, String> {
     let file: SkillFile =
         toml::from_str(&read("skill.toml")?).map_err(|error| format!("skill.toml: {error}"))?;
     let triggers = match file.trigger {
-        toml::Value::Array(many) => many,
-        one => vec![one],
+        None => Vec::new(),
+        Some(toml::Value::Array(many)) => many,
+        Some(one) => vec![one],
     };
     let triggers = triggers
         .into_iter()
@@ -387,11 +399,31 @@ pub fn load(dir: &Path) -> Result<Skill, String> {
             )
         })
         .collect::<Result<Vec<_>, _>>()?;
-    if triggers.is_empty() || file.steps.is_empty() {
-        return Err("skill.toml needs a trigger and at least one [[do]]".into());
+    if (triggers.is_empty() && file.tool.is_none()) || file.steps.is_empty() {
+        return Err("skill.toml needs a trigger or a tool, and at least one [[do]]".into());
     }
-    if file.ask.policy.is_empty() {
+    let policy = file.ask.map(|ask| ask.policy).unwrap_or_default();
+    if !triggers.is_empty() && policy.is_empty() {
         return Err("[ask] names the Policy's question".into());
+    }
+    if let Some(tool) = &file.tool {
+        // What the provider link takes (`lamp_gemini::Tool::validate`).
+        let mut letters = tool.bytes();
+        let first = letters
+            .next()
+            .is_some_and(|first| first.is_ascii_lowercase());
+        if !first
+            || tool.len() > 48
+            || !letters
+                .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
+        {
+            return Err(format!(
+                "tool {tool:?}: a lowercase letter, then at most 47 lowercase letters, digits and _"
+            ));
+        }
+        if description.len() > 1_024 {
+            return Err("a skill with a tool has a description of at most 1,024 bytes".into());
+        }
     }
     let mut conditions = Vec::new();
     for condition in file.conditions {
@@ -421,8 +453,19 @@ pub fn load(dir: &Path) -> Result<Skill, String> {
     }
     let mut steps = Vec::new();
     for step in file.steps {
-        if step.body.is_none() && step.light.is_none() && step.say.is_none() {
-            return Err("a [[do]] step names body, light or say".into());
+        if step.body.is_none() && step.light.is_none() && step.say.is_none() && step.look.is_none()
+        {
+            return Err("a [[do]] step names body, light, say or look".into());
+        }
+        match step.look {
+            None => {}
+            Some(true) if file.tool.is_some() && triggers.is_empty() => steps.push(Call::Look),
+            Some(_) => {
+                return Err(
+                    "look = true, in a skill started by its tool alone: the model takes the look"
+                        .into(),
+                );
+            }
         }
         if let Some(body) = step.body {
             match body.look_at.as_deref() {
@@ -476,7 +519,8 @@ pub fn load(dir: &Path) -> Result<Skill, String> {
         needs: file.needs,
         triggers,
         conditions,
-        policy: file.ask.policy,
+        policy,
+        tool: file.tool,
         steps,
     })
 }
@@ -804,39 +848,98 @@ impl Engine {
                     Some(true),
                 ));
                 watch.ran_us = Some(now_us);
-                // The face to look at: the largest in the newest list of
-                // faces that still lasts. With none, the other steps go on.
-                let face = Self::fresh(&self.latest, Faces::TOPIC, now_us).and_then(|faces| {
-                    serde_json::from_value::<Faces>(faces.clone())
-                        .ok()?
-                        .faces
-                        .into_iter()
-                        .max_by(|a, b| (a.ymax - a.ymin).total_cmp(&(b.ymax - b.ymin)))
-                        .map(|face| {
-                            (
-                                face.xmin + face.xmax - 1.0,
-                                face.ymin + face.ymax - 1.0,
-                                face.ymax - face.ymin,
-                            )
-                        })
-                });
-                let calls = skill
-                    .steps
-                    .iter()
-                    .filter_map(|step| match step {
-                        Call::Gaze { .. } => face.map(|face| Call::Gaze { face: Some(face) }),
-                        other => Some(other.clone()),
-                    })
-                    .collect();
                 runs.push(Run {
                     skill: skill.name.clone(),
                     events,
-                    calls,
+                    calls: calls(&self.latest, skill, now_us),
                 });
             }
         }
         runs
     }
+
+    /// The model called `name`: the first skill whose tool it is runs its
+    /// steps. A person asked, so the Policy is not asked.
+    pub fn tool(&self, name: &str, now_us: u64) -> Option<Run> {
+        let skill = self
+            .skills
+            .iter()
+            .find(|skill| skill.tool.as_deref() == Some(name))?;
+        Some(Run {
+            skill: skill.name.clone(),
+            events: vec![event(
+                &skill.name,
+                SkillStage::Triggered,
+                format!("the model called {name}"),
+                None,
+            )],
+            calls: calls(&self.latest, skill, now_us),
+        })
+    }
+}
+
+/// A skill's steps as calls now. The face to look at: the largest in the
+/// newest list of faces that still lasts. With none, the other steps go on.
+fn calls(
+    latest: &HashMap<String, (Value, u64, Option<u64>)>,
+    skill: &Skill,
+    now_us: u64,
+) -> Vec<Call> {
+    let face = Engine::fresh(latest, Faces::TOPIC, now_us).and_then(|faces| {
+        serde_json::from_value::<Faces>(faces.clone())
+            .ok()?
+            .faces
+            .into_iter()
+            .max_by(|a, b| (a.ymax - a.ymin).total_cmp(&(b.ymax - b.ymin)))
+            .map(|face| {
+                (
+                    face.xmin + face.xmax - 1.0,
+                    face.ymin + face.ymax - 1.0,
+                    face.ymax - face.ymin,
+                )
+            })
+    });
+    skill
+        .steps
+        .iter()
+        .filter_map(|step| match step {
+            Call::Gaze { .. } => face.map(|face| Call::Gaze { face: Some(face) }),
+            other => Some(other.clone()),
+        })
+        .collect()
+}
+
+/// The tools file the voice reads beside the actions part's `tools.json`:
+/// each skill's tool, described with the skill's description. A name an
+/// earlier skill took is left out, as [`Engine::tool`] runs the first.
+pub fn tools_file(skills: &[Skill]) -> Value {
+    let mut tools: Vec<Value> = Vec::new();
+    for skill in skills {
+        if let Some(name) = &skill.tool
+            && !tools.iter().any(|tool| tool["name"] == *name)
+        {
+            tools.push(json!({"name": name, "description": skill.description}));
+        }
+    }
+    json!({ "tools": tools })
+}
+
+/// What the model is told when its call ran these calls. With a look, to
+/// say only that it will look: the voice takes its full look when the lamp
+/// says so. With a say, the note, for its answer.
+pub fn told(calls: &[Call]) -> Value {
+    let note = calls.iter().find_map(|call| match call {
+        Call::Say(note) => Some(note.as_str()),
+        _ => None,
+    });
+    const LOOK: &str = "Say only \"Let me take a look.\" now, in those words.";
+    let next = match (calls.contains(&Call::Look), note) {
+        (true, Some(note)) => format!("{LOOK} When the picture comes: {note}"),
+        (true, None) => format!("{LOOK} The picture comes after it."),
+        (false, Some(note)) => note.to_owned(),
+        (false, None) => "Done.".to_owned(),
+    };
+    json!({ "next": next })
 }
 
 /// One message of a recording made by `lamp-bus record`.

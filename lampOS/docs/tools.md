@@ -85,6 +85,23 @@ and should be words the lamp can say. The answer may be at most 8,192
 bytes on the line and about 4,000 as JSON to the model; a larger one is
 treated as no answer.
 
+### The skills'
+
+`lamp-skills --tools-dir <dir>/skills` ([skills.md](skills.md#tools-for-the-model))
+keeps the same two things one folder down, and the voice reads and calls
+them the same way, at the same session open and within the same deadline:
+
+    <dir>/skills/tools.json   each skill's tool, described with its SKILL.md description
+    <dir>/skills/call.sock    {"op":"call","name":"check_my_work","args":{}} -> {"ok":true,"result":{"next":"..."}}
+
+They come after the executive's and within the same 32. A name the voice
+or the executive already has, or a Schedule name, is left out of the
+skills', and a call of it goes where it did before. A skill's call is the
+executive's route in every other way: it waits for the Policy's hold like
+the executive's, and the request counts as one in which the lamp acted.
+No file, and nothing changes. Host test:
+`the_skills_tools_are_told_after_the_executives_and_go_to_the_skills`.
+
 ### Schedule tools and due speech
 
 `LAMP_SCHEDULE_TOOLS=on` enables six additional Actions tools:

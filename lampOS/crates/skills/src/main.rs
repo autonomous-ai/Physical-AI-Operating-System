@@ -4,11 +4,12 @@
 //! actions part and the voice's say service.
 use lamp_bus::{Bus, Publisher, Subscriber};
 use lamp_msgs::{Light, SkillEvent, SkillStage};
-use lamp_skills::{Call, Engine, duration_us, load_all, run_tests};
+use lamp_skills::{Call, Engine, duration_us, load_all, run_tests, told, tools_file};
 use serde_json::json;
 use std::{
+    collections::HashSet,
     io::{self, BufRead, BufReader, Read, Write},
-    os::unix::net::{UnixDatagram, UnixStream},
+    os::unix::net::{UnixDatagram, UnixListener, UnixStream},
     path::{Path, PathBuf},
     process::ExitCode,
     sync::mpsc,
@@ -16,7 +17,8 @@ use std::{
 };
 
 const USAGE: &str = "usage: lamp-skills [--dir DIR] [--bus-root DIR] [--gaze-socket PATH] \
-                     [--mood-socket PATH] [--actions-socket PATH] [--say-socket PATH]\n       \
+                     [--mood-socket PATH] [--actions-socket PATH] [--say-socket PATH] \
+                     [--tools-dir DIR]\n       \
                      lamp-skills test SKILL_DIR...";
 /// How often the folder is looked at for a change.
 const RELOAD_EVERY: Duration = Duration::from_secs(2);
@@ -26,6 +28,9 @@ const ACTIONS_TIMEOUT: Duration = Duration::from_secs(2);
 const SAY_EXPIRES_MS: u64 = 30_000;
 /// The longest the voice may take between two lines of an answer.
 const SAY_TIMEOUT: Duration = Duration::from_secs(180);
+/// The longest a tool call waits for the main loop, and for the voice's
+/// line: the voice gives up on a call after 1.5 s.
+const TOOL_TIMEOUT: Duration = Duration::from_secs(1);
 
 #[derive(Clone)]
 struct Sockets {
@@ -42,6 +47,7 @@ fn main() -> ExitCode {
     }
     let mut dir = PathBuf::from("/var/lib/lampOS/skills");
     let mut root = None;
+    let mut tools = None;
     let mut sockets = Sockets {
         gaze: "/run/lampos-body/gaze.sock".into(),
         mood: "/run/lampos-body/mood.sock".into(),
@@ -62,6 +68,7 @@ fn main() -> ExitCode {
             "--mood-socket" => sockets.mood = value,
             "--actions-socket" => sockets.actions = value,
             "--say-socket" => sockets.say = value,
+            "--tools-dir" => tools = Some(value),
             _ => {
                 eprintln!("{USAGE}");
                 return ExitCode::from(2);
@@ -69,7 +76,7 @@ fn main() -> ExitCode {
         }
     }
     let skip_ask = std::env::var("LAMP_SKILLS_ASK").is_ok_and(|value| value == "skip");
-    match serve(&dir, root, &sockets, skip_ask) {
+    match serve(&dir, root, &sockets, tools.as_deref(), skip_ask) {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
             eprintln!("lamp-skills: {error}");
@@ -158,7 +165,13 @@ fn light_now(bus: &Bus) -> Option<Light> {
         .flatten()
 }
 
-fn serve(dir: &Path, root: Option<PathBuf>, sockets: &Sockets, skip_ask: bool) -> io::Result<()> {
+fn serve(
+    dir: &Path,
+    root: Option<PathBuf>,
+    sockets: &Sockets,
+    tools: Option<&Path>,
+    skip_ask: bool,
+) -> io::Result<()> {
     let bus = match root {
         Some(root) => Bus::new(root)?,
         None => Bus::from_environment()?,
@@ -167,8 +180,17 @@ fn serve(dir: &Path, root: Option<PathBuf>, sockets: &Sockets, skip_ask: bool) -
         bus.publisher_declared(SkillEvent::TOPIC, &SkillEvent::declaration(), "skills")?;
     let (finished, done) = mpsc::channel::<SkillEvent>();
     let mut engine = Engine::new(Vec::new(), skip_ask);
+    let runner = Runner {
+        sockets: sockets.clone(),
+        finished,
+        bus: bus.clone(),
+    };
+    let (ask, asks) = mpsc::channel::<ToolAsk>();
+    if let Some(tools) = tools {
+        listen(tools, ask)?;
+    }
     // One run a skill at a time: what is under way, by skill.
-    let mut busy = std::collections::HashSet::new();
+    let mut busy = HashSet::new();
     let mut subscribers: Vec<Subscriber> = Vec::new();
     let mut seen = None;
     let mut looked: Option<Instant> = None;
@@ -198,6 +220,9 @@ fn serve(dir: &Path, root: Option<PathBuf>, sockets: &Sockets, skip_ask: bool) -
                 let names: Vec<&str> = skills.iter().map(|skill| skill.name.as_str()).collect();
                 eprintln!("lamp-skills: loaded {names:?}");
                 engine.replace(skills);
+                if let Some(tools) = tools {
+                    write_tools(tools, &engine);
+                }
                 let topics = engine.topics();
                 subscribers
                     .retain(|subscriber| topics.iter().any(|topic| topic == subscriber.topic()));
@@ -216,12 +241,17 @@ fn serve(dir: &Path, root: Option<PathBuf>, sockets: &Sockets, skip_ask: bool) -
             let _ = out.alive();
         }
         if subscribers.is_empty() {
-            std::thread::sleep(Duration::from_millis(250));
+            if let Ok(call) = asks.recv_timeout(Duration::from_millis(250)) {
+                tool_call(call, &engine, &mut busy, &mut out, &runner);
+            }
             continue;
         }
         let wait =
             Duration::from_millis(250 / subscribers.len() as u64).max(Duration::from_millis(10));
         for subscriber in &mut subscribers {
+            while let Ok(call) = asks.try_recv() {
+                tool_call(call, &engine, &mut busy, &mut out, &runner);
+            }
             let message = match subscriber.recv(wait) {
                 Ok(Some(message)) => message,
                 Ok(None) => continue,
@@ -240,39 +270,160 @@ fn serve(dir: &Path, root: Option<PathBuf>, sockets: &Sockets, skip_ask: bool) -
                 for event in run.events {
                     publish(&mut out, event);
                 }
-                if run.calls.is_empty() {
-                    continue;
+                if !run.calls.is_empty() {
+                    start(run.skill, run.calls, &mut busy, &mut out, &runner);
                 }
-                if !busy.insert(run.skill.clone()) {
-                    publish(
-                        &mut out,
-                        SkillEvent {
-                            skill: run.skill,
-                            stage: SkillStage::Done,
-                            why: "not made: its last run is still under way".into(),
-                            allowed: None,
-                        },
-                    );
-                    continue;
-                }
-                // A run waits on the voice for as long as the say takes (at
-                // most SAY_TIMEOUT a line) or a light's for (at most 10 min):
-                // its own thread, one a skill, so the skills go on listening.
-                // ponytail: a skill removed meanwhile still finishes its run.
-                let (sockets, finished, bus) = (sockets.clone(), finished.clone(), bus.clone());
-                let before = light_now(&bus);
-                std::thread::spawn(move || {
-                    let why = perform(&run.skill, &run.calls, &sockets, &bus, before);
-                    let _ = finished.send(SkillEvent {
-                        skill: run.skill,
-                        stage: SkillStage::Done,
-                        why,
-                        allowed: None,
-                    });
-                });
             }
         }
     }
+}
+
+/// What a run needs from the program.
+struct Runner {
+    sockets: Sockets,
+    finished: mpsc::Sender<SkillEvent>,
+    bus: Bus,
+}
+
+/// Starts one run of `skill`, unless its last is still under way.
+fn start(
+    skill: String,
+    calls: Vec<Call>,
+    busy: &mut HashSet<String>,
+    out: &mut Publisher,
+    runner: &Runner,
+) {
+    if !busy.insert(skill.clone()) {
+        publish(
+            out,
+            SkillEvent {
+                skill,
+                stage: SkillStage::Done,
+                why: "not made: its last run is still under way".into(),
+                allowed: None,
+            },
+        );
+        return;
+    }
+    // A run waits on the voice for as long as the say takes (at most
+    // SAY_TIMEOUT a line) or a light's for (at most 10 min): its own
+    // thread, one a skill, so the skills go on listening.
+    // ponytail: a skill removed meanwhile still finishes its run.
+    let (sockets, finished, bus) = (
+        runner.sockets.clone(),
+        runner.finished.clone(),
+        runner.bus.clone(),
+    );
+    let before = light_now(&bus);
+    std::thread::spawn(move || {
+        let why = perform(&skill, &calls, &sockets, &bus, before);
+        let _ = finished.send(SkillEvent {
+            skill,
+            stage: SkillStage::Done,
+            why,
+            allowed: None,
+        });
+    });
+}
+
+/// A call of a skill's tool from the voice, and where its answer goes.
+type ToolAsk = (String, mpsc::Sender<serde_json::Value>);
+
+/// The model called a skill's tool: its steps run, and the voice is told
+/// at once what the model is to say. The look and the say are the model's;
+/// the body and the light are made here.
+fn tool_call(
+    (name, reply): ToolAsk,
+    engine: &Engine,
+    busy: &mut HashSet<String>,
+    out: &mut Publisher,
+    runner: &Runner,
+) {
+    let Some(run) = engine.tool(&name, lamp_ipc::monotonic_us()) else {
+        let _ = reply.send(json!({"error": "No skill of mine does that just now."}));
+        return;
+    };
+    let _ = reply.send(told(&run.calls));
+    for event in run.events {
+        publish(out, event);
+    }
+    let made: Vec<Call> = run
+        .calls
+        .into_iter()
+        .filter(|call| !matches!(call, Call::Look | Call::Say(_)))
+        .collect();
+    if made.is_empty() {
+        publish(
+            out,
+            SkillEvent {
+                skill: run.skill,
+                stage: SkillStage::Done,
+                why: "the model was told what to do next".into(),
+                allowed: None,
+            },
+        );
+    } else {
+        start(run.skill, made, busy, out, runner);
+    }
+}
+
+/// The skills' tools for the voice: `tools.json` written beside a
+/// `call.sock` in `dir`, which the voice finds in the actions part's
+/// directory (`docs/tools.md`). No tool, no file.
+fn write_tools(dir: &Path, engine: &Engine) {
+    let file = tools_file(engine.skills());
+    let path = dir.join("tools.json");
+    let written = if file["tools"].as_array().is_some_and(Vec::is_empty) {
+        std::fs::remove_file(&path).or_else(|error| match error.kind() {
+            io::ErrorKind::NotFound => Ok(()),
+            _ => Err(error),
+        })
+    } else {
+        // Whole or not at all: the voice may read it as it is written.
+        let fresh = dir.join(".tools.json");
+        std::fs::write(&fresh, file.to_string()).and_then(|()| std::fs::rename(&fresh, &path))
+    };
+    if let Err(error) = written {
+        eprintln!("lamp-skills: {} not written: {error}", path.display());
+    }
+}
+
+/// Listens on `dir/call.sock` as the actions part does: one line in
+/// (`{"op":"call","name":...}`), one line out, the main loop answering.
+fn listen(dir: &Path, asks: mpsc::Sender<ToolAsk>) -> io::Result<()> {
+    std::fs::create_dir_all(dir)?;
+    let socket = dir.join("call.sock");
+    let _ = std::fs::remove_file(&socket);
+    let listener = UnixListener::bind(&socket)?;
+    std::thread::spawn(move || {
+        for stream in listener.incoming().flatten() {
+            let answer = || -> io::Result<()> {
+                stream.set_read_timeout(Some(TOOL_TIMEOUT))?;
+                stream.set_write_timeout(Some(TOOL_TIMEOUT))?;
+                let mut line = String::new();
+                BufReader::new((&stream).take(8_192)).read_line(&mut line)?;
+                let call: serde_json::Value = serde_json::from_str(&line).unwrap_or_default();
+                let (reply, told) = mpsc::channel();
+                let result = (call["op"] == "call")
+                    .then(|| call["name"].as_str())
+                    .flatten()
+                    .filter(|name| asks.send(((*name).to_owned(), reply)).is_ok())
+                    .and_then(|_| told.recv_timeout(TOOL_TIMEOUT).ok());
+                let line = match result {
+                    Some(result) => match result.get("error") {
+                        Some(error) => json!({"ok": false, "error": error}),
+                        None => json!({"ok": true, "result": result}),
+                    },
+                    None => json!({"ok": false, "error": "My skills did not answer in time."}),
+                };
+                writeln!(&stream, "{line}")
+            };
+            if let Err(error) = answer() {
+                eprintln!("lamp-skills: a tool call was not answered: {error}");
+            }
+        }
+    });
+    Ok(())
 }
 
 /// How the light was changed, to give it back.
@@ -483,6 +634,7 @@ fn make(call: &Call, sockets: &Sockets) -> String {
             said.join(", ")
         }
         Call::Say(_) => "say: made by its own step".into(),
+        Call::Look => "look: the model's, when it says it will look".into(),
     }
 }
 

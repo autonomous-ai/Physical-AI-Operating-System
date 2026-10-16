@@ -799,3 +799,142 @@ fn a_macs_appledouble_files_are_passed_over() {
     load(&skill).unwrap();
     assert_eq!(run_tests(&skill).unwrap(), clean);
 }
+
+/// Desk tutor's shape (#941): started by its tool alone, it lights the
+/// page and has the voice take its full look.
+const TUTOR: &str = r#"
+needs = ["eyes", "voice", "light"]
+tool = "check_my_work"
+[[do]]
+light = { colour = "white", for = "1s" }
+look = true
+say = "Tutor: a hint or a question, never the answer."
+"#;
+
+#[test]
+fn a_tool_needs_no_trigger_and_a_look_needs_a_tool() {
+    let dir = tempfile::tempdir().unwrap();
+    let skill = load(&skill_with(dir.path(), "tutor", TUTOR)).unwrap();
+    assert_eq!(skill.tool.as_deref(), Some("check_my_work"));
+    assert!(skill.triggers.is_empty());
+    for (toml, why) in [
+        (TUTOR.replace("check_my_work", "Check My Work"), "tool \""),
+        (TUTOR.replace("tool = \"check_my_work\"", ""), "a trigger or a tool"),
+        (
+            TUTOR.replace(
+                "tool = \"check_my_work\"",
+                "tool = \"check_my_work\"\n[trigger]\ntopic = \"humans/faces/tracked\"\n[ask]\npolicy = \"nudge\"",
+            ),
+            "started by its tool alone",
+        ),
+    ] {
+        let error = load(&skill_with(&dir.path().join("bad"), "tutor", &toml)).unwrap_err();
+        assert!(error.contains(why), "{toml}: {error}");
+    }
+}
+
+#[test]
+fn a_declared_tool_is_in_the_tools_file_and_a_call_runs_the_skills_steps() {
+    // Short: a socket's whole path has to fit in 103 bytes.
+    let dir = tempfile::Builder::new()
+        .prefix("st")
+        .tempdir_in("/tmp")
+        .unwrap();
+    let root = dir.path();
+    fs::create_dir(root.join("skills")).unwrap();
+    let bus = Bus::new(root.join("bus")).unwrap();
+    let mut events = bus.subscribe(SkillEvent::TOPIC, "test").unwrap();
+    bus.publisher_declared("light/state", &Light::declaration(), "ring")
+        .unwrap()
+        .publish_json(1, &Light::new(true, "blue", 3).unwrap())
+        .unwrap();
+    let actions = UnixListener::bind(root.join("actions.sock")).unwrap();
+    let (called, lights) = mpsc::channel();
+    std::thread::spawn(move || {
+        for stream in actions.incoming().flatten() {
+            let mut line = String::new();
+            BufReader::new(&stream).read_line(&mut line).unwrap();
+            (&stream)
+                .write_all(b"{\"ok\":true,\"result\":{}}\n")
+                .unwrap();
+            let _ = called.send(line);
+        }
+    });
+    let tools = root.join("tools");
+    let _running = Running(
+        Command::new(env!("CARGO_BIN_EXE_lamp-skills"))
+            .args([
+                "--dir".as_ref(),
+                root.join("skills").as_os_str(),
+                "--bus-root".as_ref(),
+                root.join("bus").as_os_str(),
+                "--actions-socket".as_ref(),
+                root.join("actions.sock").as_os_str(),
+                "--tools-dir".as_ref(),
+                tools.as_os_str(),
+            ])
+            .spawn()
+            .unwrap(),
+    );
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while !tools.join("call.sock").exists() {
+        assert!(Instant::now() < deadline, "no call.sock");
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    // No skill with a tool: no tools file.
+    std::thread::sleep(Duration::from_millis(300));
+    assert!(!tools.join("tools.json").exists());
+    skill_with(&root.join("skills"), "tutor", TUTOR);
+    let file = loop {
+        if let Ok(text) = fs::read_to_string(tools.join("tools.json")) {
+            break serde_json::from_str::<serde_json::Value>(&text).unwrap();
+        }
+        assert!(Instant::now() < deadline, "no tools file");
+        std::thread::sleep(Duration::from_millis(50));
+    };
+    assert_eq!(
+        file,
+        serde_json::json!({"tools":[{"name":"check_my_work","description":"A test."}]})
+    );
+    // The voice's call, as it asks the actions part.
+    let call = |name: &str| {
+        let stream = std::os::unix::net::UnixStream::connect(tools.join("call.sock")).unwrap();
+        writeln!(&stream, r#"{{"op":"call","name":"{name}","args":{{}}}}"#).unwrap();
+        let mut line = String::new();
+        BufReader::new(&stream).read_line(&mut line).unwrap();
+        serde_json::from_str::<serde_json::Value>(&line).unwrap()
+    };
+    let asked = Instant::now();
+    let answer = call("check_my_work");
+    assert!(
+        asked.elapsed() < Duration::from_millis(500),
+        "{:?}",
+        asked.elapsed()
+    );
+    assert_eq!(answer["ok"], true, "{answer}");
+    let next = answer["result"]["next"].as_str().unwrap();
+    assert!(
+        next.starts_with("Say only \"Let me take a look.\""),
+        "{next}"
+    );
+    assert!(next.ends_with("never the answer."), "{next}");
+    assert_eq!(call("nobody_has_this")["ok"], false);
+    let mut seen = Vec::new();
+    while !seen
+        .iter()
+        .any(|event: &SkillEvent| event.stage == SkillStage::Done)
+        && Instant::now() < deadline
+    {
+        if let Some(message) = events.recv(Duration::from_millis(100)).unwrap() {
+            seen.push(message.parse().unwrap());
+        }
+    }
+    assert_eq!(stages(&seen), [SkillStage::Triggered, SkillStage::Done]);
+    let lights: Vec<String> = lights.try_iter().collect();
+    // The page lit, and after its second given back.
+    assert!(
+        lights[0].contains("\"light_colour\"") && lights[0].contains("white"),
+        "{lights:?}"
+    );
+    assert!(lights[1].contains("blue"), "{lights:?}");
+}

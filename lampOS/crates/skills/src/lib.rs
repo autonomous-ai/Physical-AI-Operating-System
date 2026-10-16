@@ -1280,7 +1280,20 @@ pub fn replay(dir: &Path, recording: &Path) -> Result<Vec<Made>, String> {
 /// the program does with a call while the last run is still under way
 /// (#1036, #1051) is not replayed.
 pub fn replay_with(dir: &Path, recording: &Path, tools: &[ToolCall]) -> Result<Vec<Made>, String> {
-    let mut engine = Engine::new(vec![load(dir)?], true);
+    let skill = load(dir)?;
+    // A name the skill's tool is not would make nothing and pass as a
+    // quiet case: it is refused.
+    if let Some(tool) = tools
+        .iter()
+        .find(|tool| skill.tool.as_deref() != Some(tool.name.as_str()))
+    {
+        return Err(format!(
+            "call_tool {:?}: this skill's tool is {:?}",
+            tool.name,
+            skill.tool.as_deref().unwrap_or("none")
+        ));
+    }
+    let mut engine = Engine::new(vec![skill], true);
     let messages = read_recordings(recording)?;
     let first_us = messages.first().map_or(0, |message| message.header.at_us);
     let mut calls: Vec<(u64, &str)> = tools

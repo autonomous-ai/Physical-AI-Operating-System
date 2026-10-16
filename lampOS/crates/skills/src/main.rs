@@ -254,7 +254,11 @@ fn clock_control(path: &Path, skips: mpsc::Sender<Skip>) -> io::Result<()> {
         for stream in listener.incoming().flatten() {
             let mut lines = BufReader::new((&stream).take(8_192));
             let mut line = String::new();
-            while lines.read_line(&mut line).is_ok_and(|read| read > 0) {
+            // Up to 8 KiB a line.
+            while {
+                lines.get_mut().set_limit(8_192);
+                lines.read_line(&mut line).is_ok_and(|read| read > 0)
+            } {
                 let by = serde_json::from_str::<serde_json::Value>(&line)
                     .ok()
                     .and_then(|asked| asked["skip_us"].as_u64());

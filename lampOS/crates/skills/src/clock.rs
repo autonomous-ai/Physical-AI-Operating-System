@@ -23,7 +23,7 @@ static SKIPPED_US: AtomicU64 = AtomicU64::new(0);
 static STEPPED: AtomicBool = AtomicBool::new(false);
 
 /// How soon a wait sees a skip.
-pub const SLICE: Duration = Duration::from_millis(2);
+pub const SLICE: Duration = Duration::from_millis(5);
 
 /// From now on a test may skip the clock: waits look at it every [`SLICE`].
 pub fn stepped() {

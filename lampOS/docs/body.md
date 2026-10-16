@@ -2225,8 +2225,8 @@ under 0.3 s; a hand holding a joint reads 94 to 100%
   arm's torque before it, if it fails, is tried again for half a
   second, as any read of the run. A lowering that fails holds every joint where it is
   and ends the run, and the whole lamp is then let go (torque off), as at
-  start. A hand that stops it (a load or a tracking) makes the lamp let
-  go again instead, and the step that does so writes no goal first: the
+  start. After a hand's slump (`--limp on`), a hand that stops it (a load or a tracking), or moves the held head, base or elbow (a drift), makes the lamp let
+  go again instead (after an overload the same stop ends the run), and the step that does so writes no goal first: the
   arm is never sent toward the pose it stood in before the slump. Otherwise the arm is not lifted by that: it stays where
   it slumped until a mood or a person in front of the lamp next asks it
   to stand, and then rises by the ordinary way up from where it is, if

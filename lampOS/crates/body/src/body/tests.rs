@@ -5116,6 +5116,17 @@ fn let_go_standing(
     elbow_falls: bool,
     shoulder_strain: Option<(f32, f32)>,
 ) -> (Lamp, BodyReport, Vec<(Duration, Glimpse)>) {
+    let_go_standing_turned(by_hand, elbow_falls, shoulder_strain, (3.0, 2_065.0))
+}
+
+/// As `let_go_standing`, the hand turning the base until `hand.0` s,
+/// toward `hand.1`.
+fn let_go_standing_turned(
+    by_hand: bool,
+    elbow_falls: bool,
+    shoulder_strain: Option<(f32, f32)>,
+    hand: (f32, f32),
+) -> (Lamp, BodyReport, Vec<(Duration, Glimpse)>) {
     let secs = Duration::from_secs_f32;
     let (mut lamp, mut clock) = folded(secs(215.0));
     lamp.may_take_hold = true;
@@ -5134,7 +5145,7 @@ fn let_go_standing(
     // The elbow over the cut-off (80% of 600) for 1.6 s, or a hand on the
     // base a second after it stopped.
     lamp.strains = if by_hand {
-        lamp.hand = Some((secs(1.5), secs(3.0), YAW, 2_065.0));
+        lamp.hand = Some((secs(1.5), secs(hand.0), YAW, hand.1));
         vec![(secs(1.5), secs(3.0), YAW, 600)]
     } else {
         vec![(secs(1.0), secs(2.6), 2, 500)]
@@ -5297,6 +5308,19 @@ fn a_hand_that_stops_the_shoulder_coming_down_lets_go_again_and_the_arm_stays() 
     assert_eq!(lowered.to, vec![2_053]);
     arm_never_jumps(&lamp, &report, 2);
     stood_when_spoken_to(&seen);
+}
+
+/// The hand that slumped the lamp still on it at the take-up, turning the
+/// base from 1.5 s to 20 s toward 3,500: the base held while the shoulder
+/// comes down drifts, and that is a hand too. It lets go again, the run
+/// goes on, and the arm never jumps. Before, the drift ended the run at
+/// about 8 s and let the whole lamp go.
+#[test]
+fn a_hand_that_turns_the_base_while_the_shoulder_comes_down_lets_go_again() {
+    let (lamp, report, _) = let_go_standing_turned(true, true, None, (20.0, 3_500.0));
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert!(report.released.len() >= 2, "{report:?}");
+    arm_never_jumps(&lamp, &report, 2);
 }
 
 /// The same under overload: a lowering that fails holds the joints where

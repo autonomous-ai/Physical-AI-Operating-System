@@ -5277,8 +5277,15 @@ fn run_on<P: PortIo, R: Runtime>(
                     // A hand on it while the shoulder came down: as while
                     // the head comes up, it lets go again, and nothing new
                     // is asked of the arm before it does (`slump_again`).
-                    if let (true, Some(at), Stop::Load { .. } | Stop::Tracking { .. }) =
-                        (by_hand, hold, &stop)
+                    // The head, the base and the elbow are held while it
+                    // comes down, so a hand that moves one of them is a
+                    // drift. Only after a hand's slump: after an overload
+                    // the same stop ends the run.
+                    if let (
+                        true,
+                        Some(at),
+                        Stop::Load { .. } | Stop::Tracking { .. } | Stop::Drift { .. },
+                    ) = (by_hand, hold, &stop)
                     {
                         (stand, stand_velocity, slumped) = (0.0, 0.0, true);
                         written = at;

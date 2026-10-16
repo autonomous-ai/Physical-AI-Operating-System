@@ -297,6 +297,7 @@ mod tests {
                         continues: false,
                         continues_cut_off: false,
                         over_the_lamp: false,
+                        after_stop: false,
                     })
                     .is_err()
             );
@@ -312,6 +313,7 @@ mod tests {
                 continues: false,
                 continues_cut_off: false,
                 over_the_lamp: false,
+                after_stop: false,
             })
             .unwrap();
         assert!(request.confirm_start(3).is_err());
@@ -334,6 +336,7 @@ mod tests {
                     continues: false,
                     continues_cut_off: false,
                     over_the_lamp: false,
+                    after_stop: false,
                 })
                 .unwrap();
             if stage == FailedStage::AwaitingResponse {
@@ -378,6 +381,7 @@ mod tests {
                 continues: false,
                 continues_cut_off: false,
                 over_the_lamp: false,
+                after_stop: false,
             })
             .unwrap();
         if ended {
@@ -522,6 +526,7 @@ mod tests {
             input_sequence: 0,
             had_audio: false,
             voice_level: 0,
+            told_stop: None,
             final_chunk: None,
             playback_gaps: 0,
             notice: Default::default(),
@@ -736,6 +741,7 @@ mod tests {
                             continues: false,
                             continues_cut_off: false,
                             over_the_lamp: false,
+                            after_stop: false,
                         })
                         .unwrap();
                     fresh.confirm_start(2).unwrap();

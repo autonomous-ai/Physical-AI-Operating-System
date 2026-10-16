@@ -397,6 +397,9 @@ struct Reply {
     say: Option<crate::say::Ticket>,
     /// How loud the block last handed to the speaker is, for the ring's face.
     voice_level: u8,
+    /// The Stop this request tells the model of, if it does: given back if
+    /// it is thrown out before its End goes (`not_speech::StopToTell`).
+    told_stop: Option<(u64, u64)>,
 }
 impl Reply {
     fn settled(&self, speaker_pending: &Option<PendingSpeaker>) -> bool {
@@ -3066,6 +3069,10 @@ fn conversation_with_gate(
     // When a hand or the head last stopped the lamp's speech: a short sound
     // just after is the tap's own, not an answer (#829, 16:33).
     let mut stopped_at_us: Option<u64> = None;
+    // A Stop the model has not been told of yet: the next request on the
+    // session it cut tells it (`LAMP_STOP_TOLD=on`, off until it is played).
+    let stop_told = crate::not_speech::stop_told_from_environment();
+    let mut stop_untold = crate::not_speech::StopToTell::default();
     let mut spoke_in_turn: Option<u64> = None;
     // The head tap's "hm?" (#711): its sound, made once for the cycle when
     // the head is read, and when it last played, so it plays at most once
@@ -3557,6 +3564,11 @@ fn conversation_with_gate(
                     monotonic_us,
                 )?;
                 snapshot = cancellation.snapshot;
+                // The session of the answer the Stop cut, if it cut one.
+                let stopped_session = cancellation
+                    .reply
+                    .as_ref()
+                    .map(|current| current.cloud.session);
                 // A Stop, a head touch, the mute or a gap ends the unclear
                 // turn's asking too: nothing is asked again after it (#926).
                 if let Some(turn) = asking.cancelled() {
@@ -3607,6 +3619,9 @@ fn conversation_with_gate(
                 // #1107).
                 if (head_stop || stop && speaking) && !muted {
                     stopped_at_us = Some(observed_at_us);
+                    if stop_told && let Some(session) = stopped_session {
+                        stop_untold.stopped(observed_at_us, session);
+                    }
                 }
                 let reason = if asleep {
                     HEAD_SLEEP
@@ -4736,6 +4751,7 @@ fn conversation_with_gate(
                         provider_session,
                         continues,
                         took_over,
+                        stop_untold.take_for(provider_session, monotonic_us()),
                         rig.playout_start,
                         trace,
                         |state| rig.publish(state),
@@ -4966,6 +4982,11 @@ fn conversation_with_gate(
                     }
                     speech_levels.clear();
                     loud_blocks.clear();
+                    // Its End never went: the Stop it was to tell of goes to
+                    // the next request (the first builder on #1148).
+                    if let Some(stop) = reply.as_ref().and_then(|current| current.told_stop) {
+                        stop_untold.given_back(stop);
+                    }
                     cancel_reply(owner, reply, trace, "not_speech")?;
                     speaker_pending = None;
                     provider_queue.clear();
@@ -7242,6 +7263,7 @@ fn commit_written_turn(
         input_sequence: 0,
         had_audio: false,
         voice_level: 0,
+        told_stop: None,
         final_chunk: None,
         playback_gaps: 0,
         notice: NoticeDelivery::default(),
@@ -7292,6 +7314,9 @@ fn commit_admitted_input(
     continues: bool,
     // It takes over from the lamp's own answer: its End, if queued here, says so (#926).
     cut_in: bool,
+    // The Stop this request tells of, when it is the first after one
+    // (#829): when it came, and the session it cut.
+    after_stop: Option<(u64, u64)>,
     playout_start: PlayoutStart,
     trace: &mut SessionState,
     mut publish: impl FnMut(Snapshot) -> io::Result<()>,
@@ -7319,6 +7344,9 @@ fn commit_admitted_input(
     if continues {
         admitted["continues"] = json!(true);
     }
+    if after_stop.is_some() {
+        admitted["after_stop"] = json!(true);
+    }
     record(trace, admitted)?;
     provider_queue.push_back(ProviderInput::Start {
         session: provider_session,
@@ -7330,6 +7358,9 @@ fn commit_admitted_input(
         continues_cut_off: false,
         // Said over the lamp's reply: never judged for its voice (#829).
         over_the_lamp: replacing,
+        // The first request after a hand or the head stopped the lamp: the
+        // model is told so (#829, 16:33).
+        after_stop: after_stop.is_some(),
     });
     let mut current = Reply {
         owner: turn,
@@ -7343,6 +7374,7 @@ fn commit_admitted_input(
         input_sequence: 0,
         had_audio: false,
         voice_level: 0,
+        told_stop: after_stop,
         final_chunk: None,
         playback_gaps: 0,
         notice: NoticeDelivery::default(),
@@ -7438,6 +7470,7 @@ fn commit_offline_input(
         input_sequence: 0,
         had_audio: false,
         voice_level: 0,
+        told_stop: None,
         final_chunk: None,
         playback_gaps: 0,
         notice: NoticeDelivery::default(),
@@ -7509,6 +7542,7 @@ fn commit_back_online(
         input_sequence: 0,
         had_audio: false,
         voice_level: 0,
+        told_stop: None,
         final_chunk: None,
         playback_gaps: 0,
         notice: NoticeDelivery::default(),
@@ -7578,6 +7612,7 @@ fn continue_after_early_end(
         continues_cut_off: true,
         // Nothing of the answer given up was played.
         over_the_lamp: false,
+        after_stop: false,
     });
     let mut current = Reply {
         owner: turn,
@@ -7591,6 +7626,7 @@ fn continue_after_early_end(
         input_sequence: 0,
         had_audio: false,
         voice_level: 0,
+        told_stop: None,
         final_chunk: None,
         playback_gaps: 0,
         notice: NoticeDelivery::default(),
@@ -8713,6 +8749,7 @@ mod tests {
                 continues: false,
                 continues_cut_off: false,
                 over_the_lamp: false,
+                after_stop: false,
             })
             .unwrap();
         request.confirm_start(1).unwrap();
@@ -8760,6 +8797,7 @@ mod tests {
                 input_sequence: 1,
                 had_audio: true,
                 voice_level: 0,
+                told_stop: None,
                 final_chunk: None,
                 playback_gaps: 0,
                 notice: NoticeDelivery::default(),
@@ -9542,6 +9580,7 @@ mod tests {
             input_sequence: 1,
             had_audio: true,
             voice_level: 0,
+            told_stop: None,
             final_chunk: None,
             playback_gaps: 0,
             notice: NoticeDelivery::default(),
@@ -9796,6 +9835,7 @@ mod tests {
             input_sequence: 1,
             had_audio: true,
             voice_level: 0,
+            told_stop: None,
             final_chunk: None,
             playback_gaps: 0,
             notice: NoticeDelivery::default(),
@@ -9901,6 +9941,7 @@ mod tests {
             continues: false,
             continues_cut_off: false,
             over_the_lamp: false,
+            after_stop: false,
         }
     }
 

@@ -1089,6 +1089,7 @@ mod tests {
             continues: false,
             continues_cut_off: false,
             over_the_lamp: false,
+            after_stop: false,
         };
         assert!(gate.admits(now_us, &start(first.turn())).unwrap());
         engine.submit(start(first.turn()));

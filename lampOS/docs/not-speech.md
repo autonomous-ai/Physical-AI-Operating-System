@@ -55,7 +55,17 @@ treated so:
   by mistake and says "Go on." gets nothing, and says it again after the
   4 s or at more length. `not_speech.after_stop` in the record counts what
   that costs. A Stop pressed while the lamp was not speaking opens no 4 s
-  (Second on #1107).
+  (Second on #1107). With `LAMP_STOP_TOLD=on` (off until it is played on
+  lamp-4ace), the first request after such a Stop, on the session of the
+  answer it cut and within two minutes (`TELL_STOP_WITHIN_US`), says so in
+  its Start (`after_stop`, and in its `input_admitted` record). The model
+  is told beside it, in the lamp's "(For you to know, not to answer: …)"
+  form, that the person stopped it, that what it was saying is over, and
+  to say nothing about the stop (`STOPPED_NOTE`; the journal: "the model
+  is told the person stopped it"), so that it doesn't begin the story
+  again. A request that took it and is then thrown out as a sound, the
+  tap's own thump, gives it back, and the next request tells it
+  (`not_speech::StopToTell`; the first builder on #1148).
 - one that took the turn from the lamp's own answer (a quick "stop" over
   it), or from something that had itself been said (the short second half
   of a sentence after a pause). At first any turn that took over from

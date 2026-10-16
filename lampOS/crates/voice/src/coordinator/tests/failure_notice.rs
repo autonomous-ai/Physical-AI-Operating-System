@@ -21,6 +21,7 @@ fn failed_reply(before_started: bool) -> (Controller, Option<Reply>, SessionStat
                 continues: false,
                 continues_cut_off: false,
                 over_the_lamp: false,
+                after_stop: false,
             })
             .unwrap();
     }

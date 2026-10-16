@@ -243,6 +243,7 @@ impl Paired {
             continues: false,
             continues_cut_off: false,
             over_the_lamp: false,
+            after_stop: false,
         });
         self.queue.push_back(ProviderInput::Audio {
             request,
@@ -791,6 +792,7 @@ mod continuation_or_discard {
                 continues: false,
                 continues_cut_off: false,
                 over_the_lamp: false,
+                after_stop: false,
             });
             self.publish();
             self.flush(selected);
@@ -1599,6 +1601,7 @@ mod duplex_through_the_worker {
                 continues: false,
                 continues_cut_off: false,
                 over_the_lamp: false,
+                after_stop: false,
             },
             ProviderInput::Audio {
                 request: old,

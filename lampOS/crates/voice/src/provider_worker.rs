@@ -392,6 +392,12 @@ pub enum ProviderInput {
         /// ([`crate::same_voice`], #829). Left off the wire when false.
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         over_the_lamp: bool,
+        /// The first request after a hand or the lamp's head stopped its
+        /// speech (`hand_stop`, `head_stop`): the model is told the person
+        /// stopped it ([`STOPPED_NOTE`], #829, the first builder at 16:33).
+        /// Left off the wire when false.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        after_stop: bool,
     },
     Audio {
         request: u64,
@@ -1388,6 +1394,21 @@ async fn serve_with_visual<C: Connect>(
                                 ),
                             },
                         }
+                    }
+                }
+                // The first request after a hand or the head stopped the
+                // lamp: the model is told so, so that it does not pick up
+                // what it was saying (#829, the first builder at 16:33).
+                if let Some(request) = intake.handoff.take_after_stop() {
+                    match add_note(&provider, &mut intake.handoff.noted, request, STOPPED_NOTE) {
+                        Ok(()) => eprintln!(
+                            "lamp-voice provider: request {}: the model is told the person stopped it",
+                            request.get()
+                        ),
+                        Err(error) => eprintln!(
+                            "lamp-voice provider: request {}: the model could not be told the person stopped it: {error}",
+                            request.get()
+                        ),
                     }
                 }
                 // A request that goes on from one whose end was sent early
@@ -3215,6 +3236,9 @@ struct InputHandoff {
     /// A started request that goes on from one ended early and given up,
     /// until the model has been told so.
     cut_off: Option<RequestId>,
+    /// The first request after a hand or the head stopped the lamp, until
+    /// the model has been told so ([`STOPPED_NOTE`]).
+    after_stop: Option<RequestId>,
     /// The newest request whose sound was ended here, and when: a name
     /// heard after that was not said in it (`crate::attention`).
     ended: Option<(u64, u64)>,
@@ -3271,6 +3295,15 @@ impl InputHandoff {
         // Local revocation is synchronous and independent of provider queue
         // capacity, even when a refused input has already been retired.
         input.discard(RequestId::new(request).expect("validated reminder request"));
+    }
+
+    /// The open request that is the first after a Stop, once: the model is
+    /// to be told so beside what it hears.
+    fn take_after_stop(&mut self) -> Option<RequestId> {
+        let request = self.after_stop.take()?;
+        self.visual_turn()
+            .filter(|turn| turn.request == request)
+            .map(|_| request)
     }
 
     /// The open request that goes on from one ended early, once: the model
@@ -3531,6 +3564,7 @@ impl InputHandoff {
                 continues,
                 continues_cut_off,
                 over_the_lamp,
+                after_stop,
                 ..
             } => {
                 if self.submitted.is_some() {
@@ -3553,6 +3587,7 @@ impl InputHandoff {
                     captured: None,
                 });
                 self.cut_off = continues_cut_off.then_some(request);
+                self.after_stop = after_stop.then_some(request);
             }
             ProviderInput::Audio {
                 sequence,
@@ -3806,6 +3841,14 @@ trait InputSink {
 /// with nothing more said in the call's wait (`--call-wait-ms`, #782). A
 /// person who hears their name and nothing more says "Yes?" and waits.
 pub(crate) const CALLED_NOTE: &str = "The person said your name, Lamp, and nothing more: they are calling you. Answer as someone who hears their name does, with one short word such as \"Yes?\", and wait for them to go on.";
+
+/// What the model is told beside the first request after a hand or the
+/// lamp's head stopped its speech (#829, the first builder at 16:33: after
+/// each tap that stopped a story, the story began again). With
+/// `LAMP_STOP_TOLD=on` only. In the form of the lamp's other notes, which
+/// its character says nobody said aloud: never answered, never mentioned
+/// (the first builder on #1148: "Okay, I'll stop" said aloud is no better).
+pub(crate) const STOPPED_NOTE: &str = "(For you to know, not to answer: the person stopped you just now, with a touch or the stop button, while you were speaking. What you were saying is over: do not go back to it or start it again unless they ask for it, and say nothing about the stop.)";
 
 /// What the model is told beside a request that goes on from one whose end
 /// was sent early and given up when the person spoke again
@@ -4425,6 +4468,7 @@ mod tests {
             continues: false,
             continues_cut_off: false,
             over_the_lamp: false,
+            after_stop: false,
         }
     }
 
@@ -4442,6 +4486,7 @@ mod tests {
                 continues: false,
                 continues_cut_off: false,
                 over_the_lamp: false,
+                after_stop: false,
             }
         ));
         for field in ["request", "session", "privacy_generation"] {
@@ -4463,6 +4508,7 @@ mod tests {
             continues,
             continues_cut_off: false,
             over_the_lamp: false,
+            after_stop: false,
         };
         // Without `LAMP_CUT_KEEPS_NAME` the coordinator never sets it, and
         // the line on the worker's socket is the one it always was.
@@ -4493,6 +4539,7 @@ mod tests {
             continues: false,
             continues_cut_off: false,
             over_the_lamp: false,
+            after_stop: false,
         };
         assert_eq!(
             serde_json::to_string(&plain).unwrap(),
@@ -4505,6 +4552,7 @@ mod tests {
             continues: false,
             continues_cut_off: true,
             over_the_lamp: false,
+            after_stop: false,
         };
         let written = serde_json::to_value(&cut_off).unwrap();
         assert_eq!(written["continues_cut_off"], true);
@@ -4515,6 +4563,16 @@ mod tests {
                 ..
             }
         ));
+        let stopped = ProviderInput::Start {
+            request: 3,
+            session: 7,
+            privacy_generation: 2,
+            continues: false,
+            continues_cut_off: false,
+            over_the_lamp: false,
+            after_stop: true,
+        };
+        assert_eq!(serde_json::to_value(&stopped).unwrap()["after_stop"], true);
         let old =
             serde_json::json!({"kind":"start","request":1,"session":7,"privacy_generation":2});
         assert!(matches!(
@@ -4704,6 +4762,7 @@ mod tests {
                         continues: false,
                         continues_cut_off: false,
                         over_the_lamp: false,
+                        after_stop: false,
                     },
                     NOW,
                     &sink
@@ -4822,6 +4881,7 @@ mod tests {
                                 continues: false,
                                 continues_cut_off: false,
                                 over_the_lamp: false,
+                                after_stop: false,
                             })?;
                         }
                         Ok(control)
@@ -4881,6 +4941,7 @@ mod tests {
                     continues: false,
                     continues_cut_off: false,
                     over_the_lamp: false,
+                    after_stop: false,
                 })
                 .unwrap();
             assert_eq!(rig.tick(NOW).unwrap(), ControlDrain::Empty);
@@ -4953,6 +5014,7 @@ mod tests {
                                     continues: false,
                                     continues_cut_off: false,
                                     over_the_lamp: false,
+                                    after_stop: false,
                                 },
                                 ProviderInput::Audio {
                                     request: new.turn(),
@@ -5095,6 +5157,7 @@ mod tests {
                     continues: false,
                     continues_cut_off: false,
                     over_the_lamp: false,
+                    after_stop: false,
                 })
                 .unwrap();
             rig.parent
@@ -5197,6 +5260,7 @@ mod tests {
                 continues: false,
                 continues_cut_off: false,
                 over_the_lamp: false,
+                after_stop: false,
             })
             .unwrap();
         let error = rig.tick(NOW).unwrap_err();
@@ -5321,6 +5385,7 @@ mod tests {
                 continues: false,
                 continues_cut_off: false,
                 over_the_lamp: false,
+                after_stop: false,
             },
             ProviderInput::Audio {
                 request: next.turn(),
@@ -6412,6 +6477,18 @@ mod tests {
         }
         /// Admit a request and submit its start, one block and optional end.
         async fn speak(&mut self, dial: &mut Dial, interruption: bool, end: bool) -> u64 {
+            self.speak_told(dial, interruption, end, false).await
+        }
+
+        /// The same, its Start saying whether it is the first request after
+        /// a Stop.
+        async fn speak_told(
+            &mut self,
+            dial: &mut Dial,
+            interruption: bool,
+            end: bool,
+            after_stop: bool,
+        ) -> u64 {
             let input = if interruption {
                 AdmittedInput::Interruption
             } else {
@@ -6430,6 +6507,7 @@ mod tests {
                     continues: false,
                     continues_cut_off: false,
                     over_the_lamp: false,
+                    after_stop,
                 })
                 .unwrap();
             self.parent
@@ -6971,6 +7049,41 @@ mod tests {
         assert_eq!(rise_in(&levels, (10, None), 30), Some(40.0));
         assert_eq!(rise_in(&levels, (16, Some(29)), 99), None);
         assert_eq!(rise_in(&VecDeque::new(), (0, None), 99), None);
+    }
+
+    /// #829, the first builder at 16:33: the first request after a hand or
+    /// the head stopped the lamp is told so beside it, so that the model
+    /// does not pick up what it was saying.
+    #[tokio::test]
+    async fn the_first_request_after_a_stop_tells_the_model_it_was_stopped() {
+        let mut rig = LiveRig::start_with(quick_policy(), Options::reporting(Reporting::Typed));
+        let mut dial = rig.ready().await;
+        let request = rig.speak_told(&mut dial, false, false, true).await;
+        let owner = rig.snapshot.owner().unwrap();
+        rig.owner.input_ended(real_time(), owner).unwrap();
+        rig.publish();
+        rig.parent
+            .data
+            .send(ProviderInput::End {
+                request,
+                privacy_generation: rig.snapshot.microphone_generation(),
+                sound: false,
+                cut_in: false,
+            })
+            .unwrap();
+        // What the service is given for the request, up to its end.
+        let mut told = Vec::new();
+        loop {
+            let message = rig.service_message(&mut dial).await;
+            if let Some(text) = message["realtimeInput"]["text"].as_str() {
+                told.push(text.to_owned());
+            }
+            if message["realtimeInput"].get("activityEnd").is_some() {
+                break;
+            }
+        }
+        assert_eq!(told, [STOPPED_NOTE], "request {request}");
+        rig.stop().await;
     }
 
     /// The name and the room due in the same request go as one note, each
@@ -7575,6 +7688,7 @@ mod tests {
             continues: false,
             continues_cut_off: false,
             over_the_lamp: false,
+            after_stop: false,
         };
 
         first.service.send(resumable()).await;
@@ -7654,6 +7768,7 @@ mod tests {
                     continues: false,
                     continues_cut_off: false,
                     over_the_lamp: false,
+                    after_stop: false,
                 },
                 NOW,
                 &provider,
@@ -8129,6 +8244,7 @@ mod tests {
                 continues: false,
                 continues_cut_off: false,
                 over_the_lamp: false,
+                after_stop: false,
             })
             .unwrap();
         assert!(
@@ -8460,6 +8576,7 @@ mod tests {
                     continues: false,
                     continues_cut_off: false,
                     over_the_lamp: false,
+                    after_stop: false,
                 },
                 NOW,
                 &provider,
@@ -8533,6 +8650,7 @@ mod tests {
                 continues: false,
                 continues_cut_off: false,
                 over_the_lamp: false,
+                after_stop: false,
             })
             .unwrap();
         rig.parent
@@ -8733,6 +8851,7 @@ mod tests {
                 continues: false,
                 continues_cut_off: false,
                 over_the_lamp: false,
+                after_stop: false,
             })
             .unwrap();
         let message = rig.exit().await.0.unwrap_err().to_string();
@@ -9275,6 +9394,7 @@ mod tests {
                 continues: false,
                 continues_cut_off: false,
                 over_the_lamp: false,
+                after_stop: false,
             })
             .unwrap();
         rig.parent
@@ -9780,6 +9900,7 @@ mod tests {
                 continues: false,
                 continues_cut_off: false,
                 over_the_lamp: false,
+                after_stop: false,
             },
             ProviderInput::Audio {
                 request: next,
@@ -9912,6 +10033,7 @@ mod tests {
                 continues: false,
                 continues_cut_off: false,
                 over_the_lamp: false,
+                after_stop: false,
             })
             .unwrap();
         assert!(matches!(
@@ -10100,6 +10222,7 @@ mod tests {
                         continues,
                         continues_cut_off: false,
                         over_the_lamp: false,
+                        after_stop: false,
                     })
                     .unwrap();
                 loop {

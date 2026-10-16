@@ -150,6 +150,7 @@ fn start(request: u64) -> ProviderInput {
         continues: false,
         continues_cut_off: false,
         over_the_lamp: false,
+        after_stop: false,
     }
 }
 fn audio(request: u64, sequence: u64) -> ProviderInput {
@@ -1168,6 +1169,7 @@ async fn a_request_going_on_from_one_given_up_begins_with_its_words() {
         continues: false,
         continues_cut_off: true,
         over_the_lamp: false,
+        after_stop: false,
     });
     engine.submit(audio(2, 1));
     engine.submit(end(2));
@@ -1200,6 +1202,7 @@ async fn a_request_going_on_takes_only_the_words_of_the_one_just_before_it_in_it
         continues: false,
         continues_cut_off,
         over_the_lamp: false,
+        after_stop: false,
     };
     let script = Arc::new(Script {
         heard: Mutex::new(

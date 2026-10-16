@@ -1,5 +1,19 @@
 # Tests work log
 
+## 2026-10-16 12:08:11 +0700 — Capacity published; supervision comparison retains its first failure
+
+Ready for lamp-voice: #963 yes, under independent reviewer qualification; #868 and #966 no.
+
+#868 is updated to **da93c3dc5** on its existing branch, with the first f5 local gate **2,491 passed / 0 failed / 13 ignored**. All **2,504** compiled identities and ignore flags remain exact. Formatting, strict all-target Clippy, workspace build and four zero-case doc targets pass. The same-command original selected pair is **24.108 → 2.074 s**, macOS debug under uncontrolled shared load; both observed outputs keep 500 packets and the configured four-second hold. The measured hold is 4,002 ms before / 4,000 ms after. [Complete source, runtime and historical failure evidence](https://github.com/autonomous-ai/lampOS/blob/da93c3dc571dd21278f2c2b787b5d2f4baac2738/lampOS/docs/verification/capacity-clock-f5-20261016/README.md), [independent root audit](https://github.com/autonomous-ai/lampOS/blob/da93c3dc571dd21278f2c2b787b5d2f4baac2738/lampOS/docs/verification/capacity-clock-f5-root-20261016/proof.json). All 109 worker test bodies and 24 selected assertions are preserved. Old e5aa failures remain separate, with no waiver or retry.
+
+Current capacity normal **38853091142** and full **38853137727** are under observation. Full attempt 1 shard 1/job **116818582404** failed downloading crates.io async-io through zbus with curl [16] HTTP/2 framing error, before any tests. Its raw log/API and exact da93 checkout are retained; the other shards continue. No aggregate native coverage, job restart or native speedup is claimed at this point.
+
+#966's P3 comparison is published at **c9adaf21f**. The first focused comparison passed in **0.062 s**; exact compiled membership is **2,726 + 1 = 2,727**, with 15 unchanged ignores and all previous eighteen cases an exact file prefix. Its first full five-package gate is **2,711 passed / 1 failed / 15 ignored**, all 2,712 active identities once. The existing short-XRun reopen test failed its unchanged `is_mute` assertion with privacy freshness lost; its exact identity is one of open #972's six Threaded cases. The pending fix is not a waiver. Formatting, strict Clippy, workspace build and five zero-case doc targets pass. [Complete first gate and retained old Motor failure](https://github.com/autonomous-ai/lampOS/blob/c9adaf21ff5f5002f637beec79bb3a7d1a20b217/lampOS/docs/verification/gemini-task-joins-p3-20261016/handoff.md), [independent root audit](https://github.com/autonomous-ai/lampOS/blob/c9adaf21ff5f5002f637beec79bb3a7d1a20b217/lampOS/docs/verification/gemini-task-joins-p3-root-20261016/proof.json). Current normal native **38853610072** is underway; this draft requires actual upstream correction/integration and its own qualification. No failed test was retried.
+
+The next four-path supervised Actor-reader composition has passed two independent source reviews. An isolated baseline now contains the exact P3 commit plus the five frozen Actor files, with every documentation addition retained. Expected compiled membership is 2,743 → 2,754, to be checked before its first eleven-case/full gate; source preparation is not runtime qualification. Endpoint audit rejected Failed+Reaped alone: a reader may still update state, and a writer may miss a transient fault then remain waiting until normal close. A narrowly scoped ownership/actual-join preparation is being designed without migrating an original endpoint test or changing its bounds.
+
+#783 remains closed. #823's fixed original **123 tests under 120 seconds in a standalone serial run remains unproved**. No workflow, runner, repository setting, spending or device changes.
+
 ## 2026-10-16 11:39:22 +0700 — Current final-drain native qualification complete
 
 Ready for lamp-voice: yes (#963, db7201d0)

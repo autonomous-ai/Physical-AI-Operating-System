@@ -1164,7 +1164,10 @@ mod tests {
             ),
             (Some(3), "say_now", crate::policy::RULE)
         );
-        assert!(moment.busy(), "the news out and the ask waiting");
+        // The news still out, and the unprompted ask still waiting, not
+        // dropped by the reminder taken before it (the reviewer on #1143).
+        assert!(moment.asking.is_some(), "the news out");
+        assert_eq!(moment.waiting.len(), 1, "the unprompted ask waiting");
         assert!(
             moment
                 .turn(t + Duration::from_millis(20), 1_000_000, quiet)

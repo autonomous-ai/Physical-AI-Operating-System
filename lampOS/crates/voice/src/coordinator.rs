@@ -4461,7 +4461,14 @@ fn conversation_with_gate(
             last_publish = monotonic_us();
         }
         if provider_control_empty {
-            second::flush(rig, &cloud, reply, &mut provider_queue)?;
+            second::flush(
+                rig,
+                &mut cloud,
+                &mut output_flow,
+                reply,
+                &mut provider_queue,
+                trace,
+            )?;
         }
         select_failure_notice(notices, reply, &speaker_pending, trace)?;
         let prior_speaker_sequence = speaker_sequence;

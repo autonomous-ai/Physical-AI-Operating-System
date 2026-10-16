@@ -658,20 +658,49 @@ pub(super) fn takes_failed_turn(
 /// and what was queued since joins it in order.
 pub(super) fn flush(
     rig: &mut Rig,
-    cloud: &CloudAvailability,
+    cloud: &mut CloudAvailability,
+    flow: &mut OutputReceiver,
     reply: &mut Option<Reply>,
     queue: &mut VecDeque<ProviderInput>,
-) -> io::Result<()> {
+    trace: &mut SessionState,
+) -> Result<()> {
     let Rig {
         provider, second, ..
     } = rig;
-    let channel = &mut provider.channels.data;
     let Some(route) = second.as_mut() else {
-        return flush_provider_input(cloud, reply, queue, channel);
+        return Ok(flush_provider_input(
+            cloud,
+            reply,
+            queue,
+            &mut provider.channels.data,
+        )?);
     };
     // A replay goes with the request it was for (a cancellation in this
     // tick may have ended it).
     route.upkeep(reply.as_ref());
+    // A turn begun while the second route answers goes to Gemini once its
+    // link is Ready again, before anything of it is sent: between turns is
+    // not the only way back, as a busy room may never leave one (#960,
+    // lamp-4ace 09:03-09:06, every turn on the second route, Gemini up).
+    if route.second_active
+        && route.cloud.available()
+        && route.replay.is_empty()
+        && let Some(current) = reply.as_mut().filter(|current| {
+            !current.cloud.start_submitted
+                && current.cloud.outcome.is_none()
+                && current.reminder.is_none()
+        })
+    {
+        swap(provider, cloud, flow, route);
+        route.stand_in = false;
+        rebind(cloud, current, queue)?;
+        record(
+            trace,
+            json!({"kind":"voice_route_switched","at_us":monotonic_us(),"to":"live",
+            "why":"live_link_ready","turn":current.owner.turn(),"replayed_commands":0}),
+        )?;
+    }
+    let channel = &mut provider.channels.data;
     if route.holds(reply.as_ref()) {
         route.replay.extend(queue.drain(..));
         return Ok(());
@@ -687,19 +716,24 @@ pub(super) fn flush(
     let keep = !route.second_active;
     let mut paced = (keep && replaying).then_some(LIVE_REPLAY_PER_TICK);
     let line = &mut route.line;
-    flush_provider_input_with(cloud, reply, source, |command| {
-        if let Some(left) = paced.as_mut() {
-            if *left == 0 {
-                return Err(io::ErrorKind::WouldBlock.into());
+    Ok(flush_provider_input_with(
+        cloud,
+        reply,
+        source,
+        |command| {
+            if let Some(left) = paced.as_mut() {
+                if *left == 0 {
+                    return Err(io::ErrorKind::WouldBlock.into());
+                }
+                *left -= 1;
             }
-            *left -= 1;
-        }
-        channel.send(command)?;
-        if keep {
-            line.keep(command);
-        }
-        Ok(())
-    })
+            channel.send(command)?;
+            if keep {
+                line.keep(command);
+            }
+            Ok(())
+        },
+    )?)
 }
 
 #[cfg(test)]
@@ -970,7 +1004,15 @@ mod tests {
         }
 
         fn flush(&mut self, reply: &mut Option<Reply>, queue: &mut VecDeque<ProviderInput>) {
-            flush(&mut self.rig, &self.cloud, reply, queue).unwrap();
+            flush(
+                &mut self.rig,
+                &mut self.cloud,
+                &mut self.flow,
+                reply,
+                queue,
+                &mut self.trace,
+            )
+            .unwrap();
         }
     }
 

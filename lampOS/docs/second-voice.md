@@ -252,8 +252,9 @@ When the coordinator switches (below):
   before the first answer when the route has not answered in the last 120 s
   (`ANNOUNCEMENT`, `ANNOUNCE_AFTER`), because the voice cannot be Gemini's.
   It is not kept in the thread.
-- **Back to Gemini:** silently, at the next idle moment with Gemini Ready.
-  Nothing is said about it.
+- **Back to Gemini:** silently, at the next idle moment with Gemini Ready,
+  or at the start of the next turn if the room never goes quiet. Nothing
+  is said about it.
 
 ## Same character, memory, thread and tools
 
@@ -350,6 +351,13 @@ and its authority kept fresh during the rest of startup.
   while Gemini is not Ready and has not ended; back to Gemini, silently, on
   the first idle tick its link is Ready again or has ended (so Gemini's end
   still ends the service).
+- **A new turn on the second route** goes to Gemini when Gemini's link is
+  Ready, before anything of it is sent (`second::flush`): its queued
+  commands are rebound to Gemini's session, recorded as
+  `voice_route_switched` to `live`, `live_link_ready`, with the turn.
+  Between turns is not the only way back: on lamp-4ace (2026-10-16
+  09:03–09:06, #960) a busy room left no idle tick, and every turn went
+  to the second route with Gemini up.
 - **At startup**, before Gemini's first Ready of this voice process, the
   second route only stands in (that swap and the swap back are not
   recorded): a request admitted on it is held, nothing of it sent, for up

@@ -260,7 +260,20 @@ When the coordinator switches (below):
 - **One sentence:** "My voice sounds a little different just now." is said
   before the first answer when the route has not answered in the last 120 s
   (`ANNOUNCEMENT`, `ANNOUNCE_AFTER`), because the voice cannot be Gemini's.
-  It is not kept in the thread.
+  It is not kept in the thread. Each sentence after it is said after a
+  space, so the lamp's words read "just now. Hmm," (#1014).
+- **As quiet as Gemini:** with `LAMP_ATTENTION` on, a spoken turn's words
+  are judged by the Live route's own rule for whom it answers
+  (`crate::attention`, [attention.md](attention.md)) before the chat is
+  asked (`worker::Heeding`). It is given the room as Gemini's worker
+  publishes it (`room/state`), the lamp's name as `lamp-name` hears it
+  (`name/heard`, dated by the wall clock, in the window of the line's first
+  and last microphone packets, so a replayed line keeps its time), whether
+  the eyes see someone turned to the lamp, and the thread (a conversation
+  going on, the lamp's last line a question). Words it holds end the turn
+  after them, unanswered. Each turn is judged as a session's first. On
+  lamp-4ace on 2026-10-16 this route answered "Me." and half a question
+  between colleagues while Gemini's session was renewed; both are held now.
 - **Back to Gemini:** silently, at the next idle moment with Gemini Ready,
   or at the start of the next turn if the room never goes quiet. Nothing
   is said about it.
@@ -511,8 +524,8 @@ and its authority kept fresh during the rest of startup.
 Reported by the builders:
 
 - **Facts not told:** the worker accepts the Gemini worker's flags, but
-  sight, `look`, the camera, attention and air facts are not told to the
-  text model. A written turn's `look` is ignored. With `LAMP_SESSION_FACT`
+  sight, `look`, the camera and air facts are not told to the text
+  model. A written turn's `look` is ignored. With `LAMP_SESSION_FACT`
   and `LAMP_ROOM_FACTS` on, each turn's system message ends with the facts
   a Live session is told, in its words: the session fact when no
   conversation is going on, and the room as Gemini's worker publishes it
@@ -526,6 +539,11 @@ Reported by the builders:
   [not-speech.md](not-speech.md#a-room-sound-let-through-and-answered-800)).
   Being close to the lamp or facing it cannot be seen here, so it does not
   count as it does on the Live route.
+- **The rule for whom it answers, without three signs:** a tap on the head,
+  the room microphone's rise (`LAMP_ATTENTION=busy-near`) and whether it was
+  said from close (`--addressed`) are not given to it, so a line in a busy
+  room that only those would let through on the Live route is held here.
+  The Policy's attention decision is not waited for.
 - **Deepgram direct uses nova-3 on `/v1/listen`.** V1's default
   (`hal/drivers/voice/stt/deepgram.py`) is `flux-general-en` on Deepgram's v2
   protocol.

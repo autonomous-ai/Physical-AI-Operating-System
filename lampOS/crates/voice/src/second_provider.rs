@@ -24,6 +24,10 @@
 //! lamp: a sound said close or facing the lamp but not heard as a short
 //! word is held here where the Live route would answer it.
 //!
+//! With a [`Heed`] (`--attention`, `worker::Heeding`), a spoken turn's words
+//! are judged by the Live route's rule for whom it answers before the chat
+//! is asked; words it holds end the turn unanswered (#1014).
+//!
 //! Failures are `TurnFailed` with the stage the coordinator accepts
 //! (`coordinator/cloud.rs`): `InputOpen` while the request's input is still
 //! coming (speech-to-text could not be opened or fed); `AwaitingResponse`
@@ -108,6 +112,13 @@ impl From<String> for Told {
         }
     }
 }
+/// Whether a spoken turn's words were said to the lamp, judged before they
+/// are answered: `(request, (began_us, ended_us), heard)` to why it is not
+/// answered, or nothing. The window is the microphone's read time of the
+/// request's first and last packets, so a line replayed to this route keeps
+/// the time it was said. The worker's is the Live route's own rule
+/// (`worker::Heeding`, `crate::attention`).
+pub type Heed = Arc<dyn Fn(u64, (u64, u64), &str) -> Option<&'static str> + Send + Sync>;
 /// The engine's clock, for the announcement's spell.
 pub type Clock = Arc<dyn Fn() -> Instant + Send + Sync>;
 
@@ -122,6 +133,7 @@ struct Shared {
     /// Audio packets sent by this process.
     sequence: AtomicU64,
     out: mpsc::Sender<ProviderOutput>,
+    heed: Option<Heed>,
 }
 
 struct Turn {
@@ -131,6 +143,8 @@ struct Turn {
     /// The End came marked as a short sound let through; set before the
     /// audio queue closes, read by the turn's task after.
     sound: Arc<AtomicBool>,
+    /// When its first and last packets were read from the microphone.
+    said: Arc<Mutex<(u64, u64)>>,
     task: JoinHandle<()>,
 }
 impl Drop for Turn {
@@ -181,6 +195,7 @@ impl Engine {
                 answered_at: Mutex::new(None),
                 sequence: AtomicU64::new(0),
                 out,
+                heed: None,
             }),
             output,
             urgent: VecDeque::new(),
@@ -193,6 +208,15 @@ impl Engine {
     /// Short sounds let through are checked (`--sounds-checked`, #800).
     pub fn checking_sounds(mut self, on: bool) -> Self {
         self.sounds_checked = on;
+        self
+    }
+
+    /// A spoken turn's words are judged with `heed` before they are answered.
+    /// Before any turn only: the turns share it.
+    pub fn heeding(mut self, heed: Heed) -> Self {
+        if let Some(shared) = Arc::get_mut(&mut self.shared) {
+            shared.heed = Some(heed);
+        }
         self
     }
 
@@ -210,16 +234,27 @@ impl Engine {
                 let (audio, heard) = mpsc::channel(AUDIO_QUEUE);
                 let sound = Arc::new(AtomicBool::new(false));
                 let checked = self.sounds_checked.then(|| sound.clone());
-                let task = tokio::spawn(spoken(self.shared.clone(), request, heard, checked));
+                let said = Arc::new(Mutex::new((0, 0)));
+                let task = tokio::spawn(spoken(
+                    self.shared.clone(),
+                    request,
+                    heard,
+                    checked,
+                    said.clone(),
+                ));
                 self.turn = Some(Turn {
                     request,
                     audio: Some(audio),
                     sound,
+                    said,
                     task,
                 });
             }
             ProviderInput::Audio {
-                request, samples, ..
+                request,
+                samples,
+                read_completed_at_us,
+                ..
             } => {
                 // No age check: replayed audio is older than live audio.
                 let Some(turn) = self.turn.as_mut().filter(|turn| turn.request == request) else {
@@ -228,6 +263,12 @@ impl Engine {
                 let Some(audio) = turn.audio.as_ref() else {
                     return;
                 };
+                if let Ok(mut said) = turn.said.lock() {
+                    if said.0 == 0 {
+                        said.0 = read_completed_at_us;
+                    }
+                    said.1 = read_completed_at_us;
+                }
                 match audio.try_send(samples) {
                     Ok(()) => {}
                     // The task already failed the turn itself.
@@ -267,6 +308,7 @@ impl Engine {
                     request,
                     audio: None,
                     sound: Arc::default(),
+                    said: Arc::default(),
                     task,
                 });
             }
@@ -400,12 +442,14 @@ impl Shared {
 
 /// A spoken turn: listen until the queue closes, then answer the words.
 /// With `checked` (the sound mark, when sounds are checked), a short sound
-/// not heard as a short word is not answered.
+/// not heard as a short word is not answered; with a [`Heed`], words it
+/// judges not said to the lamp are not either.
 async fn spoken(
     shared: Arc<Shared>,
     request: u64,
     mut heard: mpsc::Receiver<Vec<i16>>,
     checked: Option<Arc<AtomicBool>>,
+    said: Arc<Mutex<(u64, u64)>>,
 ) {
     let listener = match shared.services.listen().await {
         Ok(listener) => listener,
@@ -451,7 +495,17 @@ async fn spoken(
             "lamp-voice second: request {request}: its answer is held back: a short sound, and nothing shows it was said to the lamp: not heard as a short word (this route has no ears or eyes)"
         );
     }
-    if empty || held {
+    let heeded = match &shared.heed {
+        Some(heed) if !empty && !held => {
+            let window = said.lock().map_or((0, 0), |said| *said);
+            heed(request, window, &text)
+        }
+        _ => None,
+    };
+    if let Some(why) = heeded {
+        eprintln!("lamp-voice second: request {request}: its answer is held back: {why}");
+    }
+    if empty || held || heeded.is_some() {
         shared
             .emit(ProviderOutput::TurnComplete {
                 request,
@@ -562,10 +616,17 @@ async fn answer(shared: &Shared, request: u64, said: String, heard: bool) {
         Ok(())
     };
     let saying = async {
+        let mut after = false;
         while let Some((text, mut packets)) = queued.recv().await {
+            // Sentences come trimmed: each after the first is said after a
+            // space, so the lamp's words read "just now. Hmm," (#1014).
             let words = ProviderOutput::Transcript {
                 request: Some(request),
-                text,
+                text: if std::mem::replace(&mut after, true) {
+                    format!(" {text}")
+                } else {
+                    text
+                },
                 finished: false,
             };
             if !shared.emit(words).await {

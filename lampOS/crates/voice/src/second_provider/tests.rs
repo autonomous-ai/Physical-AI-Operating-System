@@ -257,9 +257,9 @@ async fn a_spoken_turn_is_heard_then_said_sentence_by_sentence_in_order() {
             "heard:What time is it?".into(),
             format!("said:{ANNOUNCEMENT}"),
             format!("audio:{SAID}"),
-            "said:It is noon.".into(),
+            "said: It is noon.".into(),
             "audio:11".into(),
-            "said:Enjoy lunch!".into(),
+            "said: Enjoy lunch!".into(),
             "audio:12".into(),
             "generated".into(),
             "complete".into(),
@@ -289,7 +289,7 @@ async fn a_written_turn_is_answered_without_listening() {
             "started:4".to_owned(),
             format!("said:{ANNOUNCEMENT}"),
             format!("audio:{SAID}"),
-            "said:Here you are.".into(),
+            "said: Here you are.".into(),
             "audio:13".into(),
             "generated".into(),
             "complete".into(),
@@ -322,7 +322,7 @@ async fn a_tool_call_is_run_and_its_result_answered() {
     let labels = turn(&mut engine).await;
     assert_eq!(
         labels[labels.len() - 4..],
-        ["said:Timer set.", "audio:10", "generated", "complete"]
+        ["said: Timer set.", "audio:10", "generated", "complete"]
     );
     assert_eq!(
         *calls.lock().unwrap(),
@@ -364,6 +364,49 @@ async fn not_for_me_ends_the_turn_in_silence() {
         turn(&mut engine).await,
         ["started:1", "heard:No, the other one", "complete"]
     );
+    assert!(calls.lock().unwrap().is_empty());
+}
+
+/// Words the heed judges not said to the lamp end the turn after them,
+/// with no chat asked; it is given the microphone's times of the line's
+/// first and last packets (#1014).
+#[tokio::test]
+async fn words_the_heed_holds_end_the_turn_unanswered() {
+    let script = Arc::new(Script {
+        heard: Mutex::new([Ok("Me.".to_owned())].into()),
+        ..Script::default()
+    });
+    let (engine, calls, _) = scripted(script.clone());
+    type Judged = Vec<(u64, (u64, u64), String)>;
+    let judged: Arc<Mutex<Judged>> = Arc::default();
+    let seen = judged.clone();
+    let mut engine = engine.heeding(Arc::new(move |request, said, heard| {
+        seen.lock().unwrap().push((request, said, heard.to_owned()));
+        Some("a busy room")
+    }));
+    engine.submit(start(1));
+    for (sequence, at_us) in [(1, 7_000), (2, 7_010), (3, 7_020)] {
+        let ProviderInput::Audio { samples, .. } = audio(1, sequence) else {
+            unreachable!()
+        };
+        engine.submit(ProviderInput::Audio {
+            request: 1,
+            privacy_generation: 1,
+            sequence,
+            read_completed_at_us: at_us,
+            samples,
+        });
+    }
+    engine.submit(end(1));
+    assert_eq!(
+        turn(&mut engine).await,
+        ["started:1", "heard:Me.", "complete"]
+    );
+    assert_eq!(
+        *judged.lock().unwrap(),
+        [(1, (7_000, 7_020), "Me.".to_owned())]
+    );
+    assert!(script.asked.lock().unwrap().is_empty());
     assert!(calls.lock().unwrap().is_empty());
 }
 
@@ -480,7 +523,7 @@ async fn each_failing_service_fails_the_turn_at_its_stage() {
             "started:1".to_owned(),
             format!("said:{ANNOUNCEMENT}"),
             format!("audio:{SAID}"),
-            "said:This will FAIL.".into(),
+            "said: This will FAIL.".into(),
             "failed:Responding:ServerUnavailable".into(),
         ]
     );

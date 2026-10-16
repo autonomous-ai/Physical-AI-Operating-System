@@ -59,6 +59,9 @@ fn busy_at_start(error: &lamp_audio::capture::CaptureError, since: &mut Option<I
 /// How long a microphone closed by a stall may stay closed before the
 /// worker gives up: the coordinator's own bound on a capture gap (#784).
 const REOPEN_US: u64 = 1_500_000;
+/// The longest the speaker stays up on a lapsed authority (#1178): the
+/// same bound, after which the voice has ended anyway (the reviewer on #1214).
+const LAPSE_MOST_US: u64 = REOPEN_US;
 /// A tick that comes this long after the last was held up.
 const HELD_UP: Duration = Duration::from_millis(50);
 /// What a held-up capture worker may read in one tick: snapshots come no
@@ -1172,6 +1175,7 @@ fn speaker_loop(
                 &mut output,
                 &mut flush_count,
                 &mut speech,
+                &mut pending,
                 recording,
                 &mut lapsed_since,
             )?;
@@ -1194,6 +1198,7 @@ fn speaker_loop(
                     &mut output,
                     &mut flush_count,
                     &mut speech,
+                    &mut pending,
                     recording,
                     &mut lapsed_since,
                 )?;
@@ -1248,6 +1253,17 @@ fn speaker_loop(
                     output.privacy = Some(privacy_generation);
                 }
                 ReferenceControl::ReferencePrimed { prepared } => {
+                    // The capture side's answer to a prime the speaker reset
+                    // before it came (a lapse during the handshake, #1178):
+                    // that epoch is gone, and its late answer starts nothing.
+                    // Taken, it ended the worker (`InvalidStart`; Ten on #1214).
+                    if prepared.playback_epoch < speaker.queued_range().epoch {
+                        eprintln!(
+                            "lamp-voice speaker: a late prime of epoch {} from before a reset is dropped",
+                            prepared.playback_epoch
+                        );
+                        continue;
+                    }
                     let token = match speaker.zero_authority() {
                         Ok(token) => token,
                         Err(error) if lapsed(error.as_ref()) => {
@@ -1257,6 +1273,7 @@ fn speaker_loop(
                                 &mut output,
                                 &mut flush_count,
                                 &mut speech,
+                                &mut pending,
                                 recording,
                                 &mut lapsed_since,
                             )?;
@@ -1286,6 +1303,7 @@ fn speaker_loop(
                                 &mut output,
                                 &mut flush_count,
                                 &mut speech,
+                                &mut pending,
                                 recording,
                                 &mut lapsed_since,
                             )?;
@@ -1326,6 +1344,7 @@ fn speaker_loop(
                         &mut output,
                         &mut flush_count,
                         &mut speech,
+                        &mut pending,
                         recording,
                         &mut lapsed_since,
                     )?;
@@ -1483,6 +1502,7 @@ fn speaker_loop(
                             turn: partial.chunk.permit.owner().turn(),
                             sequence: partial.chunk.chunk_sequence,
                             reason: error.to_string(),
+                            lapsed: lapsed(error.as_ref()),
                         })?;
                         pending = None;
                     }
@@ -1508,6 +1528,7 @@ fn speaker_loop(
                             &mut output,
                             &mut flush_count,
                             &mut speech,
+                            &mut pending,
                             recording,
                             &mut lapsed_since,
                         )?;
@@ -1675,24 +1696,52 @@ fn lapsed(error: &(dyn std::error::Error + Send + Sync + 'static)) -> bool {
 /// The speaker's authority lapsed (#1178): once a lapse, stop the device
 /// unless a check already has, report the reset as after any discard, and
 /// say so. Nothing is written until a fresh authority is installed.
+///
+/// What it was saying is lost, and the coordinator is told so in the forms
+/// it takes as a cut answer, never as a failed voice (the reviewer on
+/// #1214): queued speech is dropped by its own ownership check, which names
+/// its owner and the lapse (`PlaybackDiscarded`, `ExpiredState`), and the
+/// chunk not yet written in full is refused as lapsed (`PlaybackRejected`),
+/// so it is never written under its old permit after the fresh authority.
+#[allow(clippy::too_many_arguments)]
 fn lapse(
     channels: &mut WorkerChannels,
     speaker: &mut Speaker,
     output: &mut ReferenceOutput,
     flush_count: &mut u64,
     speech: &mut SpeechPlayback,
+    pending: &mut Option<PendingChunk>,
     recording: &mut Option<Recording>,
     lapsed_since: &mut Option<u64>,
 ) -> Result<()> {
-    if lapsed_since.is_some() {
+    if let Some(since) = *lapsed_since {
+        // Past the capture worker's own bound the voice has ended anyway,
+        // and a speaker whose coordinator is gone (its datagrams give no
+        // end) must not keep the device until systemd stops it.
+        if monotonic_us().saturating_sub(since) >= LAPSE_MOST_US {
+            return Err(InteractionError::ExpiredState.into());
+        }
         return Ok(());
     }
     *lapsed_since = Some(monotonic_us());
+    match speaker.maintain() {
+        Ok(()) => {}
+        Err(error) if lapsed(error.as_ref()) => {}
+        Err(error) => return Err(error),
+    }
     if speaker.flush_count() == *flush_count {
         speaker.stop()?;
     }
     if report_discard(channels, speaker, output, flush_count, recording)? {
         report_speech_reset(channels, speech)?;
+    }
+    if let Some(partial) = pending.take() {
+        channels.control.send(WorkerEvent::PlaybackRejected {
+            turn: partial.chunk.permit.owner().turn(),
+            sequence: partial.chunk.chunk_sequence,
+            reason: InteractionError::ExpiredState.to_string(),
+            lapsed: true,
+        })?;
     }
     eprintln!(
         "lamp-voice speaker: its authority lapsed while it was held up; silent until a fresh one"

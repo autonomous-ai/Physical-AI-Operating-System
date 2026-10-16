@@ -10,8 +10,11 @@
 //! `null` plays every frame the moment it is written, so the speaker's clock
 //! never starts there: its prime needs 480 frames queued
 //! (`reference InvalidPrime … accepted=480`). What `null` can show is the
-//! lapse before a prime. The lapse with speech or silence queued, and the
-//! prime again after it, need a device that holds frames: a lamp.
+//! lapse before a prime, the worker going on after it, and the capture
+//! side's late answer to a prime the lapse reset. The lapse with speech or
+//! silence queued, and the prime again after it, need a device that holds
+//! frames: a lamp. What the coordinator does with the speech a lapse drops
+//! is shown in `coordinator::tests::speaker_lapse`.
 #![cfg(target_os = "linux")]
 use lamp_ipc::monotonic_us;
 use lamp_turn_owner::{
@@ -20,8 +23,9 @@ use lamp_turn_owner::{
 use lamp_voice::{
     audio_workers::speaker,
     process::{SessionDirectory, new_boot},
+    reference::PRIME_FRAMES,
     transport::{ReferenceChannels, WorkerChannels},
-    wire::{Control, ReferenceControl, WorkerEvent},
+    wire::{Control, PreparedPrime, PrimeDisposition, ReferenceControl, WorkerEvent},
 };
 use std::{
     thread::{JoinHandle, sleep},
@@ -186,6 +190,22 @@ impl Rig {
         );
     }
 
+    /// The capture side answers a prime of `epoch`, as it would have.
+    fn answer_prime(&mut self, epoch: u64) {
+        self.capture
+            .control
+            .send(ReferenceControl::ReferencePrimed {
+                prepared: PreparedPrime {
+                    playback_epoch: epoch,
+                    privacy_generation: self.privacy,
+                    prepared_through: PRIME_FRAMES as u64,
+                    analysed_through: PRIME_FRAMES as u64,
+                    disposition: PrimeDisposition::Analysed,
+                },
+            })
+            .unwrap();
+    }
+
     fn stop(mut self) -> Result<(), String> {
         self.parent.control.send(Control::Stop).unwrap();
         self.worker.take().unwrap().join().unwrap()
@@ -209,6 +229,27 @@ fn a_speaker_whose_authority_lapses_before_its_prime_stays_up() {
     rig.prepare = true;
     rig.run_for(Duration::from_millis(200), "ready to prime while lapsed");
     assert!(rig.prepared_sent);
+    assert!(rig.faults.is_empty(), "{:?}", rig.faults);
+    assert_eq!(rig.stop(), Ok(()));
+}
+
+/// Ten on #1214: the capture side's answer to a prime the speaker reset
+/// before it came. A lapse resets the speaker from epoch 1 to 2; a fresh
+/// authority comes and the worker goes on; then the answer to epoch 1
+/// arrives. It is dropped, and the worker stays up. Taken, it ended the
+/// worker (`InvalidStart`), so a second stall close after a first, during
+/// the prime between them, would have ended the voice.
+#[test]
+fn a_late_prime_from_before_a_lapse_is_dropped() {
+    let mut rig = Rig::start();
+    rig.run_for(Duration::from_millis(150), "with authority");
+    assert!(rig.linked, "the reference link never connected");
+    rig.renewing = false;
+    rig.run_for(Duration::from_millis(200), "the lapse");
+    rig.renewing = true;
+    rig.run_for(Duration::from_millis(150), "authority again");
+    rig.answer_prime(1);
+    rig.run_for(Duration::from_millis(150), "a late prime");
     assert!(rig.faults.is_empty(), "{:?}", rig.faults);
     assert_eq!(rig.stop(), Ok(()));
 }

@@ -121,15 +121,36 @@ once, reports the reset as after any discard (`PlaybackClockReset`), says so
 in one journal line ("its authority lapsed while it was held up; silent
 until a fresh one"), and writes and primes nothing until a fresh authority
 is installed; then it primes and starts its clock again, as after any
-reset, and says how long it was silent. Speech that was queued is
-discarded, as on any reset. Test: `tests/speaker_lapse_worker.rs`, the
-worker's own loop on ALSA's `null` device, its turn's 100 ms lease left
+reset, and says how long it was silent. A lapse that lasts past the
+capture worker's own bound (1.5 s, `REOPEN_US`) still ends the worker: the
+voice has ended by then anyway, and a speaker whose coordinator is gone must
+not keep the device.
+
+What the lamp was saying when its speaker lapsed is lost, and that costs
+the answer, never the voice (the reviewer on #1214). Queued speech is
+dropped by its own ownership check, which names its owner and the lapse
+(`PlaybackDiscarded`, `ExpiredState`), and the chunk not yet written in full
+is refused as lapsed (`PlaybackRejected`, `lapsed`), so it is never written
+under its old permit after the fresh authority. The coordinator took either
+as a failed voice ("unexpected playback discard", "current reply rejected
+at speaker"); now it cuts that answer, as a reminder's lapsed lease cuts
+one, with what the provider had queued for it (`cut_after_speaker_lapse`,
+outcome `speaker_lapsed`), and goes on. The capture side's late answer to a
+prime the lapse reset is dropped with one journal line, where it ended the
+worker (`InvalidStart`; Ten on #1214).
+
+Tests: `tests/speaker_lapse_worker.rs`, the worker's own loop on ALSA's
+`null` device (Linux only, so the ARM64 run): its turn's 100 ms lease left
 unrenewed for 200 ms and then the capture side ready, so that its next
-prime needs the lapsed authority: it stays up and stops cleanly, where the
-prime's `zero_authority` ended it before (Linux only, so the ARM64 run).
+prime needs the lapsed authority, it stays up and stops cleanly, where the
+prime's `zero_authority` ended it before; and after a lapse and a fresh
+authority, the late answer to the prime of the reset epoch is dropped.
+`coordinator::tests::speaker_lapse`: a lapse discard or a lapsed refusal of
+the current answer cuts it and goes on, and any other refusal still fails.
 `null` plays every frame as it is written, so the clock never starts there
 (the prime needs 480 frames queued): the lapse with speech or silence
-queued, and the prime again after it, are shown on a lamp only.
+queued on the device, and the prime again after it, are shown on a lamp
+only.
 
 ## Not done
 

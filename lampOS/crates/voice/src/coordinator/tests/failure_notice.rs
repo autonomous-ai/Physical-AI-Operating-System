@@ -131,6 +131,7 @@ fn failure_notice_before_started_uses_real_permits_and_exact_partial_final_recei
                 &mut last_publish,
                 &mut 16,
                 &mut trace,
+                &mut None,
             )
             .unwrap();
             assert!(reply.as_ref().unwrap().playback.is_none());
@@ -168,6 +169,7 @@ fn failure_notice_before_started_uses_real_permits_and_exact_partial_final_recei
             &mut last_publish,
             &mut 16,
             &mut trace,
+            &mut None,
         )
         .unwrap();
         cursor += 240;
@@ -220,6 +222,7 @@ fn failure_notice_before_started_uses_real_permits_and_exact_partial_final_recei
                         &mut last_publish,
                         &mut 16,
                         &mut trace,
+                        &mut None,
                     )
                     .is_err()
                 );
@@ -248,6 +251,7 @@ fn failure_notice_before_started_uses_real_permits_and_exact_partial_final_recei
                 &mut last_publish,
                 &mut 16,
                 &mut trace,
+                &mut None,
             )
             .unwrap();
             assert!(reply.as_ref().unwrap().notice.settled());
@@ -275,6 +279,7 @@ fn failure_notice_before_started_uses_real_permits_and_exact_partial_final_recei
                     &mut last_publish,
                     &mut 16,
                     &mut trace,
+                    &mut None,
                 )
                 .is_err()
             );
@@ -354,6 +359,7 @@ fn failure_notice_cancelled_while_selected_or_dispatched_never_revives() {
                 &mut 0,
                 &mut 16,
                 &mut trace,
+                &mut None,
             )
             .unwrap();
             assert!(reply.as_ref().unwrap().playback.is_some());
@@ -528,6 +534,7 @@ fn failure_notice_retains_raw_gap_without_tainting_provider_answer_metrics() {
         &mut 0,
         &mut 16,
         &mut trace,
+        &mut None,
     )
     .unwrap();
     let gap = crate::wire::PlaybackGap {
@@ -696,6 +703,7 @@ fn independent_notice_revocation_after_first_complete_chunk_blocks_next_reservat
             &mut 0,
             &mut 16,
             &mut trace,
+            &mut None,
         )
         .unwrap();
         assert!(reply.as_ref().unwrap().playback.is_some());
@@ -781,6 +789,7 @@ fn independent_notice_late_original_acceptance_cannot_revive_cancelled_owner() {
         &mut 0,
         &mut 16,
         &mut trace,
+        &mut None,
     )
     .unwrap();
     assert_eq!(owner.snapshot(now()).unwrap().owner(), Some(successor));

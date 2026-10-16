@@ -175,6 +175,7 @@ impl Test {
             &mut 0,
             &mut 16,
             &mut self.trace,
+            &mut None,
         )?;
         Ok(())
     }

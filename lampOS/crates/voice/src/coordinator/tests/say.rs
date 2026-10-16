@@ -134,6 +134,7 @@ impl Test {
             &mut 0,
             &mut 16,
             &mut self.trace,
+            &mut None,
         )
         .unwrap();
     }
@@ -525,6 +526,7 @@ fn play_sound(
             &mut 0,
             &mut 16,
             trace,
+            &mut None,
         )
         .unwrap();
         cursor += 240;
@@ -589,6 +591,7 @@ fn a_skill_sound_played_to_its_end_is_spoken() {
         &mut 0,
         &mut 16,
         &mut trace,
+        &mut None,
     )
     .unwrap();
     let current = reply.as_mut().unwrap();

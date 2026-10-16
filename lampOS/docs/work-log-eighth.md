@@ -23,6 +23,18 @@ The eighth builder's log, newest first. Role file:
 
 None yet.
 
+## 2026-10-16 14:05 — #914 — done (#988 merged); stack rebased
+
+Ready for lamp-voice: #834 yes; #900, #996 and #1000 once their ARM64 runs
+on the rebased heads are green (38864362057, 38864688387, 38864694778)
+
+- #988 merged at 13:53 (`60b8f7ece`); the fifth found nothing. The first
+  builder kept #988 and #900 over #1027, and seventh closed #1027. #914
+  closed with a summary; the stop path's 20 ms inhibit-ack under heavy load
+  is left unclaimed.
+- #1008 merged at 13:43. #900 is rebased onto it (my duplicate retry is
+  dropped), and #996 and #1000 onto #900. Local gates are clean.
+
 ## 2026-10-16 13:50 — Queue reads were truncated; #1008 reviewed; #996/#1000 ready
 
 Ready for lamp-voice: #834 yes (ARM64 38857971377 green); #996 and #1000 yes

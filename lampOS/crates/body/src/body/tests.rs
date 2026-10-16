@@ -6106,3 +6106,47 @@ fn three_bad_reads_of_a_joint_in_a_row_stop_the_body_naming_it() {
         "elbow asked {elbow:?}"
     );
 }
+
+/// Taking hold of an arm joint writes its goal by itself, and that write is
+/// checked as every other arm goal is: an elbow found without torque
+/// outside its window is not given that as its goal.
+#[test]
+fn an_arm_joint_taken_hold_of_outside_its_window_is_not_given_that_goal() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(1));
+    lamp.may_take_hold = true;
+    lamp.arm_moves = true;
+    lamp.overload_clears = 1;
+    lamp.servos[2].torque = 0;
+    lamp.servos[2].position = 3_900.0;
+    lamp.servos[2].goal = 3_900;
+    let report = run_standing(
+        &mut lamp,
+        &mut clock,
+        Limits {
+            torque_on: true,
+            ..Limits::FOLDED
+        },
+        Some(HOME),
+        Some(standing(100, 5)),
+        || Some((Mood::Resting, 0)),
+        |_| {},
+    );
+    assert!(
+        lamp.registers
+            .iter()
+            .all(|(id, address, _)| (*id, *address) != (3, 42)),
+        "{:?}",
+        lamp.registers
+    );
+    assert!(
+        matches!(
+            report.stop,
+            Stop::Window {
+                joint: 3,
+                goal: 3_900,
+                ..
+            }
+        ),
+        "{report:?}"
+    );
+}

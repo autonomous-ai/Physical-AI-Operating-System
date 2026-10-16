@@ -1125,9 +1125,6 @@ struct Bus<'a, P, R> {
     runtime: &'a mut R,
     /// Each arm joint's window (`arm_windows`).
     arm_windows: [(u16, u16); 2],
-    /// The arm goals last written, and where the arm was last read.
-    arm_written: Option<[u16; 2]>,
-    arm_read: Option<[u16; 2]>,
     /// An arm goal refused before it was written: the run ends on it.
     refused: Option<Stop>,
     /// Each joint's last good position and when it was read, the goal last
@@ -1144,8 +1141,6 @@ impl<'a, P: PortIo, R: Runtime> Bus<'a, P, R> {
             io,
             runtime,
             arm_windows: arm_windows(standing),
-            arm_written: None,
-            arm_read: None,
             refused: None,
             good: [None; 5],
             goals: [None; 5],
@@ -1254,7 +1249,6 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
             Ok(())
         })?;
         self.judge_positions(&mut samples)?;
-        self.arm_read = Some(ARM.map(|joint| samples[joint.index()].position));
         Ok(samples)
     }
 
@@ -1383,31 +1377,57 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
     }
 
     /// The goals of the head and base, and with them the arm's for a body
-    /// that may stand.
-    ///
-    /// Every arm goal goes to the wire here, and is refused unless it is
-    /// inside its joint's window, and either within `ARM_GOAL_STEP` of the
-    /// arm goal last written (before one, of where the arm was read) or
-    /// within `ARM_GOAL_REACH` of where the joint was last read: nothing is
-    /// written, and the run ends on `Stop::Window`.
+    /// that may stand. Every arm goal is checked first (`goal_refused`).
     fn send_goals(&mut self, goals: [u16; 3], arm: Option<[u16; 2]>) -> Result<(), String> {
         let Some(arm) = arm else {
             self.send(&goals_write(goals))?;
             self.wrote(goals, None);
             return Ok(());
         };
-        if let Some(stop) = self.arm_refused(arm) {
-            let detail = format!("{stop:?}");
-            self.refused.get_or_insert(stop);
-            return Err(detail);
+        if let Some(stop) = ARM
+            .into_iter()
+            .zip(arm)
+            .find_map(|(joint, goal)| self.goal_refused(joint, goal, false))
+        {
+            return Err(self.refuse(stop));
         }
         self.send(&all_goals_write(goals, arm))?;
-        self.arm_written = Some(arm);
         self.wrote(goals, Some(arm));
         Ok(())
     }
 
-    /// The goals just written, for `judge_positions`.
+    /// One joint's goal by itself, checked as `send_goals` checks, written
+    /// and acknowledged (with `patiently`, as `write_patiently`). With
+    /// `taking_hold`, for a joint found without torque, its goal may also be
+    /// exactly where it was last read.
+    fn write_goal(
+        &mut self,
+        joint: Joint,
+        goal: u16,
+        patiently: bool,
+        taking_hold: bool,
+    ) -> Result<(), String> {
+        if let Some(stop) = self.goal_refused(joint, goal, taking_hold) {
+            return Err(self.refuse(stop));
+        }
+        let packet = goal_write(joint, goal);
+        if patiently {
+            self.write_patiently(joint, &packet)?;
+        } else {
+            self.write_acknowledged(joint, &packet, true)?;
+        }
+        self.goals[joint.index()] = Some(goal);
+        Ok(())
+    }
+
+    /// A goal refused before it was written: the run ends on the first.
+    fn refuse(&mut self, stop: Stop) -> String {
+        let detail = format!("{stop:?}");
+        self.refused.get_or_insert(stop);
+        detail
+    }
+
+    /// The goals just written, for `goal_refused` and `judge_positions`.
     fn wrote(&mut self, goals: [u16; 3], arm: Option<[u16; 2]>) {
         for (joint, goal) in COMMANDED.into_iter().zip(goals) {
             self.goals[joint.index()] = Some(goal);
@@ -1417,22 +1437,26 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
         }
     }
 
-    /// The first of `arm` that may not be written, as the stop it ends on.
-    fn arm_refused(&self, arm: [u16; 2]) -> Option<Stop> {
-        (0..2).find_map(|index| {
-            let goal = arm[index];
-            let (low, high) = self.arm_windows[index];
-            let read = self.arm_read.map(|read| read[index]);
-            let from = self.arm_written.map(|written| written[index]).or(read);
-            let allowed = (low..=high).contains(&goal)
-                && (from.is_none_or(|from| goal.abs_diff(from) <= ARM_GOAL_STEP)
-                    || read.is_some_and(|at| goal.abs_diff(at) <= ARM_GOAL_REACH));
-            (!allowed).then(|| Stop::Window {
-                joint: ARM[index].id(),
-                goal,
-                window: (low, high),
-                from: from.unwrap_or(goal),
-            })
+    /// Whether `goal` may be written to `joint`, an arm joint (the others
+    /// are not checked): it must be inside the joint's window, and either
+    /// within `ARM_GOAL_STEP` of the goal last written to it (before one,
+    /// of where it was read) or within `ARM_GOAL_REACH` of where it was last
+    /// read; with `taking_hold`, or exactly where it was last read. If not,
+    /// the stop the run ends on.
+    fn goal_refused(&self, joint: Joint, goal: u16, taking_hold: bool) -> Option<Stop> {
+        let index = ARM.iter().position(|arm| *arm == joint)?;
+        let (low, high) = self.arm_windows[index];
+        let read = self.good[joint.index()].map(|(at, _)| at);
+        let from = self.goals[joint.index()].or(read);
+        let allowed = (low..=high).contains(&goal)
+            && (from.is_none_or(|from| goal.abs_diff(from) <= ARM_GOAL_STEP)
+                || read.is_some_and(|at| goal.abs_diff(at) <= ARM_GOAL_REACH)
+                || taking_hold && read == Some(goal));
+        (!allowed).then(|| Stop::Window {
+            joint: joint.id(),
+            goal,
+            window: (low, high),
+            from: from.unwrap_or(goal),
         })
     }
 
@@ -1950,7 +1974,7 @@ fn take_hold<P: PortIo, R: Runtime>(
         let at = found[joint.index()].position;
         // A flag is read and judged with the rest afterwards.
         if outcome.is_ok() {
-            outcome = bus.write_patiently(*joint, &goal_write(*joint, at));
+            outcome = bus.write_goal(*joint, at, true, true);
         }
         if outcome.is_ok() {
             report.torque_writes = report.torque_writes.saturating_add(1);
@@ -1959,15 +1983,18 @@ fn take_hold<P: PortIo, R: Runtime>(
         }
     }
     // A few steps for a goal that was not taken to show.
-    let now = outcome
-        .and_then(|()| {
-            let due = bus.runtime.now() + TICK * 5;
-            bus.sleep_until(due);
-            bus.samples()
-        })
-        .map_err(|detail| Stop::Bus {
-            detail: format!("taking hold: {detail}"),
-        })?;
+    let now = match outcome.and_then(|()| {
+        let due = bus.runtime.now() + TICK * 5;
+        bus.sleep_until(due);
+        bus.samples()
+    }) {
+        Ok(now) => now,
+        Err(detail) => {
+            return Err(bus.refused.take().unwrap_or(Stop::Bus {
+                detail: format!("taking hold: {detail}"),
+            }));
+        }
+    };
     report.last = Some(now);
     let moved: Vec<(Joint, u16)> = joints
         .iter()
@@ -1981,7 +2008,7 @@ fn take_hold<P: PortIo, R: Runtime>(
         // Nothing keeps pushing a joint that went somewhere.
         for (joint, _) in &moved {
             let at = now[joint.index()].position;
-            let _ = bus.write_acknowledged(*joint, &goal_write(*joint, at), true);
+            let _ = bus.write_goal(*joint, at, false, true);
         }
         return Err(Stop::Refused {
             why: format!("{joint} moved {by} counts when its torque came on"),
@@ -2693,7 +2720,7 @@ fn run_on<P: PortIo, R: Runtime>(
             for (stop_pushing, torques, waits) in attempts {
                 let mut outcome = Ok(());
                 if stop_pushing {
-                    outcome = bus.write_acknowledged(joint, &goal_write(joint, at), true);
+                    outcome = bus.write_goal(joint, at, false, false);
                     arm_written[index] = at;
                 }
                 for value in torques {

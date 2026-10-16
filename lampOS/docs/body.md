@@ -140,9 +140,13 @@ seconds at most), and prints one JSON report either way.
 
 ### Every arm goal inside its window
 
-Every goal of the shoulder and the elbow goes to the wire through one place,
-`Bus::send_goals` in `src/body.rs`; lowering a shoulder goes through it too.
-There each arm goal is checked before anything is written. It must be inside
+Every goal of the shoulder and the elbow is checked in one place,
+`Bus::goal_refused` in `src/body.rs`, before anything is written. Goals reach
+the wire only through `Bus::send_goals` (every step, lowering a shoulder,
+every hold) and `Bus::write_goal`, one joint's goal by itself (taking hold of
+a joint found without torque, telling an overloaded one to stop pushing),
+and both ask it first. A joint taken hold of may also be given exactly where
+it was last read. It must be inside
 its joint's window: the joint's way between `--folded-arm` and `--stand`,
 with 420 counts either side (the most a gesture, 360, and the lean, 60, add
 to it). On lamp-4ace that is shoulder 1,628 to 3,077 and elbow 1,627 to

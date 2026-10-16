@@ -710,6 +710,7 @@ mod tests {
             request: 3,
             privacy_generation: 1,
             sound: false,
+            cut_in: false,
         });
         assert_eq!(line.commands.len(), 3);
     }
@@ -801,6 +802,7 @@ mod tests {
             request,
             privacy_generation: 1,
             sound: false,
+            cut_in: false,
         }
     }
 

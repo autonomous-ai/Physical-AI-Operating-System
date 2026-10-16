@@ -15,6 +15,7 @@ fn checked(on: bool) -> Options {
         attention: Some(quiet),
         name_signal: false,
         sounds_checked: on,
+        ask_unclear: false,
         name_in_passing_ignored: false,
         policy_holds: None,
         wait_for_room: false,
@@ -41,6 +42,7 @@ async fn answered(options: Options, text: &str) -> bool {
             request,
             privacy_generation: rig.snapshot.microphone_generation(),
             sound: true,
+            cut_in: false,
         })
         .unwrap();
     let ended = rig.service_message(&mut dial).await;
@@ -110,4 +112,114 @@ fn both_workers_take_the_flag_that_checks_sounds() {
     )
     .unwrap();
     assert!(files.sounds_checked && !crate::second_provider::worker::checks_sounds(&files));
+}
+
+fn talking() -> (crate::room_told::Room, bool) {
+    (crate::room_told::Room::Quiet, true)
+}
+
+/// In a conversation, with the switch, a turn ended as speech (a cut-in is
+/// never a sound) and heard as `text`: whether its answer came out, and
+/// whether the worker said it was unclear, before its `TurnComplete`.
+async fn in_conversation(ask_unclear: bool, text: &str) -> (bool, Option<String>) {
+    in_conversation_ended(ask_unclear, text, false).await
+}
+
+/// As [`in_conversation`], the turn ended as a cut-in over the lamp's answer
+/// or not.
+async fn in_conversation_ended(
+    ask_unclear: bool,
+    text: &str,
+    cut_in: bool,
+) -> (bool, Option<String>) {
+    let options = Options {
+        attention: Some(talking),
+        ask_unclear,
+        ..checked(false)
+    };
+    let mut rig = LiveRig::start_with(quick_policy(), options);
+    let mut dial = rig.ready().await;
+    let request = rig.speak(&mut dial, false, false).await;
+    let owner = rig.snapshot.owner().unwrap();
+    rig.owner.input_ended(real_time(), owner).unwrap();
+    rig.publish();
+    rig.parent
+        .data
+        .send(ProviderInput::End {
+            request,
+            privacy_generation: rig.snapshot.microphone_generation(),
+            sound: false,
+            cut_in,
+        })
+        .unwrap();
+    let ended = rig.service_message(&mut dial).await;
+    assert!(
+        ended["realtimeInput"].get("activityEnd").is_some(),
+        "{ended}"
+    );
+    dial.service.send(heard(text)).await;
+    assert!(matches!(
+        rig.output().await,
+        ProviderOutput::Transcript { request: None, .. }
+    ));
+    // Two pieces of the answer: a held request is said unclear once.
+    dial.service.send(provider_audio(9, 480)).await;
+    dial.service.send(provider_audio(9, 480)).await;
+    dial.service.send(idle_complete()).await;
+    let mut unclear = None;
+    loop {
+        match rig.output().await {
+            ProviderOutput::Audio { request: got, .. } if got == request => {
+                rig.stop().await;
+                return (true, unclear);
+            }
+            ProviderOutput::Unclear { request: got, why } if got == request => {
+                assert!(unclear.is_none(), "said unclear twice");
+                unclear = Some(why);
+            }
+            ProviderOutput::TurnComplete { request: done, .. } if done == request => {
+                rig.stop().await;
+                return (false, unclear);
+            }
+            other => panic!("{other:?}"),
+        }
+    }
+}
+
+/// #926: on lamp-4ace on 2026-10-16 at 05:39, in a conversation, a cut-in
+/// heard as Hindi was answered in Hindi, and one heard as "23" got "Four."
+/// With the switch both are held and said unclear; English is answered;
+/// without the switch everything is answered, as before.
+#[tokio::test]
+async fn in_a_conversation_a_turn_heard_in_another_script_or_as_a_bare_number_is_asked_again() {
+    let (played, why) = in_conversation(true, "हिंदू के स्थान").await;
+    assert!(!played);
+    assert_eq!(why.as_deref(), Some(crate::not_speech::OTHER_SCRIPT));
+    let (played, why) = in_conversation(true, "23").await;
+    assert!(!played);
+    assert_eq!(why.as_deref(), Some(crate::not_speech::ONLY_DIGITS));
+    assert_eq!(
+        in_conversation(true, "No no no, tell me a joke instead.").await,
+        (true, None)
+    );
+    assert_eq!(in_conversation(false, "हिंदू के स्थान").await, (true, None));
+}
+
+/// #926, the first builder's addition: an English cut-in over a story came
+/// back as "vestido". Ended as a cut-in, a fragment of one or two words with
+/// no English word in it is asked again; "Stop." is answered; the same
+/// fragment as an ordinary turn is left to the model.
+#[tokio::test]
+async fn a_cut_in_heard_as_a_fragment_is_asked_again_and_stop_is_answered() {
+    let (played, why) = in_conversation_ended(true, "vestido", true).await;
+    assert!(!played);
+    assert_eq!(why.as_deref(), Some(crate::not_speech::CUT_IN_FRAGMENT));
+    assert_eq!(
+        in_conversation_ended(true, "Stop.", true).await,
+        (true, None)
+    );
+    assert_eq!(
+        in_conversation_ended(true, "vestido", false).await,
+        (true, None)
+    );
 }

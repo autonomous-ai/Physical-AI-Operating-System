@@ -202,6 +202,287 @@ pub fn names_a_function(opening: &str) -> bool {
         && name.split('_').all(|part| !part.is_empty())
 }
 
+/// Where the coordinator reads whether, in a conversation, a turn heard in
+/// another script or as a number alone is asked again rather than answered
+/// (#926). Off unless set to [`UNCLEAR`].
+pub const UNCLEAR_ENVIRONMENT: &str = "LAMP_OTHER_LANGUAGE";
+pub const UNCLEAR: &str = "sorry";
+/// The provider worker's flag for it.
+pub const UNCLEAR_FLAG: &str = "--ask-unclear";
+
+/// The provider worker's argument for asking again, from the environment.
+pub fn unclear_arguments_from_environment() -> Vec<String> {
+    unclear_arguments(std::env::var(UNCLEAR_ENVIRONMENT).ok().as_deref())
+}
+
+fn unclear_arguments(value: Option<&str>) -> Vec<String> {
+    if value == Some(UNCLEAR) {
+        vec![UNCLEAR_FLAG.to_owned()]
+    } else {
+        Vec::new()
+    }
+}
+
+/// Take a leading [`UNCLEAR_FLAG`] off a worker's flags.
+pub fn take_unclear(flags: &[String]) -> (bool, &[String]) {
+    match flags {
+        [flag, rest @ ..] if flag == UNCLEAR_FLAG => (true, rest),
+        _ => (false, flags),
+    }
+}
+
+/// Why something heard in a conversation is not answered but asked again
+/// (#926): the conversation is in English, so heard mostly in another
+/// script it was misheard, not said in that language.
+pub const OTHER_SCRIPT: &str = "heard mostly in another script than the conversation's";
+/// Heard as a number alone when the lamp had asked nothing: a fragment.
+pub const ONLY_DIGITS: &str = "heard as a number alone, and the lamp had asked nothing";
+/// A cut-in over the lamp's answer heard with no English word in it: the
+/// rest of what was said was lost or misheard (#926, #828).
+pub const CUT_IN_FRAGMENT: &str = "a cut-in heard with no English word in it";
+
+/// Common English words: a cut-in of one or two words with none of these
+/// in it is a fragment, not something said (#926). Not a language detector:
+/// it only has to know the words people cut the lamp off with, and the
+/// small words any English phrase has. On lamp-4ace on 2026-10-16 English
+/// cut-ins over a story came back as "vestido", "analizar", "miel miel",
+/// "Tá.", "Los Ángeles".
+pub const ENGLISH_WORDS: &[&str] = &[
+    // What people cut in with.
+    "stop",
+    "wait",
+    "okay",
+    "ok",
+    "no",
+    "yes",
+    "yeah",
+    "yep",
+    "nope",
+    "hey",
+    "hi",
+    "hello",
+    "sorry",
+    "what",
+    "why",
+    "how",
+    "who",
+    "when",
+    "where",
+    "please",
+    "thanks",
+    "thank",
+    "enough",
+    "quiet",
+    "shush",
+    "pause",
+    "go",
+    "continue",
+    "again",
+    "more",
+    "less",
+    "louder",
+    "softer",
+    "slower",
+    "faster",
+    "never",
+    "mind",
+    "fine",
+    "sure",
+    "right",
+    "good",
+    "great",
+    "nice",
+    "cool",
+    "wow",
+    "oh",
+    "ah",
+    "um",
+    "uh",
+    "hmm",
+    "huh",
+    "really",
+    "actually",
+    "joke",
+    "story",
+    "song",
+    "music",
+    "lamp",
+    "light",
+    "help",
+    "listen",
+    "look",
+    "tell",
+    "say",
+    "said",
+    "talk",
+    "speak",
+    "repeat",
+    "change",
+    "switch",
+    "different",
+    "something",
+    "else",
+    "instead",
+    "other",
+    "next",
+    "back",
+    "done",
+    "finish",
+    "finished",
+    "start",
+    "begin",
+    "end",
+    "one",
+    "two",
+    "three",
+    "time",
+    "timer",
+    "alarm",
+    "reminder",
+    "remind",
+    "weather",
+    "now",
+    "later",
+    "today",
+    "tomorrow",
+    "tonight",
+    // The small words of any English phrase.
+    "a",
+    "an",
+    "the",
+    "i",
+    "me",
+    "my",
+    "you",
+    "your",
+    "we",
+    "us",
+    "our",
+    "he",
+    "she",
+    "it",
+    "its",
+    "they",
+    "them",
+    "this",
+    "that",
+    "these",
+    "those",
+    "is",
+    "are",
+    "was",
+    "were",
+    "be",
+    "been",
+    "am",
+    "do",
+    "does",
+    "did",
+    "don't",
+    "doesn't",
+    "didn't",
+    "not",
+    "can",
+    "can't",
+    "could",
+    "will",
+    "won't",
+    "would",
+    "should",
+    "have",
+    "has",
+    "had",
+    "and",
+    "or",
+    "but",
+    "so",
+    "if",
+    "then",
+    "than",
+    "to",
+    "of",
+    "in",
+    "on",
+    "at",
+    "for",
+    "with",
+    "about",
+    "from",
+    "up",
+    "down",
+    "out",
+    "off",
+    "over",
+    "just",
+    "all",
+    "some",
+    "any",
+    "too",
+    "very",
+    "here",
+    "there",
+    "let",
+    "let's",
+    "it's",
+    "i'm",
+    "you're",
+    "that's",
+    "what's",
+    "how's",
+    "there's",
+];
+
+fn english(word: &str) -> bool {
+    ENGLISH_WORDS.contains(&word)
+}
+
+/// A letter of the Latin script, as English and the languages written like
+/// it use: plain ASCII and the Latin supplements and extensions.
+fn latin(c: char) -> bool {
+    c.is_ascii_alphabetic() || matches!(c as u32, 0x00C0..=0x024F | 0x1E00..=0x1EFF)
+}
+
+/// Whether what was heard in a conversation held in English makes no sense
+/// as a turn of it, and why: mostly another script's letters, or a number
+/// alone when the lamp's last line was not a question (`lamp_asked`), or, for
+/// a cut-in over the lamp's answer (`cut_in`), any words none of
+/// which is English ([`ENGLISH_WORDS`]). Otherwise languages written in the
+/// Latin script are not told apart here.
+pub fn unclear_in_conversation(
+    heard: &str,
+    lamp_asked: bool,
+    cut_in: bool,
+) -> Option<&'static str> {
+    let letters = heard.chars().filter(|c| c.is_alphabetic()).count();
+    let other = heard
+        .chars()
+        .filter(|c| c.is_alphabetic() && !latin(*c))
+        .count();
+    if letters > 0 && other * 2 > letters {
+        return Some(OTHER_SCRIPT);
+    }
+    // One number alone; several ("1 2 3") are someone counting, and only a
+    // cut-in's fragment below.
+    let numbers = heard
+        .split(|c: char| !c.is_numeric())
+        .filter(|part| !part.is_empty())
+        .count();
+    if letters == 0 && numbers == 1 && !lamp_asked {
+        return Some(ONLY_DIGITS);
+    }
+    if cut_in && (letters > 0 || numbers > 1) {
+        let words = plain_words(heard);
+        // No English word at all, however many: over the lamp's English
+        // answer, a cut-in heard all in another language was misheard
+        // (lamp-4ace 08:00: "Okay, okay, that is enough." heard as "Venga,
+        // nos vemos luego.", four words, answered "See you later!").
+        if !words.is_empty() && !words.iter().any(|word| english(word)) {
+            return Some(CUT_IN_FRAGMENT);
+        }
+    }
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -329,5 +610,119 @@ mod tests {
         // A sound let through for being close to the lamp's words, then
         // another over it once that excuse has run out.
         assert!(was_a_sound(18, takes_over(false, false), Some(4_500_000)));
+    }
+
+    /// #926: on lamp-4ace on 2026-10-16 at 05:39 a cut-in was heard as
+    /// Hindi and answered in Hindi; an earlier one heard as "23" got "Four."
+    #[test]
+    fn heard_in_another_script_or_as_a_bare_number_in_a_conversation_is_unclear() {
+        assert_eq!(
+            unclear_in_conversation("हिंदू के स्थान", false, false),
+            Some(OTHER_SCRIPT)
+        );
+        assert_eq!(
+            unclear_in_conversation("हिंदू के स्थान", true, false),
+            Some(OTHER_SCRIPT)
+        );
+        assert_eq!(
+            unclear_in_conversation("23", false, false),
+            Some(ONLY_DIGITS)
+        );
+        assert_eq!(
+            unclear_in_conversation(" 23. ", false, false),
+            Some(ONLY_DIGITS)
+        );
+        // A number answering the lamp's question is an answer.
+        assert_eq!(unclear_in_conversation("23", true, false), None);
+        for said in [
+            "No no no, tell me a joke instead.",
+            "Yes.",
+            "Café crème, s'il vous plaît.",
+            "¿Qué?",
+            "Set a timer for 23 minutes",
+            "",
+            "...",
+        ] {
+            assert_eq!(unclear_in_conversation(said, false, false), None, "{said}");
+        }
+        // A word of another script inside English is still English.
+        assert_eq!(
+            unclear_in_conversation("I said namaste नमस्ते to her", false, false),
+            None
+        );
+        assert_eq!(
+            unclear_in_conversation("你好", false, false),
+            Some(OTHER_SCRIPT)
+        );
+        assert_eq!(
+            unclear_in_conversation("Привет, как дела", false, false),
+            Some(OTHER_SCRIPT)
+        );
+    }
+
+    #[test]
+    fn asking_again_is_off_unless_set_to_sorry() {
+        assert_eq!(unclear_arguments(Some("sorry")), [UNCLEAR_FLAG]);
+        for other in [None, Some("on"), Some("Sorry"), Some("")] {
+            assert!(unclear_arguments(other).is_empty());
+        }
+        let flags: Vec<String> = [UNCLEAR_FLAG, "--next"].map(String::from).into();
+        assert_eq!(take_unclear(&flags), (true, &flags[1..]));
+        assert_eq!(take_unclear(&flags[1..]), (false, &flags[1..]));
+    }
+
+    /// #926, the first builder's addition: tonight's English cut-ins over a
+    /// story came back as Latin-script fragments. A cut-in of one or two
+    /// words, none of them English, is unclear; what people cut in with
+    /// passes; longer or non-cut-in turns are left to the model.
+    #[test]
+    fn a_cut_in_with_no_english_word_is_unclear() {
+        for fragment in [
+            "vestido",
+            "analizar",
+            "miel miel",
+            "Tá.",
+            "Los Ángeles",
+            "mueve mueve mueve",
+            "mueve mueve mueve mueve mueve mueve",
+            "pensar",
+            "Venga, nos vemos luego.",
+            "vestido rojo y azul fuerte",
+        ] {
+            assert_eq!(
+                unclear_in_conversation(fragment, false, true),
+                Some(CUT_IN_FRAGMENT),
+                "{fragment}"
+            );
+            assert_eq!(
+                unclear_in_conversation(fragment, false, false),
+                None,
+                "{fragment}"
+            );
+        }
+        assert_eq!(
+            unclear_in_conversation("23", false, true),
+            Some(ONLY_DIGITS)
+        );
+        // Counting is not a number alone: a cut-in's fragment, else the model's.
+        assert_eq!(
+            unclear_in_conversation("1 2 3", false, true),
+            Some(CUT_IN_FRAGMENT)
+        );
+        assert_eq!(unclear_in_conversation("1 2 3", false, false), None);
+        for said in [
+            "Stop.",
+            "Wait.",
+            "Okay.",
+            "No.",
+            "No no.",
+            "Tell me",
+            "a joke",
+            "Stop, please.",
+            "That's enough",
+            "Wait, wait, wait.",
+        ] {
+            assert_eq!(unclear_in_conversation(said, false, true), None, "{said}");
+        }
     }
 }

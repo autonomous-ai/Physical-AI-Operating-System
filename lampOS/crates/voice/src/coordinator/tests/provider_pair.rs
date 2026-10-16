@@ -255,6 +255,7 @@ impl Paired {
                 request,
                 privacy_generation,
                 sound: false,
+                cut_in: false,
             });
             self.owner.input_ended(now(), current.owner).unwrap();
             self.reply.as_mut().unwrap().local_input_ended = true;
@@ -824,6 +825,7 @@ mod continuation_or_discard {
                 request: current.owner.turn(),
                 privacy_generation,
                 sound: false,
+                cut_in: false,
             });
             self.owner.input_ended(now(), current.owner).unwrap();
             self.reply.as_mut().unwrap().local_input_ended = true;
@@ -1606,6 +1608,7 @@ mod duplex_through_the_worker {
                 request: old,
                 privacy_generation,
                 sound: false,
+                cut_in: false,
             },
         ] {
             link.channels.data.send(command).unwrap();
@@ -1671,6 +1674,7 @@ mod duplex_through_the_worker {
             request: question,
             privacy_generation: h.snapshot.microphone_generation(),
             sound: false,
+            cut_in: false,
         });
         link.flush(&mut h, &selected).await;
         assert_eq!(link.heard(&mut h, &mut dial, QUIET).await, ["end"]);

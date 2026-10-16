@@ -328,6 +328,7 @@ mod tests {
                         request: 1,
                         privacy_generation: 1,
                         sound: false,
+                        cut_in: false,
                     })
                     .unwrap();
             }
@@ -370,6 +371,7 @@ mod tests {
                     request: 1,
                     privacy_generation: 1,
                     sound: false,
+                    cut_in: false,
                 })
                 .unwrap();
         }
@@ -678,6 +680,7 @@ mod tests {
                                 request: original.turn(),
                                 privacy_generation: capture.privacy_generation,
                                 sound: false,
+                                cut_in: false,
                             })
                             .unwrap();
                     } else {

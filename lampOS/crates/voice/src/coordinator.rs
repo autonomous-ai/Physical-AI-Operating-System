@@ -1704,6 +1704,8 @@ fn observe_provider_output(
         // over reports this. It grants nothing here: the request still needs
         // its own Started before any of its output is usable.
         ProviderOutput::OwnershipAssumed { .. } => {}
+        // Asked again by the loop once the turn is over (#926).
+        ProviderOutput::Unclear { .. } => {}
         ProviderOutput::Ended { .. } => cloud.end_output()?,
         ProviderOutput::Started {
             request, session, ..
@@ -1983,6 +1985,7 @@ fn provider_arguments(
     arguments.extend(crate::bus_out::worker_arguments_from_environment());
     arguments.extend(crate::first_output::arguments_from_environment());
     arguments.extend(crate::not_speech::arguments_from_environment());
+    arguments.extend(crate::not_speech::unclear_arguments_from_environment());
     arguments.extend(crate::policy_holds::arguments_from_environment());
     if let Some(camera) = camera {
         arguments.extend(camera.source.arguments());
@@ -2761,6 +2764,9 @@ fn conversation_with_gate(
     };
     let mut answer_opening: Option<(u64, String)> = None;
     let mut look_wanted: Option<(u64, u64)> = None;
+    // A turn held as unclear in a conversation, and when (#926): asked again
+    // with a written turn once it is over.
+    let mut asking = AskAgainState::default();
     // A due reminder's quoted words cannot authorize a later camera turn.
     // Turn IDs increase within this conversation; fence older late words too.
     let mut last_reminder_turn: Option<u64> = None;
@@ -3046,6 +3052,14 @@ fn conversation_with_gate(
                     monotonic_us,
                 )?;
                 snapshot = cancellation.snapshot;
+                // A Stop, the mute or a gap ends the unclear turn's asking
+                // too: nothing is asked again after it (#926).
+                if let Some(turn) = asking.cancelled() {
+                    record(
+                        trace,
+                        json!({"kind":"ask_again_dropped","turn":turn,"at_us":monotonic_us(),"why":"cancelled with its turn"}),
+                    )?;
+                }
                 if gap_cut && !stop && !muted {
                     // Admission keeps nothing of it: its capture lineage
                     // ends with the gap. After the gap, what is still said
@@ -3331,6 +3345,19 @@ fn conversation_with_gate(
                     }
                 }
                 ProviderOutput::GenerationComplete { .. } => {}
+                ProviderOutput::Unclear { request, why } => {
+                    // Only for the turn in hand: one cancelled first (a hand's
+                    // Stop, a capture gap) is never asked about.
+                    let current = asking.unclear(
+                        request,
+                        reply.as_ref().map(|current| current.owner.turn()),
+                        monotonic_us(),
+                    );
+                    record(
+                        trace,
+                        json!({"kind":"provider_turn_unclear","turn":request,"why":why,"at_us":monotonic_us(),"asked_again":current}),
+                    )?;
+                }
                 ProviderOutput::TurnComplete { request, idle } => {
                     record(
                         trace,
@@ -4030,6 +4057,7 @@ fn conversation_with_gate(
                         accepted,
                         provider_session,
                         continues,
+                        took_over,
                         rig.playout_start,
                         trace,
                         |state| rig.publish(state),
@@ -4090,6 +4118,7 @@ fn conversation_with_gate(
                                 snapshot.microphone_generation(),
                                 provider_queue_bound,
                                 false,
+                                took_over_turn == Some(turn),
                             )?;
                             early.send(turn, sent_at, captured_at_us);
                             // The request's sound has ended, for the floor,
@@ -4296,6 +4325,7 @@ fn conversation_with_gate(
                             snapshot.microphone_generation(),
                             provider_queue_bound,
                             as_sound,
+                            took_over_turn == Some(current.owner.turn()),
                         )?;
                     }
                     let mut endpoint_record = json!({"kind":"local_endpoint","owner":current.owner,"turn":current.owner.turn(),"at_us":at,"last_block_host_read_us":input_end_us,
@@ -4768,6 +4798,118 @@ fn conversation_with_gate(
                             note,
                             with_picture,
                             "lamp_looks",
+                            provider_session,
+                            rig.playout_start,
+                            trace,
+                            |state| rig.publish(state),
+                        )?;
+                        last_publish = monotonic_us();
+                    }
+                }
+            }
+        }
+        // Asked again, as soon as the unclear turn is over. Someone speaking
+        // first takes the turn and it is dropped; so is one not begun within
+        // five seconds: a "Sorry?" later than that is about nothing.
+        if let Some(wanted) = asking.wanted() {
+            match ask_again_now(
+                wanted,
+                reply.as_ref().map(|current| current.owner.turn()),
+                clock,
+            ) {
+                AskAgain::Wait
+                    if reply.as_ref().is_some_and(|current| {
+                        current.owner.turn() == wanted.0 && current.local_input_ended
+                    }) =>
+                {
+                    // The service goes on generating into a turn whose sound
+                    // is dropped (lamp-4ace, 08:00: provider_idle false for
+                    // 10 s): once the person has finished, the turn is cut
+                    // there and then, as a stop is, and the asking follows.
+                    cancel_reply(owner, reply, trace, "unclear")?;
+                    // Its unsent input goes with it, as an answer with
+                    // nothing said does: an End still queued after a full
+                    // socket would otherwise reach the flush with no owner.
+                    speaker_pending = None;
+                    provider_queue.clear();
+                    snapshot = owner.snapshot(now())?;
+                    rig.publish(snapshot)?;
+                    last_publish = monotonic_us();
+                }
+                AskAgain::Wait => {
+                    // Its answer dropped, the unclear turn is still current a
+                    // second on while the person goes on: what keeps it,
+                    // said once (#926, lamp-4ace).
+                    if !asking.open_said
+                        && clock.saturating_sub(wanted.1) > 1_000_000
+                        && let Some(current) = reply.as_ref()
+                    {
+                        asking.open_said = true;
+                        record(
+                            trace,
+                            json!({"kind":"ask_again_turn_open","turn":wanted.0,"at_us":clock,
+                                "provider_idle":current.provider_idle,"provider_outcome":current.cloud.outcome,
+                                "local_input_ended":current.local_input_ended,"queued_frames":current.pcm.len(),
+                                "speaker_pending":speaker_pending.is_some(),"playing":current.playback.is_some(),
+                                "notice_settled":current.notice.settled(),
+                                "admission_owns_stream":admission.owns_stream()}),
+                        )?;
+                    }
+                }
+                AskAgain::Drop => {
+                    let why = match reply.as_ref().map(|current| current.owner.turn()) {
+                        Some(current) if current == wanted.0 => {
+                            "the unclear turn stayed open too long"
+                        }
+                        Some(_) => "another turn began",
+                        None => "not begun within 5 s",
+                    };
+                    record(
+                        trace,
+                        json!({"kind":"ask_again_dropped","turn":wanted.0,"at_us":clock,
+                            "current_turn":reply.as_ref().map(|current| current.owner.turn()),
+                            "why":why}),
+                    )?;
+                    asking.done();
+                }
+                AskAgain::Due => {
+                    // What holds a due asking back, said once each time it
+                    // changes (#926: on lamp-4ace one was never asked).
+                    let held = [
+                        (!provider_queue.is_empty(), "provider_queue"),
+                        (admission.owns_stream(), "admission_owns_stream"),
+                        (submission_draining, "submission_draining"),
+                        (!snapshot.listening_ready(now()), "not_listening_ready"),
+                        (
+                            unasked_session(&cloud, paused).is_none(),
+                            "no_ready_session_or_paused",
+                        ),
+                    ]
+                    .into_iter()
+                    .filter(|(holds, _)| *holds)
+                    .map(|(_, what)| what)
+                    .collect::<Vec<_>>();
+                    if !held.is_empty() && asking.held.as_ref() != Some(&held) {
+                        record(
+                            trace,
+                            json!({"kind":"ask_again_waiting","turn":wanted.0,"at_us":clock,"held_by":held}),
+                        )?;
+                        asking.held = Some(held);
+                    }
+                    if provider_queue.is_empty()
+                        && !admission.owns_stream()
+                        && !submission_draining
+                        && snapshot.listening_ready(now())
+                        && let Some(provider_session) = unasked_session(&cloud, paused)
+                    {
+                        asking.done();
+                        snapshot = commit_written_turn(
+                            owner,
+                            reply,
+                            &mut provider_queue,
+                            crate::speak_up::ASK_AGAIN_NOTE,
+                            false,
+                            "asked_again",
                             provider_session,
                             rig.playout_start,
                             trace,
@@ -5519,6 +5661,81 @@ fn commit_reminder_turn(
     Ok(snapshot)
 }
 
+/// A turn held as unclear, to be asked again once it is over (#926).
+#[derive(Debug, Default)]
+struct AskAgainState {
+    /// The turn and when it was judged unclear.
+    wanted: Option<(u64, u64)>,
+    /// What last held a due asking back, as recorded.
+    held: Option<Vec<&'static str>>,
+    /// Whether what keeps the unclear turn open was said.
+    open_said: bool,
+}
+
+impl AskAgainState {
+    /// `request` was judged unclear. Taken only if it is the turn in hand
+    /// (`current`): one cancelled first is never asked about.
+    fn unclear(&mut self, request: u64, current: Option<u64>, at_us: u64) -> bool {
+        if current != Some(request) {
+            return false;
+        }
+        *self = Self {
+            wanted: Some((request, at_us)),
+            ..Self::default()
+        };
+        true
+    }
+
+    /// Its turn was cancelled (a hand's Stop, the mute, a capture gap):
+    /// nothing is asked. The turn it was for, if any.
+    fn cancelled(&mut self) -> Option<u64> {
+        let turn = self.wanted.map(|(turn, _)| turn);
+        *self = Self::default();
+        turn
+    }
+
+    fn wanted(&self) -> Option<(u64, u64)> {
+        self.wanted
+    }
+
+    /// Asked, or dropped.
+    fn done(&mut self) {
+        *self = Self::default();
+    }
+}
+
+/// What becomes of a turn to be asked again (#926), as the loop sees it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum AskAgain {
+    /// Its own turn is not over yet.
+    Wait,
+    /// Someone spoke first, or it is too late to ask about it.
+    Drop,
+    /// Ask now, if the lamp is at rest.
+    Due,
+}
+
+/// A "Sorry?" more than this after the unclear turn is about nothing.
+const ASK_AGAIN_WITHIN_US: u64 = 5_000_000;
+
+/// The unclear turn may stay current after its answer was dropped (on
+/// lamp-4ace a cut-in's turn stayed 15 s); past this it is let go unasked.
+const ASK_AGAIN_TURN_LONGEST_US: u64 = 10_000_000;
+
+fn ask_again_now((turn, asked_us): (u64, u64), current: Option<u64>, clock: u64) -> AskAgain {
+    match current {
+        Some(current)
+            if current == turn && clock.saturating_sub(asked_us) > ASK_AGAIN_TURN_LONGEST_US =>
+        {
+            AskAgain::Drop
+        }
+        Some(current) if current == turn => AskAgain::Wait,
+        Some(_) => AskAgain::Drop,
+        None if clock.saturating_sub(asked_us) > ASK_AGAIN_WITHIN_US => AskAgain::Drop,
+        None => AskAgain::Due,
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 fn commit_written_turn(
     owner: &mut Controller,
@@ -5611,6 +5828,8 @@ fn commit_admitted_input(
     accepted: Accepted,
     provider_session: u64,
     continues: bool,
+    // It takes over from the lamp's own answer: its End, if queued here, says so (#926).
+    cut_in: bool,
     playout_start: PlayoutStart,
     trace: &mut SessionState,
     mut publish: impl FnMut(Snapshot) -> io::Result<()>,
@@ -5689,6 +5908,7 @@ fn commit_admitted_input(
             snapshot.microphone_generation(),
             bound,
             false,
+            cut_in,
         )?;
         snapshot = owner.snapshot(now())?;
         publish(snapshot)?;
@@ -5992,6 +6212,7 @@ fn queue_input_end(
     privacy_generation: u64,
     pcm_bound: usize,
     sound: bool,
+    cut_in: bool,
 ) -> Result<()> {
     if queue.len() > pcm_bound {
         return Err(io::Error::other("provider terminal queue exceeded bound").into());
@@ -6000,6 +6221,7 @@ fn queue_input_end(
         request: reply.owner.turn(),
         privacy_generation,
         sound,
+        cut_in,
     });
     Ok(())
 }
@@ -6844,6 +7066,7 @@ mod tests {
                 request: 1,
                 privacy_generation: 1,
                 sound: false,
+                cut_in: false,
             })
             .unwrap();
         request
@@ -7999,6 +8222,7 @@ mod tests {
             request: reply.as_ref().unwrap().owner.turn(),
             privacy_generation: 1,
             sound: false,
+            cut_in: false,
         }
     }
 

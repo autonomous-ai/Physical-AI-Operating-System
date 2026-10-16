@@ -676,3 +676,47 @@ fn only_a_fenced_attempt_without_any_provider_pcm_can_retry() {
         }
     }
 }
+
+/// #926: a turn held as unclear is asked again as soon as it is over, by a
+/// written turn of the lamp's own with the note to say only "Sorry?"; not
+/// while it is going on, and not once someone else spoke or five seconds
+/// went by.
+#[test]
+fn an_unclear_turn_is_asked_again_once_over_and_never_late_or_over_someone() {
+    let at = 10_000_000;
+    assert_eq!(ask_again_now((7, at), Some(7), at + 100), AskAgain::Wait);
+    assert_eq!(ask_again_now((7, at), Some(8), at + 100), AskAgain::Drop);
+    assert_eq!(ask_again_now((7, at), None, at + 100), AskAgain::Due);
+    assert_eq!(
+        ask_again_now((7, at), None, at + ASK_AGAIN_WITHIN_US + 1),
+        AskAgain::Drop
+    );
+    // The unclear turn staying open is let go, not waited on for ever.
+    assert_eq!(
+        ask_again_now((7, at), Some(7), at + ASK_AGAIN_TURN_LONGEST_US + 1),
+        AskAgain::Drop
+    );
+    let mut test = Test::new();
+    let queue = test.followup(crate::speak_up::ASK_AGAIN_NOTE, false, "asked_again");
+    let asking = test.reply.as_ref().unwrap().owner;
+    assert!(matches!(queue.front(), Some(ProviderInput::Written {
+        request, text, look: false, ..
+    }) if *request == asking.turn() && text == crate::speak_up::ASK_AGAIN_NOTE));
+}
+
+/// #926, the reviewer: an Unclear consumed before a hand's Stop is dropped
+/// with its turn, and one arriving after it (its turn gone) is never taken;
+/// only one for the turn in hand is.
+#[test]
+fn a_stop_ends_the_asking_and_an_unclear_after_it_is_never_taken() {
+    let mut asking = AskAgainState::default();
+    assert!(asking.unclear(7, Some(7), 100));
+    assert_eq!(asking.wanted(), Some((7, 100)));
+    assert_eq!(asking.cancelled(), Some(7));
+    assert_eq!(asking.wanted(), None);
+    // After the Stop: no turn in hand, or another one.
+    assert!(!asking.unclear(7, None, 200));
+    assert!(!asking.unclear(7, Some(8), 200));
+    assert_eq!(asking.wanted(), None);
+    assert_eq!(asking.cancelled(), None);
+}

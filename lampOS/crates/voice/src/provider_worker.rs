@@ -155,6 +155,10 @@ pub struct Files {
     /// something shows it was said to the lamp (`--sounds-checked`,
     /// `crate::not_speech::CHECKED`). Only with `attention`.
     pub sounds_checked: bool,
+    /// Whether, in a conversation, a turn heard in another script or as a
+    /// number alone is asked again (`--ask-unclear`, #926). Only with
+    /// `attention`.
+    pub ask_unclear: bool,
     /// Whether the lamp's actions wait for the Policy's attention decision
     /// (`--policy-holds-actions`, `crate::policy_holds`, #800). Only with the
     /// bus.
@@ -219,6 +223,7 @@ pub fn parse_flags(dir: &std::path::Path, flags: &[String]) -> io::Result<Parsed
     let (bus_root, flags) = crate::bus_out::take_root(flags)?;
     let (first_output, flags) = crate::first_output::take(flags)?;
     let (sounds_checked, flags) = crate::not_speech::take_checked(flags);
+    let (ask_unclear, flags) = crate::not_speech::take_unclear(flags);
     let (policy_holds, flags) = crate::policy_holds::take(flags);
     let visual = VisualSource::parse(dir, flags)?;
     let files = Files {
@@ -242,6 +247,7 @@ pub fn parse_flags(dir: &std::path::Path, flags: &[String]) -> io::Result<Parsed
         bus_root,
         first_output,
         sounds_checked,
+        ask_unclear,
         policy_holds,
     };
     Ok((continuation, sight, files, visual))
@@ -376,6 +382,10 @@ pub enum ProviderInput {
         /// count it.
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         sound: bool,
+        /// The request took over from the lamp's own answer: a cut-in after
+        /// a yield (#926). Without it the End is as it was.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        cut_in: bool,
     },
     /// A whole request in writing, for a turn the lamp begins itself: it is
     /// a start and an end at once and carries no sound.
@@ -465,6 +475,13 @@ pub enum ProviderOutput {
     TurnComplete {
         request: u64,
         idle: bool,
+    },
+    /// What was heard for `request` made no sense in the conversation and
+    /// its answer is held (#926): the coordinator asks again. Sent before
+    /// the request's `TurnComplete`.
+    Unclear {
+        request: u64,
+        why: String,
     },
     TurnFailed {
         request: u64,
@@ -668,6 +685,10 @@ pub(crate) struct Options {
     /// something shows it was said to the lamp (`--sounds-checked`, #800).
     /// Only with `attention`.
     pub(crate) sounds_checked: bool,
+    /// In a conversation, a turn heard in another script or as a number
+    /// alone is held and asked again (`--ask-unclear`, #926). Only with
+    /// `attention`.
+    pub(crate) ask_unclear: bool,
     /// "The lamp" said in passing is no call for the rule
     /// ([`crate::attention::called_by_name`], #829).
     pub(crate) name_in_passing_ignored: bool,
@@ -700,6 +721,7 @@ impl Options {
             attention: None,
             name_signal: false,
             sounds_checked: false,
+            ask_unclear: false,
             name_in_passing_ignored: false,
             policy_holds: None,
             wait_for_room: false,
@@ -735,7 +757,8 @@ fn prune_retired_output(output: &mut VecDeque<Outbound>, retired_through: u64) {
             | ProviderOutput::Audio { request, .. }
             | ProviderOutput::GenerationComplete { request }
             | ProviderOutput::Interrupted { request }
-            | ProviderOutput::TurnComplete { request, .. } => Some(*request),
+            | ProviderOutput::TurnComplete { request, .. }
+        | ProviderOutput::Unclear { request, .. } => Some(*request),
         };
         request.is_none_or(|request| request > retired_through)
     });
@@ -897,6 +920,7 @@ pub async fn run_with_continuation(
         attention: files.attention.then_some(attention_now),
         name_signal: files.name_signal,
         sounds_checked: files.attention && files.sounds_checked,
+        ask_unclear: files.attention && files.ask_unclear,
         name_in_passing_ignored: files.attention && files.name_in_passing_ignored,
         policy_holds: match (files.policy_holds, &files.bus_root) {
             (true, Some(root)) => Some(root.clone()),
@@ -1080,6 +1104,7 @@ async fn serve_with_visual<C: Connect>(
     desk.name_signal = options.name_signal;
     let mut attention = crate::attention::Attention::default();
     attention.check_sounds(sounds_checked);
+    attention.ask_again_when_unclear(options.attention.is_some() && options.ask_unclear);
     attention.ignore_name_in_passing(options.name_in_passing_ignored);
     // The record of whom it answered, off unless set.
     let mut first_output = FIRST_OUTPUT.get().and_then(|directory| {
@@ -1150,6 +1175,9 @@ async fn serve_with_visual<C: Connect>(
                 // request's sound ended is not that request's.
                 if let Some((request, at_us)) = intake.handoff.ended {
                     attention.ended(request, at_us);
+                    if intake.handoff.ended_cut_in == Some(request) {
+                        attention.ended_as_cut_in(request);
+                    }
                     if intake.handoff.ended_as_sound == Some(request) {
                         attention.ended_as_sound(request);
                     }
@@ -1556,7 +1584,17 @@ async fn serve_with_visual<C: Connect>(
                                 }
                                 addressed_said = Some(said);
                             }
+                            attention.lamp_asked(crate::thread::THREAD.lock().is_ok_and(|thread| thread.lamp_asked(request)));
                             let verdict = attention.first_output_busy(request, room, going_on, attention_busy, turned);
+                            // Held as unclear: the coordinator asks again. Said
+                            // once, when the verdict is given, never again for
+                            // the request's later output (lamp-4ace 06:42: eight
+                            // in 0.32 s).
+                            if verdict.is_some()
+                                && let Some(why) = attention.unclear(request)
+                            {
+                                output.push_back(Outbound::Output(ProviderOutput::Unclear { request, why: why.to_owned() }));
+                            }
                             if let (Some(log), Some(verdict)) = (first_output.as_mut(), verdict) {
                                 let (play, reason) = match verdict {
                                     crate::attention::Verdict::Play(why) => (true, why),
@@ -2902,6 +2940,9 @@ struct InputHandoff {
     /// The newest request ended as a short sound let through
     /// (`ProviderInput::End { sound: true }`, #800).
     ended_as_sound: Option<u64>,
+    /// The newest request ended as a cut-in over the lamp's own answer
+    /// (`ProviderInput::End { cut_in: true }`, #926).
+    ended_cut_in: Option<u64>,
     /// Requests the provider will not serve. Their remaining input is dropped
     /// here, exactly like retired input, until the coordinator retires them.
     failed_through: u64,
@@ -3275,7 +3316,7 @@ impl InputHandoff {
                     room.hearing(now_us);
                 }
             }
-            ProviderInput::End { sound, .. } => {
+            ProviderInput::End { sound, cut_in, .. } => {
                 self.require_open(request)?;
                 if let Err(error) = input.end(request) {
                     return self.refused(request, error, input);
@@ -3290,6 +3331,9 @@ impl InputHandoff {
                 self.ended = Some((request.get(), now_us));
                 if sound {
                     self.ended_as_sound = Some(request.get());
+                }
+                if cut_in {
+                    self.ended_cut_in = Some(request.get());
                 }
                 if let Some(submitted) = self.submitted.as_mut() {
                     submitted.open = false;
@@ -4236,6 +4280,7 @@ mod tests {
             request,
             privacy_generation: generation(handoff),
             sound: false,
+            cut_in: false,
         }
     }
 
@@ -4442,6 +4487,7 @@ mod tests {
                                     request: new.turn(),
                                     privacy_generation: state.microphone_generation(),
                                     sound: false,
+                                    cut_in: false,
                                 },
                             ] {
                                 rig.parent.data.send(command)?;
@@ -4806,6 +4852,7 @@ mod tests {
                 request: next.turn(),
                 privacy_generation,
                 sound: false,
+                cut_in: false,
             },
         ] {
             parent.data.send(command).unwrap();
@@ -5898,6 +5945,7 @@ mod tests {
                         request,
                         privacy_generation,
                         sound: false,
+                        cut_in: false,
                     })
                     .unwrap();
             }
@@ -5970,6 +6018,7 @@ mod tests {
                     request,
                     privacy_generation: rig.snapshot.microphone_generation(),
                     sound: false,
+                    cut_in: false,
                 })
                 .unwrap();
             assert!(
@@ -6076,6 +6125,7 @@ mod tests {
                 request,
                 privacy_generation: rig.snapshot.microphone_generation(),
                 sound: false,
+                cut_in: false,
             })
             .unwrap();
         assert!(
@@ -6166,6 +6216,7 @@ mod tests {
             attention: None,
             name_signal: false,
             sounds_checked: false,
+            ask_unclear: false,
             name_in_passing_ignored: false,
             policy_holds: None,
             wait_for_room: false,
@@ -6186,6 +6237,7 @@ mod tests {
                 attention: None,
                 name_signal: true,
                 sounds_checked: false,
+                ask_unclear: false,
                 name_in_passing_ignored: false,
                 policy_holds: None,
                 wait_for_room: false,
@@ -6231,6 +6283,7 @@ mod tests {
                 attention: Some(busy),
                 name_signal: false,
                 sounds_checked: false,
+                ask_unclear: false,
                 name_in_passing_ignored: false,
                 policy_holds: None,
                 wait_for_room: false,
@@ -6511,6 +6564,7 @@ mod tests {
                 attention: Some(busy),
                 name_signal: false,
                 sounds_checked: false,
+                ask_unclear: false,
                 name_in_passing_ignored: false,
                 policy_holds: None,
                 wait_for_room: false,
@@ -7464,6 +7518,7 @@ mod tests {
                 request: newer.turn(),
                 privacy_generation,
                 sound: false,
+                cut_in: false,
             })
             .unwrap();
         rig.pump(Duration::from_millis(25)).await;
@@ -8192,6 +8247,7 @@ mod tests {
                 request: second,
                 privacy_generation: rig.snapshot.microphone_generation(),
                 sound: false,
+                cut_in: false,
             })
             .unwrap();
         rig.pump(Duration::from_millis(40)).await;
@@ -8576,6 +8632,7 @@ mod tests {
                 request: new,
                 privacy_generation: rig.snapshot.microphone_generation(),
                 sound: false,
+                cut_in: false,
             })
             .unwrap();
         // The scripted service confirms the interruption and answers. Packets
@@ -9082,6 +9139,7 @@ mod tests {
                 request: next,
                 privacy_generation,
                 sound: false,
+                cut_in: false,
             })
             .unwrap();
         loop {
@@ -9215,6 +9273,7 @@ mod tests {
                 request,
                 privacy_generation,
                 sound: false,
+                cut_in: false,
             })
             .unwrap();
         // The connection comes back while that question is still the owner.
@@ -9256,6 +9315,7 @@ mod tests {
                 request: resumed,
                 privacy_generation: rig.snapshot.microphone_generation(),
                 sound: false,
+                cut_in: false,
             })
             .unwrap();
         // The opening audio was already delivered. Only End must wait. A
@@ -9296,6 +9356,7 @@ mod tests {
                     request: resumed,
                     privacy_generation: rig.snapshot.microphone_generation(),
                     sound: false,
+                    cut_in: false,
                 })
                 .unwrap();
             if reporting == Reporting::Typed {
@@ -9415,6 +9476,7 @@ mod tests {
                         request,
                         privacy_generation: self.snapshot.microphone_generation(),
                         sound: false,
+                        cut_in: false,
                     })
                     .unwrap();
             }
@@ -9533,6 +9595,7 @@ mod tests {
                     attention: Some(busy),
                     name_signal: false,
                     sounds_checked: false,
+                    ask_unclear: false,
                     name_in_passing_ignored: false,
                     policy_holds: None,
                     wait_for_room: false,
@@ -9598,6 +9661,7 @@ mod tests {
                     attention: Some(busy),
                     name_signal: false,
                     sounds_checked: false,
+                    ask_unclear: false,
                     name_in_passing_ignored: ignored,
                     policy_holds: None,
                     wait_for_room: false,

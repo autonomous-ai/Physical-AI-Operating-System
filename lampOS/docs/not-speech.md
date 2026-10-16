@@ -313,6 +313,54 @@ whether a real short word is held for want of its text. How often a real
 short word is said to the lamp out of the blue, not after its own words, is
 not counted either; `short-turns` on a lamp's records says.
 
+## Misheard in a conversation, asked again (#926)
+
+On lamp-4ace on 2026-10-16 at 05:39 a person who had asked for a story cut
+in with "No no no, tell me a joke instead." The service heard it as "हिंदू
+के स्थान" and the lamp answered in Hindi, about places in Liechtenstein; an
+earlier cut-in heard as "23" got "Four." A cut-in is never a sound, so the
+rule above did not hold either.
+
+With `LAMP_OTHER_LANGUAGE=sorry` in the voice's unit (the provider worker's
+`--ask-unclear`, and only with `LAMP_SPOKEN_TO=on`'s attention rule), while a
+conversation is going on (`Thread::going_on`: the lamp said something in the
+last 45 s), what was heard for a turn is judged when its answer begins
+(`attention::first_output_busy`, `not_speech::unclear_in_conversation`):
+
+- mostly letters of another script than Latin: misheard (`OTHER_SCRIPT`);
+- one number alone, when the lamp's last line was not a question: a
+  fragment (`ONLY_DIGITS`); "23" answering "how old are you?" is an answer,
+  and several ("1 2 3") are someone counting, held only as a cut-in's
+  fragment;
+- for a cut-in over the lamp's own answer (the coordinator marks its end
+  `ProviderInput::End { cut_in: true }` when the turn took over, also when it
+  had already ended at admission), no common English word at all
+  (`not_speech::ENGLISH_WORDS`, a small list, not a language detector):
+  misheard, its start lost (`CUT_IN_FRAGMENT`). On lamp-4ace English cut-ins
+  over a story came back as "vestido", "miel miel", "mueve mueve mueve",
+  "Venga, nos vemos luego." (answered "See you later!"); "Stop.", "Wait.",
+  "Okay.", "No." and "Wait, wait, wait." pass.
+
+The worker says `Unclear` once, when the verdict is given. The trace says
+why an asking was dropped (`ask_again_dropped`: another turn began, or 5 s
+went by) and what held a due one back (`ask_again_waiting`, `held_by`, once
+each time that changes). The service goes on generating into a held turn (lamp-4ace, 08:00:
+`provider_idle` false for 10 s), so once the person has finished the
+coordinator cancels it, as a stop does, and the asking follows. While the
+person goes on, the trace says once what keeps it open
+(`ask_again_turn_open`), and the asking is let go after 10 s. A hand's Stop,
+the mute or a capture gap drops a pending asking with its turn, and an
+`Unclear` for a turn no longer in hand is never taken.
+
+Such a turn's answer is held and dropped, as a sound's is, the worker says
+`ProviderOutput::Unclear` before its `TurnComplete`, and once the turn is
+over the coordinator asks again with a written turn of the lamp's own
+(`speak_up::ASK_AGAIN_NOTE`): the model says only "Sorry?" in the
+conversation's language. Someone speaking first takes the turn and the
+asking is dropped; so is one not begun within 5 s. Otherwise languages written in
+the Latin script are not told apart; outside a conversation nothing changes; on
+the second route nothing is asked again yet.
+
 ## An answer with no word in it
 
 Told to stay quiet, the model sometimes says so aloud: an answer whose

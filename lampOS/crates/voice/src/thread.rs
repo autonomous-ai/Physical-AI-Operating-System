@@ -527,6 +527,17 @@ impl Thread {
         self.held = self.held.max(Some(SystemTime::now()));
     }
 
+    /// Whether the lamp's newest line before `request` ended in a question:
+    /// then a bare answer ("23") is an answer to it (#926).
+    pub fn lamp_asked(&self, request: u64) -> bool {
+        self.exchanges
+            .iter()
+            .rev()
+            .filter(|exchange| exchange.request != request)
+            .find(|exchange| exchange.lamp.chars().any(char::is_alphanumeric))
+            .is_some_and(|exchange| exchange.lamp.trim_end().ends_with('?'))
+    }
+
     /// Whether the lamp said something to someone so lately that a
     /// conversation may still be going on.
     pub fn going_on(&self, now: Instant) -> bool {

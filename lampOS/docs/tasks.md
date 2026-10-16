@@ -683,7 +683,13 @@ used only to say it.
   lamp's own words it waits 3 s with nobody starting (`AFTER_LAMP_US`): 1 s
   after the lamp stops is the person's turn to answer it, and someone who
   starts then has their line, the news waiting for its end and 1 s more
-  (the first builder on #1161). The first
+  (the first builder on #1161). Speech heard in the first 0.3 s after the
+  lamp stops is not someone starting: the detector fires on the lamp's own
+  voice while the microphone falls back to its floor, and the duplex mask
+  waits as long before it hears anyone in the clear (`LAMP_TAIL_US`, the
+  reviewer on #1161). A reply that ends on 0.2 s of its own echo still gets
+  its 3 s, not 1.2 s; a "yes" that runs past the 0.3 s is the person's. The
+  first
   builder's bound on #560 is that a person at the lamp hears the result
   within 20 s of the agent settling, at their first pause of at least 1 s if
   they are talking; someone who talks with the lamp until 18 s after it

@@ -357,6 +357,21 @@ impl TapsIn {
     }
 }
 
+/// How the room is, as the provider worker last published it
+/// (`room/state`, [`RoomOut`]): unknown when nothing fresh was.
+pub fn room_now(bus: &Bus) -> crate::room_told::Room {
+    bus.latest(RoomState::TOPIC)
+        .ok()
+        .flatten()
+        .filter(|message| !message.expired)
+        .and_then(|message| message.parse::<RoomState>().ok())
+        .map_or(crate::room_told::Room::Unknown, |room| match room.state {
+            Room::Unknown => crate::room_told::Room::Unknown,
+            Room::Quiet => crate::room_told::Room::Quiet,
+            Room::Busy => crate::room_told::Room::Busy,
+        })
+}
+
 /// Whether the eyes see someone turned to the lamp now
 /// (`humans/faces/tracked`, `docs/eyes.md`): true when a face in their
 /// newest look is, false when that look saw nobody turned to it, nothing

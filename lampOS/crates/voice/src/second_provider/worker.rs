@@ -281,6 +281,14 @@ pub fn serve(
     let days = crate::remember::days_from_environment();
     // Told after the character with `LAMP_TASKS_ASKED=on`, as the Live route is (#854).
     let tasks = tools.tasks.clone();
+    // What a Live session is told of the moment, with `--session-fact` and
+    // `--room-facts`: the room as Gemini's worker publishes it.
+    let session_fact = files.session_fact;
+    let room_bus = files
+        .bus_root
+        .as_deref()
+        .filter(|_| files.room_facts)
+        .and_then(|root| lamp_bus::Bus::new(root).ok());
     let sessions = std::sync::Mutex::new(Sessions::default());
     let system = move || {
         let now = Instant::now();
@@ -295,11 +303,14 @@ pub fn serve(
             Some(socket) => crate::remember::told_for_session(socket, 0, person.as_deref()),
             None => crate::remember::told(),
         };
+        let going_on = crate::thread::current(file.as_deref(), |thread| thread.going_on(now))
+            .unwrap_or_default();
+        let room = room_bus.as_ref().map(crate::bus_out::room_now);
         system_message(
             &character,
             crate::agent_tasks::noted(crate::local_time::told_here(clock), tasks.as_ref())
                 .as_deref(),
-            &memory,
+            &(memory + &facts(session_fact && !going_on, room)),
             file.as_deref(),
         )
     };
@@ -323,6 +334,25 @@ pub fn serve(
         .enable_all()
         .build()?
         .block_on(run(channels, boot, engine, thread))
+}
+
+/// What a Live session is told of the moment beside what it hears, told
+/// here in each turn's system message, since each chat starts with nothing:
+/// the session fact ([`crate::session_fact::FACT`]) when `session` (no
+/// conversation going on), and how the room is when it is known
+/// ([`crate::room_told::BUSY`], [`crate::room_told::QUIET`]).
+pub(crate) fn facts(session: bool, room: Option<crate::room_told::Room>) -> String {
+    let room = match room {
+        Some(crate::room_told::Room::Busy) => Some(crate::room_told::BUSY),
+        Some(crate::room_told::Room::Quiet) => Some(crate::room_told::QUIET),
+        _ => None,
+    };
+    session
+        .then_some(crate::session_fact::FACT)
+        .into_iter()
+        .chain(room)
+        .map(|fact| format!("\n\n{fact}"))
+        .collect()
 }
 
 /// Whose the second route's turns are, and the Days note of that person's
@@ -567,6 +597,27 @@ pub async fn run(
 
 #[cfg(test)]
 mod tests {
+    /// Each fact as a Live session is told it; the session fact only with
+    /// no conversation going on, the room only when known.
+    #[test]
+    fn the_facts_are_the_live_routes_own() {
+        use crate::room_told::Room;
+        assert_eq!(super::facts(false, None), "");
+        assert_eq!(super::facts(false, Some(Room::Unknown)), "");
+        assert_eq!(
+            super::facts(true, Some(Room::Busy)),
+            format!(
+                "\n\n{}\n\n{}",
+                crate::session_fact::FACT,
+                crate::room_told::BUSY
+            )
+        );
+        assert_eq!(
+            super::facts(false, Some(Room::Quiet)),
+            format!("\n\n{}", crate::room_told::QUIET)
+        );
+    }
+
     use super::*;
     use crate::second_provider::{Listener, Services, net};
     use futures_util::{

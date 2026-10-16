@@ -612,11 +612,29 @@ pub(crate) struct Life {
     /// while that word was fresh.
     voice_said: Option<(u64, bool)>,
     voice_slept: bool,
+    /// The body moving by itself (a shift at rest, #933): the goals it last
+    /// said for its joints and when, since when they have gone fast, and
+    /// when it was last seen moving so.
+    body_goals: Option<(u64, Vec<f64>)>,
+    body_fast_since: Option<u64>,
+    body_moved_us: Option<u64>,
 }
 
 /// How long the voice's word on its mute counts: it says it every second
 /// and keeps it three (#711).
 pub const VOICE_MUTE_KEPT_US: u64 = 3_000_000;
+
+/// A shift the body makes by itself at rest and a drift are one layer: no
+/// drift begins this soon after the body was seen moving by itself (the
+/// body keeps the same window after a drift, #933).
+pub const BODY_QUIET_US: u64 = 30_000_000;
+/// The body is seen moving by itself when the goal it says for a joint on
+/// `body/joint_states` goes this fast, in radians a second, for
+/// `BODY_MOVING_US` running. This layer's own breath and drift go under
+/// 0.02; a shift at rest goes 0.06 to 0.09; a goal that jumps once (a
+/// head led as it lifts) is not a move.
+const BODY_FAST: f64 = 0.04;
+const BODY_MOVING_US: u64 = 300_000;
 
 /// A fraction in 0..1 from a counter and a salt: splitmix64, fixed, so that
 /// a drift's timing and size are the same in every replay.
@@ -661,6 +679,9 @@ impl Life {
             face_y: None,
             voice_said: None,
             voice_slept: false,
+            body_goals: None,
+            body_fast_since: None,
+            body_moved_us: None,
         }
     }
 
@@ -697,6 +718,32 @@ impl Life {
     }
 
     /// The eyes' newest look: whom they see, how close and how still.
+    /// The goals the body said for its joints (`body/joint_states`) at
+    /// `stamp_us`: whether it is moving by itself.
+    pub(crate) fn joints(&mut self, stamp_us: u64, goals: &[f64]) {
+        let fast = match &self.body_goals {
+            Some((was_us, was)) if stamp_us > *was_us && was.len() == goals.len() => {
+                let seconds = (stamp_us - was_us) as f64 / 1e6;
+                was.iter()
+                    .zip(goals)
+                    .any(|(was, goal)| (goal - was).abs() / seconds >= BODY_FAST)
+            }
+            _ => false,
+        };
+        self.body_fast_since = if fast {
+            Some(self.body_fast_since.unwrap_or(stamp_us))
+        } else {
+            None
+        };
+        if self
+            .body_fast_since
+            .is_some_and(|since| stamp_us - since >= BODY_MOVING_US)
+        {
+            self.body_moved_us = Some(stamp_us);
+        }
+        self.body_goals = (!goals.is_empty()).then(|| (stamp_us, goals.to_vec()));
+    }
+
     pub(crate) fn faces(&mut self, stamp_us: u64, faces: &Faces, confidence: f32) {
         self.faces_at = Some(stamp_us);
         let seen: Vec<_> = faces
@@ -1135,7 +1182,13 @@ impl Life {
         if self.drift_next.is_none() && self.drift_started.is_none() {
             self.drift_next = Some(now_us.saturating_add(self.drift_wait(pace)));
         }
-        if allowed && self.drift_started.is_none() && self.drift_next.is_some_and(|at| now_us >= at)
+        let body_quiet = self
+            .body_moved_us
+            .is_none_or(|at| now_us.saturating_sub(at) >= BODY_QUIET_US);
+        if allowed
+            && body_quiet
+            && self.drift_started.is_none()
+            && self.drift_next.is_some_and(|at| now_us >= at)
         {
             self.drift_from = self.drift_to;
             self.drift_to = self.drift_target(size);

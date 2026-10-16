@@ -901,7 +901,13 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
                 choice.awake,
                 choice.load,
             )
-            .map(|standing| standing.idling(choice.idle))
+            .map(|standing| {
+                // Each run draws its own waits and moves.
+                let seed = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map_or(0, |since| since.as_nanos() as u64);
+                standing.idling(choice.idle).seeded(seed)
+            })
         })
         .transpose()?;
     // What Expression asks of the head, if the unit says so. Looked at
@@ -933,15 +939,17 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
         looking,
         news,
         || {
+            let now_us = lamp_ipc::monotonic_us();
             let asked = lamp_body::body::Asked {
                 seen: eyes(),
                 gesture: gesture_asked.take(),
-                expression: expression.as_mut().and_then(|asked| {
-                    asked.offsets(lamp_ipc::monotonic_us(), |why| {
-                        eprintln!("lamp-body: {why}")
-                    })
-                }),
+                expression: expression
+                    .as_mut()
+                    .and_then(|asked| asked.offsets(now_us, |why| eprintln!("lamp-body: {why}"))),
                 called: name.as_mut().is_some_and(|name| name.called()),
+                still: expression
+                    .as_ref()
+                    .is_some_and(|asked| asked.holding(now_us)),
             };
             // Read all the same, so that nothing kept from before the pause
             // is acted on after it.

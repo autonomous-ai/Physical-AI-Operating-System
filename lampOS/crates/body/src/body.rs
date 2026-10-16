@@ -35,6 +35,7 @@ use crate::{
     cog,
     gaze::{Gaze, Looking, Seen},
     gesture::{Gestures, Mood, Pose},
+    idle,
     inspection::{Interest, PortIo, Runtime},
     protocol::{ReadOnlyRequest, ReadWindow, StatusFlags, StatusParser},
 };
@@ -283,10 +284,6 @@ const GESTURE_COOL_STEPS: u16 = 25;
 /// somebody is taken to be in front of the lamp: it stands up for them and
 /// stays up while they are there.
 const COMPANY_SIGHTS: u8 = 6;
-/// A lamp that may idle and has stood at rest this long shifts a little by
-/// itself, and waits this long after one shift before the next.
-const IDLE_AFTER: Duration = Duration::from_secs(4);
-const IDLE_EVERY: Duration = Duration::from_secs(8);
 /// Under `Limits::look_at_name`: a call is taken as being spoken to for
 /// this long, which the voice's own listening takes over if the person
 /// goes on; and a call this soon after the last one is let go.
@@ -308,6 +305,9 @@ pub struct Asked {
     /// The lamp's name was heard since the last step (`name/heard`), and
     /// was fresh when it came. Taken only under `Limits::look_at_name`.
     pub called: bool,
+    /// Stillness is asked: Expression holds the lamp still for someone
+    /// working under it, or the lamp is paused. No shift at rest.
+    pub still: bool,
 }
 
 impl Asked {
@@ -319,6 +319,7 @@ impl Asked {
         gesture: None,
         expression: None,
         called: false,
+        still: true,
     };
 }
 
@@ -337,6 +338,19 @@ pub const REST_GLANCE_REACH: [f32; 3] = [50.0, 25.0, 0.0];
 /// did not start for a goal 30 counts ahead, and lifted for one 40 to 80
 /// ahead and stopped about 30 short of it (see [`WAKE_LIFT_LEAD`]).
 const GLANCE_LIFT_LEAD: f32 = 40.0;
+
+/// A shift at rest and a drift of Expression's rest layer are one layer:
+/// no shift starts this soon after a drift (Expression keeps the same
+/// window after a shift, `lamp_expression::BODY_QUIET_US`).
+pub const SHIFT_QUIET: Duration = Duration::from_secs(30);
+/// A drift is told from the breath under it by the rest offsets' average
+/// over about one breath (Expression's is 5.2 s): the breath barely moves
+/// it, a drift moves it this many counts or more.
+const REST_AVERAGE: Duration = Duration::from_millis(5_200);
+const REST_DRIFTED: f32 = 5.0;
+/// While a shift plays over Expression's rest offsets, how much of their
+/// change since it began (the breath) is kept under it.
+const SHIFT_BREATH: f32 = 0.5;
 
 /// The shoulder and the elbow, in the order of every array of two here.
 /// Read on every step. Written only by a body that was given a pose to
@@ -363,6 +377,8 @@ pub struct Standing {
     pub load: [u16; 2],
     /// Standing with nothing to do, it shifts a little now and then.
     pub idle: bool,
+    /// Seeds the draw of when it shifts and how (`crate::idle`).
+    pub idle_seed: u64,
 }
 
 impl Standing {
@@ -419,6 +435,7 @@ impl Standing {
             awake: Duration::from_secs(u64::from(awake)),
             load,
             idle: false,
+            idle_seed: 0,
         })
     }
 
@@ -426,6 +443,11 @@ impl Standing {
     /// not.
     pub fn idling(self, idle: bool) -> Self {
         Self { idle, ..self }
+    }
+
+    /// The same, its shifts drawn from this seed.
+    pub fn seeded(self, idle_seed: u64) -> Self {
+        Self { idle_seed, ..self }
     }
 }
 
@@ -2051,6 +2073,7 @@ pub(crate) fn run_looking(
         gesture: None,
         expression: None,
         called: false,
+        still: false,
     };
     run_alive(
         io, runtime, limits, home, standing, looking, news, asked, watch,
@@ -2744,8 +2767,16 @@ fn run_until_stopped(
     let mut tipping = false;
     // Looks in a row in which its eyes reported a face.
     let mut faces_running = 0u8;
-    // When a lamp standing at rest next shifts by itself.
+    // When a lamp standing at rest next shifts by itself, what draws when
+    // and how.
     let mut idle_due: Option<Duration> = None;
+    let mut idler = idle::Idler::new(standing.map_or(0, |up| up.idle_seed));
+    // Expression's rest offsets of the head (pitch, roll) averaged over a
+    // breath, the average a drift last left, and when one last did.
+    let mut rest_average: Option<([f32; 2], [f32; 2])> = None;
+    let mut drifted_at: Option<Duration> = None;
+    // Expression's rest offsets as a shift began, while one plays.
+    let mut shift_from: Option<[f32; 3]> = None;
     let step = TICK.as_secs_f32();
     // A look away begins with a glance of GLANCE counts of the base's
     // turn: within the folded reach that is all of it, as it always was.
@@ -2881,7 +2912,7 @@ fn run_until_stopped(
             report.calls += 1;
             // Not over a gesture under way; over shifting at rest, yes.
             if faces_running == 0
-                && playing.is_none_or(|(clip, _)| clip.name == clips::IDLE.name)
+                && playing.is_none_or(|(clip, _)| idle::is_move(clip))
                 && pending.is_none()
             {
                 let rising = standing.map_or(0.0, |up| up.seconds);
@@ -3004,21 +3035,58 @@ fn run_until_stopped(
             && !blind
             && standing.is_some_and(|up| up.share >= 1.0 && stand >= 1.0 && stand_velocity == 0.0);
         // Anything alive that stands with nothing to do shifts a little
-        // now and then. It stops the moment there is something to do.
-        let idling = playing.is_some_and(|(clip, _)| clip.name == clips::IDLE.name);
-        if !(upright && mood == Mood::Resting && pending.is_none()) {
+        // now and then, not on a clock: after a wait drawn at random, and each
+        // time a different small move (`crate::idle`). It stops the moment there is something to do:
+        // a mood, a call, another gesture, a hand on the head or the base,
+        // stillness asked (Expression holding, or a pause). Each of those
+        // starts the wait again, so no shift comes right after one.
+        // Expression's rest stream (zeros or a breath, renewed every step
+        // under `--rest-glance`) does not: the shift is laid over its
+        // offsets while it plays. A drift of that stream holds off the
+        // start of a shift for `SHIFT_QUIET`, without starting the wait over.
+        match (asked_now.expression, rest_average.as_mut()) {
+            (Some(asked), Some((average, mark))) => {
+                let share = step / REST_AVERAGE.as_secs_f32();
+                for axis in 0..2 {
+                    if asked[axis].is_finite() {
+                        average[axis] += (asked[axis] - average[axis]) * share;
+                    }
+                }
+                if (0..2).any(|axis| (average[axis] - mark[axis]).abs() >= REST_DRIFTED) {
+                    *mark = *average;
+                    drifted_at = Some(now);
+                }
+            }
+            (Some(asked), None) if asked[..2].iter().all(|value| value.is_finite()) => {
+                rest_average = Some(([asked[0], asked[1]], [asked[0], asked[1]]));
+            }
+            (Some(_), None) => {}
+            (None, _) => rest_average = None,
+        }
+        let settled = drifted_at.is_none_or(|at| now.saturating_sub(at) >= SHIFT_QUIET);
+        let idling = playing.is_some_and(|(clip, _)| idle::is_move(clip));
+        let quiet = upright
+            && mood == Mood::Resting
+            && pending.is_none()
+            && (playing.is_none() || idling)
+            && !asked_now.still
+            && easing == [0; 3]
+            && in_hand == [0; 3];
+        if !quiet {
             idle_due = None;
             if idling {
                 playing = None;
             }
         } else if playing.is_none() {
             match idle_due {
-                None => idle_due = Some(now + IDLE_AFTER),
-                Some(due) if now >= due && standing.is_some_and(|up| up.idle) => {
-                    playing = Some((&clips::IDLE, now));
+                None => idle_due = Some(now + idler.gap()),
+                Some(due) if now >= due && settled && standing.is_some_and(|up| up.idle) => {
+                    // An arm a hand holds is not swayed into the hand.
+                    let arm_free = stalls[3..].iter().all(|stall| stall.hold.is_none());
+                    let tilts = limits.stand_roll > limits.roll;
+                    playing = Some((idler.pick(tilts, arm_free), now));
                     report.idles += 1;
-                    idle_due =
-                        Some(now + Duration::from_micros(clips::IDLE.duration_us()) + IDLE_EVERY);
+                    idle_due = None;
                 }
                 Some(_) => {}
             }
@@ -3123,23 +3191,39 @@ fn run_until_stopped(
         // goes through everything that pose goes through: the reach of
         // each joint, the speed and the acceleration the pose follows at,
         // rest, and the hold after resistance. Not while a gesture plays:
-        // that is the whole lamp's move, and nothing is laid over it.
+        // that is the whole lamp's move, and nothing is laid over it. A
+        // shift at rest is the exception, one layer with Expression's: it
+        // starts and ends where the rest offsets have the head, with no dip
+        // to plain rest, and half the breath goes on under it.
         let reach = if glance {
             REST_GLANCE_REACH
         } else {
             EXPRESSION_REACH
         };
+        let shifting =
+            gesturing && playing.map_or(shift_from.is_some(), |(clip, _)| idle::is_move(clip));
+        if !shifting {
+            shift_from = None;
+        }
         let extra = match asked_now.expression {
-            Some(asked) if !gesturing => {
+            Some(asked) if !gesturing || shifting => {
                 report.expression_steps += 1;
-                [0, 1, 2].map(|index| {
+                let full = [0, 1, 2].map(|index| {
                     let asked = if asked[index].is_finite() {
                         asked[index]
                     } else {
                         0.0
                     };
                     asked.clamp(-reach[index], reach[index])
-                })
+                });
+                if shifting {
+                    let from = *shift_from.get_or_insert(full);
+                    std::array::from_fn(|index| {
+                        from[index] + (full[index] - from[index]) * SHIFT_BREATH
+                    })
+                } else {
+                    full
+                }
             }
             _ => [0.0; 3],
         };

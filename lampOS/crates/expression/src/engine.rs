@@ -774,7 +774,12 @@ impl Engine {
                 self.concentration = Some(value);
             }
             Input::VoiceState { value, .. } => self.legacy_voice = Some(value),
-            Input::Joints { stamp, .. } => self.joints_at = Some(stamp.at_us),
+            Input::Joints { stamp, value } => {
+                self.joints_at = Some(stamp.at_us);
+                if let Some(life) = &mut self.life {
+                    life.joints(stamp.at_us, &value.commanded);
+                }
+            }
             Input::Faces { stamp, value } => {
                 if let Some(life) = &mut self.life {
                     life.faces(stamp.at_us, &value, self.catalogue.gaze.minimum_confidence);

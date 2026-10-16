@@ -36,6 +36,7 @@ pub mod command;
 pub mod control;
 pub mod gaze;
 pub mod gesture;
+pub mod idle;
 pub mod moves;
 pub mod protocol;
 pub mod readback;

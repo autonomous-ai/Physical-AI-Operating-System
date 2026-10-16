@@ -436,6 +436,22 @@ fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     serve(args, config, &clock, reader, privacy)
 }
 
+/// One line at start for the privacy route (lamp-4ace, 2026-10-16 10:01:
+/// Controls said nothing of it, so nobody could tell whether it was on).
+fn say_privacy(privacy: Option<&lamp_controls::privacy::Pins>) {
+    match privacy {
+        Some(pins) => eprintln!(
+            "lamp-controls: privacy route on: {} line {}, LOW is muted",
+            pins.chip, pins.line
+        ),
+        None if privacy_selected() => eprintln!(
+            "lamp-controls: {}=on but the pins file has no privacy section: no privacy source",
+            lamp_controls::privacy::ENV
+        ),
+        None => {}
+    }
+}
+
 fn privacy_selected() -> bool {
     lamp_controls::privacy::selected(std::env::var_os(lamp_controls::privacy::ENV).as_deref())
 }
@@ -473,6 +489,7 @@ fn serve(
         bus
     };
     let mut service = Service::new(&bus, config, reader, clock)?;
+    say_privacy(privacy.as_ref());
     if let Some(pins) = privacy {
         service.attach_privacy(privacy_source(&pins, clock)?);
     }
@@ -627,6 +644,7 @@ fn run_touch(args: Args, config: Config, clock: &str) -> Result<(), Box<dyn std:
     };
     let mut service =
         touch_runtime::Service::new(&bus, config, wiring.clone(), gpio, None::<Worker>, clock)?;
+    say_privacy(privacy.as_ref());
     if let Some(pins) = privacy {
         service.attach_privacy(&bus, privacy_source(&pins, clock)?)?;
     }

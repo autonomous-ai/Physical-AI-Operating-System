@@ -177,6 +177,46 @@ pub const SETUP_SETTINGS: &[(&str, &str)] = &[
         include_str!("../../setup/fixtures/reset-plan-product.json"),
     ),
 ];
+/// Models no build carries (#811): where each goes, where it is fetched from,
+/// and its size and SHA-256 (`deploy/product/models.json`).
+pub const MODELS: &str = include_str!("../../../deploy/product/models.json");
+/// The name part's own classifier, trained in this repository
+/// (`lampOS/models/name`, docs/bare-name.md), published nowhere else.
+pub const NAME_MODEL_PATH: &str = "/opt/lampOS/name/models/name.onnx";
+pub const NAME_MODEL: &[u8] = include_bytes!("../../../models/name/name.onnx");
+
+#[derive(serde::Deserialize)]
+struct Models {
+    models: Vec<Model>,
+}
+
+/// One model of [`MODELS`].
+#[derive(Clone, Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Model {
+    pub path: String,
+    pub url: String,
+    pub bytes: u64,
+    pub sha256: String,
+    /// The file is one member of a gzipped tar at `url`, itself pinned.
+    #[serde(default)]
+    pub archive: Option<Archive>,
+}
+
+#[derive(Clone, Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Archive {
+    pub bytes: u64,
+    pub sha256: String,
+    pub member: String,
+}
+
+/// The models of [`MODELS`].
+pub fn models() -> Result<Vec<Model>, String> {
+    serde_json::from_str::<Models>(MODELS)
+        .map(|list| list.models)
+        .map_err(|error| format!("deploy/product/models.json: {error}"))
+}
 
 /// `/etc/tmpfiles.d/lampos.conf`: the bus root and the locks.
 pub const TMPFILES: &str = include_str!("../../../deploy/product/lampos.conf");
@@ -370,6 +410,8 @@ pub struct Install {
     pub records: String,
     /// `--setup on`: also write setup's settings ([`SETUP_SETTINGS`]).
     pub setup: bool,
+    /// The models to place where missing: [`models`] on a lamp.
+    pub models: Vec<Model>,
 }
 
 impl Install {
@@ -478,6 +520,7 @@ pub fn install(
     if config.setup {
         defaults.extend_from_slice(SETUP_SETTINGS);
     }
+    place_models(config, channel, &mut changed, say)?;
     settings(
         config,
         &defaults,
@@ -876,6 +919,113 @@ fn device_key(config: &Install) -> Option<String> {
     let key = value.get("llm_api_key")?.as_str()?;
     (!key.is_empty() && key.len() <= 4096 && key.bytes().all(|b| b.is_ascii_graphic()))
         .then(|| key.to_owned())
+}
+
+/// Each model missing on the lamp, fetched and checked by size and SHA-256
+/// under a temporary name, then renamed into place. One that cannot be had
+/// is said, and the install goes on: its part cannot start until it is
+/// there, and the next install tries again. A file already there that is not
+/// the pinned one is the lamp's own (lamp-52e6's own `name.onnx`): kept, and
+/// said.
+fn place_models(
+    config: &Install,
+    channel: &mut dyn Channel,
+    changed: &mut Vec<String>,
+    say: &mut dyn FnMut(&str),
+) -> Result<(), String> {
+    for model in &config.models {
+        let at = config.on(&model.path);
+        match file_sha256(&at) {
+            Ok(sha) if sha == model.sha256 => continue,
+            Ok(_) => {
+                say(&format!("kept {}: it is not the pinned model", model.path));
+                continue;
+            }
+            Err(_) => {}
+        }
+        match fetch_model(channel, model, &at) {
+            Ok(()) => changed.push(format!("fetched {}", model.path)),
+            Err(why) => say(&format!(
+                "{} could not be had ({why}); its part cannot start until it is there",
+                model.path
+            )),
+        }
+    }
+    if !config.on(NAME_MODEL_PATH).exists() {
+        put(config, NAME_MODEL_PATH, NAME_MODEL, 0o644, changed)?;
+    }
+    Ok(())
+}
+
+fn fetch_model(channel: &mut dyn Channel, model: &Model, at: &Path) -> Result<(), String> {
+    let parent = at.parent().ok_or("no folder")?;
+    fs::DirBuilder::new()
+        .recursive(true)
+        .mode(0o755)
+        .create(parent)
+        .map_err(|error| error.to_string())?;
+    let name = at.file_name().ok_or("no name")?.to_string_lossy();
+    let temporary = parent.join(format!(".{name}.fetching"));
+    let archive = parent.join(format!(".{name}.archive"));
+    let result = (|| {
+        match &model.archive {
+            None => fetch_checked(channel, &model.url, model.bytes, &model.sha256, &temporary)?,
+            Some(pinned) => {
+                fetch_checked(channel, &model.url, pinned.bytes, &pinned.sha256, &archive)?;
+                let out = fs::File::create(&temporary).map_err(|error| error.to_string())?;
+                let status = Command::new("tar")
+                    .arg("-xzOf")
+                    .arg(&archive)
+                    .arg(&pinned.member)
+                    .stdout(out)
+                    .status()
+                    .map_err(|error| format!("tar: {error}"))?;
+                if !status.success() {
+                    return Err(format!("tar could not take {} out", pinned.member));
+                }
+                let sha = file_sha256(&temporary).map_err(|error| error.to_string())?;
+                let size = fs::metadata(&temporary)
+                    .map_err(|error| error.to_string())?
+                    .len();
+                if size != model.bytes || sha != model.sha256 {
+                    return Err(format!("{} does not match its SHA-256", pinned.member));
+                }
+            }
+        }
+        fs::set_permissions(&temporary, fs::Permissions::from_mode(0o644))
+            .and_then(|()| fs::File::open(&temporary)?.sync_all())
+            .and_then(|()| fs::rename(&temporary, at))
+            .and_then(|()| sync_parent(at))
+            .map_err(|error| error.to_string())
+    })();
+    let _ = fs::remove_file(&archive);
+    if result.is_err() {
+        let _ = fs::remove_file(&temporary);
+    }
+    result
+}
+
+/// The file at `url` into `to`, only if it is `bytes` long with `sha256`.
+fn fetch_checked(
+    channel: &mut dyn Channel,
+    url: &str,
+    bytes: u64,
+    sha256: &str,
+    to: &Path,
+) -> Result<(), String> {
+    let mut out = fs::File::create(to).map_err(|error| error.to_string())?;
+    let mut hashing = Hashing {
+        file: &mut out,
+        context: digest::Context::new(&digest::SHA256),
+    };
+    let fetched = channel.fetch(url, bytes, &mut hashing);
+    let sha = manifest::hex(hashing.context.finish().as_ref());
+    match fetched {
+        Ok(size) if size == bytes && sha == sha256 => Ok(()),
+        Ok(_) => Err("it does not match its SHA-256".into()),
+        Err(Fetch::Missing) => Err(format!("{url} is not there")),
+        Err(error) => Err(format!("{error:?}")),
+    }
 }
 
 fn has_user(config: &Install, name: &str) -> bool {

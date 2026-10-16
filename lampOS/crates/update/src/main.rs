@@ -181,6 +181,7 @@ fn install(options: &BTreeMap<String, String>) -> Result<(), String> {
         key,
         records: "/var/lib/lampos-update/".into(),
         setup,
+        models: install::models()?,
     };
     let mut channel = Web::new().map_err(|error| format!("TLS cannot be set up: {error}"))?;
     let mut say = |line: &str| eprintln!("lamp-update: {line}");

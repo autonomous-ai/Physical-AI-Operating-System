@@ -467,9 +467,18 @@ program was built from; the binaries are the channel's newest build.
   newer build moves each link and keeps the old folders. `useradd`,
   `systemctl` and `systemd-tmpfiles` themselves were not run.
 - No build carries the voice's turn-end model and ONNX Runtime library, the
-  eyes' two models or the name's models, and `install` does not place them.
-  A lamp installed by it has a voice without its endpoint model and eyes
-  and name that cannot start.
+  eyes' two models or the name's models. `install` fetches each that is
+  missing (#811, from lamp-06c1) from `deploy/product/models.json`: where
+  it goes, its URL, size and SHA-256, the runtime's library out of its
+  pinned release archive with `tar`. Each is written under a temporary name
+  and renamed into place only when it matches; the voice's two go beside
+  its binary through `current/`, and a round carries them to the next
+  build. The name part's own `name.onnx` comes from the repository
+  (`lampOS/models/name`). One that cannot be had is said and the install
+  goes on; one already there that is not the pinned one is the lamp's and
+  kept. The URLs are each file's own upstream until the first builder picks
+  (#811, 14:4x: upstream or one release of ours), and which `name.onnx`
+  ships is theirs too. Not run against the real URLs from a lamp.
 - Nothing here was run on a lamp. The units were read from the repository,
   not from the lamps, and lamp-4ace's `LAMP.md` and its unit files already
   disagree on builds (updates.md, "Most likely wrong").

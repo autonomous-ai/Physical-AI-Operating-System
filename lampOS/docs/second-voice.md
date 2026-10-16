@@ -120,10 +120,16 @@ A base URL on `campaign-api.autonomous.ai` ending in `/ai` is given `/v1`
   still have words on their way ("set a timer" without "for twenty
   minutes", #878). Otherwise `{"type":"Finalize"}` asks for
   the final words at once, keeping the socket: final segments are taken
-  until one marked `from_finalize` (the flush has finished), or until
-  final segments cover all the audio sent, for up to
-  1 s (`FINALIZE`). Only if that passes with neither, `CloseStream` and up
-  to 15 s in all for its final words, as before. `CloseStream` is sent in
+  until they cover all the audio sent, for up to 1 s (`FINALIZE`). An
+  answer marked `from_finalize` that falls short of the audio sent does
+  not end the line: `CloseStream` goes at once and its words are waited
+  for. On lamp-52e6 (2026-10-16, #828) audio sent faster than speech, a
+  held burst, got such an answer: "Hang" for "Hang on." (0.30 of 0.59 s)
+  and "Lamp," for "Lamp, stop."; with `CloseStream` after it, 16 of 16
+  rounds had the whole phrase, its segment starting where the answer
+  ended, about 0.25 s later than the answer. If 1 s passes with no
+  covering finals, `CloseStream` and up to 15 s in all for its final
+  words, as before. `CloseStream` is sent in
   every case to close the socket, but waited on only in that fallback.
 - **Text model** (`net/chat.rs`): `POST <base>/chat/completions`,
   `Authorization: Bearer <key>`, `"stream": true`, with `tools` when any are
@@ -172,8 +178,9 @@ order is kept. A written turn is the same from the chat on.
   to `CloseStream`'s answer, up to 15 s in all. Host tests on the paused
   clock (`net/stt.rs`), against a scripted 800 ms `CloseStream` round
   trip: 0 ms to the words with finals covering the audio before the end,
-  0 ms with an at-once answer to `Finalize`, and 1 s + 800 ms when
-  `Finalize` is ignored. Two more hold the whole line in both arrival
+  0 ms with an at-once answer to `Finalize`, 50 ms + 800 ms when that
+  answer is short of the audio sent (the rest from `CloseStream`), and
+  1 s + 800 ms when `Finalize` is ignored. Two more hold the whole line in both arrival
   orders: an utterance ended before more audio was sent, and an older
   final arriving after `Finalize` and before its answer. On lamp-52e6 (2026-10-15 23:30, four played questions) the
   company proxy passed `Finalize`: every turn took `words from=finalize`,

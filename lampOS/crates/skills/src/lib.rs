@@ -994,10 +994,11 @@ impl Engine {
                     ),
                 ];
                 if self.ask_policy {
-                    // The Policy's acts: a hello, news of work, or anything
-                    // else the lamp starts itself.
+                    // The Policy's acts: a hello, news of work, a reminder
+                    // the person set, or anything else the lamp starts
+                    // itself.
                     let act = match skill.policy.as_str() {
-                        "hello" | "news" => skill.policy.as_str(),
+                        "hello" | "news" | "reminder" => skill.policy.as_str(),
                         _ => "unprompted",
                     };
                     let mut ask = json!({ "skill": skill.name, "act": act });

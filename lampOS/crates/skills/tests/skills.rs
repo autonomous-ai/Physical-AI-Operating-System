@@ -1740,12 +1740,17 @@ fn asking_the_policy_with_nobody_to_answer_is_no_at_once() {
     assert_eq!(said.try_iter().count(), 0);
 }
 
-/// A skill that is not a hello asks the act its `[ask] policy` names, news
-/// or anything else as unprompted, without a hello's minutes and seconds.
+/// A skill that is not a hello asks the act its `[ask] policy` names, news,
+/// a reminder or anything else as unprompted, without a hello's minutes and
+/// seconds.
 #[test]
 fn asking_the_policy_a_skill_that_is_not_a_hello_asks_its_act() {
     let dir = tempfile::tempdir().unwrap();
-    for (policy, act) in [("news", "news"), ("nudge", "unprompted")] {
+    for (policy, act) in [
+        ("news", "news"),
+        ("reminder", "reminder"),
+        ("nudge", "unprompted"),
+    ] {
         let toml =
             hello_after_a_second().replace("policy = \"hello\"", &format!("policy = \"{policy}\""));
         let skill = skill_with(dir.path(), policy, &toml);

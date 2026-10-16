@@ -1686,6 +1686,14 @@ the voice's own hello waits. With `--gate`, which needs `--hello` and
   
   The kept rules about speaking first (`--rules`, `news` limits) are the
   progress question's today and are to be obeyed here too.
+- `reminder`, a reminder the person set and now due (the Reminders skill,
+  `[ask] policy = "reminder"`), is the moment question's **hard rule
+  alone**: `wait` while anyone is talking to the lamp, else `say_now` by
+  the rule at once, with no model asked and nothing recorded as failed. The
+  hour, the room, whether anyone is at the lamp and how often it spoke up
+  do not count, as the person asked for it; neither do the kept rules about
+  speaking first. It waits only behind a question already out (at most
+  1.5 s, inside its 2 s). Test: `moment::tests::a_reminder_is_said_by_the_rule_alone_and_held_only_while_someone_talks`.
 - An ask that fails its check (a skill's name, a known act, a hello
   without its minutes and seconds) is passed over.
 

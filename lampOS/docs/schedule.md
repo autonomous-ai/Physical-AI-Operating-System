@@ -626,6 +626,15 @@ it can again. It remembers the last line of 64 items. The parent says
 `lamp-voice: Schedule consumer failed (<why>); due reminders wait for a
 restart` when the child is lost.
 
+How it is said: the provider is asked for one short natural sentence with the
+item's own words as data, never to count seconds, and not to call it a
+reminder or a timer unless its words do. Late by under three minutes it is
+said as on time (Schedule marks anything over one second `late`; a creature
+does not). Later, the delay is named once, plainly and with a short apology,
+in rounded words: `about 7 minutes`, `about 12 hours`, `about 3 days`. Late
+with no delay known (recovered after time off), it is said as late without
+one (`provider_worker/reminder_policy.rs`).
+
 Admission requires current microphone retention/privacy, ready provider, no
 reply, queued input, speaker receipt or draining/prospective utterance, and one
 second of fresh local silence. A promised camera look and the existing

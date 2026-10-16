@@ -478,26 +478,34 @@ fn unasked_session(cloud: &CloudAvailability, paused: bool) -> Option<u64> {
     cloud.ready_session().filter(|_| !paused)
 }
 
+/// Whether a worker's failure ends the voice. Only the second route's is
+/// optional, in whichever slot it is (`rig.provider` while it is the active
+/// route): one that exited is dropped by `second::dropped_if_gone` (#960).
+/// Gemini's worker stays mandatory when it waits in `Route::worker`.
+fn mandatory(worker: &Worker) -> bool {
+    worker.role != "second"
+}
+
 impl Rig {
     /// A hand cancellation has already reached the speaker. Deliver revocation
     /// to every remaining child even if one local channel has gone away.
     fn publish_hand_revocation(&mut self, snapshot: Snapshot) -> io::Result<()> {
         let mut failure = None;
-        let second_active = self.second.as_ref().is_some_and(second::Route::active);
         for worker in [&mut self.capture, &mut self.privacy, &mut self.provider] {
             if let Err(error) = worker
                 .channels
                 .control
                 .send(Control::Authority { snapshot })
-                // The active second route is not mandatory (#960).
-                && !(second_active && worker.role == "second")
+                && mandatory(worker)
             {
                 failure.get_or_insert(error);
             }
         }
-        // Not mandatory: dropped at the next tick if gone (#960).
-        if let Some(route) = &mut self.second {
-            let _ = route.publish(snapshot);
+        if let Some(route) = &mut self.second
+            && let Err(error) = route.publish(snapshot)
+            && mandatory(route.worker_mut())
+        {
+            failure.get_or_insert(error);
         }
         if let Some(motor) = &mut self.motor {
             motor.publish(snapshot);
@@ -518,26 +526,26 @@ impl Rig {
         if let Some(motor) = &mut self.motor {
             motor.publish(snapshot);
         }
-        let second_active = self.second.as_ref().is_some_and(second::Route::active);
-        for worker in [&mut self.speaker, &mut self.capture, &mut self.privacy] {
-            worker
+        for worker in [
+            &mut self.speaker,
+            &mut self.capture,
+            &mut self.privacy,
+            &mut self.provider,
+        ] {
+            if let Err(error) = worker
                 .channels
                 .control
-                .send(Control::Authority { snapshot })?;
+                .send(Control::Authority { snapshot })
+                && mandatory(worker)
+            {
+                return Err(error);
+            }
         }
-        let provider = self
-            .provider
-            .channels
-            .control
-            .send(Control::Authority { snapshot });
-        // The second route's worker, standing by or active, is not
-        // mandatory: one that cannot be reached is dropped at the next tick
-        // (`second::dropped_if_gone`, #960), and the voice goes on.
-        if !second_active {
-            provider?;
-        }
-        if let Some(route) = &mut self.second {
-            let _ = route.publish(snapshot);
+        if let Some(route) = &mut self.second
+            && let Err(error) = route.publish(snapshot)
+            && mandatory(route.worker_mut())
+        {
+            return Err(error);
         }
         self.ring.publish(snapshot);
         if let Some(camera) = self.camera.as_mut()
@@ -554,17 +562,16 @@ impl Rig {
         Ok(())
     }
     fn running(&mut self) -> io::Result<()> {
-        // The second route's worker, standing by or active in
-        // `self.provider`, is not mandatory: one that exited is dropped at
-        // the next tick (`second::dropped_if_gone`, #960).
-        let second_active = self.second.as_ref().is_some_and(second::Route::active);
         for worker in [
             &mut self.provider,
             &mut self.capture,
             &mut self.speaker,
             &mut self.privacy,
-        ] {
-            if !(second_active && worker.role == "second") {
+        ]
+        .into_iter()
+        .chain(self.second.as_mut().map(second::Route::worker_mut))
+        {
+            if mandatory(worker) {
                 worker.check_running()?;
             }
         }

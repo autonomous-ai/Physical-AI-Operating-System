@@ -209,11 +209,6 @@ impl Route {
         &mut self.worker
     }
 
-    /// `rig.provider` is the second route's worker.
-    pub(super) fn active(&self) -> bool {
-        self.second_active
-    }
-
     /// During the remaining startup: keep the standby's authority fresh and
     /// take its readiness before its packets age.
     pub(super) fn startup_tick(

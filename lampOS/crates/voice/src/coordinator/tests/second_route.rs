@@ -83,6 +83,8 @@ struct Script {
     /// The Live link is Ready again, with a new session, at this capture
     /// frame, whatever turn is in hand.
     live_back_at_frame: Option<u64>,
+    /// The Live worker exits at this capture frame, with no report.
+    live_dies_at: Option<u64>,
     turn_taking: TurnTaking,
 }
 
@@ -100,6 +102,7 @@ impl Script {
             standby_dies_at: None,
             mute_after_second_dies: false,
             live_back_at_frame: None,
+            live_dies_at: None,
             turn_taking: TurnTaking::V1Baseline,
         }
     }
@@ -347,6 +350,17 @@ impl Peers {
                 .send(WorkerEvent::ProviderLink {
                     link: ready_link(1, 1),
                 });
+        }
+        if self
+            .script
+            .live_dies_at
+            .is_some_and(|frame| self.frames >= frame)
+            && let Some(index) = self.index("provider")
+            && !self.peers[index].stopped
+        {
+            let peer = &mut self.peers[index];
+            peer.stopped = true;
+            peer.input.take();
         }
         if self
             .script
@@ -1294,4 +1308,27 @@ fn a_turn_begun_while_the_second_route_answers_goes_to_gemini_once_ready() {
     assert!(!run.seen.second.iter().any(|i| request_of(i) == turn));
     assert!(run.played(1).iter().all(|&v| v == SECOND));
     assert_eq!(run.played(turn), vec![LIVE; 48]);
+}
+
+/// (n) The reviewer's P2 on #962: Gemini's worker, waiting while the second
+/// route is active, exits with no report. It is still a mandatory worker:
+/// the voice ends on it (and is restarted), rather than staying on the
+/// second route for good.
+#[test]
+fn geminis_worker_exiting_while_the_second_route_is_active_still_ends_the_voice() {
+    let _one = super::pilot_faults::one_session();
+    let run = run(Script {
+        live_dies_at: Some(60),
+        ..Script::question(Live::DropLink)
+    });
+    assert_eq!(
+        run.events("voice_route_switched")[0]["why"],
+        "live_link_changed"
+    );
+    let error = run.result.as_ref().unwrap_err().to_string();
+    assert!(
+        error.contains("provider worker exited"),
+        "{}",
+        run.summary()
+    );
 }

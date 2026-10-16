@@ -101,6 +101,10 @@ pub const PRODUCT: &[(&str, &str)] = &[
         include_str!("../../../deploy/product/lamp-tasks.service"),
     ),
     (
+        "lamp-skills.service",
+        include_str!("../../../deploy/product/lamp-skills.service"),
+    ),
+    (
         "lamp-records.service",
         include_str!("../../../deploy/product/lamp-records.service"),
     ),
@@ -142,6 +146,20 @@ pub const SETTINGS: &[(&str, &str)] = &[
     (
         "/etc/lampOS/controls/controls-pins.json",
         include_str!("../../../deploy/product/settings/controls-pins.json"),
+    ),
+    // The first skill (#811): Welcome back, the hello on arrival. Its tests
+    // stay in the repository; `lamp-skills` reloads the folder by itself.
+    (
+        "/var/lib/lampOS/skills/welcome-back/skill.toml",
+        include_str!("../../../skills/welcome-back/skill.toml"),
+    ),
+    (
+        "/var/lib/lampOS/skills/welcome-back/SKILL.md",
+        include_str!("../../../skills/welcome-back/SKILL.md"),
+    ),
+    (
+        "/var/lib/lampOS/skills/welcome-back/lights/warm_glow.toml",
+        include_str!("../../../skills/welcome-back/lights/warm_glow.toml"),
     ),
 ];
 

@@ -32,6 +32,10 @@ const SAY_TIMEOUT: Duration = Duration::from_secs(180);
 /// The longest a tool call waits for the main loop, and for the voice's
 /// line: the voice gives up on a call after 1.5 s.
 const TOOL_TIMEOUT: Duration = Duration::from_secs(1);
+/// The longest a call with a look waits for its body and light to be made
+/// before it is answered (#1146): within `TOOL_TIMEOUT`, which the caller
+/// waits again once the answer is committed.
+const MADE_BEFORE_ANSWER: Duration = Duration::from_millis(800);
 /// How often a held pose is said again: the body lets one go after 1.5 s.
 const MOOD_EVERY: Duration = Duration::from_secs(1);
 /// How long an ask waits for the Policy: its own 2 s from the receipt
@@ -374,7 +378,7 @@ fn serve(
                         &mut out,
                     );
                 } else if !run.calls.is_empty() {
-                    start(run.skill, run.calls, &mut busy, &mut out, &runner);
+                    let _ = start(run.skill, run.calls, &mut busy, &mut out, &runner);
                 }
             }
         }
@@ -391,13 +395,16 @@ struct Runner {
 }
 
 /// Starts one run of `skill`, unless its last is still under way.
+/// Starts a run on its own thread: what it gives says when its body and
+/// light have been made (or the run is over), for a call's answer to wait on.
 fn start(
     skill: String,
     calls: Vec<Call>,
     busy: &mut HashSet<String>,
     out: &mut Publisher,
     runner: &Runner,
-) {
+) -> mpsc::Receiver<()> {
+    let (made, made_rx) = mpsc::channel();
     if !busy.insert(skill.clone()) {
         publish(
             out,
@@ -408,7 +415,7 @@ fn start(
                 allowed: None,
             },
         );
-        return;
+        return made_rx;
     }
     // A run waits on the voice for as long as the say takes (at most
     // SAY_TIMEOUT a line) or a light's for (at most 10 min): its own
@@ -422,7 +429,7 @@ fn start(
     );
     let before = light_now(&bus);
     std::thread::spawn(move || {
-        let why = perform(&skill, &calls, &sockets, &bus, before, glows.as_ref());
+        let why = perform(&skill, &calls, &sockets, &bus, before, glows.as_ref(), made);
         let _ = finished.send(SkillEvent {
             skill,
             stage: SkillStage::Done,
@@ -430,6 +437,7 @@ fn start(
             allowed: None,
         });
     });
+    made_rx
 }
 
 /// Puts a run's question to the Policy and keeps the run until it answers.
@@ -526,7 +534,7 @@ fn answer_asks(
             },
         );
         if let Some(calls) = calls.filter(|calls| !calls.is_empty()) {
-            start(run.skill, calls, busy, out, runner);
+            let _ = start(run.skill, calls, busy, out, runner);
         }
     }
     let now = Instant::now();
@@ -554,8 +562,9 @@ fn answer_asks(
 type ToolAsk = (String, mpsc::Sender<serde_json::Value>, Admission);
 
 /// The model called a skill's tool: its steps run, and the voice is told
-/// at once what the model is to say. The say is the model's and the look
-/// the voice's, asked in the answer; the body and the light are made here.
+/// what the model is to say: at once, or, with a look, once the body and
+/// the light are made (#1146). The say is the model's and the look the
+/// voice's, asked in the answer; the body and the light are made here.
 fn tool_call(
     (name, reply, admission): ToolAsk,
     engine: &Engine,
@@ -591,7 +600,15 @@ fn tool_call(
     if !admission.commit() {
         return;
     }
-    let _ = reply.send(told(&run.calls));
+    // A call with a look is answered only once its body and light are made:
+    // the voice asks the eyes as the answer's first audio plays, and by
+    // then the head is on its way down over the page (#941, #1146). Any
+    // other call is answered at once.
+    let told = told(&run.calls);
+    let looks = run.calls.contains(&Call::Look);
+    if !looks {
+        let _ = reply.send(told.clone());
+    }
     for event in run.events {
         publish(out, event);
     }
@@ -618,7 +635,14 @@ fn tool_call(
             },
         );
     } else {
-        start(run.skill, made, busy, out, runner);
+        let made = start(run.skill, made, busy, out, runner);
+        if looks {
+            // Bounded: the caller waits at most `TOOL_TIMEOUT` once more.
+            let _ = made.recv_timeout(MADE_BEFORE_ANSWER);
+        }
+    }
+    if looks {
+        let _ = reply.send(told);
     }
 }
 
@@ -711,6 +735,7 @@ fn perform(
     bus: &Bus,
     before: Option<Light>,
     glows: Option<&Glows>,
+    made: mpsc::Sender<()>,
 ) -> String {
     let is_light = |call: &Call| matches!(call, Call::Light { .. } | Call::Dim { .. });
     let mut said = Vec::new();
@@ -768,6 +793,7 @@ fn perform(
                 _ => make(call, sockets, bus),
             });
         }
+        let _ = made.send(());
     };
     match asking {
         Some((what, asking)) => {

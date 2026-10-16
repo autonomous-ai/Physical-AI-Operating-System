@@ -4492,6 +4492,7 @@ fn conversation_with_gate(
         if provider_control_empty {
             second::flush(rig, &cloud, reply, &mut provider_queue)?;
         }
+        outage.note_delivery(reply);
         select_failure_notice_in(notices, reply, &speaker_pending, &mut outage, trace)?;
         let prior_speaker_sequence = speaker_sequence;
         settle_duplex_yield_before_dispatch(&playback_mask, reply, monotonic_us(), trace)?;

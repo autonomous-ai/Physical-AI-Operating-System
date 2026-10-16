@@ -878,6 +878,13 @@ fn back_online_is_its_own_recording_and_does_not_count_as_the_outages_line() {
     ));
 }
 
+/// The speaker has taken the turn's first block: its playback has begun.
+fn speaker_took(owner: &mut Controller, reply: &mut Option<Reply>) {
+    let current = reply.as_mut().unwrap();
+    let permit = owner.issue_output(now(), current.plan, 100_000).unwrap();
+    current.playback = Some(owner.playback_started(now(), permit).unwrap());
+}
+
 #[test]
 fn offline_the_line_is_said_once_an_outage_and_only_for_speech() {
     let catalog = FailureNotices::synthetic_offline();
@@ -890,11 +897,16 @@ fn offline_the_line_is_said_once_an_outage_and_only_for_speech() {
         cough.as_ref().unwrap().notice,
         NoticeDelivery::Unselected
     ));
+    outage.note_delivery(&cough);
     assert!(!outage.said);
-    // Speech: the offline line, never turn_lost.
-    let (_owner, mut first) = offline_reply(true);
+    // Speech: the offline line, never turn_lost. Chosen is not said.
+    let (mut owner, mut first) = offline_reply(true);
     select_failure_notice_in(&catalog, &mut first, &None, &mut outage, &mut trace).unwrap();
     assert!(selected_offline(&first));
+    outage.note_delivery(&first);
+    assert!(!outage.said, "chosen, not yet taken by the speaker");
+    speaker_took(&mut owner, &mut first);
+    outage.note_delivery(&first);
     assert!(outage.said);
     // A second try in the same outage: no words.
     let (_owner, mut second) = offline_reply(true);
@@ -910,6 +922,28 @@ fn offline_the_line_is_said_once_an_outage_and_only_for_speech() {
     let (_owner, mut again) = offline_reply(true);
     select_failure_notice_in(&catalog, &mut again, &None, &mut next, &mut trace).unwrap();
     assert!(selected_offline(&again));
+}
+
+/// The reviewer's case on #884: the line was chosen and then the turn was
+/// cancelled (a Stop) before the speaker took any of it. The outage still
+/// owes the line, and so nothing makes "back online" owed.
+#[test]
+fn offline_a_line_cancelled_before_the_speaker_took_it_is_still_owed() {
+    let catalog = FailureNotices::synthetic_offline();
+    let mut outage = Outage::default();
+    let mut trace = SessionState::default();
+    let (mut owner, mut first) = offline_reply(true);
+    select_failure_notice_in(&catalog, &mut first, &None, &mut outage, &mut trace).unwrap();
+    assert!(selected_offline(&first));
+    outage.note_delivery(&first);
+    let current = first.take().unwrap();
+    owner.cancel_turn(now(), current.owner).unwrap();
+    outage.note_delivery(&first);
+    assert!(!outage.said, "cancelled before acceptance: not said");
+    // So the next speech in the same outage gets the line.
+    let (_owner, mut next) = offline_reply(true);
+    select_failure_notice_in(&catalog, &mut next, &None, &mut outage, &mut trace).unwrap();
+    assert!(selected_offline(&next));
 }
 
 #[test]

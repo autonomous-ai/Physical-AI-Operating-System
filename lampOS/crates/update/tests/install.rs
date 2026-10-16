@@ -562,7 +562,7 @@ fn the_voice_gets_its_service_and_the_lamps_device_key_from_v1s_config() {
     assert!(
         lamp.said
             .iter()
-            .any(|line| line.contains("device key was taken"))
+            .any(|line| line.contains("V1's key was taken"))
     );
     // The Policy's judge key is the same device key, as private (#811, 2).
     assert_eq!(
@@ -635,10 +635,50 @@ fn the_voice_gets_its_service_and_the_lamps_device_key_from_v1s_config() {
     assert!(!bare.on(install::CREDENTIAL_PATH).exists());
     assert!(!bare.on(install::JEV_KEY_PATH).exists());
     assert!(bare.on(install::PROVIDER_PATH).exists());
+    assert!(bare.said.iter().any(|line| line.starts_with("no key")));
+}
+
+/// The owner's decision on #806 (16:13): the voice's key is the user's, and
+/// a reset wipes it with the person's data. V1's config on a lamp that ran
+/// V1 may still hold the previous owner's key, so install, run again after
+/// the reset (as every updater upgrade runs it), never puts it back; and a
+/// key setup then takes from the new user is theirs, kept.
+#[test]
+fn a_key_a_reset_removed_is_never_put_back_from_v1s_config() {
+    const OLD: &str = "previous-owners-key";
+    let mut lamp = Lamp::new(188, &[]);
+    fs::create_dir_all(lamp.on("/root/config")).unwrap();
+    fs::write(
+        lamp.on(install::V1_CONFIG),
+        format!(r#"{{"llm_api_key": "{OLD}"}}"#),
+    )
+    .unwrap();
+    lamp.install().unwrap();
+    assert_eq!(
+        fs::read_to_string(lamp.on(install::CREDENTIAL_PATH)).unwrap(),
+        OLD
+    );
+    // The 5 s reset wipes both keys with the person's data.
+    fs::remove_file(lamp.on(install::CREDENTIAL_PATH)).unwrap();
+    fs::remove_file(lamp.on(install::JEV_KEY_PATH)).unwrap();
+    lamp.said.clear();
+    lamp.install().unwrap();
+    assert!(!lamp.on(install::CREDENTIAL_PATH).exists());
+    assert!(!lamp.on(install::JEV_KEY_PATH).exists());
     assert!(
-        bare.said
+        lamp.said
             .iter()
-            .any(|line| line.starts_with("no device key"))
+            .any(|line| line.contains("was removed since install wrote it")),
+        "{:?}",
+        lamp.said
+    );
+    assert!(lamp.said.iter().all(|line| !line.contains(OLD)));
+    // Setup takes the new user's key: it is theirs, kept by every install.
+    fs::write(lamp.on(install::CREDENTIAL_PATH), "new-users-key").unwrap();
+    lamp.install().unwrap();
+    assert_eq!(
+        fs::read_to_string(lamp.on(install::CREDENTIAL_PATH)).unwrap(),
+        "new-users-key"
     );
 }
 

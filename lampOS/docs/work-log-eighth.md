@@ -23,6 +23,23 @@ The eighth builder's log, newest first. Role file:
 
 None yet.
 
+## 2026-10-16 16:05 — #834 merged; #1072 reviewed; #560 taken (Harness)
+
+Ready for lamp-voice: #900, #996 and #1000 (with the reviewer); #1084 draft
+(#560's failing test, ignored)
+
+- #834 merged at 15:2x. #1072 (Fifth's anti-tip rule) peer-reviewed: no
+  P1 or P2, two P3s; fold paths probed under 22 mm.
+- Harness on the laptop is paired with lamp-75c9 (V1). The first builder gave
+  me #560 as a lesson for V2. V2 analysis posted: stale agent can't happen;
+  late result can (by design, no bound); a silent agent is never told. The
+  failing test for the last is #1084. Symptom 2's bound is a product question
+  on #560.
+- The V1 reproduction waits on lamp-75c9's wake word from my person. V1's
+  logs and settings are root-only, so it must be black-box.
+- `lamp-voice` fails voice clippy (`ring_worker.rs` 8 args, #993 + #998).
+  Reported on #705, not filed.
+
 ## 2026-10-16 15:15 — #983 reviewed; #834's SIGTTIN P2 fixed
 
 Ready for lamp-voice: #900, #996 and #1000 yes (with the reviewer, who is

@@ -1617,8 +1617,8 @@ unanswered would leave the hello to its rule.
   `kept_rule`. A limit on `news` holds no hello.
 
 A yes that comes back once someone has begun to talk, or once a rule was
-kept, is turned to `wait`; the room it is judged by then is the room when
-the question was put.
+kept, is turned to `wait`; the room it is judged by then is the room as it
+is when the answer comes, as the moment and progress questions judge it.
 Asking never takes longer than 1.5 s, whatever `--deadline-ms` says
 (`hello::MOST_ASKING`): past it the rule answers, still inside the voice's
 2 s. The 2 s count from when the arrival was received: one that waited
@@ -1800,7 +1800,10 @@ state shown, the answers, the judgement and any `guard`, `failed` or
 The diagnostics add `hello_decided`, `hello_by_rule`, `hello_said`,
 `hello_held_talking`, `hello_held_recent`, `hello_late`, `hello_held_rule`
 with `--rules`, and `hello_acts` with `--act hello`; the start line `hello=true`, and `act=` names each
-question that acts (`act=progress,hello`).
+question that acts (`act=progress,hello`). A yes held as it comes back is
+counted too, under its kind, with or without `--rules`: someone talking
+by then counts in `hello_held_talking`, which the code before #1003 did
+not count. The decisions are as they were; only that count is new.
 
 **Without the switch** `voice/arrival` is not subscribed to, no judge or
 thread is made, and the start line, decisions and diagnostics are as they

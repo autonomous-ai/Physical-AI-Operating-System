@@ -1584,6 +1584,8 @@ mod tests {
         assert_eq!(answered.decision.by, "gated");
         assert_eq!(asked.load(std::sync::atomic::Ordering::SeqCst), 1);
         assert_eq!(hello.totals().said, 0);
+        // The late hold is counted under its kind (the reviewer on #1003).
+        assert_eq!(hello.totals().held_rule, 2);
 
         // Without `--rules`, the same rule holds nothing here.
         let mut deaf = Hello::start(Never, Options::new(Duration::from_millis(50), None)).unwrap();

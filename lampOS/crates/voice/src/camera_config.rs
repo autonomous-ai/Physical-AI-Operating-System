@@ -56,7 +56,8 @@ pub struct CameraConfig {
 }
 
 /// The voice's camera: at most 1280x720 and 2 MiB a frame, as before the
-/// camera runtime's bounds grew for the eyes (#836).
+/// camera runtime's bounds grew for the eyes (#836, #941).
+pub const VOICE_MAX_WIDTH: u32 = 1280;
 pub const VOICE_MAX_HEIGHT: u32 = 720;
 pub const VOICE_MAX_FRAME_BYTES: usize = 2 * 1024 * 1024;
 
@@ -102,7 +103,10 @@ impl CameraConfig {
         config.validate().map_err(io::Error::other)?;
         // The camera runtime's bounds grew for the eyes' full look (#836);
         // the voice's own camera keeps the ones it was provisioned under.
-        if config.height > VOICE_MAX_HEIGHT || config.max_frame_bytes > VOICE_MAX_FRAME_BYTES {
+        if config.width > VOICE_MAX_WIDTH
+            || config.height > VOICE_MAX_HEIGHT
+            || config.max_frame_bytes > VOICE_MAX_FRAME_BYTES
+        {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
                 "camera bounds exceeded",

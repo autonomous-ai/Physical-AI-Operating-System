@@ -1,0 +1,9 @@
+{
+ "called": [
+  "the model called dance with {\"long\":true}"
+ ],
+ "done": "after the say: spoken from 1111 ms after the call, the turn over 2912 ms later; light warm: done; dim: done, dim: done; gesture dance_groove: told the body; gesture dance_groove: told the body; light given back to on warm at 1: it already was",
+ "speech_end_to_command_ms": 138,
+ "speech_end_to_motion_ms": 218,
+ "max_excursion_rad": 0.244
+}

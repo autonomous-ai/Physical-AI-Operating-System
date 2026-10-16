@@ -1,0 +1,9 @@
+{
+ "called": [
+  "the model called dance with {}"
+ ],
+ "done": "after the say: spoken from 1232 ms after the call, the turn over 2141 ms later; light warm: done; dim: done, dim: done; gesture dance_groove: told the body; light given back to on warm at 1: it already was",
+ "speech_end_to_command_ms": 239,
+ "speech_end_to_motion_ms": 479,
+ "max_excursion_rad": 0.242
+}

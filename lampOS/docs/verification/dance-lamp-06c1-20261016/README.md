@@ -60,3 +60,27 @@
 - The clip actually seen in a still was not matched frame by frame to the commanded one.
 - Hands on the lamp mid-dance (a push stopping the second clip) were tested only against a stand-in body.
 - The glow with the lamp's own light at a level where it can be seen.
+
+## Evening rerun, 18:1x–18:3x
+
+- **Ask 13–14:** with the person sitting at the desk, facing the lamp.
+  - **The build:** `lamp-skills` `2cde32b7` (`55617e0ac`, thinking after speaking is still the line).
+  - **Both got past the busy-room gate** that held back the 14:3x and 16:0x retries (voice requests 214, 217 and 11).
+- **Ask 15–17:** with nobody at the lamp.
+  - **The build:** `lamp-skills` `9afcecf8` (`771c0c187`, `[again]`; ARM64 run 38879731791), together with the skill folder at that commit. The voice was restarted after it.
+
+| Ask | Said by the Mac | Call | What happened | Line end → command | → motion | Swing (rad) |
+|---|---|---|---|---|---|---|
+| 13 | "Lamp, can you do a slow, calm dance for me?" | `dance({})` | groove; "the turn over 2141 ms" after the speaking began | 239 ms | 479 ms | 0.242 |
+| 14 | "Lamp, that was great, dance again!" | `dance({long: true})` | groove, twice | 138 ms | 218 ms | 0.244 |
+| 15 | "Lamp, can you show me a dance?" | `dance({})` | chill | 198 ms | 358 ms | 0.218 |
+| 16 | "Lamp, do it." (within 45 s of 15) | `dance({})` | **refused by `[again]`**: "You just danced. Dance again only if they ask for it; otherwise answer what they said." Nothing moved | – | – | – |
+| 17 | "Lamp, one more dance, please!" (within 45 s of 15) | `dance({})` | jazz: "one more" is in `if_heard` | 196 ms | 437 ms | 0.342 |
+
+**What changed since the afternoon:**
+- The after-say wait now ends when the turn is over. Neither ask 13 nor ask 14 began mid-line.
+- An unasked repeat is refused: ask 16, where the model called the tool on a line with no dance word.
+- An asked repeat runs: asks 14 and 17.
+- The model still left the style out of "a slow, calm dance" (ask 13), so it picked at random: groove.
+
+**Not shown:** a noise request (as voice request 42 was) meeting `[again]` on the lamp. Ask 16 stands in for it, a call on words that don't ask for a dance.

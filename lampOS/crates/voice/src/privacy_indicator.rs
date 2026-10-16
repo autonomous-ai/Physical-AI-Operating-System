@@ -26,19 +26,22 @@ pub fn run(
     controller_boot: BootId,
     root: &std::path::Path,
 ) -> io::Result<()> {
-    let mut reader =
-        match crate::privacy_bus::LeaseReader::open(root, crate::privacy_bus::INDICATOR_SUBSCRIBER)
-        {
-            Ok(reader) => reader,
-            Err(error) => return startup_failure(&mut channels, error),
-        };
+    // The bus is read by the watch's own thread, never between this
+    // writer's Stop and expiry checks (#795 review).
+    let watch = match crate::privacy_bus::LeaseWatch::open(
+        root,
+        crate::privacy_bus::INDICATOR_SUBSCRIBER,
+    ) {
+        Ok(watch) => watch,
+        Err(error) => return startup_failure(&mut channels, error),
+    };
     let (ring, _) = match lamp_ring::linux::open(controller_boot) {
         Ok(opened) => opened,
         Err(error) => return startup_failure(&mut channels, error),
     };
     run_guarded(channels, controller_boot, ring, move || {
-        reader
-            .poll()?
+        watch
+            .latest()?
             .map(|lease| {
                 Ok(PrivacyObservation {
                     controller_boot: crate::process::parse_boot(&lease.controller_boot)?,
@@ -346,6 +349,65 @@ mod tests {
             physical_muted: Some(true),
         };
         (State::new(boot, at), ring, sink, link, observation)
+    }
+
+    /// #795 review: the writer's observation is the lease watch's, whose
+    /// own thread reads the bus. A Stop that arrives while refused messages
+    /// flood the lease's topic is served at once, before any red write.
+    #[test]
+    fn stop_during_refused_input_on_the_lease_topic_is_served_at_once() {
+        use crate::privacy_bus::{INDICATOR_SUBSCRIBER, LeaseReader, LeaseWatch};
+        use lamp_msgs::{ClockStamp, MicrophonePrivacy};
+        use std::sync::{
+            Arc,
+            atomic::{AtomicBool, Ordering},
+        };
+        let root = std::path::PathBuf::from(format!("/tmp/vpi-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir(&root).unwrap();
+        let watch = LeaseWatch::start(
+            LeaseReader::with_clock(&root, INDICATOR_SUBSCRIBER, "host_fixture".into()).unwrap(),
+        )
+        .unwrap();
+        let at = monotonic_us();
+        let lease = MicrophonePrivacy {
+            stamp: ClockStamp {
+                clock_id: "host_fixture".into(),
+                at_us: at,
+                sequence: 1,
+            },
+            session_id: "f".repeat(16),
+            controller_boot: "1".repeat(32),
+            microphone_generation: 1,
+            observed_us: at,
+            expires_at_us: at + crate::privacy::PRIVACY_FRESH_US,
+            permitted: false,
+            physical_muted: Some(true),
+        };
+        let going = Arc::new(AtomicBool::new(true));
+        let flood = crate::privacy_bus::tests::refused_flood(&root, going.clone(), &lease);
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        let (mut state, mut ring, sink, mut link, observed) = setup();
+        let queued = Rc::new(RefCell::new(VecDeque::new()));
+        link.after_poll = Some(queued.clone());
+        let asked = std::time::Instant::now();
+        let stopped = state.step(&mut link, &mut ring, &mut || {
+            queued.borrow_mut().push_back(Control::Stop);
+            Ok(watch.latest()?.map(|_| observed))
+        });
+        let took = asked.elapsed();
+        going.store(false, Ordering::Release);
+        flood.join().unwrap();
+        let _ = std::fs::remove_dir_all(&root);
+        assert!(stopped.unwrap());
+        assert!(took < std::time::Duration::from_millis(10), "{took:?}");
+        assert!(ring.is_stopped());
+        assert!(
+            sink.0
+                .borrow()
+                .iter()
+                .all(|frame| *frame == EncodedFrame::black())
+        );
     }
 
     #[test]

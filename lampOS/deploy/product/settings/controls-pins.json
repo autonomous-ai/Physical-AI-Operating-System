@@ -7,5 +7,6 @@
     {"name": "head-1", "line": 37, "active_low": false, "pull": "down"},
     {"name": "head-2", "line": 96, "active_low": false, "pull": "down"}
   ],
-  "every_ms": 5
+  "every_ms": 5,
+  "reset": {"name": "reset", "line": 100, "active_low": true, "pull": "up"}
 }

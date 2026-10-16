@@ -451,3 +451,35 @@ fn empty_configuration_does_not_claim_a_functional_touch_source() {
     };
     assert!(wiring.check(&Config::default()).is_err());
 }
+
+/// El on #705 (2026-10-16): on a lamp installed from the product, the reset
+/// button did nothing. The product's pins and Controls settings pass the
+/// touch path's checks with the reset in its own field, and its unit serves
+/// that path, the only one whose reset event `watch-reset` acts on.
+#[test]
+fn the_products_pins_name_the_reset_and_its_unit_serves_the_touch_path() {
+    let pins: TouchPinsConfig = serde_json::from_str(include_str!(
+        "../../../deploy/product/settings/controls-pins.json"
+    ))
+    .unwrap();
+    let config: Config = serde_json::from_str(include_str!(
+        "../../../deploy/product/settings/controls.json"
+    ))
+    .unwrap();
+    let touch = pins.check(&config).unwrap();
+    assert_eq!(touch.reset.as_deref(), Some("reset"));
+    assert_eq!(touch.primary.as_deref(), Some("primary"));
+    assert_eq!(touch.head_pads, ["head-1", "head-2"]);
+    assert!(touch.strip_pads.is_none(), "the base strip waits");
+    let unit = include_str!("../../../deploy/product/lamp-controls.service");
+    let serve = unit
+        .lines()
+        .find(|line| line.starts_with("ExecStart="))
+        .unwrap();
+    let words: Vec<&str> = serve.split_whitespace().collect();
+    assert_eq!(&words[1..3], ["serve", "--touch"], "{serve}");
+    assert!(
+        words.contains(&"--pins") && words.contains(&"--enable"),
+        "{serve}"
+    );
+}

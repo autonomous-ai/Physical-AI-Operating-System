@@ -129,7 +129,10 @@ lamp-setup watch-reset --plan PLAN.json --bus-root /run/lampos-bus --enable
 Controls already turns the reset button (chip 0 line 100) held 5 s or more and
 then released into one `controls/touch` event, `source: reset`,
 `gesture: hold`, intent `factory_reset` (`docs/controls.md`; it needs the
-`--touch` path with a `reset` line in the pins file). `watch-reset` acts on the
+`--touch` path with a `reset` line in the pins file). The product's
+`lamp-controls.service` serves `--touch`, and its `controls-pins.json` has
+`reset` on line 100, active low, pulled up (El on #705, 2026-10-16: before,
+a product lamp's reset button did nothing). `watch-reset` acts on the
 first such event that is valid, comes from an **enabled** Controls (a shadow
 Controls never resets a lamp), is on this boot's clock and is less than 500 ms
 old. It does not reset in its own process: it is part of `lampos.target`, which

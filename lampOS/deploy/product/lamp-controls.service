@@ -1,5 +1,7 @@
 # lampOS controls: the button and the touch pads: what a hand did, on the bus (lampOS/docs/controls.md).
-# The product unit (lampOS/docs/install.md).
+# The product unit (lampOS/docs/install.md). --touch is the path that publishes controls/touch:
+# the head pads the voice and Expression read, and the reset button held 5 s, which lamp-setup-reset's
+# watch-reset acts on (El on #705, 2026-10-16: without it the reset button did nothing).
 [Unit]
 Description=lampOS controls (lamp-controls)
 PartOf=lampos.target
@@ -15,7 +17,7 @@ User=lampos
 Group=lampos
 Slice=lampos-parts.slice
 Nice=5
-ExecStart=/opt/lampOS/controls/current/lamp-controls serve --config /etc/lampOS/controls/controls.json --pins /etc/lampOS/controls/controls-pins.json --bus-root /run/lampos-bus --enable
+ExecStart=/opt/lampOS/controls/current/lamp-controls serve --touch --config /etc/lampOS/controls/controls.json --pins /etc/lampOS/controls/controls-pins.json --bus-root /run/lampos-bus --enable
 Restart=on-failure
 RestartSec=5s
 StandardInput=null

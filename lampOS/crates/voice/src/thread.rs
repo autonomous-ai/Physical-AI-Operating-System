@@ -1423,8 +1423,8 @@ mod tests {
         let start = Instant::now();
         let at = |seconds: u64| start + Duration::from_secs(seconds);
         let (a, b) = (
-            crate::remember::person_id("Minh"),
-            crate::remember::person_id("Sam"),
+            crate::remember::person_id("A"),
+            crate::remember::person_id("B"),
         );
         let mut presence = Presence::default();
         let mut thread = Thread::new();
@@ -1438,30 +1438,36 @@ mod tests {
         thread.opening(at(0));
         thread.person("Keep my locker code, 417.", true, at(1));
         thread.lamp(1, "Kept: 417.", at(2));
-        // Sam is read once, then Minh again: what is said between is Minh's.
+        // B is read once, then A again: what is said between is A's.
         seen(&mut thread, &b, at(3));
         thread.person("Thanks.", true, at(4));
         thread.lamp(2, "You're welcome.", at(5));
         seen(&mut thread, &a, at(6));
-        // Sam sits down in Minh's place at 10 s and speaks at 13 s, before
-        // they count: answered in Minh's session.
+        // B sits down in A's place at 10 s and speaks at 13 s, before they
+        // count: answered in A's session.
         seen(&mut thread, &b, at(10));
         thread.person("My bank PIN is 2468, keep it.", true, at(13));
         thread.lamp(3, "Kept: 2468.", at(14));
-        assert!(!thread.switch_due(at(14)), "still Minh's session");
+        assert!(!thread.switch_due(at(14)), "still A's session");
         seen(&mut thread, &b, at(20));
         assert!(thread.switch_due(at(20)));
         thread.opening(at(20));
-        let sam = thread.recall(at(20), ROOM).unwrap();
-        assert!(sam.contains("2468"), "{sam}");
-        assert!(!sam.contains("417") && !sam.contains("welcome"), "{sam}");
-        // Minh comes back: their own exchanges, and not Sam's PIN.
+        let b_told = thread.recall(at(20), ROOM).unwrap();
+        assert!(b_told.contains("2468"), "{b_told}");
+        assert!(
+            !b_told.contains("417") && !b_told.contains("welcome"),
+            "{b_told}"
+        );
+        // A comes back: their own exchanges, and not B's PIN.
         seen(&mut thread, &a, at(30));
         seen(&mut thread, &a, at(40));
         thread.opening(at(40));
-        let minh = thread.recall(at(40), ROOM).unwrap();
-        assert!(minh.contains("417") && minh.contains("welcome"), "{minh}");
-        assert!(!minh.contains("2468"), "{minh}");
+        let a_told = thread.recall(at(40), ROOM).unwrap();
+        assert!(
+            a_told.contains("417") && a_told.contains("welcome"),
+            "{a_told}"
+        );
+        assert!(!a_told.contains("2468"), "{a_told}");
         // The file keeps it so.
         let text = thread.save(at(41), SystemTime::now()).unwrap();
         let mut read = Thread::load(&text, at(41), SystemTime::now());

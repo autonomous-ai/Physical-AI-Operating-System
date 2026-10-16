@@ -126,6 +126,8 @@ fn service() -> (u16, mpsc::Receiver<Value>, thread::JoinHandle<()>) {
                 Err(error) => panic!("fixture accept: {error}"),
             }
         };
+        // On macOS the accepted stream keeps the listener's O_NONBLOCK (#913).
+        stream.set_nonblocking(false).unwrap();
         stream.set_read_timeout(Some(WAIT)).unwrap();
         stream.set_write_timeout(Some(WAIT)).unwrap();
         let mut held = Vec::new();

@@ -4,8 +4,8 @@
 //! actions part and the voice's say service.
 use lamp_bus::{Bus, Declaration, Kind, Publisher, Subscriber};
 use lamp_msgs::{
-    Decision, Hand, JointState, Light, LightRequest, Pause, SkillEvent, SkillStage, Speech, Voice,
-    VoiceState,
+    BodyGesture, Decision, GestureState, Hand, Light, LightRequest, Pause, SkillEvent, SkillStage,
+    Speech, Voice, VoiceState,
 };
 use lamp_skills::glow::{GLOW_EVERY, Glow, Glows, REQUESTS_ENVIRONMENT};
 use lamp_skills::{
@@ -228,15 +228,6 @@ fn said_lately<T: serde::de::DeserializeOwned>(bus: &Bus, topic: &str) -> Option
     (now_ms.saturating_sub(message.header.at_unix_ms) <= 3_000)
         .then(|| message.parse().ok())
         .flatten()
-}
-
-/// The newest message on `topic`, if it was said within the last second.
-fn said_lately_message(bus: &Bus, topic: &str) -> Option<lamp_bus::Message> {
-    let message = bus.latest(topic).ok()??;
-    let now_ms = SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .map_or(0, |since| since.as_millis() as u64);
-    (now_ms.saturating_sub(message.header.at_unix_ms) <= 1_000).then_some(message)
 }
 
 /// How the program serves, beyond its sockets.
@@ -1145,37 +1136,39 @@ struct Played {
     stopped: Option<String>,
 }
 
-/// A clip sent to the body, for the next to wait on: when it was sent, how
-/// long the next waits from when it began (its length and `CLIP_GAP_US`),
-/// and the body's `commanded` pose and its message's number just before.
+/// A clip sent to the body, for the next to wait on: when it was sent, its
+/// length and `CLIP_GAP_US`, its name, and `body/gesture`, subscribed to
+/// before it was sent.
 struct Sent {
     at: Instant,
     rest: Duration,
-    pose: Option<(u64, Vec<f64>)>,
+    name: String,
+    gestures: Option<Subscriber>,
 }
 
 impl Sent {
-    /// When the next may be sent, the clip taken to begin as it was sent.
+    /// When it has played, had the body begun it as it was sent.
     fn until(&self) -> Instant {
         self.at + self.rest
     }
 }
 
-/// How long after a clip is sent the body may begin it: a gesture asked of
-/// a lamp still rising waits up to 3 s for the rise (`crates/body/src/body.rs`,
-/// `GESTURE_WAIT`), and `body/joint_states` comes every 100 ms.
-const BEGIN_WITHIN: Duration = Duration::from_millis(3_200);
-/// How far a commanded joint moves before the clip is taken to have begun:
-/// about 3 of the servo's 4,096 steps a turn.
-const BEGIN_RAD: f64 = 0.005;
+/// How long after a clip's length the next waits, at most, for the body to
+/// say the clip is `over`: a gesture asked of a lamp still rising waits up
+/// to 3 s for the rise (`crates/body/src/body.rs`, `GESTURE_WAIT`).
+const OVER_WITHIN: Duration = Duration::from_secs(3);
 
-/// The body's `commanded` pose now, and its message's number, if the body
-/// said it within the last second.
-fn commanded_now(bus: &Bus) -> Option<(u64, Vec<f64>)> {
-    let message = said_lately_message(bus, JointState::TOPIC)?;
-    let seq = message.header.seq;
-    let state = message.parse::<JointState>().ok()?;
-    (!state.commanded.is_empty()).then_some((seq, state.commanded))
+/// `body/gesture`, subscribed to under a name of its own for each clip.
+fn body_gestures(bus: &Bus) -> Option<Subscriber> {
+    static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let number = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    bus.subscribe_typed(
+        BodyGesture::TOPIC,
+        &format!("skills_clip_{number}"),
+        BodyGesture::TYPE,
+    )
+    .map_err(|error| eprintln!("lamp-skills: body/gesture not subscribed to: {error}"))
+    .ok()
 }
 
 /// Runs one skill's calls and says how each went. With a say, the others
@@ -1392,10 +1385,11 @@ fn act(
                 changed.lasting_us = changed.lasting_us.max(*lasting_us);
             }
             Call::Gesture(_) | Call::Move(_) => {
-                let (what, length_us) = match call {
-                    Call::Gesture(name) => (format!("gesture {name}"), clip_us(name)),
+                let (what, name, length_us) = match call {
+                    Call::Gesture(name) => (format!("gesture {name}"), name.clone(), clip_us(name)),
                     Call::Move(clip) => (
                         format!("move {}", clip.name),
+                        clip.name.clone(),
                         Some(
                             (clip.frames.len().saturating_sub(1) as u64)
                                 * u64::from(clip.step_ms)
@@ -1404,22 +1398,21 @@ fn act(
                     ),
                     _ => unreachable!(),
                 };
-                if let Some(last) = played.last.take()
+                if let Some(mut last) = played.last.take()
                     && played.stopped.is_none()
                 {
-                    played.stopped = held_back(&last, bus);
+                    played.stopped = held_back(&mut last, bus);
                 }
                 if let Some(why) = &played.stopped {
                     said.push(format!("{what}: not sent, {why}"));
                     continue;
                 }
-                // The next clip waits for this one's length and a few of
-                // the body's steps more, from when the body began it, until
-                // the body can take it.
+                // The next clip waits for the body to say this one is over.
                 played.last = length_us.map(|us| Sent {
+                    gestures: body_gestures(bus),
                     at: clock::now(),
                     rest: Duration::from_micros(us + CLIP_GAP_US),
-                    pose: commanded_now(bus),
+                    name,
                 });
             }
             _ => {}
@@ -1431,31 +1424,19 @@ fn act(
     }
 }
 
-/// Waits while the clip `sent` plays, until its length and `CLIP_GAP_US`
-/// after the body began it: when `body/joint_states` first shows its
-/// `commanded` pose leave the one before the send, within `BEGIN_WITHIN`,
-/// as a lamp rising at the line's end begins it late. Without that, from
-/// when it was sent. A folded lamp the body stands up for the clip (#1080)
-/// moves as it rises, so its clip is timed from the rise's start: as from
-/// the send. Why the next is not sent, if the body was pushed or the lamp
-/// paused meanwhile.
-fn held_back(sent: &Sent, bus: &Bus) -> Option<String> {
-    let mut until = sent.until();
-    let mut began = false;
-    loop {
-        if !began
-            && clock::now().saturating_duration_since(sent.at) <= BEGIN_WITHIN
-            && let (Some((seq, pose)), Some((seq_now, now))) = (&sent.pose, commanded_now(bus))
-            && seq_now != *seq
-            && now.len() == pose.len()
-            && now
-                .iter()
-                .zip(pose)
-                .any(|(now, was)| (now - was).abs() > BEGIN_RAD)
-        {
-            began = true;
-            until = until.max(clock::now() + sent.rest);
-        }
+/// Waits while the clip `sent` plays, until the body says on `body/gesture`
+/// that it is `over`: then the body takes the next. When it began is not
+/// known from the send (a standing lamp began one 280–350 ms after it, a
+/// rising one later still) nor from `body/joint_states` (the lean as the
+/// lamp speaks moves them too), lamp-06c1's asks 19, 22 and 23 (#1199). Why
+/// the next is not sent: the body said it `dropped` the clip, said no
+/// `over` within its length and `OVER_WITHIN`, or `body/gesture` could not
+/// be read; or the body was pushed or the lamp paused meanwhile.
+fn held_back(sent: &mut Sent, bus: &Bus) -> Option<String> {
+    // The body's own stops hold for the whole run: a clip the body ended
+    // because it was pushed or paused says `over` too (#1230), and no more
+    // is sent after it.
+    let stopped = || {
         if bus
             .latest(Hand::TOPIC)
             .ok()
@@ -1463,22 +1444,51 @@ fn held_back(sent: &Sent, bus: &Bus) -> Option<String> {
             .and_then(|message| message.parse::<Hand>().ok())
             .is_some_and(|hand| hand.pushed)
         {
-            return Some("the body was pushed".into());
+            return Some("the body was pushed".to_owned());
         }
-        if bus
-            .latest(Pause::TOPIC)
+        bus.latest(Pause::TOPIC)
             .ok()
             .flatten()
             .and_then(|message| message.parse::<Pause>().ok())
             .is_some_and(|pause| pause.paused)
-        {
-            return Some("the lamp was paused".into());
+            .then(|| "the lamp was paused".to_owned())
+    };
+    let Some(gestures) = sent.gestures.as_mut() else {
+        return Some(
+            "body/gesture could not be read, so when the clip before ended is not known".into(),
+        );
+    };
+    let within = sent.rest + OVER_WITHIN;
+    loop {
+        if let Some(why) = stopped() {
+            return Some(why);
         }
-        let left = until.saturating_duration_since(clock::now());
-        if left.is_zero() {
-            return None;
+        while let Ok(Some(message)) = gestures.recv(Duration::ZERO) {
+            let Ok(gesture) = message.parse::<BodyGesture>() else {
+                continue;
+            };
+            if gesture.name != sent.name {
+                continue;
+            }
+            match gesture.state {
+                GestureState::Over => return stopped(),
+                GestureState::Dropped => {
+                    return Some(format!(
+                        "the body dropped {} (body/gesture), so nothing more is sent",
+                        sent.name
+                    ));
+                }
+                GestureState::Began => {}
+            }
         }
-        clock::sleep(left.min(POLL));
+        if clock::now().saturating_duration_since(sent.at) >= within {
+            return Some(format!(
+                "the body said no over for {} on body/gesture within {} ms of its send",
+                sent.name,
+                within.as_millis()
+            ));
+        }
+        clock::sleep(POLL);
     }
 }
 

@@ -517,7 +517,14 @@ pub fn install(
     if config.setup {
         defaults.extend_from_slice(SETUP_SETTINGS);
     }
-    place_models(config, channel, &mut changed, say)?;
+    place_models(
+        config,
+        channel,
+        &mut state,
+        &mut changed,
+        say,
+        &mut |state| save(&records, state),
+    )?;
     settings(
         config,
         &defaults,
@@ -927,13 +934,23 @@ fn device_key(config: &Install) -> Option<String> {
 fn place_models(
     config: &Install,
     channel: &mut dyn Channel,
+    state: &mut State,
     changed: &mut Vec<String>,
     say: &mut dyn FnMut(&str),
+    persist: &mut dyn FnMut(&State) -> Result<(), String>,
 ) -> Result<(), String> {
+    let before = state.clone();
     for model in &config.models {
         let at = config.on(&model.path);
         match file_sha256(&at) {
-            Ok(sha) if sha == model.sha256 => continue,
+            Ok(sha) if sha == model.sha256 => {
+                state.settings.insert(model.path.clone(), sha);
+                continue;
+            }
+            // An earlier pin this program placed (its SHA-256 recorded as
+            // the settings' are): replaced, since its part checks the new
+            // pin and would refuse it (the reviewer, thirteen, on #1052).
+            Ok(sha) if state.settings.get(&model.path) == Some(&sha) => {}
             Ok(_) => {
                 say(&format!("kept {}: it is not the pinned model", model.path));
                 continue;
@@ -941,12 +958,20 @@ fn place_models(
             Err(_) => {}
         }
         match fetch_model(channel, model, &at) {
-            Ok(()) => changed.push(format!("fetched {}", model.path)),
+            Ok(()) => {
+                state
+                    .settings
+                    .insert(model.path.clone(), model.sha256.clone());
+                changed.push(format!("fetched {}", model.path));
+            }
             Err(why) => say(&format!(
                 "{} could not be had ({why}); its part cannot start until it is there",
                 model.path
             )),
         }
+    }
+    if *state != before {
+        persist(state)?;
     }
     Ok(())
 }

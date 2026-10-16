@@ -856,6 +856,33 @@ fn missing_models_are_fetched_checked_and_placed_and_a_lamps_own_is_kept() {
             .iter()
             .any(|line| line.starts_with("kept /opt/lampOS/eyes/models/eyes.onnx"))
     );
+
+    // A new pin (the reviewer, thirteen): the earlier one this program
+    // placed is replaced, since its part checks the new pin; the lamp's own
+    // file is still kept.
+    let newer = b"a runtime library, newer".to_vec();
+    lamp.channel
+        .files
+        .insert("https://models.test/lib-2.so".into(), newer.clone());
+    lamp.config.models[1] = model(
+        "/opt/lampOS/voice/current/lib.so",
+        "https://models.test/lib-2.so",
+        &newer,
+    );
+    let bumped = lamp.install().unwrap();
+    assert_eq!(
+        fs::read(lamp.on("/opt/lampOS/voice/current/lib.so")).unwrap(),
+        newer
+    );
+    assert!(
+        bumped
+            .changed
+            .contains(&"fetched /opt/lampOS/voice/current/lib.so".to_owned())
+    );
+    assert_eq!(
+        fs::read(lamp.on("/opt/lampOS/eyes/models/eyes.onnx")).unwrap(),
+        b"the lamp's own"
+    );
 }
 
 /// The pinned list itself: every model under `/opt/lampOS`, from our one

@@ -32,10 +32,12 @@
 //!   it begins at its start. On the reviewer's probe on #1092 an asker's follow-up
 //!   that opened softly ("um, and…") lost 0.4 s of its start, and the asker
 //!   just after someone across the room lost 0.22 s, because a judgement
-//!   at 60 ms over the last half second cleared them. Speech still waiting
-//!   when the answer begins to play is judged on until its last chance:
-//!   kept then, it is let go and the answer plays (left to the duplex rule,
-//!   it was admitted a block into the answer and replaced it).
+//!   at 60 ms over the last half second cleared them. While the rule waits
+//!   on speech, the answer's first block waits for its judgement, no later
+//!   than its last chance, so it is judged in the clear: kept then, it is
+//!   let go and the answer plays (left to the duplex rule, it was admitted
+//!   a block into the answer and replaced it; judged over the answer's
+//!   start, the asker's soft "um" was let go on that alone).
 //! - **It ends** [`KEEPS_FOR_US`] after the asker stopped, played or not:
 //!   an answer held back never plays, and a person who took their question
 //!   back ("never mind") is heard again then. A line it kept is kept until

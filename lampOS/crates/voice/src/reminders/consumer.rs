@@ -131,7 +131,59 @@ impl Freshness {
     }
 }
 
+/// A due item given up with nothing proven: it may have been heard.
+const HELD: &str = "held: an attempt may have been heard and was never proven said, \
+                    so it is not offered again";
+
+/// What the consumer did with each due item, and why due work is not
+/// available when it is not: a line in the journal when either changes,
+/// never one per tick (the first builder, 2026-10-16: due reminders on
+/// lamp-4ace were never said and nothing said where they stopped).
+#[derive(Default)]
+struct Journal {
+    items: BTreeMap<DeliveryKey, String>,
+    unavailable: Option<String>,
+    #[cfg(test)]
+    lines: Vec<String>,
+}
+impl Journal {
+    /// Items remembered at once; past it the oldest line may repeat.
+    const ITEMS: usize = 64;
+
+    fn item(&mut self, key: &DeliveryKey, what: impl Into<String>) {
+        let what = what.into();
+        if self.items.get(key) == Some(&what) {
+            return;
+        }
+        if self.items.len() >= Self::ITEMS && !self.items.contains_key(key) {
+            self.items.pop_first();
+        }
+        self.say(format!(
+            "reminder id {} delivery {}: {what}",
+            key.id, key.delivery
+        ));
+        self.items.insert(key.clone(), what);
+    }
+    /// Due work is unavailable for `why`, or available again with `None`.
+    fn due(&mut self, why: Option<String>) {
+        if self.unavailable == why {
+            return;
+        }
+        match &why {
+            Some(why) => self.say(format!("due reminders unavailable: {why}")),
+            None => self.say("due reminders available".into()),
+        }
+        self.unavailable = why;
+    }
+    fn say(&mut self, line: String) {
+        eprintln!("lamp-voice schedule-consumer: {line}");
+        #[cfg(test)]
+        self.lines.push(line);
+    }
+}
+
 struct Consumer<P: Persistence> {
+    journal: Journal,
     ledger: DeliveryLedger<P>,
     session: String,
     sequence: u64,
@@ -145,6 +197,7 @@ struct Consumer<P: Persistence> {
 impl<P: Persistence> Consumer<P> {
     fn new(ledger: DeliveryLedger<P>, session: String) -> Self {
         Self {
+            journal: Journal::default(),
             ledger,
             session,
             sequence: 0,
@@ -205,6 +258,10 @@ impl<P: Persistence> Consumer<P> {
         match command {
             ToWorker::Complete { proof, .. } => {
                 self.ledger.complete(&token, &proof).map_err(invalid)?;
+                self.journal.item(
+                    &token.key,
+                    "said; its completion is kept, to be acknowledged",
+                );
             }
             ToWorker::Retire { proof, .. } => {
                 // Validate the exact correlation now; durable retry validates
@@ -215,8 +272,14 @@ impl<P: Persistence> Consumer<P> {
                     return Err(invalid("consumer retirement correlation differs"));
                 }
                 self.retry.insert(token.key.clone(), (token.clone(), proof));
+                self.journal.item(
+                    &token.key,
+                    "not said: given back before any of it played, to be offered again",
+                );
             }
-            ToWorker::Abandon { .. } => {}
+            ToWorker::Abandon { .. } => {
+                self.journal.item(&token.key, HELD);
+            }
         }
         self.current = None;
         self.outgoing
@@ -226,6 +289,19 @@ impl<P: Persistence> Consumer<P> {
     }
     fn known(&self, key: &DeliveryKey) -> io::Result<bool> {
         Ok(self.ledger.view(key).map_err(invalid)?.is_some() && !self.retry.contains_key(key))
+    }
+    /// Say why a due item the ledger already knows is not offered.
+    fn held(&mut self, key: &DeliveryKey) -> io::Result<()> {
+        let Some(view) = self.ledger.view(key).map_err(invalid)? else {
+            return Ok(());
+        };
+        let why = match (&view.completion, &view.ack, &view.resolution) {
+            (_, _, Some(resolution)) => format!("resolved ({resolution:?}), not offered"),
+            (Some(_), _, None) => "said, waiting to be acknowledged".to_owned(),
+            (None, _, None) => HELD.to_owned(),
+        };
+        self.journal.item(key, why);
+        Ok(())
     }
     fn offer(
         &mut self,
@@ -289,9 +365,21 @@ impl<P: Persistence> Consumer<P> {
         };
         // Disk latency cannot refresh the observation that preceded it.
         if !offer.fresh(monotonic_us()) {
+            self.journal.item(
+                &offer.token.key,
+                "withdrawn: its due notice aged while the ledger was written",
+            );
             self.current = Some(offer);
             return self.withdraw();
         }
+        self.journal.item(
+            &offer.token.key,
+            format!(
+                "due, offered to the voice (attempt {}{})",
+                offer.token.attempt,
+                if offer.late { ", late" } else { "" }
+            ),
+        );
         self.current = Some(offer.clone());
         self.push(FromWorker::Offer { offer })
     }
@@ -302,7 +390,8 @@ impl<P: Persistence> Consumer<P> {
         };
         if let Some(current) = &self.current {
             let key = current.token.key.clone();
-            if self.offer(socket, due, &key, now, deadline).is_err() {
+            if let Err(error) = self.offer(socket, due, &key, now, deadline) {
+                self.journal.item(&key, format!("withdrawn: {error}"));
                 self.withdraw()?;
             }
             return Ok(());
@@ -324,11 +413,13 @@ impl<P: Persistence> Consumer<P> {
             delivery: oldest.delivery,
         };
         if !self.known(&key)? {
-            if self.offer(socket, due, &key, now, deadline).is_err() {
+            if let Err(error) = self.offer(socket, due, &key, now, deadline) {
+                self.journal.item(&key, format!("not offered: {error}"));
                 self.withdraw()?;
             }
             return Ok(());
         }
+        self.held(&key)?;
         // A crash-uncertain oldest occurrence is held, not silently replayed
         // and not allowed to starve every other pending item. Scan one bounded
         // page per tick; Get still binds the chosen exact current occurrence.
@@ -362,17 +453,25 @@ impl<P: Persistence> Consumer<P> {
                 delivery,
             };
             if !self.known(&key)? {
-                if self.offer(socket, due, &key, now, deadline).is_err() {
+                if let Err(error) = self.offer(socket, due, &key, now, deadline) {
+                    self.journal.item(&key, format!("not offered: {error}"));
                     self.withdraw()?;
                 }
                 return Ok(());
             }
+            self.held(&key)?;
         }
         self.cursor = page["next_after_id"]
             .as_u64()
             .filter(|id| *id == last && *id > self.cursor)
             .unwrap_or(0);
         Ok(())
+    }
+    fn reconciled(&mut self, key: &DeliveryKey, reconciled: &Reconciled) {
+        if let Reconciled::Resolved(resolution) = reconciled {
+            self.journal
+                .item(key, format!("resolved ({resolution:?}), not offered"));
+        }
     }
     fn recover_one(&mut self, socket: &Path, deadline: Instant) -> io::Result<()> {
         let entries = self.ledger.entries().map_err(invalid)?;
@@ -390,17 +489,21 @@ impl<P: Persistence> Consumer<P> {
             if let Ok(value) = exchange(socket, &ack.request, deadline)
                 && let Ok(proof) = AckEvidence::from_reply(ack, &value)
             {
-                self.ledger
+                let reconciled = self
+                    .ledger
                     .reconcile(key, &Evidence::Ack(proof))
                     .map_err(invalid)?;
+                self.reconciled(key, &reconciled);
                 return Ok(());
             }
             if let Ok(value) = exchange(socket, &Request::Status {}, deadline)
                 && let Ok(proof) = AckEvidence::from_status(ack, &value)
             {
-                self.ledger
+                let reconciled = self
+                    .ledger
                     .reconcile(key, &Evidence::Ack(proof))
                     .map_err(invalid)?;
+                self.reconciled(key, &reconciled);
                 return Ok(());
             }
         }
@@ -435,13 +538,17 @@ impl<P: Persistence> Consumer<P> {
                         if let Ok(reply) = exchange(socket, &ack.request, deadline)
                             && let Ok(proof) = AckEvidence::from_reply(&ack, &reply)
                         {
-                            self.ledger
+                            let reconciled = self
+                                .ledger
                                 .reconcile(key, &Evidence::Ack(proof))
                                 .map_err(invalid)?;
+                            self.reconciled(key, &reconciled);
                         }
                     }
                 }
-                Ok(Reconciled::Resolved(_)) => {
+                Ok(Reconciled::Resolved(resolution)) => {
+                    self.journal
+                        .item(key, format!("resolved ({resolution:?}), not offered"));
                     self.retry.remove(key);
                 }
                 Err(_) => {} // Different store/stale evidence never evicts it.
@@ -455,9 +562,11 @@ impl<P: Persistence> Consumer<P> {
             if let Ok(value) = exchange(socket, &request, deadline)
                 && let Ok(absent) = AbsentEvidence::from_list(key, &request, &value)
             {
-                self.ledger
+                let reconciled = self
+                    .ledger
                     .reconcile(key, &Evidence::Absent(absent))
                     .map_err(invalid)?;
+                self.reconciled(key, &reconciled);
                 self.retry.remove(key);
             }
         }
@@ -484,7 +593,16 @@ pub(super) fn run(ledger_dir: &Path, socket: &Path, root: &Path) -> io::Result<(
         }
         if Instant::now() >= next {
             let now = lamp_ipc::monotonic_us();
-            let due = freshness.read(&bus, &clock, now).ok();
+            let due = match freshness.read(&bus, &clock, now) {
+                Ok(due) => {
+                    consumer.journal.due(None);
+                    Some(due)
+                }
+                Err(error) => {
+                    consumer.journal.due(Some(error.to_string()));
+                    None
+                }
+            };
             consumer.tick(socket, due.as_ref(), now)?;
             if consumer.outgoing.is_empty() {
                 consumer.push(FromWorker::Idle {})?;

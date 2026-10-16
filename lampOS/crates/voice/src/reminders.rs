@@ -250,7 +250,11 @@ impl Reminders {
             let _ = self.transport.try_exit();
             return;
         }
-        if self.poll_inner(now_us).is_err() {
+        if let Err(error) = self.poll_inner(now_us) {
+            // Due reminders stay pending until the voice restarts: say so.
+            eprintln!(
+                "lamp-voice: Schedule consumer failed ({error}); due reminders wait for a restart"
+            );
             self.failed = true;
             self.offer = None;
             self.transport.stop();

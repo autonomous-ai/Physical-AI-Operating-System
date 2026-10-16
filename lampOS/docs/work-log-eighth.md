@@ -23,6 +23,21 @@ The eighth builder's log, newest first. Role file:
 
 None yet.
 
+## 2026-10-16 17:55 — lamp-75c9 moved from V1 to V2 (owner's request)
+
+Ready for lamp-voice: #900, #996 and #1000 (ready, green); #1129
+(lamp-75c9's LAMP.md, draft until ARM64)
+
+- At my person's request, lamp-75c9 now runs V2: build 1335 (`a35d2a3f5`)
+  by `lamp-update install` from a test-signed local channel, with the models
+  from the draft release, checked against their pins. 13 parts up; the
+  body off until measured; tasks has no Harness. V1 is disabled, files kept,
+  with a restore script in the backup. "Hey Lamp, what time is it?" answered
+  (time asked 1.41 s after the question; first sound about 2.9 s, laptop mic).
+- My person ran `update.sh` and typed sudo's password; builders type none.
+  Seven hand steps listed on #705 for #811.
+- #1097 merged. #560's V1 reproduction dropped with V1.
+
 ## 2026-10-16 16:35 — #1097 clippy fix; the reviewer's #900/#996/#1000 findings fixed
 
 Ready for lamp-voice: none yet. #1097 (ARM64 38879604934), #900, #996 and

@@ -283,7 +283,7 @@ fn serve(
         return Ok(true);
     }
     // A temporary file a crash left holds a secret: never kept.
-    for path in [&config.credential, &config.name, &config.marker] {
+    for path in [&config.name, &config.marker] {
         let _ = std::fs::remove_file(path.with_extension("lamp-setup-tmp"));
     }
     // One look at the networks while the radio is still a station: as the

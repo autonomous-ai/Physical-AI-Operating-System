@@ -51,7 +51,7 @@ impl Root {
         Config {
             listen: "127.0.0.1:5000".into(),
             marker: self.0.join("etc/setup-done"),
-            credential: self.0.join("etc/credential"),
+            credential: None,
             name: self.0.join("etc/name"),
             country: "VN".into(),
             interface: "wlan0".into(),
@@ -92,23 +92,18 @@ fn a_request_is_checked_before_anything_is_touched() {
         Accepted {
             ssid: "Home".into(),
             password: "password1".into(),
-            credential: "AIza-key_1".into(),
             name: Some("Lan".into()),
             timezone: Some("Asia/Ho_Chi_Minh".into()),
         }
     );
-    let without = check(
-        &request(json!({"ssid": "Cafe", "password": "", "llm_api_key": "k"})),
-        &config,
-    )
-    .unwrap();
+    // The voice's key is the lamp's own (#806, 12:36): none is needed, and
+    // one V1's page still sends is taken nowhere.
+    let without = check(&request(json!({"ssid": "Cafe", "password": ""})), &config).unwrap();
     assert_eq!((without.name, without.timezone), (None, None));
     for (field, value) in [
         ("ssid", json!("")),
         ("ssid", json!("Home\nnetwork={")),
         ("password", json!("short")),
-        ("llm_api_key", json!("")),
-        ("llm_api_key", json!("two words")),
         ("name", json!("x".repeat(65))),
         ("name", json!("La\nn")),
     ] {
@@ -223,9 +218,6 @@ struct Saved {
     fail_on: Option<&'static str>,
 }
 impl Save for Saved {
-    fn credential(&mut self, key: &str) -> io::Result<()> {
-        self.record("credential", key)
-    }
     fn name(&mut self, name: &str) -> io::Result<()> {
         self.record("name", name)
     }
@@ -271,12 +263,7 @@ fn a_joined_lamp_saves_the_settings_then_the_marker_and_says_it_is_set_up() {
     assert_eq!(status.lan_ip, "192.168.1.23", "published while joining");
     assert_eq!(
         saved.calls,
-        [
-            "credential=AIza-key_1",
-            "name=Lan",
-            "timezone=Asia/Ho_Chi_Minh",
-            "marker="
-        ]
+        ["name=Lan", "timezone=Asia/Ho_Chi_Minh", "marker="]
     );
 }
 
@@ -359,6 +346,45 @@ fn fixture(text: &str) -> Config {
     config
 }
 
+/// The product's pair (#1016, install.md): the own page's settings and the
+/// product reset plan agree on the marker, and the person's name setup saves
+/// is one the reset wipes. The time zone setup writes (`/etc/localtime`,
+/// `/etc/timezone`) is kept: it is where the lamp is, not who had it (the
+/// fifth on #1016).
+#[test]
+fn the_own_page_and_the_product_plan_agree_on_what_setup_saves() {
+    let own = fixture(include_str!("../fixtures/serve-own-page.json"));
+    let plan: lamp_setup::reset::Plan =
+        serde_json::from_str(include_str!("../fixtures/reset-plan-product.json")).unwrap();
+    plan.check().unwrap();
+    assert_eq!(own.marker, plan.marker);
+    assert!(
+        plan.wipe.iter().any(|wiped| own.name.starts_with(wiped)),
+        "the name is saved and not wiped"
+    );
+    // The voice's key is the lamp's own, written at the factory or by
+    // `install` (#806, 12:36): setup names none, and a reset keeps it, as it
+    // keeps the update key.
+    assert_eq!(own.credential, None);
+    let key = std::path::Path::new("/etc/lampOS/voice/credential");
+    assert!(!plan.wipe.iter().any(|wiped| key.starts_with(wiped)));
+}
+
+/// Settings written before #806's decision still name a credential file:
+/// they are read, and the file is never touched.
+#[test]
+fn older_settings_that_name_a_credential_are_still_read() {
+    let older = fixture(
+        r#"{"listen":"0.0.0.0:80","marker":"/var/lib/lampos-setup/done",
+            "credential":"/etc/lampOS/voice/credential","name":"/etc/lampOS/person/name",
+            "country":"VN","page":true}"#,
+    );
+    assert_eq!(
+        older.credential.as_deref(),
+        Some(std::path::Path::new("/etc/lampOS/voice/credential"))
+    );
+}
+
 #[test]
 fn the_own_page_stops_nginx_after_the_hotspot_restarts_it_and_before_answering() {
     // Reviewer, #817: `device-ap-mode` restarts nginx, which holds port 80.
@@ -411,15 +437,13 @@ fn the_files_are_private_and_the_zone_is_linked_as_v1_does() {
     let root = Root::new();
     let config = root.config(false);
     let mut files = Files(&config);
-    files.credential("AIza-key_1").unwrap();
     files.name("Lan").unwrap();
     files.timezone("Asia/Ho_Chi_Minh").unwrap();
     files.marker().unwrap();
-    for path in [&config.credential, &config.name, &config.marker] {
+    for path in [&config.name, &config.marker] {
         let mode = fs::metadata(path).unwrap().permissions().mode() & 0o777;
         assert_eq!(mode, 0o600, "{}", path.display());
     }
-    assert_eq!(fs::read(&config.credential).unwrap(), b"AIza-key_1");
     assert_eq!(fs::read(&config.name).unwrap(), b"Lan\n");
     assert_eq!(
         fs::read_link(&config.localtime).unwrap(),

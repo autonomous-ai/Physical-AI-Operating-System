@@ -292,6 +292,10 @@ const PERSON_STORES: [&str; 15] = [
     "/var/lib/lampos-eyes/people.json",
     "/var/lib/lampos-tasks/store",
     "/var/lib/lampos-tasks/targets.json",
+    // Harness's sign-in under the tasks part's HOME (the fifth on #1016):
+    // the previous owner's pairing never stays. Only that, not the folder,
+    // so the Harness service `install` set up at boot is kept (Nine, #934).
+    "/var/lib/lampos-tasks/.harness",
     "/var/lib/lampos-schedule/store",
     "/var/lib/lampos-policy",
     "/var/lib/lampOS/voice/sessions",
@@ -301,8 +305,8 @@ const PERSON_STORES: [&str; 15] = [
     // The voice's default for the task news it has told (reviewer, #817):
     // `DEFAULT_TOLD` in crates/voice/src/task_news.rs.
     "/var/lib/lampOS/voice/tasks-told",
-    // What setup saves, and its marker.
-    "/etc/lampOS/voice/credential",
+    // What setup saves, and its marker. Not the voice's key: it is the
+    // lamp's own (#806, 12:36), kept as the update key is.
     "/etc/lampOS/person/name",
     "/etc/wpa_supplicant/wpa_supplicant-wlan0.conf",
     "/var/lib/lampos-setup/done",
@@ -320,6 +324,40 @@ fn the_example_plan_wipes_every_store_of_the_person() {
             store.display()
         );
     }
+    // What makes the lamp itself is kept: its voice key (#806) and its
+    // update key.
+    for kept in ["/etc/lampOS/voice/credential", "/etc/lampOS/update/key.pub"] {
+        assert!(
+            !plan
+                .wipe
+                .iter()
+                .any(|wiped| Path::new(kept).starts_with(wiped)),
+            "{kept} is wiped"
+        );
+    }
+}
+
+/// A lamp put on by `lamp-update install` has no keeper (install.md, "Setup
+/// at first boot, without the keeper"): its plan stops the lamp with
+/// systemd, and is the example's in everything else, so the two never drift.
+#[test]
+fn the_product_plan_is_the_example_stopped_by_systemd() {
+    let example: Plan =
+        serde_json::from_str(include_str!("../fixtures/reset-plan-example.json")).unwrap();
+    let product: Plan =
+        serde_json::from_str(include_str!("../fixtures/reset-plan-product.json")).unwrap();
+    product.check().unwrap();
+    assert_eq!(
+        product.stop,
+        ["/usr/bin/systemctl", "stop", "lampos.target"]
+    );
+    assert_eq!(
+        Plan {
+            stop: example.stop.clone(),
+            ..product
+        },
+        example
+    );
 }
 
 fn event(at_us: u64, held_us: u64) -> TouchEvent {

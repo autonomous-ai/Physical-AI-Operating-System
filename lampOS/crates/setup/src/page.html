@@ -31,11 +31,6 @@
     <button class="quiet" id="rescan" type="button">Look again</button>
     <label for="password">Wi-Fi password</label>
     <input id="password" type="password" autocomplete="off">
-    <div id="key-row">
-      <label for="key">Voice key</label>
-      <input id="key" type="password" autocomplete="off">
-      <div class="hint">The key for the lamp's voice service.</div>
-    </div>
     <label for="name">Your name</label>
     <input id="name" maxlength="64" autocomplete="given-name">
     <div class="hint" id="zone-hint"></div>
@@ -68,7 +63,6 @@ function timed(url, options) {
 const params = new URLSearchParams(location.search);
 const zone = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
 const $ = (id) => document.getElementById(id);
-if (params.get("llm_api_key")) $("key-row").hidden = true;
 $("zone-hint").textContent = zone ? "Time zone: " + zone + " (from this phone)" : "";
 
 async function api(path, options) {
@@ -167,8 +161,6 @@ $("go").addEventListener("click", async () => {
       body: JSON.stringify({
         ssid: $("ssid").value,
         password: $("password").value,
-        llm_api_key: params.get("llm_api_key") || $("key").value,
-        llm_base_url: params.get("llm_base_url") || "",
         device_id: params.get("device_id") || "",
         name: $("name").value,
         timezone: zone,

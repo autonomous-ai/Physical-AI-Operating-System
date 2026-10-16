@@ -52,7 +52,8 @@ pub struct Plan {
     /// of these directories and would not start without them).
     pub wipe: Vec<PathBuf>,
     /// Run before the wipe: the lamp's parts stopped (`lamp-keeper stop
-    /// lamp`). If it fails, the lamp reboots without wiping, into setup,
+    /// lamp`, or `systemctl stop lampos.target` on a lamp put on by
+    /// `lamp-update install`, which has no keeper). If it fails, the lamp reboots without wiping, into setup,
     /// which finishes the wipe with nothing running.
     pub stop: Vec<String>,
     /// Run after the wipe.

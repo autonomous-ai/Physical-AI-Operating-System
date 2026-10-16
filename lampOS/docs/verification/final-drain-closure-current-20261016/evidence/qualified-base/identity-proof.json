@@ -1,0 +1,105 @@
+{
+  "date_from_date": "2026-10-16 10:26:24 +0700",
+  "base_compiled": 515,
+  "candidate_compiled": 521,
+  "previous_candidate_compiled": 504,
+  "ignored": 0,
+  "six_exact_additions": [
+    [
+      "lamp-voice-eval::final_dispatch",
+      "final_drain_clock::tests::a_complete_real_line_is_released_only_at_the_full_logical_boundary"
+    ],
+    [
+      "lamp-voice-eval::final_dispatch",
+      "final_drain_clock::tests::a_marker_or_an_enqueue_alone_never_completes_the_observation"
+    ],
+    [
+      "lamp-voice-eval::final_dispatch",
+      "final_drain_clock::tests::abandoning_the_initial_hold_stops_and_reaps_the_actual_shell"
+    ],
+    [
+      "lamp-voice-eval::final_dispatch",
+      "final_drain_clock::tests::an_expired_watchdog_cannot_release_data_or_advance_the_clock"
+    ],
+    [
+      "lamp-voice-eval::final_dispatch",
+      "final_drain_clock::tests::the_released_shell_exits_and_is_reaped_after_actual_stdin_eof"
+    ],
+    [
+      "lamp-voice-eval::final_dispatch",
+      "final_drain_clock::tests::unexpected_marker_bytes_or_extra_frames_fail_the_observation"
+    ]
+  ],
+  "upstream_additions": [
+    [
+      "lamp-voice-eval",
+      "physical::fake_lamp::invocation_tests::a_written_invocation_without_a_successful_flush_has_no_receipt"
+    ],
+    [
+      "lamp-voice-eval",
+      "physical::fake_lamp::invocation_tests::invalid_invocation_prefixes_fail_before_any_clock_or_hook"
+    ],
+    [
+      "lamp-voice-eval",
+      "physical::fake_lamp::invocation_tests::invocation_and_direct_paths_keep_the_same_parser_and_mode_errors"
+    ],
+    [
+      "lamp-voice-eval",
+      "physical::fake_lamp::invocation_tests::only_the_leading_control_pair_is_removed_from_the_parser_view"
+    ],
+    [
+      "lamp-voice-eval",
+      "physical::mac::transport_exit_clock_tests::a_live_child_is_killed_and_reaped_at_the_full_logical_boundary"
+    ],
+    [
+      "lamp-voice-eval",
+      "physical::mac::transport_exit_clock_tests::a_panic_before_clock_installation_still_reaps_the_child"
+    ],
+    [
+      "lamp-voice-eval",
+      "physical::mac::transport_exit_clock_tests::an_actual_failed_exit_keeps_its_exit_status"
+    ],
+    [
+      "lamp-voice-eval",
+      "physical::mac::transport_exit_clock_tests::an_actual_successful_exit_precedes_even_an_expired_deadline"
+    ],
+    [
+      "lamp-voice-eval",
+      "physical::mac::transport_exit_clock_tests::an_expired_host_watchdog_reaps_before_unwind_without_advancing"
+    ],
+    [
+      "lamp-voice-eval",
+      "physical::mac::transport_exit_clock_tests::clock_reads_neither_advance_time_nor_wait"
+    ],
+    [
+      "lamp-voice-eval",
+      "physical::mac::transport_exit_clock_tests::zero_budget_kills_and_reaps_without_advancing"
+    ],
+    [
+      "lamp-voice-eval::serve_relay",
+      "serve_relay_clock::tests::an_expired_host_boundary_fails_before_another_step_or_clock_advance"
+    ],
+    [
+      "lamp-voice-eval::serve_relay",
+      "serve_relay_clock::tests::polls_preserve_two_milliseconds_and_stop_at_each_original_boundary"
+    ],
+    [
+      "lamp-voice-eval::serve_relay",
+      "serve_relay_clock::tests::real_runner_eof_holds_time_until_the_relay_reports_its_signal"
+    ],
+    [
+      "lamp-voice-eval::serve_relay",
+      "serve_relay_clock::tests::runtime_completion_never_advances_time_or_claims_relay_exit"
+    ],
+    [
+      "lamp-voice-eval::serve_relay",
+      "serve_relay_clock::tests::the_real_stop_keeps_the_full_delay_and_original_bytes_once"
+    ],
+    [
+      "lamp-voice-eval::serve_relay",
+      "serve_relay_clock::tests::unwinding_releases_the_real_runner_reader_and_control_socket"
+    ]
+  ],
+  "all_current_base_and_previous_candidate_ids_preserved": true,
+  "reverse_dependents": []
+}

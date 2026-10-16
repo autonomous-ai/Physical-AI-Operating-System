@@ -1,0 +1,29 @@
+--- unformatted/lampOS/crates/voice-eval/src/physical/mac.rs
++++ formatted/lampOS/crates/voice-eval/src/physical/mac.rs
+@@ -4825,7 +4825,9 @@
+         assert_eq!(enqueued.load(Ordering::Acquire), 0);
+         assert_eq!(
+             lines.try_recv(),
+-            Ok(Err("relay transport read failed: closure observation read failure".into()))
++            Ok(Err(
++                "relay transport read failed: closure observation read failure".into()
++            ))
+         );
+         assert_eq!(lines.try_recv(), Err(TryRecvError::Disconnected));
+     }
+--- unformatted/lampOS/crates/voice-eval/tests/common/final_drain_clock.rs
++++ formatted/lampOS/crates/voice-eval/tests/common/final_drain_clock.rs
+@@ -65,12 +65,7 @@
+         Self::prepare_with_close(rig, now, later, false)
+     }
+ 
+-    fn prepare_with_close(
+-        rig: &Rig,
+-        now: &[Value],
+-        later: &str,
+-        close: bool,
+-    ) -> (Self, String) {
++    fn prepare_with_close(rig: &Rig, now: &[Value], later: &str, close: bool) -> (Self, String) {
+         let deadline = Instant::now() + HOST_WINDOW;
+         fs::write(rig.dir.join("now.jsonl"), lines(now)).unwrap();
+         fs::write(rig.dir.join("later.jsonl"), later).unwrap();

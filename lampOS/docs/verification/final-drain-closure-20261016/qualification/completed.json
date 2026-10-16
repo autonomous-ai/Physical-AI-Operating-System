@@ -1,0 +1,19 @@
+{
+  "date_from_date": "2026-10-16 10:30:31 +0700",
+  "base": "c5bcc45b905458c1a8adcd8bcf06885f35dbfdf7",
+  "all_checks_passed": true,
+  "counts": [
+    509,
+    0,
+    0
+  ],
+  "compiled": 509,
+  "baseline_compiled": 504,
+  "exact_additions": 5,
+  "selected_after_seconds": 0.428,
+  "selected_before_seconds": 1.216,
+  "source_unchanged": true,
+  "frozen_inputs": 1031,
+  "no_reruns": true,
+  "qualification": "local c5 only; current integration and native qualification remain pending"
+}

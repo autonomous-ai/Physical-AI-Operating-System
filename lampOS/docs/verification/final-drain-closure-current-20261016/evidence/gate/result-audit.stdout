@@ -1,0 +1,1 @@
+{"date": "2026-10-16 11:00:12 +0700", "result": "/private/tmp/tests-823-final-drain-closure-current-integration/gate/result-audit.json", "sha256": "2c5fe8d9275a9ec842e711c376185c158f0ca00f8ca6e593e251622a254347ed", "counts": {"passed": 526, "failed": 0, "ignored": 0, "measured": 0, "filtered_out": 0}, "frozen_inputs": 1088, "historical_files": 108, "root_proof": 1}

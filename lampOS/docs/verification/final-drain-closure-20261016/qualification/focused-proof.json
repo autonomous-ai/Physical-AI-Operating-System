@@ -1,0 +1,56 @@
+{
+  "date_from_date": "2026-10-16 10:24:57 +0700",
+  "base": "c5bcc45b905458c1a8adcd8bcf06885f35dbfdf7",
+  "baseline_seconds": 1.216,
+  "after_selected_seconds": 0.428,
+  "same_original_command": [
+    "cargo",
+    "nextest",
+    "run",
+    "--locked",
+    "--offline",
+    "-p",
+    "lamp-voice-eval",
+    "--profile",
+    "default",
+    "--test-threads",
+    "1",
+    "--no-fail-fast",
+    "--retries",
+    "0",
+    "-E",
+    "binary_id(lamp-voice-eval::final_dispatch) & test(=a_transport_closed_during_the_final_drain_withholds)"
+  ],
+  "selected_runs_this_stage": 1,
+  "new_test_passes": [
+    {
+      "binary": "lamp-voice-eval",
+      "test": "physical::mac::relay_channel_observation_tests::a_read_failure_closes_the_sender_but_retains_the_original_error",
+      "seconds": 0.044
+    },
+    {
+      "binary": "lamp-voice-eval",
+      "test": "physical::mac::relay_channel_observation_tests::real_pipe_eof_drops_the_sender_before_notification_without_consuming_the_line",
+      "seconds": 0.053
+    },
+    {
+      "binary": "lamp-voice-eval::final_dispatch",
+      "test": "final_drain_clock::tests::a_marker_and_enqueue_or_dropped_notice_peer_cannot_prove_channel_closure",
+      "seconds": 0.39
+    },
+    {
+      "binary": "lamp-voice-eval::final_dispatch",
+      "test": "final_drain_clock::tests::a_real_transport_close_is_released_only_at_the_full_logical_boundary",
+      "seconds": 0.421
+    },
+    {
+      "binary": "lamp-voice-eval::final_dispatch",
+      "test": "final_drain_clock::tests::an_expired_closing_watchdog_cannot_release_or_advance_the_clock",
+      "seconds": 0.404
+    }
+  ],
+  "new_test_count": 5,
+  "host": "shared uncontrolled Mac",
+  "no_native_or_device_claim": true,
+  "not_a_standalone_original123_measurement": true
+}

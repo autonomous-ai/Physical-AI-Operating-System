@@ -1,0 +1,17 @@
+{
+  "command": [
+    "git",
+    "worktree",
+    "add",
+    "-b",
+    "tests/823-final-drain-closure",
+    "/private/tmp/lampos-tests-final-drain-closure",
+    "c5bcc45b905458c1a8adcd8bcf06885f35dbfdf7"
+  ],
+  "cwd": "/private/tmp/lampos-tests-final-drain-clock",
+  "started": "2026-10-16 10:18:59 +0700",
+  "finished": "2026-10-16 10:19:59 +0700",
+  "exit_code": 0,
+  "stdout_sha256": "673f9d0eaf9f1b90a036dd001406bb6e40dc04f4c9f6d4fe9dd0bb152e2ebc87",
+  "stderr_sha256": "33987540ba1ca59d4a00eaa30f38f169c7c9065db6bdaf922b45aac77ec1f78e"
+}

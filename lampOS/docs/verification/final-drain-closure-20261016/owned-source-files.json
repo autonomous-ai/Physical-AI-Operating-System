@@ -1,0 +1,28 @@
+{
+  "date_from_date": "2026-10-16 10:31:03 +0700",
+  "root": "/private/tmp/lampos-tests-final-drain-closure",
+  "base": "c5bcc45b905458c1a8adcd8bcf06885f35dbfdf7",
+  "branch": "tests/823-final-drain-closure",
+  "files": [
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+      "bytes": 195109,
+      "sha256": "90fe8f25f0b4e2639c067952e3de51d8028ee0c0f0d474cb74defac24a400456"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+      "bytes": 18974,
+      "sha256": "04b04b4925b76aab64008884b1206cb468e63c48260bb0b50893780e4c441137"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "bytes": 17995,
+      "sha256": "6fb5c99e63c5446b20c9e8c7a54ff15244fa1108ea1821c9818b226ae01becea"
+    },
+    {
+      "path": "lampOS/docs/voice-test-fixtures.md",
+      "bytes": 20503,
+      "sha256": "5336db77d94f1bf410af1d0f82efd316a521d48ca614f803a0d82a02f3a8a358"
+    }
+  ]
+}

@@ -1,0 +1,57 @@
+{
+  "date_from_date": "2026-10-16 11:03:47 +0700",
+  "packages": [
+    {
+      "directory": "/private/tmp/tests-823-final-drain-closure-current-supplement",
+      "manifest_sha256": "cdf5f759b4c5b64693ed7b2321deae3269317d0e53f08d3a4b52bff6e72ce2b2",
+      "files": 53,
+      "compiled": 526,
+      "unique_once_only_passes": 526,
+      "binary_invocations": 24,
+      "counts": [
+        526,
+        0,
+        0
+      ],
+      "all_stage_exits_zero": true,
+      "full_log_sha256": "89844d2cb3e493ffbb11822f744a312785571a85ec9e21e8d08bc7386533564a",
+      "head": "af395564031af5ad227366dee1f9049e3cfbc472",
+      "limits": "This closure head has no native run. Its prerequisite c2 native qualification failed before tests in two jobs. No new timing pair or standalone original123 claim."
+    }
+  ],
+  "source_and_baseline": {
+    "compiled_base": 521,
+    "exact_additions": [
+      [
+        "lamp-voice-eval",
+        "physical::mac::relay_channel_observation_tests::a_read_failure_closes_the_sender_but_retains_the_original_error"
+      ],
+      [
+        "lamp-voice-eval",
+        "physical::mac::relay_channel_observation_tests::real_pipe_eof_drops_the_sender_before_notification_without_consuming_the_line"
+      ],
+      [
+        "lamp-voice-eval::final_dispatch",
+        "final_drain_clock::tests::a_marker_and_enqueue_or_dropped_notice_peer_cannot_prove_channel_closure"
+      ],
+      [
+        "lamp-voice-eval::final_dispatch",
+        "final_drain_clock::tests::a_real_transport_close_is_released_only_at_the_full_logical_boundary"
+      ],
+      [
+        "lamp-voice-eval::final_dispatch",
+        "final_drain_clock::tests::an_expired_closing_watchdog_cannot_release_or_advance_the_clock"
+      ]
+    ],
+    "all_baseline_ignore_flags_preserved": true,
+    "frozen_inputs": 1088,
+    "full_file_inverses_to_c2": [
+      "lampOS/docs/voice-test-fixtures.md",
+      "lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "lampOS/crates/voice-eval/src/physical/mac.rs",
+      "lampOS/crates/voice-eval/tests/common/final_drain_clock.rs"
+    ],
+    "historical_files_and_rootproof_exact": 109
+  },
+  "manual_source_review": "The current source inverses preserve both independent mac test modules. The reader closure token follows actual framer/sender drops without draining queued data/errors; it is not a task or child join. The selected original initializer changes, with the logical300/800ms timings and all original assertions retained."
+}

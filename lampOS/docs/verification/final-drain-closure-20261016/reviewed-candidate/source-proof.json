@@ -1,0 +1,169 @@
+{
+  "date_from_date": "2026-10-16 10:12:10 +0700",
+  "base": "c5bcc45b905458c1a8adcd8bcf06885f35dbfdf7",
+  "source_files": [
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+      "before_sha256": "c14c40669ad423baf9c21672587bd6e97e47a64e102d6d22c2714e3e399d78e2",
+      "after_sha256": "29e6025468f398eeb309a65843a0039e41f348026f3c1850f8050658963da428",
+      "before_bytes": 189541,
+      "after_bytes": 195079,
+      "git_blob": "5f7073f991d1c1ea5ac56d5f5b390d9734d0faed",
+      "exact_inverse": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+      "before_sha256": "fcc6988f7837440550a090ea6e2b04c9b9f569f3f7589558234780477880148e",
+      "after_sha256": "fa95bdff5e7d0a96173a93d5f4a7139893ffd36da23a6c0ec0b701f1816b5ff6",
+      "before_bytes": 13432,
+      "after_bytes": 19013,
+      "git_blob": "72a2c0d9cbe1ffc01546fc08fb62d2398483b2e7",
+      "exact_inverse": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "before_sha256": "aca9379bbb7c993267251c1103a88f91d06ad8468e7f3cc936efb0d44797227c",
+      "after_sha256": "6fb5c99e63c5446b20c9e8c7a54ff15244fa1108ea1821c9818b226ae01becea",
+      "before_bytes": 17959,
+      "after_bytes": 17995,
+      "git_blob": "4277acc6ae2690dbc7ec67e4557f46748b80a918",
+      "exact_inverse": true
+    },
+    {
+      "path": "lampOS/docs/voice-test-fixtures.md",
+      "before_sha256": "bd618f4471d5ec69dad490abc9e4747a91fdb21ef9fb1033a1e9d8f20e332940",
+      "after_sha256": "5336db77d94f1bf410af1d0f82efd316a521d48ca614f803a0d82a02f3a8a358",
+      "before_bytes": 19699,
+      "after_bytes": 20503,
+      "git_blob": "be94a8f17a3ef93cfe9f1df834b3f2c689c0d01b",
+      "exact_inverse": true
+    }
+  ],
+  "exact_four_file_inverse": true,
+  "shared_reader_core_and_none_tail_exact": true,
+  "reader_core_before_sha256": "65b43762e62443a0b1fe1c61d03e8fe113140d2036836bb2a10621e7b6eac73d",
+  "existing_tests": [
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+      "old_count": 27,
+      "old_names": [
+        "a_grant_sent_after_its_expiry_keeps_a_negative_margin_without_overflow",
+        "a_held_startup_cue_that_expired_before_the_live_map_is_refused",
+        "a_never_terminated_line_still_ends_at_the_session_byte_bound",
+        "a_prompt_is_covered_only_through_its_speech_and_observation_window",
+        "audit_failed_outer_transport_cannot_certify_nominal_runtime_end",
+        "audit_grant_deschedule_after_send_must_not_panic_or_lose_tracking",
+        "audit_grant_within_deadline_control",
+        "audit_nonzero_runtime_exit_must_invalidate_attempt",
+        "audit_reaped_successful_transport_certifies_nominal_runtime_end",
+        "audit_serve_stdout_readiness_cannot_mint_an_original_cue",
+        "audit_startup_unmapped_expired_readiness_cannot_be_accepted",
+        "audit_successful_runtime_exit_control",
+        "audit_transport_that_outlives_its_bound_is_killed_and_never_certified",
+        "cue_order_rejects_missing_duplicate_relabelled_and_out_of_order_owners",
+        "cue_receipt_at_expiry_or_before_send_is_not_fresh",
+        "each_occurrence_is_matched_and_only_whole_completion_is_terminal",
+        "fast_startup_cues_before_the_first_live_pong_are_published_in_order_with_original_times",
+        "fresh_delayed_child_observation_keeps_its_earlier_event_time",
+        "held_batch_resamples_after_parse_and_refuses_a_later_expired_cue",
+        "legacy_missing_occurrence_live_cue_is_withheld",
+        "oversized_non_utf8_and_cut_off_lines_are_protocol_errors",
+        "r2_a_grant_never_outlives_the_recordings_latest_covered_start",
+        "r2_an_actual_first_copy_after_the_covered_start_is_retained_as_a_violation",
+        "readiness_cues_are_unowned_but_still_sequenced",
+        "reading_stops_with_an_error_above_the_session_byte_bound",
+        "retired_audio_can_be_cancelled_without_reviving_playback",
+        "the_original_expiry_refuses_at_equality"
+      ],
+      "old_complete_test_bodies_exact_except_initializer": [],
+      "all_old_assertions_preserved_by_whole_body_comparison": true,
+      "new_names": [
+        "a_read_failure_closes_the_sender_but_retains_the_original_error",
+        "real_pipe_eof_drops_the_sender_before_notification_without_consuming_the_line"
+      ]
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+      "old_count": 6,
+      "old_names": [
+        "a_complete_real_line_is_released_only_at_the_full_logical_boundary",
+        "a_marker_or_an_enqueue_alone_never_completes_the_observation",
+        "abandoning_the_initial_hold_stops_and_reaps_the_actual_shell",
+        "an_expired_watchdog_cannot_release_data_or_advance_the_clock",
+        "the_released_shell_exits_and_is_reaped_after_actual_stdin_eof",
+        "unexpected_marker_bytes_or_extra_frames_fail_the_observation"
+      ],
+      "old_complete_test_bodies_exact_except_initializer": [],
+      "all_old_assertions_preserved_by_whole_body_comparison": true,
+      "new_names": [
+        "a_marker_and_enqueue_or_dropped_notice_peer_cannot_prove_channel_closure",
+        "a_real_transport_close_is_released_only_at_the_full_logical_boundary",
+        "an_expired_closing_watchdog_cannot_release_or_advance_the_clock"
+      ]
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "old_count": 13,
+      "old_names": [
+        "a_final_drain_that_exhausts_its_budget_requires_revalidation",
+        "a_healthy_session_still_dispatches_once",
+        "a_known_invalid_cue_withholds_dispatch_as_a_protocol_failure",
+        "a_known_run_end_cue_withholds_dispatch",
+        "a_known_session_end_withholds_dispatch",
+        "a_relay_framing_error_first_seen_in_the_final_drain_withholds",
+        "a_session_end_first_seen_in_the_final_drain_withholds_and_is_kept",
+        "a_transport_closed_during_the_final_drain_withholds",
+        "an_invalid_cue_first_seen_in_the_final_drain_withholds",
+        "an_unobserved_event_in_the_final_drain_requires_revalidation",
+        "audit_physical_boundary_does_not_dispatch_during_post_exit_trace_relay",
+        "audit_physical_boundary_rejects_a_target_already_over_100ms_late",
+        "the_first_terminal_cause_wins_and_a_provider_failure_stays_provider_unavailable"
+      ],
+      "old_complete_test_bodies_exact_except_initializer": [
+        "a_transport_closed_during_the_final_drain_withholds"
+      ],
+      "all_old_assertions_preserved_by_whole_body_comparison": true,
+      "new_names": []
+    }
+  ],
+  "expected_additions": [
+    [
+      "lamp-voice-eval",
+      "physical::mac::relay_channel_observation_tests::a_read_failure_closes_the_sender_but_retains_the_original_error"
+    ],
+    [
+      "lamp-voice-eval",
+      "physical::mac::relay_channel_observation_tests::real_pipe_eof_drops_the_sender_before_notification_without_consuming_the_line"
+    ],
+    [
+      "lamp-voice-eval::final_dispatch",
+      "final_drain_clock::tests::a_marker_and_enqueue_or_dropped_notice_peer_cannot_prove_channel_closure"
+    ],
+    [
+      "lamp-voice-eval::final_dispatch",
+      "final_drain_clock::tests::a_real_transport_close_is_released_only_at_the_full_logical_boundary"
+    ],
+    [
+      "lamp-voice-eval::final_dispatch",
+      "final_drain_clock::tests::an_expired_closing_watchdog_cannot_release_or_advance_the_clock"
+    ]
+  ],
+  "old_compiled": 504,
+  "after_compiled_expected": 509,
+  "source_only": true,
+  "compiled_after_unverified": true,
+  "active_worktree_edits": false,
+  "cargo_tests_rustfmt_or_git_mutations": false,
+  "selected_original": {
+    "binary": "lamp-voice-eval::final_dispatch",
+    "test": "a_transport_closed_during_the_final_drain_withholds",
+    "unchanged_arguments": [
+      "&[start_line()]",
+      "\"0.3\"",
+      "\"\"",
+      "Then::Close"
+    ],
+    "unchanged_target_offset_us": 800000
+  },
+  "patch_sha256": "1f953f771bde8d7f9681190a8ad4a3c33229e16321cfba666d44f100cd50ffa8"
+}

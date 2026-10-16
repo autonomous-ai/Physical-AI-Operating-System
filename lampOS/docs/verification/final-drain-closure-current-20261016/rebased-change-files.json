@@ -1,0 +1,687 @@
+{
+  "date_from_date": "2026-10-16 11:00:34 +0700",
+  "root": "/private/tmp/lampos-tests-final-drain-closure",
+  "branch": "tests/823-final-drain-closure",
+  "base": "c2eacfa4e29a5c9db21d4d919a77d33ce8112238",
+  "head": "af395564031af5ad227366dee1f9049e3cfbc472",
+  "files": [
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+      "bytes": 195889,
+      "sha256": "8e9a2266e990bd56e4ec0ff1766ae0eca7b0cc33e4a05fadf5d0f5ceaa5a86a2",
+      "kind": "owned_source_or_doc"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+      "bytes": 18974,
+      "sha256": "04b04b4925b76aab64008884b1206cb468e63c48260bb0b50893780e4c441137",
+      "kind": "owned_source_or_doc"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "bytes": 17995,
+      "sha256": "6fb5c99e63c5446b20c9e8c7a54ff15244fa1108ea1821c9818b226ae01becea",
+      "kind": "owned_source_or_doc"
+    },
+    {
+      "path": "lampOS/docs/voice-test-fixtures.md",
+      "bytes": 21787,
+      "sha256": "ea971a93f19f983040a4e3568f7ded8c172e6af254fdf2d169ee7c4f81db1a5a",
+      "kind": "owned_source_or_doc"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/README.md",
+      "bytes": 4847,
+      "sha256": "4bc9dcf5fdc0d2adc8122ef7b597578fcf589bfe725c76e21ab7d5428e3528f9",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/SHA256SUMS",
+      "bytes": 11350,
+      "sha256": "1164d3006d61a579209341aa0e6e90ade7a830711d6dd0082ff0f02f8d16f8ed",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/baseline/completed.json",
+      "bytes": 236,
+      "sha256": "94b91bcc1b30ec2605d5511d51f847ff9bbd35c889d39ecb7648515d7116b7e5",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/baseline/gates.json",
+      "bytes": 1033,
+      "sha256": "d57fd46216388db53f3565763df80ea6a4610d36495612199e7e4250e183c5ec",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/baseline/list.log",
+      "bytes": 92221,
+      "sha256": "1f362b32a3e319ee3229865d71bf4051099022809f0c30dee26c3b5c8248c7b8",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/baseline/original-case.log",
+      "bytes": 474,
+      "sha256": "129f232eec04bd0d94ed47d01831658efc90a99aaa10eb1766356118781fb186",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/baseline/source.json",
+      "bytes": 133003,
+      "sha256": "0cc633cec56aabbf033b663d8ed2853592c2a186dbf57ee035a5e754b9fea038",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/copy-provenance.json",
+      "bytes": 30292,
+      "sha256": "321e61cf09375ff65c1cb81b51310e41e33c059e8868054102e55dc4a252ae0f",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/owned-source-files.json",
+      "bytes": 956,
+      "sha256": "52664badf472e60c1459baa90e52dcab3643d833a56a210a55f10ddf0bbed5c0",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/build-after.uptime.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/build-after.uptime.stdout",
+      "bytes": 66,
+      "sha256": "5d1b53f9ff310f04bb12a55b3250a678d2904f950cbed88e6cce7d395a7ca78b",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/build-before.uptime.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/build-before.uptime.stdout",
+      "bytes": 65,
+      "sha256": "d9a59ce3d4949ce622e606eaae36b58c93ec29da15c827bb28d0a0c8070e2589",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/build.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/build.log",
+      "bytes": 4208,
+      "sha256": "a8db24fa33eb7101a6b8a13d6fc3d9234cebe5a23094da449935faf87348e192",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/clippy-after.uptime.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/clippy-after.uptime.stdout",
+      "bytes": 65,
+      "sha256": "bb087162a421d19c94b41cb682712994f421e5eb244bc46ae3edb92ed84d02ea",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/clippy-before.uptime.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/clippy-before.uptime.stdout",
+      "bytes": 65,
+      "sha256": "5a25e85714e5b006206409da4c8474f49730b22a2020c1d510851d8c4265b0bb",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/clippy.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/clippy.log",
+      "bytes": 1925,
+      "sha256": "1f344b5c080c64d1d8f2b9ce8f6013218c2b21fbb88b8d509fe2a19e7da18d5a",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/completed.json",
+      "bytes": 489,
+      "sha256": "e8bcc9e1f8b82b1bf4375e401b5c3ef0ec3abe4768c298ef0109de9974a04dd1",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/environment.json",
+      "bytes": 1968,
+      "sha256": "1bfa0cb5f7ddfde6722ed54fd7033f88e62e51587273c70ecbd70dd159c450f4",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/fmt-after.uptime.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/fmt-after.uptime.stdout",
+      "bytes": 65,
+      "sha256": "5a25e85714e5b006206409da4c8474f49730b22a2020c1d510851d8c4265b0bb",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/fmt-before.uptime.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/fmt-before.uptime.stdout",
+      "bytes": 66,
+      "sha256": "877a6848bf326779459f7158b8ea445b048bf70fa57e6d05c5ffbbc24bc19dc4",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/fmt.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/fmt.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/focused-proof.json",
+      "bytes": 1758,
+      "sha256": "50dbecf641626834c586692582de135687e662959929b5b0b51f629418959d47",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/formatting-inverse.json",
+      "bytes": 1523,
+      "sha256": "57bb8f77a7c86c262ebaa38b692a4d7d3ab6d099d4f6a0b49f848d6aee69ee04",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/formatting-only.diff",
+      "bytes": 1224,
+      "sha256": "73cb7a66cfd8ba5310085c68daa60d401677963b25562f6aeef27baff4fdf82e",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/frozen/lampOS/crates/voice-eval/src/physical/mac.rs",
+      "bytes": 195109,
+      "sha256": "90fe8f25f0b4e2639c067952e3de51d8028ee0c0f0d474cb74defac24a400456",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/frozen/lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+      "bytes": 18974,
+      "sha256": "04b04b4925b76aab64008884b1206cb468e63c48260bb0b50893780e4c441137",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/frozen/lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "bytes": 17995,
+      "sha256": "6fb5c99e63c5446b20c9e8c7a54ff15244fa1108ea1821c9818b226ae01becea",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/frozen/lampOS/docs/voice-test-fixtures.md",
+      "bytes": 20503,
+      "sha256": "5336db77d94f1bf410af1d0f82efd316a521d48ca614f803a0d82a02f3a8a358",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/frozen.diff",
+      "bytes": 20660,
+      "sha256": "6d0c14dd67a5253adddb70a33149ecfeba31ada9f35e400a096b1faa06a1631e",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/gates.json",
+      "bytes": 9282,
+      "sha256": "1c80a698bd1683b78d42a5b338b624af1f4778144ff8647d7931a6e938ca601b",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/identity-proof.json",
+      "bytes": 1237,
+      "sha256": "3fa727b89eb5be14127df675d2ef598440f82d07343b40ab06ebd66e5a5f2a36",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/list-after.uptime.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/list-after.uptime.stdout",
+      "bytes": 65,
+      "sha256": "ab6635cf0142459b68ac93c9105fbd5c85e9485d9c4e37b4503b5249f8fa4e4f",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/list-before.uptime.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/list-before.uptime.stdout",
+      "bytes": 65,
+      "sha256": "bb087162a421d19c94b41cb682712994f421e5eb244bc46ae3edb92ed84d02ea",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/list.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/list.log",
+      "bytes": 92887,
+      "sha256": "43cf2ce5cf10a175817d71dd8cdaa6c2aef1701f29fc922f6898f0276d7fdd17",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/metadata-after.uptime.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/metadata-after.uptime.stdout",
+      "bytes": 65,
+      "sha256": "9a9e5f487f31dd3bc3bba346c6816f1058d67f82c3ac1d1682f54ce21f51207e",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/metadata-before.uptime.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/metadata-before.uptime.stdout",
+      "bytes": 65,
+      "sha256": "9a9e5f487f31dd3bc3bba346c6816f1058d67f82c3ac1d1682f54ce21f51207e",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/metadata.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/metadata.log",
+      "bytes": 166183,
+      "sha256": "cf2c5e0abc4d5b9bd8883d65d3d4de6740248a9e79a017ea83dbb6a70f7385cf",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/new-cases-after.uptime.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/new-cases-after.uptime.stdout",
+      "bytes": 66,
+      "sha256": "877a6848bf326779459f7158b8ea445b048bf70fa57e6d05c5ffbbc24bc19dc4",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/new-cases-before.uptime.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/new-cases-before.uptime.stdout",
+      "bytes": 65,
+      "sha256": "81cdce51f9d1c04f220dfd64ca9cfa8619f021355b65ff40488fdb0c2c40ee37",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/new-cases.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/new-cases.log",
+      "bytes": 1170,
+      "sha256": "9ec914f964f956b90d0e983bf64240ea80d458af246e2999ab2bc5ce1e4ddb67",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/original-case-after.uptime.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/original-case-after.uptime.stdout",
+      "bytes": 65,
+      "sha256": "81cdce51f9d1c04f220dfd64ca9cfa8619f021355b65ff40488fdb0c2c40ee37",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/original-case-before.uptime.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/original-case-before.uptime.stdout",
+      "bytes": 65,
+      "sha256": "9a9e5f487f31dd3bc3bba346c6816f1058d67f82c3ac1d1682f54ce21f51207e",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/original-case.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/original-case.log",
+      "bytes": 2327,
+      "sha256": "1b860ae7b37ecfa6e008613bdbe9daacb7f7aca7b9e771f31608358c23b85aa3",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/postfmt-source-proof.json",
+      "bytes": 25120,
+      "sha256": "4744186fd68009911668379f74a50e08ae832e179557467022a6d3dc85566c64",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/preflight-diagnostic.json",
+      "bytes": 436,
+      "sha256": "4e2a03070151887e797e4de976edd4f2f01343f0dadd5e1d9012025f97c5d2a6",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/result-audit-command.json",
+      "bytes": 434,
+      "sha256": "62da02cb0446469be23edfacbde842db79c1697297514f57e8a9bcd33f572df1",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/result-audit.json",
+      "bytes": 131297,
+      "sha256": "d9fce97a7a56c8f41597070e2a66fcf2593c1d77c08ccee00dada77342f72130",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/result-audit.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/result-audit.stdout",
+      "bytes": 398,
+      "sha256": "74b382ccc764d6bc01d09006c682a4c7d58c91b2b04f8c78bd09b86cecf5b285",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/rustfmt.json",
+      "bytes": 685,
+      "sha256": "7c259a729613d4e56c2f1a640be8cf4b6368f256d30cf41fcdb86f5cfdae3811",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/rustfmt.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/rustfmt.stdout",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/source-status.txt",
+      "bytes": 200,
+      "sha256": "058f3cac57b3777b3af806937cba8c0f94e6ee756bd3931c76592d79e092633c",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/source.json",
+      "bytes": 133598,
+      "sha256": "42a1dfa312de522ebfa79d9a6ac12c489064e911d82605fee63bbf4f97d8fb8c",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/tests-after.uptime.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/tests-after.uptime.stdout",
+      "bytes": 65,
+      "sha256": "d9a59ce3d4949ce622e606eaae36b58c93ec29da15c827bb28d0a0c8070e2589",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/tests-before.uptime.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/tests-before.uptime.stdout",
+      "bytes": 65,
+      "sha256": "ab6635cf0142459b68ac93c9105fbd5c85e9485d9c4e37b4503b5249f8fa4e4f",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/tests.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/tests.log",
+      "bytes": 55841,
+      "sha256": "18e35ae4d26dc175ad6641d25e2e3459461ee1ad96657d673998d60b51ace9fd",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/unformatted/lampOS/crates/voice-eval/src/physical/mac.rs",
+      "bytes": 195079,
+      "sha256": "29e6025468f398eeb309a65843a0039e41f348026f3c1850f8050658963da428",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/unformatted/lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+      "bytes": 19013,
+      "sha256": "fa95bdff5e7d0a96173a93d5f4a7139893ffd36da23a6c0ec0b701f1816b5ff6",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/unformatted/lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "bytes": 17995,
+      "sha256": "6fb5c99e63c5446b20c9e8c7a54ff15244fa1108ea1821c9818b226ae01becea",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/unformatted/lampOS/docs/voice-test-fixtures.md",
+      "bytes": 20503,
+      "sha256": "5336db77d94f1bf410af1d0f82efd316a521d48ca614f803a0d82a02f3a8a358",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/unformatted-proposed.diff",
+      "bytes": 19451,
+      "sha256": "1f953f771bde8d7f9681190a8ad4a3c33229e16321cfba666d44f100cd50ffa8",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/worktree.json",
+      "bytes": 541,
+      "sha256": "be0c5155b4b59795f6ecdc5179d2e751ace6396de693e4e241e4b434a047b40c",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/worktree.stderr",
+      "bytes": 5297,
+      "sha256": "33987540ba1ca59d4a00eaa30f38f169c7c9065db6bdaf922b45aac77ec1f78e",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/qualification/worktree.stdout",
+      "bytes": 78,
+      "sha256": "673f9d0eaf9f1b90a036dd001406bb6e40dc04f4c9f6d4fe9dd0bb152e2ebc87",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/reviewed-candidate/SHA256SUMS",
+      "bytes": 1827,
+      "sha256": "c228f75f999392ad9f042d402cb8cd00a4a8184cda6abcc270e6245303a481bd",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/reviewed-candidate/after/lampOS/crates/voice-eval/src/physical/mac.rs",
+      "bytes": 195079,
+      "sha256": "29e6025468f398eeb309a65843a0039e41f348026f3c1850f8050658963da428",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/reviewed-candidate/after/lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+      "bytes": 19013,
+      "sha256": "fa95bdff5e7d0a96173a93d5f4a7139893ffd36da23a6c0ec0b701f1816b5ff6",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/reviewed-candidate/after/lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "bytes": 17995,
+      "sha256": "6fb5c99e63c5446b20c9e8c7a54ff15244fa1108ea1821c9818b226ae01becea",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/reviewed-candidate/after/lampOS/docs/voice-test-fixtures.md",
+      "bytes": 20503,
+      "sha256": "5336db77d94f1bf410af1d0f82efd316a521d48ca614f803a0d82a02f3a8a358",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/reviewed-candidate/baseline-provenance.json",
+      "bytes": 1617,
+      "sha256": "50b273599f7975d9f31f85bd8607f807f683500781bca8adfda07e11c73995b1",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/reviewed-candidate/before/lampOS/crates/voice-eval/src/physical/mac.rs",
+      "bytes": 189541,
+      "sha256": "c14c40669ad423baf9c21672587bd6e97e47a64e102d6d22c2714e3e399d78e2",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/reviewed-candidate/before/lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+      "bytes": 13432,
+      "sha256": "fcc6988f7837440550a090ea6e2b04c9b9f569f3f7589558234780477880148e",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/reviewed-candidate/before/lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "bytes": 17959,
+      "sha256": "aca9379bbb7c993267251c1103a88f91d06ad8468e7f3cc936efb0d44797227c",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/reviewed-candidate/before/lampOS/docs/voice-test-fixtures.md",
+      "bytes": 19699,
+      "sha256": "bd618f4471d5ec69dad490abc9e4747a91fdb21ef9fb1033a1e9d8f20e332940",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/reviewed-candidate/candidate-files.json",
+      "bytes": 3403,
+      "sha256": "64fe4b14c7649ef5b701045dea14f0cc763f2514b055430c6bcf24b23b3f987e",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/reviewed-candidate/expected-identities.json",
+      "bytes": 91877,
+      "sha256": "dcdea6a2e4a977ebf5f762e4e4a69a80381da89624534aee6040a52b48b7936e",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/reviewed-candidate/handoff.md",
+      "bytes": 3413,
+      "sha256": "3ca69397da5236e11fd26fd1c8b591201e7be7153c7466f59040ce0738a39adc",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/reviewed-candidate/helper-operations.json",
+      "bytes": 10520,
+      "sha256": "e4849180c82199756effd387eeef86ee726437c2ec7fb6968a00da1789de1417",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/reviewed-candidate/inverse-operations.json",
+      "bytes": 20301,
+      "sha256": "fc63cc753e069a5cff969a9d3d1e1f3431114b2a36b03bb3bc2d347aef2b6042",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/reviewed-candidate/mac-operations.json",
+      "bytes": 8642,
+      "sha256": "c4dd4fbe6f11ebc7a7345964da4c6f390b9f5a3fec954271ce18730e8a1bfc56",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/reviewed-candidate/preparation-diagnostic.json",
+      "bytes": 334,
+      "sha256": "93b88d65a49b8ab6ec565f9cbd64c9dbb23bef6bb1d98991c4d0d2a68007824f",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/reviewed-candidate/proposed.diff",
+      "bytes": 19451,
+      "sha256": "1f953f771bde8d7f9681190a8ad4a3c33229e16321cfba666d44f100cd50ffa8",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/reviewed-candidate/review-operations.json",
+      "bytes": 1145,
+      "sha256": "3b1d2d04274c73f8b40df3674addbf5636d94f5cb46d0ce62d0e1a010efaa355",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-20261016/reviewed-candidate/source-proof.json",
+      "bytes": 7962,
+      "sha256": "4df7b2939dd9baf629a86aa93c205c3e61ae416a2af50119544b251b62d4c47e",
+      "kind": "preserved_historical_evidence"
+    },
+    {
+      "path": "lampOS/docs/verification/final-drain-closure-root-20261016/proof.json",
+      "bytes": 1185,
+      "sha256": "b77d417b82d533158a7b56ada108d96267a58f51cf4e46a514d178ef3316f7c0",
+      "kind": "preserved_historical_evidence"
+    }
+  ]
+}

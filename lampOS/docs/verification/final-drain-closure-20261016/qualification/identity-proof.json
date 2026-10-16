@@ -1,0 +1,33 @@
+{
+  "date_from_date": "2026-10-16 10:25:51 +0700",
+  "base": "c5bcc45b905458c1a8adcd8bcf06885f35dbfdf7",
+  "before": 504,
+  "after": 509,
+  "ignored": 0,
+  "all_original_identities_and_ignore_flags_exact": true,
+  "additions": [
+    [
+      "lamp-voice-eval",
+      "physical::mac::relay_channel_observation_tests::a_read_failure_closes_the_sender_but_retains_the_original_error"
+    ],
+    [
+      "lamp-voice-eval",
+      "physical::mac::relay_channel_observation_tests::real_pipe_eof_drops_the_sender_before_notification_without_consuming_the_line"
+    ],
+    [
+      "lamp-voice-eval::final_dispatch",
+      "final_drain_clock::tests::a_marker_and_enqueue_or_dropped_notice_peer_cannot_prove_channel_closure"
+    ],
+    [
+      "lamp-voice-eval::final_dispatch",
+      "final_drain_clock::tests::a_real_transport_close_is_released_only_at_the_full_logical_boundary"
+    ],
+    [
+      "lamp-voice-eval::final_dispatch",
+      "final_drain_clock::tests::an_expired_closing_watchdog_cannot_release_or_advance_the_clock"
+    ]
+  ],
+  "reverse_dependents": [],
+  "baseline_sha256": "1f362b32a3e319ee3229865d71bf4051099022809f0c30dee26c3b5c8248c7b8",
+  "after_sha256": "43cf2ce5cf10a175817d71dd8cdaa6c2aef1701f29fc922f6898f0276d7fdd17"
+}

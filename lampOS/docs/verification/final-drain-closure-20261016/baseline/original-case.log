@@ -1,0 +1,7 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.46s
+────────────
+ Nextest run ID 739deab7-b760-45a2-9d14-5ba1cefe8f8e with nextest profile: default
+    Starting 1 test across 1 binary (18 tests and 23 binaries skipped)
+        PASS [   1.216s] (1/1) lamp-voice-eval::final_dispatch a_transport_closed_during_the_final_drain_withholds
+────────────
+     Summary [   1.219s] 1 test run: 1 passed, 18 skipped

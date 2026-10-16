@@ -1,0 +1,102 @@
+{
+  "date_from_date": "2026-10-16 10:12:10 +0700",
+  "directory": "/private/tmp/tests-823-final-drain-closure-candidate",
+  "base": "c5bcc45b905458c1a8adcd8bcf06885f35dbfdf7",
+  "files": [
+    {
+      "path": "SHA256SUMS",
+      "bytes": 1827,
+      "sha256": "c228f75f999392ad9f042d402cb8cd00a4a8184cda6abcc270e6245303a481bd"
+    },
+    {
+      "path": "after/lampOS/crates/voice-eval/src/physical/mac.rs",
+      "bytes": 195079,
+      "sha256": "29e6025468f398eeb309a65843a0039e41f348026f3c1850f8050658963da428"
+    },
+    {
+      "path": "after/lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+      "bytes": 19013,
+      "sha256": "fa95bdff5e7d0a96173a93d5f4a7139893ffd36da23a6c0ec0b701f1816b5ff6"
+    },
+    {
+      "path": "after/lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "bytes": 17995,
+      "sha256": "6fb5c99e63c5446b20c9e8c7a54ff15244fa1108ea1821c9818b226ae01becea"
+    },
+    {
+      "path": "after/lampOS/docs/voice-test-fixtures.md",
+      "bytes": 20503,
+      "sha256": "5336db77d94f1bf410af1d0f82efd316a521d48ca614f803a0d82a02f3a8a358"
+    },
+    {
+      "path": "baseline-provenance.json",
+      "bytes": 1617,
+      "sha256": "50b273599f7975d9f31f85bd8607f807f683500781bca8adfda07e11c73995b1"
+    },
+    {
+      "path": "before/lampOS/crates/voice-eval/src/physical/mac.rs",
+      "bytes": 189541,
+      "sha256": "c14c40669ad423baf9c21672587bd6e97e47a64e102d6d22c2714e3e399d78e2"
+    },
+    {
+      "path": "before/lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+      "bytes": 13432,
+      "sha256": "fcc6988f7837440550a090ea6e2b04c9b9f569f3f7589558234780477880148e"
+    },
+    {
+      "path": "before/lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "bytes": 17959,
+      "sha256": "aca9379bbb7c993267251c1103a88f91d06ad8468e7f3cc936efb0d44797227c"
+    },
+    {
+      "path": "before/lampOS/docs/voice-test-fixtures.md",
+      "bytes": 19699,
+      "sha256": "bd618f4471d5ec69dad490abc9e4747a91fdb21ef9fb1033a1e9d8f20e332940"
+    },
+    {
+      "path": "expected-identities.json",
+      "bytes": 91877,
+      "sha256": "dcdea6a2e4a977ebf5f762e4e4a69a80381da89624534aee6040a52b48b7936e"
+    },
+    {
+      "path": "handoff.md",
+      "bytes": 3413,
+      "sha256": "3ca69397da5236e11fd26fd1c8b591201e7be7153c7466f59040ce0738a39adc"
+    },
+    {
+      "path": "helper-operations.json",
+      "bytes": 10520,
+      "sha256": "e4849180c82199756effd387eeef86ee726437c2ec7fb6968a00da1789de1417"
+    },
+    {
+      "path": "inverse-operations.json",
+      "bytes": 20301,
+      "sha256": "fc63cc753e069a5cff969a9d3d1e1f3431114b2a36b03bb3bc2d347aef2b6042"
+    },
+    {
+      "path": "mac-operations.json",
+      "bytes": 8642,
+      "sha256": "c4dd4fbe6f11ebc7a7345964da4c6f390b9f5a3fec954271ce18730e8a1bfc56"
+    },
+    {
+      "path": "preparation-diagnostic.json",
+      "bytes": 334,
+      "sha256": "93b88d65a49b8ab6ec565f9cbd64c9dbb23bef6bb1d98991c4d0d2a68007824f"
+    },
+    {
+      "path": "proposed.diff",
+      "bytes": 19451,
+      "sha256": "1f953f771bde8d7f9681190a8ad4a3c33229e16321cfba666d44f100cd50ffa8"
+    },
+    {
+      "path": "review-operations.json",
+      "bytes": 1145,
+      "sha256": "3b1d2d04274c73f8b40df3674addbf5636d94f5cb46d0ce62d0e1a010efaa355"
+    },
+    {
+      "path": "source-proof.json",
+      "bytes": 7962,
+      "sha256": "4df7b2939dd9baf629a86aa93c205c3e61ae416a2af50119544b251b62d4c47e"
+    }
+  ]
+}

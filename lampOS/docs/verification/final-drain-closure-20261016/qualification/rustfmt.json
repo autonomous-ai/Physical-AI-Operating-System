@@ -1,0 +1,21 @@
+{
+  "command": [
+    "/Users/autonomous/.cargo/bin/rustup",
+    "run",
+    "1.96.0",
+    "rustfmt",
+    "--edition",
+    "2024",
+    "--config",
+    "skip_children=true",
+    "lampOS/crates/voice-eval/src/physical/mac.rs",
+    "lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+    "lampOS/crates/voice-eval/tests/final_dispatch.rs"
+  ],
+  "cwd": "/private/tmp/lampos-tests-final-drain-closure",
+  "started": "2026-10-16 10:21:37 +0700",
+  "finished": "2026-10-16 10:21:38 +0700",
+  "exit_code": 0,
+  "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

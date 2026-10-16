@@ -1,0 +1,122 @@
+[
+  {
+    "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+    "before": "pub trait FixtureDriver {\n",
+    "after": "pub trait FixtureDriver {\n    /// Opt in to one notification after the real reader drops its sole line\n    /// sender. The driver owns the dedicated receiver; disconnection without\n    /// a success token is not proof. This does not certify thread exit or\n    /// child reaping. Existing drivers allocate no observer channel.\n    fn relay_channel_closed_observer(&mut self) -> Option<SyncSender<()>> {\n        None\n    }\n\n"
+  },
+  {
+    "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+    "before": "struct FixtureProgress<'a> {\n    driver: Box<dyn FixtureDriver + 'a>,",
+    "after": "struct FixtureProgress<'a> {\n    driver: Box<dyn FixtureDriver + 'a>,\n    relay_closed: Option<SyncSender<()>>,"
+  },
+  {
+    "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+    "before": "    pub fn with_fixture_driver(mut self, driver: impl FixtureDriver + 'a) -> Result<Self> {",
+    "after": "    pub fn with_fixture_driver(mut self, mut driver: impl FixtureDriver + 'a) -> Result<Self> {"
+  },
+  {
+    "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+    "before": "        self.fixture = Some(FixtureProgress {\n            driver: Box::new(driver),",
+    "after": "        let relay_closed = driver.relay_channel_closed_observer();\n        self.fixture = Some(FixtureProgress {\n            driver: Box::new(driver),\n            relay_closed,"
+  },
+  {
+    "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+    "before": "fn relay_reader_with_progress_capacity<R: std::io::Read + Send + 'static>(\n    stdout: R,\n    enqueued: Option<Arc<AtomicU64>>,\n    fixture_capacity: usize,\n) -> Receiver<std::result::Result<SessionLine, String>> {\n    let controlled = enqueued.is_some();",
+    "after": "fn relay_reader_with_progress_capacity<R: std::io::Read + Send + 'static>(\n    stdout: R,\n    enqueued: Option<Arc<AtomicU64>>,\n    fixture_capacity: usize,\n) -> Receiver<std::result::Result<SessionLine, String>> {\n    relay_reader_with_progress_capacity_observed(stdout, enqueued, fixture_capacity, None)\n}\n\nfn relay_reader_with_progress_capacity_observed<R: std::io::Read + Send + 'static>(\n    stdout: R,\n    enqueued: Option<Arc<AtomicU64>>,\n    fixture_capacity: usize,\n    relay_closed: Option<SyncSender<()>>,\n) -> Receiver<std::result::Result<SessionLine, String>> {\n    let controlled = enqueued.is_some();"
+  },
+  {
+    "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+    "before": "            if complete && let Some(enqueued) = &enqueued {\n                enqueued.fetch_add(1, Ordering::Release);\n            }\n        }\n    });\n    lines\n}",
+    "after": "            if complete && let Some(enqueued) = &enqueued {\n                enqueued.fetch_add(1, Ordering::Release);\n            }\n        }\n        if let Some(closed) = relay_closed {\n            // Only this explicit observer changes the tail. Input teardown\n            // completes before the sole producer is dropped; queued items\n            // remain untouched. A notification is not a thread join.\n            drop(framer);\n            drop(sender);\n            let _ = closed.try_send(());\n        }\n        // Without an observer, retain the original implicit drop order.\n    });\n    lines\n}"
+  },
+  {
+    "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+    "before": "        let lines = match &self.fixture {\n            Some(fixture) => relay_reader_with_progress(stdout, Some(fixture.enqueued.clone())),\n            None => relay_reader(stdout),\n        };",
+    "after": "        let lines = match &mut self.fixture {\n            Some(fixture) => match fixture.relay_closed.take() {\n                Some(closed) => relay_reader_with_progress_capacity_observed(\n                    stdout,\n                    Some(fixture.enqueued.clone()),\n                    FIXTURE_RELAY_QUEUE_CAPACITY,\n                    Some(closed),\n                ),\n                None => relay_reader_with_progress(stdout, Some(fixture.enqueued.clone())),\n            },\n            None => relay_reader(stdout),\n        };"
+  },
+  {
+    "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+    "before": "s\"]\nmod prepared_player_progress_tests;\n\n#[cfg(test)]\n#[path = \"recorder_backend_tests.rs\"]\nmod recorder_backend_tests;\n",
+    "after": "s\"]\nmod prepared_player_progress_tests;\n\n#[cfg(test)]\n#[path = \"recorder_backend_tests.rs\"]\nmod recorder_backend_tests;\n\n#[cfg(test)]\nmod relay_channel_observation_tests {\n    use super::*;\n    use std::io::{self, Read};\n\n    const GUARD: Duration = Duration::from_secs(10);\n\n    struct OwnedChild(Child);\n\n    impl Drop for OwnedChild {\n        fn drop(&mut self) {\n            let _ = self.0.kill();\n            let _ = self.0.wait();\n        }\n    }\n\n    struct InputDropGate<R> {\n        input: Option<R>,\n        dropped: SyncSender<()>,\n        release: Receiver<()>,\n    }\n\n    impl<R: Read> Read for InputDropGate<R> {\n        fn read(&mut self, bytes: &mut [u8]) -> io::Result<usize> {\n            self.input.as_mut().unwrap().read(bytes)\n        }\n    }\n\n    impl<R> Drop for InputDropGate<R> {\n        fn drop(&mut self) {\n            drop(self.input.take());\n            let _ = self.dropped.try_send(());\n            let _ = self.release.recv_timeout(GUARD);\n        }\n    }\n\n    #[test]\n    fn real_pipe_eof_drops_the_sender_before_notification_without_consuming_the_line() {\n        let record = SessionLine::Pong { seq: 7, lamp_us: 9 };\n        let script = format!(\n            \"printf '%s\\n' '{}'; IFS= read -r command || exit 0\",\n            serde_json::to_string(&record).unwrap()\n        );\n        let mut child = OwnedChild(\n            Command::new(\"/bin/sh\")\n                .args([\"-c\", &script])\n                .stdin(Stdio::piped())\n                .stdout(Stdio::piped())\n                .spawn()\n                .unwrap(),\n        );\n        let (dropped, input_dropped) = mpsc::sync_channel(1);\n        let (release, proceed) = mpsc::sync_channel(1);\n        let (closed, notice) = mpsc::sync_channel(1);\n        let enqueued = Arc::new(AtomicU64::new(0));\n        let lines = relay_reader_with_progress_capacity_observed(\n            InputDropGate {\n                input: child.0.stdout.take(),\n                dropped,\n                release: proceed,\n            },\n            Some(enqueued.clone()),\n            1,\n            Some(closed),\n        );\n        let deadline = Instant::now() + GUARD;\n        while enqueued.load(Ordering::Acquire) != 1 {\n            assert!(Instant::now() < deadline, \"real pipe frame was not queued\");\n            thread::sleep(Duration::from_millis(1));\n        }\n        assert_eq!(notice.try_recv(), Err(TryRecvError::Empty));\n        drop(child.0.stdin.take());\n        input_dropped.recv_timeout(GUARD).unwrap();\n        // The OS input has really dropped, but the framer's destructor is\n        // still parked and the line channel's producer is still alive.\n        assert_eq!(notice.try_recv(), Err(TryRecvError::Empty));\n        release.send(()).unwrap();\n        notice.recv_timeout(GUARD).unwrap();\n        assert_eq!(enqueued.load(Ordering::Acquire), 1);\n        assert_eq!(lines.try_recv(), Ok(Ok(record)));\n        assert_eq!(lines.try_recv(), Err(TryRecvError::Disconnected));\n        assert_eq!(notice.try_recv(), Err(TryRecvError::Disconnected));\n        // OwnedChild cleanup remains separate from the sender-drop receipt.\n    }\n\n    #[test]\n    fn a_read_failure_closes_the_sender_but_retains_the_original_error() {\n        struct FailedRead;\n        impl Read for FailedRead {\n            fn read(&mut self, _: &mut [u8]) -> io::Result<usize> {\n                Err(io::Error::other(\"closure observation read failure\"))\n            }\n        }\n        let (closed, notice) = mpsc::sync_channel(1);\n        let enqueued = Arc::new(AtomicU64::new(0));\n        let lines = relay_reader_with_progress_capacity_observed(\n            FailedRead,\n            Some(enqueued.clone()),\n            1,\n            Some(closed),\n        );\n        notice.recv_timeout(GUARD).unwrap();\n        assert_eq!(enqueued.load(Ordering::Acquire), 0);\n        assert_eq!(\n            lines.try_recv(),\n            Ok(Err(\"relay transport read failed: closure observation read failure\".into()))\n        );\n        assert_eq!(lines.try_recv(), Err(TryRecvError::Disconnected));\n    }\n}\n"
+  },
+  {
+    "path": "lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+    "before": "    sync::atomic::{AtomicU64, Ordering},",
+    "after": "    sync::{\n        atomic::{AtomicU64, Ordering},\n        mpsc::{self, Receiver, SyncSender, TryRecvError},\n    },"
+  },
+  {
+    "path": "lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+    "before": "    started: bool,\n    released: bool,\n}",
+    "after": "    started: bool,\n    released: bool,\n    closed: Option<Receiver<()>>,\n    closed_sender: Option<SyncSender<()>>,\n    closed_observed: bool,\n}"
+  },
+  {
+    "path": "lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+    "before": "    fn prepare(rig: &Rig, now: &[Value], later: &str) -> (Self, String) {\n        let deadline = Instant::now() + HOST_WINDOW;",
+    "after": "    fn prepare(rig: &Rig, now: &[Value], later: &str) -> (Self, String) {\n        Self::prepare_with_close(rig, now, later, false)\n    }\n\n    fn prepare_with_close(\n        rig: &Rig,\n        now: &[Value],\n        later: &str,\n        close: bool,\n    ) -> (Self, String) {\n        let deadline = Instant::now() + HOST_WINDOW;"
+  },
+  {
+    "path": "lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+    "before": "        let later_marker = rig.dir.join(\"later-written\");\n        let script = format!(",
+    "after": "        let later_marker = rig.dir.join(\"later-written\");\n        let end = if close {\n            \"exit 0\"\n        } else {\n            \"while IFS= read -r runner_line; do :; done\"\n        };\n        let (closed_sender, closed) = if close {\n            let (sender, receiver) = mpsc::sync_channel(1);\n            (Some(sender), Some(receiver))\n        } else {\n            (None, None)\n        };\n        let script = format!("
+  },
+  {
+    "path": "lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+    "before": "             while IFS= read -r runner_line; do :; done\",",
+    "after": "             {end}\","
+  },
+  {
+    "path": "lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+    "before": "                started: false,\n                released: false,\n            },",
+    "after": "                started: false,\n                released: false,\n                closed,\n                closed_sender,\n                closed_observed: false,\n            },"
+  },
+  {
+    "path": "lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+    "before": "        Ok(written && actual == count)\n    }\n}\n\nimpl FixtureDriver for Driver {\n    fn wait(",
+    "after": "        Ok(written && actual == count)\n    }\n\n    fn written_and_closed_once(&mut self, enqueued: &AtomicU64) -> io::Result<bool> {\n        self.check_host()?;\n        let written = marker(&self.later_marker, LATER)?;\n        let actual = enqueued.load(Ordering::Acquire);\n        if actual > 1 {\n            return Err(invalid(\"unexpected closing fixture relay frame count\"));\n        }\n        if !self.closed_observed {\n            let closed = self\n                .closed\n                .as_ref()\n                .ok_or_else(|| invalid(\"missing closure observer\"))?;\n            match closed.try_recv() {\n                Ok(()) => self.closed_observed = true,\n                Err(TryRecvError::Empty) => {}\n                Err(TryRecvError::Disconnected) => {\n                    return Err(invalid(\n                        \"relay closure observer disconnected without a success token\",\n                    ));\n                }\n            }\n        }\n        self.check_host()?;\n        Ok(written && actual == 1 && self.closed_observed)\n    }\n\n    fn written_and_closed(&mut self, enqueued: &AtomicU64) -> io::Result<()> {\n        loop {\n            if self.written_and_closed_once(enqueued)? {\n                return Ok(());\n            }\n            thread::sleep(Duration::from_millis(1));\n        }\n    }\n}\n\nimpl FixtureDriver for Driver {\n    fn relay_channel_closed_observer(&mut self) -> Option<SyncSender<()>> {\n        self.closed_sender.take()\n    }\n\n    fn wait("
+  },
+  {
+    "path": "lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+    "before": "            self.written_and_enqueued(&self.later_marker, LATER, enqueued_frames, 2)?;\n            self.released = true;",
+    "after": "            if self.closed.is_some() {\n                // The marker announces only the empty cat's completion.\n                // A token published after the real reader drops its sender\n                // is also required; no backend queue item is consumed here.\n                self.written_and_closed(enqueued_frames)?;\n            } else {\n                self.written_and_enqueued(&self.later_marker, LATER, enqueued_frames, 2)?;\n            }\n            self.released = true;"
+  },
+  {
+    "path": "lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+    "before": "\n#[cfg(test)]\nmod tests {",
+    "after": "\npub(super) fn closed_backend<'a>(\n    rig: &'a Rig,\n    now: &[Value],\n    delay: &str,\n    later: &str,\n    then: Then,\n) -> PhysicalBackend<'a> {\n    assert_eq!(delay, \"0.3\");\n    assert!(matches!(then, Then::Close));\n    assert_eq!(now.len(), 1);\n    assert!(later.is_empty());\n    let (driver, script) = Driver::prepare_with_close(rig, now, later, true);\n    let clock = Rc::clone(&driver.state);\n    PhysicalBackend::new_with_clock(\n        rig.config(script),\n        &rig.assets,\n        Box::new(Recording(rig.starts.clone())),\n        move || MonoTime::from_micros(clock.now.get()),\n    )\n    .with_fixture_driver(driver)\n    .unwrap()\n}\n\n#[cfg(test)]\nmod tests {"
+  },
+  {
+    "path": "lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+    "before": "      assert_eq!(driver.state.now.get(), ORIGIN_US);\n        assert!(driver.state.released_at.get().is_none());\n    }\n}\n",
+    "after": "      assert_eq!(driver.state.now.get(), ORIGIN_US);\n        assert!(driver.state.released_at.get().is_none());\n    }\n\n    #[test]\n    fn a_real_transport_close_is_released_only_at_the_full_logical_boundary() {\n        let rig = Rig::new(\"disp-close-clock-boundary\");\n        let mut backend = closed_backend(&rig, &[start_line()], \"0.3\", \"\", Then::Close);\n        rig.begin(&mut backend);\n        assert!(\n            backend\n                .next_event(ORIGIN_US + DELAY_US - 1)\n                .unwrap()\n                .is_none()\n        );\n        assert_eq!(backend.now_us(), ORIGIN_US + DELAY_US - 1);\n        assert!(!rig.dir.join(\"later-written\").exists());\n        let event = backend.next_event(ORIGIN_US + DELAY_US).unwrap().unwrap();\n        assert!(matches!(event.kind, EventKind::RunEnd { .. }));\n        assert_eq!(backend.now_us(), ORIGIN_US + DELAY_US);\n        assert!(marker(&rig.dir.join(\"later-written\"), LATER).unwrap());\n        assert_eq!(rig.starts.load(Ordering::SeqCst), 0);\n    }\n\n    #[test]\n    fn a_marker_and_enqueue_or_dropped_notice_peer_cannot_prove_channel_closure() {\n        let rig = Rig::new(\"disp-close-clock-no-token\");\n        let (mut driver, _) = Driver::prepare_with_close(&rig, &[start_line()], \"\", true);\n        let sender = driver.relay_channel_closed_observer().unwrap();\n        fs::write(&driver.later_marker, LATER).unwrap();\n        let enqueued = AtomicU64::new(1);\n        assert!(!driver.written_and_closed_once(&enqueued).unwrap());\n        assert!(!driver.closed_observed);\n        drop(sender);\n        assert!(driver.written_and_closed_once(&enqueued).is_err());\n        assert!(!driver.closed_observed);\n        assert_eq!(driver.state.now.get(), ORIGIN_US);\n        assert!(driver.state.released_at.get().is_none());\n    }\n\n    #[test]\n    fn an_expired_closing_watchdog_cannot_release_or_advance_the_clock() {\n        let rig = Rig::new(\"disp-close-clock-watchdog\");\n        let (mut driver, _) = Driver::prepare_with_close(&rig, &[start_line()], \"\", true);\n        driver.deadline = Instant::now();\n        assert!(\n            driver\n                .wait(\n                    MonoTime::from_micros(ORIGIN_US + DELAY_US),\n                    0,\n                    &AtomicU64::new(0),\n                    false,\n                )\n                .is_err()\n        );\n        assert_eq!(driver.state.now.get(), ORIGIN_US);\n        assert!(driver.state.released_at.get().is_none());\n        assert!(!rig.dir.join(\"later-written\").exists());\n    }\n}\n"
+  },
+  {
+    "path": "lampOS/crates/voice-eval/tests/final_dispatch.rs",
+    "before": "    let mut backend = rig.backend(&[start_line()], \"0.3\", \"\", Then::Close);",
+    "after": "    let mut backend =\n        final_drain_clock::closed_backend(&rig, &[start_line()], \"0.3\", \"\", Then::Close);"
+  },
+  {
+    "path": "lampOS/docs/voice-test-fixtures.md",
+    "before": "their host sleeps; this first migration does not control the closed-transport\ncase, whose real reader/channel closure needs separate evidence.",
+    "after": "their host sleeps. The closed-transport original uses a separate explicit\nselector with the same 300 ms delay, empty later bytes, `Then::Close` and\n800 ms final drain. Its driver holds logical time at the release boundary\nuntil the empty `cat` has returned, exactly one original frame is enqueued,\nand the actual reader has dropped its sole backend-channel sender.\n\nOnly that driver allocates and supplies a dedicated notification channel.\nThe reader publishes one success token after dropping its framer and sender;\nqueued lines or errors remain untouched. A disconnected notification channel\nwithout that token is failure, including reader panic. The token proves\nsender drop, not a joined reader thread, clean EOF, child exit or reaping.\nRead errors retain their original queue item, so the unchanged final drain\ncan still reject them. Drivers that decline observation keep the original\nreader tail/drop order and allocate no observer channel."
+  },
+  {
+    "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+    "before": "        assert_eq!(lines.try_recv(), Err(TryRecvError::Disconnected));\n        assert_eq!(notice.try_recv(), Err(TryRecvError::Disconnected));\n        // OwnedChild cleanup remains separate from the sender-drop receipt.\n",
+    "after": "        assert_eq!(lines.try_recv(), Err(TryRecvError::Disconnected));\n        // OwnedChild cleanup remains separate from the sender-drop receipt.\n"
+  },
+  {
+    "path": "lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+    "before": "//! One explicit delayed-line fixture; real pipe enqueue and backend drain stay separate.",
+    "after": "//! Explicit final-drain fixtures; real reader progress and backend drain stay separate."
+  },
+  {
+    "path": "lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+    "before": "            // Marker means cat returned. Only the real backend reader's\n            // second complete frame proves the line is queued for its drain.\n            if self.closed.is_some() {",
+    "after": "            if self.closed.is_some() {"
+  },
+  {
+    "path": "lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+    "before": "            } else {\n                self.written_and_enqueued(&self.later_marker, LATER, enqueued_frames, 2)?;",
+    "after": "            } else {\n                // Marker means cat returned. Only the real backend reader's\n                // second complete frame proves the line is queued for its drain.\n                self.written_and_enqueued(&self.later_marker, LATER, enqueued_frames, 2)?;"
+  }
+]

@@ -1,0 +1,16 @@
+{
+  "date_from_date": "2026-10-16 10:40:33 +0700",
+  "base": "c2eacfa4e29a5c9db21d4d919a77d33ce8112238",
+  "prior_qualified_head": "0868e117677401b8d84e72e72ffbd39d449878d1",
+  "head": "af395564031af5ad227366dee1f9049e3cfbc472",
+  "resolution": "retain both independently cfg(test) modules; existing transport module and entire new closure module exact",
+  "files": 113,
+  "owned_source_sha256": {
+    "lampOS/crates/voice-eval/src/physical/mac.rs": "8e9a2266e990bd56e4ec0ff1766ae0eca7b0cc33e4a05fadf5d0f5ceaa5a86a2",
+    "lampOS/crates/voice-eval/tests/common/final_drain_clock.rs": "04b04b4925b76aab64008884b1206cb468e63c48260bb0b50893780e4c441137",
+    "lampOS/crates/voice-eval/tests/final_dispatch.rs": "6fb5c99e63c5446b20c9e8c7a54ff15244fa1108ea1821c9818b226ae01becea",
+    "lampOS/docs/voice-test-fixtures.md": "ea971a93f19f983040a4e3568f7ded8c172e6af254fdf2d169ee7c4f81db1a5a"
+  },
+  "gate": "not yet run",
+  "pushed": false
+}

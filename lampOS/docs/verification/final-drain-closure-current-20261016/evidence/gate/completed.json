@@ -1,0 +1,24 @@
+{
+  "date_from_date": "2026-10-16 10:58:31 +0700",
+  "base": "c2eacfa4e29a5c9db21d4d919a77d33ce8112238",
+  "head": "af395564031af5ad227366dee1f9049e3cfbc472",
+  "all_checks_passed": true,
+  "counts": [
+    526,
+    0,
+    0
+  ],
+  "baseline_compiled": 521,
+  "candidate_compiled": 526,
+  "additions": 5,
+  "removals": 0,
+  "ignored": 0,
+  "source_unchanged": true,
+  "frozen_inputs": 1088,
+  "historical_files_preserved": 108,
+  "root_proof_preserved": 1,
+  "new_timing_pair": false,
+  "baseline_reexecuted": false,
+  "no_failed_test_retry": true,
+  "native_qualification": false
+}

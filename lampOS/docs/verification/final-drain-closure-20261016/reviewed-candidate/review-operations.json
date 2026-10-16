@@ -1,0 +1,17 @@
+[
+  {
+    "path": "lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+    "before": "//! One explicit delayed-line fixture; real pipe enqueue and backend drain stay separate.",
+    "after": "//! Explicit final-drain fixtures; real reader progress and backend drain stay separate."
+  },
+  {
+    "path": "lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+    "before": "            // Marker means cat returned. Only the real backend reader's\n            // second complete frame proves the line is queued for its drain.\n            if self.closed.is_some() {",
+    "after": "            if self.closed.is_some() {"
+  },
+  {
+    "path": "lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+    "before": "            } else {\n                self.written_and_enqueued(&self.later_marker, LATER, enqueued_frames, 2)?;",
+    "after": "            } else {\n                // Marker means cat returned. Only the real backend reader's\n                // second complete frame proves the line is queued for its drain.\n                self.written_and_enqueued(&self.later_marker, LATER, enqueued_frames, 2)?;"
+  }
+]

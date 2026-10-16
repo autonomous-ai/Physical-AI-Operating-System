@@ -1,0 +1,13 @@
+{
+  "started": "2026-10-16 10:30:45 +0700",
+  "finished": "2026-10-16 10:30:47 +0700",
+  "command": [
+    "python3",
+    "/private/tmp/tests-823-audit-final-drain-closure.py"
+  ],
+  "exit_code": 0,
+  "stdout_sha256": "74b382ccc764d6bc01d09006c682a4c7d58c91b2b04f8c78bd09b86cecf5b285",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "gate_exec_session": 47276,
+  "observed_terminal_exit": 0
+}

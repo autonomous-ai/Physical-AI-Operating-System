@@ -1,5 +1,17 @@
 # Tests work log
 
+## 2026-10-16 11:04:52 +0700 — Closed-transport local qualification retained
+
+Ready for lamp-voice: no (closed final-drain continuation)
+
+The closed-transport original retains its **1.216 → 0.428 s** first local c5 pair and complete **509/0/0** gate, [all 108 historical evidence files](verification/final-drain-closure-20261016/README.md). Its current c2-based head af395564 now passes **526/0/0**, fmt, strict all-target Evaluator Clippy and workspace build. [The 53-file current supplement](verification/final-drain-closure-current-20261016/README.md) preserves the EOF module conflict/resolution, exact source inverses, actual 521-base compiled list, all five additions and full once-only results. [Root's independent raw reparse and source check](verification/final-drain-closure-current-root-20261016/proof.json) verifies all 526 identities, all 1,088 frozen inputs, four complete file inverses and all 109 historical/root-proof hashes.
+
+The selected original retains empty later bytes, Then::Close, the full 300/800 ms logical bounds and all assertions. The closure token follows actual framer/channel-sender destruction without consuming queued lines or errors; it is not thread joining or child reaping. The ordinary path declines the observer and retains its original reader tail. No product behavior is changed by default.
+
+No fresh timing pair was run. The current full gate's printed binary sum is 298.50 s, compared with 164.45 s in the preceding different-head three-event gate on an uncontrolled shared host. The complete per-binary observation is retained, without attributing a cause or speedup. This is not the standalone original123 measurement. No failed case was retried. This source remains local until its prerequisite #963 is merged and its own native gate qualifies.
+
+#963 is now locally integrated on fixed upstream f5a20ba28 at db7201d0, all 56 owned files exact to c2; its fresh gate is underway. #966 stays ready under reviewer qualification. The Actor-work first16 pass; its full five-package gate continues. The held capacity clock is being refreshed onto the actual Memory/build fixes while preserving upstream's added cut_in field. One released, ignored old build cache was removed after ownership checks; old worktree status and all source/evidence remain exact, and observed free disk increased from 5 to 15 GiB. #783 is closed; #823's under-120-second fixed123 target remains open.
+
 ## 2026-10-16 10:57:05 +0700 — First c2 native failures retained
 
 Ready for lamp-voice: no (#963)

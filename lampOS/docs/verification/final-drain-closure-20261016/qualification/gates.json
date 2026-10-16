@@ -1,0 +1,311 @@
+[
+  {
+    "name": "metadata",
+    "command": [
+      "cargo",
+      "metadata",
+      "--locked",
+      "--offline",
+      "--no-deps",
+      "--format-version",
+      "1"
+    ],
+    "cwd": "/private/tmp/lampos-tests-final-drain-closure/lampOS",
+    "target": "/private/tmp/tests-823-memory-application-target",
+    "started": "2026-10-16 10:23:30 +0700",
+    "finished": "2026-10-16 10:23:30 +0700",
+    "exit_code": 0,
+    "raw_sha256": "cf2c5e0abc4d5b9bd8883d65d3d4de6740248a9e79a017ea83dbb6a70f7385cf",
+    "host_before": {
+      "date_from_date": "2026-10-16 10:23:30 +0700",
+      "command": [
+        "uptime"
+      ],
+      "exit_code": 0,
+      "stdout": "10:23  up 30 days, 15:41, 3 users, load averages: 4.43 4.82 5.32\n",
+      "stderr": ""
+    },
+    "host_after": {
+      "date_from_date": "2026-10-16 10:23:30 +0700",
+      "command": [
+        "uptime"
+      ],
+      "exit_code": 0,
+      "stdout": "10:23  up 30 days, 15:41, 3 users, load averages: 4.43 4.82 5.32\n",
+      "stderr": ""
+    }
+  },
+  {
+    "name": "original-case",
+    "command": [
+      "cargo",
+      "nextest",
+      "run",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-voice-eval",
+      "--profile",
+      "default",
+      "--test-threads",
+      "1",
+      "--no-fail-fast",
+      "--retries",
+      "0",
+      "-E",
+      "binary_id(lamp-voice-eval::final_dispatch) & test(=a_transport_closed_during_the_final_drain_withholds)"
+    ],
+    "cwd": "/private/tmp/lampos-tests-final-drain-closure/lampOS",
+    "target": "/private/tmp/tests-823-memory-application-target",
+    "started": "2026-10-16 10:23:30 +0700",
+    "finished": "2026-10-16 10:24:53 +0700",
+    "exit_code": 0,
+    "raw_sha256": "1b860ae7b37ecfa6e008613bdbe9daacb7f7aca7b9e771f31608358c23b85aa3",
+    "host_before": {
+      "date_from_date": "2026-10-16 10:23:30 +0700",
+      "command": [
+        "uptime"
+      ],
+      "exit_code": 0,
+      "stdout": "10:23  up 30 days, 15:41, 3 users, load averages: 4.43 4.82 5.32\n",
+      "stderr": ""
+    },
+    "host_after": {
+      "date_from_date": "2026-10-16 10:24:53 +0700",
+      "command": [
+        "uptime"
+      ],
+      "exit_code": 0,
+      "stdout": "10:24  up 30 days, 15:42, 3 users, load averages: 9.71 6.48 5.90\n",
+      "stderr": ""
+    }
+  },
+  {
+    "name": "new-cases",
+    "command": [
+      "cargo",
+      "nextest",
+      "run",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-voice-eval",
+      "--profile",
+      "default",
+      "--test-threads",
+      "1",
+      "--no-fail-fast",
+      "--retries",
+      "0",
+      "-E",
+      "(binary_id(lamp-voice-eval) & test(=physical::mac::relay_channel_observation_tests::a_read_failure_closes_the_sender_but_retains_the_original_error)) | (binary_id(lamp-voice-eval) & test(=physical::mac::relay_channel_observation_tests::real_pipe_eof_drops_the_sender_before_notification_without_consuming_the_line)) | (binary_id(lamp-voice-eval::final_dispatch) & test(=final_drain_clock::tests::a_marker_and_enqueue_or_dropped_notice_peer_cannot_prove_channel_closure)) | (binary_id(lamp-voice-eval::final_dispatch) & test(=final_drain_clock::tests::a_real_transport_close_is_released_only_at_the_full_logical_boundary)) | (binary_id(lamp-voice-eval::final_dispatch) & test(=final_drain_clock::tests::an_expired_closing_watchdog_cannot_release_or_advance_the_clock))"
+    ],
+    "cwd": "/private/tmp/lampos-tests-final-drain-closure/lampOS",
+    "target": "/private/tmp/tests-823-memory-application-target",
+    "started": "2026-10-16 10:24:54 +0700",
+    "finished": "2026-10-16 10:24:57 +0700",
+    "exit_code": 0,
+    "raw_sha256": "9ec914f964f956b90d0e983bf64240ea80d458af246e2999ab2bc5ce1e4ddb67",
+    "host_before": {
+      "date_from_date": "2026-10-16 10:24:54 +0700",
+      "command": [
+        "uptime"
+      ],
+      "exit_code": 0,
+      "stdout": "10:24  up 30 days, 15:42, 3 users, load averages: 9.71 6.48 5.90\n",
+      "stderr": ""
+    },
+    "host_after": {
+      "date_from_date": "2026-10-16 10:24:57 +0700",
+      "command": [
+        "uptime"
+      ],
+      "exit_code": 0,
+      "stdout": "10:24  up 30 days, 15:42, 3 users, load averages: 10.13 6.62 5.96\n",
+      "stderr": ""
+    }
+  },
+  {
+    "name": "fmt",
+    "command": [
+      "cargo",
+      "fmt",
+      "--all",
+      "--",
+      "--check"
+    ],
+    "cwd": "/private/tmp/lampos-tests-final-drain-closure/lampOS",
+    "target": "/private/tmp/tests-823-memory-application-target",
+    "started": "2026-10-16 10:24:57 +0700",
+    "finished": "2026-10-16 10:25:03 +0700",
+    "exit_code": 0,
+    "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "host_before": {
+      "date_from_date": "2026-10-16 10:24:57 +0700",
+      "command": [
+        "uptime"
+      ],
+      "exit_code": 0,
+      "stdout": "10:24  up 30 days, 15:42, 3 users, load averages: 10.13 6.62 5.96\n",
+      "stderr": ""
+    },
+    "host_after": {
+      "date_from_date": "2026-10-16 10:25:03 +0700",
+      "command": [
+        "uptime"
+      ],
+      "exit_code": 0,
+      "stdout": "10:25  up 30 days, 15:42, 3 users, load averages: 9.96 6.64 5.97\n",
+      "stderr": ""
+    }
+  },
+  {
+    "name": "clippy",
+    "command": [
+      "cargo",
+      "clippy",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-voice-eval",
+      "--all-targets",
+      "--",
+      "-D",
+      "warnings"
+    ],
+    "cwd": "/private/tmp/lampos-tests-final-drain-closure/lampOS",
+    "target": "/private/tmp/tests-823-memory-application-target",
+    "started": "2026-10-16 10:25:03 +0700",
+    "finished": "2026-10-16 10:25:35 +0700",
+    "exit_code": 0,
+    "raw_sha256": "1f344b5c080c64d1d8f2b9ce8f6013218c2b21fbb88b8d509fe2a19e7da18d5a",
+    "host_before": {
+      "date_from_date": "2026-10-16 10:25:03 +0700",
+      "command": [
+        "uptime"
+      ],
+      "exit_code": 0,
+      "stdout": "10:25  up 30 days, 15:42, 3 users, load averages: 9.96 6.64 5.97\n",
+      "stderr": ""
+    },
+    "host_after": {
+      "date_from_date": "2026-10-16 10:25:35 +0700",
+      "command": [
+        "uptime"
+      ],
+      "exit_code": 0,
+      "stdout": "10:25  up 30 days, 15:43, 3 users, load averages: 9.16 6.79 6.05\n",
+      "stderr": ""
+    }
+  },
+  {
+    "name": "list",
+    "command": [
+      "cargo",
+      "nextest",
+      "list",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-voice-eval",
+      "--message-format",
+      "json"
+    ],
+    "cwd": "/private/tmp/lampos-tests-final-drain-closure/lampOS",
+    "target": "/private/tmp/tests-823-memory-application-target",
+    "started": "2026-10-16 10:25:36 +0700",
+    "finished": "2026-10-16 10:25:51 +0700",
+    "exit_code": 0,
+    "raw_sha256": "43cf2ce5cf10a175817d71dd8cdaa6c2aef1701f29fc922f6898f0276d7fdd17",
+    "host_before": {
+      "date_from_date": "2026-10-16 10:25:36 +0700",
+      "command": [
+        "uptime"
+      ],
+      "exit_code": 0,
+      "stdout": "10:25  up 30 days, 15:43, 3 users, load averages: 9.16 6.79 6.05\n",
+      "stderr": ""
+    },
+    "host_after": {
+      "date_from_date": "2026-10-16 10:25:51 +0700",
+      "command": [
+        "uptime"
+      ],
+      "exit_code": 0,
+      "stdout": "10:25  up 30 days, 15:43, 3 users, load averages: 9.07 6.89 6.10\n",
+      "stderr": ""
+    }
+  },
+  {
+    "name": "tests",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-voice-eval",
+      "--no-fail-fast",
+      "--",
+      "--test-threads=1"
+    ],
+    "cwd": "/private/tmp/lampos-tests-final-drain-closure/lampOS",
+    "target": "/private/tmp/tests-823-memory-application-target",
+    "started": "2026-10-16 10:25:51 +0700",
+    "finished": "2026-10-16 10:28:44 +0700",
+    "exit_code": 0,
+    "raw_sha256": "18e35ae4d26dc175ad6641d25e2e3459461ee1ad96657d673998d60b51ace9fd",
+    "host_before": {
+      "date_from_date": "2026-10-16 10:25:51 +0700",
+      "command": [
+        "uptime"
+      ],
+      "exit_code": 0,
+      "stdout": "10:25  up 30 days, 15:43, 3 users, load averages: 9.07 6.89 6.10\n",
+      "stderr": ""
+    },
+    "host_after": {
+      "date_from_date": "2026-10-16 10:28:44 +0700",
+      "command": [
+        "uptime"
+      ],
+      "exit_code": 0,
+      "stdout": "10:28  up 30 days, 15:46, 3 users, load averages: 6.32 6.48 6.06\n",
+      "stderr": ""
+    }
+  },
+  {
+    "name": "build",
+    "command": [
+      "cargo",
+      "build",
+      "--locked",
+      "--offline",
+      "--workspace"
+    ],
+    "cwd": "/private/tmp/lampos-tests-final-drain-closure/lampOS",
+    "target": "/private/tmp/tests-823-memory-application-target",
+    "started": "2026-10-16 10:28:45 +0700",
+    "finished": "2026-10-16 10:30:30 +0700",
+    "exit_code": 0,
+    "raw_sha256": "a8db24fa33eb7101a6b8a13d6fc3d9234cebe5a23094da449935faf87348e192",
+    "host_before": {
+      "date_from_date": "2026-10-16 10:28:45 +0700",
+      "command": [
+        "uptime"
+      ],
+      "exit_code": 0,
+      "stdout": "10:28  up 30 days, 15:46, 3 users, load averages: 6.32 6.48 6.06\n",
+      "stderr": ""
+    },
+    "host_after": {
+      "date_from_date": "2026-10-16 10:30:30 +0700",
+      "command": [
+        "uptime"
+      ],
+      "exit_code": 0,
+      "stdout": "10:30  up 30 days, 15:48, 3 users, load averages: 12.02 8.16 6.75\n",
+      "stderr": ""
+    }
+  }
+]

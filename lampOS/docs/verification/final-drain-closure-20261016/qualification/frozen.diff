@@ -1,0 +1,495 @@
+diff --git a/lampOS/crates/voice-eval/src/physical/mac.rs b/lampOS/crates/voice-eval/src/physical/mac.rs
+index 5f7073f99..89d2027bf 100644
+--- a/lampOS/crates/voice-eval/src/physical/mac.rs
++++ b/lampOS/crates/voice-eval/src/physical/mac.rs
+@@ -1003,6 +1003,14 @@ const SELF_END_BOUND_US: u64 = 10_000_000;
+ /// Closing/dropping a driver must release its owned control peers so normal
+ /// backend cleanup can stop and reap a participant blocked on a fixture step.
+ pub trait FixtureDriver {
++    /// Opt in to one notification after the real reader drops its sole line
++    /// sender. The driver owns the dedicated receiver; disconnection without
++    /// a success token is not proof. This does not certify thread exit or
++    /// child reaping. Existing drivers allocate no observer channel.
++    fn relay_channel_closed_observer(&mut self) -> Option<SyncSender<()>> {
++        None
++    }
++
+     /// Only an explicit driver with prepared-player and signal coordination
+     /// can opt into serve. The finite driver keeps rejecting it.
+     fn supports_serve(&self) -> bool {
+@@ -1083,6 +1091,7 @@ pub trait FixtureDriver {
+ 
+ struct FixtureProgress<'a> {
+     driver: Box<dyn FixtureDriver + 'a>,
++    relay_closed: Option<SyncSender<()>>,
+     enqueued: Arc<AtomicU64>,
+     sent: u64,
+     started: bool,
+@@ -1434,7 +1443,7 @@ impl<'a> PhysicalBackend<'a> {
+     /// Install a driver for one explicitly controlled local attempt.
+     /// Serve requires its driver's prepared-player/signal capability. Room
+     /// recorders require their driver's separate recorder capability.
+-    pub fn with_fixture_driver(mut self, driver: impl FixtureDriver + 'a) -> Result<Self> {
++    pub fn with_fixture_driver(mut self, mut driver: impl FixtureDriver + 'a) -> Result<Self> {
+         if (self.serve() && !driver.supports_serve())
+             || (self.config.room_recorder.is_some() && !driver.supports_recorder())
+             || self.session.is_some()
+@@ -1446,8 +1455,10 @@ impl<'a> PhysicalBackend<'a> {
+         if self.fixture.is_some() {
+             return Err(invalid("fixture driver already installed"));
+         }
++        let relay_closed = driver.relay_channel_closed_observer();
+         self.fixture = Some(FixtureProgress {
+             driver: Box::new(driver),
++            relay_closed,
+             enqueued: Arc::new(AtomicU64::new(0)),
+             sent: 0,
+             started: false,
+@@ -2428,6 +2439,15 @@ fn relay_reader_with_progress_capacity<R: std::io::Read + Send + 'static>(
+     stdout: R,
+     enqueued: Option<Arc<AtomicU64>>,
+     fixture_capacity: usize,
++) -> Receiver<std::result::Result<SessionLine, String>> {
++    relay_reader_with_progress_capacity_observed(stdout, enqueued, fixture_capacity, None)
++}
++
++fn relay_reader_with_progress_capacity_observed<R: std::io::Read + Send + 'static>(
++    stdout: R,
++    enqueued: Option<Arc<AtomicU64>>,
++    fixture_capacity: usize,
++    relay_closed: Option<SyncSender<()>>,
+ ) -> Receiver<std::result::Result<SessionLine, String>> {
+     let controlled = enqueued.is_some();
+     // Controlled output is bounded over the whole transcript, not just its
+@@ -2505,6 +2525,15 @@ fn relay_reader_with_progress_capacity<R: std::io::Read + Send + 'static>(
+                 enqueued.fetch_add(1, Ordering::Release);
+             }
+         }
++        if let Some(closed) = relay_closed {
++            // Only this explicit observer changes the tail. Input teardown
++            // completes before the sole producer is dropped; queued items
++            // remain untouched. A notification is not a thread join.
++            drop(framer);
++            drop(sender);
++            let _ = closed.try_send(());
++        }
++        // Without an observer, retain the original implicit drop order.
+     });
+     lines
+ }
+@@ -2735,8 +2764,16 @@ impl Backend for PhysicalBackend<'_> {
+             .stdout
+             .take()
+             .ok_or_else(|| invalid("session stdout unavailable"))?;
+-        let lines = match &self.fixture {
+-            Some(fixture) => relay_reader_with_progress(stdout, Some(fixture.enqueued.clone())),
++        let lines = match &mut self.fixture {
++            Some(fixture) => match fixture.relay_closed.take() {
++                Some(closed) => relay_reader_with_progress_capacity_observed(
++                    stdout,
++                    Some(fixture.enqueued.clone()),
++                    FIXTURE_RELAY_QUEUE_CAPACITY,
++                    Some(closed),
++                ),
++                None => relay_reader_with_progress(stdout, Some(fixture.enqueued.clone())),
++            },
+             None => relay_reader(stdout),
+         };
+         self.session = Some(Session {
+@@ -4683,3 +4720,115 @@ mod prepared_player_progress_tests;
+ #[cfg(test)]
+ #[path = "recorder_backend_tests.rs"]
+ mod recorder_backend_tests;
++
++#[cfg(test)]
++mod relay_channel_observation_tests {
++    use super::*;
++    use std::io::{self, Read};
++
++    const GUARD: Duration = Duration::from_secs(10);
++
++    struct OwnedChild(Child);
++
++    impl Drop for OwnedChild {
++        fn drop(&mut self) {
++            let _ = self.0.kill();
++            let _ = self.0.wait();
++        }
++    }
++
++    struct InputDropGate<R> {
++        input: Option<R>,
++        dropped: SyncSender<()>,
++        release: Receiver<()>,
++    }
++
++    impl<R: Read> Read for InputDropGate<R> {
++        fn read(&mut self, bytes: &mut [u8]) -> io::Result<usize> {
++            self.input.as_mut().unwrap().read(bytes)
++        }
++    }
++
++    impl<R> Drop for InputDropGate<R> {
++        fn drop(&mut self) {
++            drop(self.input.take());
++            let _ = self.dropped.try_send(());
++            let _ = self.release.recv_timeout(GUARD);
++        }
++    }
++
++    #[test]
++    fn real_pipe_eof_drops_the_sender_before_notification_without_consuming_the_line() {
++        let record = SessionLine::Pong { seq: 7, lamp_us: 9 };
++        let script = format!(
++            "printf '%s\n' '{}'; IFS= read -r command || exit 0",
++            serde_json::to_string(&record).unwrap()
++        );
++        let mut child = OwnedChild(
++            Command::new("/bin/sh")
++                .args(["-c", &script])
++                .stdin(Stdio::piped())
++                .stdout(Stdio::piped())
++                .spawn()
++                .unwrap(),
++        );
++        let (dropped, input_dropped) = mpsc::sync_channel(1);
++        let (release, proceed) = mpsc::sync_channel(1);
++        let (closed, notice) = mpsc::sync_channel(1);
++        let enqueued = Arc::new(AtomicU64::new(0));
++        let lines = relay_reader_with_progress_capacity_observed(
++            InputDropGate {
++                input: child.0.stdout.take(),
++                dropped,
++                release: proceed,
++            },
++            Some(enqueued.clone()),
++            1,
++            Some(closed),
++        );
++        let deadline = Instant::now() + GUARD;
++        while enqueued.load(Ordering::Acquire) != 1 {
++            assert!(Instant::now() < deadline, "real pipe frame was not queued");
++            thread::sleep(Duration::from_millis(1));
++        }
++        assert_eq!(notice.try_recv(), Err(TryRecvError::Empty));
++        drop(child.0.stdin.take());
++        input_dropped.recv_timeout(GUARD).unwrap();
++        // The OS input has really dropped, but the framer's destructor is
++        // still parked and the line channel's producer is still alive.
++        assert_eq!(notice.try_recv(), Err(TryRecvError::Empty));
++        release.send(()).unwrap();
++        notice.recv_timeout(GUARD).unwrap();
++        assert_eq!(enqueued.load(Ordering::Acquire), 1);
++        assert_eq!(lines.try_recv(), Ok(Ok(record)));
++        assert_eq!(lines.try_recv(), Err(TryRecvError::Disconnected));
++        // OwnedChild cleanup remains separate from the sender-drop receipt.
++    }
++
++    #[test]
++    fn a_read_failure_closes_the_sender_but_retains_the_original_error() {
++        struct FailedRead;
++        impl Read for FailedRead {
++            fn read(&mut self, _: &mut [u8]) -> io::Result<usize> {
++                Err(io::Error::other("closure observation read failure"))
++            }
++        }
++        let (closed, notice) = mpsc::sync_channel(1);
++        let enqueued = Arc::new(AtomicU64::new(0));
++        let lines = relay_reader_with_progress_capacity_observed(
++            FailedRead,
++            Some(enqueued.clone()),
++            1,
++            Some(closed),
++        );
++        notice.recv_timeout(GUARD).unwrap();
++        assert_eq!(enqueued.load(Ordering::Acquire), 0);
++        assert_eq!(
++            lines.try_recv(),
++            Ok(Err(
++                "relay transport read failed: closure observation read failure".into()
++            ))
++        );
++        assert_eq!(lines.try_recv(), Err(TryRecvError::Disconnected));
++    }
++}
+diff --git a/lampOS/crates/voice-eval/tests/common/final_drain_clock.rs b/lampOS/crates/voice-eval/tests/common/final_drain_clock.rs
+index 72a2c0d9c..4256299cf 100644
+--- a/lampOS/crates/voice-eval/tests/common/final_drain_clock.rs
++++ b/lampOS/crates/voice-eval/tests/common/final_drain_clock.rs
+@@ -1,4 +1,4 @@
+-//! One explicit delayed-line fixture; real pipe enqueue and backend drain stay separate.
++//! Explicit final-drain fixtures; real reader progress and backend drain stay separate.
+ use super::{Recording, Rig, Then, lines};
+ use lamp_turn_owner::MonoTime;
+ use lamp_voice_eval::{
+@@ -14,7 +14,10 @@ use std::{
+     path::{Path, PathBuf},
+     process::Command,
+     rc::Rc,
+-    sync::atomic::{AtomicU64, Ordering},
++    sync::{
++        atomic::{AtomicU64, Ordering},
++        mpsc::{self, Receiver, SyncSender, TryRecvError},
++    },
+     thread,
+     time::{Duration, Instant},
+ };
+@@ -38,6 +41,9 @@ struct Driver {
+     deadline: Instant,
+     started: bool,
+     released: bool,
++    closed: Option<Receiver<()>>,
++    closed_sender: Option<SyncSender<()>>,
++    closed_observed: bool,
+ }
+ 
+ fn invalid(message: &str) -> io::Error {
+@@ -56,6 +62,10 @@ fn marker(path: &Path, expected: &[u8]) -> io::Result<bool> {
+ 
+ impl Driver {
+     fn prepare(rig: &Rig, now: &[Value], later: &str) -> (Self, String) {
++        Self::prepare_with_close(rig, now, later, false)
++    }
++
++    fn prepare_with_close(rig: &Rig, now: &[Value], later: &str, close: bool) -> (Self, String) {
+         let deadline = Instant::now() + HOST_WINDOW;
+         fs::write(rig.dir.join("now.jsonl"), lines(now)).unwrap();
+         fs::write(rig.dir.join("later.jsonl"), later).unwrap();
+@@ -79,6 +89,17 @@ impl Driver {
+         fcntl_setfl(&control, flags | OFlags::NONBLOCK).unwrap();
+         let initial_marker = rig.dir.join("now-written");
+         let later_marker = rig.dir.join("later-written");
++        let end = if close {
++            "exit 0"
++        } else {
++            "while IFS= read -r runner_line; do :; done"
++        };
++        let (closed_sender, closed) = if close {
++            let (sender, receiver) = mpsc::sync_channel(1);
++            (Some(sender), Some(receiver))
++        } else {
++            (None, None)
++        };
+         let script = format!(
+             "exec 3< '{fifo}'; \
+              cat '{now}' || exit 71; \
+@@ -87,7 +108,7 @@ impl Driver {
+              case \"$command\" in release) ;; abort) exit 0 ;; *) exit 73 ;; esac; \
+              cat '{later}' || exit 74; \
+              printf 'later-written\\n' > '{later_marker}' || exit 75; \
+-             while IFS= read -r runner_line; do :; done",
++             {end}",
+             fifo = fifo.display(),
+             now = rig.dir.join("now.jsonl").display(),
+             later = rig.dir.join("later.jsonl").display(),
+@@ -106,6 +127,9 @@ impl Driver {
+                 deadline,
+                 started: false,
+                 released: false,
++                closed,
++                closed_sender,
++                closed_observed: false,
+             },
+             script,
+         )
+@@ -152,9 +176,48 @@ impl Driver {
+         }
+         Ok(written && actual == count)
+     }
++
++    fn written_and_closed_once(&mut self, enqueued: &AtomicU64) -> io::Result<bool> {
++        self.check_host()?;
++        let written = marker(&self.later_marker, LATER)?;
++        let actual = enqueued.load(Ordering::Acquire);
++        if actual > 1 {
++            return Err(invalid("unexpected closing fixture relay frame count"));
++        }
++        if !self.closed_observed {
++            let closed = self
++                .closed
++                .as_ref()
++                .ok_or_else(|| invalid("missing closure observer"))?;
++            match closed.try_recv() {
++                Ok(()) => self.closed_observed = true,
++                Err(TryRecvError::Empty) => {}
++                Err(TryRecvError::Disconnected) => {
++                    return Err(invalid(
++                        "relay closure observer disconnected without a success token",
++                    ));
++                }
++            }
++        }
++        self.check_host()?;
++        Ok(written && actual == 1 && self.closed_observed)
++    }
++
++    fn written_and_closed(&mut self, enqueued: &AtomicU64) -> io::Result<()> {
++        loop {
++            if self.written_and_closed_once(enqueued)? {
++                return Ok(());
++            }
++            thread::sleep(Duration::from_millis(1));
++        }
++    }
+ }
+ 
+ impl FixtureDriver for Driver {
++    fn relay_channel_closed_observer(&mut self) -> Option<SyncSender<()>> {
++        self.closed_sender.take()
++    }
++
+     fn wait(
+         &mut self,
+         until: MonoTime,
+@@ -179,9 +242,16 @@ impl FixtureDriver for Driver {
+             self.state.now.set(release_us);
+             self.control.write_all(b"release\n")?;
+             self.state.released_at.set(Some(release_us));
+-            // Marker means cat returned. Only the real backend reader's
+-            // second complete frame proves the line is queued for its drain.
+-            self.written_and_enqueued(&self.later_marker, LATER, enqueued_frames, 2)?;
++            if self.closed.is_some() {
++                // The marker announces only the empty cat's completion.
++                // A token published after the real reader drops its sender
++                // is also required; no backend queue item is consumed here.
++                self.written_and_closed(enqueued_frames)?;
++            } else {
++                // Marker means cat returned. Only the real backend reader's
++                // second complete frame proves the line is queued for its drain.
++                self.written_and_enqueued(&self.later_marker, LATER, enqueued_frames, 2)?;
++            }
+             self.released = true;
+         }
+         self.check_host()?;
+@@ -222,6 +292,29 @@ pub(super) fn backend<'a>(
+     .unwrap()
+ }
+ 
++pub(super) fn closed_backend<'a>(
++    rig: &'a Rig,
++    now: &[Value],
++    delay: &str,
++    later: &str,
++    then: Then,
++) -> PhysicalBackend<'a> {
++    assert_eq!(delay, "0.3");
++    assert!(matches!(then, Then::Close));
++    assert_eq!(now.len(), 1);
++    assert!(later.is_empty());
++    let (driver, script) = Driver::prepare_with_close(rig, now, later, true);
++    let clock = Rc::clone(&driver.state);
++    PhysicalBackend::new_with_clock(
++        rig.config(script),
++        &rig.assets,
++        Box::new(Recording(rig.starts.clone())),
++        move || MonoTime::from_micros(clock.now.get()),
++    )
++    .with_fixture_driver(driver)
++    .unwrap()
++}
++
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+@@ -389,4 +482,60 @@ mod tests {
+         assert_eq!(driver.state.now.get(), ORIGIN_US);
+         assert!(driver.state.released_at.get().is_none());
+     }
++
++    #[test]
++    fn a_real_transport_close_is_released_only_at_the_full_logical_boundary() {
++        let rig = Rig::new("disp-close-clock-boundary");
++        let mut backend = closed_backend(&rig, &[start_line()], "0.3", "", Then::Close);
++        rig.begin(&mut backend);
++        assert!(
++            backend
++                .next_event(ORIGIN_US + DELAY_US - 1)
++                .unwrap()
++                .is_none()
++        );
++        assert_eq!(backend.now_us(), ORIGIN_US + DELAY_US - 1);
++        assert!(!rig.dir.join("later-written").exists());
++        let event = backend.next_event(ORIGIN_US + DELAY_US).unwrap().unwrap();
++        assert!(matches!(event.kind, EventKind::RunEnd { .. }));
++        assert_eq!(backend.now_us(), ORIGIN_US + DELAY_US);
++        assert!(marker(&rig.dir.join("later-written"), LATER).unwrap());
++        assert_eq!(rig.starts.load(Ordering::SeqCst), 0);
++    }
++
++    #[test]
++    fn a_marker_and_enqueue_or_dropped_notice_peer_cannot_prove_channel_closure() {
++        let rig = Rig::new("disp-close-clock-no-token");
++        let (mut driver, _) = Driver::prepare_with_close(&rig, &[start_line()], "", true);
++        let sender = driver.relay_channel_closed_observer().unwrap();
++        fs::write(&driver.later_marker, LATER).unwrap();
++        let enqueued = AtomicU64::new(1);
++        assert!(!driver.written_and_closed_once(&enqueued).unwrap());
++        assert!(!driver.closed_observed);
++        drop(sender);
++        assert!(driver.written_and_closed_once(&enqueued).is_err());
++        assert!(!driver.closed_observed);
++        assert_eq!(driver.state.now.get(), ORIGIN_US);
++        assert!(driver.state.released_at.get().is_none());
++    }
++
++    #[test]
++    fn an_expired_closing_watchdog_cannot_release_or_advance_the_clock() {
++        let rig = Rig::new("disp-close-clock-watchdog");
++        let (mut driver, _) = Driver::prepare_with_close(&rig, &[start_line()], "", true);
++        driver.deadline = Instant::now();
++        assert!(
++            driver
++                .wait(
++                    MonoTime::from_micros(ORIGIN_US + DELAY_US),
++                    0,
++                    &AtomicU64::new(0),
++                    false,
++                )
++                .is_err()
++        );
++        assert_eq!(driver.state.now.get(), ORIGIN_US);
++        assert!(driver.state.released_at.get().is_none());
++        assert!(!rig.dir.join("later-written").exists());
++    }
+ }
+diff --git a/lampOS/crates/voice-eval/tests/final_dispatch.rs b/lampOS/crates/voice-eval/tests/final_dispatch.rs
+index 4277acc6a..b551b6310 100644
+--- a/lampOS/crates/voice-eval/tests/final_dispatch.rs
++++ b/lampOS/crates/voice-eval/tests/final_dispatch.rs
+@@ -324,7 +324,8 @@ fn a_relay_framing_error_first_seen_in_the_final_drain_withholds() {
+ #[test]
+ fn a_transport_closed_during_the_final_drain_withholds() {
+     let rig = Rig::new("disp-late-close");
+-    let mut backend = rig.backend(&[start_line()], "0.3", "", Then::Close);
++    let mut backend =
++        final_drain_clock::closed_backend(&rig, &[start_line()], "0.3", "", Then::Close);
+     rig.begin(&mut backend);
+     let at = backend.now_us() + 800_000;
+     let injection = rig.inject(&mut backend, at);
+diff --git a/lampOS/docs/voice-test-fixtures.md b/lampOS/docs/voice-test-fixtures.md
+index be94a8f17..120217590 100644
+--- a/lampOS/docs/voice-test-fixtures.md
++++ b/lampOS/docs/voice-test-fixtures.md
+@@ -324,8 +324,20 @@ second complete-frame count are both required before advancing farther.
+ The driver never consumes a backend line. The original 800 ms dispatch target
+ and final drain still discover the terminal line, withhold playback and retain
+ the RunEnd for the runner. Clock reads are pure. Ordinary helper calls keep
+-their host sleeps; this first migration does not control the closed-transport
+-case, whose real reader/channel closure needs separate evidence.
++their host sleeps. The closed-transport original uses a separate explicit
++selector with the same 300 ms delay, empty later bytes, `Then::Close` and
++800 ms final drain. Its driver holds logical time at the release boundary
++until the empty `cat` has returned, exactly one original frame is enqueued,
++and the actual reader has dropped its sole backend-channel sender.
++
++Only that driver allocates and supplies a dedicated notification channel.
++The reader publishes one success token after dropping its framer and sender;
++queued lines or errors remain untouched. A disconnected notification channel
++without that token is failure, including reader panic. The token proves
++sender drop, not a joined reader thread, clean EOF, child exit or reaping.
++Read errors retain their original queue item, so the unchanged final drain
++can still reject them. Drivers that decline observation keep the original
++reader tail/drop order and allocate no observer channel.
+ 
+ Control writes are nonblocking. One immutable ten-second host watchdog bounds
+ the driver's progress checks; it does not interrupt blocking filesystem or OS

@@ -1,0 +1,8 @@
+{
+  "date_from_date": "2026-10-16 10:05:24 +0700",
+  "operation": "apply_patch creating external candidate generator only",
+  "error": "Invalid add-file patch hunk: one documentation continuation line lacked the leading plus marker.",
+  "generator_created": false,
+  "candidate_source_changed": false,
+  "tests_or_cargo_run": false
+}

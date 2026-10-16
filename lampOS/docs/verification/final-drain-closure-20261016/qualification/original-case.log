@@ -1,0 +1,25 @@
+   Compiling lamp-ipc v0.1.0 (/private/tmp/lampos-tests-final-drain-closure/lampOS/crates/ipc)
+   Compiling lamp-bus v0.1.0 (/private/tmp/lampos-tests-final-drain-closure/lampOS/crates/bus)
+   Compiling lamp-turn-owner v0.1.0 (/private/tmp/lampos-tests-final-drain-closure/lampOS/crates/turn-owner)
+   Compiling lamp-msgs v0.1.0 (/private/tmp/lampos-tests-final-drain-closure/lampOS/crates/msgs)
+   Compiling lamp-camera v0.1.0 (/private/tmp/lampos-tests-final-drain-closure/lampOS/crates/camera)
+   Compiling lamp-turn-end-wire v0.1.0 (/private/tmp/lampos-tests-final-drain-closure/lampOS/crates/turn-end-wire)
+   Compiling lamp-keeper v0.1.0 (/private/tmp/lampos-tests-final-drain-closure/lampOS/crates/keeper)
+   Compiling lamp-gemini v0.1.0 (/private/tmp/lampos-tests-final-drain-closure/lampOS/crates/gemini)
+   Compiling lamp-body v0.1.0 (/private/tmp/lampos-tests-final-drain-closure/lampOS/crates/body)
+   Compiling lamp-schedule v0.1.0 (/private/tmp/lampos-tests-final-drain-closure/lampOS/crates/schedule)
+   Compiling lamp-controls v0.1.0 (/private/tmp/lampos-tests-final-drain-closure/lampOS/crates/controls)
+   Compiling lamp-audio v0.1.0 (/private/tmp/lampos-tests-final-drain-closure/lampOS/crates/audio)
+   Compiling lamp-ring v0.1.0 (/private/tmp/lampos-tests-final-drain-closure/lampOS/crates/ring)
+   Compiling lamp-observer v0.1.0 (/private/tmp/lampos-tests-final-drain-closure/lampOS/crates/observer)
+   Compiling lamp-voice v0.1.0 (/private/tmp/lampos-tests-final-drain-closure/lampOS/crates/voice)
+   Compiling lamp-sound-fixtures v0.1.0 (/private/tmp/lampos-tests-final-drain-closure/lampOS/crates/sound-fixtures)
+   Compiling lamp-turn-end v0.1.0 (/private/tmp/lampos-tests-final-drain-closure/lampOS/crates/turn-end)
+   Compiling lamp-voice-eval v0.1.0 (/private/tmp/lampos-tests-final-drain-closure/lampOS/crates/voice-eval)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 20s
+────────────
+ Nextest run ID 2f71b94f-3ca1-4317-8e9b-6ed9a65ce459 with nextest profile: default
+    Starting 1 test across 1 binary (21 tests and 23 binaries skipped)
+        PASS [   0.428s] (1/1) lamp-voice-eval::final_dispatch a_transport_closed_during_the_final_drain_withholds
+────────────
+     Summary [   0.428s] 1 test run: 1 passed, 21 skipped

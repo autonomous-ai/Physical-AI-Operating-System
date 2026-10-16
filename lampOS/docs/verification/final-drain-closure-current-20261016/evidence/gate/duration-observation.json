@@ -1,0 +1,205 @@
+{
+  "date_from_date": "2026-10-16 10:59:10 +0700",
+  "current_head": "af395564031af5ad227366dee1f9049e3cfbc472",
+  "preceding_different_head": "904e3d4777b2a405cc86f55a09dcafbac8854e66",
+  "current_reported_binary_sum": 298.5,
+  "preceding_reported_binary_sum": 164.45,
+  "test_profile_build_seconds": 4.49,
+  "scope": "Read-only duration comparison of two already completed full gates on different source heads. Shared host load is uncontrolled; no new timing execution, matched-pair inference, source-causality claim or performance qualification.",
+  "per_binary": [
+    {
+      "binary": "lamp-voice-eval",
+      "current_passed": 309,
+      "current_seconds": 9.87,
+      "preceding_events_head_seconds": 5.71,
+      "difference_seconds": 4.16,
+      "summary_line": 317
+    },
+    {
+      "binary": "lamp-voice-eval::bin/lamp-voice-eval",
+      "current_passed": 0,
+      "current_seconds": 0.03,
+      "preceding_events_head_seconds": 0.0,
+      "difference_seconds": 0.03,
+      "summary_line": 323
+    },
+    {
+      "binary": "lamp-voice-eval::acceptance_boundaries",
+      "current_passed": 5,
+      "current_seconds": 5.01,
+      "preceding_events_head_seconds": 1.32,
+      "difference_seconds": 3.69,
+      "summary_line": 334
+    },
+    {
+      "binary": "lamp-voice-eval::answer_review",
+      "current_passed": 14,
+      "current_seconds": 3.3,
+      "preceding_events_head_seconds": 0.71,
+      "difference_seconds": 2.59,
+      "summary_line": 354
+    },
+    {
+      "binary": "lamp-voice-eval::audit_final_dispatch",
+      "current_passed": 2,
+      "current_seconds": 2.1,
+      "preceding_events_head_seconds": 0.64,
+      "difference_seconds": 1.46,
+      "summary_line": 362
+    },
+    {
+      "binary": "lamp-voice-eval::audit_importer",
+      "current_passed": 11,
+      "current_seconds": 2.35,
+      "preceding_events_head_seconds": 0.65,
+      "difference_seconds": 1.7,
+      "summary_line": 379
+    },
+    {
+      "binary": "lamp-voice-eval::audit_runner_dispatch",
+      "current_passed": 2,
+      "current_seconds": 0.05,
+      "preceding_events_head_seconds": 0.01,
+      "difference_seconds": 0.04,
+      "summary_line": 387
+    },
+    {
+      "binary": "lamp-voice-eval::canary_plan",
+      "current_passed": 3,
+      "current_seconds": 0.26,
+      "preceding_events_head_seconds": 0.18,
+      "difference_seconds": 0.08,
+      "summary_line": 396
+    },
+    {
+      "binary": "lamp-voice-eval::evaluator",
+      "current_passed": 14,
+      "current_seconds": 4.68,
+      "preceding_events_head_seconds": 1.72,
+      "difference_seconds": 2.96,
+      "summary_line": 416
+    },
+    {
+      "binary": "lamp-voice-eval::fake_runtime",
+      "current_passed": 23,
+      "current_seconds": 22.32,
+      "preceding_events_head_seconds": 17.86,
+      "difference_seconds": 4.46,
+      "summary_line": 445
+    },
+    {
+      "binary": "lamp-voice-eval::final_dispatch",
+      "current_passed": 22,
+      "current_seconds": 19.66,
+      "preceding_events_head_seconds": 18.71,
+      "difference_seconds": 0.95,
+      "summary_line": 473
+    },
+    {
+      "binary": "lamp-voice-eval::next_turn_ready",
+      "current_passed": 2,
+      "current_seconds": 0.21,
+      "preceding_events_head_seconds": 0.92,
+      "difference_seconds": -0.71,
+      "summary_line": 481
+    },
+    {
+      "binary": "lamp-voice-eval::physical_loopback",
+      "current_passed": 12,
+      "current_seconds": 50.8,
+      "preceding_events_head_seconds": 35.66,
+      "difference_seconds": 15.14,
+      "summary_line": 499
+    },
+    {
+      "binary": "lamp-voice-eval::playback_occurrences",
+      "current_passed": 10,
+      "current_seconds": 10.4,
+      "preceding_events_head_seconds": 2.22,
+      "difference_seconds": 8.18,
+      "summary_line": 515
+    },
+    {
+      "binary": "lamp-voice-eval::provider_failed",
+      "current_passed": 7,
+      "current_seconds": 4.02,
+      "preceding_events_head_seconds": 0.48,
+      "difference_seconds": 3.54,
+      "summary_line": 528
+    },
+    {
+      "binary": "lamp-voice-eval::recording_evidence",
+      "current_passed": 19,
+      "current_seconds": 13.36,
+      "preceding_events_head_seconds": 2.39,
+      "difference_seconds": 10.97,
+      "summary_line": 553
+    },
+    {
+      "binary": "lamp-voice-eval::recording_import",
+      "current_passed": 10,
+      "current_seconds": 4.73,
+      "preceding_events_head_seconds": 0.69,
+      "difference_seconds": 4.04,
+      "summary_line": 569
+    },
+    {
+      "binary": "lamp-voice-eval::relay_clock",
+      "current_passed": 2,
+      "current_seconds": 0.26,
+      "preceding_events_head_seconds": 0.07,
+      "difference_seconds": 0.19,
+      "summary_line": 577
+    },
+    {
+      "binary": "lamp-voice-eval::relay_hardening",
+      "current_passed": 7,
+      "current_seconds": 1.52,
+      "preceding_events_head_seconds": 0.47,
+      "difference_seconds": 1.05,
+      "summary_line": 590
+    },
+    {
+      "binary": "lamp-voice-eval::report_validity",
+      "current_passed": 14,
+      "current_seconds": 5.79,
+      "preceding_events_head_seconds": 1.57,
+      "difference_seconds": 4.22,
+      "summary_line": 610
+    },
+    {
+      "binary": "lamp-voice-eval::serve_plan",
+      "current_passed": 6,
+      "current_seconds": 24.99,
+      "preceding_events_head_seconds": 5.76,
+      "difference_seconds": 19.23,
+      "summary_line": 622
+    },
+    {
+      "binary": "lamp-voice-eval::serve_relay",
+      "current_passed": 12,
+      "current_seconds": 2.91,
+      "preceding_events_head_seconds": 1.62,
+      "difference_seconds": 1.29,
+      "summary_line": 640
+    },
+    {
+      "binary": "lamp-voice-eval::serve_session",
+      "current_passed": 14,
+      "current_seconds": 106.58,
+      "preceding_events_head_seconds": 63.74,
+      "difference_seconds": 42.84,
+      "summary_line": 660
+    },
+    {
+      "binary": "lamp-voice-eval::target_audio",
+      "current_passed": 6,
+      "current_seconds": 3.3,
+      "preceding_events_head_seconds": 1.35,
+      "difference_seconds": 1.95,
+      "summary_line": 672
+    }
+  ],
+  "current_tests_sha256": "89844d2cb3e493ffbb11822f744a312785571a85ec9e21e8d08bc7386533564a",
+  "preceding_result_audit_sha256": "b8b11ecfdbb0c01b70cab1506813833ec24c172c988437efd644f24dce35b555"
+}

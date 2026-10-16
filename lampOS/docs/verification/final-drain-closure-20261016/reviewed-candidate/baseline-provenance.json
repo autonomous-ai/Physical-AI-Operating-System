@@ -1,0 +1,44 @@
+{
+  "date_from_date": "2026-10-16 10:12:10 +0700",
+  "root_owned_execution": true,
+  "base": "c5bcc45b905458c1a8adcd8bcf06885f35dbfdf7",
+  "metadata": {
+    "date_from_date": "2026-10-16 09:57:29 +0700",
+    "base": "c5bcc45b905458c1a8adcd8bcf06885f35dbfdf7",
+    "compiled_identities": 504,
+    "ignored": 0,
+    "selected_passes": 1,
+    "source_inputs_unchanged": 1030,
+    "case_seconds": 1.216
+  },
+  "files": [
+    {
+      "path": "/private/tmp/tests-823-final-drain-closure-evidence/baseline/completed.json",
+      "bytes": 236,
+      "sha256": "94b91bcc1b30ec2605d5511d51f847ff9bbd35c889d39ecb7648515d7116b7e5"
+    },
+    {
+      "path": "/private/tmp/tests-823-final-drain-closure-evidence/baseline/gates.json",
+      "bytes": 1033,
+      "sha256": "d57fd46216388db53f3565763df80ea6a4610d36495612199e7e4250e183c5ec"
+    },
+    {
+      "path": "/private/tmp/tests-823-final-drain-closure-evidence/baseline/list.log",
+      "bytes": 92221,
+      "sha256": "1f362b32a3e319ee3229865d71bf4051099022809f0c30dee26c3b5c8248c7b8"
+    },
+    {
+      "path": "/private/tmp/tests-823-final-drain-closure-evidence/baseline/original-case.log",
+      "bytes": 474,
+      "sha256": "129f232eec04bd0d94ed47d01831658efc90a99aaa10eb1766356118781fb186"
+    },
+    {
+      "path": "/private/tmp/tests-823-final-drain-closure-evidence/baseline/source.json",
+      "bytes": 133003,
+      "sha256": "0cc633cec56aabbf033b663d8ed2853592c2a186dbf57ee035a5e754b9fea038"
+    }
+  ],
+  "source_snapshot_matches_baseline_where_listed": true,
+  "ordinary_doc_not_in_baseline_input_map": true,
+  "no_baseline_execution_by_this_agent": true
+}

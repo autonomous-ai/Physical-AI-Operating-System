@@ -1,0 +1,55 @@
+[
+  {
+    "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+    "changes": [
+      {
+        "before_start": 4827,
+        "before_end": 4828,
+        "after_start": 4827,
+        "after_end": 4830,
+        "before": [
+          "            Ok(Err(\"relay transport read failed: closure observation read failure\".into()))\n"
+        ],
+        "after": [
+          "            Ok(Err(\n",
+          "                \"relay transport read failed: closure observation read failure\".into()\n",
+          "            ))\n"
+        ]
+      }
+    ],
+    "restores_unformatted_exactly": true
+  },
+  {
+    "path": "lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+    "changes": [
+      {
+        "before_start": 67,
+        "before_end": 73,
+        "after_start": 67,
+        "after_end": 68,
+        "before": [
+          "    fn prepare_with_close(\n",
+          "        rig: &Rig,\n",
+          "        now: &[Value],\n",
+          "        later: &str,\n",
+          "        close: bool,\n",
+          "    ) -> (Self, String) {\n"
+        ],
+        "after": [
+          "    fn prepare_with_close(rig: &Rig, now: &[Value], later: &str, close: bool) -> (Self, String) {\n"
+        ]
+      }
+    ],
+    "restores_unformatted_exactly": true
+  },
+  {
+    "path": "lampOS/crates/voice-eval/tests/final_dispatch.rs",
+    "changes": [],
+    "restores_unformatted_exactly": true
+  },
+  {
+    "path": "lampOS/docs/voice-test-fixtures.md",
+    "changes": [],
+    "restores_unformatted_exactly": true
+  }
+]

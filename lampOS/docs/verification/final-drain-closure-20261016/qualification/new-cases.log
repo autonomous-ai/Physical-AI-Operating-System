@@ -1,0 +1,11 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.52s
+────────────
+ Nextest run ID b72b3ff1-cea1-46fc-8e30-90787f0795fc with nextest profile: default
+    Starting 5 tests across 2 binaries (315 tests and 22 binaries skipped)
+        PASS [   0.044s] (1/5) lamp-voice-eval physical::mac::relay_channel_observation_tests::a_read_failure_closes_the_sender_but_retains_the_original_error
+        PASS [   0.053s] (2/5) lamp-voice-eval physical::mac::relay_channel_observation_tests::real_pipe_eof_drops_the_sender_before_notification_without_consuming_the_line
+        PASS [   0.390s] (3/5) lamp-voice-eval::final_dispatch final_drain_clock::tests::a_marker_and_enqueue_or_dropped_notice_peer_cannot_prove_channel_closure
+        PASS [   0.421s] (4/5) lamp-voice-eval::final_dispatch final_drain_clock::tests::a_real_transport_close_is_released_only_at_the_full_logical_boundary
+        PASS [   0.404s] (5/5) lamp-voice-eval::final_dispatch final_drain_clock::tests::an_expired_closing_watchdog_cannot_release_or_advance_the_clock
+────────────
+     Summary [   1.313s] 5 tests run: 5 passed, 315 skipped

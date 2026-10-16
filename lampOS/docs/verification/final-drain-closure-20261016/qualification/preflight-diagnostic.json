@@ -1,0 +1,9 @@
+{
+  "date_from_date": "2026-10-16 10:21:38 +0700",
+  "stage": "read-only checkout-progress diagnostic",
+  "command": "ps -axo pid,ppid,stat,etime,command",
+  "observed_date": "2026-10-16 10:20:09 +0700",
+  "outcome": "sandbox denied process inventory with PermissionError [Errno 1] Operation not permitted",
+  "no_tests_or_source_edits_from_diagnostic": true,
+  "raw_error": "Tool transcript only; no separate raw file was captured."
+}

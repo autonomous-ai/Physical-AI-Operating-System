@@ -1,0 +1,22 @@
+{
+  "date_from_date": "2026-10-16 10:54:22 +0700",
+  "root_integration_evidence": [
+    {
+      "path": "integration.json",
+      "bytes": 935,
+      "sha256": "639a84771d6e35d4dbf28f3423235c79f2c603299cb8185c9a24306c16cba82a"
+    },
+    {
+      "path": "mac-module-conflict.txt",
+      "bytes": 195978,
+      "sha256": "a107b66204def4f24e40a7aa3922134f2ba8cfb0a63e445896c9a80c314596d8"
+    },
+    {
+      "path": "rebase-resolved.log",
+      "bytes": 12601,
+      "sha256": "d31c694dd10a0ea406211ad53965728f49c422d8e6d10e84e11e62b7abef5f26"
+    }
+  ],
+  "read_only_capture": true,
+  "no_source_changes": true
+}

@@ -2650,8 +2650,7 @@ fn shifts_at_rest(
 }
 
 /// Left standing at rest, it shifts now and then: never sooner than 40 s
-/// after the last shift ended, nor later than three minutes (alone for
-/// minutes, a little later), no two waits alike, and never the same move
+/// after the last shift ended, nor later than three minutes, no two waits alike, and never the same move
 /// twice running. The first comes at least 40 s after it was spoken to.
 #[test]
 fn standing_with_nothing_to_do_it_shifts_rarely_irregularly_and_never_the_same_twice() {
@@ -2668,8 +2667,7 @@ fn standing_with_nothing_to_do_it_shifts_rarely_irregularly_and_never_the_same_t
         .collect();
     for (wait, pair) in waits.iter().zip(shifts.windows(2)) {
         assert!(*wait >= idle::GAP_LEAST, "{shifts:?}");
-        // Alone for at most 20 minutes: at most three times the longest.
-        assert!(*wait <= idle::GAP_MOST * 3 + TICK, "{shifts:?}");
+        assert!(*wait <= idle::GAP_MOST + TICK, "{shifts:?}");
         assert_ne!(pair[0].2, pair[1].2, "{shifts:?}");
     }
     waits.sort();

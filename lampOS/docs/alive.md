@@ -52,8 +52,8 @@ changed):
 - The body has its own idle (`--idle on`, on lamp-4ace): a standing lamp at
   rest shifts by one of four small moves (the old runtime's 10 s `idle`
   clip, a small tilt either way, a look up) after a random wait of 40 s to
-  3 min, longer when nobody has been near (`docs/body.md`, since
-  2026-10-16). While a body clip plays, Expression's offsets are not added.
+  3 min (`docs/body.md`, since 2026-10-16). While a body clip plays,
+  Expression's offsets are not added.
 
 - Taken: the breath and the drift lift the head only, within what lamp-4ace's
   body takes at rest. Which idle author a lamp keeps is the first builder's

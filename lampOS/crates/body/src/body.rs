@@ -2755,10 +2755,9 @@ fn run_until_stopped(
     // Looks in a row in which its eyes reported a face.
     let mut faces_running = 0u8;
     // When a lamp standing at rest next shifts by itself, what draws when
-    // and how, and since when nobody has been near.
+    // and how.
     let mut idle_due: Option<Duration> = None;
     let mut idler = idle::Idler::new(standing.map_or(0, |up| up.idle_seed));
-    let mut alone_since = bus.runtime.now();
     let step = TICK.as_secs_f32();
     // A look away begins with a glance of GLANCE counts of the base's
     // turn: within the folded reach that is all of it, as it always was.
@@ -3017,18 +3016,14 @@ fn run_until_stopped(
             && !blind
             && standing.is_some_and(|up| up.share >= 1.0 && stand >= 1.0 && stand_velocity == 0.0);
         // Anything alive that stands with nothing to do shifts a little
-        // now and then, not on a clock: after a wait drawn at random, longer
-        // the longer nobody has been near, and each time a different small
-        // move (`crate::idle`). It stops the moment there is something to do:
+        // now and then, not on a clock: after a wait drawn at random, and each
+        // time a different small move (`crate::idle`). It stops the moment there is something to do:
         // a mood, a call, another gesture, a hand on the head or the base,
         // stillness asked (Expression holding, or a pause). Each of those
         // starts the wait again, so no shift comes right after one.
         // Expression's rest stream (zeros or a breath, renewed every step
         // under `--rest-glance`) does not: the shift replaces its offsets
         // while it plays.
-        if faces_running > 0 || mood != Mood::Resting {
-            alone_since = now;
-        }
         let idling = playing.is_some_and(|(clip, _)| idle::is_move(clip));
         let quiet = upright
             && mood == Mood::Resting
@@ -3044,7 +3039,7 @@ fn run_until_stopped(
             }
         } else if playing.is_none() {
             match idle_due {
-                None => idle_due = Some(now + idler.gap(now.saturating_sub(alone_since))),
+                None => idle_due = Some(now + idler.gap()),
                 Some(due) if now >= due && standing.is_some_and(|up| up.idle) => {
                     playing = Some((idler.pick(limits.stand_roll > limits.roll), now));
                     report.idles += 1;

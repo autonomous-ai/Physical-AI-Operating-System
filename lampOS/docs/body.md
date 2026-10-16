@@ -864,14 +864,12 @@ What the body does with the request:
 With `--idle on` a lamp standing at rest shifts a little by itself now and
 then: anything alive that stands with nothing to do does. Not on a clock
 (until 2026-10-16 it was every 18 s, `idle` after `idle` all afternoon on
-lamp-4ace, #705): each wait is drawn at random from 40 s to 3 min, and drawn
-longer the longer nobody has been near (no face in the last look and only
-rest heard), up to three times as long after ten minutes alone. A lamp
-folds `--awake-seconds` after the last mood or face, and folded it never
-shifts, so with the 90 s the deployed units are given the stretch is at
-most about 1.3 times; the longer stretches need somebody near enough to keep
-it up, or a longer awake. A hand on the lamp is not somebody near. Each
-shift is one of four small moves, never the one made last (`crate::idle`):
+lamp-4ace, #705): each wait is drawn at random from 40 s to 3 min. A lamp
+left alone folds `--awake-seconds` after the last mood or face, and folded
+it never shifts: that is how it is still with nobody near (a stretch of the
+wait for time alone was tried and dropped, as with the 90 s the deployed
+units are given it could never reach past about 1.3 times). Each shift is
+one of four small moves, never the one made last (`crate::idle`):
 
 | Move | Lasts | Mostly |
 | --- | --- | --- |

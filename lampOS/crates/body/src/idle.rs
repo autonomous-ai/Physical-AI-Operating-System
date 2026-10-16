@@ -1,8 +1,8 @@
 //! When a lamp standing at rest shifts a little by itself, and how.
 //!
-//! Not on a clock: each wait is drawn at random, from 40 s to 3 min, and
-//! drawn longer the longer nobody has been near, up to three times as long
-//! after ten minutes alone. Each shift is one of a few small moves, never
+//! Not on a clock: each wait is drawn at random, from 40 s to 3 min. A lamp
+//! left alone folds (`--awake-seconds`) and folded never shifts, which is
+//! how it is still when nobody is near. Each shift is one of a few small moves, never
 //! the one made last. Pure arithmetic: when the lamp may shift at all
 //! (standing, at rest, nobody talking, no hand on it, no other gesture)
 //! belongs to the body that asks.
@@ -10,13 +10,9 @@
 use crate::clips::{self, Clip};
 use std::time::Duration;
 
-/// The shortest and the longest wait drawn with somebody near.
+/// The shortest and the longest wait drawn.
 pub const GAP_LEAST: Duration = Duration::from_secs(40);
 pub const GAP_MOST: Duration = Duration::from_secs(180);
-/// Alone this long, a wait is drawn `ALONE_STRETCH` times as long; less
-/// alone, in proportion.
-pub const ALONE_FOR: Duration = Duration::from_secs(600);
-pub const ALONE_STRETCH: f64 = 3.0;
 
 /// The small moves a lamp at rest shifts by: the old runtime's idle sway,
 /// and three moves of the head alone inside the reach of a glance at rest
@@ -57,12 +53,11 @@ impl Idler {
         z ^ (z >> 31)
     }
 
-    /// The wait before the next shift, nobody having been near for `alone`.
-    pub fn gap(&mut self, alone: Duration) -> Duration {
+    /// The wait before the next shift.
+    pub fn gap(&mut self) -> Duration {
         let share = (self.next() >> 11) as f64 / (1u64 << 53) as f64;
         let drawn = GAP_LEAST.as_secs_f64() + (GAP_MOST - GAP_LEAST).as_secs_f64() * share;
-        let lonely = (alone.as_secs_f64() / ALONE_FOR.as_secs_f64()).min(1.0);
-        Duration::from_secs_f64(drawn * (1.0 + (ALONE_STRETCH - 1.0) * lonely))
+        Duration::from_secs_f64(drawn)
     }
 
     /// The next move: any but the last one. The two tilts only for a head
@@ -90,7 +85,7 @@ mod tests {
     #[test]
     fn waits_are_irregular_and_inside_their_bounds() {
         let mut idler = Idler::new(7);
-        let gaps: Vec<Duration> = (0..1_000).map(|_| idler.gap(Duration::ZERO)).collect();
+        let gaps: Vec<Duration> = (0..1_000).map(|_| idler.gap()).collect();
         assert!(gaps.iter().all(|gap| (GAP_LEAST..=GAP_MOST).contains(gap)));
         let mut sorted = gaps.clone();
         sorted.sort();
@@ -108,30 +103,7 @@ mod tests {
             assert!((120..=280).contains(&hits), "fifth {fifth}: {hits}");
         }
         // Another seed, other waits.
-        assert_ne!(Idler::new(8).gap(Duration::ZERO), gaps[0]);
-    }
-
-    #[test]
-    fn waits_grow_the_longer_nobody_is_near() {
-        let mean = |alone: Duration| {
-            let mut idler = Idler::new(3);
-            (0..500)
-                .map(|_| idler.gap(alone).as_secs_f64())
-                .sum::<f64>()
-                / 500.0
-        };
-        let (near, five, ten, hour) = (
-            mean(Duration::ZERO),
-            mean(Duration::from_secs(300)),
-            mean(ALONE_FOR),
-            mean(Duration::from_secs(3_600)),
-        );
-        assert!((100.0..120.0).contains(&near), "{near}");
-        assert!((five / near - 2.0).abs() < 0.01, "{five}");
-        assert!((ten / near - 3.0).abs() < 0.01, "{ten}");
-        assert_eq!(hour, ten);
-        let mut idler = Idler::new(3);
-        assert!((0..500).all(|_| idler.gap(Duration::from_secs(3_600)) <= GAP_MOST * 3));
+        assert_ne!(Idler::new(8).gap(), gaps[0]);
     }
 
     #[test]

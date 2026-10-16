@@ -184,6 +184,9 @@ pub struct BusOut {
     health: Publisher,
     /// Only with the mouths read (`mouth::ENVIRONMENT`).
     mouths: Option<Publisher>,
+    /// Each frame's raw changes said with the mouths
+    /// (`mouth::RAW_ENVIRONMENT`).
+    raw: bool,
     /// The ids of the faces of the last look, in their order.
     named: Vec<Option<String>>,
     ids: Ids,
@@ -203,6 +206,7 @@ impl BusOut {
             let mut out = Self::on(&bus)?;
             if mouths {
                 out.read_mouths(&bus)?;
+                out.raw = std::env::var(mouth::RAW_ENVIRONMENT).ok().as_deref() == Some("on");
             }
             Ok(out)
         });
@@ -224,6 +228,7 @@ impl BusOut {
             faces,
             health,
             mouths: None,
+            raw: false,
             named: Vec::new(),
             ids: Ids::default(),
             alive_at_us: 0,
@@ -262,6 +267,8 @@ impl BusOut {
                 window_ms: (mouth::WINDOW_US / 1_000) as u32,
                 frames: score.frames as u32,
                 age_ms: (now_us.saturating_sub(score.taken_us) / 1_000) as u32,
+                head_moved: score.head_moved as u32,
+                raw: self.raw.then(|| score.raw.clone()),
             })
             .collect();
         let _ = out.publish_json(now_us, &MouthsMoving { mouths });
@@ -450,7 +457,9 @@ mod tests {
             Some(mouth::Score {
                 moving,
                 frames: 5,
+                head_moved: 0,
                 taken_us: 1_000,
+                raw: Vec::new(),
             })
         };
         // Without the switch: no mouths topic at all, whatever is given.
@@ -483,7 +492,9 @@ mod tests {
                 moving: 0.9,
                 window_ms: (mouth::WINDOW_US / 1_000) as u32,
                 frames: 5,
-                age_ms: 4
+                age_ms: 4,
+                head_moved: 0,
+                raw: None,
             }]
         );
         std::fs::remove_dir_all(&root).unwrap();

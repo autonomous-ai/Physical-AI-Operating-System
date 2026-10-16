@@ -11,6 +11,12 @@
 # BUS_CLI the lamp-bus program on the lamp (~/fifth-lamp-bus). The eyes run
 # with the mouths read for the run only; the lamp's own unit is restored at
 # the end, whatever happens.
+#
+# The eyes also say each frame's raw changes (LAMP_EYES_MOUTH_RAW=on): the
+# lower face's mean change and its share of points past 8, 12 and 16 grey,
+# and the eyes' mean change, with each frame's taking time. They stay in the
+# .mouths files whole, to set the step, the full share and the head gate
+# from (a frame is in several messages: count each taken_us once).
 set -eu
 LAMP=$1 SHA=$2 OUT=$3 BUS=${4:-'~/fifth-lamp-bus'}
 DROP=/etc/systemd/system/lamp-eyes.service.d/mouth-trial.conf
@@ -19,7 +25,7 @@ mkdir -p "$OUT"
 now() { perl -MTime::HiRes=time -e 'printf "%.3f\n", time'; }
 
 on() {
-    ssh "$LAMP" "set -e; E=\$(systemctl show -p ExecStart --value lamp-eyes | sed -n 's/.*argv\[\]=\([^;]*\);.*/\1/p' | sed 's#/opt/lampOS/eyes/[0-9a-f]*/lamp-eyes#/opt/lampOS/eyes/$SHA/lamp-eyes#'); test -x /opt/lampOS/eyes/$SHA/lamp-eyes; sudo mkdir -p \$(dirname $DROP); printf '[Service]\nEnvironment=LAMP_BUS=on LAMP_EYES_MOUTH=on\nExecStart=\nExecStart=%s\n' \"\$E\" | sudo tee $DROP >/dev/null; sudo systemctl daemon-reload; sudo systemctl restart lamp-eyes"
+    ssh "$LAMP" "set -e; E=\$(systemctl show -p ExecStart --value lamp-eyes | sed -n 's/.*argv\[\]=\([^;]*\);.*/\1/p' | sed 's#/opt/lampOS/eyes/[0-9a-f]*/lamp-eyes#/opt/lampOS/eyes/$SHA/lamp-eyes#'); test -x /opt/lampOS/eyes/$SHA/lamp-eyes; sudo mkdir -p \$(dirname $DROP); printf '[Service]\nEnvironment=LAMP_BUS=on LAMP_EYES_MOUTH=on LAMP_EYES_MOUTH_RAW=on\nExecStart=\nExecStart=%s\n' \"\$E\" | sudo tee $DROP >/dev/null; sudo systemctl daemon-reload; sudo systemctl restart lamp-eyes"
 }
 off() {
     ssh "$LAMP" "sudo rm -f $DROP; sudo systemctl daemon-reload; sudo systemctl restart lamp-eyes" || true

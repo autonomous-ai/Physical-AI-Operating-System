@@ -3,9 +3,10 @@
 //! is not the lamp's echo.
 //!
 //! No model beyond the face detector. The detector gives the nose and the
-//! two corners of the mouth; between frames, how much the lower face
-//! changes, over how much the eyes change, is the mouth's own movement:
-//! a head that turns or a light that flickers moves both alike. It is the
+//! two corners of the mouth; between frames, the share of the lower face's
+//! points that changed by more than noise is the mouth's movement, in the
+//! frames where the eyes held still: a head that turns or a light that
+//! flickers moves the eyes too, and such a frame is left out. It is the
 //! oldest way of seeing who speaks (frame differences in a window round the
 //! lips), and the lower face rather than the mouth alone, as Caus et al.
 //! (ICVS 2021) found works better. It cannot tell talking from chewing or
@@ -39,10 +40,23 @@ pub const WINDOW_US: u64 = 1_200_000;
 /// Fewer frames than this in the window say nothing: over half of what the
 /// window holds, so a face only just found waits about 0.7 s.
 pub const LEAST_FRAMES: usize = 5;
-/// This many grey levels of change in the lower face, over the eyes' own,
-/// is a mouth moving fully. Not measured: a first guess, for the
-/// recordings with people to set.
-pub const FULL: f32 = 6.0;
+/// Where the eyes read whether to say each frame's raw changes with the
+/// score (`Raw`), for setting the numbers below from a run. `on` only.
+pub const RAW_ENVIRONMENT: &str = "LAMP_EYES_MOUTH_RAW";
+/// A lower-face point changed if its grey moved by at least this much
+/// between frames. First guess, for the raw run to set: camera noise on a
+/// still face is a few grey levels, an opening lip against skin tens.
+pub const CHANGED: f32 = 12.0;
+/// This share of the lower face's points changed is a mouth moving fully.
+/// First guess, for the raw run to set: at a metre the lips open by 5 to
+/// 14 pixels, a few hundredths to a tenth of the region, plus the jaw.
+pub const FULL_SHARE: f32 = 0.15;
+/// A frame whose eyes changed by more than this mean grey is a head (or
+/// the light) moving, and is left out of the score. First guess, for the
+/// raw run to set: a still face's eyes change by a few grey levels (noise,
+/// a blink over a few points), while a head moving a pixel or two moves
+/// every point of a textured band by tens.
+pub const HEAD_MOVED: f32 = 10.0;
 /// The lower face and the eyes are each read as this many points across
 /// and down, whatever the face's size.
 const GRID: (usize, usize) = (16, 12);
@@ -145,8 +159,10 @@ pub fn regions(marks: &[(f32, f32); 5]) -> Option<([f32; 4], [f32; 4])> {
     if !(wide > 1.0 && apart > 1.0 && drop > 0.5) {
         return None;
     }
-    // From the nose down past the chin's start, a little wider than the lips.
-    let lower = [mouth.0 - wide, nose.1, mouth.0 + wide, mouth.1 + drop * 1.5];
+    // From the nose down to about the chin, a little wider than the lips:
+    // a chewing or speaking jaw drops below the lips by more than the nose
+    // sits above them.
+    let lower = [mouth.0 - wide, nose.1, mouth.0 + wide, mouth.1 + drop * 2.5];
     let around_eyes = [
         eyes.0 - apart,
         eyes.1 - apart * 0.35,
@@ -164,6 +180,54 @@ fn change(now: &[f32], before: &[f32]) -> f32 {
         / now.len().max(1) as f32
 }
 
+/// The share of points that changed by at least `at` grey levels.
+fn share(now: &[f32], before: &[f32], at: f32) -> f32 {
+    now.iter()
+        .zip(before)
+        .filter(|(a, b)| (*a - *b).abs() >= at)
+        .count() as f32
+        / now.len().max(1) as f32
+}
+
+/// One frame's changes since the frame before, as numbers only: said with
+/// the score when `RAW_ENVIRONMENT` is on.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Raw {
+    /// When the frame was taken (the camera driver's clock).
+    pub taken_us: u64,
+    /// The lower face's mean change, in grey levels.
+    pub lower_mean: f32,
+    /// The share of its points that changed by at least 8, 12 and 16.
+    pub lower_share8: f32,
+    pub lower_share12: f32,
+    pub lower_share16: f32,
+    /// The eyes' mean change, in grey levels.
+    pub eyes_mean: f32,
+}
+
+impl Raw {
+    fn of(taken_us: u64, lower: (&[f32], &[f32]), eyes: (&[f32], &[f32])) -> Self {
+        Self {
+            taken_us,
+            lower_mean: change(lower.0, lower.1),
+            lower_share8: share(lower.0, lower.1, 8.0),
+            lower_share12: share(lower.0, lower.1, 12.0),
+            lower_share16: share(lower.0, lower.1, 16.0),
+            eyes_mean: change(eyes.0, eyes.1),
+        }
+    }
+
+    /// Whether the head (or the light) moved: the frame says nothing.
+    fn head_moved(&self) -> bool {
+        self.eyes_mean > HEAD_MOVED
+    }
+
+    /// How far the mouth moved, 0 to 1.
+    fn moved(&self) -> f32 {
+        (self.lower_share12 / FULL_SHARE).clamp(0.0, 1.0)
+    }
+}
+
 fn overlap(a: &Face, b: &Face) -> f32 {
     let across = (a.x + a.width).min(b.x + b.width) - a.x.max(b.x);
     let down = (a.y + a.height).min(b.y + b.height) - a.y.max(b.y);
@@ -175,17 +239,23 @@ struct Track {
     face: Face,
     regions: Option<([f32; 4], [f32; 4])>,
     before: Option<(Vec<f32>, Vec<f32>)>,
-    /// When each frame was taken, and how far its mouth moved, 0 to 1.
-    moved: VecDeque<(u64, f32)>,
+    /// Each frame's changes, oldest first.
+    moved: VecDeque<Raw>,
 }
 
 /// A face's score as it leaves the process.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Score {
+    /// The mean over the frames where the head held still; 0 if it held
+    /// still in none (then `head_moved == frames`: not read, not still).
     pub moving: f32,
     pub frames: usize,
+    /// How many of the frames were left out: the head moved.
+    pub head_moved: usize,
     /// When the newest frame in it was taken.
     pub taken_us: u64,
+    /// Every frame in it.
+    pub raw: Vec<Raw>,
 }
 
 /// The mouths of the faces of the last look, followed frame by frame.
@@ -235,16 +305,17 @@ impl Mouths {
             if let (Some((lower_now, eyes_now)), Some((lower_before, eyes_before))) =
                 (&now, &track.before)
             {
-                let own = change(lower_now, lower_before) - change(eyes_now, eyes_before);
-                track
-                    .moved
-                    .push_back((taken_us, (own / FULL).clamp(0.0, 1.0)));
+                track.moved.push_back(Raw::of(
+                    taken_us,
+                    (lower_now, lower_before),
+                    (eyes_now, eyes_before),
+                ));
             }
             track.before = now;
             while track
                 .moved
                 .front()
-                .is_some_and(|(at, _)| taken_us.saturating_sub(*at) > WINDOW_US)
+                .is_some_and(|raw| taken_us.saturating_sub(raw.taken_us) > WINDOW_US)
             {
                 track.moved.pop_front();
             }
@@ -259,14 +330,21 @@ impl Mouths {
         self.tracks
             .iter()
             .map(|track| {
-                let &(newest, _) = track.moved.back()?;
+                let newest = track.moved.back()?.taken_us;
                 let frames = track.moved.len();
                 (frames >= LEAST_FRAMES && now_us.saturating_sub(newest) <= WINDOW_US).then(|| {
+                    let still: Vec<f32> = track
+                        .moved
+                        .iter()
+                        .filter(|raw| !raw.head_moved())
+                        .map(Raw::moved)
+                        .collect();
                     Score {
-                        moving: track.moved.iter().map(|(_, moved)| moved).sum::<f32>()
-                            / frames as f32,
+                        moving: still.iter().sum::<f32>() / still.len().max(1) as f32,
                         frames,
+                        head_moved: frames - still.len(),
                         taken_us: newest,
+                        raw: track.moved.iter().copied().collect(),
                     }
                 })
             })
@@ -285,6 +363,16 @@ pub struct Mouth {
     pub frames: u32,
     /// From when the newest frame in it was taken to when this was said.
     pub age_ms: u32,
+    /// Of `frames`, those left out because the head moved.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub head_moved: u32,
+    /// Each frame's changes, with `RAW_ENVIRONMENT` on only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub raw: Option<Vec<Raw>>,
+}
+
+fn is_zero(value: &u32) -> bool {
+    *value == 0
 }
 
 /// The mouths of the faces in view that could be read.
@@ -352,8 +440,9 @@ mod tests {
         for frame in 0..6u64 {
             talking.frame(&picture(frame as usize % 2, 0), frame * 100 * MS);
         }
-        let score = talking.scores(500 * MS)[0].unwrap();
+        let score = talking.scores(500 * MS).remove(0).unwrap();
         assert!(score.moving > 0.8, "{score:?}");
+        assert_eq!((score.frames, score.head_moved, score.raw.len()), (5, 0, 5));
         assert_eq!(score.taken_us, 500 * MS);
 
         let mut still = Mouths::default();
@@ -361,16 +450,18 @@ mod tests {
         for frame in 0..6u64 {
             still.frame(&picture(0, 0), frame * 100 * MS);
         }
-        assert!(still.scores(500 * MS)[0].unwrap().moving < 0.01);
+        assert!(still.scores(500 * MS).remove(0).unwrap().moving < 0.01);
 
-        // The whole head moves: lower face and eyes alike.
+        // The whole head moves: lower face and eyes alike. Every frame is
+        // left out, so it reads 0 with all its frames left out, not speech.
         let mut turning = Mouths::default();
         turning.faces(&[face(100.0)]);
         for frame in 0..6u64 {
             turning.frame(&picture(0, frame as usize % 2), frame * 100 * MS);
         }
-        let turning = turning.scores(500 * MS)[0].unwrap().moving;
-        assert!(turning < 0.2, "{turning}");
+        let turning = turning.scores(500 * MS).remove(0).unwrap();
+        assert_eq!(turning.moving, 0.0);
+        assert_eq!(turning.head_moved, turning.frames);
     }
 
     #[test]
@@ -389,11 +480,11 @@ mod tests {
         mouths.faces(&[face(102.0)]);
         mouths.frame(&picture(1, 0), 500 * MS);
         mouths.frame(&picture(0, 0), 600 * MS);
-        assert_eq!(mouths.scores(600 * MS)[0].unwrap().frames, 6);
+        assert_eq!(mouths.scores(600 * MS).remove(0).unwrap().frames, 6);
         // Moved further, it keeps its frames and is read afresh.
         mouths.faces(&[face(130.0)]);
         mouths.frame(&picture(1, 0), 650 * MS);
-        assert_eq!(mouths.scores(650 * MS)[0].unwrap().frames, 6);
+        assert_eq!(mouths.scores(650 * MS).remove(0).unwrap().frames, 6);
         // Nothing read for longer than the window: the frames are too old.
         assert_eq!(mouths.scores(600 * MS + WINDOW_US + 1), vec![None]);
         // A face elsewhere starts afresh.
@@ -414,14 +505,14 @@ mod tests {
             let taken = frame * 143 * MS;
             if look_at <= taken {
                 mouths.faces(&[face(100.0)]);
-                said.push(mouths.scores(taken + 190 * MS)[0]);
+                said.push(mouths.scores(taken + 190 * MS).remove(0));
                 look_at += 250 * MS;
             }
             mouths.frame(&picture(frame as usize % 2, 0), taken);
         }
         // After the first second, every look has a score, of 7 to 9 frames.
         for score in &said[5..] {
-            let score = score.unwrap();
+            let score = score.as_ref().unwrap();
             assert!((7..=9).contains(&score.frames), "{score:?}");
             assert!(score.moving > 0.8, "{score:?}");
         }
@@ -430,7 +521,7 @@ mod tests {
     #[test]
     fn regions_come_from_the_marks_and_a_face_off_the_picture_is_not_read() {
         let (lower, eyes) = regions(&face(100.0).marks).unwrap();
-        assert_eq!(lower, [116.0, 106.0, 164.0, 146.0]);
+        assert_eq!(lower, [116.0, 106.0, 164.0, 162.0]);
         assert!(eyes[1] < lower[1]);
         let mut flat = face(100.0).marks;
         flat[3] = flat[4];
@@ -447,6 +538,62 @@ mod tests {
     }
 
     #[test]
+    fn the_share_counts_points_changed_by_at_least_the_step() {
+        let before = [100.0; 8];
+        // Changes of 0, 7, 8, 11, 12, 15, 16 and -20 grey.
+        let now = [100.0, 107.0, 108.0, 111.0, 112.0, 115.0, 116.0, 80.0];
+        assert_eq!(share(&now, &before, 8.0), 6.0 / 8.0);
+        assert_eq!(share(&now, &before, 12.0), 4.0 / 8.0);
+        assert_eq!(share(&now, &before, 16.0), 2.0 / 8.0);
+        let raw = Raw::of(7, (&now, &before), (&[50.0; 4], &[40.0; 4]));
+        assert_eq!(raw.lower_mean, 89.0 / 8.0);
+        assert_eq!(raw.eyes_mean, 10.0);
+        // Half the points past 12 is more than the full share: 1.
+        assert_eq!(raw.moved(), 1.0);
+        assert!(!raw.head_moved(), "10 grey is still a still head");
+        let tenth = [
+            100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 120.0,
+        ];
+        let raw = Raw::of(7, (&tenth, &[100.0; 10]), (&[0.0], &[0.0]));
+        assert!((raw.moved() - 0.1 / FULL_SHARE).abs() < 1e-6);
+    }
+
+    #[test]
+    fn a_frame_whose_eyes_moved_is_left_out_of_the_score_but_kept_raw() {
+        let mut mouths = Mouths::default();
+        mouths.faces(&[face(100.0)]);
+        let moving = |eyes| Raw {
+            taken_us: 0,
+            lower_mean: 20.0,
+            lower_share8: 0.3,
+            lower_share12: 0.15,
+            lower_share16: 0.1,
+            eyes_mean: eyes,
+        };
+        // Four still frames with the mouth moving fully, two with the head
+        // moving, whose lower face is all change.
+        for (frame, eyes) in [2.0, 3.0, 11.0, 2.0, 40.0, 1.0].into_iter().enumerate() {
+            let mut raw = moving(eyes);
+            raw.taken_us = frame as u64 * 100 * MS;
+            if eyes > HEAD_MOVED {
+                raw.lower_share12 = 1.0;
+            }
+            mouths.tracks[0].moved.push_back(raw);
+        }
+        let score = mouths.scores(500 * MS).remove(0).unwrap();
+        assert_eq!((score.frames, score.head_moved, score.raw.len()), (6, 2, 6));
+        assert!((score.moving - 1.0).abs() < 1e-6, "{score:?}");
+        // With the still frames' mouths half as open: half.
+        for raw in &mut mouths.tracks[0].moved {
+            if !raw.head_moved() {
+                raw.lower_share12 = FULL_SHARE / 2.0;
+            }
+        }
+        let score = mouths.scores(500 * MS).remove(0).unwrap();
+        assert!((score.moving - 0.5).abs() < 1e-6, "{score:?}");
+    }
+
+    #[test]
     fn the_message_is_exactly_this_text() {
         let said = MouthsMoving {
             mouths: vec![Mouth {
@@ -455,11 +602,28 @@ mod tests {
                 window_ms: 1200,
                 frames: 8,
                 age_ms: 40,
+                head_moved: 0,
+                raw: None,
             }],
         };
+        let text =
+            r#"{"mouths":[{"id":"f3","moving":0.5,"window_ms":1200,"frames":8,"age_ms":40}]}"#;
+        assert_eq!(serde_json::to_string(&said).unwrap(), text);
+        // A reader of the first version reads the new fields as absent.
+        assert_eq!(serde_json::from_str::<MouthsMoving>(text).unwrap(), said);
+        let mut with_raw = said.clone();
+        with_raw.mouths[0].head_moved = 1;
+        with_raw.mouths[0].raw = Some(vec![Raw {
+            taken_us: 5,
+            lower_mean: 2.5,
+            lower_share8: 0.25,
+            lower_share12: 0.125,
+            lower_share16: 0.0,
+            eyes_mean: 1.5,
+        }]);
         assert_eq!(
-            serde_json::to_string(&said).unwrap(),
-            r#"{"mouths":[{"id":"f3","moving":0.5,"window_ms":1200,"frames":8,"age_ms":40}]}"#
+            serde_json::to_string(&with_raw).unwrap(),
+            r#"{"mouths":[{"id":"f3","moving":0.5,"window_ms":1200,"frames":8,"age_ms":40,"head_moved":1,"raw":[{"taken_us":5,"lower_mean":2.5,"lower_share8":0.25,"lower_share12":0.125,"lower_share16":0.0,"eyes_mean":1.5}]}]}"#
         );
     }
 }

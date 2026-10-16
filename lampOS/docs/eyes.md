@@ -345,22 +345,35 @@ how the voice weighs it with a weak sound cue is the first builder's.
 **How.** No model beyond the detector. YuNet already gives the nose and
 the two corners of the mouth. From every camera frame while there is a
 face (not only the four a second the detector looks at), the lower face
-(from the nose down past the lips, twice the mouth's width) and a band
-round the eyes are each read as 16 by 12 points; how much the lower face
-changed since the frame before, less how much the eyes changed, is the
-mouth's own movement: a head that turns, or a light that flickers, moves
-both alike. Six grey levels of that is "fully moving" (`FULL`, a guess
-until the recordings with people set it). The score is the mean over the
-1.2 s before the newest frame read, and needs five frames in it. Between two looks a face is
-read where the last look found it; a face that moved is read afresh.
+(from the nose down to 2.5 times the nose-to-lips drop below the lips, so
+a dropping jaw stays in it; twice the mouth's width) and a band round the
+eyes are each read as 16 by 12 points. A frame whose eyes changed by more
+than 10 grey levels on average since the frame before is a head (or the
+light) moving, and is left out (`HEAD_MOVED`). Otherwise the share of the
+lower face's points that changed by at least 12 grey levels (`CHANGED`)
+is the mouth's movement, and a share of 0.15 is "fully moving"
+(`FULL_SHARE`). All three are first guesses, for the raw run to set. The
+score is the mean over the frames kept in the 1.2 s before the newest
+frame read, and needs five frames in the window. Between two looks a face
+is read where the last look found it; a face that moved is read afresh.
 
 ```json
-{"mouths":[{"id":"f3","moving":0.62,"window_ms":1200,"frames":8,"age_ms":190}]}
+{"mouths":[{"id":"f3","moving":0.62,"window_ms":1200,"frames":8,"age_ms":190,"head_moved":1}]}
 ```
 
 `id` is the face's passing id on `humans/faces/tracked`; `age_ms` is from
-the newest frame's taking (the camera driver's clock) to the message. A
-face not read in five frames of late is left out. Without the switch no
+the newest frame's taking (the camera driver's clock) to the message;
+`head_moved` (left out when 0) is how many of `frames` were left out; a
+face whose every frame was left out says 0 with `head_moved` equal to
+`frames`: not read, not still. A face not read in five frames of late is
+left out.
+
+With `LAMP_EYES_MOUTH_RAW=on` as well, each mouth also carries `raw`, each
+frame in its window as numbers only: `taken_us`, the lower face's mean
+change (`lower_mean`), its share of points past 8, 12 and 16 grey levels
+(`lower_share8`, `lower_share12`, `lower_share16`) and the eyes' mean
+change (`eyes_mean`). Readers of the first version read both new fields as
+absent. Without the switch no
 frame is read for mouths, the topic is not declared, and every message on
 `humans/faces/tracked` is byte for byte what it was (a test).
 
@@ -379,8 +392,17 @@ the message).** The detector found the face in 39 of 40 looks, but 70 to
 window, less the newest frame's 190 ms, held 300 ms of frames. Three
 frames came out 0 most of the time, so speech did not stand out (talking
 0.080 against quiet 0.046; over the lamp 0.000; chewing's quiet 0.200).
-Hence the 1.2 s window from the newest frame; the recordings are to be
-taken again with it. The process: 22 MB, 15% of one core, as before; the board at 51 to
+Hence the 1.2 s window from the newest frame.
+
+**Second run, 2026-10-15 (1.2 s from the newest frame, the first score).**
+Speech still did not stand out: SPEAK 0.038 against QUIET 0.082, CHEW 0,
+SMILE 0.176, silent 0. That score was the lower face's mean change less
+the eyes' over 6 grey levels; the eyes change more than the lower face at
+rest, so it was at or under 0 almost always, and lips opening by 5 to 14
+pixels are about 5% of the lower face, a mean change of about 2 grey
+levels, inside the noise. Chewing's jaw fell below the region. Hence the
+share of changed points, the eyes as a gate only, and the deeper region,
+with the raw changes said for the next run to set their numbers. The process: 22 MB, 15% of one core, as before; the board at 51 to
 52 degrees.
 
 **What it cannot do.** Tell talking from chewing, laughing or a smile; see

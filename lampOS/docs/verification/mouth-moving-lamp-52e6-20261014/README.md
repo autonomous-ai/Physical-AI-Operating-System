@@ -83,8 +83,8 @@ on exit. The marks are the Mac's clock put on the lamp's with one offset
 taken over ssh, good to about a tenth of a second; a score counts for a
 prompt from 1.2 s after it was shown (the window; half a second in the
 first run). What to read: SPEAK well
-above QUIET in 1 and 2, and silent, CHEW and SMILE near QUIET. `FULL` (six
-grey levels) and the window are set from it.
+above QUIET in 1 and 2, and silent, CHEW and SMILE near QUIET. The
+score's numbers and the window are set from it.
 
 ## First run with a person, 2026-10-15: the window held too little
 
@@ -112,3 +112,29 @@ A test feeds the measured rates (a frame each 143 ms, a look each 250 ms,
 said 190 ms after the newest frame) and checks every look after the first
 second has a score of 7 to 9 frames. The recordings are to be taken again
 with it; `FULL` is not changed until then.
+
+## Second run, 2026-10-15: the score itself did not see speech
+
+With the 1.2 s window (`~/mouths-run2` on the Mac) every look had a
+score, yet SPEAK came out 0.038 against QUIET 0.082, CHEW 0, SMILE 0.176,
+silent 0. The score was the lower face's mean change less the eyes', over
+6 grey levels. The eyes change more than the lower face at rest, so it
+was at or under 0 almost always; lips opening by 5 to 14 pixels are about
+5% of the lower face, a mean change of about 2 grey levels, inside the
+noise; and a chewing jaw fell below the region (1.5 times the
+nose-to-lips drop below the lips).
+
+The next build (`mouth.rs`) changes the score and says what it is made of:
+
+- the eyes are a gate, not subtracted: a frame whose eyes changed by more
+  than 10 grey levels on average is left out (`HEAD_MOVED`);
+- a frame's movement is the share of lower-face points that changed by at
+  least 12 grey levels (`CHANGED`), 0.15 of them reading 1 (`FULL_SHARE`);
+- the region reaches 2.5 times the drop below the lips.
+
+All three numbers are first guesses. `mouths.sh` now runs the eyes with
+`LAMP_EYES_MOUTH_RAW=on`, so each message carries, for every frame in its
+window, `lower_mean`, `lower_share8`, `lower_share12`, `lower_share16` and
+`eyes_mean` (numbers only, with the frame's `taken_us`; count each frame
+once). One more ten-minute run answers both whether the new score parts
+SPEAK from QUIET and, if not, which step and gate would.

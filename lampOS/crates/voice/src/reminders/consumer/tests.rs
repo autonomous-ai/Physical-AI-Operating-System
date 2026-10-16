@@ -1280,6 +1280,12 @@ fn the_journal_says_what_became_of_each_due_item_once_per_change() {
         format!("reminder id 1 delivery 1: {HELD}")
     );
 
+    // At start the first good read is said, so the journal shows the
+    // consumer is reading due work at all (lamp-4ace, 2026-10-16).
+    let mut fresh = Journal::default();
+    fresh.due(None);
+    fresh.due(None);
+    assert_eq!(fresh.lines, ["due reminders available"]);
     // Due work that cannot be read is said once, and its return once.
     let mut journal = Journal::default();
     for _ in 0..3 {

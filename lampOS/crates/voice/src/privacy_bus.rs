@@ -13,6 +13,11 @@ use lamp_turn_owner::{BootId, BoundaryGuard, MonoTime, Permission};
 use std::{
     io,
     path::{Path, PathBuf},
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicBool, Ordering},
+    },
+    thread,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
@@ -308,6 +313,73 @@ impl LeaseReader {
     }
 }
 
+/// How often the lease watch reads the bus.
+const WATCH_EVERY: Duration = Duration::from_millis(2);
+
+/// A [`LeaseReader`] on a thread of its own (#795 review): one receive from
+/// the bus passes over any number of messages it refuses, so the muted
+/// ring's writer never reads the bus itself, between its Stop and expiry
+/// checks. It takes what this last found, still fresh at that moment, and
+/// a reader's failure once and for good. The thread is told to stop when
+/// this is dropped and is not waited for.
+pub struct LeaseWatch {
+    found: Arc<Mutex<Result<Option<MicrophonePrivacy>, String>>>,
+    stop: Arc<AtomicBool>,
+    clock: String,
+}
+
+impl LeaseWatch {
+    pub fn open(root: &Path, name: &str) -> io::Result<Self> {
+        Self::start(LeaseReader::open(root, name)?)
+    }
+
+    pub fn start(mut reader: LeaseReader) -> io::Result<Self> {
+        let found = Arc::new(Mutex::new(Ok(None)));
+        let stop = Arc::new(AtomicBool::new(false));
+        let clock = reader.clock.clone();
+        let (writing, stopping) = (Arc::clone(&found), Arc::clone(&stop));
+        thread::Builder::new()
+            .name("voice-privacy-lease".into())
+            .spawn(move || {
+                while !stopping.load(Ordering::Acquire) {
+                    let polled = reader.poll().map_err(|error| error.to_string());
+                    let failed = polled.is_err();
+                    if let Ok(mut slot) = writing.lock() {
+                        *slot = polled;
+                    }
+                    if failed {
+                        return;
+                    }
+                    thread::sleep(WATCH_EVERY);
+                }
+            })?;
+        Ok(Self { found, stop, clock })
+    }
+
+    /// The lease the reader last found, if it is still fresh now, or the
+    /// reader's failure. It reads no bus and never waits on one.
+    pub fn latest(&self) -> io::Result<Option<MicrophonePrivacy>> {
+        let now_us = lamp_ipc::monotonic_us();
+        let found = self
+            .found
+            .lock()
+            .map_err(|_| invalid("privacy lease watch failed"))?;
+        match &*found {
+            Err(why) => Err(invalid(why.clone())),
+            Ok(lease) => Ok(lease
+                .as_ref()
+                .filter(|value| value.fresh_at(&self.clock, now_us))
+                .cloned()),
+        }
+    }
+}
+
+impl Drop for LeaseWatch {
+    fn drop(&mut self) {
+        self.stop.store(true, Ordering::Release);
+    }
+}
+
 /// The only publisher of `voice/privacy`. A bus stall cannot renew its lease;
 /// Voice and Ears independently expire their final-boundary permissions.
 pub fn run(
@@ -426,9 +498,9 @@ pub fn run(
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
-    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::sync::atomic::AtomicU64;
 
     struct Root(PathBuf);
     impl Drop for Root {
@@ -476,5 +548,132 @@ mod tests {
         };
         publisher.publish_json(at, &lease).unwrap();
         assert_eq!(reader.poll().unwrap(), Some(lease));
+    }
+
+    /// Messages that look right but say another type, written straight to
+    /// every subscriber's socket on `voice/privacy` under `root`, each new,
+    /// until `going` is false or 3 s pass: what a receive refuses and passes
+    /// over within the one call.
+    pub(crate) fn refused_flood(
+        root: &Path,
+        going: Arc<AtomicBool>,
+        lease: &MicrophonePrivacy,
+    ) -> thread::JoinHandle<u64> {
+        let subscribers: Vec<_> = std::fs::read_dir(root.join("voice/privacy/subs"))
+            .unwrap()
+            .filter_map(|entry| entry.ok().map(|entry| entry.path()))
+            .collect();
+        assert!(!subscribers.is_empty(), "a subscriber's socket");
+        let payload = serde_json::to_vec(lease).unwrap();
+        thread::spawn(move || {
+            let socket = std::os::unix::net::UnixDatagram::unbound().unwrap();
+            let deadline = std::time::Instant::now() + Duration::from_secs(3);
+            let mut header = lamp_bus::Header {
+                topic: MicrophonePrivacy::TOPIC.into(),
+                kind: Kind::Latest,
+                enc: lamp_bus::JSON.into(),
+                type_name: Some(ControlsState::TYPE.into()),
+                source: "voice".into(),
+                boot: "f".repeat(16),
+                seq: 0,
+                at_us: lamp_ipc::monotonic_us(),
+                at_unix_ms: 0,
+                expires_ms: None,
+            };
+            let mut sent = 0;
+            while going.load(Ordering::Acquire) && std::time::Instant::now() < deadline {
+                header.seq += 1;
+                header.at_unix_ms = wall_ms();
+                let mut datagram = serde_json::to_vec(&header).unwrap();
+                datagram.push(b'\n');
+                datagram.extend_from_slice(&payload);
+                for path in &subscribers {
+                    if socket.send_to(&datagram, path).is_ok() {
+                        sent += 1;
+                    }
+                }
+            }
+            sent
+        })
+    }
+
+    /// #795 review: the muted ring's writer reads the lease from the watch,
+    /// whose own thread reads the bus. Through a flood of refused messages
+    /// each answer comes at once, a lease is not kept past its freshness,
+    /// and the refused input still ends the reader for good.
+    #[test]
+    fn the_lease_watch_answers_at_once_through_refused_input_and_lets_a_lease_expire() {
+        static NEXT: AtomicU64 = AtomicU64::new(0);
+        let root = Root(PathBuf::from(format!(
+            "/tmp/vpw-{}-{}",
+            std::process::id(),
+            NEXT.fetch_add(1, Ordering::Relaxed)
+        )));
+        std::fs::create_dir(&root.0).unwrap();
+        let bus = lamp_controls::privacy::selected_bus(Bus::new(&root.0).unwrap());
+        let reader =
+            LeaseReader::with_clock(&root.0, INDICATOR_SUBSCRIBER, "host_fixture".into()).unwrap();
+        let mut publisher = bus
+            .publisher_declared(
+                MicrophonePrivacy::TOPIC,
+                &MicrophonePrivacy::declaration(),
+                "voice",
+            )
+            .unwrap();
+        let at = lamp_ipc::monotonic_us();
+        let lease = MicrophonePrivacy {
+            stamp: ClockStamp {
+                clock_id: "host_fixture".into(),
+                at_us: at,
+                sequence: 1,
+            },
+            session_id: publisher.boot().to_owned(),
+            controller_boot: "1".repeat(32),
+            microphone_generation: 1,
+            observed_us: at,
+            expires_at_us: at + PRIVACY_FRESH_US,
+            permitted: false,
+            physical_muted: Some(true),
+        };
+        publisher.publish_json(at, &lease).unwrap();
+        // Watched from once its publisher is there, as the writer starts
+        // after Voice's privacy worker.
+        let watch = LeaseWatch::start(reader).unwrap();
+        let deadline = std::time::Instant::now() + Duration::from_secs(1);
+        while watch.latest().unwrap() != Some(lease.clone()) {
+            assert!(std::time::Instant::now() < deadline, "the lease is found");
+            thread::sleep(Duration::from_millis(1));
+        }
+        let going = Arc::new(AtomicBool::new(true));
+        let flood = refused_flood(&root.0, going.clone(), &lease);
+        let mut slowest = Duration::ZERO;
+        let mut stale = None;
+        for _ in 0..200 {
+            let asked = std::time::Instant::now();
+            let answer = watch.latest();
+            slowest = slowest.max(asked.elapsed());
+            if lamp_ipc::monotonic_us() > lease.expires_at_us + 1_000 {
+                stale = Some(answer.as_ref().map(Option::is_some).unwrap_or(false));
+            }
+            thread::sleep(Duration::from_millis(1));
+        }
+        going.store(false, Ordering::Release);
+        let sent = flood.join().unwrap();
+        // The first refused message already ends the reader, and its socket
+        // with it: the flood stops reaching anything soon after.
+        assert!(sent > 0, "{sent}");
+        assert!(slowest < Duration::from_millis(5), "{slowest:?}");
+        // Past its freshness the lease is gone, whatever the thread found.
+        assert_eq!(stale, Some(false));
+        let deadline = std::time::Instant::now() + Duration::from_secs(3);
+        while watch.latest().is_ok() {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "refused input ends it"
+            );
+            thread::sleep(Duration::from_millis(1));
+        }
+        thread::sleep(Duration::from_millis(20));
+        assert!(watch.latest().is_err(), "for good");
     }
 }

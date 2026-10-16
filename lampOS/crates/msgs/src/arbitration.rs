@@ -87,12 +87,13 @@ impl LightRequest {
     }
 }
 
-/// A light asked for on `light/request` that the ring has drawn long enough
-/// to have eased in (`light/reached`): said once each time a request's light
-/// comes to be shown, so its asker can wait for it before it goes on (a
-/// skill's look over a page it lit, #1146). Nothing is said for a light the
-/// ring never drew: the privacy switch closed, the person's light over it, or
-/// a request that lapsed first.
+/// A light asked for on `light/request` that the ring has shown at rest long
+/// enough to have eased in (`light/reached`): said then, and again after
+/// each renewal while it is shown, so its asker can wait for it (a skill's
+/// look over a page it lit, #1146). Nothing is said inside a turn, whose
+/// face has colours of its own, nor for a light the ring never showed that
+/// long: the privacy switch closed, the person's light over it, or a request
+/// that lapsed first.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LightReached {
     /// The request's `claim.source`.

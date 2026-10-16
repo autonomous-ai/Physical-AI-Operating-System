@@ -21,9 +21,11 @@
 //! highest priority that holds is shown over the person's light, and the
 //! person's light again once none does. `light/state` goes on saying the
 //! person's light, and `light/drawn` what was drawn. Once a request's light
-//! has been drawn for [`REACHED_AFTER_US`], on resting or turn frames, the
-//! ring says so once on `light/reached`, naming its asker, so a skill can
-//! wait for the light it asked for before it goes on (#1146's look).
+//! has been shown on resting frames for [`REACHED_AFTER_US`] running, the
+//! ring says so on `light/reached`, naming its asker, and again each time
+//! the asker renews it while it is shown, so a skill can wait for the light
+//! it asked for. A turn's face has colours of its own and never shows the
+//! lamp's light, so nothing is reached inside a turn (the reviewer on #1166).
 //!
 //! Nothing here can stop the ring. A bus that cannot be used leaves the
 //! lamp with the light it has, and a request that is not a light there is
@@ -52,10 +54,14 @@ pub const DRAWN_TOPIC: &str = "light/drawn";
 pub const TEST_HOLDS_US: u64 = 2_000_000;
 /// At most this many requests are taken in one look.
 const MOST_AT_ONCE: usize = 8;
-/// A request's light counts as reached once frames have been drawn with it
-/// for this long: five of the face's 70 ms fade times
+/// A request's light counts as reached once resting frames have shown it
+/// for this long running: five of the face's 70 ms fade times
 /// (`ring_face::EASE_US`), so 99% of the way.
 pub const REACHED_AFTER_US: u64 = 350_000;
+/// Frames further apart than this begin the count again: the face eases at
+/// most 100 ms in one step (`ring_face::LONGEST_STEP_US`), so after a stall
+/// the light is not as far along as the time says.
+const FRAMES_APART_US: u64 = 100_000;
 /// The switch for lights asked for that lapse (#940), off unless `on`.
 pub const REQUESTS_ENVIRONMENT: &str = "LAMP_LIGHT_REQUESTS";
 const REQUESTS_FLAG: &str = "--light-requests";
@@ -127,13 +133,16 @@ pub struct RingLight {
     reaching: Option<Reaching>,
 }
 
-/// A request's light the face shows: its asker, the light, when it was
-/// first drawn, and whether it has been said reached.
+/// A request's light the face shows: its asker, the light, since when
+/// resting frames have shown it running, the last such frame, whether it
+/// has been said reached, and whether its asker renewed it since.
 struct Reaching {
     source: String,
     light: Light,
     drawn_since_us: Option<u64>,
+    last_frame_us: Option<u64>,
     said: bool,
+    renewed: bool,
 }
 
 impl RingLight {
@@ -223,6 +232,10 @@ impl RingLight {
                 }
             }
             if let Some((asked, requests)) = &mut self.requests {
+                let renewing = self
+                    .reaching
+                    .as_ref()
+                    .map(|reaching| (reaching.source.clone(), reaching.light.clone()));
                 if person_in_look.is_some() {
                     requests.person_asked(now_us);
                 }
@@ -242,7 +255,18 @@ impl RingLight {
                     // later request off; across looks, reading order is.
                     let before_person =
                         person_in_look.is_some_and(|at| message.header.at_unix_ms <= at);
-                    requests.take(request, now_us, before_person);
+                    // The same asker asking the same light again: said again
+                    // once shown, so an asker that asks twice is not left
+                    // waiting (the sixth on #1166).
+                    let again = renewing.as_ref().is_some_and(|(source, light)| {
+                        *source == request.claim.source && *light == request.light
+                    });
+                    if requests.take(request, now_us, before_person)
+                        && again
+                        && let Some(reaching) = self.reaching.as_mut()
+                    {
+                        reaching.renewed = true;
+                    }
                 }
             }
             for _ in 0..MOST_AT_ONCE {
@@ -297,7 +321,9 @@ impl RingLight {
                     source: request.claim.source.clone(),
                     light: request.light.clone(),
                     drawn_since_us: None,
+                    last_frame_us: None,
                     said: false,
+                    renewed: false,
                 });
             }
         }
@@ -331,18 +357,32 @@ impl RingLight {
             .unwrap_or(&self.now)
     }
 
-    /// Call when the ring wrote any frame, resting or a turn's, at the
-    /// write's own time: a request's light drawn for [`REACHED_AFTER_US`]
-    /// is said reached, once.
-    pub fn frame_drawn(&mut self, drawn_at_us: u64) {
-        let Some(reaching) = self.reaching.as_mut().filter(|reaching| !reaching.said) else {
+    /// A resting frame written at `drawn_at_us`, showing the lamp's own
+    /// light or not (a tap's listening face, the face closing after a turn):
+    /// a request's light shown for [`REACHED_AFTER_US`] running is said
+    /// reached, and again after its asker renewed it.
+    fn reach(&mut self, drawn_at_us: u64, own_light: bool) {
+        let Some(reaching) = self.reaching.as_mut() else {
             return;
         };
+        let stalled = reaching
+            .last_frame_us
+            .is_some_and(|last| drawn_at_us.saturating_sub(last) > FRAMES_APART_US);
+        reaching.last_frame_us = Some(drawn_at_us);
+        if !own_light || stalled {
+            reaching.drawn_since_us = None;
+        }
+        if !own_light {
+            return;
+        }
         let since = *reaching.drawn_since_us.get_or_insert(drawn_at_us);
-        if drawn_at_us.saturating_sub(since) < REACHED_AFTER_US {
+        if drawn_at_us.saturating_sub(since) < REACHED_AFTER_US
+            || (reaching.said && !reaching.renewed)
+        {
             return;
         }
         reaching.said = true;
+        reaching.renewed = false;
         if let Some(reached) = self.reached.as_mut() {
             let _ = reached.publish_json(
                 drawn_at_us,
@@ -354,10 +394,12 @@ impl RingLight {
         }
     }
 
-    /// Call when the ring wrote a resting frame with the face's light, at
-    /// the write's own time. Said when it changes and once a second.
-    pub fn drew(&mut self, drawn_at_us: u64) {
-        self.frame_drawn(drawn_at_us);
+    /// Call when the ring wrote a resting frame, at the write's own time,
+    /// with whether the face showed its own light in it
+    /// ([`crate::ring_face::Face::rests_on_its_light`]). What it drew is
+    /// said when it changes and once a second.
+    pub fn drew(&mut self, drawn_at_us: u64, own_light: bool) {
+        self.reach(drawn_at_us, own_light);
         let light = self.face().clone();
         if self.drew.as_ref().is_some_and(|(last, at)| {
             *last == light && drawn_at_us.saturating_sub(*at) < SAY_EVERY_US
@@ -626,7 +668,7 @@ mod tests {
         assert!(hears.recv(Duration::from_millis(50)).unwrap().is_none());
         // Writes every 25 ms for two seconds: said twice, the same light.
         for n in 0..80u64 {
-            ring.drew(1_000_000 + n * 25_000);
+            ring.drew(1_000_000 + n * 25_000, true);
         }
         let mut said = Vec::new();
         while let Some(message) = hears.recv(Duration::from_millis(50)).unwrap() {
@@ -641,7 +683,7 @@ mod tests {
         tests.publish_json(1, &light(true, "cyan", 4)).unwrap();
         let mut at = 3_000_000;
         taken(&mut ring, &mut at).unwrap();
-        ring.drew(3_100_000);
+        ring.drew(3_100_000, true);
         let message = hears.recv(Duration::from_millis(200)).unwrap().unwrap();
         assert_eq!(message.parse::<Light>().unwrap(), light(true, "cyan", 4));
     }
@@ -791,18 +833,20 @@ mod tests {
         assert_eq!(ring.face(), &light(true, "blue", 2));
     }
 
-    /// Frames drawn at the ring's 25 ms pace from `at` for `for_us`, and
-    /// each light said reached, with when.
-    fn drawn_for(
+    /// Resting frames at the ring's 25 ms pace from `at` for `for_us`,
+    /// showing the lamp's own light or not, and each light said reached,
+    /// with when.
+    fn rested_for(
         ring: &mut RingLight,
         reached: &mut lamp_bus::Subscriber,
         at: &mut u64,
         for_us: u64,
+        own_light: bool,
     ) -> Vec<(u64, LightReached)> {
         let until = *at + for_us;
         let mut said = Vec::new();
         while *at < until {
-            ring.frame_drawn(*at);
+            ring.drew(*at, own_light);
             while let Some(message) = reached.recv(Duration::ZERO).unwrap() {
                 said.push((*at, message.parse().unwrap()));
             }
@@ -811,12 +855,23 @@ mod tests {
         said
     }
 
-    /// #1146: a request's light drawn for 350 ms is said reached once,
-    /// naming its asker, so a skill can wait for its light. Not before a
-    /// frame is drawn, not again for a renewal, afresh for a new light, and
-    /// never for a light the person's own has ended.
+    /// Ticks enough for whatever was published to be read.
+    fn looked(ring: &mut RingLight, at: &mut u64) {
+        for _ in 0..5 {
+            *at += LOOK_EVERY_US;
+            ring.tick(*at);
+            std::thread::sleep(Duration::from_millis(2));
+        }
+    }
+
+    /// #1146: a request's light shown on resting frames for 350 ms running
+    /// is said reached, naming its asker, so a skill can wait for its
+    /// light. Not before a frame shows it, not on a frame whose face is
+    /// another (a tap's), counted again after a stall, said again when its
+    /// asker renews it, afresh for a new light or after a self-test over it,
+    /// and never for a light the person's own ended first.
     #[test]
-    fn a_requests_light_drawn_long_enough_is_said_reached_once() {
+    fn a_requests_light_shown_long_enough_is_said_reached() {
         let root = Root::new("light-reached");
         let (mut ring, _) = RingLight::on(&root.0).unwrap();
         ring.take_requests(&root.0, "boot-test").unwrap();
@@ -824,6 +879,9 @@ mod tests {
         let mut reached = bus.subscribe(LightReached::TOPIC, "test").unwrap();
         let mut asks = bus
             .publisher_declared(Light::TOPICS[0], &Light::declaration(), "actions")
+            .unwrap();
+        let mut tests = bus
+            .publisher_declared(TEST_TOPIC, &Light::declaration(), "test")
             .unwrap();
         let mut glows = bus
             .publisher_declared(LightRequest::TOPIC, &LightRequest::declaration(), "skills")
@@ -840,46 +898,82 @@ mod tests {
             asked.light.level = level;
             asked
         };
+        let white_5 = LightReached {
+            source: "skill:desk-tutor".into(),
+            light: light(true, "white", 5),
+        };
         glows.publish_json(1, &white(5)).unwrap();
         assert_eq!(taken(&mut ring, &mut at), Lit::of(true, "white", 5));
-        // Taken, but with no frame drawn nothing is said, however long.
+        // Taken, but with no frame drawn nothing is said, however long; nor
+        // while a tap's listening face is over it.
         at += 2_000_000;
         ring.tick(at);
         assert!(reached.recv(Duration::ZERO).unwrap().is_none());
-        let first = at;
-        let said = drawn_for(&mut ring, &mut reached, &mut at, 1_000_000);
-        assert_eq!(
-            said,
-            [(
-                first + REACHED_AFTER_US,
-                LightReached {
-                    source: "skill:desk-tutor".into(),
-                    light: light(true, "white", 5),
-                }
-            )]
-        );
-        // Renewed, the same light: nothing more.
+        assert!(rested_for(&mut ring, &mut reached, &mut at, 1_000_000, false).is_empty());
+        // Shown for 200 ms, a 150 ms stall, then the count begins again.
+        assert!(rested_for(&mut ring, &mut reached, &mut at, 200_000, true).is_empty());
+        at += 150_000;
+        let again = at;
+        let said = rested_for(&mut ring, &mut reached, &mut at, 1_000_000, true);
+        assert_eq!(said, [(again + REACHED_AFTER_US, white_5.clone())]);
+        // Renewed, the same light: said again at the next frame, once.
         glows.publish_json(2, &white(5)).unwrap();
-        for _ in 0..5 {
-            at += LOOK_EVERY_US;
-            ring.tick(at);
-            std::thread::sleep(Duration::from_millis(2));
-        }
-        assert!(drawn_for(&mut ring, &mut reached, &mut at, 1_000_000).is_empty());
+        looked(&mut ring, &mut at);
+        let said = rested_for(&mut ring, &mut reached, &mut at, 1_000_000, true);
+        assert_eq!(said.len(), 1, "{said:?}");
+        assert_eq!(said[0].1, white_5);
         // A new light from the same asker, a dim: reached afresh.
         glows.publish_json(3, &white(2)).unwrap();
         assert_eq!(taken(&mut ring, &mut at), Lit::of(true, "white", 2));
-        let said = drawn_for(&mut ring, &mut reached, &mut at, 1_000_000);
+        let said = rested_for(&mut ring, &mut reached, &mut at, 1_000_000, true);
         assert_eq!(said.len(), 1);
         assert_eq!(said[0].1.light, light(true, "white", 2));
+        // A self-test's colour over it: nothing while it shows, and the
+        // request's light, back after it, is reached afresh.
+        tests.publish_json(1, &light(true, "cyan", 2)).unwrap();
+        assert_eq!(taken(&mut ring, &mut at), Lit::of(true, "cyan", 2));
+        assert!(rested_for(&mut ring, &mut reached, &mut at, 1_000_000, true).is_empty());
+        at += TEST_HOLDS_US;
+        assert_eq!(ring.tick(at), Lit::of(true, "white", 2));
+        let said = rested_for(&mut ring, &mut reached, &mut at, 1_000_000, true);
+        assert_eq!(said.len(), 1);
         // A new light, then the person's own before it is reached: never.
         glows.publish_json(4, &white(4)).unwrap();
         assert_eq!(taken(&mut ring, &mut at), Lit::of(true, "white", 4));
-        assert!(drawn_for(&mut ring, &mut reached, &mut at, 100_000).is_empty());
+        assert!(rested_for(&mut ring, &mut reached, &mut at, 100_000, true).is_empty());
         std::thread::sleep(Duration::from_millis(2));
         asks.publish_json(1, &light(true, "blue", 3)).unwrap();
         assert_eq!(taken(&mut ring, &mut at), Lit::of(true, "blue", 3));
-        assert!(drawn_for(&mut ring, &mut reached, &mut at, 1_000_000).is_empty());
+        assert!(rested_for(&mut ring, &mut reached, &mut at, 1_000_000, true).is_empty());
+    }
+
+    /// A request that lapses before it is shown long enough is never said
+    /// reached.
+    #[test]
+    fn a_request_that_lapses_first_is_never_said_reached() {
+        let root = Root::new("light-reached-lapse");
+        let (mut ring, _) = RingLight::on(&root.0).unwrap();
+        ring.take_requests(&root.0, "boot-test").unwrap();
+        let bus = Bus::new(&root.0).unwrap();
+        let mut reached = bus.subscribe(LightReached::TOPIC, "test").unwrap();
+        let mut glows = bus
+            .publisher_declared(LightRequest::TOPIC, &LightRequest::declaration(), "skills")
+            .unwrap();
+        let mut at = 0u64;
+        ring.tick(at);
+        let until = at + 600_000;
+        glows
+            .publish_json(
+                1,
+                &request("skill:brief", lamp_msgs::Priority::Skill, until, "green"),
+            )
+            .unwrap();
+        assert_eq!(taken(&mut ring, &mut at), Lit::of(true, "green", 4));
+        // Shown for 200 ms, then it lapses: the person's light again.
+        assert!(rested_for(&mut ring, &mut reached, &mut at, 200_000, true).is_empty());
+        at = at.max(until);
+        assert!(ring.tick(at).is_some());
+        assert!(rested_for(&mut ring, &mut reached, &mut at, 1_000_000, true).is_empty());
     }
 
     /// The person comes first: their own light ends a skill's glow, which

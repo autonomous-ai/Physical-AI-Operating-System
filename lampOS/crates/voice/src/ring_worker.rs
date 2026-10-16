@@ -590,22 +590,15 @@ fn service(
                         let pixels: [_; PIXEL_COUNT] =
                             face.render(frame.mood(), frame.level, monotonic_us(), ceiling.get());
                         match ring.show(&pixels, ceiling, frame.permit) {
-                            Ok(write) => {
-                                // A turn's frame shows the lamp's light too:
-                                // a skill's light reached counts it (#1146).
-                                if let Some(light) = light.as_mut() {
-                                    light.frame_drawn(write.finished_at().as_micros());
-                                }
-                                link.publish(WorkerEvent::Ring {
-                                    report: RingFeedback::Presented {
-                                        owner: frame.permit.owner(),
-                                        phase: frame.phase,
-                                        requested_at_us: frame.requested_at_us,
-                                        write_started_at_us: write.started_at().as_micros(),
-                                        write_finished_at_us: write.finished_at().as_micros(),
-                                    },
-                                })?
-                            }
+                            Ok(write) => link.publish(WorkerEvent::Ring {
+                                report: RingFeedback::Presented {
+                                    owner: frame.permit.owner(),
+                                    phase: frame.phase,
+                                    requested_at_us: frame.requested_at_us,
+                                    write_started_at_us: write.started_at().as_micros(),
+                                    write_finished_at_us: write.finished_at().as_micros(),
+                                },
+                            })?,
                             Err(error) => match error.cause {
                                 Failure::Authority(reason)
                                     if error.cleanup_error.is_none() && !ring.is_faulted() =>
@@ -639,7 +632,8 @@ fn service(
         {
             rested_at = at;
             let pixels = face.render(Mood::Resting, 0, at, ceiling.get());
-            rest(ring, &pixels, ceiling, light.as_mut())?;
+            let own_light = face.rests_on_its_light(at);
+            rest(ring, &pixels, ceiling, own_light, light.as_mut())?;
         }
         if let Some(wait) = TICK_US.checked_sub(monotonic_us().saturating_sub(tick)) {
             std::thread::sleep(Duration::from_micros(wait));
@@ -649,10 +643,13 @@ fn service(
 
 /// Paints the resting frame and, only if the ring wrote it, says the light
 /// drawn: a frame it refused (the privacy switch, a turn) says nothing.
+/// `own_light`: whether the face shows the lamp's own light in it, for a
+/// requested light's reach (`light/reached`).
 fn rest<S: FrameSink>(
     ring: &mut GuardedRing<S>,
     pixels: &[lamp_ring::Rgb; PIXEL_COUNT],
     ceiling: ChannelCeiling,
+    own_light: bool,
     light: Option<&mut RingLight>,
 ) -> io::Result<()> {
     if let Some(receipt) = ring
@@ -660,7 +657,7 @@ fn rest<S: FrameSink>(
         .map_err(io::Error::other)?
         && let Some(light) = light
     {
-        light.drew(receipt.finished_at().as_micros());
+        light.drew(receipt.finished_at().as_micros(), own_light);
     }
     Ok(())
 }
@@ -721,17 +718,89 @@ mod drawn_tests {
         let ceiling = ChannelCeiling::new(40).unwrap();
         // The privacy switch closed: refused, nothing drawn is said.
         let mut closed = ring_with(Permission::Denied, false);
-        rest(&mut closed, &pixels, ceiling, Some(&mut light)).unwrap();
+        rest(&mut closed, &pixels, ceiling, true, Some(&mut light)).unwrap();
         assert!(bus.latest(DRAWN_TOPIC).unwrap().is_none());
         // A turn owns the lamp: refused, nothing said either.
         let mut owned = ring_with(Permission::Allowed, true);
-        rest(&mut owned, &pixels, ceiling, Some(&mut light)).unwrap();
+        rest(&mut owned, &pixels, ceiling, true, Some(&mut light)).unwrap();
         assert!(bus.latest(DRAWN_TOPIC).unwrap().is_none());
         // Allowed and nobody owns the lamp: drawn, and said.
         let mut open = ring_with(Permission::Allowed, false);
-        rest(&mut open, &pixels, ceiling, Some(&mut light)).unwrap();
+        rest(&mut open, &pixels, ceiling, true, Some(&mut light)).unwrap();
         let drawn: Light = bus.latest(DRAWN_TOPIC).unwrap().unwrap().parse().unwrap();
         assert_eq!(&drawn, light.face());
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    /// #1166: a requested light is reached only on resting frames the ring
+    /// wrote. With the privacy switch closed every frame is refused and
+    /// nothing is said; drawn, it is said once 350 ms have shown it.
+    #[test]
+    fn a_requested_light_is_reached_only_on_resting_frames_the_ring_draws() {
+        use lamp_msgs::{Claim, LightReached, LightRequest, Priority};
+        use std::time::Instant;
+        let root = std::path::PathBuf::from(format!("/tmp/lv-reach-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        let (mut light, _) = RingLight::on(&root).unwrap();
+        light.take_requests(&root, "boot-test").unwrap();
+        let bus = Bus::new(&root).unwrap();
+        let mut reached = bus.subscribe(LightReached::TOPIC, "test").unwrap();
+        let mut glows = bus
+            .publisher_declared(LightRequest::TOPIC, &LightRequest::declaration(), "skills")
+            .unwrap();
+        let asked = Light::new(true, "white", 5).unwrap();
+        glows
+            .publish_json(
+                1,
+                &LightRequest {
+                    claim: Claim {
+                        source: "skill:desk-tutor".into(),
+                        priority: Priority::Skill,
+                        clock_id: "boot-test".into(),
+                        until_us: monotonic_us() + 20_000_000,
+                    },
+                    light: asked.clone(),
+                },
+            )
+            .unwrap();
+        let started = Instant::now();
+        while light.face() != &asked {
+            assert!(started.elapsed() < Duration::from_secs(5), "never taken");
+            light.tick(monotonic_us());
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        let pixels = [lamp_ring::Rgb::new(6, 4, 2); PIXEL_COUNT];
+        let ceiling = ChannelCeiling::new(40).unwrap();
+        // The privacy switch closed: half a second of refused frames.
+        let mut closed = ring_with(Permission::Denied, false);
+        for _ in 0..20 {
+            rest(&mut closed, &pixels, ceiling, true, Some(&mut light)).unwrap();
+            std::thread::sleep(Duration::from_millis(25));
+        }
+        assert!(reached.recv(Duration::ZERO).unwrap().is_none());
+        // Drawn every 20 ms (a ring made afresh within each authority's
+        // half second): said once, 350 ms on.
+        let first = Instant::now();
+        let mut open = ring_with(Permission::Allowed, false);
+        let mut made = Instant::now();
+        let said = loop {
+            assert!(first.elapsed() < Duration::from_secs(3), "never said");
+            if made.elapsed() > Duration::from_millis(200) {
+                open = ring_with(Permission::Allowed, false);
+                made = Instant::now();
+            }
+            rest(&mut open, &pixels, ceiling, true, Some(&mut light)).unwrap();
+            if let Some(message) = reached.recv(Duration::ZERO).unwrap() {
+                break message.parse::<LightReached>().unwrap();
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        };
+        assert!(first.elapsed() >= Duration::from_micros(crate::ring_light::REACHED_AFTER_US));
+        assert_eq!(
+            (said.source.as_str(), said.light),
+            ("skill:desk-tutor", asked)
+        );
         std::fs::remove_dir_all(root).unwrap();
     }
 }

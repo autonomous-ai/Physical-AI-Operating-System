@@ -48,12 +48,37 @@ impl Said {
     }
 }
 
-/// Words that agree to what the lamp said back: "Yes.", "That's right."
-const AGREE: &[&str] = &[
-    "yes", "yeah", "yep", "yup", "correct", "right", "exactly", "sure", "ok", "okay",
+/// What agrees to what the lamp said back, a word or words in a row:
+/// "Yes.", "That's right.", "Of course.", "Go ahead.", "Uh-huh.", and the
+/// Vietnamese "Vâng.", "Dạ.", "Đúng rồi." (the reviewer on #1057).
+const AGREE: &[&[&str]] = &[
+    &["yes"],
+    &["yeah"],
+    &["yep"],
+    &["yup"],
+    &["correct"],
+    &["right"],
+    &["exactly"],
+    &["sure"],
+    &["ok"],
+    &["okay"],
+    &["absolutely"],
+    &["definitely"],
+    &["certainly"],
+    &["of", "course"],
+    &["please", "do"],
+    &["go", "ahead"],
+    &["uh", "huh"],
+    &["mm", "hmm"],
+    &["that's", "it"],
+    &["vâng"],
+    &["dạ"],
+    &["ừ"],
+    &["đúng", "rồi"],
 ];
-/// Words that take an agreement back, anywhere in the turn: "No, it's…",
-/// "Not quite."
+/// Words that take a turn's agreement back when they come before it: "No,
+/// it's…", "Not quite. Yes, K, E, S, S." After it they are part of the yes:
+/// "Sure, no problem!", "Yes, I don't mind."
 const DISAGREE: &[&str] = &[
     "no", "nope", "not", "wrong", "don't", "dont", "isn't", "isnt", "nah",
 ];
@@ -67,12 +92,25 @@ fn lower_words(text: &str) -> Vec<String> {
         .collect()
 }
 
-/// Whether the turn agrees to what the lamp said back: a word that agrees,
-/// and none that takes it back.
+/// Whether the turn agrees to what the lamp said back: something that
+/// agrees ([`AGREE`]), with nothing before it that takes it back.
 fn agrees(said: &str) -> bool {
     let words = lower_words(said);
-    words.iter().any(|word| AGREE.contains(&word.as_str()))
-        && !words.iter().any(|word| DISAGREE.contains(&word.as_str()))
+    let agrees_at = |at: usize| {
+        AGREE.iter().any(|phrase| {
+            phrase
+                .iter()
+                .enumerate()
+                .all(|(next, word)| words.get(at + next).is_some_and(|said| said == word))
+        })
+    };
+    (0..words.len())
+        .find(|at| agrees_at(*at))
+        .is_some_and(|at| {
+            !words[..at]
+                .iter()
+                .any(|word| DISAGREE.contains(&word.as_str()))
+        })
 }
 
 /// How many letters the person said a name has: "three letters", "it's 4
@@ -99,8 +137,8 @@ fn letters_counted(said: &str) -> Option<usize> {
 /// Whether `name` may be kept from what the person said
 /// (`LAMP_NAMES=checked`): said or spelled in the turn in hand
 /// ([`said_by_them`]); or said in an exchange before it, said back by the
-/// lamp since, and agreed to in the turn in hand ("Shall I call you Jim?"
-/// "Yes."). Never one whose letters they counted otherwise, in either turn
+/// lamp in its last answer, and agreed to in the turn in hand ("Shall I
+/// call you Jim?" "Yes."), not a yes to something asked since. Never one whose letters they counted otherwise, in either turn
 /// ("three letters", for seven taken).
 ///
 /// Why, from lamp-4ace on 16 October at 16:46 (the first builder on
@@ -117,14 +155,11 @@ pub fn name_heard(name: &str, said: &Said) -> bool {
     if said_by_them(name, &said.this) {
         return true;
     }
-    agrees(&said.this)
-        && said.before.iter().enumerate().any(|(at, (person, _))| {
-            said_by_them(name, person)
-                && !counted_otherwise(person)
-                && said.before[at..]
-                    .iter()
-                    .any(|(_, lamp)| said_by_them(name, lamp))
-        })
+    agreed_to(name, said)
+        && said
+            .before
+            .iter()
+            .any(|(person, _)| said_by_them(name, person) && !counted_otherwise(person))
 }
 
 /// Whether the lamp said `name` back in the exchange just before the turn
@@ -935,6 +970,58 @@ mod tests {
         ));
         assert!(!name_heard("Jim", &said("7", "Shall I remember you, Jim?")));
         assert!(!name_heard("Jim", &Said::now("Yes.")));
+        // A yes to something asked since is not one to the name (the
+        // reviewer on #1057).
+        let later = Said {
+            this: "Yes.".into(),
+            before: vec![
+                (
+                    "My name is Jim.".into(),
+                    "Shall I remember you, Jim?".into(),
+                ),
+                (
+                    "What time is it?".into(),
+                    "It's three. Anything else?".into(),
+                ),
+            ],
+        };
+        assert!(!name_heard("Jim", &later));
+    }
+
+    /// The reviewer on #1057: ordinary yeses agree, and words that take
+    /// one back count only before it.
+    #[test]
+    fn a_yes_is_any_ordinary_one_and_is_taken_back_only_before_it() {
+        for yes in [
+            "Yes.",
+            "Sure, no problem!",
+            "Yes, no problem.",
+            "Sure, why not?",
+            "Yes, I don't mind.",
+            "Of course.",
+            "Absolutely.",
+            "Please do.",
+            "Go ahead.",
+            "Uh-huh.",
+            "That's it.",
+            "That's right.",
+            "Vâng.",
+            "Dạ.",
+            "Đúng rồi.",
+        ] {
+            assert!(agrees(yes), "{yes}");
+        }
+        for not in [
+            "No, not yet.",
+            "No, Kess. K, E, S, S.",
+            "Not quite. Yes, K, E, S, S.",
+            "Nope.",
+            "That's not right.",
+            "7",
+            "Kess.",
+        ] {
+            assert!(!agrees(not), "{not}");
+        }
     }
 
     /// The eyes stand-in on a real socket: what each request sent, and the

@@ -546,10 +546,13 @@ With the switch:
   service wrote them (`Thread::names_window`, `known_faces::name_heard`):
   - in the turn in hand: what is being heard, or, once the lamp has begun
     to answer, the newest exchange;
-  - or in one of the two exchanges before it, if the lamp has said it
-    back since and the turn in hand agrees ("Shall I call you Jim?"
-    "Yes."): a word that agrees ("yes", "yeah", "right", "sure", …) and
-    none that takes it back ("no", "not", …).
+  - or in one of the two exchanges before it, if the lamp said it back
+    in its last answer and the turn in hand agrees ("Shall I call you
+    Jim?" "Yes."), not a yes to something asked since. Agreeing is an
+    ordinary yes ("yes", "sure", "of course", "go ahead", "uh-huh",
+    "that's it", "vâng", "dạ", "đúng rồi", …) with nothing before it that
+    takes it back ("no", "not", …): "Sure, no problem!" agrees, "No, it's
+    …" doesn't.
 
   Each of the name's words must be among theirs, or its letters spelled
   one by one ("J-I-M"), the run being the name's word itself. One letter
@@ -611,6 +614,13 @@ What it doesn't do (the reviewer on #1057):
   request ends,** and the service's text often trails the speech. On
   lamp-4ace, the "they gave their name" lines are to be counted against
   the names given.
+- **A first name heard wrong, for a face with no name yet, is kept as
+  heard:** the first time, "Hey, I'm …" heard wrong is a name they said.
+  A wrong one is corrected by "No, it's …", which goes through the read-back.
+- **The check needs the turn's own words in the thread when the call
+  runs.** A call that comes before its transcript is refused and asked
+  again, and the service's text often trails the speech. Not measured: the
+  refusals of a name the person had just said, in lamp-4ace's journal.
 - **After `replace`, the person's memory stays under the old name's id**
   (`remember.rs`, a hash of the name). It isn't recalled for the new name,
   and their forget doesn't reach it.
@@ -621,7 +631,8 @@ and the ask's two new lines (the eyes);
 `known_faces::tests::a_name_counts_only_when_the_person_said_it_or_spelled_it`,
 `a_name_given_is_told_from_talk_that_only_mentions_a_name`,
 `the_three_names_of_16_46_are_refused_or_read_back`,
-`a_name_said_before_is_kept_once_said_back_and_agreed_to` and
+`a_name_said_before_is_kept_once_said_back_and_agreed_to`,
+`a_yes_is_any_ordinary_one_and_is_taken_back_only_before_it` and
 `with_names_checked_only_a_name_they_said_reaches_the_eyes_and_one_face_keeps_one`
 (the voice, against a stand-in for the eyes on a real socket);
 `provider_worker::tests::names::with_names_checked_a_name_given_is_told_to_be_kept_and_plain_talk_is_not`

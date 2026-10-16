@@ -1525,9 +1525,6 @@ mod tests {
         assert!(read.recall(at(202), ROOM).unwrap().contains("2468"));
     }
 
-    /// The exchanges a route gives a model as messages: the person's only,
-    /// the newest few, and none once forgotten (first builder's reviewer on
-    /// #778: A, forget, B, A).
     /// What a name is kept from (`LAMP_NAMES=checked`, #1057): the turn in
     /// hand is what is being heard, or, once the lamp has begun to answer
     /// it, the newest exchange; the exchanges before it come with what the
@@ -1558,6 +1555,9 @@ mod tests {
         assert_eq!(thread.names_window(1), window(&before[1..]));
     }
 
+    /// The exchanges a route gives a model as messages: the person's only,
+    /// the newest few, and none once forgotten (first builder's reviewer on
+    /// #778: A, forget, B, A).
     #[test]
     fn recent_exchanges_are_the_persons_own_and_none_after_a_forgetting() {
         let now = Instant::now();

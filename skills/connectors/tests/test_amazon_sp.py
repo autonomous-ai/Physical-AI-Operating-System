@@ -154,6 +154,18 @@ class AmazonDirectApiTests(HelperTestCase):
         for secret in (CLIENT_SECRET, REFRESH, TOKEN):
             self.assertNotIn(secret, out)
 
+    def test_info_shows_the_seller_id_or_says_it_is_not_saved(self):
+        self.link()
+        _, out, _ = self.run_main('info', 'amazon_sp')
+        self.assertEqual(json.loads(out)['seller_id'], 'not saved')
+        entry = json.loads((self.dir / 'amazon_sp_access_tokens.json').read_text())
+        entry['connectors']['amazon_sp']['credentials']['seller_id'] = 'A1B2C3D4E5F6G7'
+        (self.dir / 'amazon_sp_access_tokens.json').write_text(json.dumps(entry))
+        _, out, _ = self.run_main('info', 'amazon_sp')
+        self.assertEqual(json.loads(out)['seller_id'], 'A1B2C3D4E5F6G7')
+        for secret in (CLIENT_SECRET, REFRESH):
+            self.assertNotIn(secret, out)
+
     def test_info_reports_missing_when_the_refresh_token_is_gone(self):
         self.link(refresh='')
         _, out, _ = self.run_main('info', 'amazon_sp')

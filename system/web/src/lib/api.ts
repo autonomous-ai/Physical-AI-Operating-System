@@ -621,6 +621,7 @@ export interface AmazonSPInfo {
   connected: boolean;
   region?: string;
   client_id?: string;
+  seller_id?: string;
   has_secret: boolean;
   has_refresh_token: boolean;
   obtained_at?: number;
@@ -633,10 +634,12 @@ export async function getAmazonSP(): Promise<AmazonSPInfo> {
 
 /** PUT /api/device/connectors/amazon_sp — the device checks the three values with Login with Amazon once, then saves them. */
 export async function setAmazonSP(body: {
-  region: string;
-  client_id: string;
-  client_secret: string;
-  refresh_token: string;
+  region?: string;
+  client_id?: string;
+  client_secret?: string;
+  refresh_token?: string;
+  /** Optional; sent alone it updates a saved connection without asking for the secrets again. */
+  seller_id?: string;
 }): Promise<AmazonSPInfo> {
   return apiRequest<AmazonSPInfo>(`${API_BASE}/api/device/connectors/amazon_sp`, {
     method: "PUT",

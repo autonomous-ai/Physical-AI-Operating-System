@@ -329,7 +329,7 @@ Always build the URL from the `api_host` that `info` prints; the helper refuses 
 
 Before acting:
 - **Which account and marketplace.** Read `marketplaceParticipations` first and say which marketplace you are working on. The US marketplace id is `ATVPDKIKX0DER`; take any other id from that response, never from memory.
-- **Seller ID.** Listings calls need it. Ask the user for their Seller ID (Seller Central → Account Info → the merchant token). Do not guess it.
+- **Seller ID.** Listings calls need it. `connector.py info amazon_sp` prints `seller_id`; use that. If it says `not saved`, ask the user to enter it on Settings → Connectors → Amazon (they find it in Seller Central → Account Info → Merchant Token). Do not guess it, and do not ask them to paste it in chat when it is already saved.
 
 Reads (no confirmation): orders `GET /orders/v0/orders?MarketplaceIds=<id>&CreatedAfter=<ISO time>`, order items `GET /orders/v0/orders/<orderId>/orderItems`, a listing `GET /listings/2021-08-01/items/<sellerId>/<sku>?marketplaceIds=<id>&includedData=summaries,attributes,issues,offers`, listing search `GET /listings/2021-08-01/items/<sellerId>?marketplaceIds=<id>&includedData=summaries`, product type rules `GET /definitions/2020-09-01/productTypes/<TYPE>?marketplaceIds=<id>&requirements=LISTING&locale=en_US`.
 

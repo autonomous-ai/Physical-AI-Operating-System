@@ -246,3 +246,78 @@ func httptestCtx(t *testing.T) context.Context {
 	t.Helper()
 	return context.Background()
 }
+
+func TestNormalizeAmazonSellerID(t *testing.T) {
+	for in, want := range map[string]string{"": "", "  a1b2c3d4e5f6g7 ": "A1B2C3D4E5F6G7", "A3XYZ12345678": "A3XYZ12345678"} {
+		got, err := normalizeAmazonSellerID(in)
+		if err != nil || got != want {
+			t.Errorf("%q -> %q (%v), want %q", in, got, err, want)
+		}
+	}
+	for _, bad := range []string{"short", "has space in it1", "A1B2C3D4-E5F6", "https://sellercentral.amazon.com", strings.Repeat("A", 21), "A1B2C3D4\nE5F6G7"} {
+		if _, err := normalizeAmazonSellerID(bad); err == nil {
+			t.Errorf("%q must be rejected", bad)
+		}
+	}
+}
+
+func TestSetAmazonSP_SavesTheSellerID(t *testing.T) {
+	e := newAmazonSPTestEnv(t, okLWA())
+	b := spBody()
+	b["seller_id"] = " a1b2c3d4e5f6g7 "
+	w := e.do(http.MethodPut, "/api/device/connectors/amazon_sp", b)
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"seller_id":"A1B2C3D4E5F6G7"`) {
+		t.Fatalf("%d %s", w.Code, w.Body.String())
+	}
+	creds, _, _ := e.h.connectorWriter.loadEntry("amazon_sp")
+	if creds.Credentials["seller_id"] != "A1B2C3D4E5F6G7" {
+		t.Errorf("saved %q", creds.Credentials["seller_id"])
+	}
+	if g := e.do(http.MethodGet, "/api/device/connectors/amazon_sp", nil); !strings.Contains(g.Body.String(), `"seller_id":"A1B2C3D4E5F6G7"`) {
+		t.Errorf("GET misses the seller id: %s", g.Body.String())
+	}
+}
+
+func TestSetAmazonSP_InvalidSellerIDSendsNothing(t *testing.T) {
+	e := newAmazonSPTestEnv(t, okLWA())
+	b := spBody()
+	b["seller_id"] = "not valid!"
+	if w := e.do(http.MethodPut, "/api/device/connectors/amazon_sp", b); w.Code != http.StatusBadRequest {
+		t.Fatalf("got %d", w.Code)
+	}
+	if len(e.rt.urls) != 0 {
+		t.Fatal("nothing may be sent for an invalid Seller ID")
+	}
+}
+
+func TestSetAmazonSP_SellerIDAloneUpdatesWithoutTouchingTheSecrets(t *testing.T) {
+	e := newAmazonSPTestEnv(t, okLWA())
+	e.do(http.MethodPut, "/api/device/connectors/amazon_sp", spBody())
+	before := len(e.rt.urls)
+
+	w := e.do(http.MethodPut, "/api/device/connectors/amazon_sp", map[string]string{"seller_id": "a1b2c3d4e5f6g7"})
+	if w.Code != http.StatusOK {
+		t.Fatalf("%d %s", w.Code, w.Body.String())
+	}
+	noSPSecrets(t, "update response", w.Body.String())
+	if len(e.rt.urls) != before {
+		t.Fatal("updating only the Seller ID must not call Amazon again")
+	}
+	c, _, _ := e.h.connectorWriter.loadEntry("amazon_sp")
+	if c.Credentials["seller_id"] != "A1B2C3D4E5F6G7" || c.Credentials["client_secret"] != spSecret || c.Credentials["refresh_token"] != spRefresh || c.Credentials["region"] != "na" {
+		t.Errorf("credentials after the update: %+v", c.Credentials)
+	}
+	// Reconnecting without a Seller ID keeps no stale one.
+	e.do(http.MethodPut, "/api/device/connectors/amazon_sp", spBody())
+	if c2, _, _ := e.h.connectorWriter.loadEntry("amazon_sp"); c2.Credentials["seller_id"] != "" {
+		t.Errorf("a reconnect without a Seller ID should not keep the old one, got %q", c2.Credentials["seller_id"])
+	}
+}
+
+func TestSetAmazonSP_SellerIDAloneNeedsAConnection(t *testing.T) {
+	e := newAmazonSPTestEnv(t, okLWA())
+	w := e.do(http.MethodPut, "/api/device/connectors/amazon_sp", map[string]string{"seller_id": "A1B2C3D4E5F6G7"})
+	if w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), "Connect Amazon first") {
+		t.Fatalf("%d %s", w.Code, w.Body.String())
+	}
+}

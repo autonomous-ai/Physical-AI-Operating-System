@@ -259,6 +259,10 @@ def cmd_info(code):
     page_id = (entry.get("credentials") or {}).get("page_id")
     if page_id:
         info["page_id"] = page_id
+    if code == "amazon_sp":
+        # The seller ID is an identifier, not a secret: the agent needs it for listing calls.
+        seller_id = str((entry.get("credentials") or {}).get("seller_id") or "").strip()
+        info["seller_id"] = seller_id or "not saved"
     if code in DYNAMIC_HOST_CODES:
         try:
             info[DYNAMIC_HOST_CODES[code][0]] = stored_host(code, entry)

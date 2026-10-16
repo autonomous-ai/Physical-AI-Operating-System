@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -38,7 +39,23 @@ const (
 	amazonSPRejectedMessage  = "Amazon rejected the client ID, client secret or refresh token. Check all three and that the app is authorized on this account."
 	amazonSPUnreachableError = "Couldn't reach Amazon to check the credentials. Check the device's internet connection and try again."
 	amazonSPRegionHint       = "Choose North America, Europe or Far East."
+	amazonSPSellerIDHint     = "The Seller ID looks like A1B2C3D4E5F6G7 (letters and numbers only). Find it in Seller Central under Account Info → Merchant Token."
 )
+
+// amazonSPSellerIDRE is the shape of a seller (merchant) ID: 8 to 20 letters and digits.
+var amazonSPSellerIDRE = regexp.MustCompile(`^[A-Z0-9]{8,20}$`)
+
+// normalizeAmazonSellerID uppercases and trims a pasted Seller ID; "" is allowed (it is optional).
+func normalizeAmazonSellerID(raw string) (string, error) {
+	s := strings.ToUpper(strings.TrimSpace(raw))
+	if s == "" {
+		return "", nil
+	}
+	if !amazonSPSellerIDRE.MatchString(s) {
+		return "", errors.New(amazonSPSellerIDHint)
+	}
+	return s, nil
+}
 
 // amazonSPHosts maps a region to the one Selling Partner API host calls for it go to.
 var amazonSPHosts = map[string]string{
@@ -59,6 +76,9 @@ type amazonSPConnectRequest struct {
 	ClientID     string `json:"client_id"`
 	ClientSecret string `json:"client_secret"`
 	RefreshToken string `json:"refresh_token"`
+	// SellerID is Amazon's seller (merchant) ID. It is not a secret and cannot be discovered through the API,
+	// but listing calls need it. Optional on connect; may also be sent alone to update a saved connection.
+	SellerID string `json:"seller_id"`
 }
 
 // amazonSPInfoResponse is the read side. It never carries the secret, the refresh token or an access token.
@@ -67,6 +87,7 @@ type amazonSPInfoResponse struct {
 	Connected       bool   `json:"connected"`
 	Region          string `json:"region,omitempty"`
 	ClientID        string `json:"client_id,omitempty"`
+	SellerID        string `json:"seller_id,omitempty"`
 	HasSecret       bool   `json:"has_secret"`
 	HasRefreshToken bool   `json:"has_refresh_token"`
 	ObtainedAt      int64  `json:"obtained_at,omitempty"`
@@ -178,6 +199,16 @@ func (h *DeviceMQTTHandler) SetAmazonSP(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, serializers.ResponseError("invalid body"))
 		return
 	}
+	sellerID, err := normalizeAmazonSellerID(req.SellerID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, serializers.ResponseError(err.Error()))
+		return
+	}
+	// Only the Seller ID was sent: update the saved connection without asking for the secrets again.
+	if strings.TrimSpace(req.ClientID) == "" && strings.TrimSpace(req.ClientSecret) == "" && strings.TrimSpace(req.RefreshToken) == "" && sellerID != "" {
+		h.updateAmazonSPSellerID(c, sellerID)
+		return
+	}
 	region := strings.ToLower(strings.TrimSpace(req.Region))
 	host, ok := amazonSPHosts[region]
 	if !ok {
@@ -221,6 +252,7 @@ func (h *DeviceMQTTHandler) SetAmazonSP(c *gin.Context) {
 		Credentials: map[string]string{
 			"api_host": host, "region": region,
 			"client_id": clientID, "client_secret": clientSecret, "refresh_token": refresh,
+			"seller_id": sellerID,
 		},
 		// The helper mints the next token itself; the device's own refresh loop must not touch this entry.
 		Refresh:    false,
@@ -237,7 +269,7 @@ func (h *DeviceMQTTHandler) SetAmazonSP(c *gin.Context) {
 		"auth_type": "pat",
 	})
 	c.JSON(http.StatusOK, serializers.ResponseSuccess(amazonSPInfoResponse{
-		Connector: amazonSPConnectorCode, Connected: true, Region: region, ClientID: clientID,
+		Connector: amazonSPConnectorCode, Connected: true, Region: region, ClientID: clientID, SellerID: sellerID,
 		HasSecret: true, HasRefreshToken: true, ObtainedAt: creds.ObtainedAt,
 	}))
 }
@@ -264,6 +296,7 @@ func (h *DeviceMQTTHandler) GetAmazonSP(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, serializers.ResponseSuccess(amazonSPInfoResponse{
 		Connector: amazonSPConnectorCode, Connected: true, Region: creds.Credentials["region"], ClientID: clientID,
+		SellerID:        creds.Credentials["seller_id"],
 		HasSecret:       creds.Credentials["client_secret"] != "",
 		HasRefreshToken: creds.Credentials["refresh_token"] != "",
 		ObtainedAt:      creds.ObtainedAt,
@@ -288,4 +321,39 @@ func (h *DeviceMQTTHandler) RemoveAmazonSP(c *gin.Context) {
 	h.dropAmazonSPTokenCache()
 	h.publishAmazonSPResult("connector.remove."+amazonSPConnectorCode, map[string]any{"connector": amazonSPConnectorCode, "removed": removed})
 	c.JSON(http.StatusOK, serializers.ResponseSuccess(map[string]any{"connector": amazonSPConnectorCode, "removed": removed}))
+}
+
+// updateAmazonSPSellerID saves a new Seller ID on an existing connection and leaves every other value as it is.
+func (h *DeviceMQTTHandler) updateAmazonSPSellerID(c *gin.Context, sellerID string) {
+	writer := h.connectorWriterFor(amazonSPConnectorCode)
+	if writer == nil || h.connectorWriter == nil {
+		c.JSON(http.StatusServiceUnavailable, serializers.ResponseError("no writer available"))
+		return
+	}
+	creds, ok, err := h.connectorWriter.loadEntry(amazonSPConnectorCode)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, serializers.ResponseError("could not read the connection"))
+		return
+	}
+	if !ok {
+		c.JSON(http.StatusBadRequest, serializers.ResponseError("Connect Amazon first: enter the client ID, client secret and refresh token."))
+		return
+	}
+	if creds.Credentials == nil {
+		creds.Credentials = map[string]string{}
+	}
+	creds.Credentials["seller_id"] = sellerID
+	ctx, cancel := context.WithTimeout(c.Request.Context(), connectorHTTPTimeout)
+	defer cancel()
+	if err := writer.Write(ctx, creds); err != nil {
+		slog.Warn("amazon: could not save the seller id", "component", "mqtt", "error", err)
+		c.JSON(http.StatusInternalServerError, serializers.ResponseError("could not save the Seller ID"))
+		return
+	}
+	c.JSON(http.StatusOK, serializers.ResponseSuccess(amazonSPInfoResponse{
+		Connector: amazonSPConnectorCode, Connected: true, Region: creds.Credentials["region"],
+		ClientID: creds.Credentials["client_id"], SellerID: sellerID,
+		HasSecret: creds.Credentials["client_secret"] != "", HasRefreshToken: creds.Credentials["refresh_token"] != "",
+		ObtainedAt: creds.ObtainedAt,
+	}))
 }

@@ -57,15 +57,23 @@ function AmazonDirectCard({ onConnected }: { onConnected: (connected: boolean) =
   const [connected, setConnected] = useState(false);
   const [region, setRegion] = useState("na");
   const [connectedRegion, setConnectedRegion] = useState("");
+  const [savedSellerId, setSavedSellerId] = useState("");
+  const [sellerId, setSellerId] = useState("");
   const [clientId, setClientId] = useState("");
   const [clientSecret, setClientSecret] = useState("");
   const [refreshToken, setRefreshToken] = useState("");
-  const [busy, setBusy] = useState<"connect" | "disconnect" | null>(null);
+  const [busy, setBusy] = useState<"connect" | "disconnect" | "seller" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     getAmazonSP()
-      .then((r) => { setConnected(!!r.connected); setConnectedRegion(r.region ?? ""); onConnected(!!r.connected); })
+      .then((r) => {
+        setConnected(!!r.connected);
+        setConnectedRegion(r.region ?? "");
+        setSavedSellerId(r.seller_id ?? "");
+        setSellerId(r.seller_id ?? "");
+        onConnected(!!r.connected);
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -78,14 +86,34 @@ function AmazonDirectCard({ onConnected }: { onConnected: (connected: boolean) =
     setError(null);
     setBusy("connect");
     try {
-      const r = await setAmazonSP({ region, client_id: clientId.trim(), client_secret: clientSecret.trim(), refresh_token: refreshToken.trim() });
+      const r = await setAmazonSP({
+        region, client_id: clientId.trim(), client_secret: clientSecret.trim(),
+        refresh_token: refreshToken.trim(), seller_id: sellerId.trim(),
+      });
       setConnected(!!r.connected);
       setConnectedRegion(r.region ?? region);
+      setSavedSellerId(r.seller_id ?? "");
+      setSellerId(r.seller_id ?? "");
       onConnected(!!r.connected);
       reset();
       toast.success("Amazon connected.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not connect Amazon.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const onSaveSellerId = async () => {
+    setError(null);
+    setBusy("seller");
+    try {
+      const r = await setAmazonSP({ seller_id: sellerId.trim() });
+      setSavedSellerId(r.seller_id ?? "");
+      setSellerId(r.seller_id ?? "");
+      toast.success("Seller ID saved.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save the Seller ID.");
     } finally {
       setBusy(null);
     }
@@ -98,6 +126,8 @@ function AmazonDirectCard({ onConnected }: { onConnected: (connected: boolean) =
       await removeConnector("amazon_sp");
       setConnected(false);
       setConnectedRegion("");
+      setSavedSellerId("");
+      setSellerId("");
       onConnected(false);
       toast.success("Amazon disconnected.");
     } catch (err) {
@@ -145,6 +175,7 @@ function AmazonDirectCard({ onConnected }: { onConnected: (connected: boolean) =
           <Step n={4}>
             <b>Copy the client ID and secret.</b> In the app, open <b>LWA credentials → View</b> and copy the
             <b> client identifier</b> (starts with <code>amzn1.application-oa2-client.</code>) and the <b>client secret</b>.
+            Also note your <b>Seller ID</b> (Account Info → Merchant Token); the robot needs it to post or change listings.
             Treat the secret and the refresh token like passwords; they are only saved on this device.
           </Step>
           <Step n={5} last>
@@ -175,6 +206,19 @@ function AmazonDirectCard({ onConnected }: { onConnected: (connected: boolean) =
           <input id="amazon_sp_refresh_token" type="password" value={refreshToken} onChange={(e) => setRefreshToken(e.target.value)}
             placeholder="Atzr|…" autoComplete="new-password" spellCheck={false}
             style={{ ...inputStyle, fontFamily: "monospace" }} />
+          <FieldLabel htmlFor="amazon_sp_seller_id">Seller ID (needed to post or change listings)</FieldLabel>
+          <input id="amazon_sp_seller_id" type="text" value={sellerId} onChange={(e) => setSellerId(e.target.value)}
+            placeholder="A1B2C3D4E5F6G7" autoComplete="off" spellCheck={false}
+            style={{ ...inputStyle, marginBottom: 6, fontFamily: "monospace", textTransform: "uppercase" }} />
+          <div style={{ fontSize: 12, color: C.textDim, lineHeight: 1.5, marginBottom: 12 }}>
+            In Seller Central open <b>Account Info</b> and look for <b>Merchant Token</b> (your Seller ID). It is not a
+            secret. {connected && sellerId.trim().toUpperCase() !== savedSellerId && (
+              <button type="button" onClick={onSaveSellerId} disabled={busy !== null || !sellerId.trim()}
+                style={{ background: "none", border: "none", padding: 0, color: C.amber, cursor: busy || !sellerId.trim() ? "not-allowed" : "pointer", font: "inherit", textDecoration: "underline" }}>
+                {busy === "seller" ? "Saving…" : "Save just the Seller ID"}
+              </button>
+            )}
+          </div>
 
           {error && (
             <div style={{

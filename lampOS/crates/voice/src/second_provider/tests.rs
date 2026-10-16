@@ -504,10 +504,13 @@ async fn sent(engine: &mut Engine) -> Vec<String> {
     }
 }
 
-/// Audio packets sent before the first words: the wait's sound.
+/// Audio packets sent before the first words, the announcement's left
+/// out: the wait's sound.
 fn before_words(sent: &[String]) -> usize {
+    let announcement = format!("audio:{}", ANNOUNCEMENT.len());
     sent.iter()
         .take_while(|event| event.starts_with("audio:"))
+        .filter(|event| **event != announcement)
         .count()
 }
 

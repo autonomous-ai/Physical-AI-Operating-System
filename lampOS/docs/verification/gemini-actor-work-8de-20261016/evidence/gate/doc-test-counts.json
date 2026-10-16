@@ -1,0 +1,58 @@
+{
+  "date_from_date": "2026-10-16 11:12:50 +0700",
+  "command_exit": 0,
+  "targets": [
+    "lamp_gemini",
+    "lamp_memory",
+    "lamp_surround",
+    "lamp_voice",
+    "lamp_voice_eval"
+  ],
+  "results": [
+    {
+      "status": "ok",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0
+    },
+    {
+      "status": "ok",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0
+    },
+    {
+      "status": "ok",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0
+    },
+    {
+      "status": "ok",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0
+    },
+    {
+      "status": "ok",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0
+    }
+  ],
+  "same_five_doc_targets": true,
+  "total_passed": 0,
+  "total_failed": 0,
+  "total_ignored": 0,
+  "normal_tests_reexecuted": false
+}

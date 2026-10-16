@@ -1,0 +1,122 @@
+{
+  "date_from_date": "2026-10-16 11:06:47 +0700",
+  "parent_terminal_notice_before_capture": true,
+  "run": 38846183455,
+  "attempt": 1,
+  "capture": [
+    {
+      "path": "shard1/job.json",
+      "command": [
+        "gh",
+        "api",
+        "repos/autonomous-ai/lampOS/actions/jobs/116797126621"
+      ],
+      "started_from_date": "2026-10-16 11:06:45 +0700",
+      "completed_from_date": "2026-10-16 11:06:46 +0700",
+      "exit": 0,
+      "bytes": 3346,
+      "sha256": "03cdbc27211580fc082bff5fd6676a7ba63d53c62e68779757d1a6c7d82b71cb",
+      "stderr_bytes": 0
+    },
+    {
+      "path": "shard1/job.log",
+      "command": [
+        "gh",
+        "api",
+        "repos/autonomous-ai/lampOS/actions/jobs/116797126621/logs"
+      ],
+      "started_from_date": "2026-10-16 11:06:45 +0700",
+      "completed_from_date": "2026-10-16 11:06:47 +0700",
+      "exit": 0,
+      "bytes": 323138,
+      "sha256": "332b6f6a7af0e8b53e0d86280c0a18b90a5c6f683760e28ee888d96bc530cecb",
+      "stderr_bytes": 0
+    },
+    {
+      "path": "shard2/job.json",
+      "command": [
+        "gh",
+        "api",
+        "repos/autonomous-ai/lampOS/actions/jobs/116797126863"
+      ],
+      "started_from_date": "2026-10-16 11:06:45 +0700",
+      "completed_from_date": "2026-10-16 11:06:46 +0700",
+      "exit": 0,
+      "bytes": 3346,
+      "sha256": "c48824b368afa38a8114b6c2e5bf8f09580b713c4c0ee633252dbcdd0e6d629d",
+      "stderr_bytes": 0
+    },
+    {
+      "path": "shard2/job.log",
+      "command": [
+        "gh",
+        "api",
+        "repos/autonomous-ai/lampOS/actions/jobs/116797126863/logs"
+      ],
+      "started_from_date": "2026-10-16 11:06:45 +0700",
+      "completed_from_date": "2026-10-16 11:06:47 +0700",
+      "exit": 0,
+      "bytes": 321487,
+      "sha256": "bf8b0c59e0cb3b2e469c59df3c0c41b6becf735511812ac6dac8a759046ae62a",
+      "stderr_bytes": 0
+    },
+    {
+      "path": "shard3/job.json",
+      "command": [
+        "gh",
+        "api",
+        "repos/autonomous-ai/lampOS/actions/jobs/116797126912"
+      ],
+      "started_from_date": "2026-10-16 11:06:45 +0700",
+      "completed_from_date": "2026-10-16 11:06:46 +0700",
+      "exit": 0,
+      "bytes": 3346,
+      "sha256": "f232832d3333a44c796104f32922d03e4f521813c115976b713468ef04da08d0",
+      "stderr_bytes": 0
+    },
+    {
+      "path": "shard3/job.log",
+      "command": [
+        "gh",
+        "api",
+        "repos/autonomous-ai/lampOS/actions/jobs/116797126912/logs"
+      ],
+      "started_from_date": "2026-10-16 11:06:45 +0700",
+      "completed_from_date": "2026-10-16 11:06:47 +0700",
+      "exit": 0,
+      "bytes": 292465,
+      "sha256": "f7fe73acc6952b20901af2580840ebdf501384d720934bf531607481bd1b851b",
+      "stderr_bytes": 0
+    },
+    {
+      "path": "run.json",
+      "command": [
+        "gh",
+        "api",
+        "repos/autonomous-ai/lampOS/actions/runs/38846183455"
+      ],
+      "started_from_date": "2026-10-16 11:06:45 +0700",
+      "completed_from_date": "2026-10-16 11:06:46 +0700",
+      "exit": 0,
+      "bytes": 12670,
+      "sha256": "9d7e5987e3c20cd1c872df003bf3067b30bc71dff9185cc5793d3eb7fcf84db6",
+      "stderr_bytes": 0
+    },
+    {
+      "path": "run-jobs.json",
+      "command": [
+        "gh",
+        "api",
+        "repos/autonomous-ai/lampOS/actions/runs/38846183455/attempts/1/jobs?per_page=100"
+      ],
+      "started_from_date": "2026-10-16 11:06:45 +0700",
+      "completed_from_date": "2026-10-16 11:06:46 +0700",
+      "exit": 0,
+      "bytes": 14893,
+      "sha256": "33e7ea6da10481e5e72c42ce0f750833a1f7604f7902a99aa818c6691781baf5",
+      "stderr_bytes": 0
+    }
+  ],
+  "mutation": false,
+  "retry": false
+}

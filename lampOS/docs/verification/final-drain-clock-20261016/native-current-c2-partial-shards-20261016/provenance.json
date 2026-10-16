@@ -1,0 +1,162 @@
+{
+  "date_from_date": "2026-10-16 11:11:38 +0700",
+  "raw_copy_provenance": [
+    {
+      "source": "/private/tmp/tests-823-final-drain-current-native-terminal-three-audit/README.md",
+      "payload": "README.md",
+      "sha256": "918d0bb7f07c2ab152df06cc10f328560e8ee32441dd843bbb4ee10a310a9435",
+      "bytes": 4555
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-current-native-terminal-three-audit/capture.json",
+      "payload": "capture.json",
+      "sha256": "9ef691a23362b130327ef7b561fe36abaf9bd9834595e58721e93dcd0db424b4",
+      "bytes": 3643
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-current-native-terminal-three-audit/run.json",
+      "payload": "run.json",
+      "sha256": "9d7e5987e3c20cd1c872df003bf3067b30bc71dff9185cc5793d3eb7fcf84db6",
+      "bytes": 12670
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-current-native-terminal-three-audit/run-jobs.json",
+      "payload": "run-jobs.json",
+      "sha256": "33e7ea6da10481e5e72c42ce0f750833a1f7604f7902a99aa818c6691781baf5",
+      "bytes": 14893
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-current-native-terminal-three-audit/runtime-identities.tsv",
+      "payload": "runtime-identities.tsv",
+      "sha256": "7046bac660a417f63e3957b5e4a6af1b987aa61739cb8f4933d02fae0e3b8568",
+      "bytes": 486014
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-current-native-terminal-three-audit/per-binary-observed-timing.tsv",
+      "payload": "per-binary-observed-timing.tsv",
+      "sha256": "0ee85ce5f53fa92bed0862166ab83d2177d44926629763d76ccd834d371980fe",
+      "bytes": 20736
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-current-native-terminal-three-audit/doc-and-own-harness.json",
+      "payload": "doc-and-own-harness.json",
+      "sha256": "4a3ce8e159dd8408d21fff67bafce5527317624d3faa32ae1b2588f6748612bc",
+      "bytes": 10587
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-current-native-terminal-three-audit/source-input-proof.json",
+      "payload": "source-input-proof.json",
+      "sha256": "449168532402462b812c70a2fb3597fe3725525595ee4bd80c6d9118ddf51007",
+      "bytes": 21675
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-current-native-terminal-three-audit/partial-result-audit.json",
+      "payload": "partial-result-audit.json",
+      "sha256": "8a2643bf50ea9a1be43da3bb7411273d98393b927c59bcb531475dee72345ba4",
+      "bytes": 37882
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-current-native-terminal-three-audit/numbered-log-checkpoints.txt",
+      "payload": "numbered-log-checkpoints.txt",
+      "sha256": "9fbeef868c0d7c2f45bc15204c39c6f34547b021e13fbc19e2c8170706504bd9",
+      "bytes": 3393
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-current-native-terminal-three-audit/scripts.json",
+      "payload": "scripts.json",
+      "sha256": "b53632801586aa91a54cd47b20a496da2199a127e50bbc980d5e5013b2af5ec5",
+      "bytes": 762
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-current-native-terminal-three-audit/shard1/job.json",
+      "payload": "shard1/job.json",
+      "sha256": "03cdbc27211580fc082bff5fd6676a7ba63d53c62e68779757d1a6c7d82b71cb",
+      "bytes": 3346
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-current-native-terminal-three-audit/shard1/job.log",
+      "payload": "shard1/job.log",
+      "sha256": "332b6f6a7af0e8b53e0d86280c0a18b90a5c6f683760e28ee888d96bc530cecb",
+      "bytes": 323138
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-current-native-terminal-three-audit/shard2/job.json",
+      "payload": "shard2/job.json",
+      "sha256": "c48824b368afa38a8114b6c2e5bf8f09580b713c4c0ee633252dbcdd0e6d629d",
+      "bytes": 3346
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-current-native-terminal-three-audit/shard2/job.log",
+      "payload": "shard2/job.log",
+      "sha256": "bf8b0c59e0cb3b2e469c59df3c0c41b6becf735511812ac6dac8a759046ae62a",
+      "bytes": 321487
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-current-native-terminal-three-audit/shard3/job.json",
+      "payload": "shard3/job.json",
+      "sha256": "f232832d3333a44c796104f32922d03e4f521813c115976b713468ef04da08d0",
+      "bytes": 3346
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-current-native-terminal-three-audit/shard3/job.log",
+      "payload": "shard3/job.log",
+      "sha256": "f7fe73acc6952b20901af2580840ebdf501384d720934bf531607481bd1b851b",
+      "bytes": 292465
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-current-native-terminal-three-audit/coverage/local521-missing.tsv",
+      "payload": "coverage/local521-missing.tsv",
+      "sha256": "40feacb56a8532cf0e65dcfbe6201b1f91685f46ac1df0674cc2e9945855960c",
+      "bytes": 13423
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-current-native-terminal-three-audit/coverage/local521.tsv",
+      "payload": "coverage/local521.tsv",
+      "sha256": "b11379ff8a0f2ddf6d44a1e053a296028e074f613ada5dbe7df419bc0ca4569e",
+      "bytes": 63479
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-current-native-terminal-three-audit/coverage/new6-missing.tsv",
+      "payload": "coverage/new6-missing.tsv",
+      "sha256": "6ba93b4eb57ef0706d29cff641ba91dfbd169c33a13c1f8cf20f344b10a9af4d",
+      "bytes": 256
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-current-native-terminal-three-audit/coverage/new6.tsv",
+      "payload": "coverage/new6.tsv",
+      "sha256": "332c644f0789f03e6fa212ef946ee0ca6b70db6bea1392fb6a7086d39cc34bcf",
+      "bytes": 836
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-current-native-terminal-three-audit/coverage/original123-missing.tsv",
+      "payload": "coverage/original123-missing.tsv",
+      "sha256": "e1a7e6cdaf967f923017361979600d4622175dfc0d883f607a6f15537eb3b934",
+      "bytes": 3130
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-current-native-terminal-three-audit/coverage/original123.tsv",
+      "payload": "coverage/original123.tsv",
+      "sha256": "14dcd34496915f972e3037836dd9fe9415cf9b596c1cf4b6e3b737d1e641073d",
+      "bytes": 14162
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-current-native-audit/expected-full-membership.json",
+      "payload": "expected-full-membership.json",
+      "sha256": "fecf6de835b96fcd01c1a4cfa7d5c8a8a60903a08de5bc0c8bbc20706362b3b7",
+      "bytes": 114474
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-current-native-failure-publication-files.json",
+      "payload": "prior37-publication-files.json",
+      "sha256": "c502ca41ee2cc6bf6b7b0d4c961aaf2e7c0bff3a1397642def248d84d8e1317f",
+      "bytes": 17443
+    }
+  ],
+  "empty_stderr_not_published": "All eight capture calls exited 0 and stderr_bytes=0, retained in capture.json; empty files remain external.",
+  "frozen37_unchanged": true,
+  "base_and_run": {
+    "head": "c2eacfa4e29a5c9db21d4d919a77d33ce8112238",
+    "run": 38846183455,
+    "attempt": 1
+  }
+}

@@ -1,0 +1,84 @@
+{
+  "date_from_date": "2026-10-16 10:25:22 +0700",
+  "session": {
+    "enqueue": {
+      "retained_body_in": "enqueue_unobserved",
+      "byte_equal": true,
+      "body_sha256": "13fc04c4ad3e2a59b2bbe3c96f9771ada4fa1fbd2bd5b39e573f8195114af438"
+    },
+    "command": {
+      "retained_body_in": "command_unobserved",
+      "byte_equal": true,
+      "body_sha256": "3e63e5d7149ef1fa5df507b2b336d27ba4173a4a5161a044a8a0ffa3d6f20b7a"
+    },
+    "setup_and_spawn_with_sources": {
+      "retained_body_in": "setup_and_spawn_with_work_source",
+      "remove_only_install_and_optional_field_then_byte_equal": true,
+      "original_body_sha256": "63bb4d7996e4b999b9dd8ca0afd2f3bc24b90cf75dd4705dd4ef5295b1a1d4d0"
+    },
+    "serve": {
+      "remove_only_two_maintenance_hooks_and_post_stop_count_then_byte_equal": true,
+      "original_body_sha256": "56ff0d05cb02fb8dbb918eb12b0d30179384f9b08b44d31fc3599645f13a299d"
+    },
+    "run": {
+      "body_byte_equal": true,
+      "body_sha256": "e8675d03cf0040576c20eb25576c3d8cfb010befe93c21277810c31c3525505a"
+    },
+    "drain": {
+      "body_byte_equal": true,
+      "body_sha256": "2172dbfc0b3b4ecbf6f17104e40d066ac5e11c91f1e5ff5f6d2c39908214dbf5"
+    },
+    "send_image": {
+      "body_byte_equal": true,
+      "body_sha256": "8f5f13fbc81b5b957c2d018d6bc808b4d956f26e0a29715469ffdd56f1a3f3ed"
+    },
+    "write": {
+      "body_byte_equal": true,
+      "body_sha256": "5d448303d9d3f29eb20b07f126c4431d7bee2f01a494c31225f52bcb88a86daf"
+    },
+    "check_age": {
+      "body_byte_equal": true,
+      "body_sha256": "74aec70e8e682c7b4835d923c2a6666231dadfc818027ab38d6397fc8ed35158"
+    },
+    "message": {
+      "body_byte_equal": true,
+      "body_sha256": "bc306dcbedeb70cd187d132b74afa863871f27193289aedb16d53d77325dfca4"
+    },
+    "flush": {
+      "body_byte_equal": true,
+      "body_sha256": "875b3a4bfc77c98ed2a162dfcfb134c2b39367f9c040e9e1ac6397b3ed9ecea0"
+    },
+    "next_event": {
+      "body_byte_equal": true,
+      "body_sha256": "be8e4efc1029a8b2b360f143a3140a7b42b1c07289b71e83a26fb2fc6d1da802"
+    }
+  },
+  "all_existing_testing_function_bodies_byte_equal": [
+    "accept",
+    "audio",
+    "burst",
+    "close",
+    "connect",
+    "connector",
+    "connector_with_capacity",
+    "connector_with_capture_clock",
+    "connector_with_clock_source",
+    "connector_with_sources",
+    "dial_within",
+    "jpeg",
+    "next_dial",
+    "pair",
+    "pair_with_capture_clock",
+    "pair_with_clock_source",
+    "pair_with_sources",
+    "receive",
+    "rest",
+    "send",
+    "sent_audio",
+    "supervisor_with_capture_clock_and_joins",
+    "try_receive"
+  ],
+  "all_old_test_source_files_absent_from_candidate": true,
+  "default_source": "ActorWorkSource::Plain produces no recorder; non-test builds without fixture-clock omit recorder fields and hooks. Enqueue/command wrappers delegate the original bodies exactly once; setup delegates the original body with Plain. No new task/select arm/yield/clock sample/protocol message.",
+  "limit": "Direct Rust source proof only, not compiled or execution evidence."
+}

@@ -1,0 +1,18 @@
+{
+  "name": "workspace-build",
+  "command": [
+    "/Users/autonomous/.cargo/bin/cargo",
+    "build",
+    "--workspace",
+    "--locked",
+    "--offline"
+  ],
+  "cwd": "/private/tmp/lampos-tests-gemini-actor-work/lampOS",
+  "target": "/private/tmp/tests-823-rebase-target",
+  "started_from_date": "2026-10-16 11:11:15 +0700",
+  "free_disk_bytes": 15745515520,
+  "finished_from_date": "2026-10-16 11:12:44 +0700",
+  "exit": 0,
+  "log_sha256": "01352224f2337139e45ec1e258fa92970e239ddc9ccc135ab1623a794fffe2fe",
+  "free_disk_bytes_after": 15679279104
+}

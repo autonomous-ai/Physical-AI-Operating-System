@@ -1,0 +1,12 @@
+{
+  "command": [
+    "python3",
+    "/private/tmp/tests-823-audit-final-drain-fixed-static.py"
+  ],
+  "started": "2026-10-16 11:06:20 +0700",
+  "finished": "2026-10-16 11:06:38 +0700",
+  "exit_code": 0,
+  "stdout_sha256": "af9dfaf34331b856016ba314e4b25bd94fc0d942f75432f97b07e77982c5bfd5",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "no_gate_execution_read_or_run": true
+}

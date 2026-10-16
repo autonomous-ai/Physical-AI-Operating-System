@@ -1,0 +1,18 @@
+{
+  "name": "fmt",
+  "command": [
+    "/Users/autonomous/.cargo/bin/cargo",
+    "fmt",
+    "--all",
+    "--",
+    "--check"
+  ],
+  "cwd": "/private/tmp/lampos-tests-gemini-actor-work/lampOS",
+  "target": "/private/tmp/tests-823-rebase-target",
+  "started_from_date": "2026-10-16 10:42:25 +0700",
+  "free_disk_bytes": 7015755776,
+  "finished_from_date": "2026-10-16 10:42:33 +0700",
+  "exit": 0,
+  "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "free_disk_bytes_after": 6994604032
+}

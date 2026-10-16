@@ -1,0 +1,18 @@
+{
+  "date_from_date": "2026-10-16 11:20:21 +0700",
+  "base": "8de22aef8d5526f83b48b279e71706d71e7cdf5b",
+  "baseline_metadata_sha256": "ea6c845004670771258264b5ed426b3e999afcf9f8fe004cd0477672ed389a3d",
+  "candidate_metadata_sha256": "ea6c845004670771258264b5ed426b3e999afcf9f8fe004cd0477672ed389a3d",
+  "metadata_byte_equal": true,
+  "all_workspace_resolved_reverse_dependents_included": true,
+  "affected_packages": [
+    "lamp-gemini",
+    "lamp-memory",
+    "lamp-surround",
+    "lamp-voice",
+    "lamp-voice-eval"
+  ],
+  "scope": "Workspace reverse closure from actual resolved normal/build/dev dependency edges; no production equivalence or native-runtime claim.",
+  "resolved_nodes": 432,
+  "workspace_members": 38
+}

@@ -1,0 +1,9 @@
+{
+  "date_from_date": "2026-10-16 10:37:32 +0700",
+  "root_release": "Target exclusively released for this first Actor gate; fresh clean 8de baseline required",
+  "initial_candidate_input_count": 7560,
+  "reviewed_diff_sha256": "84736e2e20e51b7732bd95cb2baad0e7d23a688487531db2dede9c9fd543a790",
+  "source_action": "Restore only our five paths to captured clean base; compile baseline; then reapply the identical reviewed bytes. No new source correction or test-body change.",
+  "target": "/private/tmp/tests-823-rebase-target",
+  "free_disk_bytes": 7988432896
+}

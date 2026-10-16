@@ -1,0 +1,65 @@
+{
+  "date_from_date": "2026-10-16 10:26:03 +0700",
+  "first_candidate_manifest_sha256": "7a887f785a8a24af9de03032244352ee82e24f886689e0bce736381c72bbd903",
+  "first_original_directory_also_verified_unchanged": true,
+  "all_first_manifested_files_verified": 29,
+  "owned": [
+    {
+      "path": "lampOS/crates/gemini/src/session.rs",
+      "first_sha256": "59a72dce62b0e3340ba355fdc760ef819f79c385fc72bffcf7a9a7409962ae3c",
+      "corrected_sha256": "59a72dce62b0e3340ba355fdc760ef819f79c385fc72bffcf7a9a7409962ae3c",
+      "changed": false
+    },
+    {
+      "path": "lampOS/crates/gemini/src/testing.rs",
+      "first_sha256": "49e2a90924476d9abf3a896e26bb2750467cc594e6fa5ce3ee154b470d11e0a7",
+      "corrected_sha256": "49e2a90924476d9abf3a896e26bb2750467cc594e6fa5ce3ee154b470d11e0a7",
+      "changed": false
+    },
+    {
+      "path": "lampOS/crates/gemini/src/testing/actor_work.rs",
+      "first_sha256": "01b788d9b47efce06fec3547564af81782c9a829865bdadd0868aa740e8fa52a",
+      "corrected_sha256": "ee2932572e624ea4b861aa708760b09e8a5f59067a2bf82eb25bd41adf59261f",
+      "changed": true
+    },
+    {
+      "path": "lampOS/crates/gemini/src/session/actor_work_tests.rs",
+      "first_sha256": "4a3ff2c8feda35a184064efaed76eee2114d45fe11bbc900b69b5e118b76d6d5",
+      "corrected_sha256": "9f7a8e26b83007e2a364dd11a490f3e64ee934f5504ddfd999265b9bf949527e",
+      "changed": true
+    },
+    {
+      "path": "lampOS/docs/gemini-session-reliability.md",
+      "first_sha256": "5e4ee47e1e422283bffbbfb4972dff25ea5490dc6d32aa6230b48839431ce946",
+      "corrected_sha256": "6efaed0a12d3bd6038fcc8d5d819d3011d048572003a2eb1e5f30b99ae8bbb83",
+      "changed": true
+    }
+  ],
+  "changed_only": [
+    "lampOS/crates/gemini/src/testing/actor_work.rs",
+    "lampOS/crates/gemini/src/session/actor_work_tests.rs",
+    "lampOS/docs/gemini-session-reliability.md"
+  ],
+  "forward_diff_sha256": "2645a9bdec131d005fd97bd03ea2c2017b2065bcc5f3ac031c8a31dc082079db",
+  "inverse_diff_sha256": "937549d01493b33bc2edd42291c27258cf25e0b2daa67ebbbe45edc3a1c667c1",
+  "inverse": {
+    "command": [
+      "patch",
+      "--batch",
+      "-E",
+      "-p1",
+      "-i",
+      "/private/tmp/tests-823-gemini-actor-work-frontier-corrected/frontier-correction-inverse.diff"
+    ],
+    "started_from_date": "2026-10-16 10:26:03 +0700",
+    "finished_from_date": "2026-10-16 10:26:03 +0700",
+    "exit": 0,
+    "restores_all_five_first_candidate_sources_byte_exact": true
+  },
+  "session_and_testing_hook_files_unchanged": true,
+  "capture_boundary": "Both counters captured under the same update lock before maintenance returns its guard; copied guard fields used at completed. Buffers still describe completion.",
+  "state_cost": "Two additional u64 values in the existing stack-owned Maintenance guard; no new allocation, retained history, task, clock or public counter.",
+  "no_clock_advance_or_idle_claim": true,
+  "cargo_commands": 0,
+  "test_executions": 0
+}

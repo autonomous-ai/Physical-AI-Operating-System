@@ -1,0 +1,31 @@
+{
+  "date_from_date": "2026-10-16 10:26:03 +0700",
+  "first_fifteen_source_identities_retained_exactly": [
+    "public_factory_installs_before_admission_and_acceptance_is_not_handling_or_output_consumption",
+    "actual_blocked_audio_write_has_no_return_receipt_until_transport_accepts_it",
+    "original_stop_returns_closed_from_the_handler_but_the_actual_actor_task_returns_unit",
+    "actual_actor_abort_abandons_entered_handling_without_inventing_a_returned_result",
+    "actual_actor_panic_keeps_its_join_error_and_never_becomes_a_handler_success",
+    "actual_input_sequence_error_is_recorded_as_the_original_result_not_a_task_error",
+    "kept_start_and_audio_are_actually_handled_while_intentionally_unsent",
+    "image_held_replay_uses_the_same_handler_and_only_then_completes_maintenance",
+    "aborting_image_maintenance_drops_its_private_queue_without_claiming_handlers_returned",
+    "concurrent_real_input_clones_reconcile_only_after_both_producers_finish",
+    "observation_overflow_and_poison_preserve_real_start_result_wire_and_join",
+    "foreign_same_session_snapshot_is_refused_and_cancelled_wait_loses_no_real_receipt",
+    "unpolled_setup_drop_has_neither_installation_nor_handler_or_maintenance_receipts",
+    "existing_factories_remain_unobserved_with_fixture_support_enabled",
+    "publication_can_follow_handler_return_without_faulting_or_claiming_settled_admission"
+  ],
+  "new_identity": "session::actor_work_tests::maintenance_covers_only_its_entry_frontier_until_a_later_complete_pass",
+  "fourteen_first_candidate_test_bodies_byte_equal": true,
+  "image_case_only_additions": [
+    "    let image_pass = work.snapshot().maintenance_started;\n",
+    "    // Image-held commands return late in that pass. Coverage requires a later\n    // whole pass, not just completing the pass which replayed those commands.\n    assert!(completed.last_maintenance.unwrap().ordinal > image_pass);\n    assert_eq!(completed.commands_returned, 2 + INPUT_QUEUE_CAPACITY as u64);\n"
+  ],
+  "image_original_statements_assertions_bounds_all_retained": true,
+  "removing_exact_additions_and_appended_test_restores_entire_first_test_file": true,
+  "first_test_file_sha256": "4a3ff2c8feda35a184064efaed76eee2114d45fe11bbc900b69b5e118b76d6d5",
+  "corrected_test_file_sha256": "9f7a8e26b83007e2a364dd11a490f3e64ee934f5504ddfd999265b9bf949527e",
+  "test_executions": 0
+}

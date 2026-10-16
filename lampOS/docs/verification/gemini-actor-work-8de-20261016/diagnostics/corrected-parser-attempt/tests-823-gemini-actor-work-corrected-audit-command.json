@@ -1,0 +1,14 @@
+{
+  "command": [
+    "python3",
+    "/private/tmp/tests-823-audit-gemini-actor-work-corrected.py"
+  ],
+  "started_from_date": "2026-10-16 11:21:00 +0700",
+  "finished_from_date": "2026-10-16 11:21:07 +0700",
+  "exit_code": 0,
+  "stdout_path": "/private/tmp/tests-823-gemini-actor-work-corrected-audit.stdout",
+  "stdout_sha256": "36b1150175dfe22548f8b3584697cc5e6f573a3d21dc09395144e6217b6d3794",
+  "stderr_path": "/private/tmp/tests-823-gemini-actor-work-corrected-audit.stderr",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "correction_scope": "Parser-only correction: ignored identities explicitly have mismatch/ignored in nextest listing. No source, log, test or gate alteration."
+}

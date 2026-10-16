@@ -1,0 +1,96 @@
+{
+  "date_from_date": "2026-10-16 10:48:32 +0700",
+  "baseline_raw_sha256": "486e39417a1bd65ab97a570c70c86bc98741c598ba9b23d91314455b2293b0f1",
+  "candidate_raw_sha256": "b39d5bfc84ce9b2fec51177142e6353d3dfc9eb14b5e46fb998192bd0a29ed91",
+  "before_count": 2726,
+  "after_count": 2742,
+  "before_ignored": 15,
+  "after_ignored": 15,
+  "removed": [],
+  "ignore_changes": [],
+  "added": [
+    {
+      "binary": "lamp-gemini",
+      "test": "session::actor_work_tests::aborting_image_maintenance_drops_its_private_queue_without_claiming_handlers_returned",
+      "ignored": false
+    },
+    {
+      "binary": "lamp-gemini",
+      "test": "session::actor_work_tests::actual_actor_abort_abandons_entered_handling_without_inventing_a_returned_result",
+      "ignored": false
+    },
+    {
+      "binary": "lamp-gemini",
+      "test": "session::actor_work_tests::actual_actor_panic_keeps_its_join_error_and_never_becomes_a_handler_success",
+      "ignored": false
+    },
+    {
+      "binary": "lamp-gemini",
+      "test": "session::actor_work_tests::actual_blocked_audio_write_has_no_return_receipt_until_transport_accepts_it",
+      "ignored": false
+    },
+    {
+      "binary": "lamp-gemini",
+      "test": "session::actor_work_tests::actual_input_sequence_error_is_recorded_as_the_original_result_not_a_task_error",
+      "ignored": false
+    },
+    {
+      "binary": "lamp-gemini",
+      "test": "session::actor_work_tests::concurrent_real_input_clones_reconcile_only_after_both_producers_finish",
+      "ignored": false
+    },
+    {
+      "binary": "lamp-gemini",
+      "test": "session::actor_work_tests::existing_factories_remain_unobserved_with_fixture_support_enabled",
+      "ignored": false
+    },
+    {
+      "binary": "lamp-gemini",
+      "test": "session::actor_work_tests::foreign_same_session_snapshot_is_refused_and_cancelled_wait_loses_no_real_receipt",
+      "ignored": false
+    },
+    {
+      "binary": "lamp-gemini",
+      "test": "session::actor_work_tests::image_held_replay_uses_the_same_handler_and_only_then_completes_maintenance",
+      "ignored": false
+    },
+    {
+      "binary": "lamp-gemini",
+      "test": "session::actor_work_tests::kept_start_and_audio_are_actually_handled_while_intentionally_unsent",
+      "ignored": false
+    },
+    {
+      "binary": "lamp-gemini",
+      "test": "session::actor_work_tests::maintenance_covers_only_its_entry_frontier_until_a_later_complete_pass",
+      "ignored": false
+    },
+    {
+      "binary": "lamp-gemini",
+      "test": "session::actor_work_tests::observation_overflow_and_poison_preserve_real_start_result_wire_and_join",
+      "ignored": false
+    },
+    {
+      "binary": "lamp-gemini",
+      "test": "session::actor_work_tests::original_stop_returns_closed_from_the_handler_but_the_actual_actor_task_returns_unit",
+      "ignored": false
+    },
+    {
+      "binary": "lamp-gemini",
+      "test": "session::actor_work_tests::public_factory_installs_before_admission_and_acceptance_is_not_handling_or_output_consumption",
+      "ignored": false
+    },
+    {
+      "binary": "lamp-gemini",
+      "test": "session::actor_work_tests::publication_can_follow_handler_return_without_faulting_or_claiming_settled_admission",
+      "ignored": false
+    },
+    {
+      "binary": "lamp-gemini",
+      "test": "session::actor_work_tests::unpolled_setup_drop_has_neither_installation_nor_handler_or_maintenance_receipts",
+      "ignored": false
+    }
+  ],
+  "exact_sixteen": true,
+  "same_package_graph": true,
+  "expected_map_exact": true
+}

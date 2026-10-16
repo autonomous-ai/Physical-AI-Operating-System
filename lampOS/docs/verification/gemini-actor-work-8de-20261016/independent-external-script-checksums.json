@@ -1,0 +1,20 @@
+[
+  {
+    "path": "/private/tmp/tests-823-audit-gemini-actor-work.py",
+    "bytes": 18501,
+    "sha256": "1f1bc4441c2340abc6085266f3768aea8df3039888ac9cf4bf7104538cfc60da",
+    "included_in_payload": false
+  },
+  {
+    "path": "/private/tmp/tests-823-audit-gemini-actor-work-corrected.py",
+    "bytes": 18576,
+    "sha256": "ae693626cf518429180d52765ba7be110eb739c1ce78741138329dc4caa646c6",
+    "included_in_payload": false
+  },
+  {
+    "path": "/private/tmp/tests-823-package-gemini-actor-work-git-safe.py",
+    "bytes": 13844,
+    "sha256": "750d40a99c05bfb4c9cb5884c8547b338e8c16652fe369007efcc9efdef353cd",
+    "included_in_payload": false
+  }
+]

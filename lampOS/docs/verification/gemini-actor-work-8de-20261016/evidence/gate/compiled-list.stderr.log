@@ -1,0 +1,6 @@
+   Compiling lamp-gemini v0.1.0 (/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/gemini)
+   Compiling lamp-voice v0.1.0 (/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice)
+   Compiling lamp-voice-eval v0.1.0 (/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice-eval)
+   Compiling lamp-surround v0.1.0 (/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/surround)
+   Compiling lamp-memory v0.1.0 (/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/memory)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3m 14s

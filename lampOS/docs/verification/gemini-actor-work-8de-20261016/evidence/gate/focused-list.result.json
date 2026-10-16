@@ -1,0 +1,33 @@
+{
+  "name": "focused-list",
+  "command": [
+    "/Users/autonomous/.cargo/bin/cargo",
+    "nextest",
+    "list",
+    "--locked",
+    "--offline",
+    "-p",
+    "lamp-gemini",
+    "-p",
+    "lamp-memory",
+    "-p",
+    "lamp-surround",
+    "-p",
+    "lamp-voice",
+    "-p",
+    "lamp-voice-eval",
+    "--message-format",
+    "json",
+    "-E",
+    "test(session::actor_work_tests::)"
+  ],
+  "cwd": "/private/tmp/lampos-tests-gemini-actor-work/lampOS",
+  "target": "/private/tmp/tests-823-rebase-target",
+  "started_from_date": "2026-10-16 10:48:33 +0700",
+  "free_disk_bytes": 5787918336,
+  "finished_from_date": "2026-10-16 10:48:40 +0700",
+  "exit": 0,
+  "log_sha256": "24b1df482e145df94e8528c05fd7f45db33f2723ad7c017b2ffdea16333182ab",
+  "free_disk_bytes_after": 5786918912,
+  "stderr_sha256": "4214ae45ad7cb8033e3178583c26e891117a2fea08777a283f040a5b73b09c7f"
+}

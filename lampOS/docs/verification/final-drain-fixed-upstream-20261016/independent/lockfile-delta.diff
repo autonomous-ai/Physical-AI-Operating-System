@@ -1,0 +1,12 @@
+diff --git a/lampOS/Cargo.lock b/lampOS/Cargo.lock
+index 957606464..05d7c7157 100644
+--- a/lampOS/Cargo.lock
++++ b/lampOS/Cargo.lock
+@@ -2036,6 +2036,7 @@ dependencies = [
+  "lamp-ipc",
+  "lamp-msgs",
+  "rustix",
++ "rustls",
+  "serde",
+  "serde_json",
+  "tokio",

@@ -1,0 +1,1741 @@
+{
+  "date_from_date": "2026-10-16 10:37:34 +0700",
+  "seed": "lamp-gemini",
+  "scope": "All workspace resolved normal/build/dev edges",
+  "names": [
+    "lamp-gemini",
+    "lamp-memory",
+    "lamp-surround",
+    "lamp-voice",
+    "lamp-voice-eval"
+  ],
+  "args": [
+    "-p",
+    "lamp-gemini",
+    "-p",
+    "lamp-memory",
+    "-p",
+    "lamp-surround",
+    "-p",
+    "lamp-voice",
+    "-p",
+    "lamp-voice-eval"
+  ],
+  "packages": [
+    {
+      "name": "lamp-gemini",
+      "id": "path+file:///private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/gemini#lamp-gemini@0.1.0",
+      "features": [
+        "default"
+      ],
+      "manifest_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/gemini/Cargo.toml",
+      "targets": [
+        {
+          "kind": [
+            "lib"
+          ],
+          "crate_types": [
+            "lib"
+          ],
+          "name": "lamp_gemini",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/gemini/src/lib.rs",
+          "edition": "2024",
+          "doc": true,
+          "doctest": true,
+          "test": true
+        },
+        {
+          "kind": [
+            "example"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "early_end_probe",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/gemini/examples/early_end_probe.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "example"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "service_probe",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/gemini/examples/service_probe.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": false
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "comparison_config",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/gemini/tests/comparison_config.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "review_2026_10_14",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/gemini/tests/review_2026_10_14.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "wire",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/gemini/tests/wire.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        }
+      ],
+      "workspace_dependencies": []
+    },
+    {
+      "name": "lamp-memory",
+      "id": "path+file:///private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/memory#lamp-memory@0.1.0",
+      "features": [],
+      "manifest_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/memory/Cargo.toml",
+      "targets": [
+        {
+          "kind": [
+            "lib"
+          ],
+          "crate_types": [
+            "lib"
+          ],
+          "name": "lamp_memory",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/memory/src/lib.rs",
+          "edition": "2024",
+          "doc": true,
+          "doctest": true,
+          "test": true
+        },
+        {
+          "kind": [
+            "bin"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "lamp-memory",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/memory/src/main.rs",
+          "edition": "2024",
+          "doc": true,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "bin"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "lamp-memory-eval",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/memory/src/bin/lamp-memory-eval.rs",
+          "edition": "2024",
+          "doc": true,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "bin"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "lamp-memory-fixture",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/memory/src/bin/lamp-memory-fixture.rs",
+          "edition": "2024",
+          "doc": true,
+          "doctest": false,
+          "test": false
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "binary",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/memory/tests/binary.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "days",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/memory/tests/days.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "days_timing",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/memory/tests/days_timing.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "fixture_child",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/memory/tests/fixture_child.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "health",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/memory/tests/health.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "health_control",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/memory/tests/health_control.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "health_timing",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/memory/tests/health_timing.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "retrieval",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/memory/tests/retrieval.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "server",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/memory/tests/server.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "timing",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/memory/tests/timing.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "voice",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/memory/tests/voice.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "voice_people",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/memory/tests/voice_people.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "voice_submit",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/memory/tests/voice_submit.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "voice_timing",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/memory/tests/voice_timing.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        }
+      ],
+      "workspace_dependencies": [
+        {
+          "name": "lamp-bus",
+          "kinds": [
+            {
+              "kind": null,
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-gemini",
+          "kinds": [
+            {
+              "kind": "dev",
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-ipc",
+          "kinds": [
+            {
+              "kind": null,
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-msgs",
+          "kinds": [
+            {
+              "kind": null,
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-voice",
+          "kinds": [
+            {
+              "kind": "dev",
+              "target": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "lamp-surround",
+      "id": "path+file:///private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/surround#lamp-surround@0.1.0",
+      "features": [
+        "default"
+      ],
+      "manifest_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/surround/Cargo.toml",
+      "targets": [
+        {
+          "kind": [
+            "lib"
+          ],
+          "crate_types": [
+            "lib"
+          ],
+          "name": "lamp_surround",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/surround/src/lib.rs",
+          "edition": "2024",
+          "doc": true,
+          "doctest": true,
+          "test": true
+        },
+        {
+          "kind": [
+            "bin"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "lamp-surround",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/surround/src/main.rs",
+          "edition": "2024",
+          "doc": true,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "example"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "operator_bench",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/surround/examples/operator_bench.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": false
+        },
+        {
+          "kind": [
+            "example"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "update_replay",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/surround/examples/update_replay.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": false
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "atomic",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/surround/tests/atomic.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "cli",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/surround/tests/cli.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "config",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/surround/tests/config.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "configuration",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/surround/tests/configuration.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "http_limit",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/surround/tests/http_limit.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "network",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/surround/tests/network.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "operator",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/surround/tests/operator.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "owner",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/surround/tests/owner.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "release",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/surround/tests/release.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "reset",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/surround/tests/reset.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "runtime",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/surround/tests/runtime.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "selection",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/surround/tests/selection.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "setup",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/surround/tests/setup.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "startup",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/surround/tests/startup.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "tls_provider",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/surround/tests/tls_provider.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "update",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/surround/tests/update.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "worker",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/surround/tests/worker.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        }
+      ],
+      "workspace_dependencies": [
+        {
+          "name": "lamp-bus",
+          "kinds": [
+            {
+              "kind": null,
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-gemini",
+          "kinds": [
+            {
+              "kind": null,
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-ipc",
+          "kinds": [
+            {
+              "kind": null,
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-msgs",
+          "kinds": [
+            {
+              "kind": null,
+              "target": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "lamp-voice",
+      "id": "path+file:///private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice#lamp-voice@0.1.0",
+      "features": [],
+      "manifest_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice/Cargo.toml",
+      "targets": [
+        {
+          "kind": [
+            "lib"
+          ],
+          "crate_types": [
+            "lib"
+          ],
+          "name": "lamp_voice",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice/src/lib.rs",
+          "edition": "2024",
+          "doc": true,
+          "doctest": true,
+          "test": true
+        },
+        {
+          "kind": [
+            "bin"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "lamp-voice",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice/src/main.rs",
+          "edition": "2024",
+          "doc": true,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "example"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "admission_latency",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice/examples/admission_latency.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": false
+        },
+        {
+          "kind": [
+            "example"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "duplex_lab",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice/examples/duplex_lab.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": false
+        },
+        {
+          "kind": [
+            "example"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "head_qualification_operator",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice/examples/head_qualification_operator.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": false
+        },
+        {
+          "kind": [
+            "example"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "reference_pace",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice/examples/reference_pace.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": false
+        },
+        {
+          "kind": [
+            "example"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "ring_process_probe",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice/examples/ring_process_probe.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": false
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "admission",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice/tests/admission.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "call_wait",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice/tests/call_wait.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "camera_config",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice/tests/camera_config.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "camera_runtime",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice/tests/camera_runtime.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "capture_hold_worker",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice/tests/capture_hold_worker.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "core",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice/tests/core.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "diagnostics",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice/tests/diagnostics.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "end_silence",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice/tests/end_silence.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "endpoint_confirmation",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice/tests/endpoint_confirmation.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "expression_out",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice/tests/expression_out.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "first_control_message",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice/tests/first_control_message.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "fixture_provider",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice/tests/fixture_provider.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "privacy_state",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice/tests/privacy_state.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "process",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice/tests/process.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "progress_news",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice/tests/progress_news.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "provider_config",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice/tests/provider_config.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "reference_link",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice/tests/reference_link.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "reference_prime",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice/tests/reference_prime.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "review_2026_10_14",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice/tests/review_2026_10_14.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "ring_worker",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice/tests/ring_worker.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "visual_options",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice/tests/visual_options.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        }
+      ],
+      "workspace_dependencies": [
+        {
+          "name": "lamp-actions",
+          "kinds": [
+            {
+              "kind": "dev",
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-audio",
+          "kinds": [
+            {
+              "kind": null,
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-body",
+          "kinds": [
+            {
+              "kind": null,
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-bus",
+          "kinds": [
+            {
+              "kind": null,
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-camera",
+          "kinds": [
+            {
+              "kind": null,
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-controls",
+          "kinds": [
+            {
+              "kind": null,
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-expression",
+          "kinds": [
+            {
+              "kind": "dev",
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-gemini",
+          "kinds": [
+            {
+              "kind": null,
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-ipc",
+          "kinds": [
+            {
+              "kind": null,
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-msgs",
+          "kinds": [
+            {
+              "kind": null,
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-policy",
+          "kinds": [
+            {
+              "kind": "dev",
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-ring",
+          "kinds": [
+            {
+              "kind": null,
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-schedule",
+          "kinds": [
+            {
+              "kind": null,
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-turn-end-wire",
+          "kinds": [
+            {
+              "kind": null,
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-turn-owner",
+          "kinds": [
+            {
+              "kind": null,
+              "target": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "lamp-voice-eval",
+      "id": "path+file:///private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice-eval#lamp-voice-eval@0.1.0",
+      "features": [],
+      "manifest_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice-eval/Cargo.toml",
+      "targets": [
+        {
+          "kind": [
+            "lib"
+          ],
+          "crate_types": [
+            "lib"
+          ],
+          "name": "lamp_voice_eval",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice-eval/src/lib.rs",
+          "edition": "2024",
+          "doc": true,
+          "doctest": true,
+          "test": true
+        },
+        {
+          "kind": [
+            "bin"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "lamp-voice-eval",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice-eval/src/main.rs",
+          "edition": "2024",
+          "doc": true,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "example"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "turn_end_replay",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice-eval/examples/turn_end_replay.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": false
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "acceptance_boundaries",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice-eval/tests/acceptance_boundaries.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "answer_review",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice-eval/tests/answer_review.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "audit_final_dispatch",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice-eval/tests/audit_final_dispatch.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "audit_importer",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice-eval/tests/audit_importer.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "audit_runner_dispatch",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice-eval/tests/audit_runner_dispatch.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "canary_plan",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice-eval/tests/canary_plan.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "evaluator",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice-eval/tests/evaluator.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "fake_runtime",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice-eval/tests/fake_runtime.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "final_dispatch",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice-eval/tests/final_dispatch.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "next_turn_ready",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice-eval/tests/next_turn_ready.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "physical_loopback",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice-eval/tests/physical_loopback.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "playback_occurrences",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice-eval/tests/playback_occurrences.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "provider_failed",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice-eval/tests/provider_failed.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "recording_evidence",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice-eval/tests/recording_evidence.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "recording_import",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice-eval/tests/recording_import.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "relay_clock",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice-eval/tests/relay_clock.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "relay_hardening",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice-eval/tests/relay_hardening.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "report_validity",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice-eval/tests/report_validity.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "serve_plan",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice-eval/tests/serve_plan.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "serve_relay",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice-eval/tests/serve_relay.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "serve_session",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice-eval/tests/serve_session.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        },
+        {
+          "kind": [
+            "test"
+          ],
+          "crate_types": [
+            "bin"
+          ],
+          "name": "target_audio",
+          "src_path": "/private/tmp/lampos-tests-gemini-actor-work/lampOS/crates/voice-eval/tests/target_audio.rs",
+          "edition": "2024",
+          "doc": false,
+          "doctest": false,
+          "test": true
+        }
+      ],
+      "workspace_dependencies": [
+        {
+          "name": "lamp-audio",
+          "kinds": [
+            {
+              "kind": null,
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-ipc",
+          "kinds": [
+            {
+              "kind": null,
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-observer",
+          "kinds": [
+            {
+              "kind": null,
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-sound-fixtures",
+          "kinds": [
+            {
+              "kind": null,
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-turn-end",
+          "kinds": [
+            {
+              "kind": "dev",
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-turn-end-wire",
+          "kinds": [
+            {
+              "kind": "dev",
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-turn-owner",
+          "kinds": [
+            {
+              "kind": null,
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-voice",
+          "kinds": [
+            {
+              "kind": null,
+              "target": null
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "verified_against_candidate_metadata_from_date": "2026-10-16 10:42:35 +0700",
+  "same_complete_resolve_graph_and_packages_as_fresh_baseline": true
+}

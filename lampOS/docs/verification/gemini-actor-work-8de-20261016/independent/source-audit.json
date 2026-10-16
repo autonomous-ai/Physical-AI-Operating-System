@@ -1,0 +1,238 @@
+{
+  "date_from_date": "2026-10-16 11:21:06 +0700",
+  "base": "8de22aef8d5526f83b48b279e71706d71e7cdf5b",
+  "candidate_is_uncommitted_frozen_worktree": true,
+  "owned_files": [
+    {
+      "path": "lampOS/crates/gemini/src/session.rs",
+      "original_sha256": "edca2df22c9101fc3e7148c227e82ffde6685772b57baaabb7880e49208ebe2b",
+      "candidate_sha256": "59a72dce62b0e3340ba355fdc760ef819f79c385fc72bffcf7a9a7409962ae3c",
+      "inverse_restores_base": true,
+      "removed_new_file": false
+    },
+    {
+      "path": "lampOS/crates/gemini/src/testing.rs",
+      "original_sha256": "cad490f02196ead1aab9f0402064df84cfe61992fef3abb7a1648cf39e7013ff",
+      "candidate_sha256": "49e2a90924476d9abf3a896e26bb2750467cc594e6fa5ce3ee154b470d11e0a7",
+      "inverse_restores_base": true,
+      "removed_new_file": false
+    },
+    {
+      "path": "lampOS/crates/gemini/src/testing/actor_work.rs",
+      "original_sha256": null,
+      "candidate_sha256": "ee2932572e624ea4b861aa708760b09e8a5f59067a2bf82eb25bd41adf59261f",
+      "inverse_restores_base": true,
+      "removed_new_file": true
+    },
+    {
+      "path": "lampOS/crates/gemini/src/session/actor_work_tests.rs",
+      "original_sha256": null,
+      "candidate_sha256": "9f7a8e26b83007e2a364dd11a490f3e64ee934f5504ddfd999265b9bf949527e",
+      "inverse_restores_base": true,
+      "removed_new_file": true
+    },
+    {
+      "path": "lampOS/docs/gemini-session-reliability.md",
+      "original_sha256": "72445c8a193c41ce1bb4b412c5c6c4b0e57246e1bc93b1f405de0fcd6957eba1",
+      "candidate_sha256": "6efaed0a12d3bd6038fcc8d5d819d3011d048572003a2eb1e5f30b99ae8bbb83",
+      "inverse_restores_base": true,
+      "removed_new_file": false
+    }
+  ],
+  "git_status": [
+    " M lampOS/crates/gemini/src/session.rs",
+    " M lampOS/crates/gemini/src/testing.rs",
+    " M lampOS/docs/gemini-session-reliability.md",
+    "?? lampOS/crates/gemini/src/session/actor_work_tests.rs",
+    "?? lampOS/crates/gemini/src/testing/actor_work.rs"
+  ],
+  "clean_baseline_inputs_verified_against_git": 7558,
+  "candidate_frozen_inputs_verified": 7560,
+  "unchanged_unowned_inputs": 7555,
+  "all_stage_freezes_identical": true,
+  "complete_forward_and_inverse_diffs_exact": true,
+  "inverse_applied_in_memory_only": true,
+  "original_handler_and_other_body_checks": [
+    {
+      "original": "enqueue",
+      "candidate": "enqueue_unobserved",
+      "body_sha256": "13fc04c4ad3e2a59b2bbe3c96f9771ada4fa1fbd2bd5b39e573f8195114af438",
+      "exact": true
+    },
+    {
+      "original": "command",
+      "candidate": "command_unobserved",
+      "body_sha256": "3e63e5d7149ef1fa5df507b2b336d27ba4173a4a5161a044a8a0ffa3d6f20b7a",
+      "exact": true
+    },
+    {
+      "original": "run",
+      "candidate": "run",
+      "body_sha256": "e8675d03cf0040576c20eb25576c3d8cfb010befe93c21277810c31c3525505a",
+      "exact": true
+    },
+    {
+      "original": "drain",
+      "candidate": "drain",
+      "body_sha256": "2172dbfc0b3b4ecbf6f17104e40d066ac5e11c91f1e5ff5f6d2c39908214dbf5",
+      "exact": true
+    },
+    {
+      "original": "send_image",
+      "candidate": "send_image",
+      "body_sha256": "8f5f13fbc81b5b957c2d018d6bc808b4d956f26e0a29715469ffdd56f1a3f3ed",
+      "exact": true
+    },
+    {
+      "original": "write",
+      "candidate": "write",
+      "body_sha256": "5d448303d9d3f29eb20b07f126c4431d7bee2f01a494c31225f52bcb88a86daf",
+      "exact": true
+    },
+    {
+      "original": "check_age",
+      "candidate": "check_age",
+      "body_sha256": "74aec70e8e682c7b4835d923c2a6666231dadfc818027ab38d6397fc8ed35158",
+      "exact": true
+    },
+    {
+      "original": "message",
+      "candidate": "message",
+      "body_sha256": "bc306dcbedeb70cd187d132b74afa863871f27193289aedb16d53d77325dfca4",
+      "exact": true
+    },
+    {
+      "original": "flush",
+      "candidate": "flush",
+      "body_sha256": "875b3a4bfc77c98ed2a162dfcfb134c2b39367f9c040e9e1ac6397b3ed9ecea0",
+      "exact": true
+    },
+    {
+      "original": "next_event",
+      "candidate": "next_event",
+      "body_sha256": "be8e4efc1029a8b2b360f143a3140a7b42b1c07289b71e83a26fb2fc6d1da802",
+      "exact": true
+    }
+  ],
+  "existing_testing_bodies_exact": [
+    "accept",
+    "audio",
+    "burst",
+    "close",
+    "connect",
+    "connector",
+    "connector_with_capacity",
+    "connector_with_capture_clock",
+    "connector_with_clock_source",
+    "connector_with_sources",
+    "dial_within",
+    "jpeg",
+    "next_dial",
+    "pair",
+    "pair_with_capture_clock",
+    "pair_with_clock_source",
+    "pair_with_sources",
+    "receive",
+    "rest",
+    "send",
+    "sent_audio",
+    "supervisor_with_capture_clock_and_joins",
+    "try_receive"
+  ],
+  "all_unowned_original_tests_and_assertions_exact_to_base": true,
+  "first_candidate_new_tests_preserved": [
+    {
+      "test": "public_factory_installs_before_admission_and_acceptance_is_not_handling_or_output_consumption",
+      "body_and_assertions_preserved": true,
+      "original_body_sha256": "9f590feee6b549e43c4b8373d785b8dc55df88d6b5e774bbed8353d39b6f50f5",
+      "only_strengthening_additions": false
+    },
+    {
+      "test": "actual_blocked_audio_write_has_no_return_receipt_until_transport_accepts_it",
+      "body_and_assertions_preserved": true,
+      "original_body_sha256": "448c120fcc2e7a4d3b9b6f819a5a2b521686726dee404d897603d7ee80cec364",
+      "only_strengthening_additions": false
+    },
+    {
+      "test": "original_stop_returns_closed_from_the_handler_but_the_actual_actor_task_returns_unit",
+      "body_and_assertions_preserved": true,
+      "original_body_sha256": "59b731cb1d9b3227e9b9e57814e17cabf1b0d8cd4f5082936ee6eaac02a0f947",
+      "only_strengthening_additions": false
+    },
+    {
+      "test": "actual_actor_abort_abandons_entered_handling_without_inventing_a_returned_result",
+      "body_and_assertions_preserved": true,
+      "original_body_sha256": "05ac75adbd58cb6df754d36d7dc9fb6153e5d284423faab073806b36c90c7cdb",
+      "only_strengthening_additions": false
+    },
+    {
+      "test": "actual_actor_panic_keeps_its_join_error_and_never_becomes_a_handler_success",
+      "body_and_assertions_preserved": true,
+      "original_body_sha256": "bbc13ffd17597dd50556d368339f626f073e16612147b8d5a5d7df2b70c128e8",
+      "only_strengthening_additions": false
+    },
+    {
+      "test": "actual_input_sequence_error_is_recorded_as_the_original_result_not_a_task_error",
+      "body_and_assertions_preserved": true,
+      "original_body_sha256": "a6c726251a4f1284f9385262b11a8940d55b2abd4202694746cd71cc79c2d47c",
+      "only_strengthening_additions": false
+    },
+    {
+      "test": "kept_start_and_audio_are_actually_handled_while_intentionally_unsent",
+      "body_and_assertions_preserved": true,
+      "original_body_sha256": "3d2e792cf122e2b33b092e8747f2c0dad3feb4af8c69305bded8fa646834eeb5",
+      "only_strengthening_additions": false
+    },
+    {
+      "test": "image_held_replay_uses_the_same_handler_and_only_then_completes_maintenance",
+      "body_and_assertions_preserved": true,
+      "original_body_sha256": "f3b3ef8be980dcb48a50465b07acf1ad7b5f43bce9272147b13e590f314cfd28",
+      "only_strengthening_additions": true
+    },
+    {
+      "test": "aborting_image_maintenance_drops_its_private_queue_without_claiming_handlers_returned",
+      "body_and_assertions_preserved": true,
+      "original_body_sha256": "af02d4763efc96b3c43f8229f5f26260ecb86be81cbaa7d3285aa30d16e8b377",
+      "only_strengthening_additions": false
+    },
+    {
+      "test": "concurrent_real_input_clones_reconcile_only_after_both_producers_finish",
+      "body_and_assertions_preserved": true,
+      "original_body_sha256": "f732a97df09bb622b14a4ae1b5c7d1ed03c55199827614e8bae24661d23d0537",
+      "only_strengthening_additions": false
+    },
+    {
+      "test": "observation_overflow_and_poison_preserve_real_start_result_wire_and_join",
+      "body_and_assertions_preserved": true,
+      "original_body_sha256": "49b8c4d5c1532c87eee2ee5ff1a7bc539303eb6216a8df66e966f5860108ebf1",
+      "only_strengthening_additions": false
+    },
+    {
+      "test": "foreign_same_session_snapshot_is_refused_and_cancelled_wait_loses_no_real_receipt",
+      "body_and_assertions_preserved": true,
+      "original_body_sha256": "77fe2598db1888e28c539c070d0cd36a3bb3289417f501b8e174de624bc17e80",
+      "only_strengthening_additions": false
+    },
+    {
+      "test": "unpolled_setup_drop_has_neither_installation_nor_handler_or_maintenance_receipts",
+      "body_and_assertions_preserved": true,
+      "original_body_sha256": "c0b8b7219aef181f77364964f48b671fa25a58a36bc2f16dbb66bc9af1742972",
+      "only_strengthening_additions": false
+    },
+    {
+      "test": "existing_factories_remain_unobserved_with_fixture_support_enabled",
+      "body_and_assertions_preserved": true,
+      "original_body_sha256": "90788fb1d54bc1ac1c29cc94b4df0f3ef47332dd1e21206a58cd6d5d01278ff5",
+      "only_strengthening_additions": false
+    },
+    {
+      "test": "publication_can_follow_handler_return_without_faulting_or_claiming_settled_admission",
+      "body_and_assertions_preserved": true,
+      "original_body_sha256": "dddc0ecbb8a5c47c7b3d987ea031d53fc45238013af61d5d0bf371e1f142501a",
+      "only_strengthening_additions": false
+    }
+  ],
+  "maintenance_entry_frontier": "Returned-command and post-stop-discard counters captured together at pass entry; completion copies guard fields while buffer facts describe completion. Real late-image replay requires a later completed pass.",
+  "no_original_scenario_migration": true,
+  "no_default_parity_or_native_readiness_inference": true
+}

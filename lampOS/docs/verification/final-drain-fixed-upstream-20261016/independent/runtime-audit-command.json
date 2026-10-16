@@ -1,0 +1,12 @@
+{
+  "command": [
+    "python3",
+    "/private/tmp/tests-823-audit-final-drain-fixed-runtime.py"
+  ],
+  "started": "2026-10-16 11:13:08 +0700",
+  "finished": "2026-10-16 11:13:09 +0700",
+  "exit_code": 0,
+  "stdout_sha256": "b1d35a000b656041c2bf22f3fdb478ca47d7e3e42f6f739b794483ac4c45e4bb",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "audit_only_no_cargo_tests_or_source_git_mutations": true
+}

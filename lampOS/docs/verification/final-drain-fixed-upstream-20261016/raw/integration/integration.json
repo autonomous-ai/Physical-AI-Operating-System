@@ -1,0 +1,18 @@
+{
+  "date_from_date": "2026-10-16 10:52:52 +0700",
+  "old": "c2eacfa4e29a5c9db21d4d919a77d33ce8112238",
+  "old_base": "ec8317fe2e9b3cc33eb775d4ac757057b72f21f4",
+  "new_base": "f5a20ba28f3227ab06979b6e662883aede96b046",
+  "command": [
+    "git",
+    "rebase",
+    "--onto",
+    "f5a20ba28f3227ab06979b6e662883aede96b046",
+    "ec8317fe2e9b3cc33eb775d4ac757057b72f21f4"
+  ],
+  "head": "db7201d0bc4c1d368b14ac203f04a3a99e3d845f",
+  "all56_owned_files_exact_to_c2": true,
+  "clean": true,
+  "new_gate": "not started; target occupied by other authorized gate",
+  "date_completed": "2026-10-16 10:53:02 +0700"
+}

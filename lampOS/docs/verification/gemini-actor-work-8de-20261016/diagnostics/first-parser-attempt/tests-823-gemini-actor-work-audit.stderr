@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "/private/tmp/tests-823-audit-gemini-actor-work.py", line 159, in <module>
+    assert all(c['filter-match']['status']=='matches' for s in cl['rust-suites'].values() for c in s['testcases'].values())
+           ~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError

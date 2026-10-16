@@ -1,0 +1,16 @@
+{
+  "date_from_date": "2026-10-16 11:11:38 +0700",
+  "scripts": [
+    {
+      "path": "/private/tmp/tests-823-capture-final-drain-terminal-three.py",
+      "sha256": "5bdb695918edd9533c80f44e30360b2344caeaf362ec9ace22f8c2cd29af34ac",
+      "description": "Read each completed job log/API and full run/attempt job metadata once after root terminal notice; no mutations."
+    },
+    {
+      "path": "/private/tmp/tests-823-audit-final-drain-terminal-three.py",
+      "sha256": "1fbc92f44c17b0c0f16af7f9a25e74ce1821f1b31bb2e4be3466c4b03319ff8d",
+      "description": "Parse once-only identities, missing coverage and docs/harness outcomes; verify immutable source/frozen37; create external text supplement."
+    }
+  ],
+  "scripts_excluded_from_publication": true
+}

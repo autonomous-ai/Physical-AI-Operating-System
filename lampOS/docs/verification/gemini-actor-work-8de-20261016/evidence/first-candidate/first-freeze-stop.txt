@@ -1,0 +1,1 @@
+The external first freeze stopped at its whole-tree equality assertion. Tool chunk c5208e reported exit 1. The subsequent dated external-active-tree-change.json records only root publication additions. No source compile/test operation ran, and no active-worktree source was written by this agent.

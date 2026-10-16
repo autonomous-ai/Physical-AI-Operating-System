@@ -1,0 +1,8 @@
+   Compiling lamp-camera v0.1.0 (/private/tmp/lampos-tests-final-drain-clock/lampOS/crates/camera)
+   Compiling lamp-policy v0.1.0 (/private/tmp/lampos-tests-final-drain-clock/lampOS/crates/policy)
+   Compiling lamp-voice v0.1.0 (/private/tmp/lampos-tests-final-drain-clock/lampOS/crates/voice)
+   Compiling lamp-skills v0.1.0 (/private/tmp/lampos-tests-final-drain-clock/lampOS/crates/skills)
+   Compiling lamp-setup v0.1.0 (/private/tmp/lampos-tests-final-drain-clock/lampOS/crates/setup)
+   Compiling lamp-expression v0.1.0 (/private/tmp/lampos-tests-final-drain-clock/lampOS/crates/expression)
+   Compiling lamp-voice-eval v0.1.0 (/private/tmp/lampos-tests-final-drain-clock/lampOS/crates/voice-eval)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 39.17s

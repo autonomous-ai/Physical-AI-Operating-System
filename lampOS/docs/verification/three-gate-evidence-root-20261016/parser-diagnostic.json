@@ -1,0 +1,6 @@
+{
+  "date_from_date": "2026-10-16 11:26:00 +0700",
+  "first_audit_sha256": "8698c80e6e9bf0065063a4717a45dd0cf35a5ab819e242146e74154f454e5427",
+  "failure": "AssertionError: robots/lamp/rootfs/etc/systemd/system/sysinit.target.wants/led-boot.service",
+  "cause": "Root source recheck followed a tracked symlink; the frozen Git input hashes the symlink text. Payload validation had passed. Correct the audit to hash link text for tracked symlink inputs, as Git does. No source, evidence or test changed."
+}

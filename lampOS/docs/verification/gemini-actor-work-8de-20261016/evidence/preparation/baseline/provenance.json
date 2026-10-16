@@ -1,0 +1,15 @@
+{
+  "date_from_date": "2026-10-16 10:34:25 +0700",
+  "original_compiled_list": "/private/tmp/tests-823-gemini-task-joins-1fb-corrected-gate/compiled-list.log",
+  "raw_list_sha256": "99c438bf633b1cffdc011e9aa2eadd151d8a91b3059551ea62da7e87c7047b55",
+  "original_list_exit": 0,
+  "original_start": "2026-10-16 09:16:49 +0700",
+  "original_end": "2026-10-16 09:20:23 +0700",
+  "published_base": "8de22aef8d5526f83b48b279e71706d71e7cdf5b",
+  "clean_current_source_proof": "/private/tmp/tests-823-gemini-actor-work-8de-evidence/qualified-baseline-source-comparison.json",
+  "all_previously_qualified_7152_inputs_identical": true,
+  "source_equivalent_baseline_reuse": true,
+  "fresh_base_compilation_performed": false,
+  "additional_tracked_inputs_scope": "Only lampOS/docs/verification material and files outside lampOS; Cargo inputs unchanged.",
+  "requires_fresh_candidate_metadata_same_graph_and_compiled_delta": true
+}

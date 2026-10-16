@@ -1,0 +1,27 @@
+{
+  "name": "clippy",
+  "command": [
+    "/Users/autonomous/.cargo/bin/cargo",
+    "clippy",
+    "--locked",
+    "--offline",
+    "--all-targets",
+    "-p",
+    "lamp-gemini",
+    "-p",
+    "lamp-memory",
+    "-p",
+    "lamp-surround",
+    "-p",
+    "lamp-voice",
+    "-p",
+    "lamp-voice-eval",
+    "--",
+    "-D",
+    "warnings"
+  ],
+  "cwd": "/private/tmp/lampos-tests-gemini-actor-work/lampOS",
+  "target": "/private/tmp/tests-823-rebase-target",
+  "started_from_date": "2026-10-16 10:42:36 +0700",
+  "free_disk_bytes": 6972497920
+}

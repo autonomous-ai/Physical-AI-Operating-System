@@ -1,0 +1,36 @@
+{
+  "date_from_date": "2026-10-16 10:32:41 +0700",
+  "owned": [
+    {
+      "path": "lampOS/crates/gemini/src/session.rs",
+      "actual_base_sha256": "edca2df22c9101fc3e7148c227e82ffde6685772b57baaabb7880e49208ebe2b",
+      "expected_before_sha256": "edca2df22c9101fc3e7148c227e82ffde6685772b57baaabb7880e49208ebe2b",
+      "matches": true
+    },
+    {
+      "path": "lampOS/crates/gemini/src/testing.rs",
+      "actual_base_sha256": "cad490f02196ead1aab9f0402064df84cfe61992fef3abb7a1648cf39e7013ff",
+      "expected_before_sha256": "cad490f02196ead1aab9f0402064df84cfe61992fef3abb7a1648cf39e7013ff",
+      "matches": true
+    },
+    {
+      "path": "lampOS/crates/gemini/src/testing/actor_work.rs",
+      "actual_base_sha256": null,
+      "expected_before_sha256": null,
+      "matches": true
+    },
+    {
+      "path": "lampOS/crates/gemini/src/session/actor_work_tests.rs",
+      "actual_base_sha256": null,
+      "expected_before_sha256": null,
+      "matches": true
+    },
+    {
+      "path": "lampOS/docs/gemini-session-reliability.md",
+      "actual_base_sha256": "72445c8a193c41ce1bb4b412c5c6c4b0e57246e1bc93b1f405de0fcd6957eba1",
+      "expected_before_sha256": "72445c8a193c41ce1bb4b412c5c6c4b0e57246e1bc93b1f405de0fcd6957eba1",
+      "matches": true
+    }
+  ],
+  "all_match": true
+}

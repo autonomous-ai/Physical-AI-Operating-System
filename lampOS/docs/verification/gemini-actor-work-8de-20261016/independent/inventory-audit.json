@@ -1,0 +1,96 @@
+{
+  "date_from_date": "2026-10-16 11:21:00 +0700",
+  "original_package": "/private/tmp/tests-823-gemini-actor-work-publication",
+  "manifest_sha256": "a767cafca0d366d0ca890ae3a18c5549bfaedb0bffeae1639f296b1d6e0399e9",
+  "manifest_entries": 174,
+  "actual_files_including_manifest": 175,
+  "every_original_file_hash_verified": true,
+  "excluded_scripts": [
+    {
+      "path": "baseline/baseline-runner.py",
+      "external_path": "/private/tmp/tests-823-gemini-actor-work-publication/baseline/baseline-runner.py",
+      "bytes": 6936,
+      "sha256": "5f5870d00ad2d502d1abbd69fd631722f05f2a2695f1230e5079cee5a81efd41",
+      "reason": "External Python orchestration/audit script; retain hash and provenance, omit script bytes from repository payload."
+    },
+    {
+      "path": "first-candidate/init-runner.py",
+      "external_path": "/private/tmp/tests-823-gemini-actor-work-publication/first-candidate/init-runner.py",
+      "bytes": 1359,
+      "sha256": "bebdffb095b053ddc6dc5efab6bccc92d71e99a85301526a5db1e0a4ff84369f",
+      "reason": "External Python orchestration/audit script; retain hash and provenance, omit script bytes from repository payload."
+    },
+    {
+      "path": "first-candidate/first-freeze-runner.py",
+      "external_path": "/private/tmp/tests-823-gemini-actor-work-publication/first-candidate/first-freeze-runner.py",
+      "bytes": 7084,
+      "sha256": "fc73bd5dd9388c8a331f878331c1a80e427c2e57b0cb19fd073fbc407cb62ecb",
+      "reason": "External Python orchestration/audit script; retain hash and provenance, omit script bytes from repository payload."
+    },
+    {
+      "path": "first-candidate/freeze-runner.py",
+      "external_path": "/private/tmp/tests-823-gemini-actor-work-publication/first-candidate/freeze-runner.py",
+      "bytes": 7586,
+      "sha256": "83680613d7de42a415712815ced6ae7886234d5aa06fa529f2cb3f9aae0c2b63",
+      "reason": "External Python orchestration/audit script; retain hash and provenance, omit script bytes from repository payload."
+    },
+    {
+      "path": "gate/gate-runner.py",
+      "external_path": "/private/tmp/tests-823-gemini-actor-work-publication/gate/gate-runner.py",
+      "bytes": 11282,
+      "sha256": "c8910c47ea017acc28c994982878163d23fbc0cdc986b183956bbff1eed648bb",
+      "reason": "External Python orchestration/audit script; retain hash and provenance, omit script bytes from repository payload."
+    },
+    {
+      "path": "frontier-corrected/handoff-runner.py",
+      "external_path": "/private/tmp/tests-823-gemini-actor-work-publication/frontier-corrected/handoff-runner.py",
+      "bytes": 6981,
+      "sha256": "96bec5d715bc37aef6791ed315ad441a78447705928586c75bf8693c81b624f2",
+      "reason": "External Python orchestration/audit script; retain hash and provenance, omit script bytes from repository payload."
+    },
+    {
+      "path": "frontier-corrected/correction-runner.py",
+      "external_path": "/private/tmp/tests-823-gemini-actor-work-publication/frontier-corrected/correction-runner.py",
+      "bytes": 7680,
+      "sha256": "56cfd2560300032bd0279117afaaa1623cec391e607104561d2eda5d6f101c59",
+      "reason": "External Python orchestration/audit script; retain hash and provenance, omit script bytes from repository payload."
+    },
+    {
+      "path": "frontier-corrected/frontier-proof-runner.py",
+      "external_path": "/private/tmp/tests-823-gemini-actor-work-publication/frontier-corrected/frontier-proof-runner.py",
+      "bytes": 5090,
+      "sha256": "92eb78bec5266a38378097c07dcaafdbca676ef211f33ff720c704407da8c2e8",
+      "reason": "External Python orchestration/audit script; retain hash and provenance, omit script bytes from repository payload."
+    },
+    {
+      "path": "frontier-corrected/freeze-runner.py",
+      "external_path": "/private/tmp/tests-823-gemini-actor-work-publication/frontier-corrected/freeze-runner.py",
+      "bytes": 7595,
+      "sha256": "18c8e6e7c4bee304800d50d4a8a13a80fd22a247f1466e42c641b9ba731cb208",
+      "reason": "External Python orchestration/audit script; retain hash and provenance, omit script bytes from repository payload."
+    },
+    {
+      "path": "preparation/preparation-runner.py",
+      "external_path": "/private/tmp/tests-823-gemini-actor-work-publication/preparation/preparation-runner.py",
+      "bytes": 4136,
+      "sha256": "e0fa5f85251b90458b11519b4a8f0be4afe7b98ea9ca78b1f671357a840dbf3f",
+      "reason": "External Python orchestration/audit script; retain hash and provenance, omit script bytes from repository payload."
+    },
+    {
+      "path": "preparation/gate-runner.py",
+      "external_path": "/private/tmp/tests-823-gemini-actor-work-publication/preparation/gate-runner.py",
+      "bytes": 11282,
+      "sha256": "c8910c47ea017acc28c994982878163d23fbc0cdc986b183956bbff1eed648bb",
+      "reason": "External Python orchestration/audit script; retain hash and provenance, omit script bytes from repository payload."
+    },
+    {
+      "path": "preparation/apply-runner.py",
+      "external_path": "/private/tmp/tests-823-gemini-actor-work-publication/preparation/apply-runner.py",
+      "bytes": 5809,
+      "sha256": "d1edc9767a8d50debbc458223ac56d02895942e6b5f59c876fbdbe67b6517b9a",
+      "reason": "External Python orchestration/audit script; retain hash and provenance, omit script bytes from repository payload."
+    }
+  ],
+  "copyable_original_evidence_files": 162,
+  "original_inventory_retained_as_provenance": true
+}

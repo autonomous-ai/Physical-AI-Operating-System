@@ -1,0 +1,173 @@
+--- a/lampOS/crates/gemini/src/testing/actor_work.rs
++++ b/lampOS/crates/gemini/src/testing/actor_work.rs
+@@ -55,6 +55,9 @@
+ }
+ 
+ /// All original maintenance operations returned before the next select begins.
++/// Coverage is the returned-command/discard frontier captured at pass entry;
++/// commands returned during the pass need a later completed pass for coverage.
++/// Buffer facts are sampled at completion, not at that entry frontier.
+ /// This does not mean any select branch was polled or any due timer was handled.
+ #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+ pub struct WorkMaintenance {
+@@ -265,17 +268,23 @@
+     }
+     pub(crate) fn maintenance(&self) -> Maintenance {
+         let mut ordinal = 0;
++        let mut returned_commands_at_entry = 0;
++        let mut post_stop_discards_at_entry = 0;
+         self.0.update(|s| {
+             if !s.installed || s.maintenance_active {
+                 s.fault.get_or_insert(WorkFault::InvalidState);
+             }
+             increment(&mut s.maintenance_started, &mut s.fault);
+             ordinal = s.maintenance_started;
++            returned_commands_at_entry = s.commands_returned;
++            post_stop_discards_at_entry = s.post_stop_discards;
+             s.maintenance_active = true;
+         });
+         Maintenance {
+             recorder: self.clone(),
+             ordinal,
++            returned_commands_at_entry,
++            post_stop_discards_at_entry,
+             completed: false,
+         }
+     }
+@@ -347,6 +356,8 @@
+ pub(crate) struct Maintenance {
+     recorder: Recorder,
+     ordinal: u64,
++    returned_commands_at_entry: u64,
++    post_stop_discards_at_entry: u64,
+     completed: bool,
+ }
+ impl Maintenance {
+@@ -359,8 +370,8 @@
+             increment(&mut s.maintenance_completed, &mut s.fault);
+             s.last_maintenance = Some(WorkMaintenance {
+                 ordinal: self.ordinal,
+-                covers_returned_commands: s.commands_returned,
+-                covers_post_stop_discards: s.post_stop_discards,
++                covers_returned_commands: self.returned_commands_at_entry,
++                covers_post_stop_discards: self.post_stop_discards_at_entry,
+                 buffers,
+             });
+         });
+--- a/lampOS/crates/gemini/src/session/actor_work_tests.rs
++++ b/lampOS/crates/gemini/src/session/actor_work_tests.rs
+@@ -479,6 +479,7 @@
+     let (connection, mut service, gate, clock, mut work, deadline) = open(config()).await;
+     start(&connection, &mut service, &mut work, deadline).await;
+     blocked_image_with_queued_audio(&connection, &gate, &clock, &mut work, deadline).await;
++    let image_pass = work.snapshot().maintenance_started;
+     gate.release();
+     assert_eq!(
+         receive(&mut service, deadline).await["realtimeInput"]["video"]["mimeType"],
+@@ -495,6 +496,10 @@
+             .is_some_and(|m| m.covers_returned_commands == 2 + INPUT_QUEUE_CAPACITY as u64)
+     })
+     .await;
++    // Image-held commands return late in that pass. Coverage requires a later
++    // whole pass, not just completing the pass which replayed those commands.
++    assert!(completed.last_maintenance.unwrap().ordinal > image_pass);
++    assert_eq!(completed.commands_returned, 2 + INPUT_QUEUE_CAPACITY as u64);
+     assert_eq!(completed.commands_abandoned, 0);
+     assert_eq!(
+         completed.last_returned.unwrap().command.kind,
+@@ -678,3 +683,57 @@
+     wrong_recorder.install(SessionId::new(18).unwrap());
+     assert_eq!(foreign.snapshot().fault, Some(WorkFault::WrongIdentity));
+ }
++
++#[test]
++fn maintenance_covers_only_its_entry_frontier_until_a_later_complete_pass() {
++    // The real image case above exercises late replay. This explicit state
++    // interleaving also verifies the discard counter's entry-snapshot contract;
++    // it does not claim the Actor's after-stop select runs during maintenance.
++    let session = SessionId::new(17).unwrap();
++    let (work, recorder) = ActorWork::new(session);
++    recorder.install(session);
++    let command = testing::WorkCommand {
++        kind: WorkCommandKind::Note,
++        request: Some(request(1)),
++        sequence: None,
++    };
++    recorder
++        .command(command)
++        .returned(Ok(()), testing::WorkBuffers::default());
++    recorder.discarded_after_stop();
++    let first = recorder.maintenance();
++    recorder
++        .command(command)
++        .returned(Ok(()), testing::WorkBuffers::default());
++    recorder.discarded_after_stop();
++    let during = work.snapshot();
++    assert_eq!(during.commands_returned, 2);
++    assert_eq!(during.post_stop_discards, 2);
++    assert!(during.maintenance_active);
++    assert!(during.last_maintenance.is_none());
++    let at_completion = testing::WorkBuffers {
++        held_blocks: 2,
++        ..testing::WorkBuffers::default()
++    };
++    first.completed(at_completion);
++    let completed = work.snapshot();
++    let receipt = completed.last_maintenance.unwrap();
++    assert_eq!(completed.commands_returned, 2);
++    assert_eq!(completed.post_stop_discards, 2);
++    assert_eq!(receipt.ordinal, 1);
++    assert_eq!(receipt.covers_returned_commands, 1);
++    assert_eq!(receipt.covers_post_stop_discards, 1);
++    assert_eq!(receipt.buffers, at_completion);
++    assert!(!completed.maintenance_active);
++    assert_eq!(completed.fault, None);
++    recorder.maintenance().completed(at_completion);
++    let later = work.snapshot();
++    let receipt = later.last_maintenance.unwrap();
++    assert_eq!(receipt.ordinal, 2);
++    assert_eq!(receipt.covers_returned_commands, 2);
++    assert_eq!(receipt.covers_post_stop_discards, 2);
++    assert_eq!(receipt.buffers, at_completion);
++    assert_eq!(later.maintenance_completed, 2);
++    assert_eq!(later.maintenance_incomplete, 0);
++    assert_eq!(later.fault, None);
++}
+--- a/lampOS/docs/gemini-session-reliability.md
++++ b/lampOS/docs/gemini-session-reliability.md
+@@ -738,11 +738,15 @@
+   are deliberately kept behind an earlier response. That is handling, not a
+   socket send. There is no PCM, text, image or tool payload in this recorder.
+ - `last_maintenance` is published only after the entire original maintenance
+-  pass reaches the next select, including any awaited writes. It states the
+-  returned-command count it covers. A canceled pass or a pass that exits early
+-  on an original error is incomplete. Commands removed from mpsc into an image
+-  write's private queue are still unhandled; a failed image write may drop them
+-  without entering the common handler.
++  pass reaches the next select, including any awaited writes. Its covered
++  returned-command and post-stop-discard counts are captured together at pass
++  entry, before the first maintenance operation. Commands replayed late inside
++  an image write have not had that whole pass after their return; only a later
++  completed pass can cover them. Buffer facts instead describe pass completion.
++  A canceled pass or a pass that exits early on an original error is incomplete.
++  Commands removed from mpsc into an image write's private queue are still
++  unhandled; a failed image write may drop them without entering the common
++  handler.
+ 
+ These are historical facts, not an idle state. No receipt proves that a select
+ branch was polled, a due tick handled, a socket flushed, a remote frame handled,
+@@ -758,9 +762,11 @@
+ signal; it does not create a protocol message or replace the Actor. Each scenario
+ uses one fixed five-second host deadline and no sleeps, retries or yield-count
+ polling. Explicit state interleavings supplement these real-path cases for the
+-acceptance-publication race. All pre-existing test bodies and bounds remain
+-unchanged. This preparation does not migrate an original Voice scenario or add
+-Supervisor/reconnect integration.
++acceptance-publication race and the maintenance-entry frontier: a command that
++returns during a pass remains uncovered until a later completed pass. The real
++image-replay case also requires that later pass. All pre-existing test bodies
++and bounds remain unchanged. This preparation does not migrate an original Voice
++scenario or add Supervisor/reconnect integration.
+ 
+ ### Strict continuation probe (example-only addition)
+ 

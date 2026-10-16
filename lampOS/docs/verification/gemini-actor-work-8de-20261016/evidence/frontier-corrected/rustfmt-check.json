@@ -1,0 +1,19 @@
+{
+  "command": [
+    "/Users/autonomous/.rustup/toolchains/1.96.0-x86_64-apple-darwin/bin/rustfmt",
+    "--edition",
+    "2024",
+    "--config",
+    "skip_children=true",
+    "--check",
+    "/private/tmp/tests-823-gemini-actor-work-frontier-corrected/candidate/lampOS/crates/gemini/src/session.rs",
+    "/private/tmp/tests-823-gemini-actor-work-frontier-corrected/candidate/lampOS/crates/gemini/src/testing.rs",
+    "/private/tmp/tests-823-gemini-actor-work-frontier-corrected/candidate/lampOS/crates/gemini/src/testing/actor_work.rs",
+    "/private/tmp/tests-823-gemini-actor-work-frontier-corrected/candidate/lampOS/crates/gemini/src/session/actor_work_tests.rs"
+  ],
+  "started_from_date": "2026-10-16 10:24:46 +0700",
+  "finished_from_date": "2026-10-16 10:24:46 +0700",
+  "exit": 0,
+  "writes_source": false,
+  "cargo_or_test_execution": false
+}

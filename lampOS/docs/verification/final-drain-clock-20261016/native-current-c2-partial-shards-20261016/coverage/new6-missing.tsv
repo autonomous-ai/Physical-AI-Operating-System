@@ -1,0 +1,3 @@
+binary	test
+lamp-voice-eval::final_dispatch	final_drain_clock::tests::a_complete_real_line_is_released_only_at_the_full_logical_boundary
+lamp-voice-eval::final_dispatch	final_drain_clock::tests::abandoning_the_initial_hold_stops_and_reaps_the_actual_shell

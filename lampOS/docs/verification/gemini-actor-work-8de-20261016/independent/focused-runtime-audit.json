@@ -1,0 +1,167 @@
+{
+  "date_from_date": "2026-10-16 11:21:07 +0700",
+  "raw_log_sha256": "88b44857c5c7b91cecc6e2aad3d53f1d3fba956729037567cdb3a3c8744ac798",
+  "every_expected_identity_executed_exactly_once": true,
+  "pass_count": 16,
+  "failure_count": 0,
+  "skipped": 2726,
+  "rows": [
+    {
+      "line": 5,
+      "status": "PASS",
+      "seconds": 0.057,
+      "ordinal": 1,
+      "total": 16,
+      "binary": "lamp-gemini",
+      "test": "session::actor_work_tests::aborting_image_maintenance_drops_its_private_queue_without_claiming_handlers_returned"
+    },
+    {
+      "line": 6,
+      "status": "PASS",
+      "seconds": 0.059,
+      "ordinal": 2,
+      "total": 16,
+      "binary": "lamp-gemini",
+      "test": "session::actor_work_tests::actual_actor_abort_abandons_entered_handling_without_inventing_a_returned_result"
+    },
+    {
+      "line": 7,
+      "status": "PASS",
+      "seconds": 0.194,
+      "ordinal": 3,
+      "total": 16,
+      "binary": "lamp-gemini",
+      "test": "session::actor_work_tests::actual_actor_panic_keeps_its_join_error_and_never_becomes_a_handler_success"
+    },
+    {
+      "line": 8,
+      "status": "PASS",
+      "seconds": 0.053,
+      "ordinal": 4,
+      "total": 16,
+      "binary": "lamp-gemini",
+      "test": "session::actor_work_tests::actual_blocked_audio_write_has_no_return_receipt_until_transport_accepts_it"
+    },
+    {
+      "line": 9,
+      "status": "PASS",
+      "seconds": 0.051,
+      "ordinal": 5,
+      "total": 16,
+      "binary": "lamp-gemini",
+      "test": "session::actor_work_tests::actual_input_sequence_error_is_recorded_as_the_original_result_not_a_task_error"
+    },
+    {
+      "line": 10,
+      "status": "PASS",
+      "seconds": 0.051,
+      "ordinal": 6,
+      "total": 16,
+      "binary": "lamp-gemini",
+      "test": "session::actor_work_tests::concurrent_real_input_clones_reconcile_only_after_both_producers_finish"
+    },
+    {
+      "line": 11,
+      "status": "PASS",
+      "seconds": 0.052,
+      "ordinal": 7,
+      "total": 16,
+      "binary": "lamp-gemini",
+      "test": "session::actor_work_tests::existing_factories_remain_unobserved_with_fixture_support_enabled"
+    },
+    {
+      "line": 12,
+      "status": "PASS",
+      "seconds": 0.051,
+      "ordinal": 8,
+      "total": 16,
+      "binary": "lamp-gemini",
+      "test": "session::actor_work_tests::foreign_same_session_snapshot_is_refused_and_cancelled_wait_loses_no_real_receipt"
+    },
+    {
+      "line": 13,
+      "status": "PASS",
+      "seconds": 0.051,
+      "ordinal": 9,
+      "total": 16,
+      "binary": "lamp-gemini",
+      "test": "session::actor_work_tests::image_held_replay_uses_the_same_handler_and_only_then_completes_maintenance"
+    },
+    {
+      "line": 14,
+      "status": "PASS",
+      "seconds": 0.05,
+      "ordinal": 10,
+      "total": 16,
+      "binary": "lamp-gemini",
+      "test": "session::actor_work_tests::kept_start_and_audio_are_actually_handled_while_intentionally_unsent"
+    },
+    {
+      "line": 15,
+      "status": "PASS",
+      "seconds": 0.051,
+      "ordinal": 11,
+      "total": 16,
+      "binary": "lamp-gemini",
+      "test": "session::actor_work_tests::maintenance_covers_only_its_entry_frontier_until_a_later_complete_pass"
+    },
+    {
+      "line": 16,
+      "status": "PASS",
+      "seconds": 0.149,
+      "ordinal": 12,
+      "total": 16,
+      "binary": "lamp-gemini",
+      "test": "session::actor_work_tests::observation_overflow_and_poison_preserve_real_start_result_wire_and_join"
+    },
+    {
+      "line": 17,
+      "status": "PASS",
+      "seconds": 0.06,
+      "ordinal": 13,
+      "total": 16,
+      "binary": "lamp-gemini",
+      "test": "session::actor_work_tests::original_stop_returns_closed_from_the_handler_but_the_actual_actor_task_returns_unit"
+    },
+    {
+      "line": 18,
+      "status": "PASS",
+      "seconds": 0.063,
+      "ordinal": 14,
+      "total": 16,
+      "binary": "lamp-gemini",
+      "test": "session::actor_work_tests::public_factory_installs_before_admission_and_acceptance_is_not_handling_or_output_consumption"
+    },
+    {
+      "line": 19,
+      "status": "PASS",
+      "seconds": 0.062,
+      "ordinal": 15,
+      "total": 16,
+      "binary": "lamp-gemini",
+      "test": "session::actor_work_tests::publication_can_follow_handler_return_without_faulting_or_claiming_settled_admission"
+    },
+    {
+      "line": 20,
+      "status": "PASS",
+      "seconds": 0.067,
+      "ordinal": 16,
+      "total": 16,
+      "binary": "lamp-gemini",
+      "test": "session::actor_work_tests::unpolled_setup_drop_has_neither_installation_nor_handler_or_maintenance_receipts"
+    }
+  ],
+  "summary": {
+    "line": 22,
+    "text": "Summary [   1.143s] 16 tests run: 16 passed, 2726 skipped"
+  },
+  "slow_markers": [],
+  "execution_ordinals_exact": true,
+  "per_package": {
+    "lamp-gemini": 16
+  },
+  "per_binary": {
+    "lamp-gemini": 16
+  },
+  "scope": "This single invocation only. Focused and full runs are separate planned stages, with no failed-test retry."
+}

@@ -1,0 +1,13 @@
+{
+  "command": [
+    "python3",
+    "/private/tmp/tests-823-audit-gemini-actor-work.py"
+  ],
+  "started_from_date": "2026-10-16 11:20:16 +0700",
+  "finished_from_date": "2026-10-16 11:20:22 +0700",
+  "exit_code": 1,
+  "stdout_path": "/private/tmp/tests-823-gemini-actor-work-audit.stdout",
+  "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "stderr_path": "/private/tmp/tests-823-gemini-actor-work-audit.stderr",
+  "stderr_sha256": "e0ab5466e0a605eff523cb77e767be3c42e7c83216e3bdf035fb2c85226559a9"
+}

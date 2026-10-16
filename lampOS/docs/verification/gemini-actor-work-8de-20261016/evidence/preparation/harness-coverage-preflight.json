@@ -1,0 +1,751 @@
+{
+  "date_from_date": "2026-10-16 10:41:01 +0700",
+  "packages": [
+    {
+      "package": "lamp-gemini",
+      "manifest_path": "lampOS/crates/gemini/Cargo.toml",
+      "manifest_sha256": "5b94eadddf2bdc8677d8e584a6cc3ffbdf38f79eba775a9dd141268b1c9a0816",
+      "has_harness_false": false,
+      "test_targets": [
+        {
+          "name": "lamp_gemini",
+          "kind": [
+            "lib"
+          ],
+          "test": true,
+          "doctest": true
+        },
+        {
+          "name": "early_end_probe",
+          "kind": [
+            "example"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "comparison_config",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "review_2026_10_14",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "wire",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        }
+      ]
+    },
+    {
+      "package": "lamp-memory",
+      "manifest_path": "lampOS/crates/memory/Cargo.toml",
+      "manifest_sha256": "9c76d873ad6b870b46a3e3a7fad8cb3bf80ee0a31ca4b5ccaaa1d72dedac1875",
+      "has_harness_false": false,
+      "test_targets": [
+        {
+          "name": "lamp_memory",
+          "kind": [
+            "lib"
+          ],
+          "test": true,
+          "doctest": true
+        },
+        {
+          "name": "lamp-memory",
+          "kind": [
+            "bin"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "lamp-memory-eval",
+          "kind": [
+            "bin"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "binary",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "days",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "days_timing",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "fixture_child",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "health",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "health_control",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "health_timing",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "retrieval",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "server",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "timing",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "voice",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "voice_people",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "voice_submit",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "voice_timing",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        }
+      ]
+    },
+    {
+      "package": "lamp-surround",
+      "manifest_path": "lampOS/crates/surround/Cargo.toml",
+      "manifest_sha256": "df922e176c16c3166befe98c1914117a10bd3b8ae1a0bedfb30d758ba12e2f73",
+      "has_harness_false": false,
+      "test_targets": [
+        {
+          "name": "lamp_surround",
+          "kind": [
+            "lib"
+          ],
+          "test": true,
+          "doctest": true
+        },
+        {
+          "name": "lamp-surround",
+          "kind": [
+            "bin"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "atomic",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "cli",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "config",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "configuration",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "http_limit",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "network",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "operator",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "owner",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "release",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "reset",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "runtime",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "selection",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "setup",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "startup",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "tls_provider",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "update",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "worker",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        }
+      ]
+    },
+    {
+      "package": "lamp-voice",
+      "manifest_path": "lampOS/crates/voice/Cargo.toml",
+      "manifest_sha256": "5da3e2d258a46b797bb25ec48ea538eba53f9b9d38dac1ff06abd8deb6597e72",
+      "has_harness_false": false,
+      "test_targets": [
+        {
+          "name": "lamp_voice",
+          "kind": [
+            "lib"
+          ],
+          "test": true,
+          "doctest": true
+        },
+        {
+          "name": "lamp-voice",
+          "kind": [
+            "bin"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "admission",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "call_wait",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "camera_config",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "camera_runtime",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "capture_hold_worker",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "core",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "diagnostics",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "end_silence",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "endpoint_confirmation",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "expression_out",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "first_control_message",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "fixture_provider",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "privacy_state",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "process",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "progress_news",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "provider_config",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "reference_link",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "reference_prime",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "review_2026_10_14",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "ring_worker",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "visual_options",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        }
+      ]
+    },
+    {
+      "package": "lamp-voice-eval",
+      "manifest_path": "lampOS/crates/voice-eval/Cargo.toml",
+      "manifest_sha256": "9854d29463c6671cc2ffcd83181d58e440a72f5be81df2e154d9bf2c1fee753d",
+      "has_harness_false": false,
+      "test_targets": [
+        {
+          "name": "lamp_voice_eval",
+          "kind": [
+            "lib"
+          ],
+          "test": true,
+          "doctest": true
+        },
+        {
+          "name": "lamp-voice-eval",
+          "kind": [
+            "bin"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "acceptance_boundaries",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "answer_review",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "audit_final_dispatch",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "audit_importer",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "audit_runner_dispatch",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "canary_plan",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "evaluator",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "fake_runtime",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "final_dispatch",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "next_turn_ready",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "physical_loopback",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "playback_occurrences",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "provider_failed",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "recording_evidence",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "recording_import",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "relay_clock",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "relay_hardening",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "report_validity",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "serve_plan",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "serve_relay",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "serve_session",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        },
+        {
+          "name": "target_audio",
+          "kind": [
+            "test"
+          ],
+          "test": true,
+          "doctest": false
+        }
+      ]
+    }
+  ],
+  "scope": "Five-package affected graph; nextest covers normal harness targets, separate cargo test --doc covers docs; no own-harness exclusion in these manifests.",
+  "cargo_commands_in_this_check": 0
+}

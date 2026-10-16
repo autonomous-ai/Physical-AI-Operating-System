@@ -1,0 +1,90 @@
+{
+  "date_from_date": "2026-10-16 11:26:00 +0700",
+  "packages": [
+    {
+      "directory": "/private/tmp/tests-823-final-drain-fixed-upstream-supplement",
+      "manifest_sha256": "bebc20f16c3c9abb1b4073bcb8a56c7c1623e6b5387112ec76151af014719e3d",
+      "files": 58,
+      "all_files_exact_regular_utf8_non_executable": true,
+      "root_checksums_exact": true
+    },
+    {
+      "directory": "/private/tmp/tests-823-final-drain-current-native-terminal-three-publication",
+      "manifest_sha256": "e075d55dfe89b259e8339ab28ca1e5f94d5120121b2587402667fe982850b013",
+      "files": 27,
+      "all_files_exact_regular_utf8_non_executable": true,
+      "root_checksums_exact": true
+    },
+    {
+      "directory": "/private/tmp/tests-823-gemini-actor-work-git-safe",
+      "manifest_sha256": "df42f93ba8d44d837ada2f61e62afd45ce7f526a5499c298889d23e3652e02e2",
+      "files": 188,
+      "all_files_exact_regular_utf8_non_executable": true,
+      "root_checksums_exact": true
+    }
+  ],
+  "current_db_local": {
+    "head": "db7201d0bc4c1d368b14ac203f04a3a99e3d845f",
+    "passed_exactly_once": 521,
+    "ignored": 0,
+    "executing_binaries": 24,
+    "all_stage_exits_zero": true,
+    "raw_tests_sha256": "f68e1fb5bddbed0b9361f08400d37f95a26a47a9dc3be6d20bc7712e365897e0"
+  },
+  "prior_c2_partial_native": {
+    "head": "c2eacfa4e29a5c9db21d4d919a77d33ce8112238",
+    "run": 38846183455,
+    "attempt": 1,
+    "shards": [
+      {
+        "shard": 1,
+        "passes": 1344,
+        "raw_sha256": "332b6f6a7af0e8b53e0d86280c0a18b90a5c6f683760e28ee888d96bc530cecb"
+      },
+      {
+        "shard": 2,
+        "passes": 1401,
+        "raw_sha256": "bf8b0c59e0cb3b2e469c59df3c0c41b6becf735511812ac6dac8a759046ae62a"
+      },
+      {
+        "shard": 3,
+        "passes": 1287,
+        "raw_sha256": "f7fe73acc6952b20901af2580840ebdf501384d720934bf531607481bd1b851b"
+      }
+    ],
+    "unique_passes": 4032,
+    "coverage": {
+      "original123": {
+        "expected": 123,
+        "observed_once": 93,
+        "missing": 30
+      },
+      "local521": {
+        "expected": 521,
+        "observed_once": 397,
+        "missing": 124
+      },
+      "new6": {
+        "expected": 6,
+        "observed_once": 4,
+        "missing": 2
+      }
+    },
+    "full_gate_passed": false,
+    "no_cross_head_combination": true
+  },
+  "actor_work_local": {
+    "base": "8de22aef8d5526f83b48b279e71706d71e7cdf5b",
+    "compiled_before": 2726,
+    "compiled_after": 2742,
+    "added": 16,
+    "focused_passed": 16,
+    "full_passed_once": 2727,
+    "unchanged_ignored": 15,
+    "all_stage_exits_zero_and_log_hashes_exact": true,
+    "frozen_inputs_still_exact": 7560,
+    "raw_full_sha256": "31c5227f5f424932ab0f31d52437e8443a817b3df2144a9efe2da57881a81c52",
+    "no_original_scenario_migration_or_native_claim": true
+  },
+  "limits": "Three independent evidence sets: db local, failed c2 native partial, and uncommitted Actor 8de local. No cross-head native qualification, failed-test retries, device result or original123 serial target claimed."
+}

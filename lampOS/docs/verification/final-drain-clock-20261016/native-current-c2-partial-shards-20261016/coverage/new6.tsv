@@ -1,0 +1,7 @@
+binary	test	status	shard	seconds
+lamp-voice-eval::final_dispatch	final_drain_clock::tests::a_complete_real_line_is_released_only_at_the_full_logical_boundary	NOT_OBSERVED		
+lamp-voice-eval::final_dispatch	final_drain_clock::tests::a_marker_or_an_enqueue_alone_never_completes_the_observation	PASS	1	0.031
+lamp-voice-eval::final_dispatch	final_drain_clock::tests::abandoning_the_initial_hold_stops_and_reaps_the_actual_shell	NOT_OBSERVED		
+lamp-voice-eval::final_dispatch	final_drain_clock::tests::an_expired_watchdog_cannot_release_data_or_advance_the_clock	PASS	3	0.030
+lamp-voice-eval::final_dispatch	final_drain_clock::tests::the_released_shell_exits_and_is_reaped_after_actual_stdin_eof	PASS	1	0.035
+lamp-voice-eval::final_dispatch	final_drain_clock::tests::unexpected_marker_bytes_or_extra_frames_fail_the_observation	PASS	1	0.031

@@ -1,0 +1,26 @@
+[
+  {
+    "path": "/private/tmp/tests-823-final-drain-fixed-upstream-gate.py",
+    "bytes": 5276,
+    "sha256": "c62851c528428b86651de7890583af51f102ab205270848309c60af810f95ab2",
+    "included_in_package": false
+  },
+  {
+    "path": "/private/tmp/tests-823-audit-final-drain-fixed-static.py",
+    "bytes": 10510,
+    "sha256": "b96586a7eee391582b129bfcbbaaca90b60fb45e46751a29b807f23a52e1f732",
+    "included_in_package": false
+  },
+  {
+    "path": "/private/tmp/tests-823-audit-final-drain-fixed-runtime.py",
+    "bytes": 10510,
+    "sha256": "96b045d052fd3dd4adef666428a211fe6f3ef018645bd798f4ddc8a96215e296",
+    "included_in_package": false
+  },
+  {
+    "path": "/private/tmp/tests-823-package-final-drain-fixed-upstream.py",
+    "bytes": 11848,
+    "sha256": "5cd1e18ec417aa13c4e617232c67cfdcb76ac25cac02f7cfc098822b8bcd7236",
+    "included_in_package": false
+  }
+]

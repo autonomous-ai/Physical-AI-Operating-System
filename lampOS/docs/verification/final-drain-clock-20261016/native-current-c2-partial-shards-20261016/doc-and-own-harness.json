@@ -1,0 +1,505 @@
+{
+  "date_from_date": "2026-10-16 11:11:34 +0700",
+  "shard": 1,
+  "doc_targets": 39,
+  "doc_cases_passed": 4,
+  "doc_cases_failed": 0,
+  "doc_details": [
+    {
+      "target": "lamp_actions",
+      "start_line": 2487,
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": "0.00",
+      "result_line": 2491
+    },
+    {
+      "target": "lamp_air",
+      "start_line": 2493,
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": "0.00",
+      "result_line": 2497
+    },
+    {
+      "target": "lamp_audio",
+      "start_line": 2499,
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": "0.00",
+      "result_line": 2503
+    },
+    {
+      "target": "lamp_body",
+      "start_line": 2505,
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": "0.00",
+      "result_line": 2509
+    },
+    {
+      "target": "lamp_bus",
+      "start_line": 2511,
+      "passed": 2,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": "0.00",
+      "result_line": 2517
+    },
+    {
+      "target": "lamp_camera",
+      "start_line": 2520,
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": "0.00",
+      "result_line": 2524
+    },
+    {
+      "target": "lamp_controls",
+      "start_line": 2526,
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": "0.00",
+      "result_line": 2530
+    },
+    {
+      "target": "lamp_ears",
+      "start_line": 2532,
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": "0.00",
+      "result_line": 2536
+    },
+    {
+      "target": "lamp_environment",
+      "start_line": 2538,
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": "0.00",
+      "result_line": 2542
+    },
+    {
+      "target": "lamp_expression",
+      "start_line": 2544,
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": "0.00",
+      "result_line": 2548
+    },
+    {
+      "target": "lamp_eyes",
+      "start_line": 2550,
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": "0.00",
+      "result_line": 2554
+    },
+    {
+      "target": "lamp_gemini",
+      "start_line": 2556,
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": "0.00",
+      "result_line": 2560
+    },
+    {
+      "target": "lamp_health",
+      "start_line": 2562,
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": "0.00",
+      "result_line": 2566
+    },
+    {
+      "target": "lamp_ipc",
+      "start_line": 2568,
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": "0.00",
+      "result_line": 2573
+    },
+    {
+      "target": "lamp_keeper",
+      "start_line": 2576,
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": "0.00",
+      "result_line": 2580
+    },
+    {
+      "target": "lamp_lean",
+      "start_line": 2582,
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": "0.00",
+      "result_line": 2586
+    },
+    {
+      "target": "lamp_memory",
+      "start_line": 2588,
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": "0.00",
+      "result_line": 2592
+    },
+    {
+      "target": "lamp_mood",
+      "start_line": 2594,
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": "0.00",
+      "result_line": 2598
+    },
+    {
+      "target": "lamp_msgs",
+      "start_line": 2600,
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": "0.00",
+      "result_line": 2605
+    },
+    {
+      "target": "lamp_name",
+      "start_line": 2608,
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": "0.00",
+      "result_line": 2612
+    },
+    {
+      "target": "lamp_observer",
+      "start_line": 2614,
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": "0.00",
+      "result_line": 2618
+    },
+    {
+      "target": "lamp_policy",
+      "start_line": 2620,
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": "0.00",
+      "result_line": 2624
+    },
+    {
+      "target": "lamp_records",
+      "start_line": 2626,
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": "0.00",
+      "result_line": 2630
+    },
+    {
+      "target": "lamp_ring",
+      "start_line": 2632,
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": "0.00",
+      "result_line": 2636
+    },
+    {
+      "target": "lamp_same_voice",
+      "start_line": 2638,
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": "0.00",
+      "result_line": 2642
+    },
+    {
+      "target": "lamp_schedule",
+      "start_line": 2644,
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": "0.00",
+      "result_line": 2648
+    },
+    {
+      "target": "lamp_selftest",
+      "start_line": 2650,
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": "0.00",
+      "result_line": 2654
+    },
+    {
+      "target": "lamp_settings",
+      "start_line": 2656,
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": "0.00",
+      "result_line": 2660
+    },
+    {
+      "target": "lamp_setup",
+      "start_line": 2662,
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": "0.00",
+      "result_line": 2666
+    },
+    {
+      "target": "lamp_skills",
+      "start_line": 2668,
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": "0.00",
+      "result_line": 2672
+    },
+    {
+      "target": "lamp_sound_fixtures",
+      "start_line": 2674,
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": "0.00",
+      "result_line": 2678
+    },
+    {
+      "target": "lamp_surround",
+      "start_line": 2680,
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": "0.00",
+      "result_line": 2684
+    },
+    {
+      "target": "lamp_tasks",
+      "start_line": 2686,
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": "0.00",
+      "result_line": 2690
+    },
+    {
+      "target": "lamp_turn_end",
+      "start_line": 2692,
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": "0.00",
+      "result_line": 2696
+    },
+    {
+      "target": "lamp_turn_end_wire",
+      "start_line": 2698,
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": "0.00",
+      "result_line": 2702
+    },
+    {
+      "target": "lamp_turn_owner",
+      "start_line": 2704,
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": "0.00",
+      "result_line": 2708
+    },
+    {
+      "target": "lamp_update",
+      "start_line": 2710,
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": "0.00",
+      "result_line": 2714
+    },
+    {
+      "target": "lamp_voice",
+      "start_line": 2716,
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": "0.00",
+      "result_line": 2720
+    },
+    {
+      "target": "lamp_voice_eval",
+      "start_line": 2722,
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": "0.00",
+      "result_line": 2726
+    }
+  ],
+  "relay_signals": "one actual relay_signals: ok line",
+  "process_passed": 12,
+  "process_failed": 0,
+  "process_cases": [
+    {
+      "name": "an_idle_worker_stays_ready_across_a_long_quiet",
+      "milliseconds": 2009,
+      "log_line": 2742
+    },
+    {
+      "name": "a_worker_reporting_another_model_is_refused_before_any_request",
+      "milliseconds": 2,
+      "log_line": 2743
+    },
+    {
+      "name": "no_outcome_is_delivered_after_close_even_for_an_answer_on_its_way",
+      "milliseconds": 4,
+      "log_line": 2744
+    },
+    {
+      "name": "verdict_carries_identity_and_one_request_at_a_time",
+      "milliseconds": 57,
+      "log_line": 2745
+    },
+    {
+      "name": "missing_model_is_final_and_never_restarted",
+      "milliseconds": 162,
+      "log_line": 2746
+    },
+    {
+      "name": "missing_executable_fails_at_once",
+      "milliseconds": 2,
+      "log_line": 2747
+    },
+    {
+      "name": "startup_failures_are_final",
+      "milliseconds": 411,
+      "log_line": 2748
+    },
+    {
+      "name": "serving_failures_are_replaced_within_budget",
+      "milliseconds": 517,
+      "log_line": 2749
+    },
+    {
+      "name": "protocol_violations_are_replaced",
+      "milliseconds": 181,
+      "log_line": 2750
+    },
+    {
+      "name": "cancelled_answers_are_never_delivered",
+      "milliseconds": 155,
+      "log_line": 2751
+    },
+    {
+      "name": "close_during_inference_never_waits",
+      "milliseconds": 235,
+      "log_line": 2752
+    },
+    {
+      "name": "sustained_requests_stay_bounded",
+      "milliseconds": 691,
+      "log_line": 2754
+    }
+  ],
+  "shards2_3": "These steps are intentionally skipped by matrix condition, as raw job APIs record.",
+  "native_fmt_clippy": "Not run by this workflow; no native strict-Clippy or fmt claim."
+}

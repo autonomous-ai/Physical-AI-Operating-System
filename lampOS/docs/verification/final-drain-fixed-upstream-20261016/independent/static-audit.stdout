@@ -1,0 +1,20 @@
+{
+  "date": "2026-10-16 11:06:37 +0700",
+  "audit": "/private/tmp/tests-823-final-drain-fixed-upstream-independent/source-audit.json",
+  "source_audit_sha256": "6a011cad69552894323161ff893f42b6f29fe451c26d1c78e9ccef9373f284e4",
+  "owned_files": 56,
+  "historical": 53,
+  "current_base_inputs": 1085,
+  "current_candidate_inputs": 1094,
+  "upstream_paths": 143,
+  "upstream_commits": 31,
+  "changed_crates": {
+    "expression": 6,
+    "memory": 2,
+    "policy": 7,
+    "setup": 9,
+    "skills": 3,
+    "tasks": 2,
+    "voice": 32
+  }
+}

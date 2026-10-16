@@ -1,0 +1,10 @@
+{
+  "date_from_date": "2026-10-16 10:22:30 +0700",
+  "first_candidate_original": "/private/tmp/tests-823-gemini-actor-work-candidate",
+  "frozen_copy": "/private/tmp/tests-823-gemini-actor-work-candidate-first",
+  "first_manifest_sha256": "7a887f785a8a24af9de03032244352ee82e24f886689e0bce736381c72bbd903",
+  "manifested_files_verified": 29,
+  "first_proposed_diff_sha256": "51eac14311476f5e6dd1707498fabc8de3a967a47a0e25972b82b4e0f6dc4665",
+  "first_candidate_source_only": true,
+  "new_corrected_directory": "/private/tmp/tests-823-gemini-actor-work-frontier-corrected"
+}

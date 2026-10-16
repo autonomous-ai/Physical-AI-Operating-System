@@ -1,0 +1,28 @@
+=== shard 1, job 116797126621 ===
+222: 2026-10-16T03:34:48.7153730Z [command]/usr/bin/git log -1 --format=%H
+223: 2026-10-16T03:34:48.7184740Z c2eacfa4e29a5c9db21d4d919a77d33ce8112238
+348: 2026-10-16T03:34:56.6117523Z ##[group]Run cargo build --locked --release --workspace --bins --examples
+1035: 2026-10-16T03:41:11.3993682Z ##[group]Run echo "cores: $(nproc)" && cargo nextest run --locked --release --workspace --profile default --no-tests=pass -j 1 --partition hash:1/4 -E 'not (binary_id(lamp-ipc::relay_signals) | binary_id(lamp-turn-end-wire::process))'
+1133: 2026-10-16T03:48:01.7177077Z     Starting 1344 tests across 284 binaries (4155 tests and 2 binaries skipped)
+2439: 2026-10-16T03:50:22.3876908Z         PASS [   0.055s] (1306/1344) lamp-voice-eval::final_dispatch a_session_end_first_seen_in_the_final_drain_withholds_and_is_kept
+2441: 2026-10-16T03:50:23.2498312Z         PASS [   0.031s] (1308/1344) lamp-voice-eval::final_dispatch final_drain_clock::tests::a_marker_or_an_enqueue_alone_never_completes_the_observation
+2442: 2026-10-16T03:50:23.2845836Z         PASS [   0.035s] (1309/1344) lamp-voice-eval::final_dispatch final_drain_clock::tests::the_released_shell_exits_and_is_reaped_after_actual_stdin_eof
+2443: 2026-10-16T03:50:23.3156299Z         PASS [   0.031s] (1310/1344) lamp-voice-eval::final_dispatch final_drain_clock::tests::unexpected_marker_bytes_or_extra_frames_fail_the_observation
+2479: 2026-10-16T03:50:30.1766540Z      Summary [ 148.459s] 1344 tests run: 1344 passed, 4155 skipped
+2737: 2026-10-16T03:50:42.1277915Z relay_signals: ok
+2755: 2026-10-16T03:50:48.0231209Z test result: 12 passed; 0 failed
+=== shard 2, job 116797126863 ===
+245: 2026-10-16T03:34:52.0467976Z [command]/usr/bin/git log -1 --format=%H
+246: 2026-10-16T03:34:52.0497960Z c2eacfa4e29a5c9db21d4d919a77d33ce8112238
+371: 2026-10-16T03:34:59.5347754Z ##[group]Run cargo build --locked --release --workspace --bins --examples
+1157: 2026-10-16T03:41:19.4864264Z ##[group]Run echo "cores: $(nproc)" && cargo nextest run --locked --release --workspace --profile default --no-tests=pass -j 1 --partition hash:2/4 -E 'not (binary_id(lamp-ipc::relay_signals) | binary_id(lamp-turn-end-wire::process))'
+1255: 2026-10-16T03:48:01.9905525Z     Starting 1401 tests across 284 binaries (4098 tests and 2 binaries skipped)
+2658: 2026-10-16T03:50:42.6367672Z      Summary [ 160.646s] 1401 tests run: 1401 passed, 4098 skipped
+=== shard 3, job 116797126912 ===
+245: 2026-10-16T03:35:14.3398534Z [command]/usr/bin/git log -1 --format=%H
+246: 2026-10-16T03:35:14.3429305Z c2eacfa4e29a5c9db21d4d919a77d33ce8112238
+371: 2026-10-16T03:35:22.0368504Z ##[group]Run cargo build --locked --release --workspace --bins --examples
+1058: 2026-10-16T03:41:38.0999470Z ##[group]Run echo "cores: $(nproc)" && cargo nextest run --locked --release --workspace --profile default --no-tests=pass -j 1 --partition hash:3/4 -E 'not (binary_id(lamp-ipc::relay_signals) | binary_id(lamp-turn-end-wire::process))'
+1156: 2026-10-16T03:48:18.2336168Z     Starting 1287 tests across 284 binaries (4212 tests and 2 binaries skipped)
+2416: 2026-10-16T03:50:28.2681268Z         PASS [   0.030s] (1260/1287) lamp-voice-eval::final_dispatch final_drain_clock::tests::an_expired_watchdog_cannot_release_data_or_advance_the_clock
+2445: 2026-10-16T03:50:39.6490543Z      Summary [ 141.415s] 1287 tests run: 1287 passed, 4212 skipped

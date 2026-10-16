@@ -1,0 +1,1469 @@
+--- a/lampOS/crates/gemini/src/session.rs
++++ b/lampOS/crates/gemini/src/session.rs
+@@ -59,8 +59,6 @@
+ 
+ struct Shared {
+     capture_clock: CaptureClockSource,
+-    #[cfg(any(test, feature = "fixture-clock"))]
+-    work: Option<crate::testing::actor_work::Recorder>,
+     // Test-only deterministic preemption between discard's existing atomics.
+     #[cfg(test)]
+     discard_publication_pause: Mutex<Option<DiscardPublicationPause>>,
+@@ -534,16 +532,6 @@
+         Ok(())
+     }
+     fn enqueue(&self, command: Command) -> Result<()> {
+-        #[cfg(any(test, feature = "fixture-clock"))]
+-        if let Some(recorder) = &self.shared.work {
+-            let publication = recorder.submission();
+-            let result = self.enqueue_unobserved(command);
+-            publication.returned(result);
+-            return result;
+-        }
+-        self.enqueue_unobserved(command)
+-    }
+-    fn enqueue_unobserved(&self, command: Command) -> Result<()> {
+         self.ensure_ready()?;
+         self.commands
+             .try_send(command)
+@@ -713,33 +701,11 @@
+ }
+ 
+ pub(crate) async fn setup_and_spawn_with_sources<S>(
+-    socket: WebSocketStream<S>,
+-    config: SessionConfig,
+-    session: SessionId,
+-    capture_clock: CaptureClockSource,
+-    joins: crate::testing::JoinSource,
+-) -> Result<Connection>
+-where
+-    S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+-{
+-    setup_and_spawn_with_work_source(
+-        socket,
+-        config,
+-        session,
+-        capture_clock,
+-        joins,
+-        crate::testing::ActorWorkSource::Plain,
+-    )
+-    .await
+-}
+-
+-pub(crate) async fn setup_and_spawn_with_work_source<S>(
+     mut socket: WebSocketStream<S>,
+     config: SessionConfig,
+     session: SessionId,
+     capture_clock: CaptureClockSource,
+     _joins: crate::testing::JoinSource,
+-    _work: crate::testing::ActorWorkSource,
+ ) -> Result<Connection>
+ where
+     S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+@@ -798,12 +764,8 @@
+     let (events_tx, events) = mpsc::channel(EVENT_QUEUE_CAPACITY);
+     let (state_tx, state) = watch::channel(State::Ready);
+     let (stop, stop_rx) = watch::channel(None);
+-    #[cfg(any(test, feature = "fixture-clock"))]
+-    let work = _work.install(session);
+     let shared = Arc::new(Shared {
+         capture_clock,
+-        #[cfg(any(test, feature = "fixture-clock"))]
+-        work,
+         #[cfg(test)]
+         discard_publication_pause: Mutex::new(None),
+         retired_through: AtomicU64::new(0),
+@@ -899,26 +861,6 @@
+     /// The answer to the call with this identifier, already encoded.
+     ToolResponse(String, String),
+ }
+-#[cfg(any(test, feature = "fixture-clock"))]
+-impl Command {
+-    fn work_metadata(&self) -> crate::testing::WorkCommand {
+-        use crate::testing::{WorkCommand, WorkCommandKind as Kind};
+-        let (kind, request, sequence) = match self {
+-            Self::Start(id) => (Kind::Start, Some(*id), None),
+-            Self::Audio(audio) => (Kind::Audio, Some(audio.request), Some(audio.sequence)),
+-            Self::Note(id, _) => (Kind::Note, Some(*id), None),
+-            Self::Written(id, _, _) => (Kind::Written, Some(*id), None),
+-            Self::Context(_) => (Kind::Context, None, None),
+-            Self::End(id) => (Kind::End, Some(*id), None),
+-            Self::ToolResponse(_, _) => (Kind::ToolResponse, None, None),
+-        };
+-        WorkCommand {
+-            kind,
+-            request,
+-            sequence,
+-        }
+-    }
+-}
+ struct InputState {
+     open: bool,
+     last_sequence: Option<u64>,
+@@ -1216,12 +1158,6 @@
+             if let Some(stop) = *self.stop.borrow() {
+                 return Err(stop.error);
+             }
+-            #[cfg(any(test, feature = "fixture-clock"))]
+-            let maintenance = self
+-                .shared
+-                .work
+-                .as_ref()
+-                .map(|recorder| recorder.maintenance());
+             self.retire_active().await?;
+             self.apply_discard();
+             self.purge_retired();
+@@ -1252,10 +1188,6 @@
+             // stay live throughout.
+             let waiting = !self.outbox.is_empty();
+             let gated = self.gated;
+-            #[cfg(any(test, feature = "fixture-clock"))]
+-            if let Some(maintenance) = maintenance {
+-                maintenance.completed(self.work_buffers());
+-            }
+             tokio::select! {
+                 _ = self.shared.wake.notified() => {},
+                 _ = tick.tick() => {},
+@@ -1266,12 +1198,7 @@
+                     // Discard this command if a stop is already recorded.
+                     // The next turn of the loop ends the session with that
+                     // stop. A write already in progress is ended by `write`.
+-                    Some(_) if self.stop.borrow().is_some() => {
+-                        #[cfg(any(test, feature = "fixture-clock"))]
+-                        if let Some(recorder) = &self.shared.work {
+-                            recorder.discarded_after_stop();
+-                        }
+-                    }
++                    Some(_) if self.stop.borrow().is_some() => {}
+                     Some(command) => self.command(command).await?,
+                     None => return Ok(()),
+                 },
+@@ -1892,27 +1819,7 @@
+         }
+         Ok(())
+     }
+-    #[cfg(any(test, feature = "fixture-clock"))]
+-    fn work_buffers(&self) -> crate::testing::WorkBuffers {
+-        crate::testing::WorkBuffers {
+-            kept_start: self.held.as_ref().is_some_and(|held| held.holding),
+-            held_blocks: self.held.as_ref().map_or(0, |held| held.audio.len()),
+-            held_samples: self.held.as_ref().map_or(0, |held| held.samples),
+-            outbox_events: self.outbox.len(),
+-            output_gated: self.gated,
+-        }
+-    }
+     async fn command(&mut self, command: Command) -> Result<()> {
+-        #[cfg(any(test, feature = "fixture-clock"))]
+-        if let Some(recorder) = self.shared.work.clone() {
+-            let handling = recorder.command(command.work_metadata());
+-            let result = self.command_unobserved(command).await;
+-            handling.returned(result, self.work_buffers());
+-            return result;
+-        }
+-        self.command_unobserved(command).await
+-    }
+-    async fn command_unobserved(&mut self, command: Command) -> Result<()> {
+         match command {
+             Command::Start(request) => {
+                 if request.get() <= self.last_request
+@@ -2628,6 +2535,3 @@
+ 
+ #[cfg(test)]
+ mod capture_clock_tests;
+-
+-#[cfg(test)]
+-mod actor_work_tests;
+--- a/lampOS/crates/gemini/src/testing.rs
++++ b/lampOS/crates/gemini/src/testing.rs
+@@ -37,34 +37,6 @@
+     Plain,
+     #[cfg(any(test, feature = "fixture-clock"))]
+     Retained(task_joins::Registrar),
+-}
+-
+-#[cfg(any(test, feature = "fixture-clock"))]
+-pub(crate) mod actor_work;
+-#[cfg(any(test, feature = "fixture-clock"))]
+-pub use actor_work::{
+-    ActorWork, WorkBuffers, WorkCommand, WorkCommandKind, WorkFault, WorkMaintenance, WorkReceipt,
+-    WorkSnapshot,
+-};
+-
+-#[derive(Clone, Default)]
+-pub(crate) enum ActorWorkSource {
+-    #[default]
+-    Plain,
+-    #[cfg(any(test, feature = "fixture-clock"))]
+-    Recorded(actor_work::Recorder),
+-}
+-#[cfg(any(test, feature = "fixture-clock"))]
+-impl ActorWorkSource {
+-    pub(crate) fn install(self, session: SessionId) -> Option<actor_work::Recorder> {
+-        match self {
+-            Self::Plain => None,
+-            Self::Recorded(recorder) => {
+-                recorder.install(session);
+-                Some(recorder)
+-            }
+-        }
+-    }
+ }
+ 
+ /// Capture time supplied explicitly to an in-memory fixture connection.
+@@ -226,44 +198,6 @@
+     .await
+ }
+ 
+-/// One real fixture connection with capture time and historical Actor work
+-/// observations. Installation precedes InputSender publication and Actor spawn.
+-/// These receipts do not grant clock advancement or prove transport, service,
+-/// output-consumer or task completion. Existing factories remain unobserved.
+-#[cfg(any(test, feature = "fixture-clock"))]
+-pub async fn pair_with_capture_clock_and_work(
+-    config: SessionConfig,
+-    session: SessionId,
+-    capacity: usize,
+-    clock: Arc<dyn CaptureClock>,
+-) -> (
+-    impl Future<Output = Result<Connection>> + Send + 'static,
+-    FakeService,
+-    ActorWork,
+-) {
+-    let (work, recorder) = ActorWork::new(session);
+-    let (client, server) = tokio::io::duplex(capacity);
+-    let client =
+-        WebSocketStream::from_raw_socket(client, Role::Client, Some(socket_config())).await;
+-    let server =
+-        WebSocketStream::from_raw_socket(server, Role::Server, Some(socket_config())).await;
+-    (
+-        crate::session::setup_and_spawn_with_work_source(
+-            client,
+-            config,
+-            session,
+-            CaptureClockSource::Fixture(clock),
+-            JoinSource::Plain,
+-            ActorWorkSource::Recorded(recorder),
+-        ),
+-        FakeService {
+-            socket: server,
+-            closed: false,
+-        },
+-        work,
+-    )
+-}
+-
+ async fn pair_with_clock_source(
+     config: SessionConfig,
+     session: SessionId,
+--- a/lampOS/crates/gemini/src/testing/actor_work.rs
++++ /dev/null
+@@ -1,390 +0,0 @@
+-//! Observations of actual command handling and completed maintenance, not idleness.
+-use crate::{RequestId, Result, SessionId};
+-use futures_util::task::AtomicWaker;
+-use std::{
+-    future::poll_fn,
+-    sync::{Arc, Mutex, MutexGuard},
+-    task::Poll,
+-};
+-
+-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+-pub enum WorkFault {
+-    Overflow,
+-    Poisoned,
+-    WrongIdentity,
+-    AlreadyInstalled,
+-    InvalidState,
+-}
+-
+-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+-pub enum WorkCommandKind {
+-    Start,
+-    Audio,
+-    Note,
+-    Written,
+-    Context,
+-    End,
+-    ToolResponse,
+-}
+-
+-/// Fixed-size metadata only: no PCM, text, image or tool payload is retained.
+-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+-pub struct WorkCommand {
+-    pub kind: WorkCommandKind,
+-    pub request: Option<RequestId>,
+-    pub sequence: Option<u64>,
+-}
+-
+-/// Facts copied at an actual handler return or completed maintenance boundary.
+-/// Held input is intentionally unsent; these values are not transport receipts.
+-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+-pub struct WorkBuffers {
+-    pub kept_start: bool,
+-    pub held_blocks: usize,
+-    pub held_samples: usize,
+-    pub outbox_events: usize,
+-    pub output_gated: bool,
+-}
+-
+-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+-pub struct WorkReceipt {
+-    pub ordinal: u64,
+-    pub command: WorkCommand,
+-    pub returned: Result<()>,
+-    pub buffers: WorkBuffers,
+-}
+-
+-/// All original maintenance operations returned before the next select begins.
+-/// Coverage is the returned-command/discard frontier captured at pass entry;
+-/// commands returned during the pass need a later completed pass for coverage.
+-/// Buffer facts are sampled at completion, not at that entry frontier.
+-/// This does not mean any select branch was polled or any due timer was handled.
+-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+-pub struct WorkMaintenance {
+-    pub ordinal: u64,
+-    pub covers_returned_commands: u64,
+-    pub covers_post_stop_discards: u64,
+-    pub buffers: WorkBuffers,
+-}
+-
+-#[derive(Clone, Debug)]
+-pub struct WorkSnapshot {
+-    identity: Arc<()>,
+-    revision: u64,
+-    pub session: SessionId,
+-    pub installed: bool,
+-    pub publications_in_flight: u64,
+-    pub accepted: u64,
+-    pub rejected: u64,
+-    pub abandoned_publications: u64,
+-    pub commands_started: u64,
+-    pub commands_returned: u64,
+-    pub commands_abandoned: u64,
+-    pub active_command: Option<WorkCommand>,
+-    pub last_returned: Option<WorkReceipt>,
+-    pub post_stop_discards: u64,
+-    pub maintenance_started: u64,
+-    pub maintenance_completed: u64,
+-    pub maintenance_incomplete: u64,
+-    pub maintenance_active: bool,
+-    pub last_maintenance: Option<WorkMaintenance>,
+-    pub fault: Option<WorkFault>,
+-}
+-impl WorkSnapshot {
+-    pub fn revision(&self) -> u64 {
+-        self.revision
+-    }
+-}
+-
+-struct Shared {
+-    state: Mutex<WorkSnapshot>,
+-    wake: AtomicWaker,
+-}
+-impl Shared {
+-    fn state(&self) -> MutexGuard<'_, WorkSnapshot> {
+-        self.state.lock().unwrap_or_else(|error| {
+-            let mut state = error.into_inner();
+-            state.fault.get_or_insert(WorkFault::Poisoned);
+-            state
+-        })
+-    }
+-    fn update(&self, change: impl FnOnce(&mut WorkSnapshot)) {
+-        {
+-            let mut state = self.state();
+-            change(&mut state);
+-            let state = &mut *state;
+-            increment(&mut state.revision, &mut state.fault);
+-        }
+-        // No observer lock is held across a wake or any original operation.
+-        self.wake.wake();
+-    }
+-}
+-fn increment(value: &mut u64, fault: &mut Option<WorkFault>) {
+-    if let Some(next) = value.checked_add(1) {
+-        *value = next;
+-    } else {
+-        fault.get_or_insert(WorkFault::Overflow);
+-    }
+-}
+-fn decrement(value: &mut u64, fault: &mut Option<WorkFault>) {
+-    if let Some(next) = value.checked_sub(1) {
+-        *value = next;
+-    } else {
+-        fault.get_or_insert(WorkFault::InvalidState);
+-    }
+-}
+-
+-/// One fixture reader, installed before the actual Actor and InputSender escape.
+-/// It owns no task, no clock and no unbounded event history. Dropping it does not
+-/// stop or alter the session. The one waiter needs mutable access to this handle.
+-pub struct ActorWork(Arc<Shared>);
+-impl ActorWork {
+-    pub(crate) fn new(session: SessionId) -> (Self, Recorder) {
+-        let shared = Arc::new(Shared {
+-            state: Mutex::new(WorkSnapshot {
+-                identity: Arc::new(()),
+-                revision: 0,
+-                session,
+-                installed: false,
+-                publications_in_flight: 0,
+-                accepted: 0,
+-                rejected: 0,
+-                abandoned_publications: 0,
+-                commands_started: 0,
+-                commands_returned: 0,
+-                commands_abandoned: 0,
+-                active_command: None,
+-                last_returned: None,
+-                post_stop_discards: 0,
+-                maintenance_started: 0,
+-                maintenance_completed: 0,
+-                maintenance_incomplete: 0,
+-                maintenance_active: false,
+-                last_maintenance: None,
+-                fault: None,
+-            }),
+-            wake: AtomicWaker::new(),
+-        });
+-        (Self(shared.clone()), Recorder(shared))
+-    }
+-    /// Historical facts only. In particular, an old completed maintenance pass
+-    /// says nothing about current remote frames, queued events or timer work.
+-    pub fn snapshot(&self) -> WorkSnapshot {
+-        self.0.state().clone()
+-    }
+-    /// Wait for a real observation after this allocation's earlier snapshot.
+-    /// The fixture must apply its own single immutable host failure deadline.
+-    /// Cancellation leaves the recorder and all original work untouched.
+-    pub async fn changed(
+-        &mut self,
+-        previous: &WorkSnapshot,
+-    ) -> std::result::Result<WorkSnapshot, WorkFault> {
+-        poll_fn(|cx| {
+-            self.0.wake.register(cx.waker());
+-            let current = self.snapshot();
+-            if !Arc::ptr_eq(&previous.identity, &current.identity) {
+-                return Poll::Ready(Err(WorkFault::WrongIdentity));
+-            }
+-            if let Some(fault) = current.fault {
+-                return Poll::Ready(Err(fault));
+-            }
+-            if previous.revision > current.revision {
+-                return Poll::Ready(Err(WorkFault::InvalidState));
+-            }
+-            if current.revision != previous.revision {
+-                Poll::Ready(Ok(current))
+-            } else {
+-                Poll::Pending
+-            }
+-        })
+-        .await
+-    }
+-    #[cfg(test)]
+-    pub(crate) fn overflow_revision_for_test(&self) {
+-        self.0.state().revision = u64::MAX;
+-    }
+-    #[cfg(test)]
+-    pub(crate) fn poison_for_test(&self) {
+-        // Capture only the Mutex, not AtomicWaker or an assertion-safety wrapper.
+-        let state = &self.0.state;
+-        let result = std::panic::catch_unwind(|| {
+-            let _guard = state.lock().unwrap();
+-            panic!("intentional Actor work bookkeeping poison");
+-        });
+-        assert!(result.is_err());
+-    }
+-}
+-
+-#[derive(Clone)]
+-pub(crate) struct Recorder(Arc<Shared>);
+-impl Recorder {
+-    pub(crate) fn install(&self, session: SessionId) {
+-        self.0.update(|s| {
+-            if s.session != session {
+-                s.fault.get_or_insert(WorkFault::WrongIdentity);
+-            }
+-            if s.installed {
+-                s.fault.get_or_insert(WorkFault::AlreadyInstalled);
+-            }
+-            s.installed = true;
+-        });
+-    }
+-    pub(crate) fn submission(&self) -> Submission {
+-        self.0.update(|s| {
+-            if !s.installed {
+-                s.fault.get_or_insert(WorkFault::InvalidState);
+-            }
+-            increment(&mut s.publications_in_flight, &mut s.fault);
+-        });
+-        Submission {
+-            recorder: self.clone(),
+-            returned: false,
+-        }
+-    }
+-    pub(crate) fn command(&self, command: WorkCommand) -> Handling {
+-        let mut ordinal = 0;
+-        self.0.update(|s| {
+-            if !s.installed || s.active_command.is_some() {
+-                s.fault.get_or_insert(WorkFault::InvalidState);
+-            }
+-            increment(&mut s.commands_started, &mut s.fault);
+-            ordinal = s.commands_started;
+-            s.active_command = Some(command);
+-        });
+-        Handling {
+-            recorder: self.clone(),
+-            ordinal,
+-            command,
+-            returned: false,
+-        }
+-    }
+-    pub(crate) fn discarded_after_stop(&self) {
+-        self.0.update(|s| {
+-            if !s.installed {
+-                s.fault.get_or_insert(WorkFault::InvalidState);
+-            }
+-            increment(&mut s.post_stop_discards, &mut s.fault);
+-        });
+-    }
+-    pub(crate) fn maintenance(&self) -> Maintenance {
+-        let mut ordinal = 0;
+-        let mut returned_commands_at_entry = 0;
+-        let mut post_stop_discards_at_entry = 0;
+-        self.0.update(|s| {
+-            if !s.installed || s.maintenance_active {
+-                s.fault.get_or_insert(WorkFault::InvalidState);
+-            }
+-            increment(&mut s.maintenance_started, &mut s.fault);
+-            ordinal = s.maintenance_started;
+-            returned_commands_at_entry = s.commands_returned;
+-            post_stop_discards_at_entry = s.post_stop_discards;
+-            s.maintenance_active = true;
+-        });
+-        Maintenance {
+-            recorder: self.clone(),
+-            ordinal,
+-            returned_commands_at_entry,
+-            post_stop_discards_at_entry,
+-            completed: false,
+-        }
+-    }
+-}
+-
+-pub(crate) struct Submission {
+-    recorder: Recorder,
+-    returned: bool,
+-}
+-impl Submission {
+-    pub(crate) fn returned(mut self, result: Result<()>) {
+-        self.recorder.0.update(|s| {
+-            decrement(&mut s.publications_in_flight, &mut s.fault);
+-            if result.is_ok() {
+-                increment(&mut s.accepted, &mut s.fault);
+-            } else {
+-                increment(&mut s.rejected, &mut s.fault);
+-            }
+-        });
+-        self.returned = true;
+-    }
+-}
+-impl Drop for Submission {
+-    fn drop(&mut self) {
+-        if !self.returned {
+-            self.recorder.0.update(|s| {
+-                decrement(&mut s.publications_in_flight, &mut s.fault);
+-                increment(&mut s.abandoned_publications, &mut s.fault);
+-            });
+-        }
+-    }
+-}
+-
+-pub(crate) struct Handling {
+-    recorder: Recorder,
+-    ordinal: u64,
+-    command: WorkCommand,
+-    returned: bool,
+-}
+-impl Handling {
+-    pub(crate) fn returned(mut self, result: Result<()>, buffers: WorkBuffers) {
+-        self.recorder.0.update(|s| {
+-            if s.active_command != Some(self.command) || s.commands_started != self.ordinal {
+-                s.fault.get_or_insert(WorkFault::InvalidState);
+-            }
+-            s.active_command = None;
+-            increment(&mut s.commands_returned, &mut s.fault);
+-            s.last_returned = Some(WorkReceipt {
+-                ordinal: self.ordinal,
+-                command: self.command,
+-                returned: result,
+-                buffers,
+-            });
+-        });
+-        self.returned = true;
+-    }
+-}
+-impl Drop for Handling {
+-    fn drop(&mut self) {
+-        if !self.returned {
+-            self.recorder.0.update(|s| {
+-                s.active_command = None;
+-                increment(&mut s.commands_abandoned, &mut s.fault);
+-            });
+-        }
+-    }
+-}
+-
+-pub(crate) struct Maintenance {
+-    recorder: Recorder,
+-    ordinal: u64,
+-    returned_commands_at_entry: u64,
+-    post_stop_discards_at_entry: u64,
+-    completed: bool,
+-}
+-impl Maintenance {
+-    pub(crate) fn completed(mut self, buffers: WorkBuffers) {
+-        self.recorder.0.update(|s| {
+-            if !s.maintenance_active || s.maintenance_started != self.ordinal {
+-                s.fault.get_or_insert(WorkFault::InvalidState);
+-            }
+-            s.maintenance_active = false;
+-            increment(&mut s.maintenance_completed, &mut s.fault);
+-            s.last_maintenance = Some(WorkMaintenance {
+-                ordinal: self.ordinal,
+-                covers_returned_commands: self.returned_commands_at_entry,
+-                covers_post_stop_discards: self.post_stop_discards_at_entry,
+-                buffers,
+-            });
+-        });
+-        self.completed = true;
+-    }
+-}
+-impl Drop for Maintenance {
+-    fn drop(&mut self) {
+-        if !self.completed {
+-            self.recorder.0.update(|s| {
+-                s.maintenance_active = false;
+-                increment(&mut s.maintenance_incomplete, &mut s.fault);
+-            });
+-        }
+-    }
+-}
+--- a/lampOS/crates/gemini/src/session/actor_work_tests.rs
++++ /dev/null
+@@ -1,739 +0,0 @@
+-//! Causal observations through the actual Actor, original queues and WebSocket.
+-use super::*;
+-use crate::{
+-    Credential, GOOGLE_ENDPOINT,
+-    testing::{
+-        self, ActorWork, ActorWorkSource, CaptureClock, JoinSource, WorkCommandKind, WorkFault,
+-        WorkSnapshot,
+-    },
+-};
+-use futures_util::{SinkExt, StreamExt, task::AtomicWaker};
+-use serde_json::{Value, json};
+-use std::{
+-    io,
+-    pin::Pin,
+-    task::{Context, Poll},
+-};
+-use tokio::io::{DuplexStream, ReadBuf};
+-use tokio_tungstenite::tungstenite::protocol::Role;
+-
+-type Service = WebSocketStream<DuplexStream>;
+-
+-struct Capture {
+-    at: Instant,
+-    reads: AtomicU64,
+-    panic_next: AtomicBool,
+-}
+-impl Capture {
+-    fn new() -> Arc<Self> {
+-        Arc::new(Self {
+-            at: Instant::now()
+-                .checked_add(Duration::from_secs(3_600))
+-                .unwrap(),
+-            reads: AtomicU64::new(0),
+-            panic_next: AtomicBool::new(false),
+-        })
+-    }
+-}
+-impl CaptureClock for Capture {
+-    fn now(&self) -> Instant {
+-        self.reads.fetch_add(1, Ordering::SeqCst);
+-        assert!(
+-            !self.panic_next.swap(false, Ordering::SeqCst),
+-            "original Actor capture panic"
+-        );
+-        self.at
+-    }
+-}
+-
+-#[derive(Default)]
+-struct Gate {
+-    hold: AtomicBool,
+-    held: Notify,
+-    wake: AtomicWaker,
+-}
+-impl Gate {
+-    fn block(&self) {
+-        self.hold.store(true, Ordering::Release);
+-    }
+-    fn release(&self) {
+-        self.hold.store(false, Ordering::Release);
+-        self.wake.wake();
+-    }
+-}
+-struct Controlled {
+-    inner: DuplexStream,
+-    gate: Arc<Gate>,
+-}
+-impl AsyncRead for Controlled {
+-    fn poll_read(
+-        mut self: Pin<&mut Self>,
+-        cx: &mut Context<'_>,
+-        bytes: &mut ReadBuf<'_>,
+-    ) -> Poll<io::Result<()>> {
+-        Pin::new(&mut self.inner).poll_read(cx, bytes)
+-    }
+-}
+-impl AsyncWrite for Controlled {
+-    fn poll_write(
+-        mut self: Pin<&mut Self>,
+-        cx: &mut Context<'_>,
+-        bytes: &[u8],
+-    ) -> Poll<io::Result<usize>> {
+-        if self.gate.hold.load(Ordering::Acquire) {
+-            self.gate.wake.register(cx.waker());
+-            if self.gate.hold.load(Ordering::Acquire) {
+-                self.gate.held.notify_one();
+-                return Poll::Pending;
+-            }
+-        }
+-        Pin::new(&mut self.inner).poll_write(cx, bytes)
+-    }
+-    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+-        Pin::new(&mut self.inner).poll_flush(cx)
+-    }
+-    fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+-        Pin::new(&mut self.inner).poll_shutdown(cx)
+-    }
+-}
+-fn config() -> SessionConfig {
+-    SessionConfig::new(
+-        GOOGLE_ENDPOINT,
+-        Credential::api_key("actor-work-test").unwrap(),
+-    )
+-    .unwrap()
+-}
+-fn request(id: u64) -> RequestId {
+-    RequestId::new(id).unwrap()
+-}
+-async fn bounded<T>(deadline: Clock, future: impl Future<Output = T>) -> T {
+-    tokio::time::timeout_at(deadline, future)
+-        .await
+-        .expect("fixed Actor work test deadline")
+-}
+-async fn receive(service: &mut Service, deadline: Clock) -> Value {
+-    let message = bounded(deadline, service.next()).await.unwrap().unwrap();
+-    let Message::Text(text) = message else {
+-        panic!("expected actual JSON frame: {message:?}")
+-    };
+-    serde_json::from_str(&text).unwrap()
+-}
+-async fn send(service: &mut Service, deadline: Clock, value: Value) {
+-    bounded(deadline, service.send(Message::text(value.to_string())))
+-        .await
+-        .unwrap();
+-}
+-async fn observed(
+-    work: &mut ActorWork,
+-    deadline: Clock,
+-    condition: impl Fn(&WorkSnapshot) -> bool,
+-) -> WorkSnapshot {
+-    bounded(deadline, async {
+-        let mut snapshot = work.snapshot();
+-        loop {
+-            assert_eq!(snapshot.fault, None, "{snapshot:?}");
+-            if condition(&snapshot) {
+-                return snapshot;
+-            }
+-            snapshot = work.changed(&snapshot).await.unwrap();
+-        }
+-    })
+-    .await
+-}
+-async fn open(
+-    configuration: SessionConfig,
+-) -> (
+-    Connection,
+-    Service,
+-    Arc<Gate>,
+-    Arc<Capture>,
+-    ActorWork,
+-    Clock,
+-) {
+-    let deadline = Clock::now() + Duration::from_secs(5);
+-    let clock = Capture::new();
+-    let gate = Arc::new(Gate::default());
+-    let session = SessionId::new(17).unwrap();
+-    let (work, recorder) = ActorWork::new(session);
+-    let (client, server) = tokio::io::duplex(MAX_WIRE_BYTES * 2);
+-    let client = WebSocketStream::from_raw_socket(
+-        Controlled {
+-            inner: client,
+-            gate: gate.clone(),
+-        },
+-        Role::Client,
+-        Some(socket_config()),
+-    )
+-    .await;
+-    let mut service =
+-        WebSocketStream::from_raw_socket(server, Role::Server, Some(socket_config())).await;
+-    let attempt = tokio::spawn(setup_and_spawn_with_work_source(
+-        client,
+-        configuration,
+-        session,
+-        CaptureClockSource::Fixture(clock.clone()),
+-        JoinSource::Plain,
+-        ActorWorkSource::Recorded(recorder),
+-    ));
+-    assert!(receive(&mut service, deadline).await["setup"].is_object());
+-    assert!(
+-        !work.snapshot().installed,
+-        "setup has not been acknowledged"
+-    );
+-    send(&mut service, deadline, json!({"setupComplete": {}})).await;
+-    let connection = bounded(deadline, attempt).await.unwrap().unwrap();
+-    assert!(work.snapshot().installed);
+-    (connection, service, gate, clock, work, deadline)
+-}
+-async fn start(
+-    connection: &Connection,
+-    service: &mut Service,
+-    work: &mut ActorWork,
+-    deadline: Clock,
+-) {
+-    connection.input().try_start(request(1)).unwrap();
+-    assert!(receive(service, deadline).await["realtimeInput"]["activityStart"].is_object());
+-    observed(work, deadline, |s| {
+-        s.last_maintenance
+-            .is_some_and(|m| m.covers_returned_commands == 1)
+-    })
+-    .await;
+-}
+-async fn joined(mut connection: Connection, deadline: Clock) {
+-    connection.shutdown();
+-    bounded(deadline, async {
+-        while connection.next_event().await.is_some() {}
+-        (&mut connection.task).await.unwrap();
+-    })
+-    .await;
+-}
+-
+-#[tokio::test]
+-async fn public_factory_installs_before_admission_and_acceptance_is_not_handling_or_output_consumption()
+- {
+-    let deadline = Clock::now() + Duration::from_secs(5);
+-    let clock = Capture::new();
+-    let (attempt, mut service, mut work) = testing::pair_with_capture_clock_and_work(
+-        config(),
+-        SessionId::new(17).unwrap(),
+-        64,
+-        clock.clone(),
+-    )
+-    .await;
+-    assert!(!work.snapshot().installed);
+-    let attempt = tokio::spawn(attempt);
+-    bounded(deadline, service.accept()).await;
+-    let mut connection = bounded(deadline, attempt).await.unwrap().unwrap();
+-    connection.input().try_start(request(1)).unwrap();
+-    // The current-thread Actor cannot run in this synchronous interval.
+-    let accepted = work.snapshot();
+-    assert!(accepted.installed);
+-    assert_eq!(accepted.accepted, 1);
+-    assert_eq!(accepted.publications_in_flight, 0);
+-    assert_eq!(accepted.commands_started, 0);
+-    assert!(accepted.last_returned.is_none());
+-    assert!(
+-        bounded(deadline, service.receive()).await["realtimeInput"]["activityStart"].is_object()
+-    );
+-    let handled = observed(&mut work, deadline, |s| {
+-        s.last_maintenance
+-            .is_some_and(|m| m.covers_returned_commands == 1)
+-    })
+-    .await;
+-    assert_eq!(handled.commands_returned, 1);
+-    assert_eq!(handled.last_returned.unwrap().returned, Ok(()));
+-    assert_eq!(
+-        connection.events.len(),
+-        1,
+-        "event is enqueued but not consumed"
+-    );
+-    assert!(matches!(
+-        bounded(deadline, connection.next_event()).await,
+-        Some(Event::InputStarted { .. })
+-    ));
+-    assert_eq!(
+-        clock.reads.load(Ordering::SeqCst),
+-        0,
+-        "observation never samples capture time"
+-    );
+-    joined(connection, deadline).await;
+-}
+-
+-#[tokio::test]
+-async fn actual_blocked_audio_write_has_no_return_receipt_until_transport_accepts_it() {
+-    let (connection, mut service, gate, clock, mut work, deadline) = open(config()).await;
+-    start(&connection, &mut service, &mut work, deadline).await;
+-    gate.block();
+-    connection
+-        .input()
+-        .try_audio(request(1), 0, clock.at, &[42; 160])
+-        .unwrap();
+-    bounded(deadline, gate.held.notified()).await;
+-    let blocked = work.snapshot();
+-    assert_eq!(blocked.accepted, 2);
+-    assert_eq!(blocked.commands_returned, 1);
+-    assert_eq!(blocked.active_command.unwrap().kind, WorkCommandKind::Audio);
+-    assert_eq!(
+-        blocked.last_maintenance.unwrap().covers_returned_commands,
+-        1
+-    );
+-    gate.release();
+-    assert_eq!(
+-        testing::sent_audio(&receive(&mut service, deadline).await),
+-        Some(vec![42; 160])
+-    );
+-    let complete = observed(&mut work, deadline, |s| {
+-        s.last_maintenance
+-            .is_some_and(|m| m.covers_returned_commands == 2)
+-    })
+-    .await;
+-    assert_eq!(complete.last_returned.unwrap().returned, Ok(()));
+-    assert_eq!(complete.commands_abandoned, 0);
+-    assert_eq!(clock.reads.load(Ordering::SeqCst), 3);
+-    joined(connection, deadline).await;
+-}
+-
+-#[tokio::test]
+-async fn original_stop_returns_closed_from_the_handler_but_the_actual_actor_task_returns_unit() {
+-    let (mut connection, mut service, gate, clock, mut work, deadline) = open(config()).await;
+-    start(&connection, &mut service, &mut work, deadline).await;
+-    gate.block();
+-    connection
+-        .input()
+-        .try_audio(request(1), 0, clock.at, &[42; 160])
+-        .unwrap();
+-    bounded(deadline, gate.held.notified()).await;
+-    connection.shutdown();
+-    bounded(deadline, &mut connection.task).await.unwrap();
+-    let stopped = work.snapshot();
+-    assert_eq!(connection.state(), State::Closed);
+-    assert_eq!(stopped.commands_returned, 2);
+-    assert_eq!(stopped.last_returned.unwrap().returned, Err(Error::Closed));
+-    assert_eq!(stopped.commands_abandoned, 0);
+-    assert_eq!(
+-        stopped.last_maintenance.unwrap().covers_returned_commands,
+-        1
+-    );
+-}
+-
+-#[tokio::test]
+-async fn actual_actor_abort_abandons_entered_handling_without_inventing_a_returned_result() {
+-    let (mut connection, mut service, gate, clock, mut work, deadline) = open(config()).await;
+-    start(&connection, &mut service, &mut work, deadline).await;
+-    gate.block();
+-    connection
+-        .input()
+-        .try_audio(request(1), 0, clock.at, &[42; 160])
+-        .unwrap();
+-    bounded(deadline, gate.held.notified()).await;
+-    connection.task.abort();
+-    let error = bounded(deadline, &mut connection.task).await.unwrap_err();
+-    assert!(error.is_cancelled());
+-    let abandoned = work.snapshot();
+-    assert_eq!(abandoned.commands_started, 2);
+-    assert_eq!(abandoned.commands_returned, 1);
+-    assert_eq!(abandoned.commands_abandoned, 1);
+-    assert!(abandoned.active_command.is_none());
+-    assert_eq!(
+-        abandoned.last_returned.unwrap().command.kind,
+-        WorkCommandKind::Start
+-    );
+-}
+-
+-#[tokio::test]
+-async fn actual_actor_panic_keeps_its_join_error_and_never_becomes_a_handler_success() {
+-    let (mut connection, mut service, _gate, clock, mut work, deadline) = open(config()).await;
+-    start(&connection, &mut service, &mut work, deadline).await;
+-    connection
+-        .input()
+-        .try_audio(request(1), 0, clock.at, &[42; 160])
+-        .unwrap();
+-    clock.panic_next.store(true, Ordering::SeqCst);
+-    let error = bounded(deadline, &mut connection.task).await.unwrap_err();
+-    assert!(error.is_panic());
+-    assert_eq!(
+-        error.into_panic().downcast_ref::<&str>(),
+-        Some(&"original Actor capture panic")
+-    );
+-    let abandoned = work.snapshot();
+-    assert_eq!(abandoned.commands_returned, 1);
+-    assert_eq!(abandoned.commands_abandoned, 1);
+-    assert_eq!(
+-        abandoned.last_returned.unwrap().command.kind,
+-        WorkCommandKind::Start
+-    );
+-}
+-
+-#[tokio::test]
+-async fn actual_input_sequence_error_is_recorded_as_the_original_result_not_a_task_error() {
+-    let (mut connection, mut service, _gate, clock, mut work, deadline) = open(config()).await;
+-    start(&connection, &mut service, &mut work, deadline).await;
+-    let input = connection.input();
+-    input.try_audio(request(1), 0, clock.at, &[5; 160]).unwrap();
+-    assert_eq!(
+-        testing::sent_audio(&receive(&mut service, deadline).await),
+-        Some(vec![5; 160])
+-    );
+-    observed(&mut work, deadline, |s| s.commands_returned == 2).await;
+-    input.try_audio(request(1), 0, clock.at, &[6; 160]).unwrap();
+-    bounded(deadline, &mut connection.task).await.unwrap();
+-    assert_eq!(
+-        connection.state(),
+-        State::Disconnected(Error::InputSequence)
+-    );
+-    let failed = work.snapshot();
+-    assert_eq!(failed.accepted, 3);
+-    assert_eq!(failed.commands_returned, 3);
+-    assert_eq!(failed.commands_abandoned, 0);
+-    assert_eq!(
+-        failed.last_returned.unwrap().returned,
+-        Err(Error::InputSequence)
+-    );
+-}
+-
+-#[tokio::test]
+-async fn kept_start_and_audio_are_actually_handled_while_intentionally_unsent() {
+-    let configuration = config()
+-        .successor_start(SuccessorStart::AfterFirstOutput {
+-            patience: Duration::from_secs(2),
+-        })
+-        .unwrap();
+-    let (connection, mut service, _gate, clock, mut work, deadline) = open(configuration).await;
+-    start(&connection, &mut service, &mut work, deadline).await;
+-    let input = connection.input();
+-    input.try_audio(request(1), 0, clock.at, &[5; 160]).unwrap();
+-    input.try_end(request(1)).unwrap();
+-    assert_eq!(
+-        testing::sent_audio(&receive(&mut service, deadline).await),
+-        Some(vec![5; 160])
+-    );
+-    assert!(receive(&mut service, deadline).await["realtimeInput"]["activityEnd"].is_object());
+-    observed(&mut work, deadline, |s| s.commands_returned == 3).await;
+-    input.try_start(request(2)).unwrap();
+-    input.try_audio(request(2), 0, clock.at, &[6; 160]).unwrap();
+-    let kept = observed(&mut work, deadline, |s| {
+-        s.last_maintenance
+-            .is_some_and(|m| m.covers_returned_commands == 5)
+-    })
+-    .await;
+-    let receipt = kept.last_returned.unwrap();
+-    assert_eq!(receipt.returned, Ok(()));
+-    assert!(receipt.buffers.kept_start);
+-    assert_eq!(receipt.buffers.held_blocks, 1);
+-    assert_eq!(receipt.buffers.held_samples, 160);
+-    // Actual first output releases the held input through the unchanged policy.
+-    send(&mut service, deadline, testing::audio(9, 160)).await;
+-    assert!(receive(&mut service, deadline).await["realtimeInput"]["activityStart"].is_object());
+-    assert_eq!(
+-        testing::sent_audio(&receive(&mut service, deadline).await),
+-        Some(vec![6; 160])
+-    );
+-    observed(&mut work, deadline, |s| {
+-        s.last_maintenance
+-            .is_some_and(|m| !m.buffers.kept_start && m.buffers.held_blocks == 0)
+-    })
+-    .await;
+-    joined(connection, deadline).await;
+-}
+-
+-async fn blocked_image_with_queued_audio(
+-    connection: &Connection,
+-    gate: &Gate,
+-    clock: &Capture,
+-    work: &mut ActorWork,
+-    deadline: Clock,
+-) {
+-    gate.block();
+-    let input = connection.input();
+-    assert_eq!(
+-        input.try_image(request(1), 41, 1, clock.at, &testing::jpeg(100, 3)),
+-        Ok(ImageOffer::Queued)
+-    );
+-    input.try_note(request(1), "kept note").unwrap();
+-    bounded(deadline, gate.held.notified()).await;
+-    let image = work.snapshot();
+-    assert_eq!(
+-        image.commands_returned, 2,
+-        "Note really returned before image maintenance blocked"
+-    );
+-    assert!(image.maintenance_active);
+-    assert_eq!(image.last_maintenance.unwrap().covers_returned_commands, 1);
+-    for sequence in 0..INPUT_QUEUE_CAPACITY as u64 {
+-        input
+-            .try_audio(request(1), sequence, clock.at, &[7; 160])
+-            .unwrap();
+-    }
+-    assert_eq!(input.commands.capacity(), 0);
+-    // The actual queue's permit proves at least one command was removed while
+-    // the transport still holds the image; it does not imply handler completion.
+-    drop(bounded(deadline, input.commands.reserve()).await.unwrap());
+-    let held = work.snapshot();
+-    assert_eq!(held.accepted, 2 + INPUT_QUEUE_CAPACITY as u64);
+-    assert_eq!(held.commands_returned, 2);
+-    assert!(held.active_command.is_none());
+-    assert!(held.maintenance_active);
+-}
+-
+-#[tokio::test]
+-async fn image_held_replay_uses_the_same_handler_and_only_then_completes_maintenance() {
+-    let (connection, mut service, gate, clock, mut work, deadline) = open(config()).await;
+-    start(&connection, &mut service, &mut work, deadline).await;
+-    blocked_image_with_queued_audio(&connection, &gate, &clock, &mut work, deadline).await;
+-    let image_pass = work.snapshot().maintenance_started;
+-    gate.release();
+-    assert_eq!(
+-        receive(&mut service, deadline).await["realtimeInput"]["video"]["mimeType"],
+-        "image/jpeg"
+-    );
+-    for _ in 0..INPUT_QUEUE_CAPACITY {
+-        assert_eq!(
+-            testing::sent_audio(&receive(&mut service, deadline).await),
+-            Some(vec![7; 160])
+-        );
+-    }
+-    let completed = observed(&mut work, deadline, |s| {
+-        s.last_maintenance
+-            .is_some_and(|m| m.covers_returned_commands == 2 + INPUT_QUEUE_CAPACITY as u64)
+-    })
+-    .await;
+-    // Image-held commands return late in that pass. Coverage requires a later
+-    // whole pass, not just completing the pass which replayed those commands.
+-    assert!(completed.last_maintenance.unwrap().ordinal > image_pass);
+-    assert_eq!(completed.commands_returned, 2 + INPUT_QUEUE_CAPACITY as u64);
+-    assert_eq!(completed.commands_abandoned, 0);
+-    assert_eq!(
+-        completed.last_returned.unwrap().command.kind,
+-        WorkCommandKind::Audio
+-    );
+-    assert_eq!(connection.input().image_ledger().sent, 1);
+-    joined(connection, deadline).await;
+-}
+-
+-#[tokio::test]
+-async fn aborting_image_maintenance_drops_its_private_queue_without_claiming_handlers_returned() {
+-    let (mut connection, mut service, gate, clock, mut work, deadline) = open(config()).await;
+-    start(&connection, &mut service, &mut work, deadline).await;
+-    blocked_image_with_queued_audio(&connection, &gate, &clock, &mut work, deadline).await;
+-    connection.task.abort();
+-    assert!(
+-        bounded(deadline, &mut connection.task)
+-            .await
+-            .unwrap_err()
+-            .is_cancelled()
+-    );
+-    let abandoned = work.snapshot();
+-    assert_eq!(abandoned.accepted, 2 + INPUT_QUEUE_CAPACITY as u64);
+-    assert_eq!(abandoned.commands_started, 2);
+-    assert_eq!(abandoned.commands_returned, 2);
+-    assert_eq!(
+-        abandoned.commands_abandoned, 0,
+-        "held commands never entered a handler"
+-    );
+-    assert_eq!(abandoned.maintenance_incomplete, 1);
+-    assert!(!abandoned.maintenance_active);
+-    assert_eq!(
+-        abandoned.last_maintenance.unwrap().covers_returned_commands,
+-        1
+-    );
+-}
+-
+-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+-async fn concurrent_real_input_clones_reconcile_only_after_both_producers_finish() {
+-    let (connection, mut service, _gate, _clock, mut work, deadline) = open(config()).await;
+-    start(&connection, &mut service, &mut work, deadline).await;
+-    let mut producers = tokio::task::JoinSet::new();
+-    for name in ["first", "second"] {
+-        let input = connection.input();
+-        producers.spawn(async move {
+-            for _ in 0..8 {
+-                input.try_note(request(1), name).unwrap();
+-            }
+-        });
+-    }
+-    while let Some(result) = bounded(deadline, producers.join_next()).await {
+-        result.unwrap();
+-    }
+-    let complete = observed(&mut work, deadline, |s| {
+-        s.last_maintenance
+-            .is_some_and(|m| m.covers_returned_commands == 17)
+-    })
+-    .await;
+-    assert_eq!(complete.publications_in_flight, 0);
+-    assert_eq!(complete.accepted, 17);
+-    assert_eq!(complete.rejected, 0);
+-    assert_eq!(complete.commands_returned, 17);
+-    assert_eq!(complete.commands_abandoned, 0);
+-    joined(connection, deadline).await;
+-}
+-
+-#[tokio::test]
+-async fn observation_overflow_and_poison_preserve_real_start_result_wire_and_join() {
+-    for fault in [WorkFault::Overflow, WorkFault::Poisoned] {
+-        let (mut connection, mut service, _gate, _clock, mut work, deadline) = open(config()).await;
+-        if fault == WorkFault::Overflow {
+-            work.overflow_revision_for_test();
+-        } else {
+-            work.poison_for_test();
+-        }
+-        let before = work.snapshot();
+-        assert_eq!(connection.input().try_start(request(1)), Ok(()));
+-        assert!(
+-            receive(&mut service, deadline).await["realtimeInput"]["activityStart"].is_object()
+-        );
+-        assert!(matches!(
+-            bounded(deadline, connection.next_event()).await,
+-            Some(Event::InputStarted { .. })
+-        ));
+-        assert_eq!(work.snapshot().fault, Some(fault));
+-        assert_eq!(
+-            bounded(deadline, work.changed(&before)).await.unwrap_err(),
+-            fault
+-        );
+-        assert_eq!(connection.state(), State::Ready);
+-        joined(connection, deadline).await;
+-    }
+-}
+-
+-#[tokio::test]
+-async fn foreign_same_session_snapshot_is_refused_and_cancelled_wait_loses_no_real_receipt() {
+-    let (connection, mut service, _gate, _clock, mut work, deadline) = open(config()).await;
+-    let (other, _recorder) = ActorWork::new(SessionId::new(17).unwrap());
+-    assert_eq!(
+-        bounded(deadline, work.changed(&other.snapshot()))
+-            .await
+-            .unwrap_err(),
+-        WorkFault::WrongIdentity
+-    );
+-    let before = work.snapshot();
+-    {
+-        let pending = work.changed(&before);
+-        tokio::pin!(pending);
+-        assert!(futures_util::poll!(&mut pending).is_pending());
+-    }
+-    start(&connection, &mut service, &mut work, deadline).await;
+-    let after = bounded(deadline, work.changed(&before)).await.unwrap();
+-    assert_eq!(after.accepted, 1);
+-    assert_eq!(after.commands_returned, 1);
+-    joined(connection, deadline).await;
+-}
+-
+-#[tokio::test]
+-async fn unpolled_setup_drop_has_neither_installation_nor_handler_or_maintenance_receipts() {
+-    let clock = Capture::new();
+-    let (attempt, _service, work) =
+-        testing::pair_with_capture_clock_and_work(config(), SessionId::new(17).unwrap(), 64, clock)
+-            .await;
+-    drop(attempt);
+-    let untouched = work.snapshot();
+-    assert!(!untouched.installed);
+-    assert_eq!(untouched.revision(), 0);
+-    assert_eq!(untouched.commands_started, 0);
+-    assert_eq!(untouched.commands_abandoned, 0);
+-    assert_eq!(untouched.maintenance_started, 0);
+-    assert!(untouched.last_maintenance.is_none());
+-}
+-
+-#[tokio::test]
+-async fn existing_factories_remain_unobserved_with_fixture_support_enabled() {
+-    let deadline = Clock::now() + Duration::from_secs(5);
+-    let (attempt, mut service) =
+-        testing::pair_with_capture_clock(config(), SessionId::new(17).unwrap(), 64, Capture::new())
+-            .await;
+-    let attempt = tokio::spawn(attempt);
+-    bounded(deadline, service.accept()).await;
+-    let connection = bounded(deadline, attempt).await.unwrap().unwrap();
+-    assert!(connection.input().shared.work.is_none());
+-    connection.input().try_start(request(1)).unwrap();
+-    assert!(
+-        bounded(deadline, service.receive()).await["realtimeInput"]["activityStart"].is_object()
+-    );
+-    joined(connection, deadline).await;
+-}
+-
+-#[test]
+-fn publication_can_follow_handler_return_without_faulting_or_claiming_settled_admission() {
+-    // Explicit interleaving for the race between mpsc success and its publication;
+-    // the tests above separately exercise the real concurrent producers and Actor.
+-    let session = SessionId::new(17).unwrap();
+-    let (work, recorder) = ActorWork::new(session);
+-    recorder.install(session);
+-    let publication = recorder.submission();
+-    let command = testing::WorkCommand {
+-        kind: WorkCommandKind::Note,
+-        request: Some(request(1)),
+-        sequence: None,
+-    };
+-    recorder
+-        .command(command)
+-        .returned(Ok(()), testing::WorkBuffers::default());
+-    let overtaken = work.snapshot();
+-    assert_eq!(overtaken.accepted, 0);
+-    assert_eq!(overtaken.commands_returned, 1);
+-    assert_eq!(overtaken.publications_in_flight, 1);
+-    assert_eq!(overtaken.fault, None);
+-    publication.returned(Ok(()));
+-    assert_eq!(work.snapshot().accepted, 1);
+-    assert_eq!(work.snapshot().publications_in_flight, 0);
+-    recorder.discarded_after_stop();
+-    assert_eq!(work.snapshot().post_stop_discards, 1);
+-    assert_eq!(work.snapshot().commands_returned, 1);
+-    recorder.install(session);
+-    assert_eq!(work.snapshot().fault, Some(WorkFault::AlreadyInstalled));
+-    let (foreign, wrong_recorder) = ActorWork::new(session);
+-    wrong_recorder.install(SessionId::new(18).unwrap());
+-    assert_eq!(foreign.snapshot().fault, Some(WorkFault::WrongIdentity));
+-}
+-
+-#[test]
+-fn maintenance_covers_only_its_entry_frontier_until_a_later_complete_pass() {
+-    // The real image case above exercises late replay. This explicit state
+-    // interleaving also verifies the discard counter's entry-snapshot contract;
+-    // it does not claim the Actor's after-stop select runs during maintenance.
+-    let session = SessionId::new(17).unwrap();
+-    let (work, recorder) = ActorWork::new(session);
+-    recorder.install(session);
+-    let command = testing::WorkCommand {
+-        kind: WorkCommandKind::Note,
+-        request: Some(request(1)),
+-        sequence: None,
+-    };
+-    recorder
+-        .command(command)
+-        .returned(Ok(()), testing::WorkBuffers::default());
+-    recorder.discarded_after_stop();
+-    let first = recorder.maintenance();
+-    recorder
+-        .command(command)
+-        .returned(Ok(()), testing::WorkBuffers::default());
+-    recorder.discarded_after_stop();
+-    let during = work.snapshot();
+-    assert_eq!(during.commands_returned, 2);
+-    assert_eq!(during.post_stop_discards, 2);
+-    assert!(during.maintenance_active);
+-    assert!(during.last_maintenance.is_none());
+-    let at_completion = testing::WorkBuffers {
+-        held_blocks: 2,
+-        ..testing::WorkBuffers::default()
+-    };
+-    first.completed(at_completion);
+-    let completed = work.snapshot();
+-    let receipt = completed.last_maintenance.unwrap();
+-    assert_eq!(completed.commands_returned, 2);
+-    assert_eq!(completed.post_stop_discards, 2);
+-    assert_eq!(receipt.ordinal, 1);
+-    assert_eq!(receipt.covers_returned_commands, 1);
+-    assert_eq!(receipt.covers_post_stop_discards, 1);
+-    assert_eq!(receipt.buffers, at_completion);
+-    assert!(!completed.maintenance_active);
+-    assert_eq!(completed.fault, None);
+-    recorder.maintenance().completed(at_completion);
+-    let later = work.snapshot();
+-    let receipt = later.last_maintenance.unwrap();
+-    assert_eq!(receipt.ordinal, 2);
+-    assert_eq!(receipt.covers_returned_commands, 2);
+-    assert_eq!(receipt.covers_post_stop_discards, 2);
+-    assert_eq!(receipt.buffers, at_completion);
+-    assert_eq!(later.maintenance_completed, 2);
+-    assert_eq!(later.maintenance_incomplete, 0);
+-    assert_eq!(later.fault, None);
+-}
+--- a/lampOS/docs/gemini-session-reliability.md
++++ b/lampOS/docs/gemini-session-reliability.md
+@@ -700,74 +700,6 @@
+ a live Actor progress frontier, Provider worker return, service-task join or
+ child-process exit. The original Voice scenarios remain unmigrated.
+ 
+-### Fixture observations of Actor command work
+-
+-The same default-off `fixture-clock` feature exposes
+-`testing::pair_with_capture_clock_and_work(config, session, capacity, clock)`.
+-It returns the original single-connection setup future and scripted service,
+-plus one `ActorWork` reader. Existing pair, connector and Supervisor factories
+-remain unobserved. The recorder is installed after actual setup acknowledgement
+-but before InputSender publication and Actor spawn. Dropping an unpolled setup
+-future therefore has no installed Actor or invented work receipt.
+-
+-The reader contains no task, clock, protocol marker or unbounded event history.
+-One private allocation identity binds its snapshots; equal SessionIds from two
+-fixtures do not make their snapshots interchangeable. One AtomicWaker serves one
+-mutable `changed` waiter. Fixed-size counters, one active command, one last return
+-receipt and one last completed maintenance receipt are the whole retained state.
+-Counters never wrap; overflow, poison and invalid installation latch a fault.
+-They do not replace any original result or make a failed observation complete.
+-Dropping the reader neither changes admission nor shuts down the connection.
+-
+-The boundaries are deliberately different:
+-
+-- `accepted` advances only after the original mpsc `try_send` returns success.
+-  `publications_in_flight` covers the publication interval: another thread may
+-  handle a command before its sender publishes the accepted count. Rejections
+-  count only attempts that reached the enqueue boundary; prior public validation
+-  failures remain prior validation failures. Counter publication order is not a
+-  per-command queue ticket.
+-- `commands_returned` advances only after the actual command body returns its
+-  unchanged `Result`. Both the ordinary select branch and the original image
+-  queue replay use this common wrapper. A dropped or panicking entered body
+-  increments `commands_abandoned`; it never produces a returned-success receipt.
+-  An unpolled wrapper has not entered the body. The original after-stop discard
+-  branch has its own count and is never a handler return.
+-- The last receipt copies only command kind, request/sequence metadata, its real
+-  result and fixed-size buffer facts. An Audio result can be Ok while its samples
+-  are deliberately kept behind an earlier response. That is handling, not a
+-  socket send. There is no PCM, text, image or tool payload in this recorder.
+-- `last_maintenance` is published only after the entire original maintenance
+-  pass reaches the next select, including any awaited writes. Its covered
+-  returned-command and post-stop-discard counts are captured together at pass
+-  entry, before the first maintenance operation. Commands replayed late inside
+-  an image write have not had that whole pass after their return; only a later
+-  completed pass can cover them. Buffer facts instead describe pass completion.
+-  A canceled pass or a pass that exits early on an original error is incomplete.
+-  Commands removed from mpsc into an image write's private queue are still
+-  unhandled; a failed image write may drop them without entering the common
+-  handler.
+-
+-These are historical facts, not an idle state. No receipt proves that a select
+-branch was polled, a due tick handled, a socket flushed, a remote frame handled,
+-an output consumed, or a task joined. The unchanged select fairness, ticker,
+-explicit frame yield, capture-age checks and deadlines remain in place. There
+-is no method granting clock advancement. Even matching accepted/returned counts
+-need a separately frozen producer frontier and zero publications in flight;
+-remote/service/output frontiers and due timer work still need their own proof.
+-The earlier TaskJoins collector remains shutdown evidence only.
+-
+-The new Actor-work cases use actual sessions, command queues, WebSocket frames
+-and real task joins. A controlled AsyncWrite gate supplies a causal blocked-write
+-signal; it does not create a protocol message or replace the Actor. Each scenario
+-uses one fixed five-second host deadline and no sleeps, retries or yield-count
+-polling. Explicit state interleavings supplement these real-path cases for the
+-acceptance-publication race and the maintenance-entry frontier: a command that
+-returns during a pass remains uncovered until a later completed pass. The real
+-image-replay case also requires that later pass. All pre-existing test bodies
+-and bounds remain unchanged. This preparation does not migrate an original Voice
+-scenario or add Supervisor/reconnect integration.
+-
+ ### Strict continuation probe (example-only addition)
+ 
+ The explicit `continue-before-output` mode sends two **different**, already

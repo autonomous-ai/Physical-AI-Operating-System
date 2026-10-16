@@ -1,0 +1,16 @@
+{
+  "source": "Declared environment in the root gate driver, whose hash is recorded in external-script-checksums.json; no additional compiler/version execution by this audit.",
+  "RUSTUP_TOOLCHAIN": "1.96.0",
+  "CARGO_BUILD_JOBS": "2",
+  "CARGO_INCREMENTAL": "0",
+  "CARGO_TARGET_DIR": "/private/tmp/tests-823-memory-application-target",
+  "RUST_BACKTRACE": "1",
+  "PATH_prefix": [
+    "/Users/autonomous/.cargo/bin",
+    "/private/tmp/pipeline-788-tools"
+  ],
+  "base_cwd": "/private/tmp/lampos-tests-eval-integration-baseline/lampOS",
+  "candidate_cwd": "/private/tmp/lampos-tests-final-drain-clock/lampOS",
+  "test_retry_policy": "One full serial cargo test invocation; no retries or focused timing pair in this integration gate.",
+  "commands": "raw/gate/gates.json"
+}

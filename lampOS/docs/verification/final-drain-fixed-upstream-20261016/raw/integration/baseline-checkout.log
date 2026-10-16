@@ -1,0 +1,2 @@
+Previous HEAD position was ec8317fe2 lampOS: install records Harness at boot as done only after the Harness CLI succeeded, and asks again after a failure, for #811
+HEAD is now at f5a20ba28 lampOS: mend lamp-voice's build where #954's say field and #926's cut-in met #830's offline turns

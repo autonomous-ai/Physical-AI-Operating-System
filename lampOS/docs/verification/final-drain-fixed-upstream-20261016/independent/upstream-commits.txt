@@ -1,0 +1,31 @@
+f5a20ba28f3227ab06979b6e662883aede96b046	lampOS: mend lamp-voice's build where #954's say field and #926's cut-in met #830's offline turns
+8da7d7ee175da8aa2b77717e189f540eb3904569	lampOS: lamp-skills restarts a timed condition after expiry or an edit, gives the light back from what is shown, takes one say a skill and runs one run a skill at a time
+9ad58c988fb5630d71f49155a64eec37cd5e1a71	lampOS: lamp-skills on lamp-4ace, with the voice's own hello off and its say service on
+23acb1122a62d9ead09975676d37413cd541f581	lampOS: Welcome back says its hello through the say service, looks and lights with the words, gives the light back, and keeps Arrival's rules
+1850907bc93d20623225d53ac116230c17785845	lampOS: open the real-store test sessions within their own deadline, not the voice's 300 ms that a full fsync under load can miss
+2c4084c0d6fb7e4c27e1d6228878703ced1d3c51	lampOS: say what the tasks tests need of the host, install and a cleared write bit, as the reviewer asked on #964
+6d6a2e471fd459db7ec2d5a12f583394dc50191b	lampOS: run the Harness fixture with group write cleared and copy it out of process, so tasks tests pass under umask 0002 and never hit ETXTBSY
+67c25e381ad0bf8e0ea8c8b62a554560a7826f75	lampOS: lamp-setup keeps one name lookup out for the whole service, so a lookup left by a failed attempt is never doubled by the next
+c500c80c73b1ceaac85b001e3e9bd43af27f7b4c	lampOS: lamp-setup names the lamp after the hotspot, needs a TLS handshake for the Internet, stops nginx for its own page and resets the task news
+941913efe761de9a09a2d80fbe7b71404868b101	lampOS: record the policy program test under load, before and after the whole-line wait, on a 20-core Linux laptop
+36347520030a1e7b7d63d94126d4154c7f222c31	lampOS: the policy program test counts only whole lines before it kills the program, so a line still being written is not taken as printed
+3e9131879fb5ea616bb7d1c212c15c74e187d63a	lampOS: expression.md's speaking tests are said in one piece
+a9f06cf5e18c473b67b24390fc73e00c0e4321ed	lampOS: Expression's speech motion is forgotten at each turn, generation and cancellation fence, and only a finished answer keeps its settle
+06dc9d2e4dce7d22042a15500b2f79abac80cd14	lampOS: while it speaks Expression nods on a stressed word, sways between sentences and settles as it finishes, from a catalogue's speaking section
+c9d6574bb16837631a664002944215bc657c9b65	lampOS: a progress answer is held by not_while_talking in the room as it is when the answer comes
+299841e250890ee2f973554564ee4e60de912147	lampOS: with lamp-policy --progress --rules progress news obeys a person's kept rules about speaking first, the typed news limits too, before Jev is asked
+18454c99b43e8f3580399f4525d3b76c0841f2fa	lampOS: a say expires from when its line was read and is looked at again as it begins, and a line with its newline is at most 4096 bytes
+23abeae868c7844913116d6ee2a482076f3e487a	lampOS: a say client has one second for its whole line, not for each read, so a slow one gives its place back
+ffb653733d524c80f5f2d6679dae21120baab08e	lampOS: with LAMP_SAY=on another part asks the voice to say something on a socket of its own, and is told begun, then spoken, dropped, expired or refused
+448b43992ddc495c1ee57df23fd4ff91756374ad	lampOS: the note that asks again says what was being said is over, so the model does not go on with it (#926)
+0a839e2419349db5b2385ebfe2d4d05c9e469c0b	lampOS: in a conversation, a turn heard in another script, as a lone number, or as a cut-in with no English word is held and asked again, behind LAMP_OTHER_LANGUAGE=sorry (#926)
+ffd23795b87570b5446d717ae78aed9e70fe11ab	lampOS: with LAMP_FIRST_WORDS=kept first words older than the provider takes are dropped before the commit, as the reviewer found on #936
+bf0523a74ba1991d718a72cb8141a76015833504	lampOS: with LAMP_FIRST_WORDS=kept a yield's request begins at the first words said under the lamp's voice, as far back as 1.6 s
+f2c1e8f356456f185615144902dc3b9a5edfdce7	lampOS: joining: never idle, from the owner: a waiting task means the next one at once, lists three deep, a sign of work every 20 minutes
+61c7cada759b8d7d1f7d0d1bd718766aeeee462f	lampOS: lamp-skills passes over a Mac's ._ files in a skill folder, and the lamp skill creator copies without them (#941)
+e0d12823ae0d2158edc331df39ea1b32f8fd9043	lampOS: the lamp skill creator promises no voice off switch, sends load errors to the journal, and Stretch break promises no light (#941)
+ae01b832921b1adcdbd54f83ebd4332cb84ac7e2	lampOS: the lamp skill creator says a skill acts while the lamp is paused until the Policy's gate, and shows the owner a skill with a demo copy timed in seconds (#941)
+cc91c99099f800b62857bb1239d83d9e2a19eeff	lampOS: the lamp skill creator and its two skills follow lamp-skills' schema, and the skills' cases are made and pass (#941)
+14e80adf6ae612de436af5012b158ae9d219407c	lampOS: the lamp skill creator shows the owner a new skill once from its recording before it is kept (#941)
+d8c70d8fa2104b2910d64f707a48c5234984c127	lampOS: Stretch break and Stuffy air written with the lamp skill creator, and the creator mended where they found it wanting (#941)
+b818586819e09efd0d9a2f854a96df69b2edfe88	lampOS: the lamp skill creator, V1's skill-creator taught the lamp's topics, services, skill.toml, tests and install (#941)

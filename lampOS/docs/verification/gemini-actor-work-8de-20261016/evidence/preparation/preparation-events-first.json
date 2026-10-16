@@ -1,0 +1,17 @@
+{
+  "recorded_from_date": "2026-10-16 10:32:38 +0700",
+  "events": [
+    {
+      "action": "git worktree add",
+      "first_result": "automatic approval review rejected; cited earlier user stop touching git",
+      "subsequent_review": "same operation approved after newer user tests/#823 and explicit CLAUDE builder-exception scope supplied",
+      "result": "new local branch/worktree only; no commit/push"
+    },
+    {
+      "action": "first clean input inventory",
+      "result": "stopped before source edits because rg omitted one tracked dangling symlink",
+      "exact_assertion": "AssertionError: ({'robots/lamp/rootfs/etc/systemd/system/sysinit.target.wants/led-boot.service'}, set())",
+      "correction": "Include tracked paths missed by rg and retain symlink target bytes explicitly. No Cargo/tests were executed."
+    }
+  ]
+}

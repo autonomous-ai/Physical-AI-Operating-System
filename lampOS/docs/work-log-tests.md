@@ -1,5 +1,19 @@
 # Tests work log
 
+## 2026-10-16 11:27:10 +0700 — Current final-drain and first Actor gates retained
+
+Ready for lamp-voice: no (full native final-drain qualification and TaskJoins comparison pending)
+
+#963 is at db7201d0 on actual upstream f5a20ba28. [Its fresh local integration evidence](verification/final-drain-fixed-upstream-20261016/README.md) preserves the complete **521 passed / 0 failed / 0 ignored** first gate, exact compiled 515+6 identities, all 56 owned files and the upstream dependency changes. Format, strict Evaluator Clippy and workspace build passed. The current normal ARM64 run 38849194888 is terminal successful; the four-shard full run 38849189990 remains in progress and will receive its own source/membership audit.
+
+[The prior c2 full run's three successful shards](verification/final-drain-clock-20261016/native-current-c2-partial-shards-20261016/README.md) contain **4,032 unique passes**, including 93/123 original scenarios, 397/521 local identities and four/six additions. The run remains failed: its fourth shard downloaded no hound registry record and executed no tests. Its separate normal synthetic-merge build also failed before tests. The raw first failures remain unchanged. None of these partial results are combined with db for qualification.
+
+[The Actor handling/maintenance receipt candidate's first local gate](verification/gemini-actor-work-8de-20261016/README.md), on base8de, passed **2,727 / 0 / 15** across Gemini, Memory, Surround, Voice and Evaluator. Actual compiled identities changed 2,726→2,742 by exactly16 additions, focused16 passed, all previous ignores remain and all7,560 frozen inputs are exact. Format, strict all-target Clippy, workspace build and all five doc targets passed; those doc targets contain zero cases. This is a local five-file source candidate, not an original scenario migration or native qualification. The maintenance receipt covers its entry frontier, so late image replay requires a later complete pass. The source stays local while prerequisite #966's reviewer-requested ordinary/retained consumer comparison completes its separate gate.
+
+[Root independently checked](verification/three-gate-evidence-root-20261016/proof.json) all273 payload files, reparsed the521 local results,4,032 partial native rows and2,727 Actor full rows, and verified16 Actor focused rows, compiled changes and every frozen Actor input. Original audit/script inventories remain explicit; no scripts or binary artifacts were added. A root parser correction hashes tracked symlink text as Git does, without source/test/evidence mutation. No failed test was retried and no new before/after timing pair is claimed.
+
+The capacity fixture's fresh f5 baseline passed once at24.108s and its separate first candidate gate is underway. #783 is closed; #823's fixed123 original scenarios under120s one at a time remains unproved. Workflow and runner work remains with human DevOps.
+
 ## 2026-10-16 11:04:52 +0700 — Closed-transport local qualification retained
 
 Ready for lamp-voice: no (closed final-drain continuation)

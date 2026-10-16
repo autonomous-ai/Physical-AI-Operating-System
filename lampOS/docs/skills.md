@@ -319,8 +319,12 @@ skill that has a tool, nothing changes.
 
 A call is refused, in words the lamp can say, and nothing is done, when the
 skill's `[[while]]` conditions do not hold as a trigger would need them
-(on a value that still lasts, for their `for`), and when its last run is
-still under way. A call the listener gave up on after a second, waiting
+(on a value that still lasts, for their `for`). While its last run is
+still under way (a light's `for` not yet over), a call again is told again
+what to do next, the look and the say, and nothing more is made: the light
+already on stays and is given back when its `for` ends, so a student who
+asks again a minute later gets a new look (#941, the first builder's 12:09).
+Only a call that is nothing but made steps is refused then. A call the listener gave up on after a second, waiting
 for the program's loop, is never run afterwards: whichever comes first,
 the run or the giving up, settles it.
 

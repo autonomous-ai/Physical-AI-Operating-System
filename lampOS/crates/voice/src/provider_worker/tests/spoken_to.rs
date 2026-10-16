@@ -655,6 +655,20 @@ async fn line(
     blocks: u64,
     text: &str,
 ) -> bool {
+    voice_line(rig, dial, over_the_lamp, voice, blocks, text, true).await
+}
+
+/// The same, answered by the service or, when not `answered`, left alone:
+/// the worker then closes it as unanswered.
+async fn voice_line(
+    rig: &mut LiveRig,
+    dial: &mut Dial,
+    over_the_lamp: bool,
+    voice: i16,
+    blocks: u64,
+    text: &str,
+    answered: bool,
+) -> bool {
     let owner = rig
         .owner
         .admit(real_time(), lamp_turn_owner::AdmittedInput::NewTurn)
@@ -729,8 +743,14 @@ async fn line(
         }
     }
     dial.service.send(heard(text)).await;
-    dial.service.send(provider_audio(7, 240)).await;
-    dial.service.send(idle_complete()).await;
+    if answered {
+        dial.service.send(provider_audio(7, 240)).await;
+        // The lamp's words, for the conversation the worker keeps.
+        dial.service
+            .send(json!({"serverContent":{"outputTranscription":{"text":"Sure."}}}))
+            .await;
+        dial.service.send(idle_complete()).await;
+    }
     let mut played = false;
     loop {
         match rig.output().await {
@@ -742,6 +762,52 @@ async fn line(
     rig.owner.complete_turn(real_time(), owner).unwrap();
     rig.publish();
     played
+}
+
+/// The reviewer on #1030, the 06:07 scene with the model answering
+/// Samantha: her "Anyway, …" in another voice is held, and counts as talk
+/// between people; Daniel's "True, but …" is left alone; so his "Did you
+/// get my message about the budget?" is no part of a conversation with the
+/// lamp, and its answer is held. Without the check her line is answered,
+/// and the budget line goes on with the conversation, as before.
+#[tokio::test]
+async fn with_the_switch_and_a_voice_check_a_line_held_as_another_voice_counts_as_talk() {
+    const CALL: &str = "Hey Lamp, how much is one hundred dollars in euros?";
+    const SAMANTHA: &str = "Anyway, if we drop the trip we save almost half.";
+    const DANIEL: &str = "True, but the client wants to meet in person.";
+    let scene = |check: bool| async move {
+        let _mark = OwnMark::kept();
+        let _room = OwnRoom::fresh();
+        let mut options = options(true, attention_now, crate::tools::Settings::default());
+        if check {
+            options.voices = Some(Box::new(TwoVoices(Default::default())));
+        }
+        let mut rig = LiveRig::start_configured(
+            quick_policy(),
+            options,
+            BARRIER,
+            false,
+            Continuation::Off,
+            lamp_gemini::MAX_WIRE_BYTES * 2,
+            |config| {
+                config
+                    .timeouts(lamp_gemini::Timeouts {
+                        unanswered: Some(Duration::from_millis(100)),
+                        ..Default::default()
+                    })
+                    .unwrap()
+            },
+        );
+        let mut dial = rig.ready().await;
+        assert!(voice_line(&mut rig, &mut dial, false, 1, 150, CALL, true).await);
+        let samantha = voice_line(&mut rig, &mut dial, false, -1, 150, SAMANTHA, true).await;
+        assert!(!voice_line(&mut rig, &mut dial, false, 1, 150, DANIEL, false).await);
+        let budget = voice_line(&mut rig, &mut dial, false, 1, 150, NOT_TO_THE_LAMP[0], true).await;
+        rig.stop().await;
+        (samantha, budget)
+    };
+    assert_eq!(scene(true).await, (false, false));
+    assert_eq!(scene(false).await, (true, true));
 }
 
 /// #829, through the worker's own loop, with a conversation going on: after

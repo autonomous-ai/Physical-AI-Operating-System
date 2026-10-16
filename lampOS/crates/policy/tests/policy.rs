@@ -171,6 +171,7 @@ impl Rig {
             log_dir: rig.log_dir.clone(),
             deadline: ms(900),
             pause: PAUSE,
+            act_attention: false,
         };
         let stand_in = StandIn {
             script,

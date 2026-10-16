@@ -12,6 +12,9 @@ separately below. `lamp-policy --progress` adds a second question, [say this
 progress now?](#progress-news-say-this-progress-now-732), about the work the
 lamp handed over, and `--act progress` makes that one question's decisions
 act: [the first decision the policy really makes](#acting---act-progress-752).
+`--act attention` publishes "is this said to the lamp?" for real, for the
+voice to [hold the lamp's actions](#acting-on-the-lamps-actions---act-attention-800)
+by; speech is not held.
 Nothing else authorizes Voice or Body to act.
 
 ## What it is for
@@ -37,7 +40,7 @@ owner's rules for this part:
 
 ## The process
 
-    lamp-policy --key-file ABSOLUTE_PATH --log-dir ABSOLUTE_DIR [--endpoint URL] [--model NAME] [--deadline-ms N] [--bus-root ABSOLUTE_DIR] [--progress [--utc-offset-minutes N]]
+    lamp-policy --key-file ABSOLUTE_PATH --log-dir ABSOLUTE_DIR [--endpoint URL] [--model NAME] [--deadline-ms N] [--bus-root ABSOLUTE_DIR] [--progress [--utc-offset-minutes N] [--act progress]] [--act attention]
 
 | Option | What it is | If left out |
 |---|---|---|
@@ -50,6 +53,7 @@ owner's rules for this part:
 | `--progress` | Also ask, in shadow, whether progress of the work handed over is worth telling now ([below](#progress-news-say-this-progress-now-732)) | off |
 | `--utc-offset-minutes` | The lamp's local time east of UTC, for that question's hour of the day | the hour is null |
 | `--act progress` | That question's decisions act: published with `shadow: false`, so that the voice tells a `say_now` ([below](#acting---act-progress-752)). Needs `--progress` | shadow |
+| `--act attention` | "Is this said to the lamp?" is published with `shadow: false`, for the voice to hold the lamp's actions by ([below](#acting-on-the-lamps-actions---act-attention-800)) | shadow |
 
 A wrong or missing option prints the usage and exits with 2. So does a
 `--log-dir` that cannot be made, or that its group or everyone can enter. A
@@ -269,8 +273,33 @@ will read as more reserved than the measurement, which had the room.
 ## Shadow mode
 
 Every decision is published with `shadow: true` and nothing subscribes to
-act on it. The voice answers or does not as it did before. What the policy
-would have done is in the log, to be laid beside what the lamp did.
+act on it, unless `--act` says otherwise for one question. The voice answers
+or does not as it did before. What the policy would have done is in the
+log, to be laid beside what the lamp did.
+
+### Acting on the lamp's actions: `--act attention` (#800)
+
+With `--act attention` the attention decisions are published, and written
+down, with `shadow: false`; the start line says `shadow=false` and
+`act=attention`, and so does the diagnostics' `shadow`. The voice, with
+`LAMP_POLICY_HOLDS_ACTIONS=on`
+([attention.md](attention.md#the-policy-holds-the-lamps-actions-800)), then
+holds each call that changes the lamp (the volume, the light) or sets or
+takes away a timer or reminder until its turn's decision, paired by the
+turn's number (`request`): on `stay_quiet` with the lamp's name not heard
+it is not run; otherwise, or after 2 s with no decision, it runs as before.
+Speech is not held: what the lamp says stays the voice's rule. Without the
+flag every attention decision stays shadow, and the voice's switch only
+makes each action wait 2 s.
+
+The case it is for: on lamp-4ace on 15 October at 14:49 the lamp heard
+"Thailand" in a busy office and ran `volume_up`, which raised the software
+volume from 75% to 95% for eleven hours; this decision, in the same second,
+was `stay_quiet` (p = 0.235). Of lamp-4ace's 3,698 attention decisions from
+13 to 16 October, 99.5% were made within 2 s (the first builder, #800).
+Accepted on lamp-4ace on 16 October at 07:25 with the voice of #908
+(`holds.sh`, `twopeople829.sh`). Test: `tests/program.rs`,
+`with_act_attention_the_attention_decision_is_published_for_real`.
 
 What is published on `policy/decisions`:
 
@@ -282,7 +311,7 @@ What is published on `policy/decisions`:
 | `answers` | The model's answer to each question, by its name. Empty when the rule decided |
 | `by` | The model as its service names it (`typesafe/jev-1.13-20260917`), or `rule` |
 | `took_ms` | How long the asking took, answered or not |
-| `shadow` | `true` |
+| `shadow` | `true`, or `false` with `--act attention` |
 | `request` | The number of the turn the voice heard the utterance's newest piece in, if it said: `voice/heard` carries it (#908). What the voice's actions are paired with when the Policy holds them (`docs/attention.md`) |
 
 What was heard is not in the message.

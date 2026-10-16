@@ -305,6 +305,7 @@ fn a_change_then_a_say_now_from_the_acting_policy_then_one_note_to_tell() {
             log_dir: log_dir.clone(),
             deadline: ms(900),
             pause: ms(300),
+            act_attention: false,
         };
         let progress = progress::Options {
             act: true,

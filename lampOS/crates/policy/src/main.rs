@@ -28,7 +28,7 @@ use std::{
     time::Duration,
 };
 
-const USAGE: &str = "usage: lamp-policy --key-file ABSOLUTE_PATH --log-dir ABSOLUTE_DIR [--endpoint URL] [--model NAME] [--deadline-ms N] [--bus-root ABSOLUTE_DIR] [--progress [--utc-offset-minutes N] [--act progress]]";
+const USAGE: &str = "usage: lamp-policy --key-file ABSOLUTE_PATH --log-dir ABSOLUTE_DIR [--endpoint URL] [--model NAME] [--deadline-ms N] [--bus-root ABSOLUTE_DIR] [--progress [--utc-offset-minutes N] [--act progress]] [--act attention]";
 const HELP: &str = "The lamp's policy, in shadow mode: judges whether each thing the voice hears was said to\n\
 the lamp, publishes the decision on the bus (policy/decisions) and writes it down. Nothing\n\
 acts on it. See docs/policy.md.\n\
@@ -47,6 +47,9 @@ acts on it. See docs/policy.md.\n\
                  question is shown (-720 to 840); without it the hour is not known\n\
   --act progress the progress decisions act: published with shadow false, so that the voice\n\
                  tells a say_now. Needs --progress. \"Is this said to the lamp?\" stays shadow\n\
+  --act attention  \"is this said to the lamp?\" is published with shadow false, so that the voice\n\
+                 holds the lamp's actions on a stay_quiet (LAMP_POLICY_HOLDS_ACTIONS=on); speech\n\
+                 is not held. Off unless set\n\
 What is heard is sent to the decision model's service. Do not run this on real speech in the\n\
 office until the owner has said so: it is for played tests.";
 
@@ -63,12 +66,16 @@ struct Arguments {
     utc_offset_minutes: Option<i32>,
     /// Its decisions act (`--act progress`): off unless set.
     act_progress: bool,
+    /// The attention decisions act (`--act attention`, #800): off unless
+    /// set.
+    act_attention: bool,
 }
 
 fn parse(arguments: impl Iterator<Item = String>) -> Result<Option<Arguments>, String> {
     let (mut key_file, mut log_dir, mut endpoint, mut model, mut deadline, mut bus) =
         (None, None, None, None, None, None);
-    let (mut progress, mut utc_offset_minutes, mut act) = (false, None, None);
+    let (mut progress, mut utc_offset_minutes) = (false, None);
+    let (mut act_progress, mut act_attention) = (false, false);
     let mut arguments = arguments;
     while let Some(option) = arguments.next() {
         if option == "--help" || option == "-h" {
@@ -104,13 +111,16 @@ fn parse(arguments: impl Iterator<Item = String>) -> Result<Option<Arguments>, S
                 }
                 model.replace(value).is_some()
             }
-            // The one question that may act, for now.
-            "--act" => {
-                if value != "progress" {
-                    return Err("--act takes progress, the one question that may act".into());
+            // The questions that may act.
+            "--act" => match value.as_str() {
+                "progress" => std::mem::replace(&mut act_progress, true),
+                "attention" => std::mem::replace(&mut act_attention, true),
+                _ => {
+                    return Err(
+                        "--act takes progress or attention, the questions that may act".into(),
+                    );
                 }
-                act.replace(true).is_some()
-            }
+            },
             "--utc-offset-minutes" => {
                 let minutes = value
                     .parse::<i32>()
@@ -135,7 +145,7 @@ fn parse(arguments: impl Iterator<Item = String>) -> Result<Option<Arguments>, S
             return Err(format!("{option} was given twice"));
         }
     }
-    if act.is_some() && !progress {
+    if act_progress && !progress {
         return Err("--act progress needs --progress".into());
     }
     Ok(Some(Arguments {
@@ -147,8 +157,30 @@ fn parse(arguments: impl Iterator<Item = String>) -> Result<Option<Arguments>, S
         bus,
         progress,
         utc_offset_minutes,
-        act_progress: act.unwrap_or(false),
+        act_progress,
+        act_attention,
     }))
+}
+
+/// The questions asked beside "is this said to the lamp?", and those that
+/// act, for the start line.
+fn questions(arguments: &Arguments) -> String {
+    let mut said = String::new();
+    if arguments.progress {
+        said.push_str(" progress=true");
+    }
+    let acting: Vec<&str> = [
+        (arguments.act_progress, "progress"),
+        (arguments.act_attention, "attention"),
+    ]
+    .into_iter()
+    .filter_map(|(acts, name)| acts.then_some(name))
+    .collect();
+    if !acting.is_empty() {
+        said.push_str(" act=");
+        said.push_str(&acting.join(","));
+    }
+    said
 }
 
 /// One line to the journal. A journal that has gone away is no reason for
@@ -173,17 +205,14 @@ fn run(arguments: &Arguments) -> io::Result<()> {
         PAUSE.as_millis(),
         arguments.log_dir.display(),
         bus.root().display(),
-        policy::SHADOW,
-        match (arguments.progress, arguments.act_progress) {
-            (true, true) => " progress=true act=progress",
-            (true, false) => " progress=true",
-            _ => "",
-        },
+        policy::SHADOW && !arguments.act_attention,
+        questions(arguments),
     ));
     let options = Options {
         log_dir: arguments.log_dir.clone(),
         deadline: arguments.deadline,
         pause: PAUSE,
+        act_attention: arguments.act_attention,
     };
     // Nothing sets the flag: the process runs until it is killed.
     let stop = AtomicBool::new(false);
@@ -267,6 +296,7 @@ mod tests {
                 progress: false,
                 utc_offset_minutes: None,
                 act_progress: false,
+                act_attention: false,
             }
         );
         let least = of("--log-dir /d --key-file /k").unwrap().unwrap();
@@ -282,6 +312,7 @@ mod tests {
                 progress: false,
                 utc_offset_minutes: None,
                 act_progress: false,
+                act_attention: false,
             }
         );
         // The progress question, and the lamp's local time for it.
@@ -294,7 +325,19 @@ mod tests {
         let acting = of("--log-dir /d --progress --act progress --key-file /k")
             .unwrap()
             .unwrap();
-        assert!(acting.progress && acting.act_progress);
+        assert!(acting.progress && acting.act_progress && !acting.act_attention);
+        assert_eq!(questions(&acting), " progress=true act=progress");
+        // "Is this said to the lamp?" acting (#800), on its own, and beside
+        // progress acting.
+        let attending = of("--log-dir /d --key-file /k --act attention")
+            .unwrap()
+            .unwrap();
+        assert!(attending.act_attention && !attending.progress && !attending.act_progress);
+        assert_eq!(questions(&attending), " act=attention");
+        let both = of("--log-dir /d --key-file /k --progress --act attention --act progress")
+            .unwrap()
+            .unwrap();
+        assert_eq!(questions(&both), " progress=true act=progress,attention");
         assert_eq!(
             of("--log-dir /d --key-file /k --utc-offset-minutes -300")
                 .unwrap()
@@ -333,7 +376,8 @@ mod tests {
             "--key-file /k --log-dir",
             "--key-file /k --log-dir /d --progress --progress",
             "--key-file /k --log-dir /d --act progress",
-            "--key-file /k --log-dir /d --progress --act attention",
+            "--key-file /k --log-dir /d --act attention --act attention",
+            "--key-file /k --log-dir /d --act hello",
             "--key-file /k --log-dir /d --progress --act progress --act progress",
             "--key-file /k --log-dir /d --progress --act",
             "--key-file /k --log-dir /d --utc-offset-minutes 841",

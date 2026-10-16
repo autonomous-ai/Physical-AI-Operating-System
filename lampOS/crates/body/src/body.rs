@@ -3336,8 +3336,9 @@ fn run_until_stopped(
         // exactly where it was, neither in nor out: the hold below lasts
         // while what is wanted of the arm does not change, and a lean
         // easing out by itself would end it with the hand still there and
-        // then lean into the hand again. Nothing new while the wire is
-        // failing.
+        // then lean into the hand again. While the wire is failing the lean
+        // is kept as it stands, a held place too: nothing new, and nothing
+        // dropped to be taken again once the wire answers (#1010 review, 23:39).
         let leaning = mood == Mood::Speaking && upright && !gesturing;
         let rate = step / LEAN_SECONDS.max(1.5 * LEAN[1].abs() / limits.speed);
         // A hold on the arm is taken into the lean once the lean eases out
@@ -3349,8 +3350,8 @@ fn run_until_stopped(
         // still reads on it. A hold let go by itself instead jumped back
         // into the lean, or stayed with nobody holding it and blocked the
         // next lean (#1010 review, 15:49 and 16:28).
-        let lean_arm = standing.is_some() && !slumped && !arm_rests && !blind;
-        if lean_arm && (leaning || lean > 0.0) {
+        let lean_arm = standing.is_some() && !slumped && !arm_rests;
+        if lean_arm && !blind && (leaning || lean > 0.0) {
             for (index, kept) in lean_kept.iter_mut().enumerate() {
                 let stall = &mut stalls[3 + index];
                 if let Some((was, at)) = stall.hold
@@ -3371,6 +3372,7 @@ fn run_until_stopped(
             for (index, (goal, by)) in arm_goals.iter_mut().zip(LEAN).enumerate() {
                 let eased = by * share;
                 let offset = match lean_kept[index] {
+                    Some((from, _)) if blind => from,
                     Some((from, hand_up)) => {
                         let most = by.abs() * 1.5 * rate;
                         let toward = (eased - from).clamp(-most, most);

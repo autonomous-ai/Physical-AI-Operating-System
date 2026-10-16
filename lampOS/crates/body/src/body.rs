@@ -1434,8 +1434,14 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
 
     /// `goal` for `joint`, last written `from`, as one the guard takes: as
     /// it is if it may be written, else `ARM_GOAL_STEP` from `from` toward it.
+    /// A goal outside the joint's window is left as it is, for the guard to
+    /// refuse at once: walking toward it would carry the arm to the edge.
     fn eased(&self, joint: Joint, from: u16, goal: u16) -> u16 {
-        if self.goal_refused(joint, goal).is_none() {
+        let (low, high) = ARM
+            .iter()
+            .position(|arm| *arm == joint)
+            .map_or((0, 4_095), |index| self.arm_windows[index]);
+        if self.goal_refused(joint, goal).is_none() || !(low..=high).contains(&goal) {
             goal
         } else if goal > from {
             from.saturating_add(ARM_GOAL_STEP).min(goal)

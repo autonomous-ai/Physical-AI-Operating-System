@@ -7046,3 +7046,39 @@ fn an_arm_resting_short_of_its_fold_and_pushing_is_left_where_it_lies() {
         .collect();
     assert_eq!(elbow.last(), Some(&2_107), "{elbow:?}");
 }
+
+/// The reviewer's 04:53 probe on #1192: an elbow goal outside its window
+/// (4095 on lamp-4ace) is not eased toward, 50 counts a step, to the edge:
+/// it is left for the guard, which refuses it at once, nothing written.
+#[test]
+fn an_arm_goal_outside_its_window_is_not_eased_toward() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(1));
+    lamp.servos[2].status = 0;
+    {
+        let mut bus = Bus::new(&mut lamp, &mut clock, Some(lamp_4ace_standing()));
+        bus.samples().unwrap();
+        bus.send_goals(HOME, Some([2_050, 2_047])).unwrap();
+        let goal = bus.eased(Joint::ElbowPitch, 2_047, 4_095);
+        assert_eq!(goal, 4_095);
+        assert!(bus.send_goals(HOME, Some([2_050, goal])).is_err());
+        assert_eq!(
+            bus.refused.take(),
+            Some(Stop::Window {
+                joint: 3,
+                goal: 4_095,
+                window: (1_627, 3_022),
+                from: 2_047,
+            })
+        );
+        // Inside the window it still eases.
+        assert_eq!(bus.eased(Joint::ElbowPitch, 2_047, 2_400), 2_097);
+    }
+    let elbow: Vec<u16> = lamp
+        .goals
+        .iter()
+        .flatten()
+        .filter(|(id, _)| *id == 3)
+        .map(|(_, goal)| *goal)
+        .collect();
+    assert_eq!(elbow, [2_047]);
+}

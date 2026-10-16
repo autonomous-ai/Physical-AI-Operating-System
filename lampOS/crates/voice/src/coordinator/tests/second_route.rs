@@ -855,6 +855,7 @@ fn run(script: Script) -> Run {
         capture: spawn("capture"),
         provider: spawn("provider"),
         privacy: spawn("privacy"),
+        privacy_controls: false,
         ring: Some(spawn("ring")).into(),
         camera: None,
         motor: None,

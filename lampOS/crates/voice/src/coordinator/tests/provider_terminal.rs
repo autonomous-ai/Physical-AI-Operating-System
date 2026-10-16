@@ -87,6 +87,7 @@ fn run_with_notice_policy(
         capture: spawn("capture"),
         provider: spawn("provider"),
         privacy: spawn("privacy"),
+        privacy_controls: false,
         ring: None.into(),
         camera: None,
         motor: None,

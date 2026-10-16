@@ -1375,6 +1375,7 @@ fn run_in(script: Script, trace: &mut SessionState) -> Run {
         capture: spawn("capture"),
         provider: spawn("provider"),
         privacy: spawn("privacy"),
+        privacy_controls: false,
         ring: ring.into(),
         camera,
         motor: None,

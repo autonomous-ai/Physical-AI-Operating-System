@@ -1,7 +1,8 @@
-//! The outer service owns no audio. Only a verified physical/software mute may
+//! The outer service owns no audio. Only a verified physical/software mute, or
+//! on the Controls route a switch that cannot be read (closed, #795), may
 //! create another runtime; faults and cleanup failures never become retries.
 use super::*;
-use crate::service_privacy::{PhysicalMute, SoftwareMute, WaitOutcome};
+use crate::service_privacy::{PhysicalMute, SoftwareMute, WaitOutcome, is_unavailable};
 
 pub(super) fn supervise(
     trace: &mut SessionState,
@@ -63,6 +64,16 @@ pub(super) fn supervise(
                 record(
                     trace,
                     json!({"kind":"service_cycle_muted","at_us":monotonic_us(),"cycle":cycle,"reason":reason,"observed_at_us":observed_at_us,"cleanup_verified":true}),
+                )?;
+                flush_cues(trace, cues);
+            }
+            // The switch could not be read: the microphones are closed and
+            // the wait reads it again. A failed cleanup is never this.
+            Err(error) if is_unavailable(&*error) => {
+                eprintln!("lamp-voice: microphones closed until the switch can be read: {error}");
+                record(
+                    trace,
+                    json!({"kind":"service_cycle_muted","at_us":monotonic_us(),"cycle":cycle,"reason":"privacy_unreadable","why":error.to_string(),"cleanup_verified":true}),
                 )?;
                 flush_cues(trace, cues);
             }
@@ -128,6 +139,60 @@ mod tests {
             assert_eq!(muted[0]["observed_at_us"], 71);
             assert_eq!(muted[0]["cleanup_verified"], true);
         }
+    }
+
+    /// #795: on the Controls route a switch that cannot be read closes the
+    /// cycle; the service waits and reads again instead of ending, and says
+    /// why. With its cleanup failed it still ends.
+    #[test]
+    fn an_unreadable_switch_repeats_the_wait_unless_its_cleanup_failed() {
+        let mut trace = SessionState::default();
+        let waits = Cell::new(0);
+        let active = Cell::new(0);
+        supervise(
+            &mut trace,
+            &mut None,
+            &Termination::inactive(),
+            |_, _| {
+                waits.set(waits.get() + 1);
+                Ok(WaitOutcome::Allowed)
+            },
+            |_, _| {
+                active.set(active.get() + 1);
+                if active.get() == 1 {
+                    crate::service_privacy::finish(
+                        Err(crate::service_privacy::unavailable(
+                            "physical privacy closed or lost freshness",
+                        )),
+                        Ok(()),
+                    )
+                } else {
+                    Ok(())
+                }
+            },
+        )
+        .unwrap();
+        assert_eq!((waits.get(), active.get()), (2, 2));
+        let muted: Vec<_> = trace
+            .iter()
+            .filter(|row| row["kind"] == "service_cycle_muted")
+            .collect();
+        assert_eq!(muted.len(), 1);
+        assert_eq!(muted[0]["reason"], "privacy_unreadable");
+        let error = supervise(
+            &mut SessionState::default(),
+            &mut None,
+            &Termination::inactive(),
+            |_, _| Ok(WaitOutcome::Allowed),
+            |_, _| {
+                crate::service_privacy::finish(
+                    Err(crate::service_privacy::unavailable("no switch")),
+                    Err(io::Error::other("capture still open")),
+                )
+            },
+        )
+        .unwrap_err();
+        assert!(error.to_string().contains("verified cleanup failed"));
     }
 
     #[test]

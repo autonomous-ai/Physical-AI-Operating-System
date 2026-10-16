@@ -625,6 +625,7 @@ mod tests {
             capture,
             provider,
             privacy,
+            privacy_controls: false,
             ring: None.into(),
             camera: Some(camera),
             motor: None,

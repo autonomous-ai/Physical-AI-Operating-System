@@ -5849,7 +5849,6 @@ fn a_goal_register_far_from_the_arm_is_not_taken_as_its_goal() {
         Asked::default,
         |_| {},
     );
-    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
     let elbow: Vec<u16> = lamp
         .goals
         .iter()
@@ -5857,7 +5856,9 @@ fn a_goal_register_far_from_the_arm_is_not_taken_as_its_goal() {
         .filter(|(id, _)| *id == Joint::ElbowPitch.id())
         .map(|(_, goal)| *goal)
         .collect();
-    assert!(!elbow.is_empty(), "{report:?}");
+    // Its first goal is where it is, not the register.
+    assert_eq!(elbow.first(), Some(&2_047), "{report:?}");
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
     assert!(
         elbow.iter().all(|goal| (1_627..=3_022).contains(goal)),
         "{elbow:?}"
@@ -5979,6 +5980,8 @@ fn an_elbow_goal_register_past_its_range_is_never_written_as_a_goal() {
             .filter(|(id, _)| *id == 3)
             .map(|(_, goal)| *goal)
             .collect();
+        // Its first goal is where it is, not the register.
+        assert_eq!(elbow.first(), Some(&2_049), "register {register}");
         assert!(
             elbow.iter().all(|goal| (2_040..=2_610).contains(goal)),
             "register {register}: elbow asked {elbow:?}, {:?}, {:?}",
@@ -6273,4 +6276,53 @@ fn a_head_goal_past_the_servos_range_never_reaches_the_wire() {
     }
     assert_eq!(lamp.goals, [vec![(5, 2_000), (4, 2_044), (1, 2_015)]]);
     assert!(lamp.registers.is_empty(), "{:?}", lamp.registers);
+}
+
+/// Part 4 of #1192: the hold at the end of a run that ended on a surprise
+/// writes the arm where it was last read, not the goal last written to it,
+/// which may be the one that ended the run. The elbow pushed 200 counts off
+/// its goal ends the run on `Tracking`, and is held where it was pushed.
+#[test]
+fn the_hold_after_a_surprise_writes_the_arm_where_it_was_last_read() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(10));
+    lamp.overload_clears = 1;
+    for (servo, at) in lamp
+        .servos
+        .iter_mut()
+        .zip([2_028.0, 2_054.0, 2_049.0, 2_047.0, 1_948.0])
+    {
+        servo.position = at;
+        servo.goal = at as u16;
+        servo.status = 0;
+    }
+    lamp.event = Some((Duration::from_millis(4_000), 2, Event::Push(200.0)));
+    let limits = Limits {
+        wake: true,
+        rest_glance: true,
+        look_at_name: true,
+        ..gesture_limits()
+    };
+    let report = run_alive(
+        &mut lamp,
+        &mut clock,
+        limits,
+        Some([1_950, 2_043, 2_015]),
+        Some(lamp_4ace_standing().idling(true)),
+        None,
+        || Some((Mood::Resting, 0)),
+        Asked::default,
+        |_| {},
+    );
+    assert_eq!(
+        report.stop,
+        Stop::Tracking {
+            joint: 3,
+            goal: 2_049,
+            position: 2_249,
+        },
+        "{report:?}"
+    );
+    assert!(report.held_at.is_some(), "{report:?}");
+    let last = lamp.goals.last().unwrap();
+    assert!(last.contains(&(3, 2_249)), "{last:?}");
 }

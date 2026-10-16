@@ -191,3 +191,26 @@ Ready for lamp-voice: no
   so it is never offered or acknowledged again; also a reminder said with a
   playback gap is never `completed()`. Asked the first builder for the
   lamp's ledger and trace for ids 12 and 26.
+
+## 2026-10-16 — due reminders: #1081 ready
+
+Ready for lamp-voice: yes (#1081)
+
+- Kind: changes every lamp's default where `LAMP_SCHEDULE_SPEAK=on`.
+  Head `56a1ba939` on `twelve/reminder-due`, three commits: the consumer's
+  journal (once per change); attempts an earlier voice prepared and never
+  completed are retired with `PreviousProcessExited` once the next voice
+  holds the claim, and offered again; late under three minutes is said as on
+  time, later the delay is named once in rounded words.
+- Cause, from the first builder's lamp-4ace readings at 15:37: ids 12 and 26
+  were prepared by earlier voices and nothing after; the next consumer saw
+  them as `known()` and never offered them again.
+- Tests: the first builder's prepared → restart → offered again → said once
+  → acknowledged; the old never-re-offer test now holds only within the
+  voice that made the attempt; the journal; each lateness case.
+- Gate: fmt, clippy `-p lamp-voice` clean; workspace build ok;
+  `cargo test -p lamp-voice` 1,349 passed, 33 failed (timed motor, ring and
+  two coordinator tests on this Mac, none reminders), 10 ignored. ARM64
+  38877109897 green.
+- Not shown: on a lamp. List item 2 (an hours-overdue reminder) is open, to
+  decide with the first builder.

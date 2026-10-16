@@ -279,7 +279,7 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
         kept::{Kept, Presence},
         picture::Picture,
         sight::{Seen, choose},
-        who::{Ask, NEAR_ENOUGH, People, Recogniser, Taking, align, ask_of, plain_name},
+        who::{self, Ask, NEAR_ENOUGH, People, Recogniser, Taking, align, ask_of, plain_name},
     };
     use lamp_turn_owner::{BootId, MonoTime};
     use std::io::{Read, Write};
@@ -511,10 +511,10 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
                             serde_json::json!({"error": "storage"})
                         }
                     },
-                    Some(Ask::Remember(_)) if who.taking.is_some() => {
+                    Some(Ask::Remember(_) | Ask::RememberOne { .. }) if who.taking.is_some() => {
                         serde_json::json!({"error": "busy"})
                     }
-                    Some(Ask::Remember(_)) if port.is_none() => {
+                    Some(Ask::Remember(_) | Ask::RememberOne { .. }) if port.is_none() => {
                         serde_json::json!({"error": "eyes_shut"})
                     }
                     Some(Ask::Remember(name)) => match plain_name(&name) {
@@ -522,6 +522,19 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
                             eprintln!("lamp-eyes: asked to remember a face");
                             who.taking =
                                 Some((Taking::new(name, lamp_ipc::monotonic_us()), stream));
+                            continue;
+                        }
+                        None => serde_json::json!({"error": "not_a_name"}),
+                    },
+                    Some(Ask::RememberOne { name, replace }) => match plain_name(&name) {
+                        Some(name) => {
+                            eprintln!(
+                                "lamp-eyes: asked to remember a face, one name for it{}",
+                                if replace { ", in place of another" } else { "" }
+                            );
+                            let mut taking = Taking::new(name, lamp_ipc::monotonic_us());
+                            taking.one_face = Some(replace);
+                            who.taking = Some((taking, stream));
                             continue;
                         }
                         None => serde_json::json!({"error": "not_a_name"}),
@@ -536,7 +549,17 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
                     let now_unix_s = std::time::SystemTime::now()
                         .duration_since(std::time::UNIX_EPOCH)
                         .map_or(0, |since| since.as_secs());
-                    let reply = match who.people.remember(&taking.name, prints, now_unix_s) {
+                    let kept = match taking.one_face {
+                        None => who
+                            .people
+                            .remember(&taking.name, prints, now_unix_s)
+                            .map_err(|error| who::Refused::Store(error.to_string())),
+                        Some(replace) => {
+                            who.people
+                                .remember_one(&taking.name, prints, now_unix_s, replace)
+                        }
+                    };
+                    let reply = match kept {
                         Ok(name) => {
                             eprintln!(
                                 "lamp-eyes: remembered a face; {} people known",
@@ -544,7 +567,18 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
                             );
                             serde_json::json!({"remembered": name})
                         }
-                        Err(error) => {
+                        // The face is known by another name: the voice asks
+                        // the person before it is replaced.
+                        Err(who::Refused::KnownAs(known)) => {
+                            eprintln!(
+                                "lamp-eyes: did not remember a face: it is known by another name"
+                            );
+                            serde_json::json!({"error": "known_as", "known_as": known})
+                        }
+                        Err(who::Refused::NotAName) => {
+                            serde_json::json!({"error": "not_a_name"})
+                        }
+                        Err(who::Refused::Store(error)) => {
                             eprintln!("lamp-eyes: could not remember a face: {error}");
                             serde_json::json!({"error": "full"})
                         }

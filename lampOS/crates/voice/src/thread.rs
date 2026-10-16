@@ -582,6 +582,24 @@ impl Thread {
         })
     }
 
+    /// What the person said in the last `exchanges` exchanges and since the
+    /// last answer, oldest first, as the service wrote it: whether a name
+    /// was said ([`crate::known_faces::said_by_them`]). A note the lamp
+    /// was given in writing is not anyone's words.
+    pub fn said_lately(&self, exchanges: usize) -> String {
+        let mut said: Vec<&str> = self
+            .exchanges
+            .iter()
+            .rev()
+            .filter(|exchange| exchange.written.is_none())
+            .take(exchanges)
+            .map(|exchange| exchange.person.as_str())
+            .collect();
+        said.reverse();
+        said.push(&self.heard);
+        said.join(" ")
+    }
+
     /// The person's exchanges ([`Self::opening`]) of the last `within`,
     /// at most `most`, oldest first, as (what they said, what the lamp said):
     /// for a route that gives a model the conversation as messages.

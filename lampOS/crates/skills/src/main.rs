@@ -554,8 +554,8 @@ fn answer_asks(
 type ToolAsk = (String, mpsc::Sender<serde_json::Value>, Admission);
 
 /// The model called a skill's tool: its steps run, and the voice is told
-/// at once what the model is to say. The look and the say are the model's;
-/// the body and the light are made here.
+/// at once what the model is to say. The say is the model's and the look
+/// the voice's, asked in the answer; the body and the light are made here.
 fn tool_call(
     (name, reply, admission): ToolAsk,
     engine: &Engine,
@@ -965,7 +965,7 @@ fn make(call: &Call, sockets: &Sockets, bus: &Bus) -> String {
         }
         Call::Say(_) | Call::SayFrom(_) => "say: made by its own step".into(),
         Call::Sound { .. } => "sound: made by its own step".into(),
-        Call::Look => "look: the model's, when it says it will look".into(),
+        Call::Look => "look: the voice's, asked in the call's answer".into(),
     }
 }
 

@@ -69,6 +69,7 @@ pub(super) fn cancelled_output(event: &ProviderOutput, through: Option<u64>) -> 
         | ProviderOutput::Interrupted { request }
         | ProviderOutput::TurnComplete { request, .. }
         | ProviderOutput::Unclear { request, .. }
+        | ProviderOutput::LookAsked { request }
         | ProviderOutput::TurnFailed { request, .. }
         | ProviderOutput::ReminderDeferred { request, .. }
         | ProviderOutput::InputDiscarded { request, .. } => Some(*request),

@@ -1632,6 +1632,8 @@ fn a_declared_tool_is_in_the_tools_file_and_a_call_runs_the_skills_steps() {
         "{next}"
     );
     assert!(next.ends_with("never the answer."), "{next}");
+    // And the voice takes the look itself, whatever the model says (#941).
+    assert_eq!(answer["result"]["look"], true, "{answer}");
     // Again while the page is still lit, as a student asks once more after
     // fixing a line (#941): told to look again, and the light left as it is.
     let again = call("check_my_work");

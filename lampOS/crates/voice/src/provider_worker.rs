@@ -523,6 +523,13 @@ pub enum ProviderOutput {
         request: u64,
         why: String,
     },
+    /// A function the model called for `request` was answered with
+    /// `"look": true` (a skill's look step, #941): the coordinator takes
+    /// the full look for that turn itself, as if the lamp had said it
+    /// would look. Sent once the answer has gone to the model.
+    LookAsked {
+        request: u64,
+    },
     TurnFailed {
         request: u64,
         stage: FailedStage,
@@ -809,7 +816,8 @@ fn prune_retired_output(output: &mut VecDeque<Outbound>, retired_through: u64) {
             | ProviderOutput::GenerationComplete { request }
             | ProviderOutput::Interrupted { request }
             | ProviderOutput::TurnComplete { request, .. }
-        | ProviderOutput::Unclear { request, .. } => Some(*request),
+        | ProviderOutput::Unclear { request, .. }
+        | ProviderOutput::LookAsked { request } => Some(*request),
         };
         request.is_none_or(|request| request > retired_through)
     });
@@ -1243,6 +1251,9 @@ async fn serve_with_visual<C: Connect>(
                 desk.release(&provider, |request| intake.handoff.retired(request));
                 // What the executive made of the calls it was asked.
                 desk.answer(&provider);
+                for request in desk.take_looks() {
+                    output.push_back(Outbound::Output(ProviderOutput::LookAsked { request }));
+                }
                 // Each call answered, for the first-output record when
                 // there is one (#799); let go when there is none.
                 for line in desk.take_lines() {
@@ -1963,6 +1974,9 @@ struct ToolDesk {
     /// The newest request one of whose actions the Policy held: none of its
     /// sound is let out.
     quieted: Option<u64>,
+    /// Requests whose call was answered with `"look": true` since the
+    /// worker last took them: the coordinator takes their look (#941).
+    looks: Vec<u64>,
 }
 /// The turn a call came in, someone's, not the lamp's own.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -2010,6 +2024,7 @@ impl ToolDesk {
             verdicts: None,
             parked: Vec::new(),
             quieted: None,
+            looks: Vec::new(),
         }
     }
     /// The first sound of an answer to `request` has come. Said once for a
@@ -2474,6 +2489,10 @@ impl ToolDesk {
             self.waiting = self.waiting.saturating_sub(1);
             let taken = send(&done);
             let sent_us = monotonic_us();
+            // The look is the voice's, not the model's to remember (#941).
+            if taken && done.told["look"] == true && !self.looks.contains(&done.request) {
+                self.looks.push(done.request);
+            }
             self.line(
                 done.session,
                 done.request,
@@ -2513,6 +2532,10 @@ impl ToolDesk {
     /// The calls answered since the last take.
     fn take_lines(&mut self) -> Vec<crate::first_output::ToolCallLine> {
         std::mem::take(&mut self.lines)
+    }
+    /// The requests whose look was asked in a call's answer since the last take.
+    fn take_looks(&mut self) -> Vec<u64> {
+        std::mem::take(&mut self.looks)
     }
 }
 
@@ -3860,6 +3883,40 @@ mod tests {
             );
         }
         assert_eq!(desk.take_lines().len(), MOST_CALL_LINES);
+    }
+
+    /// #941: a skill's answer with `"look": true` that reached the model
+    /// asks the coordinator for the look once; one not sent, or with no
+    /// look, asks nothing. The model saying anything is not needed.
+    #[test]
+    fn a_call_answered_with_a_look_asks_the_coordinator_for_it_once_it_is_sent() {
+        let mut desk = ToolDesk::new(crate::tools::Settings::default());
+        let asked = |request: u64, told: serde_json::Value| Asked {
+            session: SessionId::new(2).unwrap(),
+            request,
+            call: lamp_gemini::ToolCall {
+                id: format!("call-{request}"),
+                name: "check_my_work".into(),
+                args: serde_json::json!({}),
+            },
+            told,
+            whom: "the executive",
+            answered: true,
+            took: Duration::from_millis(3),
+            called_us: 1,
+        };
+        let look = serde_json::json!({"next": "Say only \"Let me take a look.\"", "look": true});
+        desk.asked.send(asked(7, look.clone())).unwrap();
+        desk.asked.send(asked(7, look.clone())).unwrap();
+        desk.asked.send(asked(8, look)).unwrap();
+        desk.asked
+            .send(asked(9, serde_json::json!({"next": "Done."})))
+            .unwrap();
+        desk.waiting = 4;
+        // Request 8's connection has gone: its answer was never the model's.
+        desk.answer_with(|done| done.request != 8, |_, _| {});
+        assert_eq!(desk.take_looks(), [7]);
+        assert!(desk.take_looks().is_empty());
     }
 
     /// The reviewer on #810 (17:23): the time an answer was sent was taken

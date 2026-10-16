@@ -153,7 +153,7 @@ pub const LOOK_FULL_NOTE: &str = "(You are looking now, and this is what your ey
 /// lamp-4ace (09:42) the model took a softer note as its cue to go on with
 /// the story it had been cut off in, so this one says that is over.
 pub const ASK_AGAIN_NOTE: &str = "(The person just cut in and you could not make out what they said: it was misheard. What you were saying before is over: do not go on with it, do not finish it, do not sum it up, and do not answer what was misheard. Say only one word, in the language of the conversation, as a question: \"Sorry?\" Then stop and listen.)";
-pub const NO_LOOK_NOTE: &str = "(You tried to look, but your eye is shut just now and you saw nothing. Tell them so in a few light words.)";
+pub const NO_LOOK_NOTE: &str = "(You tried to look, but your eye is shut just now and you saw nothing: you could not see it. Tell them plainly, in a few light words, that you could not see it; never guess what it is or answer as if you had seen it.)";
 
 /// Whether an answer that opens like this is the lamp saying it will look:
 /// its own words are how it asks for its eyes. Only "let me look" and its

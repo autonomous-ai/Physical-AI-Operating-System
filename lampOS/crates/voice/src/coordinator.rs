@@ -1782,8 +1782,9 @@ fn observe_provider_output(
         // over reports this. It grants nothing here: the request still needs
         // its own Started before any of its output is usable.
         ProviderOutput::OwnershipAssumed { .. } => {}
-        // Asked again by the loop once the turn is over (#926).
-        ProviderOutput::Unclear { .. } => {}
+        // Asked again by the loop once the turn is over (#926); a tool's
+        // look is taken by the loop too (#941).
+        ProviderOutput::Unclear { .. } | ProviderOutput::LookAsked { .. } => {}
         ProviderOutput::Ended { .. } => cloud.end_output()?,
         ProviderOutput::Started {
             request, session, ..
@@ -3642,6 +3643,14 @@ fn conversation_with_gate(
                         json!({"kind":"provider_turn_unclear","turn":request,"why":why,"at_us":monotonic_us(),"asked_again":current}),
                     )?;
                 }
+                ProviderOutput::LookAsked { request } => record_tool_look(
+                    look.full(),
+                    request,
+                    reply.as_ref().map(|current| current.owner.turn()),
+                    last_reminder_turn,
+                    &mut look_wanted,
+                    trace,
+                )?,
                 ProviderOutput::TurnComplete { request, idle } => {
                     record(
                         trace,
@@ -5151,15 +5160,7 @@ fn conversation_with_gate(
         // saying so. Someone speaking first takes the turn and the look is
         // dropped; so is one that could not begin within fifteen seconds of being asked for.
         if let Some((turn, asked_us)) = look_wanted {
-            if let Some((id, side)) = look.ask(turn) {
-                if let Some(eyes) = eyes_link.as_mut() {
-                    eyes.look_full(id, side);
-                }
-                record(
-                    trace,
-                    json!({"kind":"look_full_asked","turn":turn,"side":side,"at_us":clock}),
-                )?;
-            }
+            ask_for_still(&mut look, eyes_link.as_mut(), turn, clock, trace)?;
             let waited = Duration::from_micros(clock.saturating_sub(asked_us));
             match reply.as_ref().map(|current| current.owner.turn()) {
                 Some(current) if current == turn => {}
@@ -6534,6 +6535,53 @@ fn record_look_intent(
     Ok(())
 }
 
+/// The eyes asked for a full look's still, once a turn (#836).
+fn ask_for_still(
+    look: &mut crate::sight::Look,
+    eyes: Option<&mut crate::body_link::EyesLink>,
+    turn: u64,
+    clock: u64,
+    trace: &mut SessionState,
+) -> Result<()> {
+    let Some((id, side)) = look.ask(turn) else {
+        return Ok(());
+    };
+    if let Some(eyes) = eyes {
+        eyes.look_full(id, side);
+    }
+    record(
+        trace,
+        json!({"kind":"look_full_asked","turn":turn,"side":side,"at_us":clock}),
+    )
+}
+
+/// A skill's tool asked for a look in its answer (#941): the full look is
+/// taken for that turn as if the lamp had said it would look, whatever the
+/// model says. Only with a full look on (`LAMP_LOOK_FULL`), only for the
+/// turn in hand, never for a reminder's, and once a turn: the model's own
+/// "Let me take a look." after it asks nothing more.
+fn record_tool_look(
+    full: bool,
+    request: u64,
+    current: Option<u64>,
+    last_reminder_turn: Option<u64>,
+    look_wanted: &mut Option<(u64, u64)>,
+    trace: &mut SessionState,
+) -> Result<()> {
+    if !full
+        || current != Some(request)
+        || last_reminder_turn.is_some_and(|reminder| request <= reminder)
+        || look_wanted.is_some_and(|(of, _)| of == request)
+    {
+        return Ok(());
+    }
+    *look_wanted = Some((request, monotonic_us()));
+    record(
+        trace,
+        json!({"kind":"look_asked","turn":request,"by":"tool","at_us":monotonic_us()}),
+    )
+}
+
 /// A turn the lamp begins itself. Nothing was heard: the request is a
 /// written note, started and ended at once, and what comes back is spoken
 /// like any answer. The caller has checked that nothing else owns the lamp.
@@ -7728,6 +7776,7 @@ mod tests {
     mod speaker_tone;
     mod startup_cues;
     mod termination;
+    mod tool_look;
     mod turn_taking;
 
     use super::*;

@@ -1224,8 +1224,9 @@ pub fn tools_file(skills: &[Skill]) -> Value {
 }
 
 /// What the model is told when its call ran these calls. With a look, to
-/// say only that it will look: the voice takes its full look when the lamp
-/// says so. With a say, the note, for its answer.
+/// say only that it will look, and `"look": true`, by which the voice takes
+/// its full look itself, whatever the model says (#941): the still comes in
+/// the model's next turn. With a say, the note, for its answer.
 pub fn told(calls: &[Call]) -> Value {
     let note = calls.iter().find_map(|call| match call {
         Call::Say(note) => Some(note.as_str()),
@@ -1238,7 +1239,11 @@ pub fn told(calls: &[Call]) -> Value {
         (false, Some(note)) => note.to_owned(),
         (false, None) => "Done.".to_owned(),
     };
-    json!({ "next": next })
+    if calls.contains(&Call::Look) {
+        json!({ "next": next, "look": true })
+    } else {
+        json!({ "next": next })
+    }
 }
 
 /// One message of a recording made by `lamp-bus record`.

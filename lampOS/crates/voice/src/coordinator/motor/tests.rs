@@ -83,7 +83,8 @@ fn step_child(session: &Path, pid: &Cell<Option<u32>>) -> io::Result<()> {
     write_instant(&session.join(SCENARIO_NOW), at_us);
     let until = Instant::now() + SCENARIO_WATCHDOG;
     loop {
-        if read_instant(&session.join(SCENARIO_DONE)).is_some_and(|done| done >= at_us) {
+        let done = read_instant(&session.join(SCENARIO_DONE));
+        if done.is_some_and(|done| done >= at_us && done != SCENARIO_FINISHED) {
             return Ok(());
         }
         if pid.get().is_none() {
@@ -94,9 +95,16 @@ fn step_child(session: &Path, pid: &Cell<Option<u32>>) -> io::Result<()> {
             );
         }
         // Until the child has started it cannot answer; once it has exited it
-        // never will. Neither may hold the parent's time still forever.
+        // never will. Neither may hold the parent's time still forever. A
+        // child that has finished keeps time still until it has exited, so
+        // its host exit time costs no teardown deadline (#949).
         if let Some(child) = pid.get() {
-            match crate::scenario_clock::wait_child_exited(child, Instant::now()) {
+            let deadline = if done == Some(SCENARIO_FINISHED) {
+                until
+            } else {
+                Instant::now()
+            };
+            match crate::scenario_clock::wait_child_exited(child, deadline) {
                 Err(error) if error.kind() == io::ErrorKind::TimedOut => {}
                 _ => return Ok(()),
             }
@@ -428,7 +436,7 @@ impl Link for TestLink {
             self.gate();
             std::process::exit(7);
         }
-        if matches!(e, Event::Inspected { .. }) && self.mode == "gate_segment" {
+        if matches!(e, Event::Inspected { .. }) && self.mode.starts_with("gate_segment") {
             self.gate();
         }
         if matches!(e, Event::Ready { .. }) {
@@ -548,6 +556,10 @@ fn inert_child() {
         "motor_fixture_phase=worker_finished result={result:?} at_us={}",
         monotonic_us()
     );
+    if link.mode == "gate_segment_slow_exit" {
+        // A loaded host's late exit, after the child has finished its steps.
+        std::thread::sleep(Duration::from_millis(300));
+    }
     if result.is_err() {
         std::process::exit(3);
     }
@@ -1264,17 +1276,23 @@ fn motor_flags_are_paired_explicit_and_not_accepted_by_fixture_mode() {
 }
 #[test]
 fn pending_segment_privacy_revoke_wins_before_any_position_write() {
-    privacy_revoke_before_release(Duration::ZERO);
+    privacy_revoke_before_release("gate_segment", Duration::ZERO);
 }
 /// #949: the revocation's inhibit deadline started before the test released
 /// the gated worker, so host time spent releasing it counted against the
 /// production 20 ms. On one stepped clock a long host pause there costs none.
 #[test]
 fn privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released() {
-    privacy_revoke_before_release(Duration::from_millis(30));
+    privacy_revoke_before_release("gate_segment", Duration::from_millis(30));
 }
-fn privacy_revoke_before_release(host_pause: Duration) {
-    let (_scope, dir, mut m, mut c) = stepped_fixture("gate_segment");
+/// #949: a worker that has finished its steps may take host time to exit;
+/// the parent's 250 ms teardown deadline must not run on while it does.
+#[test]
+fn privacy_revoke_survives_a_finished_worker_that_takes_300_ms_to_exit() {
+    privacy_revoke_before_release("gate_segment_slow_exit", Duration::ZERO);
+}
+fn privacy_revoke_before_release(mode: &str, host_pause: Duration) {
+    let (_scope, dir, mut m, mut c) = stepped_fixture(mode);
     wait(&mut m, &mut c, OptionalMotor::is_ready);
     let e = evidence(&mut m, &mut c, 1);
     m.offer_inspection(e).unwrap();

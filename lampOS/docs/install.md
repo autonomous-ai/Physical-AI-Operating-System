@@ -235,6 +235,15 @@ What steps 2 and 3 build, unless an answer on #811 changes it.
   of lamp-4ace's lock folders under the board user's home.
 - **The body's unit id** is the host name (`--unit-id %H`), and no unit
   says `ConditionHost=`.
+- **The clock** (#811): a lamp has no battery clock, so after a boot its
+  wall clock is its last saved time until chrony sets it, 30 to 70 s later.
+  Every part that acts on the time of day trusts it only once the kernel
+  says it is set (`lamp_ipc::clock_synced`): the schedule with
+  `--kernel-clock` (not `--trust-clock`), so nothing calendar-timed is made
+  or falls due before; Expression with `--kernel-clock`, so no night by a
+  wrong clock; the voice with `LAMP_KERNEL_CLOCK=on`, so it says it does not
+  know the time rather than a wrong one. The Policy's hours need an offset
+  the product unit does not give, so they act on no clock yet.
 - **Switches** are in the product unit as `Environment=` lines, on; a lamp
   that must have one off says so in a drop-in
   (`/etc/systemd/system/lamp-<part>.service.d/`), which no update touches.

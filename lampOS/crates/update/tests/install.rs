@@ -705,6 +705,16 @@ fn the_tasks_part_waits_for_harness_rather_than_failing() {
         "--expect tasks --needs tasks={}",
         install::HARNESS
     )));
+    // The voice says it isn't set up, not that a part failed, by the same file.
+    let voice = install::PRODUCT
+        .iter()
+        .find(|(name, _)| *name == "lamp-voice.service")
+        .unwrap()
+        .1;
+    assert!(voice.contains(&format!(
+        "Environment=LAMP_TASKS_NEEDS={}",
+        install::HARNESS
+    )));
     let mut lamp = Lamp::new(188, &[]);
     lamp.install().unwrap();
     assert!(

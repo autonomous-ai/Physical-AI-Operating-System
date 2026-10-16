@@ -1432,6 +1432,18 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
         Ok(())
     }
 
+    /// `goal` for `joint`, last written `from`, as one the guard takes: as
+    /// it is if it may be written, else `ARM_GOAL_STEP` from `from` toward it.
+    fn eased(&self, joint: Joint, from: u16, goal: u16) -> u16 {
+        if self.goal_refused(joint, goal).is_none() {
+            goal
+        } else if goal > from {
+            from.saturating_add(ARM_GOAL_STEP).min(goal)
+        } else {
+            from.saturating_sub(ARM_GOAL_STEP).max(goal)
+        }
+    }
+
     /// A goal refused before it was written: the run ends on the first.
     fn refuse(&mut self, stop: Stop) -> String {
         let detail = format!("{stop:?}");
@@ -3841,6 +3853,17 @@ fn run_on<P: PortIo, R: Runtime>(
             // the run of cuts ends only once what is asked is a millimetre
             // inside, so a lamp held there is counted once.
             tipping = share < 1.0 || (tipping && cog::lean_back_mm(to) > ceiling - 1.0);
+        }
+        // Whatever made them (the rise and the fold, a gesture starting or
+        // ending, a hold let go, the rest, a shift), the arm's goals move at
+        // most `ARM_GOAL_STEP` a step from the ones last written, unless they
+        // hold where the arm is: the guard at the wire only stops. On
+        // lamp-52e6 on 2026-10-17 a shoulder held at 2609, short of its
+        // pose, was asked 2683 at once by a nod, and the lamp was let go.
+        if standing.is_some() {
+            for (index, joint) in ARM.into_iter().enumerate() {
+                arm_goals[index] = bus.eased(joint, arm_written[index], arm_goals[index]);
+            }
         }
         still_steps = if goals != written || arm_goals != arm_written {
             0

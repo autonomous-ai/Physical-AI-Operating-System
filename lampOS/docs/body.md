@@ -160,7 +160,16 @@ goes back down to its resting goal at 50 a step), or lie between that goal
 and where the joint was last read, if that reading was within 50 of the one
 before it: a hold where it is, as when it gives way to a hand, is taken hold
 of or stops pushing, never asks it past either. A goal that is neither is
-not written. The run ends on `Stop::Window` at that step, never retried as
+not written. The guard only stops: what makes the arm's goals never asks
+it. Each step, after the rise or fold, a gesture, a hold or its release,
+the rest and a shift have made them, `Bus::eased` moves each arm goal at
+most 50 counts from the one last written unless the guard takes it as it
+is. On lamp-52e6 on 2026-10-17 a standing shoulder held at 2,609, short of
+its pose, was asked 2,683 at once by a nod, and the lamp was let go
+(`a_standing_session_never_moves_an_arm_goal_more_than_a_step_a_write`, with
+lamp-4ace's and lamp-52e6's flags, and
+`a_nod_right_after_a_hand_lets_go_of_the_arm_does_not_stop_the_lamp`). A
+goal the guard refuses is not written. The run ends on `Stop::Window` at that step, never retried as
 a failed write nor reported as `Stop::Bus`, and lets go as any surprise
 does, after the hold, which writes the arm where it was last read and is
 checked the same way. A hold refused is not written, and the run ends on

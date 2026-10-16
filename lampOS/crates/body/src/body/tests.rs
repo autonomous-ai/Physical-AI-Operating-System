@@ -6760,3 +6760,168 @@ fn an_arm_pose_whose_window_would_reach_the_seam_is_refused() {
     assert!(pose([420, 2_047], 600, 2_602).is_ok());
     assert!(pose([419, 2_047], 600, 2_602).is_err());
 }
+
+/// One lamp's standing flags: `--stand`, `--folded-arm`, `--home` and
+/// `--arm-load`.
+struct Flags {
+    stand: [u16; 5],
+    folded: [u16; 2],
+    home: [u16; 3],
+    load: [u16; 2],
+}
+
+const LAMP_4ACE: Flags = Flags {
+    stand: [1_772, 2_043, 2_015, 2_657, 2_602],
+    folded: [2_048, 2_047],
+    home: [1_950, 2_043, 2_015],
+    load: [950, 950],
+};
+
+const LAMP_52E6: Flags = Flags {
+    stand: [1_772, 2_035, 2_035, 2_657, 2_602],
+    folded: [2_053, 2_069],
+    home: [1_771, 2_035, 2_035],
+    load: [560, 560],
+};
+
+/// A lamp with these flags, found folded, run for `seconds` as its unit
+/// runs it (give way, limp, wake, rest glance, idle), awake `awake` s after
+/// it is talked to from 1 to 3 s, `prepare`d, asked to nod at each of
+/// `nods`. The run's end and every arm goal write, shoulder and elbow.
+fn standing_session(
+    flags: &Flags,
+    seconds: u64,
+    awake: u16,
+    nods: &[Duration],
+    prepare: impl FnOnce(&mut Lamp),
+) -> (BodyReport, Vec<[u16; 2]>) {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(seconds));
+    lamp.arm_moves = true;
+    lamp.overload_clears = 1;
+    let found = [
+        flags.home[2],
+        flags.folded[0],
+        flags.folded[1],
+        flags.home[1],
+        flags.home[0],
+    ];
+    for (servo, at) in lamp.servos.iter_mut().zip(found) {
+        servo.position = f32::from(at);
+        servo.goal = at;
+        servo.status = 0;
+    }
+    prepare(&mut lamp);
+    let up = Standing::new(flags.folded, flags.stand, 100, 6, awake, flags.load)
+        .unwrap()
+        .idling(true);
+    let limits = Limits {
+        give_way: Some(GiveWay::Return),
+        limp: true,
+        wake: true,
+        rest_glance: true,
+        look_at_name: true,
+        ..gesture_limits()
+    };
+    let time = clock.time.clone();
+    let news = move || {
+        Some(
+            if (Duration::from_secs(1)..Duration::from_secs(3)).contains(&time.get()) {
+                (Mood::Listening, 100)
+            } else {
+                (Mood::Resting, 0)
+            },
+        )
+    };
+    let asked_at = clock.time.clone();
+    let mut due: Vec<Duration> = nods.to_vec();
+    let report = run_alive(
+        &mut lamp,
+        &mut clock,
+        limits,
+        Some(flags.home),
+        Some(up),
+        None,
+        news,
+        move || {
+            let now = asked_at.get();
+            let nod = due.first().is_some_and(|at| now >= *at);
+            if nod {
+                due.remove(0);
+            }
+            Asked {
+                gesture: nod.then_some(&crate::clips::NOD),
+                ..Asked::default()
+            }
+        },
+        |_| {},
+    );
+    let arm = lamp
+        .goals
+        .iter()
+        .filter_map(|write| {
+            let of = |id: u8| {
+                write
+                    .iter()
+                    .find(|(at, _)| *at == id)
+                    .map(|(_, goal)| *goal)
+            };
+            Some([of(2)?, of(3)?])
+        })
+        .collect();
+    (report, arm)
+}
+
+/// The largest move of an arm goal from one write to the next.
+fn largest_arm_step(arm: &[[u16; 2]]) -> u16 {
+    arm.windows(2)
+        .flat_map(|pair| (0..2).map(move |index| pair[0][index].abs_diff(pair[1][index])))
+        .max()
+        .unwrap_or(0)
+}
+
+/// lamp-52e6 on 2026-10-17 at 04:26 (#1192): stood up, its shoulder short
+/// of its pose at 2609 and told to stop pushing there, then asked to nod.
+/// The nod's first goal was 2683, 74 counts from the hold in one step, and
+/// the guard let the standing lamp go (`window`, joint 2). With each lamp's
+/// flags: stand, a nod while held short, rest, idle shifts (awake five
+/// minutes, so that some come), fold. No arm goal moves more than
+/// `ARM_GOAL_STEP` a write, and the run ends as asked.
+#[test]
+fn a_standing_session_never_moves_an_arm_goal_more_than_a_step_a_write() {
+    for (name, flags) in [("lamp-4ace", &LAMP_4ACE), ("lamp-52e6", &LAMP_52E6)] {
+        let nod = [Duration::from_secs(8)];
+        let (report, arm) = standing_session(flags, 400, 300, &nod, |lamp| {
+            lamp.wall = Some((1, 2_609.0));
+        });
+        assert!(report.stalls[3] >= 1, "{name}: {report:?}");
+        assert!(report.idles >= 1, "{name}: {report:?}");
+        assert!(report.gestures >= 1, "{name}: {report:?}");
+        assert_eq!(report.stop, Stop::Cancelled, "{name}: {report:?}");
+        assert!(
+            largest_arm_step(&arm) <= ARM_GOAL_STEP,
+            "{name}: {}",
+            largest_arm_step(&arm)
+        );
+    }
+}
+
+/// A nod asked right after a hand lets go of the folded elbow it lifted
+/// 150 counts and held: the arm is still on its way back down, and the lamp
+/// stands up for the nod from there. With each lamp's flags (awake 5 s, so
+/// it is folded at rest by then), no arm goal moves more than a step a
+/// write except the hold where the hand put it, and no `Window` stop.
+#[test]
+fn a_nod_right_after_a_hand_lets_go_of_the_arm_does_not_stop_the_lamp() {
+    for (name, flags) in [("lamp-4ace", &LAMP_4ACE), ("lamp-52e6", &LAMP_52E6)] {
+        let ms = Duration::from_millis;
+        let nod = [ms(25_200)];
+        let (report, _) = standing_session(flags, 45, 5, &nod, |lamp| {
+            let rest = f32::from(flags.folded[1]);
+            lamp.hand = Some((ms(20_000), ms(24_000), 2, rest + 150.0));
+            lamp.strains = vec![(ms(20_000), ms(24_000), 2, 200)];
+        });
+        assert!(report.stalls[4] >= 1, "{name}: {report:?}");
+        assert!(report.gestures >= 1, "{name}: {report:?}");
+        assert_eq!(report.stop, Stop::Cancelled, "{name}: {report:?}");
+    }
+}

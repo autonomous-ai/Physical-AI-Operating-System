@@ -895,7 +895,7 @@ drift, renewed every 20 ms at rest) are one layer, not two:
 - A shift starts and ends where the rest offsets hold the head, with no
   dip back to plain rest before or after it; the breath goes on under it
   at half its size.
-- One quiet window: no shift starts within 30 s of a drift
+- One quiet window: no shift starts within 30 s of a drift's first step
   (`SHIFT_QUIET`), and Expression begins no drift within 30 s of the body
   moving by itself (`BODY_QUIET_US`, `docs/expression.md`). A drift does
   not start the wait over; a shift that falls due inside the window waits

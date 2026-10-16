@@ -288,7 +288,7 @@ const COMPANY_SIGHTS: u8 = 6;
 /// this long, which the voice's own listening takes over if the person
 /// goes on; and a call this soon after the last one is let go.
 const CALLED_FOR: Duration = Duration::from_secs(2);
-const CALLED_EVERY: Duration = Duration::from_secs(10);
+const CALLED_EVERY: Duration = Duration::from_secs(15);
 
 /// What reaches the body from outside in one step, besides the mood: what
 /// its eyes saw, and a gesture it was asked to make.
@@ -348,6 +348,10 @@ pub const SHIFT_QUIET: Duration = Duration::from_secs(30);
 /// it, a drift moves it this many counts or more.
 const REST_AVERAGE: Duration = Duration::from_millis(5_200);
 const REST_DRIFTED: f32 = 5.0;
+/// Steps of the average this close together are one drift: a drift's come
+/// within about 10 s of each other, and the lone step of the average
+/// settling after it some 17 s or more after its last.
+const DRIFT_STEPPING: Duration = Duration::from_secs(15);
 /// While a shift plays over Expression's rest offsets, how much of their
 /// change since it began (the breath) is kept under it.
 const SHIFT_BREATH: f32 = 0.5;
@@ -2772,9 +2776,10 @@ fn run_until_stopped(
     let mut idle_due: Option<Duration> = None;
     let mut idler = idle::Idler::new(standing.map_or(0, |up| up.idle_seed));
     // Expression's rest offsets of the head (pitch, roll) averaged over a
-    // breath, the average a drift last left, and when one last did.
+    // breath, the average a drift last left, and when the last drift began
+    // and last stepped it.
     let mut rest_average: Option<([f32; 2], [f32; 2])> = None;
-    let mut drifted_at: Option<Duration> = None;
+    let mut drifted_at: Option<(Duration, Duration)> = None;
     // Expression's rest offsets as a shift began, while one plays.
     let mut shift_from: Option<[f32; 3]> = None;
     let step = TICK.as_secs_f32();
@@ -3054,7 +3059,14 @@ fn run_until_stopped(
                 }
                 if (0..2).any(|axis| (average[axis] - mark[axis]).abs() >= REST_DRIFTED) {
                     *mark = *average;
-                    drifted_at = Some(now);
+                    // A long drift steps the average every few seconds for
+                    // some 18 s: the window counts from its first step.
+                    drifted_at = match drifted_at {
+                        Some((began, stepped)) if now.saturating_sub(stepped) < DRIFT_STEPPING => {
+                            Some((began, now))
+                        }
+                        _ => Some((now, now)),
+                    };
                 }
             }
             (Some(asked), None) if asked[..2].iter().all(|value| value.is_finite()) => {
@@ -3063,7 +3075,7 @@ fn run_until_stopped(
             (Some(_), None) => {}
             (None, _) => rest_average = None,
         }
-        let settled = drifted_at.is_none_or(|at| now.saturating_sub(at) >= SHIFT_QUIET);
+        let settled = drifted_at.is_none_or(|(began, _)| now.saturating_sub(began) >= SHIFT_QUIET);
         let idling = playing.is_some_and(|(clip, _)| idle::is_move(clip));
         let quiet = upright
             && mood == Mood::Resting

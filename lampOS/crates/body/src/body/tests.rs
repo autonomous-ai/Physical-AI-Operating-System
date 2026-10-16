@@ -2848,6 +2848,35 @@ fn no_shift_starts_within_thirty_seconds_of_a_drift() {
     assert_eq!(breathed.len(), alone.len(), "{breathed:?} {alone:?}");
 }
 
+/// A long drift (26 counts eased over 18 s, every 60 s) is seen as several
+/// steps of the average; the window counts from its first, not its last:
+/// a shift that fell due inside it starts about 30 s after the first step,
+/// not 30 s after its last.
+#[test]
+fn the_quiet_window_counts_from_a_drifts_first_step() {
+    let drifting: fn(Duration) -> Asked = |at| {
+        let seconds = at.as_secs_f32();
+        let into = (seconds % 60.0 / 18.0).min(1.0);
+        let into = (1.0 - (into * std::f32::consts::PI).cos()) / 2.0;
+        let pitch = if ((seconds / 60.0) as u32).is_multiple_of(2) {
+            -26.0 * into
+        } else {
+            -26.0 * (1.0 - into)
+        };
+        Asked {
+            expression: Some([pitch, 0.0, 0.0]),
+            ..Asked::default()
+        }
+    };
+    let (_, shifts) = shifts_at_rest(true, 20, Mood::Resting, 100, None, Some(drifting));
+    let since: Vec<f32> = shifts
+        .iter()
+        .map(|(from, _, _)| from.as_secs_f32() % 60.0)
+        .collect();
+    assert!(since.iter().all(|s| !(8.0..30.0).contains(s)), "{since:?}");
+    assert!(since.iter().any(|s| (30.0..44.0).contains(s)), "{since:?}");
+}
+
 /// Spoken to in the middle of a shift, it lets the shift go at once.
 #[test]
 fn spoken_to_in_the_middle_of_a_shift_it_lets_it_go_at_once() {

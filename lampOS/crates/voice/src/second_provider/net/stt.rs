@@ -276,6 +276,15 @@ impl SttStream {
         Ok(Self::start(socket))
     }
 
+    /// A stream on `socket`, for tests of what is sent on it (#970).
+    #[cfg(test)]
+    pub(crate) fn on<S>(socket: tokio_tungstenite::WebSocketStream<S>) -> Self
+    where
+        S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Send + Unpin + 'static,
+    {
+        Self::start(socket)
+    }
+
     fn start<S>(socket: tokio_tungstenite::WebSocketStream<S>) -> Self
     where
         S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Send + Unpin + 'static,

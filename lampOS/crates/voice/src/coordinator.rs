@@ -4106,6 +4106,7 @@ fn conversation_with_gate(
                 detector.reach_back();
             }
             let samples = observation.samples;
+            let captured_at_us = observation.captured_at_us;
             let (update, input_ended) = observe_prospective_heard(
                 &mut playback_mask,
                 &mut detector,
@@ -4161,6 +4162,7 @@ fn conversation_with_gate(
                     &admission,
                     &update.step,
                     reply.is_some(),
+                    captured_at_us,
                     &samples,
                     trace,
                 )?;
@@ -5889,12 +5891,14 @@ fn hear_capture_block(
 /// One block for a yield's words (#828, `LAMP_STOP_WORDS=heard`): its held
 /// audio when it begins, each block while it is in force, and the duplex
 /// rule told when they come. Nothing but what is said in a yield is heard.
+#[allow(clippy::too_many_arguments)]
 fn hear_stop_words(
     words: &mut crate::stop_words::StopWords,
     mask: &mut PlaybackMask,
     admission: &InputAdmission,
     step: &AdmissionStep,
     replying: bool,
+    captured_at_us: u64,
     samples: &[i16],
     trace: &mut SessionState,
 ) -> Result<()> {
@@ -5909,6 +5913,7 @@ fn hear_stop_words(
         mask.yield_in_force(),
         mask.still_blocks(),
         held,
+        captured_at_us,
         samples,
     ) {
         crate::stop_words::Tell::Nothing => {}

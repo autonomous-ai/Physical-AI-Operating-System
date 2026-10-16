@@ -250,6 +250,7 @@ impl Harness {
                 &self.admission,
                 &update.step,
                 self.reply.is_some(),
+                at,
                 &samples,
                 &mut self.trace,
             )
@@ -590,7 +591,7 @@ struct Ears {
 
 impl crate::stop_words::Ears for Ears {
     fn ready(&mut self) {}
-    fn hear(&mut self, _: &[i16]) {
+    fn hear(&mut self, _: u64, _: &[i16]) {
         self.heard
             .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     }

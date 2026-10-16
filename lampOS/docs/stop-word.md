@@ -741,9 +741,24 @@ It is to be decided again before home lamps ship.
   is opened before it's needed (connecting takes 0.6 to 0.7 s) and carries
   no audio until a yield.
 - **When it is closed:** at a reply's end; at a hand Stop, a mute or a
-  capture gap (`hand::cancel`); and on any tick where the microphone is not
-  allowed, which covers the privacy switch. What a yield had sent is
-  dropped with it, and nothing more is sent.
+  capture gap (`hand::cancel`); on any tick where the microphone is not
+  allowed, which covers the privacy switch; and on every way out of the
+  conversation, the physical mute's and a lost privacy reading's among
+  them, as the ears are dropped there.
+- **How it is closed** (the reviewer's P1 on #970): apart from the queue of
+  audio to the relay's thread. Each yield has a number, carried by every
+  block and every result. Forgetting the yield, resting or dropping the
+  ears changes the live number at once and wakes the thread past its
+  queue. The thread checks the number under its lock as it hands each
+  block to the stream, so once that has returned nothing more of the yield
+  is handed on, however much is still queued. It then drops the yield's
+  stream, which ends the socket's writer; audio handed on before the close,
+  captured while the microphone was allowed, may still finish going. A
+  block captured more than 3 s before it would be handed on never is.
+  Dropping the ears waits up to 250 ms for the thread to end.
+- **Whose words:** a result is taken only for the yield that asked for it
+  (the reviewer's P2 on #970). Words that come for a yield after it was
+  forgotten are dropped, never taken for the next yield's.
 - **What is kept on the lamp:** the outcome per yield (`stop_words`, no
   words). Whatever the relay keeps is the relay's.
 
@@ -760,10 +775,18 @@ Tests:
   same block as without the switch. No words resume at the deadline, 110
   blocks from the yield.
 
+- through the relay's real thread against a stand-in speech-to-text on an
+  in-memory socket: `audio_queued_for_a_yield_never_goes_once_it_is_forgotten_rested_or_dropped`
+  (a yield's audio queued while the thread is held never reaches the
+  service once forgotten, rested or dropped; after a forget the next
+  yield's goes; a block captured 4 s before is never sent) and
+  `words_that_come_for_a_yield_after_it_is_forgotten_are_not_the_next_ones`
+  (the first yield's words, held by the thread until after it was
+  forgotten, are not the next yield's; its own are).
+
 Not shown: the relay on a lamp in this path, and how long the pause grows
-when the words are slow (at most to the deadline). The thread's connection,
-retry and finish are not tested against a real or scripted socket on the
-host.
+when the words are slow (at most to the deadline). The thread's retry after
+a failed connection is not tested.
 
 ## Not shown
 

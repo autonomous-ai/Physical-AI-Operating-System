@@ -298,8 +298,10 @@ that takes the light (`src/ring_light.rs`). Started with
   of its own and never shows the lamp's light, so nothing is reached inside
   a turn (the reviewer on #1166), nor for a light the privacy switch keeps
   off the ring, the person's light ends, or that lapses first. A waiter
-  subscribes before it asks and bounds its wait. A boot clock that cannot be read is said once and the ring
-  takes the person's light alone.
+  subscribes before it asks and bounds its wait. A skill waits for it before
+  the step that speaks, never after: its own say is a turn, so its light is
+  reached only once that turn has ended (El on #1166). A boot clock that
+  cannot be read is said once and the ring takes the person's light alone.
 
 Whoever asks never writes the ring: the actions program publishes the
 light wanted and reads the state back ([actions.md](actions.md)). A bus

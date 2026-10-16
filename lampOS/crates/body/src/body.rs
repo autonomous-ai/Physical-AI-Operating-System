@@ -1100,6 +1100,13 @@ const ARM_GOAL_STEP: u16 = 50;
 /// slump moves it) a 20 ms step is 82 counts, and this is near four times
 /// that. A reading farther, or outside 0..=4095, is not where the joint is.
 const READ_JUMP: u16 = 300;
+/// The farthest from the last written goal an arm goal is eased toward
+/// (`Bus::eased`); one farther is refused at once. A hold let go jumps by
+/// the hold's distance and what a gesture adds, at most 360
+/// (`GESTURE_REACH`): over 378 simulated runs (every clip after a shoulder
+/// or elbow held by a wall or a hand, lamp-4ace's and lamp-52e6's flags)
+/// the largest was 318, `stretching` from a shoulder held at 2609.
+const ARM_EASE_REACH: u16 = 400;
 /// Bad reads of one joint in a row that end the run on `Stop::BadRead`.
 const BAD_READS_IN_ROW: u8 = 3;
 
@@ -1434,14 +1441,18 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
 
     /// `goal` for `joint`, last written `from`, as one the guard takes: as
     /// it is if it may be written, else `ARM_GOAL_STEP` from `from` toward it.
-    /// A goal outside the joint's window is left as it is, for the guard to
-    /// refuse at once: walking toward it would carry the arm to the edge.
+    /// A goal outside the joint's window, or more than `ARM_EASE_REACH`
+    /// away, is left as it is for the guard to refuse at once: walking
+    /// toward it would carry the arm anywhere in its window.
     fn eased(&self, joint: Joint, from: u16, goal: u16) -> u16 {
         let (low, high) = ARM
             .iter()
             .position(|arm| *arm == joint)
             .map_or((0, 4_095), |index| self.arm_windows[index]);
-        if self.goal_refused(joint, goal).is_none() || !(low..=high).contains(&goal) {
+        if self.goal_refused(joint, goal).is_none()
+            || !(low..=high).contains(&goal)
+            || goal.abs_diff(from) > ARM_EASE_REACH
+        {
             goal
         } else if goal > from {
             from.saturating_add(ARM_GOAL_STEP).min(goal)

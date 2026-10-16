@@ -7154,3 +7154,40 @@ fn a_steady_wrong_elbow_reading_under_load_as_the_arm_comes_to_rest_is_not_its_r
         );
     }
 }
+
+/// The reviewer's 05:32 probe on #1192: lamp-4ace folded at rest, its
+/// elbow asked 2900 at once, inside its window but 851 from its goal. It is
+/// not walked there 50 a step: it is refused at once, nothing written.
+#[test]
+fn an_arm_goal_farther_than_a_hold_release_is_refused_not_eased_toward() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(1));
+    lamp.servos[2].status = 0;
+    lamp.servos[2].position = 2_049.0;
+    {
+        let mut bus = Bus::new(&mut lamp, &mut clock, Some(lamp_4ace_standing()));
+        bus.samples().unwrap();
+        bus.send_goals(HOME, Some([2_050, 2_049])).unwrap();
+        let goal = bus.eased(Joint::ElbowPitch, 2_049, 2_900);
+        assert_eq!(goal, 2_900);
+        assert!(bus.send_goals(HOME, Some([2_050, goal])).is_err());
+        assert_eq!(
+            bus.refused.take(),
+            Some(Stop::Window {
+                joint: 3,
+                goal: 2_900,
+                window: (1_627, 3_022),
+                from: 2_049,
+            })
+        );
+        // A hold let go, 318 off at most in the runs measured, still eases.
+        assert_eq!(bus.eased(Joint::ElbowPitch, 2_049, 2_367), 2_099);
+    }
+    let elbow: Vec<u16> = lamp
+        .goals
+        .iter()
+        .flatten()
+        .filter(|(id, _)| *id == 3)
+        .map(|(_, goal)| *goal)
+        .collect();
+    assert_eq!(elbow, [2_049]);
+}

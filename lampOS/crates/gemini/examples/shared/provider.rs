@@ -47,7 +47,7 @@ pub fn session(path: &Path) -> Outcome<SessionConfig> {
     let mut config = SessionConfig::new(&provider.endpoint, credential)?
         .model(&provider.model)?
         .voice(&provider.voice)?
-        .instruction("You are a voice assistant. Answer every question in one short sentence.")?;
+        .instruction(&instruction()?)?;
     if let Some(level) = provider.thinking_level {
         config = config.thinking_level(level)?;
     }
@@ -55,6 +55,25 @@ pub fn session(path: &Path) -> Outcome<SessionConfig> {
         config = config.language_code(language)?;
     }
     Ok(config)
+}
+
+/// The probe's instruction: one short sentence for every question, or the
+/// text of `LAMP_PROBE_INSTRUCTION_FILE` (at most 64 KiB), so that a probe
+/// can ask as a skill would, for example Desk tutor's note on top of the
+/// lamp's character.
+fn instruction() -> Outcome<String> {
+    match std::env::var_os("LAMP_PROBE_INSTRUCTION_FILE") {
+        None => {
+            Ok("You are a voice assistant. Answer every question in one short sentence.".into())
+        }
+        Some(path) => {
+            let text = fs::read_to_string(&path)?;
+            if text.len() > 65_536 || text.trim().is_empty() {
+                return Err("the probe's instruction file is empty or over 64 KiB".into());
+            }
+            Ok(text)
+        }
+    }
 }
 
 /// 16 kHz mono from a 16-bit PCM WAV, by linear interpolation. Adequate for a

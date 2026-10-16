@@ -553,16 +553,22 @@ mod tests {
             );
         }
         assert_eq!(RUNNING.load(Ordering::Acquire), 1);
+        // A lookup's thread is counted until it ends, which is a moment
+        // after its answer has been received: what depends on it having
+        // ended waits for that, within five seconds.
+        let counted_out = || {
+            let deadline = std::time::Instant::now() + Duration::from_secs(5);
+            while RUNNING.load(Ordering::Acquire) != 0 {
+                assert!(
+                    std::time::Instant::now() < deadline,
+                    "the lookup never ended"
+                );
+                thread::sleep(Duration::from_millis(5));
+            }
+        };
         // Once it ends, the next round looks up again.
         release.send(()).unwrap();
-        let deadline = std::time::Instant::now() + Duration::from_secs(5);
-        while RUNNING.load(Ordering::Acquire) != 0 {
-            assert!(
-                std::time::Instant::now() < deadline,
-                "the lookup never ended"
-            );
-            thread::sleep(Duration::from_millis(5));
-        }
+        counted_out();
         let found = lookup_within(
             "updates.example",
             443,
@@ -572,6 +578,7 @@ mod tests {
             |_, port| Ok(vec![SocketAddr::from(([127, 0, 0, 1], port))]),
         );
         assert_eq!(found.unwrap(), [SocketAddr::from(([127, 0, 0, 1], 443))]);
+        counted_out();
         let refused = lookup_within(
             "updates.example",
             443,
@@ -581,6 +588,7 @@ mod tests {
             |_, _| Err(io::Error::other("no such name")),
         );
         assert!(refused.unwrap_err().contains("no such name"));
+        counted_out();
         assert_eq!(RUNNING.load(Ordering::Acquire), 0);
     }
 

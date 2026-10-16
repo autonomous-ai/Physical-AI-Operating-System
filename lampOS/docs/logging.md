@@ -187,6 +187,11 @@ on disk (`crates/bus/src/logging/keep.rs`, #699). Nothing starts it.
   failing card) is counted, said once on stderr until writing works again,
   and the next line written carries `unwritten_before` with the count. The
   end says how many were kept, not written and passed over.
+- **Whole lines only.** A write that fails partway (a full card) is cut back
+  to the last whole line, so the next line is never glued to a partial one
+  and a file's bytes stay counted. A file that cannot be cut back is not
+  written again: the next line starts a new file, and the damaged one keeps
+  only its partial tail at the end.
 - **Durability.** Data is synced at most once a second while lines come,
   and at each new file and the end. A power cut loses about a second at
   most. SIGTERM ends it without the last sync; what it wrote is already

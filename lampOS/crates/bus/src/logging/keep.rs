@@ -10,6 +10,9 @@
 //! - Loss is said, not hidden: each line carries the bus's gap and restart
 //!   for its publisher, and lines that could not be written are counted in
 //!   the next one that is (`unwritten_before`).
+//! - A file only ever holds whole lines: a write that fails partway is cut
+//!   back to the last whole line, and a file that cannot be cut back is not
+//!   written again; the next line starts a new file.
 //! - Written data is synced at most once every [`SYNC_EVERY`] and at each new
 //!   file, so a power cut loses about that much at most. Nobody waits on it
 //!   but the keeper: publishers are isolated by the bus.
@@ -60,6 +63,9 @@ pub struct Kept {
     written: u64,
     synced_at: Option<Instant>,
     unsynced: bool,
+    /// The file being written holds a partial line it could not be cut back
+    /// from: the next line starts a new file.
+    damaged: bool,
     /// Lines that could not be written since the last that was.
     unwritten: u64,
     /// Lines that could not be written, in all.
@@ -89,6 +95,7 @@ impl Kept {
             written: 0,
             synced_at: None,
             unsynced: false,
+            damaged: false,
             unwritten: 0,
             lost: 0,
             lines: 0,
@@ -130,10 +137,18 @@ impl Kept {
     }
 
     fn write(&mut self, text: &[u8], now: Instant) -> io::Result<()> {
+        if self.damaged {
+            // Not synced or read again: only what was whole before stays.
+            self.open_next()?;
+            self.damaged = false;
+        }
         if self.written > 0 && self.written + text.len() as u64 > self.file_bytes {
             self.next_file()?;
         }
-        self.file.write_all(text)?;
+        if let Err((error, cut_back)) = append_whole(&mut self.file, self.written, text) {
+            self.damaged = !cut_back;
+            return Err(error);
+        }
         self.written += text.len() as u64;
         self.unsynced = true;
         self.sync_if_due(now)
@@ -165,10 +180,15 @@ impl Kept {
 
     fn next_file(&mut self) -> io::Result<()> {
         self.sync()?;
+        self.open_next()
+    }
+
+    fn open_next(&mut self) -> io::Result<()> {
         let number = self.number + 1;
         self.file = create(&self.folder, number)?;
         self.number = number;
         self.written = 0;
+        self.unsynced = false;
         self.forget_old()
     }
 
@@ -188,6 +208,29 @@ impl Kept {
     pub fn path(&self) -> PathBuf {
         self.folder.join(name(self.number))
     }
+}
+
+/// What a kept file must do: take bytes, and be cut back to a length.
+trait LineFile: Write {
+    fn cut_to(&mut self, length: u64) -> io::Result<()>;
+}
+
+impl LineFile for File {
+    fn cut_to(&mut self, length: u64) -> io::Result<()> {
+        self.set_len(length)
+    }
+}
+
+/// Append one whole line to a file `written` bytes long, or leave it as it
+/// was: a write that fails partway is cut back to `written`. On failure,
+/// also whether the cut worked.
+fn append_whole(
+    file: &mut impl LineFile,
+    written: u64,
+    text: &[u8],
+) -> Result<(), (io::Error, bool)> {
+    file.write_all(text)
+        .map_err(|error| (error, file.cut_to(written).is_ok()))
 }
 
 fn name(number: u64) -> String {
@@ -353,21 +396,109 @@ mod tests {
         let mut kept = Kept::open(&folder.0, 64 * 1024, 4).unwrap();
         let now = Instant::now();
         let (log, message) = heard(1, 0);
-        // The file is replaced by one opened read-only: writes fail.
+        // The file is replaced by one opened read-only: writes fail, and it
+        // cannot be cut back either.
         let path = kept.path();
         kept.file = File::open(&path).unwrap();
         assert!(kept.keep(&log, &message, now).is_err());
-        assert!(kept.keep(&log, &message, now).is_err());
-        assert_eq!(kept.lost, 2);
-        kept.file = OpenOptions::new().append(true).open(&path).unwrap();
+        assert_eq!(kept.lost, 1);
+        // So it is not written again: the next line starts a new file and
+        // says what was lost.
         kept.keep(&log, &message, now).unwrap();
         kept.sync().unwrap();
-        let text = fs::read_to_string(&path).unwrap();
-        assert!(text.contains("\"unwritten_before\":2"), "{text}");
+        assert_ne!(kept.path(), path);
+        let text = fs::read_to_string(kept.path()).unwrap();
+        assert!(text.contains("\"unwritten_before\":1"), "{text}");
         kept.keep(&log, &message, now).unwrap();
         kept.sync().unwrap();
-        let text = fs::read_to_string(&path).unwrap();
+        let text = fs::read_to_string(kept.path()).unwrap();
         assert_eq!(text.matches("unwritten_before").count(), 1);
+        assert_eq!(text.lines().count(), 2);
+    }
+
+    /// A file that takes some bytes and then refuses, as a full card does.
+    struct Fills {
+        bytes: Vec<u8>,
+        room: usize,
+        cut_fails: bool,
+    }
+    impl Write for Fills {
+        fn write(&mut self, text: &[u8]) -> io::Result<usize> {
+            if self.bytes.len() >= self.room {
+                return Err(io::Error::from_raw_os_error(28));
+            }
+            let taken = text.len().min(self.room - self.bytes.len());
+            self.bytes.extend_from_slice(&text[..taken]);
+            Ok(taken)
+        }
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
+    impl LineFile for Fills {
+        fn cut_to(&mut self, length: u64) -> io::Result<()> {
+            if self.cut_fails {
+                return Err(io::Error::other("cannot cut"));
+            }
+            self.bytes.truncate(length as usize);
+            Ok(())
+        }
+    }
+
+    /// The reviewer on #1013 (12:25): a write that fails partway must not
+    /// leave a partial line for the next to be glued to.
+    #[test]
+    fn a_write_that_fails_partway_is_cut_back_to_the_last_whole_line() {
+        let mut file = Fills {
+            bytes: b"{\"a\":1}\n".to_vec(),
+            room: 14,
+            cut_fails: false,
+        };
+        let (error, cut) = append_whole(&mut file, 8, b"{\"b\":22}\n").unwrap_err();
+        assert_eq!(error.raw_os_error(), Some(28));
+        assert!(cut);
+        assert_eq!(file.bytes, b"{\"a\":1}\n");
+        // Room again: the next line is whole, after the last whole one.
+        file.room = 100;
+        append_whole(&mut file, 8, b"{\"c\":3}\n").unwrap();
+        assert_eq!(file.bytes, b"{\"a\":1}\n{\"c\":3}\n");
+        // A cut that fails is said, so the file is not written again.
+        let mut file = Fills {
+            bytes: Vec::new(),
+            room: 3,
+            cut_fails: true,
+        };
+        let (_, cut) = append_whole(&mut file, 0, b"{\"d\":4}\n").unwrap_err();
+        assert!(!cut);
+    }
+
+    #[test]
+    fn a_file_left_with_a_partial_line_is_never_written_again() {
+        let folder = Folder::new("damaged");
+        let mut kept = Kept::open(&folder.0, 64 * 1024, 4).unwrap();
+        let (log, message) = heard(1, 0);
+        let now = Instant::now();
+        kept.keep(&log, &message, now).unwrap();
+        let damaged = kept.path();
+        // As if a write had left a tail it could not cut back.
+        fs::OpenOptions::new()
+            .append(true)
+            .open(&damaged)
+            .unwrap()
+            .write_all(b"{\"partial")
+            .unwrap();
+        kept.damaged = true;
+        kept.keep(&log, &message, now).unwrap();
+        kept.sync().unwrap();
+        assert_ne!(kept.path(), damaged);
+        let fresh = fs::read_to_string(kept.path()).unwrap();
+        assert_eq!(fresh.lines().count(), 1);
+        serde_json::from_str::<serde_json::Value>(fresh.trim_end()).unwrap();
+        assert!(
+            fs::read_to_string(&damaged)
+                .unwrap()
+                .ends_with("{\"partial")
+        );
     }
 
     #[test]

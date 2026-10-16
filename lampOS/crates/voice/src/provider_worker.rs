@@ -1696,10 +1696,15 @@ async fn serve_with_visual<C: Connect>(
                             }
                             attention.lamp_asked(crate::thread::THREAD.lock().is_ok_and(|thread| thread.lamp_asked(request)));
                             // #829: a line in another voice than the
-                            // conversation's is no part of it.
-                            let going_on = match intake.handoff.voices.as_mut().filter(|_| going_on).and_then(|voices| voices.likeness(request)) {
+                            // conversation's is no part of it. Judged once,
+                            // while its answer's verdict is still to come
+                            // (the reviewer on #1030: every chunk of an
+                            // answer said it again).
+                            let mut other_voice = false;
+                            let going_on = match intake.handoff.voices.as_mut().filter(|_| going_on && attention.awaits_verdict(request)).and_then(|voices| voices.likeness(request)) {
                                 Some(likeness) if likeness < crate::same_voice::DIFFERENT_BELOW => {
                                     eprintln!("lamp-voice provider: request {request}: another voice than the conversation's (cosine {likeness:.2}): no conversation is going on for it");
+                                    other_voice = true;
                                     false
                                 }
                                 Some(likeness) => {
@@ -1722,8 +1727,11 @@ async fn serve_with_visual<C: Connect>(
                                 output.push_back(Outbound::Output(ProviderOutput::Unclear { request, why: why.to_owned() }));
                             }
                             // A request whose answer is held is not talk
-                            // between people (#829).
+                            // between people (#829), but one held as another
+                            // voice is: the clearest sign of it (the reviewer
+                            // on #1030).
                             if matches!(verdict, Some(crate::attention::Verdict::Hold(_)))
+                                && !other_voice
                                 && let Ok(mut told) = crate::room_told::room().lock()
                             {
                                 told.held(request);

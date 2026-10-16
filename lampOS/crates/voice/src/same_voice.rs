@@ -15,7 +15,10 @@
 //!   a print of each line (CAM++, `crates/same-voice`). A child that is
 //!   missing, still loading, busy or gone gives no print, and a line with
 //!   no print is judged as without the model. One that ends is started
-//!   again after [`RESTART_AFTER`].
+//!   again after [`RESTART_AFTER`], and one that gives no answer within
+//!   [`ANSWER_WITHIN`] is killed and started again. Children that end
+//!   [`MOST_UNREADY`] times in a row before they are ready are not started
+//!   again: the journal says once that the check is off.
 //! - **Only what was said with the lamp quiet:** a line that began over the
 //!   lamp's reply (`ProviderInput::Start`'s `over_the_lamp`) is never
 //!   judged. Over the lamp's voice the model hears the lamp: on lamp-4ace's
@@ -58,10 +61,36 @@ pub const MOST_SAMPLES: usize = RATE * 3;
 /// clips 1.5 s or longer and the lamp quiet, on lamp-4ace's recordings of
 /// three synthetic voices (`docs/verification/same-voice-20261015`), it
 /// took none of 37 same-voice pairs for two voices and caught 19 of 29
-/// pairs of two. A minute of two real people is to set it.
+/// pairs of two. Those were whole clips, up to 6.2 s, where a line's first
+/// 3 s are judged here (the reviewer on #1030). A minute of two real people
+/// is to set it.
 pub const DIFFERENT_BELOW: f32 = 0.25;
 /// A child that has ended is started again after this long.
 pub const RESTART_AFTER: Duration = Duration::from_secs(5);
+/// A child that ends this many times in a row before it is ready is not
+/// started again: the check is off until the voice restarts (the reviewer
+/// on #1030: a missing program or model was retried every 5 s forever).
+pub const MOST_UNREADY: u32 = 3;
+/// How long a child has to load its model and say it is ready.
+pub const READY_WITHIN: Duration = Duration::from_secs(30);
+/// How long a child has to answer a line; one that doesn't is killed and
+/// started again (the reviewer on #1030: a child hung after "ready" took
+/// 1 of 186 lines and said nothing).
+pub const ANSWER_WITHIN: Duration = Duration::from_secs(2);
+
+/// The child's timings, apart for the tests.
+#[derive(Clone, Copy)]
+struct Timing {
+    restart_after: Duration,
+    ready_within: Duration,
+    answer_within: Duration,
+}
+
+const TIMING: Timing = Timing {
+    restart_after: RESTART_AFTER,
+    ready_within: READY_WITHIN,
+    answer_within: ANSWER_WITHIN,
+};
 /// Prints kept for lines not yet decided.
 const KEPT: usize = 4;
 
@@ -142,13 +171,18 @@ pub struct Prints {
 }
 
 impl Prints {
-    /// `program serve model`, started now and again whenever it ends.
+    /// `program serve model`, started now and again whenever it ends,
+    /// unless it never gets ready.
     pub fn start(program: PathBuf, model: PathBuf) -> Self {
+        Self::timed(program, model, TIMING)
+    }
+
+    fn timed(program: PathBuf, model: PathBuf, timing: Timing) -> Self {
         let (asked, jobs) = mpsc::sync_channel(0);
         let (told, answers) = mpsc::channel();
         let started = thread::Builder::new()
             .name("same-voice".into())
-            .spawn(move || keep(&program, &model, &jobs, &told));
+            .spawn(move || keep(&program, &model, &jobs, &told, timing));
         if let Err(error) = started {
             eprintln!("lamp-voice provider: the same voice is not judged: {error}");
         }
@@ -175,27 +209,50 @@ impl Printer for Prints {
 enum Ended {
     /// The worker has gone: nothing more is asked.
     Closed,
-    Failed(String),
+    /// Why, and whether it had said it was ready.
+    Failed(String, bool),
 }
 
-/// One child after another until the worker goes.
+/// One child after another until the worker goes, or until children end
+/// [`MOST_UNREADY`] times in a row before they are ready.
 fn keep(
     program: &Path,
     model: &Path,
     jobs: &mpsc::Receiver<(u64, Vec<i16>)>,
     told: &mpsc::Sender<(u64, Result<Vec<f32>, String>)>,
+    timing: Timing,
 ) {
+    let mut unready = 0;
     loop {
-        let why = match child(program, model, jobs, told) {
+        let why = match child(program, model, jobs, told, timing) {
             Ended::Closed => return,
-            Ended::Failed(why) => why,
+            Ended::Failed(why, ready) => {
+                unready = if ready { 0 } else { unready + 1 };
+                why
+            }
         };
+        if unready >= MOST_UNREADY {
+            eprintln!(
+                "lamp-voice provider: the same-voice check is off: the child ended {unready} times before it was ready, the last: {why}"
+            );
+            // Each line asked for from now on is told so, and nothing more
+            // is started.
+            while let Ok((request, _)) = jobs.recv() {
+                if told
+                    .send((request, Err("the same-voice check is off".into())))
+                    .is_err()
+                {
+                    return;
+                }
+            }
+            return;
+        }
         eprintln!(
-            "lamp-voice provider: the same-voice child ended: {why}; it is started again in {} s",
-            RESTART_AFTER.as_secs()
+            "lamp-voice provider: the same-voice child ended: {why}; it is started again in {} ms",
+            timing.restart_after.as_millis()
         );
         // Meanwhile no print can be made: each line asked for is told so.
-        let until = Instant::now() + RESTART_AFTER;
+        let until = Instant::now() + timing.restart_after;
         loop {
             match jobs.recv_timeout(until.saturating_duration_since(Instant::now())) {
                 Ok((request, _)) => {
@@ -223,12 +280,15 @@ impl Drop for Running {
     }
 }
 
-/// One child, from its start until it or the worker goes.
+/// One child, from its start until it or the worker goes. Its answers are
+/// read on a thread of their own, so that each is waited for with a
+/// deadline.
 fn child(
     program: &Path,
     model: &Path,
     jobs: &mpsc::Receiver<(u64, Vec<i16>)>,
     told: &mpsc::Sender<(u64, Result<Vec<f32>, String>)>,
+    timing: Timing,
 ) -> Ended {
     let started = Command::new(program)
         .arg("serve")
@@ -239,22 +299,47 @@ fn child(
         .spawn();
     let mut running = match started {
         Ok(child) => Running(child),
-        Err(error) => return Ended::Failed(format!("{}: {error}", program.display())),
+        Err(error) => return Ended::Failed(format!("{}: {error}", program.display()), false),
     };
     let (Some(mut input), Some(output)) = (running.0.stdin.take(), running.0.stdout.take()) else {
-        return Ended::Failed("no pipes".into());
+        return Ended::Failed("no pipes".into(), false);
     };
-    let mut output = BufReader::new(output);
-    let mut line = String::new();
-    match output.read_line(&mut line) {
-        Ok(0) => return Ended::Failed("it ended before its model was loaded".into()),
-        Ok(_) => match ready(&line) {
+    // Its lines as they come; the reader ends with the child's output.
+    let (said, lines) = mpsc::channel::<io::Result<String>>();
+    let reading = thread::Builder::new()
+        .name("same-voice-out".into())
+        .spawn(move || {
+            let mut output = BufReader::new(output);
+            loop {
+                let mut line = String::new();
+                let read = output.read_line(&mut line);
+                let over = !matches!(read, Ok(read) if read > 0);
+                if said.send(read.map(|_| line)).is_err() || over {
+                    return;
+                }
+            }
+        });
+    if let Err(error) = reading {
+        return Ended::Failed(error.to_string(), false);
+    }
+    let next = |within: Duration| -> Result<String, String> {
+        match lines.recv_timeout(within) {
+            Ok(Ok(line)) if !line.is_empty() => Ok(line),
+            Ok(Err(error)) => Err(error.to_string()),
+            Ok(Ok(_)) | Err(mpsc::RecvTimeoutError::Disconnected) => Err("it ended".into()),
+            Err(mpsc::RecvTimeoutError::Timeout) => {
+                Err(format!("no answer in {} ms", within.as_millis()))
+            }
+        }
+    };
+    match next(timing.ready_within) {
+        Ok(line) => match ready(&line) {
             Some(loaded_ms) => eprintln!(
                 "lamp-voice provider: the same-voice child is ready, its model loaded in {loaded_ms} ms"
             ),
-            None => return Ended::Failed(format!("not ready: {}", line.trim_end())),
+            None => return Ended::Failed(format!("not ready: {}", line.trim_end()), false),
         },
-        Err(error) => return Ended::Failed(error.to_string()),
+        Err(why) => return Ended::Failed(format!("before its model was loaded: {why}"), false),
     }
     loop {
         let Ok((request, samples)) = jobs.recv() else {
@@ -266,14 +351,9 @@ fn child(
         frame.extend(samples.iter().flat_map(|sample| sample.to_le_bytes()));
         if let Err(error) = input.write_all(&frame).and_then(|()| input.flush()) {
             let _ = told.send((request, Err("the child is gone".into())));
-            return Ended::Failed(error.to_string());
+            return Ended::Failed(error.to_string(), true);
         }
-        line.clear();
-        let answer = match output.read_line(&mut line) {
-            Ok(0) => Err("it ended".to_owned()),
-            Ok(_) => answer(&line, request),
-            Err(error) => Err(error.to_string()),
-        };
+        let answer = next(timing.answer_within).and_then(|line| answer(&line, request));
         let failed = answer.as_ref().err().cloned();
         if told
             .send((request, answer.map_err(|why| format!("no print: {why}"))))
@@ -284,7 +364,7 @@ fn child(
         // An answer that is not one ends the child: what it says next
         // cannot be trusted to be the next line's.
         if let Some(why) = failed.filter(|why| !why.starts_with("refused: ")) {
-            return Ended::Failed(why);
+            return Ended::Failed(why, true);
         }
     }
 }
@@ -341,6 +421,9 @@ pub struct Voices<P: Printer> {
     /// A line whose answer was let out and whose print is still to come,
     /// and whether it began a conversation of its own.
     answered: Option<(u64, bool)>,
+    /// The line last judged, so that it is judged, and said, once (the
+    /// reviewer on #1030).
+    judged: Option<u64>,
 }
 
 impl<P: Printer> Voices<P> {
@@ -352,6 +435,7 @@ impl<P: Printer> Voices<P> {
             prints: VecDeque::new(),
             conversation: None,
             answered: None,
+            judged: None,
         }
     }
 
@@ -452,10 +536,16 @@ impl<P: Printer> Voices<P> {
     }
 
     /// How like the conversation's voice the line `request` is, when both
-    /// are known: the cosine of their prints.
+    /// are known: the cosine of their prints. Once a line: asked again for
+    /// the same line, nothing.
     pub fn likeness(&mut self, request: u64) -> Option<f32> {
         self.poll();
-        cosine(self.conversation.as_ref()?, self.print(request)?)
+        if self.judged == Some(request) {
+            return None;
+        }
+        let likeness = cosine(self.conversation.as_ref()?, self.print(request)?)?;
+        self.judged = Some(request);
+        Some(likeness)
     }
 
     /// The answer to the line `request` was judged: let out (`played`) or
@@ -553,6 +643,95 @@ mod tests {
         assert_eq!(voices.printer.asked.len(), 2);
     }
 
+    /// A stand-in for the child: a shell script that writes a line to
+    /// `starts` beside it each time it is started.
+    fn program(name: &str, script: &str) -> (PathBuf, PathBuf) {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = std::env::temp_dir().join(format!(
+            "lamp-same-voice-{name}-{}-{:x}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .subsec_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let (path, starts) = (dir.join(EXECUTABLE), dir.join("starts"));
+        std::fs::write(
+            &path,
+            format!("#!/bin/sh\necho x >> '{}'\n{script}\n", starts.display()),
+        )
+        .unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+        (path, starts)
+    }
+
+    fn starts(file: &Path) -> usize {
+        std::fs::read_to_string(file).map_or(0, |text| text.lines().count())
+    }
+
+    const QUICK: Timing = Timing {
+        restart_after: Duration::from_millis(20),
+        ready_within: Duration::from_secs(2),
+        answer_within: Duration::from_millis(200),
+    };
+
+    /// A line asked for every 5 ms until an answer `wanted` comes, within 5 s.
+    fn ask_until(prints: &mut Prints, wanted: impl Fn(&Result<Vec<f32>, String>) -> bool) {
+        let began = Instant::now();
+        loop {
+            assert!(began.elapsed() < Duration::from_secs(5), "it never came");
+            prints.ask(1, &[0; 160]);
+            while let Some((_, answer)) = prints.answer() {
+                if wanted(&answer) {
+                    return;
+                }
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+    }
+
+    /// The reviewer on #1030: a program or model that can't load is not
+    /// retried forever. It is started three times, then the check is off,
+    /// each line is told so, and nothing more is started.
+    #[test]
+    fn a_child_that_never_gets_ready_is_started_three_times_and_then_the_check_is_off() {
+        let (path, file) = program("unready", "exit 1");
+        let mut prints = Prints::timed(path, "model".into(), QUICK);
+        ask_until(&mut prints, |answer| {
+            answer.as_ref().err().map(String::as_str) == Some("the same-voice check is off")
+        });
+        assert_eq!(starts(&file), MOST_UNREADY as usize);
+        std::thread::sleep(Duration::from_millis(100));
+        assert_eq!(starts(&file), MOST_UNREADY as usize);
+    }
+
+    /// The reviewer on #1030: a child that hangs after "ready" is killed
+    /// when a line goes unanswered past its deadline, the line is told so,
+    /// and another is started.
+    #[test]
+    fn a_child_that_hangs_after_it_is_ready_is_killed_and_started_again() {
+        let (path, file) = program(
+            "hung",
+            r#"printf '{"ready":true,"loaded_ms":1}\n'; exec sleep 30"#,
+        );
+        let mut prints = Prints::timed(path, "model".into(), QUICK);
+        ask_until(&mut prints, |answer| {
+            answer
+                .as_ref()
+                .err()
+                .is_some_and(|why| why == "no print: no answer in 200 ms")
+        });
+        let began = Instant::now();
+        while starts(&file) < 2 {
+            assert!(
+                began.elapsed() < Duration::from_secs(5),
+                "never started again"
+            );
+            std::thread::sleep(Duration::from_millis(5));
+        }
+    }
+
     #[test]
     fn another_voice_is_known_only_against_the_voice_the_lamp_last_answered() {
         let mut voices = Voices::new(StandIn::default());
@@ -565,9 +744,13 @@ mod tests {
         assert_eq!(voices.likeness(2), Some(0.0));
         said(&mut voices, 3, 1, 32_000);
         assert_eq!(voices.likeness(3), Some(1.0));
+        // A line is judged once: asked again, as each chunk of its answer
+        // would (the reviewer on #1030), nothing.
+        assert_eq!(voices.likeness(3), None);
         // A held answer changes nothing.
         voices.decided(2, false, false);
-        assert_eq!(voices.likeness(3), Some(1.0));
+        said(&mut voices, 30, 1, 32_000);
+        assert_eq!(voices.likeness(30), Some(1.0));
         // A short line answered as the conversation going on keeps it.
         said(&mut voices, 4, -1, 16_000);
         assert_eq!(voices.likeness(4), None);

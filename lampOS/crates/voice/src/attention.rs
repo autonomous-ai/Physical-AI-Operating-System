@@ -1234,6 +1234,12 @@ impl Attention {
         self.verdict == Some(Verdict::Play(NAMED_NEAR))
     }
 
+    /// Whether `request` is the request in hand and its answer is still
+    /// to be judged: the first thing [`Self::first_output_busy`] checks.
+    pub fn awaits_verdict(&self, request: u64) -> bool {
+        request == self.request && self.verdict.is_none()
+    }
+
     /// Whether `request`'s answer is being held back.
     pub fn holds(&self, request: u64) -> bool {
         request == self.request && matches!(self.verdict, Some(Verdict::Hold(_)))

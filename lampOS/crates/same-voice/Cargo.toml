@@ -6,8 +6,8 @@ rust-version.workspace = true
 publish.workspace = true
 
 # Whether two things said are the same voice (#829): a speaker embedding of
-# each, compared. For now an offline measurement only; nothing on the lamp
-# runs it (docs/same-voice.md).
+# each, compared. A measurement command, and the voice's child with
+# LAMP_SAME_VOICE_MODEL (docs/same-voice.md).
 [[bin]]
 name = "lamp-same-voice"
 path = "src/main.rs"

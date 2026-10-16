@@ -107,14 +107,40 @@ would usually answer it. That is why it is behind its own model path.
 
 **The bar** is the measurement above, synthetic voices only: with both
 clips 1.5 s or longer and the lamp quiet, 0.25 took none of 37 same-voice
-pairs for two voices and caught 19 of 29 pairs of two. A minute of two
-real people at the lamp is to set it.
+pairs for two voices and caught 19 of 29 pairs of two. Those were whole
+clips, up to 6.2 s, and the voice prints only a line's first 3 s: the
+reviewer on #1030 counted a clip longer than 3 s in 35 of the 37
+same-voice pairs and 21 of the 29 others. The pairs cut at 3 s are still
+to be run. A minute of two real people at the lamp is to set it.
+
+**What else the voice does with it** (the reviewer on #1030):
+- **Once a line.** A line's voice is judged, and said in the journal, once,
+  while its answer's verdict is still to come, not on every chunk of the
+  answer.
+- **Another voice is talk.** A line held because it is another voice
+  counts as talk between people, for a busy room and for the two-lines
+  rule. In the 06:07 scene with the model answering Samantha, her
+  "Anyway, …" then counts, and Daniel's "Did you get my message about
+  the budget?" after his own unanswered line is held.
+- **The child is supervised, with bounds.** One that gives no answer to a
+  line within 2 s (`ANSWER_WITHIN`) is killed and started again, with a
+  journal line. One that ends 3 times in a row before it is ready
+  (`MOST_UNREADY`: a missing program or model, a broken file) is not
+  started again, and the journal says once that the check is off.
+- **Updates don't install it yet.** `lamp-update` puts `lamp-turn-end`
+  beside `lamp-voice` (`crates/update/src/install.rs`), and not
+  `lamp-same-voice`. Until it does, after each update the binary is copied
+  beside `lamp-voice` by hand, or the check is off after its three
+  starts. That's for the update's owner.
 
 Tests: `same_voice::tests` (which lines are judged and when, the
-conversation's voice, a late print, a refused one and a busy child, the
-flag, the child's answers), `lamp_same_voice::tests::serving_answers_each_request_with_its_print_or_why_not_until_its_input_ends`,
+conversation's voice, a line judged once, a late print, a refused one and a
+busy child, the flag, the child's answers, a child that never gets ready
+and one that hangs after it is ready, with stand-in programs),
+`lamp_same_voice::tests::serving_answers_each_request_with_its_print_or_why_not_until_its_input_ends`,
 and through the worker's own loop
-`with_the_switch_and_a_voice_check_another_voice_is_no_part_of_the_conversation`.
+`with_the_switch_and_a_voice_check_another_voice_is_no_part_of_the_conversation`
+and `with_the_switch_and_a_voice_check_a_line_held_as_another_voice_counts_as_talk`.
 The child with the real model, its timing and memory on the A733, and
 real voices are not shown.
 

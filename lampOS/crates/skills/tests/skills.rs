@@ -1043,6 +1043,45 @@ fn a_timed_condition_begins_again_after_its_value_expired() {
 }
 
 #[test]
+fn a_not_equals_condition_holds_while_the_field_is_anything_else_for_its_time() {
+    let dir = tempfile::tempdir().unwrap();
+    let skill = sat_for_thirty(
+        dir.path(),
+        "unspoken",
+        "topic = \"voice/state\"\nfield = \"state\"\nnot_equals = \"speaking\"",
+    );
+    let high = r#"{"co2_ppm":1300,"feel":"stuffy"}"#;
+    let state = |text: &str| format!("{{\"state\":\"{text}\"}}");
+    let (speaking, listening, resting) = (state("speaking"), state("listening"), state("resting"));
+    // The lamp spoke at 0 s; then the room's talk and rest, never the lamp,
+    // for 31 s: 30 s without speaking.
+    let mut quiet: Vec<(u64, &str, &str)> = vec![(0, "voice/state", speaking.as_str())];
+    quiet.extend((1..=31).map(|at| {
+        let value = if at % 3 == 0 {
+            listening.as_str()
+        } else {
+            resting.as_str()
+        };
+        (at, "voice/state", value)
+    }));
+    quiet.push((31, "air/state", high));
+    assert_eq!(runs_at(&skill, &quiet).len(), 1);
+    // The same, but the lamp speaking again at 10 s: 21 s is not 30 s.
+    let mut spoke: Vec<(u64, &str, &str)> = quiet.clone();
+    spoke[10] = (10, "voice/state", speaking.as_str());
+    assert!(runs_at(&skill, &spoke).is_empty());
+    // not_equals stands alone: with equals it is refused.
+    let both = skill_with(
+        dir.path(),
+        "both",
+        "[trigger]\ntopic = \"air/state\"\nfield = \"co2_ppm\"\nabove = 1200\n\
+         [[while]]\ntopic = \"voice/state\"\nfield = \"state\"\nequals = \"resting\"\nnot_equals = \"speaking\"\n\
+         [ask]\npolicy = \"nudge\"\n[[do]]\nlight = { dim = 1 }\n",
+    );
+    assert!(load(&both).unwrap_err().contains("not_equals"));
+}
+
+#[test]
 fn a_condition_changed_by_a_reload_begins_again() {
     let dir = tempfile::tempdir().unwrap();
     let speaking = sat_for_thirty(

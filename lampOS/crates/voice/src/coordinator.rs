@@ -679,6 +679,13 @@ fn unasked_session(cloud: &CloudAvailability, paused: bool) -> Option<u64> {
 /// optional, in whichever slot it is (`rig.provider` while it is the active
 /// route): one that exited is dropped by `second::dropped_if_gone` (#960).
 /// Gemini's worker stays mandatory when it waits in `Route::worker`.
+/// Whether the asleep face (#712) may show while the service waits: with its
+/// switch on, and never with the Controls privacy route, whose wait paints
+/// the physical-mute indication; the ring has one writer (#795).
+fn asleep_face_allowed(switch_on: bool, privacy_controls: bool) -> bool {
+    switch_on && !privacy_controls
+}
+
 fn mandatory(worker: &Worker) -> bool {
     worker.role != "second"
 }
@@ -1402,8 +1409,10 @@ fn run_source(
             // Not with the Controls privacy route: its wait paints the
             // physical-mute indication, and the ring has one writer (#795).
             let asleep_ceiling = options.ring_channel_ceiling.filter(|_| {
-                crate::ring_asleep::enabled_from_environment()
-                    && !matches!(crate::privacy_bus::root_from_environment(), Ok(Some(_)))
+                asleep_face_allowed(
+                    crate::ring_asleep::enabled_from_environment(),
+                    matches!(crate::privacy_bus::root_from_environment(), Ok(Some(_))),
+                )
             });
             service::supervise(
                 &mut trace,

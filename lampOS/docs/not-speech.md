@@ -38,9 +38,12 @@ treated so:
   and "No." answer what the lamp just asked. (This was ten seconds at
   first. On the lamp each sound it answered then excused the next one,
   eight seconds later.) But not in the 4 s after a hand or the lamp's head
-  stopped it (`AFTER_STOP_US`, `hand_stop` or `head_stop`): its words then
-  were cut, not answered. Then a short utterance is a sound, and is sent
-  nowhere even with `LAMP_SHORT_SOUNDS`. On lamp-4ace on 16 October from
+  stopped it (`AFTER_STOP_US`, `hand_stop` or `head_stop`), while it has
+  not spoken again: its words then were cut, not answered. Then a short
+  utterance is a sound, and is not sent as a request, even with
+  `LAMP_SHORT_SOUNDS` and even said close to the lamp (a hand on the head
+  is close by nature; `not_speech::dropped`). Once the lamp has answered
+  again ("Want another?"), a short "Yes." is taken as always. On lamp-4ace on 16 October from
   16:32:16 to 16:32:34 the owner tapped the head to stop a story six
   times. Each time, within 1 to 3 s, the tap's own sound was heard
   ("¿Quién?", "un", "¿Qué?"), excused, sent to the model, and the story
@@ -257,7 +260,10 @@ call speech, while the lamp was not speaking. Such an utterance is a sound
 only with fewer than 16 speech and loud blocks together
 (`CLOSE_SCRAP_BLOCKS`), not the usual 30. Everything after the gate still
 judges it: attention, the name, the Policy. Without the bus it is never
-close, and the gate is as before. The utterance's record says so: `said_close`
+close, and the gate is as before. In the 4 s after a hand or the head
+stopped the lamp, it is not counted close: the tap's own thump is said
+close by nature, and with its loud blocks counted it was kept (the
+reviewer on #1107). The utterance's record says so: `said_close`
 in `not_speech` and in `speech_level` is its loud blocks when it was close,
 `null` when it was not.
 

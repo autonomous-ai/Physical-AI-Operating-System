@@ -4578,7 +4578,7 @@ fn conversation_with_gate(
                 }
                 AdmissionStep::End(audio)
                     if reply.as_ref().is_some_and(|current| {
-                        crate::not_speech::scrap(
+                        crate::not_speech::dropped(
                             speech_levels.len(),
                             took_over_turn == Some(current.owner.turn()),
                             crate::not_speech::own_words_ago(
@@ -4587,12 +4587,15 @@ fn conversation_with_gate(
                                 monotonic_us(),
                             ),
                             said_close(&speech_levels, &loud_blocks, &rise),
+                            short_sounds,
+                            room.busy(),
+                            crate::not_speech::just_stopped(
+                                stopped_at_us,
+                                last_spoke_us,
+                                monotonic_us(),
+                            ),
                         )
-                    }) && !crate::not_speech::sent_anyway(
-                        short_sounds
-                            && !crate::not_speech::just_stopped(stopped_at_us, monotonic_us()),
-                        room.busy(),
-                    ) =>
+                    }) =>
                 {
                     // A sound, not something said. It is not sent on as a
                     // finished question: the turn ends here, unanswered.
@@ -4604,7 +4607,11 @@ fn conversation_with_gate(
                                 "not_speech":{"speech_blocks":speech_levels.len(),"fewer_than":crate::not_speech::SCRAP_BLOCKS,
                                     "said_close":said_close(&speech_levels, &loud_blocks, &rise),
                                     "last_blocks":last_blocks(&judged_blocks)}});
-                        if crate::not_speech::just_stopped(stopped_at_us, monotonic_us()) {
+                        if crate::not_speech::just_stopped(
+                            stopped_at_us,
+                            last_spoke_us,
+                            monotonic_us(),
+                        ) {
                             endpoint_record["not_speech"]["after_stop"] = json!(true);
                             eprintln!(
                                 "lamp-voice: a short sound just after the lamp was stopped is not taken as a request"

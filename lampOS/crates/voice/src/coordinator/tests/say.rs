@@ -387,3 +387,328 @@ fn a_due_reminder_or_news_waits_for_a_skill_at_most_its_time() {
     assert_eq!(answered.try_recv(), Ok(Answer::Done(Outcome::Spoken)));
     assert_eq!(says.waiting(), 0);
 }
+
+/// #938: an owner with nothing under way and listening ready, as at rest.
+fn resting_owner() -> Controller {
+    let mut owner = Controller::new(new_boot().unwrap(), now());
+    owner
+        .set_microphone_permission(now(), Permission::Allowed)
+        .unwrap();
+    let until = MonoTime::from_micros(monotonic_us() + 1_000_000);
+    owner
+        .set_capture(now(), CaptureState::RetainingUntil(until))
+        .unwrap();
+    owner
+        .set_admission(now(), AdmissionState::OpenUntil(until))
+        .unwrap();
+    owner
+}
+
+/// The say service's gates at rest, but for what `reply` and `admission`
+/// say: nothing queued or pending, quiet heard, 15 s since the last turn.
+fn sound_now(
+    owner: &mut Controller,
+    reply: &Option<Reply>,
+    admission: &InputAdmission,
+    says: &crate::say::Says,
+) -> crate::say::SoundNow {
+    let snapshot = owner.snapshot(now()).unwrap();
+    skill_sound_now(
+        SoundGates {
+            at_us: monotonic_us(),
+            paused: false,
+            snapshot: &snapshot,
+            reply,
+            provider_queue: &VecDeque::new(),
+            speaker_pending: &None,
+            playback_mask: &PlaybackMask::new(TurnTaking::VadOnly),
+            admission,
+            submission_draining: false,
+            heard_quiet: true,
+            reply_owed: false,
+            reminder_waiting: false,
+            since_turn_us: crate::say::QUIET_US,
+        },
+        says,
+    )
+}
+
+/// A skill's sound taken from `says` and played, or refused.
+fn take_sound(
+    says: &mut crate::say::Says,
+    now_is: &crate::say::SoundNow,
+    owner: &mut Controller,
+    reply: &mut Option<Reply>,
+    trace: &mut SessionState,
+) -> bool {
+    play_skill_sound(
+        says,
+        now_is,
+        monotonic_us(),
+        owner,
+        reply,
+        PlayoutStart::default(),
+        trace,
+        |_| Ok(()),
+    )
+    .unwrap()
+    .is_some()
+}
+
+/// The speaker's side of a sound: its chunks dispatched and each accepted.
+struct Played {
+    _directory: SessionDirectory,
+    speaker: Speaker,
+    peer: WorkerChannels,
+    last: SpeakerChunk,
+    cursor: u64,
+    snapshot: Snapshot,
+    mask: PlaybackMask,
+}
+
+fn play_sound(
+    owner: &mut Controller,
+    reply: &mut Option<Reply>,
+    pending: &mut Option<PendingSpeaker>,
+    trace: &mut SessionState,
+    chunks: usize,
+) -> Played {
+    let directory = SessionDirectory::create().unwrap();
+    let (channels, mut peer) = pair(&directory, "speaker");
+    let mut speaker = Speaker { channels };
+    let mut snapshot = owner.snapshot(now()).unwrap();
+    let mut mask = PlaybackMask::new(TurnTaking::VadOnly);
+    let (mut sequence, mut cursor, mut last) = (0, 0, None);
+    for _ in 0..chunks {
+        dispatch_speaker_chunk(
+            owner,
+            reply,
+            &mut speaker.channels.data,
+            pending,
+            &mut sequence,
+            &mut snapshot,
+            &mut mask,
+        )
+        .unwrap();
+        let chunk = peer.data.receive::<SpeakerChunk>().unwrap().unwrap();
+        trace
+            .receipts
+            .dispatched(chunk.permit.owner(), chunk.chunk_sequence)
+            .unwrap();
+        let at = monotonic_us();
+        peer.control
+            .send(WorkerEvent::Playback {
+                owner: chunk.permit.owner(),
+                turn: chunk.permit.owner().turn(),
+                sequence: chunk.chunk_sequence,
+                first_sample: PlaybackCursor {
+                    epoch: 1,
+                    frame: cursor,
+                },
+                end_sample: PlaybackCursor {
+                    epoch: 1,
+                    frame: cursor + 240,
+                },
+                queue_observed_at_us: at,
+                queued_frames: 0,
+                accepted_frames: 240,
+                observed_at_us: at,
+            })
+            .unwrap();
+        service_speaker_control(
+            &mut speaker,
+            owner,
+            reply,
+            pending,
+            &mut mask,
+            &mut snapshot,
+            &mut 0,
+            &mut 16,
+            trace,
+        )
+        .unwrap();
+        cursor += 240;
+        last = Some(chunk);
+    }
+    Played {
+        _directory: directory,
+        speaker,
+        peer,
+        last: last.unwrap(),
+        cursor,
+        snapshot,
+        mask,
+    }
+}
+
+/// #938: a skill's sound at rest is played as the lamp's own turn, and
+/// its asker told `begun`, then `spoken` once it played to its end; and
+/// another within 30 s is refused.
+#[test]
+fn a_skill_sound_played_to_its_end_is_spoken() {
+    let (mut says, answered) = crate::say::Says::sound_for_test("chime", vec![500; 480]);
+    let mut owner = resting_owner();
+    let (mut reply, mut pending, mut trace) = (None, None, SessionState::default());
+    let admission = InputAdmission::default();
+    let now_is = sound_now(&mut owner, &reply, &admission, &says);
+    assert_eq!(crate::say::may_play_sound(&now_is), Ok(()));
+    assert!(take_sound(
+        &mut says, &now_is, &mut owner, &mut reply, &mut trace
+    ));
+    assert_eq!(
+        reply.as_ref().unwrap().notice.origin(),
+        SpeechOrigin::SkillSound
+    );
+    assert!(matches!(answered.try_recv(), Ok(Answer::Begun(_))));
+    let mut played = play_sound(&mut owner, &mut reply, &mut pending, &mut trace, 2);
+    assert!(played.last.end_of_speech);
+    assert!(
+        !reply.as_ref().unwrap().settled(&pending),
+        "accepted is not retired"
+    );
+    played
+        .peer
+        .control
+        .send(WorkerEvent::SpeechRetired {
+            owner: played.last.permit.owner(),
+            sequence: played.last.chunk_sequence,
+            final_sample: PlaybackCursor {
+                epoch: 1,
+                frame: played.cursor,
+            },
+            observed_at_us: monotonic_us(),
+        })
+        .unwrap();
+    service_speaker_control(
+        &mut played.speaker,
+        &mut owner,
+        &mut reply,
+        &mut pending,
+        &mut played.mask,
+        &mut played.snapshot,
+        &mut 0,
+        &mut 16,
+        &mut trace,
+    )
+    .unwrap();
+    let current = reply.as_mut().unwrap();
+    assert!(current.settled(&pending));
+    owner.complete_turn(now(), current.owner).unwrap();
+    let snapshot = owner.snapshot(now()).unwrap();
+    current.answer_say(&pending, snapshot);
+    reply = None;
+    assert_eq!(answered.try_recv(), Ok(Answer::Done(Outcome::Spoken)));
+    // Another sound within 30 s of it: refused.
+    let (mut again, answered) = crate::say::Says::sound_for_test("chime", vec![500; 480]);
+    again.sound_played(monotonic_us());
+    let now_is = sound_now(&mut owner, &reply, &admission, &again);
+    assert!(!take_sound(
+        &mut again, &now_is, &mut owner, &mut reply, &mut trace
+    ));
+    assert!(reply.is_none());
+    assert_eq!(
+        answered.try_recv(),
+        Ok(Answer::Done(Outcome::Refused(
+            "a sound played less than 30 s ago".into()
+        )))
+    );
+}
+
+/// #938: a skill's sound cut before its end, as by a person speaking over
+/// it, is `dropped` with why, never `spoken`.
+#[test]
+fn a_skill_sound_cut_short_is_dropped() {
+    let (mut says, answered) = crate::say::Says::sound_for_test("chime", vec![500; 480]);
+    let mut owner = resting_owner();
+    let (mut reply, mut pending, mut trace) = (None, None, SessionState::default());
+    let admission = InputAdmission::default();
+    let now_is = sound_now(&mut owner, &reply, &admission, &says);
+    assert!(take_sound(
+        &mut says, &now_is, &mut owner, &mut reply, &mut trace
+    ));
+    assert!(matches!(answered.try_recv(), Ok(Answer::Begun(_))));
+    let _played = play_sound(&mut owner, &mut reply, &mut pending, &mut trace, 1);
+    cancel_reply(&mut owner, &mut reply, &mut trace, "user_interrupted").unwrap();
+    assert_eq!(
+        answered.try_recv(),
+        Ok(Answer::Done(Outcome::Dropped("user_interrupted".into())))
+    );
+}
+
+/// #938: with a reply open, or a candidate of someone's speech not yet a
+/// turn, a skill's sound is refused at once and never played later.
+#[test]
+fn a_skill_sound_is_refused_while_a_reply_or_a_candidate_is_open() {
+    let mut owner = resting_owner();
+    let mut trace = SessionState::default();
+    // A reply open: a say's written turn.
+    let (mut says, answered) = crate::say::Says::sound_for_test("chime", vec![500; 480]);
+    let mut reply = None;
+    let mut queue = VecDeque::new();
+    commit_written_turn(
+        &mut owner,
+        &mut reply,
+        &mut queue,
+        "Remind them to call the bank.",
+        false,
+        "skill_says",
+        1,
+        PlayoutStart::default(),
+        &mut trace,
+        |_| Ok(()),
+    )
+    .unwrap();
+    let turn = reply.as_ref().unwrap().owner;
+    let admission = InputAdmission::default();
+    let now_is = sound_now(&mut owner, &reply, &admission, &says);
+    assert!(!take_sound(
+        &mut says, &now_is, &mut owner, &mut reply, &mut trace
+    ));
+    assert_eq!(reply.as_ref().unwrap().owner, turn, "the reply goes on");
+    assert_eq!(
+        answered.try_recv(),
+        Ok(Answer::Done(Outcome::Refused(
+            "the lamp is speaking".into()
+        )))
+    );
+    assert!(says.take_sound(monotonic_us()).is_none(), "never later");
+    // A candidate open: speech heard, not yet a turn.
+    let mut owner = resting_owner();
+    let (mut says, answered) = crate::say::Says::sound_for_test("chime", vec![500; 480]);
+    let mut admission = InputAdmission::default();
+    let at = monotonic_us();
+    let authority = owner.snapshot(now()).unwrap();
+    let update = admission
+        .observe(
+            Activity::Start(vec![ObservedAudio {
+                sequence: 1,
+                captured_at_us: at,
+                samples: [7; lamp_audio::CAPTURE_SAMPLES],
+            }]),
+            AdmissionContext {
+                capture: CaptureLineage {
+                    worker: new_boot().unwrap(),
+                    epoch: 1,
+                    dsp_epoch: 2,
+                    privacy_generation: authority.microphone_generation(),
+                },
+                authority,
+            },
+            at,
+        )
+        .unwrap();
+    assert!(matches!(update.step, AdmissionStep::Candidate(_)));
+    assert!(!admission.owns_stream(), "a candidate, not a stream");
+    let mut reply = None;
+    let now_is = sound_now(&mut owner, &reply, &admission, &says);
+    assert!(!take_sound(
+        &mut says, &now_is, &mut owner, &mut reply, &mut trace
+    ));
+    assert!(reply.is_none());
+    assert_eq!(
+        answered.try_recv(),
+        Ok(Answer::Done(Outcome::Refused(
+            "the lamp is listening".into()
+        )))
+    );
+}

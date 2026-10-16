@@ -299,25 +299,36 @@ open until then:
 **A skill's own sound** (#938, a skill's `sounds/`): `{"skill": "chime",
 "sound": "/var/lib/lampOS/skills/chime/sounds/ding.wav", "priority": 5,
 "expires_in_ms": 30000}`, the absolute path of a WAV, at most 1,024 bytes.
-It never waits for the lamp to be at rest: at the voice's next pass it is
-refused at once, `{"outcome":"refused","why":…}`, when the lamp is paused
-(`the lamp is paused`), muted by the privacy switch (`the lamp is muted`),
-speaking (a reply, queued output, a speaker write pending or the playback
-mask: `the lamp is speaking`) or listening (someone's input taken, a
-submission draining, or listening not ready: `the lamp is listening`); or
-when the file is not one the voice plays (`say::read_sound`, the reason
-never names the path): a regular file and not a link, at most 148,140
-bytes by its metadata before it is read, a WAV of 16-bit mono PCM at the
-speaker path's 24 kHz, 1 frame to 3 s, and no 10 ms of it louder than
--20 dBFS RMS, the lamp's speech, so that a sound stays under the voice.
-`lamp-skills` checks the same when it loads the skill; this is the check
-that counts. Otherwise it is played as a turn of the lamp's own, as the
-head tap's "hm?" is: through the voice's speaker path, so it never overlaps
-speech and the echo canceller has it, no provider request, no face on the
-ring. `begun` comes as it is begun, and `spoken` means played whole
-(`dropped` otherwise: a person speaking over it ends it as any turn). The
-voice traces `skill_sound` with the skill, whether it plays and why not.
-The file is read on the voice's loop: at most 148 KB.
+The file is read on the client's thread when the ask arrives, never on the
+voice's loop, and refused there with why (the reason never names the path)
+unless its real place, every link followed, is under the skills folder
+(`LAMP_SAY_SOUNDS`, `/var/lib/lampOS/skills` if unset) and it is one the
+voice plays (`say::read_sound`): opened with `O_NOFOLLOW | O_NONBLOCK`, so
+that a link is refused and a FIFO never holds the reader; by the open
+file's own metadata (`fstat`) a regular file of at most 148,140 bytes; a WAV
+of 16-bit mono PCM at the speaker path's 24 kHz, 1 frame to 3 s; no 10 ms
+of it louder than -30 dBFS RMS (well under the lamp's speech, about -20
+dBFS; the head tap's "hm?" is -35) and no sample past -12 dBFS, so that a
+train of clicks is refused too. `lamp-skills` checks a skill's sounds at
+load with this same function. Its samples go to the voice, which never
+waits for the lamp to be at rest: at its next pass the sound is refused at
+once, `{"outcome":"refused","why":…}`, unless the lamp is at rest as a say
+needs it: not paused (`the lamp is paused`), not muted by the privacy
+switch (`the lamp is muted`), not speaking (a reply, queued output, a
+speaker write pending or the playback mask: `the lamp is speaking`), not
+listening (someone's input taken, a candidate of speech not yet a turn, a
+submission draining, listening not ready, or speech heard within the last
+second or no fresh capture, a reminder's quiet: `the lamp is listening`),
+no answer owed (the lamp said it would look: `the lamp owes an answer`), no
+reminder held for its skill (`a reminder is said first`), 15 s since the
+last turn (`the lamp spoke a moment ago`), and no other skill's sound in the
+last 30 s (`a sound played less than 30 s ago`). Otherwise it is played as a
+turn of the lamp's own, as the head tap's "hm?" is: through the voice's
+speaker path, so it never overlaps speech and the echo canceller has it, no
+provider request, no face on the ring. `begun` comes as it is begun, and
+`spoken` means played whole with no gap in its playback (`dropped`
+otherwise: a person speaking over it ends it as any turn). The voice traces
+`skill_sound` with the skill, whether it plays and why not.
 
 **When it is said.** After a due reminder and before the hello and the
 news, through a reminder's gates: no reply owed or queued, the speaker

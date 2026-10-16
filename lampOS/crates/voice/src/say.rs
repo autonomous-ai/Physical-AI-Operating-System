@@ -30,12 +30,15 @@
 //!   `LAMP_TASK_NEWS=skill`, the source waits for such an ask, at most
 //!   [`SKILL_WAITS_US`], and then says it itself.
 //! - **A skill's own sound** (#938, `sounds/`): in place of the words,
-//!   `sound` is the absolute path of a short WAV ([`read_sound`]'s limits).
-//!   It is taken at the voice's next pass and played at once as a turn of
-//!   the lamp's own, as the head tap's "hm?" is, through the same speaker
-//!   path, so it never overlaps speech; or refused at once, with why, when
-//!   the lamp is paused, muted, speaking or listening ([`may_play_sound`]).
-//!   `spoken` then means played whole.
+//!   `sound` is the absolute path of a short WAV under the skills folder
+//!   ([`SOUNDS_ENVIRONMENT`]), read and checked ([`read_sound`]) on the
+//!   client's thread when the ask arrives, never on the voice's loop. Its
+//!   samples are taken at the voice's next pass and played at once as a
+//!   turn of the lamp's own, as the head tap's "hm?" is, through the same
+//!   speaker path, so it never overlaps speech; or refused at once, with
+//!   why, when the lamp is not at rest as a say needs it, or a sound
+//!   played less than [`SOUND_EVERY_US`] ago ([`may_play_sound`]).
+//!   `spoken` then means played whole, with no gap in its playback.
 //!
 //! Nothing of what is said is logged: the skill's name, the priority and
 //! the outcome only.
@@ -68,6 +71,12 @@ pub const GROUP_ENVIRONMENT: &str = "LAMP_SAY_GROUP";
 /// The voice runs as root and its own runtime directory is closed to
 /// others: the socket has a directory of its own.
 pub const DEFAULT_SOCKET: &str = "/run/lampos-say/say.sock";
+/// The skills folder, absolute: a sound is played only from under it.
+pub const SOUNDS_ENVIRONMENT: &str = "LAMP_SAY_SOUNDS";
+/// `lamp-skills`'s own folder, when [`SOUNDS_ENVIRONMENT`] is unset.
+pub const DEFAULT_SOUNDS: &str = "/var/lib/lampOS/skills";
+/// At most one skill's sound this often: a living thing chimes rarely.
+pub const SOUND_EVERY_US: u64 = 30_000_000;
 /// The longest note or text: a written turn is at most 1,024 bytes, and a
 /// text goes with the words that tell the model to say it as it is.
 pub const MOST_WORDS_BYTES: usize = 900;
@@ -153,13 +162,15 @@ impl Outcome {
 }
 
 /// What to say: an instruction the model phrases, words to say as they
-/// are, or words the voice keeps itself; or a skill's own sound, no words.
+/// are, or words the voice keeps itself; or a skill's own sound, no words:
+/// its path as asked, then its samples once the client's thread read it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Words {
     Note(String),
     Text(String),
     From(Source),
-    Sound(PathBuf),
+    SoundAt(PathBuf),
+    Sound(Vec<i16>),
 }
 
 impl Words {
@@ -169,7 +180,7 @@ impl Words {
         match self {
             Self::Note(note) => Some(note.clone()),
             Self::Text(text) => Some(format!("{AS_WRITTEN} {text}")),
-            Self::From(_) | Self::Sound(_) => None,
+            Self::From(_) | Self::SoundAt(_) | Self::Sound(_) => None,
         }
     }
 }
@@ -244,7 +255,7 @@ pub fn parse(line: &str) -> Result<Request, String> {
             {
                 return Err("sound is an absolute path of at most 1024 bytes".into());
             }
-            Words::Sound(PathBuf::from(sound))
+            Words::SoundAt(PathBuf::from(sound))
         }
         _ => return Err("exactly one of note, text, from and sound".into()),
     };
@@ -345,6 +356,8 @@ pub struct Says {
     incoming: mpsc::Receiver<Asked>,
     waiting: Vec<Waiting>,
     order: u64,
+    /// When the last skill's sound was played.
+    last_sound_us: Option<u64>,
     /// Kept so that the socket goes with the voice.
     _socket: Option<Bound>,
 }
@@ -373,7 +386,9 @@ impl Says {
             },
             Err(_) => None,
         };
-        match Self::serve(&path, group) {
+        let sounds = std::env::var_os(SOUNDS_ENVIRONMENT)
+            .map_or_else(|| PathBuf::from(DEFAULT_SOUNDS), PathBuf::from);
+        match Self::serve(&path, group, &sounds) {
             Ok(says) => {
                 eprintln!("lamp-voice: the say service listens at {}", path.display());
                 Some(says)
@@ -389,18 +404,20 @@ impl Says {
     }
 
     /// Listen at `path`, opened to `group` if given, on a thread of its
-    /// own.
-    pub fn serve(path: &Path, group: Option<u32>) -> io::Result<Self> {
+    /// own; a sound is played only from under `sounds`.
+    pub fn serve(path: &Path, group: Option<u32>, sounds: &Path) -> io::Result<Self> {
         let (listener, bound) = bind(path, group)?;
         let (ask, incoming) = mpsc::channel();
         let open = Arc::new(AtomicUsize::new(0));
+        let sounds: Arc<Path> = sounds.into();
         thread::Builder::new()
             .name("lamp-voice-say".into())
-            .spawn(move || accept(&listener, &ask, &open))?;
+            .spawn(move || accept(&listener, &ask, &open, &sounds))?;
         Ok(Self {
             incoming,
             waiting: Vec::new(),
             order: 0,
+            last_sound_us: None,
             _socket: Some(bound),
         })
     }
@@ -436,6 +453,27 @@ impl Says {
         (says, answered)
     }
 
+    /// For a test of the voice's turn: one skill's sound, read, waiting,
+    /// and where its answer goes.
+    #[cfg(test)]
+    pub(crate) fn sound_for_test(skill: &str, samples: Vec<i16>) -> (Self, mpsc::Receiver<Answer>) {
+        let (mut says, ask) = Self::by_hand();
+        let (answer, answered) = mpsc::channel();
+        ask.send(Asked {
+            request: Request {
+                skill: skill.into(),
+                words: Words::Sound(samples),
+                priority: NORMAL_PRIORITY,
+                expires_in_ms: 60_000,
+            },
+            answer,
+            expires_at_us: u64::MAX,
+        })
+        .unwrap();
+        says.poll(0);
+        (says, answered)
+    }
+
     /// For a test: asks are put in by hand.
     #[cfg(test)]
     fn by_hand() -> (Self, mpsc::Sender<Asked>) {
@@ -445,6 +483,7 @@ impl Says {
                 incoming,
                 waiting: Vec::new(),
                 order: 0,
+                last_sound_us: None,
                 _socket: None,
             },
             ask,
@@ -503,25 +542,35 @@ impl Says {
     /// The next say of its own: a `from` ask waits for its source, and a
     /// sound is taken by [`Self::take_sound`].
     fn next_index(&self) -> Option<usize> {
-        self.next_of(|words| !matches!(words, Words::From(_) | Words::Sound(_)))
+        self.next_of(|words| !matches!(words, Words::From(_) | Words::SoundAt(_) | Words::Sound(_)))
     }
 
     /// Take the next sound asked for, to play it now or refuse it now: a
     /// sound never waits for the lamp to be at rest.
-    pub fn take_sound(&mut self, now_us: u64) -> Option<(PathBuf, Ticket)> {
+    pub fn take_sound(&mut self, now_us: u64) -> Option<(Vec<i16>, Ticket)> {
         self.expire(now_us);
         let index = self.next_of(|words| matches!(words, Words::Sound(_)))?;
         let waiting = self.waiting.remove(index);
-        let Words::Sound(path) = waiting.request.words else {
+        let Words::Sound(samples) = waiting.request.words else {
             unreachable!("next_of chose a sound");
         };
         Some((
-            path,
+            samples,
             Ticket {
                 skill: waiting.request.skill,
                 answer: Some(waiting.answer),
             },
         ))
+    }
+
+    /// When the last skill's sound was played, if one was.
+    pub fn last_sound_us(&self) -> Option<u64> {
+        self.last_sound_us
+    }
+
+    /// A skill's sound was played at `at_us`.
+    pub fn sound_played(&mut self, at_us: u64) {
+        self.last_sound_us = Some(at_us);
     }
 
     /// The quiet the next say needs since the last turn, if one waits.
@@ -652,7 +701,12 @@ fn bind(path: &Path, group: Option<u32>) -> io::Result<(UnixListener, Bound)> {
 
 /// Take each client on a thread of its own, at most [`MOST_WAITING`] at
 /// once. Ends when the voice has gone.
-fn accept(listener: &UnixListener, ask: &mpsc::Sender<Asked>, open: &Arc<AtomicUsize>) {
+fn accept(
+    listener: &UnixListener,
+    ask: &mpsc::Sender<Asked>,
+    open: &Arc<AtomicUsize>,
+    sounds: &Arc<Path>,
+) {
     for stream in listener.incoming() {
         let Ok(mut stream) = stream else { continue };
         if open.fetch_add(1, Ordering::AcqRel) >= MOST_WAITING {
@@ -664,11 +718,11 @@ fn accept(listener: &UnixListener, ask: &mpsc::Sender<Asked>, open: &Arc<AtomicU
             );
             continue;
         }
-        let (ask, held) = (ask.clone(), Arc::clone(open));
+        let (ask, held, sounds) = (ask.clone(), Arc::clone(open), Arc::clone(sounds));
         let spawned = thread::Builder::new()
             .name("lamp-voice-say-client".into())
             .spawn(move || {
-                serve_client(stream, &ask);
+                serve_client(stream, &ask, &sounds);
                 held.fetch_sub(1, Ordering::AcqRel);
             });
         if spawned.is_err() {
@@ -678,11 +732,18 @@ fn accept(listener: &UnixListener, ask: &mpsc::Sender<Asked>, open: &Arc<AtomicU
 }
 
 /// One client: its line, checked, handed to the voice, and the answer
-/// written back when it comes.
-fn serve_client(mut stream: UnixStream, ask: &mpsc::Sender<Asked>) {
+/// written back when it comes. A sound is read here, on the client's
+/// thread, and its samples handed on: a slow or strange file never holds
+/// the voice's loop.
+fn serve_client(mut stream: UnixStream, ask: &mpsc::Sender<Asked>, sounds: &Path) {
     let outcome = match read_line_within(&stream, READ_WITHIN) {
         Err(why) => Outcome::Refused(why.into()),
-        Ok(line) => match parse(&line) {
+        Ok(line) => match parse(&line).and_then(|mut request| {
+            if let Words::SoundAt(path) = &request.words {
+                request.words = Words::Sound(read_skill_sound(path, sounds)?);
+            }
+            Ok(request)
+        }) {
             Err(why) => Outcome::Refused(why),
             Ok(request) => {
                 let (answer, answered) = mpsc::channel();
@@ -758,31 +819,58 @@ pub const SOUND_MOST_FRAMES: u32 = SOUND_RATE * 3;
 /// The largest file, checked before it is read: the samples, the header
 /// and room for a few small chunks beside them.
 pub const SOUND_MOST_BYTES: u64 = 44 + 2 * SOUND_MOST_FRAMES as u64 + 4_096;
-/// No 10 ms of it louder than this, as RMS: the lamp's speech, taken as
-/// about -20 dBFS (`crate::head_cue`). A sound stays under the voice.
-pub const SOUND_LOUDEST_DBFS: f64 = -20.0;
+/// No 10 ms of it louder than this, as RMS: well under the lamp's speech
+/// (about -20 dBFS), near the head tap's "hm?" (-35 dBFS, `crate::head_cue`).
+pub const SOUND_LOUDEST_DBFS: f64 = -30.0;
+/// No sample of it past this: a train of full-scale clicks is quiet as RMS
+/// and still a crack from the speaker.
+pub const SOUND_PEAK_DBFS: f64 = -12.0;
 /// The window the loudness is measured over: one speaker chunk, 10 ms.
 const SOUND_WINDOW: usize = 240;
 
-/// A skill's sound read and checked: a regular file of at most
-/// [`SOUND_MOST_BYTES`] (by its metadata, before it is read), a WAV of
-/// 16-bit mono PCM at [`SOUND_RATE`], 1 to [`SOUND_MOST_FRAMES`] frames,
-/// never louder than [`SOUND_LOUDEST_DBFS`]. `lamp-skills` checks the same
-/// at load (`crates/skills`); this is the check that counts, since the
-/// voice plays it. The reason never repeats the path.
+/// A sound asked for at `path`, read only when its real place, every link
+/// followed, is under the skills folder `sounds`; then [`read_sound`] of
+/// that place. The reason never repeats the path.
+pub fn read_skill_sound(path: &Path, sounds: &Path) -> Result<Vec<i16>, String> {
+    let root = fs::canonicalize(sounds).map_err(|_| "the skills folder is not there".to_owned())?;
+    let real = fs::canonicalize(path).map_err(|_| "not found".to_owned())?;
+    if !real.starts_with(&root) {
+        return Err("not a file of the skills folder".into());
+    }
+    read_sound(&real)
+}
+
+/// A skill's sound read and checked: opened without following a link and
+/// without waiting (`O_NOFOLLOW | O_NONBLOCK`, so that a FIFO never holds
+/// the reader), then by the open file's own metadata (`fstat`) a regular
+/// file of at most [`SOUND_MOST_BYTES`]; then [`decode_sound`].
+/// `lamp-skills` checks a skill's sounds at load with this same function
+/// (`crates/skills`), so the two never differ. The reason never repeats
+/// the path.
 pub fn read_sound(path: &Path) -> Result<Vec<i16>, String> {
-    let regular = |metadata: &fs::Metadata| {
-        if !metadata.is_file() {
-            Err("not a regular file".to_owned())
-        } else if metadata.len() > SOUND_MOST_BYTES {
-            Err(format!("more than {SOUND_MOST_BYTES} bytes"))
-        } else {
-            Ok(())
-        }
-    };
-    regular(&fs::symlink_metadata(path).map_err(|_| "not found".to_owned())?)?;
-    let file = fs::File::open(path).map_err(|_| "not readable".to_owned())?;
-    regular(&file.metadata().map_err(|_| "not readable".to_owned())?)?;
+    use std::os::unix::fs::OpenOptionsExt;
+    let flags = rustix::fs::OFlags::NOFOLLOW | rustix::fs::OFlags::NONBLOCK;
+    let file = fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(flags.bits() as i32)
+        .open(path)
+        .map_err(|error| {
+            if error.kind() == io::ErrorKind::NotFound {
+                "not found".to_owned()
+            } else if error.raw_os_error() == Some(rustix::io::Errno::LOOP.raw_os_error()) {
+                // A link, refused by `O_NOFOLLOW`.
+                "not a regular file".to_owned()
+            } else {
+                "not readable".to_owned()
+            }
+        })?;
+    let metadata = file.metadata().map_err(|_| "not readable".to_owned())?;
+    if !metadata.is_file() {
+        return Err("not a regular file".into());
+    }
+    if metadata.len() > SOUND_MOST_BYTES {
+        return Err(format!("more than {SOUND_MOST_BYTES} bytes"));
+    }
     let mut bytes = Vec::new();
     file.take(SOUND_MOST_BYTES + 1)
         .read_to_end(&mut bytes)
@@ -793,7 +881,9 @@ pub fn read_sound(path: &Path) -> Result<Vec<i16>, String> {
     decode_sound(&bytes)
 }
 
-/// [`read_sound`]'s checks of what the file holds.
+/// [`read_sound`]'s checks of what the file holds: a WAV of 16-bit mono
+/// PCM at [`SOUND_RATE`], 1 to [`SOUND_MOST_FRAMES`] frames, no sample past
+/// [`SOUND_PEAK_DBFS`] and no 10 ms louder than [`SOUND_LOUDEST_DBFS`] RMS.
 pub fn decode_sound(bytes: &[u8]) -> Result<Vec<i16>, String> {
     let reader = hound::WavReader::new(Cursor::new(bytes)).map_err(|_| "not a WAV file")?;
     let spec = reader.spec();
@@ -814,6 +904,14 @@ pub fn decode_sound(bytes: &[u8]) -> Result<Vec<i16>, String> {
         .into_samples::<i16>()
         .collect::<Result<Vec<_>, _>>()
         .map_err(|_| "a WAV file cut short")?;
+    let full = 32_767.0;
+    let peak = samples
+        .iter()
+        .map(|&sample| f64::from(sample).abs())
+        .fold(0.0, f64::max);
+    if peak > full * 10f64.powf(SOUND_PEAK_DBFS / 20.0) {
+        return Err(format!("a peak past {SOUND_PEAK_DBFS} dBFS"));
+    }
     let loudest = samples
         .chunks(SOUND_WINDOW)
         .map(|window| {
@@ -821,7 +919,7 @@ pub fn decode_sound(bytes: &[u8]) -> Result<Vec<i16>, String> {
             (power / window.len() as f64).sqrt()
         })
         .fold(0.0, f64::max);
-    if loudest > 32_767.0 * 10f64.powf(SOUND_LOUDEST_DBFS / 20.0) {
+    if loudest > full * 10f64.powf(SOUND_LOUDEST_DBFS / 20.0) {
         return Err(format!(
             "louder than {SOUND_LOUDEST_DBFS} dBFS RMS over 10 ms"
         ));
@@ -829,7 +927,7 @@ pub fn decode_sound(bytes: &[u8]) -> Result<Vec<i16>, String> {
     Ok(samples)
 }
 
-/// What the voice knows when a sound is taken.
+/// What the voice knows when a sound is taken: the say service's gates.
 #[derive(Clone, Copy)]
 pub struct SoundNow {
     /// The keeper has paused the lamp.
@@ -838,12 +936,22 @@ pub struct SoundNow {
     pub muted: bool,
     /// A turn, its reply or its playback is under way.
     pub speaking: bool,
-    /// Someone's input is being taken, or listening is not ready.
+    /// Someone's input is taken or may be (a candidate), listening is not
+    /// ready, or speech was heard within the last second.
     pub listening: bool,
+    /// The lamp said it would look, and its answer is owed.
+    pub reply_owed: bool,
+    /// A reminder held for its skill is said first.
+    pub reminder_waiting: bool,
+    /// Since the last turn.
+    pub since_turn_us: u64,
+    /// Since the last skill's sound was played, if one was.
+    pub since_sound_us: Option<u64>,
 }
 
-/// Whether a skill's sound plays now, or why not: only a lamp at rest
-/// plays it, and it never waits for one.
+/// Whether a skill's sound plays now, or why not: only at rest as a say
+/// needs it, [`QUIET_US`] after the last turn, and one sound in
+/// [`SOUND_EVERY_US`]. It never waits for rest.
 pub fn may_play_sound(now: &SoundNow) -> Result<(), &'static str> {
     if now.paused {
         Err("the lamp is paused")
@@ -853,6 +961,17 @@ pub fn may_play_sound(now: &SoundNow) -> Result<(), &'static str> {
         Err("the lamp is speaking")
     } else if now.listening {
         Err("the lamp is listening")
+    } else if now.reply_owed {
+        Err("the lamp owes an answer")
+    } else if now.reminder_waiting {
+        Err("a reminder is said first")
+    } else if now.since_turn_us < QUIET_US {
+        Err("the lamp spoke a moment ago")
+    } else if now
+        .since_sound_us
+        .is_some_and(|since| since < SOUND_EVERY_US)
+    {
+        Err("a sound played less than 30 s ago")
     } else {
         Ok(())
     }
@@ -883,6 +1002,7 @@ mod tests {
 
     #[test]
     fn a_short_quiet_sound_is_read_and_a_long_loud_or_other_one_is_refused() {
+        // 1,000 is -30.3 dBFS RMS, under the -30 limit.
         let chime = vec![1_000_i16; 4_800];
         assert_eq!(decode_sound(&wav(MONO, &chime)).unwrap(), chime);
         let long = vec![0_i16; SOUND_MOST_FRAMES as usize + 1];
@@ -891,12 +1011,27 @@ mod tests {
                 .unwrap_err()
                 .contains("frames")
         );
-        let loud = vec![10_000_i16; 4_800];
-        assert!(
-            decode_sound(&wav(MONO, &loud))
-                .unwrap_err()
-                .contains("louder")
+        // 1,100 is -29.5 dBFS RMS.
+        let loud = vec![1_100_i16; 4_800];
+        assert_eq!(
+            decode_sound(&wav(MONO, &loud)).unwrap_err(),
+            "louder than -30 dBFS RMS over 10 ms"
         );
+        // Full-scale clicks, one in 10 ms: about -47.6 dBFS RMS, a crack
+        // from the speaker all the same.
+        let clicks: Vec<i16> = (0..4_800)
+            .map(|frame| if frame % 240 == 0 { i16::MAX } else { 0 })
+            .collect();
+        assert_eq!(
+            decode_sound(&wav(MONO, &clicks)).unwrap_err(),
+            "a peak past -12 dBFS"
+        );
+        // 8,230 is -12.0 dBFS, the most a peak may be; 8,300 is past it.
+        let mut edge = vec![0_i16; 4_800];
+        edge[100] = 8_230;
+        assert!(decode_sound(&wav(MONO, &edge)).is_ok());
+        edge[100] = -8_300;
+        assert!(decode_sound(&wav(MONO, &edge)).is_err());
         let stereo = hound::WavSpec {
             channels: 2,
             ..MONO
@@ -912,86 +1047,215 @@ mod tests {
         };
         assert!(decode_sound(&wav(fast, &chime)).unwrap_err().contains("Hz"));
         assert_eq!(decode_sound(b"not a wav").unwrap_err(), "not a WAV file");
+    }
+
+    #[test]
+    fn a_sound_is_read_only_from_a_regular_file_under_the_skills_folder_and_never_waits() {
         let dir = socket_dir("sound");
-        fs::create_dir_all(&dir).unwrap();
-        assert_eq!(read_sound(&dir).unwrap_err(), "not a regular file");
-        let file = dir.join("chime.wav");
+        let skills = dir.join("skills").join("chime").join("sounds");
+        fs::create_dir_all(&skills).unwrap();
+        let root = dir.join("skills");
+        let chime = vec![1_000_i16; 4_800];
+        let file = skills.join("ding.wav");
         fs::write(&file, wav(MONO, &chime)).unwrap();
         assert_eq!(read_sound(&file).unwrap(), chime);
-        let link = dir.join("link.wav");
+        assert_eq!(read_skill_sound(&file, &root).unwrap(), chime);
+        assert_eq!(read_sound(&skills).unwrap_err(), "not a regular file");
+        assert_eq!(
+            read_sound(&skills.join("gone.wav")).unwrap_err(),
+            "not found"
+        );
+        let link = skills.join("link.wav");
         std::os::unix::fs::symlink(&file, &link).unwrap();
         assert_eq!(read_sound(&link).unwrap_err(), "not a regular file");
-        let big = dir.join("big.wav");
+        let big = skills.join("big.wav");
         fs::write(&big, vec![0_u8; SOUND_MOST_BYTES as usize + 1]).unwrap();
         assert!(read_sound(&big).unwrap_err().starts_with("more than"));
+        // A FIFO is opened without waiting for a writer, and refused.
+        let fifo = skills.join("fifo.wav");
+        assert!(
+            std::process::Command::new("mkfifo")
+                .arg(&fifo)
+                .status()
+                .unwrap()
+                .success()
+        );
+        let started = Instant::now();
+        assert_eq!(read_sound(&fifo).unwrap_err(), "not a regular file");
+        assert!(started.elapsed() < Duration::from_secs(1));
+        // Outside the skills folder, or out of it by `..`: refused.
+        let outside = dir.join("outside.wav");
+        fs::write(&outside, wav(MONO, &chime)).unwrap();
+        assert_eq!(
+            read_skill_sound(&outside, &root).unwrap_err(),
+            "not a file of the skills folder"
+        );
+        assert_eq!(
+            read_skill_sound(&skills.join("../../../outside.wav"), &root).unwrap_err(),
+            "not a file of the skills folder"
+        );
         fs::remove_dir_all(&dir).unwrap();
     }
 
+    /// At rest as a say needs it, and the last sound 30 s ago.
+    const REST: SoundNow = SoundNow {
+        paused: false,
+        muted: false,
+        speaking: false,
+        listening: false,
+        reply_owed: false,
+        reminder_waiting: false,
+        since_turn_us: QUIET_US,
+        since_sound_us: Some(SOUND_EVERY_US),
+    };
+
     #[test]
-    fn a_sound_is_refused_while_the_lamp_speaks_and_played_at_rest() {
-        let rest = SoundNow {
-            paused: false,
-            muted: false,
-            speaking: false,
-            listening: false,
-        };
-        assert_eq!(may_play_sound(&rest), Ok(()));
-        let speaking = SoundNow {
-            speaking: true,
-            ..rest
-        };
-        assert_eq!(may_play_sound(&speaking), Err("the lamp is speaking"));
-        let paused = SoundNow {
-            paused: true,
-            ..speaking
-        };
-        assert_eq!(may_play_sound(&paused), Err("the lamp is paused"));
-        let muted = SoundNow {
-            muted: true,
-            ..rest
-        };
-        assert_eq!(may_play_sound(&muted), Err("the lamp is muted"));
-        let listening = SoundNow {
-            listening: true,
-            ..rest
-        };
-        assert_eq!(may_play_sound(&listening), Err("the lamp is listening"));
+    fn a_sound_plays_only_at_rest_as_a_say_needs_it_and_once_in_30_s() {
+        assert_eq!(may_play_sound(&REST), Ok(()));
+        assert_eq!(
+            may_play_sound(&SoundNow {
+                since_sound_us: None,
+                ..REST
+            }),
+            Ok(())
+        );
+        for (now, why) in [
+            (
+                SoundNow {
+                    paused: true,
+                    speaking: true,
+                    ..REST
+                },
+                "the lamp is paused",
+            ),
+            (
+                SoundNow {
+                    muted: true,
+                    ..REST
+                },
+                "the lamp is muted",
+            ),
+            (
+                SoundNow {
+                    speaking: true,
+                    ..REST
+                },
+                "the lamp is speaking",
+            ),
+            (
+                SoundNow {
+                    listening: true,
+                    ..REST
+                },
+                "the lamp is listening",
+            ),
+            (
+                SoundNow {
+                    reply_owed: true,
+                    ..REST
+                },
+                "the lamp owes an answer",
+            ),
+            (
+                SoundNow {
+                    reminder_waiting: true,
+                    ..REST
+                },
+                "a reminder is said first",
+            ),
+            (
+                SoundNow {
+                    since_turn_us: QUIET_US - 1,
+                    ..REST
+                },
+                "the lamp spoke a moment ago",
+            ),
+            (
+                SoundNow {
+                    since_sound_us: Some(SOUND_EVERY_US - 1),
+                    ..REST
+                },
+                "a sound played less than 30 s ago",
+            ),
+        ] {
+            assert_eq!(may_play_sound(&now), Err(why));
+        }
     }
 
     #[test]
-    fn a_sound_is_asked_by_its_path_and_taken_apart_from_the_says() {
+    fn a_sound_is_asked_by_its_path_read_by_the_socket_and_taken_apart_from_the_says() {
         let asked = parse(
             r#"{"skill":"chime","sound":"/var/lib/lampOS/skills/chime/sounds/ding.wav","expires_in_ms":60000}"#,
         )
         .unwrap();
         assert_eq!(
             asked.words,
-            Words::Sound("/var/lib/lampOS/skills/chime/sounds/ding.wav".into())
+            Words::SoundAt("/var/lib/lampOS/skills/chime/sounds/ding.wav".into())
         );
         assert_eq!(asked.words.turn(), None);
         assert!(parse(r#"{"skill":"chime","sound":"sounds/ding.wav","expires_in_ms":1}"#).is_err());
         assert!(
             parse(r#"{"skill":"chime","sound":"/a.wav","note":"Hi.","expires_in_ms":1}"#).is_err()
         );
-        let (mut says, ask) = Says::by_hand();
-        let (answer, answered) = mpsc::channel();
-        ask.send(Asked {
-            request: asked,
-            answer,
-            expires_at_us: 60_000_000,
-        })
-        .unwrap();
-        says.poll(0);
-        assert_eq!(says.quiet_needed_us(), None, "a sound is no say");
-        assert!(says.take(0).is_none());
-        let (path, ticket) = says.take_sound(0).unwrap();
-        assert!(path.ends_with("ding.wav"));
+        // Through the socket: read on the client's thread, its samples
+        // handed to the voice; one outside the skills folder refused there.
+        let dir = socket_dir("ding");
+        let sounds = dir.join("skills");
+        fs::create_dir_all(&sounds).unwrap();
+        let chime = vec![1_000_i16; 4_800];
+        let file = fs::canonicalize(&sounds).unwrap().join("ding.wav");
+        fs::write(&file, wav(MONO, &chime)).unwrap();
+        let path = dir.join("say.sock");
+        let mut says = Says::serve(&path, None, &sounds).unwrap();
+        assert_eq!(
+            exchange(
+                &path,
+                "{\"skill\":\"chime\",\"sound\":\"/etc/hosts\",\"expires_in_ms\":60000}\n"
+            ),
+            format!(
+                "{}\n",
+                Outcome::Refused("not a file of the skills folder".into()).line()
+            )
+        );
+        let client = {
+            let (path, file) = (path.clone(), file.clone());
+            thread::spawn(move || {
+                exchange(
+                    &path,
+                    &format!(
+                        "{{\"skill\":\"chime\",\"sound\":{:?},\"expires_in_ms\":60000}}\n",
+                        file.display().to_string()
+                    ),
+                )
+            })
+        };
+        let mut taken = None;
+        for _ in 0..200 {
+            says.poll(0);
+            assert_eq!(says.quiet_needed_us(), None, "a sound is no say");
+            assert!(says.take(0).is_none());
+            if let Some(one) = says.take_sound(0) {
+                taken = Some(one);
+                break;
+            }
+            thread::sleep(Duration::from_millis(5));
+        }
+        let (samples, ticket) = taken.expect("the sound reached the voice");
+        assert_eq!(samples, chime);
+        assert_eq!(says.last_sound_us(), None);
+        says.sound_played(7);
+        assert_eq!(says.last_sound_us(), Some(7));
         ticket.answer(Outcome::Refused("the lamp is speaking".into()));
         assert_eq!(
-            answered.recv().unwrap(),
-            Answer::Done(Outcome::Refused("the lamp is speaking".into()))
+            client.join().unwrap(),
+            format!(
+                "{}\n",
+                Outcome::Refused("the lamp is speaking".into()).line()
+            )
         );
         assert!(says.take_sound(0).is_none());
+        drop(says);
+        fs::remove_dir_all(&dir).unwrap();
     }
 
     /// An ask as the socket hands it on, expiring at `expires_at_us`.
@@ -1316,7 +1580,7 @@ mod tests {
     fn a_line_sent_slowly_is_refused_after_a_second_and_its_place_given_back() {
         let dir = socket_dir("slow");
         let path = dir.join("say.sock");
-        let mut says = Says::serve(&path, None).unwrap();
+        let mut says = Says::serve(&path, None, &dir).unwrap();
         let started = Instant::now();
         let slow: Vec<_> = (0..MOST_WAITING)
             .map(|_| {
@@ -1382,7 +1646,7 @@ mod tests {
     fn a_say_waiting_for_the_voice_expires_from_when_its_line_was_read() {
         let dir = socket_dir("late");
         let path = dir.join("say.sock");
-        let mut says = Says::serve(&path, None).unwrap();
+        let mut says = Says::serve(&path, None, &dir).unwrap();
         let client = {
             let path = path.clone();
             thread::spawn(move || {
@@ -1408,7 +1672,7 @@ mod tests {
     fn through_the_socket_an_ask_is_answered_when_the_voice_says_what_became_of_it() {
         let dir = socket_dir("sock");
         let path = dir.join("say.sock");
-        let mut says = Says::serve(&path, None).unwrap();
+        let mut says = Says::serve(&path, None, &dir).unwrap();
         assert_eq!(
             fs::metadata(&dir).unwrap().permissions().mode() & 0o777,
             0o700
@@ -1457,7 +1721,9 @@ mod tests {
         );
         // A second voice cannot take the socket of one still listening.
         assert_eq!(
-            Says::serve(&path, None).err().map(|error| error.kind()),
+            Says::serve(&path, None, &dir)
+                .err()
+                .map(|error| error.kind()),
             Some(io::ErrorKind::AddrInUse)
         );
         drop(says);

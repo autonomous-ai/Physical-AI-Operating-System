@@ -1,4 +1,4 @@
-owner: eighth
+owner: eighth; shared with ten (ask the other before each use, hold `lamp-lock.sh lamp-75c9` while using it)
 runs: V2, lampOS build 1335 (lamp-voice a35d2a3f5) by `lamp-update install` from a test-signed local channel; up: voice, eyes, name, expression, actions, memory, policy, health, controls, ears, air, schedule, skills; off: body (no measured poses), tasks (no Harness at /usr/local/bin); V1 disabled, files kept
 since: 2026-10-16 17:41 +07, installed by eighth at its owner's request (#705, 17:5x)
 

@@ -453,10 +453,6 @@ async fn a_timer_in_a_turn_the_policy_judged_not_for_the_lamp_is_not_set() {
     rig.stop().await;
 }
 
-/// #1040: on lamp-4ace on 2026-10-16 at 11:20 "Set a timer for 1 minute",
-/// said to the lamp in a conversation with it, was held. A `stay_quiet`
-/// whose `follows_lamp` is 0.6 or more does not hold the schedule: the
-/// timer is set. The volume in such a turn is still held.
 /// #1054, the quiet-room case #1090 leaves (the first builder's 15:39 on
 /// #829): "Yes, give me five minutes." after someone else's "Are you coming
 /// to the meeting at two?", which the lamp left unanswered, follows that
@@ -514,6 +510,11 @@ async fn a_timer_in_a_turn_after_a_line_the_lamp_left_unanswered_is_held() {
     rig.stop().await;
 }
 
+/// #1040: on lamp-4ace on 2026-10-16 at 11:20 "Set a timer for 1 minute",
+/// said to the lamp in a conversation with it, was held. A `stay_quiet`
+/// whose `follows_lamp` is 0.6 or more does not hold what the schedule
+/// sets: the timer is set. The volume in such a turn is still held, and so
+/// is a cancel, which is silent and cannot be undone (Fourth on #1054).
 #[tokio::test]
 async fn a_timer_in_a_turn_that_follows_the_lamp_is_set_though_the_policy_said_stay_quiet() {
     let mut desk = Desk::new("follows");
@@ -554,5 +555,27 @@ async fn a_timer_in_a_turn_that_follows_the_lamp_is_set_though_the_policy_said_s
         json!({"done": false, "next": crate::policy_holds::HELD})
     );
     assert!(desk.asked.try_recv().is_err(), "volume_up was run");
+    rig.stop().await;
+
+    let mut desk = Desk::new("follows-cancel");
+    let mut rig = LiveRig::start_with(quick_policy(), desk.options(true));
+    let mut dial = rig.ready().await;
+    let request = rig.speak(&mut dial, false, true).await;
+    desk.decide_with(
+        Some(request),
+        "stay_quiet",
+        json!({"calls_lamp": 0.05, "follows_lamp": 0.72}),
+    );
+    dial.service
+        .send(json!({"toolCall":{"functionCalls":[
+            {"id":"c1","name":"cancel_reminder","args":{"id":1}}
+        ]}}))
+        .await;
+    let told = rig.service_message(&mut dial).await;
+    assert_eq!(
+        response(&told),
+        json!({"done": false, "next": crate::policy_holds::HELD})
+    );
+    assert!(desk.asked.try_recv().is_err(), "cancel_reminder was run");
     rig.stop().await;
 }

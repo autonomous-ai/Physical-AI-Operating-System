@@ -813,7 +813,9 @@ impl Attention {
         // left unanswered: this one follows it, not the lamp's own last
         // words. In the first builder's two-person round on #829 (15:39),
         // "Yes, give me five minutes." after "Are you coming to the meeting
-        // at two?" set a timer as a reply to the lamp's story (#1054).
+        // at two?" set a timer as a reply to the lamp's story (#1054). A
+        // short sound let through and ended as one is nobody's line, even
+        // heard as a word ("¿Qué?"), as the room counts it (Fourth on #1054).
         let own = own_request().load(Ordering::Acquire);
         let after_unanswered = own != request
             && own != self.request
@@ -822,6 +824,7 @@ impl Attention {
                 .or(self.began_us)
                 .is_some_and(|end| end.saturating_add(ANOTHER_REPLY_US) >= now_us)
             && self.heard.chars().any(char::is_alphanumeric)
+            && !self.sound
             && !matches!(self.verdict, Some(Verdict::Play(_)));
         self.began(request, session);
         self.after_another = after_another;
@@ -1010,14 +1013,14 @@ impl Attention {
         self.addressed = addressed;
     }
 
-    /// The request in hand as `crate::addressed` judges it, once it began.
-    /// None for a turn the lamp wrote itself: nobody spoke in it.
     /// Whether `request` follows a line with words that someone said and
     /// the lamp did not answer, within [`ANOTHER_REPLY_US`] (#1054).
     pub fn follows_an_unanswered_line(&self, request: u64) -> bool {
         self.request == request && self.after_unanswered
     }
 
+    /// The request in hand as `crate::addressed` judges it, once it began.
+    /// None for a turn the lamp wrote itself: nobody spoke in it.
     pub fn in_hand(&self) -> Option<crate::addressed::Request> {
         if own_request().load(Ordering::Acquire) == self.request {
             return None;
@@ -2013,14 +2016,16 @@ mod tests {
 
     /// #1054: a request after a line with words that someone said and the
     /// lamp left unanswered follows that line, not the lamp; after a line
-    /// the lamp answered, 11 s on, or a sound with no words, it does not.
-    /// Whatever the switch.
+    /// the lamp answered, 11 s on, a sound with no words, or a short sound
+    /// let through and ended as one though heard as a word (Fourth's probe
+    /// on #1054), it does not. Whatever the switch.
     #[test]
     fn a_request_after_a_line_the_lamp_left_unanswered_follows_that_line() {
         const S: u64 = 1_000_000;
         const ASKED: &str = "Are you coming to the meeting at two?";
-        let follows = |asked: &str, answered: bool, gap_s: u64| {
+        let follows = |asked: &str, answered: bool, sound: bool, gap_s: u64| {
             let mut attention = Attention::default();
+            attention.check_sounds(true);
             attention.began_at(41, 7, 100 * S);
             attention.heard(asked);
             if answered {
@@ -2028,6 +2033,9 @@ mod tests {
                     attention.first_output_busy(41, Room::Quiet, true, false, None),
                     Some(Verdict::Play(_))
                 ));
+            }
+            if sound {
+                attention.ended_as_sound(41);
             }
             attention.ended(41, 103 * S);
             attention.began_at(42, 7, (103 + gap_s) * S);
@@ -2037,10 +2045,13 @@ mod tests {
                 attention.follows_an_unanswered_line(41),
             )
         };
-        assert_eq!(follows(ASKED, false, 1), (true, false));
-        assert_eq!(follows(ASKED, true, 1), (false, false));
-        assert_eq!(follows(ASKED, false, 11), (false, false));
-        assert_eq!(follows("", false, 1), (false, false));
+        assert_eq!(follows(ASKED, false, false, 1), (true, false));
+        assert_eq!(follows(ASKED, true, false, 1), (false, false));
+        assert_eq!(follows(ASKED, false, false, 11), (false, false));
+        assert_eq!(follows("", false, false, 1), (false, false));
+        assert_eq!(follows("¿Qué?", false, true, 1), (false, false));
+        // Heard as the same word but not ended as a sound: someone's line.
+        assert_eq!(follows("¿Qué?", false, false, 1), (true, false));
         // The first request of all follows nothing.
         let mut attention = Attention::default();
         attention.began_at(1, 7, S);

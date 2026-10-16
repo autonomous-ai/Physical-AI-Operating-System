@@ -27,7 +27,7 @@ use std::{
     time::Duration,
 };
 
-const USAGE: &str = "usage: lamp-health serve [--bus-root ABSOLUTE_DIR] [--expect NAME]... [--stale-ms N] [--judge-zone BEGINNING]... [--proc DIR] [--sys DIR] [--run DIR] [--disk PATH] [--clock timesync|kernel] [--online on|off]\n       lamp-health [show] [--bus-root ABSOLUTE_DIR] [--json]\n       lamp-health --help";
+const USAGE: &str = "usage: lamp-health serve [--bus-root ABSOLUTE_DIR] [--expect NAME]... [--stale-ms N] [--judge-zone BEGINNING]... [--proc DIR] [--sys DIR] [--run DIR] [--disk PATH] [--clock timesync|kernel] [--online on|off] [--needs NAME=PATH]...\n       lamp-health [show] [--bus-root ABSOLUTE_DIR] [--json]\n       lamp-health --help";
 const HELP: &str = "How the lamp is. See docs/health.md.
 
 serve: listens to every part's report on the bus (diagnostics), reads the board, and
@@ -35,6 +35,8 @@ publishes how the whole lamp is (lamp/health) and the board's numbers (board/sta
   --bus-root  the bus's directory (default LAMP_BUS_ROOT, or /run/lampos-bus)
   --expect    a part that should be reporting; may be given more than once. One that
               never reports is listed as missing
+  --needs     NAME=PATH: the part NAME runs only where the file PATH is, so while it is
+              not there the part is listed as off, never missing (tasks needs Harness)
   --stale-ms  after how long without a report a part is stale, from 100 to 600000
               (default 5000)
   --proc      where the system's numbers are read from (default /proc)
@@ -61,6 +63,8 @@ struct ServeArguments {
     places: Places,
     /// Publish `lamp/online` too.
     online: bool,
+    /// Parts off while the file each needs is not on the lamp.
+    needs: Vec<(String, PathBuf)>,
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -96,6 +100,7 @@ fn parse_serve(mut arguments: impl Iterator<Item = String>) -> Result<Command, S
     let (mut bus, mut stale_after) = (None, None);
     let (mut proc, mut sys, mut run, mut disk) = (None, None, None, None);
     let mut expected: Vec<String> = Vec::new();
+    let mut needs: Vec<(String, PathBuf)> = Vec::new();
     let mut judged: Vec<String> = Vec::new();
     let mut clock = None;
     let mut online = None;
@@ -144,6 +149,23 @@ fn parse_serve(mut arguments: impl Iterator<Item = String>) -> Result<Command, S
                 expected.push(value);
                 false
             }
+            "--needs" => {
+                let (name, path) = value
+                    .split_once('=')
+                    .filter(|(name, path)| parts::is_name(name) && path.starts_with('/'))
+                    .ok_or("--needs is NAME=PATH: a part's name and an absolute file")?;
+                if needs.len() == parts::MOST_PARTS {
+                    return Err(format!(
+                        "--needs was given more than {} times",
+                        parts::MOST_PARTS
+                    ));
+                }
+                if needs.iter().any(|(given, _)| given == name) {
+                    return Err(format!("--needs {name} was given twice"));
+                }
+                needs.push((name.to_owned(), PathBuf::from(path)));
+                false
+            }
             "--clock" => clock
                 .replace(
                     value
@@ -188,6 +210,7 @@ fn parse_serve(mut arguments: impl Iterator<Item = String>) -> Result<Command, S
             clock: clock.unwrap_or(places.clock),
         },
         online: online.unwrap_or(false),
+        needs,
     }))
 }
 
@@ -266,6 +289,7 @@ fn serve(arguments: &ServeArguments) -> io::Result<()> {
         stale_after: arguments.stale_after,
         times: Times::with_stale_after(arguments.stale_after),
         online: arguments.online,
+        needs: arguments.needs.clone(),
     };
     // Nothing sets the flag: the process runs until it is killed.
     let stop = AtomicBool::new(false);
@@ -347,7 +371,7 @@ mod tests {
         assert_eq!(
             serving(
                 "serve --bus-root /run/lampos-bus --expect voice --stale-ms 8000 --proc /p \
-                 --judge-zone cpu --expect body --sys /s --run /r --disk /var --judge-zone skin --clock kernel --online on"
+                 --judge-zone cpu --expect body --sys /s --run /r --disk /var --judge-zone skin --clock kernel --online on --needs tasks=/usr/local/bin/harness"
             ),
             ServeArguments {
                 bus: Some("/run/lampos-bus".into()),
@@ -362,6 +386,7 @@ mod tests {
                     clock: ClockSource::Kernel,
                 },
                 online: true,
+                needs: vec![("tasks".into(), "/usr/local/bin/harness".into())],
             }
         );
         assert_eq!(
@@ -379,9 +404,13 @@ mod tests {
                     clock: ClockSource::Timesync,
                 },
                 online: false,
+                needs: Vec::new(),
             }
         );
         assert!(of("serve --clock ntp").is_err());
+        assert!(of("serve --needs tasks").is_err());
+        assert!(of("serve --needs tasks=relative/harness").is_err());
+        assert!(of("serve --needs tasks=/a --needs tasks=/b").is_err());
         assert!(of("serve --online yes").is_err());
         assert!(of("serve --clock kernel --clock kernel").is_err());
         assert_eq!(

@@ -695,6 +695,16 @@ fn the_tasks_part_waits_for_harness_rather_than_failing() {
         .find(|line| line.starts_with("ExecStart="))
         .unwrap();
     assert!(exec.contains(&format!("--harness {}", install::HARNESS)));
+    // Health lists it as off, not missing, while Harness is not there.
+    let health = install::PRODUCT
+        .iter()
+        .find(|(name, _)| *name == "lamp-health.service")
+        .unwrap()
+        .1;
+    assert!(health.contains(&format!(
+        "--expect tasks --needs tasks={}",
+        install::HARNESS
+    )));
     let mut lamp = Lamp::new(188, &[]);
     lamp.install().unwrap();
     assert!(

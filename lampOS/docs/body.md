@@ -887,6 +887,12 @@ What the body does with the request:
   lamp-body: dropped from the mood socket, not a mood or a gesture this body has: {"gesture":"dance"}
   ```
 
+  The same line is said at most once in five seconds, and the next time
+  with how many like it were held back (`(N more like it before this)`), so
+  a skill that asks in a loop cannot fill the journal. A gesture taken stays
+  up for the whole of it: the lamp's awake window is stretched to the end
+  of the clip, so it never folds mid-gesture.
+
   Until 16 October a gesture asked of a folded lamp was forgotten without a
   word: on lamp-4ace a skill's `stretching` at `stand 0.00` did nothing and
   the journal said nothing.

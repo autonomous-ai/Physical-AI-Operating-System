@@ -5243,6 +5243,7 @@ type Fates = (
 /// `news` says. `prepare` sets up the servos.
 fn skill_run(
     seconds: u64,
+    awake: u16,
     limits: Limits,
     prepare: impl FnOnce(&mut Lamp),
     news: impl FnMut() -> Option<(Mood, u8)>,
@@ -5261,7 +5262,7 @@ fn skill_run(
         &mut clock,
         limits,
         Some(HOME),
-        Some(standing(100, 5)),
+        Some(standing(100, awake)),
         None,
         news,
         move || ask(time.get()),
@@ -5307,6 +5308,7 @@ fn gesture_limits() -> Limits {
 fn a_gesture_asked_of_a_folded_lamp_stands_it_up_and_then_plays() {
     let (report, fates, steps) = skill_run(
         14,
+        5,
         gesture_limits(),
         |_| {},
         || Some((Mood::Resting, 0)),
@@ -5334,6 +5336,7 @@ fn a_gesture_asked_of_a_folded_lamp_stands_it_up_and_then_plays() {
 fn a_paused_lamp_drops_a_gesture_and_says_so() {
     let (report, fates, steps) = skill_run(
         8,
+        5,
         gesture_limits(),
         |_| {},
         || Some((Mood::Resting, 0)),
@@ -5393,6 +5396,7 @@ fn a_slumped_lamp_is_not_stood_up_by_a_gesture() {
     let mut asked = [false; 2];
     let (report, fates, steps) = skill_run(
         135,
+        5,
         Limits {
             force: Some(600),
             ..releasing()
@@ -5424,4 +5428,39 @@ fn a_slumped_lamp_is_not_stood_up_by_a_gesture() {
         ]
     );
     assert!(steps.iter().all(|s| s.1 == 0.0 && s.2.is_none()));
+}
+
+/// A gesture asked just before the lamp would fold keeps it up for the
+/// whole of it (fifth's review of #1080): spoken to until five seconds,
+/// awake five more, a nod asked at 9.5 s plays to its end, and then the
+/// lamp folds.
+#[test]
+fn a_gesture_asked_as_the_lamp_would_fold_keeps_it_up_until_it_ends() {
+    let (report, fates, steps) = skill_run(
+        24,
+        5,
+        gesture_limits(),
+        |_| {},
+        {
+            let mut step = 0u32;
+            move || {
+                step += 1;
+                Some(if step * 20 < 5_000 {
+                    (Mood::Listening, 100)
+                } else {
+                    (Mood::Resting, 0)
+                })
+            }
+        },
+        once(Duration::from_millis(9_500), false),
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!(fates, [("nod", "taken: it plays")]);
+    let during: Vec<_> = steps.iter().filter(|s| s.2 == Some("nod")).collect();
+    let lasted = during.last().unwrap().0 - during[0].0;
+    let clip = Duration::from_micros(crate::clips::NOD.duration_us());
+    assert!(lasted + Duration::from_millis(100) >= clip, "{lasted:?}");
+    assert!(during.iter().all(|s| s.1 == 1.0));
+    // And it folds afterwards.
+    assert_eq!(steps.last().unwrap().1, 0.0);
 }

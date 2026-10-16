@@ -502,6 +502,45 @@ fn gesture_of(
     lamp_body::clips::named(message.gesture).or_else(|| moves.named(message.gesture))
 }
 
+/// Each journal line about what was asked is said at most once in this
+/// long, and then with how many like it were not said.
+#[cfg_attr(not(any(target_os = "linux", test)), allow(dead_code))]
+const HUSH: std::time::Duration = std::time::Duration::from_secs(5);
+
+/// Lines said lately, by their text, and how many repeats were held back.
+#[cfg_attr(not(any(target_os = "linux", test)), allow(dead_code))]
+#[derive(Default)]
+struct Hush(std::collections::HashMap<String, (std::time::Instant, u32)>);
+
+#[cfg_attr(not(any(target_os = "linux", test)), allow(dead_code))]
+impl Hush {
+    /// `line` if it is due at `now`, with how many like it were held back
+    /// since it was last said; `None` while it is held back. A line not
+    /// heard of for a minute is forgotten, so the map stays small.
+    fn due(&mut self, line: String, now: std::time::Instant) -> Option<String> {
+        self.0
+            .retain(|_, (at, _)| now.saturating_duration_since(*at) < HUSH * 12);
+        match self.0.get_mut(&line) {
+            Some((at, held)) if now.saturating_duration_since(*at) < HUSH => {
+                *held += 1;
+                None
+            }
+            Some((at, held)) => {
+                let said = match std::mem::take(held) {
+                    0 => line,
+                    more => format!("{line} ({more} more like it before this)"),
+                };
+                *at = now;
+                Some(said)
+            }
+            None => {
+                self.0.insert(line.clone(), (now, 0));
+                Some(line)
+            }
+        }
+    }
+}
+
 /// The moves in `--moves`, read once at start. A refused move and a folder
 /// that cannot be read are said, and the body runs with what it has.
 #[cfg_attr(not(any(target_os = "linux", test)), allow(dead_code))]
@@ -642,6 +681,7 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
         .ok()
         .map(lamp_body::pause_in::PauseIn::on);
     let paused = std::cell::Cell::new(false);
+    let mut unknown_said = Hush::default();
     let news = || {
         paused.set(pause.as_mut().is_some_and(|pause| pause.paused()));
         // Everything waiting, and only the newest of it counts.
@@ -656,10 +696,15 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
                         (None, Some(mood)) => latest = Some(mood),
                         // An unknown gesture, most often: said, as the
                         // body says what it does with every gesture.
-                        (None, None) => eprintln!(
-                            "lamp-body: dropped from the mood socket, not a mood or a gesture this body has: {}",
-                            String::from_utf8_lossy(sent)
-                        ),
+                        (None, None) => {
+                            let line = format!(
+                                "lamp-body: dropped from the mood socket, not a mood or a gesture this body has: {}",
+                                String::from_utf8_lossy(sent)
+                            );
+                            if let Some(line) = unknown_said.due(line, std::time::Instant::now()) {
+                                eprintln!("{line}");
+                            }
+                        }
                     }
                 }
                 Err(_) => break,
@@ -715,6 +760,7 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
     let mut gesture_said: Option<&'static str> = None;
     let mut tipping_said = lamp_body::body::Tipping::default();
     let mut looks_said: Option<&'static str> = None;
+    let mut fate_said = Hush::default();
     let mut eased = [0u16; 3];
     let mut handled = ([0u16; 3], [0u16; 5]);
     let mut limp = false;
@@ -811,8 +857,11 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
         }
         tipping_said = tipping;
         // Each gesture asked from outside, taken or dropped, and why.
-        if let Some((name, why)) = glimpse.gesture_fate {
-            eprintln!("lamp-body: step {} gesture {name} {why}", glimpse.step);
+        if let Some((name, why)) = glimpse.gesture_fate
+            && let Some(line) =
+                fate_said.due(format!("gesture {name} {why}"), std::time::Instant::now())
+        {
+            eprintln!("lamp-body: step {} {line}", glimpse.step);
         }
         // Whether a face in view is looked at, when that changes: a skill's
         // look and the eyes' come on one socket and read the same.
@@ -1597,6 +1646,33 @@ mod tests {
         }
         // And a gesture is not a mood.
         assert_eq!(mood_of(br#"{"gesture":"nod"}"#), None);
+    }
+
+    /// A line asked again and again is said once in five seconds, then with
+    /// how many were held back; another line is said at once.
+    #[test]
+    fn a_line_repeated_is_said_once_in_five_seconds_with_a_count() {
+        let start = std::time::Instant::now();
+        let at = |ms: u64| start + std::time::Duration::from_millis(ms);
+        let mut hush = Hush::default();
+        let line = || "gesture nod dropped: another gesture plays".to_owned();
+        assert_eq!(hush.due(line(), at(0)), Some(line()));
+        for step in 1..250 {
+            assert_eq!(hush.due(line(), at(step * 20)), None);
+        }
+        assert_eq!(
+            hush.due("gesture nod dropped: paused".into(), at(100))
+                .as_deref(),
+            Some("gesture nod dropped: paused")
+        );
+        assert_eq!(
+            hush.due(line(), at(5_000)),
+            Some(format!("{} (249 more like it before this)", line()))
+        );
+        assert_eq!(hush.due(line(), at(5_020)), None);
+        // Not heard of for a minute: forgotten, and said plainly again.
+        assert_eq!(hush.due(line(), at(70_000)), Some(line()));
+        assert_eq!(hush.0.len(), 1);
     }
 
     #[test]

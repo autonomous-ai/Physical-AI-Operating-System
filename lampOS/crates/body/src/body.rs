@@ -3162,7 +3162,13 @@ fn run_until_stopped(
                     let rising = standing
                         .filter(|_| woke_for_gesture)
                         .map_or(0.0, |up| up.seconds);
-                    pending = Some((clip, now + Duration::from_secs_f32(rising)));
+                    let begins = now + Duration::from_secs_f32(rising);
+                    pending = Some((clip, begins));
+                    // It stays up for the whole of it: a window that ran
+                    // out mid-clip, or `--awake-seconds` shorter than the
+                    // rise, would fold it under the gesture.
+                    let needed = begins + GESTURE_WAIT + Duration::from_micros(clip.duration_us());
+                    awake_until = awake_until.max(Some(needed));
                     pending_woke = woke_for_gesture;
                 }
             }

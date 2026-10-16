@@ -39,6 +39,8 @@ Never `lamp-voice`, and never another builder's branch.
 - Propose work as `nine-P<n>` in its log and as an issue labelled
   `proposal` and `builder:nine`.
 - Add and remove `status:` labels on, and comment on, its own issues.
+- Mention the first builder (`@deehw`) in the body of every issue it
+  files, so they are notified (its person, 2026-10-16).
 
 ## It may not
 

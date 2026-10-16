@@ -1763,8 +1763,9 @@ fn run_inner<D: Decider + Send + 'static>(
         }
         // A skill asks whether the lamp may do something it would start
         // itself, with `--gate` only (#939): a hello is put to the hello
-        // question. Nothing else is judged here yet, and is answered `wait`
-        // by the rule at once, so that no asker waits for nothing.
+        // question; news, a reminder and anything unprompted to the moment
+        // question. Anything not judged here is answered `wait` by the rule
+        // at once, so that no asker waits for nothing.
         if let Some(skill_asks) = skill_asks.as_mut() {
             for ask in skill_asks.take::<SkillAsk>(Duration::ZERO, unreadable, policy.say) {
                 if ask.check().is_err() {

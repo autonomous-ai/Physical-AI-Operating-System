@@ -335,7 +335,7 @@ decision, so their bytes are as they were (a test).
 
 | Type | Topic | Kind | Period / lifespan | Meaning |
 |---|---|---|---|---|
-| `SkillAsk` | `skills/ask` | event | none / none | A skill asks the policy whether the lamp may do something it would start itself (#939, [policy.md](policy.md)): the ask's number (the asker's monotonic clock in µs, positive), the skill's name, the act (`hello`, `news`, `unprompted`), the person if known, and for a hello its minutes away and seconds there. No words, no picture, no face |
+| `SkillAsk` | `skills/ask` | event | none / none | A skill asks the policy whether the lamp may do something it would start itself (#939, [policy.md](policy.md)): the ask's number (the asker's monotonic clock in µs, positive), the skill's name, the act (`hello`, `news`, `reminder` (added 2026-10-16), `unprompted`), the person if known, and for a hello its minutes away and seconds there. No words, no picture, no face |
 
 `check()` asks for a positive number, a skill's name (1 to 64 lowercase
 letters, digits, hyphens), a known act, a person as `p-` and 16 hex digits

@@ -42,6 +42,11 @@ pub const ASKER_WAITS: Duration = Duration::from_secs(2);
 const MOST_WAITING: usize = 4;
 /// What the rule gives when no model answers. Authored, not measured.
 pub const RULE_YES: f32 = 0.6;
+/// The act of a reminder the person set, now due (the Reminders skill,
+/// #939): not the lamp's to time. Only someone talking to the lamp holds
+/// it; no model is asked, and neither the hour, the room nor how often the
+/// lamp spoke up count, since the person asked for it.
+pub const REMINDER: &str = "reminder";
 pub const RULE_NO: f32 = 0.1;
 
 /// How the question is asked (`lamp-policy --gate`).
@@ -176,10 +181,12 @@ pub fn combine(
 /// more in the hour, or it is before eight in the morning or after ten at
 /// night (when the hour is known).
 pub fn fallback(context: &Context) -> Judgement {
-    let yes = context.someone_here != Some(false)
-        && context.room != Room::Busy
-        && context.spoke_up_last_hour < 2
-        && context.hour.is_none_or(|hour| (8..22).contains(&hour));
+    // A reminder the person set: yes, whatever the room or the hour.
+    let yes = context.act == REMINDER
+        || (context.someone_here != Some(false)
+            && context.room != Room::Busy
+            && context.spoke_up_last_hour < 2
+            && context.hour.is_none_or(|hour| (8..22).contains(&hour)));
     Judgement {
         probability: if yes { RULE_YES } else { RULE_NO },
         choice: if yes { Choice::SayNow } else { Choice::Wait },
@@ -307,7 +314,7 @@ impl Moment {
     /// `unprompted` now. Any other ask is passed over. Past [`MOST_WAITING`]
     /// the oldest is let go.
     pub fn asked(&mut self, ask: &SkillAsk, now: Instant) {
-        if ask.check().is_err() || !["news", "unprompted"].contains(&ask.act.as_str()) {
+        if ask.check().is_err() || !["news", REMINDER, "unprompted"].contains(&ask.act.as_str()) {
             return;
         }
         if self.waiting.len() == MOST_WAITING {
@@ -372,6 +379,11 @@ impl Moment {
         };
         if room_now.talking {
             return Some(self.decide(context, None, Some(Hold::Talking), Duration::ZERO, unix_ms));
+        }
+        // A reminder the person set is the rule's alone: said now, no model
+        // asked (#939).
+        if context.act == REMINDER {
+            return Some(self.decide(context, None, None, Duration::ZERO, unix_ms));
         }
         if self.asker_gone {
             return Some(self.decide(context, None, None, Duration::ZERO, unix_ms));
@@ -448,7 +460,8 @@ impl Moment {
                 fallback(&context),
                 BTreeMap::new(),
                 rule(),
-                Some(Failed::Unreachable {
+                // A reminder is never asked about: nothing failed.
+                (context.act != REMINDER).then_some(Failed::Unreachable {
                     during: "asking",
                     kind: io::ErrorKind::BrokenPipe,
                 }),
@@ -748,5 +761,72 @@ mod tests {
         );
         assert_eq!(moment.totals().held_talking, 1);
         assert!(!moment.busy());
+    }
+
+    /// #939: a reminder the person set is the hard rule's alone: `say_now`
+    /// at once with nobody there, a busy room and the lamp having spoken up
+    /// three times, no model asked and nothing failed; `wait` only while
+    /// someone talks to the lamp. Its rule holds at any hour.
+    #[test]
+    fn a_reminder_is_said_by_the_rule_alone_and_held_only_while_someone_talks() {
+        let (_go, gate) = mpsc::channel();
+        let given = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let decider = Held {
+            go: gate,
+            given: given.clone(),
+        };
+        let mut moment =
+            Moment::start(decider, Options::new(Duration::from_secs(3), None)).unwrap();
+        let ask = |number: u64| SkillAsk {
+            ask: number,
+            skill: "reminders".into(),
+            act: REMINDER.into(),
+            person: None,
+            away_min: None,
+            there_s: None,
+        };
+        let anything_but_talk = Now {
+            room: Room::Busy,
+            someone_here: Some(false),
+            quiet_s: 0,
+            talking: false,
+            spoke_up_last_hour: 3,
+        };
+        let t = Instant::now();
+        moment.asked(&ask(1), t);
+        let said = moment
+            .turn(t, 1_000_000, anything_but_talk)
+            .expect("decided at once");
+        assert_eq!(
+            (
+                said.decision.ask,
+                said.decision.choice.as_str(),
+                said.decision.by.as_str(),
+                said.line.failed
+            ),
+            (Some(1), "say_now", crate::policy::RULE, None)
+        );
+        moment.asked(&ask(2), t);
+        let talking = Now {
+            talking: true,
+            ..anything_but_talk
+        };
+        let held = moment.turn(t, 1_000_000, talking).expect("decided at once");
+        assert_eq!(
+            (held.decision.choice.as_str(), held.line.guard),
+            ("wait", Some(Hold::Talking))
+        );
+        assert!(given.lock().unwrap().is_empty(), "no model asked");
+        let totals = moment.totals();
+        assert_eq!(
+            (totals.decided, totals.said, totals.held_talking),
+            (2, 1, 1)
+        );
+        let late = Context {
+            act: REMINDER.into(),
+            hour: Some(23),
+            ..context("news")
+        };
+        assert_eq!(fallback(&late).choice, Choice::SayNow);
     }
 }

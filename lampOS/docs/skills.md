@@ -233,7 +233,9 @@ As built on 2026-10-16 (#938, `crates/skills`, not yet run on a lamp):
     question goes on `skills/ask` as #958's `lamp_msgs::SkillAsk` (written
     as JSON until that type is on `lamp-voice`): the ask's number (this
     clock in µs, always above the last), the skill, the act (`[ask]
-    policy` `hello` or `news`, anything else `unprompted`) and, for a
+    policy` `hello`, `news` or `reminder`, anything else `unprompted`;
+    a `reminder` is held by the Policy only while someone talks to the
+    lamp) and, for a
     hello, `away_min` and `there_s` from its trigger. With nobody
     subscribed to `skills/ask` (the Policy down, or without `--gate`) the
     run is refused at once. The run waits for the `Decision` on

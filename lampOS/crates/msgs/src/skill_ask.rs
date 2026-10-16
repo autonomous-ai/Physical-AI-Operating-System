@@ -8,7 +8,7 @@ use lamp_bus::{Declaration, Kind};
 use serde::{Deserialize, Serialize};
 
 /// What a skill would do, as the policy judges it.
-pub const ACTS: [&str; 3] = ["hello", "news", "unprompted"];
+pub const ACTS: [&str; 4] = ["hello", "news", "reminder", "unprompted"];
 
 /// A skill asks "may the lamp do this now?".
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -21,7 +21,9 @@ pub struct SkillAsk {
     /// digits and hyphens.
     pub skill: String,
     /// What it would do ([`ACTS`]): `hello`, greet someone who has come
-    /// back; `news`, tell news of work handed over; `unprompted`, anything
+    /// back; `news`, tell news of work handed over; `reminder`, say a
+    /// reminder the person set, now due (added 2026-10-16: the person asked
+    /// for it, so only someone talking holds it); `unprompted`, anything
     /// else the lamp would start itself.
     pub act: String,
     /// The memory's id of the person it is for, if known (`p-` and 16 hex
@@ -64,7 +66,9 @@ impl SkillAsk {
             ));
         }
         if !ACTS.contains(&self.act.as_str()) {
-            return Err(Invalid("an act is hello, news or unprompted".into()));
+            return Err(Invalid(
+                "an act is hello, news, reminder or unprompted".into(),
+            ));
         }
         if let Some(person) = &self.person
             && !(person.len() == 18
@@ -123,6 +127,12 @@ mod tests {
             serde_json::to_string(&news).unwrap(),
             r#"{"ask":1792115940123456,"skill":"task-news","act":"news"}"#
         );
+        let reminder = SkillAsk {
+            act: "reminder".into(),
+            skill: "reminders".into(),
+            ..news.clone()
+        };
+        assert_eq!(reminder.check(), Ok(()));
         for wrong in [
             SkillAsk { ask: 0, ..hello() },
             SkillAsk {

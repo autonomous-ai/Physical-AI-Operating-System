@@ -615,3 +615,31 @@ Ordinary fake commands and the direct controlled library API retain their
 existing argument reporting. The original serve suffix and child-versus-spawn
 argv assertion remain unchanged. This implementation needs fresh paired and
 native qualification before a speedup can be claimed.
+
+## Pilot capture stalls on the stepped fixture (#893)
+
+Six `coordinator::tests::pilot_faults` capture-stall cases now select the
+existing `Fixture::Stepped`, as `second_route` did (lampOS#890, #944):
+`a_half_second_capture_stall_is_a_gap_and_the_voice_goes_on`,
+`a_microphone_closed_by_a_stall_reopens_under_a_new_epoch_and_the_voice_goes_on`,
+`a_stall_inside_a_question_abandons_it_and_the_voice_goes_on`,
+`a_reopen_while_the_lamp_answers_cuts_the_reply_and_the_voice_goes_on`,
+`a_stall_while_the_lamp_answers_cuts_the_reply_and_the_voice_goes_on` and
+`a_short_xrun_reopen_inside_a_question_abandons_it_and_the_voice_goes_on`.
+On `Fixture::Threaded` their privacy peer ran on the host clock, and a loaded
+host let it fall behind the 50 ms freshness check. Their assertions, stall
+lengths and every production bound are unchanged.
+
+The stepped capture peer sends the blocks a stall held back in one step.
+When that burst fills the 64 KiB data socket, the block that did not fit is
+no longer lost: it stays due and goes next step with its own acquisition
+time, as the real capture worker never skips a sequence. A lost block left a
+sequence hole that the coordinator rightly refuses as `invalid original
+microphone read interval`. With the socket buffer cut to 40 KiB,
+`a_stall_while_the_lamp_answers_cuts_the_reply_and_the_voice_goes_on` failed
+that way before the change and passed after it.
+
+Still separate: the cross-cycle
+`rapid_mute_and_reopen_never_overlaps_workers_or_carries_speech_across` stays
+Threaded, `provider_terminal`'s same cause is #975 (PR #982), and the
+original-123 realtime-group denominator above stays frozen.

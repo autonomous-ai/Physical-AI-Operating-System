@@ -930,6 +930,12 @@ impl Peers {
                         },
                     });
                     if sent.is_err() {
+                        // A full socket (the catch-up after a stall can fill
+                        // it) loses no block: the device still holds it, and
+                        // it goes next step with its own acquisition time, so
+                        // the sequence the coordinator sees has no hole.
+                        self.capture.as_mut().unwrap().next_sequence = frame;
+                        self.seen.lock().unwrap().capture_frames = frame - 1;
                         break;
                     }
                 }
@@ -1855,7 +1861,7 @@ fn a_half_second_capture_stall_is_a_gap_and_the_voice_goes_on() {
     let _one = one_session();
     let run = run(Script {
         speech: 80..140,
-        ..Script::question(Fixture::Threaded, Answer::Complete(12))
+        ..Script::question(Fixture::Stepped, Answer::Complete(12))
     }
     .then(When::Block(30), Act::CaptureStall));
     run.assert_invariants();
@@ -1881,7 +1887,7 @@ fn a_microphone_closed_by_a_stall_reopens_under_a_new_epoch_and_the_voice_goes_o
     let _one = one_session();
     let run = run(Script {
         speech: 80..140,
-        ..Script::question(Fixture::Threaded, Answer::Complete(12))
+        ..Script::question(Fixture::Stepped, Answer::Complete(12))
     }
     .then(When::Block(30), Act::CaptureReopen));
     run.assert_invariants();
@@ -1916,7 +1922,7 @@ fn a_stall_inside_a_question_abandons_it_and_the_voice_goes_on() {
             (When::Block(60), Act::CaptureReopen),
             (When::Block(250), Act::Mute),
         ],
-        ..Script::question(Fixture::Threaded, Answer::Complete(12))
+        ..Script::question(Fixture::Stepped, Answer::Complete(12))
     });
     run.assert_invariants();
     assert!(is_mute(&run.result), "{:?}", run.result);
@@ -1940,7 +1946,7 @@ fn a_reopen_while_the_lamp_answers_cuts_the_reply_and_the_voice_goes_on() {
             (When::Accepted(3), Act::CaptureReopen),
             (When::Block(400), Act::Mute),
         ],
-        ..Script::question(Fixture::Threaded, Answer::Hold(40))
+        ..Script::question(Fixture::Stepped, Answer::Hold(40))
     });
     run.assert_invariants();
     assert!(is_mute(&run.result), "{:?}", run.result);
@@ -1959,7 +1965,7 @@ fn a_stall_while_the_lamp_answers_cuts_the_reply_and_the_voice_goes_on() {
             (When::Accepted(3), Act::CaptureStall),
             (When::Block(400), Act::Mute),
         ],
-        ..Script::question(Fixture::Threaded, Answer::Hold(40))
+        ..Script::question(Fixture::Stepped, Answer::Hold(40))
     });
     run.assert_invariants();
     assert!(is_mute(&run.result), "{:?}", run.result);
@@ -1979,7 +1985,7 @@ fn a_short_xrun_reopen_inside_a_question_abandons_it_and_the_voice_goes_on() {
             (When::Block(60), Act::CaptureXRun),
             (When::Block(250), Act::Mute),
         ],
-        ..Script::question(Fixture::Threaded, Answer::Complete(12))
+        ..Script::question(Fixture::Stepped, Answer::Complete(12))
     });
     run.assert_invariants();
     assert!(is_mute(&run.result), "{:?}", run.result);

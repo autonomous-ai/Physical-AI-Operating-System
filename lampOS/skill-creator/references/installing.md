@@ -37,18 +37,21 @@ when a file other than a test changed; cooldowns are kept across a reload.
 Until the Policy's gate is built (#939), a lamp runs `lamp-skills` with
 `LAMP_SKILLS_ASK=skip` or nothing a skill starts is done.
 
-Then watch it load: the runtime says so on `skills/events`.
+Then check it loaded: the runtime writes what it loaded, and why it refused
+a skill (a key it does not know, a topic that does not exist), to its journal.
 
 ```sh
-ssh orangepi@lamp-xxxx.local 'lamp-bus tap skills/events --seconds 5'
+ssh orangepi@lamp-xxxx.local 'journalctl -u lamp-skills --since "1 min ago" --no-pager'
 ```
 
-A skill the runtime refuses (a field it does not know, a topic that does not
-exist) is said on `skills/events` with why; fix it there, not by guessing.
+Fix a refusal there, not by guessing. `skills/events` says what a skill did
+(triggered, asked, answered, done, with why), not whether it loaded.
 
 ## Turn it off, or remove it
 
-- The owner can say "Lamp, stop doing ..."; the runtime turns it off.
+- Turning a skill off by voice ("Lamp, stop doing ...") is not built yet: the
+  runtime has no off switch for one skill, so tell the owner to ask for it
+  to be removed.
 - To remove it: `sudo rm -r /var/lib/lampOS/skills/<name>`.
 
 ## Never

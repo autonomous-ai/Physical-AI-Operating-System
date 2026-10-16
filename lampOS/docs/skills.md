@@ -378,6 +378,7 @@ library as skills.
 | Task news | `tasks/status`: done or failed | Done: a small glad move and says so; failed: slumps, the ring goes red, says so | Task news in the voice (`task_news.rs`) |
 | Stretch break | Someone at the desk for 50 minutes | Stretches itself as an invitation, never a lecture (creature.md) | New |
 | Stuffy air | CO2 high for 10 minutes | Droops a little and dims a shade; mentions it only when spoken to (creature.md) | New |
+| Desk tutor (the owner, 09:45) | "Lamp, check my work" or "I'm stuck" | Tips its head over the page and brightens it, takes one full-resolution still, tutors by voice (a hint or a question, never the answer), a small nod where a step is right, a curious tilt where it is wrong, then faces the person again | New: needs a look-at-the-desk move (#940) and a full-resolution look step (#938); written by ten with the skill creator (#941) |
 
 The first three prove that built-in behaviour moves onto the framework; the
 last two that a new skill needs no new code.

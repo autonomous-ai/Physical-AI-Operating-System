@@ -510,38 +510,72 @@ async fn a_timer_in_a_turn_after_a_line_the_lamp_left_unanswered_is_held() {
     rig.stop().await;
 }
 
-/// #1040: on lamp-4ace on 2026-10-16 at 11:20 "Set a timer for 1 minute",
-/// said to the lamp in a conversation with it, was held. A `stay_quiet`
-/// whose `follows_lamp` is 0.6 or more does not hold what the schedule
-/// sets: the timer is set. The volume in such a turn is still held, and so
-/// is a cancel, which is silent and cannot be undone (Fourth on #1054).
+/// Someone says something and the lamp answers it aloud, and the turn ends:
+/// the lamp has just spoken.
+async fn the_lamp_answers(rig: &mut LiveRig, dial: &mut Dial) {
+    let first = rig.speak(dial, false, true).await;
+    dial.service.send(provider_audio(9, 480)).await;
+    dial.service.send(idle_complete()).await;
+    loop {
+        if let ProviderOutput::TurnComplete { request, .. } = rig.output().await
+            && request == first
+        {
+            break;
+        }
+    }
+    rig.owner
+        .complete_turn(real_time(), rig.snapshot.owner().unwrap())
+        .unwrap();
+    rig.publish();
+}
+
+/// #1040: in conversation with the lamp, a `stay_quiet` whose
+/// `follows_lamp` is 0.6 or more does not hold what the schedule sets: the
+/// timer is set. (The 11:20 turn on lamp-4ace that #1040 began with scored
+/// 0.35, and stays held at 0.6: the reviewer on #1054.) Without a line of
+/// the lamp's lately, the same turn follows nothing of the lamp's and the
+/// timer is held (the reviewer on #1054). The volume in such a turn is
+/// still held, and so is a cancel, which is silent and cannot be undone
+/// (Fourth on #1054).
 #[tokio::test]
 async fn a_timer_in_a_turn_that_follows_the_lamp_is_set_though_the_policy_said_stay_quiet() {
-    let mut desk = Desk::new("follows");
-    let mut rig = LiveRig::start_with(quick_policy(), desk.options(true));
-    let mut dial = rig.ready().await;
-    let request = rig.speak(&mut dial, false, true).await;
-    desk.decide_with(
-        Some(request),
-        "stay_quiet",
-        json!({"calls_lamp": 0.05, "follows_lamp": 0.72}),
-    );
-    dial.service
-        .send(json!({"toolCall":{"functionCalls":[
-            {"id":"t1","name":"set_timer","args":{"minutes":1}}
-        ]}}))
-        .await;
-    let told = rig.service_message(&mut dial).await;
-    assert_ne!(
-        response(&told),
-        json!({"done": false, "next": crate::policy_holds::HELD})
-    );
-    assert!(desk.asked.try_recv().is_ok(), "set_timer was not run");
-    rig.stop().await;
+    for spoke in [true, false] {
+        let mut desk = Desk::new(if spoke { "follows" } else { "follows-silent" });
+        let mut rig = LiveRig::start_with(quick_policy(), desk.options(true));
+        let mut dial = rig.ready().await;
+        if spoke {
+            the_lamp_answers(&mut rig, &mut dial).await;
+        }
+        let request = rig.speak(&mut dial, false, true).await;
+        desk.decide_with(
+            Some(request),
+            "stay_quiet",
+            json!({"calls_lamp": 0.05, "follows_lamp": 0.72}),
+        );
+        dial.service
+            .send(json!({"toolCall":{"functionCalls":[
+                {"id":"t1","name":"set_timer","args":{"minutes":1}}
+            ]}}))
+            .await;
+        let told = rig.service_message(&mut dial).await;
+        assert_eq!(
+            response(&told) == json!({"done": false, "next": crate::policy_holds::HELD}),
+            !spoke,
+            "the lamp spoke lately: {spoke}"
+        );
+        assert_eq!(
+            desk.asked.try_recv().is_ok(),
+            spoke,
+            "set_timer run: {spoke}"
+        );
+        rig.stop().await;
+    }
 
     let mut desk = Desk::new("follows-volume");
     let mut rig = LiveRig::start_with(quick_policy(), desk.options(true));
     let mut dial = rig.ready().await;
+    // In conversation, so that it is held for what it is.
+    the_lamp_answers(&mut rig, &mut dial).await;
     let request = rig.speak(&mut dial, false, true).await;
     desk.decide_with(
         Some(request),
@@ -560,6 +594,8 @@ async fn a_timer_in_a_turn_that_follows_the_lamp_is_set_though_the_policy_said_s
     let mut desk = Desk::new("follows-cancel");
     let mut rig = LiveRig::start_with(quick_policy(), desk.options(true));
     let mut dial = rig.ready().await;
+    // In conversation, so that it is held for what it is.
+    the_lamp_answers(&mut rig, &mut dial).await;
     let request = rig.speak(&mut dial, false, true).await;
     desk.decide_with(
         Some(request),

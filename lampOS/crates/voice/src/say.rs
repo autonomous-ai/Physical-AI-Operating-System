@@ -26,7 +26,7 @@ use serde::Deserialize;
 use serde_json::json;
 use std::{
     fs,
-    io::{self, BufRead, BufReader, Read, Write},
+    io::{self, Read, Write},
     os::unix::{
         fs::{DirBuilderExt, PermissionsExt},
         net::{UnixListener, UnixStream},
@@ -38,7 +38,7 @@ use std::{
         mpsc,
     },
     thread,
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 /// Where the coordinator reads the switch. `on` only.
@@ -68,7 +68,10 @@ pub const URGENT_FROM: u8 = 8;
 pub const QUIET_US: u64 = crate::task_news::QUIET_US;
 /// Quiet since the last turn before an urgent say.
 pub const URGENT_QUIET_US: u64 = 1_000_000;
-/// How long a client has to send its line.
+/// How long a client has to send its whole line, from when it was taken:
+/// one deadline for the line, not for each read, so that a client sending
+/// a little at a time cannot keep a place among [`MOST_WAITING`] (the
+/// reviewer on #954).
 const READ_WITHIN: Duration = Duration::from_secs(1);
 /// The most a request line may be.
 const MOST_LINE_BYTES: u64 = 4_096;
@@ -509,20 +512,10 @@ fn accept(listener: &UnixListener, ask: &mpsc::Sender<Asked>, open: &Arc<AtomicU
 
 /// One client: its line, checked, handed to the voice, and the answer
 /// written back when it comes.
-fn serve_client(stream: UnixStream, ask: &mpsc::Sender<Asked>) {
-    let _ = stream.set_read_timeout(Some(READ_WITHIN));
-    let mut line = String::new();
-    let Ok(reader) = stream.try_clone() else {
-        return;
-    };
-    let read = BufReader::new(reader)
-        .take(MOST_LINE_BYTES)
-        .read_line(&mut line);
-    let mut stream = stream;
-    let outcome = match read {
-        Ok(0) | Err(_) => Outcome::Refused("no request line in time".into()),
-        Ok(_) if !line.ends_with('\n') => Outcome::Refused("one line, ended by a newline".into()),
-        Ok(_) => match parse(&line) {
+fn serve_client(mut stream: UnixStream, ask: &mpsc::Sender<Asked>) {
+    let outcome = match read_line_within(&stream, READ_WITHIN) {
+        Err(why) => Outcome::Refused(why.into()),
+        Ok(line) => match parse(&line) {
             Err(why) => Outcome::Refused(why),
             Ok(request) => {
                 let (answer, answered) = mpsc::channel();
@@ -548,9 +541,41 @@ fn serve_client(stream: UnixStream, ask: &mpsc::Sender<Asked>) {
     let _ = writeln!(stream, "{}", outcome.line());
 }
 
+/// The client's one line, read until its newline within `within` of now,
+/// at most [`MOST_LINE_BYTES`]; or why not.
+fn read_line_within(stream: &UnixStream, within: Duration) -> Result<String, &'static str> {
+    let started = Instant::now();
+    let mut line = Vec::new();
+    let mut piece = [0u8; 512];
+    loop {
+        let left = within
+            .checked_sub(started.elapsed())
+            .filter(|left| !left.is_zero())
+            .ok_or("no request line in time")?;
+        stream
+            .set_read_timeout(Some(left))
+            .map_err(|_| "no request line in time")?;
+        let read = match (&*stream).read(&mut piece) {
+            Ok(0) => return Err("no request line in time"),
+            Ok(read) => read,
+            Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,
+            Err(_) => return Err("no request line in time"),
+        };
+        line.extend_from_slice(&piece[..read]);
+        if let Some(end) = line.iter().position(|&byte| byte == b'\n') {
+            line.truncate(end + 1);
+            return String::from_utf8(line).map_err(|_| "not a say request");
+        }
+        if line.len() as u64 > MOST_LINE_BYTES {
+            return Err("one line, ended by a newline, at most 4096 bytes");
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::BufReader;
 
     fn asked(skill: &str, priority: u8, expires_in_ms: u64) -> (Asked, mpsc::Receiver<Answer>) {
         let (answer, answered) = mpsc::channel();
@@ -732,6 +757,72 @@ mod tests {
         let mut answer = String::new();
         BufReader::new(stream).read_to_string(&mut answer).unwrap();
         answer
+    }
+
+    /// The reviewer on #954: sixteen clients each sending a little of a line
+    /// every 300 ms never finish it. Each is refused a second after it was
+    /// taken, its place given back, and an ask that comes after them is
+    /// taken and answered.
+    #[test]
+    fn a_line_sent_slowly_is_refused_after_a_second_and_its_place_given_back() {
+        let dir = socket_dir("slow");
+        let path = dir.join("say.sock");
+        let mut says = Says::serve(&path, None).unwrap();
+        let started = Instant::now();
+        let slow: Vec<_> = (0..MOST_WAITING)
+            .map(|_| {
+                let path = path.clone();
+                thread::spawn(move || {
+                    let mut stream = UnixStream::connect(&path).unwrap();
+                    for _ in 0..10 {
+                        if stream.write_all(b" ").is_err() {
+                            break;
+                        }
+                        thread::sleep(Duration::from_millis(300));
+                    }
+                    let mut answer = String::new();
+                    let _ = BufReader::new(stream).read_to_string(&mut answer);
+                    (answer, started.elapsed())
+                })
+            })
+            .collect();
+        for client in slow {
+            let (answer, after) = client.join().unwrap();
+            assert_eq!(
+                answer,
+                format!(
+                    "{}\n",
+                    Outcome::Refused("no request line in time".into()).line()
+                )
+            );
+            // A second after it was taken, give or take one slow send.
+            assert!(after < Duration::from_millis(1_800), "{after:?}");
+        }
+        let prompt = {
+            let path = path.clone();
+            thread::spawn(move || {
+                exchange(
+                    &path,
+                    "{\"skill\":\"reminders\",\"note\":\"n\",\"expires_in_ms\":60000}\n",
+                )
+            })
+        };
+        let mut taken = None;
+        for _ in 0..200 {
+            says.poll(0);
+            if let Some(one) = says.take() {
+                taken = Some(one);
+                break;
+            }
+            thread::sleep(Duration::from_millis(5));
+        }
+        taken
+            .expect("the prompt ask was taken")
+            .2
+            .answer(Outcome::Spoken);
+        assert_eq!(prompt.join().unwrap(), "{\"outcome\":\"spoken\"}\n");
+        drop(says);
+        fs::remove_dir_all(&dir).unwrap();
     }
 
     /// Through the socket: a request is handed to the voice and its answer

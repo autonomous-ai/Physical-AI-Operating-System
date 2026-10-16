@@ -245,8 +245,10 @@ open until then:
   asker decides.
 - `{"outcome":"expired"}`.
 - `{"outcome":"refused","why":"…"}`: a request that is not one (the reason
-  names the field and never repeats what was asked), no line within 1 s, 16
-  already waiting, or the voice going.
+  names the field and never repeats what was asked), no whole line within
+  1 s of being taken (one deadline for the line, so that a client sending a
+  little at a time cannot keep its place), 16 already waiting, or the voice
+  going.
 
 **When it is said.** After a due reminder and before the hello and the
 news, through a reminder's gates: no reply owed or queued, the speaker
@@ -271,8 +273,10 @@ oldest, the urgent needing a second's quiet and the rest fifteen; those
 not begun in time told `expired`; a ticket dropped unanswered told
 `dropped`; the answers one line each; the group found by its name; and
 through a real socket, an ask handed to the voice and its answer written
-back, begun first and spoken after, a bad one refused at once, the socket
-the voice user's alone, a
+back, begun first and spoken after, a bad one refused at once, sixteen
+sending a little every 300 ms refused a second after each was taken and
+their places given back to a prompt ask, the socket the voice user's
+alone, a
 second voice unable to take a socket still answered, the socket gone with
 the voice. `coordinator::tests::say`: through the real written turn and
 speaker control, two generations accepted and retired and the provider's

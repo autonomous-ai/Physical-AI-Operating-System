@@ -610,6 +610,19 @@ desk, close, it is answered. Played scenes cannot show it: the office's
 loudspeaker is a metre away and reaches the room microphone at about 8 to
 16 dB. Not yet run on the lamp.
 
+Its rises are in the journal, so the bars can be set from the lamp's own
+requests (#829, the first builder at 15:23 and 17:09; on lamp-4ace on 16
+October request 169 passed the near rule from colleagues talking about eye
+drops at the next desk, and nothing logged its rise). With `busy-near`,
+each verdict's line ends with the rise the rule judged at the request's
+first output: "its answer is held back: … (the room microphone N dB over
+its quiet)", and "its answer is played: its name was heard close to the
+lamp (the room microphone N dB over its quiet)". So the true calls held
+are counted beside the answers let out. The name note's line "the lamp's
+name was heard in a busy room and nobody is turned to the lamp" gives the
+rise over the request's sound so far, when the name is heard, or "no rise
+of the room microphone read". Nothing the lamp does changes.
+
 What each costs. 5: in a busy room a question put to the lamp without
 its name in the service's text and without a face turned to it is not
 answered, nor one from someone whose face the camera cannot see or with the

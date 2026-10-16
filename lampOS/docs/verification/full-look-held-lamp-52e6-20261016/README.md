@@ -43,6 +43,6 @@ With the head turning, ask → still is about 1 s, because the settle wait (366�
 
 **Not shown:** question → first word, per request.
 
-**Privacy.** No picture left the lamp. `/run/lampos-eyes/look.jpg` was deleted at the end, and no copy was made. The answers above are the lamp's own words; the person is not named.
+**Privacy.** Each still was sent to the model (Gemini Live, through the provider in `provider.json`) to answer that question, as the full look is built to do. For the test, no copy was made anywhere: no still was viewed, kept or copied off the lamp, and `/run/lampos-eyes/look.jpg` was deleted at the end of each run. The answers above are the lamp's own words; the person is not named.
 
 **Restored** at 08:01, and again at 08:26 after the second run (the fifth's body drop-in left as it was). The drop-ins, the provider copy and the character copy were removed, and voice and eyes were restarted on their recorded units. `lamp-body` was not touched.

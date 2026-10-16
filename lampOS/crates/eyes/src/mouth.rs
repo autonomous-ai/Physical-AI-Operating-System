@@ -29,11 +29,16 @@ use zune_jpeg::{
 
 /// Where the eyes read whether to look at mouths. `on` only.
 pub const ENVIRONMENT: &str = "LAMP_EYES_MOUTH";
-/// The score looks this far back: about five frames at ten a second, short
-/// enough for a two-word "Stop" (about 0.4 s) to fill most of it.
-pub const WINDOW_US: u64 = 500_000;
-/// Fewer frames than this in the window say nothing.
-pub const LEAST_FRAMES: usize = 3;
+/// The score looks this far back from its newest frame. On lamp-52e6 the
+/// camera gives about 7 frames a second, so this holds about 8 changes:
+/// enough that one frame does not make the score. 500 ms, counted back from
+/// when the score was said, held at most 3 there: the newest frame is about
+/// 190 ms old by then (the camera's queue and a look), and 3 changes from 3
+/// frames came out 0 for most speech (2026-10-15, a person at a metre).
+pub const WINDOW_US: u64 = 1_200_000;
+/// Fewer frames than this in the window say nothing: over half of what the
+/// window holds, so a face only just found waits about 0.7 s.
+pub const LEAST_FRAMES: usize = 5;
 /// This many grey levels of change in the lower face, over the eyes' own,
 /// is a mouth moving fully. Not measured: a first guess, for the
 /// recordings with people to set.
@@ -247,21 +252,22 @@ impl Mouths {
     }
 
     /// One score for each face of the last look, in its order: none for a
-    /// face whose mouth has not been seen in enough frames of late.
+    /// face whose mouth has not been seen in enough frames of late. The
+    /// window is counted back from the newest frame (`frame` keeps only
+    /// those), not from `now_us`: a frame is always some way behind.
     pub fn scores(&self, now_us: u64) -> Vec<Option<Score>> {
         self.tracks
             .iter()
             .map(|track| {
-                let recent: Vec<_> = track
-                    .moved
-                    .iter()
-                    .filter(|(at, _)| now_us.saturating_sub(*at) <= WINDOW_US)
-                    .collect();
-                (recent.len() >= LEAST_FRAMES).then(|| Score {
-                    moving: recent.iter().map(|(_, moved)| moved).sum::<f32>()
-                        / recent.len() as f32,
-                    frames: recent.len(),
-                    taken_us: recent.iter().map(|(at, _)| *at).max().unwrap_or(0),
+                let &(newest, _) = track.moved.back()?;
+                let frames = track.moved.len();
+                (frames >= LEAST_FRAMES && now_us.saturating_sub(newest) <= WINDOW_US).then(|| {
+                    Score {
+                        moving: track.moved.iter().map(|(_, moved)| moved).sum::<f32>()
+                            / frames as f32,
+                        frames,
+                        taken_us: newest,
+                    }
                 })
             })
             .collect()
@@ -373,27 +379,52 @@ mod tests {
         assert!(mouths.scores(0).is_empty());
         mouths.faces(&[face(100.0)]);
         assert!(mouths.any());
-        mouths.frame(&picture(0, 0), 0);
-        mouths.frame(&picture(1, 0), 100 * MS);
-        mouths.frame(&picture(0, 0), 200 * MS);
-        assert_eq!(mouths.scores(200 * MS), vec![None]);
+        for frame in 0..5u64 {
+            mouths.frame(&picture(frame as usize % 2, 0), frame * 100 * MS);
+        }
+        // Five frames are four changes: one short.
+        assert_eq!(mouths.scores(400 * MS), vec![None]);
         // The next look finds the same face a pixel or two off: it is read
         // where it was, and no frame is lost.
         mouths.faces(&[face(102.0)]);
-        mouths.frame(&picture(1, 0), 300 * MS);
-        mouths.frame(&picture(0, 0), 400 * MS);
-        assert_eq!(mouths.scores(400 * MS)[0].unwrap().frames, 4);
+        mouths.frame(&picture(1, 0), 500 * MS);
+        mouths.frame(&picture(0, 0), 600 * MS);
+        assert_eq!(mouths.scores(600 * MS)[0].unwrap().frames, 6);
         // Moved further, it keeps its frames and is read afresh.
         mouths.faces(&[face(130.0)]);
-        mouths.frame(&picture(1, 0), 450 * MS);
-        assert_eq!(mouths.scores(450 * MS)[0].unwrap().frames, 4);
-        // A second of nothing: the frames are too old.
-        assert_eq!(mouths.scores(400 * MS + WINDOW_US + 1), vec![None]);
+        mouths.frame(&picture(1, 0), 650 * MS);
+        assert_eq!(mouths.scores(650 * MS)[0].unwrap().frames, 6);
+        // Nothing read for longer than the window: the frames are too old.
+        assert_eq!(mouths.scores(600 * MS + WINDOW_US + 1), vec![None]);
         // A face elsewhere starts afresh.
         mouths.faces(&[face(220.0)]);
-        assert_eq!(mouths.scores(400 * MS), vec![None]);
+        assert_eq!(mouths.scores(600 * MS), vec![None]);
         mouths.faces(&[]);
         assert!(!mouths.any());
+    }
+
+    #[test]
+    fn at_the_lamps_rates_a_face_in_view_always_has_a_score_of_about_eight_frames() {
+        // As measured on lamp-52e6: a frame every 143 ms, a look every
+        // 250 ms, said about 190 ms after the newest frame was taken.
+        let mut mouths = Mouths::default();
+        let mut said = Vec::new();
+        let mut look_at = 0;
+        for frame in 0..60u64 {
+            let taken = frame * 143 * MS;
+            if look_at <= taken {
+                mouths.faces(&[face(100.0)]);
+                said.push(mouths.scores(taken + 190 * MS)[0]);
+                look_at += 250 * MS;
+            }
+            mouths.frame(&picture(frame as usize % 2, 0), taken);
+        }
+        // After the first second, every look has a score, of 7 to 9 frames.
+        for score in &said[5..] {
+            let score = score.unwrap();
+            assert!((7..=9).contains(&score.frames), "{score:?}");
+            assert!(score.moving > 0.8, "{score:?}");
+        }
     }
 
     #[test]
@@ -421,14 +452,14 @@ mod tests {
             mouths: vec![Mouth {
                 id: "f3".into(),
                 moving: 0.5,
-                window_ms: 500,
-                frames: 5,
+                window_ms: 1200,
+                frames: 8,
                 age_ms: 40,
             }],
         };
         assert_eq!(
             serde_json::to_string(&said).unwrap(),
-            r#"{"mouths":[{"id":"f3","moving":0.5,"window_ms":500,"frames":5,"age_ms":40}]}"#
+            r#"{"mouths":[{"id":"f3","moving":0.5,"window_ms":1200,"frames":8,"age_ms":40}]}"#
         );
     }
 }

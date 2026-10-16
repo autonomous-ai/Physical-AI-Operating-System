@@ -481,7 +481,7 @@ mod tests {
             [Mouth {
                 id: "f1".into(),
                 moving: 0.9,
-                window_ms: 500,
+                window_ms: (mouth::WINDOW_US / 1_000) as u32,
                 frames: 5,
                 age_ms: 4
             }]

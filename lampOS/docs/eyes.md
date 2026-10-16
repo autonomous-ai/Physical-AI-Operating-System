@@ -351,26 +351,36 @@ changed since the frame before, less how much the eyes changed, is the
 mouth's own movement: a head that turns, or a light that flickers, moves
 both alike. Six grey levels of that is "fully moving" (`FULL`, a guess
 until the recordings with people set it). The score is the mean over the
-last 0.5 s, and needs three frames in it. Between two looks a face is
+1.2 s before the newest frame read, and needs five frames in it. Between two looks a face is
 read where the last look found it; a face that moved is read afresh.
 
 ```json
-{"mouths":[{"id":"f3","moving":0.62,"window_ms":500,"frames":4,"age_ms":120}]}
+{"mouths":[{"id":"f3","moving":0.62,"window_ms":1200,"frames":8,"age_ms":190}]}
 ```
 
 `id` is the face's passing id on `humans/faces/tracked`; `age_ms` is from
 the newest frame's taking (the camera driver's clock) to the message. A
-face not read in three frames of late is left out. Without the switch no
+face not read in five frames of late is left out. Without the switch no
 frame is read for mouths, the topic is not declared, and every message on
 `humans/faces/tracked` is byte for byte what it was (a test).
 
 **What it costs, lamp-52e6, 2026-10-14.** 0.6 to 1.1 ms a frame (a grey
 JPEG decode and 384 points) against 61 to 89 ms a look for the detector;
 nothing at all with nobody in view. The camera gives about 7 frames a
-second at 320 by 240, so a 0.5 s window holds three or four. The newest
-frame read is 116 to 135 ms old when it is said (mostly the camera's own
-queue), so a two-word "Stop" (about 0.4 s) shows within about 0.6 s of its
-start. The process: 22 MB, 15% of one core, as before; the board at 51 to
+second at 320 by 240, so a 1.2 s window holds about eight. The newest
+frame read is about 190 ms old when it is said (the camera's own queue and
+the look), which is why the window counts back from that frame, not from
+when it is said. A two-word "Stop" (about 0.4 s) fills a third of it:
+enough to lift the score, not to fill it.
+
+**First run with a person, lamp-52e6, 2026-10-15 (0.5 s counted back from
+the message).** The detector found the face in 39 of 40 looks, but 70 to
+80% of messages had no mouth, and every one that had was 3 frames: the
+window, less the newest frame's 190 ms, held 300 ms of frames. Three
+frames came out 0 most of the time, so speech did not stand out (talking
+0.080 against quiet 0.046; over the lamp 0.000; chewing's quiet 0.200).
+Hence the 1.2 s window from the newest frame; the recordings are to be
+taken again with it. The process: 22 MB, 15% of one core, as before; the board at 51 to
 52 degrees.
 
 **What it cannot do.** Tell talking from chewing, laughing or a smile; see

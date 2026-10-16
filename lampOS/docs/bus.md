@@ -348,7 +348,7 @@ of each, and its kind and period as a declaration, are in
 | `camera/image` | Where the newest picture is, and when it was taken. The picture itself stays in a file | latched | Eyes | 2 to 4 a second |
 | `body/joint_states` | Each joint: where it is, how fast, how loaded (ROS's `JointState`) | latched | Body | 10 to 20 a second |
 | `humans/faces/tracked` | The faces in view: a passing id, where, and whether it is turned to the lamp | latched | Eyes | With each look |
-| `humans/faces/mouths` | How much each face's mouth moves, 0 to 1 over 0.5 s, under its id (`LAMP_EYES_MOUTH=on` only) | latched | Eyes | With each look |
+| `humans/faces/mouths` | How much each face's mouth moves, 0 to 1 over 1.2 s, under its id (`LAMP_EYES_MOUTH=on` only) | latched | Eyes | With each look |
 | `voice/heard`, `voice/said` | What was heard and what was said, as text | stream | Voice | With each thing said |
 | `voice/state` | Resting, listening, thinking or speaking | latched | Voice | When it changes, and once a second |
 | `voice/link` | Whether the provider can be reached | latched | Voice | When it changes, and once a second |

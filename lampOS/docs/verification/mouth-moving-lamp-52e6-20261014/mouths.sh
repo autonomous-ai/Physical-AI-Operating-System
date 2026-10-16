@@ -98,7 +98,7 @@ for marks in "$OUT"/*.marks; do
             BEGIN { while ((getline line < marks) > 0) { split(line, f, " "); at[++n] = f[1]; label[n] = f[2] } }
             {
                 t = $1 / 1e6; l = ""
-                for (i = 1; i <= n; i++) if (t >= at[i] + 0.5) l = label[i]   # half a second to begin
+                for (i = 1; i <= n; i++) if (t >= at[i] + 1.2) l = label[i]   # the 1.2 s window to fill
                 if (l == "" || l == "end") next
                 rest = $0
                 while (match(rest, /"id":"[a-z0-9]*","moving":[0-9.e-]*/)) {

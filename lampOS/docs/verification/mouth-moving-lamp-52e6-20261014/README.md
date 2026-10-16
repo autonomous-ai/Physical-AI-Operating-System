@@ -53,8 +53,8 @@ Wikimedia Commons) was played full screen on the Mac the lamp faces, muted:
 15 s frozen, then 45 s of speech. Played as it is, the face was 6% of the
 lamp's picture and was found in 44 of 126 looks; cropped to the face, 16 to
 18%, and found in 20 of 178 looks, with confidence 0.63 to 0.79 against the
-0.6 floor and a new id at most looks. A mouth needs three frames under one
-face: there were 10 scores in the first run (mean 0.31, all while it spoke)
+0.6 floor and a new id at most looks. A mouth needed three frames under one
+face (the first build, 0.5 s): there were 10 scores in the first run (mean 0.31, all while it spoke)
 and 1 in the second. That says the path works end to end on the lamp, not
 whether the score parts speech from stillness: a face on a screen at this
 distance is found too seldom. It is left for a person.
@@ -81,6 +81,34 @@ The person sits about a metre in front of the lamp and reads the prompts on
 the Mac. The eyes run with the mouths only for the run; the unit is restored
 on exit. The marks are the Mac's clock put on the lamp's with one offset
 taken over ssh, good to about a tenth of a second; a score counts for a
-prompt from half a second after it was shown. What to read: SPEAK well
+prompt from 1.2 s after it was shown (the window; half a second in the
+first run). What to read: SPEAK well
 above QUIET in 1 and 2, and silent, CHEW and SMILE near QUIET. `FULL` (six
 grey levels) and the window are set from it.
+
+## First run with a person, 2026-10-15: the window held too little
+
+The talking, over, silent and chewing scenes were run (`~/mouths-run` on
+the Mac; 400 messages, one each 250 ms). The face was found in about 39 of
+40 looks, yet:
+
+| Scene | Messages with a mouth | Mean score, by prompt (scores) |
+|---|---|---|
+| talking | 32 of 122 | SPEAK 0.080 (14), QUIET 0.046 (17) |
+| over | 21 of 111 | SPEAK 0.000 (7), QUIET 0.024 (13) |
+| silent | 23 of 72 | QUIET 0.006 (19) |
+| chewing | 23 of 95 | CHEW 0.043 (4), SMILE 0.044 (4), QUIET 0.200 (10) |
+
+Every mouth said was `"frames":3, "window_ms":500`, with `age_ms` 167 to
+215 (median 193). The window was counted back from when the score was
+said, and the newest frame was already about 190 ms old then, so only
+about 300 ms of frames (two or three changes at 7 a second) were in it;
+three is the least that says anything, and three changes mostly gave 0.
+Speech did not stand out from stillness.
+
+The fix (`mouth.rs`): the window counts back from the newest frame read,
+and is 1.2 s (about eight changes at 7 frames a second), needing five.
+A test feeds the measured rates (a frame each 143 ms, a look each 250 ms,
+said 190 ms after the newest frame) and checks every look after the first
+second has a score of 7 to 9 frames. The recordings are to be taken again
+with it; `FULL` is not changed until then.

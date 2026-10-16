@@ -731,8 +731,7 @@ fn sha(bytes: &[u8]) -> String {
 
 /// #811, from lamp-06c1: no build carries a model, so install fetches each
 /// missing one and checks it by size and SHA-256 before it is placed, one
-/// out of a pinned archive too, and puts the name part's own model there
-/// from the repository. One that cannot be had, or does not match, is said
+/// out of a pinned archive too. One that cannot be had, or does not match, is said
 /// and leaves nothing; one already there and not the pinned one is kept.
 #[test]
 fn missing_models_are_fetched_checked_and_placed_and_a_lamps_own_is_kept() {
@@ -810,10 +809,6 @@ fn missing_models_are_fetched_checked_and_placed_and_a_lamps_own_is_kept() {
         fs::read_link(lamp.on("/opt/lampOS/voice/current")).is_ok(),
         "beside the binary"
     );
-    assert_eq!(
-        fs::read(lamp.on(install::NAME_MODEL_PATH)).unwrap(),
-        install::NAME_MODEL
-    );
     for missing in [
         "bad.onnx",
         "gone.onnx",
@@ -841,7 +836,6 @@ fn missing_models_are_fetched_checked_and_placed_and_a_lamps_own_is_kept() {
     }
 
     // Again: nothing new is fetched, and a model of the lamp's own is kept.
-    fs::write(lamp.on(install::NAME_MODEL_PATH), b"the lamp's own").unwrap();
     fs::write(
         lamp.on("/opt/lampOS/eyes/models/eyes.onnx"),
         b"the lamp's own",
@@ -857,10 +851,6 @@ fn missing_models_are_fetched_checked_and_placed_and_a_lamps_own_is_kept() {
         "{:?}",
         again.changed
     );
-    assert_eq!(
-        fs::read(lamp.on(install::NAME_MODEL_PATH)).unwrap(),
-        b"the lamp's own"
-    );
     assert!(
         lamp.said
             .iter()
@@ -868,15 +858,18 @@ fn missing_models_are_fetched_checked_and_placed_and_a_lamps_own_is_kept() {
     );
 }
 
-/// The pinned list itself: every model under `/opt/lampOS`, pinned by a
-/// whole SHA-256, and the voice's two the ones the turn-end worker checks.
+/// The pinned list itself: every model under `/opt/lampOS`, from our one
+/// release, pinned by a whole SHA-256; the voice's two the ones the turn-end
+/// worker checks, and `name.onnx` the one the lamps run (the first builder
+/// on #811, 13:58).
 #[test]
 fn the_pinned_models_are_the_ones_their_parts_check() {
     let models = install::models().unwrap();
-    assert_eq!(models.len(), 6);
+    assert_eq!(models.len(), 7);
+    let release = "https://github.com/autonomous-ai/lampOS/releases/download/models-2026-10-16/";
     for model in &models {
         assert!(model.path.starts_with("/opt/lampOS/"), "{}", model.path);
-        assert!(model.url.starts_with("https://"), "{}", model.url);
+        assert!(model.url.starts_with(release), "{}", model.url);
         assert_eq!(model.sha256.len(), 64);
         assert!(model.bytes > 0);
     }

@@ -473,12 +473,14 @@ program was built from; the binaries are the channel's newest build.
   pinned release archive with `tar`. Each is written under a temporary name
   and renamed into place only when it matches; the voice's two go beside
   its binary through `current/`, and a round carries them to the next
-  build. The name part's own `name.onnx` comes from the repository
-  (`lampOS/models/name`). One that cannot be had is said and the install
-  goes on; one already there that is not the pinned one is the lamp's and
-  kept. The URLs are each file's own upstream until the first builder picks
-  (#811, 14:4x: upstream or one release of ours), and which `name.onnx`
-  ships is theirs too. Not run against the real URLs from a lamp.
+  build. Every file, the name part's own `name.onnx` among them
+  (`1d238ca7…`, the model lamp-4ace and lamp-52e6 run), is in one release of
+  ours, `models-2026-10-16`, with each model's licence beside it (the first
+  builder on #811, 2026-10-16 13:58; the fifth made it). It is a draft until
+  #811 ships, so until it is published every fetch says the model could not
+  be had. One that cannot be had is said and the install goes on; one
+  already there that is not the pinned one is the lamp's and kept. Not run
+  against the release from a lamp.
 - Nothing here was run on a lamp. The units were read from the repository,
   not from the lamps, and lamp-4ace's `LAMP.md` and its unit files already
   disagree on builds (updates.md, "Most likely wrong").

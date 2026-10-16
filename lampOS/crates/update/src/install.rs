@@ -178,12 +178,9 @@ pub const SETUP_SETTINGS: &[(&str, &str)] = &[
     ),
 ];
 /// Models no build carries (#811): where each goes, where it is fetched from,
-/// and its size and SHA-256 (`deploy/product/models.json`).
+/// and its size and SHA-256 (`deploy/product/models.json`): one release of
+/// ours, with the name part's own `name.onnx`, the one the lamps run.
 pub const MODELS: &str = include_str!("../../../deploy/product/models.json");
-/// The name part's own classifier, trained in this repository
-/// (`lampOS/models/name`, docs/bare-name.md), published nowhere else.
-pub const NAME_MODEL_PATH: &str = "/opt/lampOS/name/models/name.onnx";
-pub const NAME_MODEL: &[u8] = include_bytes!("../../../models/name/name.onnx");
 
 #[derive(serde::Deserialize)]
 struct Models {
@@ -950,9 +947,6 @@ fn place_models(
                 model.path
             )),
         }
-    }
-    if !config.on(NAME_MODEL_PATH).exists() {
-        put(config, NAME_MODEL_PATH, NAME_MODEL, 0o644, changed)?;
     }
     Ok(())
 }

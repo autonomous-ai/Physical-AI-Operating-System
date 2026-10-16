@@ -262,9 +262,10 @@ is not. One JSON line in:
 
 - `skill`: 1 to 64 of `a-z`, `0-9`, `-` and `_`. Logged and traced only.
 - Exactly one of `note`, an instruction the model phrases (as the hello's
-  and the news'), and `text`, words to say as they are: the model is told
+  and the news'), `text`, words to say as they are (the model is told
   "Say exactly these words, in your own voice, and nothing else:" before
-  them. At most 900 bytes, no control characters.
+  them), at most 900 bytes with no control characters, and `from`, words
+  the voice keeps itself (below).
 - `priority`, 0 to 9, 5 if left out: higher first, the oldest first among
   equals.
 - `expires_in_ms`, 1 ms to an hour, from when its line was read: not begun
@@ -304,6 +305,43 @@ the others (`skill_says` in the record, with the skill and the priority;
 never the words), the lamp's own turn to the attention rule and the
 Policy's hold. The Policy is not asked here: whoever asks the voice to
 speak has asked the Policy's gate first ([skills.md](skills.md)).
+
+**What the voice keeps: `from` (#939, (c), the first builder's 12:32).**
+`{"skill":"reminders","from":"schedule","priority":8,"expires_in_ms":30000}`
+asks for the reminder Schedule has due; `"from":"tasks"` for the news of
+work handed over. The skill says when, and moves and lights with the
+words; the voice keeps the words and their delivery, as it always did: a
+reminder's durable acknowledgement, news told once. `lamp-skills` sends it
+for `say = { from = "schedule" | "tasks" }` ([skills.md](skills.md)).
+- Such an ask is never said on its own: the general say passes it by, its
+  quiet included. It waits for its source's turn, which takes it
+  (`Says::take_from`) and says the reminder or the news as it always did,
+  with the ask's ticket on that turn: `begun` as the turn is committed, and
+  `spoken` on the same proof the reminder's acknowledgement takes, or
+  `dropped`. Not taken in time, it is `expired`: a `from` ask lives at most
+  20 s from when its line was read (`say::FROM_LIVES_US`), whatever its
+  `expires_in_ms`, so one that came too late for its reminder is never
+  taken for the next one due (Fourth on #1038).
+- With **`LAMP_SCHEDULE_SPEAK=skill`** (Schedule speech on, as `on`), a due
+  reminder waits for such an ask, at most 10 s from when it was first held
+  (`say::SKILL_WAITS_US`), and then the voice says it itself, with
+  `lamp-voice: no skill asked for the reminder due within 10 s` in the
+  journal: a reminder never waits on `lamp-skills` being up. With
+  **`LAMP_TASK_NEWS=skill`** news of work finished, stopped or asking waits
+  the same way; progress is the Policy's to time already and is told as it
+  was. Without them nothing waits, and a `from` ask that is waiting is
+  taken whenever its source next says one, so the skill still moves with
+  the words. With the switch but no say service (`LAMP_SAY` off), nothing
+  can ask, and nothing waits.
+- While a reminder is held for its skill, and is still the one offered,
+  the say service's own says, the hello and the news wait for it: a due
+  reminder comes before anything else the lamp says unasked, as it did
+  without the switch (Fourth on #1038).
+- Tests: `say::tests::an_ask_for_what_the_voice_keeps_waits_for_its_own_source`,
+  `coordinator::tests::say::a_due_reminder_or_news_waits_for_a_skill_at_most_its_time`,
+  `coordinator::tests::reminders::a_reminder_a_skill_asked_for_is_answered_on_the_acknowledgements_own_proof`,
+  `reminders::tests::on_and_skill_turn_schedule_speech_on_and_nothing_else_does`,
+  `coordinator::tests::reminders::a_reminder_held_for_its_skill_keeps_other_unasked_speech_waiting_while_it_is_offered`.
 
 **Most likely wrong:** a say of priority 8 or more in the second after a
 conversation's last turn: a reminder takes that second today, and a skill

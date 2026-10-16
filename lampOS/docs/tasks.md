@@ -690,6 +690,16 @@ check read that page first. Now the tasks part is read with a 64 KiB bound
 answer (16 KiB) with what it was asked (4 KiB). The test of "how is it
 going?" now serves a page of over 9,000 bytes.
 
+### Told when a skill asks (#939, (c), off unless `LAMP_TASK_NEWS=skill`)
+
+The Task news skill (Jarvis, #1021) triggers on `tasks/status` and moves and
+lights with the news; the voice keeps the words and tells each piece once,
+as above. With `LAMP_TASK_NEWS=skill`, news of work finished, stopped or
+asking waits for the skill's `from: tasks` ask on the say service, at most
+10 s, and is then told with that ask's ticket, or by the voice itself
+([speaking-first.md](speaking-first.md#asked-by-another-part-the-say-service-939)).
+Progress is the Policy's to time already and is told as before.
+
 ### News too long for one written turn (2026-10-15, 02:31)
 
 During a two-breath test on lamp-4ace (#740's first try), the voice ended

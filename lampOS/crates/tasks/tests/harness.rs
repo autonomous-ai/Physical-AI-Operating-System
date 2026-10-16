@@ -56,6 +56,13 @@ impl Rig {
         );
         rig
     }
+    /// Blocks until the held descendant has exited, then proves it was
+    /// killed rather than left to finish its five-second hold.
+    fn assert_descendant_killed(&self) {
+        let lock = fs::File::open(self.root.path().join("descendant.lock")).unwrap();
+        lock.lock().unwrap();
+        assert!(!self.root.path().join("descendant.finished").exists());
+    }
     fn plan(&self, plan: Value) {
         use std::io::Write;
         fs::OpenOptions::new()
@@ -568,12 +575,7 @@ fn a_descendant_holding_pipes_is_killed_without_an_unbounded_drain() {
     let began = Instant::now();
     assert_eq!(rig.cli().launch(&launch()), uncertain("pipes_open"));
     assert!(began.elapsed() < Duration::from_secs(2));
-    let heartbeat = fs::read(rig.root.path().join("heartbeat")).unwrap();
-    thread::sleep(Duration::from_millis(50));
-    assert_eq!(
-        fs::read(rig.root.path().join("heartbeat")).unwrap(),
-        heartbeat
-    );
+    rig.assert_descendant_killed();
     // Reaping the direct child is observable: it cannot be waited for again.
     let pid = rig.calls()[1]["pid"].as_u64().unwrap() as i32;
     let error = rustix::process::waitpid(
@@ -594,12 +596,7 @@ fn a_live_descendant_with_closed_pipes_is_still_killed_on_normal_exit() {
             agent_id: AGENT.into()
         }
     );
-    let heartbeat = fs::read(rig.root.path().join("heartbeat")).unwrap();
-    thread::sleep(Duration::from_millis(50));
-    assert_eq!(
-        fs::read(rig.root.path().join("heartbeat")).unwrap(),
-        heartbeat
-    );
+    rig.assert_descendant_killed();
 }
 
 #[test]

@@ -644,17 +644,23 @@ used only to say it.
   task pushed and not yet read, or whose latest read was a push
   (`Engine::pushed`), is left out of `wait` until the watch's own next read
   of it: an agent Harness keeps calling done while `show` finds it at work
-  (a task never typed, or an agent removed) costs one read a watch period,
-  and never holds up the other tasks on its machine. A push read leaves
+  (a task never typed, or an agent removed) costs two reads a watch period
+  (the watch's own and the push it brings back) and one `wait`, and never
+  holds up the other tasks on its machine. An agent a push read finds at
+  work after Harness called it idle is left out the same way, so its real
+  end is then known at the watch's pace (up to 2 minutes after its first
+  10); Harness's two-look rule makes that rare (the reviewer on #1157). A push read leaves
   `"confirmed": true` in the store, which a `lamp-tasks` built before
   `--push-wait` refuses, as it refused `watch` when that came: going back
-  needs the tasks store removed. **No unit sets `--push-wait` yet**
-  (`deploy/product/lamp-tasks.service` and `deploy/lamp-4ace/` run `serve
-  --enable --watch …`), so a deployed lamp still misses the 20 s bound until
-  one does, after a run on a lamp. One line in the journal for each
-  `wait` that comes back or fails. Not yet shown on a lamp: whether `wait
-  --machine` needs Harness's daemon running on the lamp, as `new --machine`
-  did in Ten's run on lamp-75c9, and what the held process costs there.
+  needs the tasks store removed. Both units (`deploy/product/lamp-tasks.service`
+  and `deploy/lamp-4ace/`) run `serve --enable --watch --progress --push-wait
+  …` since #1157 was shown on lamp-75c9 (Ten, 2026-10-16, with the real
+  Harness and the lamp's own Harness daemon running): from Harness's `idle`
+  to `tasks/status` saying `settled`, 8.3 to 10.2 s over five tasks, against
+  38.9 to 41.2 s without; the whole lamp 12.3 % of its cores busy against
+  11.2 %, `lamp-tasks` about 4 % of one core, and the held `wait` one Node
+  process of about 130 MB while a task is watched. One line in the journal
+  for each `wait` that comes back or fails.
 - **Telling** (`crates/voice/src/task_news.rs`). A thread of the voice reads
   `list`, `get_task` and `get_observation` every 10 s and offers the newest
   settled observation of each task, if it was seen in this boot within the

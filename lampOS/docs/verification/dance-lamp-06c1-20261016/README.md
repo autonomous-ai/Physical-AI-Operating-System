@@ -103,3 +103,23 @@ The largest `commanded` change from the pose at the line's end, per second after
 | Largest change | 0.17–0.24 | 0.19–0.24 | 0.05–0.08 (the body's idle sway) |
 
 **Both clips played:** the dance runs without a gap to about 16 s, two grooves of about 8 s each on this body. In ask 8 it was flat (≤ 0.08) from 9 s.
+
+## #1012 merged; its second clip dropped, and #1199's timing, 02:58–03:33
+
+**Ask 19, 02:58.** With `lamp-skills` `a69648ca` and voice `9360c5d2` (#1012's merged head `63d46d363`, ARM64 38953839401), "Lamp, I want a long dance. Make it upbeat!" called `dance({style: upbeat, long: true})`, and `skills/events` says `dance_hype` was told twice. The body played one:
+- `lamp-body`'s journal: `02:58:07.621 gesture dance_hype`, `02:58:14.640 gesture over`, `02:58:18.660 gesture idle`, and no second.
+- `commanded` moved 0.30–0.37 rad for 0–7 s after the line, then no more than 0.08.
+
+#1012 timed the second clip from the first `commanded` change after the send, never sooner than from the send. That change can be the lean as the lamp speaks rather than the clip, so it is no sure sign of when the body began.
+
+**Asks 22–23, 03:31–03:33.** Same words, with `lamp-skills` `ac50ab14` and voice `a338f9b1` (#1199's first fix, `b74b1168e`, ARM64 38960693512, which matched the direction of the clip's first move). Both played two clips:
+
+| Ask | `lamp-body`: `gesture dance_groove` began | The first clip seen begun, after it was sent |
+|---|---|---|
+| 22 | 03:31:27.501, then 03:31:35.681 | 386 ms |
+| 23 | 03:33:04.141, then 03:33:14.321 | 2,072 ms |
+
+- **Ask 22:** the start was seen 386 ms after the send, and the second waited from then. The body began the first about 280–350 ms after the send (the reviewer's replay, 07:37 on #1199), so the send + the clip's length + 100 ms would have sent the second about 200 ms before the first ended, and it would have been dropped. Ask 22 played both only because this fix waited longer.
+- **Ask 23:** the body began on time. The line ended at 03:33:03.991, `lamp-body` began `dance_groove` at 04.141, and `commanded` shoulder and elbow move from 04.2 on. The start was *seen* 2 s late, though: the send's pose was taken mid-lean (head pitch -0.463 to -0.495 across the line end), and the clip's first real move looked only about 0.62 like groove's first frame. So the second clip came 2 s late. The two starts are 10.18 s apart for an 8.0 s groove (ask 22: 8.18 s), and the lamp stood still for 2 s in the middle of the dance (the reviewer, 04:04 on #1199).
+
+**So the start can be timed neither from the send nor from `body/joint_states`.** Asks 19, 22 and 23 show it: the body begins a clip some time after it is sent (later still when it rises), and the lean as the lamp speaks moves `commanded` before the clip does. #1199 therefore sends the second clip when the body says on `body/gesture` (#1230) that the first is `over`, sends nothing more after `dropped`, and nothing if no `over` comes within the clip's length and 3 s. That has not yet run on a lamp.

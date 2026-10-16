@@ -1113,6 +1113,24 @@ short sound let through and checked (#800) is held the same way: a short
 word, said close, or with a face turned to the lamp, is still the other
 person's reply (the reviewer on #918 at 06:06).
 
+And one from 06:07 (#918, the first builder at 06:15): in the two-person
+scene, Daniel asked "Hey Lamp, how much is one hundred dollars in euros?"
+and was answered. Samantha and he then said a line each to each other,
+which the lamp left alone, and the next scene opened with his "Did you get
+my message about the budget?", to her. The lamp answered it ("I don't
+recall that message") in 3 of 4 scenes, as the conversation going on: it
+came inside 45 s of the lamp's answer. It was the same voice, so a
+same-voice check would not have held it. With the switch, once two things
+said since the lamp last spoke were left unanswered as talk
+(`TALK_ENDS_CONVERSATION`, `RoomTold::talked_past_the_lamp`), no
+conversation with the lamp is going on, however lately it spoke: the
+people have gone on talking to each other. A sound, or a request the
+rule held, is not such talk, and a request is counted once. One line left
+alone is not enough: a person says "okay" or thinks aloud between their
+questions. The lamp speaking again, an answer or its news, begins the
+count afresh. The name, a face turned to the lamp, or close and turned to
+it, still let an answer out. Not yet played.
+
 Beyond the reply to the lamp's news, the question about its work and the
 name without a face, the switch only holds: what the rule holds without it
 stays held.
@@ -1155,6 +1173,8 @@ Tests:
 - `with_the_switch_the_lamps_news_is_replied_to_and_its_work_asked_about`
   and `with_the_switch_a_held_request_is_not_talk_and_busy_ends_after_the_last_talk`
   (the day scene, in the rule and in the room);
+- `with_the_switch_two_lines_left_alone_after_the_lamp_spoke_end_its_conversation`
+  (the scene of 06:07, line by line, in the room);
 - the flag's place among the worker's flags (`addressed.rs`, and
   `both_workers_take_the_spoken_to_flag_in_its_place`).
 

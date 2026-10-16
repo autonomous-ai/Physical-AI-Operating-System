@@ -484,3 +484,142 @@ async fn news_whose_sound_waited_for_credit_and_then_went_is_replied_to() {
 async fn news_whose_sound_a_cancellation_dropped_before_it_went_is_no_news() {
     assert!(!after_queued_news(true).await);
 }
+
+/// Gives the test a room and a conversation of its own, as the worker keeps
+/// them (the room for its thread, the conversation for the process), and
+/// puts the ones before back when dropped, even when the test fails.
+struct OwnRoom {
+    room: Option<crate::room_told::RoomTold>,
+    thread: Option<crate::thread::Thread>,
+    unanswered: u32,
+}
+
+impl OwnRoom {
+    fn fresh() -> Self {
+        Self {
+            room: Some(std::mem::take(
+                &mut *crate::room_told::room()
+                    .lock()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner()),
+            )),
+            thread: Some(std::mem::take(
+                &mut *crate::thread::THREAD
+                    .lock()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner()),
+            )),
+            unanswered: unanswered_requests().load(std::sync::atomic::Ordering::Relaxed),
+        }
+    }
+}
+
+impl Drop for OwnRoom {
+    fn drop(&mut self) {
+        unanswered_requests().store(self.unanswered, std::sync::atomic::Ordering::Relaxed);
+        if let Some(room) = self.room.take() {
+            *crate::room_told::room()
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner()) = room;
+            crate::room_told::room().clear_poison();
+        }
+        if let Some(thread) = self.thread.take() {
+            *crate::thread::THREAD
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner()) = thread;
+            crate::thread::THREAD.clear_poison();
+        }
+    }
+}
+
+/// The first builder's scene of 06:07 on lamp-4ace (#918, 06:15), through
+/// the worker's own loop, with the room and the conversation as the worker
+/// itself keeps them (`attention_now`): "Hey Lamp, how much is one hundred
+/// dollars in euros?" answered, then the two people's lines, of which the
+/// service answers none, then Daniel's "Did you get my message about the
+/// budget?" to Samantha. Whether its answer was played.
+async fn after_lines_left_alone(lines: &[&str]) -> bool {
+    let _mark = OwnMark::kept();
+    let _room = OwnRoom::fresh();
+    let mut rig = LiveRig::start_configured(
+        quick_policy(),
+        options(true, attention_now, crate::tools::Settings::default()),
+        BARRIER,
+        false,
+        Continuation::Off,
+        lamp_gemini::MAX_WIRE_BYTES * 2,
+        |config| {
+            config
+                .timeouts(lamp_gemini::Timeouts {
+                    unanswered: Some(Duration::from_millis(100)),
+                    ..Default::default()
+                })
+                .unwrap()
+        },
+    );
+    let mut dial = rig.ready().await;
+    let complete = |rig: &mut LiveRig| {
+        rig.owner
+            .complete_turn(real_time(), rig.snapshot.owner().unwrap())
+            .unwrap();
+        rig.publish();
+    };
+    let euros = rig.speak(&mut dial, false, true).await;
+    dial.service
+        .send(heard("Hey Lamp, how much is one hundred dollars in euros?"))
+        .await;
+    dial.service.send(provider_audio(7, 240)).await;
+    dial.service
+        .send(json!({"serverContent":{"outputTranscription":{"text":"One hundred dollars is about eighty-nine euros right now."}}}))
+        .await;
+    dial.service.send(idle_complete()).await;
+    let mut answered = false;
+    loop {
+        match rig.output().await {
+            ProviderOutput::Audio { request, .. } if request == euros => answered = true,
+            ProviderOutput::TurnComplete { request, .. } if request == euros => break,
+            _ => {}
+        }
+    }
+    assert!(answered, "the call was not answered");
+    complete(&mut rig);
+    for line in lines {
+        let request = rig.speak(&mut dial, false, true).await;
+        dial.service.send(heard(line)).await;
+        // Nothing comes back: the worker closes it as unanswered.
+        loop {
+            match rig.output().await {
+                ProviderOutput::Audio { request: of, .. } if of == request => {
+                    panic!("{line} was answered")
+                }
+                ProviderOutput::TurnComplete { request: of, .. } if of == request => break,
+                _ => {}
+            }
+        }
+        complete(&mut rig);
+    }
+    let budget = rig.speak(&mut dial, false, true).await;
+    dial.service.send(heard(NOT_TO_THE_LAMP[0])).await;
+    dial.service.send(provider_audio(7, 240)).await;
+    dial.service.send(idle_complete()).await;
+    let mut played = false;
+    loop {
+        match rig.output().await {
+            ProviderOutput::Audio { request, .. } if request == budget => played = true,
+            ProviderOutput::TurnComplete { request, .. } if request == budget => break,
+            _ => {}
+        }
+    }
+    rig.stop().await;
+    played
+}
+
+#[tokio::test]
+async fn with_the_switch_two_lines_the_lamp_left_alone_end_its_conversation() {
+    const BETWEEN: [&str; 2] = [
+        "Anyway, if we drop the trip we save almost half.",
+        "True, but the client wants to meet in person.",
+    ];
+    // Both lines left alone: the people went on talking to each other.
+    assert!(!after_lines_left_alone(&BETWEEN).await);
+    // One: the conversation with the lamp is still going on, as before.
+    assert!(after_lines_left_alone(&BETWEEN[..1]).await);
+}

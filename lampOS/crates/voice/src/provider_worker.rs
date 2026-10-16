@@ -715,16 +715,19 @@ pub(crate) struct Options {
     /// (`--spoken-to`, #829). Only with `attention`.
     pub(crate) spoken_to: bool,
 }
-/// How the room is and whether the lamp is in a conversation, now.
+/// How the room is and whether the lamp is in a conversation, now. With
+/// `--spoken-to`, none is once people have gone on talking to each other
+/// since the lamp last spoke ([`crate::room_told::RoomTold::talked_past_the_lamp`]).
 fn attention_now() -> (crate::room_told::Room, bool) {
-    let room = crate::room_told::room()
+    let (room, talked_past) = crate::room_told::room()
         .lock()
-        .map_or(crate::room_told::Room::Unknown, |mut room| {
-            room.at(monotonic_us())
+        .map_or((crate::room_told::Room::Unknown, false), |mut room| {
+            (room.at(monotonic_us()), room.talked_past_the_lamp())
         });
-    let going_on = crate::thread::THREAD
-        .lock()
-        .is_ok_and(|thread| thread.going_on(Instant::now()));
+    let going_on = !talked_past
+        && crate::thread::THREAD
+            .lock()
+            .is_ok_and(|thread| thread.going_on(Instant::now()));
     (room, going_on)
 }
 #[cfg(test)]

@@ -19,6 +19,7 @@ const USAGE: &str = "\
 lamp-keeper [serve] [--act] [--unwell-seconds N] [--most N] [--setup-marker PATH]
 lamp-keeper status
 lamp-keeper health
+lamp-keeper prepare
 lamp-keeper start|stop|restart PART|lamp
 lamp-keeper pause|resume
 
@@ -36,6 +37,12 @@ units in the release's units/ folder, ties lampos.target to its own unit so
 that stopping it stops the lamp, and starts lampos.target. health prints
 its ready, version and pid as JSON for the updater: ready once every part the release
 carries runs.
+prepare, run while the old runtime still owns the lamp (the lamp-os
+package's adapter calls it from its own prepare), writes the device key
+(llm_api_key of /root/config/config.json) to /etc/lampOS/voice/credential
+and /etc/lampOS/policy/jev.key where missing, 0600, with lamp-update
+install's code. It stops nothing and touches no hardware or unit. With no
+usable key it says so and exits 0, as install does: setup takes the key.
 status prints every lampOS unit: its state, its build and its health.
 start, stop and restart act on lamp-PART.service, or lampos.target for lamp.
 pause says on lamp/pause that the lamp is paused: each part that honours it
@@ -62,6 +69,7 @@ fn main() -> ExitCode {
             println!("{}", serde_json::to_string(&answer).unwrap_or_default());
             ExitCode::SUCCESS
         }
+        ["prepare"] => prepare(),
         ["pause"] => say_pause(true),
         ["resume"] => say_pause(false),
         ["stop", "lamp"] => stop_lamp(),
@@ -76,6 +84,30 @@ fn main() -> ExitCode {
         }
         ["serve", rest @ ..] => serve_with(rest),
         rest => serve_with(rest),
+    }
+}
+
+/// `lamp-keeper prepare`: V1's key where missing and never written before,
+/// by lamp-update install's own code and records. Nothing it prints carries
+/// the key: the paths only.
+fn prepare() -> ExitCode {
+    use lamp_update::install;
+    let mut say = |line: &str| eprintln!("lamp-keeper: prepare: {line}");
+    match install::provision_device_key(Path::new("/"), install::RECORDS, &mut say) {
+        Ok(wrote) if wrote.is_empty() => {
+            eprintln!("lamp-keeper: prepare: the device key is in place; nothing written");
+            ExitCode::SUCCESS
+        }
+        Ok(wrote) => {
+            for path in wrote {
+                eprintln!("lamp-keeper: prepare: wrote {path}");
+            }
+            ExitCode::SUCCESS
+        }
+        Err(why) => {
+            eprintln!("lamp-keeper: prepare: {why}");
+            ExitCode::FAILURE
+        }
     }
 }
 

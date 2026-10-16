@@ -179,7 +179,7 @@ fn install(options: &BTreeMap<String, String>) -> Result<(), String> {
         channel: channel.to_owned(),
         channel_url,
         key,
-        records: "/var/lib/lampos-update/".into(),
+        records: lamp_update::install::RECORDS.into(),
         setup,
         models: install::models()?,
     };
@@ -313,7 +313,7 @@ fn config(
     let config = Config {
         root,
         units: "/etc/systemd/system/".into(),
-        records: "/var/lib/lampos-update/".into(),
+        records: lamp_update::install::RECORDS.into(),
         channel: channel.to_owned(),
         channel_url,
         key,

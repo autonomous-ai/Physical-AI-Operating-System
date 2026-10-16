@@ -20,7 +20,7 @@ use std::{
     collections::BTreeMap,
     fs::{self, File, OpenOptions},
     io::{self, Write},
-    os::unix::fs::{DirBuilderExt, OpenOptionsExt},
+    os::unix::fs::{DirBuilderExt, OpenOptionsExt, PermissionsExt},
     path::{Path, PathBuf},
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -142,6 +142,9 @@ pub fn write_whole(path: &Path, bytes: &[u8], mode: u32) -> io::Result<()> {
             .truncate(true)
             .mode(mode)
             .open(&beside)?;
+        // A file left beside by a run cut off keeps its old mode when opened
+        // again: the mode is set, not only asked for at creation.
+        file.set_permissions(fs::Permissions::from_mode(mode))?;
         file.write_all(bytes)?;
         file.sync_all()?;
     }

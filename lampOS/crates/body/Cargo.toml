@@ -14,7 +14,8 @@ lamp-msgs = { path = "../msgs" }
 # V1's body model for its anti-tip rule (src/cog.rs).
 lamp-lean = { path = "../lean" }
 # Telling systemd it is ready, alive and stopping (docs/work-split.md, task 27).
-lamp-keeper = { path = "../keeper" }
+# Without default features: the keeper binary's lamp-update is not built.
+lamp-keeper = { path = "../keeper", default-features = false }
 serde.workspace = true
 serde_json.workspace = true
 

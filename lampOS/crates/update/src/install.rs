@@ -235,6 +235,8 @@ pub const CREDENTIAL_PATH: &str = "/etc/lampOS/voice/credential";
 /// provision it like the voice's).
 pub const JEV_KEY_PATH: &str = "/etc/lampOS/policy/jev.key";
 pub const V1_CONFIG: &str = "/root/config/config.json";
+/// Where lamp-update keeps its records on a lamp.
+pub const RECORDS: &str = "/var/lib/lampos-update/";
 pub const UNITS: &str = "/etc/systemd/system/";
 
 /// The parts' user, and memory's own.
@@ -1046,6 +1048,75 @@ fn fetch_checked(
         Err(Fetch::Missing) => Err(format!("{url} is not there")),
         Err(error) => Err(format!("{error:?}")),
     }
+}
+
+/// V1's key where V1 still owns the lamp, for `lamp-keeper prepare`
+/// (docs/keeper.md): [`CREDENTIAL_PATH`] and [`JEV_KEY_PATH`] written by
+/// [`settings_with_mode`], as [`install`] writes them (0600, whole), and
+/// recorded in lamp-update's records (`records` under `root`) the same way,
+/// so install and prepare share one rule. Only a file that is missing is
+/// written, and only into a lamp that never had one from install or
+/// prepare: one recorded and now gone was removed on purpose (a reset wipes
+/// the user's key, #806), and V1's config, which may still hold the previous
+/// owner's, never puts it back. `root` is `/` on a lamp. Returns the paths
+/// written; the key is never in what it returns or says.
+pub fn provision_device_key(
+    root: &Path,
+    records: &str,
+    say: &mut dyn FnMut(&str),
+) -> Result<Vec<&'static str>, String> {
+    let config = Install {
+        root: root.to_owned(),
+        channel: String::new(),
+        channel_url: String::new(),
+        key: [0; 32],
+        records: records.to_owned(),
+        setup: false,
+        models: Vec::new(),
+    };
+    let records = Records::new(config.on(&config.records));
+    let _lock = records
+        .lock()
+        .map_err(|error| format!("another lamp-update is running: {error}"))?;
+    let mut state = records.peek_state();
+    let mut wanted = Vec::new();
+    for path in [CREDENTIAL_PATH, JEV_KEY_PATH] {
+        if fs::symlink_metadata(config.on(path)).is_ok() {
+            continue;
+        }
+        if state.settings.contains_key(path) {
+            say(&format!(
+                "{path} was removed since it was written (a reset?): V1's key is not put back; setup takes the user's"
+            ));
+        } else {
+            wanted.push(path);
+        }
+    }
+    if wanted.is_empty() {
+        return Ok(wanted);
+    }
+    // No usable key: said, and left to setup, as install does; prepare runs
+    // before every lamp-os update, so refusing here would refuse them all.
+    let Some(key) = device_key(&config) else {
+        for path in wanted {
+            say(&format!(
+                "no key: nothing written to {path} until setup takes the user's (none in {V1_CONFIG})"
+            ));
+        }
+        return Ok(Vec::new());
+    };
+    let private: Vec<(&str, &str)> = wanted.iter().map(|path| (*path, key.as_str())).collect();
+    let mut changed = Vec::new();
+    settings_with_mode(
+        &config,
+        &private,
+        0o600,
+        &mut state,
+        &mut changed,
+        say,
+        &mut |state| save(&records, state),
+    )?;
+    Ok(wanted)
 }
 
 fn has_user(config: &Install, name: &str) -> bool {

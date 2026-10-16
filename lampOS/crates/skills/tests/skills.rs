@@ -11,14 +11,87 @@ use lamp_skills::{
     run_tests, tools_file,
 };
 use std::{
+    ffi::OsStr,
     fs,
     io::{BufRead, BufReader, Write},
-    os::unix::net::{UnixDatagram, UnixListener},
+    os::unix::net::{UnixDatagram, UnixListener, UnixStream},
     path::{Path, PathBuf},
     process::{Child, Command},
-    sync::mpsc,
+    sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering},
+        mpsc,
+    },
     time::{Duration, Instant},
 };
+
+/// How often the program looks at its folder for a change.
+const RELOAD: Duration = Duration::from_secs(2);
+
+/// The program's clock as a test drives it (`--clock-control`,
+/// `docs/skills.md`): the host's, and what this test skipped of it. The
+/// program's own waits are on it: a skill's `for`, a clip's length, a pose
+/// said again, the Policy's 2.5 s, the reload. A skip stands in for a wait
+/// the test would sit through; anything after it runs at the host's pace.
+#[derive(Clone)]
+struct Clock {
+    socket: PathBuf,
+    skipped_us: Arc<AtomicU64>,
+}
+
+impl Clock {
+    /// The clock of a program whose control socket is in `root`.
+    fn at(root: &Path) -> Self {
+        Self {
+            socket: root.join("clock.sock"),
+            skipped_us: Arc::default(),
+        }
+    }
+
+    /// The flag that hands it to the program.
+    fn args(&self) -> [&OsStr; 2] {
+        ["--clock-control".as_ref(), self.socket.as_os_str()]
+    }
+
+    /// Now, on the program's clock.
+    fn now(&self) -> Instant {
+        Instant::now() + Duration::from_micros(self.skipped_us.load(Ordering::SeqCst))
+    }
+
+    /// Skips the program's clock `by`, once it has taken in what was
+    /// published before.
+    fn skip(&self, by: Duration) {
+        let deadline = Instant::now() + Duration::from_secs(10);
+        let stream = loop {
+            match UnixStream::connect(&self.socket) {
+                Ok(stream) => break stream,
+                Err(error) => {
+                    assert!(Instant::now() < deadline, "no clock control: {error}");
+                    std::thread::sleep(Duration::from_millis(10));
+                }
+            }
+        };
+        let us = u64::try_from(by.as_micros()).unwrap();
+        // Ahead here first: a stand-in that reads it is never behind what
+        // the program does once it has skipped.
+        self.skipped_us.fetch_add(us, Ordering::SeqCst);
+        writeln!(&stream, r#"{{"skip_us":{us}}}"#).unwrap();
+        let mut line = String::new();
+        BufReader::new(&stream).read_line(&mut line).unwrap();
+        assert!(line.contains("now_us"), "{line}");
+    }
+
+    /// Skips the program's clock to `at`, if it is not there yet.
+    fn skip_to(&self, at: Instant) {
+        self.skip(at.saturating_duration_since(self.now()));
+    }
+
+    /// Waits for the program to be up and to have looked at its folder once:
+    /// a skip of nothing, which its loop answers.
+    fn started(&self) {
+        self.skip(Duration::ZERO);
+    }
+}
 
 fn skills_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../skills")
@@ -402,10 +475,14 @@ fn the_program_on(
     let bus = Bus::new(root.join("bus")).unwrap();
     let mut events = bus.subscribe(SkillEvent::TOPIC, "test").unwrap();
     let gaze = UnixDatagram::bind(root.join("gaze.sock")).unwrap();
-    gaze.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
+    // The body is told to look before the run's done, so by then it is in
+    // the socket.
+    gaze.set_read_timeout(Some(Duration::from_millis(100)))
+        .unwrap();
     let mood = UnixDatagram::bind(root.join("mood.sock")).unwrap();
     mood.set_read_timeout(Some(Duration::from_millis(1_500)))
         .unwrap();
+    let clock = Clock::at(root);
     let actions = UnixListener::bind(root.join("actions.sock")).unwrap();
     let (called, lights) = mpsc::channel();
     let ring = bus.clone();
@@ -467,6 +544,7 @@ fn the_program_on(
         "--say-socket".as_ref(),
         root.join("say.sock").as_os_str(),
     ]);
+    command.args(clock.args());
     command.env_remove("LAMP_SKILLS_ASK");
     if skip {
         command.env("LAMP_SKILLS_ASK", "skip");
@@ -479,12 +557,13 @@ fn the_program_on(
     let mut requests =
         (lighting == Ring::Asked).then(|| bus.subscribe(LightRequest::TOPIC, "ring").unwrap());
     let _running = Running(command.spawn().unwrap());
-    std::thread::sleep(Duration::from_millis(300));
+    clock.started();
     // Put in after the start: found by the reload, with its sound first.
     if skill.contains("sound = \"ding\"") {
         chime(&root.join("skills/hello/sounds/ding.wav"));
     }
     skill_with(&root.join("skills"), "hello", skill);
+    clock.skip(RELOAD);
     let deadline = Instant::now() + Duration::from_secs(10);
     while bus.subscribers(Faces::TOPIC).unwrap().is_empty() {
         assert!(Instant::now() < deadline, "the skill was never loaded");
@@ -507,19 +586,30 @@ fn the_program_on(
         .unwrap();
         std::thread::sleep(Duration::from_millis(50));
     }
+    // A held pose is said when the say begins and then every second of its
+    // `for`: a second on at a time, each pose waited for, until a second
+    // brings none.
+    let mut buffer = [0u8; 512];
+    let mut moods = Vec::new();
+    while skill.contains("mood =")
+        && let Ok(length) = mood.recv(&mut buffer)
+    {
+        moods.push(String::from_utf8_lossy(&buffer[..length]).into_owned());
+        mood.set_read_timeout(Some(Duration::from_millis(500)))
+            .unwrap();
+        clock.skip(Duration::from_secs(1));
+    }
     let mut seen = Vec::new();
     while seen.len() < wanted && Instant::now() < deadline {
         if let Some(message) = events.recv(Duration::from_millis(100)).unwrap() {
             seen.push(message.parse::<SkillEvent>().unwrap());
         }
     }
-    let mut buffer = [0u8; 512];
     let looked = gaze
         .recv(&mut buffer)
         .ok()
         .map(|length| String::from_utf8_lossy(&buffer[..length]).into_owned());
-    // A held pose is said again every second until its for ends.
-    let mut moods = Vec::new();
+    // And then nothing more.
     while skill.contains("mood =")
         && let Ok(length) = mood.recv(&mut buffer)
     {
@@ -1602,6 +1692,7 @@ fn a_declared_tool_is_in_the_tools_file_and_a_call_runs_the_skills_steps() {
         }
     });
     let tools = root.join("tools");
+    let clock = Clock::at(root);
     let _running = Running(
         Command::new(env!("CARGO_BIN_EXE_lamp-skills"))
             .args([
@@ -1614,6 +1705,7 @@ fn a_declared_tool_is_in_the_tools_file_and_a_call_runs_the_skills_steps() {
                 "--tools-dir".as_ref(),
                 tools.as_os_str(),
             ])
+            .args(clock.args())
             .spawn()
             .unwrap(),
     );
@@ -1623,9 +1715,10 @@ fn a_declared_tool_is_in_the_tools_file_and_a_call_runs_the_skills_steps() {
         std::thread::sleep(Duration::from_millis(50));
     }
     // No skill with a tool: no tools file.
-    std::thread::sleep(Duration::from_millis(300));
+    clock.started();
     assert!(!tools.join("tools.json").exists());
     skill_with(&root.join("skills"), "tutor", TUTOR);
+    clock.skip(RELOAD);
     let file = loop {
         if let Ok(text) = fs::read_to_string(tools.join("tools.json")) {
             break serde_json::from_str::<serde_json::Value>(&text).unwrap();
@@ -1670,6 +1763,8 @@ fn a_declared_tool_is_in_the_tools_file_and_a_call_runs_the_skills_steps() {
     assert_eq!(again["ok"], true, "{again}");
     assert_eq!(again["result"]["next"], answer["result"]["next"]);
     assert_eq!(call("nobody_has_this")["ok"], false);
+    // The page's light lasts its `for`, a second.
+    clock.skip(Duration::from_secs(1));
     let mut seen = Vec::new();
     while seen
         .iter()
@@ -1813,6 +1908,7 @@ fn a_repeat_tool_call_holds_the_runs_pose_again_and_only_that() {
     mood.set_read_timeout(Some(Duration::from_millis(200)))
         .unwrap();
     let tools = root.join("tools");
+    let clock = Clock::at(root);
     let _running = Running(
         Command::new(env!("CARGO_BIN_EXE_lamp-skills"))
             .args([
@@ -1827,6 +1923,7 @@ fn a_repeat_tool_call_holds_the_runs_pose_again_and_only_that() {
                 "--tools-dir".as_ref(),
                 tools.as_os_str(),
             ])
+            .args(clock.args())
             .spawn()
             .unwrap(),
     );
@@ -1854,12 +1951,14 @@ fn a_repeat_tool_call_holds_the_runs_pose_again_and_only_that() {
         BufReader::new(&stream).read_line(&mut line).unwrap();
         serde_json::from_str::<serde_json::Value>(&line).unwrap()
     };
-    // Poses said over `window`, from now.
+    // Poses said over `window` of the program's clock, from now: a second
+    // on at a time, what it says in it waited for.
     let poses = |window: Duration| {
-        let until = Instant::now() + window;
+        let until = clock.now() + window;
         let mut buffer = [0u8; 256];
         let mut count = 0;
-        while Instant::now() < until {
+        while clock.now() < until {
+            clock.skip_to((clock.now() + Duration::from_secs(1)).min(until));
             if let Ok(length) = mood.recv(&mut buffer) {
                 assert_eq!(&buffer[..length], br#"{"level":0,"mood":"reading"}"#);
                 count += 1;
@@ -1908,7 +2007,10 @@ fn hello_after_a_second() -> String {
 /// The program with `LAMP_SKILLS_ASK=policy` on a bus of its own in `root`,
 /// once its hello is loaded, and the voice's say service stood in for: each
 /// line it is asked to say, and when.
-fn asking_the_policy_in(root: &Path) -> (Running, Bus, mpsc::Receiver<(String, Instant)>) {
+fn asking_the_policy_in(
+    root: &Path,
+    clock: &Clock,
+) -> (Running, Bus, mpsc::Receiver<(String, Instant)>) {
     fs::create_dir(root.join("skills")).unwrap();
     let bus = Bus::new(root.join("bus")).unwrap();
     let voice = UnixListener::bind(root.join("say.sock")).unwrap();
@@ -1933,10 +2035,12 @@ fn asking_the_policy_in(root: &Path) -> (Running, Bus, mpsc::Receiver<(String, I
             "--say-socket".as_ref(),
             root.join("say.sock").as_os_str(),
         ])
+        .args(clock.args())
         .env("LAMP_SKILLS_ASK", "policy");
     let running = Running(command.spawn().unwrap());
-    std::thread::sleep(Duration::from_millis(300));
+    clock.started();
     skill_with(&root.join("skills"), "hello", &hello_after_a_second());
+    clock.skip(RELOAD);
     let deadline = Instant::now() + Duration::from_secs(20);
     while bus.subscribers(Faces::TOPIC).unwrap().is_empty() {
         assert!(Instant::now() < deadline, "the skill was never loaded");
@@ -1945,12 +2049,12 @@ fn asking_the_policy_in(root: &Path) -> (Running, Bus, mpsc::Receiver<(String, I
     (running, bus, asked)
 }
 
-/// Nobody for a little over a second, then a face, and `leave`: gone again
-/// at once. When the face was published.
-fn a_face_appears(eyes: &mut lamp_bus::Publisher, leave: bool) -> Instant {
+/// Nobody for a little over a second of the program's clock, then a face,
+/// and `leave`: gone again at once. When the face was published.
+fn a_face_appears(eyes: &mut lamp_bus::Publisher, clock: &Clock, leave: bool) -> Instant {
     eyes.publish_json(1, &serde_json::json!({"faces": []}))
         .unwrap();
-    std::thread::sleep(Duration::from_millis(1_300));
+    clock.skip(Duration::from_millis(1_300));
     eyes.publish_json(1, &serde_json::from_str::<serde_json::Value>(FACE).unwrap())
         .unwrap();
     let at = Instant::now();
@@ -2001,7 +2105,8 @@ fn asking_the_policy_a_skill_acts_only_on_a_say_now_that_names_its_ask() {
     let bus = Bus::new(root.join("bus")).unwrap();
     let mut events = bus.subscribe(SkillEvent::TOPIC, "test").unwrap();
     let (questions, put) = mpsc::channel::<serde_json::Value>();
-    let policy = bus.clone();
+    let clock = Clock::at(root);
+    let (policy, takes) = (bus.clone(), clock.clone());
     let mut asks = policy.subscribe("skills/ask", "policy").unwrap();
     std::thread::spawn(move || {
         let mut decisions = policy
@@ -2029,12 +2134,15 @@ fn asking_the_policy_a_skill_acts_only_on_a_say_now_that_names_its_ask() {
                 decision["ask"] = (number + 1).into();
                 decisions.publish_json(1, &decision).unwrap();
             }
-            std::thread::sleep(Duration::from_millis(takes_ms));
+            // Its time is on the program's clock.
+            if takes_ms > 0 {
+                takes.skip(Duration::from_millis(takes_ms));
+            }
             decision["ask"] = number.into();
             decisions.publish_json(1, &decision).unwrap();
         }
     });
-    let (_running, bus, said) = asking_the_policy_in(root);
+    let (_running, bus, said) = asking_the_policy_in(root, &clock);
     let mut eyes = bus
         .publisher_declared(Faces::TOPIC, &Faces::declaration(), "eyes")
         .unwrap();
@@ -2042,7 +2150,7 @@ fn asking_the_policy_a_skill_acts_only_on_a_say_now_that_names_its_ask() {
     let mut answered = Vec::new();
     let mut face_to_say = None;
     for cycle in 0..script.len() {
-        let face_at = a_face_appears(&mut eyes, cycle == 5);
+        let face_at = a_face_appears(&mut eyes, &clock, cycle == 5);
         answered.push(next_answer(&mut events, deadline));
         if cycle == 0 {
             let (_, said_at) = said.recv_timeout(Duration::from_secs(2)).unwrap();
@@ -2092,12 +2200,13 @@ fn asking_the_policy_with_nobody_to_answer_is_no_at_once() {
         .prefix("sn")
         .tempdir_in("/tmp")
         .unwrap();
-    let (_running, bus, said) = asking_the_policy_in(dir.path());
+    let clock = Clock::at(dir.path());
+    let (_running, bus, said) = asking_the_policy_in(dir.path(), &clock);
     let mut events = bus.subscribe(SkillEvent::TOPIC, "test").unwrap();
     let mut eyes = bus
         .publisher_declared(Faces::TOPIC, &Faces::declaration(), "eyes")
         .unwrap();
-    let face_at = a_face_appears(&mut eyes, false);
+    let face_at = a_face_appears(&mut eyes, &clock, false);
     let answer = next_answer(&mut events, Instant::now() + Duration::from_secs(5));
     assert!(face_at.elapsed() < Duration::from_secs(1), "{answer:?}");
     assert_eq!(answer.allowed, Some(false));
@@ -2433,10 +2542,12 @@ impl StandInBody {
     /// each clip begun, and when, on `played`; each gesture dropped on
     /// `dropped`. Says `body/joint_states` on `bus` every 100 ms, its
     /// `commanded` off the rest pose while a clip plays.
+    /// Its time is the program's `clock`.
     fn run(
         mood: UnixDatagram,
         bus: &Bus,
         late: Duration,
+        clock: Clock,
         played: mpsc::Sender<(Instant, String)>,
         dropped: mpsc::Sender<(Instant, String)>,
     ) {
@@ -2449,8 +2560,8 @@ impl StandInBody {
                 late_us: u64::try_from(late.as_micros()).unwrap(),
                 ..Self::default()
             };
-            let began = Instant::now();
-            let mut next = began;
+            let began = clock.now();
+            let mut next = Instant::now();
             let mut buffer = [0u8; 512];
             let mut steps = 0u64;
             let mut asked_text = String::new();
@@ -2465,7 +2576,7 @@ impl StandInBody {
                         Err(_) => return,
                     }
                 }
-                let now = Instant::now();
+                let now = clock.now();
                 let name = asked.as_deref().map(|text| {
                     serde_json::from_str::<serde_json::Value>(text).unwrap()["gesture"]
                         .as_str()
@@ -2616,7 +2727,8 @@ fn the_dance_late(
     let mood = UnixDatagram::bind(root.join("mood.sock")).unwrap();
     let (moved, gestures) = mpsc::channel();
     let (lost, dropped) = mpsc::channel();
-    StandInBody::run(mood, &bus, late, moved, lost);
+    let clock = Clock::at(root);
+    StandInBody::run(mood, &bus, late, clock.clone(), moved, lost);
     let tools = root.join("tools");
     let _running = Running(
         Command::new(env!("CARGO_BIN_EXE_lamp-skills"))
@@ -2632,6 +2744,7 @@ fn the_dance_late(
                 "--tools-dir".as_ref(),
                 tools.as_os_str(),
             ])
+            .args(clock.args())
             .spawn()
             .unwrap(),
     );
@@ -2675,7 +2788,9 @@ fn the_dance_late(
         voice
             .publish_json(1, &serde_json::json!({"state": "thinking"}))
             .unwrap();
-        std::thread::sleep(Duration::from_millis(1_500));
+        clock.skip(Duration::from_millis(1_500));
+        // The program looks at the voice every 20 ms.
+        std::thread::sleep(Duration::from_millis(100));
     } else {
         std::thread::sleep(Duration::from_millis(500));
     }
@@ -2692,11 +2807,37 @@ fn the_dance_late(
     voice
         .publish_json(1, &serde_json::json!({ "state": after }))
         .unwrap();
-    let stopped = Instant::now();
-    if push {
-        std::thread::sleep(Duration::from_millis(1_000));
-        hand.publish_json(1, &serde_json::json!({"pushed": true, "since_us": 5}))
-            .unwrap();
+    let stopped = clock.now();
+    let nod = Duration::from_micros(clip_us("nod").unwrap());
+    let gap = Duration::from_micros(CLIP_GAP_US);
+    let mut played = Vec::new();
+    if ending != Line::Cut {
+        if !late.is_zero() {
+            // Sent and taken at the line's end, and begun `late` after.
+            std::thread::sleep(Duration::from_millis(300));
+            clock.skip_to(stopped + late);
+        }
+        played.push(gestures.recv_timeout(Duration::from_secs(5)).unwrap());
+        if push {
+            clock.skip_to(stopped + Duration::from_secs(1));
+            hand.publish_json(1, &serde_json::json!({"pushed": true, "since_us": 5}))
+                .unwrap();
+        } else {
+            // The program sees the clip begin on `body/joint_states`, said
+            // every 100 ms, and sends the next once it has played and the
+            // body has stepped past it: skipped to the clip's end, and the
+            // gap after it left to the body's own steps.
+            std::thread::sleep(Duration::from_millis(300));
+            clock.skip_to(played[0].0 + nod);
+            if !late.is_zero() {
+                // Taken, and begun `late` after, as the first.
+                std::thread::sleep(Duration::from_millis(300));
+                clock.skip_to(played[0].0 + nod + gap + late);
+            }
+            played.push(gestures.recv_timeout(Duration::from_secs(5)).unwrap());
+            // The run is done once that one has played too.
+            clock.skip_to(played[1].0 + nod + gap);
+        }
     }
     let done = loop {
         assert!(Instant::now() < deadline, "the run never ended");
@@ -2712,12 +2853,8 @@ fn the_dance_late(
     std::thread::sleep(Duration::from_millis(3 * BODY_STEP_US / 1_000));
     let dropped: Vec<_> = dropped.try_iter().collect();
     assert!(dropped.is_empty(), "dropped {dropped:?}; {}", done.why);
-    (
-        stopped,
-        gestures.try_iter().collect(),
-        lights.try_iter().collect(),
-        done,
-    )
+    played.extend(gestures.try_iter());
+    (stopped, played, lights.try_iter().collect(), done)
 }
 
 #[test]
@@ -3054,6 +3191,7 @@ fn the_program_dances_again_on_dance_again_but_not_on_a_noise() {
         }
     });
     let tools = root.join("tools");
+    let clock = Clock::at(root);
     let _running = Running(
         Command::new(env!("CARGO_BIN_EXE_lamp-skills"))
             .args([
@@ -3066,6 +3204,7 @@ fn the_program_dances_again_on_dance_again_but_not_on_a_noise() {
                 "--tools-dir".as_ref(),
                 tools.as_os_str(),
             ])
+            .args(clock.args())
             .spawn()
             .unwrap(),
     );
@@ -3102,10 +3241,14 @@ fn the_program_dances_again_on_dance_again_but_not_on_a_noise() {
             }
         }
     };
+    // A run is done once its clip has played, from when it was sent.
+    let clip = Duration::from_micros(clip_us("acknowledge").unwrap());
+    let played = clip + Duration::from_micros(CLIP_GAP_US);
     // The dance.
     let answer = call();
     assert_eq!(answer["ok"], true, "{answer}");
     assert_eq!(gesture(), r#"{"gesture":"acknowledge"}"#);
+    clock.skip(played);
     done();
     // A noise heard as "¿Qué?", and the model calls again: refused with the
     // model's words, and nothing moves.
@@ -3116,28 +3259,27 @@ fn the_program_dances_again_on_dance_again_but_not_on_a_noise() {
     assert!(gestures.recv_timeout(Duration::from_millis(300)).is_err());
     // "Dance again!", still coming: it dances.
     hear("Dance again!", false);
-    let again = Instant::now();
+    let again = clock.now();
     let answer = call();
     assert_eq!(answer["ok"], true, "{answer}");
     assert_eq!(gesture(), r#"{"gesture":"acknowledge"}"#);
+    let sent = clock.now();
     // "One more!" 1 s into it, while it plays: refused with the model's
     // words, nothing more moves, and it is no run.
-    let clip = Duration::from_micros(clip_us("acknowledge").unwrap());
     assert!(clip > Duration::from_millis(1_500), "{clip:?}");
-    std::thread::sleep((again + Duration::from_secs(1)).saturating_duration_since(Instant::now()));
+    clock.skip_to(again + Duration::from_secs(1));
     hear("One more!", true);
     let answer = call();
     assert_eq!(answer["ok"], false, "{answer}");
     assert_eq!(answer["error"], "I'm still dancing.");
+    clock.skip_to(sent + played);
     done();
     assert!(gestures.recv_timeout(Duration::from_millis(300)).is_err());
     // A noise after it: the while is still the dance's, from `again`, not
     // from the call refused 1 s later.
     hear("¿Qué?", true);
     // After the while, with only the noise heard since: it dances.
-    std::thread::sleep(
-        (again + Duration::from_millis(6_300)).saturating_duration_since(Instant::now()),
-    );
+    clock.skip_to(again + Duration::from_millis(6_300));
     let answer = call();
     assert_eq!(answer["ok"], true, "{answer}");
     assert_eq!(gesture(), r#"{"gesture":"acknowledge"}"#);

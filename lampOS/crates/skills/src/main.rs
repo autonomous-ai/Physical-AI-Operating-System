@@ -9,7 +9,7 @@ use lamp_msgs::{
 };
 use lamp_skills::glow::{GLOW_EVERY, Glow, Glows, REQUESTS_ENVIRONMENT};
 use lamp_skills::{
-    Admission, CLIP_GAP_US, Call, Engine, clip_us, duration_us, load_all, run_tests, told,
+    Admission, CLIP_GAP_US, Call, Engine, clip_us, clock, duration_us, load_all, run_tests, told,
     tools_file,
 };
 use serde_json::json;
@@ -25,7 +25,7 @@ use std::{
 
 const USAGE: &str = "usage: lamp-skills [--dir DIR] [--bus-root DIR] [--gaze-socket PATH] \
                      [--mood-socket PATH] [--actions-socket PATH] [--say-socket PATH] \
-                     [--tools-dir DIR] [--boot-id ID]\n       \
+                     [--tools-dir DIR] [--boot-id ID] [--clock-control PATH]\n       \
                      lamp-skills test SKILL_DIR...";
 /// How often the folder is looked at for a change.
 const RELOAD_EVERY: Duration = Duration::from_secs(2);
@@ -74,6 +74,7 @@ fn main() -> ExitCode {
     let mut root = None;
     let mut tools = None;
     let mut boot_id = None;
+    let mut clock_control = None;
     let mut sockets = Sockets {
         gaze: "/run/lampos-body/gaze.sock".into(),
         mood: "/run/lampos-body/mood.sock".into(),
@@ -96,6 +97,7 @@ fn main() -> ExitCode {
             "--say-socket" => sockets.say = value,
             "--tools-dir" => tools = Some(value),
             "--boot-id" => boot_id = value.to_str().map(str::to_owned),
+            "--clock-control" => clock_control = Some(value),
             _ => {
                 eprintln!("{USAGE}");
                 return ExitCode::from(2);
@@ -108,6 +110,7 @@ fn main() -> ExitCode {
         ask,
         light_requests: std::env::var(REQUESTS_ENVIRONMENT).is_ok_and(|value| value == "on"),
         boot_id,
+        clock_control,
     };
     match serve(&dir, root, &sockets, &options) {
         Ok(()) => ExitCode::SUCCESS,
@@ -180,6 +183,7 @@ fn publish(out: &mut Publisher, mut event: SkillEvent) {
         "lamp-skills: {} {:?}: {}",
         event.skill, event.stage, event.why
     );
+    // Stamped on the host's clock, as every part stamps the bus.
     if let Err(error) = out.publish_json(lamp_ipc::monotonic_us(), &event) {
         eprintln!("lamp-skills: skills/events not published: {error}");
     }
@@ -191,7 +195,8 @@ fn light_now(bus: &Bus) -> Option<Light> {
     said_lately(bus, Light::TOPICS[1])
 }
 
-/// The newest value of `topic`, if it was said within 3 s.
+/// The newest value of `topic`, if it was said within 3 s: on the host's
+/// wall clock, as its publisher stamped it, never the program's own.
 fn said_lately<T: serde::de::DeserializeOwned>(bus: &Bus, topic: &str) -> Option<T> {
     let message = bus.latest(topic).ok()??;
     let now_ms = SystemTime::now()
@@ -221,6 +226,80 @@ struct Options {
     /// `--boot-id`: the boot a light request's claim is on, in place of the
     /// host's own, which only Linux has.
     boot_id: Option<String>,
+    /// `--clock-control`: a test's socket to skip the program's clock
+    /// ([`clock_control`]).
+    clock_control: Option<PathBuf>,
+}
+
+/// A skip of the clock asked on `--clock-control`, and where to say it is
+/// done.
+type Skip = (Duration, mpsc::Sender<()>);
+
+/// Listens on `path` for a test: each line `{"skip_us": N}` skips the
+/// program's clock N µs, which the main loop does, and is answered with
+/// `{"now_us": ...}` once it is done. Production has no such socket.
+fn clock_control(path: &Path, skips: mpsc::Sender<Skip>) -> io::Result<()> {
+    let _ = std::fs::remove_file(path);
+    let listener = UnixListener::bind(path)?;
+    clock::stepped();
+    std::thread::spawn(move || {
+        for stream in listener.incoming().flatten() {
+            let mut lines = BufReader::new(&stream);
+            let mut line = String::new();
+            while lines.read_line(&mut line).is_ok_and(|read| read > 0) {
+                let by = serde_json::from_str::<serde_json::Value>(&line)
+                    .ok()
+                    .and_then(|asked| asked["skip_us"].as_u64());
+                line.clear();
+                let answer = match by {
+                    Some(by) => {
+                        let (done, taken) = mpsc::channel();
+                        if skips.send((Duration::from_micros(by), done)).is_err()
+                            || taken.recv().is_err()
+                        {
+                            return;
+                        }
+                        json!({ "now_us": clock::now_us() })
+                    }
+                    None => json!({ "error": "a line is {\"skip_us\": N}" }),
+                };
+                if writeln!(&stream, "{answer}").is_err() {
+                    break;
+                }
+            }
+        }
+    });
+    Ok(())
+}
+
+/// The skips a test asked for: what was published before each is taken in
+/// first, on the clock as it was, and the Policy's answers with it; then the
+/// clock moves on, and an ask it made late is given up, before the skip is
+/// answered.
+fn take_skips(
+    skips: &mpsc::Receiver<Skip>,
+    subscribers: &mut [Subscriber],
+    engine: &mut Engine,
+    busy: &mut HashSet<String>,
+    out: &mut Publisher,
+    runner: &Runner,
+    asking: &mut Asking,
+) {
+    while let Ok((by, done)) = skips.try_recv() {
+        for subscriber in subscribers.iter_mut() {
+            while let Some(message) = receive(subscriber, Duration::ZERO) {
+                observe(&message, engine, busy, out, runner, asking);
+            }
+        }
+        if let Some((_, answers)) = &mut asking.gate {
+            answer_asks(answers, &mut asking.waiting, engine, busy, out, runner);
+        }
+        clock::skip(by);
+        if let Some((_, answers)) = &mut asking.gate {
+            answer_asks(answers, &mut asking.waiting, engine, busy, out, runner);
+        }
+        let _ = done.send(());
+    }
 }
 
 /// The boot the claims are on: `given`, or the host's on Linux.
@@ -299,6 +378,10 @@ fn serve(
     if let Some(tools) = tools {
         listen(tools, ask)?;
     }
+    let (skip, skips) = mpsc::channel::<Skip>();
+    if let Some(path) = &options.clock_control {
+        clock_control(path, skip)?;
+    }
     // One run a skill at a time: what is under way, by skill.
     let mut busy = HashSet::new();
     let mut subscribers: Vec<Subscriber> = Vec::new();
@@ -325,6 +408,15 @@ fn serve(
             busy.remove(&event.skill);
             publish(&mut out, event);
         }
+        take_skips(
+            &skips,
+            &mut subscribers,
+            &mut engine,
+            &mut busy,
+            &mut out,
+            &runner,
+            &mut asking,
+        );
         if let Some((_, answers)) = &mut asking.gate {
             answer_asks(
                 answers,
@@ -335,8 +427,8 @@ fn serve(
                 &runner,
             );
         }
-        if looked.is_none_or(|at| at.elapsed() >= RELOAD_EVERY) {
-            looked = Some(Instant::now());
+        if looked.is_none_or(|at| clock::now().saturating_duration_since(at) >= RELOAD_EVERY) {
+            looked = Some(clock::now());
             let print = fingerprint(dir);
             if seen.as_ref() != Some(&print) {
                 seen = Some(print);
@@ -368,13 +460,22 @@ fn serve(
             let _ = out.alive();
         }
         if subscribers.is_empty() {
-            if let Ok(call) = asks.recv_timeout(Duration::from_millis(250)) {
+            if let Ok(call) = asks.recv_timeout(clock::poll(Duration::from_millis(250))) {
                 tool_call(call, &mut engine, &mut busy, &mut out, &runner);
             }
             continue;
         }
         let count = subscribers.len() as u64;
         for index in 0..subscribers.len() {
+            take_skips(
+                &skips,
+                &mut subscribers,
+                &mut engine,
+                &mut busy,
+                &mut out,
+                &runner,
+                &mut asking,
+            );
             while let Ok(call) = asks.try_recv() {
                 // What was heard before the call, read first: `[again]`
                 // asks whether it asked for the call.
@@ -411,7 +512,7 @@ fn serve(
             } else {
                 Duration::from_millis(5)
             };
-            if let Some(message) = receive(&mut subscribers[index], wait) {
+            if let Some(message) = receive(&mut subscribers[index], clock::poll(wait)) {
                 observe(
                     &message,
                     &mut engine,
@@ -455,9 +556,11 @@ fn observe(
     runner: &Runner,
     asking: &mut Asking,
 ) {
+    // Received now, on the program's clock: the publisher's own stamps are
+    // on its clock, not this one.
     let runs = engine.observe(
         &message.header.topic,
-        lamp_ipc::monotonic_us(),
+        clock::now_us(),
         &message.payload,
         message.header.expires_ms,
     );
@@ -563,12 +666,12 @@ fn ask_policy_for(
         return;
     }
     // The ask's number: this clock in µs, never 0 and always above the last.
-    let number = (*last + 1).max(lamp_ipc::monotonic_us());
+    let number = (*last + 1).max(clock::now_us());
     *last = number;
     question["ask"] = json!(number);
     match asks.publish_json(1, &question) {
         Ok(_) => {
-            waiting.insert(number, (run, Instant::now() + ASK_WAIT));
+            waiting.insert(number, (run, clock::now() + ASK_WAIT));
         }
         Err(error) => publish(
             out,
@@ -615,7 +718,7 @@ fn answer_asks(
         if choice == "say_now" && shadow {
             why += " in shadow: nothing is done";
         } else if choice == "say_now" {
-            calls = engine.still(&run.skill, lamp_ipc::monotonic_us());
+            calls = engine.still(&run.skill, clock::now_us());
             if calls.is_none() {
                 why += ", but its trigger no longer holds: nothing is done";
             }
@@ -633,7 +736,7 @@ fn answer_asks(
             let _ = start(run.skill, calls, busy, out, runner);
         }
     }
-    let now = Instant::now();
+    let now = clock::now();
     let late: Vec<u64> = waiting
         .iter()
         .filter(|(_, (_, until))| *until <= now)
@@ -688,7 +791,7 @@ fn tool_call(
         eprintln!("lamp-skills: {name} with {args} not run: its run is under way");
         return refuse(still);
     }
-    let run = match engine.tool(&name, &args, lamp_ipc::monotonic_us()) {
+    let run = match engine.tool(&name, &args, clock::now_us()) {
         Ok(run) => run,
         Err(why) => {
             eprintln!("lamp-skills: {name} with {args} not run: {why}");
@@ -754,7 +857,7 @@ fn tool_call(
         let made = start(run.skill, made, busy, out, runner);
         if looks {
             // Bounded: the caller waits at most `TOOL_TIMEOUT` once more.
-            let _ = made.recv_timeout(MADE_BEFORE_ANSWER);
+            let _ = clock::recv_timeout(&made, MADE_BEFORE_ANSWER);
         }
     }
     if looks {
@@ -793,6 +896,8 @@ fn listen(dir: &Path, asks: mpsc::Sender<ToolAsk>) -> io::Result<()> {
     let listener = UnixListener::bind(&socket)?;
     std::thread::spawn(move || {
         for stream in listener.incoming().flatten() {
+            // On the host's clock, as the socket timeouts to the other
+            // parts are: the voice gives up on a call on its own.
             let answer = || -> io::Result<()> {
                 stream.set_read_timeout(Some(TOOL_TIMEOUT))?;
                 stream.set_write_timeout(Some(TOOL_TIMEOUT))?;
@@ -1009,11 +1114,11 @@ fn perform(
                     );
                 }
             }
-            std::thread::sleep(Duration::from_micros(changed.lasting_us));
+            clock::sleep(Duration::from_micros(changed.lasting_us));
         }
     }
     if let Some(last) = &played.last {
-        std::thread::sleep(last.until().saturating_duration_since(Instant::now()));
+        clock::sleep(last.until().saturating_duration_since(clock::now()));
     }
     match glow {
         Some(glow) => said.extend(glow.give_back()),
@@ -1082,7 +1187,7 @@ fn act(
                 // the body's steps more, from when the body began it, until
                 // the body can take it.
                 played.last = length_us.map(|us| Sent {
-                    at: Instant::now(),
+                    at: clock::now(),
                     rest: Duration::from_micros(us + CLIP_GAP_US),
                     pose: commanded_now(bus),
                 });
@@ -1109,7 +1214,7 @@ fn held_back(sent: &Sent, bus: &Bus) -> Option<String> {
     let mut began = false;
     loop {
         if !began
-            && sent.at.elapsed() <= BEGIN_WITHIN
+            && clock::now().saturating_duration_since(sent.at) <= BEGIN_WITHIN
             && let (Some((seq, pose)), Some((seq_now, now))) = (&sent.pose, commanded_now(bus))
             && seq_now != *seq
             && now.len() == pose.len()
@@ -1119,7 +1224,7 @@ fn held_back(sent: &Sent, bus: &Bus) -> Option<String> {
                 .any(|(now, was)| (now - was).abs() > BEGIN_RAD)
         {
             began = true;
-            until = until.max(Instant::now() + sent.rest);
+            until = until.max(clock::now() + sent.rest);
         }
         if bus
             .latest(Hand::TOPIC)
@@ -1139,11 +1244,11 @@ fn held_back(sent: &Sent, bus: &Bus) -> Option<String> {
         {
             return Some("the lamp was paused".into());
         }
-        let left = until.saturating_duration_since(Instant::now());
+        let left = until.saturating_duration_since(clock::now());
         if left.is_zero() {
             return None;
         }
-        std::thread::sleep(left.min(POLL));
+        clock::sleep(left.min(POLL));
     }
 }
 
@@ -1158,7 +1263,8 @@ fn held_back(sent: &Sent, bus: &Bus) -> Option<String> {
 /// `resting`, one the person spoke over leaves it `listening`.
 fn spoken(bus: &Bus) -> (String, bool) {
     let state = || said_lately::<VoiceState>(bus, VoiceState::TOPIC).map(|now| now.state);
-    let asked = Instant::now();
+    let asked = clock::now();
+    let elapsed = |since: Instant| clock::now().saturating_duration_since(since);
     loop {
         match state() {
             Some(Voice::Speaking) => break,
@@ -1168,7 +1274,7 @@ fn spoken(bus: &Bus) -> (String, bool) {
                     false,
                 );
             }
-            Some(_) if asked.elapsed() >= SPEAK_BEGIN => {
+            Some(_) if elapsed(asked) >= SPEAK_BEGIN => {
                 return (
                     format!(
                         "after the say: the voice did not begin within {} s",
@@ -1177,30 +1283,30 @@ fn spoken(bus: &Bus) -> (String, bool) {
                     false,
                 );
             }
-            Some(_) => std::thread::sleep(POLL),
+            Some(_) => clock::sleep(POLL),
         }
     }
-    let begun = Instant::now();
+    let begun = clock::now();
     let cut = loop {
         let now = state();
         let over = match now {
             Some(Voice::Speaking) => false,
-            Some(Voice::Thinking) => begun.elapsed() >= LINE_LONGEST,
+            Some(Voice::Thinking) => elapsed(begun) >= LINE_LONGEST,
             _ => true,
         };
         if over {
             break now == Some(Voice::Listening);
         }
-        if begun.elapsed() >= SAY_TIMEOUT {
+        if elapsed(begun) >= SAY_TIMEOUT {
             return ("after the say: the voice was still speaking".into(), false);
         }
-        std::thread::sleep(POLL);
+        clock::sleep(POLL);
     };
     (
         format!(
             "after the say: spoken from {} ms after the call, the turn over {} ms later",
             (begun - asked).as_millis(),
-            begun.elapsed().as_millis()
+            elapsed(begun).as_millis()
         ),
         cut,
     )
@@ -1370,10 +1476,10 @@ fn make(call: &Call, sockets: &Sockets, bus: &Bus) -> String {
                 json!({ "mood": mood, "level": 0 }).to_string(),
             );
             let first = tell(&format!("mood {mood}"), text.clone(), &path);
-            let until = Instant::now() + Duration::from_micros(*lasting_us);
+            let until = clock::now() + Duration::from_micros(*lasting_us);
             std::thread::spawn(move || {
-                while Instant::now() + MOOD_EVERY < until {
-                    std::thread::sleep(MOOD_EVERY);
+                while clock::now() + MOOD_EVERY < until {
+                    clock::sleep(MOOD_EVERY);
                     let _ = UnixDatagram::unbound()
                         .and_then(|body| body.send_to(text.as_bytes(), &path));
                 }

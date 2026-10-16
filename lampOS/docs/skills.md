@@ -257,7 +257,7 @@ Its own process, its own owner, like every part
 
 As built on 2026-10-16 (#938, `crates/skills`, not yet run on a lamp):
 
-    lamp-skills [--dir DIR] [--bus-root DIR] [--gaze-socket PATH] [--mood-socket PATH] [--actions-socket PATH] [--say-socket PATH] [--tools-dir DIR]
+    lamp-skills [--dir DIR] [--bus-root DIR] [--gaze-socket PATH] [--mood-socket PATH] [--actions-socket PATH] [--say-socket PATH] [--tools-dir DIR] [--clock-control PATH]
     lamp-skills test SKILL_DIR...
 
 - It loads every folder in `--dir` (`/var/lib/lampOS/skills`), looks at the
@@ -347,6 +347,28 @@ As built on 2026-10-16 (#938, `crates/skills`, not yet run on a lamp):
 - `done` says how each step went: `look at the face: told the body`,
   `light warm: done`, `say: spoken`, `light given back to on blue at 3:
   done`, or why not.
+- **A test's clock** (#1128, `crates/skills/src/clock.rs`). Every wait of
+  the program's own is on one clock: the look at the folder every two
+  seconds, the time a message arrives (so every `for`, `absent_for`,
+  cooldown and `[again]` `within`), the Policy's 2.5 s, a call's wait for
+  its body and light, the voice's line (`SPEAK_BEGIN`, `LINE_LONGEST`), a
+  clip's length and its begin on `body/joint_states`, a light's or a pose's
+  `for`, the pose said again every second and the light asked again every
+  10 s. In production it is the host's monotonic clock. `--clock-control
+  PATH` is for tests only: each line `{"skip_us": N}` on that socket moves
+  the clock N µs ahead, answered with `{"now_us": ...}` once done, and the
+  clock runs on from there at the host's pace. The main loop takes the skip:
+  first everything already published to it, on the clock as it was, then
+  the skip, then the asks to the Policy that are now late. So
+  `crates/skills/tests/skills.rs` skips where it would sit through a reload,
+  an absence, a slow Policy or a clip, and keeps every assertion: a skip
+  stops just before a wait another part must see end in its own steps (the
+  stand-in body's), and real time does the rest. Stamps stay on the host's
+  clocks, which the other parts read: `at_us` on `skills/events`, a light
+  claim's `until_us`, and the freshness of what others said (`light/state`,
+  `voice/state`, `body/joint_states`, from their `at_unix_ms`). So do the
+  socket timeouts to the other parts (the say service, the actions part, a
+  tool's caller), which bound a peer that keeps its own time.
 
 `lamp-update install` puts it on a home lamp (#811): the product unit
 `deploy/product/lamp-skills.service`, Welcome back in `/var/lib/lampOS/skills`,

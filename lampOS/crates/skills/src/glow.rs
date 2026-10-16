@@ -117,8 +117,10 @@ impl Glow {
                 let (glows, source, again) =
                     (self.glows.clone(), self.source.clone(), Arc::clone(&held));
                 let thread = std::thread::spawn(move || {
+                    // Asked again on the program's clock; each claim
+                    // holds on the host's, which the ring reads.
                     while let Err(mpsc::RecvTimeoutError::Timeout) =
-                        stopped.recv_timeout(glows.every)
+                        crate::clock::recv_timeout(&stopped, glows.every)
                     {
                         let light = locked(&again).clone();
                         let until_us = lamp_ipc::monotonic_us() + GLOW_HOLDS_US;

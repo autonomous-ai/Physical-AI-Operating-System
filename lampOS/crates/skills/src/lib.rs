@@ -15,6 +15,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+pub mod clock;
 pub mod glow;
 
 /// Whether the body plays `name` on its mood socket: one of the clips in its

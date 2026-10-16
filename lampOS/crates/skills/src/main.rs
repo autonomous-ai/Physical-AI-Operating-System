@@ -516,7 +516,7 @@ fn tool_call(
     let made: Vec<Call> = run
         .calls
         .iter()
-        .filter(|call| !matches!(call, Call::Look | Call::Say(_)))
+        .filter(|call| !matches!(call, Call::Look | Call::Say(_) | Call::SayFrom(_)))
         .cloned()
         .collect();
     // A run under way is left as it is: a call again meanwhile is told
@@ -661,10 +661,18 @@ fn perform(
     }
     let others: Vec<&Call> = calls
         .iter()
-        .filter(|call| !matches!(call, Call::Say(_)) && (before.is_some() || !is_light(call)))
+        .filter(|call| {
+            !matches!(call, Call::Say(_) | Call::SayFrom(_))
+                && (before.is_some() || !is_light(call))
+        })
         .collect();
-    let note = calls.iter().find_map(|call| match call {
-        Call::Say(note) => Some(note.clone()),
+    // What the voice is asked to say: a note in its own words, or words it
+    // keeps itself (#939).
+    let asking = calls.iter().find_map(|call| match call {
+        Call::Say(note) => Some(json!({"note": note, "priority": 5})),
+        Call::SayFrom(source) => {
+            Some(json!({"from": source.name(), "priority": source.priority()}))
+        }
         _ => None,
     });
     let mut changed = Changed::default();
@@ -690,10 +698,10 @@ fn perform(
             said.push(make(call, sockets, bus));
         }
     };
-    match note {
-        Some(note) => {
+    match asking {
+        Some(asking) => {
             let mut begun = Vec::new();
-            let outcome = say(&sockets.say, skill, &note, || act(&mut begun));
+            let outcome = say(&sockets.say, skill, asking, || act(&mut begun));
             said.extend(begun);
             said.push(outcome);
         }
@@ -762,16 +770,18 @@ fn answer(result: io::Result<String>) -> String {
     result.unwrap_or_else(|error| format!("the actions part was not reached ({error})"))
 }
 
-/// Asks the voice to say `note` (#939's say service: one line in, a `begun`
-/// line when the turn starts, then the outcome). `begun` is called with the
-/// first. What became of it, in words.
-fn say(path: &Path, skill: &str, note: &str, mut begun: impl FnMut()) -> String {
+/// Asks the voice to say `asking`, a `note` or what it keeps `from`, with its
+/// `priority` (#939's say service: one line in, a `begun` line when the
+/// turn starts, then the outcome). `begun` is called with the first. What
+/// became of it, in words.
+fn say(path: &Path, skill: &str, asking: serde_json::Value, mut begun: impl FnMut()) -> String {
     let mut attempt = || -> io::Result<String> {
         let mut stream = UnixStream::connect(path)?;
         stream.set_read_timeout(Some(SAY_TIMEOUT))?;
         stream.set_write_timeout(Some(ACTIONS_TIMEOUT))?;
-        let ask =
-            json!({"skill": skill, "note": note, "priority": 5, "expires_in_ms": SAY_EXPIRES_MS});
+        let mut ask = asking.clone();
+        ask["skill"] = json!(skill);
+        ask["expires_in_ms"] = json!(SAY_EXPIRES_MS);
         writeln!(stream, "{ask}")?;
         let mut lines = BufReader::new(stream.take(64 * 1_024));
         loop {
@@ -871,7 +881,7 @@ fn make(call: &Call, sockets: &Sockets, bus: &Bus) -> String {
             });
             format!("{first}, held {} s", lasting_us / 1_000_000)
         }
-        Call::Say(_) => "say: made by its own step".into(),
+        Call::Say(_) | Call::SayFrom(_) => "say: made by its own step".into(),
         Call::Look => "look: the model's, when it says it will look".into(),
     }
 }

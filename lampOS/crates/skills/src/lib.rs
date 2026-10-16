@@ -90,8 +90,23 @@ struct AskFile {
 struct StepFile {
     body: Option<BodyFile>,
     light: Option<LightStep>,
-    say: Option<String>,
+    say: Option<SayStep>,
     look: Option<bool>,
+}
+
+/// `say`: a note, or `{ from = "schedule" | "tasks" }` for words the voice
+/// keeps itself (#939).
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum SayStep {
+    Note(String),
+    From(SayFromFile),
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SayFromFile {
+    from: String,
 }
 
 #[derive(Deserialize)]
@@ -221,9 +236,42 @@ pub enum Call {
     Dim { steps: u8, until_ends: bool },
     /// A note for the voice to say in its own words.
     Say(String),
+    /// Words the voice keeps itself and says when asked (#939, (c)): the
+    /// reminder due, or the news of work handed over. The voice keeps the
+    /// words and their delivery (a reminder's acknowledgement, news told
+    /// once); the skill says when, and moves with them.
+    SayFrom(Source),
     /// The voice's full look (#836), which it takes when the lamp says it
     /// will look. Only in a skill its tool starts.
     Look,
+}
+
+/// Where the words of a [`Call::SayFrom`] are kept, in the voice.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Source {
+    /// The reminder Schedule has due (`schedule/due`).
+    Schedule,
+    /// The news of work handed to an agent (`tasks/status`).
+    Tasks,
+}
+
+impl Source {
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Schedule => "schedule",
+            Self::Tasks => "tasks",
+        }
+    }
+
+    /// The say service's priority: a reminder at its time, after a second
+    /// of quiet (8, as the voice's own reminders); news in a pause, after
+    /// 15 s of quiet (5, as the voice's own news).
+    pub fn priority(self) -> u8 {
+        match self {
+            Self::Schedule => 8,
+            Self::Tasks => 5,
+        }
+    }
 }
 
 impl Call {
@@ -266,6 +314,7 @@ impl Call {
                 ("light", args)
             }
             Self::Say(note) => ("say", json!({ "note": note })),
+            Self::SayFrom(source) => ("say", json!({ "from": source.name() })),
             Self::Look => ("look", json!({})),
         }
     }
@@ -525,16 +574,28 @@ pub fn load(dir: &Path) -> Result<Skill, String> {
             };
             steps.push(light_call(file).map_err(|why| format!("{place}: {why}"))?);
         }
-        if let Some(say) = step.say {
-            if say.trim().is_empty() {
+        match step.say {
+            Some(SayStep::Note(note)) if note.trim().is_empty() => {
                 return Err("say is a note in words".into());
             }
-            steps.push(Call::Say(say));
+            Some(SayStep::Note(note)) => steps.push(Call::Say(note)),
+            Some(SayStep::From(SayFromFile { from })) => {
+                steps.push(Call::SayFrom(match from.as_str() {
+                    "schedule" => Source::Schedule,
+                    "tasks" => Source::Tasks,
+                    _ => {
+                        return Err(format!(
+                            "say.from is \"schedule\" or \"tasks\", not {from:?}"
+                        ));
+                    }
+                }))
+            }
+            None => {}
         }
     }
     if steps
         .iter()
-        .filter(|step| matches!(step, Call::Say(_)))
+        .filter(|step| matches!(step, Call::Say(_) | Call::SayFrom(_)))
         .count()
         > 1
     {
@@ -1282,4 +1343,40 @@ pub fn run_tests(dir: &Path) -> Result<(usize, usize), String> {
         passed += 1;
     }
     Ok((passed, unrecorded))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// #939, (c): `say = { from = ... }` is a say of what the voice keeps,
+    /// by where, at that kind's priority.
+    #[test]
+    fn a_say_from_names_where_the_voice_keeps_the_words() {
+        let dir = tempfile::tempdir().unwrap();
+        for (from, source, priority) in [
+            ("schedule", Source::Schedule, 8),
+            ("tasks", Source::Tasks, 5),
+        ] {
+            let skill = dir.path().join(from);
+            std::fs::create_dir_all(&skill).unwrap();
+            std::fs::write(
+                skill.join("SKILL.md"),
+                format!("---\nname: {from}\ndescription: A test.\n---\n"),
+            )
+            .unwrap();
+            std::fs::write(
+                skill.join("skill.toml"),
+                format!(
+                    "[trigger]\ntopic = \"schedule/due\"\nfield = \"pending\"\nabove = 0.5\n\
+                     [ask]\npolicy = \"moment\"\n[[do]]\nsay = {{ from = \"{from}\" }}\n"
+                ),
+            )
+            .unwrap();
+            let loaded = load(&skill).unwrap();
+            assert_eq!(loaded.steps, [Call::SayFrom(source)]);
+            assert_eq!(loaded.steps[0].named(), ("say", json!({ "from": from })));
+            assert_eq!((source.name(), source.priority()), (from, priority));
+        }
+    }
 }

@@ -131,6 +131,23 @@ fn the_loader_refuses_what_it_cannot_do() {
             "[[do]]\nsay = \"And again.\"\n[ask]",
             "one say a skill",
         ),
+        // Words the voice keeps (#939): only what it keeps, only `from`,
+        // and still one say a skill.
+        (
+            "say = \"They are back at their desk. Greet them in one short line, by name if you know it.\"",
+            "say = { from = \"calendar\" }",
+            "say.from is \"schedule\" or \"tasks\", not \"calendar\"",
+        ),
+        (
+            "say = \"They are back at their desk. Greet them in one short line, by name if you know it.\"",
+            "say = { from = \"schedule\", note = \"x\" }",
+            "did not match any variant",
+        ),
+        (
+            "[ask]",
+            "[[do]]\nsay = { from = \"tasks\" }\n[ask]",
+            "one say a skill",
+        ),
     ] {
         let skill = welcome_back_with(&dir.path().join(why.replace(' ', "_")), from, to);
         let error = load(&skill).unwrap_err();
@@ -525,6 +542,43 @@ fn the_program_looks_and_lights_with_the_words_and_gives_the_light_back() {
             "{\"args\":{\"colour\":\"blue\"},\"name\":\"light_colour\",\"op\":\"call\"}\n"
         ]
     );
+}
+
+/// A skill whose words the voice keeps (#939, (c)): the reminder due.
+const FROM_SCHEDULE: &str = r#"
+[trigger]
+topic = "humans/faces/tracked"
+when = "appears"
+[ask]
+policy = "hello"
+[[do]]
+light = { colour = "warm" }
+say = { from = "schedule" }
+"#;
+
+/// #939, (c): `say = { from = "schedule" }` asks the voice for what it
+/// keeps, at a reminder's priority, with no words of the skill's own; the
+/// light comes with its `begun` and is given back, as for a note.
+#[test]
+fn a_say_from_the_voices_own_asks_for_it_by_source_and_moves_with_it() {
+    let seen = the_program_with(
+        FROM_SCHEDULE,
+        true,
+        &[r#"{"event":"begun","at_us":5}"#, r#"{"outcome":"spoken"}"#],
+        3,
+        1,
+        4,
+    );
+    assert_eq!(
+        seen.asked.as_deref(),
+        Some(
+            "{\"expires_in_ms\":30000,\"from\":\"schedule\",\"priority\":8,\"skill\":\"hello\"}\n"
+        )
+    );
+    let done = &seen.events[3].why;
+    assert!(done.contains("light warm: done"), "{done}");
+    assert!(done.contains("say: spoken"), "{done}");
+    assert!(done.contains("light given back to on blue at 3"), "{done}");
 }
 
 #[test]

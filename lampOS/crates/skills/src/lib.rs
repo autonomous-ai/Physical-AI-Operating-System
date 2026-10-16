@@ -101,6 +101,8 @@ struct StepFile {
     /// voice keeps itself (#939): read by hand ([`say_step`]), so that a
     /// wrong one is told in plain words.
     say: Option<toml::Value>,
+    /// A file in `sounds/`, by its name without `.wav`.
+    sound: Option<String>,
     look: Option<bool>,
 }
 
@@ -268,6 +270,9 @@ pub enum Call {
     /// The voice's full look (#836), which it takes when the lamp says it
     /// will look. Only in a skill its tool starts.
     Look,
+    /// A short sound of the skill's own, `sounds/NAME.wav` (checked at load,
+    /// [`check_sound`]), played by the voice through its say service.
+    Sound { name: String, path: PathBuf },
 }
 
 /// Where the words of a [`Call::SayFrom`] are kept, in the voice.
@@ -340,6 +345,7 @@ impl Call {
             Self::Say(note) => ("say", json!({ "note": note })),
             Self::SayFrom(source) => ("say", json!({ "from": source.name() })),
             Self::Look => ("look", json!({})),
+            Self::Sound { name, .. } => ("sound", json!({ "sound": name })),
         }
     }
 }
@@ -553,9 +559,13 @@ pub fn load(dir: &Path) -> Result<Skill, String> {
     }
     let mut steps = Vec::new();
     for step in file.steps {
-        if step.body.is_none() && step.light.is_none() && step.say.is_none() && step.look.is_none()
+        if step.body.is_none()
+            && step.light.is_none()
+            && step.say.is_none()
+            && step.sound.is_none()
+            && step.look.is_none()
         {
-            return Err("a [[do]] step names body, light, say or look".into());
+            return Err("a [[do]] step names body, light, say, sound or look".into());
         }
         match step.look {
             None => {}
@@ -621,15 +631,33 @@ pub fn load(dir: &Path) -> Result<Skill, String> {
             }
             steps.push(call);
         }
+        if let Some(name) = step.sound {
+            // A tool is called while the voice answers: a sound would always
+            // be refused as the lamp speaking.
+            if file.tool.is_some() {
+                return Err(
+                    "sound, in a skill with a tool: the voice is answering the call, so the lamp is speaking"
+                        .into(),
+                );
+            }
+            if !plain_name(&name) {
+                return Err(format!("sound {name:?} is not a file name in sounds/"));
+            }
+            let place = format!("sounds/{name}.wav");
+            let path = std::path::absolute(dir.join(&place))
+                .map_err(|error| format!("{place}: {error}"))?;
+            check_sound(&path).map_err(|why| format!("{place}: {why}"))?;
+            steps.push(Call::Sound { name, path });
+        }
     }
     if steps
         .iter()
-        .filter(|step| matches!(step, Call::Say(_) | Call::SayFrom(_)))
+        .filter(|step| matches!(step, Call::Say(_) | Call::SayFrom(_) | Call::Sound { .. }))
         .count()
         > 1
     {
         return Err(
-            "one say a skill: its other steps are made, in their order, when the voice begins it"
+            "one say or sound a skill: its other steps are made, in their order, when the voice begins it"
                 .into(),
         );
     }
@@ -643,6 +671,60 @@ pub fn load(dir: &Path) -> Result<Skill, String> {
         tool: file.tool,
         steps,
     })
+}
+
+/// A sound's limits, the voice's (`lamp_voice::say::read_sound`, which
+/// checks them again when it plays it): 16-bit mono PCM at the speaker
+/// path's 24 kHz, at most 3 s, no 10 ms louder than -20 dBFS RMS (the
+/// lamp's speech), and a file of at most this many bytes.
+pub const SOUND_RATE: u32 = 24_000;
+pub const SOUND_MOST_FRAMES: u32 = SOUND_RATE * 3;
+pub const SOUND_MOST_BYTES: u64 = 44 + 2 * SOUND_MOST_FRAMES as u64 + 4_096;
+pub const SOUND_LOUDEST_DBFS: f64 = -20.0;
+
+/// Whether `path` is a sound the voice will play: a regular file, not a
+/// link, of at most [`SOUND_MOST_BYTES`] by its metadata before anything
+/// is read, then a WAV within the limits above.
+pub fn check_sound(path: &Path) -> Result<(), String> {
+    let metadata = fs::symlink_metadata(path).map_err(|_| "not found".to_owned())?;
+    if !metadata.is_file() {
+        return Err("not a regular file".into());
+    }
+    if metadata.len() > SOUND_MOST_BYTES {
+        return Err(format!("more than {SOUND_MOST_BYTES} bytes"));
+    }
+    let reader = hound::WavReader::open(path).map_err(|_| "not a WAV file")?;
+    let spec = reader.spec();
+    if spec.channels != 1
+        || spec.bits_per_sample != 16
+        || spec.sample_format != hound::SampleFormat::Int
+        || spec.sample_rate != SOUND_RATE
+    {
+        return Err(format!("not 16-bit mono PCM at {SOUND_RATE} Hz"));
+    }
+    if !(1..=SOUND_MOST_FRAMES).contains(&reader.duration()) {
+        return Err(format!(
+            "not 1 to {SOUND_MOST_FRAMES} frames ({} s at most)",
+            SOUND_MOST_FRAMES / SOUND_RATE
+        ));
+    }
+    let samples = reader
+        .into_samples::<i16>()
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|_| "a WAV file cut short")?;
+    let loudest = samples
+        .chunks(240)
+        .map(|window| {
+            let power = window.iter().map(|&s| f64::from(s).powi(2)).sum::<f64>();
+            (power / window.len() as f64).sqrt()
+        })
+        .fold(0.0, f64::max);
+    if loudest > 32_767.0 * 10f64.powf(SOUND_LOUDEST_DBFS / 20.0) {
+        return Err(format!(
+            "louder than {SOUND_LOUDEST_DBFS} dBFS RMS over 10 ms"
+        ));
+    }
+    Ok(())
 }
 
 fn light_call(file: LightFile) -> Result<Call, String> {

@@ -6,6 +6,7 @@
   skill.toml    what it needs, its trigger, its conditions, the Policy's question, its steps
   tests/        a folder for each case: recordings and expect.toml
   lights/       optional: named light steps (lights/NAME.toml)
+  sounds/       optional: short sounds (sounds/NAME.wav)
 ```
 
 The runtime (`lamp-skills`) reads this; its schema is in the lamp's
@@ -15,7 +16,7 @@ the runtime says why in its journal: write only the keys below.
 
 Refused for now, so never write them: `run.py`, a `tools` key (the key is
 `tool`, below), `body = { move = ... }` (move files, #940), `when = "leaves"`
-or `"changes"`. `moves/` and `sounds/` may exist but are not read.
+or `"changes"`. `moves/` may exist but is not read.
 
 ## `SKILL.md`
 
@@ -132,7 +133,7 @@ say = "Tutor: a hint or a question, never the answer."
 
 ### Steps (`[[do]]`)
 
-In order. Within one table: body, then light, then say.
+In order. Within one table: body, then light, then say, then sound.
 
 | Key | Meaning |
 |---|---|
@@ -143,6 +144,7 @@ In order. Within one table: body, then light, then say.
 | `light = { dim = 1, until = "ends" }` | Dimmer by N steps, held until the run ends (the say ends, or its longest `for`), then given back |
 | `light = "NAME"` | The same keys from `lights/NAME.toml` |
 | `say = "..."` | A note for the voice to say in its own words through its say service (#954), never a script or a number to compare. One a skill. The other steps are made when the voice begins the say, so the look and the light come with the words, and none if it never begins. In a tool's run, the note goes to the model instead |
+| `sound = "NAME"` | Plays `sounds/NAME.wav`, through the voice (its say service, `LAMP_SAY=on`), so it never overlaps speech. The file must be a regular file (not a link), a WAV of 16-bit mono PCM at 24 kHz, at most 3 s and 148,140 bytes, and no 10 ms of it louder than -20 dBFS RMS (the lamp's speech), or the skill is refused with why. A paused, muted, speaking or listening lamp does not play it, and never plays it later: `skills/events` says why. Keep it rare, short and soft, a chime or a tone, as a living thing would make. One say or sound a skill; the other steps are made when it begins. Not in a skill with a `tool` |
 | `look = true` | Only in a skill with a `tool` and no trigger: the voice's full look (above) |
 
 **The light is always given back.** Before a run the light shown is read

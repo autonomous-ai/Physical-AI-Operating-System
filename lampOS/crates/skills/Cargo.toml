@@ -16,6 +16,7 @@ path = "src/main.rs"
 [dependencies]
 serde.workspace = true
 serde_json.workspace = true
+hound.workspace = true
 lamp-bus = { path = "../bus" }
 lamp-msgs = { path = "../msgs" }
 lamp-ipc = { path = "../ipc" }

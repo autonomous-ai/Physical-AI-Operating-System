@@ -458,8 +458,11 @@ fn permit_expires_without_another_frame_then_stop_remains_available() {
     assert_eq!(rig.colored(), 1);
 }
 
+/// Stale repeats never renew the authority. When it runs out the cue is
+/// blanked, and the ring waits dark, alive, for a fresh one, then paints
+/// again (#1178: a voice whose loop was held up a moment no longer ends).
 #[test]
-fn repeated_stale_control_does_not_renew_authority_heartbeat() {
+fn repeated_stale_control_does_not_renew_authority_and_a_ring_run_out_waits_for_a_fresh_one() {
     let mut rig = Rig::start(&[]);
     rig.ready();
     let (mut controller, owner) = conversation(rig.boot);
@@ -470,13 +473,28 @@ fn repeated_stale_control_does_not_renew_authority_heartbeat() {
             snapshot: original.snapshot,
         });
     }
-    let error = rig.finish().unwrap_err();
-    assert!(error.to_string().contains("heartbeat expired"));
+    assert!(matches!(
+        rig.event(),
+        WorkerEvent::Ring {
+            report: RingFeedback::Blanked {
+                reason: RingBlankReason::AuthorityLost { .. },
+                ..
+            }
+        }
+    ));
+    // Alive and dark well past it.
+    thread::sleep(Duration::from_millis(300));
+    assert!(rig.completion.try_recv().is_err(), "the ring went on");
     assert_eq!(rig.colored(), 1);
     assert_eq!(
         rig.writes.lock().unwrap().frames.last(),
         Some(&EncodedFrame::black())
     );
+    // A fresh authority: it paints again.
+    present(&rig, frame(&mut controller, owner, 200_000));
+    assert_eq!(rig.colored(), 2);
+    rig.control(Control::Stop);
+    rig.finish().unwrap();
 }
 
 #[test]
@@ -496,30 +514,44 @@ fn newer_expired_privacy_revocation_blanks_before_old_allowed_lease_expires() {
     wire["expires_at"] = (denied.issued_at().as_micros() + 1).into();
     let expired = serde_json::from_value(wire).unwrap();
     rig.control(Control::Authority { snapshot: expired });
-    let error = rig.finish().unwrap_err().to_string();
-    assert!(
-        error.contains(&lamp_turn_owner::Error::ExpiredState.to_string()),
-        "{error}"
-    );
+    // Blanked at once, while the older allowed lease is still fresh.
+    let WorkerEvent::Ring {
+        report:
+            RingFeedback::Blanked {
+                reason:
+                    RingBlankReason::AuthorityLost {
+                        reason: RingRejection::ExpiredState,
+                    },
+                write_finished_at_us,
+                ..
+            },
+    } = rig.event()
+    else {
+        panic!("missing the blank")
+    };
+    assert!(write_finished_at_us < allowed.snapshot.expires_at().as_micros());
+    // Nothing is painted under the older lease after it (#1178: the ring
+    // goes on, dark, until a newer authority installs).
+    let mut again = allowed;
+    again.requested_at_us = monotonic_us();
+    rig.frame(again);
+    assert!(matches!(
+        rig.event(),
+        WorkerEvent::Ring {
+            report: RingFeedback::Rejected {
+                reason: RingRejection::ExpiredState,
+                ..
+            }
+        }
+    ));
     assert_eq!(rig.colored(), 1);
     assert_eq!(rig.writes.lock().unwrap().frames.len(), 3);
     assert_eq!(
         rig.writes.lock().unwrap().frames.last(),
         Some(&EncodedFrame::black())
     );
-    let WorkerEvent::Ring {
-        report:
-            RingFeedback::Blanked {
-                reason: RingBlankReason::ControlLost,
-                write_finished_at_us,
-                ..
-            },
-    } = rig.event()
-    else {
-        panic!("missing cleanup receipt")
-    };
-    assert!(write_finished_at_us < allowed.snapshot.expires_at().as_micros());
-    assert!(matches!(rig.event(), WorkerEvent::Fault { .. }));
+    rig.control(Control::Stop);
+    rig.finish().unwrap();
 }
 
 #[test]
@@ -592,11 +624,12 @@ fn future_data_snapshot_never_installs_or_renews_authority() {
             }
         }
     ));
+    // No authority ever installed: past the start's allowance the ring ends.
     assert!(
         rig.finish()
             .unwrap_err()
             .to_string()
-            .contains("heartbeat expired")
+            .contains("authority never came")
     );
     assert_eq!(rig.colored(), 0);
 }

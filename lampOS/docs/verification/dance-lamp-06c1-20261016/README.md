@@ -30,7 +30,7 @@
 | 8 | "Lamp, I want a long dance. Make it upbeat!" | `dance({style: upbeat, long: true})` | groove, twice | 227 ms | 467 ms | 0.477 |
 
 **What came out.**
-- **When the tool was called:** five asks of eight. In every one, the arguments were the ones meant: none, calm, calm for "dance to this song", and upbeat and long. The second clip came when the first had played.
+- **When the tool was called:** five asks of eight. In every one, the arguments were the ones meant: none, calm, calm for "dance to this song", and upbeat and long. The second clip of ask 8's long dance was told the body but not played: it came at the first clip's length, while the first still played, and the body dropped it (`commanded` is flat from 9 s on; below, and the reviewer's 22:11 on #1012). Ask 18 is the fixed case.
 - **Ask 2** came before a restart of the voice. Its session had opened at 13:13, before `lamp-skills` could write `tools.json` at 13:14, so the model was never told of `dance` and said it had no body. The voice reads the skills' tools only when a session opens.
 - **Latency:** the body was told the clip within 300 ms of the line end in all five, and a joint passed 0.02 rad within 533 ms.
 - **The look**, from the stills, of the lamp only:
@@ -84,3 +84,22 @@
 - The model still left the style out of "a slow, calm dance" (ask 13), so it picked at random: groove.
 
 **Not shown:** a noise request (as voice request 42 was) meeting `[again]` on the lamp. Ask 16 stands in for it, a call on words that don't ask for a dance.
+
+## The review's long dance, 23:5x
+
+After the reviewer's P2 on #1012 (a long dance played only its first clip: ask 8's `commanded` was flat after about 9 s), the fix is installed on lamp-06c1:
+- **The builds:** `lamp-skills` `b3d24ecf` and voice `15ca4bad`, both from ARM64 run 38933439842 on `24df21d44`.
+- **The fix:** the second clip is sent one clip length plus 100 ms after the first.
+
+**Ask 18,** "Lamp, I want a long dance. Make it upbeat!", spoken by the Mac with nobody at the lamp:
+- The model called `dance({style: upbeat, long: true})`.
+- The body was told `dance_groove` twice.
+- The clip was commanded 226 ms after the turn ended, and moved by 546 ms.
+
+The largest `commanded` change from the pose at the line's end, per second after it (rad):
+
+| Seconds | 0–8 | 8–16 | 16–24 |
+|---|---|---|---|
+| Largest change | 0.17–0.24 | 0.19–0.24 | 0.05–0.08 (the body's idle sway) |
+
+**Both clips played:** the dance runs without a gap to about 16 s, two grooves of about 8 s each on this body. In ask 8 it was flat (≤ 0.08) from 9 s.

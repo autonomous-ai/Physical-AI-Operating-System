@@ -1,0 +1,3 @@
+{"topic":"voice/said","declaration":{"type":"lamp_msgs/Speech","version":1,"kind":"event"}}
+{"header":{"topic":"voice/said","kind":"event","enc":"json","type":"lamp_msgs/Speech","source":"voice","boot":"9b40ce48d5cf8335","seq":1,"at_us":40808357937,"at_unix_ms":1792169856474},"payload_b64":"eyJ0ZXh0IjoiTGV0J3MgZ2V0IHRoaXMgIiwiZmluaXNoZWQiOmZhbHNlLCJyZXF1ZXN0IjoxfQ=="}
+{"header":{"topic":"voice/said","kind":"event","enc":"json","type":"lamp_msgs/Speech","source":"voice","boot":"9b40ce48d5cf8335","seq":2,"at_us":40808815287,"at_unix_ms":1792169856931},"payload_b64":"eyJ0ZXh0IjoiZW5lcmd5IGdvaW5nLiIsImZpbmlzaGVkIjpmYWxzZSwicmVxdWVzdCI6MX0="}

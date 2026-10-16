@@ -53,7 +53,7 @@ Get these, from what they said first and as few questions as possible:
   number: "for 25 minutes" is the voice's own timer, not the skill's.
 - **What it does**: with the body, the light, the voice. Prefer the body and
   the light; speak only if they asked for speech or it is the point.
-- **How often at most**: every skill has a cooldown. If they did not say,
+- **How often at most**: every skill with a trigger has a cooldown. If they did not say,
   choose one that a person would find natural, not mechanical, and tell
   them.
 - **Who it is for**: anyone at the desk, or one known person.

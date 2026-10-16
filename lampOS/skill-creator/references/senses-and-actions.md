@@ -31,9 +31,10 @@ they disagree with this file, they are right.
 |---|---|
 | **say** (the voice) | The lamp says something, as a written turn through the voice's own gates (the say service, #954; the voice runs it with `LAMP_SAY=on`). Give it a note for the model ("They are back. Greet them in one short line."), not a script |
 | **light** (the actions part) | A colour for a while, or dimmer by a step: a short change on top of the person's own light, which is given back after (skill-folder.md). Its level is not set yet |
-| **look** (the voice) | In a skill with a `tool` only: the voice's full look at what is in front of the lamp, for the model's answer |
+| **look** (the voice) | Only in a skill with a `tool` and no trigger: the voice's full look at what is in front of the lamp, for the model's answer |
 | **body: gaze** | Look at a face, or a direction |
-| **body: gesture** | One of the body's six gestures: `nod`, `headshake`, `greeting`, `laugh`, `shy`, `stretching`. There is no droop, lean or bow yet: those come as move files |
+| **body: gesture** | One of the body's six gestures: `nod`, `headshake`, `greeting`, `laugh`, `shy`, `stretching`. There is no droop or bow yet: those come as move files |
+| **body: pose** | `reading`, held for a while: the head down over the desk and the arm leaning forward (#1011). The only pose a skill may hold |
 | **body: moves** | Not yet: move files wait for #940, and the runtime refuses `body.move` |
 | **schedule** | Set, list, cancel reminders and timers |
 | **tasks** | Hand work to Claude Code or Codex |
@@ -45,8 +46,8 @@ look at the picture itself, only at the faces the eyes report.
 
 ## Names in tests
 
-A skill's steps, and its tests, name five calls: `body.gaze`, `body.gesture`,
-`light`, `say` and `look`. Schedule, tasks and memory are services the lamp has, but
+A skill's steps, and its tests, name six calls: `body.gaze`, `body.gesture`,
+`body.mood`, `light`, `say` and `look`. Schedule, tasks and memory are services the lamp has, but
 a skill's steps cannot call them yet.
 
 ## The light's colours

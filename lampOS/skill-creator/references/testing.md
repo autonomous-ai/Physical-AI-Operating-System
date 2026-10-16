@@ -53,7 +53,7 @@ The `[[expect]]` entries are **all** the calls the case may make, in order:
 any other call fails it, so "exactly once" needs nothing more. Arguments left
 out of `args` are not compared. The runtime gives: `body.gaze` `look_at`,
 `x`, `y`, `size`; `body.gesture` `gesture`; `light` `colour`, `level`, `for`,
-or `dim`, `until`; `say` `note`; `look`, none. A case where the skill must do nothing has
+or `dim`, `until`; `body.mood` `mood`, `for_ms`; `say` `note`; `look`, none. A case where the skill must do nothing has
 no `[[expect]]`, only:
 
 ```toml
@@ -90,9 +90,10 @@ kill %1
 Publish faces at least every 2 s wherever a condition reads them (a face
 lasts 2 s), as the lamp's eyes do.
 
-Each message must have its type's shape, or the case reads nothing. Every
-type's fields are in the lamp's `lampOS/docs/msgs.md` (the code is
-`crates/msgs`); the ones skills use most, as `lamp-bus pub` takes them:
+Nothing checks a message's shape: a field written wrong never holds, and a
+case built on a shape the lamp never sends passes anyway. Copy the shapes
+below, or each type's fields from the lamp's `lampOS/docs/msgs.md` (the code
+is `crates/msgs`). The ones skills use most, as `lamp-bus pub` takes them:
 
 | Topic | `--type` | A message |
 |---|---|---|

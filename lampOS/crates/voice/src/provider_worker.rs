@@ -1462,13 +1462,14 @@ async fn serve_with_visual<C: Connect>(
                     && presence_read_at.is_none_or(|at| at.elapsed() >= Duration::from_millis(500))
                 {
                     presence_read_at = Some(Instant::now());
-                    counted = presence
-                        .seen(crate::known_faces::known_now(path), Instant::now())
-                        .map(str::to_owned);
+                    let fresh = crate::known_faces::known_now(path);
+                    let named = fresh.as_deref().map(crate::remember::person_id);
+                    counted = presence.seen(fresh, Instant::now()).map(str::to_owned);
                     let whose = counted.as_deref().map(crate::remember::person_id);
                     let turn_open = intake.handoff.visual_turn().is_some();
                     let due = crate::thread::THREAD.lock().is_ok_and(|mut thread| {
-                        thread.at_lamp_since(whose, presence.arrived());
+                        thread.at_lamp(whose);
+                        thread.seen_now(named);
                         thread.switch_now(turn_open, !output.is_empty(), Instant::now())
                     });
                     let live = provider.live_session();

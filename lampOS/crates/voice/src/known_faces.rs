@@ -167,9 +167,12 @@ pub const GONE_AFTER: Duration = Duration::from_secs(30);
 pub const SOMEONE_ELSE_AFTER: Duration = Duration::from_secs(10);
 
 /// Who is at the lamp, as the voice counts it for whose session it is:
-/// someone known counts at once when nobody was, a different known person
-/// only after [`SOMEONE_ELSE_AFTER`] of being known with the one at the
-/// lamp unseen, and nobody only after [`GONE_AFTER`].
+/// someone known counts at once when nobody was, or when the one counted
+/// was last seen [`GONE_AFTER`] ago or more; a different known person only
+/// after [`SOMEONE_ELSE_AFTER`] of being known with the one at the lamp
+/// unseen; and nobody only after [`GONE_AFTER`]. It decides only whose
+/// session it is: an exchange is the person's the eyes name as it is made
+/// (`crate::thread::Thread::seen_now`).
 #[derive(Default)]
 pub struct Presence {
     who: Option<String>,
@@ -177,55 +180,42 @@ pub struct Presence {
     /// Someone else known, and since when, while the one at the lamp has
     /// not been seen.
     other: Option<(String, Instant)>,
-    /// When the eyes first knew the one at the lamp, if they took a known
-    /// person's place: what was said since then was theirs.
-    arrived: Option<Instant>,
 }
 
 impl Presence {
     /// What the known file said now (`None`: nobody fresh), and who is at
     /// the lamp after it.
     pub fn seen(&mut self, known: Option<String>, now: Instant) -> Option<&str> {
+        // The one counted, unseen this long, is gone, whether or not it
+        // was read between: the second route reads only as a turn opens,
+        // and never sees the 30 s between turns (the reviewer on #1100).
+        let gone = self
+            .seen_at
+            .is_some_and(|at| now.saturating_duration_since(at) >= GONE_AFTER);
         match known {
-            Some(who) if self.who.as_ref().is_some_and(|at| *at != who) => match &self.other {
-                Some((other, since))
-                    if *other == who
-                        && now.saturating_duration_since(*since) >= SOMEONE_ELSE_AFTER =>
-                {
-                    self.arrived = Some(*since);
-                    self.who = Some(who);
-                    self.seen_at = Some(now);
-                    self.other = None;
+            Some(who) if !gone && self.who.as_ref().is_some_and(|at| *at != who) => {
+                match &self.other {
+                    Some((other, since))
+                        if *other == who
+                            && now.saturating_duration_since(*since) >= SOMEONE_ELSE_AFTER =>
+                    {
+                        self.who = Some(who);
+                        self.seen_at = Some(now);
+                        self.other = None;
+                    }
+                    Some((other, _)) if *other == who => {}
+                    _ => self.other = Some((who, now)),
                 }
-                Some((other, _)) if *other == who => {}
-                _ => self.other = Some((who, now)),
-            },
+            }
             Some(who) => {
-                if self.who.is_none() {
-                    self.arrived = None;
-                }
                 self.who = Some(who);
                 self.seen_at = Some(now);
                 self.other = None;
             }
-            None if self
-                .seen_at
-                .is_some_and(|at| now.saturating_duration_since(at) >= GONE_AFTER) =>
-            {
-                self.who = None;
-                self.arrived = None;
-            }
+            None if gone => self.who = None,
             None => {}
         }
         self.who.as_deref()
-    }
-
-    /// When the eyes first knew the one at the lamp, if they counted after
-    /// [`SOMEONE_ELSE_AFTER`] in a known person's place: for up to that
-    /// long a newcomer is answered as the one before, and what they said
-    /// then is theirs ([`crate::thread::Thread::at_lamp_since`]).
-    pub fn arrived(&self) -> Option<Instant> {
-        self.arrived
     }
 }
 
@@ -317,19 +307,16 @@ mod tests {
         assert_eq!(presence.seen(Some("a".into()), at(73)), Some("a"));
         assert_eq!(presence.seen(Some("b".into()), at(74)), Some("a"));
         assert_eq!(presence.seen(Some("b".into()), at(83)), Some("a"));
-        assert_eq!(presence.arrived(), None);
         assert_eq!(presence.seen(Some("b".into()), at(84)), Some("b"));
-        // Since its first reading after "a" was last seen.
-        assert_eq!(presence.arrived(), Some(at(74)));
         // And "a" again, as someone else, only after 10 s.
         assert_eq!(presence.seen(Some("a".into()), at(85)), Some("b"));
         assert_eq!(presence.seen(Some("a".into()), at(95)), Some("a"));
-        assert_eq!(presence.arrived(), Some(at(85)));
-        // Nobody, then someone: they took nobody's place.
-        assert_eq!(presence.seen(None, at(125)), None);
-        assert_eq!(presence.arrived(), None);
-        assert_eq!(presence.seen(Some("b".into()), at(126)), Some("b"));
-        assert_eq!(presence.arrived(), None);
+        // The reviewer on #1100: read only as turns open, the one counted
+        // last seen 30 s ago or more is gone, and someone else counts at
+        // once. "b" at 3,600 s, an hour after "a".
+        assert_eq!(presence.seen(Some("b".into()), at(95 + 3_600)), Some("b"));
+        assert_eq!(presence.seen(Some("a".into()), at(95 + 3_629)), Some("b"));
+        assert_eq!(presence.seen(Some("a".into()), at(95 + 3_630)), Some("a"));
     }
 
     #[test]

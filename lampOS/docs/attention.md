@@ -962,8 +962,9 @@ set).
 
 **Needs the Policy's side:** `lamp-policy --act attention`, which publishes
 its attention decisions with `shadow: false` ([policy.md](policy.md#acting-on-the-lamps-actions---act-attention-800)).
-Without it every action waits 2 s and runs, so the switch is on only with
-it. On lamp-4ace both are on since 16 October 07:25 (the first builder,
+Without it every call the switch holds waits 2 s and runs (one in a turn
+where the lamp's name was heard runs at once, as always), so the switch is
+on only with it. On lamp-4ace both are on since 16 October 07:25 (the first builder,
 `holds.sh` and `twopeople829.sh`).
 
 ## Switch

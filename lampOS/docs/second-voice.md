@@ -135,8 +135,12 @@ A base URL on `campaign-api.autonomous.ai` ending in `/ai` is given `/v1`
   `Authorization: Bearer <key>`, `"stream": true`, with `tools` when any are
   declared. They are declared as they stand at each request, as a Live
   session is told them when it opens, so the executive's actions come and
-  go with the executive (one that starts after the voice is not missed). The answer is read as server-sent events and cut into
-  sentences as it arrives (`net/sentences.rs`).
+  go with the executive (one that starts after the voice is not missed).
+  The answer is read as server-sent events and cut into sentences as it
+  arrives (`net/sentences.rs`). It is whole at `[DONE]`, or at the
+  stream's end after a chunk with a `finish_reason`; a stream that ends
+  before either was cut, and fails the turn (`TurnFailed`, as any chat
+  failure) rather than leaving a half answer as the whole one.
 - **Speech** (`net/tts.rs`), 24 kHz mono 16-bit PCM:
   - `openai`: `POST <base>/audio/speech`, `Authorization: Bearer <key>`,
     model `tts-1`, `response_format: pcm`.
@@ -551,8 +555,6 @@ Reported by the builders:
   - sentences: a fixed English abbreviation list and "stop then
     whitespace"; quotes after the stop, ellipses and non-Latin stops are not
     handled;
-  - the chat stream: an end without `[DONE]` counts as one, so a cut stream
-    looks finished;
   - speech: every `[...]` is dropped, where V1 drops only its ElevenLabs
     emotion tags;
   - a model still calling tools after four rounds ends the turn with what

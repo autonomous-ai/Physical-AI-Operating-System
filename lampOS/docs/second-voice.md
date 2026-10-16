@@ -148,6 +148,11 @@ A base URL on `campaign-api.autonomous.ai` ending in `/ai` is given `/v1`
   and an answer 12 s late is worse than none. A round after a tool ran is
   not bounded: what was done (a timer set, the light changed) has to be
   said, or it is asked for and done again.
+  A look's first round may take 5 s (`LOOK_BEGIN_WITHIN`): a picture is
+  slower to read, and on lamp-52e6 one of two real looks went past 3 s.
+  Past it the lamp says "I couldn't get a good look." (`COULD_NOT_LOOK`;
+  journal: `look round had not begun in … ms`) rather than nothing after
+  "Let me look." (the first builder, 2026-10-16 21:25).
   With `LAMP_SECOND_WAIT_CUE=on` (sixth-P3), a spoken turn whose first
   round has not begun 1.5 s after the words makes one soft sound ("Hmm.",
   "Mm." or "Hm.", the next never the last one played), and is then given up
@@ -571,7 +576,7 @@ Reported by the builders:
   and 64 KiB; with `LAMP_LOOK_FULL`, a full look's still and 184 KiB). The
   picture goes in that turn's first chat round only, never into a round
   after a tool, the thread or a later turn; a picture the chat refuses is
-  asked once more with the no-look note, within the 3 s bound.
+  asked once more with the no-look note, within the look's 5 s bound.
   With no fresh picture, or no look file, the Live route's no-look note
   goes in place of the words (`speak_up::NO_LOOK_NOTE`): the model is told
   it saw nothing, never left to describe a picture it was not given

@@ -1,0 +1,84 @@
+15:51:33
+
+running 19 tests
+test coordinator::tests::early_end::a_lone_lamp_and_a_pause_and_the_question_go_as_one_request ... {"seconds":5,"status":"listening_ready"}
+a lone Lamp, a pause and the question: connections 1; activityStart 1, audio blocks 215, activityEnd 1, other 0; requests given up 0; answers begun 1, blocks played 48; last sound to first block handed to the speaker Some(1268) ms
+ok
+test coordinator::tests::early_end::a_name_note_told_with_a_request_ended_early_does_not_survive_it ... ok
+test coordinator::tests::early_end::a_question_after_the_window_ended_its_name_goes_on_and_cutting_in_does_not ... {"seconds":8,"status":"listening_ready"}
+lamp-voice provider: barrier Settled: superseded=Some(1) successor=Some(2) waited_ms=145 quiet_ms=0 successor_input_open=true end_withheld_ms=None withheld audio_frames=1 text_frames=0 generation_complete=0 interrupted=1 completions_not_idle=0 start_held_ms=Some(143) start_released_by=Some(FirstOutput) retained_samples=4800 waiting_for_input=0 resumable_updates=0 unresumable_updates=0
+with the switch: Hey Lamp, 0.7 s, the question, stop: connections 1; activityStart 3, audio blocks 420, activityEnd 3, other 0; requests given up 0; answers begun 3, blocks played 91; last sound to first block handed to the speaker Some(1071) ms
+{"seconds":8,"status":"listening_ready"}
+lamp-voice provider: barrier Settled: superseded=Some(1) successor=Some(2) waited_ms=142 quiet_ms=0 successor_input_open=true end_withheld_ms=None withheld audio_frames=1 text_frames=0 generation_complete=0 interrupted=1 completions_not_idle=0 start_held_ms=Some(140) start_released_by=Some(FirstOutput) retained_samples=4800 waiting_for_input=0 resumable_updates=0 unresumable_updates=0
+ok
+test coordinator::tests::early_end::a_question_in_four_pieces_tells_each_successor_and_plays_only_the_last_answer ... {"seconds":7,"status":"listening_ready"}
+lamp-voice provider: barrier Settled: superseded=Some(1) successor=Some(2) waited_ms=0 quiet_ms=0 successor_input_open=true end_withheld_ms=None withheld audio_frames=0 text_frames=0 generation_complete=0 interrupted=1 completions_not_idle=0 start_held_ms=None start_released_by=None retained_samples=0 waiting_for_input=0 resumable_updates=0 unresumable_updates=0
+lamp-voice provider: request 2: the model is told it goes on from the request given up
+lamp-voice provider: request 3: the model is told it goes on from the request given up
+lamp-voice provider: barrier Settled: superseded=Some(2) successor=Some(3) waited_ms=1 quiet_ms=0 successor_input_open=true end_withheld_ms=None withheld audio_frames=0 text_frames=0 generation_complete=0 interrupted=1 completions_not_idle=0 start_held_ms=None start_released_by=None retained_samples=0 waiting_for_input=0 resumable_updates=0 unresumable_updates=0
+lamp-voice provider: barrier Settled: superseded=Some(3) successor=Some(4) waited_ms=0 quiet_ms=0 successor_input_open=true end_withheld_ms=None withheld audio_frames=0 text_frames=0 generation_complete=0 interrupted=1 completions_not_idle=0 start_held_ms=None start_released_by=None retained_samples=0 waiting_for_input=0 resumable_updates=0 unresumable_updates=0
+lamp-voice provider: request 4: the model is told it goes on from the request given up
+a question in four pieces: connections 1; activityStart 4, audio blocks 395, activityEnd 4, other 0; requests given up 3; answers begun 4, blocks played 48; last sound to first block handed to the speaker Some(602) ms
+ok
+test coordinator::tests::early_end::an_answer_that_arrives_after_the_lamp_is_sure_begins_400_ms_sooner_than_without ... {"seconds":5,"status":"listening_ready"}
+{"seconds":5,"status":"listening_ready"}
+an answer after the lamp is sure, with the option: connections 1; activityStart 1, audio blocks 145, activityEnd 1, other 0; requests given up 0; answers begun 1, blocks played 48; last sound to first block handed to the speaker Some(1268) ms
+an answer after the lamp is sure, without it: connections 1; activityStart 1, audio blocks 185, activityEnd 1, other 0; requests given up 0; answers begun 1, blocks played 48; last sound to first block handed to the speaker Some(1671) ms
+last sound to the end sent: off 604 ms, on 203 ms; to the first block handed to the speaker: off 1671 ms, on 1268 ms
+ok
+test coordinator::tests::early_end::an_answer_that_arrives_before_the_lamp_is_sure_begins_at_that_moment ... {"seconds":4,"status":"listening_ready"}
+an answer before the lamp is sure: connections 1; activityStart 1, audio blocks 145, activityEnd 1, other 0; requests given up 0; answers begun 1, blocks played 16; last sound to first block handed to the speaker Some(603) ms
+ok
+test coordinator::tests::early_end::an_answer_with_nothing_said_before_the_lamp_is_sure_is_never_played ... {"seconds":4,"status":"listening_ready"}
+lamp-voice provider: barrier Settled: superseded=Some(1) successor=None waited_ms=0 quiet_ms=0 successor_input_open=false end_withheld_ms=None withheld audio_frames=0 text_frames=0 generation_complete=0 interrupted=1 completions_not_idle=0 start_held_ms=None start_released_by=None retained_samples=0 waiting_for_input=0 resumable_updates=0 unresumable_updates=0
+nothing said before the lamp is sure: connections 1; activityStart 2, audio blocks 145, activityEnd 1, other 0; requests given up 0; answers begun 1, blocks played 0; last sound to first block handed to the speaker None ms
+ok
+test coordinator::tests::early_end::fixture_policy_tests::a_scoped_clock_is_rejected_before_provider_or_child_startup - should panic ... 
+thread 'coordinator::tests::early_end::fixture_policy_tests::a_scoped_clock_is_rejected_before_provider_or_child_startup' (587149134) panicked at crates/voice/src/coordinator/tests/early_end.rs:549:5:
+real-provider fixture requires the host clock
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+ok
+test coordinator::tests::early_end::fixture_policy_tests::delayed_capture_keeps_continuity_and_cannot_refresh_stale_audio ... ok
+test coordinator::tests::early_end::fixture_policy_tests::requested_task_cancellation_is_accepted_and_normal_results_survive ... ok
+test coordinator::tests::early_end::fixture_policy_tests::task_panic_payload_propagates_even_when_cancellation_was_requested ... 
+thread 'coordinator::tests::early_end::fixture_policy_tests::task_panic_payload_propagates_even_when_cancellation_was_requested' (587149137) panicked at crates/voice/src/coordinator/tests/early_end.rs:777:34:
+Box<dyn Any>
+ok
+test coordinator::tests::early_end::fixture_policy_tests::unrequested_task_cancellation_is_rejected - should panic ... 
+thread 'coordinator::tests::early_end::fixture_policy_tests::unrequested_task_cancellation_is_rejected' (587149138) panicked at crates/voice/src/coordinator/tests/early_end.rs:565:23:
+fixture task cancelled without a fixture request: task 46 was cancelled
+ok
+test coordinator::tests::early_end::lamp_stop_over_an_answer_stops_it_and_only_the_answer_to_the_whole_is_played ... {"seconds":5,"status":"listening_ready"}
+lamp-voice provider: barrier Settled: superseded=Some(1) successor=Some(2) waited_ms=1 quiet_ms=0 successor_input_open=true end_withheld_ms=None withheld audio_frames=0 text_frames=0 generation_complete=0 interrupted=1 completions_not_idle=0 start_held_ms=None start_released_by=None retained_samples=0 waiting_for_input=0 resumable_updates=0 unresumable_updates=0
+lamp-voice provider: request 3: the model is told it goes on from the request given up
+lamp-voice provider: barrier Settled: superseded=Some(2) successor=Some(3) waited_ms=1 quiet_ms=0 successor_input_open=true end_withheld_ms=None withheld audio_frames=0 text_frames=0 generation_complete=0 interrupted=1 completions_not_idle=0 start_held_ms=None start_released_by=None retained_samples=0 waiting_for_input=0 resumable_updates=0 unresumable_updates=0
+Lamp, stop. over an answer: connections 1; activityStart 3, audio blocks 270, activityEnd 3, other 0; requests given up 1; answers begun 3, blocks played 158; last sound to first block handed to the speaker Some(601) ms
+ok
+test coordinator::tests::early_end::quiet_to_the_end_the_answer_starts_when_the_lamp_is_sure_and_not_before ... {"seconds":4,"status":"listening_ready"}
+quiet to the end: connections 1; activityStart 1, audio blocks 145, activityEnd 1, other 0; requests given up 0; answers begun 1, blocks played 48; last sound to first block handed to the speaker Some(604) ms
+ok
+test coordinator::tests::early_end::speech_resumed_at_three_tenths_nothing_of_the_first_answer_is_played_and_one_turn_is_heard ... {"seconds":6,"status":"listening_ready"}
+lamp-voice provider: request 2: the model is told it goes on from the request given up
+lamp-voice provider: barrier Settled: superseded=Some(1) successor=Some(2) waited_ms=749 quiet_ms=0 successor_input_open=true end_withheld_ms=None withheld audio_frames=1 text_frames=0 generation_complete=0 interrupted=1 completions_not_idle=0 start_held_ms=Some(742) start_released_by=Some(FirstOutput) retained_samples=14400 waiting_for_input=0 resumable_updates=0 unresumable_updates=0
+speech resumed at 0.3 s, vad-only: connections 1; activityStart 2, audio blocks 235, activityEnd 2, other 0; requests given up 1; answers begun 2, blocks played 48; last sound to first block handed to the speaker Some(1266) ms
+ok
+test coordinator::tests::early_end::speech_resumed_at_three_tenths_under_the_lamps_duplex_policy ... {"seconds":6,"status":"listening_ready"}
+lamp-voice provider: request 2: the model is told it goes on from the request given up
+lamp-voice provider: barrier Settled: superseded=Some(1) successor=Some(2) waited_ms=745 quiet_ms=0 successor_input_open=true end_withheld_ms=None withheld audio_frames=1 text_frames=0 generation_complete=0 interrupted=1 completions_not_idle=0 start_held_ms=Some(738) start_released_by=Some(FirstOutput) retained_samples=14240 waiting_for_input=0 resumable_updates=0 unresumable_updates=0
+speech resumed at 0.3 s, duplex 600 ms: connections 1; activityStart 2, audio blocks 235, activityEnd 2, other 0; requests given up 1; answers begun 2, blocks played 48; last sound to first block handed to the speaker Some(1272) ms
+ok
+test coordinator::tests::early_end::the_link_dropping_after_a_continued_request_fails_it_unheard_and_the_next_has_no_note ... {"seconds":7,"status":"listening_ready"}
+lamp-voice provider: barrier Settled: superseded=Some(1) successor=Some(2) waited_ms=0 quiet_ms=0 successor_input_open=true end_withheld_ms=None withheld audio_frames=0 text_frames=0 generation_complete=0 interrupted=1 completions_not_idle=0 start_held_ms=None start_released_by=None retained_samples=0 waiting_for_input=0 resumable_updates=0 unresumable_updates=0
+lamp-voice provider: request 2: the model is told it goes on from the request given up
+the link dropping after a continued request: connections 2; activityStart 3, audio blocks 330, activityEnd 3, other 0; requests given up 1; answers begun 2, blocks played 48; last sound to first block handed to the speaker Some(603) ms
+ok
+test coordinator::tests::early_end::the_link_dropping_in_between_fails_the_request_unheard_and_the_next_is_answered ... {"seconds":6,"status":"listening_ready"}
+the link dropping in between: connections 2; activityStart 2, audio blocks 290, activityEnd 2, other 0; requests given up 0; answers begun 1, blocks played 48; last sound to first block handed to the speaker Some(603) ms
+ok
+test coordinator::tests::early_end::without_the_option_every_message_and_record_is_what_it_was ... {"seconds":6,"status":"listening_ready"}
+without the option: Hey Lamp, 0.3 s, the question: connections 1; activityStart 1, audio blocks 275, activityEnd 1, other 0; requests given up 0; answers begun 1, blocks played 48; last sound to first block handed to the speaker Some(919) ms
+ok
+
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 1370 filtered out; finished in 93.17s
+
+15:53:08

@@ -1,7 +1,12 @@
 //! Provider availability is control state, never PCM credit or output authority.
 //! A retained unsent observation is replaced only by a newer validated revision.
 use crate::provider_worker::Fault;
+// A stepped fixture's provider correlates its paused runtime with the
+// scenario's logical clock, as its worker reads it (#823).
+#[cfg(test)]
+use crate::scenario_clock::monotonic_us;
 use lamp_gemini::{Context, FailureReason, LinkUpdate, LinkUpdateKind};
+#[cfg(not(test))]
 use lamp_ipc::monotonic_us;
 use serde::{Deserialize, Serialize};
 use std::io;

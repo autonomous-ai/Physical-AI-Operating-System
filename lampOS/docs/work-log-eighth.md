@@ -23,6 +23,21 @@ The eighth builder's log, newest first. Role file:
 
 None yet.
 
+## 2026-10-16 11:15 — #914 — fix A drafted as #988
+
+Ready for lamp-voice: no (draft; ARM64 38848902927 running; needs the fifth's
+read and the first builder's lamp-4ace minute)
+
+- About seven hours without a pick between A and B, so A was written on
+  `eighth/receive-clock` to give a concrete choice; B is still open.
+- Fix: `Channel::receive_with` reads the clock after a datagram arrives;
+  `Supervisor::poll`, the worker's `Link` reads and `opening_controls` use it.
+  No check relaxed.
+- Loaded (#914's test, 400 per side, 24 busy loops, 20 cores): readiness
+  lost 9 → 0; stop-path inhibit-ack timeouts 8 → 6, not addressed.
+- Conflicts with #900 on one `supervisor.rs` line; second to merge rebases.
+- New owner rule: every issue I create names the first builder.
+
 ## 2026-10-16 10:55 — #783 — done
 
 Ready for lamp-voice: yes (#905, merged 10:33 +07)

@@ -1,0 +1,22 @@
+# One spell from 10:00: CO2 700 ppm up to 1,400 by minute 30, an hour at about
+# 1,400, back to 700 by minute 120. Above 1,200 from minute 21.5, so at 31.5
+# it droops once and dims a shade; the light is given back at 99.5, a minute
+# after the air went under 1,200 (the trigger's gap).
+clock = "10:00"
+
+[[expect]]
+at = "1890s"
+within = "30s"
+call = "body.gesture"
+args = { gesture = "sleepy" }
+
+[[expect]]
+at = "1890s"
+within = "30s"
+call = "light"
+args = { dim = 1, until = "ends" }
+
+[[expect]]
+at = "5970s"
+within = "30s"
+call = "ends"

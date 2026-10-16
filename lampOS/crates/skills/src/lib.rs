@@ -88,6 +88,10 @@ const MOST_WAIT_US: u64 = 3_600_000_000;
 /// How long a face message counts when its header names no lifespan: the
 /// eyes' two seconds. A value on another topic counts until it is replaced.
 const FACE_LIFESPAN_MS: u64 = 2_000;
+/// How long a held run's trigger topic may say nothing, when its newest
+/// value names no lifespan, before the run ends (#1021: until the air part
+/// says its readings expire).
+pub const SILENT_ENDS_US: u64 = 15 * 60 * 1_000_000;
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -110,8 +114,35 @@ struct SkillFile {
     /// What the model is told of a call while the tool's run, which holds
     /// no pose, is under way.
     still: Option<String>,
+    /// Local hours when the skill never starts itself.
+    quiet: Option<QuietFile>,
     #[serde(rename = "do")]
     steps: Vec<StepFile>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct QuietFile {
+    from: String,
+    to: String,
+}
+
+/// A trigger's `rearm`: a word, or a line its field must stay past for a
+/// while.
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum RearmFile {
+    Word(String),
+    Line(RearmLine),
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RearmLine {
+    above: Option<f64>,
+    below: Option<f64>,
+    #[serde(rename = "for")]
+    lasting: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -172,7 +203,7 @@ struct TriggerFile {
     #[serde(rename = "for")]
     lasting: Option<String>,
     gap: Option<String>,
-    rearm: Option<String>,
+    rearm: Option<RearmFile>,
     cooldown: Option<String>,
     /// A chance held back by a `[[while]]` condition waits this long, while
     /// the trigger still holds, for the conditions to hold.
@@ -302,7 +333,32 @@ pub struct Skill {
     flag: Option<FlagFile>,
     again: Option<Again>,
     still: String,
+    /// Local minutes of the day, from and to, when it never starts itself.
+    quiet: Option<(u16, u16)>,
     steps: Vec<Step>,
+}
+
+impl Skill {
+    /// Whether a step holds something until its trigger stops holding.
+    fn holds_until_ends(&self) -> bool {
+        self.steps.iter().any(|step| {
+            matches!(
+                step,
+                Step::Call(Call::Dim {
+                    until_ends: true,
+                    ..
+                })
+            )
+        })
+    }
+}
+
+/// The line a trigger's field must stay past for a while before the trigger
+/// runs again.
+#[derive(Clone, Debug)]
+pub struct Rearm {
+    test: Test,
+    pub for_us: u64,
 }
 
 /// A step as loaded, made into calls when the skill runs.
@@ -380,6 +436,8 @@ pub struct Trigger {
     pub gap_us: u64,
     /// Once each time it holds; again only after it stopped.
     pub rearm: bool,
+    /// And, with a line, only after its field stayed past it for a while.
+    pub rearm_line: Option<Rearm>,
     pub cooldown_us: u64,
     /// How long a chance held back by a `[[while]]` condition is kept, while
     /// the trigger still holds, and taken the moment the conditions hold:
@@ -411,8 +469,8 @@ pub enum Call {
         level: Option<u8>,
         lasting: Option<String>,
     },
-    /// Steps dimmer, to the actions part's `light_dimmer`, held until the
-    /// run ends ("until it ends" says so).
+    /// Steps dimmer, to the actions part's `light_dimmer`; with
+    /// `until_ends`, held until the trigger stops holding, then given back.
     Dim { steps: u8, until_ends: bool },
     /// A note for the voice to say in its own words.
     Say(String),
@@ -430,6 +488,9 @@ pub enum Call {
     /// The calls after this wait for the say to end: the skill's own say, or
     /// in a skill its tool starts, the line the model says after the call.
     AfterSay,
+    /// The trigger of a run that holds something until it ends stopped
+    /// holding: what it held is given back. Alone in its run.
+    Ends,
 }
 
 /// Where the words of a [`Call::SayFrom`] are kept, in the voice.
@@ -505,6 +566,7 @@ impl Call {
             Self::Look => ("look", json!({})),
             Self::Sound { name, .. } => ("sound", json!({ "sound": name })),
             Self::AfterSay => ("after_say", json!({})),
+            Self::Ends => ("ends", json!({})),
         }
     }
 }
@@ -590,10 +652,28 @@ fn trigger(file: TriggerFile) -> Result<Trigger, String> {
             ));
         }
     };
-    let rearm = match file.rearm.as_deref() {
-        None => false,
-        Some("leaves" | "ends") => true,
-        Some(other) => return Err(format!("rearm = {other:?}: \"leaves\" or \"ends\"")),
+    let (rearm, rearm_line) = match file.rearm {
+        None => (false, None),
+        Some(RearmFile::Word(word)) if word == "leaves" || word == "ends" => (true, None),
+        Some(RearmFile::Word(other)) => {
+            return Err(format!(
+                "rearm = {other:?}: \"leaves\", \"ends\" or {{ below or above, for }}"
+            ));
+        }
+        Some(RearmFile::Line(line)) => {
+            let test = match (file.field.clone(), line.above, line.below) {
+                (Some(field), Some(above), None) => Test::Above(field, above),
+                (Some(field), None, Some(below)) => Test::Below(field, below),
+                _ => {
+                    return Err(
+                        "rearm = { below or above, for }: one line, on a trigger with a field"
+                            .into(),
+                    );
+                }
+            };
+            let for_us = line.lasting.as_deref().map_or(Ok(0), duration_us)?;
+            (true, Some(Rearm { test, for_us }))
+        }
     };
     let wait_us = optional(&file.wait)?;
     if wait_us > MOST_WAIT_US {
@@ -624,6 +704,7 @@ fn trigger(file: TriggerFile) -> Result<Trigger, String> {
         for_us: optional(&file.lasting)?,
         gap_us: optional(&file.gap)?,
         rearm,
+        rearm_line,
         cooldown_us: optional(&file.cooldown)?,
         wait_us,
     })
@@ -818,6 +899,19 @@ pub fn load(dir: &Path) -> Result<Skill, String> {
             for_us: condition.lasting.as_deref().map_or(Ok(0), duration_us)?,
         });
     }
+    let quiet = match file.quiet {
+        None => None,
+        Some(_) if triggers.is_empty() => {
+            return Err("quiet hours are for a skill with a trigger".into());
+        }
+        Some(quiet) => {
+            let (from, to) = (minute_of_day(&quiet.from)?, minute_of_day(&quiet.to)?);
+            if from == to {
+                return Err("quiet: from and to are different times".into());
+            }
+            Some((from, to))
+        }
+    };
     let mut steps = Vec::new();
     let mut said = false;
     let mut after_say = false;
@@ -989,6 +1083,19 @@ pub fn load(dir: &Path) -> Result<Skill, String> {
                 .into(),
         );
     }
+    if triggers.is_empty()
+        && steps.iter().any(|step| {
+            matches!(
+                step,
+                Step::Call(Call::Dim {
+                    until_ends: true,
+                    ..
+                })
+            )
+        })
+    {
+        return Err("until = \"ends\" is the end of a trigger: in a skill with one".into());
+    }
     Ok(Skill {
         name,
         description,
@@ -1001,6 +1108,7 @@ pub fn load(dir: &Path) -> Result<Skill, String> {
         flag: file.flag,
         again,
         still,
+        quiet,
         steps,
     })
 }
@@ -1030,6 +1138,29 @@ fn move_file(dir: &Path, name: &str) -> Result<lamp_body::moves::Move, String> {
     }
     lamp_body::moves::check(&clip).map_err(|why| format!("{place}: {why}"))?;
     Ok(clip)
+}
+
+/// `"22:00"`: minutes since midnight.
+fn minute_of_day(text: &str) -> Result<u16, String> {
+    let wrong = || format!("{text:?} is not a time of day: HH:MM, from 00:00 to 23:59");
+    let (hours, minutes) = text.split_once(':').ok_or_else(wrong)?;
+    if hours.len() != 2 || minutes.len() != 2 {
+        return Err(wrong());
+    }
+    match (hours.parse::<u16>(), minutes.parse::<u16>()) {
+        (Ok(hours), Ok(minutes)) if hours < 24 && minutes < 60 => Ok(hours * 60 + minutes),
+        _ => Err(wrong()),
+    }
+}
+
+/// Whether `minute` is from `from` up to, not including, `to`, past
+/// midnight when `to` comes first.
+fn within(minute: u16, (from, to): (u16, u16)) -> bool {
+    if from < to {
+        (from..to).contains(&minute)
+    } else {
+        minute >= from || minute < to
+    }
 }
 
 fn light_call(file: LightFile) -> Result<Call, String> {
@@ -1109,6 +1240,13 @@ struct Watch {
     /// `[[while]]` conditions (`wait`).
     waiting_us: Option<u64>,
     ran_us: Option<u64>,
+    /// With a rearm line: a chance was had, and the field has not stayed
+    /// past the line long enough since.
+    disarmed: bool,
+    /// Since when the field has been past the rearm line.
+    past_line_us: Option<u64>,
+    /// A run that holds something until its trigger stops holding is out.
+    open: bool,
 }
 
 /// A trigger that held: what was said of it, and the calls to make.
@@ -1139,6 +1277,8 @@ pub struct Engine {
     heard: Heard,
     skip_ask: bool,
     ask_policy: bool,
+    /// The local time: minutes east of UTC, and one moment on both clocks.
+    clock: Option<(i32, u64, u64)>,
 }
 
 fn event(skill: &str, stage: SkillStage, why: String, allowed: Option<bool>) -> SkillEvent {
@@ -1163,6 +1303,7 @@ impl Engine {
             heard: Heard::default(),
             skip_ask,
             ask_policy: false,
+            clock: None,
         }
     }
 
@@ -1171,6 +1312,53 @@ impl Engine {
     pub fn asking_the_policy(mut self) -> Self {
         self.ask_policy = true;
         self
+    }
+
+    /// The local time is known: at `now_us` on the engine's clock it is
+    /// `unix_ms`, `utc_offset_minutes` east of UTC. Told again as often as
+    /// wanted, so a wall clock set late (by NTP) is followed. Until then, a
+    /// skill with quiet hours never starts itself.
+    pub fn clock(&mut self, utc_offset_minutes: i32, now_us: u64, unix_ms: u64) {
+        self.clock = Some((utc_offset_minutes, now_us, unix_ms));
+    }
+
+    /// Time passes with no message: a run held until its trigger ends ends
+    /// when the trigger topic's newest value has expired (its header's
+    /// `expires_ms`) or, naming no lifespan, when the topic has said nothing
+    /// for [`SILENT_ENDS_US`]. Its spell is over with it.
+    pub fn tick(&mut self, now_us: u64) -> Vec<Run> {
+        let mut runs = Vec::new();
+        for skill in &self.skills {
+            for (index, trigger) in skill.triggers.iter().enumerate() {
+                let Some(watch) = self.watches.get_mut(&(skill.name.clone(), index)) else {
+                    continue;
+                };
+                let Some((_, at_us, lifespan_us)) = self.latest.get(&trigger.topic) else {
+                    continue;
+                };
+                if watch.open
+                    && now_us.saturating_sub(*at_us) >= lifespan_us.unwrap_or(SILENT_ENDS_US)
+                {
+                    watch.open = false;
+                    watch.since_us = None;
+                    runs.push(Run {
+                        skill: skill.name.clone(),
+                        events: Vec::new(),
+                        calls: vec![Call::Ends],
+                        ask: None,
+                    });
+                }
+            }
+        }
+        runs
+    }
+
+    /// Minutes since local midnight at `now_us`, if the local time is known.
+    fn local_minute(&self, now_us: u64) -> Option<u16> {
+        let (offset, at_us, unix_ms) = self.clock?;
+        let ms = i128::from(unix_ms) + (i128::from(now_us) - i128::from(at_us)) / 1_000;
+        let minutes = ms.div_euclid(60_000) + i128::from(offset);
+        Some(minutes.rem_euclid(1_440) as u16)
     }
 
     /// The skills loaded again. A timed condition keeps when it began to
@@ -1342,6 +1530,19 @@ impl Engine {
             }
         }
         let mut runs = Vec::new();
+        let minute = self.local_minute(now_us);
+        // What a run held until its trigger stops holding is given back
+        // when it does.
+        let ends = |watch: &mut Watch, skill: &Skill, runs: &mut Vec<Run>| {
+            if std::mem::take(&mut watch.open) {
+                runs.push(Run {
+                    skill: skill.name.clone(),
+                    events: Vec::new(),
+                    calls: vec![Call::Ends],
+                    ask: None,
+                });
+            }
+        };
         for skill in &self.skills {
             for (index, trigger) in skill.triggers.iter().enumerate() {
                 if trigger.topic != topic {
@@ -1349,12 +1550,20 @@ impl Engine {
                 }
                 let watch = self.watches.entry((skill.name.clone(), index)).or_default();
                 let started = *watch.started_us.get_or_insert(now_us);
+                if let Some(line) = &trigger.rearm_line {
+                    if !line.test.holds(&value) {
+                        watch.past_line_us = None;
+                    } else if now_us - *watch.past_line_us.get_or_insert(now_us) >= line.for_us {
+                        watch.disarmed = false;
+                    }
+                }
                 if !trigger.test.holds(&value) {
                     if watch
                         .last_held_us
                         .is_none_or(|held| now_us - held >= trigger.gap_us)
                     {
                         watch.since_us = None;
+                        ends(watch, skill, &mut runs);
                     }
                     continue;
                 }
@@ -1364,6 +1573,7 @@ impl Engine {
                         .last_held_us
                         .is_some_and(|held| now_us - held >= tolerated)
                 {
+                    ends(watch, skill, &mut runs);
                     watch.since_us = Some(now_us);
                     watch.away_us = now_us - watch.last_held_us.unwrap_or(started);
                     watch.spent = false;
@@ -1377,11 +1587,18 @@ impl Engine {
                 // Once each time it holds: a chance held back now waits for
                 // the next time.
                 let once = trigger.when == When::Appears || trigger.rearm;
-                if once && watch.spent {
+                if (once && watch.spent) || watch.disarmed {
                     continue;
                 }
                 watch.spent = once;
-                if (trigger.when == When::Appears && watch.away_us < trigger.absent_for_us)
+                if trigger.rearm_line.is_some() {
+                    watch.disarmed = true;
+                    watch.past_line_us = None;
+                }
+                if skill
+                    .quiet
+                    .is_some_and(|quiet| minute.is_none_or(|minute| within(minute, quiet)))
+                    || (trigger.when == When::Appears && watch.away_us < trigger.absent_for_us)
                     || watch
                         .ran_us
                         .is_some_and(|ran| now_us - ran < trigger.cooldown_us)
@@ -1392,9 +1609,11 @@ impl Engine {
                     // Held back by a condition (someone talking): with a
                     // `wait`, the chance is kept while the trigger holds,
                     // and taken at its next message once they hold.
+                    // A chance kept is not yet had: the rearm line waits too.
                     let waited = now_us - *watch.waiting_us.get_or_insert(now_us);
                     if waited < trigger.wait_us {
                         watch.spent = false;
+                        watch.disarmed = false;
                     }
                     continue;
                 }
@@ -1429,6 +1648,9 @@ impl Engine {
                         ask["there_s"] = json!(held_us / 1_000_000);
                     }
                     watch.ran_us = Some(now_us);
+                    // Its end is told even if the Policy says no: with no
+                    // run holding anything, the program lets it pass.
+                    watch.open = skill.holds_until_ends();
                     runs.push(Run {
                         skill: skill.name.clone(),
                         events,
@@ -1462,6 +1684,7 @@ impl Engine {
                     Some(true),
                 ));
                 watch.ran_us = Some(now_us);
+                watch.open = skill.holds_until_ends();
                 runs.push(Run {
                     skill: skill.name.clone(),
                     events,
@@ -1830,7 +2053,7 @@ pub struct ToolCall {
 
 /// The calls the skill in `dir` makes for one recording, with the ask skipped.
 pub fn replay(dir: &Path, recording: &Path) -> Result<Vec<Made>, String> {
-    replay_with(dir, recording, &[])
+    replay_with(dir, recording, &[], None)
 }
 
 /// The same, with the model calling the skill's tool at the times of
@@ -1839,8 +2062,15 @@ pub fn replay(dir: &Path, recording: &Path) -> Result<Vec<Made>, String> {
 /// checked on what has been replayed; one refused makes nothing. Each call
 /// is a fresh run: what the program does with a call while the last run is
 /// still under way (#1036, #1051) is not replayed. The marker that the
-/// calls after it wait for the say is not a call made.
-pub fn replay_with(dir: &Path, recording: &Path, tools: &[ToolCall]) -> Result<Vec<Made>, String> {
+/// calls after it wait for the say is not a call made. With `clock`
+/// (`"23:00"`), the case's first message is at that local time; without
+/// it, the time of day is not known.
+pub fn replay_with(
+    dir: &Path,
+    recording: &Path,
+    tools: &[ToolCall],
+    clock: Option<&str>,
+) -> Result<Vec<Made>, String> {
     let skill = load(dir)?;
     // A name the skill's tool is not would make nothing and pass as a
     // quiet case: it is refused.
@@ -1857,6 +2087,9 @@ pub fn replay_with(dir: &Path, recording: &Path, tools: &[ToolCall]) -> Result<V
     let mut engine = Engine::new(vec![skill], true);
     let messages = read_recordings(recording)?;
     let first_us = messages.first().map_or(0, |message| message.header.at_us);
+    if let Some(clock) = clock {
+        engine.clock(0, first_us, u64::from(minute_of_day(clock)?) * 60_000);
+    }
     let mut calls: Vec<(u64, &str, Value)> = tools
         .iter()
         .map(|tool| {
@@ -1891,6 +2124,11 @@ pub fn replay_with(dir: &Path, recording: &Path, tools: &[ToolCall]) -> Result<V
     for message in messages {
         let at_us = message.header.at_us;
         call_tools(&mut engine, &mut made, Some(at_us - first_us));
+        // Time passes as the messages come: a held run whose trigger topic
+        // went silent ends at the first message of any topic after.
+        for run in engine.tick(at_us) {
+            keep(&mut made, run.calls, at_us - first_us);
+        }
         for run in engine.observe(
             &message.header.topic,
             at_us,
@@ -1907,6 +2145,8 @@ pub fn replay_with(dir: &Path, recording: &Path, tools: &[ToolCall]) -> Result<V
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ExpectFile {
+    /// The local time of the case's first message (`"10:00"`).
+    clock: Option<String>,
     #[serde(default)]
     none: bool,
     #[serde(default)]
@@ -1990,7 +2230,7 @@ pub fn run_tests(dir: &Path) -> Result<(usize, usize), String> {
             unrecorded += 1;
             continue;
         }
-        let made = replay_with(dir, case, &expect.call_tool)?;
+        let made = replay_with(dir, case, &expect.call_tool, expect.clock.as_deref())?;
         let names: Vec<_> = made
             .iter()
             .map(|made| (made.at_us, made.call.named()))

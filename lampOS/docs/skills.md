@@ -149,10 +149,11 @@ must not leave a step silently undone)*.
 | `trigger.for` | no | It has held this long |
 | `trigger.gap` | no | A dropout shorter than this does not break `for` |
 | `trigger.absent_for` | no | `appears` only: at least this long before, it did not hold. At the program's start nothing has been away: someone there at the first message is not greeted |
-| `trigger.rearm` | no | `leaves` or `ends`, which mean the same: once each time it holds, and again only after it stopped. Without it, `present` runs at every message once `for` has passed, as often as `cooldown` lets it |
+| `trigger.rearm` | no | `leaves` or `ends`, which mean the same: once each time it holds, and again only after it stopped. Without it, `present` runs at every message once `for` has passed, as often as `cooldown` lets it. Or a line, on a trigger with a `field` (#1021): `{ below = N, for = D }` (or `above`): once each time it holds, and again only after the trigger's field has been below N, by the messages of its topic, for D since the last chance; a dip that does not stay past the line does not count, however often the trigger stops and holds again (Stuffy air: `{ below = 1000, for = "10m" }` on a trigger above 1,200). A chance held back by a condition, the quiet hours, the cooldown or the Policy is spent as one that ran, unless `wait` keeps one held back by a condition: the line waits for the chance taken |
 | `trigger.cooldown` | no | Not again within this long of the last run. A run the Policy refused does not count |
 | `trigger.wait` | no | With `rearm` or `when = "appears"`, at most `1h`: a chance held back by a `[[while]]` condition (someone talking) is kept while the trigger still holds, for at most this long, and taken at the trigger's first message after every condition holds again: the lamp acts once the talk ends, within the same sitting, instead of giving up its turn (#1021). It began waiting when the chance came; the trigger stopping (past its `gap`) ends it. Without it, a chance held back by a condition is spent. A chance held back by `absent_for` or the cooldown is spent either way |
 | `[[while]]` | no | Conditions that must also hold, all of them, on the newest value of each topic while that value lasts: a `topic` with `field` and one of `equals`, `not_equals` (anything else, #1140), `above` or `below`, or `humans/faces/tracked` with `present = true`; with `for`, it has also held that long, by the messages of its topic since this program started. It begins again after a value that expired, and when a reload changes the condition |
+| `[quiet]` | no | `from` and `to`, two different local times as `"HH:MM"` (`from = "22:00"`, `to = "08:00"`, past midnight when `to` comes first): from `from` up to `to`, the skill never starts itself (#1021). The local time is the program's wall clock and its `--utc-offset-minutes`; without that flag the time of day is not known, and a skill with quiet hours never starts itself *(chosen: "never at night" holds when the night cannot be told)*. Only with a trigger |
 | `[ask] policy` | yes, with a trigger | The Policy's question asked before anything is done *(chosen: required, since every trigger is something the lamp starts itself)*. A tool's call is not asked about: a person asked for it |
 | `[[do]]` | at least one | The steps, in order. Within one table: body, then light, then say, then sound |
 | `do.body.look_at` | no | Only `"face"`. The largest face in view goes to the body's `gaze.sock` as the eyes send one (`{"face":{"x","y","size","turned":0}}`) |
@@ -160,7 +161,7 @@ must not leave a step silently undone)*.
 | `do.body.move` | no | A move of the skill's own: the file `moves/NAME.json`, in the body's move format ([body.md](body.md#moves-from-files)), whose `name` is `NAME`. Checked at load by the body's own check (`lamp_body::moves::check`): not one of the body's gestures, 1.5 to 10 s, `step_ms` 40 to 1000, beginning and ending at nothing, each joint inside the clips' size and speed. Sent whole to `mood.sock` as `{"move":{"name","step_ms","frames"}}`, where the body checks it again and plays it as a gesture (below) |
 | `do.body.again_if` | no | The `[flag]`'s name: the gesture is played twice when the call sets the flag |
 | `do.body.mood` + `do.body.for` | no | A pose held: only `"reading"` (#1011: the head looks down at the desk and the arm leans forward). Sent to `mood.sock` as `{"mood":"reading","level":0}` when the step is made and again every second for `for` (more than 0, at most `2m`); the body lets it go 1.5 s after the last, and comes back. One without the other is refused |
-| `do.light` | no | A file in `lights/`, written as its name, or a table in place. A file `lights/NAME.toml` holds the same keys. `{ colour, level, for }` asks the actions part for `light_colour`, then steps the light to `level` (1 to 5) with `light_brighter` or `light_dimmer` calls, counted from the level `light/state` shows; with that level not known it is left and the run says so. `for` holds the light in a run with no say. `{ dim = N, until = "ends" }` asks for `light_dimmer` N times. A light is held until the run ends (the say ends, the run's longest `for`, or its last clip ends, whichever is last) and is then given back; `until = "ends"` says so of a dim. With `LAMP_LIGHT_REQUESTS=on` it is asked of the ring instead, and the person's light is never touched (#940, below) |
+| `do.light` | no | A file in `lights/`, written as its name, or a table in place. A file `lights/NAME.toml` holds the same keys. `{ colour, level, for }` asks the actions part for `light_colour`, then steps the light to `level` (1 to 5) with `light_brighter` or `light_dimmer` calls, counted from the level `light/state` shows; with that level not known it is left and the run says so. `for` holds the light in a run with no say. `{ dim = N }` asks for `light_dimmer` N times. A light is held until the run ends (the say ends, the run's longest `for`, or its last clip ends, whichever is last) and is then given back. With `until = "ends"` (#1021), only in a skill with a trigger, a dim is held instead until the trigger that ran it stops holding (its test fails past its `gap`), or its topic's newest value expires (its header's `expires_ms`), or, when that value names no lifespan, its topic says nothing for 15 minutes; then it is given back, but only if the light is still as the run left it (on, the same colour, N steps under, or at the lowest): a light someone changed meanwhile is left as it is. The run stays under way meanwhile. With the Policy asked (`LAMP_SKILLS_ASK=policy`), the end is told whether or not it said `say_now`, and is let pass when no run holds anything. With `LAMP_LIGHT_REQUESTS=on` it is asked of the ring instead, and the person's light is never touched (#940, below); a dim held `until = "ends"` is asked of the ring until its trigger ends, and then given back the same way |
 | `do.say` | no | A note for the voice to say in its own words, through the voice's say service (#954). One a skill. The run's other steps are made, in their order, when the voice begins the say, so the look and the light come with the words, and none if it is never begun. A light changed is given back when the say ends. In a tool's run the note goes to the model in the call's answer instead. Or `{ from = "schedule" }` or `{ from = "tasks" }`: words the voice keeps itself and says when asked, the reminder due or the news of work handed over (#939, (c), the first builder's 12:32). The voice keeps the words and their delivery (a reminder's acknowledgement, news told once); the skill says when, and moves and lights with them as with a note. Sent to the say service as `from` in place of `note`, at priority 8 for `schedule` and 5 for `tasks`. Any other `from`, another key beside it, or a `from` in a skill with a `tool` refuses the skill: what the voice keeps is said when a trigger starts the skill, never from the model's call (Fourth on #1033) |
 | `do.sound` | no | A file in `sounds/`, written as its name: `sound = "ding"` plays `sounds/ding.wav` (#938). Checked at load by the voice's own check (`lamp_voice::say::read_sound`), and the skill refused with why: a regular file, not a link, of at most 148,140 bytes; a WAV of 16-bit mono PCM at 24 kHz (the speaker path's rate), 1 frame to 3 s; no 10 ms of it louder than -30 dBFS RMS (well under the lamp's speech) and no sample past -12 dBFS. Played by the voice, through its say service (`LAMP_SAY=on`) as `{"sound": PATH}`, the file's absolute path; the voice reads it again, only from under the skills folder, and plays it as a turn of its own, so it never overlaps speech ([speaking-first.md](speaking-first.md), the say service). A lamp not at rest as a say needs it (paused, muted, speaking, listening, owing an answer, a reminder due, within 15 s of its last turn) does not play it, nor a second sound within 30 s, and the voice refuses it at once, never later; the run's `done` says why (`sound: refused (the lamp is speaking)`). One say or sound a skill: the run's other steps are made when the voice begins it, as with a say. Refused in a skill with a `tool`: a tool is called while the voice answers |
 | `do.after` | no | `"say"`: this step and every one after it are made when the say ends, not as it begins: the skill's own say in an earlier step, which ends with its outcome, or in a skill with a `tool`, the line the model says after the call, which ends when `voice/state` is `resting` or `listening` again. A line that ends in `listening` was cut, the person speaking over it: then none of the steps after it is made, and the run's `done` says "the line was cut". `thinking` after `speaking` is still the line, since its sound plays on (lamp-06c1, 2026-10-16: 20 ms of `speaking`, then 15 s of `thinking`, through a line of about 2 s), so that wait ends at most 4 s after the speaking began. The run waits at most 5 s for the speaking to begin, and goes on at once if `voice/state` was not said within 3 s. Not after a say never begun. A light changed is then given back when the last clip ends |
@@ -193,7 +194,7 @@ runs it yet.
     [[expect]]
     at = "600s"                # optional: when, from the case's first message
     within = "1s"              # optional; without it, exactly
-    call = "body.gaze"         # body.gaze, body.gesture, body.move, body.mood, light, say or sound
+    call = "body.gaze"         # body.gaze, body.gesture, body.move, body.mood, light, say, sound, look or ends
     args = { look_at = "face" }
 
 A call matches when its name is the same and each argument named in `args`
@@ -210,6 +211,14 @@ runtime gives are:
 - `say`: `note`, or `from` for what the voice keeps (`say = { from = … }`)
 - `sound`: `sound`, the name in `sounds/`
 - `look`: none
+- `ends`: none; the trigger of a run with `until = "ends"` stopped holding,
+  or its topic's newest value expired or went silent, so what it held is
+  given back. In a replay, an expiry or a silence is seen at the first
+  message of any topic after it
+
+A case's local time is not known unless its expect file sets the time of
+its first message, as `clock = "10:00"`; a skill with `[quiet]` hours makes
+no call in a case without it.
 
 A skill a person starts by its `tool` has the model's call in its case:
 
@@ -257,9 +266,13 @@ Its own process, its own owner, like every part
 
 As built on 2026-10-16 (#938, `crates/skills`, not yet run on a lamp):
 
-    lamp-skills [--dir DIR] [--bus-root DIR] [--gaze-socket PATH] [--mood-socket PATH] [--actions-socket PATH] [--say-socket PATH] [--tools-dir DIR] [--clock-control PATH]
+    lamp-skills [--dir DIR] [--bus-root DIR] [--gaze-socket PATH] [--mood-socket PATH] [--actions-socket PATH] [--say-socket PATH] [--tools-dir DIR] [--clock-control PATH] [--utc-offset-minutes N]
     lamp-skills test SKILL_DIR...
 
+- `--utc-offset-minutes` is the lamp's local time east of UTC (-720 to
+  840), as the Policy, Expression and memory take it, read with the wall
+  clock at each message, for a skill's `[quiet]` hours (#1021). Without it,
+  a skill with quiet hours never starts itself.
 - It loads every folder in `--dir` (`/var/lib/lampOS/skills`), looks at the
   folder every two seconds, and loads them all again when a file other
   than a test changed. Cooldowns are kept across a reload.
@@ -385,6 +398,11 @@ As built on 2026-10-16 (#938, `crates/skills`, not yet run on a lamp):
 `deploy/product/lamp-skills.service`, Welcome back in `/var/lib/lampOS/skills`,
 and the product voice with the say service on and its own hello off.
 `deploy/units/lamp-skills.service` stays the template for a lamp set up by hand.
+It reads the lamp's zone (`LAMP_UTC_OFFSET_MINUTES`) from
+`/etc/lampOS/zone.env`, as the product units do, for `--utc-offset-minutes`;
+neither the product unit nor lamp-4ace's passes it yet, so there a skill
+with `[quiet]` hours never starts itself. Neither puts Stuffy air in its
+folder today (install puts only Welcome back on a home lamp).
 lamp-4ace's folder carries `lamp-skills.service`, and its voice unit has the
 voice's own hello (`LAMP_SPEAK_FIRST`) off and the say service on, so only
 one greets. Elsewhere the voice's hello (`speak_up.rs`, Arrival) still
@@ -423,6 +441,12 @@ What is not done, and why:
   Two skills changing the light at once, or a person changing it during a
   hello, are not arbitrated; the give-back sets the light seen before the
   run. With the switch, the ring arbitrates (above).
+  A dim held `until = "ends"` through the actions part is given back only
+  if the light is still as it was left, and when its trigger topic goes
+  silent. `air/state` names no `expires_ms` yet (asked of the air part's
+  owner on #1021), so a silent sensor ends Stuffy air's dim after 15
+  minutes. A restart of `lamp-skills` while a dim is held does not give it
+  back.
 
 ### Four additions to V2
 
@@ -684,8 +708,8 @@ library as skills.
 | Reminders | `schedule/due` | Looks at the person, says it: `say = { from = "schedule" }`, the voice keeping the words and the acknowledgement (#939, (c); `skills/reminders`). The ring's pulse waits for a light step that can pulse | The reminder consumer's timing in the voice (`LAMP_SCHEDULE_SPEAK=skill`); its delivery stays there |
 | Task news | `tasks/status`: done or failed | Done: a small glad move and says so; failed: slumps, the ring goes red, says so | Task news in the voice (`task_news.rs`) |
 | Stretch break | Someone at the desk for 50 minutes | Stretches itself as an invitation, never a lecture (creature.md) | New |
-| Stuffy air | CO2 high for 10 minutes | Droops a little and dims a shade; mentions it only when spoken to (creature.md) | New |
-| Dance (#999) | "Lamp, dance", "show me a dance", "dance to this": its tool, `dance(style, long)` | One short playful line, then, when the line ends, one of V1's five dances (#979) picked by the mood asked for (calm: chill or waltz; upbeat: groove or hype; jazz), played twice for a long one, with a low warm glow given back at its end. Never on its own: the ears cannot yet tell music from talk | New: written by jarvis; its tool's arguments, the body's clips by name and the steps after the say were added to `lamp-skills` for it. Its cases are replays. It has run on lamp-06c1 (`docs/verification/dance-lamp-06c1-20261016/`) |
+| Stuffy air (#1021) | `air/state`'s `co2_ppm` above 1,200 for 10 minutes | Droops once (`sleepy`) and dims a shade until the air is under 1,200 again; once a spell, again only after 10 minutes under 1,000; never from 22:00 to 08:00, nor while someone talks to it; the dim also ends 15 minutes after the sensor falls silent; never speaks of it (the voice's air facts do, when spoken to) | New: reworked by jarvis from ten's; the rearm line, the quiet hours and the dim held until the trigger ends were added to `lamp-skills` for it. Its cases are made by hand (lamp-4ace's sensor is stuck); it has not run on a lamp |
+| Dance (#999) | "Lamp, dance", "show me a dance", "dance to this": its tool, `dance(style, long)` | One short playful line, then, when the line ends, one of V1's five dances (#979) picked by the mood asked for (calm: chill or waltz; upbeat: groove or hype; jazz), played twice for a long one, with a low warm glow given back at its end. Never on its own: the ears cannot yet tell music from talk | New: written by jarvis; its tool's arguments, the body's clips by name and the steps after the say were added to `lamp-skills` for it. Its cases are replays; it has not run on a lamp |
 | Desk tutor (the owner, 09:45) | "Lamp, check my work" or "I'm stuck" | Tips its head over the page and brightens it, takes one full-resolution still, tutors by voice (a hint or a question, never the answer), a small nod where a step is right, a curious tilt where it is wrong, then faces the person again | New: needs a look-at-the-desk move (#940) and a full-resolution look step (#938); written by ten with the skill creator (#941) |
 
 The first three prove that built-in behaviour moves onto the framework; the
@@ -698,8 +722,8 @@ last two that a new skill needs no new code.
 | `lamp-skills`, the skill format and its tests; Welcome back | Seventh |
 | The say service; the Policy as the gate; Reminders and Task news as skills | Second |
 | Arbitration at the body and the light; move files | Third |
-| The lamp skill creator, and Stretch break and Stuffy air written with it | Ten |
-| Dance, and the tool arguments, clips and steps after the say it needs | Jarvis |
+| The lamp skill creator, and Stretch break written with it | Ten |
+| Dance, and the tool arguments, clips and steps after the say it needs; Stuffy air (from ten's, #1021), and the rearm line, quiet hours and held dim it needs | Jarvis |
 | Each piece on lamp-4ace as it lands | First |
 
 Target: Welcome back running as a skill on lamp-4ace on 2026-10-17; all

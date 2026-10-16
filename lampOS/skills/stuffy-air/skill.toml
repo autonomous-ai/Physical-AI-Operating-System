@@ -1,32 +1,31 @@
-# Stuffy air (lampOS/docs/creature.md: "first its posture droops a little and
-# its eye dims a shade while it lasts; it says ... only if someone talks to
-# it"). Speech is the voice's, never this skill's. Written to lamp-skills'
-# schema (docs/skills.md, "The schema, as lamp-skills reads it", #938).
-needs = ["air", "eyes", "light"]
+# Stuffy air (#1021; lampOS/docs/creature.md: "first its posture droops a
+# little and its eye dims a shade while it lasts; it says ... only if someone
+# talks to it"). Speech is the voice's, from its air facts, never this
+# skill's. Written to lamp-skills' schema (docs/skills.md, "The schema, as
+# lamp-skills reads it").
+needs = ["air", "body", "light"]
 
 [trigger]
 topic = "air/state"
 field = "co2_ppm"
 above = 1200              # the lamp's own line for "stuffy" (air/state's feel)
 for = "10m"               # a short rise (someone breathing close to the sensor) does nothing
-rearm = "ends"            # once per stuffy spell
-cooldown = "1h"
+gap = "1m"                # one reading under the line does not end the spell
+rearm = { below = 1000, for = "10m" }   # once a spell; again only after 10 minutes of good air
+wait = "10m"              # talking when the ten minutes come: it droops once the talk ends, within ten minutes (#1089)
 
-[[while]]                 # only with someone at the desk to see it
-topic = "humans/faces/tracked"
-present = true
+[[while]]                 # never while someone is talking to the lamp
+topic = "voice/state"
+field = "state"
+equals = "resting"
+
+[quiet]                   # never at night, by the lamp's local time
+from = "22:00"
+to = "08:00"
 
 [ask]
 policy = "nudge"
 
 [[do]]
-# A shade dimmer than the person's light, until the air clears. NOT TO BE
-# INSTALLED YET: lamp-skills carries out the dim but not `until` (#938), and
-# gives the person's light back when the run ends, at once: a blink, not a
-# dim held while the air is stuffy. Holding it waits for the third's
-# arbitration and leases (#940).
-light = { dim = 1, until = "ends" }
-
-# Once move files land (#940): a small droop held while it lasts.
-# [[do]]
-# body = { move = "moves/droop.toml", until = "ends" }
+body = { gesture = "sleepy" }          # a slow droop
+light = { dim = 1, until = "ends" }    # a shade dimmer, given back when the air is under 1,200 again

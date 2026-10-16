@@ -1,0 +1,21 @@
+# Two spells from 10:00 with a dip to 1,100 ppm between them (20 minutes at
+# 1,100, never under 1,000): the first droops and dims at minute 31.5 and
+# gives the light back at 110.5, in the dip; the second does nothing.
+clock = "10:00"
+
+[[expect]]
+at = "1890s"
+within = "30s"
+call = "body.gesture"
+args = { gesture = "sleepy" }
+
+[[expect]]
+at = "1890s"
+within = "30s"
+call = "light"
+args = { dim = 1, until = "ends" }
+
+[[expect]]
+at = "6630s"
+within = "30s"
+call = "ends"

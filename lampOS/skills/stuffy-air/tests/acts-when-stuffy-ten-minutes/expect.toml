@@ -1,6 +1,0 @@
-# CO2 above 1,200 ppm for 25 minutes with someone at the desk: it dims once, at about 10 minutes, until the air clears.
-[[expect]]
-at = "10m"
-within = "30s"
-call = "light"
-args = { dim = 1, until = "ends" }

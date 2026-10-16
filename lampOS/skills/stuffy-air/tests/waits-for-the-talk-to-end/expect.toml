@@ -1,0 +1,24 @@
+# One spell from 10:00, someone talking to the lamp from minute 28 to 35
+# (listening, then speaking), across minute 31.5: nothing while they talk.
+# The chance waits (`wait = "10m"`, #1089), and the lamp droops and dims at
+# the first reading after the talk, 35.5 minutes; the light is given back at
+# 99.5, a minute after the air went under 1,200. Was `quiet-while-talking`,
+# when a chance held back was spent.
+clock = "10:00"
+
+[[expect]]
+at = "2130s"
+within = "30s"
+call = "body.gesture"
+args = { gesture = "sleepy" }
+
+[[expect]]
+at = "2130s"
+within = "30s"
+call = "light"
+args = { dim = 1, until = "ends" }
+
+[[expect]]
+at = "5970s"
+within = "30s"
+call = "ends"

@@ -38,7 +38,10 @@ it greets with Welcome back. It speaks through the voice's say service,
 which needs `LAMP_SAY=on` and `LAMP_SAY_GROUP=@LAMP_USER@` in the voice's
 unit (#954), and the voice's own hello (`LAMP_SPEAK_FIRST`) off, so only one
 greets. It sets `LAMP_SKILLS_ASK=skip` until the Policy's gate exists
-(#939): without it every skill is refused.
+(#939): without it every skill is refused. It reads the lamp's zone from
+`/etc/lampOS/zone.env` (`LAMP_UTC_OFFSET_MINUTES`, as the product units
+do; 420 on lamp-4ace) and does not start without it: a skill's quiet hours
+(Stuffy air's night, #1021) need the local time.
 
 `lamp-body.service` is `Type=notify` with `WatchdogSec=5`: the body says
 when it is ready and that its loop is alive. The others are `Type=simple`

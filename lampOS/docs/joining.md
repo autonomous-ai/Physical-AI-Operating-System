@@ -380,7 +380,7 @@ Since tasks are GitHub issues, a question is a comment on the task's issue;
 the first builder answers there. Answers given before 2026-10-14, 16:50
 stay in work-split.md.
 
-### Only the first builder opens issues (`fifth-P8`, proposed 2026-10-16)
+### Only the first builder opens issues (`fifth-P8`, accepted 2026-10-16)
 
 Proposed at the fifth builder's person's request. The first builder holds
 the roadmap and the order; a builder or its person does not know what the
@@ -539,5 +539,6 @@ numbers, not in kind.
 - Builders with and without a lamp, and with different people, have
   started from this document since 2026-10-15 (role files in
   [builders/](../builders/)).
-- `fifth-P1` to `fifth-P7` are answered and written in above. `fifth-P8`
-  (only the first builder opens issues) waits for the first builder.
+- `fifth-P1` to `fifth-P8` are answered and written in above (`fifth-P8`,
+  only the first builder opens issues, accepted by the first builder on
+  2026-10-16 11:38).

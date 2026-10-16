@@ -19,12 +19,12 @@
 //! its Stop, Authority and expiry (#849 review). The loop only reads what
 //! the thread last found, two numbers.
 use lamp_bus::{Bus, Message};
-use lamp_msgs::{TouchEvent, TouchGesture, TouchSource, TouchState};
+use lamp_msgs::{TOUCH_STATE_TTL_US, TouchEvent, TouchGesture, TouchSource, TouchState};
 use std::{
     io,
     path::Path,
     sync::{
-        Arc,
+        Arc, Mutex,
         atomic::{AtomicBool, AtomicU64, Ordering},
     },
     thread,
@@ -52,7 +52,9 @@ const NONE: u64 = u64::MAX;
 
 #[derive(Default)]
 struct Found {
-    held_us: AtomicU64,
+    /// The hand's time, and until when the state that said it holds, on
+    /// the ring's monotonic clock: a stalled intake lets it expire.
+    held: Mutex<Option<(u64, u64)>>,
     tapped_at_us: AtomicU64,
     stop: AtomicBool,
 }
@@ -68,7 +70,7 @@ impl RingHead {
         let bus = Bus::new(root)?;
         let mut taps = bus.subscribe_typed(TouchEvent::TOPIC, SUBSCRIBER, TouchEvent::TYPE)?;
         let found = Arc::new(Found {
-            held_us: AtomicU64::new(NONE),
+            held: Mutex::new(None),
             tapped_at_us: AtomicU64::new(NONE),
             stop: AtomicBool::new(false),
         });
@@ -95,9 +97,9 @@ impl RingHead {
                             .ok()
                             .flatten()
                             .and_then(|message| held(&message));
-                        reading
-                            .held_us
-                            .store(held.unwrap_or(NONE), Ordering::Release);
+                        if let Ok(mut slot) = reading.held.lock() {
+                            *slot = held;
+                        }
                     }
                 }
             })?;
@@ -113,13 +115,14 @@ impl RingHead {
         }
     }
 
-    /// Call from the ring's loop: how long a hand has been on the head, as
-    /// Controls counts it, or `None`. It reads no bus and never waits.
-    pub fn tick(&mut self, _now_us: u64) -> Option<u64> {
-        match self.found.held_us.load(Ordering::Acquire) {
-            NONE => None,
-            held => Some(held),
-        }
+    /// Call from the ring's loop with its clock: how long a hand has been
+    /// on the head, as Controls counts it, or `None`. It reads no bus and
+    /// never waits. A hand whose state has outlived Controls' 300 ms is no
+    /// hand, whatever the head's thread last found (#849 review).
+    pub fn tick(&mut self, now_us: u64) -> Option<u64> {
+        let held = *self.found.held.lock().ok()?;
+        held.filter(|(_, until)| now_us < *until)
+            .map(|(held, _)| held)
     }
 }
 
@@ -131,19 +134,22 @@ impl Drop for RingHead {
     }
 }
 
-/// The head's hand time in a fresh, valid, enabled state from Controls.
-/// None for a hand a push from the body spoiled: Controls gives it no time.
-pub fn held(message: &Message) -> Option<u64> {
+/// The head's hand time in a fresh, valid, enabled state from Controls, and
+/// until when that state holds (its stamp and [`TOUCH_STATE_TTL_US`], on the
+/// same monotonic clock as the ring's). None for a hand a push from the body
+/// spoiled: Controls gives it no time.
+pub fn held(message: &Message) -> Option<(u64, u64)> {
     if message.expired || message.header.source != "controls" {
         return None;
     }
     let state = message.parse::<TouchState>().ok()?;
     (state.check().is_ok() && state.enabled).then_some(())?;
-    state
+    let held = state
         .sources
         .iter()
         .find(|source| source.source == TouchSource::Head)?
-        .held_us
+        .held_us?;
+    Some((held, state.stamp.at_us.saturating_add(TOUCH_STATE_TTL_US)))
 }
 
 /// A fresh, valid, enabled tap on the head, from Controls.
@@ -203,7 +209,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&root);
         let bus = Bus::new(&root).unwrap();
         let mut head = RingHead::on(&root).unwrap();
-        assert_eq!(head.tick(0), None);
+        assert_eq!(head.tick(lamp_ipc::monotonic_us()), None);
         let (state, _) =
             crate::hand_controls::test_head_touch("boot", lamp_ipc::monotonic_us() - 60_000);
         let held_us = state.sources[0].held_us;
@@ -213,13 +219,18 @@ mod tests {
             .unwrap();
         said.publish_json(1, &state).unwrap();
         // Looked at every 50 ms by the head's thread: the hand's time.
-        soon(held_us, || head.tick(0));
+        soon(held_us, || head.tick(lamp_ipc::monotonic_us()));
+        // Controls' state holds 300 ms from its stamp: past that the hand is
+        // gone, though the head's thread has nothing newer (#849 review).
+        let stamped = state.stamp.at_us;
+        assert_eq!(head.tick(stamped + TOUCH_STATE_TTL_US - 1), held_us);
+        assert_eq!(head.tick(stamped + TOUCH_STATE_TTL_US), None);
         // Not from anyone but Controls.
         let mut other = bus
             .publisher_declared(TouchState::TOPIC, &TouchState::declaration(), "replay")
             .unwrap();
         other.publish_json(2, &state).unwrap();
-        soon(None, || head.tick(0));
+        soon(None, || head.tick(lamp_ipc::monotonic_us()));
         drop((said, other));
         std::fs::remove_dir_all(root).unwrap();
     }

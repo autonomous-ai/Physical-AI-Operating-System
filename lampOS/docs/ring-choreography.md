@@ -80,10 +80,16 @@ tick's Stop, Authority and expiry (#849 review, twice):
   on, a 50 ms permit must blank within 150 ms and a Stop sent then must end
   the worker within 50 ms.
 - It failed on the first head, which read the bus before the controls. On
-  the second (at most four receives a tick, after the controls) it fails
-  only where the socket's queue is large enough for a flood to stay ahead of
-  one receive: the reviewer reproduced that on Linux, and on Third's Mac the
-  queue holds a few messages, so the earlier head passes there.
+  the second head (at most four receives a tick, after the controls) this
+  fixture passes on Third's Mac. The reviewer's own fixture, a different
+  procedure on a Mac too, made that second head miss Stop by 485 ms. Why the
+  two procedures differ is not established. What this head guarantees is
+  structural: the ring's loop does no bus work, so no receive can stand
+  between it and its Stop, Authority and expiry.
+- The head's thread keeps the hand's time with its expiry, the state's stamp
+  plus Controls' 300 ms. The ring's loop checks that expiry itself, so if
+  the thread stalls, the hand lapses on time and stops dimming the face
+  (#849 review).
 - **Shown:** at rest, the resting face becomes the listening face, the one a
   turn shows while it listens, for `TAP_LISTENS_US` (2 s, as long as a call
   waits for the rest on lamp-4ace, #891).

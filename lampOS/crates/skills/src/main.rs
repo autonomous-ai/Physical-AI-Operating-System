@@ -16,7 +16,8 @@ use std::{
 };
 
 const USAGE: &str = "usage: lamp-skills [--dir DIR] [--bus-root DIR] [--gaze-socket PATH] \
-                     [--mood-socket PATH] [--actions-socket PATH] [--say-socket PATH]\n       \
+                     [--mood-socket PATH] [--actions-socket PATH] [--say-socket PATH] \
+                     [--eyes-socket PATH] [--still-file PATH]\n       \
                      lamp-skills test SKILL_DIR...";
 /// How often the folder is looked at for a change.
 const RELOAD_EVERY: Duration = Duration::from_secs(2);
@@ -26,6 +27,8 @@ const ACTIONS_TIMEOUT: Duration = Duration::from_secs(2);
 const SAY_EXPIRES_MS: u64 = 30_000;
 /// The longest the voice may take between two lines of an answer.
 const SAY_TIMEOUT: Duration = Duration::from_secs(180);
+/// The eyes wait up to 2 s for the head to settle, then take the still.
+const LOOK_TIMEOUT: Duration = Duration::from_millis(3_000);
 
 #[derive(Clone)]
 struct Sockets {
@@ -33,6 +36,10 @@ struct Sockets {
     mood: PathBuf,
     actions: PathBuf,
     say: PathBuf,
+    /// The eyes' permit socket, where a still is asked for.
+    eyes: PathBuf,
+    /// Where the eyes keep that still (their `--full-look-file`).
+    still: PathBuf,
 }
 
 fn main() -> ExitCode {
@@ -47,6 +54,8 @@ fn main() -> ExitCode {
         mood: "/run/lampos-body/mood.sock".into(),
         actions: "/run/lampos-actions/call.sock".into(),
         say: "/run/lampos-say/say.sock".into(),
+        eyes: "/run/lampos-eyes/permit.sock".into(),
+        still: "/run/lampos-eyes/full-look.jpg".into(),
     };
     let mut pairs = given.chunks(2);
     for pair in &mut pairs {
@@ -62,6 +71,8 @@ fn main() -> ExitCode {
             "--mood-socket" => sockets.mood = value,
             "--actions-socket" => sockets.actions = value,
             "--say-socket" => sockets.say = value,
+            "--eyes-socket" => sockets.eyes = value,
+            "--still-file" => sockets.still = value,
             _ => {
                 eprintln!("{USAGE}");
                 return ExitCode::from(2);
@@ -269,8 +280,35 @@ fn perform(skill: &str, calls: &[Call], sockets: &Sockets, before: Option<Light>
     }
     let others: Vec<&Call> = calls
         .iter()
-        .filter(|call| !matches!(call, Call::Say(_)) && (before.is_some() || !is_light(call)))
+        .filter(|call| {
+            !matches!(call, Call::Say(_) | Call::Look { .. })
+                && (before.is_some() || !is_light(call))
+        })
         .collect();
+    // The still first, so that the say carries it.
+    let still = calls.iter().find_map(|call| match call {
+        Call::Look { full } => Some(look(sockets).map(|path| (path, *full))),
+        _ => None,
+    });
+    let image = match still {
+        Some(Ok((path, full))) => {
+            said.push(format!(
+                "look: a still in {}{}",
+                path.display(),
+                if full.is_some() {
+                    " at the eyes' own size: they take no size yet"
+                } else {
+                    ""
+                }
+            ));
+            Some(path)
+        }
+        Some(Err(why)) => {
+            said.push(format!("look: {why}"));
+            None
+        }
+        None => None,
+    };
     let note = calls.iter().find_map(|call| match call {
         Call::Say(note) => Some(note.clone()),
         _ => None,
@@ -295,7 +333,9 @@ fn perform(skill: &str, calls: &[Call], sockets: &Sockets, before: Option<Light>
     match note {
         Some(note) => {
             let mut begun = Vec::new();
-            let outcome = say(&sockets.say, skill, &note, || act(&mut begun));
+            let outcome = say(&sockets.say, skill, &note, image.as_deref(), || {
+                act(&mut begun)
+            });
             said.extend(begun);
             said.push(outcome);
         }
@@ -347,16 +387,52 @@ fn answer(result: io::Result<String>) -> String {
     result.unwrap_or_else(|error| format!("the actions part was not reached ({error})"))
 }
 
+/// Asks the eyes for one still (exactly `{"look_full":ID}` on their permit
+/// socket, #842) and waits for it in the still file, marked with that id.
+/// The eyes take no size yet: the still is theirs (`--full-look`, at most
+/// 1024 across). Where it is.
+fn look(sockets: &Sockets) -> Result<PathBuf, String> {
+    let id = lamp_ipc::monotonic_us().max(1);
+    let ask = json!({ "look_full": id });
+    UnixDatagram::unbound()
+        .and_then(|eyes| eyes.send_to(ask.to_string().as_bytes(), &sockets.eyes))
+        .map_err(|error| format!("the eyes were not reached ({error})"))?;
+    let mark = format!("lamp-look {id}");
+    let deadline = Instant::now() + LOOK_TIMEOUT;
+    while Instant::now() < deadline {
+        if let Ok(jpeg) = std::fs::read(&sockets.still)
+            && jpeg.get(6..6 + mark.len()) == Some(mark.as_bytes())
+        {
+            return Ok(sockets.still.clone());
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    Err(format!(
+        "no still within {} s; the say goes without it",
+        LOOK_TIMEOUT.as_secs_f32()
+    ))
+}
+
 /// Asks the voice to say `note` (#939's say service: one line in, a `begun`
-/// line when the turn starts, then the outcome). `begun` is called with the
-/// first. What became of it, in words.
-fn say(path: &Path, skill: &str, note: &str, mut begun: impl FnMut()) -> String {
+/// line when the turn starts, then the outcome), with a still if there is
+/// one. `begun` is called with the first. What became of it, in words.
+fn say(
+    path: &Path,
+    skill: &str,
+    note: &str,
+    image: Option<&Path>,
+    mut begun: impl FnMut(),
+) -> String {
     let mut attempt = || -> io::Result<String> {
         let mut stream = UnixStream::connect(path)?;
         stream.set_read_timeout(Some(SAY_TIMEOUT))?;
         stream.set_write_timeout(Some(ACTIONS_TIMEOUT))?;
-        let ask =
+        let mut ask =
             json!({"skill": skill, "note": note, "priority": 5, "expires_in_ms": SAY_EXPIRES_MS});
+        // Proposed to #954: the voice shows the model this picture with the turn.
+        if let Some(image) = image {
+            ask["image"] = json!(image);
+        }
         writeln!(stream, "{ask}")?;
         let mut lines = BufReader::new(stream.take(64 * 1_024));
         loop {
@@ -434,7 +510,7 @@ fn make(call: &Call, sockets: &Sockets) -> String {
             }
             said.join(", ")
         }
-        Call::Say(_) => "say: made by its own step".into(),
+        Call::Say(_) | Call::Look { .. } => "made by its own step".into(),
     }
 }
 

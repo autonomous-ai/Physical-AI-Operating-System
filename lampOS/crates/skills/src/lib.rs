@@ -80,9 +80,17 @@ struct AskFile {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct StepFile {
+    look: Option<LookFile>,
     body: Option<BodyFile>,
     light: Option<LightStep>,
     say: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct LookFile {
+    /// The still's size, `WIDTHxHEIGHT`; the eyes' own without it.
+    full: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -200,6 +208,9 @@ pub enum Call {
     /// Steps dimmer, to the actions part's `light_dimmer`; "until it ends",
     /// which it cannot carry out yet.
     Dim { steps: u8, until_ends: bool },
+    /// One still from the eyes, handed to the say: at this size, or the
+    /// eyes' own.
+    Look { full: Option<(u32, u32)> },
     /// A note for the voice to say in its own words.
     Say(String),
 }
@@ -239,6 +250,13 @@ impl Call {
                 }
                 ("light", args)
             }
+            Self::Look { full } => (
+                "eyes.look",
+                match full {
+                    Some((width, height)) => json!({ "full": format!("{width}x{height}") }),
+                    None => json!({}),
+                },
+            ),
             Self::Say(note) => ("say", json!({ "note": note })),
         }
     }
@@ -421,8 +439,27 @@ pub fn load(dir: &Path) -> Result<Skill, String> {
     }
     let mut steps = Vec::new();
     for step in file.steps {
-        if step.body.is_none() && step.light.is_none() && step.say.is_none() {
-            return Err("a [[do]] step names body, light or say".into());
+        if step.look.is_none() && step.body.is_none() && step.light.is_none() && step.say.is_none()
+        {
+            return Err("a [[do]] step names look, body, light or say".into());
+        }
+        if let Some(look) = step.look {
+            let full = look
+                .full
+                .map(|size| {
+                    size.split_once('x')
+                        .and_then(|(width, height)| {
+                            Some((width.parse().ok()?, height.parse().ok()?))
+                        })
+                        .filter(|(width, height): &(u32, u32)| {
+                            (320..=8192).contains(width) && (240..=8192).contains(height)
+                        })
+                        .ok_or(format!(
+                            "look full = {size:?}: WIDTHxHEIGHT, 320x240 to 8192x8192"
+                        ))
+                })
+                .transpose()?;
+            steps.push(Call::Look { full });
         }
         if let Some(body) = step.body {
             match body.look_at.as_deref() {

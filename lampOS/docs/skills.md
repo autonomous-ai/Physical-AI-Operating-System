@@ -145,7 +145,8 @@ must not leave a step silently undone)*.
 | `trigger.cooldown` | no | Not again within this long of the last run. A run the Policy refused does not count |
 | `[[while]]` | no | Conditions that must also hold, all of them, on the newest value of each topic while that value lasts: a `topic` with `field` and one of `equals`, `above` or `below`, or `humans/faces/tracked` with `present = true`; with `for`, it has also held that long, by the messages of its topic since this program started |
 | `[ask] policy` | yes | The Policy's question asked before anything is done *(chosen: required, since every trigger is something the lamp starts itself)* |
-| `[[do]]` | at least one | The steps, in order. Within one table: body, then light, then say |
+| `[[do]]` | at least one | The steps, in order. Within one table: look, body, light, then say |
+| `do.look` | no | `{}` or `{ full = "WIDTHxHEIGHT" }`: one still from the eyes before the say, handed to it (#941, Desk tutor). It is asked as `{"look_full":ID}` on the eyes' permit socket (`--eyes-socket`, default `/run/lampos-eyes/permit.sock`), and read from their `--full-look-file` (`--still-file`, default `/run/lampos-eyes/full-look.jpg`) once it carries `lamp-look ID`, waiting at most 3 s. The say then carries `"image": PATH`. *Not carried out yet:* `full`, because the eyes take no size (theirs is `--full-look`, at most 1280x960, sent at most 1024 across), and the voice's say service does not take `image` yet (#954). Without a still, the say goes without it |
 | `do.body.look_at` | no | Only `"face"`. The largest face in view goes to the body's `gaze.sock` as the eyes send one (`{"face":{"x","y","size","turned":0}}`) |
 | `do.body.gesture` | no | One of the body's six gestures (`nod`, `headshake`, `greeting`, `laugh`, `shy`, `stretching`), sent to `mood.sock` as `{"gesture":NAME}` |
 | `do.light` | no | A file in `lights/`, written as its name, or a table in place. A file `lights/NAME.toml` holds the same keys. `{ colour, level, for }` asks the actions part for `light_colour`. *Not carried out yet:* `level` (1 to 5) and `for`. `{ dim = N, until = "ends" }` asks for `light_dimmer` N times. *Not carried out yet:* `until` |
@@ -171,7 +172,7 @@ because nothing runs it yet.
     [[expect]]
     at = "600s"                # optional: when, from the case's first message
     within = "1s"              # optional; without it, exactly
-    call = "body.gaze"         # body.gaze, body.gesture, light or say
+    call = "body.gaze"         # body.gaze, body.gesture, eyes.look, light or say
     args = { look_at = "face" }
 
 A call matches when its name is the same and each argument named in `args`
@@ -180,6 +181,7 @@ runtime gives are:
 
 - `body.gaze`: `look_at`, `x`, `y`, `size`
 - `body.gesture`: `gesture`
+- `eyes.look`: `full`
 - `light`: `colour`, `level`, `for`, or `dim`, `until`
 - `say`: `note`
 

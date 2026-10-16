@@ -180,6 +180,12 @@ say = "Greet them."
 /// published, and the voice's say service answers with `answers`, a line
 /// each, 200 ms apart.
 fn the_program(skip: bool, answers: &'static [&'static str]) -> Seen {
+    the_program_with(AT_ONCE, skip, answers)
+}
+
+/// The same with this hello. The eyes, asked for a still, write one marked
+/// with the ask's id.
+fn the_program_with(skill: &str, skip: bool, answers: &'static [&'static str]) -> Seen {
     // Short: a socket's whole path has to fit in 103 bytes.
     let dir = tempfile::Builder::new()
         .prefix("sk")
@@ -207,6 +213,18 @@ fn the_program(skip: bool, answers: &'static [&'static str]) -> Seen {
                 .write_all(b"{\"ok\":true,\"result\":{}}\n")
                 .unwrap();
             let _ = called.send(line);
+        }
+    });
+    let eyes = UnixDatagram::bind(root.join("eyes.sock")).unwrap();
+    let still = root.join("still.jpg");
+    std::thread::spawn(move || {
+        let mut buffer = [0u8; 256];
+        while let Ok(length) = eyes.recv(&mut buffer) {
+            let ask: serde_json::Value = serde_json::from_slice(&buffer[..length]).unwrap();
+            let mark = format!("lamp-look {}", ask["look_full"]);
+            let mut jpeg = vec![0xff, 0xd8, 0xff, 0xfe, 0, mark.len() as u8 + 2];
+            jpeg.extend_from_slice(mark.as_bytes());
+            fs::write(&still, jpeg).unwrap();
         }
     });
     let voice = UnixListener::bind(root.join("say.sock")).unwrap();
@@ -238,6 +256,10 @@ fn the_program(skip: bool, answers: &'static [&'static str]) -> Seen {
         root.join("actions.sock").as_os_str(),
         "--say-socket".as_ref(),
         root.join("say.sock").as_os_str(),
+        "--eyes-socket".as_ref(),
+        root.join("eyes.sock").as_os_str(),
+        "--still-file".as_ref(),
+        root.join("still.jpg").as_os_str(),
     ]);
     command.env_remove("LAMP_SKILLS_ASK");
     if skip {
@@ -246,7 +268,7 @@ fn the_program(skip: bool, answers: &'static [&'static str]) -> Seen {
     let _running = Running(command.spawn().unwrap());
     std::thread::sleep(Duration::from_millis(300));
     // Put in after the start: found by the reload.
-    skill_with(&root.join("skills"), "hello", AT_ONCE);
+    skill_with(&root.join("skills"), "hello", skill);
     let deadline = Instant::now() + Duration::from_secs(10);
     while bus.subscribers(Faces::TOPIC).unwrap().is_empty() {
         assert!(Instant::now() < deadline, "the skill was never loaded");
@@ -591,4 +613,25 @@ fn a_folder_beginning_with_a_dot_is_passed_over() {
     let (skills, errors) = load_all(dir.path());
     assert_eq!(skills.len(), 1);
     assert!(errors.is_empty(), "{errors:?}");
+}
+
+#[test]
+fn a_look_takes_one_still_and_hands_it_to_the_say() {
+    let skill = AT_ONCE.replace(
+        "body = { look_at = \"face\" }",
+        "look = { full = \"3264x2448\" }",
+    );
+    let seen = the_program_with(
+        &skill,
+        true,
+        &[r#"{"event":"begun","at_us":5}"#, r#"{"outcome":"spoken"}"#],
+    );
+    let done = &seen.events[3].why;
+    assert!(done.contains("look: a still in"), "{done}");
+    assert!(done.contains("they take no size yet"), "{done}");
+    let asked: serde_json::Value = serde_json::from_str(seen.asked.as_deref().unwrap()).unwrap();
+    assert!(
+        asked["image"].as_str().unwrap().ends_with("still.jpg"),
+        "{asked}"
+    );
 }

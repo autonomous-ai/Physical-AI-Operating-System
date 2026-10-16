@@ -471,9 +471,23 @@ program was built from; the binaries are the channel's newest build.
   newer build moves each link and keeps the old folders. `useradd`,
   `systemctl` and `systemd-tmpfiles` themselves were not run.
 - No build carries the voice's turn-end model and ONNX Runtime library, the
-  eyes' two models or the name's models, and `install` does not place them.
-  A lamp installed by it has a voice without its endpoint model and eyes
-  and name that cannot start.
+  eyes' two models or the name's models. `install` fetches each that is
+  missing (#811, from lamp-06c1) from `deploy/product/models.json`: where
+  it goes, its URL, size and SHA-256, the runtime's library out of its
+  pinned release archive with `tar`. Each is written under a temporary name
+  and renamed into place only when it matches; the voice's two go beside
+  its binary through `current/`, and a round carries them to the next
+  build. Every file, the name part's own `name.onnx` among them
+  (`1d238ca7…`, the model lamp-4ace and lamp-52e6 run), is in one release of
+  ours, `models-2026-10-16`, with each model's licence beside it (the first
+  builder on #811, 2026-10-16 13:58; the fifth made it). It is a draft until
+  #811 ships, so until it is published every fetch says the model could not
+  be had. One that cannot be had is said and the install goes on. What
+  install placed is recorded by SHA-256 as the settings are, so when
+  `models.json` moves a pin, the earlier model it placed is replaced (its
+  part checks the new pin and would refuse the old); one already there that
+  install never placed is the lamp's and kept. Not run
+  against the release from a lamp.
 - Nothing here was run on a lamp. The units were read from the repository,
   not from the lamps, and lamp-4ace's `LAMP.md` and its unit files already
   disagree on builds (updates.md, "Most likely wrong").

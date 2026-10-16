@@ -169,6 +169,7 @@ impl Lamp {
             key: key.public_key().as_ref().try_into().unwrap(),
             records: "/var/lib/lampos-update/".into(),
             setup: false,
+            models: Vec::new(),
         };
         let host = FakeHost {
             root: root.clone(),
@@ -761,6 +762,206 @@ fn the_tasks_part_waits_for_harness_rather_than_failing() {
         lamp.said.iter().any(|line| line.contains("harness")),
         "{:?}",
         lamp.said
+    );
+}
+
+fn sha(bytes: &[u8]) -> String {
+    lamp_update::manifest::sha256_hex(bytes)
+}
+
+/// #811, from lamp-06c1: no build carries a model, so install fetches each
+/// missing one and checks it by size and SHA-256 before it is placed, one
+/// out of a pinned archive too. One that cannot be had, or does not match, is said
+/// and leaves nothing; one already there and not the pinned one is kept.
+#[test]
+fn missing_models_are_fetched_checked_and_placed_and_a_lamps_own_is_kept() {
+    let mut lamp = Lamp::new(188, &[]);
+    let eyes = b"a face model".to_vec();
+    let lib = b"a runtime library".to_vec();
+    // A real gzipped tar holding the library, as the runtime's release is.
+    let work = tempfile::tempdir().unwrap();
+    fs::create_dir_all(work.path().join("rt/lib")).unwrap();
+    fs::write(work.path().join("rt/lib/lib.so"), &lib).unwrap();
+    let made = std::process::Command::new("tar")
+        .arg("-czf")
+        .arg(work.path().join("rt.tgz"))
+        .arg("-C")
+        .arg(work.path())
+        .arg("rt/lib/lib.so")
+        .status()
+        .unwrap();
+    assert!(made.success());
+    let tgz = fs::read(work.path().join("rt.tgz")).unwrap();
+    lamp.channel
+        .files
+        .insert("https://models.test/eyes.onnx".into(), eyes.clone());
+    lamp.channel
+        .files
+        .insert("https://models.test/rt.tgz".into(), tgz.clone());
+    lamp.channel
+        .files
+        .insert("https://models.test/bad.onnx".into(), b"tampered".to_vec());
+    let model = |path: &str, url: &str, bytes: &[u8]| install::Model {
+        path: path.into(),
+        url: url.into(),
+        bytes: bytes.len() as u64,
+        sha256: sha(bytes),
+        archive: None,
+    };
+    let mut runtime = model(
+        "/opt/lampOS/voice/current/lib.so",
+        "https://models.test/rt.tgz",
+        &lib,
+    );
+    runtime.archive = Some(install::Archive {
+        bytes: tgz.len() as u64,
+        sha256: sha(&tgz),
+        member: "rt/lib/lib.so".into(),
+    });
+    lamp.config.models = vec![
+        model(
+            "/opt/lampOS/eyes/models/eyes.onnx",
+            "https://models.test/eyes.onnx",
+            &eyes,
+        ),
+        runtime,
+        model(
+            "/opt/lampOS/eyes/models/bad.onnx",
+            "https://models.test/bad.onnx",
+            b"genuine",
+        ),
+        model(
+            "/opt/lampOS/eyes/models/gone.onnx",
+            "https://models.test/gone.onnx",
+            b"x",
+        ),
+    ];
+    lamp.install().unwrap();
+    assert_eq!(
+        fs::read(lamp.on("/opt/lampOS/eyes/models/eyes.onnx")).unwrap(),
+        eyes
+    );
+    assert_eq!(
+        fs::read(lamp.on("/opt/lampOS/voice/current/lib.so")).unwrap(),
+        lib
+    );
+    assert!(
+        fs::read_link(lamp.on("/opt/lampOS/voice/current")).is_ok(),
+        "beside the binary"
+    );
+    for missing in [
+        "bad.onnx",
+        "gone.onnx",
+        ".bad.onnx.fetching",
+        ".gone.onnx.fetching",
+    ] {
+        assert!(
+            !lamp
+                .on(&format!("/opt/lampOS/eyes/models/{missing}"))
+                .exists(),
+            "{missing}"
+        );
+    }
+    assert!(
+        !lamp
+            .on("/opt/lampOS/voice/current/.lib.so.archive")
+            .exists()
+    );
+    for said in ["bad.onnx could not be had", "gone.onnx could not be had"] {
+        assert!(
+            lamp.said.iter().any(|line| line.contains(said)),
+            "{said}: {:?}",
+            lamp.said
+        );
+    }
+
+    // Again: nothing new is fetched, and a model of the lamp's own is kept.
+    fs::write(
+        lamp.on("/opt/lampOS/eyes/models/eyes.onnx"),
+        b"the lamp's own",
+    )
+    .unwrap();
+    lamp.said.clear();
+    let again = lamp.install().unwrap();
+    assert!(
+        again
+            .changed
+            .iter()
+            .all(|line| !line.starts_with("fetched")),
+        "{:?}",
+        again.changed
+    );
+    assert!(
+        lamp.said
+            .iter()
+            .any(|line| line.starts_with("kept /opt/lampOS/eyes/models/eyes.onnx"))
+    );
+
+    // A new pin (the reviewer, thirteen): the earlier one this program
+    // placed is replaced, since its part checks the new pin; the lamp's own
+    // file is still kept.
+    let newer = b"a runtime library, newer".to_vec();
+    lamp.channel
+        .files
+        .insert("https://models.test/lib-2.so".into(), newer.clone());
+    lamp.config.models[1] = model(
+        "/opt/lampOS/voice/current/lib.so",
+        "https://models.test/lib-2.so",
+        &newer,
+    );
+    let bumped = lamp.install().unwrap();
+    assert_eq!(
+        fs::read(lamp.on("/opt/lampOS/voice/current/lib.so")).unwrap(),
+        newer
+    );
+    assert!(
+        bumped
+            .changed
+            .contains(&"fetched /opt/lampOS/voice/current/lib.so".to_owned())
+    );
+    assert_eq!(
+        fs::read(lamp.on("/opt/lampOS/eyes/models/eyes.onnx")).unwrap(),
+        b"the lamp's own"
+    );
+}
+
+/// The pinned list itself: every model under `/opt/lampOS`, from our one
+/// release, pinned by a whole SHA-256; the voice's two the ones the turn-end
+/// worker checks, and `name.onnx` the one the lamps run (the first builder
+/// on #811, 13:58).
+#[test]
+fn the_pinned_models_are_the_ones_their_parts_check() {
+    let models = install::models().unwrap();
+    assert_eq!(models.len(), 7);
+    let release = "https://github.com/autonomous-ai/lampOS/releases/download/models-2026-10-16/";
+    for model in &models {
+        assert!(model.path.starts_with("/opt/lampOS/"), "{}", model.path);
+        assert!(model.url.starts_with(release), "{}", model.url);
+        assert_eq!(model.sha256.len(), 64);
+        assert!(model.bytes > 0);
+    }
+    let wire = include_str!("../../turn-end-wire/src/lib.rs");
+    let fast = include_str!("../../turn-end/src/fast.rs");
+    let find = |name: &str| models.iter().find(|m| m.path.ends_with(name)).unwrap();
+    assert!(wire.contains(&find("smart-turn-v3.2-gpu.onnx").sha256));
+    let runtime = find("libonnxruntime.so.1.30.0");
+    assert!(fast.contains(&runtime.sha256));
+    assert_eq!(runtime.bytes, 25_135_496);
+    assert!(fast.contains("bytes: 25_135_496"));
+    let eyes = include_str!("../../../deploy/product/lamp-eyes.service");
+    for name in [
+        "face_detection_yunet_2023mar.onnx",
+        "face_recognition_sface_2021dec.onnx",
+    ] {
+        assert!(
+            eyes.contains(&format!("/opt/lampOS/eyes/models/{name}")),
+            "{name}"
+        );
+        find(name);
+    }
+    assert!(
+        include_str!("../../../deploy/product/lamp-name.service")
+            .contains("--models /opt/lampOS/name/models")
     );
 }
 

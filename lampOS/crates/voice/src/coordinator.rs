@@ -4438,7 +4438,10 @@ fn conversation_with_gate(
                         if let Some(called) = call_note(
                             detector.last_endpoint(),
                             current.owner.turn(),
+                            current.local_only.is_some(),
                             snapshot.microphone_generation(),
+                            provider_queue.len(),
+                            provider_queue_bound,
                         ) {
                             provider_queue.push_back(called);
                         }
@@ -6614,24 +6617,31 @@ fn queue_input(
     Ok(())
 }
 
-/// The endpoint has one explicit slot after the PCM threshold. It cannot
-/// grow an already-full terminal queue, and it does not enlarge PCM admission.
 /// What tells the model that the request ending now was only the lamp's
-/// name: when its end is a call's wait that ran out (`--call-wait-ms`,
-/// #782). Nothing for any other end.
+/// name, to go just before its end: when its end is a call's wait that ran
+/// out (`--call-wait-ms`, #782). Nothing for any other end, nor for a
+/// local-only turn (#830), whose request never went out. Nor when `queued`
+/// is already at `pcm_bound`: the end keeps the one slot past the bound it
+/// has always had, and the note is left out.
 fn call_note(
     decision: Option<&crate::activity::EndpointDecision>,
     request: u64,
+    local_only: bool,
     privacy_generation: u64,
+    queued: usize,
+    pcm_bound: usize,
 ) -> Option<ProviderInput> {
     decision
         .and_then(|decision| decision.call_wait_ms)
+        .filter(|_| !local_only && queued < pcm_bound)
         .map(|_| ProviderInput::Called {
             request,
             privacy_generation,
         })
 }
 
+/// The endpoint has one explicit slot after the PCM threshold. It cannot
+/// grow an already-full terminal queue, and it does not enlarge PCM admission.
 fn queue_input_end(
     queue: &mut VecDeque<ProviderInput>,
     reply: &Reply,

@@ -918,8 +918,12 @@ the model beside that request, with whatever else the request was told
 (`CALLED_NOTE`: "The person said your name, Lamp, and nothing more: they
 are calling you. Answer as someone who hears their name does, with one
 short word such as "Yes?", and wait for them to go on."). It is sent only
-then; an end sent early (`--early-end-ms`) is past telling. The second voice
-and the fixture provider take it and do nothing. Tests:
+then; an end sent early (`--early-end-ms`) is past telling. It isn't sent
+for a local-only turn (#830), whose request never went out, or when the
+queue to the worker is already at its bound (64 commands with the standard
+hold): the end keeps the one slot past the bound that it always had, and
+the note is left out. The second voice and the fixture provider take it
+and do nothing. Tests:
 `a_bare_call_is_told_to_the_model_before_its_end` (the note reaches the
 service before the end) and
 `only_a_call_whose_wait_ran_out_is_told_to_the_model`. Not yet measured on

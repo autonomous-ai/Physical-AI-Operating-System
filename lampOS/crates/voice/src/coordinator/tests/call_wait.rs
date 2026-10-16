@@ -130,7 +130,9 @@ fn the_first_sign_of_the_name_makes_a_call_wait_for_the_rest() {
 }
 
 /// Only an end that is a call's wait run out tells the model it was only
-/// the name; every other end sends nothing more than it did.
+/// the name; every other end sends nothing more than it did. An offline
+/// turn sends nothing, and a queue at its bound keeps its last slot for
+/// the end.
 #[test]
 fn only_a_call_whose_wait_ran_out_is_told_to_the_model() {
     let end = |call_wait_ms| crate::activity::EndpointDecision {
@@ -141,13 +143,32 @@ fn only_a_call_whose_wait_ran_out_is_told_to_the_model() {
         verdict: None,
         call_wait_ms,
     };
+    let (waited, other) = (end(Some(2_000)), end(None));
+    let note = |decision, local_only, queued| call_note(decision, 7, local_only, 3, queued, 64);
     assert!(matches!(
-        call_note(Some(&end(Some(2_000))), 7, 3),
+        note(Some(&waited), false, 63),
         Some(ProviderInput::Called {
             request: 7,
             privacy_generation: 3
         })
     ));
-    assert!(call_note(Some(&end(None)), 7, 3).is_none());
-    assert!(call_note(None, 7, 3).is_none());
+    assert!(note(Some(&other), false, 0).is_none());
+    assert!(note(None, false, 0).is_none());
+    // A local-only turn's request never went out (#830).
+    assert!(note(Some(&waited), true, 0).is_none());
+    // At the bound, the end's own slot is not taken.
+    assert!(note(Some(&waited), false, 64).is_none());
+    let mut queue: VecDeque<ProviderInput> = (0..63)
+        .map(|sequence| ProviderInput::Audio {
+            request: 7,
+            privacy_generation: 3,
+            sequence,
+            read_completed_at_us: 0,
+            samples: Vec::new(),
+        })
+        .collect();
+    let queued = queue.len();
+    queue.extend(note(Some(&waited), false, queued));
+    assert_eq!(queue.len(), 64);
+    assert!(note(Some(&waited), false, queue.len()).is_none());
 }

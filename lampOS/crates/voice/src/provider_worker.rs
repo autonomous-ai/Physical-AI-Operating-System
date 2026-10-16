@@ -179,6 +179,10 @@ pub struct Files {
     /// (`--policy-holds-actions`, `crate::policy_holds`, #800). Only with the
     /// bus.
     pub policy_holds: bool,
+    /// Whether the model is told, while a request is heard, that its words
+    /// name one of the staff (`--staff-note`, `crate::staff_note`). Only
+    /// with the tasks part.
+    pub staff_note: bool,
 }
 
 /// The bus's root for this worker, if it publishes.
@@ -228,7 +232,7 @@ pub fn parse_flags(dir: &std::path::Path, flags: &[String]) -> io::Result<Parsed
     let (air_facts, flags) = crate::air_told::take(flags);
     let (keep_link, flags) = take_keep_link(flags);
     let (wait_for_room, flags) = take_wait_for_room(flags);
-    let (tools, flags) = crate::tools::take(flags)?;
+    let (mut tools, flags) = crate::tools::take(flags)?;
     let (attention, flags) = crate::attention::take(flags);
     let (attention_busy, flags) = crate::attention::take_busy(flags);
     let (attention_near, flags) = crate::attention::take_near(flags);
@@ -244,6 +248,11 @@ pub fn parse_flags(dir: &std::path::Path, flags: &[String]) -> io::Result<Parsed
     let (sounds_checked, flags) = crate::not_speech::take_checked(flags);
     let (ask_unclear, flags) = crate::not_speech::take_unclear(flags);
     let (policy_holds, flags) = crate::policy_holds::take(flags);
+    let (staff_note, flags) = crate::staff_note::take(flags);
+    // `start_agent_task` says what the staff's note asks, when it is sent.
+    if let Some(place) = tools.tasks.as_mut() {
+        place.staff_note = staff_note;
+    }
     let visual = VisualSource::parse(dir, flags)?;
     let files = Files {
         look,
@@ -271,6 +280,7 @@ pub fn parse_flags(dir: &std::path::Path, flags: &[String]) -> io::Result<Parsed
         sounds_checked,
         ask_unclear,
         policy_holds,
+        staff_note,
     };
     Ok((continuation, sight, files, visual))
 }
@@ -761,6 +771,9 @@ pub(crate) struct Options {
     /// What makes the lines' voice prints for the same-voice check
     /// ([`crate::same_voice`], #829). Only with `spoken_to`.
     pub(crate) voices: Option<Box<dyn crate::same_voice::Printer>>,
+    /// A request whose heard words name one of the staff is told so
+    /// beside its sound ([`crate::staff_note`]). Only with the tasks part.
+    pub(crate) staff_note: bool,
 }
 /// How the room is and whether the lamp is in a conversation, now. With
 /// `--spoken-to`, none is once people have gone on talking to each other
@@ -791,6 +804,7 @@ impl Options {
             name_in_passing_ignored: false,
             policy_holds: None,
             wait_for_room: false,
+            staff_note: false,
             spoken_to: false,
             voices: None,
         }
@@ -1003,6 +1017,7 @@ pub async fn run_with_continuation(
             (false, _) => None,
         },
         wait_for_room: files.wait_for_room,
+        staff_note: files.staff_note,
         spoken_to: files.attention && files.spoken_to,
         // The child starts now: its model loads while the link opens.
         voices: match (files.attention && files.spoken_to, files.same_voice) {
@@ -1214,6 +1229,8 @@ async fn serve_with_visual<C: Connect>(
             .ok()
     });
     let mut called = crate::called::Called::default();
+    // What was heard of the newest request, for the staff's note.
+    let mut staff_heard = crate::staff_note::Heard::default();
     let mut desk = ToolDesk::new(options.tools.clone());
     // The lamp's actions wait for the Policy's decision (#800).
     desk.verdicts = options.policy_holds.as_deref().and_then(|root| {
@@ -1711,6 +1728,39 @@ async fn serve_with_visual<C: Connect>(
                     .is_some_and(|lineage| intake.handoff.reminders.is_reminder(lineage));
                 if let Ok(Notice::Event(Event::Audio { lineage, .. })) = &notice {
                     desk.sound(lineage.request.get());
+                }
+                // A request whose words name one of the staff: the model is
+                // told so beside its sound, while its input is open, once
+                // (`crate::staff_note`).
+                if let (Some(place), Ok(Notice::Event(event))) = (
+                    options.tools.tasks.as_ref().filter(|_| options.staff_note),
+                    &notice,
+                ) {
+                    match event {
+                        Event::InputStarted { lineage, .. } => staff_heard.began(lineage.request.get()),
+                        Event::UncorrelatedInputTranscript { text, .. } => {
+                            let open = intake.handoff.visual_turn().map(|turn| turn.request);
+                            if let Some((request, words)) = staff_heard.piece(text)
+                                && let Some(who) = crate::agent_tasks::named_in_words(place, words)
+                            {
+                                staff_heard.done();
+                                match open.filter(|open| open.get() == request) {
+                                    None => eprintln!(
+                                        "lamp-voice provider: request {request}: named {who} after its input was closed; the model is not told"
+                                    ),
+                                    Some(open) => match add_note(&provider, &mut intake.handoff.noted, open, &crate::staff_note::note(who)) {
+                                        Ok(()) => eprintln!(
+                                            "lamp-voice provider: request {request}: named {who}; the model is told"
+                                        ),
+                                        Err(error) => eprintln!(
+                                            "lamp-voice provider: request {request}: named {who} and the model could not be told: {error}"
+                                        ),
+                                    },
+                                }
+                            }
+                        }
+                        _ => {}
+                    }
                 }
                 // Whom the lamp answers: followed for every request, and
                 // decided when the first of an answer comes: its sound, its
@@ -6845,6 +6895,7 @@ mod tests {
             name_in_passing_ignored: false,
             policy_holds: None,
             wait_for_room: false,
+            staff_note: false,
             spoken_to: false,
             voices: None,
         }
@@ -6868,6 +6919,7 @@ mod tests {
                 name_in_passing_ignored: false,
                 policy_holds: None,
                 wait_for_room: false,
+                staff_note: false,
                 spoken_to: false,
                 voices: None,
             },
@@ -6916,6 +6968,7 @@ mod tests {
                 name_in_passing_ignored: false,
                 policy_holds: None,
                 wait_for_room: false,
+                staff_note: false,
                 spoken_to: false,
                 voices: None,
             },
@@ -7039,6 +7092,86 @@ mod tests {
             ProviderOutput::Audio { request: heard, .. } if heard == next
         ));
         rig.stop().await;
+    }
+
+    /// The first request of a rig with the staff's note on, heard as
+    /// `words` in pieces before its end is asked for: the service messages
+    /// after the pieces, up to the request's end.
+    async fn heard_before_the_end(words: &[&str]) -> Vec<serde_json::Value> {
+        let home = crate::process::SessionDirectory::create().unwrap();
+        let mut options = typed_with(crate::tools::Settings {
+            tasks: Some(crate::agent_tasks::Place {
+                directory: home.path.clone(),
+                target: crate::agent_tasks::DEFAULT_TARGET.into(),
+                who: false,
+                lead_in: false,
+                asked: false,
+                needs: None,
+                staff_note: false,
+            }),
+            ..Default::default()
+        });
+        options.staff_note = true;
+        let mut rig = LiveRig::start_with(quick_policy(), options);
+        let mut dial = rig.ready().await;
+        let request = rig.speak(&mut dial, false, false).await;
+        for piece in words {
+            dial.service
+                .send(json!({"serverContent":{"inputTranscription":{"text":piece}}}))
+                .await;
+        }
+        let owner = rig.snapshot.owner().unwrap();
+        rig.owner.input_ended(real_time(), owner).unwrap();
+        rig.publish();
+        // The words are taken before the request's end is asked for; the
+        // owner is published meanwhile, as the coordinator does.
+        for _ in 0..10 {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+            rig.publish();
+        }
+        rig.parent
+            .data
+            .send(ProviderInput::End {
+                request,
+                privacy_generation: rig.snapshot.microphone_generation(),
+                sound: false,
+                cut_in: false,
+            })
+            .unwrap();
+        let mut sent = Vec::new();
+        while sent.last().is_none_or(|last: &serde_json::Value| {
+            last["realtimeInput"].get("activityEnd").is_none()
+        }) {
+            sent.push(rig.service_message(&mut dial).await);
+        }
+        rig.stop().await;
+        sent
+    }
+
+    /// A request whose heard words name one of the staff ("ask Claude Code
+    /// to …", lamp-4ace 2026-10-16 about 21:05) is told so beside its sound
+    /// while its input is open, and the note reaches the service before the
+    /// request's end, so the model has it before it answers.
+    #[tokio::test]
+    async fn a_request_that_names_one_of_the_staff_is_told_so_before_its_end() {
+        let sent = heard_before_the_end(&[
+            "Can you ask Claude",
+            " Code to write a short poem about the sea?",
+        ])
+        .await;
+        assert_eq!(sent.len(), 2, "{sent:?}");
+        assert_eq!(
+            sent[0]["realtimeInput"]["text"],
+            crate::staff_note::note("Claude Code"),
+            "{sent:?}"
+        );
+    }
+
+    /// A request whose words name none of the staff is given no note.
+    #[tokio::test]
+    async fn a_request_that_names_none_of_the_staff_is_given_no_note() {
+        let sent = heard_before_the_end(&["Write me a short", " poem about the sea."]).await;
+        assert_eq!(sent.len(), 1, "{sent:?}");
     }
 
     /// #782: a request that was only the lamp's name, whose call's wait ran
@@ -7281,6 +7414,7 @@ mod tests {
                 name_in_passing_ignored: false,
                 policy_holds: None,
                 wait_for_room: false,
+                staff_note: false,
                 spoken_to: false,
                 voices: None,
             },
@@ -10428,6 +10562,7 @@ mod tests {
                     name_in_passing_ignored: false,
                     policy_holds: None,
                     wait_for_room: false,
+                    staff_note: false,
                     spoken_to: false,
                     voices: None,
                 },
@@ -10496,6 +10631,7 @@ mod tests {
                     name_in_passing_ignored: ignored,
                     policy_holds: None,
                     wait_for_room: false,
+                    staff_note: false,
                     spoken_to: false,
                     voices: None,
                 },

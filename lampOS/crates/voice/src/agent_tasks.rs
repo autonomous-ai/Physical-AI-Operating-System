@@ -278,7 +278,7 @@ fn declared(place: &Place, staff: &[Member]) -> Vec<Tool> {
                      You can do this: if they ask you to start one of them, open a session or \
                      give it something, without saying what it should do, never say you cannot; \
                      ask in a few words what it should work on, and call this with their answer.",
-                    asked_of(&all, &examples(staff)),
+                    asked_of(&all, &examples(staff), place.staff_note),
                     read_back(place.lead_in, ", with who will do it,")
                 )
             } else {
@@ -316,7 +316,7 @@ fn declared(place: &Place, staff: &[Member]) -> Vec<Tool> {
                      You can do this: if they ask you to start {default}, open a session or \
                      give it something, without saying what it should do, never say you cannot; \
                      ask in a few words what it should work on, and call this with their answer.",
-                    asked_of(default, &examples_of(default)),
+                    asked_of(default, &examples_of(default), place.staff_note),
                     read_back(place.lead_in, "")
                 )
             } else {
@@ -427,16 +427,24 @@ pub fn handing_over_next(lead_in: bool, who: &str) -> String {
 
 /// When `start_agent_task` is called with [`ASKED_FLAG`]: whenever the
 /// person asks to have `whom` do something, whatever the work (#854).
-fn asked_of(whom: &str, examples: &str) -> String {
+fn asked_of(whom: &str, examples: &str, noted: bool) -> String {
     format!(
         "Call it whenever the person asks to have {whom} do something ({examples}), \
          whatever the work is: code, documents or files, and as much a story, a poem, a plan \
          or anything you could do yourself; and even in the middle of something else, a story \
-         you are telling included. The person chose who does it: never do the work yourself \
-         instead, never begin it, and never offer to. Call it too when they ask for work to be \
-         done on their office computer."
+         you are telling included. {} Call it too when they ask for work to be done on their \
+         office computer.",
+        if noted { CHOSE_NOTED } else { CHOSE }
     )
 }
+
+/// Who does the work is the person's choice, and the model's never.
+const CHOSE: &str = "The person chose who does it: never do the work yourself instead, never begin it, and never offer to.";
+/// The same, saying that the staff's note ([`crate::staff_note`]) names who:
+/// 9 bytes more, which every description has room for, three of the staff
+/// and the lead-in included, with 20 to spare
+/// (`every_description_fits_the_service_whatever_the_switches`).
+const CHOSE_NOTED: &str = "The person chose who does it (a note may name them): never do the work yourself, never begin it, nor offer to.";
 
 /// "\"ask Claude Code to …\", \"get Codex to …\"" for the staff.
 fn examples(staff: &[Member]) -> String {
@@ -534,6 +542,51 @@ fn named<'a>(staff: &'a [Member], said: &str) -> Option<&'a Member> {
     });
     let one = found.next()?;
     found.next().is_none().then_some(one)
+}
+
+/// Which of the staff the heard words of a request name, as the person
+/// calls them ([`crate::staff_note`]): the staff as last read, or Claude
+/// Code alone when the person may not name anyone (all work goes there).
+/// `None` when the words name nobody, or more than one of them.
+pub fn named_in_words(place: &Place, heard: &str) -> Option<&'static str> {
+    let staff = staff_now(place);
+    let kinds: Vec<&'static Kind> = if staff.is_empty() {
+        KINDS
+            .iter()
+            .filter(|kind| kind.name == CLAUDE_CODE)
+            .collect()
+    } else {
+        staff.iter().map(|member| member.kind).collect()
+    };
+    kind_in_words(&kinds, heard).map(|kind| kind.name)
+}
+
+/// The one kind among `kinds` that a word, or two words said together, of
+/// `heard` is a close form of. "Cloud" alone is not taken: "save it to the
+/// cloud" names nobody; "cloud code" still does.
+fn kind_in_words(kinds: &[&'static Kind], heard: &str) -> Option<&'static Kind> {
+    let words: Vec<String> = heard
+        .split(|letter: char| !letter.is_alphanumeric())
+        .filter(|word| !word.is_empty())
+        .map(plain)
+        .collect();
+    let mut found: Vec<&'static Kind> = Vec::new();
+    for (at, word) in words.iter().enumerate() {
+        let pair = words.get(at + 1).map(|next| format!("{word}{next}"));
+        for kind in kinds {
+            let alone = word != "cloud" && kind.close.contains(&word.as_str());
+            let together = pair
+                .as_deref()
+                .is_some_and(|pair| kind.close.contains(&pair));
+            if (alone || together) && !found.contains(kind) {
+                found.push(kind);
+            }
+        }
+    }
+    match found.as_slice() {
+        [one] => Some(one),
+        _ => None,
+    }
 }
 
 /// Who gets the work in a call: nobody in particular when the person
@@ -665,6 +718,10 @@ pub struct Place {
     pub asked: bool,
     /// The file the tasks part needs ([`NEEDS_FLAG`]).
     pub needs: Option<PathBuf>,
+    /// A request whose words name one of the staff is told so
+    /// ([`crate::staff_note`]), and `start_agent_task` says what that note
+    /// asks. Set by the provider worker from its own flag.
+    pub staff_note: bool,
 }
 
 /// The provider worker's arguments for what the environment says.
@@ -771,6 +828,7 @@ pub fn take(flags: &[String]) -> std::io::Result<(Option<Place>, &[String])> {
             lead_in,
             asked,
             needs,
+            staff_note: false,
         }),
         rest,
     ))
@@ -1208,6 +1266,7 @@ mod tests {
             lead_in: false,
             asked: false,
             needs: needs.map(PathBuf::from),
+            staff_note: false,
         };
         let told = |place: &Place, name: &str, args: Value| {
             let call = ToolCall {
@@ -1333,6 +1392,7 @@ mod tests {
                 lead_in: false,
                 asked: false,
                 needs: None,
+                staff_note: false,
             })
         );
         assert_eq!(rest, &flags[2..]);
@@ -1400,6 +1460,7 @@ mod tests {
             lead_in: false,
             asked: false,
             needs: None,
+            staff_note: false,
         };
         let call = |name: &str, args: Value| ToolCall {
             id: "c".into(),
@@ -1483,6 +1544,7 @@ mod tests {
             lead_in: false,
             asked: false,
             needs: None,
+            staff_note: false,
         };
         let call = |name: &str, args: Value| ToolCall {
             id: "c".into(),
@@ -1531,6 +1593,7 @@ mod tests {
             lead_in: false,
             asked: false,
             needs: None,
+            staff_note: false,
         };
         let call = |task: &str| ToolCall {
             id: "c".into(),
@@ -1581,6 +1644,7 @@ mod tests {
             lead_in: false,
             asked: false,
             needs: None,
+            staff_note: false,
         };
         let task = json!({"ok":true,"text":"Suggest three names","target":{"engine":"claude"},
             "observations":[{"id":4,"state":"idle"}]});
@@ -1639,6 +1703,7 @@ mod tests {
             lead_in: false,
             asked: false,
             needs: None,
+            staff_note: false,
         };
         let _seen = tasks_part(
             directory,
@@ -1808,6 +1873,66 @@ mod tests {
             member("office-codex", "codex"),
         ]
     }
+    /// `start_agent_task` says the staff's note names who only with the
+    /// note on and work asked of the staff; otherwise it is as before.
+    #[test]
+    fn the_description_says_the_staffs_note_names_who_only_with_it() {
+        for staff in [Vec::new(), two()] {
+            let mut switched = place(Path::new("/run/t"), !staff.is_empty());
+            switched.asked = true;
+            let start = |switched: &Place| super::declared(switched, &staff)[0].description.clone();
+            let before = start(&switched);
+            assert!(before.contains(CHOSE), "{before}");
+            switched.staff_note = true;
+            assert_eq!(start(&switched), before.replacen(CHOSE, CHOSE_NOTED, 1));
+            switched.asked = false;
+            assert!(!start(&switched).contains("a note may name them"));
+        }
+    }
+
+    /// The heard words of a request name one of the staff: by a word, two
+    /// words said together, or a garbled form; nobody for "the cloud", a
+    /// sentence naming no one, or one naming both.
+    #[test]
+    fn the_words_of_a_request_name_one_of_the_staff() {
+        let staff = two();
+        let kinds: Vec<&'static Kind> = staff.iter().map(|member| member.kind).collect();
+        let named = |heard: &str| kind_in_words(&kinds, heard).map(|kind| kind.name);
+        // lamp-4ace, 2026-10-16, 22:51 and about 21:05.
+        assert_eq!(
+            named("Hey Lamp, ask Codex to write a haiku about coffee."),
+            Some("Codex")
+        );
+        assert_eq!(
+            named("Can you ask Claude Code to write a short poem about the sea?"),
+            Some("Claude Code")
+        );
+        for heard in [
+            "ask code X to tidy the readme",
+            "have codecs look at the build",
+            "Get cloud code to write a test.",
+            "Claude Co, write me a limerick",
+            "ask Claude to sum it up",
+        ] {
+            assert!(named(heard).is_some(), "{heard}");
+        }
+        for heard in [
+            "Save it to the cloud.",
+            "Write me a haiku about coffee.",
+            "What does the code do?",
+            "Ask Claude Code and Codex to race.",
+        ] {
+            assert_eq!(named(heard), None, "{heard}");
+        }
+        // Without the switch the staff are not read: Claude Code alone.
+        let alone = place(Path::new("/nowhere"), false);
+        assert_eq!(
+            named_in_words(&alone, "ask Claude Code for a poem"),
+            Some("Claude Code")
+        );
+        assert_eq!(named_in_words(&alone, "ask Codex for a poem"), None);
+    }
+
     fn place(directory: &Path, who: bool) -> Place {
         Place {
             directory: directory.into(),
@@ -1816,6 +1941,7 @@ mod tests {
             lead_in: false,
             asked: false,
             needs: None,
+            staff_note: false,
         }
     }
 
@@ -2018,14 +2144,19 @@ mod tests {
         ];
         let mut refused = Vec::new();
         for staff in [Vec::new(), two(), three] {
-            for (asked, lead_in) in [(false, false), (false, true), (true, false), (true, true)] {
+            for ((asked, lead_in), noted) in
+                [(false, false), (false, true), (true, false), (true, true)]
+                    .into_iter()
+                    .flat_map(|switches| [(switches, false), (switches, true)])
+            {
                 let mut switched = place(Path::new("/run/t"), !staff.is_empty());
                 switched.asked = asked;
                 switched.lead_in = lead_in;
+                switched.staff_note = noted;
                 for tool in super::declared(&switched, &staff) {
                     if tool.validate().is_err() {
                         refused.push(format!(
-                            "{} with {} of the staff, asked {asked}, lead-in {lead_in}: {} bytes",
+                            "{} with {} of the staff, asked {asked}, lead-in {lead_in}, noted {noted}: {} bytes",
                             tool.name,
                             staff.len(),
                             tool.description.len()
@@ -2275,6 +2406,7 @@ mod tests {
                 lead_in: false,
                 asked: false,
                 needs: None,
+                staff_note: false,
             })
         );
         assert_eq!(rest, ["--other"]);

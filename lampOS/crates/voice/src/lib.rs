@@ -96,6 +96,7 @@ pub mod short_turns;
 pub mod sight;
 pub mod speak_up;
 pub mod speaker_check;
+pub mod staff_note;
 pub mod stop_words;
 pub mod task_news;
 mod termination;

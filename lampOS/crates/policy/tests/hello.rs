@@ -4,7 +4,8 @@
 //! real model is asked.
 use lamp_bus::{Bus, Publisher, Subscriber};
 use lamp_msgs::{
-    Decision, Diagnostic, Face, Faces, Room, RoomState, SkillAsk, Voice, VoiceArrival, VoiceState,
+    Decision, Diagnostic, Face, Faces, Room, RoomState, Rules, SkillAsk, Unprompted, Voice,
+    VoiceArrival, VoiceState,
 };
 use lamp_policy::{
     attention,
@@ -100,6 +101,7 @@ struct Rig {
     saying: mpsc::Receiver<Note>,
     arrivals: Publisher,
     skills: Publisher,
+    rules: Publisher,
     voice: Publisher,
     decisions: Subscriber,
     shown: mpsc::Receiver<Value>,
@@ -116,6 +118,12 @@ impl Rig {
 
     /// With `gate`, as `lamp-policy --gate`: skills' asks are answered.
     fn with(name: &str, act: bool, gate: bool) -> Self {
+        Self::all(name, act, gate, false)
+    }
+
+    /// With `rules` too, as `lamp-policy --rules`: the people's rules about
+    /// speaking first are obeyed.
+    fn all(name: &str, act: bool, gate: bool, rules: bool) -> Self {
         let root = PathBuf::from(format!("/tmp/lph-{name}-{}", std::process::id()));
         let log_dir =
             std::env::temp_dir().join(format!("lamp-policy-hello-{name}-{}", std::process::id()));
@@ -139,6 +147,7 @@ impl Rig {
                 .unwrap(),
             arrivals: declared(VoiceArrival::TOPIC, VoiceArrival::declaration(), "voice"),
             skills: declared(SkillAsk::TOPIC, SkillAsk::declaration(), "skills"),
+            rules: declared(Rules::TOPIC, Rules::declaration(), "voice"),
             voice: declared(VoiceState::TOPIC, VoiceState::declaration(), "voice"),
             stop: Arc::new(AtomicBool::new(false)),
             running: None,
@@ -162,6 +171,7 @@ impl Rig {
             at_most_every: Duration::from_secs(20 * 60),
             act,
             gate,
+            rules,
             // No hour: the rule's answer must not hang on the time of day
             // the test is run at.
             ..hello::Options::new(Duration::from_secs(3), None)
@@ -250,6 +260,20 @@ impl Rig {
             there_s: (act == "hello").then_some(3),
         };
         self.skills.publish_json(0, &ask).unwrap();
+    }
+
+    /// The voice says what the people at the lamp asked about speaking
+    /// first: `quiet`, never.
+    fn keep(&mut self, quiet: bool) {
+        let rules = Rules {
+            person: "p-be9688998f085098".into(),
+            quiet,
+            quiet_mornings: false,
+            rules: u32::from(quiet),
+            hello: Unprompted::default(),
+            news: Unprompted::default(),
+        };
+        self.rules.publish_json(0, &rules).unwrap();
     }
 
     /// The voice holds a hello for arrival `number`.
@@ -577,7 +601,76 @@ fn with_the_gate_a_skills_ask_is_decided_by_its_question_and_names_the_ask() {
     ] {
         assert!(report.contains(&(key.into(), value.into())), "{report:?}");
     }
+    // Without `--rules` the people's rules are not listened to (#813).
+    assert!(
+        !report
+            .iter()
+            .any(|(key, _)| key == "hello_held_rule" || key == "moment_held_rule")
+    );
+    assert!(
+        !rig.bus
+            .subscribers(Rules::TOPIC)
+            .unwrap_or_default()
+            .iter()
+            .any(|listener| listener.socket.starts_with("policy."))
+    );
     rig.stop();
+}
+
+/// #813: with `--rules`, a rule the people at the lamp kept about speaking
+/// first holds the hello and a skill's asks as the other hard rules do:
+/// `wait` by the rule, with no model asked, and counted. Forgotten, the next
+/// hello is asked about again.
+#[test]
+fn with_rules_a_kept_rule_holds_the_hello_and_the_skills_asks_and_no_model_is_asked() {
+    let mut rig = Rig::all("rules", true, true, true);
+    rig.keep(true);
+    thread::sleep(ms(100));
+    rig.arrive(5_000_001, None);
+    let held = rig.decision();
+    assert_eq!(
+        (held.choice.as_str(), held.by.as_str(), held.arrival),
+        ("wait", "rule", Some(5_000_001))
+    );
+    rig.not_asked();
+    assert_eq!(rig.log(1)[0]["guard"], "kept_rule");
+    rig.ask(5_000_002, "news");
+    let held = rig.answer_to(5_000_002);
+    assert_eq!(
+        (held.about.as_str(), held.choice.as_str(), held.by.as_str()),
+        ("moment", "wait", "rule")
+    );
+    assert!(rig.moment_shown.recv_timeout(ms(300)).is_err(), "asked");
+    // The rule forgotten, the next hello is asked about and said.
+    rig.keep(false);
+    thread::sleep(ms(100));
+    rig.arrive(5_000_003, None);
+    let _ = rig.shown();
+    rig.answer([0.9, 0.1]);
+    let said = rig.decision();
+    assert_eq!(
+        (said.choice.as_str(), said.arrival),
+        ("say_now", Some(5_000_003))
+    );
+    let report = rig.report();
+    for (key, value) in [
+        ("hello_held_rule", "1"),
+        ("hello_held_talking", "0"),
+        ("moment_held_rule", "1"),
+        ("moment_held_talking", "0"),
+    ] {
+        assert!(report.contains(&(key.into(), value.into())), "{report:?}");
+    }
+    let notes = rig.stop();
+    assert!(notes.iter().any(|note| matches!(
+        note,
+        Note::HelloDecided {
+            arrival: 5_000_001,
+            choice: Choice::Wait,
+            guard: Some(hello::Hold::KeptRule),
+            ..
+        }
+    )));
 }
 
 #[test]

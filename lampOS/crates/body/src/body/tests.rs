@@ -83,6 +83,11 @@ struct Lamp {
     /// whatever its goal: from, until, servo, position. Its load is a
     /// strain of the same time.
     hand: Option<(Duration, Duration, usize, f32)>,
+    /// Positions read that are not where a servo is: from this time, its
+    /// next reads give this, this many times. From, servo, reading, reads.
+    misreads: Vec<(Duration, usize, u16, u8)>,
+    /// When each read of the positions was answered.
+    read_times: Vec<Duration>,
 }
 
 struct Clock {
@@ -148,6 +153,8 @@ fn folded(cancel_at: Duration) -> (Lamp, Clock) {
             drops_goal: None,
             deaf: None,
             hand: None,
+            misreads: Vec::new(),
+            read_times: Vec::new(),
         },
         Clock { time, cancel_at },
     )
@@ -306,9 +313,22 @@ impl Lamp {
             match instruction {
                 0x82 => {
                     let (address, count) = (parameters[0], parameters[1]);
+                    let now = self.time.get();
+                    if address == 56 {
+                        self.read_times.push(now);
+                    }
                     for asked in parameters[2..].iter().copied() {
-                        let data =
-                            self.registers_of(&self.servos[usize::from(asked) - 1], address, count);
+                        let index = usize::from(asked) - 1;
+                        let mut servo = self.servos[index];
+                        if address == 56
+                            && let Some(misread) = self.misreads.iter_mut().find(|misread| {
+                                misread.1 == index && now >= misread.0 && misread.3 > 0
+                            })
+                        {
+                            servo.position = f32::from(misread.2);
+                            misread.3 -= 1;
+                        }
+                        let data = self.registers_of(&servo, address, count);
                         self.answer(asked, &data);
                     }
                     if address == 56
@@ -5967,4 +5987,122 @@ fn an_elbow_goal_register_past_its_range_is_never_written_as_a_goal() {
         );
         assert_eq!(report.stop, Stop::Cancelled, "register {register}");
     }
+}
+
+/// lamp-4ace standing and folded as the seventh's test above has it, its
+/// goal registers where it is, with `misreads` of its positions: the run
+/// until it is asked to stop at ten seconds, and every elbow goal written.
+fn misread_4ace(misreads: Vec<(Duration, usize, u16, u8)>) -> (BodyReport, Vec<u16>, Lamp) {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(10));
+    lamp.arm_moves = true;
+    lamp.overload_clears = 1;
+    for (servo, at) in lamp
+        .servos
+        .iter_mut()
+        .zip([2_028.0, 2_054.0, 2_049.0, 2_047.0, 1_948.0])
+    {
+        servo.position = at;
+        servo.goal = at as u16;
+        servo.status = 0;
+    }
+    lamp.misreads = misreads;
+    let limits = Limits {
+        wake: true,
+        rest_glance: true,
+        look_at_name: true,
+        ..Limits::folded_with(Tuning {
+            reach: [150, 15, 1, 250],
+            speed: 120,
+            servo_speed: 1_000,
+            servo_acceleration: 60,
+        })
+        .unwrap()
+    };
+    let up = Standing::new(
+        [2_048, 2_047],
+        [1_772, 2_043, 2_015, 2_657, 2_602],
+        100,
+        6,
+        90,
+        [950, 950],
+    )
+    .unwrap()
+    .idling(true);
+    let report = run_alive(
+        &mut lamp,
+        &mut clock,
+        limits,
+        Some([1_950, 2_043, 2_015]),
+        Some(up),
+        None,
+        || Some((Mood::Resting, 0)),
+        Asked::default,
+        |_| {},
+    );
+    let elbow = lamp
+        .goals
+        .iter()
+        .flatten()
+        .filter(|(id, _)| *id == 3)
+        .map(|(_, goal)| *goal)
+        .collect();
+    (report, elbow, lamp)
+}
+
+/// lamp-4ace, 01:58:39: the body ended on `Cancelled`, and its exit sent
+/// the arm's last positions back as goals. One elbow reading of 37639 went
+/// out as the elbow's goal. A reading outside 0..=4095 is not where the
+/// joint is: it is counted, never written, and the run ends as asked.
+#[test]
+fn an_elbow_read_past_its_range_just_before_cancelled_is_never_written_as_a_goal() {
+    let (report, _, lamp) = misread_4ace(Vec::new());
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    let last = *lamp.read_times.last().unwrap();
+    let (report, elbow, lamp) = misread_4ace(vec![(last, 2, 37_639, 1)]);
+    assert!(lamp.misreads.iter().all(|misread| misread.3 == 0));
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!(report.bad_reads, [0, 0, 1, 0, 0]);
+    assert_eq!(report.last.unwrap()[2].position, 2_049);
+    assert!(
+        elbow.iter().all(|goal| (2_040..=2_610).contains(goal)),
+        "elbow asked {elbow:?}"
+    );
+}
+
+/// One bad read, out of range or too far from the step before, is counted
+/// and skipped: the run goes on as if the joint read where it was.
+#[test]
+fn one_bad_read_of_a_joint_is_counted_and_skipped() {
+    for reading in [37_639, 3_100] {
+        let (report, elbow, _) = misread_4ace(vec![(Duration::from_secs(4), 2, reading, 1)]);
+        assert_eq!(report.stop, Stop::Cancelled, "{reading}: {report:?}");
+        assert_eq!(report.bad_reads, [0, 0, 1, 0, 0], "{reading}");
+        assert!(
+            elbow.iter().all(|goal| (2_040..=2_610).contains(goal)),
+            "{reading}: elbow asked {elbow:?}"
+        );
+    }
+}
+
+/// Three bad reads of one joint in a row are a servo or a wire that cannot
+/// be trusted: the body stops, naming the joint, and writes none of them.
+#[test]
+fn three_bad_reads_of_a_joint_in_a_row_stop_the_body_naming_it() {
+    let (report, elbow, _) = misread_4ace(vec![(Duration::from_secs(4), 2, 37_639, 3)]);
+    assert!(
+        matches!(
+            report.stop,
+            Stop::BadRead {
+                joint: 3,
+                position: 37_639,
+                from: 2_040..=2_610,
+            }
+        ),
+        "{report:?}"
+    );
+    assert_eq!(report.bad_reads, [0, 0, 3, 0, 0]);
+    assert!(
+        elbow.iter().all(|goal| (2_040..=2_610).contains(goal)),
+        "elbow asked {elbow:?}"
+    );
 }

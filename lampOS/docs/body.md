@@ -172,6 +172,33 @@ that register is not known: the body is the only thing in lampOS that writes
 goals. The tests are `a_goal_register_far_from_the_arm_is_not_taken_as_its_goal`
 and `an_arm_goal_outside_its_window_never_reaches_the_wire`.
 
+### Every position read checked before it is used
+
+Every position the body reads passes one place, `Bus::judge_positions` in
+`src/body.rs`, before anything uses it. A position is a bad read if it is
+outside 0 to 4,095, or more than 300 counts (`READ_JUMP`) per 20 ms step
+from the joint's last good reading and as far from the goal last written to
+it. An STS3215 turns at most about 3,000 counts a second unloaded; at 4,096
+a step is 82 counts, and 300 is near four times that. A bad read is counted
+in the end report (`bad_reads`, yaw, shoulder, elbow, roll, pitch) and
+replaced by the joint's last good reading, so it never becomes a goal, a
+hold, a resting goal or where the arm slumped. With no good reading yet (the
+first read) the read fails. Three bad reads of one joint in a row end the
+run on `Stop::BadRead`, which lets go as any surprise does and names the
+joint in the end report and the journal (`stopped: elbow read 37639 three
+times in a row, not where it can be (last good 2049)`):
+
+```text
+"stop":{"kind":"bad_read","joint":3,"position":37639,"from":2049}
+```
+
+Why, lamp-4ace on 2026-10-17 at 01:58:39. The body ended on `Cancelled`, and
+its exit sent the arm's last positions back as goals, raw. One elbow reading
+of 37,639 went out as the elbow's goal. The tests are
+`an_elbow_read_past_its_range_just_before_cancelled_is_never_written_as_a_goal`,
+`one_bad_read_of_a_joint_is_counted_and_skipped` and
+`three_bad_reads_of_a_joint_in_a_row_stop_the_body_naming_it`.
+
 ## What moves it
 
 The voice service names a mood and a voice level; the body decides the rest.

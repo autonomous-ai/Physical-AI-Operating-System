@@ -833,6 +833,13 @@ pub enum Stop {
         window: (u16, u16),
         from: u16,
     },
+    /// Three positions of one joint in a row were bad reads
+    /// (`Bus::judge_positions`): the last, and the last good one.
+    BadRead {
+        joint: u8,
+        position: u16,
+        from: u16,
+    },
     /// Under `--overload release`: it let go a second time within ten
     /// minutes, or could not take the lamp up again. Torque is left as it
     /// was let go, off.
@@ -856,6 +863,9 @@ pub struct BodyReport {
     pub goal_writes: u64,
     pub profile_writes: u8,
     pub missed_reads: u64,
+    /// Positions read that were bad (`Bus::judge_positions`), per joint:
+    /// yaw, shoulder, elbow, roll, pitch. None was used.
+    pub bad_reads: [u16; 5],
     pub peak_load: [u16; 3],
     pub peak_temperature: [u8; 3],
     /// Times each commanded joint met resistance and was left where it was.
@@ -1081,6 +1091,16 @@ const ARM_GOAL_STEP: u16 = 50;
 /// resting goal in one step, from up to this far.
 const ARM_GOAL_REACH: u16 = 250;
 
+/// The most a position may move from the last good reading of its joint,
+/// per step (`TICK`) since that reading, unless it is this near the goal
+/// last written to the joint. An STS3215 turns at most about 3,000 counts a
+/// second unloaded; at 4,096 (a turn a second, faster than any hand or
+/// slump moves it) a 20 ms step is 82 counts, and this is near four times
+/// that. A reading farther, or outside 0..=4095, is not where the joint is.
+const READ_JUMP: u16 = 300;
+/// Bad reads of one joint in a row that end the run on `Stop::BadRead`.
+const BAD_READS_IN_ROW: u8 = 3;
+
 /// The window each arm goal must be inside, shoulder then elbow, for a body
 /// given a pose to stand in: its way between folded and stood up, and
 /// `ARM_WINDOW_MARGIN` either side.
@@ -1110,6 +1130,12 @@ struct Bus<'a, P, R> {
     arm_read: Option<[u16; 2]>,
     /// An arm goal refused before it was written: the run ends on it.
     refused: Option<Stop>,
+    /// Each joint's last good position and when it was read, the goal last
+    /// written to it, its bad reads in all and in a row (`samples`).
+    good: [Option<(u16, Duration)>; 5],
+    goals: [Option<u16>; 5],
+    bad_reads: [u16; 5],
+    bad_in_row: [u8; 5],
 }
 
 impl<'a, P: PortIo, R: Runtime> Bus<'a, P, R> {
@@ -1121,6 +1147,10 @@ impl<'a, P: PortIo, R: Runtime> Bus<'a, P, R> {
             arm_written: None,
             arm_read: None,
             refused: None,
+            good: [None; 5],
+            goals: [None; 5],
+            bad_reads: [0; 5],
+            bad_in_row: [0; 5],
         }
     }
 }
@@ -1223,8 +1253,53 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
             };
             Ok(())
         })?;
+        self.judge_positions(&mut samples)?;
         self.arm_read = Some(ARM.map(|joint| samples[joint.index()].position));
         Ok(samples)
+    }
+
+    /// Every position read passes here before anything uses it. A bad one
+    /// (`READ_JUMP`) is counted and replaced by the joint's last good
+    /// position, so it never becomes a goal or a hold; with no good one yet
+    /// the read fails. `BAD_READS_IN_ROW` of one joint end the run.
+    fn judge_positions(&mut self, samples: &mut [Sample; 5]) -> Result<(), String> {
+        let now = self.runtime.now();
+        for (index, sample) in samples.iter_mut().enumerate() {
+            let read = sample.position;
+            let bad = read > 4_095
+                || self.good[index].is_some_and(|(good, at)| {
+                    let steps = (now.saturating_sub(at).as_micros())
+                        .div_ceil(TICK.as_micros())
+                        .max(1);
+                    let reach = u128::from(READ_JUMP) * steps;
+                    let off = |from: u16| u128::from(read.abs_diff(from)) > reach;
+                    off(good) && self.goals[index].is_none_or(off)
+                });
+            if !bad {
+                self.good[index] = Some((read, now));
+                self.bad_in_row[index] = 0;
+                continue;
+            }
+            self.bad_reads[index] = self.bad_reads[index].saturating_add(1);
+            self.bad_in_row[index] = self.bad_in_row[index].saturating_add(1);
+            let joint = Joint::ALL[index].id();
+            let good = self.good[index].map(|(good, _)| good);
+            if self.bad_in_row[index] >= BAD_READS_IN_ROW {
+                let stop = Stop::BadRead {
+                    joint,
+                    position: read,
+                    from: good.unwrap_or(read),
+                };
+                let detail = format!("{stop:?}");
+                self.refused.get_or_insert(stop);
+                return Err(detail);
+            }
+            match good {
+                Some(good) => sample.position = good,
+                None => return Err(format!("joint {joint} read {read}, outside 0..=4095")),
+            }
+        }
+        Ok(())
     }
 
     /// Torque, acceleration and goal speed of the commanded joints.
@@ -1317,7 +1392,9 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
     /// written, and the run ends on `Stop::Window`.
     fn send_goals(&mut self, goals: [u16; 3], arm: Option<[u16; 2]>) -> Result<(), String> {
         let Some(arm) = arm else {
-            return self.send(&goals_write(goals));
+            self.send(&goals_write(goals))?;
+            self.wrote(goals, None);
+            return Ok(());
         };
         if let Some(stop) = self.arm_refused(arm) {
             let detail = format!("{stop:?}");
@@ -1326,7 +1403,18 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
         }
         self.send(&all_goals_write(goals, arm))?;
         self.arm_written = Some(arm);
+        self.wrote(goals, Some(arm));
         Ok(())
+    }
+
+    /// The goals just written, for `judge_positions`.
+    fn wrote(&mut self, goals: [u16; 3], arm: Option<[u16; 2]>) {
+        for (joint, goal) in COMMANDED.into_iter().zip(goals) {
+            self.goals[joint.index()] = Some(goal);
+        }
+        for (joint, goal) in ARM.into_iter().zip(arm.into_iter().flatten()) {
+            self.goals[joint.index()] = Some(goal);
+        }
     }
 
     /// The first of `arm` that may not be written, as the stop it ends on.
@@ -1503,7 +1591,7 @@ fn wake<P: PortIo, R: Runtime>(
             Err(detail) => {
                 report.missed_reads += 1;
                 misses += 1;
-                if misses >= WIRE_STEPS {
+                if misses >= WIRE_STEPS || bus.refused.is_some() {
                     report.woke = Some(woke_from(
                         (from, to, written),
                         report.last,
@@ -1673,7 +1761,7 @@ fn lower_shoulder<P: PortIo, R: Runtime>(
             Err(detail) => {
                 report.missed_reads += 1;
                 misses += 1;
-                if misses >= WIRE_STEPS {
+                if misses >= WIRE_STEPS || bus.refused.is_some() {
                     break Err(Stop::Bus {
                         detail: format!("lowering the shoulder: {detail}"),
                     });
@@ -1977,7 +2065,7 @@ fn let_go<P: PortIo, R: Runtime>(
             (Some(detail), _) | (None, Err(detail)) => {
                 report.missed_reads += 1;
                 misses += 1;
-                if misses >= WIRE_STEPS {
+                if misses >= WIRE_STEPS || bus.refused.is_some() {
                     return Err(Stop::Bus {
                         detail: format!("letting go: {detail}"),
                     });
@@ -2245,6 +2333,26 @@ fn run_until_stopped(
     home: Option<[u16; 3]>,
     standing: Option<Standing>,
     looking: Option<Looking>,
+    news: impl FnMut() -> Option<(Mood, u8)>,
+    asked: impl FnMut() -> Asked,
+    watch: impl FnMut(&Glimpse),
+) -> BodyReport {
+    let mut bus = Bus::new(io, runtime, standing);
+    let mut report = run_on(
+        &mut bus, limits, home, standing, looking, news, asked, watch,
+    );
+    report.bad_reads = bus.bad_reads;
+    report
+}
+
+/// The run itself, on `bus`, which keeps what is counted of every read.
+#[allow(clippy::too_many_arguments)]
+fn run_on<P: PortIo, R: Runtime>(
+    bus: &mut Bus<'_, P, R>,
+    limits: Limits,
+    home: Option<[u16; 3]>,
+    standing: Option<Standing>,
+    looking: Option<Looking>,
     mut news: impl FnMut() -> Option<(Mood, u8)>,
     mut asked: impl FnMut() -> Asked,
     mut watch: impl FnMut(&Glimpse),
@@ -2259,6 +2367,7 @@ fn run_until_stopped(
         goal_writes: 0,
         profile_writes: 0,
         missed_reads: 0,
+        bad_reads: [0; 5],
         peak_load: [0; 3],
         eased: [0; 3],
         kept_where_put: [0; 3],
@@ -2289,7 +2398,6 @@ fn run_until_stopped(
         tipping: Tipping::default(),
         stop: Stop::Cancelled,
     };
-    let mut bus = Bus::new(io, runtime, standing);
     let refused = |why: String| Stop::Refused { why };
 
     // What is there, before anything is written.
@@ -2360,7 +2468,7 @@ fn run_until_stopped(
             }
         }
         if !without.is_empty() {
-            found = match take_hold(&mut bus, &mut report, &without, &found) {
+            found = match take_hold(bus, &mut report, &without, &found) {
                 Ok(now) => now,
                 Err(stop) => {
                     report.stop = bus.refused.take().unwrap_or(stop);
@@ -2400,7 +2508,7 @@ fn run_until_stopped(
             // A joint found hot or loaded is pushing at something: as V1,
             // the whole lamp is let go, or every restart finds it so again.
             if sample.temperature >= limits.temperature || sample.load > limits.start_load[index] {
-                let_go_at_end(&mut bus, &mut report);
+                let_go_at_end(bus, &mut report);
             }
             report.stop = refused(why);
             return report;
@@ -2438,15 +2546,7 @@ fn run_until_stopped(
             });
         if lowered {
             let head = COMMANDED.map(|joint| found[joint.index()].position);
-            match lower_shoulder(
-                &mut bus,
-                &mut report,
-                &limits,
-                up,
-                head,
-                elbow.position,
-                found,
-            ) {
+            match lower_shoulder(bus, &mut report, &limits, up, head, elbow.position, found) {
                 Ok(now) => found = now,
                 Err(stop) => {
                     if let Some(last) = report.last {
@@ -2622,9 +2722,9 @@ fn run_until_stopped(
                     }
                 }
                 if let Err(detail) = outcome {
-                    report.stop = Stop::Bus {
+                    report.stop = bus.refused.take().unwrap_or(Stop::Bus {
                         detail: format!("clearing the overload of {joint}: {detail}"),
-                    };
+                    });
                     return report;
                 }
                 if !flagged(&found) {
@@ -2775,7 +2875,7 @@ fn run_until_stopped(
     let found_pose = if to_wake {
         let to = home_found.map(|count| count.round() as u16);
         match wake(
-            &mut bus,
+            bus,
             &mut report,
             &limits,
             (found_pose, to),
@@ -3718,7 +3818,7 @@ fn run_until_stopped(
                 report.missed_reads += 1;
                 misses += 1;
                 overloaded = [0; 5];
-                if misses >= WIRE_STEPS {
+                if misses >= WIRE_STEPS || bus.refused.is_some() {
                     break Stop::Bus { detail };
                 }
                 bus.sleep_until(due);
@@ -4216,7 +4316,7 @@ fn run_until_stopped(
                 (false, false) => OVERLOAD_REST,
             };
             let slumped_at = match let_go(
-                &mut bus,
+                bus,
                 &mut report,
                 rest,
                 (&mut news, &mut asked),
@@ -4237,7 +4337,7 @@ fn run_until_stopped(
             // Taken up again: every joint held where it is, as `--torque on`
             // takes hold, its goal first and then its torque.
             let all: Vec<Joint> = COMMANDED.into_iter().chain(ARM).collect();
-            let now = match take_hold(&mut bus, &mut report, &all, &slumped_at) {
+            let now = match take_hold(bus, &mut report, &all, &slumped_at) {
                 Ok(now) => now,
                 Err(Stop::Refused { why }) => {
                     break Stop::Overload {
@@ -4292,7 +4392,7 @@ fn run_until_stopped(
             let to = home_now.map(|count| count.round() as u16);
             let woke_at_start = report.woke.take();
             let woken = wake(
-                &mut bus,
+                bus,
                 &mut report,
                 &limits,
                 (from, to),

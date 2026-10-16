@@ -188,10 +188,7 @@ impl ChatStream {
                         return Err(Error::Protocol("chat stream line length"));
                     }
                 }
-                // ponytail: an end without `[DONE]` counts as one; a cut
-                // stream then looks finished. Treat it as an error if a
-                // proxy is seen to drop streams.
-                None => self.ready.extend(self.deltas.data("[DONE]")?),
+                None => self.ready.extend(self.deltas.end()?),
             }
             self.done |= self.ready.last() == Some(&ChatEvent::Done);
         }
@@ -234,9 +231,22 @@ struct Pending {
 #[derive(Default)]
 pub(crate) struct Deltas {
     calls: Vec<Pending>,
+    /// A chunk said why the completion stopped (`finish_reason`).
+    finished: bool,
 }
 
 impl Deltas {
+    /// The stream ended. Without `[DONE]` it is whole only if a chunk said
+    /// why the completion stopped; otherwise it was cut, and the words so
+    /// far are not the answer.
+    pub fn end(&mut self) -> Result<Vec<ChatEvent>> {
+        if self.finished {
+            self.data("[DONE]")
+        } else {
+            Err(Error::Protocol("chat stream cut"))
+        }
+    }
+
     pub fn data(&mut self, data: &str) -> Result<Vec<ChatEvent>> {
         if data == "[DONE]" {
             let mut out = Vec::new();
@@ -249,6 +259,9 @@ impl Deltas {
         let chunk: Value =
             serde_json::from_str(data).map_err(|_| Error::Protocol("chat stream data"))?;
         let mut out = Vec::new();
+        self.finished |= chunk
+            .pointer("/choices/0/finish_reason")
+            .is_some_and(Value::is_string);
         let Some(delta) = chunk.pointer("/choices/0/delta") else {
             return Ok(out);
         };
@@ -391,6 +404,28 @@ data: [DONE]
         );
         offered.lock().unwrap().clear();
         assert!(chat.body(&asked).get("tools").is_none());
+    }
+
+    /// An end without `[DONE]` is whole after a `finish_reason`, and cut
+    /// before one.
+    #[test]
+    fn a_stream_ended_without_done_is_whole_only_after_a_finish_reason() {
+        let mut deltas = Deltas::default();
+        deltas
+            .data(r#"{"choices":[{"delta":{"content":"It is"},"finish_reason":null}]}"#)
+            .unwrap();
+        assert_eq!(
+            deltas.end().unwrap_err(),
+            Error::Protocol("chat stream cut")
+        );
+        let mut deltas = Deltas::default();
+        deltas
+            .data(r#"{"choices":[{"delta":{"content":"It is noon."},"finish_reason":null}]}"#)
+            .unwrap();
+        deltas
+            .data(r#"{"choices":[{"delta":{},"finish_reason":"stop"}]}"#)
+            .unwrap();
+        assert_eq!(deltas.end().unwrap(), [ChatEvent::Done]);
     }
 
     #[test]

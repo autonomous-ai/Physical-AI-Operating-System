@@ -153,6 +153,60 @@ pub fn cue_for(opening: &str) -> Option<&'static str> {
             words.len() >= wanted.len() && words[..wanted.len()] == wanted[..]
         })
     };
+    // The moves kept from V1 on 2026-10-16 (#940, docs/skills.md), each for
+    // the way an answer begins. A body without the clip ignores the name.
+    // Surprise first: "no way" is surprise, not a refusal.
+    if begins(&["wow", "whoa", "oh wow", "no way", "trời ơi"]) {
+        return Some("surprised");
+    }
+    if begins(&[
+        "oh no",
+        "i'm sorry",
+        "i am sorry",
+        "sorry to hear",
+        "oh dear",
+        "that sounds hard",
+        "that sounds tough",
+        "tiếc quá",
+        "thương quá",
+    ]) {
+        return Some("caring");
+    }
+    // A bare "Sorry?", "Pardon?" or "Huh?": the lamp did not catch it (#926).
+    if words.len() == 1 && ["sorry", "pardon", "huh"].contains(&words[0]) {
+        return Some("confused");
+    }
+    if begins(&["hmm", "hm", "ooh", "interesting", "tell me more"]) {
+        return Some("curious");
+    }
+    if begins(&[
+        "got it",
+        "on it",
+        "will do",
+        "done",
+        "all done",
+        "được rồi",
+        "xong rồi",
+    ]) {
+        return Some("acknowledge");
+    }
+    if begins(&[
+        "yay",
+        "woohoo",
+        "hooray",
+        "congratulations",
+        "congrats",
+        "awesome",
+        "that's great",
+        "how fun",
+        "tuyệt",
+        "hay quá",
+    ]) {
+        return Some("happy");
+    }
+    if begins(&["good night", "goodnight", "sleep well", "chúc ngủ ngon"]) {
+        return Some("sleepy");
+    }
     // Said in agreement, though they begin with "no".
     if begins(&[
         "no problem",
@@ -426,6 +480,22 @@ mod tests {
             ("Hihi, vui ghê.", Some("laugh")),
             ("Cảm ơn bạn nha.", Some("shy")),
             ("Mình khỏe, còn bạn?", None),
+            ("Wow, that's a big one.", Some("surprised")),
+            ("No way! Really?", Some("surprised")),
+            ("Oh no, I'm sorry to hear that.", Some("caring")),
+            ("I'm sorry, that sounds hard.", Some("caring")),
+            ("Sorry?", Some("confused")),
+            ("Huh?", Some("confused")),
+            ("Hmm, let me think.", Some("curious")),
+            ("Got it, two minutes.", Some("acknowledge")),
+            ("Done! The light is warmer.", Some("acknowledge")),
+            ("Yay, that's wonderful!", Some("happy")),
+            ("Congratulations on the new job!", Some("happy")),
+            ("Good night, sleep well.", Some("sleepy")),
+            ("Trời ơi, thật hả?", Some("surprised")),
+            ("Được rồi, hai phút nhé.", Some("acknowledge")),
+            ("Chúc ngủ ngon nha.", Some("sleepy")),
+            ("Doneness matters for steak.", None),
             ("", None),
         ] {
             assert_eq!(cue_for(opening), gesture, "{opening:?}");

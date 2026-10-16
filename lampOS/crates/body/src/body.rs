@@ -290,9 +290,10 @@ const COMPANY_SIGHTS: u8 = 6;
 const CALLED_FOR: Duration = Duration::from_secs(2);
 const CALLED_EVERY: Duration = Duration::from_secs(10);
 
-/// A gesture asked on the mood socket, not one the body makes of itself.
+/// A gesture asked on the mood socket, not one the body makes of itself:
+/// a shift at rest (`crate::idle`, `IDLE` among them) or the turn to a call.
 fn from_outside(clip: &Clip) -> bool {
-    clip.name != clips::IDLE.name && clip.name != clips::CALLED.name
+    !idle::is_move(clip) && clip.name != clips::CALLED.name
 }
 
 /// What reaches the body from outside in one step, besides the mood: what

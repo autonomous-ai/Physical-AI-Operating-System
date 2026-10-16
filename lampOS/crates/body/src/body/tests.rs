@@ -5687,3 +5687,11 @@ fn a_pause_while_the_gesture_it_stood_up_for_plays_lets_it_end_and_folds() {
             .all(|s| s.1 == 0.0)
     );
 }
+
+/// The body's own moves are never journalled as a gesture taken or dropped.
+#[test]
+fn shifts_at_rest_and_the_call_are_not_from_outside() {
+    assert!(idle::MOVES.iter().all(|clip| !from_outside(clip)));
+    assert!(!from_outside(&clips::CALLED));
+    assert!(from_outside(&clips::NOD));
+}

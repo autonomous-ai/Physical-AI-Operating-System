@@ -25,7 +25,11 @@
 //!   replaced by the export's own (`f1`, `f2`, ...) and every other field is
 //!   left out and counted. A state keeps one of the four `lamp_msgs::Voice`
 //!   words. Every other topic is left out and counted. The eyes write no face
-//!   boxes to the journal, so a recording is the only source of faces.
+//!   boxes to the journal, so a recording is the only source of faces. A
+//!   message is in the window by its wall `at_unix_ms`; the case is timed by
+//!   its `at_us`, which assumes the publisher stamps `CLOCK_MONOTONIC` as the
+//!   voice's trace does (true of these two topics, not of every one: checked
+//!   on lamp-cb94, `ears/level`'s differs).
 //!
 //! **The trust boundary.** A string is kept only from a field this file
 //! names: the voice's [`WORD_FIELDS`] and the Policy's [`POLICY_KEYS`], and
@@ -1097,6 +1101,8 @@ pub fn export(options: &ExportOptions) -> Result<Value> {
     for (wall_ms, event) in &mut rows {
         let kind = event["kind"].as_str().unwrap_or_default().to_owned();
         *counts.entry(kind.clone()).or_default() += 1;
+        // `state` is one of the WORD_FIELDS: a recorded `voice_state` row's
+        // state is counted here, once.
         for key in WORD_FIELDS {
             if let Some(value) = event.get(*key).and_then(Value::as_str) {
                 *counts.entry(format!("{kind}.{key}={value}")).or_default() += 1;

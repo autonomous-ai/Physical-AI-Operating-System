@@ -185,6 +185,133 @@ pub fn take_passing(flags: &[String]) -> (bool, &[String]) {
     }
 }
 
+/// Where the coordinator reads whether the lamp speaks only when spoken
+/// to (#829, step 2). `on` only.
+///
+/// Why: outside a busy room, and in a session the rule trusts, every
+/// answer is played, whatever was said and to whom. On lamp-4ace on
+/// 16 October at 02:16, "Did you get my message about the budget?", said
+/// by one person to another with no name and nobody at the lamp, was
+/// answered 11 times in 12; on 15 October at 14:49 a word overheard in
+/// the office's talk turned the lamp's volume up for 11 hours. With this,
+/// in every room, an answer is played only when something shows the lamp
+/// was spoken to: its name, a face turned to it, a conversation with it
+/// going on, or a person close to it and turned to it; or the lamp began
+/// the turn itself. A reply to the lamp's own news, and a question about
+/// its own work, are played too ([`NEWS_REPLY_US`], [`about_its_work`]).
+/// And only talk between people makes the room busy
+/// (`crate::room_told::RoomTold::count_only_talk`).
+pub const SPOKEN_TO_ENVIRONMENT: &str = "LAMP_SPOKEN_TO";
+/// The provider worker's flag for it, right after [`PASSING_FLAG`].
+pub const SPOKEN_TO_FLAG: &str = "--spoken-to";
+
+/// The provider worker's argument for that switch in the environment.
+pub fn spoken_to_arguments_from_environment() -> Vec<String> {
+    spoken_to_arguments(std::env::var(SPOKEN_TO_ENVIRONMENT).ok().as_deref())
+}
+
+fn spoken_to_arguments(value: Option<&str>) -> Vec<String> {
+    if value == Some("on") {
+        vec![SPOKEN_TO_FLAG.to_owned()]
+    } else {
+        Vec::new()
+    }
+}
+
+/// Take a leading `--spoken-to` off a worker's flags, after
+/// [`take_passing`].
+pub fn take_spoken_to(flags: &[String]) -> (bool, &[String]) {
+    match flags {
+        [flag, rest @ ..] if flag == SPOKEN_TO_FLAG => (true, rest),
+        _ => (false, flags),
+    }
+}
+
+/// Why an answer is held when nothing shows the lamp was spoken to.
+pub const NOT_SPOKEN_TO: &str =
+    "nobody spoke to the lamp: no name, nobody turned to it, no conversation with it going on";
+
+/// With the switch, the first thing anyone says this soon after the lamp's
+/// own news (a turn it began itself: a task's news, a reminder) is a reply
+/// to it, in every room. On lamp-4ace on 16 October at 02:30, "How is that
+/// task going?" came 45.3 s after the news, past the 45 s an answer keeps
+/// a conversation going, and was held; people take a while to come back.
+pub const NEWS_REPLY_US: u64 = 180_000_000;
+const AFTER_NEWS: &str = "the first thing said after the lamp's own news";
+
+/// With the switch, a question about the lamp's own work
+/// ([`about_its_work`]) is for it this long after the lamp's news, or after
+/// it started a task, a timer or a reminder.
+pub const WORK_ASKED_US: u64 = 600_000_000;
+const ABOUT_ITS_WORK: &str = "a question about the lamp's own task, reminder or timer";
+
+/// With the switch, a line that follows, by at most this long, one that
+/// called someone other than the lamp by name ([`addresses_someone_else`])
+/// is that person's reply, and not part of a conversation with the lamp.
+/// On lamp-4ace on 16 October at 04:58 and 05:01, Samantha's "Daniel, are
+/// you coming to the meeting at two?" was followed by Daniel's "Yes, give
+/// me five minutes.", and as Daniel was in a conversation with the lamp it
+/// set a timer for five minutes.
+pub const ANOTHER_REPLY_US: u64 = 10_000_000;
+const ANSWERING_ANOTHER: &str =
+    "a reply to someone the room had just called by name, not said to the lamp";
+
+/// Words that open a sentence of their own before a comma, and are no
+/// one's name ("Okay, stop.", "Well, I think so.").
+const NOT_NAMES: &[&str] = &[
+    "okay", "ok", "well", "so", "yes", "yeah", "yep", "no", "nope", "oh", "ah", "hey", "hi",
+    "hello", "right", "sure", "thanks", "thank", "please", "sorry", "now", "then", "also",
+    "actually", "look", "listen", "wait", "um", "uh", "hmm", "hm", "alright", "and", "but",
+    "anyway", "honestly", "really", "fine", "great", "cool", "good", "wow", "huh", "first", "lamp",
+    "lamb",
+];
+
+/// Whether what was heard calls someone other than the lamp by name: a name
+/// set off by a comma, opening it after any greeting ("Daniel, are you
+/// coming to the meeting at two?", "Hey Samantha, ...") or closing it ("Are
+/// you coming, Daniel?"). A name here is a capitalised word that is not the
+/// lamp's, nor a word the service writes in its place, nor one that opens a
+/// sentence of its own ("Okay,").
+pub fn addresses_someone_else(heard: &str) -> bool {
+    let is_name = |word: &str| {
+        word.chars().next().is_some_and(char::is_uppercase)
+            && word.chars().all(char::is_alphabetic)
+            && !NOT_NAMES.iter().any(|not| word.eq_ignore_ascii_case(not))
+            && !STAND_INS.iter().any(|not| word.eq_ignore_ascii_case(not))
+    };
+    let words: Vec<&str> = heard.split_whitespace().collect();
+    let opening = words
+        .iter()
+        .find(|word| {
+            !GREETINGS
+                .iter()
+                .any(|greeting| word.trim_end_matches(',').eq_ignore_ascii_case(greeting))
+        })
+        .is_some_and(|word| word.strip_suffix(',').is_some_and(is_name));
+    let closing = words.len() >= 2
+        && words[words.len() - 2].ends_with(',')
+        && is_name(words[words.len() - 1].trim_end_matches(['?', '.', '!']));
+    opening || closing
+}
+
+/// Whether what was heard speaks of the lamp's own work: a task, a
+/// reminder, a timer or an alarm ("How is that task going?").
+pub fn about_its_work(heard: &str) -> bool {
+    const WORK: [&str; 8] = [
+        "task",
+        "tasks",
+        "reminder",
+        "reminders",
+        "timer",
+        "timers",
+        "alarm",
+        "alarms",
+    ];
+    heard
+        .split(|c: char| !c.is_alphanumeric())
+        .any(|word| WORK.iter().any(|work| word.eq_ignore_ascii_case(work)))
+}
+
 /// Where the coordinator reads whether the model is asked to say when it
 /// hears the lamp's name. `on` only. A measurement switch: it changes
 /// nothing the lamp does, and exists to count whether the model's own sign
@@ -260,6 +387,11 @@ pub fn called(heard: &str) -> bool {
     called_by_stand_in(&all)
 }
 
+/// Words the service has written in the lamp's name's place ([`called`]).
+const STAND_INS: &[&str] = &[
+    "lam", "lan", "milan", "man", "plan", "helen", "mom", "amen", "weiland",
+];
+
 /// Greetings that may come before the name of a call ("Hey Lamp,").
 const GREETINGS: &[&str] = &["hey", "hi", "ok", "okay", "oh", "hello"];
 
@@ -330,14 +462,7 @@ fn called_by_stand_in(words: &[&str]) -> bool {
     words
         .iter()
         .find(|word| !is(word, GREETINGS))
-        .is_some_and(|word| {
-            is(
-                word,
-                &[
-                    "lam", "lan", "milan", "man", "plan", "helen", "mom", "amen", "weiland",
-                ],
-            )
-        })
+        .is_some_and(|word| is(word, STAND_INS))
 }
 
 /// Whether a call for this function is the start of an answer, to be
@@ -546,6 +671,20 @@ pub struct Attention {
     /// "The lamp" said in passing is no call ([`called_by_name`],
     /// `LAMP_NAME_IN_PASSING=ignored`).
     name_in_passing_ignored: bool,
+    /// An answer is played only when the lamp was spoken to
+    /// (`LAMP_SPOKEN_TO=on`, #829).
+    spoken_to: bool,
+    /// When the lamp's own news was last heard to begin, until something
+    /// said after it has been judged; and when it last did work of its own:
+    /// its news, or a task, a timer or a reminder it started. With
+    /// `spoken_to` only.
+    news_us: Option<u64>,
+    worked_us: Option<u64>,
+    /// The own turn whose sound opened `news_us`.
+    news_of: Option<u64>,
+    /// The request in hand follows, within [`ANOTHER_REPLY_US`], one that
+    /// called someone other than the lamp by name. With `spoken_to` only.
+    after_another: bool,
 }
 
 /// The most text kept for one request.
@@ -558,9 +697,55 @@ impl Attention {
         self.name_in_passing_ignored = ignored;
     }
 
+    /// Play an answer only when something shows the lamp was spoken to,
+    /// in every room, from now on (`LAMP_SPOKEN_TO=on`, #829).
+    pub fn speak_when_spoken_to(&mut self, on: bool) {
+        self.spoken_to = on;
+    }
+
+    /// Whether the rule reads the eyes for every request, whatever the
+    /// room: it does when it plays only for a lamp spoken to.
+    pub fn speaks_when_spoken_to(&self) -> bool {
+        self.spoken_to
+    }
+
+    /// The lamp's own turn `request` began to be heard at `at_us`: its first
+    /// sound was handed on to be played. Only then is it news someone can
+    /// reply to (#918, the reviewer at 05:11 and 06:17): an own turn that
+    /// ends silent, is cancelled before it speaks, or whose sound a
+    /// cancellation drops while it waits for output credit, opens no
+    /// window. Once per turn.
+    pub fn spoke(&mut self, request: u64, at_us: u64) {
+        if self.spoken_to
+            && request == self.request
+            && own_request().load(Ordering::Acquire) == request
+            && self.news_of != Some(request)
+        {
+            self.news_of = Some(request);
+            self.news_us = Some(at_us);
+            self.worked(at_us);
+        }
+    }
+
+    /// The lamp started a task, a timer or a reminder at `at_us`, by this
+    /// process's clock.
+    pub fn worked(&mut self, at_us: u64) {
+        self.worked_us = Some(self.worked_us.map_or(at_us, |before| before.max(at_us)));
+    }
+
     /// A request began on `session`, at `now_us`.
     pub fn began_at(&mut self, request: u64, session: u64, now_us: u64) {
+        // The line before, if it called someone else by name and ended just
+        // now (#829).
+        let after_another = self.spoken_to
+            && own_request().load(Ordering::Acquire) != request
+            && self
+                .ended_us
+                .or(self.began_us)
+                .is_some_and(|end| end.saturating_add(ANOTHER_REPLY_US) >= now_us)
+            && addresses_someone_else(&self.heard);
         self.began(request, session);
+        self.after_another = after_another;
         self.began_us = Some(now_us);
         self.named = self
             .named_us
@@ -581,6 +766,7 @@ impl Attention {
     /// Anything else is as for [`Self::began_at`].
     pub fn continued_at(&mut self, request: u64, session: u64, now_us: u64) {
         let tapped = session == self.session && self.began_us.is_some() && self.tapped;
+        let after_another = self.after_another;
         let before = (session == self.session && self.began_us.is_some()).then(|| {
             (
                 self.named,
@@ -601,6 +787,7 @@ impl Attention {
             self.near |= near;
             self.addressed |= addressed;
             self.began_us = began_us;
+            self.after_another = after_another;
         }
         self.tapped |= tapped;
     }
@@ -787,6 +974,22 @@ impl Attention {
         let own = own_request().load(Ordering::Acquire) == request;
         self.judged_own = own;
         let fresh = self.begun <= FRESH_REQUESTS;
+        // #829, with the switch: a reply to someone the room had just
+        // called by name is that person's conversation, not the lamp's.
+        // Only the lamp's name counts for it.
+        let answering_another = self.spoken_to && self.after_another && !own;
+        let going_on = going_on && !answering_another;
+        // The lamp's news has one reply: the first thing judged after it,
+        // whatever path judges it, takes it (the reviewer on #918 at 07:12:
+        // a short "Thanks" judged as a sound had left it for later talk).
+        let news_ago = match (self.spoken_to && !own, self.began_us) {
+            (true, Some(began)) => self
+                .news_us
+                .take()
+                .filter(|at| *at <= began)
+                .map(|at| began - at),
+            _ => None,
+        };
         // In a conversation held in English, a turn heard mostly in another
         // script, or as a number alone after no question, was misheard
         // (#926): on lamp-4ace on 2026-10-16 at 05:39 a cut-in heard as
@@ -805,13 +1008,23 @@ impl Attention {
             self.verdict = Some(verdict);
             return Some(verdict);
         }
+        let called_in_text = if self.name_in_passing_ignored {
+            called_by_name(&self.heard)
+        } else {
+            called(&self.heard)
+        };
         // A short sound let through in a quiet room (#800): on lamp-52e6 on
         // 2026-10-15 at 13:03 a room sound of 0.7 s was heard as "¿Qué?" and
         // answered, nobody having spoken to the lamp. It is answered only
         // when what was heard is a short word said to the lamp, or it was
         // said close to the lamp, or someone is turned to it.
         if self.sound_in_hand() && !own {
-            let verdict = if crate::not_speech::short_word(&self.heard) {
+            // A reply to someone the room had just called by name is not
+            // the lamp's, short or not (the reviewer on #918 at 06:06): only
+            // the lamp's name lets it out.
+            let verdict = if answering_another && !(called_in_text || self.named) {
+                Verdict::Hold(ANSWERING_ANOTHER)
+            } else if crate::not_speech::short_word(&self.heard) {
                 Verdict::Play(SOUND_A_WORD)
             } else if self.near {
                 Verdict::Play(SOUND_NEAR)
@@ -830,6 +1043,30 @@ impl Attention {
             self.verdict = Some(verdict);
             return Some(verdict);
         }
+        // #829, with the switch, in every room: the first thing said after
+        // the lamp's own news is a reply to it, and a question about its
+        // own work is for it.
+        if self.spoken_to
+            && !own
+            && !answering_another
+            && let Some(began) = self.began_us
+        {
+            let since = |at: Option<u64>| at.filter(|at| *at <= began).map(|at| began - at);
+            let why = if news_ago.is_some_and(|ago| ago <= NEWS_REPLY_US) {
+                Some(AFTER_NEWS)
+            } else if since(self.worked_us).is_some_and(|ago| ago <= WORK_ASKED_US)
+                && about_its_work(&self.heard)
+            {
+                Some(ABOUT_ITS_WORK)
+            } else {
+                None
+            };
+            if let Some(why) = why {
+                let verdict = Verdict::Play(why);
+                self.verdict = Some(verdict);
+                return Some(verdict);
+            }
+        }
         if strict && room == Room::Busy && self.named_sure {
             let verdict = Verdict::Play(NAMED_PLAINLY);
             self.verdict = Some(verdict);
@@ -840,11 +1077,6 @@ impl Attention {
             self.verdict = Some(verdict);
             return Some(verdict);
         }
-        let called_in_text = if self.name_in_passing_ignored {
-            called_by_name(&self.heard)
-        } else {
-            called(&self.heard)
-        };
         let verdict = match decide_called(
             room,
             going_on,
@@ -856,6 +1088,31 @@ impl Attention {
             turned,
         ) {
             Verdict::Hold(_) if room == Room::Busy && self.addressed => Verdict::Play(ADDRESSED),
+            verdict => verdict,
+        };
+        // #829, step 2: it holds what nobody said to the lamp, in every
+        // room. And a request with the name heard in its sound needs no
+        // face, in a busy room too: at night nobody faces the lamp
+        // (lamp-4ace, 16 October at 03:28, "Hey Lamp, turn your volume down
+        // a little." was held for want of one).
+        let spoken_to = if answering_another {
+            called_in_text || self.named
+        } else {
+            own || going_on
+                || called_in_text
+                || self.named
+                || turned == Some(true)
+                || self.addressed
+        };
+        let verdict = match verdict {
+            Verdict::Play(_) if self.spoken_to && !spoken_to => {
+                Verdict::Hold(if answering_another {
+                    ANSWERING_ANOTHER
+                } else {
+                    NOT_SPOKEN_TO
+                })
+            }
+            Verdict::Hold(_) if self.spoken_to && self.named => Verdict::Play(NAMED),
             verdict => verdict,
         };
         self.verdict = Some(verdict);
@@ -1368,6 +1625,417 @@ mod tests {
         let flags = [PASSING_FLAG.to_owned(), "rest".to_owned()];
         assert_eq!(take_passing(&flags), (true, &flags[1..]));
         assert_eq!(take_passing(&flags[1..]), (false, &flags[1..]));
+    }
+
+    #[test]
+    fn the_spoken_to_switch_is_on_only_and_its_flag_follows_the_passing_one() {
+        assert_eq!(spoken_to_arguments(Some("on")), [SPOKEN_TO_FLAG]);
+        assert!(spoken_to_arguments(Some("ignored")).is_empty());
+        assert!(spoken_to_arguments(None).is_empty());
+        let flags = [SPOKEN_TO_FLAG.to_owned(), "rest".to_owned()];
+        assert_eq!(take_spoken_to(&flags), (true, &flags[1..]));
+        assert_eq!(take_spoken_to(&flags[1..]), (false, &flags[1..]));
+        let both = [PASSING_FLAG.to_owned(), SPOKEN_TO_FLAG.to_owned()];
+        let (passing, rest) = take_passing(&both);
+        assert_eq!((passing, take_spoken_to(rest)), (true, (true, &[][..])));
+    }
+
+    /// #829, step 2: with the switch an answer is played, in every room,
+    /// only when something shows the lamp was spoken to; without it the
+    /// rule is as it was. The lines are the first builder's two-person
+    /// scene and the office's talk on lamp-4ace (15 and 16 October).
+    #[test]
+    fn with_the_switch_only_what_was_said_to_the_lamp_is_played_in_every_room() {
+        // The request in hand, with `heard`, the name heard in its sound
+        // or not, and said close to the lamp or not; then the verdict.
+        let judge = |spoken_to: bool,
+                     room: Room,
+                     going_on: bool,
+                     heard: &str,
+                     named: bool,
+                     addressed: bool,
+                     turned: Option<bool>| {
+            let mut attention = Attention::default();
+            attention.speak_when_spoken_to(spoken_to);
+            attention.began_at(81, 9, 10_000_000);
+            if named {
+                attention.name_heard_scored(10_200_000, 0.97);
+            }
+            attention.set_addressed(addressed);
+            attention.heard(heard);
+            attention
+                .first_output_busy(81, room, going_on, false, turned)
+                .unwrap()
+        };
+        const BUDGET: &str = "Did you get my message about the budget?";
+        const SUSHI: &str = "Voglio mangiare sushi.";
+        for room in [Room::Quiet, Room::Unknown, Room::Busy] {
+            for text in [BUDGET, SUSHI, "Thailand."] {
+                // Nobody spoke to the lamp: held with the switch, for that
+                // reason where the room is not known to be busy, and for
+                // the busy room's own where it is.
+                let held = if room == Room::Busy {
+                    "a new session in a busy room, and nothing shows it was called"
+                } else {
+                    NOT_SPOKEN_TO
+                };
+                for turned in [None, Some(false)] {
+                    assert_eq!(
+                        judge(true, room, false, text, false, false, turned),
+                        Verdict::Hold(held),
+                        "{room:?} {text} {turned:?}"
+                    );
+                }
+                // Each sign alone lets it out.
+                for (going_on, named, addressed, turned) in [
+                    (true, false, false, None),
+                    (false, true, false, None),
+                    (false, false, true, None),
+                    (false, false, false, Some(true)),
+                ] {
+                    assert!(
+                        matches!(
+                            judge(true, room, going_on, text, named, addressed, turned),
+                            Verdict::Play(_)
+                        ),
+                        "{room:?} {text} {going_on} {named} {addressed} {turned:?}"
+                    );
+                }
+            }
+            // The name in the text.
+            assert!(matches!(
+                judge(
+                    true,
+                    room,
+                    false,
+                    "Hey Lamp, what is the weather like in Hanoi today?",
+                    false,
+                    false,
+                    None
+                ),
+                Verdict::Play(_)
+            ));
+        }
+        // Without the switch nothing changes: a room not known to be busy
+        // plays them all, and a busy one holds them as before.
+        for room in [Room::Quiet, Room::Unknown] {
+            assert_eq!(
+                judge(false, room, false, BUDGET, false, false, None),
+                Verdict::Play("the room is not known to be busy")
+            );
+        }
+        assert_eq!(
+            judge(false, Room::Busy, false, BUDGET, false, false, None),
+            Verdict::Hold("a new session in a busy room, and nothing shows it was called")
+        );
+        // A session the rule trusts plays what nobody said to the lamp
+        // without the switch, and holds it with.
+        let trusted = |spoken_to: bool| {
+            let mut attention = Attention::default();
+            attention.speak_when_spoken_to(spoken_to);
+            for request in 1..=u64::from(FRESH_REQUESTS) + 1 {
+                attention.began_at(request, 9, request * 10_000_000);
+                attention.heard(BUDGET);
+                attention.first_output(request, Room::Busy, false);
+            }
+            attention.verdict.unwrap()
+        };
+        assert_eq!(
+            trusted(false),
+            Verdict::Play("the session has heard enough to be trusted")
+        );
+        assert_eq!(trusted(true), Verdict::Hold(NOT_SPOKEN_TO));
+    }
+
+    /// #829, the first builder's day scene (16 October, 02:30), in the
+    /// busy room two people had left: "How is that task going?" 45.3 s
+    /// after the lamp's news was held, and so was everything after it.
+    /// With the switch the first thing said within three minutes of the
+    /// news is a reply to it, once; and a question about the lamp's own
+    /// work is for it for ten minutes. Without it, both are held.
+    #[test]
+    fn with_the_switch_the_lamps_news_is_replied_to_and_its_work_asked_about() {
+        const S: u64 = 1_000_000;
+        let day = |spoken_to: bool| {
+            let mut attention = Attention::default();
+            attention.speak_when_spoken_to(spoken_to);
+            // The lamp's news of the task it was given.
+            own_request().store(7_829, Ordering::Release);
+            attention.began_at(7_829, 4, 100 * S);
+            assert_eq!(
+                attention.first_output_busy(7_829, Room::Busy, false, true, None),
+                Some(Verdict::Play("the lamp began this turn itself"))
+            );
+            attention.spoke(7_829, 100 * S);
+            own_request().store(0, Ordering::Release);
+            let mut judge = |request: u64, at: u64, heard: &str| {
+                attention.began_at(request, 4, at * S);
+                attention.heard(heard);
+                attention
+                    .first_output_busy(request, Room::Busy, false, true, None)
+                    .unwrap()
+            };
+            [
+                // 45.3 s after the news began to be said.
+                judge(1, 146, "How is that task going?"),
+                // The window is spent: what follows is judged as before.
+                judge(2, 150, "What's my favorite color?"),
+                // Still about the lamp's own work, within ten minutes.
+                judge(3, 400, "Is the timer still running?"),
+                // Not about it.
+                judge(4, 410, "What time is it?"),
+                // About work, too long after.
+                judge(5, 800, "Did the task finish?"),
+            ]
+        };
+        let held = Verdict::Hold(
+            "a busy room, and nothing shows it was called or that anyone is turned to the lamp",
+        );
+        assert_eq!(
+            day(true),
+            [
+                Verdict::Play(AFTER_NEWS),
+                held,
+                Verdict::Play(ABOUT_ITS_WORK),
+                held,
+                held
+            ]
+        );
+        assert_eq!(day(false), [held; 5]);
+        // A task started is work too.
+        let mut attention = Attention::default();
+        attention.speak_when_spoken_to(true);
+        attention.worked(10 * S);
+        attention.began_at(9, 4, 300 * S);
+        attention.heard("Did you set the reminder?");
+        assert_eq!(
+            attention.first_output(9, Room::Quiet, false),
+            Some(Verdict::Play(ABOUT_ITS_WORK))
+        );
+        assert!(about_its_work("How is that TASK going?"));
+        assert!(!about_its_work("I'll ask him about it."));
+    }
+
+    /// #918, the reviewer at 05:11: the lamp's own turn opens the reply
+    /// window only once its sound goes out. Ended silent, or cancelled
+    /// before it spoke, it opens none, and the talk after it is judged as
+    /// any other. Only the turn in hand, and only the lamp's own, opens one.
+    #[test]
+    fn an_own_turn_that_said_nothing_is_no_news_to_reply_to() {
+        const S: u64 = 1_000_000;
+        let after = |spoke: Option<u64>| {
+            let mut attention = Attention::default();
+            attention.speak_when_spoken_to(true);
+            own_request().store(8_918, Ordering::Release);
+            attention.began_at(8_918, 4, 100 * S);
+            attention.first_output(8_918, Room::Quiet, false);
+            if let Some(request) = spoke {
+                attention.spoke(request, 101 * S);
+            }
+            own_request().store(0, Ordering::Release);
+            attention.began_at(1, 4, 110 * S);
+            attention.heard("Did you get my message about the budget?");
+            attention.first_output(1, Room::Quiet, false).unwrap()
+        };
+        assert_eq!(after(Some(8_918)), Verdict::Play(AFTER_NEWS));
+        assert_eq!(after(None), Verdict::Hold(NOT_SPOKEN_TO));
+        assert_eq!(after(Some(8_917)), Verdict::Hold(NOT_SPOKEN_TO));
+        // The news has one reply, however it is judged: a short "Thanks"
+        // let through as a sound takes it as the same words heard as
+        // speech do, and later talk is judged as any other (the reviewer on
+        // #918 at 07:12).
+        for sound in [true, false] {
+            let mut attention = Attention::default();
+            attention.speak_when_spoken_to(true);
+            attention.check_sounds(true);
+            own_request().store(8_919, Ordering::Release);
+            attention.began_at(8_919, 4, 100 * S);
+            attention.first_output(8_919, Room::Quiet, false);
+            attention.spoke(8_919, 101 * S);
+            own_request().store(0, Ordering::Release);
+            attention.began_at(1, 4, 110 * S);
+            if sound {
+                attention.ended_as_sound(1);
+            }
+            attention.heard("Thanks.");
+            assert!(matches!(
+                attention.first_output(1, Room::Quiet, false),
+                Some(Verdict::Play(_))
+            ));
+            attention.began_at(2, 4, 220 * S);
+            attention.heard("Did you get my message about the budget?");
+            assert_eq!(
+                attention.first_output(2, Room::Quiet, false),
+                Some(Verdict::Hold(NOT_SPOKEN_TO)),
+                "{sound}"
+            );
+        }
+        // A person's request that is answered is no news.
+        let mut attention = Attention::default();
+        attention.speak_when_spoken_to(true);
+        attention.began_at(2, 4, 100 * S);
+        attention.heard("Hey Lamp, what time is it?");
+        attention.first_output(2, Room::Quiet, false);
+        attention.spoke(2, 101 * S);
+        attention.began_at(3, 4, 110 * S);
+        attention.heard("Did you get my message about the budget?");
+        assert_eq!(
+            attention.first_output(3, Room::Quiet, false),
+            Some(Verdict::Hold(NOT_SPOKEN_TO))
+        );
+    }
+
+    /// #829, the first builder at 05:02, scene 4 on lamp-4ace: Samantha's
+    /// "Daniel, are you coming to the meeting at two?", then Daniel's "Yes,
+    /// give me five minutes." while he was in a conversation with the lamp,
+    /// which set a timer. With the switch, a reply to someone the room had
+    /// just called by name is not the lamp's conversation, facing it or
+    /// not; the lamp's name still counts. Without it, as before.
+    #[test]
+    fn with_the_switch_a_reply_to_someone_called_by_name_is_not_the_lamps() {
+        const S: u64 = 1_000_000;
+        let reply =
+            |spoken_to: bool, called: &str, gap_s: u64, answer: &str, turned: Option<bool>| {
+                let mut attention = Attention::default();
+                attention.speak_when_spoken_to(spoken_to);
+                attention.began_at(31, 6, 100 * S);
+                attention.heard(called);
+                attention.ended(31, 103 * S);
+                attention.began_at(32, 6, (103 + gap_s) * S);
+                attention.heard(answer);
+                attention
+                    .first_output_busy(32, Room::Quiet, true, false, turned)
+                    .unwrap()
+            };
+        const CALLED: &str = "Daniel, are you coming to the meeting at two?";
+        const ANSWER: &str = "Yes, give me five minutes.";
+        for turned in [None, Some(true)] {
+            assert_eq!(
+                reply(true, CALLED, 1, ANSWER, turned),
+                Verdict::Hold(ANSWERING_ANOTHER)
+            );
+        }
+        for called in ["Hey Samantha, did you see it?", "Are you coming, Daniel?"] {
+            assert_eq!(
+                reply(true, called, 1, ANSWER, None),
+                Verdict::Hold(ANSWERING_ANOTHER),
+                "{called}"
+            );
+        }
+        // The lamp's name still counts.
+        assert!(matches!(
+            reply(true, CALLED, 1, "Lamp, give me five minutes.", None),
+            Verdict::Play(_)
+        ));
+        // No one called by name, or long before: the conversation goes on.
+        for (called, gap_s) in [
+            ("Did you get my message about the budget?", 1),
+            ("Okay, that is enough.", 1),
+            ("Lamp, what time is it?", 1),
+            (CALLED, 15),
+        ] {
+            assert!(
+                matches!(reply(true, called, gap_s, ANSWER, None), Verdict::Play(_)),
+                "{called} {gap_s}"
+            );
+        }
+        // Without the switch, as before.
+        assert!(matches!(
+            reply(false, CALLED, 1, ANSWER, None),
+            Verdict::Play(_)
+        ));
+        // The same reply as a short sound let through and checked (the
+        // reviewer on #918 at 06:06): a short word, said close, or with a
+        // face turned to the lamp, is still the other person's; the lamp's
+        // name still lets it out, and without the switch it plays.
+        let short = |spoken_to: bool, answer: &str, near: bool, turned: Option<bool>| {
+            let mut attention = Attention::default();
+            attention.speak_when_spoken_to(spoken_to);
+            attention.check_sounds(true);
+            attention.began_at(31, 6, 100 * S);
+            attention.heard(CALLED);
+            attention.ended(31, 103 * S);
+            attention.began_at(32, 6, 104 * S);
+            attention.ended_as_sound(32);
+            attention.set_near(near);
+            attention.heard(answer);
+            attention
+                .first_output_busy(32, Room::Quiet, true, false, turned)
+                .unwrap()
+        };
+        for (near, turned) in [(false, None), (true, None), (false, Some(true))] {
+            assert_eq!(
+                short(true, "Yes.", near, turned),
+                Verdict::Hold(ANSWERING_ANOTHER),
+                "{near} {turned:?}"
+            );
+        }
+        assert!(matches!(
+            short(true, "Lamp?", false, None),
+            Verdict::Play(_)
+        ));
+        assert_eq!(
+            short(false, "Yes.", false, None),
+            Verdict::Play(SOUND_A_WORD)
+        );
+    }
+
+    #[test]
+    fn someone_called_by_name_is_told_from_the_lamp_and_from_words_that_open_a_sentence() {
+        for calls in [
+            "Daniel, are you coming to the meeting at two?",
+            "Hey Samantha, did you see it?",
+            "Are you coming, Daniel?",
+            "Karen, the budget is due.",
+        ] {
+            assert!(addresses_someone_else(calls), "{calls}");
+        }
+        for not in [
+            "Lamp, what time is it?",
+            "Hey Lamp, tell me a story.",
+            "Can you explain that, Lamp?",
+            "Man, tell me a short joke.",
+            "Okay, stop.",
+            "Well, I think so.",
+            "Yes, give me five minutes.",
+            "Did you get my message about the budget?",
+            "I told Daniel about it.",
+            "",
+        ] {
+            assert!(!addresses_someone_else(not), "{not}");
+        }
+    }
+
+    /// #829, the first builder at 03:29: a request said with the name needs
+    /// no face, in a busy room too. Without the switch the busy form holds
+    /// the name heard in the sound with nobody turned to the lamp; with it,
+    /// it is played. And the lamp's own turn is always played.
+    #[test]
+    fn with_the_switch_the_name_needs_no_face_and_the_lamps_own_turn_plays() {
+        let named = |spoken_to: bool| {
+            let mut attention = Attention::default();
+            attention.speak_when_spoken_to(spoken_to);
+            attention.began_at(5, 3, 10_000_000);
+            attention.name_heard_scored(10_100_000, 0.97);
+            attention.heard("turn your volume down a little.");
+            attention.first_output_busy(5, Room::Busy, false, true, Some(false))
+        };
+        assert_eq!(
+            named(false),
+            Some(Verdict::Hold(
+                "a busy room: its name was heard in the sound, and nobody is turned to the lamp"
+            ))
+        );
+        assert_eq!(named(true), Some(Verdict::Play(NAMED)));
+        let mut attention = Attention::default();
+        attention.speak_when_spoken_to(true);
+        own_request().store(6_829, Ordering::Release);
+        attention.began_at(6_829, 3, 20_000_000);
+        assert_eq!(
+            attention.first_output(6_829, Room::Quiet, false),
+            Some(Verdict::Play("the lamp began this turn itself"))
+        );
+        own_request().store(0, Ordering::Release);
     }
 
     /// #829: with the switch the name counts when it is said to the lamp,

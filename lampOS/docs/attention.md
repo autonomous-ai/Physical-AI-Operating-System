@@ -1027,6 +1027,143 @@ where the lamp's name was heard runs at once, as always), so the switch is
 on only with it. On lamp-4ace both are on since 16 October 07:25 (the first builder,
 `holds.sh` and `twopeople829.sh`).
 
+## The lamp speaks when spoken to (#829, step 2)
+
+Off unless `LAMP_SPOKEN_TO=on` in the voice's environment (built by the
+fourth builder on 16 October 2026, from the first builder's judgement on
+#829 at 22:13 on 15 October; the coordinator passes the worker
+`--spoken-to`, right after `--name-in-passing-ignored`).
+
+Without it the rule holds answers only in a busy room. In a room not known
+to be busy, and in a session it trusts, every answer is played, whatever
+was said and to whom. On lamp-4ace at 02:16 on 16 October, "Did you get my
+message about the budget?", said by one person to another with no name
+and nobody at the lamp, was answered 11 times in 12. At 14:49 on 15
+October, a word overheard in the office's talk turned the lamp's volume up
+for 11 hours.
+
+With the switch, in every room, an answer is played only when something
+shows the lamp was spoken to:
+- its name: in the text (`called`, or `called_by_name` with
+  `LAMP_NAME_IN_PASSING=ignored`), or heard by `lamp-name` in the request's
+  sound;
+- a face turned to the lamp (the eyes are read for every answer, not only
+  in a busy room);
+- a conversation with the lamp going on (`going_on`, as above);
+- someone close to the lamp and turned to it spoke (`LAMP_ADDRESSED=on`);
+- the lamp began the turn itself.
+
+Otherwise it is held, for the reason "nobody spoke to the lamp: no name,
+nobody turned to it, no conversation with it going on", and so is every
+lamp action its answer calls for: the call is answered and never reaches
+the executive, as in a busy room. A short sound let through in a quiet
+room (#800, above) keeps its own rule.
+
+The first builder's day scene (#829, 02:39 on 16 October) adds three
+things, under the same switch. Played straight after the two-person
+scenes, one person alone was answered while each line came within 45 s
+of the lamp's last words. "How is that task going?" came 45.3 s after the
+lamp's news that its task was done, and was held. From then on nothing
+was answered: each held line counted as more talk, so the room stayed
+busy.
+- **Only talk between people makes a room busy** (`room_told.rs`). A
+  request whose answer the rule held is not talk, as a sound is not. Busy
+  ends 3 minutes after the last thing left unanswered that counts,
+  whatever one person says meanwhile, instead of only after 5 minutes with
+  nothing heard. A room not yet known, as after the voice starts, is quiet
+  after 5 minutes with no talk between people (the first builder at 05:46:
+  with one person talking to the lamp from the start, `room/state` said
+  "unknown" all night). Whether two voices are speaking is not known: that
+  needs the same-voice part (#865) on the lamp.
+- **The lamp's own news is replied to.** The first thing anyone says
+  within 3 minutes of a turn the lamp began itself (a task's news, a
+  reminder) is played, once, in every room. Its answers keep their 45 s.
+  The 3 minutes start when the turn's first sound is handed on to be
+  played, owner-checked and with output credit. An own turn that ends
+  silent, is cancelled before it speaks, or whose sound a cancellation
+  drops while it waits for credit, opens none (the reviewer on #918 at
+  05:11 and 06:17).
+- **A question about the lamp's own work is for it.** "task", "reminder",
+  "timer" or "alarm" in what was heard, within 10 minutes of the lamp's
+  news or of it starting a task, a timer or a reminder, is played in
+  every room.
+
+One more, from 03:28 that night (#829, #908): in a busy room, "Hey Lamp,
+turn your volume down a little." was held, because the name was heard in
+the sound and nobody was turned to the lamp. With the switch, a request
+with the name heard in its sound is played in a busy room too, without a
+face: at night nobody faces the lamp. Its cost is the busy form's reason
+for that hold: `lamp-name` hears the name in people's talk now and then
+(17 times from 07:45 to 13:02 on 14 October, at 0.903 to 0.997), and with
+the switch each of those lets an answer out.
+
+And one from 04:58 (#829, 05:02): in the two-person scene, Samantha asked
+"Daniel, are you coming to the meeting at two?" and Daniel answered her
+"Yes, give me five minutes." He was in a conversation with the lamp, so his
+reply counted as a follow-up, and the lamp set a five-minute timer. With
+the switch, a line that follows, within 10 s (`ANOTHER_REPLY_US`), one that
+called someone other than the lamp by name is that person's reply. That
+means a capitalised name set off by a comma, opening the line ("Daniel,
+...", "Hey Samantha, ...") or closing it ("..., Daniel?"), that isn't the
+lamp's name, a word the service writes for it, or a word like "Okay," or
+"Well," (`addresses_someone_else`). For that line only the lamp's name
+counts: not the conversation, the lamp's news, a question about its work,
+or a face, since the person replying is often facing the lamp's way. A
+short sound let through and checked (#800) is held the same way: a short
+word, said close, or with a face turned to the lamp, is still the other
+person's reply (the reviewer on #918 at 06:06).
+
+Beyond the reply to the lamp's news, the question about its work and the
+name without a face, the switch only holds: what the rule holds without it
+stays held.
+
+What it would have cost (lamp-4ace's first-output records of 15 October,
+13:01 to 16:07, 69 decisions; [the evidence](verification/spoken-to-20261016/README.md)):
+4 of the 25 answers that played had none of those signs. Two were one-word
+sounds in a room not known to be busy. Two were the rest of a call the
+lamp had cut at its comma (#782); with `LAMP_CUT_KEEPS_NAME=on` the rest
+keeps the call's text and is played.
+
+**Its cost: "Lamp, ..." from someone not facing the lamp.** The service
+seldom writes the name. Of the calls played to the lamps from 12 to 16
+October, the text of what was heard showed the call for 84 of 769
+"Lamp, ..." and 242 of 1,415 "Hey Lamp, ..." (most often it begins with
+the words after the name). `lamp-name` hears "Hey Lamp, ..." (12 of 12
+with the lamp quiet, #828), but not "Lamp," alone, which it was not
+trained on. So with the switch, "Lamp, ..." said with nobody turned to the
+lamp, and no conversation going on, is held about nine times in ten.
+Facing the lamp, or "Hey Lamp", is answered.
+
+Tests:
+- `with_the_switch_only_what_was_said_to_the_lamp_is_played_in_every_room`
+  and `with_the_switch_the_name_needs_no_face_and_the_lamps_own_turn_plays`
+  (the rule);
+- `what_nobody_said_to_the_lamp_is_held_with_the_switch_and_played_without`,
+  `the_lamp_called_by_name_or_in_a_conversation_is_answered_with_the_switch`,
+  `a_turn_nobody_said_to_the_lamp_never_changes_the_lamp` and
+  `the_same_turn_with_the_lamps_name_changes_the_lamp` (the worker's own
+  loop: volume, mute and light);
+- `with_the_switch_a_reply_to_someone_called_by_name_is_not_the_lamps` and
+  `someone_called_by_name_is_told_from_the_lamp_and_from_words_that_open_a_sentence`
+  (the reply of 04:58);
+- `an_own_turn_that_said_nothing_is_no_news_to_reply_to`, and through the
+  worker's own loop `news_the_lamp_spoke_is_replied_to`,
+  `an_own_turn_completed_silent_is_no_news`,
+  `an_own_turn_cancelled_before_it_spoke_is_no_news`,
+  `news_whose_sound_waited_for_credit_and_then_went_is_replied_to` and
+  `news_whose_sound_a_cancellation_dropped_before_it_went_is_no_news`;
+- `with_the_switch_the_lamps_news_is_replied_to_and_its_work_asked_about`
+  and `with_the_switch_a_held_request_is_not_talk_and_busy_ends_after_the_last_talk`
+  (the day scene, in the rule and in the room);
+- the flag's place among the worker's flags (`addressed.rs`, and
+  `both_workers_take_the_spoken_to_flag_in_its_place`).
+
+The second voice route takes the flag and, having no attention rule, does
+not apply it. Reading the eyes for every answer adds the read of the
+newest `humans/faces/tracked` message to each decision; its time is in the
+record's `sampled_start_us` and `sampled_end_us`, and the record's
+`facing` is now filled in every room.
+
 ## Switch
 
 `LAMP_ATTENTION=on` in the voice unit (the worker's `--attention`). Off by
@@ -1066,6 +1203,11 @@ right after `--sounds-checked`; nothing without `LAMP_BUS=on`): the lamp's
 actions wait up to 2 s for the Policy's attention decision and are not run
 on a `stay_quiet` without the name (above). Off by default; on lamp-4ace
 since 16 October; needs `lamp-policy --act attention`.
+`LAMP_SPOKEN_TO=on` (the worker's `--spoken-to`, right after
+`--name-in-passing-ignored`; nothing without `LAMP_ATTENTION`, and no eyes
+or name from the sound without `LAMP_BUS=on`): in every room, an answer is
+played only when the lamp was spoken to (above). Off by default; not on
+any lamp.
 
 `LAMP_HEAD_TOUCH=on` (the worker's `--head-touch`, right after the name
 note's flags; nothing without `LAMP_BUS=on` and Controls run with

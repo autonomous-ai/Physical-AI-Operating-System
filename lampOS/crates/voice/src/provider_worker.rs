@@ -1431,14 +1431,14 @@ async fn serve_with_visual<C: Connect>(
                         ),
                     }
                 }
-                // A request that goes on from one whose end was sent early
-                // and given up: the model is told so, beside what it hears
-                // (`--early-end-ms`; docs/early-end-taken-back.md).
                 // Only the lamp's name was said: what follows it is called
                 // (#829, the first builder at 16:32).
                 if let Some((request, at_us)) = intake.handoff.take_bare_call() {
                     attention.bare_call(request, at_us);
                 }
+                // A request that goes on from one whose end was sent early
+                // and given up: the model is told so, beside what it hears
+                // (`--early-end-ms`; docs/early-end-taken-back.md).
                 if let Some(request) = intake.handoff.take_cut_off() {
                     match add_note(&provider, &mut intake.handoff.noted, request, CUT_OFF_NOTE) {
                         Ok(()) => eprintln!(
@@ -3435,14 +3435,14 @@ impl InputHandoff {
             .map(|_| request)
     }
 
-    /// The open request that goes on from one ended early, once: the model
-    /// is to be told so beside what it hears.
     /// The newest request that was only the lamp's name, and when it
     /// ended, once.
     fn take_bare_call(&mut self) -> Option<(u64, u64)> {
         self.bare_call.take()
     }
 
+    /// The open request that goes on from one ended early, once: the model
+    /// is to be told so beside what it hears.
     fn take_cut_off(&mut self) -> Option<RequestId> {
         let request = self.cut_off.take()?;
         self.visual_turn()

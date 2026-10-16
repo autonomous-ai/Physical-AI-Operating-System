@@ -2541,9 +2541,6 @@ mod tests {
         assert_eq!(attention.first_output(37, Room::Quiet, false), None);
     }
 
-    /// The name is the first thing said, a little before the voice is
-    /// sure someone is speaking. It counts for the request that begins
-    /// then, and for no later one.
     /// #829, the first builder at 16:32, the owner on lamp-4ace: "Lamp,"
     /// said alone (its call's wait ran out, and the model was told only the
     /// name came), then "Check my work." as a request of its own, which
@@ -2577,6 +2574,9 @@ mod tests {
         ));
     }
 
+    /// The name is the first thing said, a little before the voice is
+    /// sure someone is speaking. It counts for the request that begins
+    /// then, and for no later one.
     #[test]
     fn the_name_heard_as_a_request_began_plays_it_and_is_not_carried_to_the_next() {
         let second = 1_000_000u64;

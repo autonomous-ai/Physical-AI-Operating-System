@@ -509,7 +509,7 @@ are unchanged.
 
 | Topic | Kind | Published by | Intended reader |
 |---|---|---|---|
-| `tasks/status` | latest, no period, no lifespan | `lamp-tasks serve --progress` | The policy's progress question (`lamp-policy --progress`) |
+| `tasks/status` | latest, no period, no lifespan | `lamp-tasks serve --progress` | The policy's progress question (`lamp-policy --progress`); the voice's task news, for a task newly settled (#560, [tasks.md](tasks.md), "Telling") and, with `LAMP_PROGRESS_NEWS=on`, for progress |
 
 The [`TaskStatus` message](msgs.md#the-tasks-contract) says, as typed state,
 how each piece of work the lamp handed over is going; the agent's words stay

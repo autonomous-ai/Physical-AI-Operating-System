@@ -8,7 +8,8 @@
 //! tasks part watches each task handed over (unless `lamp-tasks serve --no-watch`)
 //! and keeps what its agent came back with once it has finished, stopped,
 //! or stopped to ask something. A thread of the voice's own reads that
-//! every ten seconds and offers each piece of news once; the coordinator
+//! every ten seconds, and at once when `tasks/status` lists a task newly
+//! settled (#560), and offers each piece of news once; the coordinator
 //! tells it at a good moment (someone there, nothing being said, the room
 //! not busy) as a turn the lamp begins itself, and marks it told. What was
 //! told is kept in a file, so a restart does not tell it again.
@@ -76,7 +77,9 @@ pub const QUIET_US: u64 = 15_000_000;
 /// says it.
 pub const HEARD_WITHIN_US: u64 = 120_000_000;
 /// Progress news is told only with this set to `on`, read at start (#752).
-/// Off unless set: without it nothing more is subscribed to, asked or kept.
+/// Off unless set: without it no decision is subscribed to and no progress
+/// is asked for or kept. `tasks/status` is listened to either way, only for
+/// a task newly settled (#560).
 pub const PROGRESS_ENVIRONMENT: &str = "LAMP_PROGRESS_NEWS";
 /// A decision to say progress is let go this long after it was made: told
 /// later, it would be old news.
@@ -86,6 +89,23 @@ pub(crate) const MOST_ABOUT_CHARS: usize = 400;
 /// How long the progress reader waits for a decision before it looks again
 /// whether it is to stop.
 const PROGRESS_WAIT: Duration = Duration::from_millis(200);
+/// How long the settled watcher waits for a status before it looks again
+/// whether it is to stop.
+const SETTLED_WAIT: Duration = Duration::from_millis(200);
+/// The least time between two reads a settled task wakes: a settled list
+/// that keeps changing never has the tasks part read back to back (the
+/// first builder on #1156).
+const WOKEN_GAP: Duration = Duration::from_secs(1);
+
+/// What wakes the reading thread before its next read.
+#[derive(Debug, PartialEq, Eq)]
+enum Wake {
+    /// News just told: kept in the file at once.
+    Told(String),
+    /// A task newly settled on `tasks/status` (#560): read now, not at the
+    /// next of [`READ_EVERY`].
+    Settled,
+}
 
 /// One piece of news, ready to tell.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -129,13 +149,14 @@ fn still_current(status: Option<&TaskStatus>, of: &ProgressOf) -> bool {
 
 pub struct TaskNews {
     offered: Receiver<News>,
-    told: Sender<String>,
+    told: Sender<Wake>,
     waiting: VecDeque<News>,
     /// What the file says was told, as the reading thread last found it:
     /// news the person asked for and heard ([`crate::agent_tasks`]) is not
     /// told again.
     told_already: Arc<Mutex<BTreeSet<String>>>,
-    /// Set when this is let go, so that the progress reader ends.
+    /// Set when this is let go, so that the progress reader and the
+    /// settled watcher end.
     stopping: Arc<AtomicBool>,
     /// The newest `tasks/status` the progress reader has: a queued note is
     /// checked against it, never waited on.
@@ -189,32 +210,56 @@ fn read_told(file: &Path) -> BTreeSet<String> {
 }
 
 impl TaskNews {
-    /// Reading starts on a thread of its own when the tasks part is set;
-    /// progress too, with [`PROGRESS_ENVIRONMENT`] `on`, on the lamp's bus.
+    /// Reading starts on a thread of its own when the tasks part is set,
+    /// woken by a task newly settled on the lamp's bus (#560); progress
+    /// too, with [`PROGRESS_ENVIRONMENT`] `on`.
     pub fn from_environment() -> Option<Self> {
         let directory = std::env::var_os(crate::agent_tasks::ENVIRONMENT)
             .map(PathBuf::from)
             .filter(|path| path.is_absolute())?;
-        let bus = if progress_on(std::env::var(PROGRESS_ENVIRONMENT).ok().as_deref()) {
-            match Bus::from_environment() {
-                Ok(bus) => Some(bus),
-                Err(error) => {
-                    eprintln!(
-                        "lamp-voice: progress news is on and the bus cannot be used: {error}"
-                    );
-                    None
-                }
+        let progress = progress_on(std::env::var(PROGRESS_ENVIRONMENT).ok().as_deref());
+        let bus = match Bus::from_environment() {
+            Ok(bus) => Some(bus),
+            Err(error) => {
+                eprintln!(
+                    "lamp-voice: task news cannot use the bus, so it reads every {} s{}: {error}",
+                    READ_EVERY.as_secs(),
+                    if progress {
+                        " and tells no progress"
+                    } else {
+                        ""
+                    }
+                );
+                None
             }
-        } else {
-            None
         };
-        Self::start(&directory, told_file(), bus.as_ref())
+        Self::start(&directory, told_file(), bus.as_ref(), progress)
     }
 
     /// Read the tasks part in `directory` and keep what is told in
-    /// `told_file`; with a `bus`, take progress decisions from it too.
-    /// Without one nothing is subscribed to and no progress is asked for.
-    pub fn start(directory: &Path, told_file: PathBuf, bus: Option<&Bus>) -> Option<Self> {
+    /// `told_file`. With a `bus`, a task newly settled on `tasks/status`
+    /// has it read at once (#560); with `progress` as well, progress
+    /// decisions are taken from it too. Without a bus nothing is
+    /// subscribed to, it is read every [`READ_EVERY`], and no progress is
+    /// asked for.
+    pub fn start(
+        directory: &Path,
+        told_file: PathBuf,
+        bus: Option<&Bus>,
+        progress: bool,
+    ) -> Option<Self> {
+        Self::start_with_clock(directory, told_file, bus, progress, boot_clock)
+    }
+
+    /// [`Self::start`], with the tasks part's clock read from `clock`: a
+    /// test's own, where there is no `/proc` (the first builder on #1156).
+    pub fn start_with_clock(
+        directory: &Path,
+        told_file: PathBuf,
+        bus: Option<&Bus>,
+        progress: bool,
+        clock: fn() -> Option<BootClock>,
+    ) -> Option<Self> {
         let directory = directory.to_path_buf();
         let (offer, offered) = mpsc::channel();
         let (told, heard_told) = mpsc::channel();
@@ -222,6 +267,32 @@ impl TaskNews {
         let stopping = Arc::new(AtomicBool::new(false));
         let status = Arc::new(Mutex::new(None));
         if let Some(bus) = bus {
+            // Subscribed before this returns, as progress is: the kept
+            // status comes first, and a task settled after is not missed.
+            match bus.subscribe_typed(TaskStatus::TOPIC, "voice", TaskStatus::TYPE) {
+                Ok(statuses) => {
+                    let (wake, stopping) = (told.clone(), stopping.clone());
+                    // Without the watcher news is still read every
+                    // `READ_EVERY` (the first builder on #1156).
+                    if let Err(error) = std::thread::Builder::new()
+                        .name("lamp-voice-task-settled".into())
+                        .spawn(move || wake_on_settled(statuses, &wake, &stopping))
+                    {
+                        eprintln!(
+                            "lamp-voice: task news cannot watch {}, so it reads every {} s: {error}",
+                            TaskStatus::TOPIC,
+                            READ_EVERY.as_secs()
+                        );
+                    }
+                }
+                Err(error) => eprintln!(
+                    "lamp-voice: task news cannot subscribe to {}, so it reads every {} s: {error}",
+                    TaskStatus::TOPIC,
+                    READ_EVERY.as_secs()
+                ),
+            }
+        }
+        if let Some(bus) = bus.filter(|_| progress) {
             // Subscribed before this returns: nothing published after it is
             // missed, and `tasks/status`'s kept value comes first.
             let made = bus
@@ -254,7 +325,9 @@ impl TaskNews {
         let shared = told_already.clone();
         std::thread::Builder::new()
             .name("lamp-voice-task-news".into())
-            .spawn(move || read_forever(&directory, &told_file, &offer, &heard_told, &shared))
+            .spawn(move || {
+                read_forever(&directory, &told_file, &offer, &heard_told, &shared, &clock)
+            })
             .ok()?;
         Some(Self {
             offered,
@@ -314,23 +387,31 @@ impl TaskNews {
         if past || moved_on {
             return None;
         }
-        let _ = self.told.send(news.key.clone());
+        let _ = self.told.send(Wake::Told(news.key.clone()));
         Some(news)
     }
 }
 
+/// Read the tasks part every [`READ_EVERY`], and at once when a task newly
+/// settled is seen on `tasks/status` ([`Wake::Settled`], #560), with the
+/// tasks part's own clock (`clock`).
 fn read_forever(
     directory: &Path,
     told_file: &Path,
     offer: &Sender<News>,
-    told: &Receiver<String>,
+    told: &Receiver<Wake>,
     shared: &Mutex<BTreeSet<String>>,
+    clock: &dyn Fn() -> Option<BootClock>,
 ) {
     let socket = directory.join("request.sock");
     let mut offered = BTreeSet::new();
     loop {
-        while let Ok(key) = told.try_recv() {
-            keep_told(told_file, &key);
+        // A settled task's wake waiting here is answered by the read just
+        // below.
+        while let Ok(wake) = told.try_recv() {
+            if let Wake::Told(key) = wake {
+                keep_told(told_file, &key);
+            }
         }
         // Read again each time: the provider worker keeps there what the
         // person asked for and heard.
@@ -338,7 +419,7 @@ fn read_forever(
         if let Ok(mut shared) = shared.lock() {
             shared.clone_from(&told_keys);
         }
-        if let Some(now) = boot_clock() {
+        if let Some(now) = clock() {
             for news in read_once(&socket, &now, &told_keys, &offered) {
                 offered.insert(news.key.clone());
                 if offer.send(news).is_err() {
@@ -349,15 +430,20 @@ fn read_forever(
         // Wait for the next read, keeping what is told the moment it is
         // told: on lamp-4ace on 2026-10-15 a build whose provider ended
         // just after news was told told the same news three times, each
-        // time before this thread's next pass had kept it.
-        let next = std::time::Instant::now() + READ_EVERY;
+        // time before this thread's next pass had kept it. A task newly
+        // settled ends the wait (#560), including one seen while the read
+        // above was under way, though never sooner than `WOKEN_GAP` after
+        // that read.
+        let read_at = std::time::Instant::now();
+        let mut next = read_at + READ_EVERY;
         loop {
             let left = next.saturating_duration_since(std::time::Instant::now());
             if left.is_zero() {
                 break;
             }
             match told.recv_timeout(left) {
-                Ok(key) => keep_told(told_file, &key),
+                Ok(Wake::Told(key)) => keep_told(told_file, &key),
+                Ok(Wake::Settled) => next = next.min(read_at + WOKEN_GAP),
                 Err(mpsc::RecvTimeoutError::Timeout) => break,
                 Err(mpsc::RecvTimeoutError::Disconnected) => return,
             }
@@ -365,12 +451,52 @@ fn read_forever(
     }
 }
 
+/// Whether `status` lists a task settled that `seen` does not have: its
+/// store, task and when it settled (#560). `seen` becomes what `status`
+/// lists, so it never holds more than one status does. A task stays listed
+/// for the tasks part's `SETTLED_FOR_MS` on every status published, so it
+/// wakes the reader once; one gone from a status and listed again wakes
+/// it again, which costs only a read.
+fn newly_settled(status: &TaskStatus, seen: &mut BTreeSet<(String, u64, u64)>) -> bool {
+    let listed: BTreeSet<_> = status
+        .settled
+        .iter()
+        .map(|settled| (status.store_id.clone(), settled.task, settled.at_unix_ms))
+        .collect();
+    let new = !listed.is_subset(seen);
+    *seen = listed;
+    new
+}
+
+/// Wake the reader (`wake`) each time `tasks/status` lists a task newly
+/// settled (#560): the tasks part publishes one the moment it keeps it, so
+/// the news is read then and not up to [`READ_EVERY`] later. Ends when
+/// `stopping` is set or the reader has gone.
+fn wake_on_settled(mut statuses: Subscriber, wake: &Sender<Wake>, stopping: &AtomicBool) {
+    let mut seen = BTreeSet::new();
+    while !stopping.load(Ordering::Relaxed) {
+        match statuses.recv(SETTLED_WAIT) {
+            Ok(Some(message)) => {
+                if let Ok(status) = message.parse::<TaskStatus>()
+                    && status.check().is_ok()
+                    && newly_settled(&status, &mut seen)
+                    && wake.send(Wake::Settled).is_err()
+                {
+                    return;
+                }
+            }
+            Ok(None) => {}
+            Err(_) => std::thread::sleep(SETTLED_WAIT),
+        }
+    }
+}
+
 /// The boot and its clock as the tasks part keeps them (`CLOCK_BOOTTIME`,
 /// which `/proc/uptime` reads).
 #[derive(Clone, Debug)]
-struct BootClock {
-    boot_id: String,
-    ms: u64,
+pub struct BootClock {
+    pub boot_id: String,
+    pub ms: u64,
 }
 
 fn boot_clock() -> Option<BootClock> {
@@ -1747,7 +1873,7 @@ mod tests {
         offer.send(one.clone()).unwrap();
         assert_eq!(news.waiting(), Some(&one));
         assert_eq!(news.tell(), Some(one));
-        assert_eq!(heard.try_recv().unwrap(), "s:1:1");
+        assert_eq!(heard.try_recv().unwrap(), Wake::Told("s:1:1".into()));
         assert!(news.waiting().is_none());
         // Asked for and heard before it was told: it is not told.
         let two = News {
@@ -1760,5 +1886,138 @@ mod tests {
         assert_eq!(news.waiting(), Some(&two));
         told_already.lock().unwrap().insert("s:2:1".into());
         assert!(news.waiting().is_none());
+    }
+
+    fn settled(task: u64) -> lamp_msgs::TaskSettled {
+        lamp_msgs::TaskSettled {
+            task,
+            engine: "claude".into(),
+            state: AgentState::Idle,
+            settled: true,
+            at_unix_ms: RUN + task,
+        }
+    }
+
+    /// #560: a task settled wakes the reader once, while it stays listed;
+    /// another task, or the same one settled again later, wakes it again.
+    #[test]
+    fn a_task_newly_settled_wakes_the_reader_once() {
+        let mut seen = BTreeSet::new();
+        let mut at = status(STORE, 4, AgentState::Working);
+        assert!(!newly_settled(&at, &mut seen));
+        at.settled = vec![settled(7)];
+        assert!(newly_settled(&at, &mut seen));
+        assert!(!newly_settled(&at, &mut seen));
+        at.settled.push(settled(8));
+        assert!(newly_settled(&at, &mut seen));
+        assert!(!newly_settled(&at, &mut seen));
+        // Task 8 found settled again, later, as a new observation.
+        at.settled[1].at_unix_ms += 60_000;
+        assert!(newly_settled(&at, &mut seen));
+        // Gone from the topic: nothing, and `seen` holds no more than this.
+        at.settled.clear();
+        assert!(!newly_settled(&at, &mut seen));
+        assert!(seen.is_empty());
+    }
+
+    /// #560: the tasks part is read at once when a task settles, not at the
+    /// next of the ten-second reads; news told is kept at once and has
+    /// nothing read.
+    #[test]
+    fn a_task_newly_settled_is_read_at_once_and_told_news_reads_nothing() {
+        let root = std::env::temp_dir().join(format!("task-news-wake-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        let listener = UnixListener::bind(root.join("request.sock")).unwrap();
+        let (listed, lists) = mpsc::channel();
+        std::thread::spawn(move || {
+            for stream in listener.incoming() {
+                let mut stream = stream.unwrap();
+                let mut line = String::new();
+                BufReader::new(&stream).read_line(&mut line).unwrap();
+                let _ = listed.send(Instant::now());
+                writeln!(stream, "{}", json!({"ok":true,"store_id":"s1","items":[]})).unwrap();
+            }
+        });
+        let (offer, _offered) = mpsc::channel();
+        let (wake, woken) = mpsc::channel();
+        let told_file = root.join("told");
+        let reader = {
+            let (directory, told_file) = (root.clone(), told_file.clone());
+            std::thread::spawn(move || {
+                let shared = Mutex::new(BTreeSet::new());
+                read_forever(&directory, &told_file, &offer, &woken, &shared, &|| {
+                    Some(now())
+                });
+            })
+        };
+        // The first read, as the reader starts.
+        lists.recv_timeout(Duration::from_secs(5)).unwrap();
+        wake.send(Wake::Told("s1:1:1".into())).unwrap();
+        assert!(lists.recv_timeout(Duration::from_millis(300)).is_err());
+        assert!(read_told(&told_file).contains("s1:1:1"));
+        let woke = Instant::now();
+        wake.send(Wake::Settled).unwrap();
+        let read = lists.recv_timeout(READ_EVERY).unwrap();
+        assert!(
+            read.duration_since(woke) < READ_EVERY / 2,
+            "{:?}",
+            read.duration_since(woke)
+        );
+        // Woken again at once: read again, but not sooner than a second
+        // after that read (the first builder on #1156).
+        wake.send(Wake::Settled).unwrap();
+        let again = lists.recv_timeout(READ_EVERY).unwrap();
+        let gap = again.duration_since(read);
+        assert!(gap >= WOKEN_GAP && gap < READ_EVERY / 2, "{gap:?}");
+        drop(wake);
+        reader.join().unwrap();
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    /// #560: on the bus, a task settled on `tasks/status` wakes the reader
+    /// once while it stays listed, and another task wakes it again.
+    #[test]
+    fn a_task_settled_on_the_bus_wakes_the_reader_once() {
+        // A short root: a bus socket's path must fit in a socket address.
+        let root = PathBuf::from(format!("/tmp/lv-settled-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        let bus = Bus::new(&root).unwrap();
+        let statuses = bus
+            .subscribe_typed(TaskStatus::TOPIC, "voice", TaskStatus::TYPE)
+            .unwrap();
+        let mut out = bus
+            .publisher_declared(TaskStatus::TOPIC, &TaskStatus::declaration(), "tasks")
+            .unwrap();
+        let (wake, woken) = mpsc::channel();
+        let stopping = Arc::new(AtomicBool::new(false));
+        let watcher = {
+            let stopping = stopping.clone();
+            std::thread::spawn(move || wake_on_settled(statuses, &wake, &stopping))
+        };
+        let quiet = Duration::from_millis(400);
+        let mut at = status(STORE, 4, AgentState::Working);
+        out.publish_json(1, &at).unwrap();
+        assert!(woken.recv_timeout(quiet).is_err());
+        at.settled = vec![settled(7)];
+        out.publish_json(2, &at).unwrap();
+        assert_eq!(
+            woken.recv_timeout(Duration::from_secs(5)),
+            Ok(Wake::Settled)
+        );
+        // The next status, task 7 still listed: no second wake.
+        at.tasks[0].changes = 5;
+        out.publish_json(3, &at).unwrap();
+        assert!(woken.recv_timeout(quiet).is_err());
+        at.settled.push(settled(8));
+        out.publish_json(4, &at).unwrap();
+        assert_eq!(
+            woken.recv_timeout(Duration::from_secs(5)),
+            Ok(Wake::Settled)
+        );
+        stopping.store(true, Ordering::Relaxed);
+        watcher.join().unwrap();
+        let _ = std::fs::remove_dir_all(root);
     }
 }

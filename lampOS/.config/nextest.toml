@@ -19,7 +19,7 @@ realtime = { max-threads = 1 }
 
 [[profile.default.overrides]]
 filter = '''
-    binary_id(lamp-memory::health)
+    (binary_id(lamp-memory::health) & test(=the_environment_alone_does_not_enable_reporting_or_create_bus_data))
   | binary_id(lamp-voice::capture_hold_worker)
   | (binary_id(lamp-voice) & test(/^coordinator::tests::endpoint_session::/))
   | (binary_id(lamp-health::program) & test(=between_two_healths_five_seconds_apart_the_program_is_not_taken_for_gone))
@@ -33,7 +33,7 @@ test-group = 'realtime'
 [profile.pr]
 default-filter = '''
 not (
-    binary_id(lamp-memory::health)
+    (binary_id(lamp-memory::health) & test(=the_environment_alone_does_not_enable_reporting_or_create_bus_data))
   | binary_id(lamp-voice::capture_hold_worker)
   | (binary_id(lamp-voice) & test(/^coordinator::tests::endpoint_session::/))
   | (binary_id(lamp-health::program) & test(=between_two_healths_five_seconds_apart_the_program_is_not_taken_for_gone))
@@ -45,7 +45,7 @@ not (
 #   cargo nextest run --release --workspace --profile realtime -j 1
 [profile.realtime]
 default-filter = '''
-    binary_id(lamp-memory::health)
+    (binary_id(lamp-memory::health) & test(=the_environment_alone_does_not_enable_reporting_or_create_bus_data))
   | binary_id(lamp-voice::capture_hold_worker)
   | (binary_id(lamp-voice) & test(/^coordinator::tests::endpoint_session::/))
   | (binary_id(lamp-health::program) & test(=between_two_healths_five_seconds_apart_the_program_is_not_taken_for_gone))

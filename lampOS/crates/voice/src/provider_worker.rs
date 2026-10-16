@@ -2329,6 +2329,12 @@ impl ToolDesk {
                 | Route::Mark(_)
         ) {
             self.acted = Some(request);
+            // Something done is the lamp answering, words or none (#829,
+            // the sixth on #1029). A lookup, an action the Policy held and
+            // a held request never come here (the reviewer on #1069).
+            if let Ok(mut room) = crate::room_told::room().lock() {
+                room.answered_by_a_call(request, monotonic_us());
+            }
         }
         // A request the lamp wrote itself was not heard from anyone:
         // a yes to a task cannot come in one.

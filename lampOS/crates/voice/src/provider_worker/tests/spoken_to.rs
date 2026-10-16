@@ -540,9 +540,26 @@ impl Drop for OwnRoom {
 async fn after_lines_left_alone(lines: &[&str]) -> bool {
     let _mark = OwnMark::kept();
     let _room = OwnRoom::fresh();
+    let (mut rig, mut dial) = in_conversation(options(
+        true,
+        attention_now,
+        crate::tools::Settings::default(),
+    ))
+    .await;
+    for line in lines {
+        left_alone(&mut rig, &mut dial, line).await;
+    }
+    let played = played(&mut rig, &mut dial, NOT_TO_THE_LAMP[0]).await;
+    rig.stop().await;
+    played
+}
+
+/// A rig with `options` in which "Hey Lamp, how much is one hundred dollars
+/// in euros?" was answered, its turn ended.
+async fn in_conversation(options: Options) -> (LiveRig, Dial) {
     let mut rig = LiveRig::start_configured(
         quick_policy(),
-        options(true, attention_now, crate::tools::Settings::default()),
+        options,
         BARRIER,
         false,
         Continuation::Off,
@@ -557,12 +574,6 @@ async fn after_lines_left_alone(lines: &[&str]) -> bool {
         },
     );
     let mut dial = rig.ready().await;
-    let complete = |rig: &mut LiveRig| {
-        rig.owner
-            .complete_turn(real_time(), rig.snapshot.owner().unwrap())
-            .unwrap();
-        rig.publish();
-    };
     let euros = rig.speak(&mut dial, false, true).await;
     dial.service
         .send(heard("Hey Lamp, how much is one hundred dollars in euros?"))
@@ -582,34 +593,54 @@ async fn after_lines_left_alone(lines: &[&str]) -> bool {
     }
     assert!(answered, "the call was not answered");
     complete(&mut rig);
-    for line in lines {
-        let request = rig.speak(&mut dial, false, true).await;
-        dial.service.send(heard(line)).await;
-        // Nothing comes back: the worker closes it as unanswered.
-        loop {
-            match rig.output().await {
-                ProviderOutput::Audio { request: of, .. } if of == request => {
-                    panic!("{line} was answered")
-                }
-                ProviderOutput::TurnComplete { request: of, .. } if of == request => break,
-                _ => {}
+    (rig, dial)
+}
+
+/// The turn ended, as the coordinator ends it.
+fn complete(rig: &mut LiveRig) {
+    rig.owner
+        .complete_turn(real_time(), rig.snapshot.owner().unwrap())
+        .unwrap();
+    rig.publish();
+}
+
+/// `line` heard, and nothing comes back: the worker closes it as
+/// unanswered.
+async fn left_alone(rig: &mut LiveRig, dial: &mut Dial, line: &str) {
+    let request = rig.speak(dial, false, true).await;
+    dial.service.send(heard(line)).await;
+    ended_unplayed(rig, request, line).await;
+    complete(rig);
+}
+
+/// Waits for `request`'s end, none of its sound played.
+async fn ended_unplayed(rig: &mut LiveRig, request: u64, line: &str) {
+    loop {
+        match rig.output().await {
+            ProviderOutput::Audio { request: of, .. } if of == request => {
+                panic!("{line} was answered")
             }
+            ProviderOutput::TurnComplete { request: of, .. } if of == request => break,
+            _ => {}
         }
-        complete(&mut rig);
     }
-    let budget = rig.speak(&mut dial, false, true).await;
-    dial.service.send(heard(NOT_TO_THE_LAMP[0])).await;
+}
+
+/// `line` heard, and the service answers it in words: whether they were
+/// played.
+async fn played(rig: &mut LiveRig, dial: &mut Dial, line: &str) -> bool {
+    let request = rig.speak(dial, false, true).await;
+    dial.service.send(heard(line)).await;
     dial.service.send(provider_audio(7, 240)).await;
     dial.service.send(idle_complete()).await;
     let mut played = false;
     loop {
         match rig.output().await {
-            ProviderOutput::Audio { request, .. } if request == budget => played = true,
-            ProviderOutput::TurnComplete { request, .. } if request == budget => break,
+            ProviderOutput::Audio { request: of, .. } if of == request => played = true,
+            ProviderOutput::TurnComplete { request: of, .. } if of == request => break,
             _ => {}
         }
     }
-    rig.stop().await;
     played
 }
 
@@ -842,5 +873,101 @@ async fn with_the_switch_and_a_voice_check_another_voice_is_no_part_of_the_conve
     assert!(
         scene(false, false, -1).await,
         "without the check it was held"
+    );
+}
+
+/// What the model does with Samantha's "Yes, give me five minutes.", let
+/// out as the conversation going on after one line left alone.
+#[derive(Clone, Copy, Debug)]
+enum Answer {
+    /// Turns the volume up, and says nothing.
+    Done,
+    /// The same, and the Policy judges the turn not the lamp's.
+    PolicyHeld,
+    /// Asks the time, then says the line was not for it.
+    LookedUpThenNotForMe,
+}
+
+/// The sixth's case on #1029 and the reviewer's two on #1069: after the
+/// euros answer and one line left alone, Samantha's "Yes, give me five
+/// minutes." is answered as `answer` says; then Daniel's "Did you get my
+/// message about the budget?". Whether its answer was played, and whether
+/// the volume was turned up.
+async fn after_a_line_answered_by(answer: Answer) -> (bool, bool) {
+    let _mark = OwnMark::kept();
+    let _room = OwnRoom::fresh();
+    let mut desk = super::policy_holds::Desk::new("sto");
+    let mut with = desk.options(true);
+    with.tools.decline = true;
+    with.tools.clock = true;
+    with.attention = Some(attention_now);
+    with.spoken_to = true;
+    let (mut rig, mut dial) = in_conversation(with).await;
+    left_alone(
+        &mut rig,
+        &mut dial,
+        "Anyway, if we drop the trip we save almost half.",
+    )
+    .await;
+    let five = rig.speak(&mut dial, false, true).await;
+    dial.service.send(heard("Yes, give me five minutes.")).await;
+    match answer {
+        Answer::Done | Answer::PolicyHeld => {
+            let choice = match answer {
+                Answer::PolicyHeld => "stay_quiet",
+                _ => "answer",
+            };
+            desk.decide(Some(five), choice);
+            dial.service.send(function_call("c1", "volume_up")).await;
+            rig.service_message(&mut dial).await;
+        }
+        Answer::LookedUpThenNotForMe => {
+            for (id, name) in [
+                ("c1", crate::tools::THE_TIME),
+                ("c2", crate::tools::NOT_FOR_ME),
+            ] {
+                dial.service.send(function_call(id, name)).await;
+                rig.service_message(&mut dial).await;
+            }
+        }
+    }
+    // The asking turn's end, then the turn's: the model says nothing more.
+    for _ in 0..2 {
+        dial.service.send(idle_complete()).await;
+    }
+    ended_unplayed(&mut rig, five, "Yes, give me five minutes.").await;
+    complete(&mut rig);
+    let played = played(&mut rig, &mut dial, NOT_TO_THE_LAMP[0]).await;
+    rig.stop().await;
+    let turned_up = desk.asked.try_recv().is_ok();
+    (played, turned_up)
+}
+
+/// A line answered by something done, with no word said, is answered: the
+/// conversation goes on (the sixth on #1029: "lights off", then
+/// "brighter").
+#[tokio::test]
+async fn with_the_switch_a_line_answered_by_an_action_alone_keeps_the_conversation() {
+    assert_eq!(after_a_line_answered_by(Answer::Done).await, (true, true));
+}
+
+/// An action the Policy held is not an answer: the line was left alone,
+/// the second since the lamp spoke, and the conversation has ended (the
+/// reviewer on #1069 at 18:08).
+#[tokio::test]
+async fn with_the_switch_an_action_the_policy_held_is_no_answer() {
+    assert_eq!(
+        after_a_line_answered_by(Answer::PolicyHeld).await,
+        (false, false)
+    );
+}
+
+/// Nor is a lookup followed by "not for me" (the reviewer on #1069 at
+/// 21:10).
+#[tokio::test]
+async fn with_the_switch_a_lookup_then_not_for_me_is_no_answer() {
+    assert_eq!(
+        after_a_line_answered_by(Answer::LookedUpThenNotForMe).await,
+        (false, false)
     );
 }

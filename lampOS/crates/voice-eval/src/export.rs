@@ -693,6 +693,7 @@ const BUS_TOPICS: &[&str] = &[
     "voice/link",
     "voice/mute",
     "voice/playout",
+    "voice/privacy",
     "voice/progress",
     "voice/said",
     "voice/sound",

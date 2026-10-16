@@ -150,6 +150,16 @@ pub const TMPFILES: &str = include_str!("../../../deploy/product/lampos.conf");
 pub const TMPFILES_PATH: &str = "/etc/tmpfiles.d/lampos.conf";
 /// The lamp's zone, for the parts that take it (docs/install.md).
 pub const ZONE_PATH: &str = "/etc/lampOS/zone.env";
+/// The voice's service: V1's route, the campaign-api proxy with the lamp's own
+/// device key (the first builder on #806, 2026-10-16 12:36). Private, as the
+/// voice requires (`read_private`: the process user's, 0600), and written only
+/// where missing.
+pub const PROVIDER_PATH: &str = "/etc/lampOS/voice/provider.json";
+pub const PROVIDER: &str = include_str!("../../../deploy/product/settings/voice-provider.json");
+/// The lamp's device key, as `provider.json` names it. The customer never
+/// types or sees it: on a lamp made with V1's image it is V1's `llm_api_key`.
+pub const CREDENTIAL_PATH: &str = "/etc/lampOS/voice/credential";
+pub const V1_CONFIG: &str = "/root/config/config.json";
 pub const UNITS: &str = "/etc/systemd/system/";
 
 /// The parts' user, and memory's own.
@@ -452,6 +462,28 @@ pub fn install(
              LAMP_ZONE={zone}\nLAMP_UTC_OFFSET_MINUTES={offset}\n"
         );
         put(config, ZONE_PATH, text.as_bytes(), 0o644, &mut changed)?;
+    }
+    if !config.on(PROVIDER_PATH).exists() {
+        put(
+            config,
+            PROVIDER_PATH,
+            PROVIDER.as_bytes(),
+            0o600,
+            &mut changed,
+        )?;
+    }
+    if !config.on(CREDENTIAL_PATH).exists() {
+        match device_key(config) {
+            Some(key) => {
+                put(config, CREDENTIAL_PATH, key.as_bytes(), 0o600, &mut changed)?;
+                say(&format!(
+                    "the voice's device key was taken from {V1_CONFIG} into {CREDENTIAL_PATH}"
+                ));
+            }
+            None => say(&format!(
+                "no device key: the voice cannot reach its service until {CREDENTIAL_PATH} holds the lamp's key (none in {V1_CONFIG})"
+            )),
+        }
     }
     if !config.on("/etc/lampOS/body/lamp.env").exists() {
         say(
@@ -757,6 +789,16 @@ fn put(
     write_whole(&at, bytes, mode).map_err(failed)?;
     changed.push(format!("wrote {path}"));
     Ok(())
+}
+
+/// V1's device key (`llm_api_key` in its config), when it is one line of
+/// printable text a header can carry. Never said or logged.
+fn device_key(config: &Install) -> Option<String> {
+    let text = fs::read_to_string(config.on(V1_CONFIG)).ok()?;
+    let value: serde_json::Value = serde_json::from_str(&text).ok()?;
+    let key = value.get("llm_api_key")?.as_str()?;
+    (!key.is_empty() && key.len() <= 4096 && key.bytes().all(|b| b.is_ascii_graphic()))
+        .then(|| key.to_owned())
 }
 
 fn has_user(config: &Install, name: &str) -> bool {

@@ -522,6 +522,76 @@ fn time_of_day_parts_wait_for_the_kernel_to_say_the_clock_is_set() {
     assert!(voice.contains(&"Environment=LAMP_KERNEL_CLOCK=on"));
 }
 
+/// #811 / #806 (the first builder, 12:36): a home lamp's voice uses V1's
+/// route with the lamp's own device key, which the customer never types.
+/// Install writes the product `provider.json` and takes the key from V1's
+/// config, both private as the voice requires; it never says the key, keeps
+/// a key already there, and says when there is none.
+#[test]
+fn the_voice_gets_its_service_and_the_lamps_device_key_from_v1s_config() {
+    use std::os::unix::fs::PermissionsExt;
+    const KEY: &str = "dev-key-0123456789abcdef";
+    let private =
+        |lamp: &Lamp, path: &str| fs::metadata(lamp.on(path)).unwrap().permissions().mode() & 0o777;
+
+    let mut lamp = Lamp::new(188, &[]);
+    fs::create_dir_all(lamp.on("/root/config")).unwrap();
+    fs::write(
+        lamp.on(install::V1_CONFIG),
+        format!(r#"{{"llm_api_key": "{KEY}", "device_id": "lamp-06c1"}}"#),
+    )
+    .unwrap();
+    lamp.install().unwrap();
+    assert_eq!(
+        fs::read_to_string(lamp.on(install::CREDENTIAL_PATH)).unwrap(),
+        KEY
+    );
+    assert_eq!(private(&lamp, install::CREDENTIAL_PATH), 0o600);
+    assert_eq!(
+        fs::read_to_string(lamp.on(install::PROVIDER_PATH)).unwrap(),
+        install::PROVIDER
+    );
+    assert_eq!(private(&lamp, install::PROVIDER_PATH), 0o600);
+    let provider: serde_json::Value = serde_json::from_str(install::PROVIDER).unwrap();
+    assert_eq!(provider["credential_file"], install::CREDENTIAL_PATH);
+    assert_eq!(
+        provider["resumption"], "off",
+        "the proxy does not forward it"
+    );
+    assert!(
+        lamp.said
+            .iter()
+            .any(|line| line.contains("device key was taken"))
+    );
+    assert!(
+        lamp.said.iter().all(|line| !line.contains(KEY)),
+        "{:?}",
+        lamp.said
+    );
+    let before = tree(&lamp.root);
+    assert_eq!(lamp.install().unwrap().changed, Vec::<String>::new());
+    assert_eq!(tree(&lamp.root), before);
+
+    // A key already there is the lamp's: kept, even if V1's differs.
+    fs::write(lamp.on(install::V1_CONFIG), r#"{"llm_api_key": "another"}"#).unwrap();
+    lamp.install().unwrap();
+    assert_eq!(
+        fs::read_to_string(lamp.on(install::CREDENTIAL_PATH)).unwrap(),
+        KEY
+    );
+
+    // No V1 config: nothing written, and said.
+    let mut bare = Lamp::new(188, &[]);
+    bare.install().unwrap();
+    assert!(!bare.on(install::CREDENTIAL_PATH).exists());
+    assert!(bare.on(install::PROVIDER_PATH).exists());
+    assert!(
+        bare.said
+            .iter()
+            .any(|line| line.starts_with("no device key"))
+    );
+}
+
 const PINS: &str = "/etc/lampOS/controls/controls-pins.json";
 
 /// The reviewer's case on #815: install, move the primary button to

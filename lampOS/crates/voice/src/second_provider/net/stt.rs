@@ -322,6 +322,12 @@ impl SttStream {
         Ok(words)
     }
 
+    /// The same, without the journal's line: for a stop word's words
+    /// ([`crate::stop_words`], #828), which are not a request.
+    pub async fn finished(self) -> Result<String> {
+        self.finish_told().await.map(|(words, _)| words)
+    }
+
     /// The words, and the journal's account of the end of the line.
     async fn finish_told(mut self) -> Result<(String, Option<String>)> {
         self.audio = None;

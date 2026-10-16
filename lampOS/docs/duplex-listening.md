@@ -218,6 +218,11 @@ lamp-voice directed /absolute/private/provider.json 40 /new/private/run \
 begins at the person's first words, as far back as 1.6 s ("First words
 kept", below). Off by default; not on any lamp.
 
+`LAMP_STOP_WORDS=heard` in the voice's environment, with the second voice's
+configuration: the words said in a yield are heard, and a stop phrase
+commits it ([stop-word.md](stop-word.md#a-stop-word-heard-in-a-yield-828-step-2-16-october)).
+Off by default; not on any lamp.
+
 The two are separate because a long session needs the second under every
 turn-taking policy. With neither flag the supervisor's argv to both audio
 workers is byte for byte what it was, and a worker's periodic

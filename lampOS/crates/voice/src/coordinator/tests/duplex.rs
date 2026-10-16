@@ -82,6 +82,8 @@ pub(super) struct Harness {
     /// block was read, by its sequence.
     gap_us: u64,
     reads: Vec<u64>,
+    /// A yield's words, with `LAMP_STOP_WORDS=heard` (#828).
+    stop_words: Option<crate::stop_words::StopWords>,
 }
 
 impl Harness {
@@ -144,6 +146,7 @@ impl Harness {
             hold: if duplex { Hold::DUPLEX } else { Hold::STANDARD },
             gap_us: 0,
             reads: vec![0],
+            stop_words: None,
         }
     }
     pub(super) fn old(&self) -> TurnOwner {
@@ -216,6 +219,7 @@ impl Harness {
         if yielded {
             self.detector.reach_back();
         }
+        let samples = observation.samples;
         let (update, _) = observe_prospective_heard(
             &mut self.mask,
             &mut self.detector,
@@ -236,6 +240,18 @@ impl Harness {
             record(
                 &mut self.trace,
                 json!({"kind":"input_candidate","candidate":candidate,"at_us":at}),
+            )
+            .unwrap();
+        }
+        if let Some(words) = self.stop_words.as_mut() {
+            hear_stop_words(
+                words,
+                &mut self.mask,
+                &self.admission,
+                &update.step,
+                self.reply.is_some(),
+                &samples,
+                &mut self.trace,
             )
             .unwrap();
         }
@@ -562,6 +578,103 @@ fn with_first_words_kept_a_yields_request_begins_at_the_words_said_under_the_lam
         yielded_at + 1 - crate::activity::PRE_ROLL_BLOCKS as u64
     );
     assert_eq!(usual.last(), kept.last());
+}
+
+/// The words a yield gives back, as the relay does: only once they are
+/// asked for. How many blocks they were given.
+struct Ears {
+    words: Option<&'static str>,
+    asked: bool,
+    heard: std::sync::Arc<std::sync::atomic::AtomicUsize>,
+}
+
+impl crate::stop_words::Ears for Ears {
+    fn ready(&mut self) {}
+    fn hear(&mut self, _: &[i16]) {
+        self.heard
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    }
+    fn finalize(&mut self) {
+        self.asked = true;
+    }
+    fn words(&mut self) -> Option<String> {
+        self.asked
+            .then(|| self.words.take())
+            .flatten()
+            .map(str::to_owned)
+    }
+    fn forget(&mut self) {}
+    fn rest(&mut self) {}
+}
+
+/// #828, step 2, through the production hearing, yield and commit, with
+/// `LAMP_STOP_WORDS=heard`: a short word over the lamp yields and is over
+/// before the lamp is silent, as on lamp-4ace at 05:39. Its words a stop
+/// phrase, the yield commits and the reply ends, with the word as the new
+/// request. Other words resume it as stillness did before. No words resume
+/// it at the deadline. The block it settled at, how many blocks the words
+/// were given, and whether it committed.
+fn a_short_word_with(words: Option<&'static str>) -> (u64, usize, bool) {
+    let heard = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let mut h = Harness::new(TurnTaking::Duplex, 400);
+    h.stop_words = Some(crate::stop_words::StopWords::new(Box::new(Ears {
+        words,
+        asked: false,
+        heard: std::sync::Arc::clone(&heard),
+    })));
+    let old = h.old();
+    h.blocks(20, 0.99, Some(evidence(0, OWN)));
+    // "Stop.", 120 ms over the lamp.
+    h.blocks(ONSET + 2, 0.9, Some(evidence(0, OVER)));
+    let yielded_at = h.events("duplex_yield")[0]["frame_sequence"]
+        .as_u64()
+        .unwrap();
+    for quiet in 1..=29 {
+        h.block(0.1, Some(evidence(quiet, None)));
+    }
+    let mut settled = None;
+    for _ in 0..120 {
+        h.block(0.1, Some(evidence(40, None)));
+        if let Some(at) = h
+            .events("duplex_commit")
+            .first()
+            .or(h.events("duplex_resume").first())
+            .and_then(|event| event["frame_sequence"].as_u64())
+        {
+            settled = Some(at - yielded_at);
+            break;
+        }
+    }
+    let committed = !h.events("duplex_commit").is_empty();
+    if committed {
+        assert_eq!(h.events("turn_finished")[0]["outcome"], "user_interrupted");
+        assert_ne!(h.old(), old);
+    } else {
+        assert_eq!(h.old(), old);
+        assert!(h.events("turn_finished").is_empty());
+    }
+    (
+        settled.expect("the yield never settled"),
+        heard.load(std::sync::atomic::Ordering::Relaxed),
+        committed,
+    )
+}
+
+#[test]
+fn a_stop_word_heard_in_a_yield_commits_it_and_other_words_resume_it() {
+    // Asked at the tenth still block, given at once here (the relay takes
+    // about 25 blocks), committed at the eleventh: 2 over, 29 dying away,
+    // 11 still.
+    let (at, heard, committed) = a_short_word_with(Some("Stop."));
+    assert_eq!((at, committed), (2 + 29 + 11, true));
+    // Held audio (the candidate's 30 blocks) and each block until asked.
+    assert_eq!(heard, 30 + 2 + 29 + 10);
+    // Other words: resumed at the fortieth still block, as without.
+    assert_eq!(a_short_word_with(Some("Mm-hm.")).0, 71);
+    assert!(!a_short_word_with(Some("Mm-hm.")).2);
+    // No words: the deadline, 110 blocks from the yield.
+    let (at, _, committed) = a_short_word_with(None);
+    assert_eq!((at, committed), (110, false));
 }
 
 #[test]

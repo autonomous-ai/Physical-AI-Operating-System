@@ -2990,6 +2990,27 @@ fn conversation_with_gate(
         (true, false) => Hold::DUPLEX,
         (false, _) => Hold::STANDARD,
     };
+    // A yield's words, listened for with the second voice's speech-to-text
+    // (#828, `LAMP_STOP_WORDS=heard`): a stop word ends the reply. Off
+    // unless set, and without the second voice's configuration.
+    let mut stop_words = (duplex && crate::stop_words::heard_on())
+        .then(|| match crate::second_config::load_from_env() {
+            Ok(Some(config)) => crate::stop_words::RelayEars::start(config)
+                .map(|ears| crate::stop_words::StopWords::new(Box::new(ears)))
+                .map_err(|error| eprintln!("lamp-voice: stop words are not heard: {error}"))
+                .ok(),
+            Ok(None) => {
+                eprintln!(
+                    "lamp-voice: LAMP_STOP_WORDS=heard has no speech-to-text without the second voice's configuration: stop words are not heard"
+                );
+                None
+            }
+            Err(error) => {
+                eprintln!("lamp-voice: stop words are not heard: {error}");
+                None
+            }
+        })
+        .flatten();
     let mut admission = InputAdmission::with_hold(hold);
     let mut playback_mask = if duplex {
         record(
@@ -3008,6 +3029,7 @@ fn conversation_with_gate(
             "fruitless_yields_before_fallback":FRUITLESS_YIELDS,
             "decision_budget_us":hold.decision_budget_us,
             "first_words_kept_blocks":first_words.then_some(crate::activity::REACH_BACK_BLOCKS),
+            "stop_words_after_still_blocks":stop_words.is_some().then_some(crate::stop_words::FINALIZE_AFTER_STILL_BLOCKS),
             "provider_queue_bound":provider_queue_bound(hold),
             "provider_total_queue_bound":provider_queue_bound(hold) + 1,
             "provider_terminal_allowance":1,
@@ -3257,6 +3279,10 @@ fn conversation_with_gate(
                         trace,
                         json!({"kind":"ask_again_dropped","turn":turn,"at_us":monotonic_us(),"why":"cancelled with its turn"}),
                     )?;
+                }
+                // What a yield heard is dropped with the reply (#828).
+                if let Some(words) = stop_words.as_mut() {
+                    words.close();
                 }
                 if gap_cut && !stop && !head_stop && !muted {
                     // Admission keeps nothing of it: its capture lineage
@@ -4079,6 +4105,7 @@ fn conversation_with_gate(
             if yielded {
                 detector.reach_back();
             }
+            let samples = observation.samples;
             let (update, input_ended) = observe_prospective_heard(
                 &mut playback_mask,
                 &mut detector,
@@ -4122,6 +4149,20 @@ fn conversation_with_gate(
                 record(
                     trace,
                     json!({"kind":"input_candidate","candidate":candidate,"at_us":monotonic_us()}),
+                )?;
+            }
+            // The words of a yield (#828): its held audio when it begins,
+            // each block while it is in force, and the rule told when they
+            // come. Nothing but what is said in a yield is heard.
+            if let Some(words) = stop_words.as_mut() {
+                hear_stop_words(
+                    words,
+                    &mut playback_mask,
+                    &admission,
+                    &update.step,
+                    reply.is_some(),
+                    &samples,
+                    trace,
                 )?;
             }
             let step = match update.step {
@@ -5011,6 +5052,12 @@ fn conversation_with_gate(
                 clock,
             );
         }
+        // A yield's words are never heard without the microphone (#828).
+        if snapshot.microphone_permission() != Permission::Allowed
+            && let Some(words) = stop_words.as_mut()
+        {
+            words.close();
+        }
         // The one thing the lamp says unasked. Only from rest: nothing
         // being heard, nothing owed, a provider ready to take the turn.
         if reply.is_some() || admission.owns_stream() {
@@ -5837,6 +5884,60 @@ fn hear_capture_block(
         _ => {}
     }
     Ok((listened.score, listened.step == DuplexStep::Yield))
+}
+
+/// One block for a yield's words (#828, `LAMP_STOP_WORDS=heard`): its held
+/// audio when it begins, each block while it is in force, and the duplex
+/// rule told when they come. Nothing but what is said in a yield is heard.
+fn hear_stop_words(
+    words: &mut crate::stop_words::StopWords,
+    mask: &mut PlaybackMask,
+    admission: &InputAdmission,
+    step: &AdmissionStep,
+    replying: bool,
+    samples: &[i16],
+    trace: &mut SessionState,
+) -> Result<()> {
+    let held = match step {
+        AdmissionStep::Candidate(candidate) if candidate.displaced_owner.is_some() => {
+            admission.pending_audio(candidate.id)
+        }
+        _ => None,
+    };
+    match words.block(
+        replying,
+        mask.yield_in_force(),
+        mask.still_blocks(),
+        held,
+        samples,
+    ) {
+        crate::stop_words::Tell::Nothing => {}
+        crate::stop_words::Tell::Await => mask.await_words(),
+        crate::stop_words::Tell::Words { stop, count } => {
+            mask.words(stop);
+            eprintln!(
+                "lamp-voice: a yield's words came: {count} {}, {}",
+                if count == 1 { "word" } else { "words" },
+                if stop {
+                    "a stop phrase"
+                } else {
+                    "not a stop phrase"
+                }
+            );
+            record(
+                trace,
+                json!({"kind":"stop_words","stop":stop,"words":count,"at_us":monotonic_us()}),
+            )?;
+        }
+        crate::stop_words::Tell::Unheard => {
+            eprintln!("lamp-voice: a yield ended before its words came");
+            record(
+                trace,
+                json!({"kind":"stop_words","stop":false,"words":null,"at_us":monotonic_us()}),
+            )?;
+        }
+    }
+    Ok(())
 }
 
 /// [`observe_prospective_heard`] for a block heard as its own score.

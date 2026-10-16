@@ -181,10 +181,51 @@ pub fn name_heard(name: &str, said: &Said) -> bool {
             .any(|(person, _)| said_by_them(name, person) && !counted_otherwise(person))
 }
 
+/// Words that may stand beside a yes to the lamp's read-back without
+/// changing it: "Yes, please.", "Sure, that's fine.", "Yeah, call me
+/// Kesh.", "Vâng ạ.".
+const BESIDE_A_YES: &[&str] = &[
+    "please", "call", "me", "that's", "that", "is", "it", "it's", "fine", "good", "great",
+    "perfect", "i", "my", "name", "thanks", "thank", "you", "lamp", "ạ",
+];
+
+/// Whether `turn` is a plain yes to the lamp's saying `name` back: an
+/// agreeing turn ([`agrees`]) holding nothing but yeses, the name itself and
+/// words that stand beside a yes ([`BESIDE_A_YES`]). Anything else, a
+/// correction with no "no" in it among them ("Yes, but it's Kess.", "Sure,
+/// why not Kess?", "Yes, K, E, S, S.") or "Có lẽ." ("maybe"), is asked
+/// about again (the reviewer on #1208): that costs a turn, and a misheard
+/// name put in place costs the right one.
+fn plain_yes(name: &str, turn: &str) -> bool {
+    let words = lower_words(turn);
+    let name = folded_words(name);
+    let phrase_at = |at: usize, phrase: &[&str]| {
+        phrase
+            .iter()
+            .enumerate()
+            .all(|(next, word)| words.get(at + next).is_some_and(|said| said == word))
+    };
+    let mut covered = vec![false; words.len()];
+    for at in 0..words.len() {
+        for phrase in AGREE.iter().chain(AGREE_WITH_A_NO) {
+            if phrase_at(at, phrase) {
+                covered[at..at + phrase.len()].fill(true);
+            }
+        }
+    }
+    agrees(turn)
+        && words.iter().zip(&covered).all(|(word, covered)| {
+            *covered
+                || BESIDE_A_YES.contains(&word.as_str())
+                || name.contains(&folded_words(word).concat())
+        })
+}
+
 /// Whether the lamp said `name` back in the exchange just before the turn
-/// in hand, and the person agreed to it now: what `replace` needs.
+/// in hand, and the person said a plain yes to it now ([`plain_yes`]):
+/// what `replace` needs, and a name kept from an earlier exchange.
 fn agreed_to(name: &str, said: &Said) -> bool {
-    agrees(&said.this)
+    plain_yes(name, &said.this)
         && said
             .before
             .last()
@@ -213,18 +254,7 @@ pub fn names_arguments(value: Option<&str>) -> Vec<String> {
 /// letter or as a letter and its mark ("Đức" either way), and "double N" is
 /// two of them ("A, double N" spells "Ann"), but "double U" is W.
 pub fn said_by_them(name: &str, said: &str) -> bool {
-    let words = |text: &str| -> Vec<String> {
-        text.replace('\u{2019}', "'")
-            .chars()
-            .filter(|c| !('\u{300}'..='\u{36f}').contains(c))
-            .collect::<String>()
-            .split(|c: char| !(c.is_alphanumeric() || c == '\''))
-            .map(|word| word.trim_matches('\''))
-            .filter(|word| !word.is_empty())
-            .map(|word| word.to_lowercase().chars().map(plain).collect())
-            .collect()
-    };
-    let (name, theirs) = (words(name), words(said));
+    let (name, theirs) = (folded_words(name), folded_words(said));
     let mut spelled: Vec<String> = Vec::new();
     let mut run = String::new();
     let mut doubled = false;
@@ -259,6 +289,21 @@ pub fn said_by_them(name: &str, said: &str) -> bool {
         && name
             .iter()
             .all(|word| theirs.contains(word) || spelled.iter().any(|letters| letters == word))
+}
+
+/// The words of `text` as a name is matched: lowercase, without accents,
+/// written as one letter or as a letter and its mark, a word with an
+/// apostrophe kept whole and ’ read as '.
+fn folded_words(text: &str) -> Vec<String> {
+    text.replace('\u{2019}', "'")
+        .chars()
+        .filter(|c| !('\u{300}'..='\u{36f}').contains(c))
+        .collect::<String>()
+        .split(|c: char| !(c.is_alphanumeric() || c == '\''))
+        .map(|word| word.trim_matches('\''))
+        .filter(|word| !word.is_empty())
+        .map(|word| word.to_lowercase().chars().map(plain).collect())
+        .collect()
 }
 
 /// Lower-case letters with their accents, by the letter without: the Latin
@@ -1081,6 +1126,49 @@ mod tests {
         };
         assert!(!name_heard("Jim", &corrected));
         assert!(!agreed_to("Jim", &corrected));
+    }
+
+    /// The reviewer on #1208 at 04:40: a yes to the lamp's read-back holds
+    /// nothing but yeses, the name and words that stand beside a yes. A
+    /// correction with no "no" in it is asked about again.
+    #[test]
+    fn a_yes_to_the_read_back_holds_nothing_but_the_yes_and_the_name() {
+        let to = |this: &str| Said {
+            this: this.into(),
+            before: vec![(
+                "Hey, I'm Kesh.".into(),
+                "I know you as A. Shall I call you Kesh instead?".into(),
+            )],
+        };
+        for yes in [
+            "Yes.",
+            "Yes, please.",
+            "Sure, that's fine.",
+            "Yeah, call me Kesh.",
+            "Yes, my name is Kesh.",
+            "Dạ.",
+            "Vâng ạ.",
+            "Yes, I don't mind.",
+            "Of course.",
+            "Sure, no problem!",
+            "Sure, why not?",
+        ] {
+            assert!(agreed_to("Kesh", &to(yes)), "{yes}");
+        }
+        for not in [
+            "Yes, but it's Kess.",
+            "Okay, actually it's Kess.",
+            "Sure, it's Kess though.",
+            "No worries, it's actually Kess.",
+            "No problem, but my name is Kess.",
+            "Sure, why not Kess?",
+            "Dạ, Kess ạ.",
+            "Có lẽ.",
+            "Yes, K, E, S, S.",
+        ] {
+            assert!(!agreed_to("Kesh", &to(not)), "{not}");
+            assert!(!name_heard("Kesh", &to(not)), "{not}");
+        }
     }
 
     /// The eyes stand-in on a real socket: what each request sent, and the

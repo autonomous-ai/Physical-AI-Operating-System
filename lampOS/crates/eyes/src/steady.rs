@@ -7,6 +7,7 @@
 //! eyes look every [`STEADY_EVERY_MS`] ms instead of every
 //! 250 ms. A move past the margins, a second face, a loss, another name or a
 //! full look or remember asked goes back to four a second at once.
+//! Only with `--steady-rate on`; four a second stays the default.
 use crate::sight::Sight;
 
 /// How far the face's centre may be from where it was when it settled, in
@@ -138,6 +139,21 @@ mod tests {
     }
 
     #[test]
+    fn a_steady_run_lasts_through_looks_550_ms_apart() {
+        // Once halved, looks come every 500 ms plus a frame or more.
+        const SLOW_US: u64 = 550_000;
+        const { assert!(GAP_US > STEADY_EVERY_MS * 1_000 + 50_000) };
+        let mut steady = Steady::default();
+        let mut now = sit(&mut steady, 0, STEADY_FOR_US + LOOK_US);
+        assert!(steady.halved(false, now));
+        for _ in 0..20 {
+            now += SLOW_US;
+            steady.look(1, at(0.1, 0.2), false, None, now);
+            assert!(steady.halved(false, now));
+        }
+    }
+
+    #[test]
     fn a_full_look_or_remember_asked_restores_four_a_second() {
         let mut steady = Steady::default();
         let now = sit(&mut steady, 0, STEADY_FOR_US + LOOK_US);
@@ -163,7 +179,7 @@ mod tests {
             now += LOOK_US;
         }
         assert!(steady.halved(false, now));
-        steady.look(1, at(0.1, 0.2), true, Some("Leo"), now);
+        steady.look(1, at(0.1, 0.2), true, Some("Lan"), now);
         assert!(!steady.halved(false, now));
     }
 }

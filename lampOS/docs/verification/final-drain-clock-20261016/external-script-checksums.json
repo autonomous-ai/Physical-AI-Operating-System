@@ -1,0 +1,29 @@
+{
+  "date_from_date": "2026-10-16 09:18:14 +0700",
+  "scripts": [
+    {
+      "external_path": "/private/tmp/tests-823-final-drain-baseline.py",
+      "sha256": "1fc482eb313297b2ed5c000f029290743e25ae8200d7563a5901c45d48d1a7c0",
+      "bytes": 2566,
+      "included": false
+    },
+    {
+      "external_path": "/private/tmp/tests-823-final-drain-first-gate.py",
+      "sha256": "7b514ad60911099611afc22c7f48c608188296839ea131ab4b9d714e3779699c",
+      "bytes": 4415,
+      "included": false
+    },
+    {
+      "external_path": "/private/tmp/tests-823-audit-final-drain-results.py",
+      "sha256": "d25b928a9e4124108c20973d714e41dd27b97ff43ccd352ba2d6bb9b2c2685dc",
+      "bytes": 10264,
+      "included": false
+    },
+    {
+      "external_path": "/private/tmp/tests-823-package-final-drain.py",
+      "sha256": "919de970c6df8a0a009e3bec9307682452c6f58cd8365bf5d5b89b3c167c000f",
+      "bytes": 9675,
+      "included": false
+    }
+  ]
+}

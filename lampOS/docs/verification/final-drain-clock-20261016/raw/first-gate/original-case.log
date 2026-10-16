@@ -1,0 +1,7 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.33s
+────────────
+ Nextest run ID 6460e9c6-b1bd-476b-bbc8-89d3469d6efe with nextest profile: default
+    Starting 1 test across 1 binary (18 tests and 23 binaries skipped)
+        PASS [   0.444s] (1/1) lamp-voice-eval::final_dispatch a_session_end_first_seen_in_the_final_drain_withholds_and_is_kept
+────────────
+     Summary [   0.445s] 1 test run: 1 passed, 18 skipped

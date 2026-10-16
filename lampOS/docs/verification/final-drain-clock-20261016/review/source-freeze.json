@@ -1,0 +1,23 @@
+{
+  "date_from_date": "2026-10-16 09:08:33 +0700",
+  "tree": "/private/tmp/lampos-tests-final-drain-clock",
+  "base": "1fb07c6f57ee280a49de7b4ddd74008c2a32a20d",
+  "files": [
+    {
+      "path": "lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "sha256": "aca9379bbb7c993267251c1103a88f91d06ad8468e7f3cc936efb0d44797227c",
+      "bytes": 17959
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+      "sha256": "effec55d65e691a0445a961d7f2331db4578c776e107a7a487c0340ab410c1c1",
+      "bytes": 10916
+    },
+    {
+      "path": "lampOS/docs/voice-test-fixtures.md",
+      "sha256": "bd618f4471d5ec69dad490abc9e4747a91fdb21ef9fb1033a1e9d8f20e332940",
+      "bytes": 19699
+    }
+  ],
+  "version": "Initial four-case review; root is preparing correction separately"
+}

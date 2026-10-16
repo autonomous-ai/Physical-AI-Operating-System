@@ -3,6 +3,8 @@
 //! writes scripted relay lines; a recording-only player shows whether audio
 //! would have started. Nothing is played.
 mod common;
+#[path = "common/final_drain_clock.rs"]
+mod final_drain_clock;
 
 use lamp_voice_eval::{
     events::EventKind,
@@ -131,9 +133,17 @@ impl Rig {
             now = self.dir.join("now.jsonl").display(),
             later = self.dir.join("later.jsonl").display(),
         );
+        PhysicalBackend::new(
+            self.config(script),
+            &self.assets,
+            Box::new(Recording(self.starts.clone())),
+        )
+    }
+
+    fn config(&self, script: String) -> PhysicalConfig {
         let lamp_root = self.dir.join("lamp");
         fs::create_dir_all(&lamp_root).unwrap();
-        let config = PhysicalConfig {
+        PhysicalConfig {
             lamp_command: vec!["/bin/sh".into(), "-c".into(), script, "relay".into()],
             lamp_work_root: lamp_root.display().to_string(),
             mode: LampMode::Fixture {
@@ -148,12 +158,7 @@ impl Rig {
             ring_channel_ceiling: None,
             stimulus_source: StimulusSource::LoudspeakerSynthetic,
             runtime_flags: Default::default(),
-        };
-        PhysicalBackend::new(
-            config,
-            &self.assets,
-            Box::new(Recording(self.starts.clone())),
-        )
+        }
     }
 
     fn begin(&self, backend: &mut PhysicalBackend<'_>) {
@@ -271,7 +276,8 @@ fn a_known_run_end_cue_withholds_dispatch() {
 #[test]
 fn a_session_end_first_seen_in_the_final_drain_withholds_and_is_kept() {
     let rig = Rig::new("disp-late-end");
-    let mut backend = rig.backend(
+    let mut backend = final_drain_clock::backend(
+        &rig,
         &[start_line()],
         "0.3",
         &lines(&[session_end()]),

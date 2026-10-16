@@ -20,14 +20,17 @@
 //! for that lapse, on `light/request` ([`crate::ring_requests`]): the
 //! highest priority that holds is shown over the person's light, and the
 //! person's light again once none does. `light/state` goes on saying the
-//! person's light, and `light/drawn` what was drawn.
+//! person's light, and `light/drawn` what was drawn. Once a request's light
+//! has been drawn for [`REACHED_AFTER_US`], on resting or turn frames, the
+//! ring says so once on `light/reached`, naming its asker, so a skill can
+//! wait for the light it asked for before it goes on (#1146's look).
 //!
 //! Nothing here can stop the ring. A bus that cannot be used leaves the
 //! lamp with the light it has, and a request that is not a light there is
 //! (a colour that does not exist, a level outside 1 to 5) is passed over.
 use crate::{ring_face::Lit, ring_requests::Requests};
 use lamp_bus::{Bus, Publisher, Subscriber};
-use lamp_msgs::{Light, LightRequest};
+use lamp_msgs::{Light, LightReached, LightRequest};
 use std::{io, path::Path, time::Duration};
 
 /// The name the ring's owner publishes under.
@@ -49,6 +52,10 @@ pub const DRAWN_TOPIC: &str = "light/drawn";
 pub const TEST_HOLDS_US: u64 = 2_000_000;
 /// At most this many requests are taken in one look.
 const MOST_AT_ONCE: usize = 8;
+/// A request's light counts as reached once frames have been drawn with it
+/// for this long: five of the face's 70 ms fade times
+/// (`ring_face::EASE_US`), so 99% of the way.
+pub const REACHED_AFTER_US: u64 = 350_000;
 /// The switch for lights asked for that lapse (#940), off unless `on`.
 pub const REQUESTS_ENVIRONMENT: &str = "LAMP_LIGHT_REQUESTS";
 const REQUESTS_FLAG: &str = "--light-requests";
@@ -114,6 +121,19 @@ pub struct RingLight {
     /// Lights asked for that lapse, when switched on, and the one shown.
     requests: Option<(Subscriber, Requests)>,
     requested: Option<Light>,
+    /// Where a request's light is said reached, when switched on.
+    reached: Option<Publisher>,
+    /// The request the face shows, until its light is said reached.
+    reaching: Option<Reaching>,
+}
+
+/// A request's light the face shows: its asker, the light, when it was
+/// first drawn, and whether it has been said reached.
+struct Reaching {
+    source: String,
+    light: Light,
+    drawn_since_us: Option<u64>,
+    said: bool,
 }
 
 impl RingLight {
@@ -151,6 +171,8 @@ impl RingLight {
                 drew: None,
                 requests: None,
                 requested: None,
+                reached: None,
+                reaching: None,
             },
             begins,
         ))
@@ -161,7 +183,10 @@ impl RingLight {
     pub fn take_requests(&mut self, root: &Path, clock_id: &str) -> io::Result<()> {
         let bus = Bus::new(root)?;
         let asked = bus.subscribe_typed(LightRequest::TOPIC, SOURCE, LightRequest::TYPE)?;
+        let reached =
+            bus.publisher_declared(LightReached::TOPIC, &LightReached::declaration(), SOURCE)?;
         self.requests = Some((asked, Requests::new(clock_id)));
+        self.reached = Some(reached);
         Ok(())
     }
 
@@ -251,10 +276,29 @@ impl RingLight {
             changed = lit(&self.now);
         }
         if let Some((_, requests)) = &self.requests {
-            let shown = requests.light(now_us);
-            if shown != self.requested.as_ref() {
-                self.requested = shown.cloned();
+            let shown = requests.shown(now_us);
+            let light = shown.map(|request| &request.light);
+            if light != self.requested.as_ref() {
+                self.requested = light.cloned();
                 requested_changed = true;
+            }
+            // The request on the face, unless a test is over it: a new asker
+            // or a new light is reached afresh.
+            let on_face = shown.filter(|_| self.testing.is_none());
+            let same = match (on_face, &self.reaching) {
+                (Some(request), Some(reaching)) => {
+                    request.claim.source == reaching.source && request.light == reaching.light
+                }
+                (None, None) => true,
+                _ => false,
+            };
+            if !same {
+                self.reaching = on_face.map(|request| Reaching {
+                    source: request.claim.source.clone(),
+                    light: request.light.clone(),
+                    drawn_since_us: None,
+                    said: false,
+                });
             }
         }
         // A request taken, lapsed or overruled changes the face as well, and
@@ -287,9 +331,33 @@ impl RingLight {
             .unwrap_or(&self.now)
     }
 
+    /// Call when the ring wrote any frame, resting or a turn's, at the
+    /// write's own time: a request's light drawn for [`REACHED_AFTER_US`]
+    /// is said reached, once.
+    pub fn frame_drawn(&mut self, drawn_at_us: u64) {
+        let Some(reaching) = self.reaching.as_mut().filter(|reaching| !reaching.said) else {
+            return;
+        };
+        let since = *reaching.drawn_since_us.get_or_insert(drawn_at_us);
+        if drawn_at_us.saturating_sub(since) < REACHED_AFTER_US {
+            return;
+        }
+        reaching.said = true;
+        if let Some(reached) = self.reached.as_mut() {
+            let _ = reached.publish_json(
+                drawn_at_us,
+                &LightReached {
+                    source: reaching.source.clone(),
+                    light: reaching.light.clone(),
+                },
+            );
+        }
+    }
+
     /// Call when the ring wrote a resting frame with the face's light, at
     /// the write's own time. Said when it changes and once a second.
     pub fn drew(&mut self, drawn_at_us: u64) {
+        self.frame_drawn(drawn_at_us);
         let light = self.face().clone();
         if self.drew.as_ref().is_some_and(|(last, at)| {
             *last == light && drawn_at_us.saturating_sub(*at) < SAY_EVERY_US
@@ -721,6 +789,97 @@ mod tests {
         // Its time passes: the person's light again, with no one asking.
         assert_eq!(ring.tick(until), Lit::of(true, "blue", 2));
         assert_eq!(ring.face(), &light(true, "blue", 2));
+    }
+
+    /// Frames drawn at the ring's 25 ms pace from `at` for `for_us`, and
+    /// each light said reached, with when.
+    fn drawn_for(
+        ring: &mut RingLight,
+        reached: &mut lamp_bus::Subscriber,
+        at: &mut u64,
+        for_us: u64,
+    ) -> Vec<(u64, LightReached)> {
+        let until = *at + for_us;
+        let mut said = Vec::new();
+        while *at < until {
+            ring.frame_drawn(*at);
+            while let Some(message) = reached.recv(Duration::ZERO).unwrap() {
+                said.push((*at, message.parse().unwrap()));
+            }
+            *at += 25_000;
+        }
+        said
+    }
+
+    /// #1146: a request's light drawn for 350 ms is said reached once,
+    /// naming its asker, so a skill can wait for its light. Not before a
+    /// frame is drawn, not again for a renewal, afresh for a new light, and
+    /// never for a light the person's own has ended.
+    #[test]
+    fn a_requests_light_drawn_long_enough_is_said_reached_once() {
+        let root = Root::new("light-reached");
+        let (mut ring, _) = RingLight::on(&root.0).unwrap();
+        ring.take_requests(&root.0, "boot-test").unwrap();
+        let bus = Bus::new(&root.0).unwrap();
+        let mut reached = bus.subscribe(LightReached::TOPIC, "test").unwrap();
+        let mut asks = bus
+            .publisher_declared(Light::TOPICS[0], &Light::declaration(), "actions")
+            .unwrap();
+        let mut glows = bus
+            .publisher_declared(LightRequest::TOPIC, &LightRequest::declaration(), "skills")
+            .unwrap();
+        let mut at = 0u64;
+        ring.tick(at);
+        let white = |level: u8| {
+            let mut asked = request(
+                "skill:desk-tutor",
+                lamp_msgs::Priority::Skill,
+                25_000_000,
+                "white",
+            );
+            asked.light.level = level;
+            asked
+        };
+        glows.publish_json(1, &white(5)).unwrap();
+        assert_eq!(taken(&mut ring, &mut at), Lit::of(true, "white", 5));
+        // Taken, but with no frame drawn nothing is said, however long.
+        at += 2_000_000;
+        ring.tick(at);
+        assert!(reached.recv(Duration::ZERO).unwrap().is_none());
+        let first = at;
+        let said = drawn_for(&mut ring, &mut reached, &mut at, 1_000_000);
+        assert_eq!(
+            said,
+            [(
+                first + REACHED_AFTER_US,
+                LightReached {
+                    source: "skill:desk-tutor".into(),
+                    light: light(true, "white", 5),
+                }
+            )]
+        );
+        // Renewed, the same light: nothing more.
+        glows.publish_json(2, &white(5)).unwrap();
+        for _ in 0..5 {
+            at += LOOK_EVERY_US;
+            ring.tick(at);
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        assert!(drawn_for(&mut ring, &mut reached, &mut at, 1_000_000).is_empty());
+        // A new light from the same asker, a dim: reached afresh.
+        glows.publish_json(3, &white(2)).unwrap();
+        assert_eq!(taken(&mut ring, &mut at), Lit::of(true, "white", 2));
+        let said = drawn_for(&mut ring, &mut reached, &mut at, 1_000_000);
+        assert_eq!(said.len(), 1);
+        assert_eq!(said[0].1.light, light(true, "white", 2));
+        // A new light, then the person's own before it is reached: never.
+        glows.publish_json(4, &white(4)).unwrap();
+        assert_eq!(taken(&mut ring, &mut at), Lit::of(true, "white", 4));
+        assert!(drawn_for(&mut ring, &mut reached, &mut at, 100_000).is_empty());
+        std::thread::sleep(Duration::from_millis(2));
+        asks.publish_json(1, &light(true, "blue", 3)).unwrap();
+        assert_eq!(taken(&mut ring, &mut at), Lit::of(true, "blue", 3));
+        assert!(drawn_for(&mut ring, &mut reached, &mut at, 1_000_000).is_empty());
     }
 
     /// The person comes first: their own light ends a skill's glow, which

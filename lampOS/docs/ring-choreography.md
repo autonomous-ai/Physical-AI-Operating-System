@@ -286,8 +286,16 @@ that takes the light (`src/ring_light.rs`). Started with
   always be given way; a request refused for want of a place is not held,
   and its asker's next one is a new claim. 8 requests are read a look. A self-test's colour still comes
   first. `light/state` goes on saying the person's light; `light/drawn`
-  says the request's while it is drawn. A boot clock that cannot be read
-  is said once and the ring takes the person's light alone.
+  says the request's while it is drawn. Once frames, resting or a turn's,
+  have been drawn with a request's light for 350 ms (five of the face's
+  70 ms fade times), the ring says so once on `light/reached`
+  (`lamp_msgs/LightReached`: the request's `source` and the `light`), so a
+  skill can wait for its light before it goes on (#1146's look over a page
+  it lit). A renewal is not said again; a new light, even from the same
+  asker, is. Nothing is said for a light never drawn that long: the privacy
+  switch closed, a test or the person's light over it, or a request that
+  lapsed first. A boot clock that cannot be read is said once and the ring
+  takes the person's light alone.
 
 Whoever asks never writes the ring: the actions program publishes the
 light wanted and reads the state back ([actions.md](actions.md)). A bus

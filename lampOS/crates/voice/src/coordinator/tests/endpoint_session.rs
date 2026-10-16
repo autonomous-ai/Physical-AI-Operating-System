@@ -47,6 +47,8 @@ pub(super) fn one_session() -> std::sync::MutexGuard<'static, ()> {
 
 /// Speech probability of each 10 ms capture block, by block index.
 type Script = fn(u64) -> f32;
+/// The amplitude of each block, by block index, where a scenario sets it.
+type Levels = fn(u64) -> i16;
 
 #[derive(Default)]
 struct Seen {
@@ -164,7 +166,12 @@ fn drain_control(channels: &mut WorkerChannels, generation: &mut u64) -> io::Res
     Ok(true)
 }
 
-fn capture_peer(mut channels: WorkerChannels, script: Script, seen: Arc<Mutex<Seen>>) -> PeerStep {
+fn capture_peer(
+    mut channels: WorkerChannels,
+    script: Script,
+    levels: Option<Levels>,
+    seen: Arc<Mutex<Seen>>,
+) -> PeerStep {
     let mut generation = 0;
     let mut started = None;
     let mut sequence = 0u64;
@@ -216,7 +223,11 @@ fn capture_peer(mut channels: WorkerChannels, script: Script, seen: Arc<Mutex<Se
             }
             sequence += 1;
             let probability = script(sequence);
-            let level = if probability >= 0.5 { 2_000 } else { 20 };
+            let level = match levels {
+                Some(levels) => levels(sequence),
+                None if probability >= 0.5 => 2_000,
+                None => 20,
+            };
             let frame = MicrophoneFrame {
                 epoch: 1,
                 dsp_epoch: 1,
@@ -301,7 +312,7 @@ mod capture_timeline {
                 .unwrap();
             channels.control.send(Control::StartCapture).unwrap();
             let seen = Arc::new(Mutex::new(Seen::default()));
-            let mut step = capture_peer(peer, |_| QUIET, seen.clone());
+            let mut step = capture_peer(peer, |_| QUIET, None, seen.clone());
             assert!(step().unwrap());
             assert!(matches!(
                 channels.control.receive::<WorkerEvent>().unwrap(),
@@ -854,6 +865,8 @@ fn run_scenario_policy(
 struct Lamp {
     end_silence_blocks: Option<u16>,
     cut_keeps_name: bool,
+    asker_first: crate::asker_first::Mode,
+    levels: Option<Levels>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -885,7 +898,7 @@ fn run_policy_with_peers(
     let stop = Arc::new(AtomicBool::new(false));
     let seen = Arc::new(Mutex::new(Seen::default()));
     let steps = [
-        capture_peer(capture_peer_channels, script, seen.clone()),
+        capture_peer(capture_peer_channels, script, lamp.levels, seen.clone()),
         privacy_peer(privacy_peer_channels, seen.clone(), mute_at),
         provider_peer(provider_peer_channels, seen.clone(), reply),
         speaker_peer(speaker_peer_channels, seen.clone()),
@@ -933,6 +946,7 @@ fn run_policy_with_peers(
         endpoint: Some(endpoint),
         call_wait_blocks: None,
         cut_keeps_name: lamp.cut_keeps_name,
+        asker_first: lamp.asker_first,
         paused: Box::new(|| false),
     };
     let mut owner = Controller::new(new_boot().unwrap(), now());
@@ -1427,6 +1441,7 @@ fn mute_with_endpoint(endpoint: EndpointRig) -> (Result<()>, SessionState) {
         endpoint: Some(endpoint),
         call_wait_blocks: None,
         cut_keeps_name: false,
+        asker_first: crate::asker_first::Mode::Off,
         paused: Box::new(|| false),
     };
     let (mut controller, current, _) = active_reply();
@@ -1919,6 +1934,274 @@ fn run_comma(script: Script, reply: Option<ProviderReply>, cut_keeps_name: bool)
         Lamp {
             end_silence_blocks: Some(60),
             cut_keeps_name,
+            ..Lamp::default()
         },
     )
+}
+
+/// One second of the asker at ±2,000 (blocks 50 to 150), an answer that
+/// never plays, then `script`'s later speech at `levels`, with the rule as
+/// `mode` says.
+fn asker_then(mode: crate::asker_first::Mode, script: Script, levels: Levels) -> Session {
+    let session = run_policy_with_peers(
+        TurnTaking::Duplex,
+        8,
+        script,
+        EndpointRig::double(delayed(0.95, Duration::from_millis(60))),
+        None,
+        None,
+        PeerMode::Stepped,
+        Lamp {
+            end_silence_blocks: Some(60),
+            asker_first: mode,
+            levels: Some(levels),
+            ..Lamp::default()
+        },
+    );
+    session.result.as_ref().unwrap();
+    session
+}
+
+/// The asker for a second, then someone else, 1.5 s later, for a second.
+fn two_lines(block: u64) -> f32 {
+    if (50..150).contains(&block) || (300..400).contains(&block) {
+        SPEECH
+    } else {
+        QUIET
+    }
+}
+
+/// #829, the first builder at 14:23: on lamp-4ace in the busy office at
+/// 14:21, the answer to the person at the desk was awaited, and "¿Qué?"
+/// from across the room was taken as a new request and replaced it. With
+/// `LAMP_ASKER_FIRST=on`, speech well under the asker's takes no turn while
+/// the answer is awaited, and the record says so once, with both levels.
+/// The asker a little quieter than before still takes it; 8 dB down, which
+/// leaning back from 30 to 60 cm can be, they do not (the reviewer's P3 on
+/// #1092: the rule's cost). Recorded only, or without the switch, the quiet
+/// speech takes the turn, as before.
+#[test]
+fn with_asker_first_quieter_talk_takes_no_turn_from_an_awaited_answer() {
+    use crate::asker_first::Mode;
+    let _one = one_session();
+    // The second line 16.5 dB under the first (±300 against ±2,000).
+    fn across_the_room(block: u64) -> i16 {
+        match block {
+            50..150 => 2_000,
+            300..400 => 300,
+            _ => 20,
+        }
+    }
+    // Or 4.4 dB under it (±1,200): the asker, leaning back a little.
+    fn leaning_back(block: u64) -> i16 {
+        match block {
+            50..150 => 2_000,
+            300..400 => 1_200,
+            _ => 20,
+        }
+    }
+    // Or 8 dB under it (±800).
+    fn leaning_far_back(block: u64) -> i16 {
+        match block {
+            50..150 => 2_000,
+            300..400 => 800,
+            _ => 20,
+        }
+    }
+    let kept = asker_then(Mode::On, two_lines, across_the_room);
+    assert_eq!(kept.seen.requests.len(), 1, "{:?}", kept.seen.requests);
+    let said = kept.events("asker_first");
+    assert_eq!(said.len(), 1, "{said:?}");
+    // On the face's scale: ±2,000 is -24.3 dBFS, 178; ±300 is -40.8, 54.
+    assert_eq!(
+        (
+            said[0]["asker_level"].as_u64(),
+            said[0]["heard_level"].as_u64(),
+            said[0]["acted"].as_bool()
+        ),
+        (Some(178), Some(54), Some(true)),
+        "{said:?}"
+    );
+    assert_eq!(said[0]["turn"], kept.events("input_admitted")[0]["turn"]);
+    // Judged on a quarter of a second of its own speech, not on its start.
+    assert!(said[0]["blocks"].as_u64() >= Some(25), "{said:?}");
+    // The asker's level is in the end-of-speech record.
+    assert_eq!(kept.events("local_endpoint")[0]["asker_level"], 178);
+
+    let taken = asker_then(Mode::On, two_lines, leaning_back);
+    assert_eq!(taken.seen.requests.len(), 2, "{:?}", taken.seen.requests);
+    assert!(taken.events("asker_first").is_empty());
+
+    let far = asker_then(Mode::On, two_lines, leaning_far_back);
+    assert_eq!(far.seen.requests.len(), 1, "{:?}", far.seen.requests);
+
+    // Recorded only: the same record, and the quiet speech takes the turn.
+    let recorded = asker_then(Mode::Record, two_lines, across_the_room);
+    assert_eq!(
+        recorded.seen.requests.len(),
+        2,
+        "{:?}",
+        recorded.seen.requests
+    );
+    let said = recorded.events("asker_first");
+    assert_eq!(said.len(), 1, "{said:?}");
+    assert_eq!(said[0]["acted"], false, "{said:?}");
+
+    let before = asker_then(Mode::Off, two_lines, across_the_room);
+    assert_eq!(before.seen.requests.len(), 2, "{:?}", before.seen.requests);
+    assert!(before.events("asker_first").is_empty());
+}
+
+/// The reviewer's probe on #1092 (`run_policy_with_peers`): the asker's own
+/// follow-up 1.5 s after their question opens with 0.2 s at ±300 ("um,
+/// and…") and goes on at ±2,000. Judged at 60 ms over the last half second,
+/// it lost 0.4 s of its start. It now waits until its own speech says
+/// whose it is, kept as it is, and reaches the provider whole, as without
+/// the rule.
+#[test]
+fn with_asker_first_a_soft_start_to_the_askers_follow_up_is_kept_whole() {
+    use crate::asker_first::Mode;
+    let _one = one_session();
+    fn soft_start(block: u64) -> i16 {
+        match block {
+            50..150 => 2_000,
+            300..320 => 300,
+            320..400 => 2_000,
+            _ => 20,
+        }
+    }
+    let with = asker_then(Mode::On, two_lines, soft_start);
+    let without = asker_then(Mode::Off, two_lines, soft_start);
+    assert_eq!(with.seen.requests.len(), 2, "{:?}", with.seen.requests);
+    assert!(with.events("asker_first").is_empty());
+    assert_eq!(
+        with.seen.requests[1].audio_blocks, without.seen.requests[1].audio_blocks,
+        "with {:?}, without {:?}",
+        with.seen.requests, without.seen.requests
+    );
+}
+
+/// The reviewer's second probe on #1092: someone across the room (±300)
+/// for half a second, then, 0.1 s later, the asker at ±2,000 for a second.
+/// The asker's own blocks are judged, not the half second before them:
+/// their speech takes the turn, none of it cut, though the talk just before
+/// them may go with it. Judged on the half second before, 0.22 s of the
+/// asker's speech was lost.
+#[test]
+fn with_asker_first_the_asker_just_after_talk_across_the_room_is_heard_whole() {
+    use crate::asker_first::Mode;
+    let _one = one_session();
+    fn across_then_asker(block: u64) -> f32 {
+        if (50..150).contains(&block) || (300..350).contains(&block) || (360..460).contains(&block)
+        {
+            SPEECH
+        } else {
+            QUIET
+        }
+    }
+    fn levels(block: u64) -> i16 {
+        match block {
+            50..150 => 2_000,
+            300..350 => 300,
+            360..460 => 2_000,
+            _ => 20,
+        }
+    }
+    let with = asker_then(Mode::On, across_then_asker, levels);
+    assert_eq!(with.seen.requests.len(), 2, "{:?}", with.seen.requests);
+    // The first of the talk across the room took no turn.
+    assert_eq!(with.events("asker_first").len(), 1);
+    // The turn taken holds all of the asker's speech: triggered no later
+    // than their sixth block (360 + 5), its audio from before their first.
+    // Here it is the rest of the talk across the room, run on into theirs
+    // and taken once their speech made it loud: that talk goes with it, and
+    // nothing of the asker's is cut.
+    let admitted = with.events("input_candidate");
+    let candidate = &admitted.last().unwrap()["candidate"];
+    assert!(
+        candidate["trigger_sequence"].as_u64() <= Some(365),
+        "{candidate}"
+    );
+    let (first, trigger) = (
+        candidate["first_read_at_us"].as_u64().unwrap(),
+        candidate["trigger_read_at_us"].as_u64().unwrap(),
+    );
+    assert!(trigger - first >= 50_000, "{candidate}");
+    assert!(
+        with.seen.requests[1].audio_blocks >= 100,
+        "{:?}",
+        with.seen.requests
+    );
+}
+
+/// The first builder's P1 on #1092: a short quiet line that ends while the
+/// rule waits must be decided then. Kept pending past its end, the next
+/// utterance's Start was refused and the conversation ended. A 15-block line
+/// at ±300, then the asker 0.3 s or 0.65 s after it: the session goes on,
+/// the quiet line takes no turn and the asker's does.
+#[test]
+fn with_asker_first_a_short_quiet_line_ended_while_waiting_ends_nothing() {
+    use crate::asker_first::Mode;
+    let _one = one_session();
+    fn after_30(block: u64) -> f32 {
+        if (50..150).contains(&block) || (300..315).contains(&block) || (345..445).contains(&block)
+        {
+            SPEECH
+        } else {
+            QUIET
+        }
+    }
+    fn after_65(block: u64) -> f32 {
+        if (50..150).contains(&block) || (300..315).contains(&block) || (380..480).contains(&block)
+        {
+            SPEECH
+        } else {
+            QUIET
+        }
+    }
+    fn levels(block: u64) -> i16 {
+        match block {
+            50..150 => 2_000,
+            300..315 => 300,
+            315..500 => 2_000,
+            _ => 20,
+        }
+    }
+    for script in [after_30 as Script, after_65] {
+        let session = asker_then(Mode::On, script, levels);
+        assert_eq!(
+            session.seen.requests.len(),
+            2,
+            "{:?}",
+            session.seen.requests
+        );
+    }
+}
+
+/// The first builder's 21:35 on #1092: the rule ends 5 s after the asker
+/// stopped, whether or not the answer has begun. An answer that never
+/// plays (held back by the rule for whom it answers, or never sent) must
+/// not leave the lamp deaf: softer speech 6 s after the asker takes the
+/// turn.
+#[test]
+fn with_asker_first_the_rule_ends_after_its_time_though_no_answer_played() {
+    use crate::asker_first::Mode;
+    let _one = one_session();
+    fn late_line(block: u64) -> f32 {
+        if (50..150).contains(&block) || (750..850).contains(&block) {
+            SPEECH
+        } else {
+            QUIET
+        }
+    }
+    fn late_and_soft(block: u64) -> i16 {
+        match block {
+            50..150 => 2_000,
+            750..850 => 300,
+            _ => 20,
+        }
+    }
+    let late = asker_then(Mode::On, late_line, late_and_soft);
+    assert_eq!(late.seen.requests.len(), 2, "{:?}", late.seen.requests);
+    assert!(late.events("asker_first").is_empty());
 }

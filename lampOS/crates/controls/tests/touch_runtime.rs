@@ -13,8 +13,8 @@ use lamp_controls::{
     touch_runtime::{DRAIN_LIMIT, Service},
 };
 use lamp_msgs::{
-    ClockStamp, ControlFault, ControlsState, Diagnostic, Level, TouchGesture, TouchIntent,
-    TouchSource, TouchSourceState, TouchState,
+    ClockStamp, ControlFault, ControlGesture, ControlsState, Diagnostic, Gesture, Level,
+    TouchGesture, TouchIntent, TouchSource, TouchSourceState, TouchState,
 };
 use std::{
     cell::{Cell, RefCell},
@@ -114,6 +114,7 @@ fn wiring() -> TouchPinsConfig {
         head_qualify_ms: None,
         head_tap_min_ms: None,
         head_gap_ms: None,
+        legacy_head: false,
     }
 }
 
@@ -138,6 +139,10 @@ struct Rig {
 
 impl Rig {
     fn new(enabled: bool) -> Self {
+        Self::with(enabled, wiring())
+    }
+
+    fn with(enabled: bool, wiring: TouchPinsConfig) -> Self {
         let root = Root::new();
         let bus = Bus::new(&root.0).unwrap().rescan_every(Duration::ZERO);
         let gpio = Gpio::default();
@@ -145,7 +150,7 @@ impl Rig {
         let service = Service::new(
             &bus,
             config(enabled),
-            wiring(),
+            wiring,
             gpio.clone(),
             strip.clone(),
             CLOCK,
@@ -524,12 +529,13 @@ fn shadow_state_and_events_are_observable_but_both_receivers_refuse_authority() 
 #[test]
 fn head_and_reset_roles_never_enter_legacy_primary_retention() {
     let mut rig = Rig::new(true);
-    for at in (0..=500_000).step_by(50_000) {
+    // Released a full second first: the reset arms (RESET_ARM_US).
+    for at in (0..=1_000_000).step_by(50_000) {
         rig.gpio(at, false, false, false);
         rig.step(at);
     }
     let mut head_events = Vec::new();
-    for at in [520_000, 540_000] {
+    for at in [1_020_000, 1_040_000] {
         rig.gpio(at, false, false, true);
         head_events.extend(rig.step(at).events);
     }
@@ -538,18 +544,79 @@ fn head_and_reset_roles_never_enter_legacy_primary_retention() {
             .iter()
             .any(|event| event.source == TouchSource::Head && event.gesture == TouchGesture::Touch)
     );
-    for at in (560_000..=5_560_000).step_by(50_000) {
+    for at in (1_060_000..=6_060_000).step_by(50_000) {
         rig.gpio(at, false, true, false);
         rig.step(at);
     }
-    rig.gpio(5_580_000, false, false, false);
-    let output = rig.step(5_580_000);
+    rig.gpio(6_080_000, false, false, false);
+    let output = rig.step(6_080_000);
     assert_eq!(output.events.len(), 1);
     assert_eq!(output.events[0].source, TouchSource::Reset);
     assert_eq!(output.events[0].when_speaking, TouchIntent::FactoryReset);
     let state = rig.legacy();
     assert!(state.latest_stop.is_none() && state.latest_mute.is_none());
     assert_eq!(state.event_sequence, 0);
+}
+
+/// The reviewer on #1167: on a product lamp, whose voice and Expression do
+/// not read `controls/touch`, a pat on the head is still the old engine's
+/// `Pet` with `legacy_head`, which wakes a lamp asleep at night. The head's
+/// own touch events go on as well; the reset never reaches the old engine.
+#[test]
+fn with_legacy_head_a_pat_is_still_the_old_engines_pet() {
+    let mut rig = Rig::with(
+        true,
+        TouchPinsConfig {
+            legacy_head: true,
+            ..wiring()
+        },
+    );
+    let mut gestures = rig.bus.subscribe(ControlGesture::TOPIC, "test").unwrap();
+    for at in (0..=600_000).step_by(20_000) {
+        rig.gpio(at, false, false, false);
+        rig.step(at);
+    }
+    let mut head_events = Vec::new();
+    for at in (620_000..=900_000).step_by(20_000) {
+        rig.gpio(at, false, false, true);
+        head_events.extend(rig.step(at).events);
+    }
+    assert!(rig.legacy().head_active, "the old engine sees the hand");
+    assert!(
+        head_events
+            .iter()
+            .any(|event| event.source == TouchSource::Head && event.gesture == TouchGesture::Touch)
+    );
+    for at in (920_000..=3_000_000).step_by(20_000) {
+        rig.gpio(at, false, false, false);
+        rig.step(at);
+    }
+    let pet: ControlGesture = gestures
+        .recv(Duration::ZERO)
+        .unwrap()
+        .expect("a pat is a Pet on controls/gesture")
+        .parse()
+        .unwrap();
+    assert_eq!((pet.gesture, pet.enabled), (Gesture::Pet, true));
+    assert!(!rig.legacy().head_active);
+    // Without it, as before: the head never reaches the old engine.
+    let mut plain = Rig::new(true);
+    let mut plain_gestures = plain.bus.subscribe(ControlGesture::TOPIC, "test").unwrap();
+    for at in (0..=600_000).step_by(20_000) {
+        plain.gpio(at, false, false, false);
+        plain.step(at);
+    }
+    for at in (620_000..=900_000).step_by(20_000) {
+        plain.gpio(at, false, false, true);
+        plain.step(at);
+    }
+    assert!(!plain.legacy().head_active);
+    for at in (920_000..=3_000_000).step_by(20_000) {
+        plain.gpio(at, false, false, false);
+        plain.step(at);
+    }
+    assert!(plain_gestures.recv(Duration::ZERO).unwrap().is_none());
+    assert_eq!(plain.legacy().event_sequence, 0);
 }
 
 #[test]

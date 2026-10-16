@@ -71,7 +71,10 @@ struct Primary {
     engine: Engine,
     state: Publisher,
     gestures: Publisher,
-    name: String,
+    /// The primary button, if there is one.
+    name: Option<String>,
+    /// Whether the head pads go to it too ([`TouchPinsConfig::legacy_head`]).
+    head: bool,
 }
 
 impl<G: PinReader, S: StripReader> Service<G, S> {
@@ -89,8 +92,10 @@ impl<G: PinReader, S: StripReader> Service<G, S> {
             bus.publisher_declared(TouchState::TOPIC, &TouchState::declaration(), "controls")?;
         let engine = TouchEngine::new(touch, clock, state.boot()).map_err(io::Error::other)?;
         // Preserve the installed Voice receiver's primary-button behavior in
-        // touch mode. Head/base/reset are never sent to this legacy engine.
-        let primary = if let Some(pin) = wiring.buttons.first() {
+        // touch mode, and with `legacy_head` the head's Pet. Base and reset
+        // are never sent to this legacy engine.
+        let button = wiring.buttons.first().map(|pin| pin.name.clone());
+        let primary = if button.is_some() || wiring.legacy_head {
             let state = bus.publisher_declared(
                 ControlsState::TOPIC,
                 &ControlsState::declaration(),
@@ -100,8 +105,16 @@ impl<G: PinReader, S: StripReader> Service<G, S> {
                 engine: Engine::new(
                     Config {
                         enabled: config.enabled,
-                        buttons: vec![pin.name.clone()],
-                        head_pads: vec![],
+                        buttons: button.iter().cloned().collect(),
+                        head_pads: if wiring.legacy_head {
+                            wiring
+                                .head_pads
+                                .iter()
+                                .map(|pin| pin.name.clone())
+                                .collect()
+                        } else {
+                            vec![]
+                        },
                         base_selected_mask: None,
                     },
                     clock,
@@ -114,7 +127,8 @@ impl<G: PinReader, S: StripReader> Service<G, S> {
                     &ControlGesture::declaration(),
                     "controls",
                 )?,
-                name: pin.name.clone(),
+                name: button,
+                head: wiring.legacy_head,
             })
         } else {
             None
@@ -223,8 +237,12 @@ impl<G: PinReader, S: StripReader> Service<G, S> {
         }
         if let Some(primary) = &mut self.primary {
             let mut button = sample.clone();
-            button.buttons.retain(|level| level.name == primary.name);
-            button.head_pads.clear();
+            button
+                .buttons
+                .retain(|level| primary.name.as_ref() == Some(&level.name));
+            if !primary.head {
+                button.head_pads.clear();
+            }
             button.base_mask = None;
             if let Err(error) = primary.engine.ingest(now_us, button) {
                 self.record(now_us, Input::GpioFault { fault: error.fault });

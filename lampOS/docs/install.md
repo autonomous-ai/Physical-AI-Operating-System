@@ -219,7 +219,13 @@ What steps 2 and 3 build, unless an answer on #811 changes it.
   `/etc/lampOS/expression/expression.json`, the controls' two files in
   `/etc/lampOS/controls/` (the pins name the button, the two head pads and
   the reset button, line 100; the unit serves `--touch`, the path whose
-  head and reset events the voice, Expression and `watch-reset` read). `/etc/lampOS` is made 0755 and each of these
+  reset event `watch-reset` reads. The product's voice and Expression do
+  not read the head's `controls/touch` yet, so `legacy_head` keeps a pat
+  the old engine's `Pet`, which wakes a lamp asleep at night; a head tap
+  does not stop the voice on a product lamp, #1167). A pins file changed by
+  hand is kept, and must pass the touch path's checks, which are stricter
+  than the old reader's (chip 0, the button on line 99, head pads on 37,
+  96, 97 or 98), or Controls does not start, and the button with it. `/etc/lampOS` is made 0755 and each of these
   folders 0755, files 0644: readable by `lampos`. lamp-4ace's `/etc/lampOS`
   is root's alone; `install` does not open one made closed (credentials may
   be below it) and says so. The voice's turn-end model and ONNX

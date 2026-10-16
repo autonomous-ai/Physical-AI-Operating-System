@@ -77,9 +77,21 @@ to the state publisher's session.
 For an explicitly configured primary button, touch mode also publishes the
 existing Stop/SoftwareMute protocol so installed Voice keeps working. A new
 owner must choose one authoritative primary protocol; it must not independently
-apply both representations of one release. Head/base/reset never enter that
+apply both representations of one release. Base and reset never enter that
 legacy engine, and a malformed complete GPIO observation cannot retain a
-primary action from just the valid-looking portion.
+primary action from just the valid-looking portion. The head pads enter it
+only with `"legacy_head": true` in the pins, for a lamp whose voice and
+Expression do not read `controls/touch` yet (the product's, the reviewer on
+#1167): a pat is then still the old engine's `Pet` on `controls/gesture`,
+which wakes a lamp asleep at night, and `head_active` on `controls/state`,
+which the voice counts. Never with `LAMP_HEAD_TOUCH=on` or Expression's
+`--head-touch`: a three-second hold would put the lamp to sleep and its
+release, a `Pet`, wake it again.
+
+The reset button arms only after it has read released for one second
+running (`RESET_ARM_US`), and the touch pins require it pulled up: a line
+that rests pressed and lifts briefly is never a reset, so two short lifts
+5 s apart cannot wipe the person's data (the reviewer on #1167).
 
 ### Geometry, qualification and missing evidence
 
@@ -168,8 +180,9 @@ mean a newly acquired sample.
 ### Reader, startup and shutdown
 
 The new pins schema has `chip`, `buttons`, `head_pads`, `every_ms`, optional
-`reset`, and optional `base`. Only chip 0 is allowed. Optional primary is
-line 99; reset is active-low line 100 in its own field. Head candidates are
+`reset`, optional `base` and optional `legacy_head` (false unless set; see
+above). Only chip 0 is allowed. Optional primary is line 99; reset is
+active-low line 100, pulled up, in its own field. Head candidates are
 37/96/97/98, selected and polarized per unit. Names/lines are unique and
 match the Controls configuration. The privacy switch, chip 1 line 9, remains
 Voice's. A base requires `base_selected_mask` to exactly match its working

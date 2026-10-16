@@ -443,12 +443,13 @@ fn primary_hold_never_commits_before_release_and_never_factory_resets() {
 #[test]
 fn reset_short_release_does_nothing_and_exact_five_seconds_is_reset_only() {
     let mut rig = Rig::new(buttons());
-    rig.gpio(0, false, false, 0);
-    rig.hold(50_000, 5_000_000, false, true, 0);
-    assert!(rig.gpio(5_049_999, false, false, 0).is_empty());
-    rig.hold(5_099_999, 5_299_999, false, false, 0);
-    assert!(rig.hold(5_349_999, 10_299_999, false, true, 0).is_empty());
-    let e = rig.gpio(10_349_999, false, false, 0).pop().unwrap();
+    // Released a full second first: the reset arms (RESET_ARM_US).
+    rig.hold(0, 1_000_000, false, false, 0);
+    rig.hold(1_050_000, 6_000_000, false, true, 0);
+    assert!(rig.gpio(6_049_999, false, false, 0).is_empty());
+    rig.hold(6_099_999, 6_299_999, false, false, 0);
+    assert!(rig.hold(6_349_999, 11_299_999, false, true, 0).is_empty());
+    let e = rig.gpio(11_349_999, false, false, 0).pop().unwrap();
     assert_eq!(e.source, TouchSource::Reset);
     assert_eq!(e.when_speaking, TouchIntent::FactoryReset);
     assert_eq!(e.observed_us - e.began_us, RESET_HOLD_US);
@@ -1074,13 +1075,13 @@ fn gpio_fault_preserves_independent_strip_request_identity() {
 #[test]
 fn physical_button_events_preserve_stop_mute_and_reset_asleep() {
     let mut rig = Rig::new(buttons());
-    rig.gpio(0, false, false, 0);
-    rig.gpio(10_000, true, false, 0);
-    let tap = rig.gpio(20_000, false, false, 0).pop().unwrap();
+    rig.hold(0, 1_000_000, false, false, 0);
+    rig.gpio(1_010_000, true, false, 0);
+    let tap = rig.gpio(1_020_000, false, false, 0).pop().unwrap();
     assert_eq!(tap.intent(false, true), Some(TouchIntent::Stop));
-    rig.hold(70_000, 270_000, false, false, 0);
-    assert!(rig.hold(320_000, 5_320_000, true, true, 0).is_empty());
-    let events = rig.gpio(5_320_001, false, false, 0);
+    rig.hold(1_070_000, 1_270_000, false, false, 0);
+    assert!(rig.hold(1_320_000, 6_320_000, true, true, 0).is_empty());
+    let events = rig.gpio(6_320_001, false, false, 0);
     assert_eq!(events.len(), 2);
     assert_eq!(events[0].source, TouchSource::Primary);
     assert_eq!(
@@ -1092,5 +1093,22 @@ fn physical_button_events_preserve_stop_mute_and_reset_asleep() {
         events[1].intent(false, true),
         Some(TouchIntent::FactoryReset)
     );
-    assert_eq!(events[1].released_us, Some(5_320_001));
+    assert_eq!(events[1].released_us, Some(6_320_001));
+}
+
+/// The reviewer on #1167: a reset line that rests pressed (a pad driving it
+/// low) and lifts briefly never arms, so two short lifts 5 s apart are no
+/// factory reset. Released a full second, it arms, and a 5 s hold is one.
+#[test]
+fn a_reset_line_resting_pressed_never_arms_on_short_lifts() {
+    let mut rig = Rig::new(buttons());
+    rig.hold(0, 2_000_000, false, true, 0);
+    rig.hold(2_010_000, 2_200_000, false, false, 0);
+    assert!(rig.hold(2_210_000, 7_300_000, false, true, 0).is_empty());
+    assert!(rig.hold(7_310_000, 7_500_000, false, false, 0).is_empty());
+    rig.hold(7_510_000, 8_600_000, false, false, 0);
+    assert!(rig.hold(8_610_000, 13_610_000, false, true, 0).is_empty());
+    let e = rig.gpio(13_620_000, false, false, 0).pop().unwrap();
+    assert_eq!(e.source, TouchSource::Reset);
+    assert_eq!(e.when_speaking, TouchIntent::FactoryReset);
 }

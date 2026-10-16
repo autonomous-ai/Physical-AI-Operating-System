@@ -4,7 +4,7 @@ use crate::{
     engine::Config,
     input::{InputError, Observation, PinReader},
     mpr121,
-    pins::{Pin, PinsConfig},
+    pins::{Pin, PinsConfig, Pull},
     touch::{GpioSample, TouchConfig},
 };
 use serde::{Deserialize, Serialize};
@@ -35,6 +35,15 @@ pub struct TouchPinsConfig {
     pub head_tap_min_ms: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub head_gap_ms: Option<u64>,
+    /// Also give the head pads to the old engine, whose `Pet` on
+    /// `controls/gesture` wakes a lamp asleep at night and whose
+    /// `head_active` the voice counts: for a lamp whose voice and Expression
+    /// do not read `controls/touch` yet, the product's (the reviewer on
+    /// #1167). Never with `LAMP_HEAD_TOUCH=on` or Expression's
+    /// `--head-touch`: a three-second hold would then put the lamp to sleep
+    /// and its release, a `Pet`, wake it again.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub legacy_head: bool,
 }
 
 impl TouchPinsConfig {
@@ -61,9 +70,11 @@ impl TouchPinsConfig {
         if self
             .reset
             .as_ref()
-            .is_some_and(|pin| pin.line != 100 || !pin.active_low)
+            .is_some_and(|pin| pin.line != 100 || !pin.active_low || pin.pull != Pull::Up)
         {
-            return Err("the optional reset is active-low chip 0 line 100, reset only".into());
+            return Err(
+                "the optional reset is active-low chip 0 line 100, pulled up, reset only".into(),
+            );
         }
         if self
             .head_pads

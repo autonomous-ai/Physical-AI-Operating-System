@@ -152,6 +152,20 @@ session is told it does not know the time, never to guess
   second. No probe of its own and no new process. Off unless set.
 - Next: the voice's recorded line and Expression's look, from `lamp/online`.
 
+## Step 3: the words and the light (`LAMP_OFFLINE_VOICE=on`)
+
+Decided by the first builder on #830 (01:53, 05:44): one switch for the
+voice side, silent until the recordings exist.
+
+- **Someone speaks while offline** (the link down 5 s or more): a local-only
+  turn, never sent; the ring's listening face becomes the offline breath;
+  the first speech of the outage gets the recorded line, later tries and
+  sounds get none ([failure-notices.md](failure-notices.md), "Offline").
+- **Idle while offline:** nothing changes.
+- **Back:** "I'm back online." once, when the link is ready again after an
+  outage in which the line was said, when the lamp is free and the room
+  quiet, within a minute or not at all.
+
 ## Smaller mends
 
 - **The updater's name lookup** (`crates/update/src/fetch.rs`,

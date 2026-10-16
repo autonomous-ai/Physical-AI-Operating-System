@@ -55,7 +55,7 @@ No wording or voice has been approved.
 
 | Field | Rule |
 |---|---|
-| `kind` | `provider_unavailable`, `turn_lost` or `service_refused` |
+| `kind` | `provider_unavailable`, `turn_lost`, `service_refused` or `back_online` (#830) |
 | `language` | A BCP 47 tag, matched exactly. `en` does not satisfy `en-US` |
 | `transcript` | The words in the recording, 1 to 240 bytes, no control characters. Kept for records and review; never sent anywhere to be spoken |
 | `voice`, `voice_revision` | What produced the recording, 1 to 64 bytes each |
@@ -135,6 +135,42 @@ This crate cannot speak. The coordinator owns that:
   rate-limit notice for 300 s.
 - Publish `capability()` in a status report so a missing notice is known
   before the outage in which it would have been needed.
+
+## Offline: the lamp says it cannot reach the internet (#830)
+
+With `LAMP_OFFLINE_VOICE=on` in a serving voice's environment (and
+`--failure-notice-dir` / `--failure-notice-language` as above), speech heard
+while the provider link has been down for 5 s or more is no longer dropped:
+it is admitted as a **local-only turn** (`commit_offline_input`). The turn
+has an owner, is listened to and ended like any other, and the ring shows
+the offline breath (ring-choreography.md); but its request is failed locally
+from the start (`CloudRequest::local_only`) and nothing of it goes to the
+provider (`queue_input`/`queue_input_end` send nothing for it). When it has
+settled, `select_failure_notice_in` chooses:
+
+- the `provider_unavailable` recording ("Sorry, I can't reach the internet
+  right now. I'll be back soon."), once an outage, only if what was heard
+  was speech: not a sound let through (`LAMP_SHORT_SOUNDS`) and not a scrap
+  too short to be a request. A cough during an outage does not make the
+  lamp apologise;
+- nothing for any other try in the same outage: the breath alone shows it
+  was heard.
+
+The outage ends when the link is ready again; the next outage says the line
+again. The recording goes through the same speaker path, permits and
+retirement as `turn_lost`. With no recording provisioned the turn is
+`Skipped` and the lamp is silent, as before.
+
+**Back online.** When the link is ready again after an outage in which the
+line was said, "I'm back online." (`back_online`) is owed for 60 s
+(`BACK_ONLINE_OWED_US`). It is said once by a turn the lamp takes for itself
+with no input (`commit_back_online`, local-only like the offline turn), only
+when nothing holds the lamp (no turn, nothing queued or pending, not paused,
+the microphone allowed) and the room is quiet as for a reminder. Someone
+answered first, a new outage, or the minute passing let it go unsaid. Both
+recordings are reported in `failure_notice_capability` (`offline`,
+`back_online`). The other-language rule needs speech-to-text and does not apply
+with no internet; only the local sound rule does.
 
 ## Verified, and not
 

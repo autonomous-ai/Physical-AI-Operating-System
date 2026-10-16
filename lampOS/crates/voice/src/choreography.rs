@@ -33,6 +33,8 @@ pub struct RingChoreographer {
     /// Stamped into the next frame; see [`RingFrame::attending`].
     attending: bool,
     unshown: bool,
+    /// Stamped into the next frame; see [`RingFrame::offline`].
+    offline: bool,
 }
 
 impl RingChoreographer {
@@ -48,6 +50,7 @@ impl RingChoreographer {
             level: 0,
             attending: false,
             unshown: false,
+            offline: false,
         })
     }
 
@@ -68,6 +71,12 @@ impl RingChoreographer {
     /// while it is.
     pub fn set_unshown(&mut self, unshown: bool) {
         self.unshown = unshown;
+    }
+
+    /// Whether the internet cannot be reached. Like the level, it changes
+    /// how the next frame looks and nothing else.
+    pub fn set_offline(&mut self, offline: bool) {
+        self.offline = offline;
     }
 
     pub fn is_faulted(&self) -> bool {
@@ -149,6 +158,7 @@ impl RingChoreographer {
             requested_at_us,
             level: self.level,
             attending: self.attending,
+            offline: self.offline,
         };
         self.pending = Some(frame);
         self.last_frame = Some(frame);
@@ -485,6 +495,36 @@ mod tests {
         controller.complete_turn(t(23), owner).unwrap();
         assert!(policy.prepare(&mut controller, t(23)).unwrap().is_none());
         assert_eq!(controller.snapshot(t(23)).unwrap().owner(), None);
+    }
+
+    #[test]
+    fn offline_draws_only_a_listening_frame_as_the_breath() {
+        use crate::ring_face::Mood;
+        let mut controller = ready();
+        controller.admit(t(10), AdmittedInput::NewTurn).unwrap();
+        let mut policy = RingChoreographer::new(48).unwrap();
+        policy.set_offline(true);
+        let listening = policy.prepare(&mut controller, t(10)).unwrap().unwrap();
+        assert!(listening.offline);
+        assert_eq!(listening.phase, RingPhase::Listening);
+        assert_eq!(listening.mood(), Mood::Offline);
+        // Only listening: a speaking or waiting frame is as it was.
+        for phase in [RingPhase::Waiting, RingPhase::Speaking] {
+            assert_eq!(RingFrame { phase, ..listening }.mood(), phase.mood());
+        }
+        // Off: as before, and a frame without the field reads as off.
+        assert_eq!(
+            RingFrame {
+                offline: false,
+                ..listening
+            }
+            .mood(),
+            Mood::Listening
+        );
+        let mut written = serde_json::to_value(listening).unwrap();
+        written.as_object_mut().unwrap().remove("offline");
+        let read: RingFrame = serde_json::from_value(written).unwrap();
+        assert!(!read.offline);
     }
 
     #[test]

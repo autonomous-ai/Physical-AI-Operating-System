@@ -45,6 +45,9 @@ pub enum NoticeKind {
     TurnLost,
     /// The service refused: a usage limit or a rejected credential.
     ServiceRefused,
+    /// The internet is back, said only if the lamp said it could not reach
+    /// it (#830).
+    BackOnline,
 }
 
 /// Who may hear it.

@@ -62,6 +62,11 @@ pub struct RingFrame {
     /// listening face. It shapes the frame and grants nothing.
     #[serde(default)]
     pub attending: bool,
+    /// The internet cannot be reached (#830, `LAMP_OFFLINE_VOICE=on`): a
+    /// listening frame is drawn as the offline breath. It shapes the frame
+    /// and grants nothing.
+    #[serde(default)]
+    pub offline: bool,
 }
 
 impl RingFrame {
@@ -69,6 +74,7 @@ impl RingFrame {
     pub const fn mood(&self) -> Mood {
         match self.phase {
             RingPhase::Speaking if self.attending => Mood::Listening,
+            RingPhase::Listening if self.offline => Mood::Offline,
             phase => phase.mood(),
         }
     }

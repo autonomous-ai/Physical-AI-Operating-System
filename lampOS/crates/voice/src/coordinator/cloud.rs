@@ -138,6 +138,24 @@ impl CloudRequest {
         })
     }
 
+    /// A local-only turn's request (#830): never submitted, failed locally
+    /// from the start, so no provider input or output can ever match it.
+    pub(super) fn local_only() -> Self {
+        Self {
+            session: 0,
+            start_submitted: false,
+            started: false,
+            input_end_submitted: false,
+            input_abandoned: true,
+            outcome: Some(RequestOutcome::Failed {
+                stage: FailedStage::NotDelivered,
+                reason: Fault::Local,
+                local_not_submitted: true,
+            }),
+            movable: false,
+        }
+    }
+
     /// Only a successful local IPC send advances submission; queued commands
     /// or a WouldBlock attempt do not prove delivery to the worker.
     pub(super) fn validate_submission(&self, command: &ProviderInput) -> io::Result<()> {
@@ -507,6 +525,7 @@ mod tests {
             final_chunk: None,
             playback_gaps: 0,
             notice: Default::default(),
+            local_only: None,
             last_provider_audio_at_us: None,
             start: lamp_audio::playout::StartGate::new(0),
             need: lamp_audio::playout::StartNeed::default(),

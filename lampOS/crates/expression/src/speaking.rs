@@ -120,6 +120,30 @@ fn fraction(count: u64, salt: u64) -> f64 {
 }
 
 impl SpeechMotion {
+    /// A lifetime fence (a new session, turn or audio generation, a hold, a
+    /// cancellation, an interruption): nothing of the answer before goes on
+    /// moving the head, and nothing is owed for it (#955 review).
+    pub(crate) fn forget(&mut self) {
+        *self = Self {
+            nods: self.nods,
+            sways: self.sways,
+            ..Self::default()
+        };
+    }
+
+    /// Whether an answer that ends now, as it should, has spoken long enough
+    /// to be settled after.
+    pub(crate) fn owes_settle(&self, rules: &Speaking, now_us: u64) -> bool {
+        self.spoke_since
+            .is_some_and(|since| now_us.saturating_sub(since) >= rules.settle_after_us)
+    }
+
+    /// Settle from `now_us`: what a normal finish owes, kept across the
+    /// fence that ends its answer.
+    pub(crate) fn settle_from(&mut self, now_us: u64) {
+        self.settle = Some(now_us);
+    }
+
     /// The head's roll from the sway now.
     fn roll(&self, rules: &Speaking, now_us: u64) -> f64 {
         let target = self.side * rules.sway_roll;

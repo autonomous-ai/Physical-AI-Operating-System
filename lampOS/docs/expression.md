@@ -225,6 +225,13 @@ concentrating, asleep, or once someone has cut in, and nothing is owed after.
   `settle_us` (0.6 s) when an answer of at least `settle_after_us` (1.5 s)
   ends, then rest.
 
+What moved the head with one answer ends at the fences that end it (#955
+review): a new session, turn or audio generation, a hold or resume, a
+cancellation, an interruption or a fault forgets every nod, sway and settle
+owed. Only an answer that ends as it should (Finished, or its turn's own
+Speaking-to-rest edge) keeps its settle across that fence. A new turn at once,
+someone speaking, cuts even that short.
+
 The behaviour names are `nodding on a stressed word`, `swaying between
 sentences` and `settling as it finishes`. The old clip and the speaking pose
 are unchanged, and a catalogue without `speaking` plans exactly as before.
@@ -237,6 +244,9 @@ voice does not; nods keep their gap and differ; a pause sways the next
 sentence to the other side, eased, and a short breath does not; a long
 answer settles and a short one does not; held or cut in on, nothing moves;
 poses outside the limits are refused). `crates/expression/tests/speaking_engine.rs`
+also checks the fences: a new turn, or a cancelled answer, carries none of
+the old answer's motion, the offsets equal to a catalogue without speaking,
+and a finished answer is settled after.
 runs an eight-second answer with stressed words every 1.1 s and a half-second
 pause every 3 s through the engine, in a quiet and a busy room. It expects
 5 to 8 nods, the head rolled both ways by more than 0.015 rad, over 0.02 rad

@@ -336,7 +336,9 @@ and lamp-52e6 and write the numbers here; if the full size is too slow,
 640x480 is the knob.
 
 On the voice service's side, `LAMP_LOOK_FULL=on` ([speaking-first.md](speaking-first.md),
-"Taking a look"). The two are turned on together: eyes with `--full-look`
+"Taking a look"). The voice asks for a still when the lamp says it will
+look, or when a skill's tool that looks is called (#941), whatever the
+model says then. The two are turned on together: eyes with `--full-look`
 and a voice service without it look with the working frame, as before. Privacy is as before: the still goes with the one look it
 was taken for, is on the lamp for at most 15 s, in memory, and is never kept
 or logged.

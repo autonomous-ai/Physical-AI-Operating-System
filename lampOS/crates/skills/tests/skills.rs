@@ -1632,6 +1632,8 @@ fn a_declared_tool_is_in_the_tools_file_and_a_call_runs_the_skills_steps() {
         "{next}"
     );
     assert!(next.ends_with("never the answer."), "{next}");
+    // And the voice takes the look itself, whatever the model says (#941).
+    assert_eq!(answer["result"]["look"], true, "{answer}");
     // Again while the page is still lit, as a student asks once more after
     // fixing a line (#941): told to look again, and the light left as it is.
     let again = call("check_my_work");
@@ -1741,6 +1743,8 @@ fn a_repeat_call_with_only_made_steps_is_refused_while_its_run_is_under_way() {
     let first = call();
     assert_eq!(first["ok"], true, "{first}");
     assert_eq!(first["result"]["next"], "Done.");
+    // A tool without a look asks the voice for none.
+    assert!(first["result"].get("look").is_none(), "{first}");
     let again = call();
     assert_eq!(again["ok"], false, "{again}");
     assert_eq!(again["error"], "I'm still doing that.");
@@ -1768,10 +1772,11 @@ fn a_repeat_tool_call_holds_the_runs_pose_again_and_only_that() {
         for stream in actions.incoming().flatten() {
             let mut line = String::new();
             BufReader::new(&stream).read_line(&mut line).unwrap();
+            // Kept before it is answered: a call answered was seen.
+            let _ = called.send(line);
             (&stream)
                 .write_all(b"{\"ok\":true,\"result\":{}}\n")
                 .unwrap();
-            let _ = called.send(line);
         }
     });
     let mood = UnixDatagram::bind(root.join("mood.sock")).unwrap();
@@ -1834,17 +1839,33 @@ fn a_repeat_tool_call_holds_the_runs_pose_again_and_only_that() {
     };
     ring.publish_json(1, &Light::new(true, "blue", 3).unwrap())
         .unwrap();
+    // Whether the pose was already said when the call was answered.
+    let posed = || {
+        mood.set_nonblocking(true).unwrap();
+        let mut buffer = [0u8; 256];
+        let said = mood.recv(&mut buffer).is_ok();
+        mood.set_nonblocking(false).unwrap();
+        said
+    };
     assert_eq!(call()["ok"], true);
-    let first = poses(Duration::from_millis(3_500));
+    // The head sent down and the page lit before the answer (#1146): the
+    // voice asks the eyes as the answer's first audio plays, with the head
+    // already moving, so the eyes wait for it to settle over the page.
+    assert!(posed(), "the pose came after the answer");
+    let lit = lights.try_recv().expect("the light came after the answer");
+    assert!(lit.contains("white"), "{lit}");
+    let first = 1 + poses(Duration::from_millis(3_500));
     // Let go: nothing said between the pose's end and the second call.
     let quiet = poses(Duration::from_millis(1_500));
     let again = call();
     assert_eq!(again["ok"], true, "{again}");
-    let second = poses(Duration::from_millis(3_500));
+    assert!(posed(), "the pose again came after the answer");
+    let second = 1 + poses(Duration::from_millis(3_500));
     assert_eq!((first, quiet, second), (3, 0, 3));
-    // The light was made once: the second call made only the pose.
+    // The light was made once, taken above: the second call made only the
+    // pose.
     let lights: Vec<String> = lights.try_iter().collect();
-    assert_eq!(lights.len(), 1, "{lights:?}");
+    assert!(lights.is_empty(), "{lights:?}");
 }
 
 /// A hello on every face that appears after a second without one.

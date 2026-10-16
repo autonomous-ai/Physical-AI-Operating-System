@@ -49,6 +49,9 @@ enum Live {
     /// As `DropLink` (at `link_drops_at` if set), and the line given to it
     /// again on its new session is answered with `packets`: a reconnect.
     Reconnect(usize),
+    /// A skill's tool answered with a look (#941) in this session, then
+    /// `packets` of audio.
+    Look(usize, u64),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -635,6 +638,17 @@ impl Peers {
                             self.audio(index, request, packets, LIVE);
                             self.finish(index, request);
                         }
+                        Live::Look(packets, session) => {
+                            self.peers[index]
+                                .queued
+                                .push_back(ProviderOutput::LookAsked {
+                                    request,
+                                    session,
+                                    dropped: None,
+                                });
+                            self.audio(index, request, packets, LIVE);
+                            self.finish(index, request);
+                        }
                     }
                 }
                 _ => {}
@@ -951,6 +965,72 @@ fn timeless(inputs: &[ProviderInput]) -> Vec<String> {
 /// (a) Without a second route nothing of the switch is seen, and a route
 /// standing by changes nothing while Gemini is well: the Live packets and
 /// the kinds and fields of every record are the same.
+/// #941, the reviewer's 22:23 P2 and P3 on #1146: a skill call with a look,
+/// through the loop, asks the eyes for one still, and only once the turn's
+/// first audio is played, as the head lamp-skills sent down is on its way;
+/// a plain call asks for none.
+#[test]
+fn a_tool_s_look_asks_the_eyes_once_its_first_audio_plays_and_a_plain_call_asks_none() {
+    let still =
+        std::env::temp_dir().join(format!("lamp-voice-loop-look-{}.jpg", std::process::id()));
+    TEST_FULL_LOOK.with(|look| *look.borrow_mut() = Some(still));
+    let looked = run(Script {
+        second: false,
+        ..Script::question(Live::Look(12, 1))
+    });
+    let plain = run(Script {
+        second: false,
+        ..Script::question(Live::Answer(12))
+    });
+    // The first builder's 22:32 P2: a call from a session that is no
+    // longer the one ready is dropped, and says so.
+    let elsewhere = run(Script {
+        second: false,
+        ..Script::question(Live::Look(12, 99))
+    });
+    TEST_FULL_LOOK.with(|look| *look.borrow_mut() = None);
+    let at = |run: &Run, kind: &str| {
+        run.trace
+            .iter()
+            .position(|e| e["kind"] == kind)
+            .unwrap_or_else(|| panic!("no {kind}"))
+    };
+    let asks = |run: &Run| {
+        run.trace
+            .iter()
+            .filter(|e| e["kind"] == "look_full_asked")
+            .count()
+    };
+    assert_eq!(asks(&looked), 1);
+    assert!(
+        looked
+            .trace
+            .iter()
+            .any(|e| e["kind"] == "look_asked" && e["by"] == "tool")
+    );
+    assert!(at(&looked, "speaker_first_write") < at(&looked, "look_full_asked"));
+    assert_eq!(asks(&plain), 0);
+    assert!(!plain.trace.iter().any(|e| e["kind"] == "look_asked"));
+    let dropped = |run: &Run| {
+        run.trace
+            .iter()
+            .filter(|e| e["kind"] == "look_dropped")
+            .map(|e| e["why"].as_str().unwrap().to_owned())
+            .collect::<Vec<_>>()
+    };
+    assert!(dropped(&looked).is_empty(), "{:?}", dropped(&looked));
+    assert_eq!(
+        dropped(&elsewhere),
+        ["the session that made the call has gone"]
+    );
+    assert!(
+        !elsewhere
+            .trace
+            .iter()
+            .any(|e| e["kind"] == "look_full_still")
+    );
+}
+
 #[test]
 fn without_a_second_route_the_packets_and_records_are_as_before() {
     let _one = super::pilot_faults::one_session();

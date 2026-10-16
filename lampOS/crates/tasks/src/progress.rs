@@ -395,12 +395,12 @@ impl Tracker {
         }
     }
 
-    /// Whether `task` is watched but its progress has not been read yet.
     /// The task, if it is on `tasks/status` as settled ([`Self::settled`]).
     pub fn settled_of(&self, task: u64) -> Option<&TaskSettled> {
         self.settled.iter().find(|settled| settled.task == task)
     }
 
+    /// Whether `task` is watched but its progress has not been read yet.
     pub fn unread(&self, task: u64) -> bool {
         self.watched.contains(&task) && !self.tasks.contains_key(&task)
     }

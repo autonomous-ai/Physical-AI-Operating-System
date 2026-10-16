@@ -611,10 +611,12 @@ struct Setup {
     cut_keeps_name: bool,
 }
 
-fn require_real_fixture_clock() {
+/// The fixture enters a scenario clock of its own, so none may be active
+/// already.
+fn require_no_outer_scenario_clock() {
     assert!(
         !crate::scenario_clock::is_active(),
-        "real-provider fixture requires the host clock"
+        "no outer scenario clock: the fixture enters its own"
     );
 }
 
@@ -653,7 +655,7 @@ impl Setup {
     fn run_with_privacy_tolerance(self) -> Session {
         // Check before any process, provider runtime or sample producer
         // starts: the scenario's logical clock is its own, entered below.
-        require_real_fixture_clock();
+        require_no_outer_scenario_clock();
         let fixture_privacy =
             PrivacyGate::with_fixture_freshness(FIXTURE_PRIVACY_FRESH_US).unwrap();
         let dir = SessionDirectory::create().unwrap();
@@ -867,7 +869,7 @@ mod fixture_policy_tests {
     }
 
     #[test]
-    #[should_panic(expected = "real-provider fixture requires the host clock")]
+    #[should_panic(expected = "no outer scenario clock: the fixture enters its own")]
     fn a_scoped_clock_is_rejected_before_provider_or_child_startup() {
         let _scope = crate::scenario_clock::Scope::enter(FIXTURE_CONVERSATION_WATCHDOG).unwrap();
         Setup::lamp(Some(200), 4, one_question, Service::answering_after(150))
@@ -1630,7 +1632,7 @@ fn without_the_option_every_message_and_record_is_what_it_was() {
 /// every task is idle (#823).
 #[tokio::test(start_paused = true)]
 async fn a_name_note_told_with_a_request_ended_early_does_not_survive_it() {
-    require_real_fixture_clock();
+    require_no_outer_scenario_clock();
     use lamp_gemini::{Notice, RequestId, testing::next_dial};
     const NOTE: &str = crate::called::NOTE;
     const WAIT: Duration = Duration::from_secs(3);

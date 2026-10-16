@@ -406,7 +406,8 @@ session tests also on their own:
   `lamp_gemini::testing`. Since 2026-10-16 (#823) they run on one logical
   clock (realtime-tests.md, "early_end on one logical clock"); the times
   below were measured in real time, and on the logical clock they agree
-  within 6 ms, the counts exactly. Counted at the service (one request is
+  within 7 ms (a lone "Lamp,": 1,273 ms in real time, 1,266 ms stepped),
+  the counts exactly. Counted at the service (one request is
   one `activityStart` and one `activityEnd`):
 
 | Case | What the service received | Given up | Answers begun / played | Last sound to first block to the speaker |

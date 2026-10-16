@@ -249,7 +249,13 @@ credential, the name and the time zone (`/etc/localtime` linked to the zone,
 and only then the marker; the keeper starts the lamp. If anything cannot be
 saved, there is no marker, the previous Wi-Fi file goes back, and the hotspot
 comes back. A temporary file a crash left behind is removed at the next start.
-One network scan runs at a time, and its list answers for 5 s. After setup it goes on
+One network scan runs at a time, and its list answers for 5 s. The radio may
+refuse to scan while it is the hotspot (V1 lists networks in station mode
+only; lamp-06c1's phone said "Could not look for networks" until it asked a
+few times), so setup looks once before it raises the hotspot, scans up to
+three times in the hotspot's first 10 s before anyone asks, and answers a
+refused scan with the last list a scan gave (`http::list_networks`); only
+with no list seen at all is a refusal the page's error. After setup it goes on
 answering for 10 minutes, so the page can follow the lamp onto the home network
 and see it done.
 
@@ -335,10 +341,20 @@ ARM64 run and the keeper's `--setup-marker` (#816):
 
 Most likely wrong on a lamp: what V1's image left of the radio (whether
 `device-ap-mode`, dhcpcd and the `wpa_supplicant@wlan0` override still work
-after V2 went on); `iw dev wlan0 scan` while the hotspot is up (V1 used it so,
-but some drivers refuse); V1's page meeting a 404 where this page reading says
+after V2 went on); `iw dev wlan0 scan` while the hotspot is up (refused at
+times on lamp-06c1, below); V1's page meeting a 404 where this page reading says
 it falls back; `systemd-run` and the keeper's path on the image; and the time
 from the hotspot going to the page finding the lamp on the home network.
+
+**First run: lamp-06c1, 2026-10-16** (El, with its person and a phone; build
+1009, `6d2bea2e1`, from `lamp-update install`, the own page). The hotspot was
+up 26 s after the reboot. The phone's first network lists failed ("Could not
+look for networks") and "Look again" worked after a few tries (since fixed as
+above, not yet run on a lamp). Setup pressed to `connected` and the marker:
+14 s (12:40:12 to 12:40:26). The lamp back on the office network: 12:40:48,
+22 s after the marker. The engineer's steps it needed are El's list on #705
+and #811 (the two settings files, `provider.json`, the voice's sessions
+folder, the lock folders' modes).
 
 ## Units
 

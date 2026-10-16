@@ -459,6 +459,7 @@ fn app(page: bool) -> App {
             move |accepted| started.lock().unwrap().push(accepted)
         }),
         scanned: Mutex::new(None),
+        last_good: Mutex::new(None),
         scan: Box::new(|| {
             SCANS.fetch_add(1, Ordering::Relaxed);
             Ok(scan::parse(
@@ -467,6 +468,78 @@ fn app(page: bool) -> App {
         }),
     });
     (router(shared), status, started, root)
+}
+
+/// A router whose scans fail the first `refusals` times, as a radio that is
+/// the hotspot may refuse them, and the list seen before the hotspot.
+fn refusing(refusals: u64, before: Option<Vec<scan::Network>>) -> (Arc<Shared>, Root) {
+    let root = Root::new();
+    let count = Arc::new(AtomicU64::new(0));
+    let shared = Arc::new(Shared {
+        config: root.config(true),
+        status: Arc::new(Mutex::new(Status::new("lamp-06c1".into()))),
+        start: Box::new(|_| {}),
+        scanned: Mutex::new(None),
+        last_good: Mutex::new(before),
+        scan: Box::new(move || {
+            if count.fetch_add(1, Ordering::Relaxed) < refusals {
+                Err(std::io::Error::other("iw scan failed"))
+            } else {
+                Ok(scan::parse(
+                    "BSS 34:3a:20:95:78:93(on wlan0)\n\tsignal: -50.00 dBm\n\tSSID: Office\n",
+                ))
+            }
+        }),
+    });
+    (shared, root)
+}
+
+fn named(list: &[scan::Network]) -> Vec<String> {
+    list.iter().map(|network| network.ssid.clone()).collect()
+}
+
+/// lamp-06c1, 2026-10-16 12:40: the phone said "Could not look for
+/// networks" until it asked a few times. A list seen before the hotspot,
+/// or by any scan since, answers when the radio refuses one.
+#[tokio::test(flavor = "current_thread")]
+async fn a_refused_scan_is_answered_with_the_last_list_seen() {
+    use lamp_setup::http::list_networks;
+    let home = scan::parse("BSS 11:22:33:44:55:66(on wlan0)\n\tSSID: Home\n");
+    let (shared, _root) = refusing(1, Some(home));
+    assert_eq!(named(&list_networks(&shared).unwrap()), ["Home"]);
+    // Through the route, in V1's shape.
+    let (shared_route, _root_route) = refusing(
+        u64::MAX,
+        Some(scan::parse(
+            "BSS 11:22:33:44:55:66(on wlan0)\n\tSSID: Home\n",
+        )),
+    );
+    let (code, body) = call(&router(shared_route), "GET", "/api/network", Value::Null).await;
+    assert_eq!(code, StatusCode::OK);
+    assert_eq!(body["data"][0]["ssid"], "Home");
+    // A scan that works becomes the list kept, and answers a later refusal.
+    assert_eq!(named(&list_networks(&shared).unwrap()), ["Office"]);
+    *shared.scanned.lock().unwrap() = None;
+    assert_eq!(named(&list_networks(&shared).unwrap()), ["Office"]);
+    // With nothing seen yet, a refusal is the page's error.
+    let (empty, _root_empty) = refusing(u64::MAX, None);
+    assert!(list_networks(&empty).is_err());
+    let (code, _) = call(&router(empty), "GET", "/api/network", Value::Null).await;
+    assert_eq!(code, StatusCode::SERVICE_UNAVAILABLE);
+}
+
+#[test]
+fn a_few_scans_before_anyone_asks_warm_the_list() {
+    use lamp_setup::http::warm;
+    let (shared, _root) = refusing(2, None);
+    assert!(warm(&shared, 3, std::time::Duration::from_millis(1)));
+    assert_eq!(
+        named(shared.last_good.lock().unwrap().as_ref().unwrap()),
+        ["Office"]
+    );
+    let (never, _root_never) = refusing(u64::MAX, None);
+    assert!(!warm(&never, 3, std::time::Duration::from_millis(1)));
+    assert!(never.last_good.lock().unwrap().is_none());
 }
 
 async fn call(app: &axum::Router, method: &str, path: &str, body: Value) -> (StatusCode, Value) {

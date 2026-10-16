@@ -29,6 +29,53 @@ pub struct Shared {
     pub scan: Box<Scan>,
     /// One scan at a time, and its list kept for a few seconds.
     pub scanned: Mutex<Option<(std::time::Instant, Vec<Network>)>>,
+    /// The last list a scan gave, the one made before the hotspot among
+    /// them: answered when the radio refuses a scan while it is the hotspot
+    /// (lamp-06c1, 2026-10-16: "Could not look for networks" until a few
+    /// tries; V1 scans in station mode only).
+    pub last_good: Mutex<Option<Vec<Network>>>,
+}
+
+/// The networks around: a list scanned within [`SCAN_KEPT`], else a new
+/// scan, else the last list a scan gave. One scan at a time: a second asker
+/// waits for this one's list instead of starting the radio again.
+pub fn list_networks(shared: &Shared) -> std::io::Result<Vec<Network>> {
+    let mut kept = shared.scanned.lock().unwrap();
+    if let Some((at, list)) = kept.as_ref()
+        && at.elapsed() < SCAN_KEPT
+    {
+        return Ok(list.clone());
+    }
+    match (shared.scan)() {
+        Ok(list) => {
+            *kept = Some((std::time::Instant::now(), list.clone()));
+            *shared.last_good.lock().unwrap() = Some(list.clone());
+            Ok(list)
+        }
+        Err(error) => shared.last_good.lock().unwrap().clone().ok_or(error),
+    }
+}
+
+/// Scan while nobody has asked yet, at most `tries` times `every` apart,
+/// until one scan made as the hotspot works, so the page's first ask finds
+/// a fresh list. Whether one did.
+pub fn warm(shared: &Shared, tries: usize, every: std::time::Duration) -> bool {
+    for attempt in 0..tries {
+        if attempt > 0 {
+            std::thread::sleep(every);
+        }
+        let mut kept = shared.scanned.lock().unwrap();
+        // An ask already had a list scanned as the hotspot.
+        if kept.is_some() {
+            return true;
+        }
+        if let Ok(list) = (shared.scan)() {
+            *kept = Some((std::time::Instant::now(), list.clone()));
+            *shared.last_good.lock().unwrap() = Some(list);
+            return true;
+        }
+    }
+    false
 }
 
 /// How long one scan's list answers before the radio is asked again.
@@ -85,20 +132,7 @@ async fn setup(State(shared): State<Arc<Shared>>, body: Bytes) -> Response {
 
 async fn networks(State(shared): State<Arc<Shared>>) -> Response {
     let scan = Arc::clone(&shared);
-    let listed = tokio::task::spawn_blocking(move || {
-        // The lock is held through the scan: a second request waits for this
-        // one's list instead of starting the radio again.
-        let mut kept = scan.scanned.lock().unwrap();
-        if let Some((at, list)) = kept.as_ref()
-            && at.elapsed() < SCAN_KEPT
-        {
-            return Ok(list.clone());
-        }
-        let list = (scan.scan)()?;
-        *kept = Some((std::time::Instant::now(), list.clone()));
-        Ok::<_, std::io::Error>(list)
-    })
-    .await;
+    let listed = tokio::task::spawn_blocking(move || list_networks(&scan)).await;
     match listed {
         Ok(Ok(list)) => json(StatusCode::OK, success(serde_json::to_value(list).unwrap())),
         _ => json(

@@ -1,19 +1,20 @@
 # Stretch break: one quiet, wordless invitation to get up after a long sitting
 # (lampOS/docs/creature.md: "once in a while, a stretch of its own, as an
-# invitation, never a lecture"). Fields marked proposed are the lamp skill
-# creator's, until the runtime (#938) takes or renames them.
-needs = ["eyes", "body", "light"]
+# invitation, never a lecture"). Written to lamp-skills' schema
+# (docs/skills.md, "The schema, as lamp-skills reads it", #938).
+needs = ["eyes", "body"]
 
 [trigger]
 topic = "humans/faces/tracked"
 when = "present"          # a face there, continuously
 for = "50m"
-gap = "2m"                # proposed: looking away or leaning out of view does not end the sitting
-rearm = "leaves"          # proposed: once per sitting; again only after they have left
+gap = "2m"                # looking away or leaning out of view does not end the sitting
+rearm = "leaves"          # once per sitting; again only after they have left
 cooldown = "90m"
 
-[[while]]                 # proposed: not in the middle of a conversation
+[[while]]                 # not in the middle of a conversation
 topic = "voice/state"
+field = "state"
 equals = "resting"
 
 [ask]
@@ -25,5 +26,6 @@ body = { look_at = "face" }
 [[do]]
 body = { gesture = "stretching" }
 
-[[do]]
-light = { colour = "warm", level = 2, for = "4s" }
+# A warm glow with the stretch waits for the light to be given back after it
+# (the third's arbitration and leases, #940): until then a light step would
+# change the person's own light for good.

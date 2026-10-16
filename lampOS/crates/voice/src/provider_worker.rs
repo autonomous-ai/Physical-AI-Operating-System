@@ -1828,13 +1828,13 @@ async fn serve_with_visual<C: Connect>(
                                     eprintln!("lamp-voice provider: request {request}: its answer is played: its name was heard close to the lamp{rise}");
                                 }
                                 Some(_) if attention.played_for_its_name() => {
-                                    eprintln!("lamp-voice provider: request {request}: its answer is played: the lamp's name was heard in the room's sound");
+                                    eprintln!("lamp-voice provider: request {request}: its answer is played: the lamp's name was heard in the room's sound{rise}");
                                 }
                                 // Every other answer let out says why too (the
                                 // first builder, #829, 17:21: an answer to the
                                 // office played with no verdict in the journal).
                                 Some(crate::attention::Verdict::Play(why)) => {
-                                    eprintln!("lamp-voice provider: request {request}: its answer is played: {why}");
+                                    eprintln!("lamp-voice provider: request {request}: its answer is played: {why}{rise}");
                                 }
                                 None => {}
                             }

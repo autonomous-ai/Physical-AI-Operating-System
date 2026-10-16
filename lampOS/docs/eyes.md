@@ -588,8 +588,10 @@ With the switch:
   "Jim" in its place (`People::remember_one`). `replace` is refused before
   the eyes are asked unless the lamp said the new name in its last answer
   and the turn in hand is a plain yes to it: yeses, the name itself and
-  words that stand beside a yes ("please", "that's fine", "call me …"),
-  and nothing else (`known_faces::plain_yes`). "Yes, but it's Kess.",
+  words that stand beside a yes ("please", "that's fine", "call me …",
+  "go for it", "I'd like that", "gọi tôi là …"), and nothing else, not
+  said as a question ("Yes?", "Dạ?", which is "sorry, what?")
+  (`known_faces::plain_yes`). "Yes, but it's Kess.",
   "Sure, why not Kess?" and a spelled correction are asked about again
   (the reviewer on #1208). A misheard name is never put in place of one
   they have while they are still correcting it. A name kept from an

@@ -186,7 +186,8 @@ pub fn name_heard(name: &str, said: &Said) -> bool {
 /// Kesh.", "Vâng ạ.".
 const BESIDE_A_YES: &[&str] = &[
     "please", "call", "me", "that's", "that", "is", "it", "it's", "fine", "good", "great",
-    "perfect", "i", "my", "name", "thanks", "thank", "you", "lamp", "ạ",
+    "perfect", "i", "i'd", "my", "name", "thanks", "thank", "you", "lamp", "do", "go", "for",
+    "like", "would", "be", "ạ", "gọi", "tôi", "là", "tên",
 ];
 
 /// Whether `turn` is a plain yes to the lamp's saying `name` back: an
@@ -195,8 +196,12 @@ const BESIDE_A_YES: &[&str] = &[
 /// correction with no "no" in it among them ("Yes, but it's Kess.", "Sure,
 /// why not Kess?", "Yes, K, E, S, S.") or "Có lẽ." ("maybe"), is asked
 /// about again (the reviewer on #1208): that costs a turn, and a misheard
-/// name put in place costs the right one.
+/// name put in place costs the right one. So is a yes said as a question:
+/// "Yes?", "Right?", and "Dạ?", which in Vietnamese is "sorry, what?".
 fn plain_yes(name: &str, turn: &str) -> bool {
+    if turn.trim_end().ends_with('?') {
+        return false;
+    }
     let words = lower_words(turn);
     let name = folded_words(name);
     let phrase_at = |at: usize, phrase: &[&str]| {
@@ -1151,7 +1156,15 @@ mod tests {
             "Yes, I don't mind.",
             "Of course.",
             "Sure, no problem!",
-            "Sure, why not?",
+            "Sure, why not.",
+            // The reviewer's 05:12 on #1208: ordinary yeses asked again.
+            "Yes, I do.",
+            "Yes, do it.",
+            "Sure, go for it.",
+            "Yes, I'd like that.",
+            "Yes, that would be great.",
+            "Ừ, gọi tôi là Kesh.",
+            "Đúng rồi, tên tôi là Kesh.",
         ] {
             assert!(agreed_to("Kesh", &to(yes)), "{yes}");
         }
@@ -1165,6 +1178,12 @@ mod tests {
             "Dạ, Kess ạ.",
             "Có lẽ.",
             "Yes, K, E, S, S.",
+            // A yes said as a question (the reviewer's 05:12 on #1208).
+            "Yes?",
+            "Okay?",
+            "Right?",
+            "Dạ?",
+            "Sure, why not?",
         ] {
             assert!(!agreed_to("Kesh", &to(not)), "{not}");
             assert!(!name_heard("Kesh", &to(not)), "{not}");

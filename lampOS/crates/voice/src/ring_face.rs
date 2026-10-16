@@ -237,6 +237,9 @@ pub struct Face {
     held_us: Option<u64>,
     /// Until when a tap on the head is listened for at rest ([`Face::tapped`]).
     tapped_until_us: Option<u64>,
+    /// The accent with the lamp's gesture ([`accent_code`]) and when it began.
+    accent: u8,
+    accent_at_us: u64,
 }
 
 impl Default for Face {
@@ -264,6 +267,8 @@ impl Face {
             blinks: 0,
             held_us: None,
             tapped_until_us: None,
+            accent: 0,
+            accent_at_us: 0,
         }
     }
 
@@ -281,6 +286,12 @@ impl Face {
     /// about half a second. A turn's own faces are unchanged.
     pub fn tapped(&mut self, until_us: Option<u64>) {
         self.tapped_until_us = until_us;
+    }
+
+    /// Show the accent `code` ([`accent_code`]) from `at_us` for [`ACCENT_US`].
+    pub fn accent(&mut self, code: u8, at_us: u64) {
+        self.accent = code;
+        self.accent_at_us = at_us;
     }
 
     /// Switch the eye on or off ([`Face::eye`]'s field says what it does).
@@ -435,12 +446,17 @@ impl Face {
         let open = open * blink * (1.0 - (1.0 - COUNTDOWN_LOW) * countdown);
         let seconds = (now_us % 3_600_000_000) as f32 / 1_000_000.0;
         let ease = follow(step_us, if settling { SETTLE_EASE_US } else { EASE_US });
+        let accent_t = (self.accent != 0
+            && now_us >= self.accent_at_us
+            && now_us - self.accent_at_us < ACCENT_US)
+            .then(|| (now_us - self.accent_at_us) as f32 / ACCENT_US as f32);
         let mut frame = [Rgb::BLACK; PIXEL_COUNT];
         for (pixel, (shown, out)) in self.shown.iter_mut().zip(&mut frame).enumerate() {
             let angle = TAU * pixel as f32 / PIXEL_COUNT as f32;
             let wanted = look(mood, self.level, seconds, angle, self.lit, ceiling, look_to);
-            for (channel, target) in shown.iter_mut().zip(wanted) {
-                *channel += (target * brighten * open - *channel) * ease;
+            let scale = accent_t.map_or([1.0; 3], |t| accent_scale(self.accent, t, angle));
+            for ((channel, target), scale) in shown.iter_mut().zip(wanted).zip(scale) {
+                *channel += (target * brighten * open * scale - *channel) * ease;
             }
             // A share of the ceiling rarely lands on a whole step. Each pixel
             // rounds at its own fixed point, so a level between two steps is
@@ -457,6 +473,61 @@ impl Face {
             *out = Rgb::new(step(shown[0], 0), step(shown[1], 11), step(shown[2], 21));
         }
         frame
+    }
+}
+
+/// How long an accent with a gesture lasts.
+pub const ACCENT_US: u64 = 1_600_000;
+
+/// The face's accent for one of the body's gestures (#940, the V1 emotions
+/// kept on 2026-10-16): 0 for a gesture without one.
+pub fn accent_code(gesture: &str) -> u8 {
+    match gesture {
+        "happy" => 1,
+        "caring" => 2,
+        "surprised" => 3,
+        "confused" => 4,
+        "curious" => 5,
+        "acknowledge" => 6,
+        "sleepy" => 7,
+        _ => 0,
+    }
+}
+
+/// How much each colour of a pixel at `angle` (0 at the top, clockwise) is
+/// scaled, `t` of the way (0 to 1) through the accent `code`. V1's
+/// coloured blinks per emotion are left out: these stay in the lamp's own
+/// light and only brighten, warm, dim or move it a little.
+fn accent_scale(code: u8, t: f32, angle: f32) -> [f32; 3] {
+    let swell = (std::f32::consts::PI * t).sin();
+    match code {
+        // Happy: a warm sparkle round the ring.
+        1 => {
+            let twinkle = 0.5 + 0.5 * (6.0 * angle + 20.0 * t).cos();
+            let lift = 1.0 + 0.35 * swell * (0.6 + 0.4 * twinkle);
+            [lift * 1.08, lift, lift * 0.85]
+        }
+        // Caring: a little dimmer and warmer, slowly.
+        2 => {
+            let dim = 1.0 - 0.15 * swell;
+            [dim, dim * (1.0 - 0.1 * swell), dim * (1.0 - 0.3 * swell)]
+        }
+        // Surprised: one quick brightening that falls away.
+        3 => [1.0 + 0.6 * (-6.0 * t).exp(); 3],
+        // Confused: a dim spot that swings once along the lower ring.
+        4 => {
+            let at = std::f32::consts::PI + (TAU * t).sin() * std::f32::consts::FRAC_PI_2;
+            let distance =
+                (angle - at + std::f32::consts::PI).rem_euclid(TAU) - std::f32::consts::PI;
+            [1.0 - 0.5 * swell * (-(distance * distance) / 0.3).exp(); 3]
+        }
+        // Curious: the top of the ring brightens, as if looking up.
+        5 => [1.0 + 0.3 * swell * angle.cos().max(0.0); 3],
+        // Acknowledge: one short brighter blink at the start.
+        6 => [1.0 + 0.4 * (std::f32::consts::PI * (t * 4.0).min(1.0)).sin(); 3],
+        // Sleepy: a slow dimming.
+        7 => [1.0 - 0.4 * swell; 3],
+        _ => [1.0; 3],
     }
 }
 
@@ -710,6 +781,61 @@ mod tests {
         // Slow: from one 20 ms frame to the next it never jumps.
         for pair in offline[50..].windows(2) {
             assert!(brightness(&pair[0]).abs_diff(brightness(&pair[1])) <= 32);
+        }
+    }
+
+    /// The total light of a frame, every channel of every pixel.
+    fn total(pixels: &[Rgb; PIXEL_COUNT]) -> u32 {
+        pixels
+            .iter()
+            .map(|p| u32::from(p.red) + u32::from(p.green) + u32::from(p.blue))
+            .sum()
+    }
+
+    #[test]
+    fn an_accent_changes_the_speaking_face_for_its_moment_and_then_is_gone() {
+        // Speaking at a steady level, the same frame with and without an
+        // accent, sampled at the accent's middle and well after it.
+        let speak = |accent: Option<(u8, u64)>, at_us: u64| {
+            let mut face = Face::new();
+            if let Some((code, from)) = accent {
+                face.accent(code, from);
+            }
+            let mut last = [Rgb::BLACK; PIXEL_COUNT];
+            for step in 0..=(at_us / 20_000) {
+                last = face.render(Mood::Speaking, 160, 1 + step * 20_000, 120);
+            }
+            total(&last)
+        };
+        let from = 2_000_000;
+        let middle = from + ACCENT_US / 2;
+        let plain = speak(None, middle);
+        assert!(speak(Some((accent_code("happy"), from)), middle) > plain * 11 / 10);
+        assert!(speak(Some((accent_code("sleepy"), from)), middle) < plain * 9 / 10);
+        assert!(speak(Some((accent_code("caring"), from)), middle) < plain);
+        // Over: as if there had been none.
+        let after = from + ACCENT_US * 3;
+        let plain_after = speak(None, after);
+        let happy_after = speak(Some((accent_code("happy"), from)), after);
+        assert!(happy_after.abs_diff(plain_after) <= plain_after / 50);
+        // A gesture without an accent changes nothing.
+        assert_eq!(accent_code("nod"), 0);
+        assert_eq!(speak(Some((0, from)), middle), plain);
+    }
+
+    #[test]
+    fn an_accent_never_exceeds_the_ceiling() {
+        for code in 1..=7 {
+            let mut face = Face::new();
+            face.accent(code, 0);
+            for frame in 0..100u64 {
+                let pixels = face.render(Mood::Speaking, 255, 1 + frame * 20_000, 48);
+                assert!(
+                    pixels
+                        .iter()
+                        .all(|pixel| pixel.red <= 48 && pixel.green <= 48 && pixel.blue <= 48)
+                );
+            }
         }
     }
 

@@ -37,6 +37,9 @@ pub struct RingChoreographer {
     unshown: bool,
     /// Stamped into the next frame; see [`RingFrame::offline`].
     offline: bool,
+    /// Stamped into the next frames; see [`RingFrame::accent`].
+    accent: u8,
+    accent_at_us: u64,
 }
 
 impl RingChoreographer {
@@ -54,7 +57,17 @@ impl RingChoreographer {
             listening: false,
             unshown: false,
             offline: false,
+            accent: 0,
+            accent_at_us: 0,
         })
+    }
+
+    /// The face's accent with the lamp's gesture (#940), from `at_us` on
+    /// the monotonic clock. Like the level, it changes how frames look,
+    /// never whether or when one is requested.
+    pub fn set_accent(&mut self, accent: u8, at_us: u64) {
+        self.accent = accent;
+        self.accent_at_us = at_us;
     }
 
     /// How loud the voice in play is now. It changes how the next frame
@@ -170,6 +183,8 @@ impl RingChoreographer {
             attending: self.attending,
             offline: self.offline,
             listening: self.listening,
+            accent: self.accent,
+            accent_at_us: self.accent_at_us,
         };
         self.pending = Some(frame);
         self.last_frame = Some(frame);
@@ -536,6 +551,12 @@ mod tests {
         written.as_object_mut().unwrap().remove("offline");
         let read: RingFrame = serde_json::from_value(written).unwrap();
         assert!(!read.offline);
+        // A frame from before the face's accents (#940) reads as none.
+        let mut older = serde_json::to_value(listening).unwrap();
+        older.as_object_mut().unwrap().remove("accent");
+        older.as_object_mut().unwrap().remove("accent_at_us");
+        let read: RingFrame = serde_json::from_value(older).unwrap();
+        assert_eq!((read.accent, read.accent_at_us), (0, 0));
     }
 
     #[test]

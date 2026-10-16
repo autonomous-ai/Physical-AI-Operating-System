@@ -3675,6 +3675,11 @@ fn conversation_with_gate(
                         && let Some(gesture) = gesture_cue.heard(turn, &text, finished)
                     {
                         body.gesture(gesture);
+                        // The face's accent with the move (#940).
+                        if let Some(choreography) = choreography.as_mut() {
+                            choreography
+                                .set_accent(crate::ring_face::accent_code(gesture), monotonic_us());
+                        }
                         record(
                             trace,
                             json!({"kind":"body_gesture_asked","turn":turn,"gesture":gesture,"at_us":monotonic_us()}),
@@ -4636,6 +4641,13 @@ fn conversation_with_gate(
                                 && let Some(gesture) = gesture_cue.heard(turn, &text, finished)
                             {
                                 body.gesture(gesture);
+                                // The face's accent with the move (#940).
+                                if let Some(choreography) = choreography.as_mut() {
+                                    choreography.set_accent(
+                                        crate::ring_face::accent_code(gesture),
+                                        monotonic_us(),
+                                    );
+                                }
                                 record(
                                     trace,
                                     json!({"kind":"body_gesture_asked","turn":turn,"gesture":gesture,"at_us":monotonic_us()}),
@@ -5453,6 +5465,10 @@ fn conversation_with_gate(
                 && let Some(body) = body_link.as_mut()
             {
                 body.gesture(gesture);
+                // The face's accent with the move (#940).
+                if let Some(choreography) = choreography.as_mut() {
+                    choreography.set_accent(crate::ring_face::accent_code(gesture), monotonic_us());
+                }
                 record(
                     trace,
                     json!({"kind":"body_gesture_asked","why":"onboarding","gesture":gesture,"at_us":clock}),

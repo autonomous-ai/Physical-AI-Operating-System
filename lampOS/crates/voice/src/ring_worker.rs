@@ -479,6 +479,7 @@ fn service(
                         if let Some(sight) = sight.as_mut() {
                             face.toward(sight.tick(monotonic_us()));
                         }
+                        face.accent(frame.accent, frame.accent_at_us);
                         let pixels: [_; PIXEL_COUNT] =
                             face.render(frame.mood(), frame.level, monotonic_us(), ceiling.get());
                         match ring.show(&pixels, ceiling, frame.permit) {

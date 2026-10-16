@@ -414,6 +414,33 @@ brighter eye), **confused** (the tilt, a soft pulse). V1's rainbow,
 coloured blinks per emotion and the "speaking wave rainbow" are dropped:
 they read as a gadget, not a creature.
 
+### The expressions
+
+One name gives both a move and a light. The voice names it when an
+answer begins as `body.md` lists. Skills cannot use these names yet:
+`lamp-skills` takes only its six `GESTURES` until it accepts the body's
+clip names (#999). The body plays the clip from the pose it is in
+(`crates/body/src/clips/data.rs`). The ring shows the accent for 1.6 s
+over the speaking face, never above the light's ceiling
+(`crates/voice/src/ring_face.rs`, `accent_scale`). The accent is in the lamp's
+own light only, a little brighter, warmer, dimmer or moved, never another
+colour.
+
+| Name | Move (from V1) | Length (`Clip::duration_us`) | Light, for 1.6 s |
+|---|---|---|---|
+| happy | happy_wiggle, a sway | 4.00 s | A warm sparkle around the ring, up to about a third brighter |
+| caring | sad's droop, head low | 5.00 s | About a sixth dimmer and warmer, slowly |
+| surprised | shock, a recoil | 2.00 s | One quick brightening, up to 60 %, falling away |
+| confused | a tilt, lowered | 3.96 s | A dim spot swings once along the lower ring |
+| curious | the tilt only | 3.00 s | The top of the ring brightens, as if looking up |
+| acknowledge | the first nod | 1.95 s | One short brighter blink at the start |
+| sleepy | a droop with head catches | 9.11 s | A slow dimming, down to 60 % |
+| excited | a bounce, cut short | 4.32 s | None (no accent yet; it is on trial for Task news) |
+
+The six older gestures (nod, headshake, greeting, laugh, shy, stretching)
+keep the face as it is. A name that is neither gives no accent and no
+move.
+
 ## V2's own behaviours: skill or reflex
 
 The owner, 08:00: skills are the fundamental part of how the lamp works;

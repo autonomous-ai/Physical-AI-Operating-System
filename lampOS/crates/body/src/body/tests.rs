@@ -2422,10 +2422,11 @@ fn a_gesture_waits_for_a_lamp_that_is_rising_and_is_forgotten_by_one_that_is_not
         began > Duration::from_millis(4_400) && began < Duration::from_secs(6),
         "{began:?}"
     );
-    // Asked at once, more than three seconds before it stands: forgotten.
+    // Asked at once, more than three seconds before it stands: it waits
+    // for the rest of the rise too (the reviewer on #1080), and begins.
     let (report, _, seen) = gesture_run(&crate::clips::NOD, Duration::from_millis(100), 10, |_| {});
-    assert_eq!(report.gestures, 0);
-    assert!(seen.iter().all(|step| step.1.is_none()));
+    assert_eq!(report.gestures, 1, "{report:?}");
+    assert!(seen.iter().any(|step| step.1.is_some()));
     // A folded lamp that may not stand makes none either.
     let (mut lamp, mut clock) = folded(Duration::from_secs(4));
     let mut asked_once = false;
@@ -5243,7 +5244,7 @@ type Fates = (
 /// `news` says. `prepare` sets up the servos.
 fn skill_run(
     seconds: u64,
-    awake: u16,
+    up: Standing,
     limits: Limits,
     prepare: impl FnOnce(&mut Lamp),
     news: impl FnMut() -> Option<(Mood, u8)>,
@@ -5262,7 +5263,7 @@ fn skill_run(
         &mut clock,
         limits,
         Some(HOME),
-        Some(standing(100, awake)),
+        Some(up),
         None,
         news,
         move || ask(time.get()),
@@ -5308,7 +5309,7 @@ fn gesture_limits() -> Limits {
 fn a_gesture_asked_of_a_folded_lamp_stands_it_up_and_then_plays() {
     let (report, fates, steps) = skill_run(
         14,
-        5,
+        standing(100, 5),
         gesture_limits(),
         |_| {},
         || Some((Mood::Resting, 0)),
@@ -5336,7 +5337,7 @@ fn a_gesture_asked_of_a_folded_lamp_stands_it_up_and_then_plays() {
 fn a_paused_lamp_drops_a_gesture_and_says_so() {
     let (report, fates, steps) = skill_run(
         8,
-        5,
+        standing(100, 5),
         gesture_limits(),
         |_| {},
         || Some((Mood::Resting, 0)),
@@ -5349,8 +5350,8 @@ fn a_paused_lamp_drops_a_gesture_and_says_so() {
     assert!(steps.iter().all(|s| s.1 == 0.0 && s.2.is_none()));
 }
 
-/// Held by a hand where it gave way, it is asked nothing new: the gesture
-/// is dropped and said.
+/// Held by a hand where it gave way, a folded lamp that may stand is asked
+/// nothing new: it is not stood up, and the gesture is dropped and said.
 #[test]
 fn a_lamp_held_by_a_hand_drops_a_gesture_and_says_so() {
     let ms = Duration::from_millis;
@@ -5361,14 +5362,15 @@ fn a_lamp_held_by_a_hand_drops_a_gesture_and_says_so() {
     let told = held.clone();
     let mut asked = false;
     let mut fates = Vec::new();
+    let mut stood = Vec::new();
     let report = run_alive(
         &mut lamp,
         &mut clock,
         giving_way(GiveWay::Return),
         Some(HOME),
+        Some(standing(100, 5)),
         None,
-        None,
-        || Some((Mood::Listening, 100)),
+        || Some((Mood::Resting, 0)),
         move || {
             let due = !asked && held.get();
             asked |= due;
@@ -5380,11 +5382,14 @@ fn a_lamp_held_by_a_hand_drops_a_gesture_and_says_so() {
         |glimpse| {
             told.set(glimpse.hand);
             fates.extend(glimpse.gesture_fate);
+            stood.push(glimpse.stand);
         },
     );
     assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
     assert_eq!(report.gestures, 0);
     assert_eq!(fates, [("nod", "dropped: a hand holds it")]);
+    assert!(!report.stood);
+    assert!(stood.iter().all(|stand| *stand == 0.0));
 }
 
 /// A lamp that let go under overload is not stood up by a gesture: while
@@ -5396,7 +5401,7 @@ fn a_slumped_lamp_is_not_stood_up_by_a_gesture() {
     let mut asked = [false; 2];
     let (report, fates, steps) = skill_run(
         135,
-        5,
+        standing(100, 5),
         Limits {
             force: Some(600),
             ..releasing()
@@ -5438,7 +5443,7 @@ fn a_slumped_lamp_is_not_stood_up_by_a_gesture() {
 fn a_gesture_asked_as_the_lamp_would_fold_keeps_it_up_until_it_ends() {
     let (report, fates, steps) = skill_run(
         24,
-        5,
+        standing(100, 5),
         gesture_limits(),
         |_| {},
         {
@@ -5463,4 +5468,180 @@ fn a_gesture_asked_as_the_lamp_would_fold_keeps_it_up_until_it_ends() {
     assert!(during.iter().all(|s| s.1 == 1.0));
     // And it folds afterwards.
     assert_eq!(steps.last().unwrap().1, 0.0);
+}
+
+/// Paused after a gesture was taken, before it began (the reviewer's probe
+/// on #1080): the gesture is dropped and said, the window it opened is
+/// given back, and the lamp folds instead of rising and playing it.
+#[test]
+fn a_pause_after_a_gesture_was_taken_drops_it_and_the_lamp_folds() {
+    let mut asked = false;
+    let (report, fates, steps) = skill_run(
+        16,
+        standing(100, 5),
+        gesture_limits(),
+        |_| {},
+        || Some((Mood::Resting, 0)),
+        move |now| {
+            if now >= Duration::from_millis(1_500) {
+                return Asked::PAUSED;
+            }
+            let due = !asked && now >= Duration::from_secs(1);
+            asked |= due;
+            Asked {
+                gesture: due.then_some(&crate::clips::NOD),
+                ..Asked::default()
+            }
+        },
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!(report.gestures, 0, "{report:?}");
+    assert_eq!(fates, [("nod", "dropped: paused")]);
+    assert!(steps.iter().all(|s| s.2.is_none()));
+    // It began to rise for half a second, and is folded again well before
+    // the five seconds' window would have run out.
+    assert!(
+        steps
+            .iter()
+            .filter(|s| s.0 >= Duration::from_secs(4))
+            .all(|s| s.1 == 0.0)
+    );
+}
+
+/// Two gestures in a row while the lamp rises for the first (the
+/// reviewer's probe 1 on #1080): the second waits for the rise to end, and
+/// plays.
+#[test]
+fn a_second_gesture_asked_while_the_lamp_rises_for_the_first_plays() {
+    let mut asked = [false; 2];
+    let (report, fates, steps) = skill_run(
+        14,
+        standing(100, 5),
+        gesture_limits(),
+        |_| {},
+        || Some((Mood::Resting, 0)),
+        move |now| {
+            let at = [Duration::from_secs(1), Duration::from_millis(1_500)];
+            let due = (0..2).find(|i| !asked[*i] && now >= at[*i]);
+            if let Some(i) = due {
+                asked[i] = true;
+            }
+            Asked {
+                gesture: due.map(|i| [&crate::clips::NOD, &crate::clips::SHY][i]),
+                ..Asked::default()
+            }
+        },
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!(report.gestures, 1, "{report:?}");
+    assert_eq!(
+        fates,
+        [
+            ("nod", "dropped: another was asked after it"),
+            ("shy", "taken: it was folded and stood up for it"),
+        ]
+    );
+    assert!(steps.iter().any(|s| s.2 == Some("shy")));
+}
+
+/// A gesture asked just after a spoken turn begins, while the lamp rises
+/// for the mood (the reviewer's probe 2 on #1080): it waits for the rise
+/// to end, and plays.
+#[test]
+fn a_gesture_asked_while_the_lamp_rises_for_a_turn_plays() {
+    let (report, fates, steps) = skill_run(
+        14,
+        standing(100, 5),
+        gesture_limits(),
+        |_| {},
+        {
+            let mut step = 0u32;
+            move || {
+                step += 1;
+                Some(if step * 20 >= 1_000 {
+                    (Mood::Listening, 100)
+                } else {
+                    (Mood::Resting, 0)
+                })
+            }
+        },
+        once(Duration::from_millis(1_500), false),
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!(report.gestures, 1, "{report:?}");
+    assert_eq!(fates, [("nod", "taken: it plays")]);
+    assert!(steps.iter().any(|s| s.2 == Some("nod")));
+}
+
+/// A lamp that never stands at its full height (`--stand` at half) drops
+/// a gesture it woke for once it has waited, and says it went stale.
+#[test]
+fn a_gesture_the_lamp_never_stands_up_for_goes_stale_and_is_said() {
+    let (report, fates, steps) = skill_run(
+        14,
+        standing(50, 5),
+        gesture_limits(),
+        |_| {},
+        || Some((Mood::Resting, 0)),
+        once(Duration::from_secs(1), false),
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert!(report.stood);
+    assert_eq!(report.gestures, 0, "{report:?}");
+    assert_eq!(
+        fates,
+        [(
+            "nod",
+            "dropped: stale, it was not standing 3 s after it could have been"
+        )]
+    );
+    assert!(steps.iter().all(|s| s.2.is_none()));
+}
+
+/// Why a face is not looked at, each step, for a body with eyes: folded,
+/// neither listening nor speaking, or paused; nothing while it would be.
+#[test]
+fn a_body_with_eyes_says_why_it_does_not_look() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(16));
+    lamp.arm_moves = true;
+    lamp.overload_clears = 1;
+    let time = clock.time.clone();
+    let watched = clock.time.clone();
+    let mut said: Vec<(Duration, Option<&'static str>)> = Vec::new();
+    let report = run_alive(
+        &mut lamp,
+        &mut clock,
+        Limits::FOLDED,
+        Some(HOME),
+        Some(standing(100, 5)),
+        Some(Looking::new([342, 200], [250, 120]).unwrap()),
+        spoken_to(&time),
+        {
+            let time = time.clone();
+            move || {
+                if time.get() >= Duration::from_secs(14) {
+                    Asked::PAUSED
+                } else {
+                    Asked {
+                        seen: Some(Seen { face: None }),
+                        ..Asked::default()
+                    }
+                }
+            }
+        },
+        |glimpse| said.push((watched.get(), glimpse.looks_dropped)),
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    let at = |millis: u64| {
+        said.iter()
+            .rfind(|step| step.0 <= Duration::from_millis(millis))
+            .unwrap()
+            .1
+    };
+    assert_eq!(at(800), Some("folded or folding"));
+    assert_eq!(at(2_000), None);
+    assert_eq!(at(3_500), Some("neither listening nor speaking"));
+    assert_eq!(at(5_000), None);
+    assert_eq!(at(9_000), Some("neither listening nor speaking"));
+    assert_eq!(at(15_000), Some("paused"));
 }

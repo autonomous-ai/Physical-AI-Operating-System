@@ -2789,6 +2789,9 @@ fn run_until_stopped(
     // The gesture waiting stood a folded lamp up; and what to say of a
     // gesture asked from outside, on the next glimpse.
     let mut pending_woke = false;
+    // The awake window from before the gesture waiting was taken, and the
+    // one it opened: a pause gives that one back, so the lamp folds.
+    let mut pending_window: Option<(Option<Duration>, Option<Duration>)> = None;
     let mut gesture_fate: Option<(&'static str, &'static str)> = None;
     let mut gesture_now = [0.0f32; 5];
     let mut gesture_cooling = 0u16;
@@ -2997,6 +3000,7 @@ fn run_until_stopped(
         // mood but rest does (#1011); not a lamp that is stopping, held,
         // slumped or paused.
         let mut woke_for_gesture = false;
+        let mut window_before_ask = awake_until;
         // A lamp that is folded, or folding, looks at nobody.
         let mut awake_now = leaving.is_none() && !slumped;
         if let Some(up) = standing.filter(|_| !slumped) {
@@ -3005,6 +3009,21 @@ fn run_until_stopped(
             if mood != Mood::Resting || company {
                 awake_until = Some(now + up.awake);
             }
+            // Paused after a gesture was taken, before it began: it is
+            // dropped, and the window it opened given back (keeper.md: a
+            // paused body goes to rest).
+            if asked_now.paused
+                && let Some((clip, _)) = pending.filter(|(clip, _)| from_outside(clip))
+            {
+                pending = None;
+                gesture_fate = Some((clip.name, "dropped: paused"));
+                if let Some((before, opened)) = pending_window.take()
+                    && awake_until == opened
+                {
+                    awake_until = before;
+                }
+            }
+            window_before_ask = awake_until;
             if asked_now.gesture.is_some()
                 && !asked_now.paused
                 && leaving.is_none()
@@ -3157,19 +3176,36 @@ fn run_until_stopped(
                     if let Some((old, _)) = pending.filter(|(old, _)| from_outside(old)) {
                         gesture_fate = Some((old.name, "dropped: another was asked after it"));
                     }
-                    // Woken, it waits as long as rising takes, and then
-                    // as long as any gesture waits for a rising lamp.
-                    let rising = standing
-                        .filter(|_| woke_for_gesture)
-                        .map_or(0.0, |up| up.seconds);
-                    let begins = now + Duration::from_secs_f32(rising);
+                    // Woken, it waits as long as rising takes; still
+                    // rising, as long as the rest of the rise; and then as
+                    // long as any gesture waits for a rising lamp. Never
+                    // less than the gesture it replaces was given.
+                    let rising = standing.map_or(0.0, |up| {
+                        if woke_for_gesture {
+                            up.seconds
+                        } else {
+                            (1.0 - stand).max(0.0) * up.seconds
+                        }
+                    });
+                    let earlier = pending;
+                    let begins = (now + Duration::from_secs_f32(rising))
+                        .max(earlier.map_or(now, |(_, since)| since));
                     pending = Some((clip, begins));
                     // It stays up for the whole of it: a window that ran
                     // out mid-clip, or `--awake-seconds` shorter than the
                     // rise, would fold it under the gesture.
                     let needed = begins + GESTURE_WAIT + Duration::from_micros(clip.duration_us());
                     awake_until = awake_until.max(Some(needed));
-                    pending_woke = woke_for_gesture;
+                    // One it replaces keeps the window from before both.
+                    let before = match earlier {
+                        Some((old, _)) if from_outside(old) => {
+                            pending_window.map_or(window_before_ask, |(before, _)| before)
+                        }
+                        _ => window_before_ask,
+                    };
+                    pending_window = Some((before, awake_until));
+                    pending_woke = woke_for_gesture
+                        || (earlier.is_some_and(|(old, _)| from_outside(old)) && pending_woke);
                 }
             }
         }

@@ -862,12 +862,24 @@ What the body does with the request:
   through the same way up as for any mood other than rest (with its
   anti-tip and arm-load rules), and stays up `--awake-seconds` after; the
   gesture waits for as long as rising takes and then three seconds more.
-  Asked of one still rising it waits up to three seconds for that. Not
-  stood up for, and dropped: a lamp paused (`lamp/pause`), stopping, held
-  by a hand where a joint gave way, or that let go under overload or a
-  hand and lies where it slumped (until a mood or somebody in front of it
-  stands it up), and one that may not stand. A gesture asked while another
-  plays is dropped too.
+  Asked of one still rising (for a mood, or for a gesture asked just
+  before), it waits for the rest of the rise, `(1 - stand) × --stand-seconds`
+  and never less than the gesture it replaces, and then three seconds
+  more. Not stood up for, and dropped: a lamp paused (`lamp/pause`),
+  stopping, held by a hand where a joint gave way, or that let go under
+  overload or a hand and lies where it slumped (until a mood or somebody
+  in front of it stands it up), and one that may not stand. A gesture
+  asked while another plays is dropped too. Paused after a gesture was
+  taken and before it began, the gesture is dropped (`dropped: paused`)
+  and the awake window it opened is given back, so the lamp folds as a
+  paused body does.
+- The body has no idea of night, or of Expression's sleep: a gesture from
+  outside stands a folded lamp up at any hour. What keeps a sleeping lamp
+  down at night is only the Policy's unprompted question ("not late at
+  night or early in the morning", `crates/policy/src/moment.rs`), which a
+  skill such as Stretch break is asked under `LAMP_SKILLS_ASK=policy` with
+  the hour known (`lamp-policy --utc-offset-minutes` or `--zone`). With
+  `LAMP_SKILLS_ASK=skip`, nothing does.
 - Each gesture asked, taken or dropped, is one journal line with why; one
   refused by the anti-tip rule is said by its own line instead ("Not
   tipping over" below):

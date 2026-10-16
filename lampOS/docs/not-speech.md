@@ -65,7 +65,8 @@ treated so:
   is told the person stopped it"), so that it doesn't begin the story
   again. A request that took it and is then thrown out as a sound, the
   tap's own thump, gives it back, and the next request tells it
-  (`not_speech::StopToTell`; the first builder on #1148).
+  (`not_speech::StopToTell`; the first builder on #1148). The second route
+  gives the same note as a system message before the person's words.
 - one that took the turn from the lamp's own answer (a quick "stop" over
   it), or from something that had itself been said (the short second half
   of a sentence after a pause). At first any turn that took over from

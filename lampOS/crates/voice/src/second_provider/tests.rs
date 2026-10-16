@@ -1243,3 +1243,50 @@ async fn a_request_going_on_takes_only_the_words_of_the_one_just_before_it_in_it
     assert_eq!(asked[1].last(), Some(&Message::user("is it in Paris")));
     assert_eq!(asked[2].last(), Some(&Message::user("and in Rome")));
 }
+
+/// The first request after a hand or the head stopped the lamp is asked with
+/// the stopped note beside it, as Gemini is told (#1148): a system message
+/// just before the person's words, never their words. The next is not.
+#[tokio::test]
+async fn the_first_request_after_a_stop_is_told_of_it_beside_its_words() {
+    let script = Arc::new(Script {
+        heard: Mutex::new([Ok("What now".to_owned()), Ok("Thanks".to_owned())].into()),
+        chats: Mutex::new(
+            [
+                vec![text("Sure."), Ok(ChatEvent::Done)],
+                vec![text("Any time."), Ok(ChatEvent::Done)],
+            ]
+            .into(),
+        ),
+        ..Script::default()
+    });
+    let (mut engine, _, _) = scripted(script.clone());
+    engine.submit(ProviderInput::Start {
+        request: 1,
+        session: 1,
+        privacy_generation: 1,
+        continues: false,
+        continues_cut_off: false,
+        over_the_lamp: false,
+        after_stop: true,
+    });
+    engine.submit(audio(1, 1));
+    engine.submit(end(1));
+    turn(&mut engine).await;
+    engine.submit(start(2));
+    engine.submit(audio(2, 1));
+    engine.submit(end(2));
+    turn(&mut engine).await;
+    let asked = script.asked.lock().unwrap();
+    let first = &asked[0];
+    assert_eq!(first.last(), Some(&Message::user("What now")));
+    assert_eq!(
+        first[first.len() - 2],
+        Message::system(crate::provider_worker::STOPPED_NOTE)
+    );
+    assert!(
+        !asked[1].contains(&Message::system(crate::provider_worker::STOPPED_NOTE)),
+        "{:?}",
+        asked[1]
+    );
+}

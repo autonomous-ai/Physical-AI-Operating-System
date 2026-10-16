@@ -363,6 +363,7 @@ impl Engine {
                 request,
                 session,
                 continues_cut_off,
+                after_stop,
                 ..
             } => {
                 let previous = self.begun_last;
@@ -396,6 +397,7 @@ impl Engine {
                     checked,
                     said.clone(),
                     before,
+                    after_stop,
                 ));
                 self.turn = Some(Turn {
                     request,
@@ -496,7 +498,7 @@ impl Engine {
                 let looking = look || text == crate::speak_up::NO_LOOK_NOTE;
                 let shared = self.shared.clone();
                 let task = tokio::spawn(async move {
-                    answer(&shared, request, text, false, looking, picture).await
+                    answer(&shared, request, text, false, looking, picture, None).await
                 });
                 self.turn = Some(Turn {
                     request,
@@ -647,6 +649,7 @@ async fn spoken(
     checked: Option<Arc<AtomicBool>>,
     said: Arc<Mutex<(u64, u64)>>,
     before: Option<String>,
+    after_stop: bool,
 ) {
     let listener = match shared.services.listen().await {
         Ok(listener) => listener,
@@ -726,7 +729,11 @@ async fn spoken(
             .await;
         return;
     }
-    answer(&shared, request, text, true, false, None).await;
+    // The first request after a hand or the head stopped the lamp: the
+    // model is told so, as Gemini is (`STOPPED_NOTE`, #1148), so the story
+    // that was stopped is not begun again.
+    let note = after_stop.then_some(crate::provider_worker::STOPPED_NOTE);
+    answer(&shared, request, text, true, false, None, note).await;
 }
 
 /// How an answer stopped short.
@@ -768,6 +775,7 @@ async fn answer(
     heard: bool,
     looking: bool,
     picture: Option<Vec<u8>>,
+    note: Option<&'static str>,
 ) {
     // Started now, with the chat request, so it is ready first.
     let mut speech = JoinSet::new();
@@ -801,6 +809,9 @@ async fn answer(
         let told = (shared.system)();
         let mut messages = vec![Message::system(told.text)];
         messages.extend(told.history);
+        // A note beside the request, never anyone's words (as on the Live
+        // route, where a note goes beside what the model hears).
+        messages.extend(note.map(Message::system));
         messages.push(asked);
         let asked_at = messages.len() - 1;
         let mut round = 0;

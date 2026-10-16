@@ -87,6 +87,10 @@ pub struct Options {
     /// The decisions act (`--act hello`): published with `shadow: false`,
     /// and the voice says hello or not as they say. Off unless set.
     pub act: bool,
+    /// It also answers a skill's ask to say hello (`skills/ask`, `act`
+    /// `hello`, `lamp-policy --gate`, #939), as it answers the voice's
+    /// arrivals. Off unless set.
+    pub gate: bool,
 }
 
 impl Options {
@@ -97,6 +101,7 @@ impl Options {
             quiet_for: QUIET_FOR,
             at_most_every: AT_MOST_EVERY,
             act: false,
+            gate: false,
         }
     }
 }
@@ -329,6 +334,12 @@ pub struct Hello {
     /// The turn the lamp began itself, while it lasts.
     own_turn: Option<OwnTurn>,
     greeted: Option<Instant>,
+    /// The skills' asks put to it as arrivals (#939), by number, until
+    /// decided: their decisions name the ask, not an arrival.
+    skill_asks: VecDeque<u64>,
+    /// When it started: the quiet a skill's ask is shown is counted from
+    /// here if nothing has been said since.
+    started: Instant,
     totals: Totals,
 }
 
@@ -369,6 +380,8 @@ impl Hello {
             notes: VecDeque::new(),
             own_turn: None,
             greeted: None,
+            skill_asks: VecDeque::new(),
+            started: Instant::now(),
             totals: Totals::default(),
         })
     }
@@ -380,6 +393,38 @@ impl Hello {
     /// Whether its decisions act ([`Options::act`]).
     pub fn acts(&self) -> bool {
         self.options.act
+    }
+
+    /// Whether it answers skills' asks ([`Options::gate`]).
+    pub fn answers_skills(&self) -> bool {
+        self.options.gate
+    }
+
+    /// A skill asks to say hello (`skills/ask`, #939): put as an arrival,
+    /// decided as the voice's are, by the same hard rules, the same kept
+    /// rules and the same question, and its decision names the ask. The
+    /// quiet is what the policy knows itself (since anything was last said,
+    /// or since it started), and the last hello its own. One that fails its
+    /// check, or is not a hello, is passed over.
+    pub fn asked(&mut self, ask: &lamp_msgs::SkillAsk, now: Instant) {
+        if ask.check().is_err() || ask.act != ABOUT {
+            return;
+        }
+        let quiet = now.saturating_duration_since(self.last_talk.unwrap_or(self.started));
+        let arrival = VoiceArrival {
+            arrival: ask.ask,
+            away_min: ask.away_min.unwrap_or_default(),
+            there_s: ask.there_s.unwrap_or_default(),
+            quiet_s: u32::try_from(quiet.as_secs()).unwrap_or(u32::MAX),
+            since_hello_min: self.greeted.map(|at| {
+                u32::try_from(now.saturating_duration_since(at).as_secs() / 60).unwrap_or(u32::MAX)
+            }),
+        };
+        if self.skill_asks.len() == MOST_WAITING {
+            self.skill_asks.pop_front();
+        }
+        self.skill_asks.push_back(ask.ask);
+        self.arrival(arrival, now);
     }
 
     /// Whether a question is out or an arrival waits: the voice is waiting,
@@ -697,6 +742,12 @@ impl Hello {
         self.totals.decided += 1;
         self.totals.by_rule += u64::from(judgement.from_rule);
         let took_ms = u32::try_from(took.as_millis()).unwrap_or(u32::MAX);
+        // A skill's ask is named as the ask, a voice's arrival as an arrival.
+        let skill_ask = self
+            .skill_asks
+            .iter()
+            .position(|ask| *ask == context.arrival)
+            .and_then(|at| self.skill_asks.remove(at));
         let decision = Decision {
             about: ABOUT.to_owned(),
             choice: judgement.choice.as_str().to_owned(),
@@ -707,7 +758,8 @@ impl Hello {
             shadow: !self.options.act,
             request: None,
             task: None,
-            arrival: Some(context.arrival),
+            arrival: skill_ask.is_none().then_some(context.arrival),
+            ask: skill_ask,
         };
         let line = Line {
             at_unix_ms: unix_ms,

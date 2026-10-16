@@ -656,6 +656,7 @@ impl Judges {
             request: waiting.utterance.request,
             task: None,
             arrival: None,
+            ask: None,
         });
         let at = unix_ms();
         policy.watch = Some((

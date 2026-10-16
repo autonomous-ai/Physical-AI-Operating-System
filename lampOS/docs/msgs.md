@@ -64,7 +64,7 @@ without changing `first_topics()`.
 | `Pause` | `lamp/pause` | latest | none | Whether the lamp is paused, as `lamp-keeper pause` or `resume` last said; kept until the next, read with `latest` by each part that honours it ([keeper.md](keeper.md), "Named states and the pause") |
 | `Hand` | `body/hand` | latest | 1 s | Whether a hand is pushing the lamp now, as the body feels it (`pushed`), and when that push began on the body's own clock (`since_us`, 0 when not pushed); said with every step lamp-body passes on the bus, every 80 ms ([body.md](body.md), "A hand on the bus") |
 | `Rules` | `memory/rules` | latest | none | What the people at the lamp asked it about speaking first, as typed facts for the policy (#813, [memory.md](memory.md#what-a-person-teaches-and-corrects-813)): `person` (the memory's id `p-<hex>` of the known person, or `everyone`), `quiet` (asked never to speak first, unprompted), `quiet_mornings` (asked not to speak first in the mornings, before noon local time, or never), `rules`, how many rules of every kind the room's and theirs hold, and `hello` / `news` (`Unprompted`: `never`, `not_before_minute`, `not_from_minute`, local minute of the day, `not_while_talking`; absent in an older message, nothing held), the greeting's and the unasked news's limits, every typed rule merged, the strictest winning. Said by the voice with `LAMP_MEMORY_RULES=on` at each session open and each rule kept or forgotten; kept until the next. Never a rule's words |
-| `Decision` | `policy/decisions` | event | none | What the policy decided ([policy.md](policy.md)): what it was about, the choice, its probability, the decision model's answer to each question by the question's name, who decided, how long the asking took, whether anything acts on it, the request's number if known, for a `progress` decision the work it was about (`task`, `<store>:<task>:<change>@<run>`), and for a `hello` decision the arrival (`arrival`), both added 2026-10-15 as optional fields. Not what was heard |
+| `Decision` | `policy/decisions` | event | none | What the policy decided ([policy.md](policy.md)): what it was about, the choice, its probability, the decision model's answer to each question by the question's name, who decided, how long the asking took, whether anything acts on it, the request's number if known, for a `progress` decision the work it was about (`task`, `<store>:<task>:<change>@<run>`), and for a `hello` decision the arrival (`arrival`), both added 2026-10-15 as optional fields; for an answer to a skill's ask, the ask (`ask`, 2026-10-16, optional). Not what was heard |
 
 The kind and the period are the table of first topics in [bus.md](bus.md)
 read as declarations. A stream is `event` and a latched topic `latest`. "How
@@ -330,6 +330,17 @@ Published by the voice only with `LAMP_HELLO_ASKS_POLICY=on`. `check()`
 asks only for a positive number. `Decision` has the optional `arrival` the
 policy's `hello` decision names it by; it is left out of every other
 decision, so their bytes are as they were (a test).
+
+| Type | Topic | Kind | Period / lifespan | Meaning |
+|---|---|---|---|---|
+| `SkillAsk` | `skills/ask` | event | none / none | A skill asks the policy whether the lamp may do something it would start itself (#939, [policy.md](policy.md)): the ask's number (the asker's monotonic clock in µs, positive), the skill's name, the act (`hello`, `news`, `unprompted`), the person if known, and for a hello its minutes away and seconds there. No words, no picture, no face |
+
+`check()` asks for a positive number, a skill's name (1 to 64 lowercase
+letters, digits, hyphens), a known act, a person as `p-` and 16 hex digits
+if given, and a hello's minutes and seconds. `Decision` has the optional
+`ask` the policy's answer names it by, left out of every other decision.
+Added by the second builder on 2026-10-16 (#939), in `src/skill_ask.rs`;
+`skill_ask_topics()` and `declaration_of()` find its topic.
 
 ## The ears' contracts
 

@@ -76,6 +76,8 @@ mod online;
 pub use online::*;
 mod arrival;
 pub use arrival::*;
+mod skill_ask;
+pub use skill_ask::*;
 
 /// Why a message is not one its type allows, in words.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -970,6 +972,10 @@ pub struct Decision {
     /// for any other decision.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub arrival: Option<u64>,
+    /// The skill's ask this answers (#939): the number `skills/ask` gave it
+    /// (`SkillAsk::ask`). Not there for any other decision.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ask: Option<u64>,
 }
 
 impl Decision {
@@ -1081,6 +1087,7 @@ pub fn declaration_of(topic: &str) -> Option<Declaration> {
         .chain(skills_topics())
         .chain(online_topics())
         .chain(arrival_topics())
+        .chain(skill_ask_topics())
         .find_map(|(name, declaration)| (name == topic).then_some(declaration))
 }
 
@@ -1578,6 +1585,7 @@ mod tests {
             request: Some(7),
             task: None,
             arrival: None,
+            ask: None,
         };
         // The answers are written by the question's name, in the order of
         // the names.

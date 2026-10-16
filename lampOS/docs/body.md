@@ -29,7 +29,8 @@ run on a lamp.
   in one sync write, and once at start their goal speed (46) and acceleration
   (41), so that the servo itself is slow whatever this process sends. Unless
   it was given a pose to stand in, `--torque on` or `--overload release`, it
-  never writes torque. With
+  writes torque only off, on all five, as a run ends on a surprise or a start
+  is refused for heat or load (see "When it stops"). With
   `--force-limit` it writes one more, once at start: the force limit (48)
   of the joints that carry the lamp (below, "The force its servos are
   allowed").
@@ -37,7 +38,12 @@ run on a lamp.
   on, a clear status byte, a temperature and a load under their bounds, and
   the head's pitch is found between 1,760 and 2,020. A head pressed on the
   base (found at 2,095 on lamp-4ace on 2026-10-12) is refused, with nothing
-  written, unless it was given `--wake on` (see "Waking").
+  written, unless it was given `--wake on` (see "Waking"). A joint found at
+  62 or warmer, or over its start load, is refused with torque off on all
+  five and nothing else written: such a joint is pushing at something, and
+  left held it would push on and be refused at every start until a power cut
+  (base yaw on lamp-52e6, 2026-10-16: load 212, 65 °C, refused at every
+  restart).
 - With `--torque on` (off unless given) it first takes hold of a joint it
   would otherwise refuse because its torque is off: the three it commands
   always, the shoulder and the elbow only for a lamp given `--stand`. A
@@ -72,8 +78,9 @@ run on a lamp.
 ## When it stops
 
 After every step it reads all five joints. The run ends, the present positions
-are written as the three goals so that nothing keeps pushing, and nothing is
-written after that, when:
+are written as the three goals so that nothing keeps pushing, then, as V1,
+torque off (40, 0) is written once to each of the five so that the lamp is
+let go, and nothing is written after that, when:
 
 | What is seen | Bound |
 | --- | --- |
@@ -83,6 +90,15 @@ written after that, when:
 | The shoulder or the elbow away from where it was found, in a body that does not stand | 6 counts |
 | A commanded joint's temperature register, on every step for a second | 62 |
 | A read, or a write, that fails on every step for half a second (25 steps) | missing, late, malformed or unexpected bytes |
+
+The same let-go ends every run that stops on a surprise, not only one in
+the loop: taking hold, a profile or force limit that does not write or read
+back at start, a wake that does not reach home, and a shoulder that does
+not come down when it is lowered all end with torque off on all five, after
+the hold where there is one. Every way a run ends passes through one place
+(`run_alive`) that does this. It is not done when the body is asked to
+stop, on a refusal to start (one for a hot or loaded joint has let go
+already), or under `--overload release`, where torque is already off.
 
 A load over its bound for six steps does not by itself end the run. The
 joint gives way: its goal becomes where it is, and nothing is asked of it for
@@ -311,9 +327,15 @@ is found is its home and there is nothing to wake to):
   fifths of the body's own speed. Every goal starts where the joint is, so
   nothing jumps; each joint only ever moves from where it was found toward
   its home, so the head found on the base only ever rises away from it.
-  The head pressed on the base at 2,095 on lamp-4ace's home of 1,950 takes
-  about 12 s; lamp-52e6's head drooped to 2,034, about 21 s; a base turned
-  300 counts, about 24 s.
+  The head's pitch and roll go first; the base turns only once they have
+  arrived or settled (below), with its own stir and pause. On lamp-52e6 on
+  2026-10-16, slumped with its head resting on its own base, the three
+  woke together and the base, dragging the head across the base's top,
+  read a load of 224 over its 220 and the run ended; by hand the base
+  turns freely. The head pressed on the base at 2,095 on lamp-4ace's home
+  of 1,950 takes about 12 s; lamp-52e6's head drooped to 2,034 with its
+  base 77 off, about 28 s; a base turned 300 counts, about 24 s. A head
+  and a base each 400 off take about a minute.
 - On the way it reads all five joints every step. A changed status byte, a
   shoulder or an elbow that moves more than 15 counts (on lamp-4ace the
   shoulder swayed 7 as the base turned 189 counts of its wake, one over the
@@ -339,7 +361,8 @@ is found is its home and there is nothing to wake to):
   (400)"). 400 is about 35 degrees: a head on the base was 145 from
   lamp-4ace's home, and lamp-52e6's home pitch of 1,771 would put its head
   on the base some 300 away. Farther than that, a joint is somewhere no lamp
-  has been seen. The whole 400 at the wake's speed takes 31 s, inside the
+  has been seen. The whole 400 at the wake's speed takes 31 s for a
+  joint, the head's and then the base's about a minute, inside the
   90 s systemd gives a service to say it is ready; the body says it is ready
   only once it has woken and its loop runs.
 - On a lamp given `--stand`, an arm found with its elbow folded (within 80
@@ -851,7 +874,7 @@ four rows, "Without it" is what `off` leaves.
 | `--limp on\|off` (default on while giving way) | a hand forcing a joint past V1's contact floor slumps the lamp (below) | `off`: gives way without the slump | on or off; on needs `--give-way` |
 | `--torque on` | take hold of a joint found without torque: its goal written as where it is, then torque on, and refused if it then moves more than 12 counts | a joint without torque is refused, and torque is not written | on or off |
 | `--wake on` (default) | with `--home`, a joint found out of where it may start but within 400 counts of home is brought home slowly before anything else; a shoulder left up with its elbow folded is lowered first; in the run, a joint held 30 to 50 counts short of its goal, still, rests where it is (see "Waking") | such a joint is refused | on or off |
-| `--overload release` | any joint at a load of 800 (80% of `--force-limit` for a joint held to one) for 1.5 s: torque off on all five for 120 s, then held where they are and the head brought home slowly; a second time within ten minutes ends the run, torque off (see "Letting go under overload") | torque is never written off | release |
+| `--overload release` | any joint at a load of 800 (80% of `--force-limit` for a joint held to one) for 1.5 s: torque off on all five for 120 s, then held where they are and the head brought home slowly; a second time within ten minutes ends the run, torque off (see "Letting go under overload") | torque is written off only as a run ends on a surprise | release |
 | `--gaze-socket PATH` with `--gaze Y,P` | where the eyes report, and the signed counts of yaw and pitch that a half-picture is worth | never looks | 900 either way |
 | `--gaze-reach Y,P` | the farthest the gaze takes yaw and pitch; the yaw may be wider than `--reach`'s | 250,120 | 500, 200 |
 | `--look-at-name on` (default) | the lamp's name heard on the bus taken as being spoken to for two seconds, and with nobody in view one small glance once it stands (see "Turning to a call") | a call is not taken | on or off |
@@ -1342,8 +1365,8 @@ Not yet tried on any lamp, by a hand or otherwise. Everything in this
 section is what the code does against simulated servos.
 
 `--overload release`, off unless given. Without it the body does exactly
-what it did before, write for write, and never writes torque off to all
-five (with `--limp on` a hand makes the same slump: "Giving way to a
+what it did before, write for write, and writes torque off to all five
+only as a run ends on a surprise ("When it stops"; with `--limp on` a hand makes the same slump: "Giving way to a
 hand").
 
 The hardware team's view, given through the owner's builder: the old
@@ -1569,8 +1592,9 @@ clock. They show that it writes only the three packets above, byte for byte;
 that over a scripted exchange every goal names servos 5, 4 and 1, stays within
 reach and moves at most two counts per write, and that the goals end exactly
 where they were found; that it refuses each start condition with nothing
-written; that an obstacle ten counts into a tilt ends the run within a few
-steps with the goal held at the obstacle; that a new flag on the shoulder, a
+written, but torque off on all five for a joint found hot or loaded; that an
+obstacle ten counts into a tilt ends the run within a few steps with the goal
+held at the obstacle and then torque off on all five; that a new flag on the shoulder, a
 changed flag or a nine-count move on the elbow, a head servo that stays hot,
 and a silent wire each end it, while one hot reading does not; that a head
 found 43 counts from a given home is brought there in small steps and never
@@ -1588,7 +1612,7 @@ moving away from home, the way itself never over 20 counts a second; that
 one found 450 away is refused with nothing written, as is a head on the base
 without a home given; that an arm off its way is never written and the lamp
 runs folded, saying why; and that a lamp found where it may start writes
-exactly what it writes without the option. And lamp-52e6 as found after its power cut (torque off and goal 0 on all five, head drooped to 2,034), with its unit's options and `--stand` and `--torque on`, in a simulation whose head lags 37 counts at a load of 320 while it lifts: the head is lifted home, never toward the base, and the run goes on; a head that will not lift ends the wake held where it is, the report saying how far its goal got. And a head that stops 32 short of home settles there: its goal and its home become where it is, and the run goes on. With `--wake on` too: lamp-52e6 as found unplugged standing (shoulder 2,633, elbow 2,074) has its shoulder lowered first, only ever down, under a count a write, the elbow never asked to move, and then stands when spoken to; without the option it is refused standing as before. A head held 35 short at rest rests where it is, where without the option the run ends on tracking. A base that sticks 34 behind its goal is led round and settles 34 short, running from there; a shoulder that sways 7 counts while the base wakes is let, and one moved 20 ends the run.
+exactly what it writes without the option. And lamp-52e6 as found after its power cut (torque off and goal 0 on all five, head drooped to 2,034), with its unit's options and `--stand` and `--torque on`, in a simulation whose head lags 37 counts at a load of 320 while it lifts: the head is lifted home, never toward the base, and the run goes on; a head that will not lift ends the wake held where it is, the report saying how far its goal got, and then lets go of all five. And a head that stops 32 short of home settles there: its goal and its home become where it is, and the run goes on. With `--wake on` too: lamp-52e6 as found unplugged standing (shoulder 2,633, elbow 2,074) has its shoulder lowered first, only ever down, under a count a write, the elbow never asked to move, and then stands when spoken to; without the option it is refused standing as before. A shoulder that does not come down as it is lowered ends the run held where it is, then torque off on all five. A head held 35 short at rest rests where it is, where without the option the run ends on tracking. A base that sticks 34 behind its goal is led round and settles 34 short, running from there; a shoulder that sways 7 counts while the base wakes is let, and one moved 20 ends the run.
 `gesture::tests` bounds every wanted pose. `body_link::tests` in `lamp-voice`
 checks the datagram.
 

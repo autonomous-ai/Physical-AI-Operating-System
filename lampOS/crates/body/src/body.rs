@@ -12,7 +12,9 @@
 //!   once at start their goal speed and acceleration, so that the servo
 //!   itself is slow whatever this process sends.
 //! - It never touches torque unless told to take hold (`Limits::torque_on`),
-//!   to let go under overload or, with `Limits::limp`, under a hand.
+//!   to let go under overload or, with `Limits::limp`, under a hand, or as
+//!   it ends on a surprise or refuses a joint found hot or loaded: then, as
+//!   V1, torque off on all five.
 //!   A joint whose torque is off, or whose status byte is not clear, is a
 //!   reason not to start; told to take hold, it first sets the goal of a
 //!   joint found without torque to where it is and then writes torque on.
@@ -26,7 +28,7 @@
 //!   joint that does not follow, a status byte that changes, a shoulder or
 //!   elbow that moves, a joint that stays hot or a wire that is not exactly
 //!   as expected ends the run: the present positions are written as the goals, so that
-//!   nothing keeps pushing, and nothing is written after that.
+//!   nothing keeps pushing, then torque off on all five, and nothing after that.
 use crate::{
     Joint,
     clips::{self, Clip},
@@ -178,7 +180,8 @@ const GLANCE: f32 = 36.0;
 /// for 1,950); lamp-52e6's home is 1,771, so its head on the base would be
 /// some 300 away. Beyond this a joint is somewhere no lamp has been seen,
 /// and it is refused as before. At the wake's speed the whole of it takes
-/// 31 s, inside the 90 s systemd allows a service to say it is ready.
+/// 31 s, a head's and then a base's about a minute, inside the 90 s
+/// systemd allows a service to say it is ready.
 pub const WAKE_REACH: u16 = 400;
 /// The fastest a joint moves while it wakes, counts a second: two fifths of
 /// the body's own 50, under two degrees a second.
@@ -717,13 +720,15 @@ pub struct Glimpse {
     pub hand: bool,
 }
 
-/// Why the run ended. Only `Cancelled` is an ordinary end.
+/// Why the run ended. Only `Cancelled` is an ordinary end. Every other end
+/// but `Refused` leaves torque off on all five, as V1 let the lamp go.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Stop {
     /// Asked to stop: the head eased back to where it was found.
     Cancelled,
-    /// A reason not to start. Nothing was written.
+    /// A reason not to start. Nothing was written, except torque off on all
+    /// five when a joint was found hot or loaded: as V1, the lamp is let go.
     Refused {
         why: String,
     },
@@ -1278,7 +1283,8 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
 type Watching<'a> = (&'a mut dyn FnMut(&Glimpse), Glimpse);
 
 /// Bring the three joints from `from` to `to` along [`wake_pose`], the arm
-/// held at `arm` for a body that may stand. Every step it reads all five
+/// held at `arm` for a body that may stand: the head's pitch and roll
+/// first, and the base only once they have arrived or settled. Every step it reads all five
 /// joints: a status byte that changes, a shoulder or an elbow that moves, a
 /// commanded joint over its load or off its goal for as many steps as in
 /// the run, or a wire that fails for half a second ends it. The wake goes
@@ -1298,6 +1304,16 @@ fn wake<P: PortIo, R: Runtime>(
     let started = bus.runtime.now();
     let (mut ticks, mut done) = (0u32, 0u32);
     let mut written = from;
+    // The head first, the base only once the head has come up: a head
+    // slumped onto its own base is dragged across it by a base that turns
+    // with it. On lamp-52e6 on 2026-10-16 the base, turning with a head
+    // lifting off it, read a load of 224 and stalled.
+    let head_first = [to[0], to[1], from[2]];
+    let mut leg = if head_first == from {
+        (from, to)
+    } else {
+        (from, head_first)
+    };
     let (mut misses, mut over, mut off) = (0u8, [0u8; 3], [0u8; 3]);
     // How near each joint has come to its goal since the goal got home, the
     // steps since it last came nearer, and whether it has settled short.
@@ -1313,7 +1329,7 @@ fn wake<P: PortIo, R: Runtime>(
             ));
             return Err(Stop::Cancelled);
         }
-        let (pose, over_now) = wake_pose(from, to, TICK.as_secs_f32() * done as f32);
+        let (pose, over_now) = wake_pose(leg.0, leg.1, TICK.as_secs_f32() * done as f32);
         let goals = pose.map(|goal| goal.round() as u16);
         let outcome = if goals == written {
             Ok(())
@@ -1427,7 +1443,11 @@ fn wake<P: PortIo, R: Runtime>(
                         || written[index].abs_diff(now[COMMANDED[index].index()].position)
                             <= limits.tracking
                 });
-                if surprise.is_some() || (over_now && arrived) {
+                if surprise.is_none() && over_now && arrived && leg.1 != to {
+                    // The head is up: now the base.
+                    leg = (head_first, to);
+                    done = 0;
+                } else if surprise.is_some() || (over_now && arrived) {
                     report.woke = Some(woke_from(
                         (from, to, written),
                         report.last,
@@ -1771,19 +1791,7 @@ fn let_go<P: PortIo, R: Runtime>(
             return Err(Stop::Cancelled);
         }
         let _ = (news(), asked());
-        let mut failed = None;
-        holding.retain(|joint| {
-            match bus.write_acknowledged(*joint, &torque_write(*joint, 0), true) {
-                Ok(()) => {
-                    report.torque_writes = report.torque_writes.saturating_add(1);
-                    false
-                }
-                Err(detail) => {
-                    failed.get_or_insert(detail);
-                    true
-                }
-            }
-        });
+        let failed = torque_off(bus, report, &mut holding);
         report.steps += 1;
         let read = bus.samples();
         if let Ok(now) = &read {
@@ -1814,6 +1822,35 @@ fn let_go<P: PortIo, R: Runtime>(
         }
         bus.sleep_until(due);
     }
+}
+
+/// Torque off (register 40, 0) to each of `holding`, each acknowledged;
+/// one that took it is dropped from `holding`. The first failure, if any.
+fn torque_off<P: PortIo, R: Runtime>(
+    bus: &mut Bus<'_, P, R>,
+    report: &mut BodyReport,
+    holding: &mut Vec<Joint>,
+) -> Option<String> {
+    let mut failed = None;
+    holding.retain(
+        |joint| match bus.write_acknowledged(*joint, &torque_write(*joint, 0), true) {
+            Ok(()) => {
+                report.torque_writes = report.torque_writes.saturating_add(1);
+                false
+            }
+            Err(detail) => {
+                failed.get_or_insert(detail);
+                true
+            }
+        },
+    );
+    failed
+}
+
+/// As V1, a run that ends on a surprise lets go of the whole lamp: torque
+/// off on all five, once each (a wire that has gone silent is not waited on).
+fn let_go_at_end<P: PortIo, R: Runtime>(bus: &mut Bus<'_, P, R>, report: &mut BodyReport) {
+    let _ = torque_off(bus, report, &mut Joint::ALL.to_vec());
 }
 
 /// One step of a joint that gave way at `from` and is still held at `goal`,
@@ -2003,8 +2040,39 @@ pub(crate) fn run_looking(
 /// offsets are laid over whatever the lamp is doing and leave it where it
 /// was. If a joint strains or falls behind while one plays, the gesture is
 /// let go and the lamp carries on.
+///
+/// Every way a run ends passes here once: any surprise, at start-up, while
+/// waking or lowering the shoulder, or while running, lets go of the whole
+/// lamp, as V1 did, after the joints were held where they are (a stuck
+/// joint held at its goal with torque on keeps pushing and heats). Not when
+/// asked to stop, not on a refusal (one for a hot or loaded joint has let
+/// go already), and not under overload, where torque is already off.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn run_alive(
+    io: &mut impl PortIo,
+    runtime: &mut impl Runtime,
+    limits: Limits,
+    home: Option<[u16; 3]>,
+    standing: Option<Standing>,
+    looking: Option<Looking>,
+    news: impl FnMut() -> Option<(Mood, u8)>,
+    asked: impl FnMut() -> Asked,
+    watch: impl FnMut(&Glimpse),
+) -> BodyReport {
+    let mut report = run_until_stopped(
+        io, runtime, limits, home, standing, looking, news, asked, watch,
+    );
+    if !matches!(
+        report.stop,
+        Stop::Cancelled | Stop::Refused { .. } | Stop::Overload { .. }
+    ) {
+        let_go_at_end(&mut Bus { io, runtime }, &mut report);
+    }
+    report
+}
+
+#[allow(clippy::too_many_arguments)]
+fn run_until_stopped(
     io: &mut impl PortIo,
     runtime: &mut impl Runtime,
     limits: Limits,
@@ -2162,6 +2230,11 @@ pub(crate) fn run_alive(
             None
         };
         if let Some(why) = why {
+            // A joint found hot or loaded is pushing at something: as V1,
+            // the whole lamp is let go, or every restart finds it so again.
+            if sample.temperature >= limits.temperature || sample.load > limits.start_load[index] {
+                let_go_at_end(&mut bus, &mut report);
+            }
             report.stop = refused(why);
             return report;
         }
@@ -3888,6 +3961,7 @@ pub(crate) fn run_alive(
             report.held_at = Some(hold);
         }
     }
+    // Any surprise lets go of the whole lamp: see `run_alive`.
     report.stop = stop;
     report
 }

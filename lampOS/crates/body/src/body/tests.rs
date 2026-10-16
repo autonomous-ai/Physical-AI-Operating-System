@@ -355,8 +355,9 @@ impl Lamp {
                                 servo.goal = u16::from_le_bytes([*low, *high]);
                             }
                         }
-                        // Torque: the same.
-                        (40, [value]) if arm_or_held => {
+                        // Torque: the same, except off, which lets the
+                        // whole lamp go at the end of a run on a surprise.
+                        (40, [value]) if arm_or_held || *value == 0 => {
                             let was = servo.torque;
                             servo.torque = *value;
                             if *value == 1 && (clears == 1 || (clears == 2 && was == 0)) {
@@ -433,6 +434,13 @@ fn script(time: &Rc<Cell<Duration>>) -> impl FnMut() -> Option<(Mood, u8)> + use
             _ => (Mood::Resting, 0),
         })
     }
+}
+
+/// The last five register writes are torque off to each of the five, and
+/// every servo has it off: the whole lamp let go, as V1.
+fn let_go_of_the_whole_lamp(lamp: &Lamp) -> bool {
+    let off: Vec<_> = (1..=5).map(|id| (id, 40, vec![0])).collect();
+    lamp.registers.ends_with(&off) && lamp.servos.iter().all(|servo| servo.torque == 0)
 }
 
 fn goal_of(write: &[(u8, u16)], joint: Joint) -> u16 {
@@ -544,11 +552,20 @@ fn it_does_not_start_on_a_lamp_that_is_not_as_expected() {
             report.stop
         );
         assert!(!report.moved);
-        assert!(lamp.nothing_was_written());
-        match report.stop {
-            Stop::Refused { why } => why,
-            _ => unreachable!(),
+        assert!(lamp.goals.is_empty());
+        let Stop::Refused { why } = report.stop else {
+            unreachable!()
+        };
+        // Found hot or loaded, a joint is pushing at something: as V1, the
+        // whole lamp is let go and nothing else is written. Any other
+        // reason writes nothing.
+        if why.contains("already") {
+            assert!(let_go_of_the_whole_lamp(&lamp), "{:?}", lamp.registers);
+            assert_eq!(lamp.registers.len(), 5);
+        } else {
+            assert!(lamp.nothing_was_written(), "{why}");
         }
+        why
     };
     // The head pressed on the base, as it was found on 2026-10-12.
     assert!(refused(&|lamp| lamp.servos[PITCH].position = 2_095.0).contains("2095"));
@@ -561,7 +578,7 @@ fn it_does_not_start_on_a_lamp_that_is_not_as_expected() {
 }
 
 #[test]
-fn a_load_that_rises_stops_it_where_it_is_and_nothing_is_written_after() {
+fn a_load_that_rises_stops_it_where_it_is_and_lets_the_whole_lamp_go() {
     let (mut lamp, mut clock) = folded(Duration::from_secs(8));
     // Something in the way of the head's tilt, ten counts from home.
     lamp.wall = Some((ROLL, 2_054.0));
@@ -595,6 +612,9 @@ fn a_load_that_rises_stops_it_where_it_is_and_nothing_is_written_after() {
             .abs_diff(lamp.servos[PITCH].position.round() as u16)
             <= 1
     );
+    // Then, as V1, torque off on all five: a stuck joint left held with
+    // torque on keeps pushing and heats (lamp-52e6, 2026-10-16).
+    assert!(let_go_of_the_whole_lamp(&lamp), "{:?}", lamp.registers);
 }
 
 #[test]
@@ -724,6 +744,7 @@ fn a_new_flag_a_moved_elbow_or_a_hot_joint_stops_it() {
         };
         assert!(clock.time.get() < Duration::from_millis(by));
         assert!(report.held_at.is_some());
+        assert!(let_go_of_the_whole_lamp(&lamp), "{:?}", lamp.registers);
         report.stop
     };
     // The shoulder trips its overload flag, though nothing commands it.
@@ -1071,7 +1092,8 @@ fn a_wire_that_goes_silent_stops_it_after_half_a_second() {
     let report = run(&mut lamp, &mut clock, Limits::FOLDED, None, news, |_| {});
     assert!(matches!(report.stop, Stop::Bus { .. }), "{:?}", report.stop);
     assert_eq!(report.missed_reads, u64::from(WIRE_STEPS));
-    assert!(clock.time.get() < Duration::from_millis(1_500 + 20 * 27));
+    // And one try at torque off on each of the five, not waited on.
+    assert!(clock.time.get() < Duration::from_millis(1_500 + 20 * 27) + EXCHANGE * 5);
     // Nothing was asked of the joints once the wire had gone silent, but
     // the hold: no goal moved further from where the joints were.
     let last = lamp.goals.last().unwrap();
@@ -2972,6 +2994,39 @@ fn a_base_turned_300_counts_comes_home_without_moving_away_or_faster_than_waking
 }
 
 #[test]
+fn a_head_slumped_on_the_base_lifts_before_the_base_turns() {
+    // As lamp-52e6 on 2026-10-16: the head on its own base and the base
+    // turned, both to wake. The base must not drag the head across it.
+    let (mut lamp, mut clock) = folded(Duration::from_secs(40));
+    lamp.servos[PITCH].position = 2_095.0;
+    lamp.servos[PITCH].goal = 2_095;
+    lamp.servos[YAW].position = 2_115.0;
+    lamp.servos[YAW].goal = 2_115;
+    let report = run(
+        &mut lamp,
+        &mut clock,
+        waking(),
+        Some(HOME),
+        || Some((Mood::Resting, 0)),
+        |_| {},
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    let woke = report.woke.unwrap();
+    assert_eq!(woke.joints, vec!["wrist_pitch", "base_yaw"]);
+    let (pitch, yaw) = (
+        goals_of(&lamp, Joint::WristPitch),
+        goals_of(&lamp, Joint::BaseYaw),
+    );
+    let lifted = pitch.iter().position(|goal| *goal == 2_000).unwrap();
+    let turned = yaw.iter().position(|goal| *goal != 2_115).unwrap();
+    assert!(
+        lifted < turned,
+        "pitch home at {lifted}, yaw moved at {turned}"
+    );
+    assert_eq!(lamp.servos[YAW].goal, 2_015);
+}
+
+#[test]
 fn a_joint_beyond_what_waking_brings_back_is_refused() {
     let (mut lamp, mut clock) = folded(Duration::from_secs(2));
     lamp.servos[YAW].position = 2_465.0;
@@ -3658,14 +3713,15 @@ fn a_head_that_drooped_in_a_power_cut_is_lifted_home_with_lamp_52e6s_options() {
     assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
     assert!(report.standing.is_some(), "{report:?}");
     let woke = report.woke.unwrap();
-    // All three come home with the head, at its pace.
+    // All three come home, the base after the head.
     assert_eq!(woke.joints, vec!["wrist_pitch", "wrist_roll", "base_yaw"]);
     assert_eq!(
         (woke.from, woke.to),
         (vec![2_034, 2_100, 1_958], vec![1_771, 2_035, 2_035])
     );
-    // A stir that reaches 80 counts ahead, a pause, then the rest of 263.
-    assert!((19.0..23.0).contains(&woke.seconds), "{}", woke.seconds);
+    // A stir that reaches 80 counts ahead, a pause, then the rest of 263;
+    // then the base's 77, in its stir and a pause.
+    assert!((26.0..30.0).contains(&woke.seconds), "{}", woke.seconds);
     // Lifting, it read 320 and lagged its goal by 37, and was let.
     assert!(report.peak_load[0] >= 320, "{:?}", report.peak_load);
     // Never toward the base.
@@ -3709,13 +3765,16 @@ fn a_head_that_cannot_lift_ends_the_wake_held_where_it_is_and_says_how_far_it_go
     assert_eq!(woke.from, vec![2_095]);
     assert_eq!(woke.to, vec![2_000]);
     assert_eq!(report.held_at.map(|held| held[0]), Some(2_095));
+    // Held, then let go of, as any surprise: a head pushing at a goal it
+    // cannot reach heats.
+    assert!(let_go_of_the_whole_lamp(&lamp), "{:?}", lamp.registers);
 }
 
 /// lamp-52e6 woken from a real droop on 2026-10-14: the head lifted and
 /// stayed 32 counts short of home. It has woken there, and runs from there.
 #[test]
 fn a_head_that_settles_32_short_of_home_wakes_there_and_runs_from_where_it_is() {
-    let (mut lamp, mut clock) = folded(Duration::from_secs(40));
+    let (mut lamp, mut clock) = folded(Duration::from_secs(50));
     lamp.may_take_hold = true;
     for (index, at) in [(YAW, 1_979.0), (ROLL, 2_101.0), (PITCH, 2_029.0)] {
         let servo = &mut lamp.servos[index];
@@ -3750,7 +3809,13 @@ fn a_head_that_settles_32_short_of_home_wakes_there_and_runs_from_where_it_is() 
     // Its home is where it settled; nothing pushes at the gap.
     assert_eq!(report.home, Some([1_803, 2_035, 2_035]));
     let pitch = goals_of(&lamp, Joint::WristPitch);
-    let settled = pitch.iter().position(|goal| *goal == 1_771).unwrap() + 1;
+    // Home stays its goal while the base wakes after it; then the run's.
+    let home = pitch.iter().position(|goal| *goal == 1_771).unwrap();
+    let settled = home
+        + pitch[home..]
+            .iter()
+            .position(|goal| *goal != 1_771)
+            .unwrap();
     assert_eq!(pitch[settled], 1_803);
     assert!(
         pitch[settled..].iter().all(|goal| *goal >= 1_803),
@@ -4079,6 +4144,62 @@ fn a_shoulder_left_up_by_a_power_cut_is_lowered_first_and_the_lamp_may_then_stan
     );
     assert!(report.lowered.is_none());
     assert!(report.standing_refused.unwrap().contains("off the way"));
+}
+
+/// A shoulder left up by a power cut that does not come down when it is
+/// lowered: the run ends there, held where it is, and the whole lamp is
+/// let go, as any surprise.
+#[test]
+fn a_shoulder_that_will_not_come_down_ends_the_run_and_lets_the_whole_lamp_go() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(70));
+    lamp.may_take_hold = true;
+    lamp.arm_moves = false;
+    for (index, at) in [
+        (YAW, 1_979.0),
+        (1, 2_633.0),
+        (2, 2_074.0),
+        (ROLL, 2_101.0),
+        (PITCH, 2_029.0),
+    ] {
+        let servo = &mut lamp.servos[index];
+        (servo.position, servo.goal, servo.torque, servo.status) = (at, 0, 0, 0);
+    }
+    let limits = Limits {
+        torque_on: true,
+        wake: true,
+        ..Limits::folded_with(Tuning {
+            reach: [150, 15, 1, 250],
+            speed: 120,
+            servo_speed: 1_000,
+            servo_acceleration: 60,
+        })
+        .unwrap()
+    };
+    let up = Standing::new(
+        [2_053, 2_069],
+        [1_772, 2_035, 2_035, 2_657, 2_602],
+        100,
+        5,
+        90,
+        [560, 560],
+    )
+    .unwrap();
+    let report = run_standing(
+        &mut lamp,
+        &mut clock,
+        limits,
+        Some([1_771, 2_035, 2_035]),
+        Some(up),
+        || Some((Mood::Resting, 0)),
+        |_| {},
+    );
+    assert!(
+        matches!(report.stop, Stop::Tracking { joint: 2, .. }),
+        "{:?}",
+        report.stop
+    );
+    assert!(report.held_at.is_some(), "{report:?}");
+    assert!(let_go_of_the_whole_lamp(&lamp), "{:?}", lamp.registers);
 }
 
 /// A head held 35 counts short of its goal by its own weight, at rest:
@@ -4449,7 +4570,15 @@ fn a_base_still_pushed_a_second_after_it_stopped_makes_the_lamp_slump_as_v1() {
         matches!(report.stop, Stop::Load { joint: 1, .. }),
         "{report:?}"
     );
-    assert!(lamp.registers.iter().all(|(_, address, _)| *address != 40));
+    // Torque is written only as the run ends: off, on all five.
+    assert!(let_go_of_the_whole_lamp(&lamp), "{:?}", lamp.registers);
+    assert_eq!(
+        lamp.registers
+            .iter()
+            .filter(|(_, address, _)| *address == 40)
+            .count(),
+        5
+    );
 }
 
 /// A slump from a hand is not an overload: the first true overload after

@@ -441,7 +441,17 @@ pub fn install(
     let _lock = records
         .lock()
         .map_err(|error| format!("another lamp-update is running: {error}"))?;
-    let mut state = records.peek_state();
+    // The records as `Records::state` reads them: an unreadable file stops
+    // install rather than being written over, and a corrupt one is set
+    // aside and said. Set aside, it is not known what install wrote before,
+    // so V1's key is not copied (below): a reset may have wiped the user's
+    // key, and V1's config may still hold the previous owner's (#1094).
+    let state_file = config.on(&config.records).join("state.json");
+    let existed = state_file.exists();
+    let mut state = records
+        .state(say)
+        .map_err(|error| format!("the state cannot be read: {error}"))?;
+    let records_lost = existed && !state_file.exists();
     let mut changed = Vec::new();
 
     // The users first: a folder or a part made below may name them.
@@ -550,8 +560,11 @@ pub fn install(
         let there = config.on(path).exists();
         let had = state.settings.contains_key(path);
         match &key {
-            Some(key) if there || !had => private.push((path, key)),
+            Some(key) if there || (!had && !records_lost) => private.push((path, key)),
             _ if there => {}
+            Some(_) if records_lost => say(&format!(
+                "{path} is missing and the records were set aside: V1's key is not copied; setup takes the user's"
+            )),
             Some(_) => say(&format!(
                 "{path} was removed since install wrote it (a reset?): V1's key is not put back; setup takes the user's"
             )),

@@ -683,6 +683,86 @@ fn a_key_a_reset_removed_is_never_put_back_from_v1s_config() {
     );
 }
 
+/// #1094's review: install reads its records with `Records::state`. A
+/// corrupt state file is set aside and said, never silently written over;
+/// and since what install wrote before is then not known, a key a reset
+/// removed is not taken for one never written: V1's is not copied back.
+#[test]
+fn corrupt_records_are_set_aside_and_never_bring_back_a_key_a_reset_removed() {
+    const OLD: &str = "previous-owners-key";
+    let mut lamp = Lamp::new(192, &[]);
+    fs::create_dir_all(lamp.on("/root/config")).unwrap();
+    fs::write(
+        lamp.on(install::V1_CONFIG),
+        format!(r#"{{"llm_api_key": "{OLD}"}}"#),
+    )
+    .unwrap();
+    lamp.install().unwrap();
+    // A reset wipes both keys, and the records are damaged.
+    fs::remove_file(lamp.on(install::CREDENTIAL_PATH)).unwrap();
+    fs::remove_file(lamp.on(install::JEV_KEY_PATH)).unwrap();
+    let state = lamp.on("/var/lib/lampos-update/state.json");
+    fs::write(&state, b"{ not json").unwrap();
+    lamp.said.clear();
+    lamp.install().unwrap();
+    assert!(!lamp.on(install::CREDENTIAL_PATH).exists());
+    assert!(!lamp.on(install::JEV_KEY_PATH).exists());
+    let aside: Vec<_> = fs::read_dir(state.parent().unwrap())
+        .unwrap()
+        .filter_map(|entry| {
+            let name = entry.unwrap().file_name().into_string().unwrap();
+            name.starts_with("state.json.corrupt-").then_some(name)
+        })
+        .collect();
+    assert_eq!(aside.len(), 1, "the damaged file is kept beside");
+    assert!(
+        lamp.said
+            .iter()
+            .any(|line| line.contains("could not be read") && line.contains("begun again")),
+        "{:?}",
+        lamp.said
+    );
+    assert!(
+        lamp.said
+            .iter()
+            .any(|line| line.contains("the records were set aside: V1's key is not copied")),
+        "{:?}",
+        lamp.said
+    );
+    assert!(lamp.said.iter().all(|line| !line.contains(OLD)));
+    // A blank lamp with no records at all still gets V1's key, as before.
+    let mut blank = Lamp::new(193, &[]);
+    fs::create_dir_all(blank.on("/root/config")).unwrap();
+    fs::write(
+        blank.on(install::V1_CONFIG),
+        format!(r#"{{"llm_api_key": "{OLD}"}}"#),
+    )
+    .unwrap();
+    blank.install().unwrap();
+    assert_eq!(
+        fs::read_to_string(blank.on(install::CREDENTIAL_PATH)).unwrap(),
+        OLD
+    );
+}
+
+/// An unreadable records file stops install: it is never written over.
+#[test]
+fn unreadable_records_stop_install_rather_than_being_written_over() {
+    let mut lamp = Lamp::new(194, &[]);
+    lamp.install().unwrap();
+    let state = lamp.on("/var/lib/lampos-update/state.json");
+    let kept = fs::read(&state).unwrap();
+    fs::remove_file(&state).unwrap();
+    // A folder where the file was: reading it fails, and not as missing.
+    fs::create_dir(&state).unwrap();
+    let refused = lamp.install().unwrap_err();
+    assert!(refused.contains("the state cannot be read"), "{refused}");
+    assert!(state.is_dir());
+    fs::remove_dir(&state).unwrap();
+    fs::write(&state, kept).unwrap();
+    lamp.install().unwrap();
+}
+
 /// #811, from lamp-06c1: a home lamp gets `lamp-skills` and its first skill,
 /// Welcome back, and the voice speaks it through its say service with its
 /// own hello off, so the lamp greets once.

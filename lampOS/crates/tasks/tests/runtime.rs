@@ -2,9 +2,9 @@ use lamp_bus::Bus;
 use lamp_msgs::{AgentState, Diagnostic, Sign, TaskStatus};
 use lamp_tasks::{
     engine::{Clock as Sample, WATCH_EARLY_MS},
-    harness::{EngineKind, Launch, LaunchOutcome, Listed, Observation, Target},
+    harness::{Ended, EngineKind, Launch, LaunchOutcome, Listed, Observation, Target},
     progress::SETTLED_FOR_MS,
-    runtime::{Adapter, Clock, Config, request, serve_with_adapter},
+    runtime::{Adapter, Clock, Config, WaitLane, request, serve_with_adapter},
 };
 use serde_json::{Value, json};
 use std::{
@@ -38,6 +38,33 @@ struct Counts {
     about: Mutex<Option<String>>,
     /// `ps` fails while set.
     ps_fails: AtomicBool,
+    /// `show` finds the agent idle with an answer while set.
+    idle: AtomicBool,
+    /// Each `wait` held, with the agents it named.
+    waits: Mutex<Vec<Vec<String>>>,
+    /// What the held `wait` comes back with, once set.
+    wait_ends: Mutex<Option<Vec<Ended>>>,
+}
+struct ScriptLane(Arc<Counts>);
+impl WaitLane for ScriptLane {
+    fn wait(
+        &self,
+        machine: &str,
+        agents: &[String],
+        cancel: &AtomicBool,
+    ) -> Result<Vec<Ended>, String> {
+        assert_eq!(machine, "0123456789abcdef0123456789abcdef");
+        self.0.waits.lock().unwrap().push(agents.to_vec());
+        loop {
+            if cancel.load(Ordering::Acquire) {
+                return Err("cancelled".into());
+            }
+            if let Some(ends) = self.0.wait_ends.lock().unwrap().take() {
+                return Ok(ends);
+            }
+            thread::sleep(Duration::from_millis(5));
+        }
+    }
 }
 struct Script {
     counts: Arc<Counts>,
@@ -45,6 +72,9 @@ struct Script {
     slow: bool,
 }
 impl Adapter for Script {
+    fn wait_lane(&self) -> Option<Arc<dyn WaitLane>> {
+        Some(Arc::new(ScriptLane(self.counts.clone())))
+    }
     fn launch(&self, _: &Launch) -> LaunchOutcome {
         self.counts.launches.fetch_add(1, Ordering::SeqCst);
         if self.slow {
@@ -64,6 +94,16 @@ impl Adapter for Script {
         // Read on the machine the task was started on.
         assert_eq!(machine, "0123456789abcdef0123456789abcdef");
         assert_eq!(id, AGENT);
+        if self.counts.idle.load(Ordering::SeqCst) {
+            return Ok(Observation {
+                agent_id: AGENT.into(),
+                state: "idle".into(),
+                ask: Some("Private scripted task".into()),
+                answer: "Lumi, Sunny and Archie.".into(),
+                truncated: false,
+                tools: 1,
+            });
+        }
         Ok(Observation {
             agent_id: AGENT.into(),
             state: "needs-input".into(),
@@ -127,6 +167,7 @@ impl Running {
             run_for: None,
             watch,
             progress,
+            push_wait: false,
         };
         let mut running = Self {
             root,
@@ -847,4 +888,62 @@ fn without_progress_nothing_is_listed_the_topic_is_untouched_and_the_report_is_a
         s.ask(json!({"op":"get_progress","id":prepared["id"]}))["error"],
         "progress_off"
     );
+}
+
+/// #560: with `--push-wait`, Harness's own `wait` is held on the agents the
+/// watch looks at, and when it comes back the agent is read at once and an
+/// idle answer kept without the watch's second look. The injected clock
+/// never moves here, so the watch itself never looks: only the push reads.
+#[test]
+fn a_held_wait_that_comes_back_reads_the_agent_at_once_and_keeps_its_idle_answer() {
+    let mut s = Running::configured(false, false, true);
+    s.stop();
+    s.config.push_wait = true;
+    s.start();
+    // Nothing handed over: nothing waited on.
+    thread::sleep(Duration::from_millis(50));
+    assert!(s.counts.waits.lock().unwrap().is_empty());
+    let prepared = s.prepare();
+    assert_eq!(s.trusted(s.confirmation(&prepared))["ok"], true);
+    s.wait(&prepared["id"], |v| {
+        v["task"]["dispatch"]["state"] == "accepted"
+    });
+    // Accepted: one wait, on its agent, and no read yet.
+    let start = Instant::now();
+    while s.counts.waits.lock().unwrap().is_empty() {
+        assert!(start.elapsed() < Duration::from_secs(5), "no wait held");
+        thread::sleep(Duration::from_millis(5));
+    }
+    assert_eq!(
+        *s.counts.waits.lock().unwrap(),
+        vec![vec![AGENT.to_owned()]]
+    );
+    thread::sleep(Duration::from_millis(50));
+    assert_eq!(s.counts.reads.load(Ordering::SeqCst), 0);
+    // The agent ends: read at once, and its idle answer kept on that one
+    // read, so the task is settled and the watch lets it go.
+    s.counts.idle.store(true, Ordering::SeqCst);
+    *s.counts.wait_ends.lock().unwrap() = Some(vec![Ended {
+        agent_id: AGENT.into(),
+        state: "idle".into(),
+    }]);
+    let kept = s.wait(&prepared["id"], |v| v["task"]["observations"] == json!(1));
+    assert_eq!(s.counts.reads.load(Ordering::SeqCst), 1, "{kept}");
+    // Settled: no longer watched, so no wait is held for it again.
+    thread::sleep(Duration::from_millis(100));
+    assert_eq!(s.counts.waits.lock().unwrap().len(), 1);
+    assert_eq!(s.counts.reads.load(Ordering::SeqCst), 1);
+}
+
+/// Without `--push-wait` no wait is ever held, whatever the adapter has.
+#[test]
+fn without_push_wait_no_wait_is_held() {
+    let s = Running::configured(false, false, true);
+    let prepared = s.prepare();
+    assert_eq!(s.trusted(s.confirmation(&prepared))["ok"], true);
+    s.wait(&prepared["id"], |v| {
+        v["task"]["dispatch"]["state"] == "accepted"
+    });
+    thread::sleep(Duration::from_millis(100));
+    assert!(s.counts.waits.lock().unwrap().is_empty());
 }

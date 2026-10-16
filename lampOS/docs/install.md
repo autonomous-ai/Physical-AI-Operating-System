@@ -358,17 +358,18 @@ As root, on a lamp with the base image (`crates/update/src/install.rs`):
    nothing (the reviewer on #815, 19:17 and 19:32).
 9. **Harness at boot** (#811, the first builder's recipe, 01:56), once
    Harness is on the lamp at `/usr/local/bin/harness` (its own installer
-   puts it there; without it, install says so and goes on). Unless
-   `/var/lib/systemd/linger/lampos` and
-   `/var/lib/lampos-tasks/.config/systemd/user/harnessd.service` are both
-   there already: makes `/var/lib/lampos-tasks` `lampos`'s own (0700, the
+   puts it there; without it, install says so and goes on). Unless an
+   earlier install recorded it done (`/var/lib/lampos-update/harness-at-boot`,
+   written only after `harness service install` succeeded; the CLI's own
+   files are no proof, since it writes its unit before registering it and
+   keeps it when a later step fails, the reviewer on #934): makes `/var/lib/lampos-tasks` `lampos`'s own (0700, the
    tasks unit's state folder), runs `loginctl enable-linger lampos` (a user
    manager for `lampos` from boot, with no login), then the Harness CLI's
    own `harness service install` as `lampos` with
    `HOME=/var/lib/lampos-tasks` and its `XDG_RUNTIME_DIR`. No unit of
    install's own: the daemon's runtime, entry point and platform variable
-   are the Harness team's (docs/harness.md). A refusal stops the install
-   and is said; it is taken to the Harness team, not worked around. How a
+   are the Harness team's (docs/harness.md). A refusal stops the install,
+   records nothing, so the next install asks again, and is said; it is taken to the Harness team, not worked around. How a
    home lamp's Harness signs in is theirs too.
 
 Run again with nothing new and nothing owed, it writes nothing and asks

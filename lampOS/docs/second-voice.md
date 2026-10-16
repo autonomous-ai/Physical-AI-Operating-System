@@ -165,6 +165,17 @@ A base URL on `campaign-api.autonomous.ai` ending in `/ai` is given `/v1`
   announcement still comes before the first real answer, and a written
   turn never makes one. On lamp-4ace on 2026-10-16, 9 of 10 backup turns
   waited past 1.5 s.
+  With `LAMP_SECOND_DOWN_LINE=on`, a turn whose first round has not begun
+  within its bound says "I can't think right now; give me a minute."
+  (`DOWN_LINE`) instead of nothing, at most once a minute
+  (`DOWN_LINE_EVERY`; the journal: `said it can't think right now`). The
+  line is said once by this route's own voice at the first turn, while the
+  relay answers, and kept in memory, so it can still be said when the chat
+  no longer answers. It goes as audio only, like the wait's sound. A look
+  keeps its own line. A speech that never rendered (the relay down since
+  start) leaves the turn silent, as before. On 2026-10-17 from 02:29 the
+  relay's chat timed out at 40 s, then gave 401 after 60 s, while its
+  speech to text answered in under a second (the sixth's relay log).
 - **Speech** (`net/tts.rs`), 24 kHz mono 16-bit PCM:
   - `openai`: `POST <base>/audio/speech`, `Authorization: Bearer <key>`,
     model `tts-1`, `response_format: pcm`.

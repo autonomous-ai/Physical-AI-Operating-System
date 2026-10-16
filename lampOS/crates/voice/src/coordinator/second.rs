@@ -144,12 +144,14 @@ pub(super) fn configured(value: Option<OsString>) -> Option<PathBuf> {
 
 /// The `worker second` arguments: the Live worker's, its configuration
 /// first, then the second route's, `--wait-cue` with `wait_cue`
-/// (`LAMP_SECOND_WAIT_CUE=on`), then its flags but `--keep-link` and
+/// (`LAMP_SECOND_WAIT_CUE=on`), `--down-line` with `down_line`
+/// (`LAMP_SECOND_DOWN_LINE=on`), then its flags but `--keep-link` and
 /// `--wait-for-room`, which are for Gemini's link.
 pub(super) fn arguments(
     provider: &[String],
     second_config: &Path,
     wait_cue: bool,
+    down_line: bool,
 ) -> io::Result<Vec<String>> {
     let (config, flags) = provider
         .split_first()
@@ -160,6 +162,9 @@ pub(super) fn arguments(
     let mut arguments = vec![config.clone(), second_config.to_owned()];
     if wait_cue {
         arguments.push(crate::second_provider::worker::WAIT_CUE_FLAG.to_owned());
+    }
+    if down_line {
+        arguments.push(crate::second_provider::worker::DOWN_LINE_FLAG.to_owned());
     }
     arguments.extend(
         flags
@@ -806,7 +811,7 @@ mod tests {
         .map(String::from)
         .to_vec();
         assert_eq!(
-            arguments(&provider, Path::new("/etc/second.json"), false).unwrap(),
+            arguments(&provider, Path::new("/etc/second.json"), false, false).unwrap(),
             [
                 "/etc/provider.json",
                 "/etc/second.json",
@@ -816,8 +821,17 @@ mod tests {
             ]
         );
         assert_eq!(
-            arguments(&provider, Path::new("/etc/second.json"), true).unwrap()[..3],
-            ["/etc/provider.json", "/etc/second.json", "--wait-cue"]
+            arguments(&provider, Path::new("/etc/second.json"), true, true).unwrap()[..4],
+            [
+                "/etc/provider.json",
+                "/etc/second.json",
+                "--wait-cue",
+                "--down-line"
+            ]
+        );
+        assert_eq!(
+            arguments(&provider, Path::new("/etc/second.json"), false, true).unwrap()[..3],
+            ["/etc/provider.json", "/etc/second.json", "--down-line"]
         );
         assert!(configured(None).is_none());
         assert!(configured(Some(OsString::new())).is_none());

@@ -245,6 +245,25 @@ pub fn take_wait_cue(flags: &[String]) -> (bool, &[String]) {
     }
 }
 
+/// Where the coordinator reads whether a turn the chat never began says
+/// [`super::DOWN_LINE`]. `on` only.
+pub const DOWN_LINE_ENVIRONMENT: &str = "LAMP_SECOND_DOWN_LINE";
+/// The worker's flag for it, after `--wait-cue` if that is given.
+pub const DOWN_LINE_FLAG: &str = "--down-line";
+
+/// Whether the service's environment says `LAMP_SECOND_DOWN_LINE=on`.
+pub fn down_line_from_environment() -> bool {
+    std::env::var(DOWN_LINE_ENVIRONMENT).ok().as_deref() == Some("on")
+}
+
+/// Take a leading `--down-line` off the worker's flags.
+pub fn take_down_line(flags: &[String]) -> (bool, &[String]) {
+    match flags {
+        [flag, rest @ ..] if flag == DOWN_LINE_FLAG => (true, rest),
+        _ => (false, flags),
+    }
+}
+
 /// Whether this route checks short sounds: as the Live route does, only
 /// with `--sounds-checked` and `--attention` together.
 pub fn checks_sounds(files: &crate::provider_worker::Files) -> bool {
@@ -275,6 +294,7 @@ pub fn serve(
     second_config: &Path,
     files: crate::provider_worker::Files,
     wait_cue: bool,
+    down_line: bool,
 ) -> io::Result<()> {
     let character = crate::config::ProviderConfig::load(provider_config)?.instruction(false)?;
     let config = crate::second_config::load_from_path(second_config)?;
@@ -357,7 +377,8 @@ pub fn serve(
     });
     let mut engine = Engine::new(Arc::new(net), system, runner)
         .checking_sounds(checked)
-        .waiting_with_a_sound(wait_cue);
+        .waiting_with_a_sound(wait_cue)
+        .saying_when_down(down_line);
     // A look reads the eyes' look file with the Live route's bounds: a full
     // look's still may be older and larger (#836, #941).
     if let Some(path) = files.look.clone() {

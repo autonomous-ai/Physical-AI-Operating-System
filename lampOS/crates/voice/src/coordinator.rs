@@ -2353,6 +2353,7 @@ fn spawn_rig(
                 &arguments,
                 &config,
                 crate::second_provider::worker::wait_cue_from_environment(),
+                crate::second_provider::worker::down_line_from_environment(),
             )
         })
         .transpose()?;

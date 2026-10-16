@@ -30,6 +30,12 @@ const MAX_HEARD: usize = 128;
 /// The same with a yield's first words kept (#828): 1.6 s before the
 /// onset, the duplex hold's 1.2 s after it, and room to spare.
 const FIRST_WORDS_HEARD: usize = 320;
+/// The same for a sound that waits while an answer is still to come
+/// (#1123): its pre-roll (`activity::PRE_ROLL_BLOCKS`, 30), the duplex
+/// hold's 1.2 s (120), and room to spare. At its decision, 1 s after its
+/// trigger, it holds about 130 blocks, which [`MAX_HEARD`] would not (the
+/// reviewer and the first builder on #1130).
+const WAITED_HEARD: usize = 192;
 /// Yields in one reply that came to nothing before the mask stops yielding
 /// for the rest of that reply and masks as the conservative baseline does.
 pub const FRUITLESS_YIELDS: u8 = 2;
@@ -224,7 +230,15 @@ impl PlaybackMask {
     /// the candidate is let through.
     pub fn keep_first_words(&mut self) {
         if let Some(duplex) = self.duplex.as_mut() {
-            duplex.max_heard = FIRST_WORDS_HEARD;
+            duplex.max_heard = duplex.max_heard.max(FIRST_WORDS_HEARD);
+        }
+    }
+    /// Remember enough hearing for a sound that waits while an answer is
+    /// still to come (#1123, [`WAITED_HEARD`]); never less than is kept
+    /// already.
+    pub fn keep_waited_sound(&mut self) {
+        if let Some(duplex) = self.duplex.as_mut() {
+            duplex.max_heard = duplex.max_heard.max(WAITED_HEARD);
         }
     }
     /// The yield in force waits for the words said in it, with

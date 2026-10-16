@@ -302,6 +302,11 @@ impl InputAdmission {
             _ => None,
         })
     }
+    /// Whether the candidate in hand has ended: its sound is over, and it
+    /// waits only for its decision (#1123).
+    pub fn pending_ended(&self) -> bool {
+        matches!(&self.phase, Phase::Pending(pending) if pending.ended)
+    }
     /// Let a prospective candidate go because the caller is keeping the turn
     /// it has. Unlike [`Self::suppress_prospective`] this consults no
     /// authority: nothing is admitted and nothing accepted is touched, so
@@ -309,12 +314,6 @@ impl InputAdmission {
     /// of the suppressing call for this, with a snapshot issued a moment
     /// after the time it was checked against, ended the service twice on
     /// lamp-4ace.)
-    /// Whether the candidate in hand has ended: its sound is over, and it
-    /// waits only for its decision (#1123).
-    pub fn pending_ended(&self) -> bool {
-        matches!(&self.phase, Phase::Pending(pending) if pending.ended)
-    }
-
     pub fn release_prospective(&mut self, at_us: u64) -> io::Result<Option<Rejection>> {
         self.advance(at_us)?;
         match &self.phase {

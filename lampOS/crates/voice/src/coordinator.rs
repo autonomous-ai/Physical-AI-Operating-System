@@ -135,18 +135,37 @@ const WAIT_DECIDES_BEFORE_US: u64 = 100_000;
 /// A sound quiet this long when its wait is over has ended: it is let go.
 /// In the detector's blocks of 10 ms, as its pause is counted.
 const WAIT_QUIET_BLOCKS: u16 = 30;
+/// An answer awaited longer than this after the person stopped may not come
+/// at all, and a short "hello?" then is said to a silent lamp: a new sound
+/// is decided as before (the reviewer on #1130). The backup voice gives up a
+/// turn that has not begun in 3 s (`second_provider::BEGIN_WITHIN`); the
+/// sounds that cut answers on lamp-52e6 came 1.4 to 2.6 s after a question.
+const WAIT_KEEPS_WITHIN_US: u64 = 3_000_000;
+/// A sound that begins this soon after one let go had stopped is decided as
+/// before, at once: two in a row are more likely talk than a cough, and a
+/// follow-up with a pause in it (0.7 s, 0.4 s of quiet, 0.6 s) then loses
+/// only its first piece, not all of it (the reviewer on #1130). Two sounds
+/// further apart than this are each let go.
+const AFTER_LET_GO_US: u64 = 1_000_000;
+
+/// Whether `value`, the voice's `LAMP_WAIT_KEEPS_ANSWER`, turns the wait on:
+/// `on`, and nothing else.
+fn wait_keeps_answer(value: Option<&str>) -> bool {
+    value == Some("on")
+}
 
 /// Whether the voice's environment says `LAMP_WAIT_KEEPS_ANSWER=on`.
 fn wait_keeps_answer_from_environment() -> bool {
-    std::env::var(WAIT_KEEPS_ANSWER_ENVIRONMENT).ok().as_deref() == Some("on")
+    wait_keeps_answer(std::env::var(WAIT_KEEPS_ANSWER_ENVIRONMENT).ok().as_deref())
 }
 
 /// What a new sound does while an answer is awaited and has not sounded
 /// yet ([`WAIT_KEEPS_ANSWER_ENVIRONMENT`], #1123).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum WhileAnswerWaits {
-    /// Decided as before: no answer waits unheard, the switch is off, or
-    /// the sound has gone on long enough.
+    /// Decided as before: no answer to someone waits unheard, the switch is
+    /// off, the lamp's name was heard in it, or the sound has gone on long
+    /// enough.
     Decide,
     /// Not yet: it stays pending, its audio kept from its start.
     Wait,
@@ -155,20 +174,62 @@ enum WhileAnswerWaits {
     LetGo(&'static str),
 }
 
+/// What the wait knows besides the candidate and the reply.
+#[derive(Clone, Copy, Debug, Default)]
+struct AnswerWait {
+    /// [`WAIT_KEEPS_ANSWER_ENVIRONMENT`].
+    on: bool,
+    /// The candidate has already waited: it keeps the wait's rules until
+    /// its decision even once the answer begins to sound, for a cough is
+    /// no less a cough then (the first builder on #1130).
+    waited: bool,
+    /// When the person's request, the one answered, ended.
+    asked_until_us: Option<u64>,
+    /// When the lamp's name was last heard beginning (`name/rising` or
+    /// `name/heard`).
+    name_began_us: Option<u64>,
+    /// When the sound last let go had stopped: the last block the detector
+    /// heard as speech before it was let go.
+    let_go_ended_us: Option<u64>,
+}
+
 /// [`WhileAnswerWaits`] for `candidate` at `at_us`: `ended` if its sound is
 /// over, and the detector's pause in blocks.
 fn while_answer_waits(
-    on: bool,
+    wait: AnswerWait,
     reply: Option<&Reply>,
     candidate: &crate::admission::Candidate,
     ended: bool,
     pause_blocks: u16,
     at_us: u64,
 ) -> WhileAnswerWaits {
-    let unheard = reply.is_some_and(|current| {
-        current.local_input_ended && !current.had_audio && current.playback.is_none()
-    });
-    if !on || !unheard {
+    // Only an answer to someone heard: not the lamp's own hello, look,
+    // reminder, news or "hm?", which a short "hi" or "not now" may answer
+    // (the first builder on #1130). A written turn has no input.
+    let Some(current) = reply.filter(|current| current.input_sequence > 0) else {
+        return WhileAnswerWaits::Decide;
+    };
+    let unheard = current.local_input_ended && !current.had_audio && current.playback.is_none();
+    if !wait.on || !(unheard || wait.waited) {
+        return WhileAnswerWaits::Decide;
+    }
+    if !wait.waited {
+        let long_awaited = wait
+            .asked_until_us
+            .is_none_or(|until| at_us.saturating_sub(until) > WAIT_KEEPS_WITHIN_US);
+        let after_let_go = wait.let_go_ended_us.is_some_and(|stopped| {
+            candidate.trigger_read_at_us.saturating_sub(stopped) < AFTER_LET_GO_US
+        });
+        if long_awaited || after_let_go {
+            return WhileAnswerWaits::Decide;
+        }
+    }
+    // The lamp's name, from the sound's start on (a hearing may begin up to
+    // `CALL_BEFORE_US` before the detector is sure): "Lamp, … stop" with its
+    // pause at the 1 s mark is someone talking to it (the reviewer on #1130).
+    if wait.name_began_us.is_some_and(|began| {
+        began.saturating_add(crate::activity::CALL_BEFORE_US) >= candidate.trigger_read_at_us
+    }) {
         return WhileAnswerWaits::Decide;
     }
     if ended {
@@ -2905,6 +2966,10 @@ fn conversation_with_gate(
     // recorded for, so that the record says so once.
     let wait_keeps_answer = wait_keeps_answer_from_environment();
     let mut answer_kept_for: Option<crate::admission::CandidateId> = None;
+    // When the lamp's name was last heard beginning, and when the sound
+    // last let go had stopped, for the wait.
+    let mut name_began_us: Option<u64> = None;
+    let mut let_go_ended_us: Option<u64> = None;
     // The turn whose speech last ended and when, and the turn for which the
     // floor was last held, so that the record says so once.
     let mut speech_ended: Option<(u64, u64)> = None;
@@ -3152,6 +3217,12 @@ fn conversation_with_gate(
         let mut mask = PlaybackMask::duplex();
         if first_words {
             mask.keep_first_words();
+        }
+        // A sound that waits holds its pre-roll and up to the hold's 1.2 s:
+        // more than the mask's usual memory, which would reject it as
+        // evicted (the reviewer and the first builder on #1130).
+        if wait_keeps_answer {
+            mask.keep_waited_sound();
         }
         mask
     } else {
@@ -4379,8 +4450,19 @@ fn conversation_with_gate(
                     // sounded, a new sound takes the turn only once it has
                     // gone on; one that ends or goes quiet first is let go,
                     // and the answer goes on.
+                    let wait = AnswerWait {
+                        on: wait_keeps_answer,
+                        waited: answer_kept_for == Some(candidate.id),
+                        asked_until_us: speech_ended
+                            .filter(|(turn, _)| {
+                                reply.as_ref().map(|current| current.owner.turn()) == Some(*turn)
+                            })
+                            .map(|(_, at)| at),
+                        name_began_us,
+                        let_go_ended_us,
+                    };
                     match while_answer_waits(
-                        wait_keeps_answer,
+                        wait,
                         reply.as_ref(),
                         &candidate,
                         admission.pending_ended(),
@@ -4404,6 +4486,9 @@ fn conversation_with_gate(
                             {
                                 record_input_rejection(trace, rejection)?;
                             }
+                            // The last block the detector heard as speech:
+                            // when the sound let go stopped.
+                            let_go_ended_us = Some(last_speech_us);
                             detector.clear_prospective();
                             record(
                                 trace,
@@ -5434,15 +5519,18 @@ fn conversation_with_gate(
             && let Some((began, score)) = names.newest_scored(clock)
         {
             second_look.name_heard(began, score);
+            name_began_us = name_began_us.max(Some(began));
         }
-        if let Some(rising) = rising_in.as_mut() {
-            hear_the_call(
+        if let Some(rising) = rising_in.as_mut()
+            && let Some(began) = hear_the_call(
                 rising,
                 clock,
                 &mut detector,
                 reply.as_ref().map(|current| current.owner.turn()),
                 trace,
-            )?;
+            )?
+        {
+            name_began_us = name_began_us.max(Some(began));
         }
         // A second look at something said to the lamp by name that got
         // nothing, as soon as the lamp is at rest. Someone who has spoken
@@ -6703,16 +6791,16 @@ fn commit_written_turn(
 
 /// The first sign of the lamp's name as it is said (`name/rising`), for a
 /// call's wait (#782): an utterance that is only the call so far waits for
-/// the rest, and the record says so.
+/// the rest, and the record says so. When the name began, if it was heard.
 fn hear_the_call(
     rising: &mut crate::bus_out::NameIn,
     clock: u64,
     detector: &mut TurnDetector,
     turn: Option<u64>,
     trace: &mut SessionState,
-) -> Result<()> {
+) -> Result<Option<u64>> {
     let Some((began, score)) = rising.newest_scored(clock) else {
-        return Ok(());
+        return Ok(None);
     };
     if detector.name_heard(began) {
         record(
@@ -6720,7 +6808,7 @@ fn hear_the_call(
             json!({"kind":"call_wait","at_us":clock,"name_began_us":began,"score":score,"turn":turn}),
         )?;
     }
-    Ok(())
+    Ok(Some(began))
 }
 
 #[allow(clippy::too_many_arguments)]

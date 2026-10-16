@@ -270,7 +270,10 @@ order is kept. A written turn is the same from the chat on.
   held as a short sound or not said to the lamp, or was replaced before its
   chat) leaves the note to the request begun right after it in the same
   session, so a cough after a stop does not use it up (the reviewer on
-  #1175). It is told once, with the chat that is asked.
+  #1175). It is told once, with the chat that is asked, and again to a
+  request going on from that one (`continues_cut_off`), which was given up
+  after it was asked. It is never told more than 2 min after the request
+  that carried it began (`TELL_STOP_WITHIN_US`, as the coordinator).
 - **Each turn is one person's**, as a Live session is since #775: before
   the chat, the thread is opened for whoever the eyes count at the lamp
   (`Sessions::open`, read only as the turn opens: someone else known after

@@ -87,6 +87,17 @@ mod tests {
     use super::*;
     use std::cell::Cell;
 
+    /// The first builder on #795 (13:50): with the Controls privacy route
+    /// on, the red breath is the hardware switch's and the asleep face stays
+    /// off, so the two never write the ring at once.
+    #[test]
+    fn the_asleep_face_stays_off_with_the_controls_privacy_route() {
+        assert!(super::super::asleep_face_allowed(true, false));
+        assert!(!super::super::asleep_face_allowed(true, true));
+        assert!(!super::super::asleep_face_allowed(false, false));
+        assert!(!super::super::asleep_face_allowed(false, true));
+    }
+
     #[test]
     fn verified_mutes_repeat_the_privacy_wait_and_record_their_actual_source() {
         // Physical, software, and software because the head put it to

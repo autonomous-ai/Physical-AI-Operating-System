@@ -51,3 +51,29 @@ Ready for lamp-voice: yes (#844, the third's)
   is ARM64 run 38846985609, started by hand.
 - The third cherry-picked both as they were into #844 (head `2a4168cc5`,
   10:56) and keeps #820 for the first builder's lamp check. Not on a lamp.
+
+## 2026-10-16 — lamp-06c1 onto V2, set up the way a home is (#811, #806)
+
+Ready for lamp-voice: no (a lamp's own folder, `el/lamp-06c1-bringup`
+`a61f35324`; findings for nine and the third on #705)
+
+- Hold `el holding lamp-06c1 (whole lamp: bring-up to V2)` 11:50–13:30,
+  agreed with jarvis. Person at the lamp from 12:30.
+- V1 off and kept (`~/el-backup-20261016/`). `lamp-update install` from a
+  test-signed local channel of ARM64 run 38851087915 (`6d2bea2e1`, build
+  1009): 64 changes, nothing started. Models from published copies, each
+  hash equal to the pinned one; `lamp-turn-end --check-model --fast` warm
+  median 126 ms. Body poses read at rest with torque off (nothing written).
+- Setup with the phone: hotspot up 26 s after the reboot; "Could not look
+  for networks" until "Look again" a few times; Setup to `Connected` and
+  the marker 14 s (12:40:12 → 12:40:26); back on the office network 12:40:48.
+- First start: body and voice failed on two install bugs (lock folders
+  0775; no voice sessions folder), both fixed by hand on the lamp and told
+  to nine (#705, 12:46). Body then held still at home; voice reached the
+  service through V1's proxy route. name, policy, tasks down as expected.
+- Mac in front of the lamp: its speaker is heard (request logged 1–2 s
+  after the line ended); "Lamp, what is two plus two?" answered aloud, head
+  nodding; "Hello lamp, can you hear me?" judged not for it (no name part).
+  Its camera frames the whole lamp; stills described, none kept.
+- On lamp-06c1, once each. Not shown: the gaze and pitch window measured
+  here (lamp-52e6's are used); a power cut; anything of #995 yet.

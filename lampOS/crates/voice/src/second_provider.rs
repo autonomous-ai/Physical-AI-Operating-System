@@ -70,10 +70,13 @@ pub const ANNOUNCEMENT: &str = "My voice sounds a little different just now.";
 pub const ANNOUNCE_AFTER: Duration = Duration::from_secs(120);
 /// Chat requests in one turn, tool rounds included.
 pub const MAX_ROUNDS: usize = 4;
-/// A chat round that has not begun (no word, no call) this long after it
-/// was asked, the first counted from the words heard, is given up and the
-/// turn ends unanswered: an answer said 12 s after the question is worse
-/// than none (lamp-4ace on 2026-10-16: first events 1.6 to 20.5 s).
+/// A turn's first chat round that has not begun (no word, no call) this
+/// long after it was asked, which is as soon as speech to text gave the
+/// words, is given up and the turn ends unanswered: an answer said 12 s
+/// after the question is worse than none (lamp-4ace on 2026-10-16: first
+/// events 1.6 to 20.5 s). A round after a tool ran is not bounded: what was
+/// done has to be said, or the person asks again and it is done twice
+/// (Second on #1049).
 pub const BEGIN_WITHIN: Duration = Duration::from_secs(3);
 /// The tool whose call means the words were not for the lamp.
 const NOT_FOR_ME: &str = "not_for_me";
@@ -555,21 +558,20 @@ async fn answer(shared: &Shared, request: u64, said: String, heard: bool) {
         messages.extend(told.history);
         messages.push(asked);
         for round in 1..=MAX_ROUNDS {
-            let asked_at = if round == 1 { began } else { Instant::now() };
             let mut stream = shared.services.chat(messages.clone());
             let mut first = true;
             let mut split = Sentences::default();
             let mut text = String::new();
             let mut calls = Vec::new();
             loop {
-                let next = if first {
-                    let by = tokio::time::Instant::from_std(asked_at + BEGIN_WITHIN);
+                let next = if first && round == 1 {
+                    let by = tokio::time::Instant::from_std(began + BEGIN_WITHIN);
                     match tokio::time::timeout_at(by, stream.next()).await {
                         Ok(next) => next,
                         Err(_) => {
                             eprintln!(
                                 "lamp-voice second: request {request} chat round {round} had not begun in {} ms; the turn ends unanswered",
-                                asked_at.elapsed().as_millis()
+                                began.elapsed().as_millis()
                             );
                             return Err(Stop::Silent);
                         }

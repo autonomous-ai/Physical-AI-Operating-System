@@ -438,6 +438,40 @@ async fn a_chat_not_begun_within_three_seconds_ends_the_turn_unanswered() {
     assert!(calls.lock().unwrap().is_empty());
 }
 
+/// A round after a tool ran is not given up: the timer is set, so the
+/// turn is not ended in silence, and the tool runs once (Second on #1049).
+#[tokio::test(start_paused = true)]
+async fn a_round_after_a_tool_ran_is_not_given_up() {
+    let script = Arc::new(Script {
+        chats: Mutex::new(
+            [
+                vec![
+                    Ok(ChatEvent::ToolCalls(vec![call(
+                        "c1",
+                        "set_timer",
+                        json!({"minutes": 5}),
+                    )])),
+                    Ok(ChatEvent::Done),
+                ],
+                vec![],
+            ]
+            .into(),
+        ),
+        hold_chat: true,
+        ..Script::default()
+    });
+    let (mut engine, calls, _) = scripted(script.clone());
+    engine.submit(written(1, "Set a timer for five minutes."));
+    let mut seen = Vec::new();
+    while let Ok(event) = tokio::time::timeout(BEGIN_WITHIN * 4, engine.next()).await {
+        seen.push(format!("{event:?}"));
+    }
+    assert_eq!(seen.len(), 1, "{seen:?}");
+    assert!(seen[0].starts_with("Started"), "{seen:?}");
+    assert_eq!(calls.lock().unwrap().len(), 1);
+    assert_eq!(script.asked.lock().unwrap().len(), 2);
+}
+
 #[tokio::test]
 async fn nothing_heard_is_a_quiet_complete_turn() {
     let script = Arc::new(Script {

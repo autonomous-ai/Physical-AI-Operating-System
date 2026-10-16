@@ -33,8 +33,9 @@ Never `lamp-voice`, and never another builder's branch.
   same commit.
 - Ssh to lamp-52e6, after asking its person each time; install there under
   `/opt/lampOS/<part>/<sha256>/`, then `sudo sync`.
-- Propose work as `fifth-P<n>` in its log and as an issue labelled
-  `proposal` and `builder:fifth`.
+- Propose work as `fifth-P<n>` in its log and as one comment on the Queue issue
+  (#705), as joining.md's `fifth-P8` says; it opens no issues and makes no
+  labels.
 - Add and remove `status:` labels on, and comment on, its own issues.
 
 ## It may not

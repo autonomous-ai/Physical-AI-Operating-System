@@ -232,7 +232,10 @@ As built on 2026-10-16 (#938, `crates/skills`, not yet run on a lamp):
 - **The steps.** `look_at`, `gesture` and `mood` are datagrams to the
   body's `gaze.sock` and `mood.sock` (default `/run/lampos-body/`), never
   waited for. A `mood` is said again every second on a thread of its own
-  for its `for`, and the run lasts that long. `light` is a `light_colour` call (or `light_dimmer` calls) to the
+  for its `for`, and the run lasts that long: a pose longer than a light's
+  `for` keeps that light on until the pose ends too. A tool called again
+  while its run is under way holds the run's poses again (and nothing
+  else), so each look comes with the head down over the page. `light` is a `light_colour` call (or `light_dimmer` calls) to the
   actions part's `call.sock` (default `/run/lampos-actions/call.sock`). Each
   call is waited for up to two seconds.
 - **`say`** goes to the voice's say service (#954, `LAMP_SAY=on` in the

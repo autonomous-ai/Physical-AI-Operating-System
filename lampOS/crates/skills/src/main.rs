@@ -373,6 +373,13 @@ fn tool_call(
     for event in run.events {
         publish(out, event);
     }
+    if under_way {
+        // Each look comes with the head down over the page again: only the
+        // run's poses are made again, never its light (#1051, Ten's P2).
+        for call in made.iter().filter(|call| matches!(call, Call::Mood { .. })) {
+            make(call, &runner.sockets);
+        }
+    }
     if made.is_empty() || under_way {
         publish(
             out,
@@ -380,7 +387,7 @@ fn tool_call(
                 skill: run.skill,
                 stage: SkillStage::Done,
                 why: if under_way {
-                    "the model was told again what to do next; its last run is still under way, left as it is"
+                    "the model was told again what to do next; its last run is still under way, left as it is but for its poses, held again"
                 } else {
                     "the model was told what to do next"
                 }

@@ -1131,3 +1131,104 @@ fn a_repeat_call_with_only_made_steps_is_refused_while_its_run_is_under_way() {
     assert_eq!(again["ok"], false, "{again}");
     assert_eq!(again["error"], "I'm still doing that.");
 }
+
+/// A repeat call while the run's light is still on holds its pose again,
+/// so each look comes with the head down over the page (#1051, Ten's P2):
+/// a 3 s pose, a call, 5 s later another, and the pose is said again.
+#[test]
+fn a_repeat_tool_call_holds_the_runs_pose_again_and_only_that() {
+    // Short: a socket's whole path has to fit in 103 bytes.
+    let dir = tempfile::Builder::new()
+        .prefix("sm")
+        .tempdir_in("/tmp")
+        .unwrap();
+    let root = dir.path();
+    fs::create_dir(root.join("skills")).unwrap();
+    let bus = Bus::new(root.join("bus")).unwrap();
+    let mut ring = bus
+        .publisher_declared("light/state", &Light::declaration(), "ring")
+        .unwrap();
+    let actions = UnixListener::bind(root.join("actions.sock")).unwrap();
+    let (called, lights) = mpsc::channel();
+    std::thread::spawn(move || {
+        for stream in actions.incoming().flatten() {
+            let mut line = String::new();
+            BufReader::new(&stream).read_line(&mut line).unwrap();
+            (&stream)
+                .write_all(b"{\"ok\":true,\"result\":{}}\n")
+                .unwrap();
+            let _ = called.send(line);
+        }
+    });
+    let mood = UnixDatagram::bind(root.join("mood.sock")).unwrap();
+    mood.set_read_timeout(Some(Duration::from_millis(200)))
+        .unwrap();
+    let tools = root.join("tools");
+    let _running = Running(
+        Command::new(env!("CARGO_BIN_EXE_lamp-skills"))
+            .args([
+                "--dir".as_ref(),
+                root.join("skills").as_os_str(),
+                "--bus-root".as_ref(),
+                root.join("bus").as_os_str(),
+                "--mood-socket".as_ref(),
+                root.join("mood.sock").as_os_str(),
+                "--actions-socket".as_ref(),
+                root.join("actions.sock").as_os_str(),
+                "--tools-dir".as_ref(),
+                tools.as_os_str(),
+            ])
+            .spawn()
+            .unwrap(),
+    );
+    skill_with(
+        &root.join("skills"),
+        "tutor",
+        &TUTOR.replace(
+            "light = { colour = \"white\", for = \"1s\" }",
+            "light = { colour = \"white\", for = \"10s\" }\nbody = { mood = \"reading\", for = \"3s\" }",
+        ),
+    );
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while !tools.join("tools.json").exists() {
+        assert!(Instant::now() < deadline, "no tools file");
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    let call = || {
+        let stream = std::os::unix::net::UnixStream::connect(tools.join("call.sock")).unwrap();
+        writeln!(
+            &stream,
+            r#"{{"op":"call","name":"check_my_work","args":{{}}}}"#
+        )
+        .unwrap();
+        let mut line = String::new();
+        BufReader::new(&stream).read_line(&mut line).unwrap();
+        serde_json::from_str::<serde_json::Value>(&line).unwrap()
+    };
+    // Poses said over `window`, from now.
+    let poses = |window: Duration| {
+        let until = Instant::now() + window;
+        let mut buffer = [0u8; 256];
+        let mut count = 0;
+        while Instant::now() < until {
+            if let Ok(length) = mood.recv(&mut buffer) {
+                assert_eq!(&buffer[..length], br#"{"level":0,"mood":"reading"}"#);
+                count += 1;
+            }
+        }
+        count
+    };
+    ring.publish_json(1, &Light::new(true, "blue", 3).unwrap())
+        .unwrap();
+    assert_eq!(call()["ok"], true);
+    let first = poses(Duration::from_millis(3_500));
+    // Let go: nothing said between the pose's end and the second call.
+    let quiet = poses(Duration::from_millis(1_500));
+    let again = call();
+    assert_eq!(again["ok"], true, "{again}");
+    let second = poses(Duration::from_millis(3_500));
+    assert_eq!((first, quiet, second), (3, 0, 3));
+    // The light was made once: the second call made only the pose.
+    let lights: Vec<String> = lights.try_iter().collect();
+    assert_eq!(lights.len(), 1, "{lights:?}");
+}

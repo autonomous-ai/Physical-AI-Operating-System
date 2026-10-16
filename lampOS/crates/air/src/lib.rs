@@ -2,6 +2,8 @@
 //! and carbon dioxide. No I/O here. See `docs/air.md`.
 use lamp_msgs::{AirFeel, AirState};
 
+pub mod watch;
+
 /// The sensor's I2C address.
 pub const ADDRESS: u16 = 0x6B;
 /// Start continuous measurement.

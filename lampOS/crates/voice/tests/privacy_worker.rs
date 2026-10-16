@@ -456,26 +456,35 @@ fn selected_worker_requires_authority_latches_low_and_recovers_only_after_verifi
 }
 
 /// Losing Controls is a switch that cannot be read, not a crash (#795): the
-/// worker says so (`UNREADABLE`) and ends cleanly, and its lease expires on
-/// its own whatever authority the voice still holds.
+/// worker ends cleanly, and its lease expires on its own whatever authority
+/// the voice still holds. The clean exit is what the voice relies on; the
+/// fault the worker sends first (`UNREADABLE`) is read only if it comes
+/// within the channel's age limit, and any fault it sends is that one.
+/// (ARM64 run 38871693811: on a loaded runner the exit was seen first and
+/// the fault had aged out, so a test that required it failed.)
 #[test]
-fn losing_controls_ends_the_real_worker_cleanly_saying_so_and_expires_its_lease() {
+fn losing_controls_ends_the_real_worker_cleanly_and_expires_its_lease() {
     let mut rig = Rig::start(Permission::Allowed);
     rig.until(|value| value.permitted);
     let produced = rig.producer.finish();
     let last_acquired = rig.producer.last_us.load(Ordering::Acquire);
     let deadline = Instant::now() + WAIT;
-    let mut said_unreadable = false;
+    let unreadable_only = |text: &str| {
+        assert!(
+            !text.contains("Fault") || text.contains(lamp_voice::privacy_bus::UNREADABLE),
+            "a fault other than the switch's: {text}"
+        );
+    };
     loop {
         if rig.worker.as_mut().unwrap().check_running().is_err() {
             break;
         }
         if let Err(error) = rig.tick() {
+            unreadable_only(&error.to_string());
             if error
                 .to_string()
                 .contains(lamp_voice::privacy_bus::UNREADABLE)
             {
-                said_unreadable = true;
                 continue;
             }
             if rig.worker.as_mut().unwrap().check_running().is_err() {
@@ -506,12 +515,10 @@ fn losing_controls_ends_the_real_worker_cleanly_saying_so_and_expires_its_lease(
         "controller authority must still be current"
     );
     let mut worker = rig.worker.take().unwrap();
-    // A Fault said just before the exit may still be queued.
+    // A fault said just before the exit may still be queued, and fresh.
     while let Ok(Some(event)) = worker.channels.control.receive::<WorkerEvent>() {
-        said_unreadable |= matches!(&event, WorkerEvent::Fault { code }
-            if code.starts_with(lamp_voice::privacy_bus::UNREADABLE));
+        unreadable_only(&format!("{event:?}"));
     }
-    assert!(said_unreadable, "the worker says the switch is unreadable");
     worker
         .shutdown()
         .expect("an unreadable switch ends the worker cleanly");

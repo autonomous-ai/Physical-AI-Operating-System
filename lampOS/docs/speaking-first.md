@@ -130,7 +130,15 @@ giving the model one with everything said was switched off).
   still was there). The worker is started with `--eyes-look-full` after
   `--eyes-look PATH` and takes a picture up to 15 s old instead of 1 s
   (`FULL_FRESH`, as long as a look may wait to begin, and as long as the
-  eyes keep the still; at 3 s a look that began late went without it, #842).
+  eyes keep the still; at 3 s a look that began late went without it, #842),
+  and of up to 184 KiB instead of 64 (`lamp_gemini::MAX_LOOK_IMAGE_BYTES`).
+- A still for writing on paper (#941): with `LAMP_LOOK_FULL_SIDE=N` (320 to
+  4096, off unless set) every full look asks the eyes for a still N across,
+  `{"look_full":ID,"side":N}`, made to 184 KiB instead of 1024 across and
+  64 KiB; `side` goes into `look_full_asked` in the record. One look may ask
+  its own side instead (`sight::Look::side_next`): what a skill tool's look
+  step will ask with `look = { side = N }` once skill tools (#984) carry it to
+  the voice. Unset and unasked, the ask and the still are as before.
   A full look that goes without its still says so in one journal line,
   "a full look went without its still: asked for ID, the file held ..., N
   ms old" (nothing, another ask's still, or a picture with no id; no

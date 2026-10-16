@@ -295,12 +295,14 @@ base64 in one websocket message, and `lamp_gemini` bounds every message at
 larger message fails to send). 184 KiB is 245 KiB as base64, which leaves
 room for the look's note (`MAX_NOTE_BYTES`, 1 KiB) and the JSON. Google's
 own request bound is far above that; the 256 KiB message bound is the real
-one. Two more bounds sit on the voice service's side and are not changed
-here: `lamp_gemini::MAX_IMAGE_BYTES` (64 KiB) in `encode_written_turn` and
-`try_image`, and `sight::fresh_within`, which refuses a file larger than
-that. Until the look that asks for a side lets a still of 184 KiB through
-both (with Desk tutor's skill tool, #941), a large still is made and not
-sent. What the model makes of it is set by its own media resolution:
+one. The voice takes it: a full look's still is read up to 184 KiB
+(`sight::fresh_up_to`) and goes in the look's written turn up to
+`lamp_gemini::MAX_LOOK_IMAGE_BYTES`, 184 KiB, the turn refused if it is not
+one message under `MAX_WIRE_BYTES`. Pictures with speech (`try_image`) stay
+at 64 KiB. The voice asks for a side with `LAMP_LOOK_FULL_SIDE=N` for every
+look, or for one look (`sight::Look::side_next`, a skill tool's
+`look = { side = N }` once #984 carries it; [speaking-first.md](speaking-first.md)).
+What the model makes of it is set by its own media resolution:
 `small_pictures` (`MEDIA_RESOLUTION_LOW`) would undo the detail.
 
 The camera runs at the large size all the time rather than switching for

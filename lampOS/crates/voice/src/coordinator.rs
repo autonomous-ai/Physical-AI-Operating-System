@@ -4865,13 +4865,13 @@ fn conversation_with_gate(
         // saying so. Someone speaking first takes the turn and the look is
         // dropped; so is one that could not begin within fifteen seconds of being asked for.
         if let Some((turn, asked_us)) = look_wanted {
-            if let Some(id) = look.ask(turn) {
+            if let Some((id, side)) = look.ask(turn) {
                 if let Some(eyes) = eyes_link.as_mut() {
-                    eyes.look_full(id);
+                    eyes.look_full(id, side);
                 }
                 record(
                     trace,
-                    json!({"kind":"look_full_asked","turn":turn,"at_us":clock}),
+                    json!({"kind":"look_full_asked","turn":turn,"side":side,"at_us":clock}),
                 )?;
             }
             let waited = Duration::from_micros(clock.saturating_sub(asked_us));

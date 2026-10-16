@@ -2054,7 +2054,10 @@ fn wake<P: PortIo, R: Runtime>(
 /// `Standing::TRACKING` from its goal for `Standing::TRACKING_STEPS`, or
 /// a wire that fails for half a second ends it. Once its goal is folded
 /// it waits for the shoulder to come within `Standing::FOUND_SLACK`; one
-/// that stops farther away for half a second ends it too.
+/// that stops farther away for half a second ends it too. With `watching`,
+/// as in [`wake`], each step read is a step of the run and is watched: a
+/// body already running tells systemd it is alive every step, and this
+/// takes some 22 s, over `WatchdogSec=5`.
 #[allow(clippy::too_many_arguments)]
 fn lower_shoulder<P: PortIo, R: Runtime>(
     bus: &mut Bus<'_, P, R>,
@@ -2064,6 +2067,7 @@ fn lower_shoulder<P: PortIo, R: Runtime>(
     head: [u16; 3],
     elbow: u16,
     found: [Sample; 5],
+    mut watching: Option<Watching<'_>>,
 ) -> Result<[Sample; 5], Stop> {
     let shoulder = Joint::BasePitch;
     let (from, to) = (found[shoulder.index()].position, up.folded[0]);
@@ -2106,6 +2110,14 @@ fn lower_shoulder<P: PortIo, R: Runtime>(
         };
         misses = 0;
         report.last = Some(now);
+        if let Some((watch, glimpse)) = watching.as_mut() {
+            report.steps += 1;
+            let template = Glimpse {
+                arm_goals: [written, elbow],
+                ..*glimpse
+            };
+            watch(&glimpse_of(template, report.steps, &now, head));
+        }
         let mut surprise = None;
         for joint in Joint::ALL {
             let (was, is) = (found[joint.index()], now[joint.index()]);
@@ -3064,7 +3076,9 @@ fn run_on<P: PortIo, R: Runtime>(
         if limits.wake && shoulder_to_lower(up, &found, arm_profiles) {
             let head = COMMANDED.map(|joint| found[joint.index()].position);
             let elbow = found[Joint::ElbowPitch.index()].position;
-            match lower_shoulder(bus, &mut report, &limits, up, head, elbow, found) {
+            // Before the first step: READY=1 has not gone out, so systemd's
+            // watchdog is not armed yet (its start timeout is 90 s).
+            match lower_shoulder(bus, &mut report, &limits, up, head, elbow, found, None) {
                 Ok(now) => found = now,
                 Err(stop) => {
                     if let Some(last) = report.last {
@@ -4567,7 +4581,10 @@ fn run_on<P: PortIo, R: Runtime>(
         } else {
             still_steps.saturating_add(1)
         };
-        if goals != written || arm_goals != arm_written {
+        // A step that lets go again (a hand stopped the lamp coming up)
+        // asks nothing new of the joints first: from a stand older than
+        // the slump, the arm would be sent up into the hand.
+        if slump_again.is_none() && (goals != written || arm_goals != arm_written) {
             match bus.send_goals(goals, standing.map(|_| arm_goals)) {
                 Ok(()) => {
                     unsent = 0;
@@ -5202,12 +5219,37 @@ fn run_on<P: PortIo, R: Runtime>(
             // that, on lamp-52e6 on 2026-10-16, it ran for good with its
             // shoulder up and its elbow down, never stood again, and its
             // head pushed at its folded home.
+            // A read that fails is tried again for as long as the run rides
+            // out a failing wire (half a second).
+            let mut profiles = bus.arm_profiles();
+            for _ in 1..WIRE_STEPS {
+                if profiles.is_ok() || standing.is_none() {
+                    break;
+                }
+                report.missed_reads += 1;
+                let due = bus.runtime.now() + TICK;
+                bus.sleep_until(due);
+                profiles = bus.arm_profiles();
+            }
             let lowered = match standing {
-                Some(up) => match bus.arm_profiles() {
+                Some(up) => match profiles {
                     Ok(profiles) if shoulder_to_lower(up, &now, profiles) => {
                         let head = COMMANDED.map(|joint| now[joint.index()].position);
                         let elbow = now[Joint::ElbowPitch.index()].position;
-                        lower_shoulder(bus, &mut report, &limits, up, head, elbow, now)
+                        let glimpse = Glimpse {
+                            limp: false,
+                            ..template
+                        };
+                        lower_shoulder(
+                            bus,
+                            &mut report,
+                            &limits,
+                            up,
+                            head,
+                            elbow,
+                            now,
+                            Some((&mut watch, glimpse)),
+                        )
                     }
                     Ok(_) => Ok(now),
                     Err(detail) => Err(Stop::Bus {
@@ -5233,10 +5275,12 @@ fn run_on<P: PortIo, R: Runtime>(
                         }
                     }
                     // A hand on it while the shoulder came down: as while
-                    // the head comes up, it lets go again.
+                    // the head comes up, it lets go again, and nothing new
+                    // is asked of the arm before it does (`slump_again`).
                     if let (true, Some(at), Stop::Load { .. } | Stop::Tracking { .. }) =
                         (by_hand, hold, &stop)
                     {
+                        (stand, stand_velocity, slumped) = (0.0, 0.0, true);
                         written = at;
                         commanded = at.map(f32::from);
                         velocity = [0.0; 3];

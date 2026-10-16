@@ -5105,20 +5105,17 @@ fn a_shoulder_left_up_by_a_power_cut_is_lowered_first_and_the_lamp_may_then_stan
     assert!(report.standing_refused.unwrap().contains("off the way"));
 }
 
-/// As lamp-52e6 on 2026-10-16: standing, let go under overload, and the
-/// elbow fell folded while the shoulder stayed up on its gears. Taken up
-/// again, the shoulder is lowered as after a power cut, the lamp counts as
-/// folded (it said `stand 1.00` and never stood again), the head is
-/// brought to its folded home, and the next time it is spoken to it
-/// stands by the ordinary way up. A hand's slump takes the same path.
-#[test]
-fn let_go_standing_with_the_elbow_fallen_it_is_folded_and_stands_again_when_spoken_to() {
-    for by_hand in [false, true] {
-        let_go_standing_with_the_elbow_fallen(by_hand);
-    }
-}
-
-fn let_go_standing_with_the_elbow_fallen(by_hand: bool) {
+/// A standing lamp let go under overload (`by_hand` false) or by a hand
+/// on its base, as on lamp-52e6 on 2026-10-16. With `elbow_falls` the
+/// elbow falls folded in the rest while the shoulder stays up on its
+/// gears. `shoulder_strain`: the shoulder reads 700 for that while, as a
+/// hand stopping it. Spoken to from 190 s to 200 s. Each step watched, with
+/// when.
+fn let_go_standing(
+    by_hand: bool,
+    elbow_falls: bool,
+    shoulder_strain: Option<(f32, f32)>,
+) -> (Lamp, BodyReport, Vec<(Duration, Glimpse)>) {
     let secs = Duration::from_secs_f32;
     let (mut lamp, mut clock) = folded(secs(215.0));
     lamp.may_take_hold = true;
@@ -5135,15 +5132,19 @@ fn let_go_standing_with_the_elbow_fallen(by_hand: bool) {
         (servo.position, servo.goal, servo.status) = (at, at as u16, 0);
     }
     // The elbow over the cut-off (80% of 600) for 1.6 s, or a hand on the
-    // base, as on lamp-52e6, a second after it stopped; let go, the elbow
-    // falls within the rest.
-    if by_hand {
+    // base a second after it stopped.
+    lamp.strains = if by_hand {
         lamp.hand = Some((secs(1.5), secs(3.0), YAW, 2_065.0));
-        lamp.strains = vec![(secs(1.5), secs(3.0), YAW, 600)];
+        vec![(secs(1.5), secs(3.0), YAW, 600)]
     } else {
-        lamp.strains = vec![(secs(1.0), secs(2.6), 2, 500)];
+        vec![(secs(1.0), secs(2.6), 2, 500)]
+    };
+    if let Some((from, until)) = shoulder_strain {
+        lamp.strains.push((secs(from), secs(until), 1, 700));
     }
-    lamp.event = Some((secs(4.0), 2, Event::Push(-520.0)));
+    if elbow_falls {
+        lamp.event = Some((secs(4.0), 2, Event::Push(-520.0)));
+    }
     let limits = Limits {
         force: Some(600),
         overload_release: !by_hand,
@@ -5166,14 +5167,21 @@ fn let_go_standing_with_the_elbow_fallen(by_hand: bool) {
         [560, 560],
     )
     .unwrap();
-    // Spoken to once it has been taken up again and has settled.
+    // Spoken to also while the shoulder is strained: a mood that wants the
+    // lamp up while a hand stops it.
+    let strained = shoulder_strain.map_or(Duration::ZERO..Duration::ZERO, |(from, until)| {
+        secs(from)..secs(until)
+    });
     let time = clock.time.clone();
     let news = move || {
-        Some(if (secs(190.0)..secs(200.0)).contains(&time.get()) {
-            (Mood::Speaking, 60)
-        } else {
-            (Mood::Resting, 0)
-        })
+        let now = time.get();
+        Some(
+            if (secs(190.0)..secs(200.0)).contains(&now) || strained.contains(&now) {
+                (Mood::Speaking, 60)
+            } else {
+                (Mood::Resting, 0)
+            },
+        )
     };
     let mut seen: Vec<(Duration, Glimpse)> = Vec::new();
     let time = clock.time.clone();
@@ -5186,28 +5194,17 @@ fn let_go_standing_with_the_elbow_fallen(by_hand: bool) {
         news,
         |g| seen.push((time.get(), *g)),
     );
-    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
-    assert_eq!(report.released.len(), 1, "{report:?}");
-    assert_eq!(report.released_by_hand, [0, 0, u16::from(by_hand)]);
-    assert_eq!(report.standing_refused, None, "{report:?}");
-    let lowered = report.lowered.clone().unwrap();
-    assert_eq!((lowered.from, lowered.to), (vec![2_657], vec![2_053]));
-    // Let go, and until spoken to again, it never says it stands.
-    let quiet = |(t, g): &&(Duration, Glimpse)| g.released > 0 && *t < secs(190.0);
-    assert!(
-        seen.iter().filter(quiet).all(|(_, g)| g.stand < 0.05),
-        "{:?}",
-        seen.iter().filter(quiet).find(|(_, g)| g.stand >= 0.05)
-    );
-    // Folded, the head is at its folded home before it is spoken to.
-    let (_, before) = seen.iter().rfind(|(t, _)| *t < secs(190.0)).unwrap();
-    assert!(before.stands && before.stand == 0.0, "{before:?}");
-    assert_eq!(before.goals, [1_771, 2_035, 2_035]);
-    assert!(before.arm_positions[0].abs_diff(2_053) <= 80, "{before:?}");
-    // Spoken to, it stands by the ordinary way up: fully stood, the arm at
-    // its pose or within a speaking lean of it (up to 60 counts, #1010),
-    // and the arm where it is asked to be.
-    let (_, after) = seen.iter().rfind(|(t, _)| *t < secs(200.0)).unwrap();
+    (lamp, report, seen)
+}
+
+/// Spoken to, it stands by the ordinary way up: fully stood, the arm at
+/// its pose or within a speaking lean of it (up to 60 counts, #1010), and
+/// the arm where it is asked to be.
+fn stood_when_spoken_to(seen: &[(Duration, Glimpse)]) {
+    let (_, after) = seen
+        .iter()
+        .rfind(|(t, _)| *t < Duration::from_secs(200))
+        .unwrap();
     assert!(after.stands && after.stand == 1.0, "{after:?}");
     for (index, pose) in [2_657u16, 2_602].into_iter().enumerate() {
         assert!(after.arm_goals[index].abs_diff(pose) <= 60, "{after:?}");
@@ -5216,6 +5213,130 @@ fn let_go_standing_with_the_elbow_fallen(by_hand: bool) {
             "{after:?}"
         );
     }
+}
+
+/// The shoulder's and the elbow's goals, in every write from when it was
+/// first taken up again (each joint's goal written as where it lay) until
+/// it is spoken to, never more than `most` counts from the last.
+fn arm_never_jumps(lamp: &Lamp, report: &BodyReport, most: u16) {
+    let taken = Duration::from_secs_f32(report.released[0].seconds) + Duration::from_secs(1);
+    for joint in ARM {
+        let goals: Vec<u16> = lamp
+            .goals
+            .iter()
+            .zip(&lamp.goal_times)
+            .filter(|(_, t)| (taken..Duration::from_secs(190)).contains(*t))
+            .map(|(write, _)| goal_of(write, joint))
+            .collect();
+        assert!(
+            goals.windows(2).all(|two| two[0].abs_diff(two[1]) <= most),
+            "{joint}: {:?}",
+            goals.windows(2).find(|two| two[0].abs_diff(two[1]) > most)
+        );
+    }
+}
+
+/// As lamp-52e6 on 2026-10-16: standing, let go, and the elbow fell folded
+/// while the shoulder stayed up on its gears. Taken up again, the shoulder
+/// is lowered as after a power cut, every step of it watched (systemd's
+/// `WatchdogSec=5` hears from the body each step, not 22 s later), the
+/// lamp counts as folded (it said `stand 1.00` and never stood again), the
+/// head is brought to its folded home, and the next time it is spoken to
+/// it stands by the ordinary way up. Under overload and by a hand alike.
+#[test]
+fn let_go_standing_with_the_elbow_fallen_it_is_folded_and_stands_again_when_spoken_to() {
+    let secs = Duration::from_secs_f32;
+    for by_hand in [false, true] {
+        let (lamp, report, seen) = let_go_standing(by_hand, true, None);
+        assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+        assert_eq!(report.released.len(), 1, "{report:?}");
+        assert_eq!(report.released_by_hand, [0, 0, u16::from(by_hand)]);
+        assert_eq!(report.standing_refused, None, "{report:?}");
+        let lowered = report.lowered.clone().unwrap();
+        assert_eq!((lowered.from, lowered.to), (vec![2_657], vec![2_053]));
+        assert!(lowered.seconds > 20.0, "{}", lowered.seconds);
+        // Never a second without a step watched, the lowering included.
+        let gap = seen
+            .windows(2)
+            .map(|two| two[1].0 - two[0].0)
+            .max()
+            .unwrap();
+        assert!(gap <= secs(1.0), "{gap:?}");
+        // Let go, and until spoken to again, it never says it stands.
+        let quiet = |(t, g): &&(Duration, Glimpse)| g.released > 0 && *t < secs(190.0);
+        assert!(
+            seen.iter().filter(quiet).all(|(_, g)| g.stand < 0.05),
+            "{:?}",
+            seen.iter().filter(quiet).find(|(_, g)| g.stand >= 0.05)
+        );
+        // Folded, the head is at its folded home before it is spoken to.
+        let (_, before) = seen.iter().rfind(|(t, _)| *t < secs(190.0)).unwrap();
+        assert!(before.stands && before.stand == 0.0, "{before:?}");
+        assert_eq!(before.goals, [1_771, 2_035, 2_035]);
+        assert!(before.arm_positions[0].abs_diff(2_053) <= 80, "{before:?}");
+        arm_never_jumps(&lamp, &report, 2);
+        stood_when_spoken_to(&seen);
+    }
+}
+
+/// A hand that stops the shoulder coming down (its load 700 from 15 s to
+/// 17 s, while it is spoken to, the lowering under way from about 8 s): the lamp lets go again
+/// and the arm is never sent anywhere first. Before, the step that let go
+/// again wrote the standing pose, a jump of 520 counts into the hand.
+/// Taken up again, the rest of the way down goes on from where it is.
+#[test]
+fn a_hand_that_stops_the_shoulder_coming_down_lets_go_again_and_the_arm_stays() {
+    let (lamp, report, seen) = let_go_standing(true, true, Some((15.0, 17.0)));
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!(report.released.len(), 2, "{report:?}");
+    // The second is a slump again, not a hand on a joint that gave way.
+    assert_eq!(report.released_by_hand, [0, 0, 1]);
+    assert_eq!(report.standing_refused, None, "{report:?}");
+    let lowered = report.lowered.clone().unwrap();
+    assert!(lowered.from[0] < 2_600, "{lowered:?}");
+    assert_eq!(lowered.to, vec![2_053]);
+    arm_never_jumps(&lamp, &report, 2);
+    stood_when_spoken_to(&seen);
+}
+
+/// The same under overload: a lowering that fails holds the joints where
+/// they are, ends the run, and lets go of the whole lamp, as at start.
+#[test]
+fn a_lowering_that_fails_after_an_overload_ends_the_run_and_lets_the_whole_lamp_go() {
+    let (lamp, report, _) = let_go_standing(false, true, Some((126.0, 128.0)));
+    assert!(
+        matches!(
+            report.stop,
+            Stop::Load {
+                joint: 2,
+                load: 700
+            }
+        ),
+        "{report:?}"
+    );
+    assert_eq!(report.released.len(), 1, "{report:?}");
+    assert!(report.held_at.is_some(), "{report:?}");
+    assert!(let_go_of_the_whole_lamp(&lamp));
+    arm_never_jumps(&lamp, &report, 2);
+}
+
+/// Let go standing, its elbow did not fall: nothing is lowered, the lamp
+/// counts as standing as far as the arm is, and spoken to it stands from
+/// there.
+#[test]
+fn let_go_standing_with_the_arm_still_up_nothing_is_lowered_and_it_stands_from_there() {
+    let (lamp, report, seen) = let_go_standing(true, false, None);
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!(report.released.len(), 1, "{report:?}");
+    assert!(report.lowered.is_none(), "{report:?}");
+    assert_eq!(report.standing_refused, None, "{report:?}");
+    let taken = seen
+        .iter()
+        .filter(|(t, g)| g.released > 0 && !g.limp && *t < Duration::from_secs(190));
+    assert!(taken.clone().count() > 0);
+    assert!(taken.into_iter().all(|(_, g)| g.stand > 0.9), "{report:?}");
+    arm_never_jumps(&lamp, &report, 2);
+    stood_when_spoken_to(&seen);
 }
 
 /// A shoulder left up by a power cut that does not come down when it is

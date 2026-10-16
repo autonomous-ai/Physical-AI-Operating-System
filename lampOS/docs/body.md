@@ -2218,9 +2218,16 @@ under 0.3 s; a hand holding a joint reads 94 to 100%
   ordinary way up with every check that way has. Without this, that run
   on lamp-52e6 refused to stand for good and sat 15 minutes with its
   shoulder up and its elbow down, its head pushing at a home that does
-  not fit that arm, until a restart. A lowering that fails holds every
-  joint where it is and ends the run, as at start (a hand on it lets go
-  again instead). Otherwise the arm is not lifted by that: it stays where
+  not fit that arm, until a restart. Every step of this lowering (some
+  22 s) is a step of the run and is watched, so systemd hears from the
+  body each step (`WatchdogSec=5`); at start the same lowering comes
+  before READY=1, when the watchdog is not yet armed. The read of the
+  arm's torque before it, if it fails, is tried again for half a
+  second, as any read of the run. A lowering that fails holds every joint where it is
+  and ends the run, and the whole lamp is then let go (torque off), as at
+  start. A hand that stops it (a load or a tracking) makes the lamp let
+  go again instead, and the step that does so writes no goal first: the
+  arm is never sent toward the pose it stood in before the slump. Otherwise the arm is not lifted by that: it stays where
   it slumped until a mood or a person in front of the lamp next asks it
   to stand, and then rises by the ordinary way up from where it is, if
   that is on the way between folded and stood up; if not, the lamp runs

@@ -271,6 +271,20 @@ const GESTURE_WAIT: Duration = Duration::from_secs(3);
 const GESTURE_STEP: [f32; 5] = [24.0, 34.0, 26.0, 21.0, 21.0];
 /// The farthest a gesture takes each of those from where the lamp has it.
 const GESTURE_REACH: [f32; 5] = [220.0, 220.0, 170.0, 360.0, 360.0];
+/// While it speaks, a lamp standing at its full height leans toward the
+/// person: the shoulder and the elbow this many counts from the pose it
+/// stands in (about four and five degrees), eased in as the answer starts
+/// and out as it ends. Toward the person is the way V1's nod (`nod.csv`)
+/// takes both as the head dips: down. That clip goes to 77 and 120 and
+/// keeps the lamp's weight inside `motion.max_cog_offset_mm` (22 mm);
+/// about half of each moves the centre of gravity a few millimetres
+/// whichever way the calibration has the joints. The base turning
+/// and a lean are what read from the front, where the head is a disc
+/// facing the person (#933, lamp-4ace, 2026-10-16).
+pub const LEAN: [f32; 2] = [-45.0, -60.0];
+/// The lean takes at least this long each way, and longer if its farther
+/// joint would go faster than the pose follows at (`Limits::speed`).
+const LEAN_SECONDS: f32 = 1.5;
 /// While a gesture plays, and for half a second after, a joint of the head
 /// may be this far from its goal and read this load before the gesture is
 /// dropped; the shoulder and the elbow may be this far from theirs. A quick
@@ -1946,6 +1960,9 @@ struct Stall {
     /// over this plus `ARM_STALL_MARGIN`. None for the head, and for an arm
     /// rising, folding or folded.
     carries: Option<u16>,
+    /// It read a load over its stall bound on the last step: something,
+    /// most likely a hand, is still on it.
+    pressed: bool,
 }
 
 impl Stall {
@@ -1956,7 +1973,8 @@ impl Stall {
         let bound = self.carries.map_or(STALL_LOAD, |load| {
             STALL_LOAD.max(load.saturating_add(ARM_STALL_MARGIN))
         });
-        let pushing = goal.abs_diff(is.position) > STALL_SLACK && is.load > bound;
+        self.pressed = is.load > bound;
+        let pushing = goal.abs_diff(is.position) > STALL_SLACK && self.pressed;
         let away = self
             .last_at
             .is_some_and(|at| at.abs_diff(is.position) > STALL_SLACK);
@@ -2860,6 +2878,11 @@ fn run_until_stopped(
     let mut slump_again: Option<(Joint, u16)> = None;
     let mut left_as_is = false;
     let mut slumped = false;
+    // How far into its lean a speaking lamp is, 0 to 1 (`LEAN`).
+    let mut lean = 0.0f32;
+    // A shoulder and an elbow taken from a hand's hold into the lean: how
+    // far from the pose they are, and whether the hand is above that.
+    let mut lean_kept: [Option<(f32, bool)>; 2] = [None; 2];
     let mut started = bus.runtime.now();
     // The step the schedule counts from: it starts again after a rest.
     let mut first_step = 0u64;
@@ -3167,6 +3190,72 @@ fn run_until_stopped(
             for (goal, offset) in arm_goals.iter_mut().zip(&gesture_now[3..]) {
                 *goal = (f32::from(*goal) + offset).round().clamp(0.0, 4_095.0) as u16;
             }
+        }
+        // Speaking, standing up and doing nothing else with its arm, it
+        // leans toward the person, and back once it is not. While a hand
+        // holds the arm and the lamp still wants to lean, the lean stays
+        // exactly where it was, neither in nor out: the hold below lasts
+        // while what is wanted of the arm does not change, and a lean
+        // easing out by itself would end it with the hand still there and
+        // then lean into the hand again. While the wire is failing the lean
+        // is kept as it stands, a held place too: nothing new, and nothing
+        // dropped to be taken again once the wire answers (#1010 review, 23:39).
+        let leaning = mood == Mood::Speaking && upright && !gesturing;
+        let rate = step / LEAN_SECONDS.max(1.5 * LEAN[1].abs() / limits.speed);
+        // A hold on the arm is taken into the lean once the lean eases out
+        // (the answer over, a gesture, folding), or once the lean is wanted
+        // and no hand reads on that joint any more. From then on the joint
+        // goes from where it was held, kept as an offset from the pose so
+        // that it moves with a fold, toward where the lean wants it, by no
+        // more than the lean's own step, and not at all toward a hand that
+        // still reads on it. A hold let go by itself instead jumped back
+        // into the lean, or stayed with nobody holding it and blocked the
+        // next lean (#1010 review, 15:49 and 16:28).
+        let lean_arm = standing.is_some() && !slumped && !arm_rests;
+        if lean_arm && !blind && (leaning || lean > 0.0) {
+            for (index, kept) in lean_kept.iter_mut().enumerate() {
+                let stall = &mut stalls[3 + index];
+                if let Some((was, at)) = stall.hold
+                    && (!leaning || !stall.pressed)
+                {
+                    stall.hold = None;
+                    *kept = Some((f32::from(at) - f32::from(arm_goals[index]), was > at));
+                }
+            }
+        }
+        let arm_held = stalls[3..].iter().any(|stall| stall.hold.is_some());
+        let still = blind || (leaning && arm_held);
+        if !still {
+            lean = (lean + if leaning { rate } else { -rate }).clamp(0.0, 1.0);
+        }
+        if lean_arm && (lean > 0.0 || lean_kept.iter().any(Option::is_some)) {
+            let share = smooth(lean);
+            for (index, (goal, by)) in arm_goals.iter_mut().zip(LEAN).enumerate() {
+                let eased = by * share;
+                let offset = match lean_kept[index] {
+                    Some((from, _)) if blind => from,
+                    Some((from, hand_up)) => {
+                        let most = by.abs() * 1.5 * rate;
+                        let toward = (eased - from).clamp(-most, most);
+                        let into_hand = (toward > 0.0) == hand_up;
+                        // Leaving, no stall check runs and `pressed` is stale: a hand
+                        // no longer keeps the offset, which would take the fold
+                        // past its pose (#1010 review, 23:39).
+                        let pressed = stalls[3 + index].pressed && leaving.is_none();
+                        let to = if pressed && into_hand {
+                            from
+                        } else {
+                            from + toward
+                        };
+                        lean_kept[index] = ((to - eased).abs() >= 0.5).then_some((to, hand_up));
+                        to
+                    }
+                    None => eased,
+                };
+                *goal = (f32::from(*goal) + offset).round().clamp(0.0, 4_095.0) as u16;
+            }
+        } else if !blind {
+            lean_kept = [None; 2];
         }
         let mut face = None;
         if let Some(gaze) = gaze.as_mut() {

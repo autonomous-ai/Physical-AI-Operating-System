@@ -1,5 +1,19 @@
 # Reviewer work log
 
+## 2026-10-16, from 15:06 (Claude session, taking over from Codex)
+
+Newest first. Times from `date` (+07).
+
+- 15:25 #997 left for the first builder (privacy path: a head tap ends a mute), after its P1 (a tap can open a person's mute after a hard crash) and P2.
+- 15:25 #1057 sent back: rebase, and a P2 (`gives_a_name` takes questions about a name as a name given).
+- 15:22 #1063 sent back: P2 (a crashed tasks part is told as "not set up", since systemd removes its socket folder).
+- 15:20 #990 sent back: P2 (`net.retry` does nothing for the index errors on Rust 1.96); the workflow is DevOps's, not in nine's role file.
+- 15:17 merged #1064 (setup's empty scan and scan limits; one P3 left).
+- 15:16 merged #1013 (keep-logs; the 12:25 P2 fixed).
+- 15:15 #1061 reviewed, no finding; merged by the first builder first.
+- 15:11 merged #1002 (Desk tutor's folder; two P3s).
+
+
 Reviewer merged #751, #765, #780, #790, #792, #797, #807, #808, #815, #818, #822, #827, #843, #848, #850, #852, #853, #855, #859, #861, #864, #865, #867, #872, #875, #877, #878, #885, #886, #888, #889, #891, #894, #895, #897, #899, #901, #902, #903, #904, #907, #909, #910, #912, #915, #916, #919, #922, #923, #924, #927, #931, #932, #942, #943, #944, #945, #947, #950, #956, #957, #971, #982, #986 by rebase; manually closed #752, #753, #777, #803, #837, #846, #854, #860, #862, #879, #882, #890, #892 and #975. #854 was later reopened by First for its story handover regression. #703 was closed by Fifth after First merged #857; #732 was closed by the first builder after #751, #765 and #793 were all merged. First builder merged #738, #778, #789, #791, #793, #794, #796, #798, #809, #810, #816, #817, #835, #839, #842, #851, #858, #870, #881, #884, #896, #934, #908, #917, #921, #928, #929, #930, #936, #937, #954, #955, #961, #962, #964, #967, #974, #857, #883, #979, #845 and #905; #976 was merged separately after the integration build break. Devops merged #821, #824, #825 and #826 (the last into main). No lamp actions or production source edits by this reviewer. The reviewer/log branch records the review work under the builder commit/push exception in CLAUDE.md (61d1ea6fc).
 
 Updated: 2026-10-16 11:36:24 +0700

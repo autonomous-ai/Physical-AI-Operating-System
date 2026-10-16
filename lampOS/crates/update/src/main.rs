@@ -21,7 +21,7 @@ const USAGE: &str = "\
 lamp-update check|once|serve --channel-url URL [--channel NAME] [--key-file PATH] [--lamp NAME]
                              [--apply on|off] [--every-s N] [--quiet-wait-s N] [--watch-s N]
                              [--keep-free-mb N] [--root DIR] [--bus-root DIR]
-lamp-update install --channel-url URL [--channel NAME] [--key-file PATH]
+lamp-update install --channel-url URL [--channel NAME] [--key-file PATH] [--setup on|off]
 lamp-update manifest --binaries DIR --deploy DIR --channel NAME --sequence N --commit SHA --files-url URL
 lamp-update sign --key-file PRIVATE --manifest FILE --out FILE
 lamp-update public-key --key-file PRIVATE
@@ -42,6 +42,8 @@ install lampOS on a blank lamp (docs/install.md): the newest build's binary of e
   --channel-url   the channel's folder, https://.../ or file:///.../, ending in /
   --channel       the channel followed (lamp-voice)
   --key-file      the lamp's public key, base64 (/etc/lampOS/update/key.pub)
+  --setup         install: on also writes setup's two settings, so a lamp without
+                  setup's marker starts setup at boot (off)
   --lamp          this lamp's name, which of the build's lamp folders is its own
                   (the host name in ROOT/etc/hostname)
   --quiet-wait-s  how long a round waits for a quiet moment (3600)
@@ -150,7 +152,12 @@ fn make_manifest(options: &BTreeMap<String, String>) -> Result<(), String> {
 }
 
 fn install(options: &BTreeMap<String, String>) -> Result<(), String> {
-    known(options, &["channel-url", "channel", "key-file"])?;
+    known(options, &["channel-url", "channel", "key-file", "setup"])?;
+    let setup = match options.get("setup").map(String::as_str) {
+        None | Some("off") => false,
+        Some("on") => true,
+        Some(_) => return Err("--setup is on or off".into()),
+    };
     let channel_url = wanted(options, "channel-url")?.to_owned();
     if !(channel_url.starts_with("https://") || channel_url.starts_with("file:///"))
         || !channel_url.ends_with('/')
@@ -173,6 +180,7 @@ fn install(options: &BTreeMap<String, String>) -> Result<(), String> {
         channel_url,
         key,
         records: "/var/lib/lampos-update/".into(),
+        setup,
     };
     let mut channel = Web::new().map_err(|error| format!("TLS cannot be set up: {error}"))?;
     let mut say = |line: &str| eprintln!("lamp-update: {line}");

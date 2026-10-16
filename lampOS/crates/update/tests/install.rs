@@ -168,6 +168,7 @@ impl Lamp {
             channel_url: CHANNEL.into(),
             key: key.public_key().as_ref().try_into().unwrap(),
             records: "/var/lib/lampos-update/".into(),
+            setup: false,
         };
         let host = FakeHost {
             root: root.clone(),
@@ -672,6 +673,85 @@ fn a_setting_changed_on_the_lamp_is_kept_when_install_runs_again() {
         "{:?}",
         lamp.said
     );
+}
+
+/// #811: `--setup on` writes setup's two settings, exactly the setup crate's
+/// own-page and product reset files, so `lamp-setup.service` starts on a
+/// blank lamp with no file by hand. Without it, none is written. A serve
+/// file changed on the lamp is kept as any setting is.
+#[test]
+fn setup_settings_are_written_only_with_setup_on_and_kept_once_changed() {
+    let serve = "/etc/lampOS/setup/serve.json";
+    let reset = "/etc/lampOS/setup/reset-plan.json";
+    let mut off = Lamp::new(188, &[]);
+    off.install().unwrap();
+    assert!(!off.on(serve).exists() && !off.on(reset).exists());
+
+    let mut lamp = Lamp::new(188, &[]);
+    lamp.config.setup = true;
+    lamp.install().unwrap();
+    assert_eq!(
+        fs::read_to_string(lamp.on(serve)).unwrap(),
+        include_str!("../../setup/fixtures/serve-own-page.json")
+    );
+    let plan: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(lamp.on(reset)).unwrap()).unwrap();
+    assert_eq!(
+        plan["stop"],
+        serde_json::json!(["/usr/bin/systemctl", "stop", "lampos.target"])
+    );
+    let before = tree(&lamp.root);
+    assert_eq!(lamp.install().unwrap().changed, Vec::<String>::new());
+    assert_eq!(tree(&lamp.root), before);
+
+    let ours = fs::read_to_string(lamp.on(serve))
+        .unwrap()
+        .replace("\"VN\"", "\"SG\"");
+    fs::write(lamp.on(serve), &ours).unwrap();
+    lamp.said.clear();
+    assert_eq!(lamp.install().unwrap().changed, Vec::<String>::new());
+    assert_eq!(fs::read_to_string(lamp.on(serve)).unwrap(), ours);
+    assert!(
+        lamp.said
+            .iter()
+            .any(|line| line.starts_with(&format!("kept {serve}")))
+    );
+}
+
+/// #811, found on lamp-06c1: the lock folders are what the body and the eyes
+/// accept (each 0700 and the parts' own, under a parent nobody else may
+/// write), and the voice's sessions folder, which its unit names and nothing
+/// else makes, is there.
+#[test]
+fn tmpfiles_make_lock_folders_the_parts_accept_and_the_voices_sessions_folder() {
+    let lines: Vec<Vec<&str>> = install::TMPFILES
+        .lines()
+        .filter(|line| line.starts_with("d "))
+        .map(|line| line.split_whitespace().collect())
+        .collect();
+    let line = |path: &str| {
+        lines
+            .iter()
+            .find(|fields| fields[1] == path)
+            .unwrap_or_else(|| panic!("no tmpfiles line for {path}"))
+            .clone()
+    };
+    let parent = line("/run/lampos-locks");
+    assert_eq!(u32::from_str_radix(parent[2], 8).unwrap() & 0o022, 0);
+    assert_eq!(parent[3], "root");
+    for lock in ["/run/lampos-locks/motor", "/run/lampos-locks/camera"] {
+        assert_eq!(line(lock)[2..4], ["0700", install::USER]);
+    }
+    assert_eq!(
+        line("/var/lib/lampOS/voice/sessions")[2..4],
+        ["0700", "root"]
+    );
+    let voice = install::PRODUCT
+        .iter()
+        .find(|(name, _)| *name == "lamp-voice.service")
+        .unwrap()
+        .1;
+    assert!(voice.contains("/var/lib/lampOS/voice/sessions/${INVOCATION_ID}"));
 }
 
 /// A newer build's default reaches a setting nobody changed; a setting

@@ -230,9 +230,14 @@ What steps 2 and 3 build, unless an answer on #811 changes it.
 - **The zone**, `/etc/lampOS/zone.env`: `LAMP_ZONE` (schedule) and
   `LAMP_UTC_OFFSET_MINUTES` (memory, Expression), written by the install
   from the system's zone and again by setup.
-- **Locks and the bus**, `/etc/tmpfiles.d/lampos.conf`: `/run/lampos-bus`
-  as the keeper makes it, and `/run/lampos-locks/{motor,camera}` in place
-  of lamp-4ace's lock folders under the board user's home.
+- **Locks, the bus and the voice's state**, `/etc/tmpfiles.d/lampos.conf`:
+  `/run/lampos-bus` as the keeper makes it, and `/run/lampos-locks/{motor,camera}`
+  (each 0700 and `lampos`'s, under a root 0755 parent, as the body and the
+  eyes require) in place of lamp-4ace's lock folders under the board user's
+  home; and `/var/lib/lampOS/voice/sessions` (root, 0700), which the voice's
+  unit names and nothing else makes. Both were found on lamp-06c1 on
+  2026-10-16: with the locks 0775 the body never opened the servo port, and
+  without the sessions folder the voice could not start.
 - **The body's unit id** is the host name (`--unit-id %H`), and no unit
   says `ConditionHost=`.
 - **The clock** (#811): a lamp has no battery clock, so after a boot its
@@ -308,10 +313,10 @@ reads itself:
   `led-boot`, `led-shutdown`): the voice refuses to start beside them
   (keeper.md).
 - **Setup's settings**, `/etc/lampOS/setup/serve.json` and
-  `/etc/lampOS/setup/reset-plan.json` (docs/setup.md, "On a lamp"). Not yet
-  written by `install` (asked on #811: the credential's path and the
-  product's stores). Until they are there, `lamp-setup.service` does not
-  start (its conditions), so a blank lamp does not enter setup.
+  `/etc/lampOS/setup/reset-plan.json` (docs/setup.md, "On a lamp"). Written
+  by `install --setup on` (below); without it they are not, and
+  `lamp-setup.service` does not start (its conditions), so a lamp does not
+  enter setup.
 
 ## Setup at first boot, without the keeper
 
@@ -331,7 +336,7 @@ Setup and its reset start the same binary, `/opt/lampOS/setup/current/lamp-setup
 ## The install command
 
 ```text
-lamp-update install --channel-url URL [--channel NAME] [--key-file PATH]
+lamp-update install --channel-url URL [--channel NAME] [--key-file PATH] [--setup on|off]
 ```
 
 As root, on a lamp with the base image (`crates/update/src/install.rs`):
@@ -357,7 +362,14 @@ As root, on a lamp with the base image (`crates/update/src/install.rs`):
    `state.json`, so a newer build's default reaches a lamp that never
    changed it. A setting changed on the lamp since, or there before any
    install (lamp-4ace's own pins), is the lamp's: it is kept, and said
-   (`kept /etc/lampOS/controls/controls-pins.json: …`). Rerunning install is
+   (`kept /etc/lampOS/controls/controls-pins.json: …`). With `--setup on`
+   (off unless set), setup's two settings are among them, exactly the setup
+   crate's `fixtures/serve-own-page.json` (setup's own page on port 80; it
+   asks for no voice key, the lamp's own device key being install's to
+   write, #806) and `fixtures/reset-plan-product.json` (the reset stops
+   `lampos.target`, there being no keeper, and keeps the device key). With them and no marker the lamp starts setup at
+   boot, so a lamp set up by hand, whose updater is upgraded by rerunning
+   install, is never given them by default. Rerunning install is
    how the updater upgrades itself, so this holds at every run (the
    reviewer on #815). What it is about to write is recorded in
    `state.json` (`settings_writing`) before the first write, and what it

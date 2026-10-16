@@ -1,0 +1,48 @@
+diff --git a/lampOS/crates/voice/src/provider_worker.rs b/lampOS/crates/voice/src/provider_worker.rs
+index 7b378ca85..fee82c33a 100644
+--- a/lampOS/crates/voice/src/provider_worker.rs
++++ b/lampOS/crates/voice/src/provider_worker.rs
+@@ -8603,7 +8603,7 @@ mod tests {
+         );
+     }
+ 
+-    #[tokio::test]
++    #[tokio::test(flavor = "current_thread", start_paused = true)]
+     async fn resumed_question_survives_a_silent_service_and_the_assumption_is_reported() {
+         // The person continues after the endpointer cut the question. The
+         // service says nothing about the cut-off request for the whole bound.
+@@ -8615,7 +8615,7 @@ mod tests {
+             );
+             let mut dial = rig.ready().await;
+             let cut = rig.speak(&mut dial, false, true).await;
+-            let resumed_at = Instant::now();
++            let resumed_at = tokio::time::Instant::now();
+             let resumed = rig.speak(&mut dial, true, false).await;
+             // Its opening is already with the service, in order and whole.
+             let owner = rig.snapshot.owner().unwrap();
+diff --git a/lampOS/docs/voice-test-fixtures.md b/lampOS/docs/voice-test-fixtures.md
+index afc736dd8..9a3284b99 100644
+--- a/lampOS/docs/voice-test-fixtures.md
++++ b/lampOS/docs/voice-test-fixtures.md
+@@ -281,3 +281,21 @@ the original assertion and identity comparison, this panic regression and
+ the two original cases without nextest `LEAK`, the crate/dependent gates and
+ a green exact-head native ARM64 run. No lamp or production-worker behavior
+ is measured by these fixtures.
++
++## Silent-service quiet barrier
++
++The provider-worker test
++`resumed_question_survives_a_silent_service_and_the_assumption_is_reported`
++selects a paused current-thread Tokio clock. Its Legacy and Typed iterations
++retain the full two-second quiet barrier and the original 1,900 ms minimum
++wait assertion. The worker, Gemini Actor and scripted service still exchange
++and read the actual Start, Audio, End, ownership status and output packets;
++their original timer-backed awaits drive progress.
++
++Both opening capture blocks have reached the service before the quiet wait,
++which withholds only End. Acquisition timestamps, authority heartbeats,
++source-age checks and host failure bounds keep their original system clocks.
++The test's elapsed-time origin uses Tokio's protocol clock. This case does
++not qualify retained-audio aging, the name-hearing bus timestamps, or the
++separate EarlyEnd fixture. Host timing and native qualification are recorded
++with the task's verification evidence.

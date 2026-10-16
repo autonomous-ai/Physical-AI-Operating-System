@@ -1,0 +1,23 @@
+{
+  "name": "tests",
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "--offline",
+    "-p",
+    "lamp-voice",
+    "-p",
+    "lamp-memory",
+    "-p",
+    "lamp-voice-eval",
+    "-p",
+    "lamp-surround",
+    "--no-fail-fast",
+    "--",
+    "--test-threads=1"
+  ],
+  "cwd": "/private/tmp/lampos-tests-provider-observations/lampOS",
+  "target": "/private/tmp/lampos-tests-capacity/lampOS/target",
+  "started": "2026-10-16 06:21:21 +0700"
+}

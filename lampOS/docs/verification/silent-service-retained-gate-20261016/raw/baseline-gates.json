@@ -1,0 +1,34 @@
+[
+  {
+    "name": "baseline-list",
+    "command": [
+      "/Users/autonomous/.cargo/bin/cargo",
+      "nextest",
+      "list",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-voice",
+      "-p",
+      "lamp-memory",
+      "-p",
+      "lamp-voice-eval",
+      "-p",
+      "lamp-surround",
+      "--message-format",
+      "json"
+    ],
+    "cwd": "/private/tmp/lampos-tests-silent-service-clock/lampOS",
+    "started_from_date": "2026-10-16 06:31:58 +0700",
+    "started_epoch_from_date": 1792107118,
+    "load_before": "6:31  up 30 days, 11:49, 3 users, load averages: 11.21 8.77 7.67",
+    "exit_code": 101,
+    "finished_from_date": "2026-10-16 06:31:58 +0700",
+    "finished_epoch_from_date": 1792107118,
+    "load_after": "6:31  up 30 days, 11:49, 3 users, load averages: 11.21 8.77 7.67",
+    "log": "/private/tmp/tests-823-silent-service-clock-evidence/baseline-list.log",
+    "log_sha256": "8559d1788a5a8109267d3a59a5a4f3ac1f238d6e7200a974a472d6b72b8deb8f",
+    "log_bytes": 217,
+    "wall_seconds_from_date_coarse": 0
+  }
+]

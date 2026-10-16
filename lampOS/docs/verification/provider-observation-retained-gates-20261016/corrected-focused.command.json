@@ -1,0 +1,24 @@
+{
+  "name": "focused",
+  "command": [
+    "cargo",
+    "nextest",
+    "run",
+    "--locked",
+    "--offline",
+    "-p",
+    "lamp-voice",
+    "--profile",
+    "default",
+    "--test-threads",
+    "1",
+    "--no-fail-fast",
+    "--retries",
+    "0",
+    "-E",
+    "test(/^provider_worker::observation::tests::/) | test(/^provider_worker::tests::observation::/)"
+  ],
+  "cwd": "/private/tmp/lampos-tests-provider-observations/lampOS",
+  "target": "/private/tmp/lampos-tests-capacity/lampOS/target",
+  "started": "2026-10-16 06:51:20 +0700"
+}

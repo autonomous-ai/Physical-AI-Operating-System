@@ -1,0 +1,10 @@
+{
+  "date": "2026-10-16 06:49:36 +0700",
+  "script": "/private/tmp/tests-823-provider-observations-corrected-gate.py",
+  "sha256": "83a1034c4d003baac90c4561328439fe053a3177e940127198c7478d007a3deb",
+  "baseline_files_exact_to_first_gate": true,
+  "input_proof": "corrected-source-proof.json",
+  "distinct_output_prefix": "corrected-",
+  "commands_unchanged": true,
+  "first_gate_files_written": false
+}

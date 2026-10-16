@@ -1,0 +1,36 @@
+{
+  "date": "2026-10-16 06:49:53 +0700",
+  "base": "e7d0f673d0c4bde4a770b19783d6084a8d935ec3",
+  "compiled_baseline_cwd": "/private/tmp/lampos-tests-serve-release/lampOS",
+  "compiled_baseline_target": "/private/tmp/tests-823-rebase-target",
+  "baseline_files": {
+    "source.json": "9965c89d0c7aa39a103dc9a6bad7bae03dc3a12ab7087fc1712658789140e09f",
+    "gates.json": "c230aae333efdcc006af0dc89c500f2c1264df867016892a9b5ef450a0fe4c50",
+    "completed.json": "4a75a4117a0f0293b8f8b01906ac901bbf533c2cfd440e509e51d859fd2de77a",
+    "provider-affected.log": "37d9d356c5a879cb4cf4c2383112e98f2b8d569e065ea059793c101b4519f8f6"
+  },
+  "baseline_input_count": 836,
+  "all_nonowned_inputs_exact": true,
+  "protected_files_exact": 6792,
+  "owned_files": {
+    "lampOS/crates/voice/src/provider_worker.rs": "56b82b75f50026cb9036ed9f88f937e9df218df7702968d0bbf7798106df1e90",
+    "lampOS/crates/voice/src/provider_worker/observation.rs": "8a370c2a4b85bd70890d51a34259524cdf5cb236d6a8210f16abb37f6b99ef5e",
+    "lampOS/crates/voice/src/provider_worker/tests/observation.rs": "25e230b6ccec6a5273f65a6d37f97f6efbbb4cada473c6b7bf0a3d742fbbc3f8",
+    "lampOS/docs/voice-test-fixtures.md": "0011049236738f2ebe8ae93fbc3269bfb2ba9952720e0a4397818992500a4dc6"
+  },
+  "current_target": "/private/tmp/lampos-tests-capacity/lampOS/target",
+  "packages": [
+    "lamp-voice",
+    "lamp-memory",
+    "lamp-voice-eval",
+    "lamp-surround"
+  ],
+  "environment": {
+    "RUSTUP_TOOLCHAIN": "1.96.0",
+    "CARGO_TARGET_DIR": "/private/tmp/lampos-tests-capacity/lampOS/target",
+    "CARGO_BUILD_JOBS": "2",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_TERM_COLOR": "never",
+    "RUST_BACKTRACE": "1"
+  }
+}

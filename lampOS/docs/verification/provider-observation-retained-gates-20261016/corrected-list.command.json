@@ -1,0 +1,23 @@
+{
+  "name": "list",
+  "command": [
+    "cargo",
+    "nextest",
+    "list",
+    "--locked",
+    "--offline",
+    "-p",
+    "lamp-voice",
+    "-p",
+    "lamp-memory",
+    "-p",
+    "lamp-voice-eval",
+    "-p",
+    "lamp-surround",
+    "--message-format",
+    "json"
+  ],
+  "cwd": "/private/tmp/lampos-tests-provider-observations/lampOS",
+  "target": "/private/tmp/lampos-tests-capacity/lampOS/target",
+  "started": "2026-10-16 06:50:22 +0700"
+}

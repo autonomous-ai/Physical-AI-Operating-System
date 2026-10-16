@@ -1,0 +1,32 @@
+{
+  "verified_from_date": "2026-10-16 06:41:33 +0700",
+  "head": "8cafa989338fb30c3f38da0cdfd0e307f3752974",
+  "whole_worker_two_line_inverse_exact": true,
+  "assertion_macros": [
+    {
+      "sha256": "113532ebad6171c32a15a72778194a2381f48b9f9b5af24cd951ff96ede574b7",
+      "bytes": 243
+    },
+    {
+      "sha256": "bda961b7179b9840c4dffbfc3265fd6dad22966069ac7130d995cbb6f6de9710",
+      "bytes": 62
+    },
+    {
+      "sha256": "91b5a06069a5215846621c78cda96348d7129f62c038d677845ac8dd208845c5",
+      "bytes": 61
+    },
+    {
+      "sha256": "d825ca65d587181461f02f475a55d69744d65dc3d540a2de90405c2b284935b6",
+      "bytes": 144
+    },
+    {
+      "sha256": "651e3c40c86def5d3fbdaa1592fd5e9b68c0d0452d7346c65282220fa3b55b40",
+      "bytes": 34
+    }
+  ],
+  "assertions_equal": true,
+  "both_reporting_modes_unchanged": true,
+  "original_1900ms_bound_unchanged": true,
+  "frozen_owned_hashes_match": true,
+  "source_files_written": false
+}

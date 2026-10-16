@@ -1,0 +1,76 @@
+{
+  "date": "2026-10-16 07:24:13 +0700",
+  "identity": "coordinator::tests::pilot_faults::a_microphone_closed_by_a_stall_reopens_under_a_new_epoch_and_the_voice_goes_on",
+  "existing_clean_e7d_compiled_identity": true,
+  "inside_frozen_original123": false,
+  "frozen_inventory": {
+    "source": "/private/tmp/tests-823-capture-hold-clock-audit/original-inventory.json",
+    "copy": "original123-inventory.json",
+    "sha256": "72d671f8b22246898f9142c0216c9fbced55e350e46b83ffec787c81496fb1fc",
+    "count": 123
+  },
+  "identity_mapping": "New distinct existing identity. It is not the #866 a_stall_while_the_lamp_answers_cuts_the_reply_and_the_voice_goes_on identity. Related family references do not establish a shared mechanism. Root will file the exact identity separately.",
+  "source_files": [
+    {
+      "path": "lampOS/crates/voice/src/coordinator.rs",
+      "sha256": "a175993a69a18daa9137dfa2caf0ac8690d31b66dc4c2c7fbe4434b7e7cc094e",
+      "bytes": 350180,
+      "unchanged_from_e7d": true,
+      "snapshot": "/private/tmp/tests-823-provider-observations-evidence/corrected-failure-source/lampOS/crates/voice/src/coordinator.rs"
+    },
+    {
+      "path": "lampOS/crates/voice/src/coordinator/tests/pilot_faults.rs",
+      "sha256": "e7c292977de467d24c921a59e4012e471131e953af89dfe5764f87257333075b",
+      "bytes": 109204,
+      "unchanged_from_e7d": true,
+      "snapshot": "/private/tmp/tests-823-provider-observations-evidence/corrected-failure-source/lampOS/crates/voice/src/coordinator/tests/pilot_faults.rs"
+    },
+    {
+      "path": "lampOS/crates/voice/src/privacy.rs",
+      "sha256": "09db2bf98464fb1fcfd3486f7ed6a4150ef83bc819a11b50def4bf5b38541d65",
+      "bytes": 8510,
+      "unchanged_from_e7d": true,
+      "snapshot": "/private/tmp/tests-823-provider-observations-evidence/corrected-failure-source/lampOS/crates/voice/src/privacy.rs"
+    },
+    {
+      "path": "lampOS/crates/voice/src/service_privacy.rs",
+      "sha256": "d5dfc04a5020242be4430f021044af27fffa8d7cca3d5eb7ff8136e3f52c2099",
+      "bytes": 23827,
+      "unchanged_from_e7d": true,
+      "snapshot": "/private/tmp/tests-823-provider-observations-evidence/corrected-failure-source/lampOS/crates/voice/src/service_privacy.rs"
+    }
+  ],
+  "static_failure_path": [
+    {
+      "path": "lampOS/crates/voice/src/coordinator/tests/pilot_faults.rs",
+      "line": 1879,
+      "detail": "This case uses Fixture::Threaded and Act::CaptureReopen; run.assert_invariants() returns before line1887 rejects a result that is not PhysicalMute."
+    },
+    {
+      "path": "lampOS/crates/voice/src/coordinator/tests/pilot_faults.rs",
+      "line": 1585,
+      "detail": "is_mute tests whether the returned error downcasts to PhysicalMute."
+    },
+    {
+      "path": "lampOS/crates/voice/src/coordinator/tests/pilot_faults.rs",
+      "line": 1535,
+      "detail": "run_in calls conversation with Lifetime::Serve, then finish_active_run; Threaded leaves scoped scenario time disabled."
+    },
+    {
+      "path": "lampOS/crates/voice/src/coordinator.rs",
+      "line": 2498,
+      "detail": "conversation delegates to conversation_with_controls, which supplies PrivacyGate::default() at line2550."
+    },
+    {
+      "path": "lampOS/crates/voice/src/coordinator.rs",
+      "line": 2887,
+      "detail": "For continuous lifetime, after privacy_sequence is nonzero, gate.state(now()) == Unavailable returns the observed io::Error at line2892 before the next privacy receive loop at line2895."
+    },
+    {
+      "path": "lampOS/crates/voice/src/privacy.rs",
+      "line": 96,
+      "detail": "state requires an accepted observation whose age is strictly below freshness_us and a known muted state; otherwise it is Unavailable. The unchanged default bound is PRIVACY_FRESH_US=50000 at line5."
+    }
+  ],
+  "limits": "This is a static path match for the exact observed error, not a causal classification. The log does not report the last coordinator-consumed privacy timestamp or consumption age; producer gap measurements do not identify why the accepted lease was unavailable. No failure is attributed to the observer changes or to the older #866 mechanism."
+}

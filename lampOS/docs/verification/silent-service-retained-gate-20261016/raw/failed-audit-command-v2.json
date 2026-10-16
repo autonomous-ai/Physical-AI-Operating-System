@@ -1,0 +1,12 @@
+{
+  "started_from_date": "2026-10-16 07:15:57 +0700",
+  "command": [
+    "python3",
+    "/private/tmp/tests-823-silent-service-failed-result-audit-v2.py"
+  ],
+  "no_test_execution": true,
+  "correction": "Handle the three diagnostic-interleaved rows, preserving both row-start and result-line ordinals. First audit failure remains unchanged.",
+  "finished_from_date": "2026-10-16 07:15:57 +0700",
+  "exit_code": 0,
+  "log_sha256": "be81625eeabea7fd2a162305c415dd9a184e9c765196a1c67a78554e082fab2d"
+}

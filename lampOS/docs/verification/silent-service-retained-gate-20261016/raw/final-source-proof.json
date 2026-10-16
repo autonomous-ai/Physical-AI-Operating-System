@@ -1,0 +1,38 @@
+{
+  "from_date": "2026-10-16 06:39:47 +0700",
+  "base": "8cafa989338fb30c3f38da0cdfd0e307f3752974",
+  "branch": "tests/823-silent-service-clock",
+  "source_frozen": true,
+  "owned_paths": [
+    "lampOS/crates/voice/src/provider_worker.rs",
+    "lampOS/docs/voice-test-fixtures.md"
+  ],
+  "before_sha256": {
+    "lampOS/crates/voice/src/provider_worker.rs": "9e2a59f6cfbe5e39a4baf96ccda72ea1ec90e95b1e0c9e9d999bd6916df18219",
+    "lampOS/docs/voice-test-fixtures.md": "7e59fc75a29b795a9fc66380db8869194f760c418aea5b82306604bdda6bbb21"
+  },
+  "after_sha256": {
+    "lampOS/crates/voice/src/provider_worker.rs": "77243b16424c6ae7256f6170c0978435d81906b756be6a5108eba40c915828ad",
+    "lampOS/docs/voice-test-fixtures.md": "7ac2665f79ea2ce52c0554d71f87c886324da208f2d6ead9b96ecd47586eba62"
+  },
+  "exact_two_substitution_inverse_restores_entire_worker_file": true,
+  "only_selected_attribute_and_clock_origin_changed": true,
+  "original_case_sha256": "312511b3b49890cea3533b539b2d7ea322cf3ef57a073fdbaff7d30276d779d2",
+  "final_case_sha256": "8bc010e440eaacafea25b425ab78cc54720e554388270535558d3ba526950d06",
+  "original_direct_assertion_macro_count": 5,
+  "all_original_assertion_bytes_unchanged": true,
+  "both_reporting_iterations_unchanged": true,
+  "all_original_duration_values_and_frames_unchanged": true,
+  "all_shared_helpers_and_capture_age_code_unchanged": true,
+  "doc_original_prefix_preserved": true,
+  "unchanged_build_input_count": 847,
+  "baseline_compiled_total": 2266,
+  "baseline_target_once_unignored": true,
+  "baseline_pass_rows": 1,
+  "baseline_case_seconds": "4.097",
+  "baseline_case_log_sha256": "00bc65fbae2fa0b9524906d959e529aa3ccc7838bf37f45a2c372ab1c908fad4",
+  "diff_sha256": "8879b73f796c7a31ef21b3e4d997bedc1f225d1362a0f2bb78435c19cd397ad9",
+  "git_diff_check_passed": true,
+  "after_execution": "Not started; frozen source awaits root independent review.",
+  "no_git_mutation": true
+}

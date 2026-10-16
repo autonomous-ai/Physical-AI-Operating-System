@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "/private/tmp/tests-823-silent-service-failed-result-audit.py", line 71, in <module>
+    assert observed_identities == expected_cases, {'missing': sorted(set(expected_cases) - set(observed_identities)), 'extra': sorted(set(observed_identities) - set(expected_cases)), 'observed_count': len(observed_identities), 'expected_count': len(expected_cases)}
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: {'missing': [('lamp-memory::bin/lamp-memory', 'factory_tests::the_selected_factory_gets_the_original_root_and_source_once_after_socket_bind', False), ('lamp-voice-eval', 'physical::fake_lamp::clock_tests::a_pure_clock_keeps_tick_boundaries_and_frozen_polls_distinct', False), ('lamp-voice-eval', 'physical::fake_lamp::clock_tests::completed_polls_prove_room_consumption_and_keep_cue_fault_timing', False)], 'extra': [], 'observed_count': 2263, 'expected_count': 2266}

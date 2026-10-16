@@ -1,0 +1,8 @@
+   Compiling lamp-voice v0.1.0 (/private/tmp/lampos-tests-silent-service-clock/lampOS/crates/voice)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 58.24s
+────────────
+ Nextest run ID a9577e6b-bed8-494a-b5e9-e72fee391925 with nextest profile: realtime
+    Starting 1 test across 1 binary (1209 tests and 22 binaries skipped)
+        PASS [   0.337s] (1/1) lamp-voice provider_worker::tests::resumed_question_survives_a_silent_service_and_the_assumption_is_reported
+────────────
+     Summary [   0.361s] 1 test run: 1 passed, 1209 skipped

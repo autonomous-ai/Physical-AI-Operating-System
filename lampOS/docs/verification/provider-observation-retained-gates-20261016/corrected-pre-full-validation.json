@@ -1,0 +1,20 @@
+{
+  "date": "2026-10-16 06:53:23 +0700",
+  "first_and_corrected_compiled_identities_and_ignored_flags_exact": true,
+  "identities": 2277,
+  "ignored": 13,
+  "approved_source_diff_exact": true,
+  "focused_test_count": 20,
+  "focused_passed": 20,
+  "focused_exit": 0,
+  "focused_execution_seconds_from_nextest": 1.533,
+  "original_first_focused_result_preserved": "19 passed, 1 failed",
+  "original_first_full_result_preserved": "2262 passed, 2 failed, 13 ignored",
+  "full_corrected_gate_in_progress": true,
+  "sha256": {
+    "first-list.log": "593aa51049463afc6d5d4d77a1ab0d42624a420748bf83b1d4152b6ba304bb71",
+    "corrected-list.log": "6f23582acf10d481ae1c654abe4a882fb5b974ec73a7e6818ad77fdb41a31a10",
+    "corrected-focused.log": "c0c706f37ec1dec8f943bde420d1b97bdbae4707d9329e7b7a853da2a46a274d",
+    "proposed-unpolled-close-only.diff": "e23bb033b990c80af1fe2d8baf1e97d9469c2fd7dd8f83ca429034fe42d12015"
+  }
+}

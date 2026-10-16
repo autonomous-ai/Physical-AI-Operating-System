@@ -1,0 +1,66 @@
+{
+  "date": "2026-10-16 07:19:43 +0700",
+  "identity": "coordinator::tests::pilot_faults::a_microphone_closed_by_a_stall_reopens_under_a_new_epoch_and_the_voice_goes_on",
+  "source": "lampOS/crates/voice/src/coordinator/tests/pilot_faults.rs",
+  "source_sha256": "e7c292977de467d24c921a59e4012e471131e953af89dfe5764f87257333075b",
+  "source_unchanged_from_base": true,
+  "failure_line": 1887,
+  "actual_error": "Err(Custom { kind: Other, error: \"service privacy freshness lost before next observation\" })",
+  "fixture": "Threaded; packet and policy clock host",
+  "diagnostics": {
+    "real_conversation_and_cleanup_seconds": 2.379080296,
+    "peer_privacy_gap_us": 72046,
+    "refused_writes": 0,
+    "end_to_speaker_revocation_us": [
+      [
+        1,
+        2968
+      ]
+    ],
+    "capture_send_attempt_gap_us": 409278,
+    "oldest_source_age_at_send_attempt_us": 63109,
+    "consumption_age": "unmeasured",
+    "frames": 232,
+    "starts": [
+      1
+    ],
+    "ends": [],
+    "chunks": 0,
+    "accepted": 0,
+    "stopped_labels": [
+      "provider",
+      "privacy",
+      "speaker",
+      "capture"
+    ],
+    "abandoned_labels": []
+  },
+  "earlier_first_full_status": "ok",
+  "first_full_failures_preserved": [
+    "new unpolled worker ConnectionReset assertion",
+    "original reminder AckConfirmed assertion (#935 per root)"
+  ],
+  "owner_tracking": "NEW distinct existing stall/reopen identity, outside frozen original123. Root will file its exact identity separately. #866 and #739 are only related families; no shared mechanism is inferred.",
+  "readiness": "Unready unless the owner classifies this local failure or fixes it.",
+  "causal_claim": "None. Source preservation and diagnostic gaps do not establish a mechanism.",
+  "failure_extract_sha256": "b7a843a03218cec8e6c36d8ff0b56c3691a65666d0ee31c399980242188f5c13",
+  "gate_complete": true,
+  "source_modified": false,
+  "rerun": false,
+  "tracking_correction": {
+    "date": "2026-10-16 07:24:13 +0700",
+    "note": "Earlier parent identification as the exact #866 case was corrected by parent after checking its body; the raw failure and source were never changed."
+  },
+  "inside_frozen_original123": false,
+  "frozen_inventory_sha256": "72d671f8b22246898f9142c0216c9fbced55e350e46b83ffec787c81496fb1fc",
+  "gate_completed_at": "2026-10-16 07:18:36 +0700",
+  "full_result": {
+    "passed": 2263,
+    "failed": 1,
+    "ignored": 13,
+    "exit": 101
+  },
+  "workspace_build_exit": 0,
+  "source_path_proof": "corrected-privacy-failure-path.json",
+  "full_log_sha256": "c2c358dc035566c64a76664fa7fd34a474e639ce8c1e5db643bb3a496209ec85"
+}

@@ -1,0 +1,96 @@
+{
+  "result": "/private/tmp/tests-823-silent-service-clock-evidence/failed-result-audit.json",
+  "sha256": "8d209f958d2b0402ddfa6535308c00553b5f9c27e4b175cd5b035a47cddc5499",
+  "totals": {
+    "passed": 2252,
+    "failed": 1,
+    "ignored": 13,
+    "filtered_out": 0
+  },
+  "per_package": {
+    "lamp-memory": {
+      "passed": 205,
+      "failed": 0,
+      "ignored": 5,
+      "filtered_out": 0,
+      "compiled_identities": 210,
+      "binary_summaries": 17
+    },
+    "lamp-surround": {
+      "passed": 260,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0,
+      "compiled_identities": 260,
+      "binary_summaries": 19
+    },
+    "lamp-voice": {
+      "passed": 1410,
+      "failed": 1,
+      "ignored": 8,
+      "filtered_out": 0,
+      "compiled_identities": 1419,
+      "binary_summaries": 23
+    },
+    "lamp-voice-eval": {
+      "passed": 377,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0,
+      "compiled_identities": 377,
+      "binary_summaries": 24
+    }
+  },
+  "pair_before": "4.097",
+  "pair_after": "0.337",
+  "doc_summaries": [
+    {
+      "package": "lamp-memory",
+      "line": 2783,
+      "kind": "doc",
+      "summary_line": 2787,
+      "status": "ok",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0
+    },
+    {
+      "package": "lamp-surround",
+      "line": 2789,
+      "kind": "doc",
+      "summary_line": 2793,
+      "status": "ok",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0
+    },
+    {
+      "package": "lamp-voice",
+      "line": 2795,
+      "kind": "doc",
+      "summary_line": 2799,
+      "status": "ok",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0
+    },
+    {
+      "package": "lamp-voice-eval",
+      "line": 2801,
+      "kind": "doc",
+      "summary_line": 2805,
+      "status": "ok",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0
+    }
+  ]
+}

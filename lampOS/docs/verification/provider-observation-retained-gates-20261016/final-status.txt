@@ -1,0 +1,4 @@
+ M lampOS/crates/voice/src/provider_worker.rs
+ M lampOS/docs/voice-test-fixtures.md
+?? lampOS/crates/voice/src/provider_worker/observation.rs
+?? lampOS/crates/voice/src/provider_worker/tests/observation.rs

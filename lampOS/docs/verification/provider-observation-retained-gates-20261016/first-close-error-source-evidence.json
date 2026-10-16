@@ -1,0 +1,28 @@
+{
+  "date": "2026-10-16 06:34:21 +0700",
+  "files": [
+    {
+      "path": "lampOS/crates/voice/src/transport.rs",
+      "sha256": "49308fd4a3e19ba1179a0410785e85912ed018757d79872497f40517529eae73",
+      "unchanged_from_base": true
+    },
+    {
+      "path": "lampOS/crates/ipc/src/lib.rs",
+      "sha256": "f9789cc83665f00bd39aff1d8670af525de8403c8821f0f143c04a02e644f6bf",
+      "unchanged_from_base": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/wire.rs",
+      "sha256": "4b5235a121e50dbb2ea520cf81bb26847503720e4ffc987f319a1961422718c1",
+      "unchanged_from_base": true
+    }
+  ],
+  "observations": [
+    "Channel::receive at voice/src/transport.rs:99 maps only WouldBlock from Endpoint::try_recv to Ok(None), and returns every other error unchanged at line116.",
+    "Endpoint::try_recv at ipc/src/lib.rs:211 propagates socket.recv_from errors directly at line216.",
+    "WorkerEvent derives Debug at voice/src/wire.rs:64, so a rejected unexpected event can be included in the proposed match diagnostic.",
+    "The first focused failure is a real propagated ConnectionReset. No transport behavior should be changed to repair this new fixture assertion."
+  ],
+  "proposal_applied": false,
+  "line_reference_verified_at": "2026-10-16 06:35:06 +0700"
+}

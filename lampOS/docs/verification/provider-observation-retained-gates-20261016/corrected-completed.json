@@ -1,0 +1,147 @@
+{
+  "date": "2026-10-16 07:18:36 +0700",
+  "status": "complete-with-failures",
+  "stages": [
+    {
+      "name": "fmt",
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "cwd": "/private/tmp/lampos-tests-provider-observations/lampOS",
+      "target": "/private/tmp/lampos-tests-capacity/lampOS/target",
+      "started": "2026-10-16 06:49:53 +0700",
+      "finished": "2026-10-16 06:49:58 +0700",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "clippy",
+      "command": [
+        "cargo",
+        "clippy",
+        "--locked",
+        "--offline",
+        "-p",
+        "lamp-voice",
+        "-p",
+        "lamp-memory",
+        "-p",
+        "lamp-voice-eval",
+        "-p",
+        "lamp-surround",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "cwd": "/private/tmp/lampos-tests-provider-observations/lampOS",
+      "target": "/private/tmp/lampos-tests-capacity/lampOS/target",
+      "started": "2026-10-16 06:49:58 +0700",
+      "finished": "2026-10-16 06:50:22 +0700",
+      "exit_code": 0,
+      "log_sha256": "467426a1d368a5342167222a8dbbdd50062f9caf8e32874aa658ddeec32329be"
+    },
+    {
+      "name": "list",
+      "command": [
+        "cargo",
+        "nextest",
+        "list",
+        "--locked",
+        "--offline",
+        "-p",
+        "lamp-voice",
+        "-p",
+        "lamp-memory",
+        "-p",
+        "lamp-voice-eval",
+        "-p",
+        "lamp-surround",
+        "--message-format",
+        "json"
+      ],
+      "cwd": "/private/tmp/lampos-tests-provider-observations/lampOS",
+      "target": "/private/tmp/lampos-tests-capacity/lampOS/target",
+      "started": "2026-10-16 06:50:22 +0700",
+      "finished": "2026-10-16 06:51:20 +0700",
+      "exit_code": 0,
+      "log_sha256": "6f23582acf10d481ae1c654abe4a882fb5b974ec73a7e6818ad77fdb41a31a10"
+    },
+    {
+      "name": "focused",
+      "command": [
+        "cargo",
+        "nextest",
+        "run",
+        "--locked",
+        "--offline",
+        "-p",
+        "lamp-voice",
+        "--profile",
+        "default",
+        "--test-threads",
+        "1",
+        "--no-fail-fast",
+        "--retries",
+        "0",
+        "-E",
+        "test(/^provider_worker::observation::tests::/) | test(/^provider_worker::tests::observation::/)"
+      ],
+      "cwd": "/private/tmp/lampos-tests-provider-observations/lampOS",
+      "target": "/private/tmp/lampos-tests-capacity/lampOS/target",
+      "started": "2026-10-16 06:51:20 +0700",
+      "finished": "2026-10-16 06:52:09 +0700",
+      "exit_code": 0,
+      "log_sha256": "c0c706f37ec1dec8f943bde420d1b97bdbae4707d9329e7b7a853da2a46a274d"
+    },
+    {
+      "name": "tests",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "-p",
+        "lamp-voice",
+        "-p",
+        "lamp-memory",
+        "-p",
+        "lamp-voice-eval",
+        "-p",
+        "lamp-surround",
+        "--no-fail-fast",
+        "--",
+        "--test-threads=1"
+      ],
+      "cwd": "/private/tmp/lampos-tests-provider-observations/lampOS",
+      "target": "/private/tmp/lampos-tests-capacity/lampOS/target",
+      "started": "2026-10-16 06:52:09 +0700",
+      "finished": "2026-10-16 07:18:33 +0700",
+      "exit_code": 101,
+      "log_sha256": "c2c358dc035566c64a76664fa7fd34a474e639ce8c1e5db643bb3a496209ec85"
+    },
+    {
+      "name": "workspace-build",
+      "command": [
+        "cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "--workspace"
+      ],
+      "cwd": "/private/tmp/lampos-tests-provider-observations/lampOS",
+      "target": "/private/tmp/lampos-tests-capacity/lampOS/target",
+      "started": "2026-10-16 07:18:33 +0700",
+      "finished": "2026-10-16 07:18:34 +0700",
+      "exit_code": 0,
+      "log_sha256": "d3d730c8dc6554928e724e0acba95ac6cadae178e7d9f20b90b6abb197de6d7a"
+    }
+  ],
+  "source_unchanged": true,
+  "source_differences": [],
+  "compiled_baseline_base": "e7d0f673d0c4bde4a770b19783d6084a8d935ec3"
+}

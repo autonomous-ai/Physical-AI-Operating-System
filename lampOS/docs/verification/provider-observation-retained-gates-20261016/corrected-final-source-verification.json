@@ -1,0 +1,160 @@
+{
+  "date": "2026-10-16 07:25:36 +0700",
+  "base": "e7d0f673d0c4bde4a770b19783d6084a8d935ec3",
+  "corrected_gate_complete": true,
+  "readiness": "UNREADY: one distinct existing test failure remains unclassified; owner classification or fix is required.",
+  "all_protected_files_exact": 6792,
+  "owned_paths": [
+    {
+      "path": "lampOS/crates/voice/src/provider_worker.rs",
+      "bytes": 389984,
+      "sha256": "56b82b75f50026cb9036ed9f88f937e9df218df7702968d0bbf7798106df1e90"
+    },
+    {
+      "path": "lampOS/crates/voice/src/provider_worker/observation.rs",
+      "bytes": 15905,
+      "sha256": "8a370c2a4b85bd70890d51a34259524cdf5cb236d6a8210f16abb37f6b99ef5e"
+    },
+    {
+      "path": "lampOS/crates/voice/src/provider_worker/tests/observation.rs",
+      "bytes": 16995,
+      "sha256": "25e230b6ccec6a5273f65a6d37f97f6efbbb4cada473c6b7bf0a3d742fbbc3f8"
+    },
+    {
+      "path": "lampOS/docs/voice-test-fixtures.md",
+      "bytes": 18816,
+      "sha256": "0011049236738f2ebe8ae93fbc3269bfb2ba9952720e0a4397818992500a4dc6"
+    }
+  ],
+  "changed_paths_since_first_frozen_source": [
+    "lampOS/crates/voice/src/provider_worker/tests/observation.rs"
+  ],
+  "approved_diff_exact": true,
+  "all_first_manifest_entries_exact": 24,
+  "both_attempt_log_hashes_exact": true,
+  "all_original_2257_compiled_identities_retained": true,
+  "new_test_full_gate_statuses": [
+    {
+      "binary": "lamp-voice",
+      "test": "provider_worker::observation::tests::malformed_state_is_a_latched_fault_and_never_a_receipt",
+      "status": "ok"
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "provider_worker::observation::tests::duplicate_stop_and_terminal_mutations_are_latched_faults",
+      "status": "ok"
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "provider_worker::observation::tests::attachment_refuses_an_unentered_body_or_another_boot",
+      "status": "ok"
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "provider_worker::observation::tests::polling_after_a_return_faults_observation_without_replacing_results",
+      "status": "ok"
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "provider_worker::observation::tests::reattachment_faults_both_owners_without_replacing_the_first_writer",
+      "status": "ok"
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "provider_worker::observation::tests::observation_failure_preserves_a_component_futures_actual_success",
+      "status": "ok"
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "provider_worker::observation::tests::observation_failure_preserves_the_actual_result_and_error_object",
+      "status": "ok"
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "provider_worker::tests::observation::queued_real_stop_is_not_handled_until_the_original_body_runs",
+      "status": "ok"
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "provider_worker::tests::observation::unpolled_real_worker_drop_never_claims_a_queued_stop_or_return",
+      "status": "ok"
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "provider_worker::tests::observation::actual_intake_stop_precedes_the_component_future_return",
+      "status": "ok"
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "provider_worker::tests::observation::full_control_slice_leaves_the_real_stop_unhandled_until_the_next_drain",
+      "status": "ok"
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "provider_worker::tests::observation::initial_denied_authority_is_not_a_revocation_stop",
+      "status": "ok"
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "provider_worker::tests::observation::actual_permission_revocation_has_its_own_stop_cause",
+      "status": "ok"
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "provider_worker::tests::observation::actual_generation_change_is_revocation_even_after_permission_reopens",
+      "status": "ok"
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "provider_worker::tests::observation::original_worker_returns_after_actual_authority_revocation",
+      "status": "ok"
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "provider_worker::tests::observation::original_worker_error_is_returned_without_claiming_a_stop_command",
+      "status": "ok"
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "provider_worker::tests::observation::error_cleanup_clears_intake_without_recording_a_stop_cause",
+      "status": "ok"
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "provider_worker::tests::observation::ordinary_intake_and_equal_boot_workers_do_not_share_observations",
+      "status": "ok"
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "provider_worker::tests::observation::requested_task_cancellation_is_joined_and_never_a_body_return",
+      "status": "ok"
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "provider_worker::tests::observation::actual_task_panic_preserves_its_payload_without_a_successful_receipt",
+      "status": "ok"
+    }
+  ],
+  "corrected_totals": {
+    "passed": 2263,
+    "failed": 1,
+    "ignored": 13,
+    "measured": 0,
+    "filtered_out": 0
+  },
+  "first_totals_preserved": {
+    "passed": 2262,
+    "failed": 2,
+    "ignored": 13,
+    "measured": 0,
+    "filtered_out": 0
+  },
+  "first_focused_preserved": "19 passed, 1 failed",
+  "corrected_focused": "20 passed, zero failures",
+  "worker_default_reversal_proof": "worker-reversal-edits.json unchanged; whole original worker reconstructed byte-exact before gates.",
+  "old_inline_test_count": 105,
+  "old_inline_assertions": 544,
+  "no_source_edit_after_approved_correction": true,
+  "no_unchanged_failure_retry": true,
+  "no_git_network_or_device_mutation": true
+}

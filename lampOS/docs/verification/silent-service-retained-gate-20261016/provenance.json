@@ -1,0 +1,243 @@
+{
+  "from_date": "2026-10-16 07:19:06 +0700",
+  "raw_and_source_copies": [
+    {
+      "source": "/private/tmp/tests-823-silent-service-clock-evidence/after-case.log",
+      "destination": "raw/after-case.log",
+      "bytes": 605,
+      "sha256": "f3377dfb5ec38aee4bfcf6b68369589e53ad365b8b03a14cd3d42fbc9a2d6957"
+    },
+    {
+      "source": "/private/tmp/tests-823-silent-service-clock-evidence/after-completed.json",
+      "destination": "raw/after-completed.json",
+      "bytes": 5844,
+      "sha256": "d69110e138e2e43d614912ba13b75eced691d461ddc9b0ece25ed2b4b7384a6b"
+    },
+    {
+      "source": "/private/tmp/tests-823-silent-service-clock-evidence/after-gates.json",
+      "destination": "raw/after-gates.json",
+      "bytes": 5256,
+      "sha256": "c1c3fe07635dba0280a7dba182040012b2341d5318350143f375655d09db7c8a"
+    },
+    {
+      "source": "/private/tmp/tests-823-silent-service-clock-evidence/after-list.log",
+      "destination": "raw/after-list.log",
+      "bytes": 385172,
+      "sha256": "de737740fbaf3c8744fb15cb45dcbea2d01a8c7b8e33e861dea14a125eff288b"
+    },
+    {
+      "source": "/private/tmp/tests-823-silent-service-clock-evidence/after-source.json",
+      "destination": "raw/after-source.json",
+      "bytes": 100365,
+      "sha256": "efffe9213dc2241d3501a6494217fc0866192be24dee16c0b4b37d94a7e2a0f4"
+    },
+    {
+      "source": "/private/tmp/tests-823-silent-service-clock-evidence/baseline-compiled-identities.json",
+      "destination": "raw/baseline-compiled-identities.json",
+      "bytes": 322224,
+      "sha256": "f065b05f6504e4b8e8597226ec194efe73a6b91610326d18748d02263f5a4d53"
+    },
+    {
+      "source": "/private/tmp/tests-823-silent-service-clock-evidence/baseline-completed.json",
+      "destination": "raw/baseline-completed.json",
+      "bytes": 1325,
+      "sha256": "1adc9277253919fb9d87e5279c0890b30426e9aae88236a28048922d1547ea4e"
+    },
+    {
+      "source": "/private/tmp/tests-823-silent-service-clock-evidence/baseline-corrected-environment/baseline-case.log",
+      "destination": "raw/baseline-corrected-environment/baseline-case.log",
+      "bytes": 2564,
+      "sha256": "00bc65fbae2fa0b9524906d959e529aa3ccc7838bf37f45a2c372ab1c908fad4"
+    },
+    {
+      "source": "/private/tmp/tests-823-silent-service-clock-evidence/baseline-corrected-environment/baseline-completed.json",
+      "destination": "raw/baseline-corrected-environment/baseline-completed.json",
+      "bytes": 2596,
+      "sha256": "695aafeaa61bc941d8159f5aa06ab0b3c2012fdfd7194cbdff757fb75fe254b2"
+    },
+    {
+      "source": "/private/tmp/tests-823-silent-service-clock-evidence/baseline-corrected-environment/baseline-gates.json",
+      "destination": "raw/baseline-corrected-environment/baseline-gates.json",
+      "bytes": 2252,
+      "sha256": "6298b376c56a41c896f4fb335408a9e71caf4d4d9e61af57a8ac88fcb173e30e"
+    },
+    {
+      "source": "/private/tmp/tests-823-silent-service-clock-evidence/baseline-corrected-environment/baseline-list.log",
+      "destination": "raw/baseline-corrected-environment/baseline-list.log",
+      "bytes": 387350,
+      "sha256": "146a59e6b1f164646dced395bcbef0bb15c8d5c1a9881f11fa3ff999c19ea6e6"
+    },
+    {
+      "source": "/private/tmp/tests-823-silent-service-clock-evidence/baseline-corrected-environment/baseline-source.json",
+      "destination": "raw/baseline-corrected-environment/baseline-source.json",
+      "bytes": 215851,
+      "sha256": "58b9f81f5c57c83e5e6d1583911a7b9ddf05d1f6e90c031899c741d0a847468c"
+    },
+    {
+      "source": "/private/tmp/tests-823-silent-service-clock-evidence/baseline-corrected-environment/provider_worker.before.rs",
+      "destination": "raw/baseline-corrected-environment/provider_worker.before.rs",
+      "bytes": 388832,
+      "sha256": "9e2a59f6cfbe5e39a4baf96ccda72ea1ec90e95b1e0c9e9d999bd6916df18219"
+    },
+    {
+      "source": "/private/tmp/tests-823-silent-service-clock-evidence/baseline-corrected-environment/voice-test-fixtures.before.md",
+      "destination": "raw/baseline-corrected-environment/voice-test-fixtures.before.md",
+      "bytes": 16485,
+      "sha256": "7e59fc75a29b795a9fc66380db8869194f760c418aea5b82306604bdda6bbb21"
+    },
+    {
+      "source": "/private/tmp/tests-823-silent-service-clock-evidence/baseline-gates.json",
+      "destination": "raw/baseline-gates.json",
+      "bytes": 1044,
+      "sha256": "2fb21c4b70ad9b820bb3963bd208432d13bc8554ce3a30ad5523eba4525872c7"
+    },
+    {
+      "source": "/private/tmp/tests-823-silent-service-clock-evidence/baseline-list.log",
+      "destination": "raw/baseline-list.log",
+      "bytes": 217,
+      "sha256": "8559d1788a5a8109267d3a59a5a4f3ac1f238d6e7200a974a472d6b72b8deb8f"
+    },
+    {
+      "source": "/private/tmp/tests-823-silent-service-clock-evidence/baseline-source.json",
+      "destination": "raw/baseline-source.json",
+      "bytes": 214862,
+      "sha256": "68321515f16a9ce1f5d15460cdc539a0a815d1b03f9fc112394ee19475550903"
+    },
+    {
+      "source": "/private/tmp/tests-823-silent-service-clock-evidence/change.diff",
+      "destination": "raw/change.diff",
+      "bytes": 2573,
+      "sha256": "8879b73f796c7a31ef21b3e4d997bedc1f225d1362a0f2bb78435c19cd397ad9"
+    },
+    {
+      "source": "/private/tmp/tests-823-silent-service-clock-evidence/clippy.log",
+      "destination": "raw/clippy.log",
+      "bytes": 2726,
+      "sha256": "c61145d0435f08b67ed0b9789811d860a758e82ff8e94c1de011cf8d55ae622a"
+    },
+    {
+      "source": "/private/tmp/tests-823-silent-service-clock-evidence/compiled-comparison.json",
+      "destination": "raw/compiled-comparison.json",
+      "bytes": 319483,
+      "sha256": "ff08a940b1cc83c64fc95c595e80e74d9f092518e9bb6590f7342b674fe7bd12"
+    },
+    {
+      "source": "/private/tmp/tests-823-silent-service-clock-evidence/environment-correction.json",
+      "destination": "raw/environment-correction.json",
+      "bytes": 993,
+      "sha256": "ead83c3fc795d5134c11bac822817c7957938c2ce8f72b6fb3447addf63e9752"
+    },
+    {
+      "source": "/private/tmp/tests-823-silent-service-clock-evidence/failed-audit-command-v2.json",
+      "destination": "raw/failed-audit-command-v2.json",
+      "bytes": 500,
+      "sha256": "5948c077a5fa9f0288d4ac257f0e3a0c31bf204fd06df141ee2a26071a9f890b"
+    },
+    {
+      "source": "/private/tmp/tests-823-silent-service-clock-evidence/failed-audit-command-v2.log",
+      "destination": "raw/failed-audit-command-v2.log",
+      "bytes": 2044,
+      "sha256": "be81625eeabea7fd2a162305c415dd9a184e9c765196a1c67a78554e082fab2d"
+    },
+    {
+      "source": "/private/tmp/tests-823-silent-service-clock-evidence/failed-audit-command.json",
+      "destination": "raw/failed-audit-command.json",
+      "bytes": 341,
+      "sha256": "a84960804c505e79de597e7185af720e1d3ca279ed031446a35f1ed0e0679dee"
+    },
+    {
+      "source": "/private/tmp/tests-823-silent-service-clock-evidence/failed-audit-command.log",
+      "destination": "raw/failed-audit-command.log",
+      "bytes": 926,
+      "sha256": "766e48887f80dee8306766fcac08e299a8e9abdb8b7d48351a774355577d1baa"
+    },
+    {
+      "source": "/private/tmp/tests-823-silent-service-clock-evidence/failed-result-audit.json",
+      "destination": "raw/failed-result-audit.json",
+      "bytes": 577480,
+      "sha256": "8d209f958d2b0402ddfa6535308c00553b5f9c27e4b175cd5b035a47cddc5499"
+    },
+    {
+      "source": "/private/tmp/tests-823-silent-service-clock-evidence/final-source-proof.json",
+      "destination": "raw/final-source-proof.json",
+      "bytes": 1917,
+      "sha256": "b953cc24d13759391c89df0d5e5c23a4675e49f737614bbef98bf7a5ee2d4702"
+    },
+    {
+      "source": "/private/tmp/tests-823-silent-service-clock-evidence/fmt.log",
+      "destination": "raw/fmt.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/private/tmp/tests-823-silent-service-clock-evidence/inherited-path-diagnostic.json",
+      "destination": "raw/inherited-path-diagnostic.json",
+      "bytes": 1734,
+      "sha256": "b0abea7ac4c8468eabbca78052e1e3e1c67893ede8ce6f668f674a480a95dbb9"
+    },
+    {
+      "source": "/private/tmp/tests-823-silent-service-clock-evidence/packaging-first-interruption.json",
+      "destination": "raw/packaging-first-interruption.json",
+      "bytes": 7510,
+      "sha256": "57d7c90042878fc0ac515522037ce2ab89fed991832e305bf1018cd9d6467432"
+    },
+    {
+      "source": "/private/tmp/tests-823-silent-service-clock-evidence/post-failure-build.json",
+      "destination": "raw/post-failure-build.json",
+      "bytes": 2224,
+      "sha256": "b2d6c8445a5f074ef581f093b7341f17fcde7547e7716e1955593c35e3309000"
+    },
+    {
+      "source": "/private/tmp/tests-823-silent-service-clock-evidence/post-failure-build.log",
+      "destination": "raw/post-failure-build.log",
+      "bytes": 3883,
+      "sha256": "16320d80db4aa3e95501072114e1bb4373eb53d04207898d798fdaebef2b8909"
+    },
+    {
+      "source": "/private/tmp/tests-823-silent-service-clock-evidence/pre-after-independent-source-check.json",
+      "destination": "raw/pre-after-independent-source-check.json",
+      "bytes": 945,
+      "sha256": "7e9165cc13a8010f19be8c74be4adf6fda3d6e39f91cfbbebc801afa4181ed73"
+    },
+    {
+      "source": "/private/tmp/tests-823-silent-service-clock-evidence/provider_worker.after.rs",
+      "destination": "raw/provider_worker.after.rs",
+      "bytes": 388893,
+      "sha256": "77243b16424c6ae7256f6170c0978435d81906b756be6a5108eba40c915828ad"
+    },
+    {
+      "source": "/private/tmp/tests-823-silent-service-clock-evidence/provider_worker.before.rs",
+      "destination": "raw/provider_worker.before.rs",
+      "bytes": 388832,
+      "sha256": "9e2a59f6cfbe5e39a4baf96ccda72ea1ec90e95b1e0c9e9d999bd6916df18219"
+    },
+    {
+      "source": "/private/tmp/tests-823-silent-service-clock-evidence/tests.log",
+      "destination": "raw/tests.log",
+      "bytes": 232016,
+      "sha256": "a3a71700d69ac126b755e0c0002b9ab4fcc8515e069c5c54ac31c3dc52886516"
+    },
+    {
+      "source": "/private/tmp/tests-823-silent-service-clock-evidence/voice-test-fixtures.after.md",
+      "destination": "raw/voice-test-fixtures.after.md",
+      "bytes": 17467,
+      "sha256": "7ac2665f79ea2ce52c0554d71f87c886324da208f2d6ead9b96ecd47586eba62"
+    },
+    {
+      "source": "/private/tmp/tests-823-silent-service-clock-evidence/voice-test-fixtures.before.md",
+      "destination": "raw/voice-test-fixtures.before.md",
+      "bytes": 16485,
+      "sha256": "7e59fc75a29b795a9fc66380db8869194f760c418aea5b82306604bdda6bbb21"
+    },
+    {
+      "source": "/private/tmp/lampos-tests-silent-service-clock/lampOS/crates/voice/src/coordinator/tests/reminder_roundtrip.rs",
+      "destination": "source/reminder_roundtrip.rs",
+      "bytes": 16115,
+      "sha256": "f2259a3446933ba7193c95829e6ab092881b828be9d458c79cf6e3b1463bb684",
+      "unchanged_commit": "8cafa989338fb30c3f38da0cdfd0e307f3752974"
+    }
+  ],
+  "all_copies_exact": true,
+  "orchestration_scripts_excluded": true,
+  "shared_log_or_git_mutated": false
+}

@@ -1,0 +1,69 @@
+{
+  "date": "2026-10-16 07:11:47 +0700",
+  "attempt": "first",
+  "compiled_binary_paths": 82,
+  "executed_binary_headers": 82,
+  "all_binary_paths_exact": true,
+  "listed_identities": 2277,
+  "executed_identity_statuses": 2277,
+  "all_identity_names_exact": true,
+  "all_ignored_flags_exact": true,
+  "package_status_counts": {
+    "lamp-memory": {
+      "ok": 205,
+      "ignored": 5
+    },
+    "lamp-surround": {
+      "ok": 260
+    },
+    "lamp-voice": {
+      "ok": 1420,
+      "ignored": 8,
+      "FAILED": 2
+    },
+    "lamp-voice-eval": {
+      "ok": 377
+    }
+  },
+  "failed_identities": [
+    [
+      "lamp-voice",
+      "coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion"
+    ],
+    [
+      "lamp-voice",
+      "provider_worker::tests::observation::unpolled_real_worker_drop_never_claims_a_queued_stop_or_return"
+    ]
+  ],
+  "interleaved_output_records": [
+    {
+      "identity": [
+        "lamp-memory::bin/lamp-memory",
+        "factory_tests::the_selected_factory_gets_the_original_root_and_source_once_after_socket_bind"
+      ],
+      "status": "ok",
+      "raw_test_block": "test factory_tests::the_selected_factory_gets_the_original_root_and_source_once_after_socket_bind ... lamp-memory: health worker could not start; serving without reports\nlamp-memory: health worker could not start; serving without reports\nok"
+    },
+    {
+      "identity": [
+        "lamp-voice-eval",
+        "physical::fake_lamp::clock_tests::a_pure_clock_keeps_tick_boundaries_and_frozen_polls_distinct"
+      ],
+      "status": "ok",
+      "raw_test_block": "test physical::fake_lamp::clock_tests::a_pure_clock_keeps_tick_boundaries_and_frozen_polls_distinct ... {\"seconds\":0,\"status\":\"listening_ready\"}\nok"
+    },
+    {
+      "identity": [
+        "lamp-voice-eval",
+        "physical::fake_lamp::clock_tests::completed_polls_prove_room_consumption_and_keep_cue_fault_timing"
+      ],
+      "status": "ok",
+      "raw_test_block": "test physical::fake_lamp::clock_tests::completed_polls_prove_room_consumption_and_keep_cue_fault_timing ... {\"seconds\":8,\"status\":\"listening_ready\"}\nok"
+    }
+  ],
+  "method": "Match every Cargo Running path to the compiled suite, then compare every named harness status and ignored flag. Three first-run tests emit intervening lines before their standalone status; each such block is retained verbatim rather than discarded by a one-line-only parser.",
+  "sha256": {
+    "first-list.log": "593aa51049463afc6d5d4d77a1ab0d42624a420748bf83b1d4152b6ba304bb71",
+    "first-tests.log": "f5763e86d785165cd96c9c5d0a697d40d7b8885e3f5cb38a1abff24ba16ff66c"
+  }
+}

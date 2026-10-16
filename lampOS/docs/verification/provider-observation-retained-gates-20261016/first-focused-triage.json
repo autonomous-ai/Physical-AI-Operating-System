@@ -1,0 +1,22 @@
+{
+  "date": "2026-10-16 06:27:07 +0700",
+  "focused_exit": 100,
+  "passed": 19,
+  "failed": 1,
+  "skipped": 1410,
+  "failed_identity": [
+    "lamp-voice",
+    "provider_worker::tests::observation::unpolled_real_worker_drop_never_claims_a_queued_stop_or_return"
+  ],
+  "log_sha256": "7563a7072c87af09d4e56a573ef0ef0c8ebda2f1e988c9b8d483cce6ea320f79",
+  "failure": "New test unwraps post-peer-drop receive; macOS returned OS54 ConnectionReset.",
+  "assertions_reached": [
+    "DroppedBeforePoll state",
+    "stop cause is None"
+  ],
+  "not_reached": "Final await of actual held connector attempt-future Drop receipt.",
+  "conclusion": "The first focused gate is red. No existing test was edited or rerun to erase this failure.",
+  "parent_requested_proposal": "After the frozen full suite and workspace build finish, propose a pre-drop receive None assertion and post-drop handling that accepts only None or ConnectionReset, rejecting every event and other error.",
+  "source_modified": false,
+  "full_gate_still_running": true
+}

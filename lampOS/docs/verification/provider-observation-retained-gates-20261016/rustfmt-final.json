@@ -1,0 +1,39 @@
+[
+  {
+    "started": "2026-10-16 06:09:52 +0700",
+    "finished": "2026-10-16 06:09:52 +0700",
+    "command": [
+      "/Users/autonomous/.cargo/bin/rustup",
+      "run",
+      "1.96.0",
+      "rustfmt",
+      "--edition",
+      "2024",
+      "--config",
+      "skip_children=true",
+      "lampOS/crates/voice/src/provider_worker.rs",
+      "lampOS/crates/voice/src/provider_worker/observation.rs",
+      "lampOS/crates/voice/src/provider_worker/tests/observation.rs"
+    ],
+    "exit_code": 0
+  },
+  {
+    "started": "2026-10-16 06:09:52 +0700",
+    "finished": "2026-10-16 06:09:52 +0700",
+    "command": [
+      "/Users/autonomous/.cargo/bin/rustup",
+      "run",
+      "1.96.0",
+      "rustfmt",
+      "--edition",
+      "2024",
+      "--config",
+      "skip_children=true",
+      "--check",
+      "lampOS/crates/voice/src/provider_worker.rs",
+      "lampOS/crates/voice/src/provider_worker/observation.rs",
+      "lampOS/crates/voice/src/provider_worker/tests/observation.rs"
+    ],
+    "exit_code": 0
+  }
+]

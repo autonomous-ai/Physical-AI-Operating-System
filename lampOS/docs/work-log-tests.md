@@ -1,5 +1,16 @@
 # Tests work log
 
+## 2026-10-16 07:35:27 +0700 — complete failed gates retained; current integrations underway
+
+Ready for lamp-voice: yes (#931); no (new Provider, silent-service, capacity, Moment rebase, Relay continuation and Audio preparation)
+
+- Serve #909 merged as `6be20efd2b189cafe5aa40d21151d7640ab9f67d`. Its six-case Relay continuation now contains all 498 current-base identities plus ten additions and is in a fresh complete gate on `e5aa43747ec1540893b4da4509d14288e7e70806`. Capacity preserves all 2,401 current identities/13 ignores; Moments preserves them plus 25 additions. Their current complete serial gates are running. Moments resolves only the documentation conflict with merged Transport and keeps all reviewed Rust bytes exact.
+- [Provider's two retained local gates](verification/provider-observation-retained-gates-20261016/README.md) preserve first **2,262/2/13** and corrected **2,263/1/13**, with all 2,257 original identities plus 20 additions and unchanged ignore flags. All 20 corrected additions pass. The remaining original microphone-reopen privacy-freshness failure is already explicitly listed on **#893**, discovered by an exact-name issue search after the agent handoff was frozen; it is distinct from #866. Its cause remains unproved and the local gate remains failed. The historical request for a separate issue is superseded, not silently rewritten. Native qualification of this preparation has not run.
+- [Silent-service's failed complete gate](verification/silent-service-retained-gate-20261016/README.md) preserves **2,252/1/13**, all 2,266 identities/ignore flags exact. The original reminder AckConfirmed assertion tracked by #935 fails before the changed silent-service case passes. The separate once-only workspace build passes. The single shared-Mac pair **4.097 → 0.337 s** is not native or combined-123 timing. No failure-specific retry, weakened assertion or accepted-exception claim.
+- Audio capture's default-preserving clock preparation has nine reviewed boundary cases and starts its first affected gate. Linux `capture_hold_worker` remains pending. Provider progress's 52 new/prerequisite focused cases pass; that is preliminary evidence, not a complete affected/native gate or a migrated original scenario.
+
+Records #931 is in review with its complete composite native coverage retained. #783 remains with Eighth for loaded qualification and close; #914 awaits the product-clock owner, and DevOps has the fixed original-123 serial measurement request on #788. **The original 123 standalone serial under-two-minute target remains unproved.**
+
 ## 2026-10-16 07:07:23 +0700 — Records complete native coverage; capacity unblocked
 
 Ready for lamp-voice: yes (#931, #909 and #925); #924 and #927 merged

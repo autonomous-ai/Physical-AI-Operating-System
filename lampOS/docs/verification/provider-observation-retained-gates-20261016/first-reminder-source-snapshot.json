@@ -1,0 +1,10 @@
+{
+  "date": "2026-10-16 06:51:05 +0700",
+  "source": "lampOS/crates/voice/src/coordinator/tests/reminder_roundtrip.rs",
+  "snapshot": "/private/tmp/tests-823-provider-observations-evidence/first-reminder-source.rs",
+  "sha256": "f2259a3446933ba7193c95829e6ab092881b828be9d458c79cf6e3b1463bb684",
+  "base": "e7d0f673d0c4bde4a770b19783d6084a8d935ec3",
+  "bytes": 16115,
+  "first_full_log_sha256": "f5763e86d785165cd96c9c5d0a697d40d7b8885e3f5cb38a1abff24ba16ff66c",
+  "source_modified": false
+}

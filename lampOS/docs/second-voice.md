@@ -140,7 +140,11 @@ A base URL on `campaign-api.autonomous.ai` ending in `/ai` is given `/v1`
   arrives (`net/sentences.rs`). It is whole at `[DONE]`, or at the
   stream's end after a chunk with a `finish_reason`; a stream that ends
   before either was cut, and fails the turn (`TurnFailed`, as any chat
-  failure) rather than leaving a half answer as the whole one.
+  failure) rather than leaving a half answer as the whole one. A round that has not begun (no word, no call) within 3 s of being asked,
+  the first counted from the words heard, is given up and the turn ends
+  unanswered, nothing said (`BEGIN_WITHIN`; journal: `chat round N had not
+  begun in … ms`): on lamp-4ace on 2026-10-16 first events came 1.6 to
+  20.5 s after the words, and an answer 12 s late is worse than none.
 - **Speech** (`net/tts.rs`), 24 kHz mono 16-bit PCM:
   - `openai`: `POST <base>/audio/speech`, `Authorization: Bearer <key>`,
     model `tts-1`, `response_format: pcm`.

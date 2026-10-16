@@ -70,6 +70,11 @@ pub const ANNOUNCEMENT: &str = "My voice sounds a little different just now.";
 pub const ANNOUNCE_AFTER: Duration = Duration::from_secs(120);
 /// Chat requests in one turn, tool rounds included.
 pub const MAX_ROUNDS: usize = 4;
+/// A chat round that has not begun (no word, no call) this long after it
+/// was asked, the first counted from the words heard, is given up and the
+/// turn ends unanswered: an answer said 12 s after the question is worse
+/// than none (lamp-4ace on 2026-10-16: first events 1.6 to 20.5 s).
+pub const BEGIN_WITHIN: Duration = Duration::from_secs(3);
 /// The tool whose call means the words were not for the lamp.
 const NOT_FOR_ME: &str = "not_for_me";
 /// Microphone packets (10 ms each) held while speech-to-text connects:
@@ -550,12 +555,29 @@ async fn answer(shared: &Shared, request: u64, said: String, heard: bool) {
         messages.extend(told.history);
         messages.push(asked);
         for round in 1..=MAX_ROUNDS {
+            let asked_at = if round == 1 { began } else { Instant::now() };
             let mut stream = shared.services.chat(messages.clone());
             let mut first = true;
             let mut split = Sentences::default();
             let mut text = String::new();
             let mut calls = Vec::new();
-            while let Some(event) = stream.next().await {
+            loop {
+                let next = if first {
+                    let by = tokio::time::Instant::from_std(asked_at + BEGIN_WITHIN);
+                    match tokio::time::timeout_at(by, stream.next()).await {
+                        Ok(next) => next,
+                        Err(_) => {
+                            eprintln!(
+                                "lamp-voice second: request {request} chat round {round} had not begun in {} ms; the turn ends unanswered",
+                                asked_at.elapsed().as_millis()
+                            );
+                            return Err(Stop::Silent);
+                        }
+                    }
+                } else {
+                    stream.next().await
+                };
+                let Some(event) = next else { break };
                 let event = event.map_err(|error| {
                     eprintln!("lamp-voice second: request {request} chat round {round} failed after {} ms: {error}", began.elapsed().as_millis());
                     Stop::Failed(fault(&error))

@@ -410,6 +410,34 @@ async fn words_the_heed_holds_end_the_turn_unanswered() {
     assert!(calls.lock().unwrap().is_empty());
 }
 
+/// A chat that has not begun within `BEGIN_WITHIN` of the words is given
+/// up: the turn ends unanswered, nothing said, not even the announcement.
+#[tokio::test(start_paused = true)]
+async fn a_chat_not_begun_within_three_seconds_ends_the_turn_unanswered() {
+    let script = Arc::new(Script {
+        chats: Mutex::new([vec![]].into()),
+        hold_chat: true,
+        ..Script::default()
+    });
+    let (mut engine, calls, _) = scripted(script.clone());
+    engine.submit(written(1, "What time is it?"));
+    let begun = tokio::time::Instant::now();
+    let mut seen = Vec::new();
+    loop {
+        match engine.next().await {
+            ProviderOutput::Started { .. } => seen.push("started"),
+            ProviderOutput::TurnComplete { .. } => {
+                seen.push("complete");
+                break;
+            }
+            other => panic!("{other:?}"),
+        }
+    }
+    assert_eq!(seen, ["started", "complete"]);
+    assert!(begun.elapsed() >= BEGIN_WITHIN, "{:?}", begun.elapsed());
+    assert!(calls.lock().unwrap().is_empty());
+}
+
 #[tokio::test]
 async fn nothing_heard_is_a_quiet_complete_turn() {
     let script = Arc::new(Script {

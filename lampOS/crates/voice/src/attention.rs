@@ -718,7 +718,7 @@ impl Attention {
     pub fn spoke(&mut self, request: u64, at_us: u64) {
         if self.spoken_to
             && request == self.request
-            && OWN_REQUEST.load(Ordering::Acquire) == request
+            && own_request().load(Ordering::Acquire) == request
             && self.news_of != Some(request)
         {
             self.news_of = Some(request);
@@ -738,7 +738,7 @@ impl Attention {
         // The line before, if it called someone else by name and ended just
         // now (#829).
         let after_another = self.spoken_to
-            && OWN_REQUEST.load(Ordering::Acquire) != request
+            && own_request().load(Ordering::Acquire) != request
             && self
                 .ended_us
                 .or(self.began_us)
@@ -1760,14 +1760,14 @@ mod tests {
             let mut attention = Attention::default();
             attention.speak_when_spoken_to(spoken_to);
             // The lamp's news of the task it was given.
-            OWN_REQUEST.store(7_829, Ordering::Release);
+            own_request().store(7_829, Ordering::Release);
             attention.began_at(7_829, 4, 100 * S);
             assert_eq!(
                 attention.first_output_busy(7_829, Room::Busy, false, true, None),
                 Some(Verdict::Play("the lamp began this turn itself"))
             );
             attention.spoke(7_829, 100 * S);
-            OWN_REQUEST.store(0, Ordering::Release);
+            own_request().store(0, Ordering::Release);
             let mut judge = |request: u64, at: u64, heard: &str| {
                 attention.began_at(request, 4, at * S);
                 attention.heard(heard);
@@ -1826,13 +1826,13 @@ mod tests {
         let after = |spoke: Option<u64>| {
             let mut attention = Attention::default();
             attention.speak_when_spoken_to(true);
-            OWN_REQUEST.store(8_918, Ordering::Release);
+            own_request().store(8_918, Ordering::Release);
             attention.began_at(8_918, 4, 100 * S);
             attention.first_output(8_918, Room::Quiet, false);
             if let Some(request) = spoke {
                 attention.spoke(request, 101 * S);
             }
-            OWN_REQUEST.store(0, Ordering::Release);
+            own_request().store(0, Ordering::Release);
             attention.began_at(1, 4, 110 * S);
             attention.heard("Did you get my message about the budget?");
             attention.first_output(1, Room::Quiet, false).unwrap()
@@ -1848,11 +1848,11 @@ mod tests {
             let mut attention = Attention::default();
             attention.speak_when_spoken_to(true);
             attention.check_sounds(true);
-            OWN_REQUEST.store(8_919, Ordering::Release);
+            own_request().store(8_919, Ordering::Release);
             attention.began_at(8_919, 4, 100 * S);
             attention.first_output(8_919, Room::Quiet, false);
             attention.spoke(8_919, 101 * S);
-            OWN_REQUEST.store(0, Ordering::Release);
+            own_request().store(0, Ordering::Release);
             attention.began_at(1, 4, 110 * S);
             if sound {
                 attention.ended_as_sound(1);
@@ -2029,13 +2029,13 @@ mod tests {
         assert_eq!(named(true), Some(Verdict::Play(NAMED)));
         let mut attention = Attention::default();
         attention.speak_when_spoken_to(true);
-        OWN_REQUEST.store(6_829, Ordering::Release);
+        own_request().store(6_829, Ordering::Release);
         attention.began_at(6_829, 3, 20_000_000);
         assert_eq!(
             attention.first_output(6_829, Room::Quiet, false),
             Some(Verdict::Play("the lamp began this turn itself"))
         );
-        OWN_REQUEST.store(0, Ordering::Release);
+        own_request().store(0, Ordering::Release);
     }
 
     /// #829: with the switch the name counts when it is said to the lamp,

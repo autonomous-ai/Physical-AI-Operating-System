@@ -27,6 +27,7 @@ fn options(
         name_in_passing_ignored: false,
         policy_holds: None,
         wait_for_room: false,
+        ask_unclear: false,
         spoken_to,
     }
 }
@@ -244,13 +245,13 @@ struct OwnMark(u64);
 
 impl OwnMark {
     fn kept() -> Self {
-        Self(crate::attention::OWN_REQUEST.load(std::sync::atomic::Ordering::Acquire))
+        Self(crate::attention::own_request().load(std::sync::atomic::Ordering::Acquire))
     }
 }
 
 impl Drop for OwnMark {
     fn drop(&mut self) {
-        crate::attention::OWN_REQUEST.store(self.0, std::sync::atomic::Ordering::Release);
+        crate::attention::own_request().store(self.0, std::sync::atomic::Ordering::Release);
     }
 }
 

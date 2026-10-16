@@ -1144,7 +1144,7 @@ async fn serve_with_visual<C: Connect>(
     attention.ignore_name_in_passing(options.name_in_passing_ignored);
     attention.speak_when_spoken_to(spoken_to);
     // With it, only talk between people makes the room busy (#829).
-    if let Ok(mut room) = crate::room_told::ROOM.lock() {
+    if let Ok(mut room) = crate::room_told::room().lock() {
         room.count_only_talk(spoken_to);
     }
     // The record of whom it answered, off unless set.
@@ -1652,7 +1652,7 @@ async fn serve_with_visual<C: Connect>(
                             // A request whose answer is held is not talk
                             // between people (#829).
                             if matches!(verdict, Some(crate::attention::Verdict::Hold(_)))
-                                && let Ok(mut told) = crate::room_told::ROOM.lock()
+                                && let Ok(mut told) = crate::room_told::room().lock()
                             {
                                 told.held(request);
                             }

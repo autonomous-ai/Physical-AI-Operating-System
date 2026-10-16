@@ -153,3 +153,27 @@ Ready for lamp-voice: yes (#929), not yet (#930, ARM64 running)
   `attention::OWN_REQUEST` and fail together under plain `cargo test` on
   unchanged `lamp-voice` (5 every time); added to #882. `lamp-actions`'
   20 ms expiry test fails on a loaded runner: #920.
+
+## 2026-10-16 — #930 and #947 merged; Desk tutor waiting
+
+Ready for lamp-voice: nothing open
+
+- #930 (#926) merged at 10:32: in a conversation, behind
+  `LAMP_OTHER_LANGUAGE=sorry`, a turn heard in another script, as a lone
+  number after no question, or as a cut-in with no English word is held,
+  cancelled once the person has finished, and asked again with a written
+  "Sorry?" turn; a Stop drops the asking. On lamp-4ace (first builder's
+  `cutins.sh`, 09:42): asked again 2 of 2, but the model went on with its
+  story; the note now says that is over (`d98e93797`), its spoken check is
+  the first builder's. #926 stays open for it.
+- #947 (#941) merged at 10:25: the lamp skill creator
+  (`lampOS/skill-creator/`), Stretch break and Stuffy air written with it by
+  two fresh sessions and finished against creature.md and #950's schema;
+  4 recorded cases each pass in `lamp-skills` (on lamp-4ace too), and
+  `lamp-skills` passes over a Mac's `._` files. Stuffy air not to be
+  installed until the light can be given back (#940). Stretch break shown
+  live on lamp-4ace at 11:00 (first builder).
+- Desk tutor (`ten/desk-tutor`, `skills/.desk-tutor/`): its know-how
+  written; waits for the seventh's skill tools (`check_my_work`) and the
+  full look's resolution option, then its `skill.toml`.
+- #812 left: the servos' small move (the fifth, no answer).

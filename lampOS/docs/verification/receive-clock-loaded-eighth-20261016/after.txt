@@ -1,0 +1,2872 @@
+=== after batch 1 run 1
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.13s
+
+=== after batch 1 run 2
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.13s
+
+=== after batch 1 run 3
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.13s
+
+=== after batch 1 run 4
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.13s
+
+=== after batch 1 run 5
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 1 run 6
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 1 run 7
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.13s
+
+=== after batch 1 run 8
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.13s
+
+=== after batch 1 run 9
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 1 run 10
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.13s
+
+=== after batch 2 run 1
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 2 run 2
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 2 run 3
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 2 run 4
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 2 run 5
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 2 run 6
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.13s
+
+=== after batch 2 run 7
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 2 run 8
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 2 run 9
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 2 run 10
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 3 run 1
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 3 run 2
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 3 run 3
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 3 run 4
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 3 run 5
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 3 run 6
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 3 run 7
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.13s
+
+=== after batch 3 run 8
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.13s
+
+=== after batch 3 run 9
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 3 run 10
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.13s
+
+=== after batch 4 run 1
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 4 run 2
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 4 run 3
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 4 run 4
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 4 run 5
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 4 run 6
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 4 run 7
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 4 run 8
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 4 run 9
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 4 run 10
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 5 run 1
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 5 run 2
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 5 run 3
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 5 run 4
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 5 run 5
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 5 run 6
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 5 run 7
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 5 run 8
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 5 run 9
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 5 run 10
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 6 run 1
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 6 run 2
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 6 run 3
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 6 run 4
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 6 run 5
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 6 run 6
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 6 run 7
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 6 run 8
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 6 run 9
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.13s
+
+=== after batch 6 run 10
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 7 run 1
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 7 run 2
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 7 run 3
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 7 run 4
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 7 run 5
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.19s
+
+=== after batch 7 run 6
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 7 run 7
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 7 run 8
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 7 run 9
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 7 run 10
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.17s
+
+=== after batch 8 run 1
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 8 run 2
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 8 run 3
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.17s
+
+=== after batch 8 run 4
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 8 run 5
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 8 run 6
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 8 run 7
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.17s
+
+=== after batch 8 run 8
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.17s
+
+=== after batch 8 run 9
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.17s
+
+=== after batch 8 run 10
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.17s
+
+=== after batch 9 run 1
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.17s
+
+=== after batch 9 run 2
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.17s
+
+=== after batch 9 run 3
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.18s
+
+=== after batch 9 run 4
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 9 run 5
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.17s
+
+=== after batch 9 run 6
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.18s
+
+=== after batch 9 run 7
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.18s
+
+=== after batch 9 run 8
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.17s
+
+=== after batch 9 run 9
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.17s
+
+=== after batch 9 run 10
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.17s
+
+=== after batch 10 run 1
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.18s
+
+=== after batch 10 run 2
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.21s
+
+=== after batch 10 run 3
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.21s
+
+=== after batch 10 run 4
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.21s
+
+=== after batch 10 run 5
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.17s
+
+=== after batch 10 run 6
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.20s
+
+=== after batch 10 run 7
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.18s
+
+=== after batch 10 run 8
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.19s
+
+=== after batch 10 run 9
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.19s
+
+=== after batch 10 run 10
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.21s
+
+=== after batch 11 run 1
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 11 run 2
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 11 run 3
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 11 run 4
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 11 run 5
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 11 run 6
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 11 run 7
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 11 run 8
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 11 run 9
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 11 run 10
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 12 run 1
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 12 run 2
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 12 run 3
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 12 run 4
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 12 run 5
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 12 run 6
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 12 run 7
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 12 run 8
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 12 run 9
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 12 run 10
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 13 run 1
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 13 run 2
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 13 run 3
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 13 run 4
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 13 run 5
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 13 run 6
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 13 run 7
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 13 run 8
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 13 run 9
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 13 run 10
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 14 run 1
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 14 run 2
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 14 run 3
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 14 run 4
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 14 run 5
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 14 run 6
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 14 run 7
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 14 run 8
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 14 run 9
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.13s
+
+=== after batch 14 run 10
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 15 run 1
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.17s
+
+=== after batch 15 run 2
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 15 run 3
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 15 run 4
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.17s
+
+=== after batch 15 run 5
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.17s
+
+=== after batch 15 run 6
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 15 run 7
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 15 run 8
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 15 run 9
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 15 run 10
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.17s
+
+=== after batch 16 run 1
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.13s
+
+=== after batch 16 run 2
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 16 run 3
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 16 run 4
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 16 run 5
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 16 run 6
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 16 run 7
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 16 run 8
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 16 run 9
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 16 run 10
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 17 run 1
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.18s
+
+=== after batch 17 run 2
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.18s
+
+=== after batch 17 run 3
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.18s
+
+=== after batch 17 run 4
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.17s
+
+=== after batch 17 run 5
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.18s
+
+=== after batch 17 run 6
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.17s
+
+=== after batch 17 run 7
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.19s
+
+=== after batch 17 run 8
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.17s
+
+=== after batch 17 run 9
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 17 run 10
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 18 run 1
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 18 run 2
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 18 run 3
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 18 run 4
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 18 run 5
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 18 run 6
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 18 run 7
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 18 run 8
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 18 run 9
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 18 run 10
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 19 run 1
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 19 run 2
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 19 run 3
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 19 run 4
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 19 run 5
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 19 run 6
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 19 run 7
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 19 run 8
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 19 run 9
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 19 run 10
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 20 run 1
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.19s
+
+=== after batch 20 run 2
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.17s
+
+=== after batch 20 run 3
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.18s
+
+=== after batch 20 run 4
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... FAILED
+
+failures:
+
+---- runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only stdout ----
+
+thread 'runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only' (3447607) panicked at crates/body/src/runtime/supervisor/tests.rs:564:9:
+Some("motor inhibit acknowledgement timed out")
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.18s
+
+=== after batch 20 run 5
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.17s
+
+=== after batch 20 run 6
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.23s
+
+=== after batch 20 run 7
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.22s
+
+=== after batch 20 run 8
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.17s
+
+=== after batch 20 run 9
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.17s
+
+=== after batch 20 run 10
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.21s
+
+=== after batch 21 run 1
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 21 run 2
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 21 run 3
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 21 run 4
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 21 run 5
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 21 run 6
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.13s
+
+=== after batch 21 run 7
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 21 run 8
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 21 run 9
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 21 run 10
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 22 run 1
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... FAILED
+
+failures:
+
+---- runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only stdout ----
+
+thread 'runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only' (3448642) panicked at crates/body/src/runtime/supervisor/tests.rs:564:9:
+Some("motor inhibit acknowledgement timed out")
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 22 run 2
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 22 run 3
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 22 run 4
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 22 run 5
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 22 run 6
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 22 run 7
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 22 run 8
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 22 run 9
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 22 run 10
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 23 run 1
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 23 run 2
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 23 run 3
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 23 run 4
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 23 run 5
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 23 run 6
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 23 run 7
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 23 run 8
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 23 run 9
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 23 run 10
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 24 run 1
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 24 run 2
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.13s
+
+=== after batch 24 run 3
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 24 run 4
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 24 run 5
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 24 run 6
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 24 run 7
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 24 run 8
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 24 run 9
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 24 run 10
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 25 run 1
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.18s
+
+=== after batch 25 run 2
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 25 run 3
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 25 run 4
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 25 run 5
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.17s
+
+=== after batch 25 run 6
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.17s
+
+=== after batch 25 run 7
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... FAILED
+
+failures:
+
+---- runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only stdout ----
+
+thread 'runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only' (3450210) panicked at crates/body/src/runtime/supervisor/tests.rs:564:9:
+Some("motor inhibit acknowledgement timed out")
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.12s
+
+=== after batch 25 run 8
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 25 run 9
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 25 run 10
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 26 run 1
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 26 run 2
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 26 run 3
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 26 run 4
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.18s
+
+=== after batch 26 run 5
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.18s
+
+=== after batch 26 run 6
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 26 run 7
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 26 run 8
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 26 run 9
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.17s
+
+=== after batch 26 run 10
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 27 run 1
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 27 run 2
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 27 run 3
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 27 run 4
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 27 run 5
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 27 run 6
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 27 run 7
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 27 run 8
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 27 run 9
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.17s
+
+=== after batch 27 run 10
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 28 run 1
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.19s
+
+=== after batch 28 run 2
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.18s
+
+=== after batch 28 run 3
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 28 run 4
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 28 run 5
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.17s
+
+=== after batch 28 run 6
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 28 run 7
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.18s
+
+=== after batch 28 run 8
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 28 run 9
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... FAILED
+
+failures:
+
+---- runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only stdout ----
+
+thread 'runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only' (3451828) panicked at crates/body/src/runtime/supervisor/tests.rs:564:9:
+Some("motor inhibit acknowledgement timed out")
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.13s
+
+=== after batch 28 run 10
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.17s
+
+=== after batch 29 run 1
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 29 run 2
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.17s
+
+=== after batch 29 run 3
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 29 run 4
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 29 run 5
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 29 run 6
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 29 run 7
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 29 run 8
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 29 run 9
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 29 run 10
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 30 run 1
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.19s
+
+=== after batch 30 run 2
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.20s
+
+=== after batch 30 run 3
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.21s
+
+=== after batch 30 run 4
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.19s
+
+=== after batch 30 run 5
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.18s
+
+=== after batch 30 run 6
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.18s
+
+=== after batch 30 run 7
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.19s
+
+=== after batch 30 run 8
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.19s
+
+=== after batch 30 run 9
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.19s
+
+=== after batch 30 run 10
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.21s
+
+=== after batch 31 run 1
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 31 run 2
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 31 run 3
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 31 run 4
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 31 run 5
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.13s
+
+=== after batch 31 run 6
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 31 run 7
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 31 run 8
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 31 run 9
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 31 run 10
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 32 run 1
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 32 run 2
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 32 run 3
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 32 run 4
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 32 run 5
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 32 run 6
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 32 run 7
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 32 run 8
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 32 run 9
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 32 run 10
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 33 run 1
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.17s
+
+=== after batch 33 run 2
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 33 run 3
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.17s
+
+=== after batch 33 run 4
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.18s
+
+=== after batch 33 run 5
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.17s
+
+=== after batch 33 run 6
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 33 run 7
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.18s
+
+=== after batch 33 run 8
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 33 run 9
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.18s
+
+=== after batch 33 run 10
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.17s
+
+=== after batch 34 run 1
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 34 run 2
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 34 run 3
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 34 run 4
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 34 run 5
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 34 run 6
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 34 run 7
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 34 run 8
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 34 run 9
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 34 run 10
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 35 run 1
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 35 run 2
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 35 run 3
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... FAILED
+
+failures:
+
+---- runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only stdout ----
+
+thread 'runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only' (3455501) panicked at crates/body/src/runtime/supervisor/tests.rs:564:9:
+Some("motor inhibit acknowledgement timed out")
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.17s
+
+=== after batch 35 run 4
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 35 run 5
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 35 run 6
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.21s
+
+=== after batch 35 run 7
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 35 run 8
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 35 run 9
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 35 run 10
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.17s
+
+=== after batch 36 run 1
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 36 run 2
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.19s
+
+=== after batch 36 run 3
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.17s
+
+=== after batch 36 run 4
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 36 run 5
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 36 run 6
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 36 run 7
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 36 run 8
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... FAILED
+
+failures:
+
+---- runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only stdout ----
+
+thread 'runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only' (3456050) panicked at crates/body/src/runtime/supervisor/tests.rs:564:9:
+Some("motor inhibit acknowledgement timed out")
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.13s
+
+=== after batch 36 run 9
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.13s
+
+=== after batch 36 run 10
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.17s
+
+=== after batch 37 run 1
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.13s
+
+=== after batch 37 run 2
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 37 run 3
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.13s
+
+=== after batch 37 run 4
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 37 run 5
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 37 run 6
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 37 run 7
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 37 run 8
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 37 run 9
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 37 run 10
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 38 run 1
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 38 run 2
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 38 run 3
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 38 run 4
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 38 run 5
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 38 run 6
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 38 run 7
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 38 run 8
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.17s
+
+=== after batch 38 run 9
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 38 run 10
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.17s
+
+=== after batch 39 run 1
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 39 run 2
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 39 run 3
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 39 run 4
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 39 run 5
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 39 run 6
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.18s
+
+=== after batch 39 run 7
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 39 run 8
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 39 run 9
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 39 run 10
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 40 run 1
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 40 run 2
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 40 run 3
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 40 run 4
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 40 run 5
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 40 run 6
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.16s
+
+=== after batch 40 run 7
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 40 run 8
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+
+=== after batch 40 run 9
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.14s
+
+=== after batch 40 run 10
+
+running 1 test
+test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.15s
+

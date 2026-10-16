@@ -157,18 +157,26 @@ impl Harness {
             .collect()
     }
     fn at(&self) -> u64 {
-        // Strictly after the previous block's read, and at least the
-        // paced gap after it.
+        // A paced run: read exactly the paced gap after the previous block,
+        // once the host clock has reached it. A host late to wake (a loaded
+        // runner) makes no gap longer than the run's, which the detector
+        // would refuse past 50 ms: #936's paced test failed so once in a
+        // full serial run on 16 October. What reads the block judges it by
+        // this time, not the host's.
+        if self.gap_us > 0 {
+            let at = self.last_read + self.gap_us;
+            while monotonic_us() < at {
+                std::thread::sleep(std::time::Duration::from_micros(500));
+            }
+            return at;
+        }
+        // Otherwise strictly after the previous block's read.
         loop {
             let at = monotonic_us();
-            if at > self.last_read && at >= self.last_read + self.gap_us {
+            if at > self.last_read {
                 return at;
             }
-            if self.gap_us > 2_000 {
-                std::thread::sleep(std::time::Duration::from_micros(500));
-            } else {
-                std::hint::spin_loop();
-            }
+            std::hint::spin_loop();
         }
     }
     /// One pass of the session loop for one capture block: hear it, let

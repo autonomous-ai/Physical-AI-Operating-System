@@ -294,6 +294,9 @@ reads itself:
   board has them).
 - The update trust root, `/etc/lampOS/update/key.pub`, put there at the
   factory. Setup does not write it.
+- The lamp's device key: V1's `llm_api_key` in `/root/config/config.json`
+  (V1's image provisions it), or `/etc/lampOS/voice/credential` written at
+  the factory.
 - The zone data in `/usr/share/zoneinfo`, and `/etc/timezone` or
   `/etc/localtime`.
 - For setup (#806): nginx installed and not enabled, with the setup site;
@@ -364,6 +367,18 @@ As root, on a lamp with the base image (`crates/update/src/install.rs`):
    run's own intent takes the record's place, so two failed runs in a row
    lose nothing either (the reviewer on #815, 21:42).
 6. Writes `/etc/lampOS/zone.env` from the system's zone if it is not there.
+   Writes the voice's service, `/etc/lampOS/voice/provider.json`
+   (`deploy/product/settings/voice-provider.json`: V1's route, the
+   campaign-api proxy's Gemini Live path, `resumption` off because the proxy
+   does not forward it; the first builder on #806, 2026-10-16 12:36), and the
+   lamp's device key, `/etc/lampOS/voice/credential`, taken from V1's
+   `llm_api_key` in `/root/config/config.json`. Both root's and 0600, as the
+   voice requires, and kept up to date as the settings are: while each is
+   still what an install wrote (its SHA-256 in `state.json`), a newer
+   provider, or a key V1 rotated in its config, replaces it; one written at
+   the factory or changed on the lamp is kept, and said. The key is never
+   said; with none in V1's config, install says the voice cannot reach its
+   service until the factory writes it. The customer never types a key.
    It never writes `/etc/lampOS/body/lamp.env`, and says that the body waits
    for it.
 7. Records the build and the folders it made in

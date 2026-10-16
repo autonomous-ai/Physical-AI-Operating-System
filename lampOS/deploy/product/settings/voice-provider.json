@@ -1,0 +1,8 @@
+{
+  "endpoint": "wss://campaign-api.autonomous.ai/api/v1/ai/v1/ws/gemini/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent",
+  "model": "gemini-3.8-live",
+  "voice": "Kore",
+  "thinking_budget": 0,
+  "resumption": "off",
+  "credential_file": "/etc/lampOS/voice/credential"
+}

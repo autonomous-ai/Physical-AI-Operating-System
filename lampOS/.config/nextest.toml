@@ -6,7 +6,9 @@
 # of the 1,191 s spent on all 4,507 tests. Until each has an injectable clock
 # or a shorter fixture, pull requests skip them (profile `pr`); every push to
 # lamp-voice runs every test (profile `default`). Run them alone with profile
-# `realtime`. See docs/realtime-tests.md.
+# `realtime`. The group also holds tests whose real-clock bound a loaded
+# runner misses (they failed under one-test-per-core pull request runs).
+# See docs/realtime-tests.md.
 #
 # The same filterset appears three times below (the group override, `pr`'s
 # exclusion and `realtime`'s selection). Keep all three identical.
@@ -35,6 +37,8 @@ filter = '''
   | (binary_id(lamp-health::program) & test(=between_two_healths_five_seconds_apart_the_program_is_not_taken_for_gone))
   | (binary_id(lamp-records::records) & test(=real_reporter_reloads_switch_and_policy_and_requires_a_matching_receipt))
   | (binary_id(lamp-actions::server) & test(=the_light_is_offered_when_its_owner_appears_and_withdrawn_when_it_goes))
+  | (binary_id(lamp-voice) & test(/^coordinator::motor::tests::native_head::/))
+  | (binary_id(lamp-body) & test(=runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only))
 '''
 test-group = 'realtime'
 
@@ -62,6 +66,8 @@ not (
   | (binary_id(lamp-health::program) & test(=between_two_healths_five_seconds_apart_the_program_is_not_taken_for_gone))
   | (binary_id(lamp-records::records) & test(=real_reporter_reloads_switch_and_policy_and_requires_a_matching_receipt))
   | (binary_id(lamp-actions::server) & test(=the_light_is_offered_when_its_owner_appears_and_withdrawn_when_it_goes))
+  | (binary_id(lamp-voice) & test(/^coordinator::motor::tests::native_head::/))
+  | (binary_id(lamp-body) & test(=runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only))
 )
 '''
 
@@ -87,4 +93,6 @@ default-filter = '''
   | (binary_id(lamp-health::program) & test(=between_two_healths_five_seconds_apart_the_program_is_not_taken_for_gone))
   | (binary_id(lamp-records::records) & test(=real_reporter_reloads_switch_and_policy_and_requires_a_matching_receipt))
   | (binary_id(lamp-actions::server) & test(=the_light_is_offered_when_its_owner_appears_and_withdrawn_when_it_goes))
+  | (binary_id(lamp-voice) & test(/^coordinator::motor::tests::native_head::/))
+  | (binary_id(lamp-body) & test(=runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only))
 '''

@@ -286,7 +286,10 @@ As built on 2026-10-16 (#938, `crates/skills`, not yet run on a lamp):
   `light warm: done`, `say: spoken`, `light given back to on blue at 3:
   done`, or why not.
 
-Off unless installed: `deploy/units/lamp-skills.service` is the template.
+`lamp-update install` puts it on a home lamp (#811): the product unit
+`deploy/product/lamp-skills.service`, Welcome back in `/var/lib/lampOS/skills`,
+and the product voice with the say service on and its own hello off.
+`deploy/units/lamp-skills.service` stays the template for a lamp set up by hand.
 lamp-4ace's folder carries `lamp-skills.service`, and its voice unit has the
 voice's own hello (`LAMP_SPEAK_FIRST`) off and the say service on, so only
 one greets. Elsewhere the voice's hello (`speak_up.rs`, Arrival) still

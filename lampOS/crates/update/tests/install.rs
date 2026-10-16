@@ -489,7 +489,7 @@ fn every_part_of_the_lamp_waits_for_setups_marker_itself() {
             );
         }
     }
-    assert_eq!(gated.len(), 16, "{gated:?}");
+    assert_eq!(gated.len(), 17, "{gated:?}");
     for outside in ["lamp-update.service", "lamp-records.timer"] {
         assert!(!gated.contains(&outside), "{outside}");
     }
@@ -640,6 +640,42 @@ fn the_voice_gets_its_service_and_the_lamps_device_key_from_v1s_config() {
             .iter()
             .any(|line| line.starts_with("no device key"))
     );
+}
+
+/// #811, from lamp-06c1: a home lamp gets `lamp-skills` and its first skill,
+/// Welcome back, and the voice speaks it through its say service with its
+/// own hello off, so the lamp greets once.
+#[test]
+fn a_blank_lamp_gets_lamp_skills_with_welcome_back_and_greets_once() {
+    let mut lamp = Lamp::new(188, &[]);
+    lamp.install().unwrap();
+    assert!(lamp.on("/opt/lampOS/skills/current/lamp-skills").exists());
+    for file in ["skill.toml", "SKILL.md", "lights/warm_glow.toml"] {
+        let on_lamp = fs::read(lamp.on(&format!("/var/lib/lampOS/skills/welcome-back/{file}")));
+        let ours = fs::read(format!(
+            "{}/../../skills/welcome-back/{file}",
+            env!("CARGO_MANIFEST_DIR")
+        ));
+        assert_eq!(on_lamp.unwrap(), ours.unwrap(), "{file}");
+    }
+    assert!(
+        lamp.host
+            .calls
+            .iter()
+            .any(|call| call.contains("lamp-skills.service"))
+    );
+    let voice = fs::read_to_string(lamp.on("/etc/systemd/system/lamp-voice.service")).unwrap();
+    let service = section(&voice, "Service");
+    assert!(service.contains(&"Environment=LAMP_SAY=on"));
+    assert!(service.contains(&format!("Environment=LAMP_SAY_GROUP={}", install::USER).as_str()));
+    assert!(
+        !service
+            .iter()
+            .any(|line| line.starts_with("Environment=LAMP_SPEAK_FIRST="))
+    );
+    let skills = fs::read_to_string(lamp.on("/etc/systemd/system/lamp-skills.service")).unwrap();
+    assert!(skills.contains("--say-socket /run/lampos-say/say.sock"));
+    assert!(skills.contains("--dir /var/lib/lampOS/skills"));
 }
 
 const PINS: &str = "/etc/lampOS/controls/controls-pins.json";

@@ -92,6 +92,7 @@ differs. Folders are what the unit makes or names.
 | records | `lamp-records check` (a timer, hourly) | root | `/run/lamp-records/` | `/etc/lampOS/records.json` (it does nothing without it) | `last.json` |
 | update | `lamp-update serve` | root | `/var/lib/lampos-update/` (0700) | `/etc/lampOS/update/key.pub` | none |
 | keeper | `lamp-keeper serve` | root | its service data folder | none | `lampos.target.d/keeper.conf`; the bus root |
+| skills | `lamp-skills` | lampos (product unit, #811) | none | the skill folders, `/var/lib/lampOS/skills/` (Welcome back from install) | its tools, `/run/lampos-actions/skills/` |
 | surround | `lamp-surround serve` | `@SURROUND_USER@` | not read for this page | `/etc/lampos/surround.json` (lower case, unlike every other part) | not read |
 
 The bus root, `/run/lampos-bus`, is made by the keeper (root, the parts'
@@ -357,7 +358,9 @@ As root, on a lamp with the base image (`crates/update/src/install.rs`):
    it.
 5. Writes each product unit and `lampos.conf`, each only if it is not
    already exactly that. The product settings (Expression's catalogue, the
-   controls' two files) are written only where one is missing or is still
+   controls' two files, and the first skill, Welcome back, in
+   `/var/lib/lampOS/skills/welcome-back/`: its `skill.toml`, `SKILL.md` and
+   light, not its tests) are written only where one is missing or is still
    exactly what an install wrote before, by the SHA-256 kept for it in
    `state.json`, so a newer build's default reaches a lamp that never
    changed it. A setting changed on the lamp since, or there before any
@@ -466,3 +469,8 @@ program was built from; the binaries are the channel's newest build.
   unit texts (lamp-4ace's names `/opt/lampOS/records/`, the crate's
   `/opt/lampOS/bin/`), while `deploy/units/README.md` says it has no unit on
   any lamp.
+- `lamp-skills` (#811, from lamp-06c1): installed with Welcome back and the
+  voice's say service (`LAMP_SAY=on`, its socket in the group `lampos`), the
+  voice's own hello (`LAMP_SPEAK_FIRST`) off so the lamp greets once, and
+  `LAMP_SKILLS_ASK=skip` until the Policy's gate (#939). Only in tests: no
+  lamp has run the product unit yet.

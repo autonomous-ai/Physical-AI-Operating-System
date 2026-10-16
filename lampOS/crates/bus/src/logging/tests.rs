@@ -473,6 +473,18 @@ fn a_slow_log_follower_does_not_hold_a_fast_one_and_loss_remains_visible() {
         let message = fast.recv(WAIT).unwrap().unwrap();
         assert_eq!((message.header.seq, message.gap), (sequence, 0));
     }
+    // The worker sends to `fast` before `slow` (subscribers in name order),
+    // so `fast` having the last record does not mean `slow` was tried with
+    // it. Sent while the drain below makes room, it would end the drain at
+    // 3,000 (#1204): wait until the worker has published it to both.
+    let deadline = Instant::now() + WAIT;
+    while logger.report().processed < 3_000 {
+        assert!(
+            Instant::now() < deadline,
+            "the worker published every record"
+        );
+        std::thread::sleep(Duration::from_millis(1));
+    }
     let (mut last, mut delivered, mut lost) = (0, 0, 0);
     while let Some(message) = slow.recv(Duration::ZERO).unwrap() {
         (last, delivered, lost) = (message.header.seq, delivered + 1, lost + message.gap);

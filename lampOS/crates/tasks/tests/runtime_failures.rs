@@ -334,6 +334,13 @@ fn start_production(root: &Path, config: &Config) -> (ChildGuard, UnixStream, us
     )
     .unwrap();
     fs::set_permissions(&targets, fs::Permissions::from_mode(0o600)).unwrap();
+    // Cargo writes the fixture under the builder's umask, and under 0002 it is
+    // group-writable, which the Harness adapter rightly refuses.
+    let fixture = env!("CARGO_BIN_EXE_lamp-tasks-harness-fixture");
+    let mode = fs::metadata(fixture).unwrap().permissions().mode();
+    if mode & 0o022 != 0 {
+        fs::set_permissions(fixture, fs::Permissions::from_mode(mode & !0o022)).unwrap();
+    }
     let (stderr, unread_reader, filled) = filled_stderr();
     let mut child = ChildGuard(
         Command::new(env!("CARGO_BIN_EXE_lamp-tasks"))
@@ -348,7 +355,7 @@ fn start_production(root: &Path, config: &Config) -> (ChildGuard, UnixStream, us
             .arg("--targets")
             .arg(&targets)
             .arg("--harness")
-            .arg(env!("CARGO_BIN_EXE_lamp-tasks-harness-fixture"))
+            .arg(fixture)
             .env_clear()
             .env("HOME", &home)
             .env("PATH", "/usr/bin:/bin")

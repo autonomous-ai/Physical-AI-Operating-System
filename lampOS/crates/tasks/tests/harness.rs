@@ -35,7 +35,7 @@ impl Rig {
             .tempdir()
             .unwrap();
         let config = CliConfig {
-            executable: PathBuf::from(env!("CARGO_BIN_EXE_lamp-tasks-harness-fixture")),
+            executable: fixture(),
             // The production read bound. The fixture is a fresh process
             // per call, and on a loaded host its first start alone has
             // taken over a second (the fourth builder's run of 2026-10-15,
@@ -97,8 +97,17 @@ impl Rig {
     }
     fn copied_binary(&mut self) {
         let copy = self.root.path().join("fixture");
-        fs::copy(&self.config.executable, &copy).unwrap();
-        fs::set_permissions(&copy, fs::Permissions::from_mode(0o700)).unwrap();
+        // `install` writes the copy in its own process. A write descriptor
+        // held by this test process leaks into a child that another test
+        // thread forks meanwhile, and Linux then refuses to execute the
+        // copy with ETXTBSY until that child has exec'd.
+        let installed = std::process::Command::new("install")
+            .args(["-m", "0700"])
+            .arg(&self.config.executable)
+            .arg(&copy)
+            .status()
+            .unwrap();
+        assert!(installed.success(), "install fixture: {installed}");
         self.config.executable = copy;
         // A newly copied image can incur the host's first-execution checks.
         // These identity tests use the production read bound, not a cold-start
@@ -106,6 +115,19 @@ impl Rig {
         self.config.read_timeout = Duration::from_secs(10);
         self.config.launch_timeout = Duration::from_secs(10);
     }
+}
+
+/// Cargo's fixture binary with group and other write cleared. Cargo writes it
+/// under the builder's umask, and under 0002 it is group-writable, which `Cli`
+/// rightly refuses. Clearing the bits in place keeps the built image, so the
+/// tests do not pay a fresh copy's first-execution checks.
+fn fixture() -> PathBuf {
+    let path = PathBuf::from(env!("CARGO_BIN_EXE_lamp-tasks-harness-fixture"));
+    let mode = fs::metadata(&path).unwrap().permissions().mode();
+    if mode & 0o022 != 0 {
+        fs::set_permissions(&path, fs::Permissions::from_mode(mode & !0o022)).unwrap();
+    }
+    path
 }
 
 fn launch() -> Launch {

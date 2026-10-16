@@ -21,7 +21,10 @@ use std::{
     time::{Duration, Instant},
 };
 
-const WAIT: Duration = Duration::from_secs(5);
+/// The longest any wait for the policy lasts. Every wait returns as soon as
+/// what it waits for has come, so this is only a bound against a host that
+/// stalls the policy's thread for seconds (#1060).
+const WAIT: Duration = Duration::from_secs(20);
 const PAUSE: Duration = Duration::from_millis(300);
 /// The seven answers of the first measured example, in the order asked.
 const SEVEN: [f32; 7] = [0.07, 0.06, 0.28, 0.73, 0.06, 0.05, 0.09];
@@ -124,6 +127,29 @@ impl Rig {
     where
         F: FnMut(&Value) -> Result<Asked, Failed> + Send + 'static,
     {
+        Self::with_pause(name, script, lease, PAUSE, before)
+    }
+
+    /// With its own pause before an utterance is judged: longer than the
+    /// test's own sleeps between the pieces of one utterance by more than a
+    /// busy host's stall, so that the pieces stay one utterance (#1060).
+    fn paused<F>(name: &str, pause: Duration, script: F) -> Self
+    where
+        F: FnMut(&Value) -> Result<Asked, Failed> + Send + 'static,
+    {
+        Self::with_pause(name, script, None, pause, |_| {})
+    }
+
+    fn with_pause<F>(
+        name: &str,
+        script: F,
+        lease: Option<Duration>,
+        pause: Duration,
+        before: impl FnOnce(&Self),
+    ) -> Self
+    where
+        F: FnMut(&Value) -> Result<Asked, Failed> + Send + 'static,
+    {
         // A root short enough for a socket's path, which the system's own
         // temporary directory on a Mac is not.
         let root = PathBuf::from(format!("/tmp/lp-{name}-{}", std::process::id()));
@@ -170,7 +196,7 @@ impl Rig {
         let options = Options {
             log_dir: rig.log_dir.clone(),
             deadline: ms(900),
-            pause: PAUSE,
+            pause,
             act_attention: false,
         };
         let stand_in = StandIn {
@@ -245,6 +271,25 @@ impl Rig {
         let decision: Decision = message.parse().unwrap();
         assert_eq!(decision.check(), Ok(()));
         decision
+    }
+
+    /// Until a report of the policy's says `key` (#1060): what it found in
+    /// its once-a-second look, waited for, not slept for.
+    fn reported(&self, key: &str) {
+        let mut reports = self
+            .bus
+            .subscribe_typed(Diagnostic::TOPIC, "test_reported", Diagnostic::TYPE)
+            .unwrap();
+        let started = Instant::now();
+        loop {
+            let left = WAIT.saturating_sub(started.elapsed());
+            let message = reports.recv(left).unwrap().expect("a report");
+            let report: Diagnostic = message.parse().unwrap();
+            if report.values.iter().any(|fact| fact.key == key) {
+                return;
+            }
+            assert!(started.elapsed() < WAIT, "no report with {key}");
+        }
     }
 
     fn no_decision_for(&mut self, time: Duration) {
@@ -696,7 +741,7 @@ fn the_lamps_name_heard_while_someone_spoke_is_joined_to_what_they_said() {
         .publisher_declared(NameHeard::TOPIC, &NameHeard::declaration(), "name")
         .unwrap();
     name.alive().unwrap();
-    thread::sleep(ms(1_300));
+    rig.reported("name_listening");
     // Someone speaks, and the name is not heard: known, and nothing.
     rig.voice(Voice::Listening);
     thread::sleep(ms(100));
@@ -873,7 +918,10 @@ fn a_lamp_that_spoke_before_it_was_decided_is_written_with_a_time_less_than_noth
 
 #[test]
 fn what_the_lamp_last_said_is_in_the_context_as_it_was_when_the_utterance_began() {
-    let mut rig = Rig::new("said", |_| Ok(asked(SEVEN)));
+    // A pause longer than this test's 160 ms between the two pieces by more
+    // than a busy host's stall, which once closed the utterance after "And"
+    // (#1060).
+    let mut rig = Rig::paused("said", ms(2_000), |_| Ok(asked(SEVEN)));
     // The lamp answers something, and falls silent.
     rig.voice(Voice::Speaking);
     rig.say("It is", 5);

@@ -893,10 +893,12 @@ and 47.9 s; `endpoint_session` has gained ten since, the fourth's
 
 `coordinator::tests::hand_controls`' `a_tap_on_a_quiet_lamps_head_plays_its_hm_as_a_turn_of_its_own`
 and `a_tap_while_the_lamp_is_still_thinking_keeps_its_answer_and_does_not_hum`
-date their tap 420 ms back, so it is 20 ms old when the loop first polls it,
-against its 100 ms freshness. On the host clock, whatever happens between
-making the tap and that first poll has 80 ms. The ARM64 emulator takes
-longer: under podman/qemu on the Intel Mac, at `7ec04da05`, release, the
+date their tap 420 ms back: the hand's last step is 20 ms old when the loop
+first polls it, and the tap's acquisition, which is what goes stale, is
+82 ms old at the decision against its 100 ms freshness
+(`TOUCH_INPUT_TTL_US`). On the host clock, whatever happens between making
+the tap and that first poll has about 18 ms (the reviewer on #1207). The
+ARM64 emulator takes longer: under podman/qemu on the Intel Mac, at `7ec04da05`, release, the
 quiet-lamp test failed 5 of 5 runs at "the tap is judged". Native CI passes
 both.
 
@@ -917,6 +919,15 @@ On the Intel Mac, a 200 ms or 2 s sleep injected just after the tap is
 made, or 5 ms in every step, still passes both; on the host clock the 200 ms
 sleep fails both. Under qemu, on the same commit with this change, both
 passed 5 of 5 runs.
+
+The owner and the reply were still made on the host clock before the
+children started, and the owner's 500 ms listening window ran while they
+did: under stress on an Apple Silicon Mac, 2 to 37 of 320 runs of the pair
+failed ("listening_not_ready", or no tap judged), and a 500 ms sleep just
+before the scope failed both every time (the seventh and the reviewer on
+#1207). `run_loop_with` now takes them as a closure (`start`) and makes them
+just before the controls, inside the scope; `run_loop` passes its callers'
+as they were. With a 500 ms or 2 s sleep before the scope, both pass.
 
 ## endpoint_session on pull requests, but for two (#823)
 

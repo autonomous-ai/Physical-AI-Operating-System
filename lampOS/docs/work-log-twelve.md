@@ -152,3 +152,15 @@ Ready for lamp-voice: yes (#1035)
 - #1035 then conflicted in `docs/voice-test-fixtures.md` (both added a
   section at the end); rebased as `c2d60f14c`, both sections kept. fmt and
   clippy clean; the capacity test and the reminder round-trip tests pass.
+
+## 2026-10-16 — peer review of #993
+
+Ready for lamp-voice: no
+
+- The first builder's 14:26 gave twelve the peer review of Third's #993
+  (light requests that lapse, #940). Reviewed head `1105f6c2b`: no P1 or P2,
+  both reviewer P2s fixed. One P3: an asker refused for want of a place is
+  later shown over the person's light, where the same asker alone stays
+  given way (probe, not committed: alone not shown, ring full shown red).
+  fmt and clippy clean, ring tests 21/0, msgs 41/0. Reported on #993 and
+  #705; list empty, next task asked of the first builder.

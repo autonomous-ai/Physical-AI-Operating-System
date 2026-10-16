@@ -330,11 +330,22 @@ impl LinkClock {
             if sample.runtime < source {
                 earlier = Some(sample.before);
             } else {
-                return HostInterval::checked(
-                    earlier
-                        .ok_or_else(|| invalid("provider source predates correlation history"))?,
-                    sample.after,
-                );
+                let earlier = earlier
+                    .ok_or_else(|| invalid("provider source predates correlation history"))?;
+                // The worker was held up between these two samples (a hot,
+                // throttled board: lamp-4ace on 2026-10-16 at 16:38, 302 ms,
+                // and the worker exited). When in the gap is not known: the
+                // source is taken at the first sample after it, never
+                // earlier than it was, and the link goes on, as lapsed
+                // authority snapshots are skipped.
+                if sample.after.saturating_sub(earlier) > MAX_CORRELATION_US {
+                    eprintln!(
+                        "lamp-voice provider: held up {} ms between clock samples; a link change in the gap is dated after it",
+                        sample.before.saturating_sub(earlier) / 1_000
+                    );
+                    return HostInterval::checked(sample.before, sample.after);
+                }
+                return HostInterval::checked(earlier, sample.after);
             }
         }
         Err(invalid("provider source lacks enclosing clock samples"))
@@ -557,6 +568,64 @@ mod tests {
         assert_eq!(first, later);
     }
 
+    /// A worker held up 300 ms between two clock samples (lamp-4ace on
+    /// 2026-10-16, 302 ms): a link change in the gap is dated at the first
+    /// sample after it, and its recovery goes on, never a worker exit.
+    #[test]
+    fn a_link_change_inside_a_300_ms_hold_up_is_dated_after_it_and_goes_on() {
+        let at = Instant::now();
+        let mut clock = LinkClock::from_sample(sample(at, 10_000_000, 10_000_001));
+        let held = sample(at + Duration::from_millis(300), 10_300_000, 10_300_002);
+        let lost = clock
+            .convert_sampled(
+                update(
+                    1,
+                    1,
+                    at + Duration::from_millis(150),
+                    LinkUpdateKind::Unavailable {
+                        error: Error::Transport,
+                    },
+                ),
+                held,
+            )
+            .unwrap();
+        assert_eq!(lost.observed_at_us, 10_300_000);
+        assert_eq!(lost.source_clock.unwrap().observed_upper_us, 10_300_002);
+        let mut pending = PendingLink::default();
+        pending.observe(lost, 10_300_002).unwrap();
+        // Another hold-up, and a Ready inside it: its outage start is the
+        // cached one, and it goes on too.
+        let held_again = sample(at + Duration::from_millis(700), 10_700_000, 10_700_002);
+        let completed = at + Duration::from_millis(600);
+        let ready = clock
+            .convert_sampled(
+                update(
+                    2,
+                    2,
+                    completed,
+                    LinkUpdateKind::Ready {
+                        context: Context::Resumed,
+                        attempts: 2,
+                        started_at: completed - Duration::from_millis(20),
+                        completed_at: completed,
+                        outage_started_at: Some(at + Duration::from_millis(150)),
+                        after: Some(Error::Transport),
+                    },
+                ),
+                held_again,
+            )
+            .unwrap();
+        assert_eq!(ready.observed_at_us, 10_700_000);
+        assert!(matches!(
+            ready.state,
+            ProviderLinkState::Ready {
+                outage_started_at_us: Some(10_300_000),
+                ..
+            }
+        ));
+        pending.observe(ready, 10_700_002).unwrap();
+    }
+
     #[test]
     fn cached_outage_survives_long_recovery_and_history_rollover() {
         let at = Instant::now();
@@ -619,7 +688,7 @@ mod tests {
     }
 
     #[test]
-    fn future_regressed_uncovered_and_wide_source_intervals_fail_closed() {
+    fn future_regressed_and_uncovered_sources_fail_closed_and_a_wide_one_is_dated_late() {
         let at = Instant::now();
         let mut clock = LinkClock::from_sample(sample(at, 10_000_000, 10_000_001));
         assert!(clock.correlate(at + Duration::from_nanos(1)).is_err());
@@ -631,7 +700,10 @@ mod tests {
                 10_300_001,
             ))
             .unwrap();
-        assert!(clock.correlate(at + Duration::from_millis(1)).is_err());
+        // Wide: a source inside a 300 ms hold-up is dated at the sample
+        // after it, never earlier (lamp-4ace, 2026-10-16 16:38).
+        let wide = clock.correlate(at + Duration::from_millis(1)).unwrap();
+        assert_eq!((wide.lower, wide.upper), (10_300_000, 10_300_001));
         let good_at = at + Duration::from_millis(300);
         clock
             .convert_sampled(

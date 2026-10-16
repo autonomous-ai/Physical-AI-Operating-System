@@ -71,10 +71,17 @@ A fixed 1,024-anchor history retains samples at least 1 ms apart; the normal wor
 tick is 2 ms. Each original source `Instant` is enclosed by actual earlier/later
 host sample brackets. This uses monotonic ordering, not a rate projection or a
 fitted drift tolerance. An enclosing interval wider than the existing 250 ms
-authority lifetime is rejected; that bound does not extend authority or IPC age.
-Future, regressed, stopped-clock, or uncovered source observations fail closed.
+authority lifetime means the worker was held up between two samples (a hot,
+throttled board: lamp-4ace on 2026-10-16 at 16:38, 302 ms, ended the worker).
+Such a source is dated at the first sample after the gap, its bracket being
+that sample's, never earlier than it was, and the link goes on, as lapsed
+authority snapshots are skipped; the journal says `held up N ms between clock
+samples`. The coordinator reads a link's time only to keep links in order and
+for the record, so a late date decides nothing. Future, regressed,
+stopped-clock, or uncovered source observations fail closed.
 
-`observed_at_us` is the conservative lower host bound. Optional `source_clock`
+`observed_at_us` is the conservative lower host bound, except after a
+hold-up as above, where it is the first sample after the gap. Optional `source_clock`
 contains `observed_upper_us` and, for recovery, `outage_started_upper_us`; the
 corresponding lower outage bound remains `state.outage_started_at_us`. Both ends
 are inclusive, validated, and retained unchanged after correlation. One cached

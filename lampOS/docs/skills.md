@@ -153,7 +153,7 @@ must not leave a step silently undone)*.
 | `do.body.gesture` | no | One of the body's six gestures (`nod`, `headshake`, `greeting`, `laugh`, `shy`, `stretching`), sent to `mood.sock` as `{"gesture":NAME}` |
 | `do.body.mood` + `do.body.for` | no | A pose held: only `"reading"` (#1011: the head looks down at the desk and the arm leans forward). Sent to `mood.sock` as `{"mood":"reading","level":0}` when the step is made and again every second for `for` (more than 0, at most `2m`); the body lets it go 1.5 s after the last, and comes back. One without the other is refused |
 | `do.light` | no | A file in `lights/`, written as its name, or a table in place. A file `lights/NAME.toml` holds the same keys. `{ colour, level, for }` asks the actions part for `light_colour`, then steps the light to `level` (1 to 5) with `light_brighter` or `light_dimmer` calls, counted from the level `light/state` shows; with that level not known it is left and the run says so. `for` holds the light in a run with no say. `{ dim = N, until = "ends" }` asks for `light_dimmer` N times. A light is held until the run ends (the say ends, or the run's longest `for`) and is then given back; `until = "ends"` says so of a dim |
-| `do.say` | no | A note for the voice to say in its own words, through the voice's say service (#954). One a skill. The run's other steps are made, in their order, when the voice begins the say, so the look and the light come with the words, and none if it is never begun. A light changed is given back when the say ends. In a tool's run the note goes to the model in the call's answer instead |
+| `do.say` | no | A note for the voice to say in its own words, through the voice's say service (#954). One a skill. The run's other steps are made, in their order, when the voice begins the say, so the look and the light come with the words, and none if it is never begun. A light changed is given back when the say ends. In a tool's run the note goes to the model in the call's answer instead. Or `{ from = "schedule" }` or `{ from = "tasks" }`: words the voice keeps itself and says when asked, the reminder due or the news of work handed over (#939, (c), the first builder's 12:32). The voice keeps the words and their delivery (a reminder's acknowledgement, news told once); the skill says when, and moves and lights with them as with a note. Sent to the say service as `from` in place of `note`, at priority 8 for `schedule` and 5 for `tasks`. Any other `from`, another key beside it, or a `from` in a skill with a `tool` refuses the skill: what the voice keeps is said when a trigger starts the skill, never from the model's call (Fourth on #1033) |
 | `do.look` | no | `true`: the voice's full look (#836). Only in a skill with a `tool` and no trigger: the call's answer tells the model to say "Let me take a look.", and the voice takes the look it already takes when the lamp says so, its still in the model's next turn |
 
 A duration is a whole number and one of `ms`, `s`, `m` or `h` (`"5m"`).
@@ -185,7 +185,7 @@ runtime gives are:
 - `body.gesture`: `gesture`
 - `body.mood`: `mood`, `for_ms`
 - `light`: `colour`, `level`, `for`, or `dim`, `until`
-- `say`: `note`
+- `say`: `note`, or `from` for what the voice keeps (`say = { from = … }`)
 - `look`: none
 
 A case is replayed in the program, not on a bus. Every message of every file
@@ -268,7 +268,7 @@ As built on 2026-10-16 (#938, `crates/skills`, not yet run on a lamp):
 - **`say`** goes to the voice's say service (#954, `LAMP_SAY=on` in the
   voice; `--say-socket`, default `/run/lampos-say/say.sock`), built against
   its interface as #939 agreed it, before #954 is merged: one line
-  `{"skill","note","priority":5,"expires_in_ms":30000}`, then a `begun`
+  `{"skill","note","priority":5,"expires_in_ms":30000}` (or `"from"` and its priority in place of `"note"`), then a `begun`
   line when the voice starts the turn, then one outcome (`spoken`,
   `dropped`, `expired` or `refused`). A run waits for it in a thread of its
   own, one a skill at a time: a trigger while its run is under way is told

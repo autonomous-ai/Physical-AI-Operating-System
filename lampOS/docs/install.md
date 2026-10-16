@@ -441,7 +441,10 @@ Run again with nothing new and nothing owed, it writes nothing and asks
 nothing of systemd.
 With a newer build, it installs the new folders beside the old and moves
 the links; the old folders stay. It does not restart a running part:
-switching a running lamp at a quiet moment is a round's work.
+switching a running lamp at a quiet moment is a round's work. So a changed
+unit or setting takes effect when its part next starts, at a reboot or a
+`systemctl restart` of that part: the product's `lamp-controls` gaining
+`--touch` and the reset button (#1167) is one (Nine on #1167).
 
 The product units and settings are carried inside the program
 (`include_str!` of `deploy/product/`), so they are those of the commit the

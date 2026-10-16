@@ -637,6 +637,10 @@ pub struct Run {
     pub skill: String,
     pub events: Vec<SkillEvent>,
     pub calls: Vec<Call>,
+    /// With the Policy asked (`LAMP_SKILLS_ASK=policy`): the question for
+    /// `skills/ask` (#958's `SkillAsk` without its number), and the calls
+    /// wait for its answer.
+    pub ask: Option<Value>,
 }
 
 pub struct Engine {
@@ -649,6 +653,7 @@ pub struct Engine {
     /// Since when each skill's condition has held, by skill and condition.
     holding: HashMap<(String, usize), u64>,
     skip_ask: bool,
+    ask_policy: bool,
 }
 
 fn event(skill: &str, stage: SkillStage, why: String, allowed: Option<bool>) -> SkillEvent {
@@ -670,7 +675,15 @@ impl Engine {
             latest: HashMap::new(),
             holding: HashMap::new(),
             skip_ask,
+            ask_policy: false,
         }
+    }
+
+    /// Ask the Policy's gate (#958, `lamp-policy --gate`) on `skills/ask`
+    /// and act only on its `say_now` (`LAMP_SKILLS_ASK=policy`).
+    pub fn asking_the_policy(mut self) -> Self {
+        self.ask_policy = true;
+        self
     }
 
     /// The skills loaded again. A timed condition keeps when it began to
@@ -854,6 +867,27 @@ impl Engine {
                         None,
                     ),
                 ];
+                if self.ask_policy {
+                    // The Policy's acts: a hello, news of work, or anything
+                    // else the lamp starts itself.
+                    let act = match skill.policy.as_str() {
+                        "hello" | "news" => skill.policy.as_str(),
+                        _ => "unprompted",
+                    };
+                    let mut ask = json!({ "skill": skill.name, "act": act });
+                    if act == "hello" {
+                        ask["away_min"] = json!(watch.away_us / 60_000_000);
+                        ask["there_s"] = json!(held_us / 1_000_000);
+                    }
+                    watch.ran_us = Some(now_us);
+                    runs.push(Run {
+                        skill: skill.name.clone(),
+                        events,
+                        calls: calls(&self.latest, skill, now_us),
+                        ask: Some(ask),
+                    });
+                    continue;
+                }
                 if !self.skip_ask {
                     events.push(event(
                         &skill.name,
@@ -867,6 +901,7 @@ impl Engine {
                         skill: skill.name.clone(),
                         events,
                         calls: Vec::new(),
+                        ask: None,
                     });
                     continue;
                 }
@@ -882,6 +917,7 @@ impl Engine {
                     skill: skill.name.clone(),
                     events,
                     calls: calls(&self.latest, skill, now_us),
+                    ask: None,
                 });
             }
         }
@@ -923,6 +959,7 @@ impl Engine {
                 None,
             )],
             calls: calls(&self.latest, skill, now_us),
+            ask: None,
         })
     }
 }

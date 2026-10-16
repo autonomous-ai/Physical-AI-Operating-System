@@ -2,12 +2,12 @@
 //! skill folder, reloads them when one changes, listens to the topics their
 //! triggers name, and runs their steps through the body's sockets, the
 //! actions part and the voice's say service.
-use lamp_bus::{Bus, Publisher, Subscriber};
-use lamp_msgs::{Light, SkillEvent, SkillStage};
+use lamp_bus::{Bus, Declaration, Kind, Publisher, Subscriber};
+use lamp_msgs::{Decision, Light, SkillEvent, SkillStage};
 use lamp_skills::{Admission, Call, Engine, duration_us, load_all, run_tests, told, tools_file};
 use serde_json::json;
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     io::{self, BufRead, BufReader, Read, Write},
     os::unix::net::{UnixDatagram, UnixListener, UnixStream},
     path::{Path, PathBuf},
@@ -33,6 +33,9 @@ const SAY_TIMEOUT: Duration = Duration::from_secs(180);
 const TOOL_TIMEOUT: Duration = Duration::from_secs(1);
 /// How often a held pose is said again: the body lets one go after 1.5 s.
 const MOOD_EVERY: Duration = Duration::from_secs(1);
+/// How long an ask waits for the Policy: its own 2 s from the receipt
+/// (#958), and a little for the bus each way.
+const ASK_WAIT: Duration = Duration::from_millis(2_500);
 
 #[derive(Clone)]
 struct Sockets {
@@ -77,8 +80,8 @@ fn main() -> ExitCode {
             }
         }
     }
-    let skip_ask = std::env::var("LAMP_SKILLS_ASK").is_ok_and(|value| value == "skip");
-    match serve(&dir, root, &sockets, tools.as_deref(), skip_ask) {
+    let ask = std::env::var("LAMP_SKILLS_ASK").unwrap_or_default();
+    match serve(&dir, root, &sockets, tools.as_deref(), &ask) {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
             eprintln!("lamp-skills: {error}");
@@ -172,8 +175,9 @@ fn serve(
     root: Option<PathBuf>,
     sockets: &Sockets,
     tools: Option<&Path>,
-    skip_ask: bool,
+    ask: &str,
 ) -> io::Result<()> {
+    let (skip_ask, ask_policy) = (ask == "skip", ask == "policy");
     let bus = match root {
         Some(root) => Bus::new(root)?,
         None => Bus::from_environment()?,
@@ -182,6 +186,23 @@ fn serve(
         bus.publisher_declared(SkillEvent::TOPIC, &SkillEvent::declaration(), "skills")?;
     let (finished, done) = mpsc::channel::<SkillEvent>();
     let mut engine = Engine::new(Vec::new(), skip_ask);
+    // The Policy's gate (#958): asks out on `skills/ask`, its answers in on
+    // `policy/decisions`, by the ask's number. The ask's wire is #958's
+    // `lamp_msgs::SkillAsk`, written here as JSON until it is on lamp-voice.
+    let mut gate = None;
+    if ask_policy {
+        engine = engine.asking_the_policy();
+        gate = Some((
+            bus.publisher_declared(
+                "skills/ask",
+                &Declaration::new("lamp_msgs/SkillAsk", 1, Kind::Event),
+                "skills",
+            )?,
+            bus.subscribe(Decision::TOPIC, "skills")?,
+        ));
+    }
+    // Runs waiting for the Policy's answer, by the ask's number.
+    let mut waiting: HashMap<u64, (lamp_skills::Run, Instant)> = HashMap::new();
     let runner = Runner {
         sockets: sockets.clone(),
         finished,
@@ -201,14 +222,19 @@ fn serve(
         dir.display(),
         if skip_ask {
             "skipped"
+        } else if ask_policy {
+            "asked on skills/ask"
         } else {
-            "not built: nothing is done"
+            "not asked: nothing is done"
         }
     );
     loop {
         while let Ok(event) = done.try_recv() {
             busy.remove(&event.skill);
             publish(&mut out, event);
+        }
+        if let Some((_, answers)) = &mut gate {
+            answer_asks(answers, &mut waiting, &mut busy, &mut out, &runner);
         }
         if looked.is_none_or(|at| at.elapsed() >= RELOAD_EVERY) {
             looked = Some(Instant::now());
@@ -268,11 +294,13 @@ fn serve(
                 &message.payload,
                 message.header.expires_ms,
             );
-            for run in runs {
-                for event in run.events {
+            for mut run in runs {
+                for event in std::mem::take(&mut run.events) {
                     publish(&mut out, event);
                 }
-                if !run.calls.is_empty() {
+                if let (Some(question), Some((asks, _))) = (run.ask.take(), &mut gate) {
+                    ask_policy_for(question, run, asks, &mut waiting, &mut out);
+                } else if !run.calls.is_empty() {
                     start(run.skill, run.calls, &mut busy, &mut out, &runner);
                 }
             }
@@ -326,6 +354,92 @@ fn start(
             allowed: None,
         });
     });
+}
+
+/// Puts a run's question to the Policy and keeps the run until it answers.
+fn ask_policy_for(
+    mut question: serde_json::Value,
+    run: lamp_skills::Run,
+    asks: &mut Publisher,
+    waiting: &mut HashMap<u64, (lamp_skills::Run, Instant)>,
+    out: &mut Publisher,
+) {
+    // The ask's number: this clock in µs, never 0 and growing.
+    let number = lamp_ipc::monotonic_us().max(1);
+    question["ask"] = json!(number);
+    match asks.publish_json(1, &question) {
+        Ok(_) => {
+            waiting.insert(number, (run, Instant::now() + ASK_WAIT));
+        }
+        Err(error) => publish(
+            out,
+            SkillEvent {
+                skill: run.skill,
+                stage: SkillStage::Answered,
+                why: format!("not asked: skills/ask was not written ({error})"),
+                allowed: Some(false),
+            },
+        ),
+    }
+}
+
+/// The Policy's answers to the asks waiting: `say_now` starts the run,
+/// anything else, or nothing within `ASK_WAIT`, leaves it undone.
+fn answer_asks(
+    answers: &mut Subscriber,
+    waiting: &mut HashMap<u64, (lamp_skills::Run, Instant)>,
+    busy: &mut HashSet<String>,
+    out: &mut Publisher,
+    runner: &Runner,
+) {
+    while let Ok(Some(message)) = answers.recv(Duration::ZERO) {
+        let Ok(decision) = serde_json::from_slice::<serde_json::Value>(&message.payload) else {
+            continue;
+        };
+        let Some((run, _)) = decision["ask"]
+            .as_u64()
+            .and_then(|number| waiting.remove(&number))
+        else {
+            continue;
+        };
+        let choice = decision["choice"].as_str().unwrap_or("");
+        let allowed = choice == "say_now";
+        publish(
+            out,
+            SkillEvent {
+                skill: run.skill.clone(),
+                stage: SkillStage::Answered,
+                why: format!(
+                    "the Policy answered {choice} ({}, by {})",
+                    decision["about"].as_str().unwrap_or("?"),
+                    decision["by"].as_str().unwrap_or("?")
+                ),
+                allowed: Some(allowed),
+            },
+        );
+        if allowed && !run.calls.is_empty() {
+            start(run.skill, run.calls, busy, out, runner);
+        }
+    }
+    let now = Instant::now();
+    let late: Vec<u64> = waiting
+        .iter()
+        .filter(|(_, (_, until))| *until <= now)
+        .map(|(number, _)| *number)
+        .collect();
+    for number in late {
+        if let Some((run, _)) = waiting.remove(&number) {
+            publish(
+                out,
+                SkillEvent {
+                    skill: run.skill,
+                    stage: SkillStage::Answered,
+                    why: "the Policy did not answer in time: nothing is done".into(),
+                    allowed: Some(false),
+                },
+            );
+        }
+    }
 }
 
 /// A call of a skill's tool from the voice, and where its answer goes.

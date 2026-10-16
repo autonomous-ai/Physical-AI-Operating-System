@@ -226,9 +226,23 @@ As built on 2026-10-16 (#938, `crates/skills`, not yet run on a lamp):
   each topic's newest value. A look uses only a list of faces whose lifespan
   still lasts; with none, the other steps run without it. Time comes from its own monotonic
   clock, read when a message arrives.
-- **The ask.** The Policy's gate is not built yet (#939). With
-  `LAMP_SKILLS_ASK=skip` it answers yes without asking; without it every
-  run is answered no and nothing is done. `answered` says which.
+- **The ask.** `LAMP_SKILLS_ASK` says how a run that a trigger starts is
+  allowed (a tool's run is asked for by a person and never is):
+  - `policy`: the Policy's gate (#958, `lamp-policy --gate`). The run's
+    question goes on `skills/ask` as #958's `lamp_msgs::SkillAsk` (written
+    as JSON until that type is on `lamp-voice`): the ask's number (this
+    clock in µs), the skill, the act (`[ask] policy` `hello` or `news`,
+    anything else `unprompted`) and, for a hello, `away_min` and
+    `there_s` from its trigger. The run waits for the `Decision` on
+    `policy/decisions` that names the ask: `say_now` starts it, any other
+    choice leaves it undone, and so does no answer within 2.5 s (the
+    Policy's own 2 s and the bus). The trigger's cooldown counts from the
+    ask.
+  - `skip`: yes without asking.
+  - unset: no, and nothing is done.
+
+  `answered` says which, and with the Policy its choice, the decision's
+  `about` and who decided.
 - **The steps.** `look_at`, `gesture` and `mood` are datagrams to the
   body's `gaze.sock` and `mood.sock` (default `/run/lampos-body/`), never
   waited for. A `mood` is said again every second on a thread of its own

@@ -1318,3 +1318,137 @@ fn a_repeat_tool_call_holds_the_runs_pose_again_and_only_that() {
     let lights: Vec<String> = lights.try_iter().collect();
     assert_eq!(lights.len(), 1, "{lights:?}");
 }
+
+/// With `LAMP_SKILLS_ASK=policy` a skill asks on `skills/ask` (#958's
+/// `SkillAsk`) and acts only on a `say_now` that names its ask: a hello
+/// with its minutes away and seconds there, then a `wait` that leaves the
+/// next one undone, then no answer at all.
+#[test]
+fn asking_the_policy_a_skill_acts_only_on_a_say_now_that_names_its_ask() {
+    // Short: a socket's whole path has to fit in 103 bytes.
+    let dir = tempfile::Builder::new()
+        .prefix("sp")
+        .tempdir_in("/tmp")
+        .unwrap();
+    let root = dir.path();
+    fs::create_dir(root.join("skills")).unwrap();
+    let bus = Bus::new(root.join("bus")).unwrap();
+    let mut events = bus.subscribe(SkillEvent::TOPIC, "test").unwrap();
+    let voice = UnixListener::bind(root.join("say.sock")).unwrap();
+    let (heard, asked) = mpsc::channel();
+    std::thread::spawn(move || {
+        for stream in voice.incoming().flatten() {
+            let mut line = String::new();
+            BufReader::new(&stream).read_line(&mut line).unwrap();
+            let _ = heard.send(line);
+            (&stream).write_all(b"{\"outcome\":\"spoken\"}\n").unwrap();
+        }
+    });
+    // The Policy stood in for: say_now, then wait, then silence.
+    let (questions, put) = mpsc::channel::<serde_json::Value>();
+    let policy = bus.clone();
+    std::thread::spawn(move || {
+        let mut asks = loop {
+            if let Ok(asks) = policy.subscribe("skills/ask", "policy") {
+                break asks;
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        };
+        let mut decisions = policy
+            .publisher_declared(
+                "policy/decisions",
+                &lamp_msgs::Decision::declaration(),
+                "policy",
+            )
+            .unwrap();
+        for choice in ["say_now", "wait", ""] {
+            let message = loop {
+                if let Ok(Some(message)) = asks.recv(Duration::from_millis(100)) {
+                    break message;
+                }
+            };
+            let ask: serde_json::Value = serde_json::from_slice(&message.payload).unwrap();
+            let _ = questions.send(ask.clone());
+            if !choice.is_empty() {
+                decisions
+                    .publish_json(
+                        1,
+                        &serde_json::json!({"about": "hello", "choice": choice,
+                            "probability": 0.9, "answers": {}, "by": "rule", "took_ms": 3,
+                            "shadow": false, "ask": ask["ask"]}),
+                    )
+                    .unwrap();
+            }
+        }
+    });
+    let mut command = Command::new(env!("CARGO_BIN_EXE_lamp-skills"));
+    command
+        .args([
+            "--dir".as_ref(),
+            root.join("skills").as_os_str(),
+            "--bus-root".as_ref(),
+            root.join("bus").as_os_str(),
+            "--gaze-socket".as_ref(),
+            root.join("gaze.sock").as_os_str(),
+            "--say-socket".as_ref(),
+            root.join("say.sock").as_os_str(),
+        ])
+        .env("LAMP_SKILLS_ASK", "policy");
+    let _running = Running(command.spawn().unwrap());
+    std::thread::sleep(Duration::from_millis(300));
+    // A hello on every face that appears after a second without one.
+    skill_with(
+        &root.join("skills"),
+        "hello",
+        &AT_ONCE
+            .replace("light = { colour = \"warm\" }\n", "")
+            .replace("near = 0.14", "absent_for = \"1s\""),
+    );
+    let deadline = Instant::now() + Duration::from_secs(20);
+    while bus.subscribers(Faces::TOPIC).unwrap().is_empty() {
+        assert!(Instant::now() < deadline, "the skill was never loaded");
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    let mut eyes = bus
+        .publisher_declared(Faces::TOPIC, &Faces::declaration(), "eyes")
+        .unwrap();
+    let mut answered = Vec::new();
+    for _ in 0..3 {
+        // Nobody for a little over a second, then a face.
+        eyes.publish_json(1, &serde_json::json!({"faces": []}))
+            .unwrap();
+        std::thread::sleep(Duration::from_millis(1_300));
+        eyes.publish_json(
+            1,
+            &serde_json::json!({"faces": [{"id": "a1", "xmin": 0.25, "ymin": 0.25,
+                "xmax": 0.75, "ymax": 0.5, "confidence": 0.9}]}),
+        )
+        .unwrap();
+        while Instant::now() < deadline {
+            if let Some(message) = events.recv(Duration::from_millis(100)).unwrap() {
+                let event: SkillEvent = message.parse().unwrap();
+                if event.stage == SkillStage::Answered {
+                    answered.push(event);
+                    break;
+                }
+            }
+        }
+    }
+    let put: Vec<serde_json::Value> = put.try_iter().collect();
+    assert_eq!(put.len(), 3, "{put:?}");
+    assert_eq!(put[0]["skill"], "hello");
+    assert_eq!(put[0]["act"], "hello");
+    assert!(put[0]["ask"].as_u64().is_some_and(|number| number > 0));
+    assert!(put[0]["away_min"].is_u64() && put[0]["there_s"].is_u64());
+    let allowed: Vec<Option<bool>> = answered.iter().map(|event| event.allowed).collect();
+    assert_eq!(
+        allowed,
+        [Some(true), Some(false), Some(false)],
+        "{answered:?}"
+    );
+    assert!(answered[1].why.contains("wait"), "{answered:?}");
+    assert!(answered[2].why.contains("did not answer"), "{answered:?}");
+    // Only the say_now was said.
+    std::thread::sleep(Duration::from_millis(300));
+    assert_eq!(asked.try_iter().count(), 1);
+}

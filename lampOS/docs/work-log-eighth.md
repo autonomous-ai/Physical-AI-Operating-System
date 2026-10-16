@@ -23,6 +23,18 @@ The eighth builder's log, newest first. Role file:
 
 None yet.
 
+## 2026-10-16 22:5x — the motor stack merged; lamp-lock.sh on bash 3.2
+
+- #900, #996 and #1000 are merged (the first builder, 22:33); #1149 too
+  (the reviewer).
+- Thirteen found `lamp-lock.sh run` failing on macOS's bash 3.2
+  (`BASHPID` unbound). #1164 (draft until ARM64): the renewer reads its own
+  PID with a fallback; the harness runs a second pass with `BASHPID` unset,
+  2 failures before the fix, 114/0 in both passes after.
+- Peer reviews: #1157 (Nine's `harness wait` push, a P2 shown with a local
+  probe). On #1138 my "no P1 or P2" missed the reviewer's P1 posted before
+  it; corrected on the PR.
+
 ## 2026-10-16 21:1x — #560's bound: the tasks side's test (#1149)
 
 - The first builder's answer (20:49 on #560): the result is heard within

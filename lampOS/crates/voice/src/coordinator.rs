@@ -4856,14 +4856,14 @@ fn conversation_with_gate(
         // What another part asked the voice to say (#939): after a due
         // reminder, before the hello and the news, through a reminder's
         // gates and a quiet since the last turn that its priority sets.
-        if let Some(says) = says.as_mut() {
-            says.poll(clock);
-        }
         let say_now_us = if says.is_some() {
             monotonic_us()
         } else {
             clock
         };
+        if let Some(says) = says.as_mut() {
+            says.poll(say_now_us);
+        }
         if let Some(says) = says.as_mut()
             && let Some(quiet) = says.quiet_needed_us()
             && clock.saturating_sub(last_turn_us) >= quiet
@@ -4881,7 +4881,7 @@ fn conversation_with_gate(
             )
             && playback_mask.available(say_now_us)
             && let Some(provider_session) = unasked_session(&cloud, paused)
-            && let Some((turn, priority, ticket)) = says.take()
+            && let Some((turn, priority, ticket)) = says.take(say_now_us)
         {
             eprintln!(
                 "lamp-voice: saying what the skill {} asked (priority {priority})",

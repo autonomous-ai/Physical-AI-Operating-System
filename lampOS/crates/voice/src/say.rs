@@ -206,13 +206,18 @@ pub fn parse(line: &str) -> Result<Request, String> {
     })
 }
 
-/// A request handed to the voice, with where its answer goes.
+/// A request handed to the voice, with where its answer goes and when it
+/// expires: its `expires_in_ms` from the moment its line was read, on the
+/// shared monotonic clock (`lamp_ipc::monotonic_us`, the voice's own clock
+/// outside a test's scenario), so that no wait for the voice's loop
+/// lengthens it (the reviewer on #954).
 struct Asked {
     request: Request,
     answer: mpsc::Sender<Answer>,
+    expires_at_us: u64,
 }
 
-/// One waiting, dated by the voice's clock as it was taken.
+/// One waiting, in the order taken.
 struct Waiting {
     request: Request,
     answer: mpsc::Sender<Answer>,
@@ -349,20 +354,22 @@ impl Says {
         )
     }
 
-    /// Take what has been asked, dated `now_us`, and answer those not begun
-    /// in time. Called on every pass of the voice's loop; never waits.
+    /// Take what has been asked, and answer those not begun by `now_us`.
+    /// Called on every pass of the voice's loop; never waits.
     pub fn poll(&mut self, now_us: u64) {
         while let Ok(asked) = self.incoming.try_recv() {
             self.order += 1;
-            let expires_at_us =
-                now_us.saturating_add(asked.request.expires_in_ms.saturating_mul(1_000));
             self.waiting.push(Waiting {
                 request: asked.request,
                 answer: asked.answer,
-                expires_at_us,
+                expires_at_us: asked.expires_at_us,
                 order: self.order,
             });
         }
+        self.expire(now_us);
+    }
+
+    fn expire(&mut self, now_us: u64) {
         self.waiting.retain(|waiting| {
             let live = now_us < waiting.expires_at_us;
             if !live {
@@ -393,9 +400,12 @@ impl Says {
         })
     }
 
-    /// Take the next say to begin it: its written turn, its priority, and
-    /// its ticket.
-    pub fn take(&mut self) -> Option<(String, u8, Ticket)> {
+    /// Take the next say to begin it at `now_us`: its written turn, its
+    /// priority, and its ticket. Those whose time ran out by then are
+    /// answered `expired` first, so that none begins after it (the reviewer
+    /// on #954).
+    pub fn take(&mut self, now_us: u64) -> Option<(String, u8, Ticket)> {
+        self.expire(now_us);
         let waiting = self.waiting.remove(self.next_index()?);
         Some((
             waiting.request.words.turn(),
@@ -519,7 +529,16 @@ fn serve_client(mut stream: UnixStream, ask: &mpsc::Sender<Asked>) {
             Err(why) => Outcome::Refused(why),
             Ok(request) => {
                 let (answer, answered) = mpsc::channel();
-                if ask.send(Asked { request, answer }).is_err() {
+                let expires_at_us = lamp_ipc::monotonic_us()
+                    .saturating_add(request.expires_in_ms.saturating_mul(1_000));
+                if ask
+                    .send(Asked {
+                        request,
+                        answer,
+                        expires_at_us,
+                    })
+                    .is_err()
+                {
                     Outcome::Refused("the voice has gone".into())
                 } else {
                     // The voice answers an ask not begun in time itself;
@@ -562,12 +581,15 @@ fn read_line_within(stream: &UnixStream, within: Duration) -> Result<String, &'s
             Err(_) => return Err("no request line in time"),
         };
         line.extend_from_slice(&piece[..read]);
-        if let Some(end) = line.iter().position(|&byte| byte == b'\n') {
+        let end = line.iter().position(|&byte| byte == b'\n');
+        // The line with its newline, or what has come of it, is at most
+        // the limit (the reviewer on #954).
+        if end.map_or(line.len(), |end| end + 1) as u64 > MOST_LINE_BYTES {
+            return Err("one line, ended by a newline, at most 4096 bytes");
+        }
+        if let Some(end) = end {
             line.truncate(end + 1);
             return String::from_utf8(line).map_err(|_| "not a say request");
-        }
-        if line.len() as u64 > MOST_LINE_BYTES {
-            return Err("one line, ended by a newline, at most 4096 bytes");
         }
     }
 }
@@ -577,7 +599,8 @@ mod tests {
     use super::*;
     use std::io::BufReader;
 
-    fn asked(skill: &str, priority: u8, expires_in_ms: u64) -> (Asked, mpsc::Receiver<Answer>) {
+    /// An ask as the socket hands it on, expiring at `expires_at_us`.
+    fn asked(skill: &str, priority: u8, expires_at_us: u64) -> (Asked, mpsc::Receiver<Answer>) {
         let (answer, answered) = mpsc::channel();
         (
             Asked {
@@ -585,9 +608,10 @@ mod tests {
                     skill: skill.into(),
                     words: Words::Note(format!("{skill}'s note")),
                     priority,
-                    expires_in_ms,
+                    expires_in_ms: 60_000,
                 },
                 answer,
+                expires_at_us,
             },
             answered,
         )
@@ -665,10 +689,10 @@ mod tests {
     #[test]
     fn the_highest_priority_goes_first_then_the_oldest_and_the_late_expire() {
         let (mut says, ask) = Says::by_hand();
-        let (news, news_answer) = asked("task-news", 5, 60_000);
-        let (stretch, _stretch_answer) = asked("stretch", 5, 60_000);
-        let (reminder, _) = asked("reminders", 8, 60_000);
-        let (late, late_answer) = asked("air", 3, 2);
+        let (news, news_answer) = asked("task-news", 5, 61_000_000);
+        let (stretch, _stretch_answer) = asked("stretch", 5, 61_000_000);
+        let (reminder, _) = asked("reminders", 8, 61_000_000);
+        let (late, late_answer) = asked("air", 3, 1_002_000);
         for one in [news, stretch, reminder, late] {
             ask.send(one).unwrap();
         }
@@ -676,27 +700,67 @@ mod tests {
         assert_eq!(says.waiting(), 4);
         // An urgent one needs a second's quiet, the rest fifteen.
         assert_eq!(says.quiet_needed_us(), Some(URGENT_QUIET_US));
-        let (_, priority, ticket) = says.take().unwrap();
+        let (_, priority, ticket) = says.take(1_000_000).unwrap();
         assert_eq!((ticket.skill(), priority), ("reminders", 8));
         assert_eq!(says.quiet_needed_us(), Some(QUIET_US));
         // Two at 5: the older first.
-        let (turn, _, ticket) = says.take().unwrap();
+        let (turn, _, ticket) = says.take(1_000_000).unwrap();
         assert_eq!(
             (ticket.skill(), turn.as_str()),
             ("task-news", "task-news's note")
         );
         ticket.answer(Outcome::Spoken);
         assert_eq!(news_answer.try_recv(), Ok(Answer::Done(Outcome::Spoken)));
-        // 2 ms after it was taken, the air's has expired, and is told so.
+        // At its deadline the air's has expired, and is told so.
         says.poll(1_002_000);
         assert_eq!(late_answer.try_recv(), Ok(Answer::Done(Outcome::Expired)));
         assert_eq!(says.waiting(), 1);
-        assert_eq!(says.take().unwrap().2.skill(), "stretch");
+        assert_eq!(says.take(1_002_000).unwrap().2.skill(), "stretch");
         assert_eq!(
-            says.take().map(|(_, _, ticket)| ticket.skill().to_owned()),
+            says.take(1_002_000)
+                .map(|(_, _, ticket)| ticket.skill().to_owned()),
             None
         );
         assert_eq!(says.quiet_needed_us(), None);
+    }
+
+    /// The reviewer on #954: a say is never begun after its time, however
+    /// late the voice takes it. Taken at once but begun later, its time is
+    /// looked at again as it is begun: past it, `expired`, and the next.
+    #[test]
+    fn a_say_is_never_begun_after_its_time_however_late_it_is_taken() {
+        let (mut says, ask) = Says::by_hand();
+        let (soon, soon_answer) = asked("air", 5, 500);
+        let (later, _) = asked("stretch", 3, 10_000);
+        ask.send(soon).unwrap();
+        ask.send(later).unwrap();
+        says.poll(0);
+        assert_eq!(says.waiting(), 2);
+        let (_, _, ticket) = says.take(600).unwrap();
+        assert_eq!(ticket.skill(), "stretch");
+        assert_eq!(soon_answer.try_recv(), Ok(Answer::Done(Outcome::Expired)));
+        assert_eq!(says.waiting(), 0);
+    }
+
+    /// The reviewer on #954: a line of exactly 4,096 bytes with its newline
+    /// is read; one byte more is refused, also when it comes in one piece
+    /// with its newline.
+    #[test]
+    fn a_line_of_the_limit_is_read_and_one_byte_more_is_refused() {
+        let line = |bytes: usize| {
+            let start = r#"{"skill":"x","note":"n","expires_in_ms":5}"#;
+            format!("{start}{}\n", " ".repeat(bytes - start.len() - 1))
+        };
+        for (bytes, read) in [(4_096, true), (4_097, false)] {
+            let (mut client, server) = UnixStream::pair().unwrap();
+            client.write_all(line(bytes).as_bytes()).unwrap();
+            let got = read_line_within(&server, READ_WITHIN);
+            assert_eq!(got.is_ok(), read, "{bytes}: {got:?}");
+            if let Ok(got) = got {
+                assert_eq!(got.len(), bytes);
+                assert!(parse(&got).is_ok());
+            }
+        }
     }
 
     #[test]
@@ -705,7 +769,7 @@ mod tests {
         let (one, answer) = asked("welcome-back", 5, 60_000);
         ask.send(one).unwrap();
         says.poll(0);
-        drop(says.take().unwrap().2);
+        drop(says.take(0).unwrap().2);
         assert_eq!(
             answer.try_recv(),
             Ok(Answer::Done(Outcome::Dropped("ended".into())))
@@ -714,7 +778,7 @@ mod tests {
         ask.send(two).unwrap();
         drop(gone);
         says.poll(0);
-        says.take()
+        says.take(0)
             .unwrap()
             .2
             .answer(Outcome::Dropped("user_interrupted".into()));
@@ -810,7 +874,7 @@ mod tests {
         let mut taken = None;
         for _ in 0..200 {
             says.poll(0);
-            if let Some(one) = says.take() {
+            if let Some(one) = says.take(0) {
                 taken = Some(one);
                 break;
             }
@@ -821,6 +885,33 @@ mod tests {
             .2
             .answer(Outcome::Spoken);
         assert_eq!(prompt.join().unwrap(), "{\"outcome\":\"spoken\"}\n");
+        drop(says);
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// The reviewer on #954, through the socket: a request of 1 ms whose
+    /// first look by the voice comes 200 ms after its line was read is
+    /// `expired`, never begun: its time runs from its line, not from when
+    /// the voice took it.
+    #[test]
+    fn a_say_waiting_for_the_voice_expires_from_when_its_line_was_read() {
+        let dir = socket_dir("late");
+        let path = dir.join("say.sock");
+        let mut says = Says::serve(&path, None).unwrap();
+        let client = {
+            let path = path.clone();
+            thread::spawn(move || {
+                exchange(
+                    &path,
+                    "{\"skill\":\"air\",\"note\":\"n\",\"expires_in_ms\":1}\n",
+                )
+            })
+        };
+        thread::sleep(Duration::from_millis(200));
+        let now = lamp_ipc::monotonic_us();
+        says.poll(now);
+        assert!(says.take(now).is_none());
+        assert_eq!(client.join().unwrap(), "{\"outcome\":\"expired\"}\n");
         drop(says);
         fs::remove_dir_all(&dir).unwrap();
     }
@@ -861,7 +952,7 @@ mod tests {
         let mut taken = None;
         for _ in 0..200 {
             says.poll(5_000_000);
-            if let Some(one) = says.take() {
+            if let Some(one) = says.take(0) {
                 taken = Some(one);
                 break;
             }

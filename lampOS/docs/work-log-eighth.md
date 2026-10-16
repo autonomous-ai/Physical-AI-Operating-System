@@ -23,6 +23,21 @@ The eighth builder's log, newest first. Role file:
 
 None yet.
 
+## 2026-10-16 16:35 — #1097 clippy fix; the reviewer's #900/#996/#1000 findings fixed
+
+Ready for lamp-voice: none yet. #1097 (ARM64 38879604934), #900, #996 and
+#1000 (38880115426, 38880220106, 38880479644) are drafts until green; #900
+also needs the fifth's read.
+
+- #1097: `run_continuous`'s options in `RingOptions` (the first builder's
+  16:01). Strict voice clippy is clean again. The two `optional_ring_tests`
+  failures happen identically on unchanged `lamp-voice`.
+- #900: the child prints after it sends (the reviewer's P2: 12/95 → 0/82).
+  `native_head` is out of the realtime group, with its two startup tests now
+  stepped. Docs updated, rebased over #1009. Now "Closes #739".
+- #996: the run-diagnostic header fixed. #1000: #906's third test is stepped
+  with a twin, 400/400 each under load.
+
 ## 2026-10-16 16:05 — #834 merged; #1072 reviewed; #560 taken (Harness)
 
 Ready for lamp-voice: #900, #996 and #1000 (with the reviewer); #1084 draft

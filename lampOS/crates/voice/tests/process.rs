@@ -77,6 +77,49 @@ fn a_worker_role_not_on_the_voices_list_is_never_started() {
     }
 }
 
+/// #1071 (Twelve's P3 on #1095): every first word the voice's `main.rs`
+/// dispatches is on its list, and a word not on it is refused before
+/// anything runs, so a command added there and not to the list fails here.
+#[test]
+fn every_command_the_voice_dispatches_is_on_its_list_and_no_other_runs() {
+    let source = include_str!("../src/main.rs");
+    let mut dispatched = std::collections::BTreeSet::new();
+    for marker in ["command==\"", "command == \""] {
+        for (at, _) in source.match_indices(marker) {
+            let rest = &source[at + marker.len()..];
+            let word = &rest[..rest.find('"').expect("a closed command word")];
+            dispatched.insert(word);
+        }
+    }
+    assert!(dispatched.contains("serve") && dispatched.contains("worker"));
+    for word in &dispatched {
+        assert!(
+            lamp_voice_processes::Command::parse(word).is_some(),
+            "`{word}` is dispatched by main.rs but not on lamp-voice-processes' list"
+        );
+    }
+    let listed: std::collections::BTreeSet<_> = lamp_voice_processes::Command::ALL
+        .iter()
+        .map(|command| command.as_str())
+        .collect();
+    assert_eq!(
+        listed, dispatched,
+        "the list names a command main.rs has not"
+    );
+    let executable = Path::new(env!("CARGO_BIN_EXE_lamp-voice"));
+    let output = std::process::Command::new(executable)
+        .args(["third", "/nonexistent"])
+        .env_clear()
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let said = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        said.contains("command `third` is not on the voice's list"),
+        "{said}"
+    );
+}
+
 /// The voice's helpers on its list are the programs it starts beside itself.
 #[test]
 fn the_voices_listed_helpers_are_the_ones_it_starts() {

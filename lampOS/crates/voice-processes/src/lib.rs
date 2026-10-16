@@ -10,9 +10,11 @@
 //! here, so a role that is missing fails the voice's own tests, never first
 //! the guard on a lamp.
 
-/// The first word after the voice's executable, for the processes that run
-/// as the voice: its service, its directed sessions and checks, and what the
-/// service starts beside itself.
+/// The first word after the voice's executable, for every process that runs
+/// as the voice: its service, its directed sessions and checks, what the
+/// service starts beside itself, and the read-only reports run by hand on a
+/// lamp. `lamp-voice` refuses any other first word, so a command added to
+/// the voice and not here fails before it can run beside the service.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Command {
     Serve,
@@ -22,10 +24,14 @@ pub enum Command {
     ProviderCheck,
     ScheduleConsumer,
     Worker,
+    ShortTurns,
+    SttCheck,
+    Marked,
+    TurnTimes,
 }
 
 impl Command {
-    pub const ALL: [Command; 7] = [
+    pub const ALL: [Command; 11] = [
         Command::Serve,
         Command::Directed,
         Command::DirectedFixture,
@@ -33,6 +39,10 @@ impl Command {
         Command::ProviderCheck,
         Command::ScheduleConsumer,
         Command::Worker,
+        Command::ShortTurns,
+        Command::SttCheck,
+        Command::Marked,
+        Command::TurnTimes,
     ];
 
     pub const fn as_str(self) -> &'static str {
@@ -44,6 +54,10 @@ impl Command {
             Command::ProviderCheck => "provider-check",
             Command::ScheduleConsumer => "schedule-consumer",
             Command::Worker => "worker",
+            Command::ShortTurns => "short-turns",
+            Command::SttCheck => "stt-check",
+            Command::Marked => "marked",
+            Command::TurnTimes => "turn-times",
         }
     }
 

@@ -606,11 +606,17 @@ went the same way, each noticed only in the journal.
 The voice's processes are now named once, in
 [`lamp-voice-processes`](../crates/voice-processes/src/lib.rs): its
 commands (`serve`, `directed`, `directed-fixture`, `camera-inspect`,
-`provider-check`, `schedule-consumer`, `worker`), its worker roles
+`provider-check`, `schedule-consumer`, `worker`, and the read-only reports
+run by hand, `short-turns`, `stt-check`, `marked`, `turn-times`), its worker
+roles
 (`capture`, `speaker`, `provider`, `second`, `camera`, `ring`, `privacy`,
 `probe`) and its helpers (`lamp-turn-end`). Both crates use that list:
 
-- **The voice** starts a worker only in a listed role. `Worker::spawn…`
+- **The voice** runs only as a listed command: `lamp-voice WORD` refuses
+  any other first word before anything runs, and a test reads `main.rs`'s
+  dispatch and fails on a word not on the list
+  (`every_command_the_voice_dispatches_is_on_its_list_and_no_other_runs`).
+  It starts a worker only in a listed role. `Worker::spawn…`
   refuses any other before it runs anything, and `lamp-voice worker ROLE`
   refuses an unlisted role before its arguments are read. A role added to
   the voice and not to the list fails the voice's own tests on the

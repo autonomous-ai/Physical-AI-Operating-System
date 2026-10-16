@@ -616,6 +616,12 @@ mod implementation {
             VoiceCommand::DirectedFixture => Some(5),
             VoiceCommand::CameraInspect => Some(4),
             VoiceCommand::ProviderCheck => None,
+            // Read-only reports run by hand on a lamp: no output argument,
+            // any session file they hold open still protected below.
+            VoiceCommand::ShortTurns
+            | VoiceCommand::SttCheck
+            | VoiceCommand::Marked
+            | VoiceCommand::TurnTimes => None,
             // The reminders' consumer the voice starts beside itself when
             // LAMP_SCHEDULE_TOOLS is on: no output argument, its open files
             // still protected below. On lamp-4ace from 2026-10-15 02:05 to

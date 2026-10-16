@@ -1,0 +1,10 @@
+# Someone at the desk for 58 minutes, talking with the lamp (voice/state listening or speaking) from minute 48 to 56: nothing during the talk, then one stretch at the first face after it ends, at 56.5 minutes (wait = "10m", #1021).
+[[expect]]
+at = "3390s"
+within = "1s"
+call = "body.gaze"
+args = { look_at = "face" }
+
+[[expect]]
+call = "body.gesture"
+args = { gesture = "stretching" }

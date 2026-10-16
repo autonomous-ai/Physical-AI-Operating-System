@@ -731,6 +731,68 @@ fn present_for_a_while_through_short_dropouts_once_a_sitting_and_only_while_rest
     assert!(runs_at(&skill, &broken).is_empty());
 }
 
+/// #1021's rule for every skill, Stretch break's case: someone talking
+/// when the moment comes, and the lamp acts once the talk ends, within the
+/// same sitting and its `wait`, instead of spending its chance.
+#[test]
+fn a_chance_held_back_by_a_talk_waits_for_its_end_within_the_wait() {
+    let dir = tempfile::tempdir().unwrap();
+    let waiting = STRETCH.replace("cooldown = \"90m\"", "cooldown = \"90m\"\nwait = \"10m\"");
+    let skill = skill_with(dir.path(), "stretch-break", &waiting);
+    let mut messages = vec![(0, "voice/state", r#"{"state":"resting"}"#)];
+    messages.extend(sitting(0, 4000, &[]));
+    // Talking from before the fiftieth minute to 3,100 s: it stretches at
+    // the first face after the talk, once.
+    let mut talking = messages.clone();
+    talking.push((2950, "voice/state", r#"{"state":"speaking"}"#));
+    talking.push((3100, "voice/state", r#"{"state":"resting"}"#));
+    talking.sort_by_key(|message| message.0);
+    let runs = runs_at(&skill, &talking);
+    assert_eq!(runs.iter().map(|run| run.0).collect::<Vec<_>>(), [3120]);
+    // A talk that outlasts the wait (from 3,000 s, ten minutes, to 3,600 s):
+    // the chance is spent, as without one.
+    let mut long = messages.clone();
+    long.push((2950, "voice/state", r#"{"state":"speaking"}"#));
+    long.push((3700, "voice/state", r#"{"state":"resting"}"#));
+    long.sort_by_key(|message| message.0);
+    assert!(
+        runs_at(&skill, &long).is_empty(),
+        "{:?}",
+        runs_at(&skill, &long)
+    );
+    // They leave during the talk, longer than the gap: the sitting and its
+    // chance are over, and the next sitting has 50 minutes of its own.
+    let mut gone: Vec<_> = talking
+        .iter()
+        .copied()
+        .filter(|message| !(message.1 == Faces::TOPIC && (3000..3300).contains(&message.0)))
+        .collect();
+    gone.push((3001, Faces::TOPIC, NOBODY));
+    gone.sort_by_key(|message| message.0);
+    assert!(
+        runs_at(&skill, &gone).is_empty(),
+        "{:?}",
+        runs_at(&skill, &gone)
+    );
+    // Without `wait`, as before: the chance is spent.
+    let plain = skill_with(&dir.path().join("plain"), "stretch-break", STRETCH);
+    assert!(runs_at(&plain, &talking).is_empty());
+    // `wait` needs a chance to keep, and is bounded.
+    for (toml, why) in [
+        (
+            waiting.replace("rearm = \"leaves\"\n", ""),
+            "wait goes with rearm",
+        ),
+        (
+            waiting.replace("wait = \"10m\"", "wait = \"2h\""),
+            "at most 1h",
+        ),
+    ] {
+        let error = load(&skill_with(&dir.path().join("bad"), "stretch-break", &toml)).unwrap_err();
+        assert!(error.contains(why), "{error}");
+    }
+}
+
 #[test]
 fn a_field_above_a_line_for_a_while_once_a_spell_and_only_with_someone_there() {
     let dir = tempfile::tempdir().unwrap();

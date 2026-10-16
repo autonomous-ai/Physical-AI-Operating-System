@@ -73,8 +73,9 @@ body = { gesture = "stretching" }
 | `for` | It has held this long |
 | `gap` | A dropout shorter than this does not break `for` (a face lost as the person looks away) |
 | `absent_for` | With `appears`: it did not hold for at least this long before |
-| `rearm` | `leaves` or `ends` (the same): once each time it holds, again only after it stopped. This is "don't nag": once per sitting, once per stuffy spell. A chance held back by a condition, the cooldown or the Policy is spent |
+| `rearm` | `leaves` or `ends` (the same): once each time it holds, again only after it stopped. This is "don't nag": once per sitting, once per stuffy spell. A chance held back by a condition (unless it has a `wait`), the cooldown or the Policy is spent |
 | `cooldown` | Not again within this long. Always set one |
+| `wait` | With `rearm` or `appears`: if a `[[while]]` holds it back (someone talking), it waits this long while the trigger still holds and acts once the conditions hold, rather than giving up its turn. A creature waits for a pause: `wait = "10m"` |
 
 Durations: a whole number and `ms`, `s`, `m` or `h` (`"10m"`).
 

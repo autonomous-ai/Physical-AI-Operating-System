@@ -514,6 +514,12 @@ mod tests {
             elsewhere.sight_file.as_deref(),
             Some(std::path::Path::new("/tmp/sight.jpg"))
         );
+        // Beside the hello question (#883), as on lamp-4ace.
+        let greeting = of("--log-dir /d --key-file /k --hello --act hello --images m")
+            .unwrap()
+            .unwrap();
+        assert!(greeting.hello && greeting.act_hello && greeting.images.is_some());
+        assert_eq!(questions(&greeting), " hello=true act=hello");
         // And acting on it.
         let acting = of("--log-dir /d --progress --act progress --key-file /k")
             .unwrap()

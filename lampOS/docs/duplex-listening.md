@@ -968,6 +968,14 @@ With the switch, a yield's request begins at the person's first words:
 - The hold's decision deadline is still counted from the trigger, and its
   retained age from the usual pre-roll. The lead is room the hold keeps
   besides them (`Hold::keeping_first_words`).
+- At the commit, first words older than 2.0 s (`FIRST_WORDS_AGE_US`) are
+  dropped from the front, and the drop is recorded as
+  `input_prefix_sanitized`, reason `first_words_too_old`. The provider
+  refuses audio older than 2.5 s (`lamp_gemini::MAX_INPUT_AGE`), which
+  leaves 0.5 s for the handoff. Only the lead is dropped, never the usual
+  pre-roll or the onset, and what is sent keeps its own capture times. The
+  reviewer on #936 found a late but legal decision committing a lead 2.52 s
+  old, on which the provider worker ended.
 - The mask remembers 320 blocks of hearing instead of 128, and the provider
   queue's bound grows by the lead.
 - Every other start, and every start without the switch, is as before.
@@ -1012,6 +1020,7 @@ functions:
 | `without_echo_evidence_duplex_decides_as_the_conservative_baseline_does` | Same masked blocks, candidates and rejections as `v1-baseline` |
 | `a_microphone_that_stops_arriving_does_not_hold_the_reply_back` | Dispatch resumes after 100 ms without a block |
 | `a_person_who_speaks_once_the_lamp_is_silent_is_an_ordinary_turn` | Six blocks and admitted, as ever |
+| `first_words_older_than_the_provider_takes_are_dropped_before_the_commit` | Paced in real time: first words 2.5 s before the commit are trimmed to 2.0 s; the onset and what followed are kept, in one run; the drop is recorded |
 | `with_first_words_kept_a_yields_request_begins_at_the_words_said_under_the_lamp` | With `LAMP_FIRST_WORDS=kept`, the request begins 20 blocks before the first words said under the lamp's voice, through the same yield and commit; without it, 30 blocks before the onset |
 
 ## Verification

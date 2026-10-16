@@ -14,27 +14,39 @@
 //! lamp's name does ([`crate::called`]).
 //!
 //! **Before the answer:** a request's note is sent inside its activity,
-//! after its audio and just before its end (`Session::try_note`), and the
-//! model answers only after the end. So a note given while the request's
-//! input is still open always reaches the model first. Words the service
-//! writes only after the input was closed come too late: nothing is sent
-//! then, and the journal says so, for counting how often that is.
+//! after its audio and just before its end (`Session::try_note`; the
+//! newest note for a request is the one sent), and the model answers only
+//! after the end. So a note given while the request's input is still open
+//! always reaches the model first. Words the service writes only after the
+//! input was closed come too late: nothing is sent then. The journal says
+//! which each was, "in time" or "after its input was closed", for counting
+//! how often each is on a lamp (the first builder on #1173).
 //!
-//! The note is sent once for a request. It says only which of the staff
-//! was named, never what was said.
+//! All the request's words so far are matched each time a piece comes, so
+//! a name said later in it ("ask Claude Code and Codex …") changes the
+//! note before it is sent. It says only which of the staff were named,
+//! never what was said.
 
 /// `on` for the note to be sent. Anything else: never.
 pub const ENVIRONMENT: &str = "LAMP_STAFF_NOTE";
 /// The provider worker's flag for it, after `--policy-holds-actions`.
 pub const FLAG: &str = "--staff-note";
 
-/// What the model is given beside what it hears, for the one of the staff
-/// named (`who`, as the person calls them).
-pub fn note(who: &str) -> String {
-    format!(
-        "(For you to know, not to answer: the person named {who}, one of the staff. If this is \
-         work for {who}, hand it over with start_agent_task; never do it yourself.)"
-    )
+/// What the model is given beside what it hears, for the staff named
+/// (`who`, as the person calls them, in the order named; never empty).
+pub fn note(who: &[&str]) -> String {
+    match who {
+        [one] => format!(
+            "(For you to know, not to answer: the person named {one}, one of the staff. If this \
+             is work for {one}, hand it over with start_agent_task; never do it yourself.)"
+        ),
+        [all @ .., last] => format!(
+            "(For you to know, not to answer: the person named {} and {last}, of the staff. If \
+             this is work for them, hand it over with start_agent_task; never do it yourself.)",
+            all.join(", ")
+        ),
+        [] => String::new(),
+    }
 }
 
 /// The provider worker's arguments for the switch in the environment.
@@ -58,13 +70,14 @@ pub fn take(flags: &[String]) -> (bool, &[String]) {
     }
 }
 
-/// The words heard for the request whose input began last, and whether
-/// its note was given.
+/// The words heard for the request whose input began last, the note it
+/// was given, and whether its words came too late.
 #[derive(Debug, Default)]
 pub struct Heard {
     request: Option<u64>,
     words: String,
-    done: bool,
+    told: Option<String>,
+    late: bool,
 }
 
 impl Heard {
@@ -77,16 +90,28 @@ impl Heard {
     }
 
     /// A piece of what the service heard. The request it belongs to and
-    /// all its words so far, unless its note was given or it has none.
+    /// all its words so far, unless its words came too late or no request
+    /// began.
     pub fn piece(&mut self, text: &str) -> Option<(u64, &str)> {
-        let request = self.request.filter(|_| !self.done)?;
+        let request = self.request.filter(|_| !self.late)?;
         self.words.push_str(text);
         Some((request, &self.words))
     }
 
-    /// Its note was given, or was due too late: nothing more for it.
-    pub fn done(&mut self) {
-        self.done = true;
+    /// The note the request was last given, if any.
+    pub fn told(&self) -> Option<&str> {
+        self.told.as_deref()
+    }
+
+    /// It was given `note`.
+    pub fn tell(&mut self, note: String) {
+        self.told = Some(note);
+    }
+
+    /// Its words named the staff after its input was closed: nothing more
+    /// for it.
+    pub fn too_late(&mut self) {
+        self.late = true;
     }
 }
 
@@ -108,16 +133,25 @@ mod tests {
     /// file tells the model nobody said, and names the function.
     #[test]
     fn the_note_names_who_and_the_function() {
-        let told = note("Codex");
+        let told = note(&["Codex"]);
         assert!(told.starts_with("(For you to know, not to answer"));
-        assert!(told.contains("named Codex") && told.contains("start_agent_task"));
+        assert!(told.contains("named Codex,") && told.contains("start_agent_task"));
         assert!(told.ends_with(".)"));
+        let both = note(&["Claude Code", "Codex"]);
+        assert!(
+            both.contains("named Claude Code and Codex, of the staff"),
+            "{both}"
+        );
+        assert!(
+            note(&["Claude Code", "Codex", "OpenCode"])
+                .contains("named Claude Code, Codex and OpenCode,")
+        );
     }
 
     /// A request's pieces add up; a new request starts afresh; nothing is
-    /// given after its note, nor before any request began.
+    /// taken after its words came too late, nor before any request began.
     #[test]
-    fn a_requests_words_add_up_until_its_note_is_given() {
+    fn a_requests_words_add_up_until_they_come_too_late() {
         let mut heard = Heard::default();
         assert_eq!(heard.piece("ask"), None);
         heard.began(7);
@@ -129,9 +163,12 @@ mod tests {
             heard.piece("dex to write"),
             Some((7, " Hey Lamp, ask Codex to write"))
         );
-        heard.done();
+        heard.tell(note(&["Codex"]));
+        assert_eq!(heard.told(), Some(note(&["Codex"]).as_str()));
+        heard.too_late();
         assert_eq!(heard.piece(" a haiku"), None);
         heard.began(8);
+        assert_eq!(heard.told(), None);
         assert_eq!(heard.piece(" thanks"), Some((8, " thanks")));
     }
 }

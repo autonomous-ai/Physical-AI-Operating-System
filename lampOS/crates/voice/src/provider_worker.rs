@@ -1725,9 +1725,9 @@ async fn serve_with_visual<C: Connect>(
                 if let Ok(Notice::Event(Event::Audio { lineage, .. })) = &notice {
                     desk.sound(lineage.request.get());
                 }
-                // A request whose words name one of the staff: the model is
-                // told so beside its sound, while its input is open, once
-                // (`crate::staff_note`).
+                // A request whose words name the staff: the model is told so
+                // beside its sound while its input is open, the note changed
+                // if a later piece names more (`crate::staff_note`).
                 if let (Some(place), Ok(Notice::Event(event))) = (
                     options.tools.tasks.as_ref().filter(|_| options.staff_note),
                     &notice,
@@ -1736,22 +1736,36 @@ async fn serve_with_visual<C: Connect>(
                         Event::InputStarted { lineage, .. } => staff_heard.began(lineage.request.get()),
                         Event::UncorrelatedInputTranscript { text, .. } => {
                             let open = intake.handoff.visual_turn().map(|turn| turn.request);
-                            if let Some((request, words)) = staff_heard.piece(text)
-                                && let Some(who) = crate::agent_tasks::named_in_words(place, words)
-                            {
-                                staff_heard.done();
-                                match open.filter(|open| open.get() == request) {
-                                    None => eprintln!(
-                                        "lamp-voice provider: request {request}: named {who} after its input was closed; the model is not told"
-                                    ),
-                                    Some(open) => match add_note(&provider, &mut intake.handoff.noted, open, &crate::staff_note::note(who)) {
-                                        Ok(()) => eprintln!(
-                                            "lamp-voice provider: request {request}: named {who}; the model is told"
-                                        ),
-                                        Err(error) => eprintln!(
-                                            "lamp-voice provider: request {request}: named {who} and the model could not be told: {error}"
-                                        ),
-                                    },
+                            let named = staff_heard
+                                .piece(text)
+                                .map(|(request, words)| (request, crate::agent_tasks::named_in_words(place, words)));
+                            if let Some((request, who)) = named.filter(|(_, who)| !who.is_empty()) {
+                                let part = crate::staff_note::note(&who);
+                                let who = who.join(" and ");
+                                if staff_heard.told() != Some(part.as_str()) {
+                                    match open.filter(|open| open.get() == request) {
+                                        None => {
+                                            staff_heard.too_late();
+                                            eprintln!(
+                                                "lamp-voice provider: request {request}: named {who} after its input was closed; the model is not told"
+                                            );
+                                        }
+                                        Some(open) => {
+                                            let text = staff_note_text(intake.handoff.noted.as_ref(), request, staff_heard.told(), &part);
+                                            match provider.try_note(open, &text) {
+                                                Ok(()) => {
+                                                    intake.handoff.noted = Some((request, text));
+                                                    staff_heard.tell(part);
+                                                    eprintln!(
+                                                        "lamp-voice provider: request {request}: named {who} in time; the model is told"
+                                                    );
+                                                }
+                                                Err(error) => eprintln!(
+                                                    "lamp-voice provider: request {request}: named {who} in time and the model could not be told: {error}"
+                                                ),
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -3936,6 +3950,22 @@ fn rise_in(
         .filter(|(at, _)| (began..=until).contains(at))
         .map(|(_, rise)| *rise)
         .reduce(f32::max)
+}
+
+/// What a request's note says once the staff's `part` takes the place of
+/// the one it was given (`told`), or is added ([`note_text`]).
+fn staff_note_text(
+    noted: Option<&(u64, String)>,
+    request: u64,
+    told: Option<&str>,
+    part: &str,
+) -> String {
+    match (noted, told) {
+        (Some((given, text)), Some(told)) if *given == request && text.contains(told) => {
+            text.replacen(told, part, 1)
+        }
+        _ => note_text(noted, request, part),
+    }
 }
 
 /// What a request's note says once `part` is added to what it was given.
@@ -7057,10 +7087,16 @@ mod tests {
         rig.stop().await;
     }
 
-    /// The first request of a rig with the staff's note on, heard as
-    /// `words` in pieces before its end is asked for: the service messages
-    /// after the pieces, up to the request's end.
-    async fn heard_before_the_end(words: &[&str]) -> Vec<serde_json::Value> {
+    /// The first request of a rig with the tasks part, and the staff's note
+    /// on or off (`noted`), heard as `before` in pieces before its end is
+    /// asked for and as `after` once its end was sent: the service
+    /// messages up to the request's end, and any in the 300 ms after
+    /// `after`.
+    async fn heard_around_the_end(
+        noted: bool,
+        before: &[&str],
+        after: &[&str],
+    ) -> (Vec<serde_json::Value>, Vec<serde_json::Value>) {
         let home = crate::process::SessionDirectory::create().unwrap();
         let mut options = typed_with(crate::tools::Settings {
             tasks: Some(crate::agent_tasks::Place {
@@ -7070,24 +7106,25 @@ mod tests {
                 lead_in: false,
                 asked: false,
                 needs: None,
-                staff_note: false,
+                staff_note: noted,
             }),
             ..Default::default()
         });
-        options.staff_note = true;
+        options.staff_note = noted;
         let mut rig = LiveRig::start_with(quick_policy(), options);
         let mut dial = rig.ready().await;
         let request = rig.speak(&mut dial, false, false).await;
-        for piece in words {
-            dial.service
-                .send(json!({"serverContent":{"inputTranscription":{"text":piece}}}))
-                .await;
+        let heard = |piece: &str| json!({"serverContent":{"inputTranscription":{"text":piece}}});
+        for piece in before {
+            dial.service.send(heard(piece)).await;
         }
         let owner = rig.snapshot.owner().unwrap();
         rig.owner.input_ended(real_time(), owner).unwrap();
         rig.publish();
-        // The words are taken before the request's end is asked for; the
-        // owner is published meanwhile, as the coordinator does.
+        // The pieces come on the service's socket and the end on the
+        // parent's channel, which the worker reads in no set order: the
+        // pieces are given time to be taken first, the owner published
+        // meanwhile, as the coordinator does.
         for _ in 0..10 {
             tokio::time::sleep(Duration::from_millis(10)).await;
             rig.publish();
@@ -7107,8 +7144,19 @@ mod tests {
         }) {
             sent.push(rig.service_message(&mut dial).await);
         }
+        for piece in after {
+            dial.service.send(heard(piece)).await;
+        }
+        let mut later = Vec::new();
+        let until = Instant::now() + Duration::from_millis(300);
+        while Instant::now() < until {
+            rig.publish();
+            if let Some(message) = dial.service.try_receive(Duration::from_millis(5)).await {
+                later.push(message);
+            }
+        }
         rig.stop().await;
-        sent
+        (sent, later)
     }
 
     /// A request whose heard words name one of the staff ("ask Claude Code
@@ -7117,24 +7165,92 @@ mod tests {
     /// request's end, so the model has it before it answers.
     #[tokio::test]
     async fn a_request_that_names_one_of_the_staff_is_told_so_before_its_end() {
-        let sent = heard_before_the_end(&[
-            "Can you ask Claude",
-            " Code to write a short poem about the sea?",
-        ])
+        let (sent, _) = heard_around_the_end(
+            true,
+            &[
+                "Can you ask Claude",
+                " Code to write a short poem about the sea?",
+            ],
+            &[],
+        )
         .await;
         assert_eq!(sent.len(), 2, "{sent:?}");
         assert_eq!(
             sent[0]["realtimeInput"]["text"],
-            crate::staff_note::note("Claude Code"),
+            crate::staff_note::note(&["Claude Code"]),
             "{sent:?}"
         );
     }
 
-    /// A request whose words name none of the staff is given no note.
+    /// A name said in a later piece of the request is matched with all its
+    /// words so far and noted before its end. (A later name that changes
+    /// the note, "ask Claude Code and get Codex …", is
+    /// `the_staffs_part_of_a_note_takes_the_place_of_the_last` with
+    /// `agent_tasks::tests::the_words_of_a_request_name_the_staff`: this
+    /// rig's tasks part knows Claude Code alone.)
     #[tokio::test]
-    async fn a_request_that_names_none_of_the_staff_is_given_no_note() {
-        let sent = heard_before_the_end(&["Write me a short", " poem about the sea."]).await;
+    async fn a_name_said_later_in_the_request_is_noted_before_its_end() {
+        let (sent, _) = heard_around_the_end(
+            true,
+            &[
+                "Write a haiku about coffee",
+                " and ask Claude",
+                " Code to check it.",
+            ],
+            &[],
+        )
+        .await;
+        assert_eq!(sent.len(), 2, "{sent:?}");
+        assert_eq!(
+            sent[0]["realtimeInput"]["text"],
+            crate::staff_note::note(&["Claude Code"]),
+            "{sent:?}"
+        );
+    }
+
+    /// A request whose words name none of the staff is given no note; nor
+    /// is one that names them with the switch off.
+    #[tokio::test]
+    async fn no_note_without_a_name_or_without_the_switch() {
+        let (sent, _) =
+            heard_around_the_end(true, &["Write me a short", " poem about the sea."], &[]).await;
         assert_eq!(sent.len(), 1, "{sent:?}");
+        let (sent, _) =
+            heard_around_the_end(false, &["Hey Lamp, ask Codex", " to write a haiku."], &[]).await;
+        assert_eq!(sent.len(), 1, "{sent:?}");
+    }
+
+    /// Words that name the staff only after the request's end was sent
+    /// come too late: nothing more is sent for it.
+    #[tokio::test]
+    async fn words_that_name_the_staff_after_the_end_send_nothing() {
+        let (sent, later) = heard_around_the_end(
+            true,
+            &["Write a haiku about coffee,"],
+            &[" and ask Claude Code to check it."],
+        )
+        .await;
+        assert_eq!(sent.len(), 1, "{sent:?}");
+        assert!(later.is_empty(), "{later:?}");
+    }
+
+    /// The staff's part of a request's note takes the place of the one it
+    /// was given, beside the other parts; first given, it is added.
+    #[test]
+    fn the_staffs_part_of_a_note_takes_the_place_of_the_last() {
+        let name = crate::called::NOTE;
+        let one = crate::staff_note::note(&["Claude Code"]);
+        let both = crate::staff_note::note(&["Claude Code", "Codex"]);
+        let first = staff_note_text(Some(&(7, name.to_owned())), 7, None, &one);
+        assert_eq!(first, format!("{name} {one}"));
+        assert_eq!(
+            staff_note_text(Some(&(7, first)), 7, Some(&one), &both),
+            format!("{name} {both}")
+        );
+        assert_eq!(
+            staff_note_text(Some(&(6, name.to_owned())), 7, None, &one),
+            one
+        );
     }
 
     /// #782: a request that was only the lamp's name, whose call's wait ran

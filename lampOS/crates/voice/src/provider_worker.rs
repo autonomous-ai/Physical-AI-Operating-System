@@ -113,6 +113,8 @@ pub struct Files {
     pub air_facts: bool,
     /// Whether the link is never given up (`--keep-link`).
     pub keep_link: bool,
+    /// Whether input waits for room in the link's queue (`--wait-for-room`).
+    pub wait_for_room: bool,
     /// What the model may do other than speak (`--tools`, `--actions-dir`).
     pub tools: crate::tools::Settings,
     /// Whether the lamp's own rule for whom it answers is applied
@@ -163,6 +165,17 @@ static FIRST_OUTPUT: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLo
 /// that runs all day passes it; a bounded run keeps the bounded policy, so
 /// that it ends when its provider cannot be reached.
 pub const KEEP_LINK_FLAG: &str = "--keep-link";
+/// The provider worker's flag to wait for room in Gemini's input queue
+/// rather than overrun it (lampOS#892). Passed only with a second voice
+/// route configured, whose held line is replayed faster than speech.
+pub const WAIT_FOR_ROOM_FLAG: &str = "--wait-for-room";
+/// Take a leading `--wait-for-room` off a worker's flags.
+pub fn take_wait_for_room(flags: &[String]) -> (bool, &[String]) {
+    match flags {
+        [flag, rest @ ..] if flag == WAIT_FOR_ROOM_FLAG => (true, rest),
+        _ => (false, flags),
+    }
+}
 /// Take a leading `--keep-link` off a worker's flags.
 pub fn take_keep_link(flags: &[String]) -> (bool, &[String]) {
     match flags {
@@ -189,6 +202,7 @@ pub fn parse_flags(dir: &std::path::Path, flags: &[String]) -> io::Result<Parsed
     let (room_facts, flags) = crate::room_told::take(flags);
     let (air_facts, flags) = crate::air_told::take(flags);
     let (keep_link, flags) = take_keep_link(flags);
+    let (wait_for_room, flags) = take_wait_for_room(flags);
     let (tools, flags) = crate::tools::take(flags)?;
     let (attention, flags) = crate::attention::take(flags);
     let (attention_busy, flags) = crate::attention::take_busy(flags);
@@ -209,6 +223,7 @@ pub fn parse_flags(dir: &std::path::Path, flags: &[String]) -> io::Result<Parsed
         room_facts,
         air_facts,
         keep_link,
+        wait_for_room,
         tools,
         attention,
         attention_busy,
@@ -654,6 +669,8 @@ pub(crate) struct Options {
     /// wait for them ([`crate::policy_holds`], #800). `None`: they run at
     /// once.
     pub(crate) policy_holds: Option<std::path::PathBuf>,
+    /// Input waits for room in Gemini's input queue (`--wait-for-room`).
+    pub(crate) wait_for_room: bool,
 }
 /// How the room is and whether the lamp is in a conversation, now.
 fn attention_now() -> (crate::room_told::Room, bool) {
@@ -679,6 +696,7 @@ impl Options {
             sounds_checked: false,
             name_in_passing_ignored: false,
             policy_holds: None,
+            wait_for_room: false,
         }
     }
 }
@@ -883,6 +901,7 @@ pub async fn run_with_continuation(
             }
             (false, _) => None,
         },
+        wait_for_room: files.wait_for_room,
     };
     let visual = visual
         .map(|(source, worker)| ContextDelivery::new(source, boot, worker))
@@ -933,6 +952,7 @@ async fn serve_with_visual<C: Connect>(
     let mut upstream_ended = false;
     let mut intake = ProviderIntake::new(boot, monotonic_us());
     intake.handoff.tolerate_outage = typed;
+    intake.handoff.wait_for_room = options.wait_for_room;
     intake.handoff.reminders.enabled = options.tools.schedule_speak;
     let mut ticker = tokio::time::interval(Duration::from_millis(2));
     ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
@@ -2827,7 +2847,8 @@ impl ProviderIntake {
             // the link's failure as before. A retired request's End owed
             // for want of room goes first.
             let now_us = now();
-            if (!input.has_room() || self.handoff.owes_end())
+            if self.handoff.wait_for_room
+                && (!input.has_room() || self.handoff.owes_end())
                 && now_us.saturating_sub(retained.received_at_us) < ROOM_WAIT_US
             {
                 retained.awaiting_room = true;
@@ -2876,6 +2897,10 @@ struct InputHandoff {
     failed_through: u64,
     /// Report an undeliverable request instead of ending the worker.
     tolerate_outage: bool,
+    /// Input, and a retired request's End, wait for room in the link's
+    /// queue (`--wait-for-room`); without it a full queue ends the
+    /// connection as it always has.
+    wait_for_room: bool,
     /// The sole unreported request whose selected connection refused its Start.
     /// Drain it before receiving another command; it is never overwritten.
     undelivered: Option<u64>,
@@ -2996,7 +3021,7 @@ impl InputHandoff {
                 // offered to a full queue it would end a healthy connection.
                 // It stays owed, and nothing is offered before it
                 // (`owes_end`); the retirement above is already done.
-                if !input.has_room() {
+                if self.wait_for_room && !input.has_room() {
                     return Ok(());
                 }
                 // Enqueued before any successor Start on the same FIFO. Merely
@@ -6119,6 +6144,7 @@ mod tests {
             sounds_checked: false,
             name_in_passing_ignored: false,
             policy_holds: None,
+            wait_for_room: false,
         }
     }
 
@@ -6138,6 +6164,7 @@ mod tests {
                 sounds_checked: false,
                 name_in_passing_ignored: false,
                 policy_holds: None,
+                wait_for_room: false,
             },
         );
         let mut dial = rig.ready().await;
@@ -6182,6 +6209,7 @@ mod tests {
                 sounds_checked: false,
                 name_in_passing_ignored: false,
                 policy_holds: None,
+                wait_for_room: false,
             },
         );
         let mut dial = rig.ready().await;
@@ -6461,6 +6489,7 @@ mod tests {
                 sounds_checked: false,
                 name_in_passing_ignored: false,
                 policy_holds: None,
+                wait_for_room: false,
             },
         );
         let mut dial = rig.ready().await;
@@ -8828,7 +8857,10 @@ mod tests {
                 require_context: false,
                 ..quick_policy()
             },
-            Options::reporting(Reporting::Typed),
+            Options {
+                wait_for_room: true,
+                ..Options::reporting(Reporting::Typed)
+            },
             BARRIER,
             false,
             Continuation::Off,
@@ -8922,7 +8954,10 @@ mod tests {
                 require_context: false,
                 ..quick_policy()
             },
-            Options::reporting(Reporting::Typed),
+            Options {
+                wait_for_room: true,
+                ..Options::reporting(Reporting::Typed)
+            },
             BARRIER,
             false,
             Continuation::Off,
@@ -9033,6 +9068,68 @@ mod tests {
         }
         assert!(rig.dials.try_recv().is_err(), "a new connection was made");
         assert!(!rig.worker.is_finished());
+    }
+
+    /// Off unless set: without `--wait-for-room` (no second route) the same
+    /// fast input through the same short stall overruns the queue and ends
+    /// the connection, reported as the request lost, exactly as before.
+    #[tokio::test]
+    async fn without_the_flag_a_full_queue_still_ends_the_connection_as_before() {
+        let mut rig = LiveRig::start_capacity(
+            RecoveryPolicy {
+                outage_budget: Duration::from_secs(5),
+                require_context: false,
+                ..quick_policy()
+            },
+            Options::reporting(Reporting::Typed),
+            BARRIER,
+            false,
+            Continuation::Off,
+            2_048,
+        );
+        let mut dial = rig.ready().await;
+        let request = rig.speak(&mut dial, false, false).await;
+        let privacy_generation = rig.snapshot.microphone_generation();
+        // Read nothing for the whole test: the stall outlasts the input.
+        let _service = dial.service;
+        let started = Instant::now();
+        let mut sequence = 1;
+        let mut lost = None;
+        while lost.is_none() && started.elapsed() < Duration::from_millis(90) {
+            rig.publish();
+            while sequence < 1 + started.elapsed().as_millis() as u64 {
+                sequence += 1;
+                let _ = rig.parent.data.send(ProviderInput::Audio {
+                    request,
+                    privacy_generation,
+                    sequence,
+                    read_completed_at_us: monotonic_us(),
+                    samples: vec![3; 160],
+                });
+            }
+            while let Some(wire) = rig.take() {
+                if let Wire::Status(ProviderStatus::TurnFailed { reason, .. }) = wire {
+                    lost = Some(reason);
+                }
+            }
+            tokio::time::sleep(Duration::from_millis(1)).await;
+        }
+        assert_eq!(lost, Some(Fault::Local));
+    }
+
+    #[test]
+    fn wait_for_room_is_taken_after_keep_link_and_only_when_given() {
+        let flags = [
+            KEEP_LINK_FLAG.to_owned(),
+            WAIT_FOR_ROOM_FLAG.to_owned(),
+            "rest".to_owned(),
+        ];
+        let (kept, rest) = take_keep_link(&flags);
+        assert!(kept);
+        let (wait, rest) = take_wait_for_room(rest);
+        assert!(wait);
+        assert_eq!(rest, ["rest"]);
+        assert!(!take_wait_for_room(rest).0);
     }
 
     #[tokio::test]
@@ -9414,6 +9511,7 @@ mod tests {
                     sounds_checked: false,
                     name_in_passing_ignored: false,
                     policy_holds: None,
+                    wait_for_room: false,
                 },
                 BARRIER,
                 false,
@@ -9478,6 +9576,7 @@ mod tests {
                     sounds_checked: false,
                     name_in_passing_ignored: ignored,
                     policy_holds: None,
+                    wait_for_room: false,
                 },
                 BARRIER,
                 false,

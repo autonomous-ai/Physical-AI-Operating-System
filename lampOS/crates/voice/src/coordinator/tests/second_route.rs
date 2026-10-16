@@ -1080,3 +1080,40 @@ fn a_question_goes_to_the_second_route_once_the_startup_hold_is_over() {
     assert!(run.seen.live.is_empty());
     assert_eq!(run.played(1), vec![SECOND; 48]);
 }
+
+/// lampOS#892: Gemini's worker is told to wait for room in its input queue
+/// only when a second route is configured, right after `--keep-link`.
+#[test]
+fn the_live_worker_waits_for_room_only_with_a_second_route() {
+    let options = DirectedOptions::parse(&[]).unwrap();
+    let config = std::path::Path::new("/private/provider.json");
+    let without = provider_arguments(
+        ProviderSource::Gemini(config),
+        &options,
+        Lifetime::Serve,
+        None,
+        false,
+    )
+    .unwrap();
+    assert!(
+        !without
+            .iter()
+            .any(|flag| flag == crate::provider_worker::WAIT_FOR_ROOM_FLAG)
+    );
+    let with = provider_arguments(
+        ProviderSource::Gemini(config),
+        &options,
+        Lifetime::Serve,
+        None,
+        true,
+    )
+    .unwrap();
+    let keep = with
+        .iter()
+        .position(|flag| flag == crate::provider_worker::KEEP_LINK_FLAG)
+        .unwrap();
+    assert_eq!(with[keep + 1], crate::provider_worker::WAIT_FOR_ROOM_FLAG);
+    let mut stripped = with.clone();
+    stripped.remove(keep + 1);
+    assert_eq!(stripped, without);
+}

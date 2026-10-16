@@ -108,6 +108,94 @@ say = "They are back at their desk. Greet them in one short line, by name if you
 
 The numbers are in the data, never in prose. The runtime applies them.
 
+### The schema, as `lamp-skills` reads it
+
+The seventh builder wrote this on 2026-10-16 (#938) from the code in
+`crates/skills`. It includes the fields the lamp skill creator proposed (Ten,
+#947, `skill-creator/references/skill-folder.md`) that the runtime took.
+Where the design above says nothing, the runtime does the smallest thing, and
+each such choice is marked *(chosen)*. A skill that breaks any rule here is
+not loaded and the program says why in its journal. The other skills still
+load.
+
+**The folder.** The folder's name is the skill's name: 1 to 64 lowercase
+letters, digits and hyphens. A folder whose name begins with a dot is passed
+over.
+
+**`SKILL.md`** begins with Agent Skills' front matter between two `---`
+lines. It has two required fields: `name:`, which is the folder's name, and
+`description:`. The rest is for the model and for people; `lamp-skills` does
+not read it.
+
+**`skill.toml`.** A key not listed here refuses the skill *(chosen: a typo
+must not leave a step silently undone)*.
+
+| Key | Required | What it is |
+|---|---|---|
+| `needs` | no | The parts it uses (`eyes`, `ears`, `air`, `voice`, `body`, `light`, ...). Kept, not checked yet |
+| `[trigger]` or `[[trigger]]` | yes | When the skill runs: one table, or several, each checked on its own |
+| `trigger.topic` | yes | The topic it listens to |
+| `trigger.field` with one of `equals`, `above`, `below` | yes, except on `humans/faces/tracked` | What a message must show for the trigger to hold. A number is compared as a number, anything else exactly. On `humans/faces/tracked` without them, it holds while a face is in view |
+| `trigger.when` | no | `present` (the default): it holds, and has held for `for`. `appears`: it holds where it did not just before, once each time. `leaves` and `changes` are refused for now |
+| `trigger.for` | no | It has held this long |
+| `trigger.gap` | no | A dropout shorter than this does not break `for` |
+| `trigger.absent_for` | no | `appears` only: at least this long before, it did not hold. At the program's start nothing has been away: someone there at the first message is not greeted |
+| `trigger.rearm` | no | `leaves` or `ends`, which mean the same: once each time it holds, and again only after it stopped. Without it, `present` runs at every message once `for` has passed, as often as `cooldown` lets it |
+| `trigger.cooldown` | no | Not again within this long of the last run. A run the Policy refused does not count |
+| `[[while]]` | no | Conditions that must also hold, all of them, on the newest value of each topic while that value lasts: a `topic` with `field` and one of `equals`, `above` or `below`, or `humans/faces/tracked` with `present = true` |
+| `[ask] policy` | yes | The Policy's question asked before anything is done *(chosen: required, since every trigger is something the lamp starts itself)* |
+| `[[do]]` | at least one | The steps, in order. Within one table: body, then light, then say |
+| `do.body.look_at` | no | Only `"face"`. The largest face in view goes to the body's `gaze.sock` as the eyes send one (`{"face":{"x","y","size","turned":0}}`) |
+| `do.body.gesture` | no | One of the body's six gestures (`nod`, `headshake`, `greeting`, `laugh`, `shy`, `stretching`), sent to `mood.sock` as `{"gesture":NAME}` |
+| `do.light` | no | A file in `lights/`, written as its name, or a table in place. A file `lights/NAME.toml` holds the same keys. `{ colour, level, for }` asks the actions part for `light_colour`. *Not carried out yet:* `level` (1 to 5) and `for`. `{ dim = N, until = "ends" }` asks for `light_dimmer` N times. *Not carried out yet:* `until` |
+| `do.say` | no | A note for the voice to say in its own words. A stub until the voice's say service (#939) |
+
+A duration is a whole number and one of `ms`, `s`, `m` or `h` (`"5m"`).
+
+The ask is the only gate. The runtime adds no conditions of its own, such as
+the pause or someone speaking: per the design above, the Policy is the one
+gate for everything the lamp starts itself (#939). Until that gate exists, a
+skill that must keep quiet in those cases says so with a `[[while]]`.
+
+**`moves/`, `sounds/`** may exist and are not read. The body plays only its
+six gestures, nothing plays a sound yet, and `body.move` is refused. A
+**`tools`** key in `skill.toml` is refused until `lamp-skills` writes tools
+beside the actions part's `tools.json`. A **`run.py`** refuses the skill,
+because nothing runs it yet.
+
+**`tests/`** has one folder for each case. A case holds the `.jsonl` files
+`lamp-bus record` wrote and an `expect.toml`. The expect file lists, as
+`[[expect]]`, every call the case may make, in order, or says `none = true`:
+
+    [[expect]]
+    at = "600s"                # optional: when, from the case's first message
+    within = "1s"              # optional; without it, exactly
+    call = "body.gaze"         # body.gaze, body.gesture, light or say
+    args = { look_at = "face" }
+
+A call matches when its name is the same and each argument named in `args`
+is the same. Arguments it leaves out are not compared. The arguments the
+runtime gives are:
+
+- `body.gaze`: `look_at`, `x`, `y`, `size`
+- `body.gesture`: `gesture`
+- `light`: `colour`, `level`, `for`, or `dim`, `until`
+- `say`: `note`
+
+A case is replayed in the program, not on a bus. Every message of every file
+goes in the order of its `at_us` (the publisher's clock), with the ask
+skipped. Any call not listed fails the case. A case with no recording yet is
+counted and not run.
+
+`lamp-skills test SKILL_DIR` loads a skill and runs its cases.
+`cargo test -p lamp-skills` loads every folder in `lampOS/skills/` and runs
+its recorded cases, so CI checks every skill. To make a case, record the
+topics while the thing happens, or publish it by hand with
+`lamp-bus pub ... --at-us`. Welcome back's two cases were made that way:
+
+    lamp-bus record skills/welcome-back/tests/CASE humans/faces/tracked --seconds 40 --root R &
+    lamp-bus pub humans/faces/tracked latest '{"faces":[]}' --type lamp_msgs/Faces --at-us 0 --root R
+
 ### `lamp-skills`, a new part
 
 Its own process, its own owner, like every part
@@ -118,6 +206,51 @@ Its own process, its own owner, like every part
   so Jev is the one gate for everything the lamp starts itself;
 - runs the steps by calling the services;
 - publishes `skills/events`: triggered, asked, answered, done, with why.
+
+As built on 2026-10-16 (#938, `crates/skills`, not yet run on a lamp):
+
+    lamp-skills [--dir DIR] [--bus-root DIR] [--gaze-socket PATH] [--mood-socket PATH] [--actions-socket PATH]
+    lamp-skills test SKILL_DIR...
+
+- It loads every folder in `--dir` (`/var/lib/lampOS/skills`), looks at the
+  folder every two seconds, and loads them all again when a file other
+  than a test changed. Cooldowns are kept across a reload.
+- It subscribes once to each topic that a trigger or a `[[while]]` names,
+  and keeps each topic's newest value. Time comes from its own monotonic
+  clock, read when a message arrives.
+- **The ask.** The Policy's gate is not built yet (#939). With
+  `LAMP_SKILLS_ASK=skip` it answers yes without asking; without it every
+  run is answered no and nothing is done. `answered` says which.
+- **The steps.** `look_at` and `gesture` are datagrams to the body's
+  `gaze.sock` and `mood.sock` (default `/run/lampos-body/`), never waited
+  for. `light` is a `light_colour` call (or `light_dimmer` calls) to the
+  actions part's `call.sock` (default `/run/lampos-actions/call.sock`). Each
+  call is waited for up to two seconds. `say` is a stub: nothing is
+  spoken.
+- `done` says how each step went: `look at the face: told the body`,
+  `light warm: done`, `say: a stub, nothing spoken (...)`, or why not.
+
+Off unless installed: `deploy/units/lamp-skills.service` is a template no
+lamp's folder carries. Nothing in the voice changed: the voice's own hello
+(`speak_up.rs`, Arrival) still greets where it is switched on, and two
+hellos would come on a lamp that ran both.
+
+What is not done, and why:
+
+- **No say service.** Until the voice has one (#939), Welcome back looks and
+  warms the light and says nothing.
+- **The look is one sight.** The body's gaze takes a sight only while the
+  lamp listens or speaks, three in a row, so one datagram does not turn the
+  head by itself; with the eyes' own stream it turns as the hello is
+  spoken. A move the body plays on request is Third's (move files).
+- **The light stays warm.** `light_colour` is the same call a person's "make
+  it warm" makes; nothing gives the light back after the hello. A request
+  that lapses is Third's arbitration.
+- **Arrival's other rules are not in the skill**: a face nearer than 0.14 of
+  the picture's height, there for three seconds, and nothing said for half
+  a minute. The doc's example has none of them; Welcome back follows the
+  example. `for = "3s"` exists for the second; the others need a condition
+  that does not exist yet.
 
 ### Four additions to V2
 

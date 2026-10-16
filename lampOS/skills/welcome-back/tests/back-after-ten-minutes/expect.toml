@@ -1,0 +1,31 @@
+# Nobody for ten minutes, then someone (two faces; the larger is looked at):
+# a hello at 600 s. Away 100 s at 700-760 s: nothing. Away again 1,000-1,400 s
+# but within the cooldown: nothing. Away 2,000-2,400 s: a hello at 2,400 s.
+[[expect]]
+at = "600s"
+call = "body.gaze"
+args = { look_at = "face", x = 0.0, y = -0.25, size = 0.25 }
+
+[[expect]]
+at = "600s"
+call = "light"
+args = { colour = "warm" }
+
+[[expect]]
+at = "600s"
+call = "say"
+args = { note = "They are back at their desk. Greet them in one short line, by name if you know it." }
+
+[[expect]]
+at = "2400s"
+call = "body.gaze"
+args = { look_at = "face", x = 0.5, y = 0.25, size = 0.25 }
+
+[[expect]]
+at = "2400s"
+call = "light"
+args = { colour = "warm" }
+
+[[expect]]
+at = "2400s"
+call = "say"

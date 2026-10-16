@@ -514,6 +514,18 @@ in the tasks part and are read from its socket only when the lamp will speak
 holds every task, so a subscriber that starts late has them all. Without
 `--progress` the topic is never made.
 
+## Optional skills topic (seventh builder, 2026-10-16)
+
+| Topic | Kind | Published by | Intended reader |
+|---|---|---|---|
+| `skills/events` | event, no period, no lifespan | `lamp-skills` | People and the lamp's app: what each physical skill did and why ([skills.md](skills.md)) |
+
+The [`SkillEvent` message](msgs.md#the-skills-contract) says one stage of a
+run: triggered, asked, answered (with whether it was allowed) and done,
+each with why in words. `lamp-skills` also subscribes to the topics its
+skills' triggers name; Welcome back's is `humans/faces/tracked`. Without
+the service installed the topic is never made.
+
 ## Not shown
 
 Everything in this section was run on one development Mac (x86_64); what

@@ -30,6 +30,13 @@ switches them to a new build ([updates.md](../../docs/updates.md)): its
 `@UPDATE_CHANNEL_URL@` is the channel's folder and `@UPDATE_APPLY@` its
 switch, `off` for its first minute on a lamp and `on` after.
 
+`lamp-skills.service` runs the physical skills ([skills.md](../../docs/skills.md)):
+each skill is a folder copied from `lampOS/skills/` into
+`/var/lib/lampOS/skills/`, readable by `@LAMP_USER@`, and a change there
+reloads within two seconds. No lamp's folder has it yet; copied and enabled,
+it greets with Welcome back. It sets `LAMP_SKILLS_ASK=skip` until the
+Policy's gate exists (#939): without it every skill is refused.
+
 `lamp-body.service` is `Type=notify` with `WatchdogSec=5`: the body says
 when it is ready and that its loop is alive. The others are `Type=simple`
 until each calls the keeper's helper; then each becomes `Type=notify` with

@@ -1,0 +1,29 @@
+# lampOS skills: physical skills, each a folder in /var/lib/lampOS/skills (lampOS/docs/skills.md).
+# Template: replace every @NAME@ (README.md here). Off unless installed and enabled.
+# LAMP_SKILLS_ASK=skip acts without asking the Policy, whose gate is not built yet (#939);
+# without it every skill is asked about and refused, and nothing is done.
+# Type=simple until it calls the keeper's helper.
+[Unit]
+Description=lampOS skills (lamp-skills)
+ConditionHost=@UNIT_ID@
+PartOf=lampos.target
+After=local-fs.target lamp-body.service lamp-actions.service
+StartLimitIntervalSec=600
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=@LAMP_USER@
+Group=@LAMP_USER@
+Slice=lampos-parts.slice
+Nice=10
+Environment=LAMP_SKILLS_ASK=skip
+ExecStart=/opt/lampOS/skills/@SKILLS_SHA256@/lamp-skills --dir /var/lib/lampOS/skills --bus-root /run/lampos-bus --gaze-socket /run/lampos-body/gaze.sock --mood-socket /run/lampos-body/mood.sock --actions-socket @ACTIONS_DIR@/call.sock
+Restart=on-failure
+RestartSec=5s
+StandardInput=null
+SyslogIdentifier=lamp-skills
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=lampos.target

@@ -1,0 +1,15 @@
+needs = ["eyes", "voice", "body", "light"]
+
+[[trigger]]
+topic = "humans/faces/tracked"
+when = "appears"            # a face where there was none
+absent_for = "5m"           # after at least five minutes with nobody
+cooldown = "20m"
+
+[ask]                       # anything the lamp starts itself asks the Policy first
+policy = "hello"
+
+[[do]]
+body = { look_at = "face" }
+light = "warm_glow"
+say = "They are back at their desk. Greet them in one short line, by name if you know it."

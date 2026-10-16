@@ -605,6 +605,13 @@ pub fn run(
 }
 
 /// What [`run`] is given to read the board with on a lamp.
+/// It keeps a [`board::Watch`]: how long the processors have been held
+/// back, and which processes used them since the last reading.
 pub fn board_reader(places: board::Places) -> impl FnMut() -> Reading {
-    move || board::read(&places)
+    let mut watch = board::Watch::default();
+    move || {
+        let mut reading = board::read(&places);
+        watch.observe(&mut reading, Instant::now());
+        reading
+    }
 }

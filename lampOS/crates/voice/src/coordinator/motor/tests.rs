@@ -459,12 +459,27 @@ fn preflight(executable: &Path, timeout: Duration) -> io::Result<()> {
     use std::process::{Command as ProcessCommand, Stdio};
 
     let until = Instant::now() + timeout;
-    let mut child = ProcessCommand::new(executable)
-        .arg("--fixture-preflight")
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .spawn()?;
+    // The frozen copy was written and closed just now, but a sibling test's
+    // fork in that moment holds a duplicate of its write descriptor until that
+    // child's own exec, so this exec can fail with ETXTBSY (#887's family).
+    // Retry within the same preflight deadline; any other error is final.
+    let mut child = loop {
+        match ProcessCommand::new(executable)
+            .arg("--fixture-preflight")
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+        {
+            Ok(child) => break child,
+            Err(error)
+                if error.kind() == io::ErrorKind::ExecutableFileBusy && Instant::now() < until =>
+            {
+                std::thread::sleep(Duration::from_millis(5));
+            }
+            Err(error) => return Err(error),
+        }
+    };
     let result = (|| {
         let mut output = child.stdout.take().expect("piped preflight marker");
         let flags = rustix::fs::fcntl_getfl(&output)?;

@@ -616,6 +616,30 @@ async fn not_for_me_written_as_words_ends_the_turn_in_silence() {
     );
 }
 
+/// A look on this route, which has no picture to give, tells the model it
+/// saw nothing, never the words that asked it to describe one (#1044).
+#[tokio::test]
+async fn a_look_without_a_picture_tells_the_model_it_saw_nothing() {
+    let script = Arc::new(Script {
+        chats: Mutex::new([vec![text("My eye is shut."), Ok(ChatEvent::Done)]].into()),
+        ..Script::default()
+    });
+    let (mut engine, _, _) = scripted(script.clone());
+    engine.submit(ProviderInput::Written {
+        request: 1,
+        session: 1,
+        privacy_generation: 1,
+        text: crate::speak_up::LOOK_FULL_NOTE.into(),
+        look: true,
+    });
+    turn(&mut engine).await;
+    let asked = script.asked.lock().unwrap();
+    assert_eq!(
+        asked[0].last(),
+        Some(&Message::user(crate::speak_up::NO_LOOK_NOTE))
+    );
+}
+
 #[tokio::test]
 async fn nothing_heard_is_a_quiet_complete_turn() {
     let script = Arc::new(Script {

@@ -561,7 +561,7 @@ Reported by the builders:
 
 - **Facts not told:** the worker accepts the Gemini worker's flags, but
   sight, `look`, the camera and air facts are not told to the text
-  model. A written turn's `look` is ignored. With `LAMP_SESSION_FACT`
+  model. A written turn with `look` (the lamp taking a look) is sent with the Live route's no-look note in place of its words (`speak_up::NO_LOOK_NOTE`): the model is told it saw nothing, never left to describe a picture it was not given. With `LAMP_SESSION_FACT`
   and `LAMP_ROOM_FACTS` on, each turn's system message carries the facts a
   Live session is told, in its words, after the memory note and before the
   thread's recall: the session fact when no conversation is going on, and

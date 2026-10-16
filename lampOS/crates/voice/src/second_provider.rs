@@ -402,12 +402,24 @@ impl Engine {
                 request,
                 session,
                 text,
+                look,
                 ..
             } => {
-                // `look` is ignored: this route has no eyes yet.
                 if !self.begin(request, session) {
                     return;
                 }
+                // The lamp taking a look: this route has no picture to give
+                // the model, so it is told it saw nothing, as the Live route
+                // tells it with its eyes shut, and never left to describe a
+                // picture it was not given (sixth-P2, #1044).
+                let text = if look {
+                    eprintln!(
+                        "lamp-voice second: the lamp looked: no picture with request {request}: this route takes none"
+                    );
+                    crate::speak_up::NO_LOOK_NOTE.to_owned()
+                } else {
+                    text
+                };
                 let shared = self.shared.clone();
                 let task = tokio::spawn(async move { answer(&shared, request, text, false).await });
                 self.turn = Some(Turn {

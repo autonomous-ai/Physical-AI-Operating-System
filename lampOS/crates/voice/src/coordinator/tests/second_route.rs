@@ -75,6 +75,8 @@ struct Script {
     live: Vec<Live>,
     /// Packets in each of the second route's answers.
     second_packets: usize,
+    /// The second route's answers open with these words.
+    second_says: Option<&'static str>,
     /// Speech starts again (a new turn, or speaking over an answer).
     speak_again: Option<When>,
     /// Privacy reports muted once this many turns are settled.
@@ -109,6 +111,7 @@ impl Script {
             second: true,
             live: vec![live],
             second_packets: 12,
+            second_says: None,
             speak_again: None,
             turns: 1,
             live_back_after: None,
@@ -615,6 +618,15 @@ impl Peers {
                 ProviderInput::End { request, .. } => {
                     self.ended.insert(request);
                     if !live {
+                        if let Some(text) = self.script.second_says {
+                            self.peers[index]
+                                .queued
+                                .push_back(ProviderOutput::Transcript {
+                                    request: Some(request),
+                                    text: text.into(),
+                                    finished: true,
+                                });
+                        }
                         self.audio(index, request, self.script.second_packets, SECOND);
                         self.finish(index, request);
                         continue;
@@ -1113,6 +1125,45 @@ fn a_tool_s_look_on_an_unsaid_unclear_or_handed_over_turn_asks_the_eyes_nothing(
             .collect();
         assert_eq!(dropped, [*why], "{live:?}");
     }
+}
+
+/// The reviewer's 01:57 P3 on #1172: once a tool's look is dropped because
+/// the second route took its turn, the second route's own "Let me take a
+/// look." on that turn asks for its own look.
+#[test]
+fn the_second_route_s_own_phrase_asks_its_look_after_the_tool_s_is_dropped() {
+    let _one = super::pilot_faults::one_session();
+    let still = std::env::temp_dir().join(format!(
+        "lamp-voice-loop-look-second-{}.jpg",
+        std::process::id()
+    ));
+    TEST_FULL_LOOK.with(|look| *look.borrow_mut() = Some(still));
+    let run = run(Script {
+        second_says: Some("Let me take a look."),
+        ..Script::question(Live::LookFail(Fault::RateLimited, 6))
+    });
+    TEST_FULL_LOOK.with(|look| *look.borrow_mut() = None);
+    let asked: Vec<_> = run
+        .trace
+        .iter()
+        .filter(|e| e["kind"] == "look_asked")
+        .map(|e| (e["turn"].as_u64(), e["by"].as_str()))
+        .collect();
+    assert_eq!(asked, [(Some(1), Some("tool")), (Some(1), None)]);
+    let dropped: Vec<_> = run
+        .trace
+        .iter()
+        .filter(|e| e["kind"] == "look_dropped")
+        .map(|e| e["by"].as_str().unwrap())
+        .collect();
+    assert_eq!(dropped, ["tool"]);
+    assert_eq!(
+        run.trace
+            .iter()
+            .filter(|e| e["kind"] == "look_full_asked")
+            .count(),
+        1
+    );
 }
 
 #[test]

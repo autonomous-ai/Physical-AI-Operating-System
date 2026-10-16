@@ -1,10 +1,17 @@
 //! Consumer -> typed bus/private Get -> real claim IPC -> actual coordinator
 //! turn -> real speaker control -> durable completion -> Schedule Ack.
 //! The provider PCM and speaker receipts are authored, not acoustic evidence.
+//! Each test runs under the stepped scenario clock (`crate::scenario_clock`):
+//! no logical time passes inside a consumer tick, so the durable ledger and
+//! Schedule commits a tick makes cannot spend its 250 ms socket budget on a
+//! busy host's disk (lampOS#935). The budget itself is the consumer tests'.
 use super::*;
 use crate::reminders::{RoundtripFixture, ToWorker};
 use lamp_audio::ownership::PlaybackCursor;
 use lamp_schedule::delivery::{PreparedToken, Resolution};
+
+/// A host safety net only: no logical time passes in these tests.
+const WATCHDOG: Duration = Duration::from_secs(24);
 
 struct Speaker {
     channels: WorkerChannels,
@@ -33,9 +40,12 @@ struct Test {
     cloud: CloudAvailability,
     sequence: u64,
     cursor: u64,
+    // Last, so the fixture and its consumer drop while the clock is scoped.
+    _clock: crate::scenario_clock::Scope,
 }
 impl Test {
     fn new() -> Self {
+        let clock = crate::scenario_clock::Scope::enter(WATCHDOG).unwrap();
         let mut fixture = RoundtripFixture::new();
         let offer = fixture.offer();
         let token = offer.token.clone();
@@ -123,6 +133,7 @@ impl Test {
             cloud,
             sequence: 0,
             cursor: 0,
+            _clock: clock,
         }
     }
 

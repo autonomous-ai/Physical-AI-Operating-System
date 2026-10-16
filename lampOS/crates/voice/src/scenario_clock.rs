@@ -141,6 +141,12 @@ pub(crate) fn monotonic_us() -> u64 {
     })
 }
 
+/// The active scope's real host watchdog, which bounds blocking host I/O that
+/// a scoped protocol budget would otherwise measure on the host clock.
+pub(crate) fn host_deadline() -> Option<Instant> {
+    ACTIVE.with(|active| active.borrow().as_ref().map(|state| state.host_deadline))
+}
+
 pub(crate) fn instant() -> Instant {
     ACTIVE.with(|active| {
         active

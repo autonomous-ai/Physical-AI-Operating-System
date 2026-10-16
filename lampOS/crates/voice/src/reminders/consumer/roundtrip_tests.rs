@@ -1,6 +1,8 @@
 //! Test-only bridge from the actual durable consumer to the actual parent IPC
 //! manager. The coordinator suite supplies its own real Reply and receipts.
 //! No completion proof is constructed here and no audio device is opened.
+//! Its times come from `crate::scenario_clock`, so a coordinator test that
+//! enters a scope runs the consumer, the parent and this fixture on one clock.
 use super::*;
 use crate::reminders::{Reminders, transport};
 use lamp_bus::Publisher;
@@ -230,7 +232,7 @@ impl RoundtripFixture {
             failed: false,
         });
         self.worker = Some(worker);
-        self.parent().poll(lamp_ipc::monotonic_us());
+        self.parent().poll(monotonic_us());
         assert!(self.parent().transport.claim_held());
         assert!(!self.parent().failed);
     }
@@ -243,7 +245,7 @@ impl RoundtripFixture {
     /// serialized datagrams. It never drains a parent completion implicitly.
     pub(crate) fn tick(&mut self) {
         self.sequence += 1;
-        let now = lamp_ipc::monotonic_us();
+        let now = monotonic_us();
         let report = self.schedule.as_ref().unwrap().engine.lock().unwrap().due(
             &clock(),
             ClockStamp {
@@ -260,7 +262,7 @@ impl RoundtripFixture {
             .unwrap();
         let due = self
             .freshness
-            .read(&self.bus, CLOCK, lamp_ipc::monotonic_us())
+            .read(&self.bus, CLOCK, monotonic_us())
             .unwrap();
         let path = self.schedule.as_ref().unwrap().socket.clone();
         self.consumer
@@ -278,21 +280,21 @@ impl RoundtripFixture {
             }
             assert!(self.worker.as_mut().unwrap().send(&message).unwrap());
         }
-        self.parent().poll(lamp_ipc::monotonic_us());
+        self.parent().poll(monotonic_us());
         assert!(!self.parent().failed);
     }
 
     pub(crate) fn offer(&mut self) -> Offer {
         self.tick();
         self.parent()
-            .offer(lamp_ipc::monotonic_us())
+            .offer(monotonic_us())
             .expect("fresh durable offer")
     }
 
     /// A real manager packet is applied to the durable consumer before the
     /// returned Settled message is allowed to clear the parent's active slot.
     pub(crate) fn settle_parent(&mut self) -> usize {
-        self.parent().poll(lamp_ipc::monotonic_us());
+        self.parent().poll(monotonic_us());
         let mut count = 0;
         for _ in 0..QUEUE {
             let Some(command) = self.worker.as_mut().unwrap().receive::<ToWorker>().unwrap() else {
@@ -302,7 +304,7 @@ impl RoundtripFixture {
             self.consumer
                 .as_mut()
                 .unwrap()
-                .command(command, lamp_ipc::monotonic_us())
+                .command(command, monotonic_us())
                 .unwrap();
             count += 1;
         }

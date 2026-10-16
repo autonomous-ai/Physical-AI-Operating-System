@@ -1074,6 +1074,8 @@ fn run_until_error(
 /// What one run of the loop left.
 struct Ran {
     error: String,
+    /// When the loop ended, on the clock it ran on.
+    ended_us: u64,
     trace: SessionState,
     left: Option<Reply>,
     told: Vec<Snapshot>,
@@ -1326,6 +1328,7 @@ fn run_loop_with(
         &mut None,
     )
     .unwrap_err();
+    let ended_us = monotonic_us();
     let message = error.to_string();
     running.store(false, Ordering::Release);
     while drained.load(Ordering::Acquire) < threads.len() {
@@ -1373,6 +1376,7 @@ fn run_loop_with(
     fs::remove_dir(&directory.path).unwrap();
     Ran {
         error: message,
+        ended_us,
         trace,
         left,
         told,
@@ -1454,6 +1458,33 @@ fn quiet_owner() -> Controller {
 /// A tap whose last step is 20 ms old when the loop first polls it.
 fn head_tap() -> HandControls {
     HandControls::with_test_tap("test-hand-clock", monotonic_us() - 420_000).unwrap()
+}
+
+/// The reviewer on #1222: nothing pinned that a privacy worker that never
+/// says anything ends the loop once its freshness (`PRIVACY_FRESH_US`) has
+/// passed, and not before. Stepped, so the time the loop ran is its own:
+/// a host stall neither ends it early nor keeps it going.
+#[test]
+fn a_silent_privacy_worker_ends_the_loop_once_its_freshness_has_passed() {
+    let started = std::cell::Cell::new(0);
+    let ran = run_loop_with(
+        head_tap,
+        || {
+            started.set(monotonic_us());
+            (quiet_owner(), None)
+        },
+        false,
+        Clocking::Stepped,
+    );
+    assert!(
+        ran.error
+            .contains("physical privacy unavailable; not a user mute"),
+        "{}",
+        ran.error
+    );
+    let ran_us = ran.ended_us - started.get();
+    let fresh = crate::privacy::PRIVACY_FRESH_US;
+    assert!((fresh..fresh + 10_000).contains(&ran_us), "ran {ran_us} us");
 }
 
 #[test]

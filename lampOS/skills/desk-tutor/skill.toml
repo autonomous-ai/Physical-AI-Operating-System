@@ -9,10 +9,11 @@ tool = "check_my_work"
 # The page lit bright and white while they work through the hint; their
 # own light comes back after.
 light = { colour = "white", level = 5, for = "2m" }
-# The head comes down over the page on the desk while the model looks
-# (#1011's reading pose, held 20 s, then the lamp comes back up). A call
-# again while the light is on holds it again for the new look.
-body = { mood = "reading", for = "20s" }
+# The head comes down over the page on the desk while the model looks,
+# and stays over it as long as the page is lit (#1011's reading pose, held
+# 2 min, then the lamp comes back up): a follow-up within it is still over
+# the page. A call again holds it again for the new look.
+body = { mood = "reading", for = "2m" }
 # One full look at the page: the model says "Let me take a look." and the
 # voice hands it the picture.
 look = true

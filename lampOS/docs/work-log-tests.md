@@ -1,5 +1,23 @@
 # Tests work log
 
+## 2026-10-17 02:46:36 +0700 — #1131 and #1186 merged; #1187 and #1190 ready; two flaky tests found
+
+Ready for lamp-voice: yes (#1187, #1190)
+
+**Merged:**
+- #1131 at 02:06 (14 provider-worker tests on one logical clock; twelve's second review had no finding). `LiveRig::tick` keeps each loop's old wait without a scope.
+- #1186 at 02:22 (#1185).
+
+**Flaky tests found tonight, both invisible on ARM64 (nextest gives each test its own process) and red in builders' local `cargo test`:**
+- **#1185:** `say::a_skill_sound_is_refused_while_a_reply_or_a_candidate_is_open` (seventh's #1144) failed 12 of 60 runs alone. It took the speech's time a microsecond before issuing the authority, which then was not yet current. Fixed by #1186: 0 of 100.
+- **#1181:** `spoken_to`'s `after_a_line_answered_by` cases shared one `Desk` bus and the process's conversation. On `lamp-voice` `36b872d1c`, `provider_worker::` at 8 threads failed 10 of 10. Fourth's #1148 fixed the conversation part first (`ONE_THREAD` in `OwnRoom`, from the eighth's report). My #1183 is closed as its duplicate; on `00080a35e`, 8 of 8 passed.
+
+**#1160:** fourth first thought a late voice print could hold a line on a lamp, then corrected it (02:25). The failing run had `going_on` false at request 2's verdict, because the worker had not yet recorded the call's answer, an order only the test's pace decides. #1187 runs the scene on the logical clock. It went ready with its description, title, commit message and code comment corrected to fourth's reading.
+
+**#1190 (#823):** the review pair waits its four seconds on the logical clock: 9.7 s → 0.7 s on the Mac, 0.037 and 0.033 s on ARM64. Both leave the group. Other workers still read the hearing as four seconds old, because a worker dates it from its own clock. Three full lib runs in one process passed 1,490 of 1,490. It also carries the reviewer's wording point from #1169.
+
+**Mistakes:** "#1190" was written on #1160 before the pull request existed (it was #1187), corrected there. It was the third such number in two days; the memory rule now covers issue and PR numbers.
+
 ## 2026-10-16 23:18:05 +0700 — pilot_faults out of the group; a correction on #1160
 
 Ready for lamp-voice: no (#1169, waiting for its run; #1131, held for #1160)

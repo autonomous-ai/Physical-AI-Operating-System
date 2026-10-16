@@ -636,9 +636,9 @@ item's own words as data, never to count seconds, and not to call it a
 reminder or a timer unless its words do. Late by under three minutes it is
 said as on time (Schedule marks anything over one second `late`; a creature
 does not). Later, the delay is named once, plainly and with a short apology,
-in rounded words: `about 7 minutes`, `about 12 hours`, `about 3 days`. Late
-with no delay known (recovered after time off), it is said as late without
-one (`provider_worker/reminder_policy.rs`).
+in rounded words: `about 7 minutes`, `about 12 hours`, `about 3 days`
+(`provider_worker/reminder_policy.rs`). With no delay known it is never said
+as on time: it waits and is said as an overdue one is (below).
 
 A reminder due an hour or more ago (`reminders::OVERDUE_MS`), or due by an
 amount Schedule cannot give (no `late_by_ms` while the wall clock is not yet
@@ -648,11 +648,16 @@ presence file says so, or something speech-long was heard within the last
 two minutes (a TV counts, as it does for the news). While it waits it holds
 no skill's ask. It is then said once, gently, as something asked for
 earlier ("You'd asked me to remind you to stretch, earlier."), with no delay
-named, and acknowledged as any other. While it waits the voice says once for each attempt (again after a
-withdraw and retry),
-`lamp-voice: a reminder due over an hour ago waits for someone at the lamp`.
+named, and acknowledged as any other. While it waits the voice says once
+for each attempt (again after a withdraw and retry),
+`lamp-voice: a reminder due over an hour ago, or by an unknown amount, waits for someone at the lamp`.
 The consumer offers its oldest due item first, so newer due work waits
-behind it until someone comes.
+behind it until someone comes. A timer or reminder set by voice is not held
+by this: asking for it is speech, which opens the two-minute window, so the
+overdue one is said in the first quiet second after the lamp answers, and the
+new one is not behind it when it comes due. Only an item set without
+speaking (from an app, or an agent's `schedule` call) can wait behind an
+overdue one while nobody is seen or heard (Nine and the reviewer on #1103).
 
 Admission requires current microphone retention/privacy, ready provider, no
 reply, queued input, speaker receipt or draining/prospective utterance, and one

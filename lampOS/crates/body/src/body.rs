@@ -3201,11 +3201,10 @@ fn run_until_stopped(
                     // rise, would fold it under the gesture.
                     let needed = begins + GESTURE_WAIT + Duration::from_micros(clip.duration_us());
                     awake_until = awake_until.max(Some(needed));
-                    // One it replaces keeps the window from before both.
-                    let before = match earlier {
-                        Some((old, _)) if from_outside(old) => {
-                            pending_window.map_or(window_before_ask, |(before, _)| before)
-                        }
+                    // One asked while an earlier one's window still stands,
+                    // played or replaced, keeps the window from before both.
+                    let before = match pending_window {
+                        Some((b, opened)) if opened == window_before_ask => b,
                         _ => window_before_ask,
                     };
                     pending_window = Some((before, awake_until));

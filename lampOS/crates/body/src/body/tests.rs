@@ -5695,3 +5695,55 @@ fn shifts_at_rest_and_the_call_are_not_from_outside() {
     assert!(!from_outside(&clips::CALLED));
     assert!(from_outside(&clips::NOD));
 }
+
+/// A second gesture taken after the first has ended (fifth's P3 on #1080):
+/// a pause while it plays still gives back the window from before both, so
+/// the lamp folds once it ends instead of staying up for the nod's window.
+#[test]
+fn a_pause_during_a_second_gesture_after_the_first_ended_still_folds() {
+    let mut asked = (false, false);
+    let (report, fates, steps) = skill_run(
+        30,
+        standing(100, 90),
+        gesture_limits(),
+        |_| {},
+        || Some((Mood::Resting, 0)),
+        move |now| {
+            if now >= Duration::from_secs(14) {
+                return Asked::PAUSED;
+            }
+            let nod = !asked.0 && now >= Duration::from_secs(1);
+            asked.0 |= nod;
+            let shy = !asked.1 && now >= Duration::from_secs(11);
+            asked.1 |= shy;
+            Asked {
+                gesture: if nod {
+                    Some(&crate::clips::NOD)
+                } else {
+                    shy.then_some(&crate::clips::SHY)
+                },
+                ..Asked::default()
+            }
+        },
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!(report.gestures, 2, "{report:?}");
+    assert_eq!(
+        fates,
+        [
+            ("nod", "taken: it was folded and stood up for it"),
+            ("shy", "taken: it plays"),
+        ]
+    );
+    let shy: Vec<_> = steps.iter().filter(|s| s.2 == Some("shy")).collect();
+    assert!(
+        shy.iter().any(|s| s.0 >= Duration::from_secs(14)),
+        "{shy:?}"
+    );
+    assert!(
+        steps
+            .iter()
+            .filter(|s| s.0 >= Duration::from_secs(22))
+            .all(|s| s.1 == 0.0)
+    );
+}

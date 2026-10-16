@@ -251,8 +251,10 @@ impl<G: PinReader, S: StripReader> Service<G, S> {
     fn gpio_fault(&mut self, now_us: u64, fault: ControlFault) {
         self.record(now_us, Input::GpioFault { fault });
         self.engine.gpio_fault(now_us, fault);
+        // As for a sample: a legacy engine with the button or the head pads
+        // (`legacy_head`) reads GPIO, so it hears the fault too.
         if let Some(primary) = &mut self.primary
-            && primary.name.is_some()
+            && (primary.name.is_some() || primary.head)
         {
             primary.engine.input_fault(now_us, fault);
         }

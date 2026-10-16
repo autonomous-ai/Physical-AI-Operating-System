@@ -419,6 +419,7 @@ fn shutdown_after_unreadable(
         endpoint: None,
         call_wait_blocks: None,
         cut_keeps_name: false,
+        asker_first: crate::asker_first::Mode::Off,
         paused: Box::new(|| false),
     };
     let (mut controller, _, _) = active_reply();

@@ -757,7 +757,10 @@ The existing 32 MiB total, 100,000-record, 16 KiB-line and ten-minute limits sti
 apply. Replays open no GPIO, audio, I2C or Bus. Selected ordinary touch replay
 adds an optional `controls` state beside its existing touch output; privacy-only
 touch replay emits the ordinary Controls replay frames. Off output omits these
-additions.
+additions. That replayed `controls` state models the button alone: a recording
+from pins with `legacy_head` (the product's) replays with no `head_active` and
+no head `Pet` there, though the live `controls/state` has both (the reviewer on
+#795).
 
 The `privacy-*.json*` fixtures are authored host scenarios, not lamp captures:
 

@@ -144,19 +144,16 @@ impl Rig {
     }
 
     fn with(enabled: bool, wiring: TouchPinsConfig) -> Self {
+        Self::with_config(config(enabled), wiring)
+    }
+
+    fn with_config(config: Config, wiring: TouchPinsConfig) -> Self {
         let root = Root::new();
         let bus = Bus::new(&root.0).unwrap().rescan_every(Duration::ZERO);
         let gpio = Gpio::default();
         let strip = Strip::default();
-        let service = Service::new(
-            &bus,
-            config(enabled),
-            wiring,
-            gpio.clone(),
-            strip.clone(),
-            CLOCK,
-        )
-        .unwrap();
+        let service =
+            Service::new(&bus, config, wiring, gpio.clone(), strip.clone(), CLOCK).unwrap();
         Self {
             service,
             bus,
@@ -618,6 +615,60 @@ fn with_legacy_head_a_pat_is_still_the_old_engines_pet() {
     }
     assert!(plain_gestures.recv(Duration::ZERO).unwrap().is_none());
     assert_eq!(plain.legacy().event_sequence, 0);
+}
+
+/// The reviewer on #795: a legacy engine with only the head pads
+/// (`legacy_head`, no button) hears a GPIO read fault as one with the
+/// button does, so its `controls/state` says the hand cannot be read, not
+/// only that it went stale later.
+#[test]
+fn a_head_only_legacy_engine_hears_a_gpio_read_fault() {
+    let wiring = TouchPinsConfig {
+        buttons: vec![],
+        base: None,
+        legacy_head: true,
+        ..wiring()
+    };
+    let config = Config {
+        enabled: true,
+        buttons: vec![],
+        head_pads: vec!["head".into()],
+        base_selected_mask: None,
+    };
+    let mut rig = Rig::with_config(config, wiring);
+    for at in (0..=200_000).step_by(20_000) {
+        rig.gpio_sequence += 1;
+        let sample = Observation {
+            stamp: ClockStamp {
+                clock_id: CLOCK.into(),
+                at_us: at,
+                sequence: rig.gpio_sequence,
+            },
+            session_id: "gpio-reader".into(),
+            buttons: vec![PinLevel {
+                name: "reset".into(),
+                active: false,
+            }],
+            head_pads: vec![PinLevel {
+                name: "head".into(),
+                active: false,
+            }],
+            base_mask: None,
+        };
+        rig.gpio.values.borrow_mut().push_back(Ok(sample));
+        rig.step(at);
+    }
+    assert!(rig.legacy().ready);
+    rig.gpio
+        .values
+        .borrow_mut()
+        .push_back(Err(InputError::new(ControlFault::Missing, "GPIO lost")));
+    for at in [220_000, 240_000, 340_000] {
+        rig.step(at);
+    }
+    let state = rig.legacy();
+    assert!(!state.ready);
+    assert_eq!(state.fault, Some(ControlFault::Missing));
 }
 
 #[test]

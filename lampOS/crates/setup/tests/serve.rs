@@ -347,8 +347,10 @@ fn fixture(text: &str) -> Config {
 }
 
 /// The product's pair (#1016, install.md): the own page's settings and the
-/// product reset plan agree on the marker, and every file setup saves is
-/// one the reset wipes, so a reset leaves nothing of the person setup took.
+/// product reset plan agree on the marker, and the person's name setup saves
+/// is one the reset wipes. The time zone setup writes (`/etc/localtime`,
+/// `/etc/timezone`) is kept: it is where the lamp is, not who had it (the
+/// fifth on #1016).
 #[test]
 fn the_own_page_and_the_product_plan_agree_on_what_setup_saves() {
     let own = fixture(include_str!("../fixtures/serve-own-page.json"));

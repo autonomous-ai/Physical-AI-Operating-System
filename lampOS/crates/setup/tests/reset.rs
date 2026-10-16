@@ -286,12 +286,16 @@ fn a_plan_never_wipes_software_system_or_shallow_paths() {
 /// Every store of the person's that a part keeps, as lamp-4ace's units set
 /// it or as the part's own default has it. A part that adds a store adds it
 /// here and to the plan.
-const PERSON_STORES: [&str; 14] = [
+const PERSON_STORES: [&str; 15] = [
     // lamp-4ace's units.
     "/var/lib/lampos-memory",
     "/var/lib/lampos-eyes/people.json",
     "/var/lib/lampos-tasks/store",
     "/var/lib/lampos-tasks/targets.json",
+    // Harness's sign-in under the tasks part's HOME (the fifth on #1016):
+    // the previous owner's pairing never stays. Only that, not the folder,
+    // so the Harness service `install` set up at boot is kept (Nine, #934).
+    "/var/lib/lampos-tasks/.harness",
     "/var/lib/lampos-schedule/store",
     "/var/lib/lampos-policy",
     "/var/lib/lampOS/voice/sessions",

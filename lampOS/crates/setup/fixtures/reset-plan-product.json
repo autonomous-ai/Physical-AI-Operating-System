@@ -6,6 +6,7 @@
     "/var/lib/lampos-eyes/people.json",
     "/var/lib/lampos-tasks/store",
     "/var/lib/lampos-tasks/targets.json",
+    "/var/lib/lampos-tasks/.harness",
     "/var/lib/lampos-schedule/store",
     "/var/lib/lampos-policy",
     "/var/lib/lampOS/voice/sessions",

@@ -105,8 +105,10 @@ targets), schedule `/var/lib/lampos-schedule/store`, voice sessions
 `/run/lampos-voice/thread.json`, the voice's first-output log
 `/var/lib/lampOS/voice/first-output`, what the voice has told of tasks
 `/var/lib/lampOS/voice/tasks-told` (its default, `LAMP_TASKS_TOLD`), the
-policy's log `/var/lib/lampos-policy`, the name, the Wi-Fi configuration and
-the setup marker. Kept: the software, its releases, the update key, the
+policy's log `/var/lib/lampos-policy`, Harness's sign-in under the tasks
+part's home (`/var/lib/lampos-tasks/.harness`, the previous owner's pairing;
+only that, so the Harness service `install` set up stays, #934), the name,
+the Wi-Fi configuration and the setup marker. Kept: the software, its releases, the update key, the
 voice's key (the lamp's own, #806), the touch calibration and other per-lamp
 facts, and physical privacy.
 

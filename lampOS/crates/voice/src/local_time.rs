@@ -334,6 +334,31 @@ pub fn now_here() -> Result<Option<String>, &'static str> {
     Ok(said(&file, now))
 }
 
+/// Whether `now` is night in the zone of this compiled zone file: from
+/// 21:00 to 4:59, as [`words`] calls it "at night". Nothing when the zone
+/// cannot be worked out.
+pub fn night(file: &[u8], now: i64) -> Option<bool> {
+    let local = now.checked_add(i64::from(offset_at(file, now)?))?;
+    Some(!(5..=20).contains(&(local.rem_euclid(86_400) / 3_600)))
+}
+
+/// Whether it is night, as the lamp should take it: never while its clock
+/// is known not to be set ([`unset`]). The lamp has no battery clock: until
+/// a time client sets it, it shows the last time it saved, so a lamp
+/// switched off at 22:00 and on at 09:00 where NTP is blocked would read
+/// night in the morning (the reviewer on #1083). Nor when the zone cannot
+/// be worked out: day is the stricter rule.
+pub fn night_taken(clock_unset: bool, file: &[u8], now: i64) -> bool {
+    !clock_unset && night(file, now) == Some(true)
+}
+
+/// The same for this machine, now. A zone or clock that cannot be read is
+/// day.
+pub fn night_here() -> bool {
+    let unset = unset_here();
+    here().is_some_and(|(file, now)| night_taken(unset, &file, now))
+}
+
 fn here() -> Option<(Vec<u8>, i64)> {
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -427,6 +452,39 @@ mod tests {
         let mut wrong = saigon.clone();
         wrong[0] = b'X';
         assert_eq!(offset_at(&wrong, NOW), None);
+    }
+
+    /// Night is 21:00 to 4:59 where the lamp stands, as its words say "at
+    /// night" (#829): lamp-4ace's 03:28 call was at night, the first
+    /// builder's 15:23 table by day.
+    #[test]
+    fn night_is_from_nine_in_the_evening_to_five_in_the_morning_where_the_lamp_stands() {
+        let saigon = zone(b'2', &[], &[25_200], "<+07>-7");
+        // NOW is 11:14 there: its midnight, and a time of day after it.
+        let at = |hour: i64, minute: i64| NOW - (11 * 3_600 + 14 * 60) + hour * 3_600 + minute * 60;
+        for (hour, minute, is_night) in [
+            (3, 28, true),
+            (4, 59, true),
+            (5, 0, false),
+            (15, 23, false),
+            (20, 59, false),
+            (21, 0, true),
+            (23, 59, true),
+        ] {
+            assert_eq!(
+                night(&saigon, at(hour, minute)),
+                Some(is_night),
+                "{hour}:{minute:02}"
+            );
+        }
+        // The same moment is 4:14 at night in UTC.
+        assert_eq!(night(&zone(b'2', &[], &[0], "UTC0"), NOW), Some(true));
+        assert_eq!(night(b"", NOW), None);
+        // Taken as night only with the clock set, and a zone read.
+        assert!(night_taken(false, &saigon, at(3, 28)));
+        assert!(!night_taken(true, &saigon, at(3, 28)));
+        assert!(!night_taken(false, b"", at(3, 28)));
+        assert!(!night_taken(false, &saigon, at(15, 23)));
     }
 
     #[test]

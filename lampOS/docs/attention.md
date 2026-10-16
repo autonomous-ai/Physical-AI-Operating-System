@@ -1207,12 +1207,29 @@ busy.
 
 One more, from 03:28 that night (#829, #908): in a busy room, "Hey Lamp,
 turn your volume down a little." was held, because the name was heard in
-the sound and nobody was turned to the lamp. With the switch, a request
-with the name heard in its sound is played in a busy room too, without a
-face: at night nobody faces the lamp. Its cost is the busy form's reason
-for that hold: `lamp-name` hears the name in people's talk now and then
-(17 times from 07:45 to 13:02 on 14 October, at 0.903 to 0.997), and with
-the switch each of those lets an answer out.
+the sound and nobody was turned to the lamp. With the switch, at night, a
+request with the name heard in its sound is played in a busy room too,
+without a face: nobody faces the lamp then. Night is 21:00 to 4:59 where
+the lamp stands, as it tells the time (`local_time::night_here`). A zone
+that can't be read is day, and so is any time while the clock is known not
+to be set (`LAMP_KERNEL_CLOCK=on`, no time client yet): the lamp has no
+battery clock and shows the last time it saved, so one switched off at
+22:00 and on at 09:00 where NTP is blocked would read night in the
+morning (the reviewer on #1083; Expression does the same, `offline.md`).
+
+By day that cost too much (the first builder at 15:23 on 16 October). In
+the busy office the name heard alone let the lamp answer office talk three
+times in 25 minutes: 0.932 (talk in Vietnamese), 0.933 and 0.997 (both
+heard as Spanish). `lamp-name` had heard its name 227 times since 07:00,
+at a median of 0.998. So by day, in a busy room with nobody turned to the
+lamp, the name alone counts as the busy form has it: heard surely
+(`SURE_SCORE`, 0.999), or at `NEAR_SCORE` (0.95) with the room microphone
+`NEAR_RISE_DB` (18 dB) over its quiet. With a face turned, in a room not
+known to be busy, or at night, a hearing at `lamp-name`'s 0.9 floor still
+counts. Of that day's four played calls, the one at 0.949 is held now
+whatever its rise. The other three (0.995 to 0.998) are played only if
+they came close. Their rises weren't recorded then; the journal lines now
+give them (above, under the near rule's switch).
 
 And one from 04:58 (#829, 05:02): in the two-person scene, Samantha asked
 "Daniel, are you coming to the meeting at two?" and Daniel answered her
@@ -1281,7 +1298,7 @@ a line of 1.5 s or more, said with the lamp quiet, in a voice plainly not
 the conversation's, is no part of it.
 
 Beyond the reply to the lamp's news, the question about its work and the
-name without a face, the switch only holds: what the rule holds without it
+name without a face at night, the switch only holds: what the rule holds without it
 stays held.
 
 What it would have cost (lamp-4ace's first-output records of 15 October,
@@ -1328,7 +1345,7 @@ Tests:
   `both_workers_take_the_spoken_to_flag_in_its_place`).
 
 The second voice route takes the flag and, having no attention rule, does
-not apply it. Reading the eyes for every answer adds the read of the
+not apply it, nor its night and day. Reading the eyes for every answer adds the read of the
 newest `humans/faces/tracked` message to each decision; its time is in the
 record's `sampled_start_us` and `sampled_end_us`, and the record's
 `facing` is now filled in every room.

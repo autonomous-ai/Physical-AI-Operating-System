@@ -733,6 +733,19 @@ mute stays muted; a fault or a privacy exit keeps the guard. A failed initial ar
 whose subsequent save fails still has the active durable guard. Persistence
 failure stays visible and cannot clear the live latch.
 
+**A restored mute told from a chosen one** (#960 point 2, `LAMP_RESTORED_MUTE=on`
+on the voice, off unless set). Arming also leaves an empty private marker,
+`<record>.restart-guard`, beside the record, written before the guard. A clean
+release, a mute the person chose (once saved), and a clear each remove it. A
+restart that finds the record muted with the marker present knows the mute is
+the guard's after a fault: `HandControls::restored_after_fault`, the trace
+record `mute_restored_after_fault` and one log line. A marker beside an unmuted
+record (a fault between the two writes), or found with the switch off, is
+removed. The marker is advice for what the lamp shows and says, never
+authority: failing to write or remove it changes no permission and never fails
+a cycle, and a missing marker reads as a chosen mute, which stays quiet. What
+the lamp then shows and says is not built yet.
+
 Saves retain a private `.pending` inode while linking/renaming the replacement
 and syncing file and directory; `.replacement` and `.pending` evidence both
 refuse later startup. Removing the pending marker is the final operation.

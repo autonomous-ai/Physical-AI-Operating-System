@@ -7,6 +7,11 @@
 //! cleanup, or a stop the service was asked for (SIGTERM, an update; #960),
 //! may disarm that guard, writing the live latch as it was. An unacknowledged request before any durable
 //! write cannot be promised to survive arbitrary storage/power failure.
+//!
+//! With `LAMP_RESTORED_MUTE=on` (#960), arming also leaves a marker beside the
+//! record, removed with the guard, by a mute the person chose, or by a clear.
+//! A restart that finds the record muted and the marker present knows the mute
+//! was restored by the guard after a fault, not chosen.
 use lamp_bus::{Bus, Kind, Message, Notice, Publisher, Subscriber};
 use lamp_controls::{mute::MuteRecord, receiver::Receiver, touch_receiver::TouchReceiver};
 use lamp_msgs::{
@@ -15,6 +20,7 @@ use lamp_msgs::{
 };
 use std::{
     io,
+    os::unix::fs::OpenOptionsExt,
     path::{Path, PathBuf},
     sync::{
         Arc,
@@ -33,6 +39,10 @@ const FINAL_JOIN_WAIT: Duration = Duration::from_millis(20);
 /// `voice/mute` is said when it changes and at least this often.
 const MUTE_SAID_EVERY: Duration = Duration::from_secs(1);
 const SUBSCRIBER: &str = "voice_hand";
+/// Off unless `on`: keep the restart guard's marker, so a restored mute can be
+/// told from a chosen one (#960).
+pub const RESTORED_MUTE_ENVIRONMENT: &str = "LAMP_RESTORED_MUTE";
+const GUARD_MARKER_SUFFIX: &str = ".restart-guard";
 
 fn invalid(message: &str) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidInput, message)
@@ -246,6 +256,10 @@ pub struct HandControls {
     /// The head pads' requests, checked as Controls' own receiver does:
     /// fresh, from the current Controls and reader, each once.
     touch: Option<TouchReceiver>,
+    /// `LAMP_RESTORED_MUTE=on`: arming leaves the guard's marker.
+    mark_guard: bool,
+    /// The record was muted by the restart guard, not by the person.
+    restored_after_fault: bool,
     // One handle for the entire service, not one per supervised audio cycle.
     _pump: Option<Pump>,
 }
@@ -401,6 +415,9 @@ impl HandControls {
         let shared = Arc::new(Shared::default());
         let mut controls =
             Self::from_parts(options.clone(), &clock_id, record, input, shared, now_us)?;
+        controls.mark_guard =
+            std::env::var(RESTORED_MUTE_ENVIRONMENT).ok().as_deref() == Some("on");
+        controls.restore_guard_marker();
         let root = options
             .bus_root
             .clone()
@@ -456,6 +473,8 @@ impl HandControls {
             armed: false,
             persistence_failed: false,
             touch,
+            mark_guard: false,
+            restored_after_fault: false,
             _pump: None,
         };
         controls.share_latch();
@@ -501,6 +520,60 @@ impl HandControls {
 
     fn asleep(&self) -> bool {
         self.options.mute_record.is_some() && self.receiver.mute_record().asleep()
+    }
+
+    /// The live mute was restored by the restart guard after a fault, and the
+    /// person has neither chosen a mute since nor cleared it (#960). Always
+    /// false without `LAMP_RESTORED_MUTE=on`.
+    pub fn restored_after_fault(&self) -> bool {
+        self.restored_after_fault && self.muted()
+    }
+
+    fn guard_marker(&self) -> Option<PathBuf> {
+        let path = self.options.mute_record.as_ref()?;
+        let mut name = path.file_name()?.to_owned();
+        name.push(GUARD_MARKER_SUFFIX);
+        Some(path.with_file_name(name))
+    }
+
+    /// At restore: a muted record with the marker beside it was muted by the
+    /// guard. An unmuted record's leftover marker (a fault between writing it
+    /// and the guard) means nothing and is removed. Without the switch, a
+    /// marker left by an earlier run is removed and never read.
+    fn restore_guard_marker(&mut self) {
+        let Some(marker) = self.guard_marker() else {
+            return;
+        };
+        let present = marker.symlink_metadata().is_ok_and(|m| m.is_file());
+        if self.mark_guard && present && self.muted() {
+            self.restored_after_fault = true;
+        } else if present {
+            let _ = std::fs::remove_file(&marker);
+        }
+    }
+
+    /// The marker is advice for what the lamp shows and says, never authority:
+    /// failing to write or remove it changes no permission, so it never fails
+    /// the cycle. A missing marker reads as a chosen mute, which stays quiet.
+    fn set_guard_marker(&mut self, present: bool) {
+        if !present {
+            self.restored_after_fault = false;
+        }
+        let Some(marker) = self.guard_marker() else {
+            return;
+        };
+        if present {
+            if self.mark_guard {
+                let _ = std::fs::OpenOptions::new()
+                    .write(true)
+                    .create(true)
+                    .truncate(true)
+                    .mode(0o600)
+                    .open(&marker);
+            }
+        } else if marker.symlink_metadata().is_ok() {
+            let _ = std::fs::remove_file(&marker);
+        }
     }
 
     fn fence_at(&mut self, now_us: u64) {
@@ -677,6 +750,8 @@ impl HandControls {
                 return Err(error);
             }
             self.dirty = false;
+            // The person chose this mute: it is no longer the guard's.
+            self.set_guard_marker(false);
         }
         Ok(())
     }
@@ -749,6 +824,7 @@ impl HandControls {
                 }
                 self.receiver.commit_clear(prepared)?;
                 self.armed = false;
+                self.set_guard_marker(false);
             }
         }
         Ok(!self.muted())
@@ -757,16 +833,19 @@ impl HandControls {
     /// Before opening any audio worker, store the conservative restart guard.
     /// The live preference is unchanged. Do not call from the urgent audio loop.
     pub fn arm_active(&mut self) -> io::Result<()> {
-        let Some(path) = &self.options.mute_record else {
+        let Some(path) = self.options.mute_record.clone() else {
             return Ok(());
         };
         if self.muted() || self.persistence_failed {
             return Err(io::Error::other("hand mute inhibits an active runtime"));
         }
         if !self.armed {
+            // Marker first: a fault between the two leaves an unmuted record
+            // with a marker, which restore discards.
+            self.set_guard_marker(true);
             let mut guard = self.receiver.mute_record().clone();
             guard.muted = true;
-            if let Err(error) = guard.save(path) {
+            if let Err(error) = guard.save(&path) {
                 self.persistence_failed = true;
                 return Err(error);
             }
@@ -794,6 +873,7 @@ impl HandControls {
             }
             self.armed = false;
             self.dirty = false;
+            self.set_guard_marker(false);
         }
         Ok(())
     }

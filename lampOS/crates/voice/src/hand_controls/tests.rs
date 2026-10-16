@@ -637,6 +637,77 @@ fn releasing_the_guard_keeps_a_mute_the_person_chose() {
     );
 }
 
+/// #960 point 2, `LAMP_RESTORED_MUTE=on`: a restart after a fault knows its
+/// mute is the guard's; a mute the person chose is never taken for one.
+#[test]
+fn only_a_mute_left_by_the_restart_guard_reads_as_restored_after_a_fault() {
+    let directory = Directory::new();
+    let marker = directory.0.join(format!("mute.json{GUARD_MARKER_SUFFIX}"));
+    let restart = |mark_guard: bool, now_us: u64| {
+        let record = MuteRecord::load(&directory.file(), CLOCK, now_us).unwrap();
+        let (mut restarted, sender) =
+            from_record(options(false, Some(&directory.file())), record, now_us);
+        restarted.mark_guard = mark_guard;
+        restarted.restore_guard_marker();
+        (restarted, sender)
+    };
+
+    // A fault while listening: the guard's mute, with its marker.
+    let (mut owner, _sender) = fixture(options(false, Some(&directory.file())));
+    owner.mark_guard = true;
+    owner.arm_active().unwrap();
+    assert!(marker.is_file());
+    drop(owner);
+    let (restored, _sender) = restart(true, START);
+    assert!(restored.muted() && restored.restored_after_fault());
+    // Without the switch the same lamp reads as plainly muted, and the
+    // marker is dropped rather than kept for a later run.
+    let (plain, _sender) = restart(false, START);
+    assert!(plain.muted() && !plain.restored_after_fault());
+    assert!(!marker.exists());
+
+    // The person mutes while listening, then a fault: their mute.
+    fs::remove_file(directory.file()).unwrap();
+    let (mut owner, sender) = fixture(options(false, Some(&directory.file())));
+    owner.mark_guard = true;
+    owner.arm_active().unwrap();
+    let mute = gesture(ControlIntent::SoftwareMute, 1, 4_000_000);
+    observe(
+        &mut owner,
+        &sender,
+        state(1, 4_000_000, Some(mute)),
+        4_000_000,
+    );
+    owner.persist_muted().unwrap();
+    assert!(!marker.exists());
+    drop(owner);
+    let (chosen, _sender) = restart(true, 4_000_000);
+    assert!(chosen.muted() && !chosen.restored_after_fault());
+}
+
+/// The marker never outlives its guard: a clean release removes it, and one
+/// left beside an unmuted record (a fault between the two writes) is dropped.
+#[test]
+fn the_restart_guard_marker_goes_with_its_guard() {
+    let directory = Directory::new();
+    let marker = directory.0.join(format!("mute.json{GUARD_MARKER_SUFFIX}"));
+    let (mut owner, _sender) = fixture(options(false, Some(&directory.file())));
+    owner.mark_guard = true;
+    owner.arm_active().unwrap();
+    owner.disarm_after_cleanup().unwrap();
+    assert!(!marker.exists());
+
+    fs::write(&marker, b"").unwrap();
+    let record = MuteRecord::load(&directory.file(), CLOCK, START).unwrap();
+    assert!(!record.muted);
+    let (mut restarted, _sender) =
+        from_record(options(false, Some(&directory.file())), record, START);
+    restarted.mark_guard = true;
+    restarted.restore_guard_marker();
+    assert!(!restarted.restored_after_fault());
+    assert!(!marker.exists());
+}
+
 #[test]
 fn arm_failure_refuses_audio_and_failed_new_mute_keeps_durable_guard() {
     let directory = Directory::new();

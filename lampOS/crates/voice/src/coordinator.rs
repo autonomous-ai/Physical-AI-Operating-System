@@ -1174,6 +1174,19 @@ fn run_source(
             "clear":"fresh second local hold, durably saved before physical privacy checks",
             "observation_to_speaker_target_us":2000,"acoustic_stop_measured":false}),
         )?;
+        let restored = controls
+            .borrow()
+            .as_ref()
+            .is_some_and(HandControls::restored_after_fault);
+        if restored {
+            // #960: the mute is the restart guard's, after a fault, not the
+            // person's choice. Said once here; the wait shows nothing yet.
+            eprintln!("lamp-voice: muted by the restart guard after a fault, not by choice");
+            record(
+                &mut trace,
+                json!({"kind":"mute_restored_after_fault","at_us":monotonic_us()}),
+            )?;
+        }
     }
     let result = (|| {
         let diagnostic_directory = options

@@ -227,6 +227,29 @@ impl PlaybackMask {
             duplex.max_heard = FIRST_WORDS_HEARD;
         }
     }
+    /// The yield in force waits for the words said in it, with
+    /// `LAMP_STOP_WORDS=heard` (#828): see `Interruption::await_words`.
+    pub fn await_words(&mut self) {
+        if let Some(duplex) = self.duplex.as_mut() {
+            duplex.interruption.await_words();
+        }
+    }
+    /// Its words came: whether they told the lamp to stop.
+    pub fn words(&mut self, stop: bool) {
+        if let Some(duplex) = self.duplex.as_mut() {
+            duplex.interruption.words(stop);
+        }
+    }
+    /// Blocks of stillness in a row in the yield in force, while one is.
+    pub fn still_blocks(&self) -> Option<u8> {
+        self.duplex.as_ref()?.interruption.still_blocks()
+    }
+    /// Whether a yield is in force, by what was heard alone.
+    pub fn yield_in_force(&self) -> bool {
+        self.duplex
+            .as_ref()
+            .is_some_and(|duplex| duplex.interruption.yielded())
+    }
     /// Hear one capture block. Call for every block, in order, before asking
     /// for its disposition. `speaking` is whether a reply has audio that
     /// would otherwise be going to the speaker, or sound still in the air.

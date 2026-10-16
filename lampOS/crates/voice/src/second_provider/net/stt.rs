@@ -276,6 +276,15 @@ impl SttStream {
         Ok(Self::start(socket))
     }
 
+    /// A stream on `socket`, for tests of what is sent on it (#970).
+    #[cfg(test)]
+    pub(crate) fn on<S>(socket: tokio_tungstenite::WebSocketStream<S>) -> Self
+    where
+        S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Send + Unpin + 'static,
+    {
+        Self::start(socket)
+    }
+
     fn start<S>(socket: tokio_tungstenite::WebSocketStream<S>) -> Self
     where
         S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Send + Unpin + 'static,
@@ -320,6 +329,12 @@ impl SttStream {
             eprintln!("lamp-voice second: request {request} at the line's end: {at_end}");
         }
         Ok(words)
+    }
+
+    /// The same, without the journal's line: for a stop word's words
+    /// ([`crate::stop_words`], #828), which are not a request.
+    pub async fn finished(self) -> Result<String> {
+        self.finish_told().await.map(|(words, _)| words)
     }
 
     /// The words, and the journal's account of the end of the line.

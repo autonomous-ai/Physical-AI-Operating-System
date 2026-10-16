@@ -677,8 +677,124 @@ file for it.
 A yield's request now begins at the person's first words said under the
 lamp's voice, with `LAMP_FIRST_WORDS=kept` ([duplex-listening.md](duplex-listening.md#first-words-kept-828)).
 It doesn't make a short stop word stop the lamp. A pause has no words to
-judge, so that needs words heard during the pause. The plan, with the
-speech-to-text the second voice uses, is on #828.
+judge, so that needs words heard during the pause. That's the next
+section.
+
+## A stop word heard in a yield (#828, step 2, 16 October)
+
+Off unless `LAMP_STOP_WORDS=heard` in the voice's environment, with
+`--turn-taking duplex` and the second voice's configuration
+(`LAMP_VOICE_SECOND_CONFIG`); built by the fourth builder
+(`crates/voice/src/stop_words.rs`).
+
+The duplex rule stops the lamp when someone is plainly over it, and then
+knows only sound and timing. A short "Stop." is over by the time the lamp
+has stopped, so the rule took it for "mm-hm" and resumed. On lamp-4ace on
+16 October at 05:39, two of four short stop phrases didn't stop the story.
+
+With the switch:
+- **A stream ready when a reply begins.** The coordinator opens a stream on
+  the second voice's speech-to-text, through the relay on lamp-4ace, on a
+  thread of its own (`RelayEars`). Connecting took 0.6 to 0.7 s on
+  lamp-52e6, so it's done before it's needed. The stream is kept with
+  `KeepAlive`, and closed when the reply ends.
+- **A yield's audio to it.** The audio held for the yield, then each block
+  while it is in force. The rule now waits for the words: stillness doesn't
+  resume the reply until they come (`Interruption::await_words`). Its
+  1.1 s deadline still resumes it whatever was heard.
+- **The words asked for after 100 ms of stillness**
+  (`FINALIZE_AFTER_STILL_BLOCKS`). Through the relay they came about 0.25 s
+  after a stop phrase ended (the sixth builder, #828, 08:22), inside the
+  400 ms of stillness after which the rule resumes. A block counts as still
+  only 300 ms after the lamp stops (`clear_after_blocks`), so for a "Stop."
+  that ends as the lamp yields the commit comes about 0.65 s after it: the
+  lamp is silent from the yield, and only the decision comes later (the
+  reviewer on #970).
+- **A hand Stop, a head touch, mute or privacy closes it** (`close`): the
+  duplex rule's yield, which a hand Stop leaves in force, is let be until
+  it ends, not begun again and called unheard (the reviewer on #970).
+- **A stop phrase commits the yield** (`stop_phrase`: "stop", "wait",
+  "enough", "pause", "quiet", "hush", "shush", "hold on", "hang on", alone
+  or among other words, but not right after "don't", "not" or "never":
+  "Don't stop" is no stop, the reviewer on #970). The reply ends as for any interruption, and what
+  was said goes to the provider, which answers ("Okay."). Any other words
+  let stillness resume the reply as before, and no words resume it at the
+  deadline.
+- `duplex_policy` records `stop_words_after_still_blocks`. Each yield's
+  outcome is recorded as `stop_words`, with `stop` and how many words, or
+  `words: null` when it ended before they came; the words themselves aren't
+  recorded. The journal says the same in one line a yield ("a yield's words
+  came: 1 word, a stop phrase", "a yield ended before its words came").
+  Counted against the played cut-ins, these show how often a one-word stop
+  made the lamp yield at all: that half is the canceller's, not this one's
+  (the first builder, 09:49: a lone "Stop." yielded 0 of 3 that morning).
+
+### Privacy: what goes where
+
+The first builder accepted this on lamp-4ace on 16 October at 09:49 (#828).
+It is to be decided again before home lamps ship.
+- **What:** the audio of a yield only. That's what was held for it (300 ms
+  before its onset, or with `LAMP_FIRST_WORDS=kept` up to 1.6 s), then each
+  10 ms block while it is in force, until the words are asked for. Usually
+  a second or two said over the lamp's voice, after the echo canceller.
+  Nothing of a reply with no yield, and nothing when the lamp is not
+  speaking.
+- **Where:** the second voice's speech-to-text, as `LAMP_VOICE_SECOND_CONFIG`
+  configures it. On lamp-4ace that is the company relay
+  (`stt_base_url`, with Deepgram's `nova-3` behind it), with the credential
+  file the configuration names. It is the same service the second voice
+  uses when it answers, so with this switch it also hears yields while
+  Gemini is the active route.
+- **When the stream is open:** from the start of each reply to its end. It
+  is opened before it's needed (connecting takes 0.6 to 0.7 s) and carries
+  no audio until a yield.
+- **When it is closed:** at a reply's end; at a hand Stop, a mute or a
+  capture gap (`hand::cancel`); on any tick where the microphone is not
+  allowed, which covers the privacy switch; and on every way out of the
+  conversation, the physical mute's and a lost privacy reading's among
+  them, as the ears are dropped there.
+- **How it is closed** (the reviewer's P1 on #970): apart from the queue of
+  audio to the relay's thread. Each yield has a number, carried by every
+  block and every result. Forgetting the yield, resting or dropping the
+  ears changes the live number at once and wakes the thread past its
+  queue. The thread checks the number under its lock as it hands each
+  block to the stream, so once that has returned nothing more of the yield
+  is handed on, however much is still queued. It then drops the yield's
+  stream, which ends the socket's writer; audio handed on before the close,
+  captured while the microphone was allowed, may still finish going. A
+  block captured more than 3 s before it would be handed on never is.
+  Dropping the ears waits up to 250 ms for the thread to end.
+- **Whose words:** a result is taken only for the yield that asked for it
+  (the reviewer's P2 on #970). Words that come for a yield after it was
+  forgotten are dropped, never taken for the next yield's.
+- **What is kept on the lamp:** the outcome per yield (`stop_words`, no
+  words). Whatever the relay keeps is the relay's.
+
+Tests:
+- `stop_words::tests`: the phrases, and the driver: the held audio and each
+  block until the words are asked for, asked once, taken once, forgotten
+  when the yield ends; a yield without words unheard; closing drops the
+  yield and the stream once, and the next reply has one ready again;
+- `lamp-audio` `duplex::tests::a_yield_waiting_for_its_words_commits_on_a_stop_word_and_otherwise_resumes`
+  (the rule);
+- `coordinator::tests::duplex::a_stop_word_heard_in_a_yield_commits_it_and_other_words_resume_it`,
+  through the production hearing, yield and commit, with scripted words. A
+  stop phrase commits at the eleventh still block. Other words resume at the
+  same block as without the switch. No words resume at the deadline, 110
+  blocks from the yield.
+
+- through the relay's real thread against a stand-in speech-to-text on an
+  in-memory socket: `audio_queued_for_a_yield_never_goes_once_it_is_forgotten_rested_or_dropped`
+  (a yield's audio queued while the thread is held never reaches the
+  service once forgotten, rested or dropped; after a forget the next
+  yield's goes; a block captured 4 s before is never sent) and
+  `words_that_come_for_a_yield_after_it_is_forgotten_are_not_the_next_ones`
+  (the first yield's words, held by the thread until after it was
+  forgotten, are not the next yield's; its own are).
+
+Not shown: the relay on a lamp in this path, and how long the pause grows
+when the words are slow (at most to the deadline). The thread's retry after
+a failed connection is not tested.
 
 ## Not shown
 

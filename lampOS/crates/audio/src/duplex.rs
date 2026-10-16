@@ -233,6 +233,11 @@ pub struct Interruption {
     yields: u32,
     commits: u32,
     resumes: u32,
+    /// The yield in force waits for the words said in it before stillness
+    /// may resume it ([`Self::await_words`], #828).
+    words_pending: bool,
+    /// They were a stop word: the yield commits at its next block.
+    stop_heard: bool,
 }
 
 impl Interruption {
@@ -244,6 +249,35 @@ impl Interruption {
             yields: 0,
             commits: 0,
             resumes: 0,
+            words_pending: false,
+            stop_heard: false,
+        }
+    }
+
+    /// The yield in force waits for the words said in it: stillness does
+    /// not resume it until they come ([`Self::words`]), or until its
+    /// deadline does, which still resumes it whatever was heard (#828).
+    /// Nothing without a yield in force.
+    pub fn await_words(&mut self) {
+        if self.yielded() {
+            self.words_pending = true;
+        }
+    }
+
+    /// The words said in the yield in force came: a stop word commits it at
+    /// its next block, and anything else lets stillness resume it as before.
+    pub fn words(&mut self, stop: bool) {
+        if self.yielded() {
+            self.words_pending = false;
+            self.stop_heard = stop;
+        }
+    }
+
+    /// Blocks of stillness in a row in the yield in force, while one is.
+    pub fn still_blocks(&self) -> Option<u8> {
+        match self.state {
+            State::Yielded { still, .. } => Some(still),
+            State::Listening { .. } => None,
         }
     }
 
@@ -311,14 +345,19 @@ impl Interruption {
                     Heard::Under | Heard::Own | Heard::Unknown => {}
                 }
                 let quiet = *still >= self.rule.silence_blocks.max(1);
-                if *speech >= self.rule.speech_blocks.max(1)
+                if self.stop_heard
+                    || *speech >= self.rule.speech_blocks.max(1)
                     || (quiet && *seen >= self.rule.plain_blocks.max(1))
                 {
                     self.state = LISTENING;
+                    self.words_pending = false;
+                    self.stop_heard = false;
                     self.commits += 1;
                     Step::Commit
-                } else if quiet || *blocks >= self.rule.deadline_blocks {
+                } else if (quiet && !self.words_pending) || *blocks >= self.rule.deadline_blocks {
                     self.state = LISTENING;
+                    self.words_pending = false;
+                    self.stop_heard = false;
                     self.resumes += 1;
                     // Going on after a pause is a beginning again.
                     self.spoken = 0;
@@ -373,6 +412,8 @@ impl Interruption {
     /// another way. The counts stay.
     pub fn clear(&mut self) {
         self.state = LISTENING;
+        self.words_pending = false;
+        self.stop_heard = false;
     }
 }
 
@@ -575,6 +616,53 @@ mod tests {
         assert_eq!(steps, [(39 + ONSET, Step::Yield), (84, Step::Commit)]);
         assert!(!interruption.yielded());
         assert_eq!(interruption.counts(), (1, 1, 0));
+    }
+
+    /// #828, step 2: a yield that waits for the words said in it. A short
+    /// word over the lamp, then stillness: while its words are awaited,
+    /// stillness does not resume it. A stop word commits it at its next
+    /// block; other words let stillness resume it; and with no words the
+    /// deadline still resumes it. Without waiting, as before.
+    #[test]
+    fn a_yield_waiting_for_its_words_commits_on_a_stop_word_and_otherwise_resumes() {
+        // A word over the lamp: the yield, then its own sound dying away.
+        let short_word = |interruption: &mut Interruption| {
+            let steps = run(interruption, &[(Heard::Over, 25), (Heard::Under, 14)]);
+            assert_eq!(steps, [(ONSET - 1, Step::Yield)]);
+        };
+        // A stop word.
+        let mut stop = Interruption::new(Confirmation::EVALUATED);
+        short_word(&mut stop);
+        stop.await_words();
+        assert_eq!(run(&mut stop, &[(Heard::Still, 40)]), []);
+        assert_eq!(stop.still_blocks(), Some(40));
+        stop.words(true);
+        assert_eq!(run(&mut stop, &[(Heard::Still, 1)]), [(0, Step::Commit)]);
+        assert_eq!(stop.counts(), (1, 1, 0));
+        // Other words: stillness resumes it as it would have.
+        let mut other = Interruption::new(Confirmation::EVALUATED);
+        short_word(&mut other);
+        other.await_words();
+        assert_eq!(run(&mut other, &[(Heard::Still, 40)]), []);
+        other.words(false);
+        assert_eq!(run(&mut other, &[(Heard::Still, 1)]), [(0, Step::Resume)]);
+        // No words: the deadline, 110 blocks from the yield, resumes it.
+        let mut none = Interruption::new(Confirmation::EVALUATED);
+        short_word(&mut none);
+        none.await_words();
+        assert_eq!(run(&mut none, &[(Heard::Still, 80)]), []);
+        assert_eq!(run(&mut none, &[(Heard::Still, 1)]), [(0, Step::Resume)]);
+        // Without waiting, stillness resumes it at its fortieth block.
+        let mut plain = Interruption::new(Confirmation::EVALUATED);
+        short_word(&mut plain);
+        assert_eq!(run(&mut plain, &[(Heard::Still, 40)]), [(39, Step::Resume)]);
+        // Nothing without a yield in force, and nothing left behind by one.
+        plain.await_words();
+        plain.words(true);
+        assert_eq!(plain.still_blocks(), None);
+        assert_eq!(run(&mut plain, &[(Heard::Own, 50)]), []);
+        stop.await_words();
+        assert!(!stop.yielded());
     }
 
     #[test]

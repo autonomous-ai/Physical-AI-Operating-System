@@ -255,3 +255,18 @@ Ready for lamp-voice: yes (#1103)
 - Peer reviews: #1126 (Fourth) no P1/P2, one P3.
 - Not shown on a lamp: #1103's wait for someone, and a timer across a
   restart said once; both wait on a key with quota for lamp-cb94.
+
+## 2026-10-17 — #1103 merged; reviews; lamp-cb94 checks
+
+Ready for lamp-voice: no (#1193 opened, ARM64 starting)
+
+- #1103 merged by the first builder at 02:42 (`698dd1789`, the reviewer's P2
+  fixed: an unknown lateness waits for someone too). Its last P3s and Nine's
+  lowered P2 are #1193 (a journal line's words and `schedule.md`).
+- Peer reviews, each no finding: #1161 (merged), #1131 (merged), #1186,
+  #1175 (the reviewer's P2 fixed).
+- lamp-cb94: `lamp-air` with #1163 checked twice (16 min on the PR build,
+  31 min on `lamp-voice` `6557d70aa`): one probe every 10 min, 4 and 6
+  kernel lines against 598 per 2 min before; it stays enabled there. Eyes
+  run with this lamp's camera port. The voice still cannot speak
+  (`quota_exceeded`).

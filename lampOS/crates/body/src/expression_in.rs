@@ -343,12 +343,18 @@ mod tests {
         let now = 9_000 * MS;
         let mut still = request("planner", 1, now, 0.05);
         still.hold = true;
+        assert!(!requests.holding(now));
         requests.take(still, now).unwrap();
         assert_eq!(requests.offsets(now + MS), None);
+        // Stillness is asked while its lease lasts, and not after.
+        assert!(requests.holding(now + MS));
+        assert!(!requests.holding(now + EXPRESSION_LEASE_US));
         let mut later = request("planner", 2, now, 0.05);
         later.lease.apply_us = now + 40 * MS;
         requests.take(later, now).unwrap();
         assert_eq!(requests.offsets(now + 20 * MS), None);
         assert!(requests.offsets(now + 40 * MS).is_some());
+        // A plain request after it ends the stillness.
+        assert!(!requests.holding(now + 40 * MS));
     }
 }

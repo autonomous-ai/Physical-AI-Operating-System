@@ -2589,6 +2589,20 @@ fn shifts_at_rest(
     bumps: Option<u64>,
     stream: Option<fn(Duration) -> Asked>,
 ) -> (BodyReport, Vec<Shift>) {
+    let (report, shifts, _) = run_at_rest(idle, minutes, mood, share, bumps, stream);
+    (report, shifts)
+}
+
+/// The same, and the head's pitch goal at every step.
+#[allow(clippy::type_complexity)]
+fn run_at_rest(
+    idle: bool,
+    minutes: u64,
+    mood: Mood,
+    share: u8,
+    bumps: Option<u64>,
+    stream: Option<fn(Duration) -> Asked>,
+) -> (BodyReport, Vec<Shift>, Vec<(Duration, u16)>) {
     let (mut lamp, mut clock) = folded(Duration::from_secs(minutes * 60));
     lamp.arm_moves = true;
     lamp.overload_clears = 1;
@@ -2616,6 +2630,7 @@ fn shifts_at_rest(
     let heard = clock.time.clone();
     let mut shifts: Vec<Shift> = Vec::new();
     let mut playing: Option<(Duration, &'static str)> = None;
+    let mut pitch: Vec<(Duration, u16)> = Vec::new();
     let report = run_alive(
         &mut lamp,
         &mut clock,
@@ -2632,6 +2647,7 @@ fn shifts_at_rest(
         },
         move || stream.map_or_else(Asked::default, |stream| stream(heard.get())),
         |glimpse| {
+            pitch.push((watched.get(), glimpse.goals[0]));
             let shift = glimpse
                 .gesture
                 .filter(|name| idle::MOVES.iter().any(|shift| shift.name == *name));
@@ -2646,14 +2662,15 @@ fn shifts_at_rest(
         },
     );
     assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
-    (report, shifts)
+    (report, shifts, pitch)
 }
 
 /// Left standing at rest, it shifts now and then: never sooner than 40 s
-/// after the last shift ended, nor later than three minutes, no two waits alike, and never the same move
-/// twice running. The first comes at least 40 s after it was spoken to.
+/// after the last shift ended, nor later than three minutes, no two waits
+/// alike, and by more than one move. The first comes at least 40 s after it
+/// was spoken to.
 #[test]
-fn standing_with_nothing_to_do_it_shifts_rarely_irregularly_and_never_the_same_twice() {
+fn standing_with_nothing_to_do_it_shifts_rarely_and_irregularly() {
     let (report, shifts) = shifts_at_rest(true, 20, Mood::Resting, 100, None, None);
     assert_eq!(report.idles as usize, shifts.len());
     assert!(shifts.len() >= 4, "{shifts:?}");
@@ -2665,11 +2682,14 @@ fn standing_with_nothing_to_do_it_shifts_rarely_irregularly_and_never_the_same_t
         .windows(2)
         .map(|pair| pair[1].0 - pair[0].1)
         .collect();
-    for (wait, pair) in waits.iter().zip(shifts.windows(2)) {
+    for wait in &waits {
         assert!(*wait >= idle::GAP_LEAST, "{shifts:?}");
         assert!(*wait <= idle::GAP_MOST + TICK, "{shifts:?}");
-        assert_ne!(pair[0].2, pair[1].2, "{shifts:?}");
     }
+    assert!(
+        shifts.iter().any(|shift| shift.2 != shifts[0].2),
+        "{shifts:?}"
+    );
     waits.sort();
     waits.dedup();
     assert_eq!(waits.len(), shifts.len() - 1, "{shifts:?}");
@@ -2734,6 +2754,98 @@ fn it_shifts_over_expressions_rest_stream_and_not_while_held_still_or_paused() {
         let (report, _) = shifts_at_rest(true, 10, Mood::Resting, 100, None, Some(stream));
         assert_eq!(report.idles, 0);
     }
+}
+
+/// One layer with Expression's: a shift starts and ends where Expression's
+/// rest offsets hold the head, lifted 30 counts here, with no dip back to
+/// plain rest before it or after it.
+#[test]
+fn a_shift_starts_and_ends_at_expressions_rest_offset() {
+    let lifted: fn(Duration) -> Asked = |_| Asked {
+        expression: Some([-30.0, 0.0, 0.0]),
+        ..Asked::default()
+    };
+    let (_, shifts, pitch) = run_at_rest(true, 20, Mood::Resting, 100, None, Some(lifted));
+    assert!(shifts.len() >= 4, "{shifts:?}");
+    let goal_at = |at: Duration| pitch.iter().rfind(|step| step.0 <= at).unwrap().1;
+    for (from, to, name) in &shifts {
+        let before = goal_at(*from - Duration::from_secs(1));
+        // Its first 0.2 s: the clip has barely begun, and the head stays
+        // where the rest offset had it (it would sink 30 counts otherwise).
+        for step in pitch
+            .iter()
+            .filter(|step| step.0 >= *from && step.0 < *from + Duration::from_millis(200))
+        {
+            assert!(
+                step.1.abs_diff(before) <= 4,
+                "{name} at {from:?}: {step:?} from {before}"
+            );
+        }
+        // Over: back where it was, and not by way of plain rest.
+        let after = goal_at(*to + Duration::from_secs(2));
+        assert!(
+            after.abs_diff(before) <= 2,
+            "{name} at {to:?}: {after} from {before}"
+        );
+        let lowest_after = pitch
+            .iter()
+            .filter(|step| step.0 >= *to && step.0 < *to + Duration::from_secs(2))
+            .map(|step| step.1.abs_diff(before))
+            .max()
+            .unwrap();
+        assert!(lowest_after <= 6, "{name} at {to:?}: {lowest_after}");
+    }
+}
+
+/// One quiet window: no shift starts within 30 s of a drift of
+/// Expression's rest layer (a breath, and every 50 s the head drifts 20
+/// counts up or back down over 3 s), and shifts still come between them.
+#[test]
+fn no_shift_starts_within_thirty_seconds_of_a_drift() {
+    let drifting: fn(Duration) -> Asked = |at| {
+        let seconds = at.as_secs_f32();
+        let drift = |seconds: f32| {
+            let into = (seconds % 50.0 / 3.0).min(1.0);
+            let ease = (1.0 - (into * std::f32::consts::PI).cos()) / 2.0;
+            let (from, to) = if ((seconds / 50.0) as u32).is_multiple_of(2) {
+                (0.0, -20.0)
+            } else {
+                (-20.0, 0.0)
+            };
+            from + (to - from) * ease
+        };
+        let breath = (1.0 - (seconds / 5.2 * std::f32::consts::TAU).cos()) / 2.0 * -20.0;
+        Asked {
+            expression: Some([drift(seconds) + breath, 0.0, 0.0]),
+            ..Asked::default()
+        }
+    };
+    let (_, shifts) = shifts_at_rest(true, 20, Mood::Resting, 100, None, Some(drifting));
+    assert!(shifts.len() >= 3, "{shifts:?}");
+    let mut seen_early = 0;
+    for (from, _, name) in &shifts {
+        let since_drift = from.as_secs_f32() % 50.0;
+        // A drift is seen by the average a couple of seconds into it: a
+        // shift begun before then plays on (the two overlap as one move).
+        assert!(
+            !(3.0..30.0).contains(&since_drift),
+            "{name} at {from:?}: {since_drift} s after a drift"
+        );
+        seen_early += usize::from(since_drift < 3.0);
+    }
+    assert!(seen_early * 3 < shifts.len(), "{shifts:?}");
+    // The breath alone holds off nothing.
+    let breathing: fn(Duration) -> Asked = |at| Asked {
+        expression: Some([
+            (1.0 - (at.as_secs_f32() / 5.2 * std::f32::consts::TAU).cos()) / 2.0 * -20.0,
+            0.0,
+            0.0,
+        ]),
+        ..Asked::default()
+    };
+    let (_, alone) = shifts_at_rest(true, 20, Mood::Resting, 100, None, None);
+    let (_, breathed) = shifts_at_rest(true, 20, Mood::Resting, 100, None, Some(breathing));
+    assert_eq!(breathed.len(), alone.len(), "{breathed:?} {alone:?}");
 }
 
 /// Spoken to in the middle of a shift, it lets the shift go at once.

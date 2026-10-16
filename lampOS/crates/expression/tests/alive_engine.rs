@@ -87,6 +87,9 @@ struct Lamp {
     faces: Option<Vec<Face>>,
     /// The local minute of the day at `START`, told every minute.
     minute: Option<u16>,
+    /// The goals the body says for its five joints at a time (none by
+    /// default).
+    goals: fn(u64) -> Vec<f64>,
 }
 
 impl Lamp {
@@ -107,6 +110,7 @@ impl Lamp {
             turn: 1,
             faces: Some(vec![]),
             minute: None,
+            goals: |_| vec![],
         };
         let stamp = lamp.stamp();
         lamp.send(Input::Light {
@@ -203,7 +207,7 @@ impl Lamp {
                     .map(str::to_owned)
                     .to_vec(),
                 position: vec![0.0; 5],
-                commanded: vec![],
+                commanded: (self.goals)(self.now),
                 velocity: vec![],
                 effort: vec![],
             },
@@ -1778,4 +1782,59 @@ mod head {
         let awake = lamp.with_hand(None, SECOND);
         assert!(!named(&awake, "falling asleep") && !named(&awake, "asleep"));
     }
+}
+
+/// When a drift began, in a run of `minutes` with the body's goals.
+fn drift_starts(goals: fn(u64) -> Vec<f64>, minutes: u64) -> Vec<u64> {
+    let mut lamp = Lamp::new(catalogue());
+    lamp.goals = goals;
+    lamp.run(SECOND, |_, _| {});
+    let mut starts = Vec::new();
+    let mut drifting = false;
+    lamp.run(minutes * MINUTE, |output, now| {
+        let now_drifting = named(output, "drifting");
+        if now_drifting && !drifting {
+            starts.push(now);
+        }
+        drifting = now_drifting;
+    });
+    starts
+}
+
+/// One quiet window with the body's own shifts at rest (#933): no drift
+/// begins within 30 s of the body moving by itself, seen on
+/// `body/joint_states`; a goal that jumps once is not such a move.
+#[test]
+fn no_drift_begins_within_thirty_seconds_of_a_shift_of_the_body() {
+    // Every 70 s the body lifts its head 0.08 rad and back over 3.2 s,
+    // eased, as its `look_up` does.
+    fn shifting(now: u64) -> Vec<f64> {
+        let into = (now - START) % (70 * SECOND);
+        let share = (into as f64 / 3_200_000.0).min(1.0);
+        let lift = -0.08 * (1.0 - (share * std::f64::consts::TAU).cos()) / 2.0;
+        vec![0.0, 0.0, 0.0, 0.0, lift]
+    }
+    let starts = drift_starts(shifting, 15);
+    assert!(starts.len() >= 3, "{starts:?}");
+    for start in &starts {
+        let since_shift = (start - START) % (70 * SECOND);
+        assert!(
+            since_shift >= 30 * SECOND,
+            "a drift {} s after a shift began",
+            since_shift / SECOND
+        );
+    }
+    // A goal that leaps once every 10 s and stays (a head led as it
+    // lifts, then not) holds no drift off.
+    fn leaping(now: u64) -> Vec<f64> {
+        let lead = if ((now - START) / (10 * SECOND)).is_multiple_of(2) {
+            0.06
+        } else {
+            0.0
+        };
+        vec![0.0, 0.0, 0.0, 0.0, lead]
+    }
+    let still = drift_starts(|_| vec![0.0; 5], 15);
+    assert!(still.len() >= 9, "{still:?}");
+    assert_eq!(drift_starts(leaping, 15), still);
 }

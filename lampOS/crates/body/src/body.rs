@@ -339,6 +339,19 @@ pub const REST_GLANCE_REACH: [f32; 3] = [50.0, 25.0, 0.0];
 /// ahead and stopped about 30 short of it (see [`WAKE_LIFT_LEAD`]).
 const GLANCE_LIFT_LEAD: f32 = 40.0;
 
+/// A shift at rest and a drift of Expression's rest layer are one layer:
+/// no shift starts this soon after a drift (Expression keeps the same
+/// window after a shift, `lamp_expression::BODY_QUIET_US`).
+pub const SHIFT_QUIET: Duration = Duration::from_secs(30);
+/// A drift is told from the breath under it by the rest offsets' average
+/// over about one breath (Expression's is 5.2 s): the breath barely moves
+/// it, a drift moves it this many counts or more.
+const REST_AVERAGE: Duration = Duration::from_millis(5_200);
+const REST_DRIFTED: f32 = 5.0;
+/// While a shift plays over Expression's rest offsets, how much of their
+/// change since it began (the breath) is kept under it.
+const SHIFT_BREATH: f32 = 0.5;
+
 /// The shoulder and the elbow, in the order of every array of two here.
 /// Read on every step. Written only by a body that was given a pose to
 /// stand in.
@@ -2758,6 +2771,12 @@ fn run_until_stopped(
     // and how.
     let mut idle_due: Option<Duration> = None;
     let mut idler = idle::Idler::new(standing.map_or(0, |up| up.idle_seed));
+    // Expression's rest offsets of the head (pitch, roll) averaged over a
+    // breath, the average a drift last left, and when one last did.
+    let mut rest_average: Option<([f32; 2], [f32; 2])> = None;
+    let mut drifted_at: Option<Duration> = None;
+    // Expression's rest offsets as a shift began, while one plays.
+    let mut shift_from: Option<[f32; 3]> = None;
     let step = TICK.as_secs_f32();
     // A look away begins with a glance of GLANCE counts of the base's
     // turn: within the folded reach that is all of it, as it always was.
@@ -3022,8 +3041,29 @@ fn run_until_stopped(
         // stillness asked (Expression holding, or a pause). Each of those
         // starts the wait again, so no shift comes right after one.
         // Expression's rest stream (zeros or a breath, renewed every step
-        // under `--rest-glance`) does not: the shift replaces its offsets
-        // while it plays.
+        // under `--rest-glance`) does not: the shift is laid over its
+        // offsets while it plays. A drift of that stream holds off the
+        // start of a shift for `SHIFT_QUIET`, without starting the wait over.
+        match (asked_now.expression, rest_average.as_mut()) {
+            (Some(asked), Some((average, mark))) => {
+                let share = step / REST_AVERAGE.as_secs_f32();
+                for axis in 0..2 {
+                    if asked[axis].is_finite() {
+                        average[axis] += (asked[axis] - average[axis]) * share;
+                    }
+                }
+                if (0..2).any(|axis| (average[axis] - mark[axis]).abs() >= REST_DRIFTED) {
+                    *mark = *average;
+                    drifted_at = Some(now);
+                }
+            }
+            (Some(asked), None) if asked[..2].iter().all(|value| value.is_finite()) => {
+                rest_average = Some(([asked[0], asked[1]], [asked[0], asked[1]]));
+            }
+            (Some(_), None) => {}
+            (None, _) => rest_average = None,
+        }
+        let settled = drifted_at.is_none_or(|at| now.saturating_sub(at) >= SHIFT_QUIET);
         let idling = playing.is_some_and(|(clip, _)| idle::is_move(clip));
         let quiet = upright
             && mood == Mood::Resting
@@ -3040,8 +3080,11 @@ fn run_until_stopped(
         } else if playing.is_none() {
             match idle_due {
                 None => idle_due = Some(now + idler.gap()),
-                Some(due) if now >= due && standing.is_some_and(|up| up.idle) => {
-                    playing = Some((idler.pick(limits.stand_roll > limits.roll), now));
+                Some(due) if now >= due && settled && standing.is_some_and(|up| up.idle) => {
+                    // An arm a hand holds is not swayed into the hand.
+                    let arm_free = stalls[3..].iter().all(|stall| stall.hold.is_none());
+                    let tilts = limits.stand_roll > limits.roll;
+                    playing = Some((idler.pick(tilts, arm_free), now));
                     report.idles += 1;
                     idle_due = None;
                 }
@@ -3148,23 +3191,39 @@ fn run_until_stopped(
         // goes through everything that pose goes through: the reach of
         // each joint, the speed and the acceleration the pose follows at,
         // rest, and the hold after resistance. Not while a gesture plays:
-        // that is the whole lamp's move, and nothing is laid over it.
+        // that is the whole lamp's move, and nothing is laid over it. A
+        // shift at rest is the exception, one layer with Expression's: it
+        // starts and ends where the rest offsets have the head, with no dip
+        // to plain rest, and half the breath goes on under it.
         let reach = if glance {
             REST_GLANCE_REACH
         } else {
             EXPRESSION_REACH
         };
+        let shifting =
+            gesturing && playing.map_or(shift_from.is_some(), |(clip, _)| idle::is_move(clip));
+        if !shifting {
+            shift_from = None;
+        }
         let extra = match asked_now.expression {
-            Some(asked) if !gesturing => {
+            Some(asked) if !gesturing || shifting => {
                 report.expression_steps += 1;
-                [0, 1, 2].map(|index| {
+                let full = [0, 1, 2].map(|index| {
                     let asked = if asked[index].is_finite() {
                         asked[index]
                     } else {
                         0.0
                     };
                     asked.clamp(-reach[index], reach[index])
-                })
+                });
+                if shifting {
+                    let from = *shift_from.get_or_insert(full);
+                    std::array::from_fn(|index| {
+                        from[index] + (full[index] - from[index]) * SHIFT_BREATH
+                    })
+                } else {
+                    full
+                }
             }
             _ => [0.0; 3],
         };

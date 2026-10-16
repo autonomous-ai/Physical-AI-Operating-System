@@ -90,6 +90,14 @@ pub const LOOK_UP: Clip = Clip {
     step_ms: 200,
     frames: &tilt(0, -50),
 };
+/// A small lowering of the head and back, as a breath let out: a third move
+/// that needs no roll, so a head that does not tilt standing has more than
+/// two to shift by.
+pub const DIP: Clip = Clip {
+    name: "dip",
+    step_ms: 200,
+    frames: &tilt(0, 40),
+};
 
 /// Eased out, held and eased back: roll `side` times 25 counts, pitch `lift`.
 const fn tilt(side: i16, lift: i16) -> [[i16; 5]; 17] {
@@ -162,7 +170,7 @@ mod tests {
     #[test]
     fn the_small_moves_at_rest_move_the_head_alone_inside_a_glance_at_rest() {
         let reach = crate::body::REST_GLANCE_REACH;
-        for clip in [&TILT_LEFT, &TILT_RIGHT, &LOOK_UP] {
+        for clip in [&TILT_LEFT, &TILT_RIGHT, &LOOK_UP, &DIP] {
             assert_eq!(named(clip.name), None);
             assert_eq!(clip.duration_us(), 3_200_000, "{}", clip.name);
             assert_eq!(clip.frames[0], [0; 5]);
@@ -176,6 +184,7 @@ mod tests {
         assert_eq!(TILT_LEFT.frames[8], [-10, -25, 0, 0, 0]);
         assert_eq!(TILT_RIGHT.frames[8], [-10, 25, 0, 0, 0]);
         assert_eq!(LOOK_UP.frames[8], [-50, 0, 0, 0, 0]);
+        assert_eq!(DIP.frames[8], [40, 0, 0, 0, 0]);
     }
 
     #[test]

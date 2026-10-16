@@ -146,7 +146,10 @@ fn check(file: File, loaded: &Loaded) -> Result<&'static Clip, String> {
             "{name:?} is not a name: 1 to 32 of a-z, 0-9, - and _"
         ));
     }
-    if clips::named(&name).is_some() || name == clips::CALLED.name {
+    if clips::named(&name).is_some()
+        || name == clips::CALLED.name
+        || crate::idle::is_move_name(&name)
+    {
         return Err(format!("{name:?} is one of the body's own gestures"));
     }
     // The first file in name order keeps the name.
@@ -267,6 +270,7 @@ mod tests {
             ),
             ("nod.json", good("nod"), "body's own gestures"),
             ("called.json", good("called"), "body's own gestures"),
+            ("look-up.json", good("look_up"), "body's own gestures"),
             ("z-again.json", good("ok"), "already another file's move"),
             ("upper.json", good("Wiggle"), "is not a name"),
             (

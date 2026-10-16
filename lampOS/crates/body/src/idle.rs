@@ -2,8 +2,10 @@
 //!
 //! Not on a clock: each wait is drawn at random, from 40 s to 3 min. A lamp
 //! left alone folds (`--awake-seconds`) and folded never shifts, which is
-//! how it is still when nobody is near. Each shift is one of a few small moves, never
-//! the one made last. Pure arithmetic: when the lamp may shift at all
+//! how it is still when nobody is near. Each shift is one of a few small
+//! moves, the one made last less likely than each other but not ruled out:
+//! with only two to choose from, ruling it out would be strict turns, a
+//! pattern of its own. Pure arithmetic: when the lamp may shift at all
 //! (standing, at rest, nobody talking, no hand on it, no other gesture)
 //! belongs to the body that asks.
 
@@ -15,25 +17,34 @@ pub const GAP_LEAST: Duration = Duration::from_secs(40);
 pub const GAP_MOST: Duration = Duration::from_secs(180);
 
 /// The small moves a lamp at rest shifts by: the old runtime's idle sway,
-/// and three moves of the head alone inside the reach of a glance at rest
-/// (`body::REST_GLANCE_REACH`): a tilt to either side and a look up.
-pub const MOVES: [&Clip; 4] = [
+/// and four moves of the head alone inside the reach of a glance at rest
+/// (`body::REST_GLANCE_REACH`): a tilt to either side, a look up and a dip.
+pub const MOVES: [&Clip; 5] = [
     &clips::IDLE,
     &clips::TILT_LEFT,
     &clips::TILT_RIGHT,
     &clips::LOOK_UP,
+    &clips::DIP,
 ];
+
+/// How much likelier each other move is than the one made last.
+const OTHERS_WEIGH: u64 = 3;
 
 /// Whether this clip is one of the shifts at rest.
 pub fn is_move(clip: &Clip) -> bool {
-    MOVES.iter().any(|shift| shift.name == clip.name)
+    is_move_name(clip.name)
+}
+
+/// Whether a move of this name is one of the shifts at rest.
+pub fn is_move_name(name: &str) -> bool {
+    MOVES.iter().any(|shift| shift.name == name)
 }
 
 /// Draws the waits and the moves, from a seed.
 #[derive(Clone, Copy, Debug)]
 pub struct Idler {
     state: u64,
-    last: Option<usize>,
+    last: Option<&'static str>,
 }
 
 impl Idler {
@@ -60,17 +71,41 @@ impl Idler {
         Duration::from_secs_f64(drawn)
     }
 
-    /// The next move: any but the last one. The two tilts only for a head
-    /// that tilts when it stands (`--stand-roll` past `--reach`'s roll):
-    /// elsewhere their roll is left out and both are the same small lift.
-    pub fn pick(&mut self, tilts: bool) -> &'static Clip {
-        let open: Vec<usize> = (0..MOVES.len())
-            .filter(|index| Some(*index) != self.last)
-            .filter(|index| tilts || !is_tilt(MOVES[*index]))
+    /// The next move, the last one a third as likely as each other. The two
+    /// tilts only for a head that tilts when it stands (`--stand-roll` past
+    /// `--reach`'s roll): elsewhere their roll is left out and both are the
+    /// same small lift. Moves of the arm only for an arm no hand holds
+    /// (`arm`): one held is not swayed into the hand.
+    pub fn pick(&mut self, tilts: bool, arm: bool) -> &'static Clip {
+        let open: Vec<&'static Clip> = MOVES
+            .into_iter()
+            .filter(|shift| tilts || !is_tilt(shift))
+            .filter(|shift| arm || shift.frames.iter().all(|frame| frame[3..] == [0; 2]))
             .collect();
-        let index = open[(self.next() % open.len() as u64) as usize];
-        self.last = Some(index);
-        MOVES[index]
+        self.pick_from(&open)
+    }
+
+    fn pick_from(&mut self, open: &[&'static Clip]) -> &'static Clip {
+        let last = self.last;
+        let weight = |shift: &Clip| {
+            if Some(shift.name) == last {
+                1
+            } else {
+                OTHERS_WEIGH
+            }
+        };
+        let total: u64 = open.iter().map(|shift| weight(shift)).sum();
+        let mut left = self.next() % total;
+        let mut chosen = open[0];
+        for shift in open {
+            if left < weight(shift) {
+                chosen = shift;
+                break;
+            }
+            left -= weight(shift);
+        }
+        self.last = Some(chosen.name);
+        chosen
     }
 }
 
@@ -107,22 +142,49 @@ mod tests {
     }
 
     #[test]
-    fn a_move_is_never_the_one_before_and_all_of_them_come() {
+    fn a_move_is_seldom_the_one_before_and_all_of_them_come() {
         let mut idler = Idler::new(11);
-        let picks: Vec<&str> = (0..400).map(|_| idler.pick(true).name).collect();
-        assert!(picks.windows(2).all(|pair| pair[0] != pair[1]), "{picks:?}");
+        let picks: Vec<&str> = (0..1_300).map(|_| idler.pick(true, true).name).collect();
+        // The last one weighs 1 against 3 for each of the other four: a
+        // repeat about one time in 13.
+        let repeats = picks.windows(2).filter(|pair| pair[0] == pair[1]).count();
+        assert!((50..=150).contains(&repeats), "{repeats}");
         for shift in MOVES {
             let count = picks.iter().filter(|name| **name == shift.name).count();
-            assert!((70..=130).contains(&count), "{}: {count}", shift.name);
+            assert!((200..=320).contains(&count), "{}: {count}", shift.name);
         }
         assert!(MOVES.iter().all(|shift| is_move(shift)));
         assert!(!is_move(&clips::CALLED) && !is_move(&clips::NOD));
-        // A head that does not tilt standing: no tilts, the other two by turns.
-        let picks: Vec<&str> = (0..20).map(|_| idler.pick(false).name).collect();
+        // A head that does not tilt standing: no tilts, the other three.
+        let picks: Vec<&str> = (0..300).map(|_| idler.pick(false, true).name).collect();
         assert!(
             picks.iter().all(|name| !name.starts_with("tilt")),
             "{picks:?}"
         );
-        assert!(picks.windows(2).all(|pair| pair[0] != pair[1]), "{picks:?}");
+        for name in ["idle", "look_up", "dip"] {
+            assert!(picks.contains(&name), "{name}");
+        }
+        // An arm held by a hand: the head alone.
+        assert!((0..100).all(|_| idler.pick(true, false).name != clips::IDLE.name));
+    }
+
+    /// With only two moves, not strict turns: a repeat about one time in
+    /// four, and no long run of either.
+    #[test]
+    fn two_moves_do_not_take_strict_turns() {
+        let two = [&clips::IDLE, &clips::LOOK_UP];
+        for seed in 0..20 {
+            let mut idler = Idler::new(seed);
+            let picks: Vec<&str> = (0..200).map(|_| idler.pick_from(&two).name).collect();
+            let repeats = picks.windows(2).filter(|pair| pair[0] == pair[1]).count();
+            assert!((25..=80).contains(&repeats), "seed {seed}: {repeats}");
+            let longest = picks
+                .chunk_by(|a, b| a == b)
+                .map(|run| run.len())
+                .max()
+                .unwrap();
+            assert!(longest <= 8, "seed {seed}: {longest}");
+            assert_ne!(longest, 1, "seed {seed}: strict turns");
+        }
     }
 }

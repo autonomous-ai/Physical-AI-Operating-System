@@ -866,34 +866,48 @@ then: anything alive that stands with nothing to do does. Not on a clock
 (until 2026-10-16 it was every 18 s, `idle` after `idle` all afternoon on
 lamp-4ace, #705): each wait is drawn at random from 40 s to 3 min. A lamp
 left alone folds `--awake-seconds` after the last mood or face, and folded
-it never shifts: that is how it is still with nobody near (a stretch of the
-wait for time alone was tried and dropped, as with the 90 s the deployed
-units are given it could never reach past about 1.3 times). Each shift is
-one of four small moves, never the one made last (`crate::idle`):
+it never shifts: that is how it is still with nobody near. Each shift is
+one of five small moves (`crate::idle`), the one made last a third as
+likely as each other: not ruled out, as with only two to choose from that
+would be strict turns, a pattern of its own.
 
 | Move | Lasts | Mostly |
 | --- | --- | --- |
-| `idle` | 10.0 s | the old runtime's idle loop at half its size (table above) |
-| `tilt_left`, `tilt_right` | 3.2 s | head roll 25 to one side, the head lifting 10; only on a head that tilts standing (`--stand-roll` past `--reach`'s roll), as elsewhere the roll is left out and both are the same lift under a degree. No deployed unit gives `--stand-roll`, so there it is `idle` and `look_up` by turns |
+| `idle` | 10.0 s | the old runtime's idle loop at half its size (table above); the only one that moves the arm, so not while a hand holds the shoulder or the elbow |
+| `tilt_left`, `tilt_right` | 3.2 s | head roll 25 to one side, the head lifting 10; only on a head that tilts standing (`--stand-roll` past `--reach`'s roll), as elsewhere the roll is left out and both are the same lift under a degree. No deployed unit gives `--stand-roll`, so there the moves are `idle`, `look_up` and `dip` |
 | `look_up` | 3.2 s | the head lifts 50 |
+| `dip` | 3.2 s | the head lowers 40, a breath let out |
 
-The three head moves stay inside the reach of a glance at rest
+The four head moves stay inside the reach of a glance at rest
 (`REST_GLANCE_REACH`) and move neither the base nor the arm; they pass
-V1's anti-tip rule with the built-in clips (`cog.rs`). No shift
+V1's anti-tip rule with the built-in clips (`cog.rs`). A `--moves` file
+may not take their names. No shift
 while it is folded, rising or folding, while a mood other than rest is
 heard (someone talking to it, a call taken as listening), while a call or
 another gesture plays or waits, while the head or the base has given way to
-a hand or is in one (a hand on the shoulder or the elbow is not looked at),
-or while stillness is asked (Expression's `hold` for someone working under
-the light, or a pause); any of these lets a shift under way go and starts
-the wait again, so no shift comes right after it. Expression's rest
-stream under `--rest-glance` (renewed every 20 ms at rest, zeros or a
-breath) is not a reason: the shift plays over it and replaces its offsets
-while it lasts. Until 2026-10-16 evening it was, and no deployed lamp
-shifted at all. A gesture that is asked
-for replaces a shift. Each run draws from its own seed (the clock at start;
-tests pass one with `Standing::seeded`). The report counts shifts apart
-from gestures (`idles`); the journal names each (`gesture tilt_left`).
+a hand or is in one, or while stillness is asked (Expression's `hold` for
+someone working under the light, or a pause); any of these lets a shift
+under way go and starts the wait again, so no shift comes right after it.
+
+A shift and Expression's rest layer under `--rest-glance` (its breath and
+drift, renewed every 20 ms at rest) are one layer, not two:
+
+- A shift starts and ends where the rest offsets hold the head, with no
+  dip back to plain rest before or after it; the breath goes on under it
+  at half its size.
+- One quiet window: no shift starts within 30 s of a drift
+  (`SHIFT_QUIET`), and Expression begins no drift within 30 s of the body
+  moving by itself (`BODY_QUIET_US`, `docs/expression.md`). A drift does
+  not start the wait over; a shift that falls due inside the window waits
+  for its end. The body tells a drift from the breath by the offsets'
+  average over a breath (5.2 s) moving 5 counts, which it sees a couple of
+  seconds into the drift: a shift begun in those seconds plays on, the two
+  together as one move.
+
+A gesture that is asked for replaces a shift. Each run draws from its own
+seed (the clock at start; tests pass one with `Standing::seeded`). The
+report counts shifts apart from gestures (`idles`); the journal names each
+(`gesture look_up`).
 
 A head that does not tilt when it stands (`--stand-roll` not given) does not
 tilt in a gesture either: the roll in a clip is left out. On lamp-4ace that

@@ -145,6 +145,12 @@ const STALL_LOAD: u16 = 100;
 /// 100 to 150 while it stands. 100 is twice that wander, and far under a
 /// hand stopping the arm, which reads hundreds (the arm's own bound is 950).
 const ARM_STALL_MARGIN: u16 = 100;
+/// The most a free-standing arm joint may carry for that load to be learned:
+/// lamp-52e6's shoulder stands at 100 to 150, lamp-4ace's at 112. A joint
+/// reading more when it settles is already held by something (a hand, an
+/// obstacle): learning that would lift its bound out of reach, so nothing is
+/// learned and it keeps `STALL_LOAD` until it stands under this.
+const ARM_CARRIES_MOST: u16 = STALL_LOAD + ARM_STALL_MARGIN;
 const STALL_SLACK: u16 = 6;
 /// Arrived: this close to the wanted pose and this slow, for this many steps.
 const ARRIVED_COUNTS: f32 = 6.0;
@@ -3320,7 +3326,7 @@ pub(crate) fn run_alive(
                     let stall = &mut stalls[3 + index];
                     if !(stand > 0.0 && stand_velocity == 0.0) {
                         stall.carries = None;
-                    } else if stall.carries.is_none() {
+                    } else if stall.carries.is_none() && is.load <= ARM_CARRIES_MOST {
                         stall.carries = Some(is.load);
                     }
                     if stall.step(arm_written[index], is, arm_written[index]) {

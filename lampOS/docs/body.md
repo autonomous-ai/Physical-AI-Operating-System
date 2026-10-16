@@ -1142,6 +1142,11 @@ numbers:
   at rest. 100 over is twice the 50 lamp-52e6's standing shoulder wanders
   (100 to 150) and far under a hand stopping the arm, which reads hundreds
   (the arm's own bound, `--arm-load`, is 950). The head keeps 100.
+  That load is learned only while it reads 200 (100 + 100) or less, over
+  what a free-standing arm carries (lamp-52e6 100 to 150, lamp-4ace 112):
+  an arm already held by a hand or an obstacle when `stand` settles reads
+  more, and learning that would lift its bound out of reach of the same
+  push. Until it stands under 200 its bound stays 100.
 
 The report counts each joint's (`stalls`: head pitch, head roll, base yaw,
 shoulder, elbow) and the log says each one with the joints' positions and

@@ -64,3 +64,14 @@ Ready for lamp-voice: no
   the branch `twelve/920-light-stale-window` deleted at its person's request
   (the fix was commit `103625ddf`, one test in `crates/actions/src/light.rs`:
   a 500 ms life and a 600 ms wait in place of 20 ms and 60 ms).
+
+## 2026-10-16 — #935 taken
+
+Ready for lamp-voice: no
+
+- The first builder gave twelve #935 on #705 at 11:22 (moved from the
+  eighth): the coordinator reminder round trip's `AckConfirmed` is missing
+  after one Ack request. Find the cause and make the test deterministic from
+  it, as the seventh did for #893 (stepped clock, no retries, no longer
+  timeouts). One pull request into `lamp-voice`. Taken at 11:2x; work on
+  `twelve/935-reminder-ack` from `origin/lamp-voice`.

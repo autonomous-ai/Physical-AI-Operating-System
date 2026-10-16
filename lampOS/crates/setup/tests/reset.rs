@@ -334,15 +334,12 @@ fn the_example_plan_wipes_every_store_of_the_person() {
         );
     }
     // What makes the lamp itself is kept: its update key.
-    for kept in ["/etc/lampOS/update/key.pub"] {
-        assert!(
-            !plan
-                .wipe
-                .iter()
-                .any(|wiped| Path::new(kept).starts_with(wiped)),
-            "{kept} is wiped"
-        );
-    }
+    let kept = Path::new("/etc/lampOS/update/key.pub");
+    assert!(
+        !plan.wipe.iter().any(|wiped| kept.starts_with(wiped)),
+        "{} is wiped",
+        kept.display()
+    );
 }
 
 /// Harness's real layout under the tasks part's home (Nine on #1016, from

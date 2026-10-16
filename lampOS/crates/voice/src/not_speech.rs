@@ -180,6 +180,12 @@ pub fn takes_over(lamp_answering: bool, replaced_was_said: bool) -> bool {
 /// builder, #829, 16:33).
 pub const AFTER_STOP_US: u64 = 4_000_000;
 
+/// The first request this soon after a hand or the head stopped the lamp
+/// tells the model it was stopped, so that it does not pick up what it was
+/// saying again (#829, the first builder at 16:33): two minutes, a request
+/// in the same conversation.
+pub const TELL_STOP_WITHIN_US: u64 = 120_000_000;
+
 /// Whether the lamp was stopped by a hand or its head (`stopped_at_us`)
 /// less than [`AFTER_STOP_US`] before `now_us`, and has not spoken since
 /// (`last_spoke_us`): once it answers again ("Want another?"), a short

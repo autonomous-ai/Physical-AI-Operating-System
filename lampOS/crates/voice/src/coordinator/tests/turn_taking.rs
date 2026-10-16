@@ -324,6 +324,14 @@ impl Harness {
         self.commit_with(accepted, false)
     }
     fn commit_with(&mut self, accepted: Accepted, cut_in: bool) -> VecDeque<ProviderInput> {
+        self.commit_told(accepted, cut_in, false)
+    }
+    fn commit_told(
+        &mut self,
+        accepted: Accepted,
+        cut_in: bool,
+        after_stop: bool,
+    ) -> VecDeque<ProviderInput> {
         let mut queue = VecDeque::new();
         commit_admitted_input(
             &mut self.owner,
@@ -334,6 +342,7 @@ impl Harness {
             1,
             false,
             cut_in,
+            after_stop,
             PlayoutStart::default(),
             &mut self.trace,
             |_| Ok(()),
@@ -781,6 +790,35 @@ fn an_input_ended_at_admission_carries_whether_it_cut_in() {
         assert!(
             matches!(end, ProviderInput::End { cut_in: marked, sound: false, .. } if *marked == cut_in),
             "{end:?}"
+        );
+    }
+}
+
+/// #829, the first builder at 16:33: the first request after a hand or
+/// the head stopped the lamp says so in its Start, for the model to be
+/// told, and in its record; any other says nothing.
+#[test]
+fn the_first_request_after_a_stop_says_so_in_its_start() {
+    for after_stop in [true, false] {
+        let mut h = Harness::new(TurnTaking::V1Baseline);
+        let mut accepted = None;
+        for n in 1..=6 {
+            accepted = h.feed(n * 10_000, 0.99).unwrap().or(accepted);
+        }
+        let queue = h.commit_told(accepted.unwrap(), false, after_stop);
+        assert!(
+            matches!(queue.front(), Some(ProviderInput::Start { after_stop: told, .. }) if *told == after_stop),
+            "{queue:?}"
+        );
+        let admitted = h
+            .trace
+            .iter()
+            .find(|row| row["kind"] == "input_admitted")
+            .unwrap();
+        assert_eq!(
+            admitted.get("after_stop").is_some(),
+            after_stop,
+            "{admitted}"
         );
     }
 }

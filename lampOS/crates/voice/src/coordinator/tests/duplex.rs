@@ -314,6 +314,7 @@ impl Harness {
                 1,
                 false,
                 false,
+                false,
                 PlayoutStart::default(),
                 &mut self.trace,
                 |_| Ok(()),
@@ -1318,6 +1319,7 @@ fn provider_pcm_threshold_keeps_exactly_one_terminal_allowance_in_both_modes() {
             continues: false,
             continues_cut_off: false,
             over_the_lamp: false,
+            after_stop: false,
         });
         for n in 1..bound {
             queue_input(

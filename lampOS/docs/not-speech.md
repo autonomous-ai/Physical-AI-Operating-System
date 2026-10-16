@@ -55,7 +55,12 @@ treated so:
   by mistake and says "Go on." gets nothing, and says it again after the
   4 s or at more length. `not_speech.after_stop` in the record counts what
   that costs. A Stop pressed while the lamp was not speaking opens no 4 s
-  (Second on #1107).
+  (Second on #1107). The first request after the Stop, within two minutes
+  (`TELL_STOP_WITHIN_US`), says so in its Start (`after_stop`, and in its
+  `input_admitted` record), and the model is told beside it that the
+  person stopped it and that what it was saying is over (`STOPPED_NOTE`;
+  the journal: "the model is told the person stopped it"), so that it
+  doesn't begin the story again.
 - one that took the turn from the lamp's own answer (a quick "stop" over
   it), or from something that had itself been said (the short second half
   of a sentence after a pause). At first any turn that took over from

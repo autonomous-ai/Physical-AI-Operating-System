@@ -3066,6 +3066,8 @@ fn conversation_with_gate(
     // When a hand or the head last stopped the lamp's speech: a short sound
     // just after is the tap's own, not an answer (#829, 16:33).
     let mut stopped_at_us: Option<u64> = None;
+    // A Stop the model has not been told of yet: the next request tells it.
+    let mut stop_untold: Option<u64> = None;
     let mut spoke_in_turn: Option<u64> = None;
     // The head tap's "hm?" (#711): its sound, made once for the cycle when
     // the head is read, and when it last played, so it plays at most once
@@ -3607,6 +3609,7 @@ fn conversation_with_gate(
                 // #1107).
                 if (head_stop || stop && speaking) && !muted {
                     stopped_at_us = Some(observed_at_us);
+                    stop_untold = Some(observed_at_us);
                 }
                 let reason = if asleep {
                     HEAD_SLEEP
@@ -4729,6 +4732,10 @@ fn conversation_with_gate(
                         provider_session,
                         continues,
                         took_over,
+                        stop_untold.take().is_some_and(|stopped| {
+                            monotonic_us().saturating_sub(stopped)
+                                <= crate::not_speech::TELL_STOP_WITHIN_US
+                        }),
                         rig.playout_start,
                         trace,
                         |state| rig.publish(state),
@@ -7211,6 +7218,8 @@ fn commit_admitted_input(
     continues: bool,
     // It takes over from the lamp's own answer: its End, if queued here, says so (#926).
     cut_in: bool,
+    // The first request after a hand or the head stopped the lamp (#829).
+    after_stop: bool,
     playout_start: PlayoutStart,
     trace: &mut SessionState,
     mut publish: impl FnMut(Snapshot) -> io::Result<()>,
@@ -7238,6 +7247,9 @@ fn commit_admitted_input(
     if continues {
         admitted["continues"] = json!(true);
     }
+    if after_stop {
+        admitted["after_stop"] = json!(true);
+    }
     record(trace, admitted)?;
     provider_queue.push_back(ProviderInput::Start {
         session: provider_session,
@@ -7249,6 +7261,9 @@ fn commit_admitted_input(
         continues_cut_off: false,
         // Said over the lamp's reply: never judged for its voice (#829).
         over_the_lamp: replacing,
+        // The first request after a hand or the head stopped the lamp: the
+        // model is told so (#829, 16:33).
+        after_stop,
     });
     let mut current = Reply {
         owner: turn,
@@ -7497,6 +7512,7 @@ fn continue_after_early_end(
         continues_cut_off: true,
         // Nothing of the answer given up was played.
         over_the_lamp: false,
+        after_stop: false,
     });
     let mut current = Reply {
         owner: turn,
@@ -8632,6 +8648,7 @@ mod tests {
                 continues: false,
                 continues_cut_off: false,
                 over_the_lamp: false,
+                after_stop: false,
             })
             .unwrap();
         request.confirm_start(1).unwrap();
@@ -9820,6 +9837,7 @@ mod tests {
             continues: false,
             continues_cut_off: false,
             over_the_lamp: false,
+            after_stop: false,
         }
     }
 

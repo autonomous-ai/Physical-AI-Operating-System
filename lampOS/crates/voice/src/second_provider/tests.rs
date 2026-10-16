@@ -150,6 +150,7 @@ fn start(request: u64) -> ProviderInput {
         continues: false,
         continues_cut_off: false,
         over_the_lamp: false,
+        after_stop: false,
     }
 }
 fn audio(request: u64, sequence: u64) -> ProviderInput {

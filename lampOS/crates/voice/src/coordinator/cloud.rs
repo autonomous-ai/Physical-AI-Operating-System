@@ -297,6 +297,7 @@ mod tests {
                         continues: false,
                         continues_cut_off: false,
                         over_the_lamp: false,
+                        after_stop: false,
                     })
                     .is_err()
             );
@@ -312,6 +313,7 @@ mod tests {
                 continues: false,
                 continues_cut_off: false,
                 over_the_lamp: false,
+                after_stop: false,
             })
             .unwrap();
         assert!(request.confirm_start(3).is_err());
@@ -334,6 +336,7 @@ mod tests {
                     continues: false,
                     continues_cut_off: false,
                     over_the_lamp: false,
+                    after_stop: false,
                 })
                 .unwrap();
             if stage == FailedStage::AwaitingResponse {
@@ -378,6 +381,7 @@ mod tests {
                 continues: false,
                 continues_cut_off: false,
                 over_the_lamp: false,
+                after_stop: false,
             })
             .unwrap();
         if ended {
@@ -736,6 +740,7 @@ mod tests {
                             continues: false,
                             continues_cut_off: false,
                             over_the_lamp: false,
+                            after_stop: false,
                         })
                         .unwrap();
                     fresh.confirm_start(2).unwrap();

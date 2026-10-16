@@ -776,8 +776,8 @@ way, checked before the nod and the shake: `surprised` with "wow", "whoa",
 that"; `curious` with "hmm", "ooh", "interesting", "tell me more";
 `acknowledge` with "got it", "on it", "will do", "done", "được rồi", "xong
 rồi"; `happy` with "yay", "congratulations", "awesome", "that's great",
-"that's fantastic", "wonderful", "amazing", "incredible", "tuyệt", "hay
-quá"; `sleepy` with "good night", "sleep well", "chúc ngủ ngon". "No way!",
+"that's fantastic", "wonderful", "that's amazing", "that is incredible",
+"tuyệt", "hay quá" (a bare "amazing" or "incredible" is not one); `sleepy` with "good night", "sleep well", "chúc ngủ ngon". "No way!",
 a shake before, is now a surprise.
 
 What the body does with the request:

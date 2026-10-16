@@ -2,7 +2,9 @@
 //! a skill's glow, or anything else that must not leave the person's own
 //! light changed. Each asker (`claim.source`) has one request at a time,
 //! its newest; the ring shows the highest priority that holds, the newest
-//! of equal priority, and the person's lasting light once none does.
+//! claim of equal priority (a renewal keeps its claim's place, so two
+//! skills renewing in turn never swap the light), and the person's lasting
+//! light once none does.
 //!
 //! An asker gives its light back by asking again with a time already
 //! passed, or by not asking again before its time. A claim holds only on
@@ -15,7 +17,9 @@
 //! without a gap; the asker's next claim, after that one has lapsed or been
 //! given back, is heard again. A claim given way still has its asker's one
 //! place among the [`MOST_SOURCES`], so whatever is held can always be
-//! given way: there is no second list that could fill up.
+//! given way: there is no second list that could fill up. A request refused
+//! for want of a place is not held, so its asker's next request is a new
+//! claim, heard as begun when it comes (Twelve on #993).
 use lamp_msgs::{Light, LightRequest, Priority};
 
 /// At most this many askers are kept at once, given way or not; another is
@@ -72,8 +76,11 @@ impl Requests {
         let renewed = at
             .map(|at| &self.held[at])
             .filter(|held| held.request.claim.holds_at(clock_id, now_us));
-        let (since_us, was_before) = renewed.map_or((now_us, before_person), |held| {
-            (held.since_us, held.before_person)
+        // A renewal keeps its claim's beginning and its place among equals
+        // (the reviewer on #993: two skills renewing in turn swapped the
+        // ring's colour at each renewal).
+        let (since_us, was_before, order) = renewed.map_or((now_us, before_person, None), |held| {
+            (held.since_us, held.before_person, Some(held.order))
         });
         if let Some(at) = at {
             self.held.swap_remove(at);
@@ -87,10 +94,13 @@ impl Requests {
         if self.held.len() >= MOST_SOURCES {
             return false;
         }
-        self.taken += 1;
+        let order = order.unwrap_or_else(|| {
+            self.taken += 1;
+            self.taken
+        });
         self.held.push(Held {
             request,
-            order: self.taken,
+            order,
             since_us,
             before_person: was_before,
         });
@@ -169,6 +179,42 @@ mod tests {
         assert_eq!(colour(&requests, 5 * S), Some("blue"), "b has lapsed");
         assert_eq!(colour(&requests, 10 * S), Some("red"), "a has lapsed");
         assert_eq!(colour(&requests, 20 * S), None, "the person's light again");
+    }
+
+    /// The reviewer on #993: two skills at one priority, each renewing in
+    /// turn, keep the light of the newest claim; renewals never swap it.
+    #[test]
+    fn renewals_keep_the_newest_claim_and_never_swap_the_light() {
+        let mut requests = Requests::new(BOOT);
+        // Each renews every 10 s, 5 s apart, each claim 12 s long: always
+        // before its last one runs out.
+        let a = |at: u64| request("skill:a", Priority::Skill, at + 12 * S, "blue");
+        let b = |at: u64| request("skill:b", Priority::Skill, at + 12 * S, "green");
+        requests.take(a(0), 0, false);
+        requests.take(b(5 * S), 5 * S, false);
+        assert_eq!(
+            colour(&requests, 5 * S),
+            Some("green"),
+            "b is the newer claim"
+        );
+        for step in 1..=5 {
+            let at = step * 10 * S;
+            assert!(requests.take(a(at), at, false));
+            assert_eq!(
+                colour(&requests, at),
+                Some("green"),
+                "after a's renewal at {at}"
+            );
+            assert!(requests.take(b(at + 5 * S), at + 5 * S, false));
+            assert_eq!(colour(&requests, at + 5 * S), Some("green"));
+        }
+        // b gives its light back: a's, still held, is shown.
+        requests.take(
+            request("skill:b", Priority::Skill, 0, "green"),
+            56 * S,
+            false,
+        );
+        assert_eq!(colour(&requests, 56 * S), Some("blue"));
     }
 
     #[test]

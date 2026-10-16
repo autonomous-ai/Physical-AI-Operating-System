@@ -62,8 +62,9 @@ impl Claim {
 
 /// A light asked for that lapses (`light/request`): a skill's glow, or
 /// anything else that must not leave the person's own light changed. The
-/// ring shows the highest-priority request that holds, the newest of equal
-/// priority, and the person's lasting light once none does.
+/// ring shows the highest-priority request that holds, the newest claim of
+/// equal priority (a renewal keeps its place), and the person's lasting
+/// light once none does.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LightRequest {
     pub claim: Claim,

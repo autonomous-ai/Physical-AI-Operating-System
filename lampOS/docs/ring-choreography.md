@@ -269,8 +269,10 @@ that takes the light (`src/ring_light.rs`). Started with
   skill's glow, or anything else that must not leave the person's light
   changed. Each asker (`claim.source`) has one request, its newest. The
   ring shows the highest priority that holds on the host's boot clock
-  (`/proc/sys/kernel/random/boot_id`), the newest of equal priority, and
-  the person's light again once none does, with no one giving it back. An
+  (`/proc/sys/kernel/random/boot_id`), the newest claim of equal priority
+  (a renewal keeps its claim's place, so two skills renewing in turn never
+  swap the light), and the person's light again once none does, with no
+  one giving it back. An
   asker gives the light back early by asking with a time already passed.
   A claim holds 30 s at most, so a skill renews what it keeps. A
   `light/command` read gives way every request below `person` whose claim

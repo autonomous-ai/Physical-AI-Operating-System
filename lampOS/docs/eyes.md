@@ -603,11 +603,14 @@ With the switch:
   `remember_my_face` is to be called when someone tells their name, not
   only when they ask. And once what they said in a request gives their
   name ("my name is Jim", "my name's Jim", "call me Jim", "I am called
-  Jim", "I'm Jim", "I am Jim", "this is Jim" with the name ending it,
-  "Jim's my name", "Jim is my name", or "it's Jim" where the request
-  speaks of "my name", "Will you remember my name? It's Jim."; not "This
-  is Jim, my colleague." nor "What's his name? It's Bob.", which name
-  someone else (Ten on #1224); the name capitalised and not a word that
+  Jim", "I'm Jim", "I am Jim", "this is Jim speaking", "this is Jim
+  here", "Jim's my name", "Jim is my name", or "this is Jim" and "it's
+  Jim" where the request speaks of "my name", "Will you remember my name?
+  It's Jim."; not "Lamp, this is Jim.", "This is Jim, my colleague." nor
+  "What's his name? It's Bob.", which at a desk mostly name someone else,
+  whose name the eyes would file on the one face they see, nor "He said
+  Jim is my name." (Ten and the reviewer on #1224); the name capitalised
+  and not a word that
   is no one's, such as "OK", a day or "American"; not after "what", and
   not in a question, except one that asks the lamp to call them so or to
   remember it, "Could you call me Jim?" or "Do you remember my name is

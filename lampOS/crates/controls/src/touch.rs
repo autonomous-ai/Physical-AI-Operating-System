@@ -64,6 +64,11 @@ impl Default for HeadTiming {
 pub const BUTTON_DEBOUNCE_US: u64 = 200_000;
 pub const PRIMARY_HOLD_US: u64 = 2_000_000;
 pub const RESET_HOLD_US: u64 = 5_000_000;
+/// The reset button arms only after it has read released this long running:
+/// a line that rests pressed (a pad driving it low) and lifts briefly never
+/// arms, so two short lifts 5 s apart are never a reset (the reviewer on
+/// #1167). The primary button arms on its first released read, as before.
+pub const RESET_ARM_US: u64 = 1_000_000;
 pub const MAX_PENDING_EVENTS: usize = 64;
 pub const MAX_RETIRED_READERS: usize = 32;
 
@@ -337,25 +342,44 @@ struct Button {
     counter: u64,
     press_edge: Option<u64>,
     release_edge: Option<u64>,
+    /// How long it must read released running before it arms (0: at once).
+    arm_after_us: u64,
+    /// Since when it has read released, while not yet armed.
+    released_since: Option<u64>,
 }
 impl Button {
+    fn arming_after(arm_after_us: u64) -> Self {
+        Self {
+            arm_after_us,
+            ..Self::default()
+        }
+    }
     fn reset(&mut self) {
         *self = Self {
             counter: self.counter,
+            arm_after_us: self.arm_after_us,
             ..Self::default()
         };
     }
     fn observe(&mut self, active: bool, at: u64) -> Result<Option<Contact>, InputError> {
-        let Some(previous) = self.raw.replace(active) else {
-            self.armed = !active;
+        let previous = self.raw.replace(active);
+        if !self.armed {
+            // Released long enough running, it arms; pressed, it starts over.
+            self.contact = None;
+            self.released_since = if active {
+                None
+            } else {
+                Some(self.released_since.unwrap_or(at))
+            };
+            self.armed = self
+                .released_since
+                .is_some_and(|since| at.saturating_sub(since) >= self.arm_after_us);
+            return Ok(None);
+        }
+        let Some(previous) = previous else {
             return Ok(None);
         };
         if previous == active {
-            return Ok(None);
-        }
-        if !self.armed {
-            self.armed = !active;
-            self.contact = None;
             return Ok(None);
         }
         if active {
@@ -558,7 +582,7 @@ impl TouchEngine {
             gpio: Fence::default(),
             strip_fence: Fence::default(),
             primary: Button::default(),
-            reset: Button::default(),
+            reset: Button::arming_after(RESET_ARM_US),
             head,
             strip,
             strip_selected_mask,

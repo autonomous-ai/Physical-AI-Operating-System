@@ -530,13 +530,15 @@ fn run_touch(args: Args, config: Config, clock: &str) -> Result<(), Box<dyn std:
         }
     }
     let started = lamp_ipc::monotonic_us();
+    let mut hands = HandLog::default();
     while !stop.load(Ordering::Relaxed)
         && args
             .seconds
             .is_none_or(|seconds| lamp_ipc::monotonic_us() - started < seconds * 1_000_000)
     {
         let began = lamp_ipc::monotonic_us();
-        service.step(lamp_ipc::monotonic_us);
+        let output = service.step(lamp_ipc::monotonic_us);
+        hands.note_reset(began, &output);
         let elapsed = lamp_ipc::monotonic_us().saturating_sub(began);
         if elapsed < runtime::POLL_US {
             thread::sleep(Duration::from_micros(runtime::POLL_US - elapsed));
@@ -707,6 +709,41 @@ impl HandLog {
             })
             .collect();
         for line in self.lines(at_us, now.join(", "), gestures) {
+            eprintln!("lamp-controls: hand: {line}");
+        }
+    }
+
+    /// The reset button on the touch path: pressed, let go, or held long
+    /// enough to ask for a factory reset, so a hold that did nothing can be
+    /// told from one Controls never saw (the reviewer on #1167).
+    fn note_reset(&mut self, at_us: u64, output: &lamp_controls::touch::TouchOutput) {
+        use lamp_msgs::TouchSource;
+        let Some(reset) = output
+            .state
+            .sources
+            .iter()
+            .find(|source| source.source == TouchSource::Reset)
+        else {
+            return;
+        };
+        let now = match reset.active {
+            Some(true) => "reset pressed",
+            Some(false) => "reset released",
+            None => "reset not read",
+        };
+        let asked = output
+            .events
+            .iter()
+            .filter(|event| event.source == TouchSource::Reset)
+            .map(|event| {
+                format!(
+                    "reset held {} ms and let go: a factory reset asked, acted on: {}",
+                    event.observed_us.saturating_sub(event.began_us) / 1000,
+                    event.enabled
+                )
+            })
+            .collect();
+        for line in self.lines(at_us, now.into(), asked) {
             eprintln!("lamp-controls: hand: {line}");
         }
     }

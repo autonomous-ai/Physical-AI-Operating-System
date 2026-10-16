@@ -2,7 +2,7 @@
 //! loader's refusals, and the program on a real bus with the body's and the
 //! actions part's sockets stood in for.
 use lamp_bus::Bus;
-use lamp_msgs::{Faces, SkillEvent, SkillStage};
+use lamp_msgs::{Faces, Light, SkillEvent, SkillStage};
 use lamp_skills::{Call, Engine, load, load_all, read_recordings, run_tests};
 use std::{
     fs,
@@ -151,10 +151,35 @@ impl Drop for Running {
     }
 }
 
-/// The program on a bus of its own, its skills folder empty until Welcome
-/// back, set to greet at once, is put in it. One face is published. What
-/// came on `skills/events`, to the gaze socket and to the actions part.
-fn the_program(skip: bool) -> (Vec<SkillEvent>, Option<String>, Option<String>) {
+/// What the program did with one face.
+struct Seen {
+    events: Vec<SkillEvent>,
+    looked: Option<String>,
+    /// Each call to the actions part, in order.
+    lights: Vec<String>,
+    /// What the voice was asked to say.
+    asked: Option<String>,
+}
+
+/// A hello that greets at once, with the light and the say of Welcome back.
+const AT_ONCE: &str = r#"
+[trigger]
+topic = "humans/faces/tracked"
+when = "appears"
+near = 0.14
+[ask]
+policy = "hello"
+[[do]]
+body = { look_at = "face" }
+light = { colour = "warm" }
+say = "Greet them."
+"#;
+
+/// The program on a bus of its own, its skills folder empty until a hello
+/// that greets at once is put in it. The light shows blue at 3. One face is
+/// published, and the voice's say service answers with `answers`, a line
+/// each, 200 ms apart.
+fn the_program(skip: bool, answers: &'static [&'static str]) -> Seen {
     // Short: a socket's whole path has to fit in 103 bytes.
     let dir = tempfile::Builder::new()
         .prefix("sk")
@@ -164,18 +189,39 @@ fn the_program(skip: bool) -> (Vec<SkillEvent>, Option<String>, Option<String>) 
     fs::create_dir(root.join("skills")).unwrap();
     let bus = Bus::new(root.join("bus")).unwrap();
     let mut events = bus.subscribe(SkillEvent::TOPIC, "test").unwrap();
+    let mut shown = bus
+        .publisher_declared("light/state", &Light::declaration(), "ring")
+        .unwrap();
+    shown
+        .publish_json(1, &Light::new(true, "blue", 3).unwrap())
+        .unwrap();
     let gaze = UnixDatagram::bind(root.join("gaze.sock")).unwrap();
     gaze.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
     let actions = UnixListener::bind(root.join("actions.sock")).unwrap();
-    let (asked, light) = mpsc::channel();
+    let (called, lights) = mpsc::channel();
     std::thread::spawn(move || {
         for stream in actions.incoming().flatten() {
             let mut line = String::new();
             BufReader::new(&stream).read_line(&mut line).unwrap();
             (&stream)
-                .write_all(b"{\"ok\":true,\"result\":{\"light\":\"warm\"}}\n")
+                .write_all(b"{\"ok\":true,\"result\":{}}\n")
                 .unwrap();
-            let _ = asked.send(line);
+            let _ = called.send(line);
+        }
+    });
+    let voice = UnixListener::bind(root.join("say.sock")).unwrap();
+    let (heard, asked) = mpsc::channel();
+    std::thread::spawn(move || {
+        for stream in voice.incoming().flatten() {
+            let mut line = String::new();
+            BufReader::new(&stream).read_line(&mut line).unwrap();
+            let _ = heard.send(line);
+            for answer in answers {
+                std::thread::sleep(Duration::from_millis(200));
+                (&stream)
+                    .write_all(format!("{answer}\n").as_bytes())
+                    .unwrap();
+            }
         }
     });
     let mut command = Command::new(env!("CARGO_BIN_EXE_lamp-skills"));
@@ -190,6 +236,8 @@ fn the_program(skip: bool) -> (Vec<SkillEvent>, Option<String>, Option<String>) 
         root.join("mood.sock").as_os_str(),
         "--actions-socket".as_ref(),
         root.join("actions.sock").as_os_str(),
+        "--say-socket".as_ref(),
+        root.join("say.sock").as_os_str(),
     ]);
     command.env_remove("LAMP_SKILLS_ASK");
     if skip {
@@ -198,11 +246,7 @@ fn the_program(skip: bool) -> (Vec<SkillEvent>, Option<String>, Option<String>) 
     let _running = Running(command.spawn().unwrap());
     std::thread::sleep(Duration::from_millis(300));
     // Put in after the start: found by the reload.
-    welcome_back_with(
-        &root.join("skills"),
-        "absent_for = \"5m\"",
-        "absent_for = \"0s\"",
-    );
+    skill_with(&root.join("skills"), "hello", AT_ONCE);
     let deadline = Instant::now() + Duration::from_secs(10);
     while bus.subscribers(Faces::TOPIC).unwrap().is_empty() {
         assert!(Instant::now() < deadline, "the skill was never loaded");
@@ -230,19 +274,26 @@ fn the_program(skip: bool) -> (Vec<SkillEvent>, Option<String>, Option<String>) 
         .recv(&mut buffer)
         .ok()
         .map(|length| String::from_utf8_lossy(&buffer[..length]).into_owned());
-    (
-        seen,
+    Seen {
+        events: seen,
         looked,
-        light.recv_timeout(Duration::from_millis(200)).ok(),
-    )
+        lights: lights.try_iter().collect(),
+        asked: asked.try_recv().ok(),
+    }
+}
+
+fn stages(events: &[SkillEvent]) -> Vec<SkillStage> {
+    events.iter().map(|event| event.stage).collect()
 }
 
 #[test]
-fn the_program_reloads_and_runs_the_steps_through_the_parts() {
-    let (events, looked, light) = the_program(true);
-    let stages: Vec<_> = events.iter().map(|event| event.stage).collect();
+fn the_program_looks_and_lights_with_the_words_and_gives_the_light_back() {
+    let seen = the_program(
+        true,
+        &[r#"{"event":"begun","at_us":5}"#, r#"{"outcome":"spoken"}"#],
+    );
     assert_eq!(
-        stages,
+        stages(&seen.events),
         [
             SkillStage::Triggered,
             SkillStage::Asked,
@@ -250,35 +301,57 @@ fn the_program_reloads_and_runs_the_steps_through_the_parts() {
             SkillStage::Done
         ]
     );
-    assert_eq!(events[2].allowed, Some(true));
-    let done = &events[3].why;
+    assert_eq!(seen.events[2].allowed, Some(true));
+    let done = &seen.events[3].why;
     assert!(done.contains("look at the face: told the body"), "{done}");
     assert!(done.contains("light warm: done"), "{done}");
-    assert!(done.contains("say: a stub, nothing spoken"), "{done}");
+    assert!(done.contains("say: spoken"), "{done}");
+    assert!(done.contains("light given back to on blue at 3"), "{done}");
     assert_eq!(
-        looked.as_deref(),
+        seen.asked.as_deref(),
+        Some(
+            "{\"expires_in_ms\":30000,\"note\":\"Greet them.\",\"priority\":5,\"skill\":\"hello\"}\n"
+        )
+    );
+    assert_eq!(
+        seen.looked.as_deref(),
         Some(r#"{"face":{"size":0.25,"turned":0.0,"x":0.0,"y":-0.25}}"#)
     );
     assert_eq!(
-        light.as_deref(),
-        Some("{\"args\":{\"colour\":\"warm\"},\"name\":\"light_colour\",\"op\":\"call\"}\n")
+        seen.lights,
+        [
+            "{\"args\":{\"colour\":\"warm\"},\"name\":\"light_colour\",\"op\":\"call\"}\n",
+            "{\"args\":{\"colour\":\"blue\"},\"name\":\"light_colour\",\"op\":\"call\"}\n"
+        ]
     );
 }
 
 #[test]
+fn a_say_never_begun_moves_nothing_and_changes_no_light() {
+    let seen = the_program(true, &[r#"{"outcome":"expired"}"#]);
+    assert_eq!(stages(&seen.events).last(), Some(&SkillStage::Done));
+    let done = &seen.events[3].why;
+    assert_eq!(done, "say: expired");
+    assert!(seen.asked.is_some());
+    assert_eq!((seen.looked, seen.lights.len()), (None, 0));
+}
+
+#[test]
 fn the_program_does_nothing_without_the_skip() {
-    let (events, looked, light) = the_program(false);
-    let stages: Vec<_> = events.iter().map(|event| event.stage).collect();
+    let seen = the_program(false, &[]);
     assert_eq!(
-        stages,
+        stages(&seen.events),
         [
             SkillStage::Triggered,
             SkillStage::Asked,
             SkillStage::Answered
         ]
     );
-    assert_eq!(events[2].allowed, Some(false));
-    assert_eq!((looked, light), (None, None));
+    assert_eq!(seen.events[2].allowed, Some(false));
+    assert_eq!(
+        (seen.looked, seen.lights.len(), seen.asked),
+        (None, 0, None)
+    );
 }
 
 /// A skill folder named `name` in `dir` with this `skill.toml`.

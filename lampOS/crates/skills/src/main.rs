@@ -1,29 +1,38 @@
 //! `lamp-skills`: the physical skills part (`docs/skills.md`). Loads every
 //! skill folder, reloads them when one changes, listens to the topics their
 //! triggers name, and runs their steps through the body's sockets, the
-//! actions part and, until the voice has a say service, a stub.
+//! actions part and the voice's say service.
 use lamp_bus::{Bus, Publisher, Subscriber};
-use lamp_msgs::{SkillEvent, SkillStage};
-use lamp_skills::{Call, Engine, load_all, run_tests};
+use lamp_msgs::{Light, SkillEvent, SkillStage};
+use lamp_skills::{Call, Engine, duration_us, load_all, run_tests};
+use serde_json::json;
 use std::{
     io::{self, BufRead, BufReader, Read, Write},
     os::unix::net::{UnixDatagram, UnixStream},
     path::{Path, PathBuf},
     process::ExitCode,
+    sync::mpsc,
     time::{Duration, Instant, SystemTime},
 };
 
 const USAGE: &str = "usage: lamp-skills [--dir DIR] [--bus-root DIR] [--gaze-socket PATH] \
-                     [--mood-socket PATH] [--actions-socket PATH]\n       \
+                     [--mood-socket PATH] [--actions-socket PATH] [--say-socket PATH]\n       \
                      lamp-skills test SKILL_DIR...";
 /// How often the folder is looked at for a change.
 const RELOAD_EVERY: Duration = Duration::from_secs(2);
 const ACTIONS_TIMEOUT: Duration = Duration::from_secs(2);
+/// A say not begun by then is of no use: the moment has passed.
+/// ponytail: one value for every skill; a `say` field when one needs another.
+const SAY_EXPIRES_MS: u64 = 30_000;
+/// The longest the voice may take between two lines of an answer.
+const SAY_TIMEOUT: Duration = Duration::from_secs(180);
 
+#[derive(Clone)]
 struct Sockets {
     gaze: PathBuf,
     mood: PathBuf,
     actions: PathBuf,
+    say: PathBuf,
 }
 
 fn main() -> ExitCode {
@@ -37,6 +46,7 @@ fn main() -> ExitCode {
         gaze: "/run/lampos-body/gaze.sock".into(),
         mood: "/run/lampos-body/mood.sock".into(),
         actions: "/run/lampos-actions/call.sock".into(),
+        say: "/run/lampos-say/say.sock".into(),
     };
     let mut pairs = given.chunks(2);
     for pair in &mut pairs {
@@ -51,6 +61,7 @@ fn main() -> ExitCode {
             "--gaze-socket" => sockets.gaze = value,
             "--mood-socket" => sockets.mood = value,
             "--actions-socket" => sockets.actions = value,
+            "--say-socket" => sockets.say = value,
             _ => {
                 eprintln!("{USAGE}");
                 return ExitCode::from(2);
@@ -134,6 +145,11 @@ fn publish(out: &mut Publisher, mut event: SkillEvent) {
     }
 }
 
+/// The light shown now, if the ring's owner has said.
+fn light_now(bus: &Bus) -> Option<Light> {
+    bus.latest(Light::TOPICS[1]).ok()??.parse().ok()
+}
+
 fn serve(dir: &Path, root: Option<PathBuf>, sockets: &Sockets, skip_ask: bool) -> io::Result<()> {
     let bus = match root {
         Some(root) => Bus::new(root)?,
@@ -141,8 +157,7 @@ fn serve(dir: &Path, root: Option<PathBuf>, sockets: &Sockets, skip_ask: bool) -
     };
     let mut out =
         bus.publisher_declared(SkillEvent::TOPIC, &SkillEvent::declaration(), "skills")?;
-    let body = UnixDatagram::unbound()?;
-    body.set_nonblocking(true)?;
+    let (finished, done) = mpsc::channel::<SkillEvent>();
     let mut engine = Engine::new(Vec::new(), skip_ask);
     let mut subscribers: Vec<Subscriber> = Vec::new();
     let mut seen = None;
@@ -157,6 +172,9 @@ fn serve(dir: &Path, root: Option<PathBuf>, sockets: &Sockets, skip_ask: bool) -
         }
     );
     loop {
+        while let Ok(event) = done.try_recv() {
+            publish(&mut out, event);
+        }
         if looked.is_none_or(|at| at.elapsed() >= RELOAD_EVERY) {
             looked = Some(Instant::now());
             let print = fingerprint(dir);
@@ -214,32 +232,168 @@ fn serve(dir: &Path, root: Option<PathBuf>, sockets: &Sockets, skip_ask: bool) -
                 if run.calls.is_empty() {
                     continue;
                 }
-                // ponytail: steps run in this loop; a slow actions part holds
-                // the next message up to 2 s. A thread per run if that matters.
-                let done: Vec<String> = run
-                    .calls
-                    .iter()
-                    .map(|call| make(call, sockets, &body))
-                    .collect();
-                publish(
-                    &mut out,
-                    SkillEvent {
+                // A run waits on the voice for as long as the say takes: its
+                // own thread, so the skills go on listening.
+                let (sockets, finished) = (sockets.clone(), finished.clone());
+                let before = light_now(&bus);
+                std::thread::spawn(move || {
+                    let why = perform(&run.skill, &run.calls, &sockets, before);
+                    let _ = finished.send(SkillEvent {
                         skill: run.skill,
                         stage: SkillStage::Done,
-                        why: done.join("; "),
+                        why,
                         allowed: None,
-                    },
-                );
+                    });
+                });
             }
         }
     }
 }
 
+/// How the light was changed, to give it back.
+#[derive(Default)]
+struct Changed {
+    coloured: bool,
+    dimmed: u8,
+    lasting_us: u64,
+}
+
+/// Runs one skill's calls and says how each went. With a say, the others
+/// are made when the voice begins it, so the look and the light come with
+/// the words, and none if it is never begun. A light changed is given back
+/// when the say ends, or after its `for`.
+fn perform(skill: &str, calls: &[Call], sockets: &Sockets, before: Option<Light>) -> String {
+    let is_light = |call: &Call| matches!(call, Call::Light { .. } | Call::Dim { .. });
+    let mut said = Vec::new();
+    if before.is_none() && calls.iter().any(is_light) {
+        said.push(
+            "light: left alone, since the light shown is not known and could not be given back"
+                .into(),
+        );
+    }
+    let others: Vec<&Call> = calls
+        .iter()
+        .filter(|call| !matches!(call, Call::Say(_)) && (before.is_some() || !is_light(call)))
+        .collect();
+    let note = calls.iter().find_map(|call| match call {
+        Call::Say(note) => Some(note.clone()),
+        _ => None,
+    });
+    let mut changed = Changed::default();
+    let mut act = |said: &mut Vec<String>| {
+        for call in &others {
+            match call {
+                Call::Light { lasting, .. } => {
+                    changed.coloured = true;
+                    changed.lasting_us = lasting
+                        .as_deref()
+                        .and_then(|text| duration_us(text).ok())
+                        .unwrap_or(0);
+                }
+                Call::Dim { steps, .. } => changed.dimmed += steps,
+                _ => {}
+            }
+            said.push(make(call, sockets));
+        }
+    };
+    match note {
+        Some(note) => {
+            let mut begun = Vec::new();
+            let outcome = say(&sockets.say, skill, &note, || act(&mut begun));
+            said.extend(begun);
+            said.push(outcome);
+        }
+        None => {
+            act(&mut said);
+            std::thread::sleep(Duration::from_micros(changed.lasting_us));
+        }
+    }
+    if let Some(before) = before
+        && (changed.coloured || changed.dimmed > 0)
+    {
+        said.push(give_back(&before, &changed, sockets));
+    }
+    said.join("; ")
+}
+
+/// The light as it was: off, or its colour again and the steps dimmed
+/// brightened back.
+fn give_back(before: &Light, changed: &Changed, sockets: &Sockets) -> String {
+    let mut done = Vec::new();
+    if !before.on {
+        done.push(answer(action(&sockets.actions, "light_off", json!({}))));
+    } else {
+        if changed.coloured {
+            done.push(answer(action(
+                &sockets.actions,
+                "light_colour",
+                json!({ "colour": before.colour }),
+            )));
+        }
+        for _ in 0..changed.dimmed {
+            done.push(answer(action(
+                &sockets.actions,
+                "light_brighter",
+                json!({}),
+            )));
+        }
+    }
+    format!(
+        "light given back to {} {} at {}: {}",
+        if before.on { "on" } else { "off" },
+        before.colour,
+        before.level,
+        done.join(", ")
+    )
+}
+
+fn answer(result: io::Result<String>) -> String {
+    result.unwrap_or_else(|error| format!("the actions part was not reached ({error})"))
+}
+
+/// Asks the voice to say `note` (#939's say service: one line in, a `begun`
+/// line when the turn starts, then the outcome). `begun` is called with the
+/// first. What became of it, in words.
+fn say(path: &Path, skill: &str, note: &str, mut begun: impl FnMut()) -> String {
+    let mut attempt = || -> io::Result<String> {
+        let mut stream = UnixStream::connect(path)?;
+        stream.set_read_timeout(Some(SAY_TIMEOUT))?;
+        stream.set_write_timeout(Some(ACTIONS_TIMEOUT))?;
+        let ask =
+            json!({"skill": skill, "note": note, "priority": 5, "expires_in_ms": SAY_EXPIRES_MS});
+        writeln!(stream, "{ask}")?;
+        let mut lines = BufReader::new(stream.take(64 * 1_024));
+        loop {
+            let mut line = String::new();
+            if lines.read_line(&mut line)? == 0 {
+                return Ok("the voice ended without an outcome".into());
+            }
+            let answer: serde_json::Value = serde_json::from_str(&line)
+                .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+            if answer["event"] == "begun" {
+                begun();
+            } else if let Some(outcome) = answer["outcome"].as_str() {
+                return Ok(match answer["why"].as_str() {
+                    Some(why) => format!("{outcome} ({why})"),
+                    None => outcome.to_owned(),
+                });
+            }
+        }
+    };
+    match attempt() {
+        Ok(outcome) => format!("say: {outcome}"),
+        Err(error) => format!("say: the voice's say service was not reached ({error})"),
+    }
+}
+
 /// Makes one call and says how it went.
-fn make(call: &Call, sockets: &Sockets, body: &UnixDatagram) -> String {
-    let tell = |what: &str, text: String, path: &Path| match body.send_to(text.as_bytes(), path) {
-        Ok(_) => format!("{what}: told the body"),
-        Err(error) => format!("{what}: the body was not reached ({error})"),
+fn make(call: &Call, sockets: &Sockets) -> String {
+    let tell = |what: &str, text: String, path: &Path| {
+        let sent = UnixDatagram::unbound().and_then(|body| body.send_to(text.as_bytes(), path));
+        match sent {
+            Ok(_) => format!("{what}: told the body"),
+            Err(error) => format!("{what}: the body was not reached ({error})"),
+        }
     };
     let actions = |what: &str, name: &str, args: serde_json::Value| match action(
         &sockets.actions,
@@ -255,43 +409,36 @@ fn make(call: &Call, sockets: &Sockets, body: &UnixDatagram) -> String {
             face: Some((x, y, size)),
         } => tell(
             "look at the face",
-            serde_json::json!({"face": {"x": x, "y": y, "size": size, "turned": 0.0}}).to_string(),
+            json!({"face": {"x": x, "y": y, "size": size, "turned": 0.0}}).to_string(),
             &sockets.gaze,
         ),
         Call::Gesture(name) => tell(
             &format!("gesture {name}"),
-            serde_json::json!({ "gesture": name }).to_string(),
+            json!({ "gesture": name }).to_string(),
             &sockets.mood,
         ),
-        Call::Light {
-            colour,
-            level,
-            lasting,
-        } => {
+        Call::Light { colour, level, .. } => {
             let mut said = actions(
                 &format!("light {colour}"),
                 "light_colour",
-                serde_json::json!({ "colour": colour }),
+                json!({ "colour": colour }),
             );
-            // No call sets a level, and nothing gives the light back yet.
-            if level.is_some() || lasting.is_some() {
-                said.push_str(" (its level and for are not carried out yet)");
+            // No call sets a level.
+            if level.is_some() {
+                said.push_str(" (its level is not carried out yet)");
             }
             said
         }
         Call::Dim { steps, until_ends } => {
             let mut said: Vec<String> = (0..*steps)
-                .map(|_| actions("dim", "light_dimmer", serde_json::json!({})))
+                .map(|_| actions("dim", "light_dimmer", json!({})))
                 .collect();
             if *until_ends {
                 said.push("until it ends is not carried out yet".into());
             }
             said.join(", ")
         }
-        // The stub until the voice's say service (#939): nothing is spoken.
-        Call::Say(_) => {
-            "say: a stub, nothing spoken (the voice has no say service yet, #939)".into()
-        }
+        Call::Say(_) => "say: made by its own step".into(),
     }
 }
 
@@ -300,7 +447,7 @@ fn action(path: &Path, name: &str, args: serde_json::Value) -> io::Result<String
     let mut stream = UnixStream::connect(path)?;
     stream.set_read_timeout(Some(ACTIONS_TIMEOUT))?;
     stream.set_write_timeout(Some(ACTIONS_TIMEOUT))?;
-    let call = serde_json::json!({"op": "call", "name": name, "args": args});
+    let call = json!({"op": "call", "name": name, "args": args});
     writeln!(stream, "{call}")?;
     let mut line = String::new();
     BufReader::new(stream.take(8_193)).read_line(&mut line)?;

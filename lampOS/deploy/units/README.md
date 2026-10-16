@@ -33,9 +33,12 @@ switch, `off` for its first minute on a lamp and `on` after.
 `lamp-skills.service` runs the physical skills ([skills.md](../../docs/skills.md)):
 each skill is a folder copied from `lampOS/skills/` into
 `/var/lib/lampOS/skills/`, readable by `@LAMP_USER@`, and a change there
-reloads within two seconds. No lamp's folder has it yet; copied and enabled,
-it greets with Welcome back. It sets `LAMP_SKILLS_ASK=skip` until the
-Policy's gate exists (#939): without it every skill is refused.
+reloads within two seconds. lamp-4ace's folder has it; copied and enabled,
+it greets with Welcome back. It speaks through the voice's say service,
+which needs `LAMP_SAY=on` and `LAMP_SAY_GROUP=@LAMP_USER@` in the voice's
+unit (#954), and the voice's own hello (`LAMP_SPEAK_FIRST`) off, so only one
+greets. It sets `LAMP_SKILLS_ASK=skip` until the Policy's gate exists
+(#939): without it every skill is refused.
 
 `lamp-body.service` is `Type=notify` with `WatchdogSec=5`: the body says
 when it is ready and that its loop is alive. The others are `Type=simple`

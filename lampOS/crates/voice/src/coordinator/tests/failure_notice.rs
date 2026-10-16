@@ -974,7 +974,7 @@ fn offline_with_no_recording_is_silent_and_a_local_turn_sends_nothing() {
         samples: [0; lamp_audio::CAPTURE_SAMPLES],
     };
     queue_input(&mut queue, current, 1, audio, 1).unwrap();
-    queue_input_end(&mut queue, current, 1, 1, false).unwrap();
+    queue_input_end(&mut queue, current, 1, 1, false, false).unwrap();
     assert!(queue.is_empty());
     // Its request can match no provider input or output.
     assert!(current.cloud.outcome.is_some());

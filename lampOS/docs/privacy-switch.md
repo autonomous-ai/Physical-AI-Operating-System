@@ -98,10 +98,12 @@ dark-red indication: a four-second breath with red 2–10 and green/blue zero.
 It requires fresh physical LOW and matching denied owner authority. Software
 mute alone, missing evidence and an open switch do not authorize that light.
 It neither paints a listening cue nor grants capture. It shows only a verified
-LOW: while the switch cannot be read (#795) the voice is closed and the ring
-shows nothing of privacy, as the ring crate requires of unknown evidence;
-whether an unreadable switch should show the muted face too is open on #795.
-The existing active ring
+LOW: while the switch cannot be read (#795), as when Controls is lost, the
+voice stays up with its microphones closed and the ring is dark, not red, as
+the ring crate requires of unknown evidence. That is the decision: the first
+builder's 13:50 on #795 took "stays up, closed" as the answer to their 10:08
+ask, and the red breath means only a switch read closed. The existing active
+ring
 must have stopped first; a shutdown black-write receipt **and** process exit
 are required before its replacement starts. SPI stays outside the privacy and
 audio owner loops. See [service privacy](service-privacy.md).

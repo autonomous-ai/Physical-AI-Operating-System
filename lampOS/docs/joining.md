@@ -389,8 +389,9 @@ builder has to read, place or close before anyone may do it.
 
 - **Issues and labels are the first builder's.** Only the first builder
   opens an issue and makes or moves a `builder:<name>` label. A builder
-  does not open issues, does not make labels, and does not label issues,
-  its own included.
+  does not open issues, does not make labels, and puts no `builder:` label
+  on any issue, its own name included (`status:` labels on its own issues
+  stay its own, as "Claiming an issue" says).
 - **A proposal or a "Found, not mine"** is one comment on the Queue issue
   ([#705](https://github.com/autonomous-ai/lampOS/issues/705)), headed
   `<name>-P<n>` or `Found by <name>`, with what was seen, how to see it, and

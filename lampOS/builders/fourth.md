@@ -32,8 +32,9 @@ Its earlier work: memory across days (13), whom it is said to (14), the records 
 
 - Change the crates above, and the documents that belong to them, in the
   same commit.
-- Propose work as `fourth-P<n>` in its log and as an issue labelled
-  `proposal` and `builder:fourth`.
+- Propose work as `fourth-P<n>` in its log and as one comment on the Queue issue
+  (#705), as joining.md's `fifth-P8` says; it opens no issues and makes no
+  labels.
 - Add and remove `status:` labels on, and comment on, its own issues.
 
 ## It may not

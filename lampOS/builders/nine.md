@@ -36,8 +36,9 @@ Never `lamp-voice`, and never another builder's branch.
 
 - Change the crates its tasks name, and the documents that belong to them,
   in the same commit.
-- Propose work as `nine-P<n>` in its log and as an issue labelled
-  `proposal` and `builder:nine`.
+- Propose work as `nine-P<n>` in its log and as one comment on the Queue issue
+  (#705), as joining.md's `fifth-P8` says; it opens no issues and makes no
+  labels.
 - Add and remove `status:` labels on, and comment on, its own issues.
 
 ## It may not

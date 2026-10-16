@@ -131,10 +131,21 @@ taking the turn at once (`while_answer_waits` in
   decided: let go if it has been quiet for 300 ms (`WAIT_QUIET_BLOCKS`),
   and otherwise it takes the turn as before, from its start;
 - one that has ended before then is let go at once;
-- once it has begun to wait it keeps these rules until its decision, even
-  if the answer begins to sound meanwhile: a cough is no less a cough then.
+- once it has begun to wait it keeps these rules when the answer's audio
+  arrives, for a cough is no less a cough then; but once the answer sounds
+  (its audio waiting for the speaker or playing, as the duplex mask hears
+  it), the mask scores a person's speech 0.0 until it has matched the
+  lamp's sound, so the sound's pause from then on is the mask's silence.
+  It is judged by its pause as it stood when the answer began to sound:
+  ended or quiet for 300 ms, it is let go and the answer plays; still
+  going, it is decided at once by the duplex rules for speech over the
+  lamp, as without the switch, and stays decided (the first builder's
+  re-check on #1130). So a cough still going when the answer begins can
+  cut it, as before; one that had stopped cannot.
 
-Nothing waits, and a new sound is decided as before, when the turn is the
+Nothing waits, and a new sound is decided as before, when its block comes
+with no echo evidence (the mask keeps such a block only among its last 80
+reads and 0.6 s, so a waited sound could not be held); when the turn is the
 lamp's own (a hello, a look, a reminder, news, the head's "hm?": no input,
 and a short "hi" or "not now" may answer it); when the answer has been
 awaited more than 3 s since the person stopped (`WAIT_KEEPS_WITHIN_US`:
@@ -172,7 +183,9 @@ admission and detector: the lengths above;
 (and taken at once with the switch off, on the same path);
 `while_an_answer_waits_a_sound_that_goes_on_takes_the_turn_from_its_start`;
 `a_waited_sound_needs_the_memory_the_wait_gives_the_mask`;
-`a_sound_that_waits_keeps_waiting_once_the_answer_sounds`;
+`once_the_answer_sounds_a_waited_sound_is_judged_by_its_pause_then` (the
+answer really playing, its echo not yet matched);
+`a_sound_heard_without_echo_evidence_does_not_wait`;
 `a_sound_with_the_lamps_name_in_it_takes_the_turn`;
 `the_wait_is_only_for_an_answer_to_someone_awaited_a_short_while`;
 `the_wait_is_on_only_with_on`. The loop's own call is not driven by a

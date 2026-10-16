@@ -20,11 +20,18 @@ struct Harness {
     /// Each block heard by the mask with echo evidence, nothing playing, as
     /// the loop hears it (`hear_capture_block`), and whose reply it heard.
     echo: bool,
+    /// The blocks come without echo evidence, as before the evidence starts.
+    echo_missing: bool,
+    /// The speaker plays the lamp's sound, not yet matched by the echo
+    /// evidence: the mask cannot hear a person over it yet.
+    render_active: bool,
     heard_reply: Option<TurnOwner>,
     /// The wait's state as the loop keeps it, and the candidate that last
     /// waited (#1123).
     wait: AnswerWait,
     kept_for: Option<crate::admission::CandidateId>,
+    /// The candidate decided at once when the answer began to sound.
+    sounded_for: Option<crate::admission::CandidateId>,
     /// The last block heard as speech, as the loop keeps it.
     last_speech_us: u64,
 }
@@ -121,9 +128,12 @@ impl Harness {
             let_go: Vec::new(),
             renew: false,
             echo: false,
+            echo_missing: false,
+            render_active: false,
             heard_reply: None,
             wait: AnswerWait::default(),
             kept_for: None,
+            sounded_for: None,
             last_speech_us: 0,
         }
     }
@@ -214,8 +224,9 @@ impl Harness {
             captured_at_us: read_us,
             samples: [self.sequence as i16; 160],
         };
+        let quiet = super::duplex::evidence(if self.render_active { 0 } else { 200 }, None);
+        let evidence = (!self.echo_missing).then_some(&quiet);
         let heard = if self.echo {
-            let quiet = super::duplex::evidence(200, None);
             let (heard, yielded) = hear_capture_block(
                 &mut self.mask,
                 &self.reply,
@@ -223,7 +234,7 @@ impl Harness {
                 self.sequence,
                 read_us,
                 score,
-                Some(&quiet),
+                evidence,
                 at_us,
                 &mut self.trace,
             )?;
@@ -242,7 +253,7 @@ impl Harness {
             observation,
             read_us - 10_000,
             heard,
-            Some(score),
+            evidence.is_some().then_some(score),
             at_us,
         )?;
         if let Some(r) = update.rejection {
@@ -263,6 +274,9 @@ impl Harness {
         if wait && let Some(c) = candidate.as_ref() {
             let state = AnswerWait {
                 waited: self.kept_for == Some(c.id),
+                sounding: reply_sounding(&self.mask, &self.reply, at_us),
+                decided: self.sounded_for == Some(c.id),
+                heard: !self.mask.is_duplex() || (self.echo && !self.echo_missing),
                 ..self.wait
             };
             match while_answer_waits(
@@ -273,7 +287,11 @@ impl Harness {
                 self.detector.pause_blocks(),
                 at_us,
             ) {
-                WhileAnswerWaits::Decide => {}
+                WhileAnswerWaits::Decide => {
+                    if state.waited && state.sounding {
+                        self.sounded_for = Some(c.id);
+                    }
+                }
                 WhileAnswerWaits::Wait => {
                     self.kept_for = Some(c.id);
                     return Ok(None);
@@ -594,11 +612,53 @@ fn a_follow_up_with_a_pause_loses_only_its_first_piece() {
     }
 }
 
-/// The first builder on #1130: a sound that began waiting keeps the wait's
-/// rules once the answer begins to sound, and is let go, not taken. A sound
-/// that begins after the answer has sounded is decided as before.
+/// The answer's audio arrives and plays: the mask hears the lamp sounding,
+/// and the echo evidence has not matched it yet, so a person over it is
+/// scored 0.0 (`Heard::Unknown`).
+fn answer_sounds(h: &mut Harness) {
+    let reply = h.reply.as_mut().unwrap();
+    reply.had_audio = true;
+    reply.pcm = vec![9; 480].into();
+    h.render_active = true;
+}
+
+/// The first builder's re-check on #1130: once the answer sounds, the mask
+/// scores a person's speech 0.0 until it has matched the lamp's sound, so a
+/// waited sound's pause from then on is the mask's silence. A sound still
+/// going when the answer begins to sound (1.4 s, the answer at 0.5 s) is
+/// decided at once and taken, not let go as quiet; one that had stopped
+/// 0.4 s before (a 0.4 s cough) is let go and the answer plays. The
+/// answer's audio arriving with nothing yet to sound keeps the wait (the
+/// first builder on #1130). A sound that begins after the answer has
+/// sounded is decided as before.
 #[test]
-fn a_sound_that_waits_keeps_waiting_once_the_answer_sounds() {
+fn once_the_answer_sounds_a_waited_sound_is_judged_by_its_pause_then() {
+    let mut h = Harness::duplex(4_000_000);
+    let (mut t, mut accepted) = (0, None);
+    sound(&mut h, &mut t, QUIET_FIRST, 0.0, true, &mut accepted);
+    sound(&mut h, &mut t, 50, 0.99, true, &mut accepted);
+    answer_sounds(&mut h);
+    sound(&mut h, &mut t, 90, 0.99, true, &mut accepted);
+    sound(&mut h, &mut t, 100, 0.0, true, &mut accepted);
+    assert!(
+        accepted.is_some(),
+        "a sound running into the answer was lost: {:?}",
+        h.let_go
+    );
+    assert!(h.let_go.is_empty(), "{:?}", h.let_go);
+
+    let mut h = Harness::duplex(4_000_000);
+    let old = h.old();
+    let (mut t, mut accepted) = (0, None);
+    sound(&mut h, &mut t, QUIET_FIRST, 0.0, true, &mut accepted);
+    sound(&mut h, &mut t, 40, 0.99, true, &mut accepted);
+    sound(&mut h, &mut t, 40, 0.0, true, &mut accepted);
+    answer_sounds(&mut h);
+    sound(&mut h, &mut t, 100, 0.0, true, &mut accepted);
+    assert!(accepted.is_none(), "a cough over before the answer cut it");
+    assert_eq!(h.old(), old);
+    assert_eq!(h.let_go.len(), 1, "{:?}", h.let_go);
+
     let mut h = Harness::duplex(4_000_000);
     let (mut t, mut accepted) = (0, None);
     sound(&mut h, &mut t, QUIET_FIRST, 0.0, true, &mut accepted);
@@ -608,9 +668,10 @@ fn a_sound_that_waits_keeps_waiting_once_the_answer_sounds() {
     sound(&mut h, &mut t, 150, 0.0, true, &mut accepted);
     assert!(
         accepted.is_none(),
-        "the cough cut the answer once it sounded"
+        "the cough cut the answer once its audio came"
     );
     assert_eq!(h.let_go.len(), 1, "{:?}", h.let_go);
+
     let mut h = Harness::duplex(4_000_000);
     h.reply.as_mut().unwrap().had_audio = true;
     let (mut t, mut accepted) = (0, None);
@@ -619,6 +680,24 @@ fn a_sound_that_waits_keeps_waiting_once_the_answer_sounds() {
     assert!(
         accepted.is_some(),
         "an answer already sounding is cut as before"
+    );
+}
+
+/// The first builder's re-check on #1130: a block with no echo evidence is
+/// kept only among the mask's last reads (80, and 0.6 s), so a sound heard
+/// without it does not wait: it is decided as before, and never lost.
+#[test]
+fn a_sound_heard_without_echo_evidence_does_not_wait() {
+    let mut h = Harness::duplex(4_000_000);
+    h.echo_missing = true;
+    let (mut t, mut accepted) = (0, None);
+    sound(&mut h, &mut t, QUIET_FIRST, 0.0, true, &mut accepted);
+    sound(&mut h, &mut t, 140, 0.99, true, &mut accepted);
+    assert!(accepted.is_some(), "a sound without evidence was lost");
+    assert!(
+        h.let_go.is_empty() && h.kept_for.is_none(),
+        "{:?}",
+        h.let_go
     );
 }
 

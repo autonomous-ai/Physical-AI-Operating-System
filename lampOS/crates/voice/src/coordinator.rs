@@ -180,9 +180,22 @@ struct AnswerWait {
     /// [`WAIT_KEEPS_ANSWER_ENVIRONMENT`].
     on: bool,
     /// The candidate has already waited: it keeps the wait's rules until
-    /// its decision even once the answer begins to sound, for a cough is
-    /// no less a cough then (the first builder on #1130).
+    /// its decision once the answer's audio has arrived, for a cough is no
+    /// less a cough then (the first builder on #1130), as far as they can
+    /// still be judged (`sounding`).
     waited: bool,
+    /// The lamp's answer is sounding as the mask hears this block
+    /// ([`reply_sounding`]): a person's speech now scores 0.0 until the mask
+    /// has matched the lamp's sound, so the pause counted from here on means
+    /// nothing (the first builder's re-check on #1130).
+    sounding: bool,
+    /// The candidate was decided once the answer sounded: it stays decided.
+    decided: bool,
+    /// This block was heard by the mask with echo evidence, or the mask has
+    /// no ears. A block without is kept only among the last reads (80, and
+    /// 0.6 s), so a waited sound could not be held (the first builder's
+    /// re-check on #1130).
+    heard: bool,
     /// When the person's request, the one answered, ended.
     asked_until_us: Option<u64>,
     /// When the lamp's name was last heard beginning (`name/rising` or
@@ -191,6 +204,17 @@ struct AnswerWait {
     /// When the sound last let go had stopped: the last block the detector
     /// heard as speech before it was let go.
     let_go_ended_us: Option<u64>,
+}
+
+/// Whether the lamp has something to yield, as the duplex mask hears a
+/// block: reply audio waiting to be handed over, or the lamp's sound still
+/// accepted, queued or within its tail. While it has, the mask scores a
+/// person's speech 0.0 until it has matched the lamp's own sound.
+fn reply_sounding(mask: &PlaybackMask, reply: &Option<Reply>, at_us: u64) -> bool {
+    !mask.available(at_us)
+        || reply.as_ref().is_some_and(|current| {
+            current.cloud.started && current.local_input_ended && !current.pcm.is_empty()
+        })
 }
 
 /// [`WhileAnswerWaits`] for `candidate` at `at_us`: `ended` if its sound is
@@ -210,8 +234,21 @@ fn while_answer_waits(
         return WhileAnswerWaits::Decide;
     };
     let unheard = current.local_input_ended && !current.had_audio && current.playback.is_none();
-    if !wait.on || !(unheard || wait.waited) {
+    if !wait.on || !(unheard || wait.waited) || !wait.heard {
         return WhileAnswerWaits::Decide;
+    }
+    // Once the answer sounds, the sound is judged by its pause as it stood
+    // then: one that had ended or gone quiet for 300 ms is let go, the
+    // answer goes on; one still going is decided at once, by the duplex
+    // rules for speech over the lamp, and stays decided. Its pause from
+    // here on is the mask's silence, not the person's (the first builder's
+    // re-check on #1130).
+    if wait.waited && (wait.sounding || wait.decided) {
+        return if !wait.decided && (ended || pause_blocks >= WAIT_QUIET_BLOCKS) {
+            WhileAnswerWaits::LetGo("quiet")
+        } else {
+            WhileAnswerWaits::Decide
+        };
     }
     if !wait.waited {
         let long_awaited = wait
@@ -2970,6 +3007,8 @@ fn conversation_with_gate(
     // last let go had stopped, for the wait.
     let mut name_began_us: Option<u64> = None;
     let mut let_go_ended_us: Option<u64> = None;
+    // The candidate decided at once when the answer began to sound.
+    let mut answer_sounded_for: Option<crate::admission::CandidateId> = None;
     // The turn whose speech last ended and when, and the turn for which the
     // floor was last held, so that the record says so once.
     let mut speech_ended: Option<(u64, u64)> = None;
@@ -4460,6 +4499,9 @@ fn conversation_with_gate(
                             .map(|(_, at)| at),
                         name_began_us,
                         let_go_ended_us,
+                        sounding: reply_sounding(&playback_mask, reply, at_us),
+                        decided: answer_sounded_for == Some(candidate.id),
+                        heard: !playback_mask.is_duplex() || frame.echo.is_some(),
                     };
                     match while_answer_waits(
                         wait,
@@ -4469,7 +4511,11 @@ fn conversation_with_gate(
                         detector.pause_blocks(),
                         at_us,
                     ) {
-                        WhileAnswerWaits::Decide => {}
+                        WhileAnswerWaits::Decide => {
+                            if wait.waited && wait.sounding {
+                                answer_sounded_for = Some(candidate.id);
+                            }
+                        }
                         WhileAnswerWaits::Wait => {
                             if answer_kept_for != Some(candidate.id) {
                                 answer_kept_for = Some(candidate.id);
@@ -6106,12 +6152,7 @@ fn hear_capture_block(
         mask.reply_closed();
         *heard_reply = owner;
     }
-    // Something to yield: reply audio waiting to be handed over, or the
-    // lamp's sound still accepted, queued or within its tail.
-    let speaking = !mask.available(at_us)
-        || reply.as_ref().is_some_and(|current| {
-            current.cloud.started && current.local_input_ended && !current.pcm.is_empty()
-        });
+    let speaking = reply_sounding(mask, reply, at_us);
     let listened = mask.listen(sequence, probability, echo, speaking, at_us)?;
     trace.heard(
         sequence,

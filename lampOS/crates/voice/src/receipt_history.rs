@@ -33,6 +33,22 @@ impl Entry {
 pub(crate) struct ReceiptHistory {
     entries: VecDeque<Entry>,
 }
+/// The reasons of the local cancels (`hand::cancel`): each revokes the
+/// speaker itself, so the queued audio the speaker then drops is expected.
+/// The coordinator names its cancels with these, so they cannot drift apart.
+pub(crate) const HEAD_SLEEP: &str = "head_sleep";
+pub(crate) const SOFTWARE_MUTED: &str = "software_muted";
+pub(crate) const HAND_STOP: &str = "hand_stop";
+pub(crate) const HEAD_STOP: &str = "head_stop";
+pub(crate) const CAPTURE_GAP: &str = "capture_gap";
+pub(crate) const LOCAL_CANCELS: [&str; 5] = [
+    HEAD_SLEEP,
+    SOFTWARE_MUTED,
+    HAND_STOP,
+    HEAD_STOP,
+    CAPTURE_GAP,
+];
+
 impl ReceiptHistory {
     /// Bounded live obligations, never inferred from retained metadata rows.
     pub(crate) fn is_settled(&self) -> bool {
@@ -109,12 +125,7 @@ impl ReceiptHistory {
                     | "provider_interrupted"
                     | "deadline_cancelled"
                     | "service_stopped"
-                    | "hand_stop"
-                    | "head_stop"
-                    | "head_sleep"
-                    | "software_muted"
-                    | "capture_gap"
-            ),
+            ) || LOCAL_CANCELS.contains(&reason),
         });
         entry.terminal = true;
         Ok(())

@@ -3269,16 +3269,19 @@ fn conversation_with_gate(
                 floor_held_for = None;
                 asked_in_busy_room = None;
                 busy_answer_since = None;
+                use crate::receipt_history::{
+                    CAPTURE_GAP, HAND_STOP, HEAD_SLEEP, HEAD_STOP, SOFTWARE_MUTED,
+                };
                 let reason = if asleep {
-                    "head_sleep"
+                    HEAD_SLEEP
                 } else if muted {
-                    "software_muted"
+                    SOFTWARE_MUTED
                 } else if stop {
-                    "hand_stop"
+                    HAND_STOP
                 } else if head_stop {
-                    "head_stop"
+                    HEAD_STOP
                 } else {
-                    "capture_gap"
+                    CAPTURE_GAP
                 };
                 record(
                     trace,

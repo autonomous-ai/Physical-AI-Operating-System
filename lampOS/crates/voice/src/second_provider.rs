@@ -171,9 +171,20 @@ struct Shared {
     /// The words last heard, with their request: a request that goes on
     /// from one given up after an early end begins with them.
     heard_last: Mutex<Option<(u64, String)>>,
-    /// The request a stop is to be told beside (`after_stop`), until a chat
-    /// is asked for it: one never asked gives it to the next.
-    stop_untold: Mutex<Option<u64>>,
+    /// The stop to be told (`after_stop`), with the request it is for.
+    stop_untold: Mutex<Option<StopToTell>>,
+}
+
+/// A stop to be told beside a request's chat ([`crate::provider_worker::STOPPED_NOTE`]).
+#[derive(Clone, Copy)]
+struct StopToTell {
+    request: u64,
+    /// When the request that carried `after_stop` began: told only within
+    /// [`crate::not_speech::TELL_STOP_WITHIN_US`] of it, as the coordinator
+    /// tells it.
+    since: tokio::time::Instant,
+    /// Its request's chat was asked with it.
+    asked: bool,
 }
 
 /// The wait's sounds, rendered once by [`Services::speak`] and kept in
@@ -390,18 +401,34 @@ impl Engine {
                 let before = last
                     .filter(|(of, _)| continues_cut_off && previous == Some((*of, session)))
                     .map(|(_, words)| words);
-                // A stop not yet told: this request's own, or one left by the
-                // request begun just before it in this session, which was
-                // never asked (heard nothing, held, or replaced before its
-                // chat). Told once, with the chat that is asked (the
-                // reviewer on #1175: a cough after a stop must not use it up).
+                // A stop to tell: this request's own, or one left by the
+                // request begun just before it in this session. Left when that
+                // one was never asked (heard nothing, held, or replaced before
+                // its chat), or, for a request going on from it, when it was
+                // asked and then given up. Never past the coordinator's 2 min
+                // (the reviewer on #1175).
                 if let Ok(mut untold) = self.shared.stop_untold.lock() {
-                    let left = untold
-                        .take()
-                        .is_some_and(|of| previous == Some((of, session)));
-                    if after_stop || left {
-                        *untold = Some(request);
-                    }
+                    let now = tokio::time::Instant::now();
+                    let within =
+                        std::time::Duration::from_micros(crate::not_speech::TELL_STOP_WITHIN_US);
+                    let left = untold.take().filter(|stop| {
+                        previous == Some((stop.request, session))
+                            && (!stop.asked || continues_cut_off)
+                            && now.saturating_duration_since(stop.since) <= within
+                    });
+                    *untold = match (after_stop, left) {
+                        (true, _) => Some(StopToTell {
+                            request,
+                            since: now,
+                            asked: false,
+                        }),
+                        (false, Some(stop)) => Some(StopToTell {
+                            request,
+                            asked: false,
+                            ..stop
+                        }),
+                        (false, None) => None,
+                    };
                 }
                 let (audio, heard) = mpsc::channel(AUDIO_QUEUE);
                 let sound = Arc::new(AtomicBool::new(false));
@@ -747,12 +774,13 @@ async fn spoken(
     // The first request asked after a hand or the head stopped the lamp: the
     // model is told so, as Gemini is (`STOPPED_NOTE`, #1148), so the story
     // that was stopped is not begun again.
-    let note = shared
-        .stop_untold
-        .lock()
-        .ok()
-        .and_then(|mut untold| untold.take_if(|of| *of == request))
-        .map(|_| crate::provider_worker::STOPPED_NOTE);
+    let note = shared.stop_untold.lock().ok().and_then(|mut untold| {
+        let stop = untold
+            .as_mut()
+            .filter(|stop| stop.request == request && !stop.asked)?;
+        stop.asked = true;
+        Some(crate::provider_worker::STOPPED_NOTE)
+    });
     answer(&shared, request, text, true, false, None, note).await;
 }
 

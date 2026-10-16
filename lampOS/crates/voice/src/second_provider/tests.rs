@@ -1327,3 +1327,61 @@ async fn a_stop_whose_request_is_never_asked_is_told_with_the_next_one() {
         assert_eq!(asked[0].contains(&stopped), told, "session {next_session}");
     }
 }
+
+/// The reviewer's 03:01 on #1175: a request going on from the stop's
+/// request (`continues_cut_off`) is told of the stop even though that one
+/// was asked with it, as it was given up; an ordinary next request is not;
+/// and a stop is never told past the coordinator's 2 min.
+#[tokio::test(start_paused = true)]
+async fn a_stop_goes_with_a_request_going_on_and_never_past_two_minutes() {
+    let begin = |request, after_stop, continues_cut_off| ProviderInput::Start {
+        request,
+        session: 1,
+        privacy_generation: 1,
+        continues: false,
+        continues_cut_off,
+        over_the_lamp: false,
+        after_stop,
+    };
+    let stopped = Message::system(crate::provider_worker::STOPPED_NOTE);
+    let answered = || vec![text("Sure."), Ok(ChatEvent::Done)];
+    let script = Arc::new(Script {
+        heard: Mutex::new(
+            [
+                Ok("What time".to_owned()),
+                Ok("is it in Paris".to_owned()),
+                Ok("Thanks".to_owned()),
+                Ok(String::new()),
+                Ok("Tell me another".to_owned()),
+            ]
+            .into(),
+        ),
+        chats: Mutex::new([answered(), answered(), answered(), answered()].into()),
+        ..Script::default()
+    });
+    let (mut engine, _, _) = scripted(script.clone());
+    async fn ask(engine: &mut Engine, inputs: [ProviderInput; 3]) {
+        for input in inputs {
+            engine.submit(input);
+        }
+        sent(engine).await;
+    }
+    ask(&mut engine, [begin(1, true, false), audio(1, 1), end(1)]).await;
+    ask(&mut engine, [begin(2, false, true), audio(2, 1), end(2)]).await;
+    ask(&mut engine, [begin(3, false, false), audio(3, 1), end(3)]).await;
+    // A stop left by a request that heard nothing, ten minutes before.
+    ask(&mut engine, [begin(4, true, false), audio(4, 1), end(4)]).await;
+    tokio::time::sleep(Duration::from_secs(600)).await;
+    ask(&mut engine, [begin(5, false, false), audio(5, 1), end(5)]).await;
+    let asked = script.asked.lock().unwrap();
+    assert_eq!(asked.len(), 4);
+    assert!(asked[0].contains(&stopped));
+    assert_eq!(
+        asked[1].last(),
+        Some(&Message::user("What time is it in Paris"))
+    );
+    assert!(asked[1].contains(&stopped), "{:?}", asked[1]);
+    assert!(!asked[2].contains(&stopped), "{:?}", asked[2]);
+    assert_eq!(asked[3].last(), Some(&Message::user("Tell me another")));
+    assert!(!asked[3].contains(&stopped), "{:?}", asked[3]);
+}

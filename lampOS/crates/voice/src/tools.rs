@@ -111,6 +111,9 @@ pub struct Settings {
     /// The eyes' request socket, for remembering faces
     /// ([`crate::known_faces`]).
     pub who: Option<PathBuf>,
+    /// A name is kept only if the person said it, and a face keeps one
+    /// name (`LAMP_NAMES=checked`, [`crate::known_faces::said_by_them`]).
+    pub names_checked: bool,
     /// The serving session's folder, for marking a bad moment
     /// ([`crate::marked`]).
     pub mark: Option<PathBuf>,
@@ -138,6 +141,11 @@ pub fn arguments_from_environment() -> Vec<String> {
     {
         flags.push(crate::known_faces::FLAG.to_owned());
         flags.push(socket);
+        flags.extend(crate::known_faces::names_arguments(
+            std::env::var(crate::known_faces::NAMES_ENVIRONMENT)
+                .ok()
+                .as_deref(),
+        ));
     }
     flags.extend(crate::marked::arguments_from_environment());
     if let Some(file) = crate::onboarding::switched_on(
@@ -259,6 +267,12 @@ pub fn take(flags: &[String]) -> std::io::Result<(Settings, &[String])> {
         }
         settings.who = Some(PathBuf::from(socket));
         flags = rest;
+        if let [flag, rest @ ..] = flags
+            && flag == crate::known_faces::NAMES_FLAG
+        {
+            settings.names_checked = true;
+            flags = rest;
+        }
     }
     if let [flag, rest @ ..] = flags
         && flag == crate::marked::FLAG
@@ -348,7 +362,7 @@ pub fn declared(settings: &Settings) -> Vec<Tool> {
         tools.extend(crate::agent_tasks::tools(place));
     }
     if settings.who.is_some() {
-        tools.extend(crate::known_faces::tools());
+        tools.extend(crate::known_faces::tools_checked(settings.names_checked));
     }
     if settings.mark.is_some() {
         tools.push(crate::marked::tool());
@@ -463,8 +477,9 @@ pub enum Route {
     Clock,
     /// Work for an agent elsewhere, through the tasks part.
     Tasks(crate::agent_tasks::Place),
-    /// Remember or forget a face, through the eyes on this socket.
-    Faces(PathBuf),
+    /// Remember or forget a face, through the eyes on this socket, with
+    /// names checked or not.
+    Faces(PathBuf, bool),
     /// Mark the last minute of this session for review.
     Mark(PathBuf),
     /// A step of the first meeting reported, through this onboarding file.
@@ -487,7 +502,9 @@ pub fn route(settings: &Settings, name: &str) -> Route {
         return settings.tasks.clone().map_or(Route::Nobody, Route::Tasks);
     }
     if crate::known_faces::is_tool(name) {
-        return settings.who.clone().map_or(Route::Nobody, Route::Faces);
+        return settings.who.clone().map_or(Route::Nobody, |socket| {
+            Route::Faces(socket, settings.names_checked)
+        });
     }
     if crate::marked::is_tool(name) {
         return settings.mark.clone().map_or(Route::Nobody, Route::Mark);
@@ -590,7 +607,9 @@ pub fn run_call(
             "the schedule through the executive",
             ask_schedule(directory, call, deadline),
         ),
-        Route::Faces(socket) => ("the eyes", crate::known_faces::run(socket, call)),
+        Route::Faces(socket, checked) => {
+            ("the eyes", crate::known_faces::run(socket, call, *checked))
+        }
         Route::Mark(session) => ("the marks", crate::marked::run(session, call, heard)),
         Route::Onboarding(file) => ("the onboarding", crate::onboarding::run(file, call)),
         Route::Decline | Route::Clock | Route::Nobody => ("nobody", (unavailable(), false)),
@@ -851,6 +870,8 @@ mod tests {
             schedule_tools: true,
             schedule_speak: true,
             who: Some("/run/lampos-eyes/request.sock".into()),
+            // The checked `remember_my_face`, with `replace` (#1057).
+            names_checked: true,
             mark: Some("/var/lib/lampos-voice/session".into()),
             onboarding: Some("/var/lib/lampos-voice/onboarding.json".into()),
         };
@@ -1024,6 +1045,7 @@ mod tests {
                 schedule_tools: true,
                 schedule_speak: true,
                 who: Some("/run/lampos-eyes/who.sock".into()),
+                names_checked: false,
                 mark: None,
                 onboarding: None,
             }
@@ -1065,7 +1087,7 @@ mod tests {
         assert_eq!(route(&settings, "light_on"), Route::Executive(dir.clone()));
         let eyes = PathBuf::from("/run/lampos-eyes/who.sock");
         for name in [crate::known_faces::REMEMBER, crate::known_faces::FORGET] {
-            assert_eq!(route(&settings, name), Route::Faces(eyes.clone()));
+            assert_eq!(route(&settings, name), Route::Faces(eyes.clone(), false));
             let blind = Settings {
                 who: None,
                 ..settings.clone()

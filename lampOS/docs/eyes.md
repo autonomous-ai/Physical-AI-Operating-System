@@ -521,6 +521,93 @@ can you remember my face? I'm Sam." (played, nobody in view) was answered
 again?", the eyes having looked for 4.2 s. Since 08:39 the eyes say no face
 after 1.5 s: the same request was answered 3.5 s after the end of speech.
 
+### One name for one face, and only a name they said (`LAMP_NAMES=checked`)
+
+Off unless `LAMP_NAMES=checked` in the voice's environment, beside
+`LAMP_EYES_WHO_SOCKET` (the worker's `--names-checked`, right after
+`--who-socket`); built by the fourth builder on 16 October.
+
+**Why** (the first builder, #705, 13:24): on lamp-4ace at 12:11, "How do
+you spell my name?" was answered "It's just the single letter …". Then
+"No, my name is …" was heard as Spanish words, and the lamp answered
+that it would know them by a second name, made up from those words.
+Without the switch:
+- Any 1 to 40 letters are kept as a name, a lone letter among them; nothing
+  checks that the person said it.
+- Remembering replaces only a record with the *same* name. A second name
+  for a face kept as "A" is a second person with the same face, and from then
+  on recognition takes whichever is the closer match each time: the lamp
+  may call them either, and their memory, kept by name
+  ([memory.md](memory.md#each-persons-own-764)), is split in two.
+
+With the switch:
+- **Only a name they said.** `remember_my_face` is refused, before the
+  eyes are asked, unless the name is in the person's own words, as the
+  service wrote them (`Thread::said_lately`): what is being heard and their
+  last two exchanges. That is the request and the two before it when the
+  call comes before the lamp's first words, and the request and the one
+  before it once the lamp has begun to answer, the request then being an
+  exchange of its own. Each of the name's words must be among theirs, or
+  its letters spelled one by one ("J-I-M"), the run being the name's word
+  itself. A word with an apostrophe is kept whole, so "It's cold" spells
+  no "S". Accents count for nothing ("Jose" is "José", Vietnamese's
+  marks too), and "double N" is two N. The model is told to say the name back and ask them to spell it
+  (`known_faces::said_by_them`). A "yes" alone never passes, so a name the
+  model made up is asked for again.
+- **One name for one face.** The voice asks the eyes
+  `{"remember":"Jim","one_face":true}`. Prints already someone's under
+  another name are refused with `{"error":"known_as","known_as":"A"}`
+  (every name they are known by: "A and C", since `replace` forgets
+  them all), and
+  the model is told to say the new name back and ask whether they want to
+  be known by it instead. Only once they say yes does it call again with
+  `replace` true (`"replace":true`), and the eyes then forget "A" and keep
+  "Jim" in its place (`People::remember_one`). The journal says "did not
+  remember a face: it is known by another name", without the name.
+- **A name told is a name kept** (the first builder, #705, 13:43). The
+  lamp-4ace records showed no face asked to be kept on 15 October at all:
+  the model had only said it would remember. With the switch,
+  `remember_my_face` is to be called when someone tells their name, not
+  only when they ask. And once what they said in a request gives their
+  name ("my name is Jim", "my name's Jim", "call me Jim", "I am called
+  Jim", "I'm Jim" or "I am Jim", the name capitalised and not a word that
+  is no one's, such as "OK", a day or "American"; not after "what", and
+  not in a question, except one that asks the lamp to call them so or to
+  remember it, "Could you call me Jim?" or "Do you remember my name is
+  Jim?"; `known_faces::gives_a_name`), the worker puts one note beside
+  that request (`known_faces::NAME_TOLD_NOTE`): if they have just told
+  their own name, call `remember_my_face` now, or say the name back and
+  ask for its spelling, and never only say it will be remembered. It is a
+  condition, so that a match that is no name ("I'm Irish.") costs nothing. The journal says "they gave their name, and the model is told
+  to keep it".
+- The eyes take the plain `{"remember":"A"}` as before, so an older
+  voice is unchanged. The other way round, a voice with the switch talking
+  to older eyes gets `not_understood` for every remember (they take no
+  field they don't know), so the switch needs both parts of this change.
+
+What it doesn't do (the reviewer on #1057):
+- **The note is the Live worker's only.** The second route gets the check
+  and one name for one face, but no note.
+- **The note goes only if the name's words reach the worker before the
+  request ends,** and the service's text often trails the speech. On
+  lamp-4ace, the "they gave their name" lines are to be counted against
+  the names given.
+- **After `replace`, the person's memory stays under the old name's id**
+  (`remember.rs`, a hash of the name). It isn't recalled for the new name,
+  and their forget doesn't reach it.
+
+Tests: `who::tests::one_face_keeps_one_name_and_another_is_taken_only_in_its_place`,
+`a_face_known_by_two_names_is_refused_with_both_and_replaced_for_both`
+and the ask's two new lines (the eyes);
+`known_faces::tests::a_name_counts_only_when_the_person_said_it_or_spelled_it`,
+`a_name_given_is_told_from_talk_that_only_mentions_a_name` and
+`with_names_checked_only_a_name_they_said_reaches_the_eyes_and_one_face_keeps_one`
+(the voice, against a stand-in for the eyes on a real socket);
+`provider_worker::tests::names::with_names_checked_a_name_given_is_told_to_be_kept_and_plain_talk_is_not`
+(through the worker's own loop). Not
+exercised: a played name in a busy room on a lamp, and how often the
+service writes a name said once right.
+
 ## On the bus
 
 With `LAMP_BUS=on` in its unit the eyes also publish every face the

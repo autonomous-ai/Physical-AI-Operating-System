@@ -1271,7 +1271,11 @@ async fn serve_with_visual<C: Connect>(
             }
         }
     });
-    // What the request being heard has been given as its note so far.
+    // With names checked and the eyes there, the request whose given name
+    // the model was told to keep.
+    let names_told = options.tools.names_checked && options.tools.who.is_some();
+    let mut name_told_for: Option<RequestId> = None;
+    let mut words_of: Option<(RequestId, String)> = None;
     // When the name was last heard plainly enough to count as a call.
     let mut sure_name_us: Option<u64> = None;
     unanswered_requests().store(0, std::sync::atomic::Ordering::Relaxed);
@@ -1481,6 +1485,24 @@ async fn serve_with_visual<C: Connect>(
                             open.request.get()
                         );
                     }
+                }
+                // A name told is a name kept (`LAMP_NAMES=checked`, the first
+                // builder at 13:43): once a request shows the person giving
+                // their name, the model is told to keep it, beside it.
+                if names_told
+                    && let Some(open) = intake.handoff.visual_turn()
+                    && name_told_for != Some(open.request)
+                    && words_of.as_ref().is_some_and(|(request, words)| {
+                        *request == open.request && crate::known_faces::gives_a_name(words)
+                    })
+                    && add_note(&provider, &mut intake.handoff.noted, open.request, crate::known_faces::NAME_TOLD_NOTE)
+                        .is_ok()
+                {
+                    name_told_for = Some(open.request);
+                    eprintln!(
+                        "lamp-voice provider: request {}: they gave their name, and the model is told to keep it",
+                        open.request.get()
+                    );
                 }
                 if let Some(bus) = ears_bus.as_ref()
                     && ears_read_at.is_none_or(|at| at.elapsed() >= Duration::from_millis(100))
@@ -1785,6 +1807,22 @@ async fn serve_with_visual<C: Connect>(
                                 }
                             }
                         }
+                    }
+                }
+                // What the person says in the request in hand, for a name
+                // given (`LAMP_NAMES=checked`): its own words only, never an
+                // earlier request's.
+                if names_told
+                    && let Ok(Notice::Event(Event::UncorrelatedInputTranscript { text, .. })) = &notice
+                    && let Some(open) = intake.handoff.visual_turn()
+                {
+                    if words_of.as_ref().map(|(request, _)| *request) != Some(open.request) {
+                        words_of = Some((open.request, String::new()));
+                    }
+                    if let Some((_, words)) = words_of.as_mut()
+                        && words.len() < 2_048
+                    {
+                        words.push_str(text);
                     }
                 }
                 // Whom the lamp answers: followed for every request, and
@@ -2285,7 +2323,7 @@ impl ToolDesk {
                     | Route::Schedule(_)
                     | Route::Memory(_)
                     | Route::Tasks(_)
-                    | Route::Faces(_)
+                    | Route::Faces(..)
                     | Route::Mark(_)
                     | Route::Onboarding(_)
             )
@@ -2409,7 +2447,7 @@ impl ToolDesk {
             | Route::Schedule(_)
             | Route::Memory(_)
             | Route::Tasks(_)
-            | Route::Faces(_)
+            | Route::Faces(..)
             | Route::Mark(_)
             | Route::Onboarding(_))
                 if self.waiting < lamp_gemini::MAX_TOOL_CALLS =>
@@ -2420,7 +2458,7 @@ impl ToolDesk {
             | Route::Schedule(_)
             | Route::Memory(_)
             | Route::Tasks(_)
-            | Route::Faces(_)
+            | Route::Faces(..)
             | Route::Mark(_)
             | Route::Onboarding(_)
             | Route::Nobody => {
@@ -2463,7 +2501,7 @@ impl ToolDesk {
             Route::Executive(_)
                 | Route::Schedule(_)
                 | Route::Tasks(_)
-                | Route::Faces(_)
+                | Route::Faces(..)
                 | Route::Mark(_)
         ) {
             self.acted = Some(request);
@@ -11297,6 +11335,8 @@ mod tests {
     /// Short sounds let through and checked (#800): tests only.
     mod sounds;
 
+    /// A name told is a name kept (`LAMP_NAMES=checked`): tests only.
+    mod names;
     /// The Policy holds the lamp's actions (#800): tests only.
     mod policy_holds;
     /// The lamp speaks when spoken to (#829, step 2): tests only.

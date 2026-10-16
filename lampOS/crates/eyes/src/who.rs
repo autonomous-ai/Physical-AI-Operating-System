@@ -295,6 +295,44 @@ impl People {
         Ok(name)
     }
 
+    /// The same, keeping one name for one face (`LAMP_NAMES=checked`, #829's
+    /// names, the first builder at 13:24 on 16 October): prints that are
+    /// already someone's under another name are refused with that name, so
+    /// that a name misheard never sits beside the right one with the same
+    /// face. With `replace`, asked after the person said yes to the new
+    /// name, that person is forgotten first. Every name the prints are
+    /// known by is in the refusal, "A and B", since `replace` forgets
+    /// them all (the reviewer on #1057).
+    pub fn remember_one(
+        &mut self,
+        name: &str,
+        prints: Vec<Vec<f32>>,
+        now_unix_s: u64,
+        replace: bool,
+    ) -> std::result::Result<String, Refused> {
+        let kept = plain_name(name).ok_or(Refused::NotAName)?;
+        // Whoever else these prints are, by the same likeness that
+        // recognises a face.
+        let mut known: Vec<String> = Vec::new();
+        for (other, _) in prints.iter().filter_map(|print| self.who(print)) {
+            if !same_name(&other, &kept) && !known.iter().any(|seen| same_name(seen, &other)) {
+                known.push(other);
+            }
+        }
+        if !known.is_empty() {
+            if !replace {
+                return Err(Refused::KnownAs(known.join(" and ")));
+            }
+            let mut next = self.people.clone();
+            next.retain(|person| !known.iter().any(|other| same_name(other, &person.name)));
+            self.save(&next)
+                .map_err(|error| Refused::Store(error.to_string()))?;
+            self.people = next;
+        }
+        self.remember(&kept, prints, now_unix_s)
+            .map_err(|error| Refused::Store(error.to_string()))
+    }
+
     /// Forgets this name's prints, and writes the file before it answers.
     /// Whether there were any.
     pub fn forget(&mut self, name: &str) -> Result<bool> {
@@ -331,10 +369,14 @@ impl People {
 
 /// What the voice service asks of the eyes on their request socket: one
 /// line of JSON, `{"remember":"A"}`, `{"forget":"A"}`,
-/// `{"list":true}` or `{"who":true}`. Anything else is nothing.
+/// `{"list":true}` or `{"who":true}`. With one name for one face
+/// (`LAMP_NAMES=checked`), `{"remember":"A","one_face":true}`, and
+/// `"replace":true` once the person said yes to the new name. Anything else
+/// is nothing.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Ask {
     Remember(String),
+    RememberOne { name: String, replace: bool },
     Forget(String),
     List,
     Who,
@@ -348,6 +390,8 @@ pub fn ask_of(line: &[u8]) -> Option<Ask> {
         forget: Option<String>,
         list: Option<bool>,
         who: Option<bool>,
+        one_face: Option<bool>,
+        replace: Option<bool>,
     }
     let line: Line = serde_json::from_slice(line).ok()?;
     match line {
@@ -356,24 +400,43 @@ pub fn ask_of(line: &[u8]) -> Option<Ask> {
             forget: None,
             list: None,
             who: None,
+            one_face: None,
+            replace: None,
         } => Some(Ask::Remember(name)),
+        Line {
+            remember: Some(name),
+            forget: None,
+            list: None,
+            who: None,
+            one_face: Some(true),
+            replace,
+        } => Some(Ask::RememberOne {
+            name,
+            replace: replace.unwrap_or(false),
+        }),
         Line {
             remember: None,
             forget: Some(name),
             list: None,
             who: None,
+            one_face: None,
+            replace: None,
         } => Some(Ask::Forget(name)),
         Line {
             remember: None,
             forget: None,
             list: Some(true),
             who: None,
+            one_face: None,
+            replace: None,
         } => Some(Ask::List),
         Line {
             remember: None,
             forget: None,
             list: None,
             who: Some(true),
+            one_face: None,
+            replace: None,
         } => Some(Ask::Who),
         _ => None,
     }
@@ -396,11 +459,24 @@ pub const NOBODY_FOR_US: u64 = 1_500_000;
 #[derive(Debug)]
 pub struct Taking {
     pub name: String,
+    /// One name for one face, and whether to replace another name for it
+    /// (`Ask::RememberOne`); `None`: as asked plainly.
+    pub one_face: Option<bool>,
     prints: Vec<Vec<f32>>,
     started_us: u64,
     saw_any: bool,
     saw_far: bool,
     saw_two: bool,
+}
+
+/// Why a face was not kept under a name, with one name for one face.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Refused {
+    NotAName,
+    /// The face is someone the lamp knows by this other name.
+    KnownAs(String),
+    /// The store refused it: full, or the file could not be written.
+    Store(String),
 }
 
 /// Why a face could not be remembered.
@@ -425,6 +501,7 @@ impl Taking {
     pub fn new(name: String, now_us: u64) -> Self {
         Self {
             name,
+            one_face: None,
             prints: Vec::new(),
             started_us: now_us,
             saw_any: false,
@@ -592,6 +669,64 @@ mod tests {
         assert!(People::open(path).unwrap().names().is_empty());
     }
 
+    /// The first builder's 13:24: a face known as "A" is asked to be kept
+    /// as "B". With one name for one face it is refused with the name it
+    /// is known by, and kept as "B" only with `replace`, "A" gone. Another
+    /// person's face, or the same name again, is kept as before.
+    #[test]
+    fn one_face_keeps_one_name_and_another_is_taken_only_in_its_place() {
+        let mut people = People::open(file("one-face")).unwrap();
+        people
+            .remember("A", vec![print(0.3), print(0.31)], 1)
+            .unwrap();
+        assert_eq!(
+            people.remember_one("B", vec![print(0.3)], 2, false),
+            Err(Refused::KnownAs("A".into()))
+        );
+        assert_eq!(people.names(), vec!["A".to_owned()]);
+        // The same name again replaces its own prints, as before.
+        assert_eq!(
+            people.remember_one("a", vec![print(0.31)], 3, false),
+            Ok("a".into())
+        );
+        // Said yes to: the new name in place of the old.
+        assert_eq!(
+            people.remember_one("B", vec![print(0.31)], 4, true),
+            Ok("B".into())
+        );
+        assert_eq!(people.names(), vec!["B".to_owned()]);
+        assert_eq!(people.who(&print(0.31)).unwrap().0, "B");
+        // Someone else is kept beside them.
+        assert_eq!(
+            people.remember_one("C", vec![print(1.7)], 5, false),
+            Ok("C".into())
+        );
+        assert_eq!(people.names(), vec!["B".to_owned(), "C".to_owned()]);
+        assert_eq!(
+            people.remember_one("  ", vec![print(2.9)], 6, false),
+            Err(Refused::NotAName)
+        );
+        // Without the check, a second name sits beside the first, as today.
+        people.remember("Jay", vec![print(0.31)], 7).unwrap();
+        assert_eq!(people.names().len(), 3);
+    }
+
+    /// The reviewer on #1057: prints known by two names are refused with
+    /// both, and `replace`, which forgets both, keeps only the new one.
+    #[test]
+    fn a_face_known_by_two_names_is_refused_with_both_and_replaced_for_both() {
+        let mut people = People::open(file("two-names")).unwrap();
+        people.remember("A", vec![print(0.3)], 1).unwrap();
+        people.remember("C", vec![print(1.7)], 2).unwrap();
+        let both = vec![print(0.3), print(1.7)];
+        assert_eq!(
+            people.remember_one("B", both.clone(), 3, false),
+            Err(Refused::KnownAs("A and C".into()))
+        );
+        assert_eq!(people.remember_one("B", both, 4, true), Ok("B".into()));
+        assert_eq!(people.names(), vec!["B".to_owned()]);
+    }
+
     #[test]
     fn the_voice_asks_in_one_of_four_lines_and_anything_else_is_nothing() {
         assert_eq!(
@@ -599,6 +734,22 @@ mod tests {
             Some(Ask::Remember("A".into()))
         );
         assert_eq!(ask_of(br#"{"forget":"A"}"#), Some(Ask::Forget("A".into())));
+        assert_eq!(
+            ask_of(br#"{"remember":"A","one_face":true}"#),
+            Some(Ask::RememberOne {
+                name: "A".into(),
+                replace: false
+            })
+        );
+        assert_eq!(
+            ask_of(br#"{"remember":"A","one_face":true,"replace":true}"#),
+            Some(Ask::RememberOne {
+                name: "A".into(),
+                replace: true
+            })
+        );
+        assert_eq!(ask_of(br#"{"remember":"A","replace":true}"#), None);
+        assert_eq!(ask_of(br#"{"forget":"A","one_face":true}"#), None);
         assert_eq!(ask_of(br#"{"list":true}"#), Some(Ask::List));
         assert_eq!(ask_of(br#"{"who":true}"#), Some(Ask::Who));
         for nothing in [

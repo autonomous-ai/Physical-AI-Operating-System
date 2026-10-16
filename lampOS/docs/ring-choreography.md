@@ -394,28 +394,45 @@ one installs. Malformed/unknown control fields, mismatched lineage and
 feedback backpressure are faults.
 
 A lapse is not the end of the ring (#1178, lamp-4ace at 00:00:06 on 17 Oct:
-the voice's loop held up past the 250 ms lease while the lamp's midnight log
-jobs ran, and the worker's exit ended the voice). An installed authority that
+the voice's loop held up past the lease, 250 ms at rest and 100 ms during a
+turn, while the lamp's midnight log jobs ran; the ring worker ended on it. A
+ring fault only disables the ring, so that alone did not end the voice: another
+part's expired authority did, and the ring's end then made its cleanup fail,
+first builder and reviewer on #1178). An installed authority that
 runs out with no renewal leaves the ring's own guard to blank the cue and
 refuse every frame and rest under it, and the worker waits, dark, for a fresh
-one; a newer one that came past its time does the same, as above. Each is one
+one; a newer one that came past its time does the same, as above, with one
+blank however many late ones follow. Each is one
 line in the journal when it begins (`dark until a fresh one`) and one when it
 ends (`it goes on`, with how long). Only no authority at all within 250 ms of
 the start still ends the worker (`ring authority never came`).
 
 The software qualification target is at most 50 ms from policy request to
-write completion, with no microphone/speaker work waiting for SPI. A slow
-receipt fails ring qualification and disables further ring presentation; otherwise
-healthy voice continues. This boundary excludes phase recognition
+write completion, with no microphone/speaker work waiting for SPI. A late
+write or a receipt not back within 100 ms (a `TimedOut` fault) comes of a loop
+or a ring held up a moment (#1178), so the choreography starts afresh rather
+than leave the lamp listening with no light for the rest of the serve cycle.
+A frame whose receipt has not come is held: no other frame is asked for until
+that frame's late receipt comes back, which is taken once with every check
+but the 50 ms target, so one hold costs one resync however long it lasts;
+then the next frame goes out and the light comes back. A late write whose
+receipt is already in holds nothing. `ring_resynced` in the session trace and
+one journal line say so. At most three holds are forgiven in ten minutes
+(`RESYNCS_PER_WINDOW`, `RESYNC_WINDOW_US`); past that the ring is slow, not
+held up, and fails qualification. A frame held 2 s with no receipt at all
+(`HOLD_MOST_US`) is a hung ring, which no resync forgives. Either way further
+ring presentation is disabled, as for any other ring fault, and healthy voice
+continues. This boundary excludes phase recognition
 before the request and physical light onset afterward. The release's visible
 transition target therefore still needs a real-device measurement.
 
 Finite sessions give the ring worker a 630-second total lifetime cap, covering
 the maximum 600-second directed run plus startup/shutdown reserve. In `serve`,
 the coordinator selects its private continuous-worker lifetime while keeping
-parent, privacy, authority and frame-expiry watchdogs unchanged. Authority expiry
-remains independent and much shorter: Controller snapshots are bounded to
-250 ms, and active input leases are 100 ms. Audio diagnostics retain their
+the parent, privacy and frame-expiry watchdogs unchanged. Authority expiry is
+independent and much shorter: Controller snapshots are bounded to 250 ms, and
+active input leases are 100 ms; an installed authority that runs out holds
+the ring dark until a fresh one comes, and no longer ends the worker (#1178). Audio diagnostics retain their
 separate 600-second wall/sample cap; diagnostic runs must leave startup room.
 
 ## Bounded renewal evidence

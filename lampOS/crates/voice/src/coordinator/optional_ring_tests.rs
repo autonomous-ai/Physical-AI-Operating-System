@@ -166,6 +166,132 @@ fn ring_failure_preserves_the_owner_and_dispatches_the_continuing_answer() {
     );
 }
 
+/// #1191's review (#1178): a ring held 150 ms in a turn, through the real
+/// service. The ring stays active with no Stop, its choreography holds the
+/// frame and asks no other until that frame's late receipt, then a new frame
+/// goes out and the answer goes on. The fourth hold in ten minutes disables
+/// the ring, as any ring fault did before.
+#[test]
+fn a_ring_held_up_mid_turn_stays_on_and_the_fourth_hold_disables_it() {
+    use crate::ring_wire::{RingFeedback, RingFrame, RingRejection};
+
+    let directory = SessionDirectory::create().unwrap();
+    let (mut rig, mut peers) = fixture(&directory);
+    let (mut controller, current, _) = super::tests::active_reply();
+    let original = current.owner;
+    let mut reply = Some(current);
+    let mut choreography = Some(RingChoreographer::new(24).unwrap());
+    let mut trace = SessionState::default();
+    let mut ring_trace = RingTrace::default();
+    let renew = |controller: &mut Controller| {
+        let until = MonoTime::from_micros(monotonic_us() + 500_000);
+        controller
+            .set_capture(now(), CaptureState::RetainingUntil(until))
+            .unwrap();
+        controller
+            .set_admission(now(), AdmissionState::OpenUntil(until))
+            .unwrap();
+    };
+    for hold in 1..=4 {
+        renew(&mut controller);
+        service_optional_ring(
+            &mut rig,
+            &mut choreography,
+            &mut controller,
+            &mut trace,
+            &mut ring_trace,
+        )
+        .unwrap();
+        let frame = peers
+            .ring
+            .data
+            .receive::<RingFrame>()
+            .unwrap()
+            .unwrap_or_else(|| panic!("hold {hold}: a frame goes out"));
+        // The ring is held 150 ms; the coordinator renews the turn meanwhile.
+        for _ in 0..3 {
+            std::thread::sleep(Duration::from_millis(50));
+            renew(&mut controller);
+        }
+        service_optional_ring(
+            &mut rig,
+            &mut choreography,
+            &mut controller,
+            &mut trace,
+            &mut ring_trace,
+        )
+        .unwrap();
+        let mut stopped = false;
+        while let Some(control) = peers.ring.control.receive::<Control>().unwrap() {
+            stopped |= matches!(control, Control::Stop);
+        }
+        if hold == 4 {
+            assert!(
+                !rig.ring.is_active() && stopped,
+                "the fourth hold disables it"
+            );
+            assert!(choreography.is_none());
+            break;
+        }
+        assert!(
+            rig.ring.is_active() && !stopped,
+            "hold {hold}: the ring stays on"
+        );
+        // Held: no other frame is asked for.
+        service_optional_ring(
+            &mut rig,
+            &mut choreography,
+            &mut controller,
+            &mut trace,
+            &mut ring_trace,
+        )
+        .unwrap();
+        assert!(peers.ring.data.receive::<RingFrame>().unwrap().is_none());
+        // The answer goes on meanwhile.
+        if hold == 1 {
+            let mut snapshot = controller.snapshot(now()).unwrap();
+            let (mut pending, mut sequence) = (None, 0);
+            dispatch_speaker_chunk(
+                &mut controller,
+                &mut reply,
+                &mut rig.speaker.channels.data,
+                &mut pending,
+                &mut sequence,
+                &mut snapshot,
+                &mut PlaybackMask::new(TurnTaking::VadOnly),
+            )
+            .unwrap();
+            let chunk = peers
+                .speaker
+                .data
+                .receive::<SpeakerChunk>()
+                .unwrap()
+                .unwrap();
+            assert_eq!(chunk.permit.owner(), original);
+        }
+        // The held frame's late receipt: the worker refuses a frame so old.
+        peers
+            .ring
+            .control
+            .send(WorkerEvent::Ring {
+                report: RingFeedback::Rejected {
+                    owner: frame.permit.owner(),
+                    phase: frame.phase,
+                    requested_at_us: frame.requested_at_us,
+                    reason: RingRejection::ExpiredRequest,
+                },
+            })
+            .unwrap();
+    }
+    assert_eq!(
+        trace
+            .iter()
+            .filter(|event| event["kind"] == "ring_resynced")
+            .count(),
+        3
+    );
+}
+
 #[test]
 fn a_closed_ring_channel_does_not_create_input_readiness_or_stop_audio_authority() {
     let directory = SessionDirectory::create().unwrap();

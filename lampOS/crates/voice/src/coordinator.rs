@@ -7938,6 +7938,7 @@ fn service_optional_ring(
             trace,
             ring_trace,
         )
+        && !resynced_after(choreography, ring_trace, &*error, trace)?
     {
         rig.ring.disable(error);
     }
@@ -7945,6 +7946,44 @@ fn service_optional_ring(
         *choreography = None;
     }
     rig.ring.poll_cleanup(trace)
+}
+
+/// After a ring fault: whether the choreography started afresh. A late write
+/// or receipt, a `TimedOut` fault, comes of a loop or ring held up a moment
+/// (#1178, the lamp's midnight log jobs), and the lamp would otherwise listen
+/// with no light for the rest of the serve cycle; a few such faults start it
+/// afresh ([`RingChoreographer::resync`]). Any other fault, or one past the
+/// budget, disables the ring as before.
+fn resynced_after(
+    choreography: &mut Option<RingChoreographer>,
+    ring_trace: &mut RingTrace,
+    error: &(dyn std::error::Error + Send + Sync + 'static),
+    trace: &mut SessionState,
+) -> Result<bool> {
+    let late = error
+        .downcast_ref::<io::Error>()
+        .is_some_and(|error| error.kind() == io::ErrorKind::TimedOut);
+    let at = now();
+    if !late
+        || !choreography
+            .as_mut()
+            .is_some_and(|policy| policy.resync(at))
+    {
+        return Ok(false);
+    }
+    ring_trace.resync(
+        choreography
+            .as_ref()
+            .is_some_and(RingChoreographer::holding),
+    );
+    eprintln!(
+        "lamp-voice: the ring's feedback came late ({error}); its choreography starts afresh"
+    );
+    record(
+        trace,
+        json!({"kind":"ring_resynced","at_us":monotonic_us(),"error":error.to_string()}),
+    )?;
+    Ok(true)
 }
 
 /// All hardware I/O remains in the child. This path has one outstanding frame,
@@ -8578,6 +8617,121 @@ mod tests {
             + INPUT_READINESS_TIMEOUT
             + DIAGNOSTIC_SHUTDOWN_GRACE;
         assert!(required < Duration::from_micros(crate::ring_worker::MAX_RUNTIME_US));
+    }
+
+    /// #1182's review (#1178): a ring held 150 ms in a turn makes its receipt
+    /// late. The choreography starts afresh instead of the ring being
+    /// disabled for the rest of the serve cycle: it holds the frame, asks no
+    /// other until that frame's late receipt comes back, then a new frame
+    /// goes out, so the light comes back, and its receipt is taken.
+    #[test]
+    fn a_ring_held_up_mid_turn_starts_afresh_and_its_light_comes_back() {
+        use crate::ring_wire::RingFrame;
+
+        let directory = SessionDirectory::create().unwrap();
+        let (mut worker, mut peer) = Worker::sleeping_fixture(&directory.path, "ring");
+        let mut owner = Controller::new(new_boot().unwrap(), now());
+        let renew = |owner: &mut Controller| {
+            let at = now();
+            let until = at.checked_add(INPUT_LEASE_US).unwrap();
+            owner
+                .set_capture(at, CaptureState::RetainingUntil(until))
+                .unwrap();
+            owner
+                .set_admission(at, AdmissionState::OpenUntil(until))
+                .unwrap();
+        };
+        owner
+            .set_microphone_permission(now(), Permission::Allowed)
+            .unwrap();
+        renew(&mut owner);
+        owner.admit(now(), AdmittedInput::NewTurn).unwrap();
+        let mut policy = Some(RingChoreographer::new(24).unwrap());
+        let mut trace = SessionState::default();
+        let mut ring_trace = RingTrace::default();
+
+        service_ring(
+            Some(&mut worker),
+            policy.as_mut(),
+            &mut owner,
+            &mut trace,
+            &mut ring_trace,
+        )
+        .unwrap();
+        let held = peer.data.receive::<RingFrame>().unwrap().unwrap();
+        // The ring is held 150 ms: no receipt comes. The coordinator itself
+        // goes on renewing the turn's input meanwhile.
+        for _ in 0..3 {
+            std::thread::sleep(Duration::from_millis(50));
+            renew(&mut owner);
+        }
+        let late = service_ring(
+            Some(&mut worker),
+            policy.as_mut(),
+            &mut owner,
+            &mut trace,
+            &mut ring_trace,
+        )
+        .unwrap_err();
+        assert!(
+            late.downcast_ref::<io::Error>()
+                .is_some_and(|error| error.kind() == io::ErrorKind::TimedOut),
+            "{late}"
+        );
+        assert!(resynced_after(&mut policy, &mut ring_trace, &*late, &mut trace).unwrap());
+        assert_eq!(
+            trace
+                .iter()
+                .filter(|event| event["kind"] == "ring_resynced")
+                .count(),
+            1
+        );
+        // While the frame is held, no other is asked for.
+        service_ring(
+            Some(&mut worker),
+            policy.as_mut(),
+            &mut owner,
+            &mut trace,
+            &mut ring_trace,
+        )
+        .unwrap();
+        assert!(peer.data.receive::<RingFrame>().unwrap().is_none());
+        // The held frame's receipt comes late; then the light comes back.
+        let report = |frame: RingFrame, written: u64| WorkerEvent::Ring {
+            report: RingFeedback::Presented {
+                owner: frame.permit.owner(),
+                phase: frame.phase,
+                requested_at_us: frame.requested_at_us,
+                write_started_at_us: written,
+                write_finished_at_us: written,
+            },
+        };
+        peer.control
+            .send(report(held, held.requested_at_us + 1))
+            .unwrap();
+        renew(&mut owner);
+        service_ring(
+            Some(&mut worker),
+            policy.as_mut(),
+            &mut owner,
+            &mut trace,
+            &mut ring_trace,
+        )
+        .unwrap();
+        let next = peer.data.receive::<RingFrame>().unwrap().unwrap();
+        assert!(next.requested_at_us > held.requested_at_us);
+        // The new frame's receipt is taken.
+        peer.control.send(report(next, monotonic_us())).unwrap();
+        renew(&mut owner);
+        service_ring(
+            Some(&mut worker),
+            policy.as_mut(),
+            &mut owner,
+            &mut trace,
+            &mut ring_trace,
+        )
+        .unwrap();
+        assert!(!policy.as_ref().unwrap().is_faulted());
     }
 
     #[test]

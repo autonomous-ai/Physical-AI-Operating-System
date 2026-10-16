@@ -49,6 +49,17 @@ struct Renewals {
 }
 
 impl RingTrace {
+    /// With the choreography's resync (#1178): a request whose receipt is
+    /// still to come stays, so that receipt is written down when it comes; one
+    /// whose late receipt is in already goes, as the choreography's does.
+    pub(super) fn resync(&mut self, outstanding: bool) {
+        if !outstanding {
+            self.pending = None;
+        }
+        self.confirmed = None;
+        self.anchor = None;
+    }
+
     pub(super) fn requested(&mut self, frame: RingFrame, trace: &mut SessionState) -> Result<()> {
         if self.pending.is_some() {
             return Err(io::Error::other("ring trace has an outstanding request").into());

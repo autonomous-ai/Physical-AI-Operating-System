@@ -5920,6 +5920,16 @@ mod tests {
     fn real_time() -> MonoTime {
         MonoTime::from_micros(monotonic_us())
     }
+    /// A test's own logical clock (#1128), for a test on a paused runtime.
+    /// The worker's leases, heartbeat bound and waits, and the rig's
+    /// heartbeats and capture times, read the scenario clock; the rig's
+    /// ticks move it two milliseconds at a time with Tokio's, so a wait of
+    /// seconds passes in no time and the two clocks never part.
+    fn logical_clock() -> crate::scenario_clock::Scope {
+        let scope = crate::scenario_clock::Scope::enter(Duration::from_secs(60)).unwrap();
+        scope.set_pump(|_| Ok(())).unwrap();
+        scope
+    }
     impl LiveRig {
         fn start(policy: RecoveryPolicy) -> Self {
             Self::start_with(policy, Options::reporting(Reporting::Legacy))
@@ -6049,6 +6059,19 @@ mod tests {
         fn publish(&mut self) {
             self.heartbeat().unwrap();
         }
+        /// One coordinator tick. In a test that entered a scope (#1128) it is
+        /// two milliseconds of the scenario clock and then two of Tokio's, so
+        /// the two clocks keep together on a paused runtime. Without a scope it
+        /// is a sleep of `unscoped`, as each of the rig's loops always waited.
+        async fn tick(&mut self, unscoped: Duration) {
+            let stepped = crate::scenario_clock::step(crate::scenario_clock::Phase::Run).unwrap();
+            tokio::time::sleep(if stepped {
+                Duration::from_millis(2)
+            } else {
+                unscoped
+            })
+            .await;
+        }
         fn heartbeat(&mut self) -> io::Result<()> {
             let at = monotonic_us();
             let now = MonoTime::from_micros(at);
@@ -6070,7 +6093,7 @@ mod tests {
             let until = tokio::time::Instant::now() + duration;
             while tokio::time::Instant::now() < until {
                 self.publish();
-                tokio::time::sleep(Duration::from_millis(5)).await;
+                self.tick(Duration::from_millis(5)).await;
             }
         }
         async fn output(&mut self) -> ProviderOutput {
@@ -6098,7 +6121,7 @@ mod tests {
                 }
                 assert!(!self.worker.is_finished(), "worker ended before output");
                 assert!(Instant::now() < deadline, "no provider output in time");
-                tokio::time::sleep(Duration::from_millis(2)).await;
+                self.tick(Duration::from_millis(2)).await;
             }
         }
         /// Heartbeat until the worker attempts a connection.
@@ -6110,7 +6133,7 @@ mod tests {
                     return dial;
                 }
                 assert!(Instant::now() < deadline, "no connection attempt in time");
-                tokio::time::sleep(Duration::from_millis(2)).await;
+                self.tick(Duration::from_millis(2)).await;
             }
         }
         /// Heartbeat until the worker ends; its result and the wait.
@@ -6120,7 +6143,7 @@ mod tests {
                 assert!(started.elapsed() < Duration::from_secs(3), "worker hung");
                 // The worker may close its socket at any point from here on.
                 let _ = self.heartbeat();
-                tokio::time::sleep(Duration::from_millis(1)).await;
+                self.tick(Duration::from_millis(1)).await;
             }
             ((&mut self.worker).await.unwrap(), started.elapsed())
         }
@@ -6129,7 +6152,10 @@ mod tests {
             let deadline = Instant::now() + Duration::from_secs(3);
             loop {
                 self.publish();
-                if let Some(message) = dial.service.try_receive(Duration::from_millis(5)).await {
+                let stepped =
+                    crate::scenario_clock::step(crate::scenario_clock::Phase::Run).unwrap();
+                let wait = Duration::from_millis(if stepped { 2 } else { 5 });
+                if let Some(message) = dial.service.try_receive(wait).await {
                     return message;
                 }
                 assert!(Instant::now() < deadline, "service saw no client message");
@@ -6163,7 +6189,7 @@ mod tests {
                     "worker ended before link observation"
                 );
                 assert!(Instant::now() < deadline, "no link observation in time");
-                tokio::time::sleep(Duration::from_millis(2)).await;
+                self.tick(Duration::from_millis(2)).await;
             }
         }
         async fn coordinated_ready(&mut self) -> Dial {
@@ -8914,7 +8940,10 @@ mod tests {
         speaking_speed(180, REPLY_BUFFER, Duration::from_secs(20)).await;
     }
 
-    #[tokio::test]
+    /// On a paused clock (#1128): playback and the service run on Tokio's
+    /// time, and so does every bound here, so an answer held behind the
+    /// queued audio would still show as seconds of delay.
+    #[tokio::test(start_paused = true)]
     async fn interrupting_a_capacity_paced_answer_is_not_delayed_by_its_queued_audio() {
         let answer: Vec<_> = (0..20)
             .map(|index| provider_audio(index, LARGEST))
@@ -8943,7 +8972,7 @@ mod tests {
             dial.service.send(message).await;
             hear(&mut rig, &mut speaker);
         }
-        let started = Instant::now();
+        let started = tokio::time::Instant::now();
         while speaker.played < 2 * 24_000 {
             hear(&mut rig, &mut speaker);
             assert!(
@@ -8960,7 +8989,7 @@ mod tests {
         let new = owner.turn();
         speaker.flush();
         rig.grant(&mut speaker, false);
-        let interrupted_at = Instant::now();
+        let interrupted_at = tokio::time::Instant::now();
         let privacy_generation = rig.snapshot.microphone_generation();
         rig.parent
             .data
@@ -9037,7 +9066,7 @@ mod tests {
         }
         let first_new = first_new.unwrap();
         println!(
-            "MEASURED interruption_under_capacity new_answer_first_packet_ms={} stale_packets_after_interruption={stale} (admission to first packet of the new answer at a local IPC reader, scripted service, host)",
+            "MEASURED interruption_under_capacity new_answer_first_packet_ms={} stale_packets_after_interruption={stale} (admission to first packet of the new answer at a local IPC reader, scripted service, on Tokio's clock)",
             first_new.as_millis()
         );
         // The cancelled answer still had about 36 s queued, 15 s of it in this
@@ -9660,8 +9689,9 @@ mod tests {
         assert!(next > request);
     }
 
-    #[tokio::test]
+    #[tokio::test(start_paused = true)]
     async fn production_policy_never_commits_a_successor_without_a_terminal_barrier() {
+        let _clock = logical_clock();
         let mut rig = LiveRig::start(quick_policy());
         let mut dial = rig.ready().await;
         let cut = rig.speak(&mut dial, false, true).await;
@@ -10149,8 +10179,9 @@ mod tests {
             rig.stop().await;
         }
 
-        #[tokio::test]
+        #[tokio::test(start_paused = true)]
         async fn a_stop_or_a_mute_while_the_question_is_kept_writes_none_of_it() {
+            let _clock = logical_clock();
             // Under both contracts: the second is the command line's.
             for (reporting, mute) in [
                 (Reporting::Legacy, false),
@@ -10183,7 +10214,7 @@ mod tests {
                 let started = Instant::now();
                 while !rig.worker.is_finished() {
                     assert!(started.elapsed() < Duration::from_secs(3), "worker hung");
-                    tokio::time::sleep(Duration::from_millis(1)).await;
+                    rig.tick(Duration::from_millis(1)).await;
                 }
                 (&mut rig.worker).await.unwrap().unwrap();
                 // Kept, then dropped: not a start, not a block.
@@ -10197,8 +10228,9 @@ mod tests {
             }
         }
 
-        #[tokio::test]
+        #[tokio::test(start_paused = true)]
         async fn a_stop_while_the_kept_question_is_being_written_ends_the_writing() {
+            let _clock = logical_clock();
             let mut rig = LiveRig::start_kept();
             let mut dial = rig.ready().await;
             rig.speak(&mut dial, false, true).await;

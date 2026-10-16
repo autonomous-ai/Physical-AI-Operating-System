@@ -1018,7 +1018,11 @@ once; another turn's `stay_quiet` holding nothing; listing reminders not
 held; the flag's place; a
 kept call whose turn is cancelled, one the service withdrew, and one
 withdrawn while the output is full, never run; a timer on `stay_quiet` not
-set).
+set). The worker tests run on a logical clock of their own (#1128): the
+scenario clock for the worker's leases, heartbeat bound and the 2 s wait,
+and a paused Tokio clock for the session and the scripted service, moved
+together 2 ms at a time by the rig's `tick`. The ten take about 1.7 s, not
+15 s, with the same assertions, the 2 s wait included.
 
 **Needs the Policy's side:** `lamp-policy --act attention`, which publishes
 its attention decisions with `shadow: false` ([policy.md](policy.md#acting-on-the-lamps-actions---act-attention-800)).

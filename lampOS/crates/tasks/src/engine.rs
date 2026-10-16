@@ -3119,6 +3119,66 @@ mod tests {
         assert_eq!(invalid.check().unwrap_err().code, "storage");
     }
 
+    /// #560, the first builder's bound (2026-10-16, 20:49): a person at the
+    /// lamp who handed work to it hears the result within 20 s of its agent
+    /// settling. The tasks part's share of that can be no more than the
+    /// whole, so an agent that settles must be listed as settled
+    /// ([`Engine::settled_within`], what `tasks/status` says) by then.
+    /// Harness answers here only when the watch asks, so only a faster look
+    /// can pass it as it stands; a push of the agent's end (the other fix
+    /// #560 leaves open) needs a way to deliver it added to the test first.
+    const RESULT_HEARD_WITHIN_MS: u64 = 20_000;
+
+    #[test]
+    #[ignore = "#560: the watch looks 30 s after the hand-over, then every 30 s, then every 2 min, and keeps an idle answer only after its confirming look WATCH_CONFIRM_MS later, so an agent that settles is known only after the next look and the one after it"]
+    fn an_agent_that_settles_is_listed_settled_within_the_time_the_result_is_owed() {
+        let at_work = || Observation {
+            state: "working".into(),
+            tools: 0,
+            ..data("")
+        };
+        let mut late = Vec::new();
+        // Soon after the hand-over, while the watch looks often, and after
+        // its first ten minutes, when it looks every two.
+        for settles_after in [1_000, 45_000, WATCH_EARLY_FOR_MS + 5_000] {
+            let (mut engine, _) = opened();
+            accepted(&mut engine, 10);
+            let settled_at = 10 + settles_after;
+            let owed_by = settled_at + RESULT_HEARD_WITHIN_MS;
+            let mut listed = None;
+            // The runtime asks whether a look is due every tick (10 ms);
+            // each second here is generous to the watch. Harness answers at
+            // once: at work before the agent settles, done after.
+            let mut at = 10;
+            while listed.is_none() && at <= owed_by + WATCH_LATER_MS {
+                if engine.watch(&clock(at)).unwrap() {
+                    let job = engine.begin_observation(&clock(at)).unwrap().unwrap();
+                    let seen = if at < settled_at {
+                        at_work()
+                    } else {
+                        data("The names: Lumi, Sunny and Archie.")
+                    };
+                    engine.finish_observation(&job, seen, &clock(at)).unwrap();
+                }
+                if !engine.settled_within(&clock(at), u64::MAX).is_empty() {
+                    listed = Some(at);
+                }
+                at += 1_000;
+            }
+            if listed.is_none_or(|listed| listed > owed_by) {
+                late.push(format!(
+                    "settled {settles_after} ms after the hand-over, listed {} s after it settled",
+                    listed.map_or("never".into(), |listed| ((listed - settled_at) / 1_000)
+                        .to_string())
+                ));
+            }
+        }
+        assert!(
+            late.is_empty(),
+            "owed within {RESULT_HEARD_WITHIN_MS} ms: {late:?}"
+        );
+    }
+
     #[test]
     fn the_watch_looks_on_its_own_keeps_only_what_is_settled_and_then_stops() {
         let (mut engine, memory) = opened();

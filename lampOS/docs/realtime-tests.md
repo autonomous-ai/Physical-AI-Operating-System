@@ -138,8 +138,10 @@ Review points:
   until it is fixed? A failure names a day's merges, not one pull request.
 - Who decides that a red full run holds the next merge? The workflow only
   opens the issue; it does not block merging.
-- Does a pull request's run list the expected number of tests (every test
-  but the group's, 10 skipped as of 2026-10-17)?
+- Does a pull request's run list the expected number of tests? As of
+  2026-10-17 nextest says "including 5 tests and 1 binary via
+  profile.pr.default-filter": the three named single tests, the two named
+  `endpoint_session` tests, and `capture_hold_worker` as one binary.
 
 ## The measured list
 
@@ -825,18 +827,42 @@ three filtersets, on 2026-10-17.
 
 ## The evaluator's clocked suites leave the group (#823)
 
-`lamp-voice-eval`'s `serve_session`, `physical_loopback`, `serve_relay` and
-`final_dispatch`, with the evaluator's
+`lamp-voice-eval`'s `serve_session`, `physical_loopback` and `serve_relay`,
+with the evaluator's
 `physical::mac::audit_grant_tests::audit_transport_that_outlives_its_bound_is_killed_and_never_certified`,
 `lamp-records::records`'
 `real_reporter_reloads_switch_and_policy_and_requires_a_matching_receipt`
 and six of `lamp-memory::health`'s seven tests, already run on explicit
 clocks (the sections above, the Records reporting fixture clock and Memory's
-controlled fixture). What is left of their time is real process work: 65
-tests, 31.8 s one at a time in full run 38924461963. Their host bounds are
-watchdogs, each counted from its own wait: 30 s for a serve-fixture wait, the
-10 s stop grace, 4 s for each of Records' six status waits, 8 s for each of
-Memory's readiness, log and exit waits.
+controlled fixture).
+
+`final_dispatch` mostly does not (the reviewer on #1202). 12 of its 13 tests
+build `PhysicalBackend::new`, on the system clock, over a `/bin/sh`
+transport that sleeps; only
+`a_session_end_first_seen_in_the_final_drain_withholds_and_is_kept` uses
+`final_drain_clock`. Six keep short host-clock windows:
+- `a_healthy_session_still_dispatches_once` sleeps to 200 ms ahead, then must
+  start within `MAX_TRIGGER_LATENESS_US` (100 ms);
+- `an_invalid_cue_first_seen_in_the_final_drain_withholds`,
+  `a_relay_framing_error_first_seen_in_the_final_drain_withholds`,
+  `a_transport_closed_during_the_final_drain_withholds` and
+  `an_unobserved_event_in_the_final_drain_requires_revalidation` need the
+  line written after the transport's `sleep 0.3` before the 800 ms target
+  (500 ms to spare); the last then dispatches within 100 ms;
+- `a_final_drain_that_exhausts_its_budget_requires_revalidation` relays
+  1,024 of 2,000 lines within 300 ms, then dispatches within 100 ms.
+
+They passed every run below and on ARM64. If one fails on a pull-request
+runner, it goes back into the group by its exact name, as for
+`pilot_faults` (#1162).
+
+What is left of the 65 tests' time is real process work: 31.8 s one at a
+time in full run 38924461963. Their other host bounds are far above what the
+tests take: 30 s for each serve-fixture wait, the 10 s stop grace, 4 s for
+each of Records' six status waits, 8 s for each of Memory's readiness, log
+and exit waits and 3 s for its socket requests, and one window for a whole
+fixture of 10 s (`final_drain_clock`'s delayed line) and 5 s (the audit
+test).
 
 Memory's seventh,
 `the_environment_alone_does_not_enable_reporting_or_create_bus_data`, stays

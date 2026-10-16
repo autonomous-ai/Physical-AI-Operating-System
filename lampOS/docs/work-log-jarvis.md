@@ -108,3 +108,24 @@ Ready for lamp-voice: yes (#1012)
   - 1.5 m 0.107;
   - 3 m 0.057.
 - **To restack once #1012 merges:** #1042 (Task news) and #1066 (Stuffy air, folded to `60bb206d7`, ARM64 38888332993 green). Both wait on things outside this code: second's voice side, and a working air sensor.
+
+## 2026-10-16 night — #1012 review answered; #1042 and #1066 restacked
+
+Ready for lamp-voice: yes (#1012); no (#1042 and #1066 are drafts)
+
+- **#1012, sent back by the reviewer at 22:27:** two P2s, four P3s, and Seventh's whole-word match. All are fixed in `782eb0b06`, on `lamp-voice` `f0833e17c`.
+  - **P2, a long dance played once:** the second clip waits one clip length plus 100 ms (five 20 ms body steps).
+  - **P2, `[again]`:** it joins `voice/heard` pieces as `thread.rs` does, and matches whole words.
+  - **P3s:**
+    - the flag's text is changed;
+    - a call while the dance plays is answered "I'm still dancing.";
+    - a line the person talks over skips the clips;
+    - the docs row now cites the lamp run.
+- **On lamp-06c1 at 23:5x,** with `lamp-skills` `b3d24ecf` and voice `15ca4bad` (both installed, the old ones kept):
+  - a long upbeat dance played both grooves, commanded 0.17–0.24 rad every second from 0 to 16 s (`06e97aa57`, `ask18`);
+  - ARM64 38936176148 is green on that head. The re-checks are the reviewer's and the seventh's.
+- **#1042 and #1066,** restacked on `06e97aa57`:
+  - #1042 at `f67fa5594`, ARM64 38937697851;
+  - #1066 at `734ef43ad`, with `wait = "10m"` and the dim through `Glow`, ARM64 38937225467 (green on the rerun of one `lamp-voice` timing test).
+- **#1151,** this role file, was merged onto `lamp-voice`.
+- **Gates:** run on the Mac, **Homebrew Rust 1.99, no rustup, no Docker**. Clippy on `lamp-skills` runs with `--no-deps`, because 1.99 fails a new lint in `crates/turn-end-wire` (not ours, from `lamp-voice`).

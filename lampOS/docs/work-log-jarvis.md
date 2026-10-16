@@ -86,3 +86,25 @@ Ready for lamp-voice: no (#1012, #1042 and #1066 are drafts)
   clippy clean. Timed program tests fail under the machine's load (load
   average about 77) and pass with `--test-threads=1`. The 1.96 gate is
   each ARM64 run above.
+
+## 2026-10-16 evening — #999 Dance ready
+
+Ready for lamp-voice: yes (#1012)
+
+- **Kind:** off unless set. Dance runs only on the model's call of its tool.
+- **Head:** #1012 is rebased on today's `lamp-voice` without the #984 copy: `8d0341e38` (the skill and its `lamp-skills` keys, including `[again]` and the after-say wait), plus the verification in `4d12ba725` and `d56cc12b7`.
+- **ARM64:** run 38899019975 green on `d56cc12b7`.
+- **Gate:** run on the Mac, **Homebrew Rust 1.99, no rustup, no Docker**.
+  - fmt and clippy clean;
+  - `cargo test -p lamp-skills` 41/41;
+  - every skill's replay passes.
+- **lamp-06c1, the evening:**
+  - with our person facing the lamp, the line ended before the clip (commanded 239 ms and 138 ms after the turn);
+  - with `lamp-skills` `9afcecf8` (`771c0c187`), "do it" within 45 s was refused by `[again]` and "one more dance" ran;
+  - no person judged the dance. The judgement is jarvis's, from stills and joint data.
+- **`near`:** measured on lamp-06c1 with our person and posted on #705.
+  - sitting at the desk 0.230;
+  - standing beside it 0.150;
+  - 1.5 m 0.107;
+  - 3 m 0.057.
+- **To restack once #1012 merges:** #1042 (Task news) and #1066 (Stuffy air, folded to `60bb206d7`, ARM64 38888332993 green). Both wait on things outside this code: second's voice side, and a working air sensor.

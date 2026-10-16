@@ -318,6 +318,16 @@ ARM64 run and the keeper's `--setup-marker` (#816):
    `reset-plan-example.json` (the lamp's own stores); `nginx-setup.conf` as
    nginx's default site, nginx left disabled; the keeper with
    `--setup-marker /var/lib/lampos-setup/done`.
+
+   **On a lamp put on by `lamp-update install`** ([install.md](install.md),
+   "Setup at first boot, without the keeper"), the units come with the
+   product and there is no keeper: the reset plan is
+   `reset-plan-product.json`, the example stopped by
+   `systemctl stop lampos.target` (every part is `PartOf` the target), and
+   nothing else changes. `install` writes neither file yet, so both are put
+   there by hand. `serve-own-page.json` needs only a phone: the voice's key
+   is a field of its form. V1's page asks for the key only through its URL
+   (question 1 below), so it needs that link opened on the phone.
 3. **First boot.** With no marker, reboot. Expect the open hotspot `lamp-xxxx`
    and no lampOS part running. Join it with a phone and open
    `http://192.168.100.1/setup?llm_api_key=<key>&device_id=<lamp>` (or

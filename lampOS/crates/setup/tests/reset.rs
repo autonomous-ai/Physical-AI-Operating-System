@@ -322,6 +322,29 @@ fn the_example_plan_wipes_every_store_of_the_person() {
     }
 }
 
+/// A lamp put on by `lamp-update install` has no keeper (install.md, "Setup
+/// at first boot, without the keeper"): its plan stops the lamp with
+/// systemd, and is the example's in everything else, so the two never drift.
+#[test]
+fn the_product_plan_is_the_example_stopped_by_systemd() {
+    let example: Plan =
+        serde_json::from_str(include_str!("../fixtures/reset-plan-example.json")).unwrap();
+    let product: Plan =
+        serde_json::from_str(include_str!("../fixtures/reset-plan-product.json")).unwrap();
+    product.check().unwrap();
+    assert_eq!(
+        product.stop,
+        ["/usr/bin/systemctl", "stop", "lampos.target"]
+    );
+    assert_eq!(
+        Plan {
+            stop: example.stop.clone(),
+            ..product
+        },
+        example
+    );
+}
+
 fn event(at_us: u64, held_us: u64) -> TouchEvent {
     TouchEvent {
         stamp: ClockStamp {

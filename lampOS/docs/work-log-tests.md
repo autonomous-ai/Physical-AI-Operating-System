@@ -1,5 +1,23 @@
 # Tests work log
 
+## 2026-10-16 16:55:06 +0700 — the group measured at 141.9 s; three pull requests ready, a fourth open
+
+Ready for lamp-voice: yes (#1088, #1101, #1104); no (#1109, waiting for its ARM64 runs)
+
+**Full run 38880278170** on #1088's head passed all 5,786 tests, one at a time on four ARM64 runners. With the group's filterset as it was before these pull requests, the same 173 tests took **141.9 s** (256.6 s in 38849189990). `early_end` took 5.6 s (was 92.9 s) and `pilot_faults` 2.2 s (was 29.7 s, after #972 and #973). With #1101 (capacity, 0.171 s in its own ARM64 run) and #1104 (the barrier pair, 0.034 s and 0.027 s in its ARM64 run), the group comes to about 110 s, under the 2-minute goal (#823, comment of 16:56).
+
+**Ready:** #1088 (ARM64 38878999962 green), #1101 (38879889483) and #1104 (38881233618).
+
+**#1109:** `endpoint_session`'s two missing-model sessions and its still-loading session. The host waits until the real worker's state is settled (`Failed`, or `Loading`), and then the conversation runs on the stepped fixture.
+- Time: 4.42–4.51 s → 0.62–0.77 s each on the Mac.
+- Load: six copies at once passed 24 of 24 runs.
+- `hung_worker…` stays on real time, because it needs the supervisor's 700 ms hang detection during the conversation.
+- ARM64: pull-request run 38883681639, and full run 38883689547 for these tests' own times.
+
+**Closed as superseded by #1088:** #966 and #925, which added Gemini and clock observation hooks that a single-thread stepped fixture does not need. #832 (the 123's inventory) stays open.
+
+**Not convertible from the test alone:** the end-of-turn supervisor in `turn-end-wire` (hung worker), the production capture loop (`capture_hold_worker`), the review pair (its bus hearing must look 4 s old to every worker in the binary), and the `lamp-health`, `memory` and `actions` programs (real processes or threads; `memory`'s report period is a constant).
+
 ## 2026-10-16 16:22:07 +0700 — early_end and the capacity test on logical clocks
 
 Ready for lamp-voice: no (#1088 and #1101 are drafts until their ARM64 runs are green)

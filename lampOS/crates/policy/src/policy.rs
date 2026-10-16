@@ -1361,6 +1361,12 @@ impl Policy<'_> {
                     .with("hello_held_talking", totals.held_talking)
                     .with("hello_held_recent", totals.held_recent)
                     .with("hello_late", totals.late);
+                // Only with `--rules`.
+                let report = if hello.obeys_rules() {
+                    report.with("hello_held_rule", totals.held_rule)
+                } else {
+                    report
+                };
                 // Only with `--gate`.
                 let report = if hello.answers_skills() {
                     report.with("skill_asks", self.totals.skill_asks)
@@ -1368,11 +1374,18 @@ impl Policy<'_> {
                     report
                 };
                 let report = match hello.moment_totals() {
-                    Some(moment) => report
-                        .with("moment_decided", moment.decided)
-                        .with("moment_said", moment.said)
-                        .with("moment_held_talking", moment.held_talking)
-                        .with("moment_late", moment.late),
+                    Some(moment) => {
+                        let report = report
+                            .with("moment_decided", moment.decided)
+                            .with("moment_said", moment.said)
+                            .with("moment_held_talking", moment.held_talking)
+                            .with("moment_late", moment.late);
+                        if hello.obeys_rules() {
+                            report.with("moment_held_rule", moment.held_rule)
+                        } else {
+                            report
+                        }
+                    }
                     None => report,
                 };
                 if hello.acts() {
@@ -1594,9 +1607,11 @@ fn run_inner<D: Decider + Send + 'static>(
         None => None,
     };
     // Nor, without `--rules`, the people's rules about speaking first.
-    let mut kept_rules = match progress.as_ref() {
-        Some(progress) if progress.obeys_rules() => Some(Ear::new(bus, Rules::TOPIC, Rules::TYPE)?),
-        _ => None,
+    let obeys_rules = progress.as_ref().is_some_and(Progress::obeys_rules)
+        || hello.as_ref().is_some_and(Hello::obeys_rules);
+    let mut kept_rules = match obeys_rules {
+        true => Some(Ear::new(bus, Rules::TOPIC, Rules::TYPE)?),
+        false => None,
     };
     // Without `--hello` the voice's arrivals are not listened to at all.
     let mut arrivals = match hello {
@@ -1780,7 +1795,10 @@ fn run_inner<D: Decider + Send + 'static>(
         // with it.
         if let Some(kept_rules) = kept_rules.as_mut() {
             for told in kept_rules.take::<Rules>(Duration::ZERO, unreadable, policy.say) {
-                if let Some(progress) = policy.progress.as_mut() {
+                if let Some(hello) = policy.hello.as_mut().filter(|hello| hello.obeys_rules()) {
+                    hello.rules(told.clone());
+                }
+                if let Some(progress) = policy.progress.as_mut().filter(|p| p.obeys_rules()) {
                     progress.rules(told);
                 }
             }

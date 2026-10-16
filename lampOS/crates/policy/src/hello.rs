@@ -13,6 +13,9 @@
 //! within twenty minutes of the last, the voice's own limit. While either
 //! holds the answer is `wait`, by the rule, and no model is asked: the voice
 //! is waiting, and a question not answered would leave it to its rule.
+//! With `lamp-policy --rules` a third holds as they do: a rule the people
+//! at the lamp kept about it speaking first, by its `hello` limits
+//! ([`crate::rules`], #813).
 //!
 //! Shadow unless `lamp-policy --act hello`: decided, published and written
 //! down, and the voice says hello by its own rule.
@@ -20,8 +23,9 @@ use crate::{
     attention::Room,
     decide::{Answer, Asked, Connection, Decider, Failed, Question, Usage},
     progress::{Choice, LocalTime},
+    rules::{Kept, Kind},
 };
-use lamp_msgs::{Decision, Voice, VoiceArrival};
+use lamp_msgs::{Decision, Rules, Voice, VoiceArrival};
 use serde::Serialize;
 use serde_json::{Value, json};
 use std::{
@@ -128,6 +132,10 @@ pub struct Options {
     /// `hello`, `lamp-policy --gate`, #939), as it answers the voice's
     /// arrivals. Off unless set.
     pub gate: bool,
+    /// It obeys what the people at the lamp asked about speaking first
+    /// (`memory/rules`, `lamp-policy --rules`, [`crate::rules`], #813), and
+    /// so does the moment question beside it. Off unless set.
+    pub rules: bool,
 }
 
 impl Options {
@@ -139,6 +147,7 @@ impl Options {
             at_most_every: AT_MOST_EVERY,
             act: false,
             gate: false,
+            rules: false,
         }
     }
 }
@@ -151,6 +160,8 @@ pub enum Hold {
     Talking,
     /// The lamp said hello less than twenty minutes ago.
     GreetedRecently,
+    /// A rule the people at the lamp kept holds it (`--rules`).
+    KeptRule,
 }
 
 impl Hold {
@@ -158,6 +169,7 @@ impl Hold {
         match self {
             Self::Talking => "talking",
             Self::GreetedRecently => "greeted_recently",
+            Self::KeptRule => "kept_rule",
         }
     }
 }
@@ -352,6 +364,8 @@ pub struct Totals {
     /// Arrivals answered `wait` by each hard rule.
     pub held_talking: u64,
     pub held_recent: u64,
+    /// With `--rules`.
+    pub held_rule: u64,
     /// Arrivals not decided before the voice stopped waiting for them.
     pub late: u64,
 }
@@ -384,6 +398,8 @@ pub struct Hello {
     /// The moment question beside it (`--gate`, #939), which takes the
     /// skills' asks of news and of anything else unprompted.
     moment: Option<crate::moment::Moment>,
+    /// The newest rules about speaking first, with `--rules` only.
+    rules: Kept,
     totals: Totals,
 }
 
@@ -426,6 +442,7 @@ impl Hello {
             greeted: None,
             started: Instant::now(),
             moment: None,
+            rules: Kept::default(),
             totals: Totals::default(),
         })
     }
@@ -437,6 +454,20 @@ impl Hello {
     /// Whether its decisions act ([`Options::act`]).
     pub fn acts(&self) -> bool {
         self.options.act
+    }
+
+    /// Whether it obeys the people's rules ([`Options::rules`]).
+    pub fn obeys_rules(&self) -> bool {
+        self.options.rules
+    }
+
+    /// What the people at the lamp asked it about speaking first, newest:
+    /// kept here and by the moment question beside it.
+    pub fn rules(&mut self, rules: Rules) {
+        if let Some(moment) = self.moment.as_mut() {
+            moment.rules(rules.clone());
+        }
+        self.rules.set(rules);
     }
 
     /// Whether it answers skills' asks ([`Options::gate`]).
@@ -654,7 +685,7 @@ impl Hello {
         self.last_talk = Some(now);
     }
 
-    fn hold(&self, arrival: &VoiceArrival, now: Instant) -> Option<Hold> {
+    fn hold(&self, arrival: &VoiceArrival, now: Instant, unix_ms: u64, room: Room) -> Option<Hold> {
         let talking = self.talking(now);
         let every_min =
             u32::try_from(self.options.at_most_every.as_secs() / 60).unwrap_or(u32::MAX);
@@ -668,6 +699,20 @@ impl Hello {
             Some(Hold::Talking)
         } else if recent {
             Some(Hold::GreetedRecently)
+        } else if self.options.rules
+            && self.rules.hold(
+                Kind::Hello,
+                unix_ms,
+                // The zone's offset at this moment, as the progress question
+                // takes it (#820).
+                self.options
+                    .local
+                    .as_ref()
+                    .map(|local| local.offset_minutes_at(unix_ms)),
+                room == Room::Quiet,
+            )
+        {
+            Some(Hold::KeptRule)
         } else {
             None
         }
@@ -756,10 +801,11 @@ impl Hello {
                 .map(|local| local.hour_of_day(unix_ms)),
             skill_ask,
         };
-        if let Some(hold) = self.hold(&arrival, now) {
+        if let Some(hold) = self.hold(&arrival, now, unix_ms, room) {
             match hold {
                 Hold::Talking => self.totals.held_talking += 1,
                 Hold::GreetedRecently => self.totals.held_recent += 1,
+                Hold::KeptRule => self.totals.held_rule += 1,
             }
             return Some(self.decide(context, None, Some(hold), Duration::ZERO, now, unix_ms));
         }
@@ -851,7 +897,8 @@ impl Hello {
             ),
         };
         // The hard rules again, as the answer comes: someone began to talk
-        // while the model was asked.
+        // while the model was asked, or a rule was kept meanwhile. The room
+        // is as it was when the question was put.
         let guard = held.or_else(|| {
             (judgement.choice == Choice::SayNow)
                 .then(|| {
@@ -862,7 +909,7 @@ impl Hello {
                         quiet_s: context.quiet_s,
                         since_hello_min: context.since_hello_min,
                     };
-                    self.hold(&arrival, now)
+                    self.hold(&arrival, now, unix_ms, context.room)
                 })
                 .flatten()
         });
@@ -1023,13 +1070,21 @@ mod tests {
         let stopped = t + Duration::from_millis(900);
         hello.voice(Voice::Resting, stopped);
         let quiet = hello.options.quiet_for;
-        assert_eq!(hello.hold(&arrival, t + quiet), Some(Hold::Talking));
-        hello.voice(Voice::Resting, stopped + Duration::from_secs(5));
         assert_eq!(
-            hello.hold(&arrival, stopped + quiet - Duration::from_millis(1)),
+            hello.hold(&arrival, t + quiet, 0, Room::Quiet),
             Some(Hold::Talking)
         );
-        assert_eq!(hello.hold(&arrival, stopped + quiet), None);
+        hello.voice(Voice::Resting, stopped + Duration::from_secs(5));
+        assert_eq!(
+            hello.hold(
+                &arrival,
+                stopped + quiet - Duration::from_millis(1),
+                0,
+                Room::Quiet
+            ),
+            Some(Hold::Talking)
+        );
+        assert_eq!(hello.hold(&arrival, stopped + quiet, 0, Room::Quiet), None);
     }
 
     #[test]
@@ -1420,5 +1475,107 @@ mod tests {
             (None, Some(7))
         );
         assert!(!arrival.line.context.skill_ask);
+    }
+
+    /// Answers yes once let go, and counts what it was asked.
+    struct Gated {
+        go: mpsc::Receiver<()>,
+        asked: std::sync::Arc<std::sync::atomic::AtomicUsize>,
+    }
+    impl Decider for Gated {
+        fn ask(&mut self, _: &str, _: &[(String, Question)], _: Duration) -> Result<Asked, Failed> {
+            self.asked.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            self.go.recv().map_err(|_| Failed::TimedOut)?;
+            Ok(Asked {
+                answers: answers([0.9, 0.0]),
+                model: "gated".into(),
+                took: Duration::ZERO,
+                usage: None,
+                connection: None,
+            })
+        }
+        fn name(&self) -> &str {
+            "gated"
+        }
+    }
+
+    /// #813: with `--rules`, a rule the people at the lamp kept about
+    /// speaking first holds the hello as the other hard rules do: `wait`,
+    /// by the rule, with no model asked. A yes that comes back after a rule
+    /// was kept is a `wait` too. Without the switch a rule is not obeyed
+    /// here.
+    #[test]
+    fn with_rules_a_kept_rule_holds_the_hello_and_no_model_is_asked() {
+        let quiet = Rules {
+            person: "everyone".into(),
+            quiet: true,
+            quiet_mornings: false,
+            rules: 1,
+            hello: lamp_msgs::Unprompted::default(),
+            news: lamp_msgs::Unprompted::default(),
+        };
+        let forgotten = Rules {
+            quiet: false,
+            ..quiet.clone()
+        };
+        let (go, gate) = mpsc::channel();
+        let asked = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let options = Options {
+            rules: true,
+            ..Options::new(Duration::from_secs(1), None)
+        };
+        let decider = Gated {
+            go: gate,
+            asked: asked.clone(),
+        };
+        let mut hello = Hello::start(decider, options).unwrap();
+        assert!(hello.obeys_rules());
+        let t = Instant::now();
+        hello.rules(quiet.clone());
+        let held = decided(&mut hello, 1, t);
+        assert_eq!(held.line.guard, Some(Hold::KeptRule));
+        assert_eq!(held.decision.choice, "wait");
+        assert_eq!(held.decision.by, crate::policy::RULE);
+        assert_eq!(asked.load(std::sync::atomic::Ordering::SeqCst), 0);
+        assert_eq!(hello.totals().held_rule, 1);
+
+        // The rule forgotten, the question is put; kept again while the
+        // model is asked, the yes that comes back is a wait.
+        hello.rules(forgotten);
+        hello.arrival(
+            VoiceArrival {
+                arrival: 2,
+                away_min: 60,
+                there_s: 3,
+                quiet_s: 300,
+                since_hello_min: None,
+            },
+            t,
+        );
+        let turn = |hello: &mut Hello| hello.turn(t, 1_000_000, Room::Quiet, (Some(true), None));
+        assert!(turn(&mut hello).is_none());
+        hello.rules(quiet.clone());
+        go.send(()).unwrap();
+        let answered = (0..500)
+            .find_map(|_| {
+                std::thread::sleep(Duration::from_millis(2));
+                turn(&mut hello)
+            })
+            .expect("an answer");
+        assert_eq!(answered.line.guard, Some(Hold::KeptRule));
+        assert_eq!(answered.decision.choice, "wait");
+        assert_eq!(answered.decision.by, "gated");
+        assert_eq!(asked.load(std::sync::atomic::Ordering::SeqCst), 1);
+        assert_eq!(hello.totals().said, 0);
+
+        // Without `--rules`, the same rule holds nothing here.
+        let mut deaf = Hello::start(Never, Options::new(Duration::from_millis(50), None)).unwrap();
+        assert!(!deaf.obeys_rules());
+        deaf.rules(quiet);
+        let said = decided(&mut deaf, 3, t);
+        assert_eq!(
+            (said.line.guard, said.decision.choice.as_str()),
+            (None, "say_now")
+        );
     }
 }

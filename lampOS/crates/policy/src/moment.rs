@@ -7,7 +7,10 @@
 //! One hard rule sits before the decider: never while anyone is talking to
 //! the lamp (the voice listening, thinking or speaking, or anything heard
 //! or said in the last 15 s, as the hello question knows it). While it
-//! holds the answer is `wait`, by the rule, and no model is asked. Then one
+//! holds the answer is `wait`, by the rule, and no model is asked. With
+//! `lamp-policy --rules` a second holds as it does: a rule the people at the
+//! lamp kept about it speaking first ([`crate::rules`], #813), `news` by its
+//! `news` limits and anything else by the limits of either kind. Then one
 //! question, `good_moment`, from the progress question's own, put to the
 //! decision model on a connection of its own; with no answer in time, a
 //! rule. The answer is published for the skill to act on (`shadow`
@@ -17,8 +20,9 @@ use crate::{
     decide::{Answer, Asked, Connection, Decider, Failed, Question, Usage},
     hello::Hold,
     progress::{Choice, LocalTime},
+    rules::{Kept, Kind},
 };
-use lamp_msgs::{Decision, SkillAsk};
+use lamp_msgs::{Decision, Rules, SkillAsk};
 use serde::Serialize;
 use serde_json::{Value, json};
 use std::{
@@ -234,6 +238,8 @@ pub struct Totals {
     pub by_rule: u64,
     pub said: u64,
     pub held_talking: u64,
+    /// With `--rules`.
+    pub held_rule: u64,
     /// Asks let go undecided: their askers had stopped waiting.
     pub late: u64,
 }
@@ -263,6 +269,8 @@ pub struct Moment {
     /// ask was received, which its 2 s count from.
     asking: Option<(Context, Instant, Instant)>,
     waiting: VecDeque<(SkillAsk, Instant)>,
+    /// The newest rules about speaking first, given with `--rules` only.
+    rules: Kept,
     totals: Totals,
 }
 
@@ -296,6 +304,7 @@ impl Moment {
             asker_gone: false,
             asking: None,
             waiting: VecDeque::new(),
+            rules: Kept::default(),
             totals: Totals::default(),
         })
     }
@@ -308,6 +317,39 @@ impl Moment {
     /// loop looks again sooner.
     pub fn busy(&self) -> bool {
         self.asking.is_some() || !self.waiting.is_empty()
+    }
+
+    /// What the people at the lamp asked it about speaking first, newest
+    /// (`--rules`): the hello question passes it on.
+    pub fn rules(&mut self, rules: Rules) {
+        self.rules.set(rules);
+    }
+
+    /// The hard rules, by how things are now: someone talking to the lamp,
+    /// then a rule kept for what the ask would do.
+    fn hold(&self, act: &str, room_now: Now, unix_ms: u64) -> Option<Hold> {
+        let kind = if act == "news" {
+            Kind::News
+        } else {
+            Kind::Unprompted
+        };
+        if room_now.talking {
+            Some(Hold::Talking)
+        } else if self.rules.hold(
+            kind,
+            unix_ms,
+            // The zone's offset at this moment, as the progress question
+            // takes it (#820).
+            self.options
+                .local
+                .as_ref()
+                .map(|local| local.offset_minutes_at(unix_ms)),
+            room_now.room == Room::Quiet,
+        ) {
+            Some(Hold::KeptRule)
+        } else {
+            None
+        }
     }
 
     /// A skill asks whether the lamp may start `news` or something
@@ -349,9 +391,10 @@ impl Moment {
                 None => now.saturating_duration_since(sent),
             };
             // Someone began to talk while the model was asked, or while its
-            // asker went away: the hard rule holds by how things are now,
-            // never the fallback's `say_now` (Fourth on #958).
-            let held = room_now.talking.then_some(Hold::Talking);
+            // asker went away, or a rule was kept: the hard rules hold by
+            // how things are now, never the fallback's `say_now` (Fourth on
+            // #958).
+            let held = self.hold(&context.act, room_now, unix_ms);
             return Some(self.decide(context, answer, held, took, unix_ms));
         }
         while self
@@ -377,8 +420,8 @@ impl Moment {
                 .as_ref()
                 .map(|local| local.hour_of_day(unix_ms)),
         };
-        if room_now.talking {
-            return Some(self.decide(context, None, Some(Hold::Talking), Duration::ZERO, unix_ms));
+        if let Some(hold) = self.hold(&context.act, room_now, unix_ms) {
+            return Some(self.decide(context, None, Some(hold), Duration::ZERO, unix_ms));
         }
         // A reminder the person set is the rule's alone: said now, no model
         // asked (#939).
@@ -468,9 +511,13 @@ impl Moment {
                 None,
             ),
         };
+        match held {
+            Some(Hold::Talking) => self.totals.held_talking += 1,
+            Some(Hold::KeptRule) => self.totals.held_rule += 1,
+            Some(Hold::GreetedRecently) | None => {}
+        }
         if held.is_some() {
             judgement.choice = Choice::Wait;
-            self.totals.held_talking += 1;
         }
         if judgement.choice == Choice::SayNow {
             self.totals.said += 1;
@@ -699,7 +746,6 @@ mod tests {
         assert_eq!(ruled.line.failed, Some("timed_out"));
         assert_eq!(given_now(2).len(), 2);
     }
-
     /// Its thread ends at the first asking, as a model's client that failed
     /// hard would.
     struct Gone;
@@ -828,5 +874,108 @@ mod tests {
             ..context("news")
         };
         assert_eq!(fallback(&late).choice, Choice::SayNow);
+    }
+
+    /// Says yes, and counts what it was asked.
+    struct Counted(std::sync::Arc<std::sync::atomic::AtomicUsize>);
+    impl Decider for Counted {
+        fn ask(&mut self, _: &str, _: &[(String, Question)], _: Duration) -> Result<Asked, Failed> {
+            self.0.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            Ok(Asked {
+                answers: BTreeMap::from([("good_moment".to_owned(), Answer::Noul(0.9))]),
+                model: "counted".into(),
+                took: Duration::ZERO,
+                usage: None,
+                connection: None,
+            })
+        }
+        fn name(&self) -> &str {
+            "counted"
+        }
+    }
+
+    /// #813 with #939: a rule kept about speaking first holds a skill's
+    /// `news` by its `news` limits and anything else unprompted by the
+    /// limits of either kind, by the rule, with no model asked.
+    #[test]
+    fn a_kept_rule_holds_news_by_its_own_limits_and_anything_else_by_either() {
+        let asked = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let options = Options::new(Duration::from_secs(1), None);
+        let mut moment = Moment::start(Counted(asked.clone()), options).unwrap();
+        let room_now = Now {
+            room: Room::Quiet,
+            someone_here: Some(true),
+            quiet_s: 300,
+            talking: false,
+            spoke_up_last_hour: 0,
+        };
+        let t = Instant::now();
+        let decide = |moment: &mut Moment, ask: u64, act: &str| {
+            moment.asked(
+                &SkillAsk {
+                    ask,
+                    skill: "stretch-break".into(),
+                    act: act.into(),
+                    person: None,
+                    away_min: None,
+                    there_s: None,
+                },
+                t,
+            );
+            let decided = (0..500)
+                .find_map(|_| {
+                    let decided = moment.turn(t, 1_000_000, room_now);
+                    if decided.is_none() {
+                        std::thread::sleep(Duration::from_millis(2));
+                    }
+                    decided
+                })
+                .expect("a decision");
+            (
+                decided.decision.choice,
+                decided.decision.by,
+                decided.line.guard,
+            )
+        };
+        let rule = || (crate::policy::RULE.to_owned(), Some(Hold::KeptRule));
+        let rules = |hello: lamp_msgs::Unprompted, news: lamp_msgs::Unprompted| Rules {
+            person: "everyone".into(),
+            quiet: false,
+            quiet_mornings: false,
+            rules: 1,
+            hello,
+            news,
+        };
+        // No news before nine: with the lamp's time not known it holds all
+        // day, news and anything else alike.
+        moment.rules(rules(
+            lamp_msgs::Unprompted::default(),
+            lamp_msgs::Unprompted {
+                not_before_minute: Some(9 * 60),
+                ..lamp_msgs::Unprompted::default()
+            },
+        ));
+        for (ask, act) in [(1, "news"), (2, "unprompted")] {
+            let (choice, by, guard) = decide(&mut moment, ask, act);
+            assert_eq!((choice.as_str(), (by, guard)), ("wait", rule()), "{act}");
+        }
+        assert_eq!(asked.load(std::sync::atomic::Ordering::SeqCst), 0);
+        // No hello ever: news is asked about and told; anything else waits.
+        moment.rules(rules(
+            lamp_msgs::Unprompted {
+                never: true,
+                ..lamp_msgs::Unprompted::default()
+            },
+            lamp_msgs::Unprompted::default(),
+        ));
+        assert_eq!(
+            decide(&mut moment, 3, "news"),
+            ("say_now".to_owned(), "counted".to_owned(), None)
+        );
+        let (choice, by, guard) = decide(&mut moment, 4, "unprompted");
+        assert_eq!((choice.as_str(), (by, guard)), ("wait", rule()));
+        assert_eq!(asked.load(std::sync::atomic::Ordering::SeqCst), 1);
+        let totals = moment.totals();
+        assert_eq!((totals.held_rule, totals.said, totals.decided), (3, 1, 4));
     }
 }

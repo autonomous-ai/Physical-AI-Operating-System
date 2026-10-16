@@ -42,7 +42,7 @@ owner's rules for this part:
 
 ## The process
 
-    lamp-policy --key-file ABSOLUTE_PATH --log-dir ABSOLUTE_DIR [--endpoint URL] [--model NAME] [--deadline-ms N] [--bus-root ABSOLUTE_DIR] [--progress] [--hello] [--utc-offset-minutes N | --zone system|NAME] [--act progress] [--act hello] [--rules] [--act attention]
+    lamp-policy --key-file ABSOLUTE_PATH --log-dir ABSOLUTE_DIR [--endpoint URL] [--model NAME] [--deadline-ms N] [--bus-root ABSOLUTE_DIR] [--progress] [--hello] [--utc-offset-minutes N | --zone system|NAME] [--act progress] [--act hello] [--rules] [--act attention] [--gate]
 
 | Option | What it is | If left out |
 |---|---|---|
@@ -59,7 +59,8 @@ owner's rules for this part:
 | `--hello` | Also ask, when the voice holds a due hello, whether to say it now ([below](#hello-on-arrival-say-hello-now-752)) | off |
 | `--act hello` | Those decisions act. Needs `--hello` | shadow |
 | `--act attention` | "Is this said to the lamp?" is published with `shadow: false`, for the voice to hold the lamp's actions by ([below](#acting-on-the-lamps-actions---act-attention-800)) | shadow |
-| `--rules` | That question obeys what the people at the lamp asked about it speaking first (`memory/rules`, [above](#a-persons-rules-about-speaking-first-813)). Needs `--progress` | not listened to |
+| `--rules` | The progress and hello questions, and with `--gate` the moment question, obey what the people at the lamp asked about it speaking first (`memory/rules`, [above](#a-persons-rules-about-speaking-first-813)). Needs `--progress` or `--hello` | not listened to |
+| `--gate` | Also answer a skill that asks (`skills/ask`) whether the lamp may say hello, tell news or start something itself ([below](#hello-on-arrival-say-hello-now-752)). Needs `--hello` and `--act hello` | not listened to |
 
 A wrong or missing option prints the usage and exits with 2. So does a
 `--log-dir` that cannot be made, or that its group or everyone can enter. A
@@ -100,9 +101,12 @@ for `person`, the memory's id of the known person or `everyone`:
   (the local minute of the day) and `not_while_talking` ("on a call, or
   with someone").
 
-With `--rules` (which needs `--progress`) the policy listens to it, newest
-only, and the progress question obeys it as one more hard rule after its
-own two (`crates/policy/src/rules.rs`):
+With `--rules` (which needs `--progress` or `--hello`) the policy listens
+to it, newest only, and each question that may speak first obeys it as one
+more hard rule after its own (`crates/policy/src/rules.rs`): the progress
+question by `news`, the hello question by `hello`, and with `--gate` the
+moment question by `news` for a skill's news and by both kinds for anything
+else. Taking progress news:
 - `quiet` holds always;
 - `quiet_mornings` holds before noon at the lamp, by
   `--utc-offset-minutes` or `--zone` (the zone's offset at that moment, so
@@ -127,7 +131,8 @@ known to the policy, and a rule errs toward quiet. It is kept when the
 voice goes, since a rule does not end with it. The diagnostics add
 `progress_held_rule` and the start line `rules=true`. Without `--rules`
 the topic is not listened to and everything is as it was. The hello on
-arrival (#883) obeys `hello` the same way once it is in. Tests:
+arrival and the skills' asks obey it the same way
+([below](#hello-on-arrival-say-hello-now-752)). Tests:
 `crates/policy/src/rules.rs` (the hours; each limit for its own kind only,
 by the hour and the room), `progress.rs`
 (`a_kept_rule_holds_progress_news_and_no_model_is_asked`: `wait` with no
@@ -1596,17 +1601,24 @@ a thread of its own.
 | `--hello` | Listen to `voice/arrival` and ask the hello question | off |
 | `--act hello` | Its decisions act: `say_now` says the hello, `wait` keeps it. Needs `--hello`; `--act` may be given once for each question | shadow |
 
-**Two hard rules, around the decider.** While either holds the answer is
-`wait`, by the rule (`by` `rule`, a `guard` in the log), and no model is
-asked: the voice is waiting, and a question left unanswered would leave the
-hello to its rule.
+**Two hard rules, around the decider, and a third with `--rules`.** While
+one holds the answer is `wait`, by the rule (`by` `rule`, a `guard` in the
+log), and no model is asked: the voice is waiting, and a question left
+unanswered would leave the hello to its rule.
 
 - **Never while anyone is talking to the lamp:** the voice listening,
   thinking or speaking, or anything heard or said in the last 15 s.
 - **No hello within twenty minutes of the last:** the voice's minutes since
   its last hello, or the last `say_now` this acted on.
+- **With `--rules` (#813), not when a rule the people at the lamp kept
+  holds it** ([above](#a-persons-rules-about-speaking-first-813)): `quiet`,
+  `quiet_mornings`, and the `hello` limits (`never`, not before or from a
+  minute of the day, not while the room is not known to be quiet). Guard
+  `kept_rule`. A limit on `news` holds no hello.
 
-A yes that comes back once someone has begun to talk is turned to `wait`.
+A yes that comes back once someone has begun to talk, or once a rule was
+kept, is turned to `wait`; the room it is judged by then is the room when
+the question was put.
 Asking never takes longer than 1.5 s, whatever `--deadline-ms` says
 (`hello::MOST_ASKING`): past it the rule answers, still inside the voice's
 2 s. The 2 s count from when the arrival was received: one that waited
@@ -1715,8 +1727,14 @@ the voice's own hello waits. With `--gate`, which needs `--hello` and
     go and counted `late`: an answer after them is never published (the
     reviewer on #958, 12:19).
   
-  The kept rules about speaking first (`--rules`, `news` limits) are the
-  progress question's today and are to be obeyed here too.
+  With `--rules` (#813) a second hard rule holds as the first does, before
+  the model and again as an answer comes back: a rule the people at the
+  lamp kept ([above](#a-persons-rules-about-speaking-first-813)), guard
+  `kept_rule`. `news` is held by `quiet`, `quiet_mornings` and the `news`
+  limits; anything else unprompted, which has no limits of its own, by
+  those and the `hello` limits too (`rules::Kind::Unprompted`): someone
+  who asked for no hello before nine, or no news while on a call, is not to
+  be invited to stretch then either. Authored: a rule errs toward quiet.
 - `reminder`, a reminder the person set and now due (the Reminders skill,
   `[ask] policy = "reminder"`), is the moment question's **hard rule
   alone**: `wait` while anyone is talking to the lamp, else `say_now` by
@@ -1729,8 +1747,8 @@ the voice's own hello waits. With `--gate`, which needs `--hello` and
   without its minutes and seconds) is passed over.
 
 The diagnostics add `skill_asks` (asks taken), and `moment_decided`,
-`moment_said`, `moment_held_talking` and `moment_late`, with `--gate` only,
-and the start line `gate=true`. Without `--gate` the topic is not listened to.
+`moment_said`, `moment_held_talking` and `moment_late`, with `--gate` only
+(and `moment_held_rule` with `--rules`), and the start line `gate=true`. Without `--gate` the topic is not listened to.
 Run only one hello: with a skill greeting through the gate, the voice's
 own (`LAMP_SPEAK_FIRST`) is to be off. Test: `tests/hello.rs`,
 `with_the_gate_a_skills_ask_is_decided_by_its_question_and_names_the_ask`
@@ -1744,6 +1762,19 @@ unprompted while the voice listens `wait` by the rule with no model asked;
 rule's four reasons to keep quiet and that not known is not no), and
 without the switch nothing listens to `skills/ask`.
 
+**Kept rules, tested** (#813, `--rules`): `crates/policy/tests/hello.rs`,
+`with_rules_a_kept_rule_holds_the_hello_and_the_skills_asks_and_no_model_is_asked`
+(on a bus: with `quiet` kept, an arrival is `wait` by the rule with guard
+`kept_rule` and no model asked, and a skill's `news` too; the rule
+forgotten, the next arrival is asked about and said; `hello_held_rule` 1,
+`moment_held_rule` 1); the gate test above (without `--rules` nothing
+listens to `memory/rules` and the report has neither count);
+`hello.rs`'s `with_rules_a_kept_rule_holds_the_hello_and_no_model_is_asked`
+(also a yes coming back after a rule was kept is a `wait`, and without the
+switch a rule holds nothing); `moment.rs`'s
+`a_kept_rule_holds_news_by_its_own_limits_and_anything_else_by_either`;
+`rules.rs`'s `anything_else_unprompted_is_held_by_the_limits_of_either_kind`.
+
 **What is published and written.** On `policy/decisions`: `about` `hello`,
 `say_now` or `wait`, the probability, the two answers, `by`, `took_ms`,
 `shadow` (`false` only with `--act hello`) and `arrival`, the number
@@ -1756,8 +1787,8 @@ state shown, the answers, the judgement and any `guard`, `failed` or
     lamp-policy: hello decision 2 arrival=98563000000 choice=say_now probability=0.720 by=model took_ms=612 guard=none
 
 The diagnostics add `hello_decided`, `hello_by_rule`, `hello_said`,
-`hello_held_talking`, `hello_held_recent`, `hello_late`, and `hello_acts`
-with `--act hello`; the start line `hello=true`, and `act=` names each
+`hello_held_talking`, `hello_held_recent`, `hello_late`, `hello_held_rule`
+with `--rules`, and `hello_acts` with `--act hello`; the start line `hello=true`, and `act=` names each
 question that acts (`act=progress,hello`).
 
 **Without the switch** `voice/arrival` is not subscribed to, no judge or

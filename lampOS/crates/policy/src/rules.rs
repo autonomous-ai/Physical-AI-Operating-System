@@ -1,8 +1,8 @@
 //! What the people at the lamp asked it about speaking first (#813), as the
 //! voice says it on `memory/rules` (`lamp_msgs::Rules`, kept until the
 //! next): obeyed as a hard rule by the decisions about speaking first, the
-//! hello on arrival and progress news, before any model is asked
-//! (`lamp-policy --rules`).
+//! hello on arrival, progress news and a skill's asks (#939), before any
+//! model is asked (`lamp-policy --rules`).
 //!
 //! - `quiet`: asked never to speak first.
 //! - `quiet_mornings`: asked not to speak first before noon, the lamp's
@@ -17,6 +17,12 @@
 //!   while anyone talks to the lamp; this adds the talk that is not to it.
 //!   A limit of one kind never holds the other; `quiet` and
 //!   `quiet_mornings` hold both.
+//! - Anything else the lamp would start itself (a skill's `unprompted` ask:
+//!   a stretch break, stuffy air) has no limits of its own: it is held by
+//!   `quiet`, `quiet_mornings` and the limits of both kinds. Someone who
+//!   asked for no hello before nine, or no news while on a call, is not
+//!   to be invited to stretch then either. Authored: a rule errs toward
+//!   quiet.
 //!
 //! The newest `Rules` is obeyed whoever it names, the person of the last
 //! session opened or rule changed, or `everyone`: who is at the lamp now is
@@ -31,6 +37,8 @@ pub enum Kind {
     Hello,
     /// News of work: progress, results.
     News,
+    /// Anything else it would start itself: held by either kind's limits.
+    Unprompted,
 }
 
 /// Noon, in minutes of the day: where a morning ends.
@@ -46,20 +54,23 @@ pub fn minute_of_day(unix_ms: u64, offset: i32) -> u16 {
 /// `minute` is the minute of the day at the lamp, `None` if the local time
 /// is not known, and `room_quiet` whether the room is known to be quiet.
 pub fn keep_quiet(rules: &Rules, kind: Kind, minute: Option<u16>, room_quiet: bool) -> bool {
-    let limits: &Unprompted = match kind {
-        Kind::Hello => &rules.hello,
-        Kind::News => &rules.news,
+    let held = |limits: &Unprompted| {
+        limits.never
+            || limits
+                .not_before_minute
+                .is_some_and(|from| minute.is_none_or(|minute| minute < from))
+            || limits
+                .not_from_minute
+                .is_some_and(|until| minute.is_none_or(|minute| minute >= until))
+            || (limits.not_while_talking && !room_quiet)
     };
     rules.quiet
         || (rules.quiet_mornings && minute.is_none_or(|minute| minute < NOON))
-        || limits.never
-        || limits
-            .not_before_minute
-            .is_some_and(|from| minute.is_none_or(|minute| minute < from))
-        || limits
-            .not_from_minute
-            .is_some_and(|until| minute.is_none_or(|minute| minute >= until))
-        || (limits.not_while_talking && !room_quiet)
+        || match kind {
+            Kind::Hello => held(&rules.hello),
+            Kind::News => held(&rules.news),
+            Kind::Unprompted => held(&rules.hello) || held(&rules.news),
+        }
 }
 
 /// The newest rules, as the hello and progress questions hold them, and
@@ -123,7 +134,7 @@ mod tests {
         // Across midnight backwards: 01:59 UTC is 20:59 the day before, five
         // hours west.
         assert_eq!(minute_of_day(HANOI_0859, -5 * 60), 20 * 60 + 59);
-        for kind in [Kind::Hello, Kind::News] {
+        for kind in [Kind::Hello, Kind::News, Kind::Unprompted] {
             assert!(keep_quiet(&rules(true, false), kind, Some(15 * 60), true));
             assert!(keep_quiet(&rules(false, true), kind, Some(NOON - 1), true));
             assert!(!keep_quiet(&rules(false, true), kind, Some(NOON), true));
@@ -192,5 +203,70 @@ mod tests {
         assert!(!keep_quiet(&talking, Kind::News, Some(15 * 60), true));
         assert!(keep_quiet(&talking, Kind::News, Some(15 * 60), false));
         assert!(!keep_quiet(&talking, Kind::Hello, Some(15 * 60), false));
+    }
+
+    /// Anything else the lamp would start (#939) is held by either kind's
+    /// limits, and by neither when there are none.
+    #[test]
+    fn anything_else_unprompted_is_held_by_the_limits_of_either_kind() {
+        let at_three = Some(15 * 60);
+        assert!(!keep_quiet(
+            &rules(false, false),
+            Kind::Unprompted,
+            at_three,
+            false
+        ));
+        let no_hello = Rules {
+            hello: Unprompted {
+                never: true,
+                ..Unprompted::default()
+            },
+            ..rules(false, false)
+        };
+        assert!(keep_quiet(&no_hello, Kind::Unprompted, at_three, true));
+        let no_news_before_nine = Rules {
+            news: Unprompted {
+                not_before_minute: Some(9 * 60),
+                ..Unprompted::default()
+            },
+            ..rules(false, false)
+        };
+        assert!(keep_quiet(
+            &no_news_before_nine,
+            Kind::Unprompted,
+            Some(8 * 60 + 59),
+            true
+        ));
+        assert!(!keep_quiet(
+            &no_news_before_nine,
+            Kind::Unprompted,
+            Some(9 * 60),
+            true
+        ));
+        assert!(keep_quiet(
+            &no_news_before_nine,
+            Kind::Unprompted,
+            None,
+            true
+        ));
+        let not_on_a_call = Rules {
+            news: Unprompted {
+                not_while_talking: true,
+                ..Unprompted::default()
+            },
+            ..rules(false, false)
+        };
+        assert!(keep_quiet(
+            &not_on_a_call,
+            Kind::Unprompted,
+            at_three,
+            false
+        ));
+        assert!(!keep_quiet(
+            &not_on_a_call,
+            Kind::Unprompted,
+            at_three,
+            true
+        ));
     }
 }

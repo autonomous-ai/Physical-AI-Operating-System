@@ -59,10 +59,11 @@ acts on it. See docs/policy.md.\n\
   --act attention  \"is this said to the lamp?\" is published with shadow false, so that the voice\n\
                  holds the lamp's actions on a stay_quiet (LAMP_POLICY_HOLDS_ACTIONS=on); speech\n\
                  is not held. Off unless set\n\
-  --rules        the progress question obeys what the people at the lamp asked about it speaking\n\
-                 first (memory/rules): never, not in the mornings, not before or from a time of\n\
-                 day (by --utc-offset-minutes; all day without it), not while they talk; no model\n\
-                 is asked then. Needs --progress. Off unless set\n\
+  --rules        the progress and hello questions, and the moment question with --gate, obey what\n\
+                 the people at the lamp asked about it speaking first (memory/rules): never, not in\n\
+                 the mornings, not before or from a time of day (by --utc-offset-minutes; all day\n\
+                 without it), not while they talk; no model is asked then. Needs --progress or\n\
+                 --hello. Off unless set\n\
   --attention-next\n\
                  also judge each attention question a second time, in shadow (#1040): in a\n\
                  conversation with the lamp, 3 for each unit of follows_lamp above 0.55 added to the\n\
@@ -228,8 +229,8 @@ fn parse(arguments: impl Iterator<Item = String>) -> Result<Option<Arguments>, S
     if act_progress && !progress {
         return Err("--act progress needs --progress".into());
     }
-    if rules && !progress {
-        return Err("--rules needs --progress, the question that may speak first".into());
+    if rules && !progress && !hello {
+        return Err("--rules needs --progress or --hello, a question that may speak first".into());
     }
     if act_hello && !hello {
         return Err("--act hello needs --hello".into());
@@ -383,6 +384,7 @@ fn run(arguments: &Arguments) -> io::Result<()> {
         let options = hello::Options {
             act: arguments.act_hello,
             gate: arguments.gate,
+            rules: arguments.rules,
             ..hello::Options::new(arguments.deadline, local.clone())
         };
         let hello = Hello::start(judge()?, options)?;
@@ -568,6 +570,20 @@ mod tests {
             .unwrap();
         assert!(next.attention_next && !next.act_attention);
         assert_eq!(questions(&next), " attention_next=true");
+        // The hello question obeys them alone too, and with the gate the
+        // moment question.
+        let greeting = of("--log-dir /d --hello --rules --key-file /k")
+            .unwrap()
+            .unwrap();
+        assert!(greeting.hello && greeting.rules && !greeting.progress);
+        assert_eq!(questions(&greeting), " hello=true rules=true");
+        let all = of("--log-dir /d --hello --act hello --gate --rules --key-file /k")
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            questions(&all),
+            " hello=true rules=true gate=true act=hello"
+        );
         // The hello question, and both acting.
         let both = of("--log-dir /d --hello --progress --act hello --act progress --key-file /k")
             .unwrap()

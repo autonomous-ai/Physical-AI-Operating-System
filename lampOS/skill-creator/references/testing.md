@@ -53,7 +53,17 @@ The `[[expect]]` entries are **all** the calls the case may make, in order:
 any other call fails it, so "exactly once" needs nothing more. Arguments left
 out of `args` are not compared. The runtime gives: `body.gaze` `look_at`,
 `x`, `y`, `size`; `body.gesture` `gesture`; `light` `colour`, `level`, `for`,
-or `dim`, `until`; `body.mood` `mood`, `for_ms`; `say` `note`; `look`, none. A case where the skill must do nothing has
+or `dim`, `until`; `body.mood` `mood`, `for_ms`; `say` `note`; `look`, none. For a skill started by its `tool` (someone asks), say when the model calls
+it, from the case's first message; a case that is only that needs no
+recording:
+
+```toml
+[[call_tool]]
+name = "check_my_work"
+at = "16s"
+```
+
+A case where the skill must do nothing has
 no `[[expect]]`, only:
 
 ```toml

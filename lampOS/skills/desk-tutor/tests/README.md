@@ -1,8 +1,17 @@
 # Desk tutor's tests
 
 Desk tutor is started by its tool (`check_my_work`) when someone asks, not by
-a trigger, so there is no recording of the room to replay: `lamp-skills
-test` has no case to run for it yet.
+a trigger. A case says when the model calls it with `[[call_tool]]` in
+`expect.toml`, beside the room's recordings.
+
+| Case | Made from | What it holds |
+|---|---|---|
+| `a-page-held-too-far-is-asked-closer` | lamp-4ace, 2026-10-16 16:47:40 to 16:50:10, **made from the journal, not recorded** (the bus was not recorded then): the body's face lines as face boxes, the voice's turn events as `voice/state`; no words | `check_my_work` at 16 s: the look, the reading pose held 2 min, the white light for 2 min, then the tutoring note. The pose and the look come before any answer. On the lamp the answer asked for the page closer, as it was too blurred to read |
+
+A replayed call is a fresh run each time. What the program does with a call
+while the last run is still under way (#1036, #1051: the look and the note
+again, the pose held again, nothing more lit) is tested in `lamp-skills`'
+own tests, not in a case.
 
 What its call does is in `lamp-skills`' own tests:
 `a_declared_tool_is_in_the_tools_file_and_a_call_runs_the_skills_steps`

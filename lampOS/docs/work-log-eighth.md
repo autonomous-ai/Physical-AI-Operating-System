@@ -23,6 +23,16 @@ The eighth builder's log, newest first. Role file:
 
 None yet.
 
+## 2026-10-16 10:55 — #783 — done
+
+Ready for lamp-voice: yes (#905, merged 10:33 +07)
+
+- #905 merged; #783 closed by the eighth, as the tests builder left it:
+  cause `686a49c09`, boundary #905, sweep #839/#850. Not reproduced here
+  before or after. Open elsewhere: #913, #837.
+- Still waiting: #834 (reviewer), #900 (first builder on #739), #914 (the
+  fifth's choice of fix A or B).
+
 ## 2026-10-16 04:35 — #914 the body stop fixture — taken, cause found
 
 Ready for lamp-voice: no

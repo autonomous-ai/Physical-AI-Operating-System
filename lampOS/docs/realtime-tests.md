@@ -57,9 +57,10 @@ selection), which must stay identical:
   four, `serve_session`, `physical_loopback`, `serve_relay` and
   `final_dispatch`, and six of `lamp-memory::health`'s seven tests left on
   2026-10-17, below);
-- the whole module `coordinator::tests::endpoint_session` of `lamp-voice`'s
-  unit tests (`coordinator::tests::early_end` and
-  `coordinator::tests::pilot_faults` left on 2026-10-16, below);
+- two tests of `lamp-voice`'s `coordinator::tests::endpoint_session`, named
+  exactly (the module's other 28 left on 2026-10-17, and
+  `coordinator::tests::early_end` and `coordinator::tests::pilot_faults` on
+  2026-10-16, below);
 - single tests that took 4 s or more outside those, named exactly, among
   them `lamp-memory::health`'s
   `the_environment_alone_does_not_enable_reporting_or_create_bus_data`;
@@ -138,7 +139,7 @@ Review points:
 - Who decides that a red full run holds the next merge? The workflow only
   opens the issue; it does not block merging.
 - Does a pull request's run list the expected number of tests (every test
-  but the group's, 38 skipped as of 2026-10-17)?
+  but the group's, 10 skipped as of 2026-10-17)?
 
 ## The measured list
 
@@ -786,8 +787,8 @@ the three took 4.42 to 4.51 s each before and 0.62 to 0.77 s after, one run
 `hung_worker_never_delays_capture_endpoint_or_session_end` stays on real
 time: its assertions need the worker supervisor's 700 ms hang detection
 (`turn-end-wire`, on the host clock) to happen during the conversation. The
-module stays in the group as a whole, for it and the module's other
-real-process tests.
+module stayed in the group as a whole, for it and the module's other
+real-process tests, until 2026-10-17 (below).
 
 ## Two barrier waits on a paused clock (#823)
 
@@ -889,3 +890,27 @@ On the Intel Mac, a 200 ms or 2 s sleep injected just after the tap is
 made, or 5 ms in every step, still passes both; on the host clock the 200 ms
 sleep fails both. Under qemu, on the same commit with this change, both
 passed 5 of 5 runs.
+
+## endpoint_session on pull requests, but for two (#823)
+
+`coordinator::tests::endpoint_session` holds 30 tests now, nine of them
+the fourth's `with_asker_first_*`, added after it went into the group, so no
+pull request had run them. All but two run on pull requests again. The two
+stay in the group by name: `hung_worker_never_delays_capture_endpoint_or_session_end`
+(6.4 s, the supervisor's 700 ms hang detection on the host clock, above)
+and `endpoint_fixture_reaps_on_panic_before_and_after_handoff` (3.1 s of
+real process reaping).
+
+The other 28 are stepped, or drive a real worker under the fixture's
+100 ms ordering tolerance, which is there for host scheduling delay (the
+lamp's 50 ms privacy bound is unchanged). They were qualified the way a pull
+request runs them, each test in its own process, on the Intel Mac (16 cores)
+at `54be5904b`, release build: all 30 one at a time (25.9 s, the 28 16.4 s),
+then 300 runs (ten of each, shuffled) 16 at once and again 32 at once, then
+600 runs (twenty of each) mixed with the evaluator's 570 CPU-heavy runs, 48
+at once. All 1,200 `endpoint_session` runs passed, and all 570 of the
+evaluator's. The slowest under the mix,
+`with_asker_first_quieter_talk_takes_no_turn_from_an_awaited_answer`, took
+6.4 s against 2.5 s alone. No test, assertion or bound changed. They left
+the group, in all three filtersets, on 2026-10-17. The group keeps 10
+tests: `capture_hold_worker` (5), these two and three named single tests.

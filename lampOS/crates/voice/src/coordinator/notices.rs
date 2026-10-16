@@ -9,6 +9,11 @@ use std::sync::Arc;
 /// is immutable and bounded by the notice loader; a turn holds only an Arc.
 pub(super) struct FailureNotices {
     selected: std::result::Result<Arc<Recording>, Missing>,
+    /// The internet cannot be reached (#830): said once an outage, by a
+    /// local-only turn, with `LAMP_OFFLINE_VOICE=on`.
+    offline: std::result::Result<Arc<Recording>, Missing>,
+    /// It can again: said only if `offline` was.
+    back_online: std::result::Result<Arc<Recording>, Missing>,
     language: Option<String>,
 }
 pub(super) struct Recording {
@@ -16,6 +21,12 @@ pub(super) struct Recording {
     /// made here and says nothing.
     info: Option<NoticeInfo>,
     samples: Box<[i16]>,
+}
+#[cfg(test)]
+impl Recording {
+    pub(super) fn kind(&self) -> Option<NoticeKind> {
+        self.info.as_ref().map(|info| info.kind)
+    }
 }
 impl FailureNotices {
     pub(super) fn load(options: Option<&NoticeOptions>) -> Self {
@@ -26,36 +37,74 @@ impl FailureNotices {
             return Self::none();
         };
         let loaded = Notices::load(options.directory(), approval);
-        let selected = loaded
-            .get(NoticeKind::TurnLost, options.language())
-            .map(|notice| {
+        let get = |kind| {
+            loaded.get(kind, options.language()).map(|notice| {
                 Arc::new(Recording {
                     info: Some(notice.info.clone()),
                     samples: notice.samples().into(),
                 })
-            });
+            })
+        };
         Self {
-            selected,
+            selected: get(NoticeKind::TurnLost),
+            offline: get(NoticeKind::ProviderUnavailable),
+            back_online: get(NoticeKind::BackOnline),
             language: Some(options.language().to_owned()),
         }
     }
     pub(super) fn none() -> Self {
         Self {
             selected: Err(Missing::NoDirectory),
+            offline: Err(Missing::NoDirectory),
+            back_online: Err(Missing::NoDirectory),
             language: None,
         }
     }
     pub(super) fn capability(&self) -> Value {
-        match &self.selected {
+        let mut capability = match &self.selected {
             Ok(recording) => {
                 json!({"configured":true,"language":self.language,"available":recording.info})
             }
             Err(reason) => {
                 json!({"configured":self.language.is_some(),"language":self.language,"missing":reason})
             }
+        };
+        // The offline pair (#830), only where a directory is configured.
+        if self.language.is_some() {
+            let state = |selected: &std::result::Result<Arc<Recording>, Missing>| match selected {
+                Ok(recording) => json!({"available":recording.info}),
+                Err(reason) => json!({"missing":reason}),
+            };
+            capability["offline"] = state(&self.offline);
+            capability["back_online"] = state(&self.back_online);
         }
+        capability
     }
 }
+
+/// A turn taken while the lamp could not reach the internet (#830,
+/// `LAMP_OFFLINE_VOICE=on`): admitted, listened to and ended as any other,
+/// but its request never goes to the provider; it is failed locally from
+/// the start. `speech`: what was heard was speech, not a sound let through
+/// (a cough must not make the lamp apologise).
+/// `back`: the turn the lamp takes for itself to say it is back online.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) struct LocalOnly {
+    pub(super) speech: bool,
+    pub(super) back: bool,
+}
+
+/// What one outage has said: the offline line once, and "back online" only
+/// after it.
+#[derive(Debug, Default)]
+pub(super) struct Outage {
+    pub(super) said: bool,
+}
+
+/// "I'm back online." is owed this long after the link returns, and then
+/// let go: a lamp that has answered someone since, or could not speak for
+/// a minute, has shown it is back without saying so.
+pub(super) const BACK_ONLINE_OWED_US: u64 = 60_000_000;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -312,10 +361,22 @@ impl NoticeDelivery {
 
 /// No owner is minted here. A completed, cancelled or never-owned request
 /// cannot acquire this recording. Selection does not grant a speaker permit.
+#[cfg(test)]
 pub(super) fn select_failure_notice(
     catalog: &FailureNotices,
     reply: &mut Option<Reply>,
     pending: &Option<PendingSpeaker>,
+    trace: &mut SessionState,
+) -> Result<()> {
+    select_failure_notice_in(catalog, reply, pending, &mut Outage::default(), trace)
+}
+
+/// The same within one outage (#830), which says the offline line once.
+pub(super) fn select_failure_notice_in(
+    catalog: &FailureNotices,
+    reply: &mut Option<Reply>,
+    pending: &Option<PendingSpeaker>,
+    outage: &mut Outage,
     trace: &mut SessionState,
 ) -> Result<()> {
     let Some(current) = reply.as_mut() else {
@@ -337,7 +398,15 @@ pub(super) fn select_failure_notice(
     {
         return Ok(());
     }
-    current.notice = match &catalog.selected {
+    // A local-only turn says the offline line, once an outage and only for
+    // speech; any other try gets no words, only the ring's offline breath.
+    let selected = match current.local_only {
+        None => &catalog.selected,
+        Some(local) if local.back => &catalog.back_online,
+        Some(local) if local.speech && !outage.said => &catalog.offline,
+        Some(_) => return Ok(()),
+    };
+    current.notice = match selected {
         Ok(recording) => NoticeDelivery::Selected {
             origin: SpeechOrigin::FailureNotice,
             recording: Arc::clone(recording),
@@ -350,6 +419,11 @@ pub(super) fn select_failure_notice(
         },
         Err(reason) => NoticeDelivery::Skipped(*reason),
     };
+    if current.local_only.is_some_and(|local| !local.back)
+        && matches!(current.notice, NoticeDelivery::Selected { .. })
+    {
+        outage.said = true;
+    }
     record(
         trace,
         json!({"kind":"failure_notice_selected","at_us":monotonic_us(),
@@ -360,6 +434,27 @@ pub(super) fn select_failure_notice(
 
 #[cfg(test)]
 impl FailureNotices {
+    /// The synthetic catalog with an offline line too (#830).
+    pub(super) fn synthetic_offline() -> Self {
+        let mut catalog = Self::synthetic();
+        let Ok(turn_lost) = &catalog.selected else {
+            unreachable!("the synthetic catalog has its recording");
+        };
+        let recording = |kind, sample| {
+            let mut info = turn_lost.info.clone();
+            if let Some(info) = info.as_mut() {
+                info.kind = kind;
+            }
+            Ok(Arc::new(Recording {
+                info,
+                samples: vec![sample; 7_200].into_boxed_slice(),
+            }))
+        };
+        catalog.offline = recording(NoticeKind::ProviderUnavailable, 123);
+        catalog.back_online = recording(NoticeKind::BackOnline, 77);
+        catalog
+    }
+
     pub(super) fn synthetic() -> Self {
         // Test-only PCM. No manifest or production approval is created.
         let samples = vec![321_i16; 7_200].into_boxed_slice();
@@ -379,6 +474,8 @@ impl FailureNotices {
                 }),
                 samples,
             })),
+            offline: Err(Missing::NotProvisioned),
+            back_online: Err(Missing::NotProvisioned),
             language: Some("en-US".into()),
         }
     }

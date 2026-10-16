@@ -810,3 +810,150 @@ fn independent_notice_late_original_acceptance_cannot_revive_cancelled_owner() {
             .any(|e| e["kind"] == "failure_notice_first_write")
     );
 }
+
+/// A local-only turn (#830): admitted and ended, its request failed locally.
+fn offline_reply(speech: bool) -> (Controller, Option<Reply>) {
+    let (mut owner, mut current, _) = active_reply();
+    owner
+        .playback_ended(now(), current.playback.take().unwrap())
+        .unwrap();
+    current.pcm.clear();
+    owner.cancel_turn(now(), current.owner).unwrap();
+    current.owner = owner.admit(now(), AdmittedInput::NewTurn).unwrap();
+    current.plan = owner
+        .plan_output(now(), current.owner, OutputKind::Speech, None)
+        .unwrap();
+    owner.input_ended(now(), current.owner).unwrap();
+    current.cloud = CloudRequest::local_only();
+    current.provider_idle = true;
+    current.generation_done = true;
+    current.local_input_ended = true;
+    current.notice = NoticeDelivery::default();
+    current.local_only = Some(notices::LocalOnly {
+        speech,
+        back: false,
+    });
+    (owner, Some(current))
+}
+
+fn selected(reply: &Option<Reply>, kind: lamp_audio::notice::NoticeKind) -> bool {
+    matches!(&reply.as_ref().unwrap().notice, NoticeDelivery::Selected { recording, .. }
+        if recording.kind() == Some(kind))
+}
+
+fn selected_offline(reply: &Option<Reply>) -> bool {
+    selected(reply, lamp_audio::notice::NoticeKind::ProviderUnavailable)
+}
+
+#[test]
+fn back_online_is_its_own_recording_and_does_not_count_as_the_outages_line() {
+    let catalog = FailureNotices::synthetic_offline();
+    let mut outage = Outage::default();
+    let mut trace = SessionState::default();
+    let (_owner, mut back) = offline_reply(true);
+    back.as_mut().unwrap().local_only = Some(notices::LocalOnly {
+        speech: true,
+        back: true,
+    });
+    select_failure_notice_in(&catalog, &mut back, &None, &mut outage, &mut trace).unwrap();
+    assert!(selected(&back, lamp_audio::notice::NoticeKind::BackOnline));
+    assert!(!outage.said);
+    // Without its recording: silent, as every notice is.
+    let (_owner, mut silent) = offline_reply(true);
+    silent.as_mut().unwrap().local_only = Some(notices::LocalOnly {
+        speech: true,
+        back: true,
+    });
+    select_failure_notice_in(
+        &FailureNotices::synthetic(),
+        &mut silent,
+        &None,
+        &mut outage,
+        &mut trace,
+    )
+    .unwrap();
+    assert!(matches!(
+        silent.as_ref().unwrap().notice,
+        NoticeDelivery::Skipped(_)
+    ));
+}
+
+#[test]
+fn offline_the_line_is_said_once_an_outage_and_only_for_speech() {
+    let catalog = FailureNotices::synthetic_offline();
+    let mut outage = Outage::default();
+    let mut trace = SessionState::default();
+    // A sound let through (a cough): nothing, and the outage keeps its line.
+    let (_owner, mut cough) = offline_reply(false);
+    select_failure_notice_in(&catalog, &mut cough, &None, &mut outage, &mut trace).unwrap();
+    assert!(matches!(
+        cough.as_ref().unwrap().notice,
+        NoticeDelivery::Unselected
+    ));
+    assert!(!outage.said);
+    // Speech: the offline line, never turn_lost.
+    let (_owner, mut first) = offline_reply(true);
+    select_failure_notice_in(&catalog, &mut first, &None, &mut outage, &mut trace).unwrap();
+    assert!(selected_offline(&first));
+    assert!(outage.said);
+    // A second try in the same outage: no words.
+    let (_owner, mut second) = offline_reply(true);
+    select_failure_notice_in(&catalog, &mut second, &None, &mut outage, &mut trace).unwrap();
+    assert!(matches!(
+        second.as_ref().unwrap().notice,
+        NoticeDelivery::Unselected
+    ));
+    // It settles at once, so the next turn is not held.
+    assert!(second.as_ref().unwrap().settled(&None));
+    // A new outage says it again.
+    let mut next = Outage::default();
+    let (_owner, mut again) = offline_reply(true);
+    select_failure_notice_in(&catalog, &mut again, &None, &mut next, &mut trace).unwrap();
+    assert!(selected_offline(&again));
+}
+
+#[test]
+fn offline_with_no_recording_is_silent_and_a_local_turn_sends_nothing() {
+    let mut outage = Outage::default();
+    let mut trace = SessionState::default();
+    // No asset provisioned: skipped, said in the capability, nothing played.
+    let (_owner, mut reply) = offline_reply(true);
+    select_failure_notice_in(
+        &FailureNotices::synthetic(),
+        &mut reply,
+        &None,
+        &mut outage,
+        &mut trace,
+    )
+    .unwrap();
+    assert!(matches!(
+        reply.as_ref().unwrap().notice,
+        NoticeDelivery::Skipped(_)
+    ));
+    assert!(!outage.said);
+    // Nothing of a local-only turn goes to the provider.
+    let current = reply.as_mut().unwrap();
+    let mut queue = VecDeque::new();
+    let audio = ObservedAudio {
+        sequence: 1,
+        captured_at_us: monotonic_us(),
+        samples: [0; lamp_audio::CAPTURE_SAMPLES],
+    };
+    queue_input(&mut queue, current, 1, audio, 1).unwrap();
+    queue_input_end(&mut queue, current, 1, 1, false).unwrap();
+    assert!(queue.is_empty());
+    // Its request can match no provider input or output.
+    assert!(current.cloud.outcome.is_some());
+    assert!(current.cloud.confirm_start(0).is_err());
+}
+
+#[test]
+fn offline_only_with_the_switch_and_after_the_links_grace() {
+    let grace = crate::bus_out::LINK_GRACE_US;
+    // Without the switch: never, however long the link is down.
+    assert!(!offline_now(false, Some(0), 3_600_000_000));
+    // With it: not while the link is up, nor within its grace.
+    assert!(!offline_now(true, None, 3_600_000_000));
+    assert!(!offline_now(true, Some(1_000), 1_000 + grace - 1));
+    assert!(offline_now(true, Some(1_000), 1_000 + grace));
+}

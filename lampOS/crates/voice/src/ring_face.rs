@@ -23,6 +23,9 @@ pub enum Mood {
     Thinking,
     /// The lamp is speaking: the glow follows its own voice.
     Speaking,
+    /// Someone is speaking to it while it cannot reach the internet
+    /// (#830): one slow, dim, warm breath, so they see they were heard.
+    Offline,
 }
 
 /// The lamp's own light: what its face is at rest. A lasting setting,
@@ -488,6 +491,13 @@ fn look(
             });
             ([0.50, 0.85, 1.0], glow * looking)
         }
+        Mood::Offline => {
+            // One slow, dim breath in warm amber, about 2.5 s a breath and
+            // never more than a third of listening's least: no red, no
+            // flashing, the same all round (#830).
+            let breath = wave(seconds, 2.5, 0.0, 0.0);
+            ([1.0, 0.55, 0.12], 0.04 + 0.10 * breath)
+        }
         Mood::Thinking => {
             // An amber point circling the ring with a fading tail behind it.
             let head = TAU * (seconds / 1.15).fract();
@@ -547,6 +557,40 @@ mod tests {
     }
 
     #[test]
+    fn offline_is_a_slow_dim_warm_breath_far_under_listening() {
+        let mut face = Face::new();
+        // Past the change of mood's easing.
+        let offline = play(&mut face, Mood::Offline, 255, 1, 250);
+        let mut listening_face = Face::new();
+        let listening = play(&mut listening_face, Mood::Listening, 0, 1, 250);
+        let brightest =
+            |frames: &[[Rgb; PIXEL_COUNT]]| frames[50..].iter().map(brightness).max().unwrap();
+        let dimmest =
+            |frames: &[[Rgb; PIXEL_COUNT]]| frames[50..].iter().map(brightness).min().unwrap();
+        // At most a third of listening's least, even with a loud voice.
+        assert!(
+            3 * brightest(&offline) <= dimmest(&listening) + 3 * 32,
+            "{} {}",
+            brightest(&offline),
+            dimmest(&listening)
+        );
+        // Warm: red over green over blue, never blue-led; and alive.
+        for frame in &offline[50..] {
+            for pixel in frame {
+                assert!(
+                    pixel.red >= pixel.green && pixel.green >= pixel.blue,
+                    "{pixel:?}"
+                );
+            }
+        }
+        assert!(brightest(&offline) > dimmest(&offline));
+        // Slow: from one 20 ms frame to the next it never jumps.
+        for pair in offline[50..].windows(2) {
+            assert!(brightness(&pair[0]).abs_diff(brightness(&pair[1])) <= 32);
+        }
+    }
+
+    #[test]
     fn no_channel_ever_exceeds_the_ceiling() {
         for ceiling in [0, 1, 12, 48, 120] {
             let mut face = Face::new();
@@ -555,6 +599,7 @@ mod tests {
                 Mood::Listening,
                 Mood::Thinking,
                 Mood::Speaking,
+                Mood::Offline,
             ] {
                 for frame in 0..200u64 {
                     let pixels = face.render(mood, 255, 1 + frame * 20_000, ceiling);

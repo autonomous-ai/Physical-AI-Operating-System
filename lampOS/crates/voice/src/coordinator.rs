@@ -78,13 +78,19 @@ use endpoint::EndpointRig;
 mod optional_ring;
 mod ring_trace;
 use cloud::{CloudAvailability, CloudRequest, RequestOutcome};
-use notices::{FailureNotices, NoticeDelivery, SpeechOrigin, select_failure_notice};
+#[cfg(test)]
+use notices::select_failure_notice;
+use notices::{FailureNotices, NoticeDelivery, Outage, SpeechOrigin, select_failure_notice_in};
 use optional_ring::OptionalRing;
 use ring_trace::RingTrace;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 pub const MAX_DIRECTED_SECONDS: u64 = 600;
 const INPUT_READINESS_TIMEOUT: Duration = Duration::from_secs(25);
+/// `on` for a service to speak for itself when the internet cannot be
+/// reached (#830, `docs/offline.md`). Silent until the offline recordings
+/// are provisioned with `--failure-notice-dir`.
+pub const OFFLINE_VOICE_ENVIRONMENT: &str = "LAMP_OFFLINE_VOICE";
 const DIAGNOSTIC_SHUTDOWN_GRACE: Duration = Duration::from_millis(750);
 const INPUT_LEASE_US: u64 = 100_000;
 
@@ -213,6 +219,8 @@ struct Reply {
     start: StartGate,
     need: StartNeed,
     notice: NoticeDelivery,
+    /// Taken while the internet could not be reached (#830): never sent.
+    local_only: Option<notices::LocalOnly>,
     reminder: Option<crate::reminders::Receipt>,
     /// How loud the block last handed to the speaker is, for the ring's face.
     voice_level: u8,
@@ -2630,6 +2638,16 @@ fn conversation_with_gate(
             .with_start_offline(crate::session_lifetime::start_offline());
     // Said once when a service started with no link goes on listening.
     let mut said_waiting_for_link = false;
+    // A service that speaks for itself when the internet cannot be reached
+    // (#830): the offline line once an outage, a local-only turn for each
+    // try, and the ring's offline breath while listening.
+    let offline_voice = lifetime.continuous()
+        && std::env::var(OFFLINE_VOICE_ENVIRONMENT).ok().as_deref() == Some("on");
+    let mut outage = Outage::default();
+    // Since when the link has been down, for the grace the bus also gives it.
+    let mut link_down_since: Option<u64> = None;
+    // Since when "I'm back online." is owed, if it is.
+    let mut back_owed_since: Option<u64> = None;
     let privacy_started = session_instant();
     let mut privacy_sequence = 0u64;
     let mut permitted = false;
@@ -2915,6 +2933,18 @@ fn conversation_with_gate(
         }
         termination.check()?;
         let clock = monotonic_us();
+        if cloud.available() {
+            if link_down_since.take().is_some() {
+                if offline_voice && outage.said {
+                    back_owed_since = Some(clock);
+                }
+                outage = Outage::default();
+            }
+        } else {
+            link_down_since.get_or_insert(clock);
+            back_owed_since = None;
+        }
+        let offline = offline_now(offline_voice, link_down_since, clock);
         let paused = (rig.paused)();
         if paused != was_paused {
             was_paused = paused;
@@ -4001,6 +4031,22 @@ fn conversation_with_gate(
                         .ready_session()
                         .filter(|_| provider_control_empty && !submission_draining)
                     else {
+                        if offline && !cloud.available() {
+                            // Heard while offline: a turn of its own, never sent.
+                            snapshot = commit_offline_input(
+                                owner,
+                                reply,
+                                &mut speaker_pending,
+                                &mut provider_queue,
+                                accepted,
+                                rig.playout_start,
+                                trace,
+                                |state| rig.publish(state),
+                            )?;
+                            last_publish = monotonic_us();
+                            turn_blocks.extend(loose_blocks.drain(..).map(|(_, level)| level));
+                            continue;
+                        }
                         let (state, draining) =
                             accepted_without_cloud(accepted, owner, reply, &mut admission, trace)?;
                         provider_queue.clear();
@@ -4011,6 +4057,8 @@ fn conversation_with_gate(
                         last_publish = monotonic_us();
                         continue;
                     };
+                    // Someone is answered: the lamp has shown it is back.
+                    back_owed_since = None;
                     // Taking over from the lamp's own answer is cutting in,
                     // and taking over from something that was said is going
                     // on with it. Taking over from a sound is neither.
@@ -4085,6 +4133,7 @@ fn conversation_with_gate(
                         // it always was, so that a lone "Lamp," is never
                         // thrown out for a pause before its question.
                         if let Some(early) = early.as_mut()
+                            && current.local_only.is_none()
                             && early.due(turn, detector.pause_blocks())
                             && !crate::not_speech::was_a_sound(
                                 speech_levels.len(),
@@ -4298,6 +4347,11 @@ fn conversation_with_gate(
                     rig.publish(snapshot)?;
                     last_publish = monotonic_us();
                     let as_sound = sound_turn == Some(current.owner.turn());
+                    // Offline, only speech gets the line: never a sound let
+                    // through, nor a scrap too short to be a request.
+                    if let Some(local) = current.local_only.as_mut() {
+                        local.speech = !as_sound && said_turn == Some(current.owner.turn());
+                    }
                     if sent.is_none() {
                         queue_input_end(
                             &mut provider_queue,
@@ -4438,7 +4492,7 @@ fn conversation_with_gate(
         if provider_control_empty {
             second::flush(rig, &cloud, reply, &mut provider_queue)?;
         }
-        select_failure_notice(notices, reply, &speaker_pending, trace)?;
+        select_failure_notice_in(notices, reply, &speaker_pending, &mut outage, trace)?;
         let prior_speaker_sequence = speaker_sequence;
         settle_duplex_yield_before_dispatch(&playback_mask, reply, monotonic_us(), trace)?;
         let notice_attempt = dispatch_speaker_chunk(
@@ -4566,6 +4620,7 @@ fn conversation_with_gate(
             choreography.set_level(voice_level);
             choreography.set_attending(attending);
             choreography.set_unshown(tone_now);
+            choreography.set_offline(offline);
         }
         if let Some(current) = reply
             .as_ref()
@@ -4841,6 +4896,32 @@ fn conversation_with_gate(
                     trace,
                     json!({"kind":"second_look_dropped","turn":turn,"at_us":monotonic_us(),"why":"session_gone"}),
                 )?;
+            }
+        }
+        // "I'm back online." (#830): once the link is back after an outage in
+        // which the lamp said it could not reach the internet, when nothing
+        // holds the lamp and the room is quiet; within a minute, or not at all.
+        if let Some(since) = back_owed_since {
+            if clock.saturating_sub(since) >= notices::BACK_ONLINE_OWED_US {
+                back_owed_since = None;
+            } else if reply.is_none()
+                && provider_queue.is_empty()
+                && speaker_pending.is_none()
+                && !paused
+                && playback_mask.available(clock)
+                && reminder_quiet(
+                    clock,
+                    reminder_cycle_started_us,
+                    last_speech_us,
+                    last_capture,
+                )
+                && owner.snapshot(now())?.microphone_permission() == Permission::Allowed
+            {
+                snapshot = commit_back_online(owner, reply, rig.playout_start, trace, |state| {
+                    rig.publish(state)
+                })?;
+                last_publish = monotonic_us();
+                back_owed_since = None;
             }
         }
         // Finish the camera/name follow-ups owed above before a reminder can
@@ -5577,6 +5658,7 @@ fn commit_written_turn(
         final_chunk: None,
         playback_gaps: 0,
         notice: NoticeDelivery::default(),
+        local_only: None,
         reminder: None,
         last_provider_audio_at_us: None,
         start: playout_start.gate(),
@@ -5672,6 +5754,7 @@ fn commit_admitted_input(
         final_chunk: None,
         playback_gaps: 0,
         notice: NoticeDelivery::default(),
+        local_only: None,
         reminder: None,
         last_provider_audio_at_us: None,
         start: playout_start.gate(),
@@ -5702,6 +5785,150 @@ fn commit_admitted_input(
         snapshot = owner.snapshot(now())?;
         publish(snapshot)?;
     }
+    *reply = Some(current);
+    Ok(snapshot)
+}
+
+/// Someone spoke while the internet could not be reached (#830,
+/// `LAMP_OFFLINE_VOICE=on`): the utterance is admitted as a turn of its own,
+/// listened to and ended as any other, so the ring can show the person was
+/// heard; but its request is failed locally from the start and nothing of it
+/// goes to the provider (`queue_input` and `queue_input_end` send nothing for
+/// it). What it may say is the offline line, chosen when it has settled
+/// (`select_failure_notice`), through the same speaker path and permits.
+#[allow(clippy::too_many_arguments)]
+fn commit_offline_input(
+    owner: &mut Controller,
+    reply: &mut Option<Reply>,
+    speaker_pending: &mut Option<PendingSpeaker>,
+    provider_queue: &mut VecDeque<ProviderInput>,
+    accepted: Accepted,
+    playout_start: PlayoutStart,
+    trace: &mut SessionState,
+    mut publish: impl FnMut(Snapshot) -> io::Result<()>,
+) -> Result<Snapshot> {
+    let replacing = reply.is_some();
+    cancel_reply(owner, reply, trace, "user_interrupted")?;
+    let input = if replacing {
+        AdmittedInput::Interruption
+    } else {
+        AdmittedInput::NewTurn
+    };
+    *speaker_pending = None;
+    provider_queue.clear();
+    let turn = owner.admit(now(), input)?;
+    let plan = owner.plan_output(now(), turn, OutputKind::Speech, None)?;
+    let mut snapshot = owner.snapshot(now())?;
+    publish(snapshot)?;
+    trace
+        .receipts
+        .admitted(turn, snapshot.issued_at().as_micros())?;
+    record(
+        trace,
+        json!({"kind":"input_admitted","owner":turn,"turn":turn.turn(),"at_us":monotonic_us(),
+            "authority_issued_at_us":snapshot.issued_at().as_micros(),
+            "prefix_first_host_read_us":accepted.audio.first().map(|p|p.captured_at_us),
+            "candidate":accepted.candidate.id,"admission_basis":accepted.basis,
+            "provider_session":null,"local_only":true,
+            "boundary":"the internet cannot be reached: listened to, never sent"}),
+    )?;
+    let mut current = Reply {
+        owner: turn,
+        cloud: CloudRequest::local_only(),
+        local_input_ended: false,
+        plan,
+        playback: None,
+        pcm: VecDeque::new(),
+        generation_done: true,
+        provider_idle: true,
+        input_sequence: 0,
+        had_audio: false,
+        voice_level: 0,
+        final_chunk: None,
+        playback_gaps: 0,
+        notice: NoticeDelivery::default(),
+        local_only: Some(notices::LocalOnly {
+            speech: false,
+            back: false,
+        }),
+        reminder: None,
+        last_provider_audio_at_us: None,
+        start: playout_start.gate(),
+        need: StartNeed::default(),
+    };
+    current.input_sequence = accepted.audio.len() as u64;
+    if accepted.ended {
+        current.local_input_ended = true;
+        owner.input_ended(now(), current.owner)?;
+        snapshot = owner.snapshot(now())?;
+        publish(snapshot)?;
+    }
+    *reply = Some(current);
+    Ok(snapshot)
+}
+
+/// Whether the lamp speaks and shows itself as offline now (#830): only with
+/// `LAMP_OFFLINE_VOICE=on`, and only once the link has been down for the
+/// grace the bus gives it (`lamp/online`), so a session renewing itself is
+/// not an outage. Without the switch, never: every turn is as before.
+fn offline_now(switch: bool, link_down_since: Option<u64>, clock: u64) -> bool {
+    switch
+        && link_down_since
+            .is_some_and(|since| clock.saturating_sub(since) >= crate::bus_out::LINK_GRACE_US)
+}
+
+/// The link is back after an outage in which the lamp said it could not
+/// reach the internet (#830): a turn the lamp takes for itself, with no
+/// input, to say "I'm back online." through the same speaker path and
+/// permits. Its request, as the offline turn's, is never sent.
+fn commit_back_online(
+    owner: &mut Controller,
+    reply: &mut Option<Reply>,
+    playout_start: PlayoutStart,
+    trace: &mut SessionState,
+    mut publish: impl FnMut(Snapshot) -> io::Result<()>,
+) -> Result<Snapshot> {
+    let turn = owner.admit(now(), AdmittedInput::NewTurn)?;
+    let plan = owner.plan_output(now(), turn, OutputKind::Speech, None)?;
+    let mut snapshot = owner.snapshot(now())?;
+    publish(snapshot)?;
+    trace
+        .receipts
+        .admitted(turn, snapshot.issued_at().as_micros())?;
+    record(
+        trace,
+        json!({"kind":"input_admitted","owner":turn,"turn":turn.turn(),"at_us":monotonic_us(),
+            "authority_issued_at_us":snapshot.issued_at().as_micros(),
+            "admission_basis":"back_online","provider_session":null,"local_only":true,
+            "boundary":"no sound was heard: the lamp says the internet is back"}),
+    )?;
+    let current = Reply {
+        owner: turn,
+        cloud: CloudRequest::local_only(),
+        local_input_ended: true,
+        plan,
+        playback: None,
+        pcm: VecDeque::new(),
+        generation_done: true,
+        provider_idle: true,
+        input_sequence: 0,
+        had_audio: false,
+        voice_level: 0,
+        final_chunk: None,
+        playback_gaps: 0,
+        notice: NoticeDelivery::default(),
+        local_only: Some(notices::LocalOnly {
+            speech: true,
+            back: true,
+        }),
+        reminder: None,
+        last_provider_audio_at_us: None,
+        start: playout_start.gate(),
+        need: StartNeed::default(),
+    };
+    owner.input_ended(now(), current.owner)?;
+    snapshot = owner.snapshot(now())?;
+    publish(snapshot)?;
     *reply = Some(current);
     Ok(snapshot)
 }
@@ -5769,6 +5996,7 @@ fn continue_after_early_end(
         final_chunk: None,
         playback_gaps: 0,
         notice: NoticeDelivery::default(),
+        local_only: None,
         reminder: None,
         last_provider_audio_at_us: None,
         start: playout_start.gate(),
@@ -5979,6 +6207,11 @@ fn queue_input(
     audio: ObservedAudio,
     bound: usize,
 ) -> Result<()> {
+    // A local-only turn (#830) sends nothing: its request never went out.
+    if reply.local_only.is_some() {
+        reply.input_sequence += 1;
+        return Ok(());
+    }
     if queue.len() >= bound {
         return Err(io::Error::other("microphone to provider queue exceeded bound").into());
     }
@@ -6002,6 +6235,9 @@ fn queue_input_end(
     pcm_bound: usize,
     sound: bool,
 ) -> Result<()> {
+    if reply.local_only.is_some() {
+        return Ok(());
+    }
     if queue.len() > pcm_bound {
         return Err(io::Error::other("provider terminal queue exceeded bound").into());
     }
@@ -6894,6 +7130,7 @@ mod tests {
                 final_chunk: None,
                 playback_gaps: 0,
                 notice: NoticeDelivery::default(),
+                local_only: None,
                 reminder: None,
                 last_provider_audio_at_us: None,
                 start: StartGate::new(0),
@@ -7674,6 +7911,7 @@ mod tests {
             final_chunk: None,
             playback_gaps: 0,
             notice: NoticeDelivery::default(),
+            local_only: None,
             reminder: None,
             last_provider_audio_at_us: None,
             start: StartGate::new(0),
@@ -7901,6 +8139,7 @@ mod tests {
             final_chunk: None,
             playback_gaps: 0,
             notice: NoticeDelivery::default(),
+            local_only: None,
             reminder: None,
             last_provider_audio_at_us: None,
             start: StartGate::new(0),

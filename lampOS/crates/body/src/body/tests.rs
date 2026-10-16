@@ -6786,12 +6786,14 @@ const LAMP_52E6: Flags = Flags {
 
 /// A lamp with these flags, found folded, run for `seconds` as its unit
 /// runs it (give way, limp, wake, rest glance, idle), awake `awake` s after
-/// it is talked to from 1 to 3 s, `prepare`d, asked to nod at each of
-/// `nods`. The run's end and every arm goal write, shoulder and elbow.
+/// it is talked to from 1 to 3 s and in each of `talks`, `prepare`d, asked
+/// to nod at each of `nods`. The run's end and every arm goal write,
+/// shoulder and elbow.
 fn standing_session(
     flags: &Flags,
     seconds: u64,
     awake: u16,
+    talks: &[(Duration, Duration)],
     nods: &[Duration],
     prepare: impl FnOnce(&mut Lamp),
 ) -> (BodyReport, Vec<[u16; 2]>) {
@@ -6823,9 +6825,15 @@ fn standing_session(
         ..gesture_limits()
     };
     let time = clock.time.clone();
+    let mut talks = talks.to_vec();
+    talks.push((Duration::from_secs(1), Duration::from_secs(3)));
     let news = move || {
+        let now = time.get();
         Some(
-            if (Duration::from_secs(1)..Duration::from_secs(3)).contains(&time.get()) {
+            if talks
+                .iter()
+                .any(|(from, until)| (*from..*until).contains(&now))
+            {
                 (Mood::Listening, 100)
             } else {
                 (Mood::Resting, 0)
@@ -6890,7 +6898,7 @@ fn largest_arm_step(arm: &[[u16; 2]]) -> u16 {
 fn a_standing_session_never_moves_an_arm_goal_more_than_a_step_a_write() {
     for (name, flags) in [("lamp-4ace", &LAMP_4ACE), ("lamp-52e6", &LAMP_52E6)] {
         let nod = [Duration::from_secs(8)];
-        let (report, arm) = standing_session(flags, 400, 300, &nod, |lamp| {
+        let (report, arm) = standing_session(flags, 400, 300, &[], &nod, |lamp| {
             lamp.wall = Some((1, 2_609.0));
         });
         assert!(report.stalls[3] >= 1, "{name}: {report:?}");
@@ -6915,7 +6923,7 @@ fn a_nod_right_after_a_hand_lets_go_of_the_arm_does_not_stop_the_lamp() {
     for (name, flags) in [("lamp-4ace", &LAMP_4ACE), ("lamp-52e6", &LAMP_52E6)] {
         let ms = Duration::from_millis;
         let nod = [ms(25_200)];
-        let (report, _) = standing_session(flags, 45, 5, &nod, |lamp| {
+        let (report, _) = standing_session(flags, 45, 5, &[], &nod, |lamp| {
             let rest = f32::from(flags.folded[1]);
             lamp.hand = Some((ms(20_000), ms(24_000), 2, rest + 150.0));
             lamp.strains = vec![(ms(20_000), ms(24_000), 2, 200)];
@@ -6923,5 +6931,47 @@ fn a_nod_right_after_a_hand_lets_go_of_the_arm_does_not_stop_the_lamp() {
         assert!(report.stalls[4] >= 1, "{name}: {report:?}");
         assert!(report.gestures >= 1, "{name}: {report:?}");
         assert_eq!(report.stop, Stop::Cancelled, "{name}: {report:?}");
+    }
+}
+
+/// A give-way hold on the arm let go by the rise: the folded elbow pushed
+/// 80 counts down by a hand and held there, then the lamp is talked to and
+/// rises, which lets the hold go 100 counts from where the rise wants the
+/// elbow. With each lamp's flags it eases there, and no `Window` stop.
+#[test]
+fn a_hold_let_go_by_the_rise_eases_and_does_not_stop_the_lamp() {
+    for (name, flags) in [("lamp-4ace", &LAMP_4ACE), ("lamp-52e6", &LAMP_52E6)] {
+        let ms = Duration::from_millis;
+        let talk = [(ms(23_500), ms(26_000))];
+        let (report, _) = standing_session(flags, 45, 5, &talk, &[], |lamp| {
+            let rest = f32::from(flags.folded[1]);
+            lamp.hand = Some((ms(20_000), ms(24_000), 2, rest - 80.0));
+            lamp.strains = vec![(ms(20_000), ms(24_000), 2, 200)];
+        });
+        assert!(report.stalls[4] >= 1, "{name}: {report:?}");
+        assert!(
+            !matches!(report.stop, Stop::Window { .. }),
+            "{name}: {report:?}"
+        );
+    }
+}
+
+/// The same let go by the fold: the standing elbow pushed 80 counts up by
+/// a hand and held there, then the lamp's awake time (20 s) runs out and it
+/// folds.
+#[test]
+fn a_hold_let_go_by_the_fold_eases_and_does_not_stop_the_lamp() {
+    for (name, flags) in [("lamp-4ace", &LAMP_4ACE), ("lamp-52e6", &LAMP_52E6)] {
+        let ms = Duration::from_millis;
+        let (report, _) = standing_session(flags, 45, 20, &[], &[], |lamp| {
+            let pose = f32::from(flags.stand[4]);
+            lamp.hand = Some((ms(12_000), ms(20_000), 2, pose + 80.0));
+            lamp.strains = vec![(ms(12_000), ms(20_000), 2, 450)];
+        });
+        assert!(report.stalls[4] >= 1, "{name}: {report:?}");
+        assert!(
+            !matches!(report.stop, Stop::Window { .. }),
+            "{name}: {report:?}"
+        );
     }
 }

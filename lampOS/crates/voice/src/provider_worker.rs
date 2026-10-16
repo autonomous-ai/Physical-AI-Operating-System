@@ -142,6 +142,10 @@ pub struct Files {
     /// Whether an answer is played only when the lamp was spoken to
     /// (`--spoken-to`, #829).
     pub spoken_to: bool,
+    /// The same-voice check's model (`--same-voice-model`, #829): a line in
+    /// another voice than the conversation's is no part of it. Only with
+    /// `spoken_to`.
+    pub same_voice: Option<std::path::PathBuf>,
     /// Whether each request is judged said to the lamp from close to it,
     /// published, and let out in a busy room (`--addressed`,
     /// `crate::addressed`).
@@ -230,6 +234,7 @@ pub fn parse_flags(dir: &std::path::Path, flags: &[String]) -> io::Result<Parsed
     let (attention_near, flags) = crate::attention::take_near(flags);
     let (name_in_passing_ignored, flags) = crate::attention::take_passing(flags);
     let (spoken_to, flags) = crate::attention::take_spoken_to(flags);
+    let (same_voice, flags) = crate::same_voice::take(flags)?;
     let (addressed, flags) = crate::addressed::take(flags);
     let (name_signal, flags) = crate::attention::take_name(flags);
     let (name_note, name_note_busy_face, flags) = crate::called::take(flags);
@@ -255,6 +260,7 @@ pub fn parse_flags(dir: &std::path::Path, flags: &[String]) -> io::Result<Parsed
         attention_near,
         name_in_passing_ignored,
         spoken_to,
+        same_voice,
         addressed,
         name_signal,
         name_note,
@@ -380,6 +386,12 @@ pub enum ProviderInput {
         /// told so beside it ([`CUT_OFF_NOTE`]). Left off the wire when false.
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         continues_cut_off: bool,
+        /// The line began over the lamp's reply (a reply was in hand when it
+        /// was admitted): what was heard of it is the lamp's voice as much
+        /// as the person's, and the same-voice check never judges it
+        /// ([`crate::same_voice`], #829). Left off the wire when false.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        over_the_lamp: bool,
     },
     Audio {
         request: u64,
@@ -729,6 +741,9 @@ pub(crate) struct Options {
     /// An answer is played only when the lamp was spoken to, in every room
     /// (`--spoken-to`, #829). Only with `attention`.
     pub(crate) spoken_to: bool,
+    /// What makes the lines' voice prints for the same-voice check
+    /// ([`crate::same_voice`], #829). Only with `spoken_to`.
+    pub(crate) voices: Option<Box<dyn crate::same_voice::Printer>>,
 }
 /// How the room is and whether the lamp is in a conversation, now. With
 /// `--spoken-to`, none is once people have gone on talking to each other
@@ -760,6 +775,7 @@ impl Options {
             policy_holds: None,
             wait_for_room: false,
             spoken_to: false,
+            voices: None,
         }
     }
 }
@@ -970,6 +986,23 @@ pub async fn run_with_continuation(
         },
         wait_for_room: files.wait_for_room,
         spoken_to: files.attention && files.spoken_to,
+        // The child starts now: its model loads while the link opens.
+        voices: match (files.attention && files.spoken_to, files.same_voice) {
+            (true, Some(model)) => match crate::same_voice::Prints::beside_voice(model) {
+                Ok(prints) => Some(Box::new(prints) as Box<dyn crate::same_voice::Printer>),
+                Err(error) => {
+                    eprintln!("lamp-voice provider: the same voice is not judged: {error}");
+                    None
+                }
+            },
+            (false, Some(_)) => {
+                eprintln!(
+                    "lamp-voice provider: the same voice is judged only with LAMP_SPOKEN_TO=on: not judged"
+                );
+                None
+            }
+            (_, None) => None,
+        },
     };
     let visual = visual
         .map(|(source, worker)| ContextDelivery::new(source, boot, worker))
@@ -1022,6 +1055,12 @@ async fn serve_with_visual<C: Connect>(
     intake.handoff.tolerate_outage = typed;
     intake.handoff.wait_for_room = options.wait_for_room;
     intake.handoff.reminders.enabled = options.tools.schedule_speak;
+    // The same-voice check (#829), only beside the rule that plays only for
+    // a lamp spoken to.
+    intake.handoff.voices = options
+        .voices
+        .filter(|_| options.attention.is_some() && options.spoken_to)
+        .map(crate::same_voice::Voices::new);
     let mut ticker = tokio::time::interval(Duration::from_millis(2));
     ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     // Link status is small and must not wait behind playback-paced audio.
@@ -1656,7 +1695,23 @@ async fn serve_with_visual<C: Connect>(
                                 addressed_said = Some(said);
                             }
                             attention.lamp_asked(crate::thread::THREAD.lock().is_ok_and(|thread| thread.lamp_asked(request)));
+                            // #829: a line in another voice than the
+                            // conversation's is no part of it.
+                            let going_on = match intake.handoff.voices.as_mut().filter(|_| going_on).and_then(|voices| voices.likeness(request)) {
+                                Some(likeness) if likeness < crate::same_voice::DIFFERENT_BELOW => {
+                                    eprintln!("lamp-voice provider: request {request}: another voice than the conversation's (cosine {likeness:.2}): no conversation is going on for it");
+                                    false
+                                }
+                                Some(likeness) => {
+                                    eprintln!("lamp-voice provider: request {request}: the conversation's voice (cosine {likeness:.2})");
+                                    true
+                                }
+                                None => going_on,
+                            };
                             let verdict = attention.first_output_busy(request, room, going_on, attention_busy, turned);
+                            if let (Some(voices), Some(verdict)) = (intake.handoff.voices.as_mut(), verdict) {
+                                voices.decided(request, matches!(verdict, crate::attention::Verdict::Play(_)), going_on);
+                            }
                             // Held as unclear: the coordinator asks again. Said
                             // once, when the verdict is given, never again for
                             // the request's later output (lamp-4ace 06:42: eight
@@ -2999,7 +3054,8 @@ impl ProviderIntake {
 
 /// Only successful submissions change the input's open/closed state. Authority
 /// and audio use separate sockets, so root ownership is not proof that a Start
-/// or End has reached Gemini yet. This tracker retains no PCM or request history.
+/// or End has reached Gemini yet. This tracker retains no PCM or request
+/// history, but for the same-voice check's first 3 s of the line in hand.
 #[derive(Default)]
 struct InputHandoff {
     /// The newest note given and to which request: a request sends only
@@ -3008,6 +3064,9 @@ struct InputHandoff {
     /// The open request was only the lamp's name, its call's wait run out
     /// (`ProviderInput::Called`): the model is told so with its End.
     called: Option<u64>,
+    /// The same-voice check's lines and prints (#829): it keeps the first
+    /// 3 s of the line in hand until they are asked for.
+    voices: Option<crate::same_voice::Voices<Box<dyn crate::same_voice::Printer>>>,
     authority: Option<Snapshot>,
     highest_seen: u64,
     retired_through: u64,
@@ -3338,6 +3397,7 @@ impl InputHandoff {
                 session,
                 continues,
                 continues_cut_off,
+                over_the_lamp,
                 ..
             } => {
                 if self.submitted.is_some() {
@@ -3349,6 +3409,9 @@ impl InputHandoff {
                 }
                 if continues {
                     self.continued = Some(request.get());
+                }
+                if let Some(voices) = self.voices.as_mut() {
+                    voices.began(request.get(), !over_the_lamp);
                 }
                 self.submitted = Some(SubmittedInput {
                     request,
@@ -3404,6 +3467,9 @@ impl InputHandoff {
                 if let Err(error) = input.audio(request, sequence, captured, &samples) {
                     return self.refused(request, error, input);
                 }
+                if let Some(voices) = self.voices.as_mut() {
+                    voices.heard(request.get(), &samples);
+                }
                 if let Ok(mut room) = crate::room_told::room().lock() {
                     room.hearing(now_us);
                 }
@@ -3421,6 +3487,9 @@ impl InputHandoff {
                 }
                 if let Err(error) = input.end(request) {
                     return self.refused(request, error, input);
+                }
+                if let Some(voices) = self.voices.as_mut() {
+                    voices.ended(request.get());
                 }
                 if let Ok(mut room) = crate::room_told::room().lock() {
                     if sound {
@@ -4151,6 +4220,7 @@ mod tests {
             privacy_generation: generation(handoff),
             continues: false,
             continues_cut_off: false,
+            over_the_lamp: false,
         }
     }
 
@@ -4167,6 +4237,7 @@ mod tests {
                 privacy_generation: 2,
                 continues: false,
                 continues_cut_off: false,
+                over_the_lamp: false,
             }
         ));
         for field in ["request", "session", "privacy_generation"] {
@@ -4187,6 +4258,7 @@ mod tests {
             privacy_generation: 2,
             continues,
             continues_cut_off: false,
+            over_the_lamp: false,
         };
         // Without `LAMP_CUT_KEEPS_NAME` the coordinator never sets it, and
         // the line on the worker's socket is the one it always was.
@@ -4216,6 +4288,7 @@ mod tests {
             privacy_generation: 2,
             continues: false,
             continues_cut_off: false,
+            over_the_lamp: false,
         };
         assert_eq!(
             serde_json::to_string(&plain).unwrap(),
@@ -4227,6 +4300,7 @@ mod tests {
             privacy_generation: 2,
             continues: false,
             continues_cut_off: true,
+            over_the_lamp: false,
         };
         let written = serde_json::to_value(&cut_off).unwrap();
         assert_eq!(written["continues_cut_off"], true);
@@ -4425,6 +4499,7 @@ mod tests {
                         privacy_generation: generation(&handoff),
                         continues: false,
                         continues_cut_off: false,
+                        over_the_lamp: false,
                     },
                     NOW,
                     &sink
@@ -4542,6 +4617,7 @@ mod tests {
                                 privacy_generation: state.microphone_generation(),
                                 continues: false,
                                 continues_cut_off: false,
+                                over_the_lamp: false,
                             })?;
                         }
                         Ok(control)
@@ -4600,6 +4676,7 @@ mod tests {
                     privacy_generation: state.microphone_generation(),
                     continues: false,
                     continues_cut_off: false,
+                    over_the_lamp: false,
                 })
                 .unwrap();
             assert_eq!(rig.tick(NOW).unwrap(), ControlDrain::Empty);
@@ -4671,6 +4748,7 @@ mod tests {
                                     privacy_generation: state.microphone_generation(),
                                     continues: false,
                                     continues_cut_off: false,
+                                    over_the_lamp: false,
                                 },
                                 ProviderInput::Audio {
                                     request: new.turn(),
@@ -4812,6 +4890,7 @@ mod tests {
                     privacy_generation: privacy,
                     continues: false,
                     continues_cut_off: false,
+                    over_the_lamp: false,
                 })
                 .unwrap();
             rig.parent
@@ -4913,6 +4992,7 @@ mod tests {
                 privacy_generation: generation(&rig.intake.handoff),
                 continues: false,
                 continues_cut_off: false,
+                over_the_lamp: false,
             })
             .unwrap();
         let error = rig.tick(NOW).unwrap_err();
@@ -5036,6 +5116,7 @@ mod tests {
                 privacy_generation,
                 continues: false,
                 continues_cut_off: false,
+                over_the_lamp: false,
             },
             ProviderInput::Audio {
                 request: next.turn(),
@@ -6116,6 +6197,7 @@ mod tests {
                     privacy_generation,
                     continues: false,
                     continues_cut_off: false,
+                    over_the_lamp: false,
                 })
                 .unwrap();
             self.parent
@@ -6417,6 +6499,7 @@ mod tests {
             policy_holds: None,
             wait_for_room: false,
             spoken_to: false,
+            voices: None,
         }
     }
 
@@ -6439,6 +6522,7 @@ mod tests {
                 policy_holds: None,
                 wait_for_room: false,
                 spoken_to: false,
+                voices: None,
             },
         );
         let mut dial = rig.ready().await;
@@ -6486,6 +6570,7 @@ mod tests {
                 policy_holds: None,
                 wait_for_room: false,
                 spoken_to: false,
+                voices: None,
             },
         );
         let mut dial = rig.ready().await;
@@ -6802,6 +6887,7 @@ mod tests {
                 policy_holds: None,
                 wait_for_room: false,
                 spoken_to: false,
+                voices: None,
             },
         );
         let mut dial = rig.ready().await;
@@ -7177,6 +7263,7 @@ mod tests {
             privacy_generation: generation(&handoff),
             continues: false,
             continues_cut_off: false,
+            over_the_lamp: false,
         };
 
         first.service.send(resumable()).await;
@@ -7255,6 +7342,7 @@ mod tests {
                     privacy_generation: generation(&handoff),
                     continues: false,
                     continues_cut_off: false,
+                    over_the_lamp: false,
                 },
                 NOW,
                 &provider,
@@ -7729,6 +7817,7 @@ mod tests {
                 privacy_generation,
                 continues: false,
                 continues_cut_off: false,
+                over_the_lamp: false,
             })
             .unwrap();
         assert!(
@@ -8059,6 +8148,7 @@ mod tests {
                     privacy_generation: generation(&handoff),
                     continues: false,
                     continues_cut_off: false,
+                    over_the_lamp: false,
                 },
                 NOW,
                 &provider,
@@ -8131,6 +8221,7 @@ mod tests {
                 privacy_generation,
                 continues: false,
                 continues_cut_off: false,
+                over_the_lamp: false,
             })
             .unwrap();
         rig.parent
@@ -8330,6 +8421,7 @@ mod tests {
                 privacy_generation: rig.snapshot.microphone_generation(),
                 continues: false,
                 continues_cut_off: false,
+                over_the_lamp: false,
             })
             .unwrap();
         let message = rig.exit().await.0.unwrap_err().to_string();
@@ -8864,6 +8956,7 @@ mod tests {
                 privacy_generation,
                 continues: false,
                 continues_cut_off: false,
+                over_the_lamp: false,
             })
             .unwrap();
         rig.parent
@@ -9368,6 +9461,7 @@ mod tests {
                 privacy_generation,
                 continues: false,
                 continues_cut_off: false,
+                over_the_lamp: false,
             },
             ProviderInput::Audio {
                 request: next,
@@ -9499,6 +9593,7 @@ mod tests {
                 privacy_generation,
                 continues: false,
                 continues_cut_off: false,
+                over_the_lamp: false,
             })
             .unwrap();
         assert!(matches!(
@@ -9683,6 +9778,7 @@ mod tests {
                         privacy_generation: self.snapshot.microphone_generation(),
                         continues,
                         continues_cut_off: false,
+                        over_the_lamp: false,
                     })
                     .unwrap();
                 loop {
@@ -9852,6 +9948,7 @@ mod tests {
                     policy_holds: None,
                     wait_for_room: false,
                     spoken_to: false,
+                    voices: None,
                 },
                 BARRIER,
                 false,
@@ -9919,6 +10016,7 @@ mod tests {
                     policy_holds: None,
                     wait_for_room: false,
                     spoken_to: false,
+                    voices: None,
                 },
                 BARRIER,
                 false,

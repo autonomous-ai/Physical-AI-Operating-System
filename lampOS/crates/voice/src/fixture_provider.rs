@@ -781,6 +781,7 @@ mod reminder_tests {
                     privacy_generation: state.microphone_generation(),
                     continues: false,
                     continues_cut_off: false,
+                    over_the_lamp: false,
                 },
             )
             .unwrap();

@@ -85,6 +85,7 @@ pub mod ring_worker;
 pub mod room_floor;
 pub mod room_told;
 pub mod rules;
+pub mod same_voice;
 pub mod say;
 pub mod second_config;
 pub mod second_look;

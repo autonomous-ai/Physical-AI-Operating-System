@@ -2,26 +2,47 @@
 //! `id<TAB>path`, 16 kHz mono 16-bit WAV) embedded, then the cosine of
 //! every pair, one `a<TAB>b<TAB>cosine` line each, and on standard error
 //! each clip's length and how long its embedding took. Local files only.
+//!
+//! `lamp-same-voice serve MODEL.onnx`: the voice's child (#829), a print for
+//! each request on standard input, as [`lamp_same_voice::serve`] describes.
 use lamp_same_voice::{RATE, Voice, cosine, read_wav};
 use std::{path::Path, process::ExitCode, time::Instant};
 
+const USAGE: &str =
+    "usage: lamp-same-voice pairs MODEL.onnx LIST.tsv\n       lamp-same-voice serve MODEL.onnx";
+
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
-    let [command, model, list] = args.as_slice() else {
-        eprintln!("usage: lamp-same-voice pairs MODEL.onnx LIST.tsv");
-        return ExitCode::FAILURE;
+    let done = match args.as_slice() {
+        [command, model, list] if command == "pairs" => pairs(Path::new(model), Path::new(list)),
+        [command, model] if command == "serve" => serve(Path::new(model)),
+        _ => {
+            eprintln!("{USAGE}");
+            return ExitCode::FAILURE;
+        }
     };
-    if command != "pairs" {
-        eprintln!("usage: lamp-same-voice pairs MODEL.onnx LIST.tsv");
-        return ExitCode::FAILURE;
-    }
-    match pairs(Path::new(model), Path::new(list)) {
+    match done {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
             eprintln!("lamp-same-voice: {error}");
             ExitCode::FAILURE
         }
     }
+}
+
+/// The model loaded, then each request answered until the voice closes
+/// standard input.
+fn serve(model: &Path) -> Result<(), String> {
+    let loaded = Instant::now();
+    let voice = Voice::load(model)?;
+    let loaded_ms = loaded.elapsed().as_millis();
+    lamp_same_voice::serve(
+        &mut std::io::stdin().lock(),
+        &mut std::io::stdout().lock(),
+        loaded_ms,
+        |samples| voice.embedding(samples),
+    )
+    .map_err(|error| error.to_string())
 }
 
 fn pairs(model: &Path, list: &Path) -> Result<(), String> {

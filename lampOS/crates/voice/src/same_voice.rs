@@ -1,0 +1,650 @@
+//! Whether a line is said in the voice of the conversation the lamp is in
+//! (#829, `docs/same-voice.md`, "In the voice").
+//!
+//! With `LAMP_SPOKEN_TO=on`, a line said within 45 s of the lamp's last
+//! words is taken for the conversation going on, whoever says it. On
+//! lamp-4ace on 16 October at 06:07, right after the lamp answered Daniel's
+//! "Hey Lamp, how much is one hundred dollars in euros?", Samantha said
+//! "Anyway, if we drop the trip we save almost half." to him. It rode on
+//! his conversation, and only the model's own silence left it unanswered.
+//! With a model (`LAMP_SAME_VOICE_MODEL`), a line whose voice is plainly not
+//! the conversation's is no part of it.
+//!
+//! - **Its own process:** `lamp-same-voice serve MODEL`, installed beside
+//!   `lamp-voice` and started by the provider worker ([`Prints`]). It makes
+//!   a print of each line (CAM++, `crates/same-voice`). A child that is
+//!   missing, still loading, busy or gone gives no print, and a line with
+//!   no print is judged as without the model. One that ends is started
+//!   again after [`RESTART_AFTER`].
+//! - **Only what was said with the lamp quiet:** a line that began over the
+//!   lamp's reply (`ProviderInput::Start`'s `over_the_lamp`) is never
+//!   judged. Over the lamp's voice the model hears the lamp: on lamp-4ace's
+//!   recordings it was right no more often than chance.
+//! - **Only a line of [`LEAST_SAMPLES`] or more**, of which the first
+//!   [`MOST_SAMPLES`] are judged, asked for as soon as they are heard.
+//! - **The conversation's voice** is the last voice the lamp answered that
+//!   was long enough to know. An answered line too short to know keeps it,
+//!   unless it began a conversation of its own (answered for its name or a
+//!   face, not as one going on): then no voice is known.
+//! - **The rule:** a cosine under [`DIFFERENT_BELOW`] between the line's
+//!   print and the conversation's is another voice, and no conversation is
+//!   going on for it. The same voice, or no verdict, is as without the
+//!   model.
+use std::{
+    collections::VecDeque,
+    io::{self, BufRead, BufReader, Write},
+    path::{Path, PathBuf},
+    process::{Child, Command, Stdio},
+    sync::mpsc,
+    thread,
+    time::{Duration, Instant},
+};
+
+/// Where the coordinator reads the model's absolute path.
+pub const ENVIRONMENT: &str = "LAMP_SAME_VOICE_MODEL";
+/// The provider worker's flag for it, with the path, right after
+/// `--spoken-to`.
+pub const FLAG: &str = "--same-voice-model";
+/// The child's executable, installed beside `lamp-voice`.
+pub const EXECUTABLE: &str = "lamp-same-voice";
+/// Samples a second.
+pub const RATE: usize = 16_000;
+/// A line shorter than this is not judged: 1.5 s. Under it, the same voice
+/// was taken for another 7.7% of the time on lamp-4ace's recordings.
+pub const LEAST_SAMPLES: usize = RATE * 3 / 2;
+/// The first this much of a line is judged: 3 s, what the child takes.
+pub const MOST_SAMPLES: usize = RATE * 3;
+/// Two prints with a cosine under this are plainly two voices. With both
+/// clips 1.5 s or longer and the lamp quiet, on lamp-4ace's recordings of
+/// three synthetic voices (`docs/verification/same-voice-20261015`), it
+/// took none of 37 same-voice pairs for two voices and caught 19 of 29
+/// pairs of two. A minute of two real people is to set it.
+pub const DIFFERENT_BELOW: f32 = 0.25;
+/// A child that has ended is started again after this long.
+pub const RESTART_AFTER: Duration = Duration::from_secs(5);
+/// Prints kept for lines not yet decided.
+const KEPT: usize = 4;
+
+/// The provider worker's arguments for the model in the environment: an
+/// absolute path only.
+pub fn arguments_from_environment() -> Vec<String> {
+    arguments(std::env::var_os(ENVIRONMENT).as_deref().map(Path::new))
+}
+
+fn arguments(model: Option<&Path>) -> Vec<String> {
+    match model
+        .filter(|path| path.is_absolute())
+        .and_then(Path::to_str)
+    {
+        Some(path) => vec![FLAG.to_owned(), path.to_owned()],
+        None => Vec::new(),
+    }
+}
+
+/// Take a leading `--same-voice-model PATH` off a worker's flags, after
+/// `--spoken-to`.
+pub fn take(flags: &[String]) -> io::Result<(Option<PathBuf>, &[String])> {
+    match flags {
+        [flag, path, rest @ ..] if flag == FLAG && Path::new(path).is_absolute() => {
+            Ok((Some(PathBuf::from(path)), rest))
+        }
+        [flag, ..] if flag == FLAG => Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("{FLAG} takes an absolute path"),
+        )),
+        _ => Ok((None, flags)),
+    }
+}
+
+/// The cosine between two prints, as `lamp_same_voice::cosine` takes it
+/// (the voice does not link the model's runtime): summed in f64, and none
+/// where it is not defined.
+pub fn cosine(a: &[f32], b: &[f32]) -> Option<f32> {
+    if a.len() != b.len() || a.iter().chain(b).any(|value| !value.is_finite()) {
+        return None;
+    }
+    let (mut dot, mut aa, mut bb) = (0.0f64, 0.0f64, 0.0f64);
+    for (&x, &y) in a.iter().zip(b) {
+        let (x, y) = (f64::from(x), f64::from(y));
+        dot += x * y;
+        aa += x * x;
+        bb += y * y;
+    }
+    if aa == 0.0 || bb == 0.0 {
+        return None;
+    }
+    Some((dot / (aa.sqrt() * bb.sqrt())).clamp(-1.0, 1.0) as f32)
+}
+
+/// What makes prints: the child, or a stand-in in tests.
+pub trait Printer: Send {
+    /// Ask for the print of `samples`, the line `request`. Never waits:
+    /// false when it cannot be taken now.
+    fn ask(&mut self, request: u64, samples: &[i16]) -> bool;
+    /// A print that has come, or why there is none, if any has.
+    fn answer(&mut self) -> Option<(u64, Result<Vec<f32>, String>)>;
+}
+
+impl Printer for Box<dyn Printer> {
+    fn ask(&mut self, request: u64, samples: &[i16]) -> bool {
+        (**self).ask(request, samples)
+    }
+    fn answer(&mut self) -> Option<(u64, Result<Vec<f32>, String>)> {
+        (**self).answer()
+    }
+}
+
+/// The child `lamp-same-voice serve MODEL`, on a thread of its own: one
+/// line asked for at a time, and none while one is being printed.
+pub struct Prints {
+    asked: mpsc::SyncSender<(u64, Vec<i16>)>,
+    answers: mpsc::Receiver<(u64, Result<Vec<f32>, String>)>,
+}
+
+impl Prints {
+    /// `program serve model`, started now and again whenever it ends.
+    pub fn start(program: PathBuf, model: PathBuf) -> Self {
+        let (asked, jobs) = mpsc::sync_channel(0);
+        let (told, answers) = mpsc::channel();
+        let started = thread::Builder::new()
+            .name("same-voice".into())
+            .spawn(move || keep(&program, &model, &jobs, &told));
+        if let Err(error) = started {
+            eprintln!("lamp-voice provider: the same voice is not judged: {error}");
+        }
+        Self { asked, answers }
+    }
+
+    /// The child installed beside the running executable.
+    pub fn beside_voice(model: PathBuf) -> io::Result<Self> {
+        let program = std::env::current_exe()?.with_file_name(EXECUTABLE);
+        Ok(Self::start(program, model))
+    }
+}
+
+impl Printer for Prints {
+    fn ask(&mut self, request: u64, samples: &[i16]) -> bool {
+        self.asked.try_send((request, samples.to_vec())).is_ok()
+    }
+    fn answer(&mut self) -> Option<(u64, Result<Vec<f32>, String>)> {
+        self.answers.try_recv().ok()
+    }
+}
+
+/// How one child ended.
+enum Ended {
+    /// The worker has gone: nothing more is asked.
+    Closed,
+    Failed(String),
+}
+
+/// One child after another until the worker goes.
+fn keep(
+    program: &Path,
+    model: &Path,
+    jobs: &mpsc::Receiver<(u64, Vec<i16>)>,
+    told: &mpsc::Sender<(u64, Result<Vec<f32>, String>)>,
+) {
+    loop {
+        let why = match child(program, model, jobs, told) {
+            Ended::Closed => return,
+            Ended::Failed(why) => why,
+        };
+        eprintln!(
+            "lamp-voice provider: the same-voice child ended: {why}; it is started again in {} s",
+            RESTART_AFTER.as_secs()
+        );
+        // Meanwhile no print can be made: each line asked for is told so.
+        let until = Instant::now() + RESTART_AFTER;
+        loop {
+            match jobs.recv_timeout(until.saturating_duration_since(Instant::now())) {
+                Ok((request, _)) => {
+                    if told
+                        .send((request, Err("no same-voice child".into())))
+                        .is_err()
+                    {
+                        return;
+                    }
+                }
+                Err(mpsc::RecvTimeoutError::Timeout) => break,
+                Err(mpsc::RecvTimeoutError::Disconnected) => return,
+            }
+        }
+    }
+}
+
+/// Killed and reaped when dropped, however the child's serving ends.
+struct Running(Child);
+
+impl Drop for Running {
+    fn drop(&mut self) {
+        let _ = self.0.kill();
+        let _ = self.0.wait();
+    }
+}
+
+/// One child, from its start until it or the worker goes.
+fn child(
+    program: &Path,
+    model: &Path,
+    jobs: &mpsc::Receiver<(u64, Vec<i16>)>,
+    told: &mpsc::Sender<(u64, Result<Vec<f32>, String>)>,
+) -> Ended {
+    let started = Command::new(program)
+        .arg("serve")
+        .arg(model)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::inherit())
+        .spawn();
+    let mut running = match started {
+        Ok(child) => Running(child),
+        Err(error) => return Ended::Failed(format!("{}: {error}", program.display())),
+    };
+    let (Some(mut input), Some(output)) = (running.0.stdin.take(), running.0.stdout.take()) else {
+        return Ended::Failed("no pipes".into());
+    };
+    let mut output = BufReader::new(output);
+    let mut line = String::new();
+    match output.read_line(&mut line) {
+        Ok(0) => return Ended::Failed("it ended before its model was loaded".into()),
+        Ok(_) => match ready(&line) {
+            Some(loaded_ms) => eprintln!(
+                "lamp-voice provider: the same-voice child is ready, its model loaded in {loaded_ms} ms"
+            ),
+            None => return Ended::Failed(format!("not ready: {}", line.trim_end())),
+        },
+        Err(error) => return Ended::Failed(error.to_string()),
+    }
+    loop {
+        let Ok((request, samples)) = jobs.recv() else {
+            return Ended::Closed;
+        };
+        let mut frame = Vec::with_capacity(12 + samples.len() * 2);
+        frame.extend(request.to_le_bytes());
+        frame.extend((samples.len() as u32).to_le_bytes());
+        frame.extend(samples.iter().flat_map(|sample| sample.to_le_bytes()));
+        if let Err(error) = input.write_all(&frame).and_then(|()| input.flush()) {
+            let _ = told.send((request, Err("the child is gone".into())));
+            return Ended::Failed(error.to_string());
+        }
+        line.clear();
+        let answer = match output.read_line(&mut line) {
+            Ok(0) => Err("it ended".to_owned()),
+            Ok(_) => answer(&line, request),
+            Err(error) => Err(error.to_string()),
+        };
+        let failed = answer.as_ref().err().cloned();
+        if told
+            .send((request, answer.map_err(|why| format!("no print: {why}"))))
+            .is_err()
+        {
+            return Ended::Closed;
+        }
+        // An answer that is not one ends the child: what it says next
+        // cannot be trusted to be the next line's.
+        if let Some(why) = failed.filter(|why| !why.starts_with("refused: ")) {
+            return Ended::Failed(why);
+        }
+    }
+}
+
+/// How long the model took to load, if `line` says the child is ready.
+fn ready(line: &str) -> Option<u64> {
+    let value: serde_json::Value = serde_json::from_str(line).ok()?;
+    (value["ready"] == true).then(|| value["loaded_ms"].as_u64().unwrap_or(0))
+}
+
+/// The print in the child's answer to `request`. "refused: …" when the
+/// child answered it and could make no print of it.
+fn answer(line: &str, request: u64) -> Result<Vec<f32>, String> {
+    let value: serde_json::Value =
+        serde_json::from_str(line).map_err(|error| format!("not an answer: {error}"))?;
+    if value["request"].as_u64() != Some(request) {
+        return Err(format!("an answer to another line: {}", line.trim_end()));
+    }
+    if let Some(why) = value["error"].as_str() {
+        return Err(format!("refused: {why}"));
+    }
+    let print: Vec<f32> = value["print"]
+        .as_array()
+        .ok_or("no print in the answer")?
+        .iter()
+        .map(|value| value.as_f64().map(|value| value as f32))
+        .collect::<Option<_>>()
+        .ok_or("a print with something not a number")?;
+    if print.is_empty() {
+        return Err("an empty print".into());
+    }
+    Ok(print)
+}
+
+/// The line being heard.
+struct Clip {
+    request: u64,
+    samples: Vec<i16>,
+}
+
+/// The conversation's voice and the lines' prints, as the provider worker
+/// follows them.
+pub struct Voices<P: Printer> {
+    printer: P,
+    /// The line being heard while its first samples are gathered, until
+    /// they are asked for or it ends.
+    clip: Option<Clip>,
+    /// Lines whose print was asked for and has not come.
+    asked: VecDeque<u64>,
+    /// Prints that have come, newest last.
+    prints: VecDeque<(u64, Vec<f32>)>,
+    /// The voice of the conversation the lamp is in.
+    conversation: Option<Vec<f32>>,
+    /// A line whose answer was let out and whose print is still to come,
+    /// and whether it began a conversation of its own.
+    answered: Option<(u64, bool)>,
+}
+
+impl<P: Printer> Voices<P> {
+    pub fn new(printer: P) -> Self {
+        Self {
+            printer,
+            clip: None,
+            asked: VecDeque::new(),
+            prints: VecDeque::new(),
+            conversation: None,
+            answered: None,
+        }
+    }
+
+    /// The line `request` began; it is judged only if it was said with the
+    /// lamp quiet (`judged`).
+    pub fn began(&mut self, request: u64, judged: bool) {
+        self.clip = judged.then(|| Clip {
+            request,
+            samples: Vec::with_capacity(MOST_SAMPLES),
+        });
+    }
+
+    /// More of the line `request` was heard.
+    pub fn heard(&mut self, request: u64, samples: &[i16]) {
+        let Some(clip) = self.clip.as_mut().filter(|clip| clip.request == request) else {
+            return;
+        };
+        let room = MOST_SAMPLES - clip.samples.len();
+        clip.samples
+            .extend_from_slice(&samples[..samples.len().min(room)]);
+        if clip.samples.len() == MOST_SAMPLES {
+            self.ask();
+        }
+    }
+
+    /// The line `request` ended: what was heard of it is asked for if it is
+    /// long enough to know.
+    pub fn ended(&mut self, request: u64) {
+        match &self.clip {
+            Some(clip) if clip.request == request && clip.samples.len() >= LEAST_SAMPLES => {
+                self.ask()
+            }
+            Some(clip) if clip.request == request => {
+                self.clip = None;
+                self.unprinted(request);
+            }
+            _ => {}
+        }
+    }
+
+    fn ask(&mut self) {
+        let Some(clip) = self.clip.take() else {
+            return;
+        };
+        if self.printer.ask(clip.request, &clip.samples) {
+            if self.asked.len() == KEPT {
+                self.asked.pop_front();
+            }
+            self.asked.push_back(clip.request);
+        } else {
+            self.unprinted(clip.request);
+        }
+    }
+
+    /// No print will come of `request`.
+    fn unprinted(&mut self, request: u64) {
+        if let Some((answered, new)) = self.answered
+            && answered == request
+        {
+            if new {
+                self.conversation = None;
+            }
+            self.answered = None;
+        }
+    }
+
+    fn poll(&mut self) {
+        while let Some((request, print)) = self.printer.answer() {
+            self.asked.retain(|asked| *asked != request);
+            match print {
+                Ok(print) => {
+                    if self
+                        .answered
+                        .is_some_and(|(answered, _)| answered == request)
+                    {
+                        self.conversation = Some(print.clone());
+                        self.answered = None;
+                    }
+                    if self.prints.len() == KEPT {
+                        self.prints.pop_front();
+                    }
+                    self.prints.push_back((request, print));
+                }
+                Err(why) => {
+                    eprintln!("lamp-voice provider: request {request}: no voice print: {why}");
+                    self.unprinted(request);
+                }
+            }
+        }
+    }
+
+    fn print(&self, request: u64) -> Option<&Vec<f32>> {
+        self.prints
+            .iter()
+            .rev()
+            .find(|(of, _)| *of == request)
+            .map(|(_, print)| print)
+    }
+
+    /// How like the conversation's voice the line `request` is, when both
+    /// are known: the cosine of their prints.
+    pub fn likeness(&mut self, request: u64) -> Option<f32> {
+        self.poll();
+        cosine(self.conversation.as_ref()?, self.print(request)?)
+    }
+
+    /// The answer to the line `request` was judged: let out (`played`) or
+    /// not, as part of a conversation going on (`going_on`) or not.
+    pub fn decided(&mut self, request: u64, played: bool, going_on: bool) {
+        if !played {
+            return;
+        }
+        self.poll();
+        if let Some(print) = self.print(request) {
+            self.conversation = Some(print.clone());
+            return;
+        }
+        let coming = self.asked.contains(&request)
+            || self
+                .clip
+                .as_ref()
+                .is_some_and(|clip| clip.request == request);
+        if coming {
+            self.answered = Some((request, !going_on));
+        } else if !going_on {
+            self.conversation = None;
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Prints by the line's first sample: 1 is one voice, -1 another, 0
+    /// none to make; asked lines answered at once, unless `slow`.
+    #[derive(Default)]
+    struct StandIn {
+        slow: bool,
+        busy: bool,
+        waiting: VecDeque<(u64, Result<Vec<f32>, String>)>,
+        asked: Vec<(u64, usize)>,
+    }
+
+    impl Printer for StandIn {
+        fn ask(&mut self, request: u64, samples: &[i16]) -> bool {
+            if self.busy {
+                return false;
+            }
+            self.asked.push((request, samples.len()));
+            let print = match samples[0] {
+                1 => Ok(vec![1.0, 0.0]),
+                -1 => Ok(vec![0.0, 1.0]),
+                _ => Err("refused: none".into()),
+            };
+            self.waiting.push_back((request, print));
+            true
+        }
+        fn answer(&mut self) -> Option<(u64, Result<Vec<f32>, String>)> {
+            if self.slow {
+                return None;
+            }
+            self.waiting.pop_front()
+        }
+    }
+
+    /// The line `request` said by `voice` for `samples`, with the lamp quiet.
+    fn said(voices: &mut Voices<StandIn>, request: u64, voice: i16, samples: usize) {
+        voices.began(request, true);
+        for _ in 0..samples.div_ceil(320) {
+            voices.heard(request, &[voice; 320]);
+        }
+        voices.ended(request);
+    }
+
+    #[test]
+    fn a_line_is_judged_from_its_first_three_seconds_when_it_is_long_enough_and_said_with_the_lamp_quiet()
+     {
+        let mut voices = Voices::new(StandIn::default());
+        // 3 s and more: asked for at 3 s, before the line ends.
+        voices.began(1, true);
+        for _ in 0..150 {
+            voices.heard(1, &[1; 320]);
+        }
+        assert_eq!(voices.printer.asked, [(1, MOST_SAMPLES)]);
+        voices.ended(1);
+        // 1.5 to 3 s: asked for at its end, all of it.
+        said(&mut voices, 2, 1, 32_000);
+        // Under 1.5 s, or over the lamp: never.
+        said(&mut voices, 3, 1, 22_400);
+        voices.began(4, false);
+        voices.heard(4, &[1; 32_000]);
+        voices.ended(4);
+        assert_eq!(voices.printer.asked, [(1, MOST_SAMPLES), (2, 32_000)]);
+        // Sound of another line is not this one's.
+        voices.began(5, true);
+        voices.heard(6, &[1; 48_000]);
+        voices.ended(5);
+        assert_eq!(voices.printer.asked.len(), 2);
+    }
+
+    #[test]
+    fn another_voice_is_known_only_against_the_voice_the_lamp_last_answered() {
+        let mut voices = Voices::new(StandIn::default());
+        // No conversation yet: no verdict.
+        said(&mut voices, 1, 1, 48_000);
+        assert_eq!(voices.likeness(1), None);
+        // Daniel's call answered: his voice is the conversation's.
+        voices.decided(1, true, false);
+        said(&mut voices, 2, -1, 48_000);
+        assert_eq!(voices.likeness(2), Some(0.0));
+        said(&mut voices, 3, 1, 32_000);
+        assert_eq!(voices.likeness(3), Some(1.0));
+        // A held answer changes nothing.
+        voices.decided(2, false, false);
+        assert_eq!(voices.likeness(3), Some(1.0));
+        // A short line answered as the conversation going on keeps it.
+        said(&mut voices, 4, -1, 16_000);
+        assert_eq!(voices.likeness(4), None);
+        voices.decided(4, true, true);
+        said(&mut voices, 5, 1, 48_000);
+        assert_eq!(voices.likeness(5), Some(1.0));
+        // A short line that began a conversation of its own: no voice known.
+        said(&mut voices, 6, -1, 16_000);
+        voices.decided(6, true, false);
+        said(&mut voices, 7, 1, 48_000);
+        assert_eq!(voices.likeness(7), None);
+        // Samantha answered for her name: hers is the conversation's now.
+        said(&mut voices, 8, -1, 48_000);
+        voices.decided(8, true, false);
+        said(&mut voices, 9, 1, 48_000);
+        assert_eq!(voices.likeness(9), Some(0.0));
+    }
+
+    #[test]
+    fn a_print_that_comes_after_its_answer_still_becomes_the_conversations() {
+        let mut voices = Voices::new(StandIn {
+            slow: true,
+            ..Default::default()
+        });
+        said(&mut voices, 1, 1, 48_000);
+        voices.decided(1, true, false);
+        voices.printer.slow = false;
+        said(&mut voices, 2, -1, 48_000);
+        assert_eq!(voices.likeness(2), Some(0.0));
+        // A print refused, or a child too busy to take the line: no voice
+        // known for a conversation that line began.
+        voices.printer.slow = true;
+        said(&mut voices, 3, 0, 48_000);
+        voices.decided(3, true, false);
+        voices.printer.slow = false;
+        said(&mut voices, 4, 1, 48_000);
+        assert_eq!(voices.likeness(4), None);
+        voices.decided(4, true, false);
+        voices.printer.busy = true;
+        said(&mut voices, 5, -1, 48_000);
+        voices.decided(5, true, false);
+        voices.printer.busy = false;
+        said(&mut voices, 6, 1, 48_000);
+        assert_eq!(voices.likeness(6), None);
+    }
+
+    #[test]
+    fn the_model_path_is_absolute_and_its_flag_follows_the_spoken_to_one() {
+        assert_eq!(
+            arguments(Some(Path::new("/opt/lampOS/same-voice/campplus.onnx"))),
+            [FLAG, "/opt/lampOS/same-voice/campplus.onnx"]
+        );
+        assert!(arguments(Some(Path::new("campplus.onnx"))).is_empty());
+        assert!(arguments(None).is_empty());
+        let flags = [FLAG, "/m.onnx", "--rest"].map(str::to_owned);
+        let (model, rest) = take(&flags).unwrap();
+        assert_eq!(model.as_deref(), Some(Path::new("/m.onnx")));
+        assert_eq!(rest, ["--rest"]);
+        assert_eq!(take(&flags[2..]).unwrap(), (None, &flags[2..]));
+        assert!(take(&[FLAG.to_owned(), "m.onnx".into()]).is_err());
+        assert!(take(&[FLAG.to_owned()]).is_err());
+    }
+
+    #[test]
+    fn the_childs_answers_are_read_as_its_serving_writes_them() {
+        assert_eq!(ready(r#"{"ready":true,"loaded_ms":1800}"#), Some(1_800));
+        assert_eq!(ready(r#"{"request":1,"print":[1]}"#), None);
+        assert_eq!(
+            answer(r#"{"request":7,"print":[0.5,-0.25],"ms":75}"#, 7),
+            Ok(vec![0.5, -0.25])
+        );
+        assert!(answer(r#"{"request":7,"print":[0.5],"ms":75}"#, 8).is_err());
+        assert_eq!(
+            answer(r#"{"request":7,"error":"shorter than one frame"}"#, 7),
+            Err("refused: shorter than one frame".into())
+        );
+        assert!(answer(r#"{"request":7,"print":[]}"#, 7).is_err());
+        assert!(answer("lamp", 7).is_err());
+    }
+}

@@ -20,6 +20,7 @@ fn checked(on: bool) -> Options {
         policy_holds: None,
         wait_for_room: false,
         spoken_to: false,
+        voices: None,
     }
 }
 

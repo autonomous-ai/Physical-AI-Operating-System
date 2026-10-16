@@ -296,6 +296,7 @@ mod tests {
                         privacy_generation: 1,
                         continues: false,
                         continues_cut_off: false,
+                        over_the_lamp: false,
                     })
                     .is_err()
             );
@@ -310,6 +311,7 @@ mod tests {
                 privacy_generation: 1,
                 continues: false,
                 continues_cut_off: false,
+                over_the_lamp: false,
             })
             .unwrap();
         assert!(request.confirm_start(3).is_err());
@@ -331,6 +333,7 @@ mod tests {
                     privacy_generation: 1,
                     continues: false,
                     continues_cut_off: false,
+                    over_the_lamp: false,
                 })
                 .unwrap();
             if stage == FailedStage::AwaitingResponse {
@@ -374,6 +377,7 @@ mod tests {
                 privacy_generation: 1,
                 continues: false,
                 continues_cut_off: false,
+                over_the_lamp: false,
             })
             .unwrap();
         if ended {
@@ -731,6 +735,7 @@ mod tests {
                             privacy_generation: capture.privacy_generation,
                             continues: false,
                             continues_cut_off: false,
+                            over_the_lamp: false,
                         })
                         .unwrap();
                     fresh.confirm_start(2).unwrap();

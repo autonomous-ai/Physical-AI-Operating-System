@@ -190,11 +190,15 @@ pub fn names_arguments(value: Option<&str>) -> Vec<String> {
 /// A word with an apostrophe is kept whole, so that "It's cold" spells no
 /// "S", and a spelled run must be the name's word itself, not hold it ("I'm
 /// a teacher" spells no "Ma"; the reviewer on #1057). Accents count for
-/// nothing ("Jose" is "José", and "J O S E" spells it), and "double N" is
-/// two of them ("A, double N" spells "Ann").
+/// nothing ("Jose" is "José", and "J O S E" spells it), written as one
+/// letter or as a letter and its mark ("Đức" either way), and "double N" is
+/// two of them ("A, double N" spells "Ann"), but "double U" is W.
 pub fn said_by_them(name: &str, said: &str) -> bool {
     let words = |text: &str| -> Vec<String> {
         text.replace('\u{2019}', "'")
+            .chars()
+            .filter(|c| !('\u{300}'..='\u{36f}').contains(c))
+            .collect::<String>()
             .split(|c: char| !(c.is_alphanumeric() || c == '\''))
             .map(|word| word.trim_matches('\''))
             .filter(|word| !word.is_empty())
@@ -210,7 +214,9 @@ pub fn said_by_them(name: &str, said: &str) -> bool {
             doubled = true;
             continue;
         }
-        if word.chars().count() == 1 {
+        if doubled && word == "u" {
+            run.push('w');
+        } else if word.chars().count() == 1 {
             run.push_str(word);
             if doubled {
                 run.push_str(word);
@@ -248,8 +254,8 @@ const ACCENTED: &[(&str, char)] = &[
     ("ñńň", 'n'),
     ("òóôõöøōőơỏọồốổỗộờớởỡợ", 'o'),
     ("ŕř", 'r'),
-    ("śšş", 's'),
-    ("ťţ", 't'),
+    ("śšşș", 's'),
+    ("ťţț", 't'),
     ("ùúûüūůűưủũụừứửữự", 'u'),
     ("ýÿỳỷỹỵ", 'y'),
     ("źżž", 'z'),
@@ -873,10 +879,19 @@ mod tests {
             ("Zoe", "I'm Zoë."),
             ("Ann", "A, double N."),
             ("Phương", "Tôi là Phuong."),
+            // The reviewer's small gaps at 03:49: a letter and its mark
+            // written apart (NFD), the comma below, and "double U".
+            ("Đức", "I'm \u{110}u\u{31b}\u{301}c."),
+            ("Duc", "I'm \u{110}u\u{31b}\u{301}c."),
+            ("Ștefan", "I'm Stefan."),
+            ("Ţara", "It's Țara."),
+            ("Wu", "Double U, U."),
+            ("Lee", "L, double E."),
         ] {
             assert!(said_by_them(name, said), "{name}: {said}");
         }
         assert!(!said_by_them("Anne", "A, double N."));
+        assert!(!said_by_them("Uuu", "Double U, U."));
         assert_eq!(names_arguments(Some("checked")), [NAMES_FLAG]);
         assert!(names_arguments(Some("on")).is_empty());
         assert!(names_arguments(None).is_empty());

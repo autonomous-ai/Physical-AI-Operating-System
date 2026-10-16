@@ -1,0 +1,10 @@
+# The owner at the desk on lamp-4ace, 2026-10-16 16:43:00 to 16:44:30, made from its journal (no words): faces 0.15 to 0.24 of the picture tall, above near = 0.14. The demo's minute is up at the first face after 60 s, 16:44:04 (0.15 tall): it looks and stretches once. (On the lamp it fired at 16:43:53, its sitting having begun at 16:42:41, before this window.)
+[[expect]]
+at = "64s"
+within = "1s"
+call = "body.gaze"
+args = { look_at = "face" }
+
+[[expect]]
+call = "body.gesture"
+args = { gesture = "stretching" }

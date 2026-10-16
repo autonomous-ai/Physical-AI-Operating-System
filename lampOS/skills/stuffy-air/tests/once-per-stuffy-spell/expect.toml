@@ -1,0 +1,6 @@
+# CO2 above 1,200 ppm for 50 minutes without clearing, someone at the desk: it dims once and holds it; nothing more until the air clears.
+[[expect]]
+at = "10m"
+within = "30s"
+call = "light"
+args = { dim = 1, until = "ends" }

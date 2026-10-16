@@ -289,7 +289,10 @@ over seconds are skills.
 
 "Lamp, learn to …": the lamp hands the request to Claude Code with the lamp
 skill creator (V1's `skill-creator`, taught the topics, the services,
-`skill.toml` and the tests). Claude Code writes the skill, tests it on the
+`skill.toml` and the tests; it is `lampOS/skill-creator/`, installed into
+Claude Code as `~/.claude/skills/lamp-skill-creator`, and the skills it wrote
+first are `lampOS/skills/stretch-break/` and `lampOS/skills/stuffy-air/`).
+Claude Code writes the skill, tests it on the
 lamp's own recordings (`lamp-bus record` and `replay`), installs it, and the
 lamp shows the owner, who keeps it or asks for a change. Owners can also
 build in Claude Code or Codex on their own computer; a change reloads live

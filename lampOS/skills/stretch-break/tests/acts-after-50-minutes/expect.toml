@@ -1,0 +1,14 @@
+# Someone at the desk for 55 minutes, looking away twice for under a minute: it acts once, at about 50 minutes.
+[[expect]]
+at = "50m"
+within = "1m"
+call = "body.gaze"
+args = { look_at = "face" }
+
+[[expect]]
+call = "body.gesture"
+args = { gesture = "stretching" }
+
+[[expect]]
+call = "light"
+args = { colour = "warm", level = 2, for = "4s" }

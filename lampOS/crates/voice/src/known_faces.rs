@@ -425,10 +425,25 @@ const QUESTION: &[&str] = &[
 /// remember my name is Jim?").
 pub fn gives_a_name(said: &str) -> bool {
     let said = said.replace('\u{2019}', "'");
-    said.split_inclusive(['.', '!', '?']).any(gives_a_name_in)
+    let words: Vec<String> = said
+        .split(|c: char| !(c.is_alphanumeric() || c == '\''))
+        .filter(|word| !word.is_empty())
+        .map(str::to_lowercase)
+        .collect();
+    // Their own name, not someone else's: "his name", "your name" are not
+    // (Ten on #1224).
+    let speaks_of_my_name = words
+        .windows(2)
+        .any(|pair| pair[0] == "my" && (pair[1] == "name" || pair[1] == "name's"));
+    said.split_inclusive(['.', '!', '?'])
+        .any(|sentence| gives_a_name_in(sentence, speaks_of_my_name))
 }
 
-fn gives_a_name_in(sentence: &str) -> bool {
+/// One sentence of [`gives_a_name`]; `speaks_of_my_name`: the request
+/// speaks of their own name somewhere, so that "It's Jim." gives one ("Will
+/// you remember my name? It's Jim.", the reviewer on #1057), and "What's
+/// his name? It's Bob." none.
+fn gives_a_name_in(sentence: &str, speaks_of_my_name: bool) -> bool {
     let words: Vec<&str> = sentence
         .split(|c: char| !(c.is_alphanumeric() || c == '\''))
         .filter(|word| !word.is_empty())
@@ -454,6 +469,20 @@ fn gives_a_name_in(sentence: &str) -> bool {
             .and_then(at)
             .is_some_and(|before| ASKING.contains(&before))
     };
+    // The name first: "Jim's my name.", "Jim is my name.", never a
+    // question word or a pointing one ("What's my name?", "That is my
+    // name.").
+    let name_first = |i: usize| {
+        let word = lower[i].trim_end_matches("'s");
+        let pointing = ["that", "this", "it", "here", "there", "which"].contains(&word);
+        !pointing
+            && !QUESTION.contains(&word)
+            && match (at(i + 1), at(i + 2), at(i + 3)) {
+                (Some("my"), Some("name"), _) => lower[i].ends_with("'s") && named(i),
+                (Some("is"), Some("my"), Some("name")) => named(i),
+                _ => false,
+            }
+    };
     (0..lower.len()).any(|i| match (at(i), at(i + 1), at(i + 2)) {
         (Some("my"), Some("name"), Some("is")) => !asked(i) && named(i + 3),
         (Some("my"), Some("name's"), _) => !asked(i) && named(i + 2),
@@ -461,7 +490,13 @@ fn gives_a_name_in(sentence: &str) -> bool {
         (Some("i"), Some("am"), Some("called")) => named(i + 3),
         (Some("i'm"), _, _) => named(i + 1),
         (Some("i"), Some("am"), _) => named(i + 2),
-        _ => false,
+        // An introduction of themselves: "Lamp, this is Jim.", the name
+        // ending it. "This is Jim, my colleague." introduces someone else
+        // (Ten on #1224).
+        (Some("this"), Some("is"), _) => named(i + 2) && lower.len() == i + 3,
+        (Some("it's"), _, _) => speaks_of_my_name && named(i + 1),
+        (Some("it"), Some("is"), _) => speaks_of_my_name && named(i + 2),
+        _ => name_first(i),
     })
 }
 
@@ -882,6 +917,12 @@ mod tests {
             "Could you call me Jim from now on?",
             "Could you remember that my name is Jim?",
             "Do you remember my name is Jim?",
+            // The reviewer on #1057 at 03:49: names given with no note.
+            "Will you remember my name? It's Jim.",
+            "Lamp, this is Jim.",
+            "Jim's my name.",
+            "Jim is my name.",
+            "My name? It is Jim.",
         ] {
             assert!(gives_a_name(given), "{given}");
         }
@@ -901,6 +942,21 @@ mod tests {
             "I'm OK.",
             "I'm American.",
             "Call me Monday.",
+            // "It's …" gives a name only where a name is spoken of.
+            "It's Jim's turn.",
+            "It's Monday.",
+            "My name? It's a secret.",
+            "What's my name? It's Monday.",
+            "This is great.",
+            "Is my name right?",
+            // Ten on #1224: someone else introduced, or named.
+            "Lamp, this is Jim, my colleague.",
+            "This is Jim from accounts.",
+            "What's his name? It's Bob.",
+            "Her name? It's Anna.",
+            "What's your name? It's Lamp.",
+            "That's my name.",
+            "Who's my name for?",
         ] {
             assert!(!gives_a_name(not), "{not}");
         }

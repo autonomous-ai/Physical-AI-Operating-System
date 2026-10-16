@@ -158,12 +158,25 @@ pub fn known_from_environment() -> Option<String> {
 /// room is opened only once they have been unseen this long (#764).
 pub const GONE_AFTER: Duration = Duration::from_secs(30);
 
-/// Who is at the lamp, as the voice counts it for whose session it is: a
-/// different known person counts at once, nobody only after [`GONE_AFTER`].
+/// A different known person counts only once the eyes have known them,
+/// and not the one at the lamp, this long. On lamp-4ace on 16 October from
+/// 16:06 the eyes flipped the owner between two names kept for one face,
+/// and each flip opened a new session: the lamp was deaf to them (the first
+/// builder, #705, 16:09). A person who sits down in someone's place keeps
+/// on being known as themselves, so they count after this.
+pub const SOMEONE_ELSE_AFTER: Duration = Duration::from_secs(10);
+
+/// Who is at the lamp, as the voice counts it for whose session it is:
+/// someone known counts at once when nobody was, a different known person
+/// only after [`SOMEONE_ELSE_AFTER`] of being known with the one at the
+/// lamp unseen, and nobody only after [`GONE_AFTER`].
 #[derive(Default)]
 pub struct Presence {
     who: Option<String>,
     seen_at: Option<Instant>,
+    /// Someone else known, and since when, while the one at the lamp has
+    /// not been seen.
+    other: Option<(String, Instant)>,
 }
 
 impl Presence {
@@ -171,9 +184,22 @@ impl Presence {
     /// the lamp after it.
     pub fn seen(&mut self, known: Option<String>, now: Instant) -> Option<&str> {
         match known {
+            Some(who) if self.who.as_ref().is_some_and(|at| *at != who) => match &self.other {
+                Some((other, since))
+                    if *other == who
+                        && now.saturating_duration_since(*since) >= SOMEONE_ELSE_AFTER =>
+                {
+                    self.who = Some(who);
+                    self.seen_at = Some(now);
+                    self.other = None;
+                }
+                Some((other, _)) if *other == who => {}
+                _ => self.other = Some((who, now)),
+            },
             Some(who) => {
                 self.who = Some(who);
                 self.seen_at = Some(now);
+                self.other = None;
             }
             None if self
                 .seen_at
@@ -253,7 +279,7 @@ mod tests {
     }
 
     #[test]
-    fn a_known_person_looking_away_is_still_there_and_another_counts_at_once() {
+    fn a_known_person_looking_away_is_still_there_and_another_counts_once_known_10_s() {
         let start = Instant::now();
         let at = |seconds: u64| start + Duration::from_secs(seconds);
         let mut presence = Presence::default();
@@ -265,9 +291,20 @@ mod tests {
         assert_eq!(presence.seen(Some("a".into()), at(31)), Some("a"));
         assert_eq!(presence.seen(None, at(60)), Some("a"));
         assert_eq!(presence.seen(None, at(61)), None);
-        // Someone else counts as soon as the eyes know them.
+        // Someone known counts as soon as the eyes know them when nobody was.
         assert_eq!(presence.seen(Some("a".into()), at(62)), Some("a"));
-        assert_eq!(presence.seen(Some("b".into()), at(63)), Some("b"));
+        // Someone else only once known 10 s with "a" unseen: a face flipping
+        // between two names kept for it never counts as someone else.
+        for second in [63, 66, 70, 72] {
+            assert_eq!(presence.seen(Some("b".into()), at(second)), Some("a"));
+        }
+        assert_eq!(presence.seen(Some("a".into()), at(73)), Some("a"));
+        assert_eq!(presence.seen(Some("b".into()), at(74)), Some("a"));
+        assert_eq!(presence.seen(Some("b".into()), at(83)), Some("a"));
+        assert_eq!(presence.seen(Some("b".into()), at(84)), Some("b"));
+        // And "a" again, as someone else, only after 10 s.
+        assert_eq!(presence.seen(Some("a".into()), at(85)), Some("b"));
+        assert_eq!(presence.seen(Some("a".into()), at(95)), Some("a"));
     }
 
     #[test]

@@ -1351,40 +1351,44 @@ mod tests {
         assert!(!room.contains("417"), "{room}");
         assert!(room.contains("Not yet."), "the room's own: {room}");
         assert!(!thread.switch_due(at(124)));
-        // (c) Minh, then Sam at once: Sam's session has only Sam's.
+        // (c) Minh, then Sam in their place: once the eyes have known Sam
+        // for 10 s with Minh unseen (`SOMEONE_ELSE_AFTER`), Sam's session
+        // has only Sam's.
         seen(&mut thread, Some(&a), at(130));
         opened(&mut thread, at(130));
         seen(&mut thread, Some(&b), at(131));
-        assert!(thread.switch_now(false, false, at(131)));
+        assert!(!thread.switch_now(false, false, at(131)));
+        seen(&mut thread, Some(&b), at(141));
         // (e) Sam speaks before the switch: deferred while the turn is open
         // or its answer is still being handed on, and the exchange is Sam's.
-        thread.person("What is my locker code?", true, at(132));
+        thread.person("What is my locker code?", true, at(142));
         assert!(
-            !thread.switch_now(true, false, at(132)) && !thread.switch_now(false, true, at(132))
+            !thread.switch_now(true, false, at(142)) && !thread.switch_now(false, true, at(142))
         );
-        thread.lamp(3, "I don't remember.", at(133));
-        assert!(thread.switch_now(false, false, at(133)));
-        let sam = opened(&mut thread, at(134));
+        thread.lamp(3, "I don't remember.", at(143));
+        assert!(thread.switch_now(false, false, at(143)));
+        let sam = opened(&mut thread, at(144));
         assert!(!sam.contains("417") && !sam.contains("Not yet."), "{sam}");
         assert!(sam.contains("I don't remember."), "{sam}");
         // (d) Minh comes back: their thread is there again.
-        seen(&mut thread, Some(&a), at(140));
-        let back = opened(&mut thread, at(140));
+        seen(&mut thread, Some(&a), at(150));
+        seen(&mut thread, Some(&a), at(160));
+        let back = opened(&mut thread, at(160));
         assert!(back.contains("Kept: 417."), "{back}");
         assert!(!back.contains("I don't remember.") && !back.contains("Not yet."));
         // The file keeps whose each exchange is, as a memory id only.
-        let text = thread.save(at(141), SystemTime::now()).unwrap();
+        let text = thread.save(at(161), SystemTime::now()).unwrap();
         assert!(text.contains(&a) && text.contains(&b) && !text.contains("Minh"));
-        let mut read = Thread::load(&text, at(141), SystemTime::now());
+        let mut read = Thread::load(&text, at(161), SystemTime::now());
         read.at_lamp(Some(b.clone()));
-        read.opening(at(141));
-        let told = read.recall(at(141), ROOM).unwrap();
+        read.opening(at(161));
+        let told = read.recall(at(161), ROOM).unwrap();
         assert!(told.contains("I don't remember.") && !told.contains("417"));
         let forged = text.replace(&a, "../Minh");
-        let mut read = Thread::load(&forged, at(141), SystemTime::now());
+        let mut read = Thread::load(&forged, at(161), SystemTime::now());
         read.at_lamp(Some("../Minh".into()));
-        read.opening(at(141));
-        assert_eq!(read.recall(at(141), ROOM), None);
+        read.opening(at(161));
+        assert_eq!(read.recall(at(161), ROOM), None);
     }
 
     /// The exchanges a route gives a model as messages: the person's only,

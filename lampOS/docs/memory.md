@@ -387,10 +387,14 @@ So, with the same switch (a memory and `LAMP_EYES_WHO_SOCKET`), each
 provider session is one person's:
 
 - **Who is at the lamp** is read from the known file every 500 ms
-  (`known_faces::Presence`). A different known name counts at once; nobody
-  counts only after 30 s without a fresh file (`GONE_AFTER`): the eyes
-  renew it within 3 s while they see the face, so looking away for a few
-  seconds is not a change.
+  (`known_faces::Presence`). Someone known counts at once when nobody was.
+  A different known name counts only once the file has given it for 10 s
+  with the person at the lamp unseen (`SOMEONE_ELSE_AFTER`): on lamp-4ace
+  on 16 October from 16:06 the eyes flipped the owner between two names
+  kept for one face, each flip opened a new session, and the lamp was deaf
+  to them. Nobody counts only after 30 s without a fresh file
+  (`GONE_AFTER`): the eyes renew it within 3 s while they see the face, so
+  looking away for a few seconds is not a change.
 - **Nobody ends a person's session only when it has gone quiet**: after the
   30 s unseen, and also two minutes with no exchange in the thread
   (`QUIET_BEFORE_ROOM`) and no turn open. Recognition needs the face, and

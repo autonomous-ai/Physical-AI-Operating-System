@@ -1448,7 +1448,7 @@ async fn serve_with_visual<C: Connect>(
                     }
                 }
                 // Whose session it is: the person at the lamp changed (gone
-                // 30 s, or someone else known), so a new session is opened
+                // 30 s, or someone else known for 10 s), so a new session is opened
                 // for them, told only their thread and kept things. Asked
                 // only between turns, and the session itself waits until
                 // nothing is owed on it, so it never cuts anyone off.

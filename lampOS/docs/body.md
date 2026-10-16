@@ -1196,8 +1196,9 @@ it as often as they like.
   where it gave way, and then to the pose its mood wants.
 
 **`--limp on` (with `--give-way`; on unless given while it gives way, since #703, and off with `--give-way off`): a hand makes the
-lamp slump, as V1 did.** For the hardware team's wish that the lamp meets a
-hand hard enough to strain a servo as the old runtime did. Until 2026-10-14 a joint that gave way only had its
+lamp slump, as V1 did.** The hardware team's requirement: the lamp must
+slump rather than let a servo be damaged. Under a hand that would strain a
+servo it lets go, as the old runtime did, and never holds on. Until 2026-10-14 a joint that gave way only had its
 goal set to where it was, its torque left on. On lamp-52e6 that day, run
 with `--give-way stay --overload release`, a person could not push the
 head at all and feared breaking it: the journal shows the roll moved from

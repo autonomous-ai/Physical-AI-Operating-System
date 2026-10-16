@@ -62,6 +62,10 @@ fn well() -> Reading {
         unread: Vec::new(),
         judged: Vec::new(),
         cpu_caps: Vec::new(),
+        throttled_for: None,
+        busiest: Vec::new(),
+        processes: Vec::new(),
+        cpu_ticks: None,
     }
 }
 

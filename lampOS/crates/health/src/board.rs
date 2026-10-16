@@ -44,12 +44,18 @@ pub const WARN_WITHOUT_TRIPS_C: i64 = 80;
 /// And an error from here: where the board's processor zones have their
 /// second passive trip point.
 pub const ERROR_WITHOUT_TRIPS_C: i64 = 90;
-/// A processor zone this hot is a warning, whatever trip points it names
-/// (the first builder, 2026-10-16: lamp-4ace's processor zones read 86 to
-/// 89 °C from 16:01 with the owner at the lamp, its first trip at 90, and at
-/// 16:38 a voice worker held up past its bounds exited). Said from every
-/// processor zone, judged or not ([`Places::judged`]).
-pub const CPU_WARN_C: i64 = 85;
+/// A processor zone this hot is a warning, whatever trip points it names.
+/// The hardware side (via the owner, 2026-10-16 16:53): the big cores run
+/// around 85 °C normally, and only above 95 is it worth worrying about;
+/// lamp-4ace peaked at 96 that afternoon. Said from every processor zone,
+/// judged or not ([`Places::judged`]).
+pub const CPU_WARN_C: i64 = 95;
+/// The clock held below its maximum this long is an error: a board that
+/// keeps slowing the lamp down, not one that touched its limit once.
+pub const THROTTLED_ERROR_AFTER: std::time::Duration = std::time::Duration::from_secs(60);
+/// How many of the busiest processes a heat finding names.
+pub const BUSIEST: usize = 3;
+const MOST_PROCESSES: usize = 4_096;
 /// The zones that are the processors', by how their names begin.
 pub const CPU_ZONES: &str = "cpu";
 /// Less of the disk free than this is a warning: logs, recordings and
@@ -198,6 +204,64 @@ pub struct Reading {
     pub judged: Vec<String>,
     /// Each processor group's cap; empty where the board has no cpufreq.
     pub cpu_caps: Vec<CpuCap>,
+    /// How long a processor group has been held back, by [`Watch`]; `None`
+    /// when it is not, or nothing watched.
+    pub throttled_for: Option<std::time::Duration>,
+    /// The busiest processes since the last reading, by [`Watch`]: name and
+    /// share of one core, the busiest first.
+    pub busiest: Vec<(String, f32)>,
+    /// Every process's CPU time (pid, name, ticks) and the processors' total
+    /// ticks with their count, for [`Watch`].
+    pub processes: Vec<(u32, String, u64)>,
+    pub cpu_ticks: Option<(u64, u32)>,
+}
+
+/// What one reading cannot know: since when the processors have been held
+/// back, and which processes used them since the last reading. The lamp's
+/// board reader keeps one ([`crate::serve::board_reader`]).
+#[derive(Debug, Default)]
+pub struct Watch {
+    throttled_since: Option<std::time::Instant>,
+    last: Option<((u64, u32), std::collections::HashMap<u32, u64>)>,
+}
+
+impl Watch {
+    /// Fill in `reading`'s [`Reading::throttled_for`] and [`Reading::busiest`].
+    pub fn observe(&mut self, reading: &mut Reading, now: std::time::Instant) {
+        if reading.throttled().is_some() {
+            let since = *self.throttled_since.get_or_insert(now);
+            reading.throttled_for = Some(now.saturating_duration_since(since));
+        } else {
+            self.throttled_since = None;
+            reading.throttled_for = None;
+        }
+        let ticks: std::collections::HashMap<u32, u64> = reading
+            .processes
+            .iter()
+            .map(|(pid, _, ticks)| (*pid, *ticks))
+            .collect();
+        if let (Some(((total_before, _), before)), Some((total, cores))) =
+            (&self.last, reading.cpu_ticks)
+        {
+            let elapsed = total.saturating_sub(*total_before) as f32 / cores.max(1) as f32;
+            if elapsed > 0.0 {
+                let mut busiest: Vec<(String, f32)> = reading
+                    .processes
+                    .iter()
+                    .filter_map(|(pid, name, now)| {
+                        let used = now.saturating_sub(*before.get(pid)?);
+                        (used > 0).then(|| (name.clone(), used as f32 / elapsed))
+                    })
+                    .collect();
+                busiest.sort_by(|a, b| b.1.total_cmp(&a.1));
+                busiest.truncate(BUSIEST);
+                reading.busiest = busiest;
+            }
+        }
+        if let Some(total) = reading.cpu_ticks {
+            self.last = Some((total, ticks));
+        }
+    }
 }
 
 /// One thing that is not as it should be.
@@ -317,14 +381,28 @@ impl Reading {
             })
     }
 
-    /// What the board says of its processors' heat: an error once they are
-    /// held back to cool, a warning from [`CPU_WARN_C`].
+    /// What the board says of its processors' heat: an error once they have
+    /// been held back for [`THROTTLED_ERROR_AFTER`], a warning from
+    /// [`CPU_WARN_C`]; either names the busiest processes.
     fn cpu_finding(&self) -> Option<Finding> {
         let zone = self.hottest_cpu();
         let hot = zone.map(|zone| format!("{} at {} °C", zone.name, degrees(zone.milli_c)));
-        if let Some(cap) = self.throttled() {
+        let busiest = if self.busiest.is_empty() {
+            String::new()
+        } else {
+            let each: Vec<String> = self
+                .busiest
+                .iter()
+                .map(|(name, share)| format!("{name} {}", percent(*share)))
+                .collect();
+            format!("; busiest: {}", each.join(", "))
+        };
+        if let (Some(cap), Some(held)) = (self.throttled(), self.throttled_for)
+            && held >= THROTTLED_ERROR_AFTER
+        {
             return error(format!(
-                "the processors are held back to cool: {} may run at {} of {} MHz{}",
+                "the processors have been held back to cool for {} s: {} may run at {} of {} MHz{}{busiest}",
+                held.as_secs(),
                 cap.policy,
                 cap.max_khz / 1_000,
                 cap.hardware_khz / 1_000,
@@ -333,15 +411,15 @@ impl Reading {
         }
         let zone = zone.filter(|zone| zone.milli_c >= CPU_WARN_C * 1_000)?;
         warn(match next_trip(zone) {
-            Some(trip) => format!(
-                "the processors are hot: {} °C at {}, {} below the board's trip at {}",
+            Some(trip) if trip > zone.milli_c => format!(
+                "the processors are hot: {} °C at {}, {} below the board's trip at {}{busiest}",
                 degrees(zone.milli_c),
                 zone.name,
                 degrees(trip - zone.milli_c),
                 degrees(trip)
             ),
-            None => format!(
-                "the processors are hot: {} °C at {}",
+            _ => format!(
+                "the processors are hot: {} °C at {}{busiest}",
                 degrees(zone.milli_c),
                 zone.name
             ),
@@ -474,6 +552,9 @@ impl Reading {
             if let Some(cap) = self.throttled() {
                 value("cpu_max_mhz", (cap.max_khz / 1_000).to_string());
                 value("cpu_hardware_mhz", (cap.hardware_khz / 1_000).to_string());
+            }
+            if let Some(held) = self.throttled_for {
+                value("throttled_s", held.as_secs().to_string());
             }
         }
         Diagnostic {
@@ -733,7 +814,57 @@ pub fn read(places: &Places) -> Reading {
         unread,
         judged: places.judged.clone(),
         cpu_caps: cpu_caps(&places.sys),
+        throttled_for: None,
+        busiest: Vec::new(),
+        processes: processes(&places.proc),
+        cpu_ticks: cpu_ticks(&places.proc),
     }
+}
+
+/// The processors' total ticks from `stat`'s `cpu` line, and how many
+/// processors its `cpuN` lines name.
+fn cpu_ticks(proc: &Path) -> Option<(u64, u32)> {
+    let stat = text(&proc.join("stat")).ok()?;
+    let mut lines = stat.lines();
+    let total: u64 = lines
+        .next()?
+        .strip_prefix("cpu ")?
+        .split_whitespace()
+        .filter_map(|field| field.parse::<u64>().ok())
+        .sum();
+    let cores = stat
+        .lines()
+        .filter(|line| {
+            line.strip_prefix("cpu")
+                .is_some_and(|rest| rest.starts_with(|c: char| c.is_ascii_digit()))
+        })
+        .count() as u32;
+    (total > 0 && cores > 0).then_some((total, cores))
+}
+
+/// Each process's name and CPU time (`utime` + `stime`) from `N/stat`.
+fn processes(proc: &Path) -> Vec<(u32, String, u64)> {
+    let Ok(entries) = fs::read_dir(proc) else {
+        return Vec::new();
+    };
+    entries
+        .flatten()
+        .filter_map(|entry| {
+            let pid: u32 = entry.file_name().to_str()?.parse().ok()?;
+            let stat = text(&entry.path().join("stat")).ok()?;
+            // The name is in parentheses and may hold spaces or parentheses.
+            let name = stat.get(stat.find('(')? + 1..stat.rfind(')')?)?.to_owned();
+            let fields: Vec<&str> = stat
+                .get(stat.rfind(')')? + 1..)?
+                .split_whitespace()
+                .collect();
+            // After the name: state is field 3, utime 14 and stime 15.
+            let utime: u64 = fields.get(11)?.parse().ok()?;
+            let stime: u64 = fields.get(12)?.parse().ok()?;
+            Some((pid, name, utime + stime))
+        })
+        .take(MOST_PROCESSES)
+        .collect()
 }
 
 /// Each `policyN` under `devices/system/cpu/cpufreq` with both numbers, by

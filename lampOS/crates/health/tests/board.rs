@@ -33,6 +33,10 @@ fn well() -> Reading {
         unread: Vec::new(),
         judged: Vec::new(),
         cpu_caps: Vec::new(),
+        throttled_for: None,
+        busiest: Vec::new(),
+        processes: Vec::new(),
+        cpu_ticks: None,
     }
 }
 
@@ -802,6 +806,10 @@ fn the_report_is_the_worst_finding_and_of_two_as_bad_the_first() {
         unread: Vec::new(),
         judged: Vec::new(),
         cpu_caps: Vec::new(),
+        throttled_for: None,
+        busiest: Vec::new(),
+        processes: Vec::new(),
+        cpu_ticks: None,
     };
     assert_eq!(
         said(&reading),
@@ -890,68 +898,174 @@ fn processors_at(milli_c: i64) -> Reading {
     Reading {
         zones: vec![
             zone("skin_zone", 37_000, &[], None),
-            zone("cpub_thermal_zone", milli_c, &[90_000], Some(110_000)),
+            zone("cpub_thermal_zone", milli_c, &[100_000], Some(110_000)),
         ],
         ..well()
     }
 }
 
-/// The first builder, 2026-10-16: lamp-4ace's processors at 86 to 89 °C,
-/// its first trip at 90. From 85 °C the board says so, with the zone and the
-/// trip it is nearest, whatever the zone names; below, nothing.
+/// The hardware side (via the owner, 2026-10-16 16:53): the big cores run
+/// around 85 °C, and from 95 it is worth saying, with the trip they are
+/// nearest and the busiest processes; below, nothing.
 #[test]
-fn hot_processors_are_a_warning_from_85_with_the_trip_they_are_nearest() {
-    assert_eq!(said(&processors_at(84_900)), (Level::Ok, String::new()));
-    let hot = processors_at(86_000);
+fn hot_processors_are_a_warning_from_95_naming_the_busiest() {
+    assert_eq!(said(&processors_at(94_900)), (Level::Ok, String::new()));
+    let mut hot = processors_at(96_000);
+    hot.busiest = vec![
+        ("lamp-eyes".into(), 0.44),
+        ("lamp-voice".into(), 0.20),
+        ("lamp-turn-end".into(), 0.14),
+    ];
     assert_eq!(
         said(&hot),
         (
             Level::Warn,
-            "the processors are hot: 86 °C at cpub_thermal_zone, 4 below the board's trip at 90"
+            "the processors are hot: 96 °C at cpub_thermal_zone, 4 below the board's trip at 100; busiest: lamp-eyes 44%, lamp-voice 20%, lamp-turn-end 14%"
                 .into()
         )
     );
     let report = hot.report();
     assert_eq!(value(&report, "cpu_zone"), Some("cpub_thermal_zone"));
-    assert_eq!(value(&report, "cpu_c"), Some("86.0"));
-    assert_eq!(value(&report, "cpu_next_trip_c"), Some("90"));
+    assert_eq!(value(&report, "cpu_c"), Some("96.0"));
+    assert_eq!(value(&report, "cpu_next_trip_c"), Some("100"));
     assert_eq!(value(&report, "throttled"), None, "no cpufreq read");
 }
 
-/// Once a processor group is held below what it can do, the board is
-/// cooling itself by slowing the lamp: an error, with how far, whatever the
-/// heat. Not held, it says so too.
+/// A processor group held below what it can do for a minute is an error:
+/// the board keeps slowing the lamp down. Held for less, it is only said in
+/// the values; not held, `throttled` is false.
 #[test]
-fn processors_held_back_to_cool_are_an_error() {
+fn processors_held_back_for_a_minute_are_an_error() {
     let mut reading = processors_at(93_000);
     reading.cpu_caps = vec![
         board::CpuCap {
             policy: "policy0".into(),
-            max_khz: 1_800_000,
-            hardware_khz: 1_800_000,
+            max_khz: 1_794_000,
+            hardware_khz: 1_794_000,
         },
         board::CpuCap {
-            policy: "policy4".into(),
+            policy: "policy6".into(),
             max_khz: 1_792_000,
-            hardware_khz: 2_016_000,
+            hardware_khz: 2_002_000,
         },
     ];
+    reading.throttled_for = Some(std::time::Duration::from_secs(30));
+    assert_eq!(
+        said(&reading),
+        (Level::Ok, String::new()),
+        "not yet a minute"
+    );
+    assert_eq!(value(&reading.report(), "throttled"), Some("true"));
+    assert_eq!(value(&reading.report(), "throttled_s"), Some("30"));
+    reading.throttled_for = Some(board::THROTTLED_ERROR_AFTER);
+    reading.busiest = vec![("lamp-eyes".into(), 0.44)];
     assert_eq!(
         said(&reading),
         (
             Level::Error,
-            "the processors are held back to cool: policy4 may run at 1792 of 2016 MHz, cpub_thermal_zone at 93 °C"
+            "the processors have been held back to cool for 60 s: policy6 may run at 1792 of 2002 MHz, cpub_thermal_zone at 93 °C; busiest: lamp-eyes 44%"
                 .into()
         )
     );
     let report = reading.report();
-    assert_eq!(value(&report, "throttled"), Some("true"));
     assert_eq!(value(&report, "cpu_max_mhz"), Some("1792"));
-    assert_eq!(value(&report, "cpu_hardware_mhz"), Some("2016"));
-    reading.cpu_caps[1].max_khz = 2_016_000;
+    assert_eq!(value(&report, "cpu_hardware_mhz"), Some("2002"));
+    reading.cpu_caps[1].max_khz = 2_002_000;
+    reading.throttled_for = None;
     reading.zones[1].milli_c = 60_000;
     assert_eq!(said(&reading), (Level::Ok, String::new()));
     assert_eq!(value(&reading.report(), "throttled"), Some("false"));
+}
+
+/// The watch the lamp's reader keeps: how long the cap has held, from the
+/// first reading that showed it until one that does not; and the processes'
+/// share of one core between two readings, the busiest first, three at most.
+#[test]
+fn the_watch_counts_the_held_time_and_finds_the_busiest() {
+    use std::time::{Duration, Instant};
+    let capped = |held: bool, ticks: [(u32, &str, u64); 4], total: u64| Reading {
+        cpu_caps: vec![board::CpuCap {
+            policy: "policy6".into(),
+            max_khz: if held { 1_792_000 } else { 2_002_000 },
+            hardware_khz: 2_002_000,
+        }],
+        processes: ticks
+            .iter()
+            .map(|(pid, name, t)| (*pid, name.to_string(), *t))
+            .collect(),
+        cpu_ticks: Some((total, 8)),
+        ..processors_at(90_000)
+    };
+    let mut watch = board::Watch::default();
+    let start = Instant::now();
+    let mut first = capped(
+        true,
+        [
+            (1, "lamp-eyes", 100),
+            (2, "lamp-voice", 50),
+            (3, "lamp-turn-end", 10),
+            (4, "sleepy", 5),
+        ],
+        8_000,
+    );
+    watch.observe(&mut first, start);
+    assert_eq!(first.throttled_for, Some(Duration::ZERO));
+    assert!(first.busiest.is_empty(), "nothing to compare with yet");
+    // 800 ticks across 8 cores later: 100 a core.
+    let mut second = capped(
+        true,
+        [
+            (1, "lamp-eyes", 144),
+            (2, "lamp-voice", 70),
+            (3, "lamp-turn-end", 24),
+            (4, "sleepy", 6),
+        ],
+        8_800,
+    );
+    watch.observe(&mut second, start + Duration::from_secs(70));
+    assert_eq!(second.throttled_for, Some(Duration::from_secs(70)));
+    let busiest: Vec<(&str, u32)> = second
+        .busiest
+        .iter()
+        .map(|(name, share)| (name.as_str(), (share * 100.0).round() as u32))
+        .collect();
+    assert_eq!(
+        busiest,
+        [("lamp-eyes", 44), ("lamp-voice", 20), ("lamp-turn-end", 14)]
+    );
+    let mut third = capped(
+        false,
+        [
+            (1, "lamp-eyes", 150),
+            (2, "lamp-voice", 71),
+            (3, "lamp-turn-end", 25),
+            (4, "sleepy", 6),
+        ],
+        9_600,
+    );
+    watch.observe(&mut third, start + Duration::from_secs(75));
+    assert_eq!(third.throttled_for, None, "no longer held");
+}
+
+/// Each process's CPU time is read from `N/stat`, its name kept whole even
+/// with spaces and parentheses in it; the processors' ticks from `stat`.
+#[test]
+fn processes_and_the_processors_ticks_are_read_from_proc() {
+    let tree = Tree::real_board("busiest");
+    tree.file(
+        "proc/123/stat",
+        "123 (lamp (voice) x) S 1 1 1 0 -1 4194560 100 0 0 0 40 2 0 0 20 0 9 0 50 0 0\n",
+    );
+    tree.file("proc/124/stat", "garbage\n");
+    let reading = board::read(&tree.places());
+    assert!(
+        reading
+            .processes
+            .contains(&(123, "lamp (voice) x".into(), 42))
+    );
+    assert!(reading.processes.iter().all(|(pid, _, _)| *pid != 124));
+    let (total, cores) = reading.cpu_ticks.expect("the real board's stat");
+    assert!(total > 0 && cores > 0);
 }
 
 /// The caps are read from `devices/system/cpu/cpufreq/policyN`, by number;

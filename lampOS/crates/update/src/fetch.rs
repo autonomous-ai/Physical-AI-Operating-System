@@ -165,8 +165,13 @@ pub fn lookup_within(
     std::thread::Builder::new()
         .name("lamp-update-lookup".into())
         .spawn(move || {
-            let _counted = counted;
-            let _ = tell.send(lookup(&name, port));
+            let answer = lookup(&name, port);
+            // Counted out before the answer is handed over, so whoever has
+            // the answer finds the lookup ended (ARM64 run 38883914124 saw
+            // it still counted). A lookup that panics is counted out as
+            // the closure unwinds.
+            drop(counted);
+            let _ = tell.send(answer);
         })
         .map_err(|error| format!("{host}: {error}"))?;
     match told.recv_timeout(limit) {
@@ -582,6 +587,20 @@ mod tests {
         );
         assert!(refused.unwrap_err().contains("no such name"));
         assert_eq!(RUNNING.load(Ordering::Acquire), 0);
+        // Whoever has an answer finds the lookup ended, every time: before,
+        // the count went down only after the answer was handed over.
+        for _ in 0..200 {
+            let answered = lookup_within(
+                "updates.example",
+                443,
+                Duration::from_secs(2),
+                &RUNNING,
+                1,
+                |_, _| Ok(Vec::new()),
+            );
+            assert_eq!(answered, Ok(Vec::new()));
+            assert_eq!(RUNNING.load(Ordering::Acquire), 0);
+        }
     }
 
     /// A server that gives each connection the next answer, as written,

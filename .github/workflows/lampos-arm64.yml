@@ -65,8 +65,8 @@ jobs:
     # stopped in `cargo build` fetching a crate, before its tests; the other
     # shards ran theirs. The failures were curl 55 (SSL_ERROR_SYSCALL) in two
     # (#788) and "[16] Error in the HTTP2 framing layer" in the third. With
-    # these, cargo fetches over HTTP/1.1 and tries a download ten times, not
-    # three.
+    # these, cargo fetches over HTTP/1.1 and retries a network request up to
+    # ten times, not three (`net.retry`).
     env:
       CARGO_HTTP_MULTIPLEXING: 'false'
       CARGO_NET_RETRY: '10'

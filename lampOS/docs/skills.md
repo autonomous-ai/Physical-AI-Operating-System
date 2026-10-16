@@ -153,7 +153,7 @@ must not leave a step silently undone)*.
 | `do.body.look_at` | no | Only `"face"`. The largest face in view goes to the body's `gaze.sock` as the eyes send one (`{"face":{"x","y","size","turned":0}}`) |
 | `do.body.gesture` | no | One of the body's six gestures (`nod`, `headshake`, `greeting`, `laugh`, `shy`, `stretching`), sent to `mood.sock` as `{"gesture":NAME}` |
 | `do.body.mood` + `do.body.for` | no | A pose held: only `"reading"` (#1011: the head looks down at the desk and the arm leans forward). Sent to `mood.sock` as `{"mood":"reading","level":0}` when the step is made and again every second for `for` (more than 0, at most `2m`); the body lets it go 1.5 s after the last, and comes back. One without the other is refused |
-| `do.light` | no | A file in `lights/`, written as its name, or a table in place. A file `lights/NAME.toml` holds the same keys. `{ colour, level, for }` asks the actions part for `light_colour`, then steps the light to `level` (1 to 5) with `light_brighter` or `light_dimmer` calls, counted from the level `light/state` shows; with that level not known it is left and the run says so. `for` holds the light in a run with no say. `{ dim = N, until = "ends" }` asks for `light_dimmer` N times. A light is held until the run ends (the say ends, or the run's longest `for`) and is then given back; `until = "ends"` says so of a dim |
+| `do.light` | no | A file in `lights/`, written as its name, or a table in place. A file `lights/NAME.toml` holds the same keys. `{ colour, level, for }` asks the actions part for `light_colour`, then steps the light to `level` (1 to 5) with `light_brighter` or `light_dimmer` calls, counted from the level `light/state` shows; with that level not known it is left and the run says so. `for` holds the light in a run with no say. `{ dim = N, until = "ends" }` asks for `light_dimmer` N times. A light is held until the run ends (the say ends, or the run's longest `for`) and is then given back; `until = "ends"` says so of a dim. With `LAMP_LIGHT_REQUESTS=on` it is asked of the ring instead, and the person's light is never touched (#940, below) |
 | `do.say` | no | A note for the voice to say in its own words, through the voice's say service (#954). One a skill. The run's other steps are made, in their order, when the voice begins the say, so the look and the light come with the words, and none if it is never begun. A light changed is given back when the say ends. In a tool's run the note goes to the model in the call's answer instead. Or `{ from = "schedule" }` or `{ from = "tasks" }`: words the voice keeps itself and says when asked, the reminder due or the news of work handed over (#939, (c), the first builder's 12:32). The voice keeps the words and their delivery (a reminder's acknowledgement, news told once); the skill says when, and moves and lights with them as with a note. Sent to the say service as `from` in place of `note`, at priority 8 for `schedule` and 5 for `tasks`. Any other `from`, another key beside it, or a `from` in a skill with a `tool` refuses the skill: what the voice keeps is said when a trigger starts the skill, never from the model's call (Fourth on #1033) |
 | `do.look` | no | `true`: the voice's full look (#836). Only in a skill with a `tool` and no trigger: the call's answer tells the model to say "Let me take a look.", and the voice takes the look it already takes when the lamp says so, its still in the model's next turn |
 
@@ -294,6 +294,24 @@ As built on 2026-10-16 (#938, `crates/skills`, not yet run on a lamp):
   the one before. A dim at the lowest level that changed nothing is given
   back as nothing. If `light/state` has said nothing for 3 s, a light step
   is left out: a skill never leaves someone's light changed.
+- **With `LAMP_LIGHT_REQUESTS=on`** (on `lamp-skills` and on the voice,
+  whose ring takes them; #940), a skill never touches the person's light.
+  Each light step is asked of the ring on `light/request` from
+  `skill:<name>` (cut to 64 characters) at `skill` priority, on the host's
+  boot clock (`--boot-id` on a development host): a colour at its `level`,
+  or at the level the light has (3, the middle, when that is not known, so
+  a skill that needs a level names it); a dim steps down from the light so
+  far, never below 1, and is left out when no light is on. Each ask holds 15 s and is asked again every 10 s while the
+  run keeps the light, the same while as above; at the end it is given back
+  by asking with a time already passed, and the ring shows the person's
+  light again by itself. A person who asks for their light meanwhile ends
+  the glow at once (the ring's rule). With nothing taking `light/request`
+  (looked at on each step, so a ring that starts during a run is asked from
+  the next step), a light step is left out and `done` says the ring needs
+  the switch. The
+  actions part is not called for the light. `done` says
+  `light warm: asked of the ring at level 5` and
+  `light given back: asked again with a time already passed`.
 - `done` says how each step went: `look at the face: told the body`,
   `light warm: done`, `say: spoken`, `light given back to on blue at 3:
   done`, or why not.
@@ -321,10 +339,10 @@ What is not done, and why:
   lamp listens or speaks, three in a row, so one datagram does not turn the
   head by itself; with the eyes' own stream it turns as the hello is
   spoken. A move the body plays on request is Third's (move files).
-- **The light is given back by hand.** Two skills changing the light at
-  once, or a person changing it during a hello, are not arbitrated; the
-  give-back sets the light seen before the run. A request that lapses is
-  Third's arbitration (#940).
+- **Without `LAMP_LIGHT_REQUESTS=on`, the light is given back by hand.**
+  Two skills changing the light at once, or a person changing it during a
+  hello, are not arbitrated; the give-back sets the light seen before the
+  run. With the switch, the ring arbitrates (above).
 
 ### Four additions to V2
 

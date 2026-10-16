@@ -15,6 +15,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
+pub mod glow;
+
 /// What the body plays by name on its mood socket (`crates/body/src/clips/data.rs`;
 /// `idle` is its own).
 pub const GESTURES: [&str; 6] = ["nod", "headshake", "greeting", "laugh", "shy", "stretching"];

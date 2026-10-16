@@ -744,7 +744,11 @@ async fn answer(shared: &Shared, request: u64, said: String, heard: bool) {
                         text.push_str(&piece);
                         // The model has chosen to speak: the announcement
                         // need not wait for its first sentence.
-                        if piece.chars().any(char::is_alphanumeric) {
+                        // A call written as words opens nothing: no
+                        // announcement for it (lamp-4ace, 17:12).
+                        if piece.chars().any(char::is_alphanumeric)
+                            && !crate::not_speech::names_a_function(&text)
+                        {
                             queue.announce().await?;
                         }
                         let mut sentences = split.push(&piece);
@@ -903,6 +907,15 @@ impl Queue<'_> {
         // A "sentence" with no word in it is not said: as the first words
         // of an answer, the coordinator would take it for silence.
         if !text.chars().any(char::is_alphanumeric) {
+            return Ok(());
+        }
+        // A function call written as words is never said: `not_for_me{}`
+        // is the call, so the turn ends in silence as for the real one; any
+        // other is left out, and not run (its arguments are not read).
+        if crate::not_speech::bare_call(&text) {
+            if text.trim_start().starts_with(NOT_FOR_ME) {
+                return Err(Stop::Silent);
+            }
             return Ok(());
         }
         self.announce().await?;

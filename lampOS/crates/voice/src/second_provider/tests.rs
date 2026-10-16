@@ -597,6 +597,25 @@ fn the_wait_sounds_take_turns() {
     assert!(clip.last().unwrap().abs() < 50);
 }
 
+/// `not_for_me{}` written as words ends the turn in silence, as the call
+/// does: nothing said, no announcement (lamp-4ace, 2026-10-16 17:12).
+#[tokio::test]
+async fn not_for_me_written_as_words_ends_the_turn_in_silence() {
+    let script = Arc::new(Script {
+        heard: Mutex::new([Ok("No, the other one".to_owned())].into()),
+        chats: Mutex::new([vec![text("not_for_me{}"), Ok(ChatEvent::Done)]].into()),
+        ..Script::default()
+    });
+    let (mut engine, _, _) = scripted(script);
+    engine.submit(start(1));
+    engine.submit(audio(1, 1));
+    engine.submit(end(1));
+    assert_eq!(
+        turn(&mut engine).await,
+        ["started:1", "heard:No, the other one", "complete"]
+    );
+}
+
 #[tokio::test]
 async fn nothing_heard_is_a_quiet_complete_turn() {
     let script = Arc::new(Script {

@@ -202,6 +202,84 @@ pub fn names_a_function(opening: &str) -> bool {
         && name.split('_').all(|part| !part.is_empty())
 }
 
+/// Whether a piece of an answer is, whole, a function call written as words:
+/// a name as [`names_a_function`] reads one, alone or followed by its
+/// arguments in `{…}` or `(…)` (`not_for_me{}`, `print(default_api.x())`).
+/// On lamp-4ace on 2026-10-16 at 17:12 the lamp's words were
+/// `not_for_me{}`. Ordinary words with an underscore inside a sentence are
+/// not one.
+pub fn bare_call(piece: &str) -> bool {
+    call_arguments(piece.trim().trim_end_matches('.')).is_some_and(|rest| {
+        rest.is_empty()
+            || (rest.starts_with('{') && rest.ends_with('}'))
+            || (rest.starts_with('(') && rest.ends_with(')'))
+    })
+}
+
+/// Whether `text` is a call so far: whole, or a name with its arguments
+/// begun and not yet closed (`set_timer{"min`).
+fn a_call_so_far(text: &str) -> bool {
+    bare_call(text)
+        || call_arguments(text.trim()).is_some_and(|rest| {
+            let open = |a: char, b: char| {
+                rest.starts_with(a) && rest.matches(a).count() > rest.matches(b).count()
+            };
+            open('{', '}') || open('(', ')')
+        })
+}
+
+/// What follows a function's name at the start of `text`.
+fn call_arguments(text: &str) -> Option<&str> {
+    if !names_a_function(text) {
+        return None;
+    }
+    let name_end = text
+        .find(|c: char| !(c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_' || c == '.'))
+        .unwrap_or(text.len());
+    Some(text[name_end..].trim())
+}
+
+/// The pieces of one answer, with a function call written as words left
+/// out whatever pieces it came in (" not_for" then "_me{}"): a piece that
+/// is, or with the ones held before it makes, a call so far is held back,
+/// and what is held is never said, as it is code.
+// ponytail: a call split inside its first word (" not" then "_for_me{}")
+// still leaves its tail in; holding every lower-case word would need an
+// end-of-answer flush in each user.
+#[derive(Debug, Default)]
+pub struct CallsLeftOut {
+    request: Option<u64>,
+    held: String,
+}
+
+impl CallsLeftOut {
+    pub const fn new() -> Self {
+        Self {
+            request: None,
+            held: String::new(),
+        }
+    }
+
+    /// Whether `piece` of answer `request` is words to keep.
+    pub fn keeps(&mut self, request: u64, piece: &str) -> bool {
+        if self.request != Some(request) {
+            self.request = Some(request);
+            self.held.clear();
+        }
+        let joined = format!("{}{piece}", self.held);
+        if a_call_so_far(&joined) {
+            self.held = joined;
+            return false;
+        }
+        self.held.clear();
+        if a_call_so_far(piece) {
+            self.held = piece.to_owned();
+            return false;
+        }
+        true
+    }
+}
+
 /// Where the coordinator reads whether, in a conversation, a turn heard in
 /// another script or as a number alone is asked again rather than answered
 /// (#926). Off unless set to [`UNCLEAR`].
@@ -724,5 +802,51 @@ mod tests {
         ] {
             assert_eq!(unclear_in_conversation(said, false, true), None, "{said}");
         }
+    }
+
+    /// A call written as words is caught whole; words that merely contain
+    /// an underscore, or a sentence after a call, are not.
+    #[test]
+    fn a_bare_call_is_a_function_call_written_as_words() {
+        for call in [
+            "not_for_me{}",
+            " not_for_me ",
+            "not_for_me()",
+            "set_timer{\"minutes\": 5}",
+            "print(default_api.not_for_me())",
+            "not_for_me.",
+        ] {
+            assert!(bare_call(call), "{call}");
+        }
+        for words in [
+            "Sure.",
+            "It is noon.",
+            "not_for_me is a tool, sorry.",
+            "Hello there",
+        ] {
+            assert!(!bare_call(words), "{words}");
+        }
+    }
+
+    /// A call is left out whatever pieces it came in; the words around it
+    /// are kept, and a new answer starts with nothing held.
+    #[test]
+    fn a_call_split_across_pieces_is_left_out_whole() {
+        let mut calls = CallsLeftOut::default();
+        let kept: Vec<_> = [
+            "Yes?",
+            " not_for",
+            "_me{}",
+            " Sure.",
+            " set_timer{",
+            "\"minutes\": 5}",
+        ]
+        .into_iter()
+        .filter(|piece| calls.keeps(1, piece))
+        .collect();
+        assert_eq!(kept, ["Yes?", " Sure."]);
+        assert!(!calls.keeps(1, " not_for"));
+        assert!(calls.keeps(2, "_me{} is mine"));
+        assert!(calls.keeps(2, " It is noon."));
     }
 }

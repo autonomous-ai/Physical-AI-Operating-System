@@ -768,6 +768,18 @@ with "hihi"; the shy dip with "cảm ơn"; none for "không sao" and "không có
 gì", nor for a bare "có", which begins too many sentences that are not a
 yes.
 
+Since 16 October (#985) the kept V1 emotions (above) are asked for the same
+way, checked before the nod and the shake: `surprised` with "wow", "whoa",
+"no way", "trời ơi"; `caring` with "oh no", "I'm sorry", "sorry to hear",
+"oh dear", "that sounds hard", "tiếc quá"; `confused` with a bare "Sorry?",
+"Pardon?" or "Huh?" (the lamp asking again, #930), not with "Sorry, I missed
+that"; `curious` with "hmm", "ooh", "interesting", "tell me more";
+`acknowledge` with "got it", "on it", "will do", "done", "được rồi", "xong
+rồi"; `happy` with "yay", "congratulations", "awesome", "that's great",
+"that's fantastic", "wonderful", "amazing", "incredible", "tuyệt", "hay
+quá"; `sleepy` with "good night", "sleep well", "chúc ngủ ngon". "No way!",
+a shake before, is now a surprise.
+
 What the body does with the request:
 
 - A gesture plays only on a lamp standing still at its full height. Asked

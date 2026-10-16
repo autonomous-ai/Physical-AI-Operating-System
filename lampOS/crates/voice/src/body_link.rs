@@ -154,7 +154,9 @@ pub fn cue_for(opening: &str) -> Option<&'static str> {
         })
     };
     // The moves kept from V1 on 2026-10-16 (#940, docs/skills.md), each for
-    // the way an answer begins. A body without the clip ignores the name.
+    // the way an answer begins. A body without the clip ignores the name,
+    // but an opening these now take ("No way!" was a shake) loses its old
+    // gesture even there.
     // Surprise first: "no way" is surprise, not a refusal.
     if begins(&["wow", "whoa", "oh wow", "no way", "trời ơi"]) {
         return Some("surprised");

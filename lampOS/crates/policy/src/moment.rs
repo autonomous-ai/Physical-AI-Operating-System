@@ -444,13 +444,12 @@ impl Moment {
         }
         let (ask, received) = self.waiting.pop_front()?;
         let context = self.context(ask, room_now, unix_ms);
+        // Never a reminder here: one within its 2 s was decided at once,
+        // above, and a later one was dropped as late just now (the seventh
+        // on #1143).
+        debug_assert_ne!(context.act, REMINDER, "a reminder is decided at once");
         if let Some(hold) = self.hold(&context.act, room_now, unix_ms) {
             return Some(self.decide(context, None, Some(hold), Duration::ZERO, unix_ms));
-        }
-        // A reminder the person set is the rule's alone: said now, no model
-        // asked (#939).
-        if context.act == REMINDER {
-            return Some(self.decide(context, None, None, Duration::ZERO, unix_ms));
         }
         if self.asker_gone {
             return Some(self.decide(context, None, None, Duration::ZERO, unix_ms));

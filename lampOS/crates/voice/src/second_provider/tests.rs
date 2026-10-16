@@ -1033,12 +1033,16 @@ async fn a_short_sound_not_heard_as_a_short_word_is_held_when_sounds_are_checked
 }
 
 /// The first builder, 21:25: a look's first round may take 5 s, not 3 s;
-/// past it the lamp says it could not look rather than nothing.
+/// past it the lamp says it could not look rather than nothing. A refused
+/// picture's retry stays inside the same 5 s (Second on #1154).
 #[tokio::test(start_paused = true)]
 async fn a_look_waits_five_seconds_and_then_says_it_could_not_look() {
-    async fn said(first_event_after: Duration) -> (Vec<String>, Duration) {
+    async fn said(
+        first_event_after: Duration,
+        chats: Vec<Vec<net::Result<ChatEvent>>>,
+    ) -> (Vec<String>, Duration) {
         let script = Arc::new(Script {
-            chats: Mutex::new([vec![text("A blue mug."), Ok(ChatEvent::Done)]].into()),
+            chats: Mutex::new(chats.into()),
             first_event_after: Some(first_event_after),
             ..Script::default()
         });
@@ -1066,9 +1070,18 @@ async fn a_look_waits_five_seconds_and_then_says_it_could_not_look() {
             }
         }
     }
-    let (slow, _) = said(Duration::from_secs(4)).await;
+    let answer = || vec![vec![text("A blue mug."), Ok(ChatEvent::Done)]];
+    let (slow, _) = said(Duration::from_secs(4), answer()).await;
     assert_eq!(slow, ["A blue mug."]);
-    let (never, after) = said(Duration::from_secs(60)).await;
+    let (never, after) = said(Duration::from_secs(60), answer()).await;
     assert_eq!(never, [COULD_NOT_LOOK]);
     assert!(after >= LOOK_BEGIN_WITHIN, "{after:?}");
+    // Refused at 4 s; the retry, 4 s more, is past the 5 s: the line at 5 s.
+    let refused = vec![vec![Err(net::Error::Status(400))], answer().remove(0)];
+    let (retried, after) = said(Duration::from_secs(4), refused).await;
+    assert_eq!(retried, [COULD_NOT_LOOK]);
+    assert!(
+        after < LOOK_BEGIN_WITHIN + Duration::from_millis(100),
+        "{after:?}"
+    );
 }

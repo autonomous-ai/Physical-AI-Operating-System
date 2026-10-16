@@ -1,0 +1,14 @@
+# Schedule says every second. Nothing due for a minute, someone at the desk
+# throughout. At 60 s a reminder is due: the lamp looks at them and asks the
+# voice to say it, once, though it stays due until it is acknowledged at
+# 70 s.
+
+[[expect]]
+at = "60s"
+call = "body.gaze"
+args = { look_at = "face", x = 0.0, y = -0.25, size = 0.25 }
+
+[[expect]]
+at = "60s"
+call = "say"
+args = { from = "schedule" }

@@ -534,7 +534,7 @@ library as skills.
 | Skill | Trigger | What it does | Replaces |
 |---|---|---|---|
 | Welcome back | A face arrives after 5 minutes with nobody | Policy; turns to them, the light warms, a short hello, by name if known | The hello (#883, `speak_up.rs`) |
-| Reminders | `schedule/due` | Looks at the person, the ring pulses, says it | The reminder consumer in the voice |
+| Reminders | `schedule/due` | Looks at the person, says it: `say = { from = "schedule" }`, the voice keeping the words and the acknowledgement (#939, (c); `skills/reminders`). The ring's pulse waits for a light step that can pulse | The reminder consumer's timing in the voice (`LAMP_SCHEDULE_SPEAK=skill`); its delivery stays there |
 | Task news | `tasks/status`: done or failed | Done: a small glad move and says so; failed: slumps, the ring goes red, says so | Task news in the voice (`task_news.rs`) |
 | Stretch break | Someone at the desk for 50 minutes | Stretches itself as an invitation, never a lecture (creature.md) | New |
 | Stuffy air | CO2 high for 10 minutes | Droops a little and dims a shade; mentions it only when spoken to (creature.md) | New |

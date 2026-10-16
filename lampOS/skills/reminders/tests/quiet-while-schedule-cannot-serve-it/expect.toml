@@ -1,0 +1,4 @@
+# A reminder is counted due at 20 s while Schedule is not ready to serve it:
+# nothing. Ready at 40 s with it still due: it held before, so it has not
+# just appeared, and the voice says it by itself once it is offered.
+none = true

@@ -1,0 +1,28 @@
+# Reminders: a reminder the person set, said when it is due, with the lamp
+# looking at them (lampOS/docs/skills.md, "The first skills"). The voice
+# keeps the reminder's words and its delivery (#939, (c)): this says when,
+# and looks.
+needs = ["voice", "eyes", "body"]
+
+[trigger]
+topic = "schedule/due"
+field = "pending"
+above = 0.5
+when = "appears"            # a reminder due where none was
+
+[[while]]                   # Schedule on and able to serve it
+topic = "schedule/due"
+field = "ready"
+equals = true
+
+[[while]]
+topic = "schedule/due"
+field = "enabled"
+equals = true
+
+[ask]
+policy = "reminder"
+
+[[do]]
+body = { look_at = "face" }
+say = { from = "schedule" }

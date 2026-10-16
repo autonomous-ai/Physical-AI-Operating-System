@@ -1,0 +1,24 @@
+# One reminder due at 30 s and acknowledged at 40 s; another due at 50 s,
+# and a third due at 55 s while the second still is: the lamp asks at 30 s
+# and at 50 s. The third is one trigger with the second: the voice says it
+# after the second, by itself.
+
+[[expect]]
+at = "30s"
+call = "body.gaze"
+args = { look_at = "face", x = 0.0, y = -0.25, size = 0.25 }
+
+[[expect]]
+at = "30s"
+call = "say"
+args = { from = "schedule" }
+
+[[expect]]
+at = "50s"
+call = "body.gaze"
+args = { look_at = "face", x = 0.0, y = -0.25, size = 0.25 }
+
+[[expect]]
+at = "50s"
+call = "say"
+args = { from = "schedule" }

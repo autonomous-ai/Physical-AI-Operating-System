@@ -2724,6 +2724,19 @@ fn conversation_with_fixture_privacy(
     )
 }
 
+/// For an utterance said close to the lamp, its loud blocks the detector did
+/// not call speech; `None` when it was not. The utterance began at the
+/// oldest speech block kept, as the blocks are cleared at each end.
+fn said_close(
+    speech_levels: &VecDeque<(u64, u8)>,
+    loud_blocks: &VecDeque<u64>,
+    rise: &crate::room_floor::Rise,
+) -> Option<usize> {
+    let (began, _) = *speech_levels.front()?;
+    rise.close_since(began)
+        .then(|| loud_blocks.iter().filter(|at| **at >= began).count())
+}
+
 #[allow(clippy::too_many_arguments)]
 fn conversation_with_gate(
     rig: &mut Rig,
@@ -2790,6 +2803,9 @@ fn conversation_with_gate(
     // How loud the person's last captured block was, for the ring's face.
     let mut heard_level = 0u8;
     let mut speech_levels: VecDeque<(u64, u8)> = VecDeque::new();
+    // When loud blocks the detector did not call speech came, for an
+    // utterance said close to the lamp (`not_speech::scrap`).
+    let mut loud_blocks: VecDeque<u64> = VecDeque::new();
     // When the detector last called a block speech.
     let mut last_speech_us = 0u64;
     let reminder_cycle_started_us = monotonic_us();
@@ -2888,6 +2904,8 @@ fn conversation_with_gate(
         .map(|lowest| crate::room_floor::from_environment(lowest, monotonic_us()));
     let mut floor_recorded: Option<(u8, Option<u8>)> = None;
     let mut near = crate::room_floor::Near::from_environment();
+    // Whether an utterance was said close to the lamp, for the scrap gate.
+    let mut rise = crate::room_floor::Rise::from_environment();
     // The last two seconds of blocks as the detector and the floor judged
     // them, for the record of an utterance thrown out as not speech:
     // twentieths of the detector's score, the level, and whether the floor
@@ -4096,17 +4114,26 @@ fn conversation_with_gate(
                 monotonic_us(),
                 trace,
             )?;
+            rise.sample(frame.read_completed_at_us);
             // How loud what the detector calls speech has been lately, for
             // the record of each utterance: its last eight seconds.
             if probability.is_finite() && probability >= 0.5 {
                 speech_levels.push_back((frame.read_completed_at_us, heard_level));
                 last_speech_us = frame.read_completed_at_us;
+            } else if !keeping_answer && heard_level >= crate::not_speech::LOUD_LEVEL {
+                loud_blocks.push_back(frame.read_completed_at_us);
             }
             while speech_levels
                 .front()
                 .is_some_and(|(at, _)| frame.read_completed_at_us.saturating_sub(*at) > 8_000_000)
             {
                 speech_levels.pop_front();
+            }
+            while loud_blocks
+                .front()
+                .is_some_and(|at| frame.read_completed_at_us.saturating_sub(*at) > 8_000_000)
+            {
+                loud_blocks.pop_front();
             }
             let observation = ObservedAudio {
                 sequence: frame.frame_sequence,
@@ -4538,10 +4565,11 @@ fn conversation_with_gate(
                 }
                 AdmissionStep::End(audio)
                     if reply.as_ref().is_some_and(|current| {
-                        crate::not_speech::was_a_sound(
+                        crate::not_speech::scrap(
                             speech_levels.len(),
                             took_over_turn == Some(current.owner.turn()),
                             last_spoke_us.map(|at| monotonic_us().saturating_sub(at)),
+                            said_close(&speech_levels, &loud_blocks, &rise),
                         )
                     }) && !crate::not_speech::sent_anyway(short_sounds, room.busy()) =>
                 {
@@ -4553,6 +4581,7 @@ fn conversation_with_gate(
                                 "includes_silence_wait_ms":detector.last_endpoint().map_or(detector.endpoint_silence_ms(), |decision| decision.silence_ms),
                                 "acoustic_speech_end":null,
                                 "not_speech":{"speech_blocks":speech_levels.len(),"fewer_than":crate::not_speech::SCRAP_BLOCKS,
+                                    "said_close":said_close(&speech_levels, &loud_blocks, &rise),
                                     "last_blocks":last_blocks(&judged_blocks)}});
                         // Its end went early, while it was not yet a sound
                         // (the lamp's own words were still near); its
@@ -4566,6 +4595,7 @@ fn conversation_with_gate(
                         record(trace, endpoint_record)?;
                     }
                     speech_levels.clear();
+                    loud_blocks.clear();
                     cancel_reply(owner, reply, trace, "not_speech")?;
                     speaker_pending = None;
                     provider_queue.clear();
@@ -4679,6 +4709,9 @@ fn conversation_with_gate(
                             "blocks": levels.len(),
                             "median": levels[levels.len() / 2],
                             "upper_tenth": levels[levels.len() * 9 / 10],
+                            // Its loud blocks, when it was said close: what
+                            // let a short one through the gate (Ten on #1137).
+                            "said_close": said_close(&speech_levels, &loud_blocks, &rise),
                         });
                         // A short utterance that was taken as said carries
                         // how its blocks were judged, as one thrown out as
@@ -4689,6 +4722,7 @@ fn conversation_with_gate(
                         }
                         speech_levels.clear();
                     }
+                    loud_blocks.clear();
                     record(trace, endpoint_record)?;
                     if let Some((turn, mut sent)) = confirmed {
                         // The words held for its answer are the lamp's now.

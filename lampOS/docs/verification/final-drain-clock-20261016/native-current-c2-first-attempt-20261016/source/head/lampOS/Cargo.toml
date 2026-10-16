@@ -1,0 +1,27 @@
+[workspace]
+members = ["crates/sound-fixtures", "crates/turn-owner", "crates/ipc", "crates/audio", "crates/ring", "crates/gemini", "crates/voice", "crates/turn-end-wire", "crates/turn-end", "crates/observer", "crates/body", "crates/camera", "crates/eyes", "crates/environment", "crates/voice-eval", "crates/memory", "crates/bus", "crates/msgs", "crates/actions", "crates/policy", "crates/name", "crates/health", "crates/expression", "crates/controls", "crates/records", "crates/lean", "crates/surround", "crates/keeper", "crates/ears", "crates/schedule", "crates/tasks", "crates/air", "crates/mood", "crates/update", "crates/setup", "crates/settings", "crates/same-voice", "crates/selftest", "crates/skills"]
+resolver = "3"
+exclude = ["vendor/tough"]
+
+[patch.crates-io]
+tough = { path = "vendor/tough" }
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.91"
+version = "0.1.0"
+publish = false
+
+[workspace.dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sha2 = "0.10"
+hound = "3.5"
+cpal = { git = "https://github.com/RustAudio/cpal.git", rev = "79275c2313da30e9f8b1ad8168385d091a2c9ada" }
+rtrb = "0.4.0"
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+
+[workspace.lints.clippy]
+all = "warn"

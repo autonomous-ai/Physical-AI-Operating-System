@@ -1,0 +1,3346 @@
+{
+  "date_from_date": "2026-10-16 10:49:21 +0700",
+  "head": "c2eacfa4e29a5c9db21d4d919a77d33ce8112238",
+  "normal_merge": "e7b170fb166ba2f16c6d3f6fa7e5ee0b192eb308",
+  "normal_upstream_parent": "8da7d7ee175da8aa2b77717e189f540eb3904569",
+  "head_blob_count": 7652,
+  "normal_blob_count": 7719,
+  "head_to_normal_changed_paths": 142,
+  "normal_difference_all_exact_upstream_parent": true,
+  "all_three_owned_source_doc_paths_exact_at_normal_merge": true,
+  "all_53_historical_publication_paths_exact_at_normal_merge": true,
+  "coordinator_is_exact_upstream_parent_source": true,
+  "coordinator_differs_from_head": true,
+  "captured_sources": [
+    {
+      "repository_path": "lampOS/crates/voice/src/coordinator.rs",
+      "label": "head",
+      "git_blob": "308d14e708cd98d4136b253f9e9e449532c6f2f4",
+      "sha256": "c1f96a34e465bc6166999028d261cac3b303847095daf8a97a12170bf0342884",
+      "bytes": 367653,
+      "path": "source/head/lampOS/crates/voice/src/coordinator.rs",
+      "read_command": [
+        "git",
+        "cat-file",
+        "blob",
+        "308d14e708cd98d4136b253f9e9e449532c6f2f4"
+      ]
+    },
+    {
+      "repository_path": "lampOS/crates/voice/src/coordinator.rs",
+      "label": "normal-merge",
+      "git_blob": "b7a7f6040b1011990226d9df42eb0b29366f9f7b",
+      "sha256": "e2b6619e83548ca052a1bb0d3ead950d8436a9eebdf36f0f6ccd6b6b115dc15a",
+      "bytes": 383896,
+      "path": "source/normal-merge/lampOS/crates/voice/src/coordinator.rs",
+      "read_command": [
+        "gh",
+        "api",
+        "repos/autonomous-ai/lampOS/git/blobs/b7a7f6040b1011990226d9df42eb0b29366f9f7b"
+      ]
+    },
+    {
+      "repository_path": "lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "label": "head",
+      "git_blob": "4277acc6ae2690dbc7ec67e4557f46748b80a918",
+      "sha256": "aca9379bbb7c993267251c1103a88f91d06ad8468e7f3cc936efb0d44797227c",
+      "bytes": 17959,
+      "path": "source/head/lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "read_command": [
+        "git",
+        "cat-file",
+        "blob",
+        "4277acc6ae2690dbc7ec67e4557f46748b80a918"
+      ]
+    },
+    {
+      "repository_path": "lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+      "label": "head",
+      "git_blob": "72a2c0d9cbe1ffc01546fc08fb62d2398483b2e7",
+      "sha256": "fcc6988f7837440550a090ea6e2b04c9b9f569f3f7589558234780477880148e",
+      "bytes": 13432,
+      "path": "source/head/lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+      "read_command": [
+        "git",
+        "cat-file",
+        "blob",
+        "72a2c0d9cbe1ffc01546fc08fb62d2398483b2e7"
+      ]
+    },
+    {
+      "repository_path": "lampOS/docs/voice-test-fixtures.md",
+      "label": "head",
+      "git_blob": "212dfa0f16565e98cc00870b4a4beb4f74311857",
+      "sha256": "e6793bfdc94e95cf29393061638c6c0a418e109016a7c87c699c5b9df3bde98a",
+      "bytes": 20983,
+      "path": "source/head/lampOS/docs/voice-test-fixtures.md",
+      "read_command": [
+        "git",
+        "cat-file",
+        "blob",
+        "212dfa0f16565e98cc00870b4a4beb4f74311857"
+      ]
+    },
+    {
+      "repository_path": "lampOS/Cargo.lock",
+      "label": "head",
+      "git_blob": "957606464ad61f2e3c5a652b73ebb6885b3f297d",
+      "sha256": "eee69fedca6b934f6bb1824a5bba96b54008be90fa02fe1cf4cec6f7c4ff299c",
+      "bytes": 114226,
+      "path": "source/head/lampOS/Cargo.lock",
+      "read_command": [
+        "git",
+        "cat-file",
+        "blob",
+        "957606464ad61f2e3c5a652b73ebb6885b3f297d"
+      ]
+    },
+    {
+      "repository_path": "lampOS/Cargo.toml",
+      "label": "head",
+      "git_blob": "5a6b745d437ff32d70a5cde48e079c66397d2b94",
+      "sha256": "dcb7474c7a11ab42e7bae9fc30abdb9d7cdbdc9874597dbffb4e06ceefcd5658",
+      "bytes": 1228,
+      "path": "source/head/lampOS/Cargo.toml",
+      "read_command": [
+        "git",
+        "cat-file",
+        "blob",
+        "5a6b745d437ff32d70a5cde48e079c66397d2b94"
+      ]
+    },
+    {
+      "repository_path": ".github/workflows/lampos-arm64.yml",
+      "label": "head",
+      "git_blob": "01309b57005ff770d23ee3dbc378a3ccfa2cf014",
+      "sha256": "11cbcf5ced5022ca685b5c9e51f349c986259a5044575a20f39d3b8e869a045f",
+      "bytes": 7440,
+      "path": "source/head/.github/workflows/lampos-arm64.yml",
+      "read_command": [
+        "git",
+        "cat-file",
+        "blob",
+        "01309b57005ff770d23ee3dbc378a3ccfa2cf014"
+      ]
+    },
+    {
+      "repository_path": "lampOS/.config/nextest.toml",
+      "label": "head",
+      "git_blob": "f83b3204b9c159d19c7bb90e003a28f05fd61268",
+      "sha256": "33254521c34198ae2d4f988c4b7d04391c03da769ad91769e691171ae3b87367",
+      "bytes": 6466,
+      "path": "source/head/lampOS/.config/nextest.toml",
+      "read_command": [
+        "git",
+        "cat-file",
+        "blob",
+        "f83b3204b9c159d19c7bb90e003a28f05fd61268"
+      ]
+    },
+    {
+      "repository_path": "lampOS/.cargo/config.toml",
+      "label": "head",
+      "git_blob": "b3515e952d3665dd4c6a26887a6812bc9c597dca",
+      "sha256": "48a3e9ff36c92393a61c94924a7268fd9e732dc55afe239842fe7fdd2fa7db71",
+      "bytes": 210,
+      "path": "source/head/lampOS/.cargo/config.toml",
+      "read_command": [
+        "git",
+        "cat-file",
+        "blob",
+        "b3515e952d3665dd4c6a26887a6812bc9c597dca"
+      ]
+    },
+    {
+      "repository_path": "lampOS/crates/sound-fixtures/Cargo.toml",
+      "label": "head",
+      "git_blob": "9659c3a8e925d7bdb6d86d51288f2679f402c663",
+      "sha256": "b790403fada9e341620a67350d6c09844ff2e243ec44c8b549ef7b1f461fd28f",
+      "bytes": 282,
+      "path": "source/head/lampOS/crates/sound-fixtures/Cargo.toml",
+      "read_command": [
+        "git",
+        "cat-file",
+        "blob",
+        "9659c3a8e925d7bdb6d86d51288f2679f402c663"
+      ]
+    }
+  ],
+  "changes": [
+    {
+      "path": "lampOS/Cargo.lock",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "957606464ad61f2e3c5a652b73ebb6885b3f297d"
+      },
+      "normal_merge": {
+        "path": "lampOS/Cargo.lock",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "05d7c715767795d1edbdcc678a77841b6e339693",
+        "size": 114237,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/05d7c715767795d1edbdcc678a77841b6e339693"
+      },
+      "upstream": {
+        "path": "lampOS/Cargo.lock",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "05d7c715767795d1edbdcc678a77841b6e339693",
+        "size": 114237,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/05d7c715767795d1edbdcc678a77841b6e339693"
+      }
+    },
+    {
+      "path": "lampOS/crates/expression/alive-behaviours.json",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "b6a92236112eae585ac301abed21e60ec34f9e8f"
+      },
+      "normal_merge": {
+        "path": "lampOS/crates/expression/alive-behaviours.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "631f1c8fb37f8b8cd4f0ec1703a341171fead7bf",
+        "size": 11682,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/631f1c8fb37f8b8cd4f0ec1703a341171fead7bf"
+      },
+      "upstream": {
+        "path": "lampOS/crates/expression/alive-behaviours.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "631f1c8fb37f8b8cd4f0ec1703a341171fead7bf",
+        "size": 11682,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/631f1c8fb37f8b8cd4f0ec1703a341171fead7bf"
+      }
+    },
+    {
+      "path": "lampOS/crates/expression/src/catalogue.rs",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "86a7f515fe0fd4a02e08475cef9e01a6777e4415"
+      },
+      "normal_merge": {
+        "path": "lampOS/crates/expression/src/catalogue.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "10830216bd19556d25b30f7532059bf8878bfb10",
+        "size": 19159,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/10830216bd19556d25b30f7532059bf8878bfb10"
+      },
+      "upstream": {
+        "path": "lampOS/crates/expression/src/catalogue.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "10830216bd19556d25b30f7532059bf8878bfb10",
+        "size": 19159,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/10830216bd19556d25b30f7532059bf8878bfb10"
+      }
+    },
+    {
+      "path": "lampOS/crates/expression/src/engine.rs",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "ee984f961e64fa798338bb6dc753b441052c75a3"
+      },
+      "normal_merge": {
+        "path": "lampOS/crates/expression/src/engine.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "03a4df9f14b50c93173b6189b591b1ec7314cfa4",
+        "size": 61964,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/03a4df9f14b50c93173b6189b591b1ec7314cfa4"
+      },
+      "upstream": {
+        "path": "lampOS/crates/expression/src/engine.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "03a4df9f14b50c93173b6189b591b1ec7314cfa4",
+        "size": 61964,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/03a4df9f14b50c93173b6189b591b1ec7314cfa4"
+      }
+    },
+    {
+      "path": "lampOS/crates/expression/src/lib.rs",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "b3b58a0d2adb8ca84d39c38db60a13d107f406e3"
+      },
+      "normal_merge": {
+        "path": "lampOS/crates/expression/src/lib.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "d3da9b10fcfbe44ea557e72ae5828ce7463156a4",
+        "size": 1108,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/d3da9b10fcfbe44ea557e72ae5828ce7463156a4"
+      },
+      "upstream": {
+        "path": "lampOS/crates/expression/src/lib.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "d3da9b10fcfbe44ea557e72ae5828ce7463156a4",
+        "size": 1108,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/d3da9b10fcfbe44ea557e72ae5828ce7463156a4"
+      }
+    },
+    {
+      "path": "lampOS/crates/expression/src/speaking.rs",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/crates/expression/src/speaking.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "6abeb09bc189e27d34cd7b4bfcef91b355b97b8a",
+        "size": 17577,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/6abeb09bc189e27d34cd7b4bfcef91b355b97b8a"
+      },
+      "upstream": {
+        "path": "lampOS/crates/expression/src/speaking.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "6abeb09bc189e27d34cd7b4bfcef91b355b97b8a",
+        "size": 17577,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/6abeb09bc189e27d34cd7b4bfcef91b355b97b8a"
+      }
+    },
+    {
+      "path": "lampOS/crates/expression/tests/speaking_engine.rs",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/crates/expression/tests/speaking_engine.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "5891de550ccc064491d90335d8640b4148453ded",
+        "size": 11757,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/5891de550ccc064491d90335d8640b4148453ded"
+      },
+      "upstream": {
+        "path": "lampOS/crates/expression/tests/speaking_engine.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "5891de550ccc064491d90335d8640b4148453ded",
+        "size": 11757,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/5891de550ccc064491d90335d8640b4148453ded"
+      }
+    },
+    {
+      "path": "lampOS/crates/memory/tests/voice.rs",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "e81fc97ebfa14e18079ee9a80e4c931b8f6b2e11"
+      },
+      "normal_merge": {
+        "path": "lampOS/crates/memory/tests/voice.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "3ab5008d64d994b2bd7453fd0ce09f5aeed58c84",
+        "size": 14790,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/3ab5008d64d994b2bd7453fd0ce09f5aeed58c84"
+      },
+      "upstream": {
+        "path": "lampOS/crates/memory/tests/voice.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "3ab5008d64d994b2bd7453fd0ce09f5aeed58c84",
+        "size": 14790,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/3ab5008d64d994b2bd7453fd0ce09f5aeed58c84"
+      }
+    },
+    {
+      "path": "lampOS/crates/memory/tests/voice_people.rs",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "3cb9894dbabcc2fb029bad279f823a017b02b263"
+      },
+      "normal_merge": {
+        "path": "lampOS/crates/memory/tests/voice_people.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "373ff12eefc13548dbc244375f50a0fcef648e02",
+        "size": 30313,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/373ff12eefc13548dbc244375f50a0fcef648e02"
+      },
+      "upstream": {
+        "path": "lampOS/crates/memory/tests/voice_people.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "373ff12eefc13548dbc244375f50a0fcef648e02",
+        "size": 30313,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/373ff12eefc13548dbc244375f50a0fcef648e02"
+      }
+    },
+    {
+      "path": "lampOS/crates/policy/src/lib.rs",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "9f2b42e1a47dcda0540a47986db629380c530b20"
+      },
+      "normal_merge": {
+        "path": "lampOS/crates/policy/src/lib.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "6a57e88ae98195ce19d688c702ff5e6e173d8e02",
+        "size": 1906,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/6a57e88ae98195ce19d688c702ff5e6e173d8e02"
+      },
+      "upstream": {
+        "path": "lampOS/crates/policy/src/lib.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "6a57e88ae98195ce19d688c702ff5e6e173d8e02",
+        "size": 1906,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/6a57e88ae98195ce19d688c702ff5e6e173d8e02"
+      }
+    },
+    {
+      "path": "lampOS/crates/policy/src/main.rs",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "a609b9bb21c8505c08a4c62af24daf04895c9035"
+      },
+      "normal_merge": {
+        "path": "lampOS/crates/policy/src/main.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "fba12038e4c7ce1b3696b9351d08de791ff35ab8",
+        "size": 18292,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/fba12038e4c7ce1b3696b9351d08de791ff35ab8"
+      },
+      "upstream": {
+        "path": "lampOS/crates/policy/src/main.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "fba12038e4c7ce1b3696b9351d08de791ff35ab8",
+        "size": 18292,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/fba12038e4c7ce1b3696b9351d08de791ff35ab8"
+      }
+    },
+    {
+      "path": "lampOS/crates/policy/src/policy.rs",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "50ecd18b7dfc8dcb8d0e448c88fb72d90a06c959"
+      },
+      "normal_merge": {
+        "path": "lampOS/crates/policy/src/policy.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "e1439e9af5fa1ddfdaadbb936a14f5bd56947a24",
+        "size": 56808,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/e1439e9af5fa1ddfdaadbb936a14f5bd56947a24"
+      },
+      "upstream": {
+        "path": "lampOS/crates/policy/src/policy.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "e1439e9af5fa1ddfdaadbb936a14f5bd56947a24",
+        "size": 56808,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/e1439e9af5fa1ddfdaadbb936a14f5bd56947a24"
+      }
+    },
+    {
+      "path": "lampOS/crates/policy/src/progress.rs",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "dd1ad387011d2d2d1e955ef0b7eb0bdea1c6fbbe"
+      },
+      "normal_merge": {
+        "path": "lampOS/crates/policy/src/progress.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "e1374ca9f6f1d0bf22d01d4b990703a7ac053017",
+        "size": 70483,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/e1374ca9f6f1d0bf22d01d4b990703a7ac053017"
+      },
+      "upstream": {
+        "path": "lampOS/crates/policy/src/progress.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "e1374ca9f6f1d0bf22d01d4b990703a7ac053017",
+        "size": 70483,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/e1374ca9f6f1d0bf22d01d4b990703a7ac053017"
+      }
+    },
+    {
+      "path": "lampOS/crates/policy/src/rules.rs",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/crates/policy/src/rules.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "f0807e025845d1abb5dbe777b332f098b95d9fa5",
+        "size": 7819,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/f0807e025845d1abb5dbe777b332f098b95d9fa5"
+      },
+      "upstream": {
+        "path": "lampOS/crates/policy/src/rules.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "f0807e025845d1abb5dbe777b332f098b95d9fa5",
+        "size": 7819,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/f0807e025845d1abb5dbe777b332f098b95d9fa5"
+      }
+    },
+    {
+      "path": "lampOS/crates/policy/tests/program.rs",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "30ee9fea1ff1bb94175da83dd22e5e5593d7961d"
+      },
+      "normal_merge": {
+        "path": "lampOS/crates/policy/tests/program.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "708fb647929bdcffff82a24ff4aeac78e3ccc724",
+        "size": 21041,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/708fb647929bdcffff82a24ff4aeac78e3ccc724"
+      },
+      "upstream": {
+        "path": "lampOS/crates/policy/tests/program.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "708fb647929bdcffff82a24ff4aeac78e3ccc724",
+        "size": 21041,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/708fb647929bdcffff82a24ff4aeac78e3ccc724"
+      }
+    },
+    {
+      "path": "lampOS/crates/policy/tests/progress.rs",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "86e49f709fe608c9d79a5e9bda465506669cbebc"
+      },
+      "normal_merge": {
+        "path": "lampOS/crates/policy/tests/progress.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "4e36e82f382ce0ac47b542acb75002d87c6705fb",
+        "size": 23514,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/4e36e82f382ce0ac47b542acb75002d87c6705fb"
+      },
+      "upstream": {
+        "path": "lampOS/crates/policy/tests/progress.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "4e36e82f382ce0ac47b542acb75002d87c6705fb",
+        "size": 23514,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/4e36e82f382ce0ac47b542acb75002d87c6705fb"
+      }
+    },
+    {
+      "path": "lampOS/crates/setup/Cargo.toml",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "d985f3ed60de3ac243046590da7c822341f31b3a"
+      },
+      "normal_merge": {
+        "path": "lampOS/crates/setup/Cargo.toml",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "75176eabe441cdd658541f6db0411f280de28d23",
+        "size": 1310,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/75176eabe441cdd658541f6db0411f280de28d23"
+      },
+      "upstream": {
+        "path": "lampOS/crates/setup/Cargo.toml",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "75176eabe441cdd658541f6db0411f280de28d23",
+        "size": 1310,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/75176eabe441cdd658541f6db0411f280de28d23"
+      }
+    },
+    {
+      "path": "lampOS/crates/setup/fixtures/reset-plan-example.json",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "71fade754f5660e634fe0e2f3980ccf0c5e0ef0b"
+      },
+      "normal_merge": {
+        "path": "lampOS/crates/setup/fixtures/reset-plan-example.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "4a857d28612419d362827c92a65de24ad8eb18e1",
+        "size": 923,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/4a857d28612419d362827c92a65de24ad8eb18e1"
+      },
+      "upstream": {
+        "path": "lampOS/crates/setup/fixtures/reset-plan-example.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "4a857d28612419d362827c92a65de24ad8eb18e1",
+        "size": 923,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/4a857d28612419d362827c92a65de24ad8eb18e1"
+      }
+    },
+    {
+      "path": "lampOS/crates/setup/fixtures/serve-own-page.json",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "7e47fde8cce74430d307865ba87cde180f465359"
+      },
+      "normal_merge": {
+        "path": "lampOS/crates/setup/fixtures/serve-own-page.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "039d04a6b62007314451ae497ba3d3b214c8fa6a",
+        "size": 263,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/039d04a6b62007314451ae497ba3d3b214c8fa6a"
+      },
+      "upstream": {
+        "path": "lampOS/crates/setup/fixtures/serve-own-page.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "039d04a6b62007314451ae497ba3d3b214c8fa6a",
+        "size": 263,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/039d04a6b62007314451ae497ba3d3b214c8fa6a"
+      }
+    },
+    {
+      "path": "lampOS/crates/setup/src/main.rs",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "15eb8c5436c5f313f94411a471154349b5455104"
+      },
+      "normal_merge": {
+        "path": "lampOS/crates/setup/src/main.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "357adc32ddf369daa0203bab1eff26c8054fc481",
+        "size": 14169,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/357adc32ddf369daa0203bab1eff26c8054fc481"
+      },
+      "upstream": {
+        "path": "lampOS/crates/setup/src/main.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "357adc32ddf369daa0203bab1eff26c8054fc481",
+        "size": 14169,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/357adc32ddf369daa0203bab1eff26c8054fc481"
+      }
+    },
+    {
+      "path": "lampOS/crates/setup/src/serve.rs",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "88b8c6707b6d733e051646065f625ecf3a55a5cd"
+      },
+      "normal_merge": {
+        "path": "lampOS/crates/setup/src/serve.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "29d114b6ac1da6df557d4c3a07e43c39220c2eb6",
+        "size": 16579,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/29d114b6ac1da6df557d4c3a07e43c39220c2eb6"
+      },
+      "upstream": {
+        "path": "lampOS/crates/setup/src/serve.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "29d114b6ac1da6df557d4c3a07e43c39220c2eb6",
+        "size": 16579,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/29d114b6ac1da6df557d4c3a07e43c39220c2eb6"
+      }
+    },
+    {
+      "path": "lampOS/crates/setup/src/wifi.rs",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "3ddd409eafa7d853996dd61ffbb2264005e5967b"
+      },
+      "normal_merge": {
+        "path": "lampOS/crates/setup/src/wifi.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "2d159e6b1d782ba86996e0fe0e288a4cc4c18673",
+        "size": 25500,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/2d159e6b1d782ba86996e0fe0e288a4cc4c18673"
+      },
+      "upstream": {
+        "path": "lampOS/crates/setup/src/wifi.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "2d159e6b1d782ba86996e0fe0e288a4cc4c18673",
+        "size": 25500,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/2d159e6b1d782ba86996e0fe0e288a4cc4c18673"
+      }
+    },
+    {
+      "path": "lampOS/crates/setup/tests/reset.rs",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "2157c5f1f98aade3281a3239dbc9cca34f6aa7b5"
+      },
+      "normal_merge": {
+        "path": "lampOS/crates/setup/tests/reset.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "a2b6b8bfa581de94ff8d892185de3d762b21da21",
+        "size": 16351,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/a2b6b8bfa581de94ff8d892185de3d762b21da21"
+      },
+      "upstream": {
+        "path": "lampOS/crates/setup/tests/reset.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "a2b6b8bfa581de94ff8d892185de3d762b21da21",
+        "size": 16351,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/a2b6b8bfa581de94ff8d892185de3d762b21da21"
+      }
+    },
+    {
+      "path": "lampOS/crates/setup/tests/serve.rs",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "58488301010621138c91252ccaf973223cb664e4"
+      },
+      "normal_merge": {
+        "path": "lampOS/crates/setup/tests/serve.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "241c1f9904c0e662d9bb50adfdbc7013e1a92757",
+        "size": 20303,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/241c1f9904c0e662d9bb50adfdbc7013e1a92757"
+      },
+      "upstream": {
+        "path": "lampOS/crates/setup/tests/serve.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "241c1f9904c0e662d9bb50adfdbc7013e1a92757",
+        "size": 20303,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/241c1f9904c0e662d9bb50adfdbc7013e1a92757"
+      }
+    },
+    {
+      "path": "lampOS/crates/setup/tests/wifi.rs",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "c9f84d355f206917da77716d9e4c526f746a6845"
+      },
+      "normal_merge": {
+        "path": "lampOS/crates/setup/tests/wifi.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "a8286fe30a9500fc1dca9452676086465274c55f",
+        "size": 17627,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/a8286fe30a9500fc1dca9452676086465274c55f"
+      },
+      "upstream": {
+        "path": "lampOS/crates/setup/tests/wifi.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "a8286fe30a9500fc1dca9452676086465274c55f",
+        "size": 17627,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/a8286fe30a9500fc1dca9452676086465274c55f"
+      }
+    },
+    {
+      "path": "lampOS/crates/skills/src/lib.rs",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "1e8e1373519635af5b381280af828f9f02491a89"
+      },
+      "normal_merge": {
+        "path": "lampOS/crates/skills/src/lib.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "db51a1ba1e6e55cc34cdc5a61c02154d6890c8c8",
+        "size": 36608,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/db51a1ba1e6e55cc34cdc5a61c02154d6890c8c8"
+      },
+      "upstream": {
+        "path": "lampOS/crates/skills/src/lib.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "db51a1ba1e6e55cc34cdc5a61c02154d6890c8c8",
+        "size": 36608,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/db51a1ba1e6e55cc34cdc5a61c02154d6890c8c8"
+      }
+    },
+    {
+      "path": "lampOS/crates/skills/src/main.rs",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "66ad8ff7be47cebe024f2a266a08ad01c347b58a"
+      },
+      "normal_merge": {
+        "path": "lampOS/crates/skills/src/main.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "61bf24cfac1008a486fe511926ff81904dd49200",
+        "size": 18749,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/61bf24cfac1008a486fe511926ff81904dd49200"
+      },
+      "upstream": {
+        "path": "lampOS/crates/skills/src/main.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "61bf24cfac1008a486fe511926ff81904dd49200",
+        "size": 18749,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/61bf24cfac1008a486fe511926ff81904dd49200"
+      }
+    },
+    {
+      "path": "lampOS/crates/skills/tests/skills.rs",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "a7a1d710da81012623c8ed944deb02f498cd0db2"
+      },
+      "normal_merge": {
+        "path": "lampOS/crates/skills/tests/skills.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "2967c31f7bbf4aacbb53aa57e4ea4682d0a58f8e",
+        "size": 27439,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/2967c31f7bbf4aacbb53aa57e4ea4682d0a58f8e"
+      },
+      "upstream": {
+        "path": "lampOS/crates/skills/tests/skills.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "2967c31f7bbf4aacbb53aa57e4ea4682d0a58f8e",
+        "size": 27439,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/2967c31f7bbf4aacbb53aa57e4ea4682d0a58f8e"
+      }
+    },
+    {
+      "path": "lampOS/crates/tasks/tests/harness.rs",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "c073fa8618693c3ed4869016345664dafbfe0d6c"
+      },
+      "normal_merge": {
+        "path": "lampOS/crates/tasks/tests/harness.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "69c45730017faa5368ea1ffc94a5a8efd5aeda69",
+        "size": 33018,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/69c45730017faa5368ea1ffc94a5a8efd5aeda69"
+      },
+      "upstream": {
+        "path": "lampOS/crates/tasks/tests/harness.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "69c45730017faa5368ea1ffc94a5a8efd5aeda69",
+        "size": 33018,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/69c45730017faa5368ea1ffc94a5a8efd5aeda69"
+      }
+    },
+    {
+      "path": "lampOS/crates/tasks/tests/runtime_failures.rs",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "f00441f5b5f54ea5805ceba1c6cca99706d69c7f"
+      },
+      "normal_merge": {
+        "path": "lampOS/crates/tasks/tests/runtime_failures.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "ffa467fe573fb62f55c0d5ac793f63d3e105784a",
+        "size": 17768,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/ffa467fe573fb62f55c0d5ac793f63d3e105784a"
+      },
+      "upstream": {
+        "path": "lampOS/crates/tasks/tests/runtime_failures.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "ffa467fe573fb62f55c0d5ac793f63d3e105784a",
+        "size": 17768,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/ffa467fe573fb62f55c0d5ac793f63d3e105784a"
+      }
+    },
+    {
+      "path": "lampOS/crates/voice/examples/hearing_replay.rs",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/crates/voice/examples/hearing_replay.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "5124898c3f1d10a3cb06422deeb5096597984982",
+        "size": 4609,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/5124898c3f1d10a3cb06422deeb5096597984982"
+      },
+      "upstream": {
+        "path": "lampOS/crates/voice/examples/hearing_replay.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "5124898c3f1d10a3cb06422deeb5096597984982",
+        "size": 4609,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/5124898c3f1d10a3cb06422deeb5096597984982"
+      }
+    },
+    {
+      "path": "lampOS/crates/voice/src/activity.rs",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "807997b27f6eb91ca4696d61b057273a120579f1"
+      },
+      "normal_merge": {
+        "path": "lampOS/crates/voice/src/activity.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "5b7c62b81afe34742f2cab3932c60e45d9e98ba8",
+        "size": 34298,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/5b7c62b81afe34742f2cab3932c60e45d9e98ba8"
+      },
+      "upstream": {
+        "path": "lampOS/crates/voice/src/activity.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "5b7c62b81afe34742f2cab3932c60e45d9e98ba8",
+        "size": 34298,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/5b7c62b81afe34742f2cab3932c60e45d9e98ba8"
+      }
+    },
+    {
+      "path": "lampOS/crates/voice/src/admission.rs",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "6be6b84d340c2392309d94b95a823678fd8e4c24"
+      },
+      "normal_merge": {
+        "path": "lampOS/crates/voice/src/admission.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "9c7ee6fca0428852981fb03085ea2dc8cf1d4542",
+        "size": 60788,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/9c7ee6fca0428852981fb03085ea2dc8cf1d4542"
+      },
+      "upstream": {
+        "path": "lampOS/crates/voice/src/admission.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "9c7ee6fca0428852981fb03085ea2dc8cf1d4542",
+        "size": 60788,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/9c7ee6fca0428852981fb03085ea2dc8cf1d4542"
+      }
+    },
+    {
+      "path": "lampOS/crates/voice/src/attention.rs",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "1b54fe714742a462a8b6f75302b15272b6dc3cc2"
+      },
+      "normal_merge": {
+        "path": "lampOS/crates/voice/src/attention.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "6a97bb8d246322610497cddd13bb093cfb704670",
+        "size": 64590,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/6a97bb8d246322610497cddd13bb093cfb704670"
+      },
+      "upstream": {
+        "path": "lampOS/crates/voice/src/attention.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "6a97bb8d246322610497cddd13bb093cfb704670",
+        "size": 64590,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/6a97bb8d246322610497cddd13bb093cfb704670"
+      }
+    },
+    {
+      "path": "lampOS/crates/voice/src/coordinator.rs",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "308d14e708cd98d4136b253f9e9e449532c6f2f4"
+      },
+      "normal_merge": {
+        "path": "lampOS/crates/voice/src/coordinator.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "b7a7f6040b1011990226d9df42eb0b29366f9f7b",
+        "size": 383896,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/b7a7f6040b1011990226d9df42eb0b29366f9f7b"
+      },
+      "upstream": {
+        "path": "lampOS/crates/voice/src/coordinator.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "b7a7f6040b1011990226d9df42eb0b29366f9f7b",
+        "size": 383896,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/b7a7f6040b1011990226d9df42eb0b29366f9f7b"
+      }
+    },
+    {
+      "path": "lampOS/crates/voice/src/coordinator/cloud.rs",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "9c9dbca00365cb17ff92979c8d6c9ddfc5300caf"
+      },
+      "normal_merge": {
+        "path": "lampOS/crates/voice/src/coordinator/cloud.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "daeb03b06b7bade2cefb4152ceffbe2cbcca4cc5",
+        "size": 38399,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/daeb03b06b7bade2cefb4152ceffbe2cbcca4cc5"
+      },
+      "upstream": {
+        "path": "lampOS/crates/voice/src/coordinator/cloud.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "daeb03b06b7bade2cefb4152ceffbe2cbcca4cc5",
+        "size": 38399,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/daeb03b06b7bade2cefb4152ceffbe2cbcca4cc5"
+      }
+    },
+    {
+      "path": "lampOS/crates/voice/src/coordinator/hand.rs",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "184534636797a440b9f412c1dc2db3391acea2a2"
+      },
+      "normal_merge": {
+        "path": "lampOS/crates/voice/src/coordinator/hand.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "889124b23261ff3439097808954033dcced2cda2",
+        "size": 3187,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/889124b23261ff3439097808954033dcced2cda2"
+      },
+      "upstream": {
+        "path": "lampOS/crates/voice/src/coordinator/hand.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "889124b23261ff3439097808954033dcced2cda2",
+        "size": 3187,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/889124b23261ff3439097808954033dcced2cda2"
+      }
+    },
+    {
+      "path": "lampOS/crates/voice/src/coordinator/second.rs",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "ed20ae4257fe10d94e7e65a38f0f9341a60fb9a4"
+      },
+      "normal_merge": {
+        "path": "lampOS/crates/voice/src/coordinator/second.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "6a78f392b8052c6b4d435d25c349d34e4b0a12f2",
+        "size": 43079,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/6a78f392b8052c6b4d435d25c349d34e4b0a12f2"
+      },
+      "upstream": {
+        "path": "lampOS/crates/voice/src/coordinator/second.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "6a78f392b8052c6b4d435d25c349d34e4b0a12f2",
+        "size": 43079,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/6a78f392b8052c6b4d435d25c349d34e4b0a12f2"
+      }
+    },
+    {
+      "path": "lampOS/crates/voice/src/coordinator/speaker_tone.rs",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "c3dc3140014282d9519f4f42ab4e9acc90e63fad"
+      },
+      "normal_merge": {
+        "path": "lampOS/crates/voice/src/coordinator/speaker_tone.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "157867ba2b67602d1f1c956094a584dad6938ee0",
+        "size": 12918,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/157867ba2b67602d1f1c956094a584dad6938ee0"
+      },
+      "upstream": {
+        "path": "lampOS/crates/voice/src/coordinator/speaker_tone.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "157867ba2b67602d1f1c956094a584dad6938ee0",
+        "size": 12918,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/157867ba2b67602d1f1c956094a584dad6938ee0"
+      }
+    },
+    {
+      "path": "lampOS/crates/voice/src/coordinator/tests/duplex.rs",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "30095510703834d673badb5e852f32ee0e2e67e5"
+      },
+      "normal_merge": {
+        "path": "lampOS/crates/voice/src/coordinator/tests/duplex.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "b019e18da9563168e501c43480fd9260c7f7e771",
+        "size": 52540,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/b019e18da9563168e501c43480fd9260c7f7e771"
+      },
+      "upstream": {
+        "path": "lampOS/crates/voice/src/coordinator/tests/duplex.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "b019e18da9563168e501c43480fd9260c7f7e771",
+        "size": 52540,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/b019e18da9563168e501c43480fd9260c7f7e771"
+      }
+    },
+    {
+      "path": "lampOS/crates/voice/src/coordinator/tests/provider_pair.rs",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "78d7fef284672c816cad063186b4392fcfdef63a"
+      },
+      "normal_merge": {
+        "path": "lampOS/crates/voice/src/coordinator/tests/provider_pair.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "2ffaca3fc377109ea46d6e1ab9d6323f20ca4d69",
+        "size": 65744,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/2ffaca3fc377109ea46d6e1ab9d6323f20ca4d69"
+      },
+      "upstream": {
+        "path": "lampOS/crates/voice/src/coordinator/tests/provider_pair.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "2ffaca3fc377109ea46d6e1ab9d6323f20ca4d69",
+        "size": 65744,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/2ffaca3fc377109ea46d6e1ab9d6323f20ca4d69"
+      }
+    },
+    {
+      "path": "lampOS/crates/voice/src/coordinator/tests/reminders.rs",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "93a51f9a63f04461c5ed62da591914bbfb250678"
+      },
+      "normal_merge": {
+        "path": "lampOS/crates/voice/src/coordinator/tests/reminders.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "141502d5e6d685944bd033c9d673f2d460460bae",
+        "size": 23973,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/141502d5e6d685944bd033c9d673f2d460460bae"
+      },
+      "upstream": {
+        "path": "lampOS/crates/voice/src/coordinator/tests/reminders.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "141502d5e6d685944bd033c9d673f2d460460bae",
+        "size": 23973,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/141502d5e6d685944bd033c9d673f2d460460bae"
+      }
+    },
+    {
+      "path": "lampOS/crates/voice/src/coordinator/tests/say.rs",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/crates/voice/src/coordinator/tests/say.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "90a56628f5e9f42b96098c56dc3e362d5aeca4e4",
+        "size": 10111,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/90a56628f5e9f42b96098c56dc3e362d5aeca4e4"
+      },
+      "upstream": {
+        "path": "lampOS/crates/voice/src/coordinator/tests/say.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "90a56628f5e9f42b96098c56dc3e362d5aeca4e4",
+        "size": 10111,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/90a56628f5e9f42b96098c56dc3e362d5aeca4e4"
+      }
+    },
+    {
+      "path": "lampOS/crates/voice/src/coordinator/tests/turn_taking.rs",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "ff553b2f27c4b0c23655b93b832dc2beecf0d23f"
+      },
+      "normal_merge": {
+        "path": "lampOS/crates/voice/src/coordinator/tests/turn_taking.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "914181ca680b0be5ca68fe010d7cbdde77ef6d43",
+        "size": 29129,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/914181ca680b0be5ca68fe010d7cbdde77ef6d43"
+      },
+      "upstream": {
+        "path": "lampOS/crates/voice/src/coordinator/tests/turn_taking.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "914181ca680b0be5ca68fe010d7cbdde77ef6d43",
+        "size": 29129,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/914181ca680b0be5ca68fe010d7cbdde77ef6d43"
+      }
+    },
+    {
+      "path": "lampOS/crates/voice/src/fixture_provider.rs",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "e2e48bb600f4d575f7e43c207b0cd0005a7e47b8"
+      },
+      "normal_merge": {
+        "path": "lampOS/crates/voice/src/fixture_provider.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "3babf7e4a9621cfe0653c47ac5f8ec154ec1acdb",
+        "size": 51197,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/3babf7e4a9621cfe0653c47ac5f8ec154ec1acdb"
+      },
+      "upstream": {
+        "path": "lampOS/crates/voice/src/fixture_provider.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "3babf7e4a9621cfe0653c47ac5f8ec154ec1acdb",
+        "size": 51197,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/3babf7e4a9621cfe0653c47ac5f8ec154ec1acdb"
+      }
+    },
+    {
+      "path": "lampOS/crates/voice/src/lib.rs",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "8e10c1d87de7d10348df3bcc34cc5b702d38492a"
+      },
+      "normal_merge": {
+        "path": "lampOS/crates/voice/src/lib.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "5dc79683167a72829d1968792a9c21548da80f52",
+        "size": 1932,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/5dc79683167a72829d1968792a9c21548da80f52"
+      },
+      "upstream": {
+        "path": "lampOS/crates/voice/src/lib.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "5dc79683167a72829d1968792a9c21548da80f52",
+        "size": 1932,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/5dc79683167a72829d1968792a9c21548da80f52"
+      }
+    },
+    {
+      "path": "lampOS/crates/voice/src/not_speech.rs",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "7176f91f96adc0dd173d7e8febb31c0be548f6b2"
+      },
+      "normal_merge": {
+        "path": "lampOS/crates/voice/src/not_speech.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "b0dd2a1a65cb3912f55667e4cd4eaba0dfd122f2",
+        "size": 21719,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/b0dd2a1a65cb3912f55667e4cd4eaba0dfd122f2"
+      },
+      "upstream": {
+        "path": "lampOS/crates/voice/src/not_speech.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "b0dd2a1a65cb3912f55667e4cd4eaba0dfd122f2",
+        "size": 21719,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/b0dd2a1a65cb3912f55667e4cd4eaba0dfd122f2"
+      }
+    },
+    {
+      "path": "lampOS/crates/voice/src/provider_worker.rs",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "44ae871573cd7fb5965e9e20cdaf1044d3a856f2"
+      },
+      "normal_merge": {
+        "path": "lampOS/crates/voice/src/provider_worker.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "1c97ebd89616cd6faf890fc2e595a50ca5c40783",
+        "size": 420793,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/1c97ebd89616cd6faf890fc2e595a50ca5c40783"
+      },
+      "upstream": {
+        "path": "lampOS/crates/voice/src/provider_worker.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "1c97ebd89616cd6faf890fc2e595a50ca5c40783",
+        "size": 420793,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/1c97ebd89616cd6faf890fc2e595a50ca5c40783"
+      }
+    },
+    {
+      "path": "lampOS/crates/voice/src/provider_worker/tests/policy_holds.rs",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "5bf7485d206d1d1c41f63a058c2aa791c729fca9"
+      },
+      "normal_merge": {
+        "path": "lampOS/crates/voice/src/provider_worker/tests/policy_holds.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "a8ec4fb8b5c013fcad304138b7f25db580ff6c04",
+        "size": 17406,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/a8ec4fb8b5c013fcad304138b7f25db580ff6c04"
+      },
+      "upstream": {
+        "path": "lampOS/crates/voice/src/provider_worker/tests/policy_holds.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "a8ec4fb8b5c013fcad304138b7f25db580ff6c04",
+        "size": 17406,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/a8ec4fb8b5c013fcad304138b7f25db580ff6c04"
+      }
+    },
+    {
+      "path": "lampOS/crates/voice/src/provider_worker/tests/reminders.rs",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "edf0b96d4b551bf95a672b69afcfccaa39c520d7"
+      },
+      "normal_merge": {
+        "path": "lampOS/crates/voice/src/provider_worker/tests/reminders.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "7ee4d03b616fdd37f2545c0716095a2b4cad6648",
+        "size": 32743,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/7ee4d03b616fdd37f2545c0716095a2b4cad6648"
+      },
+      "upstream": {
+        "path": "lampOS/crates/voice/src/provider_worker/tests/reminders.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "7ee4d03b616fdd37f2545c0716095a2b4cad6648",
+        "size": 32743,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/7ee4d03b616fdd37f2545c0716095a2b4cad6648"
+      }
+    },
+    {
+      "path": "lampOS/crates/voice/src/provider_worker/tests/review_2026_10_14.rs",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "f788e40b9e541f7e89a0fbd8fd0be2864a555c65"
+      },
+      "normal_merge": {
+        "path": "lampOS/crates/voice/src/provider_worker/tests/review_2026_10_14.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "baabeb3399c98f3d2bec246d974976374600b6de",
+        "size": 8800,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/baabeb3399c98f3d2bec246d974976374600b6de"
+      },
+      "upstream": {
+        "path": "lampOS/crates/voice/src/provider_worker/tests/review_2026_10_14.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "baabeb3399c98f3d2bec246d974976374600b6de",
+        "size": 8800,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/baabeb3399c98f3d2bec246d974976374600b6de"
+      }
+    },
+    {
+      "path": "lampOS/crates/voice/src/provider_worker/tests/sounds.rs",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "903a74c8b5af3045bb603a39f6be9e11075e27f4"
+      },
+      "normal_merge": {
+        "path": "lampOS/crates/voice/src/provider_worker/tests/sounds.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "339825582eb85db2f54b5ebf5d4314289febf828",
+        "size": 8659,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/339825582eb85db2f54b5ebf5d4314289febf828"
+      },
+      "upstream": {
+        "path": "lampOS/crates/voice/src/provider_worker/tests/sounds.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "339825582eb85db2f54b5ebf5d4314289febf828",
+        "size": 8659,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/339825582eb85db2f54b5ebf5d4314289febf828"
+      }
+    },
+    {
+      "path": "lampOS/crates/voice/src/remember.rs",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "83c3793150f6724481047a9de1f833c89ad5d61f"
+      },
+      "normal_merge": {
+        "path": "lampOS/crates/voice/src/remember.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "b653b7fece6f16e2439ba56cf57d0928c99a6bf0",
+        "size": 120440,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/b653b7fece6f16e2439ba56cf57d0928c99a6bf0"
+      },
+      "upstream": {
+        "path": "lampOS/crates/voice/src/remember.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "b653b7fece6f16e2439ba56cf57d0928c99a6bf0",
+        "size": 120440,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/b653b7fece6f16e2439ba56cf57d0928c99a6bf0"
+      }
+    },
+    {
+      "path": "lampOS/crates/voice/src/say.rs",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/crates/voice/src/say.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "4c4e586e332027fb038e447c39177bf36dbb17e1",
+        "size": 35732,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/4c4e586e332027fb038e447c39177bf36dbb17e1"
+      },
+      "upstream": {
+        "path": "lampOS/crates/voice/src/say.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "4c4e586e332027fb038e447c39177bf36dbb17e1",
+        "size": 35732,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/4c4e586e332027fb038e447c39177bf36dbb17e1"
+      }
+    },
+    {
+      "path": "lampOS/crates/voice/src/second_provider.rs",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "c9c1ae3232472785b55b40137ff10fef5ec57202"
+      },
+      "normal_merge": {
+        "path": "lampOS/crates/voice/src/second_provider.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "858046428ed62c0ed031583cedd498f965a1a75c",
+        "size": 25868,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/858046428ed62c0ed031583cedd498f965a1a75c"
+      },
+      "upstream": {
+        "path": "lampOS/crates/voice/src/second_provider.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "858046428ed62c0ed031583cedd498f965a1a75c",
+        "size": 25868,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/858046428ed62c0ed031583cedd498f965a1a75c"
+      }
+    },
+    {
+      "path": "lampOS/crates/voice/src/second_provider/tests.rs",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "41d36eecb9ed8a1a3a82a56a13def3488154fa7b"
+      },
+      "normal_merge": {
+        "path": "lampOS/crates/voice/src/second_provider/tests.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "40c8957cb2c1ecdb38ea511fe7978b910e81601c",
+        "size": 20616,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/40c8957cb2c1ecdb38ea511fe7978b910e81601c"
+      },
+      "upstream": {
+        "path": "lampOS/crates/voice/src/second_provider/tests.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "40c8957cb2c1ecdb38ea511fe7978b910e81601c",
+        "size": 20616,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/40c8957cb2c1ecdb38ea511fe7978b910e81601c"
+      }
+    },
+    {
+      "path": "lampOS/crates/voice/src/speak_up.rs",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "510f6e388346e9df8ef793cb64d46201b2b2bd41"
+      },
+      "normal_merge": {
+        "path": "lampOS/crates/voice/src/speak_up.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "02af58bbd1fd6bc867aeaa6a2ff95b533d776b3c",
+        "size": 14722,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/02af58bbd1fd6bc867aeaa6a2ff95b533d776b3c"
+      },
+      "upstream": {
+        "path": "lampOS/crates/voice/src/speak_up.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "02af58bbd1fd6bc867aeaa6a2ff95b533d776b3c",
+        "size": 14722,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/02af58bbd1fd6bc867aeaa6a2ff95b533d776b3c"
+      }
+    },
+    {
+      "path": "lampOS/crates/voice/src/thread.rs",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "e30d072f778aafdd2a9b83abcbe89629723942a8"
+      },
+      "normal_merge": {
+        "path": "lampOS/crates/voice/src/thread.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "8467f2f4da6540dc52368216026dc26c4e06ad1c",
+        "size": 68989,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/8467f2f4da6540dc52368216026dc26c4e06ad1c"
+      },
+      "upstream": {
+        "path": "lampOS/crates/voice/src/thread.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "8467f2f4da6540dc52368216026dc26c4e06ad1c",
+        "size": 68989,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/8467f2f4da6540dc52368216026dc26c4e06ad1c"
+      }
+    },
+    {
+      "path": "lampOS/crates/voice/src/turn_taking.rs",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "2ee7ce7c2ddb949d2ee5834b20b56f8846616b60"
+      },
+      "normal_merge": {
+        "path": "lampOS/crates/voice/src/turn_taking.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "bf24e9fae8bb5b8076d57d1009ea60c9f73b9eb2",
+        "size": 69687,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/bf24e9fae8bb5b8076d57d1009ea60c9f73b9eb2"
+      },
+      "upstream": {
+        "path": "lampOS/crates/voice/src/turn_taking.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "bf24e9fae8bb5b8076d57d1009ea60c9f73b9eb2",
+        "size": 69687,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/bf24e9fae8bb5b8076d57d1009ea60c9f73b9eb2"
+      }
+    },
+    {
+      "path": "lampOS/crates/voice/tests/first_words.rs",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/crates/voice/tests/first_words.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "77b1a3fd514f22f541a0df9c9705339b85590ccc",
+        "size": 3984,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/77b1a3fd514f22f541a0df9c9705339b85590ccc"
+      },
+      "upstream": {
+        "path": "lampOS/crates/voice/tests/first_words.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "77b1a3fd514f22f541a0df9c9705339b85590ccc",
+        "size": 3984,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/77b1a3fd514f22f541a0df9c9705339b85590ccc"
+      }
+    },
+    {
+      "path": "lampOS/crates/voice/tests/fixture_provider.rs",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "57dface55d66cc92be18fa9a511a297f934d53a8"
+      },
+      "normal_merge": {
+        "path": "lampOS/crates/voice/tests/fixture_provider.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "97a9e864d4024115cf468c008851d42e78fdec0c",
+        "size": 41692,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/97a9e864d4024115cf468c008851d42e78fdec0c"
+      },
+      "upstream": {
+        "path": "lampOS/crates/voice/tests/fixture_provider.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "97a9e864d4024115cf468c008851d42e78fdec0c",
+        "size": 41692,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/97a9e864d4024115cf468c008851d42e78fdec0c"
+      }
+    },
+    {
+      "path": "lampOS/deploy/lamp-4ace/lamp-skills.service",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/deploy/lamp-4ace/lamp-skills.service",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "3690cd51330c8e95db68f047175eea4b414f6a35",
+        "size": 1288,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/3690cd51330c8e95db68f047175eea4b414f6a35"
+      },
+      "upstream": {
+        "path": "lampOS/deploy/lamp-4ace/lamp-skills.service",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "3690cd51330c8e95db68f047175eea4b414f6a35",
+        "size": 1288,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/3690cd51330c8e95db68f047175eea4b414f6a35"
+      }
+    },
+    {
+      "path": "lampOS/deploy/lamp-4ace/lamp-voice.service",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "0a4d2f396f6b3b15dcac62bff124191713333acb"
+      },
+      "normal_merge": {
+        "path": "lampOS/deploy/lamp-4ace/lamp-voice.service",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "0aaf36834443229b550a5e4b315645ac2c19cd4f",
+        "size": 7849,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/0aaf36834443229b550a5e4b315645ac2c19cd4f"
+      },
+      "upstream": {
+        "path": "lampOS/deploy/lamp-4ace/lamp-voice.service",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "0aaf36834443229b550a5e4b315645ac2c19cd4f",
+        "size": 7849,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/0aaf36834443229b550a5e4b315645ac2c19cd4f"
+      }
+    },
+    {
+      "path": "lampOS/deploy/units/README.md",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "1d272b3b6a4dba0af2abc6d0d44f49ae69103e22"
+      },
+      "normal_merge": {
+        "path": "lampOS/deploy/units/README.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "a0b3d5bd8ffaf87797b4eb6cc26039d105763a3f",
+        "size": 3132,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/a0b3d5bd8ffaf87797b4eb6cc26039d105763a3f"
+      },
+      "upstream": {
+        "path": "lampOS/deploy/units/README.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "a0b3d5bd8ffaf87797b4eb6cc26039d105763a3f",
+        "size": 3132,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/a0b3d5bd8ffaf87797b4eb6cc26039d105763a3f"
+      }
+    },
+    {
+      "path": "lampOS/deploy/units/lamp-skills.service",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "f233981ab15fb48aa5770aac4205712be45613e4"
+      },
+      "normal_merge": {
+        "path": "lampOS/deploy/units/lamp-skills.service",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "3cb25a46b86c2a88a3664ec794f3fd2b706720a1",
+        "size": 1129,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/3cb25a46b86c2a88a3664ec794f3fd2b706720a1"
+      },
+      "upstream": {
+        "path": "lampOS/deploy/units/lamp-skills.service",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "3cb25a46b86c2a88a3664ec794f3fd2b706720a1",
+        "size": 1129,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/3cb25a46b86c2a88a3664ec794f3fd2b706720a1"
+      }
+    },
+    {
+      "path": "lampOS/docs/duplex-listening.md",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "37267554c26c93db890131a64445a776505f15ac"
+      },
+      "normal_merge": {
+        "path": "lampOS/docs/duplex-listening.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "b45260ebbcbdabc168630d65ffa68bf52f91c698",
+        "size": 65171,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/b45260ebbcbdabc168630d65ffa68bf52f91c698"
+      },
+      "upstream": {
+        "path": "lampOS/docs/duplex-listening.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "b45260ebbcbdabc168630d65ffa68bf52f91c698",
+        "size": 65171,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/b45260ebbcbdabc168630d65ffa68bf52f91c698"
+      }
+    },
+    {
+      "path": "lampOS/docs/expression.md",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "e6d584d9ce4037978c25d3661ebc505ae9aa52e4"
+      },
+      "normal_merge": {
+        "path": "lampOS/docs/expression.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "f69ba79ee269d20d601d61d0100c1dabae1e5e00",
+        "size": 59542,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/f69ba79ee269d20d601d61d0100c1dabae1e5e00"
+      },
+      "upstream": {
+        "path": "lampOS/docs/expression.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "f69ba79ee269d20d601d61d0100c1dabae1e5e00",
+        "size": 59542,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/f69ba79ee269d20d601d61d0100c1dabae1e5e00"
+      }
+    },
+    {
+      "path": "lampOS/docs/joining.md",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "917f454d5ab340ed9483b2d1b904e7941f69bc82"
+      },
+      "normal_merge": {
+        "path": "lampOS/docs/joining.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "5f387487fc2e3fc85f4995fb712f2f84d1be659f",
+        "size": 23129,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/5f387487fc2e3fc85f4995fb712f2f84d1be659f"
+      },
+      "upstream": {
+        "path": "lampOS/docs/joining.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "5f387487fc2e3fc85f4995fb712f2f84d1be659f",
+        "size": 23129,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/5f387487fc2e3fc85f4995fb712f2f84d1be659f"
+      }
+    },
+    {
+      "path": "lampOS/docs/memory.md",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "0fd95a398c04eabb1e0b408d50eb412ae6a5eeb6"
+      },
+      "normal_merge": {
+        "path": "lampOS/docs/memory.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "d39d7e2100e74d5eb26940c2b6687a78b6657ae8",
+        "size": 44867,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/d39d7e2100e74d5eb26940c2b6687a78b6657ae8"
+      },
+      "upstream": {
+        "path": "lampOS/docs/memory.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "d39d7e2100e74d5eb26940c2b6687a78b6657ae8",
+        "size": 44867,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/d39d7e2100e74d5eb26940c2b6687a78b6657ae8"
+      }
+    },
+    {
+      "path": "lampOS/docs/not-speech.md",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "c4e0d64cc2664a7f92747051700140d03d316de9"
+      },
+      "normal_merge": {
+        "path": "lampOS/docs/not-speech.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "e01535fd326728538df5b70cd00bf9c92cb5d22f",
+        "size": 24605,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/e01535fd326728538df5b70cd00bf9c92cb5d22f"
+      },
+      "upstream": {
+        "path": "lampOS/docs/not-speech.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "e01535fd326728538df5b70cd00bf9c92cb5d22f",
+        "size": 24605,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/e01535fd326728538df5b70cd00bf9c92cb5d22f"
+      }
+    },
+    {
+      "path": "lampOS/docs/policy.md",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "d0e5a16bbb3d224ccc1f8c379814e26978026239"
+      },
+      "normal_merge": {
+        "path": "lampOS/docs/policy.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "37257a9c8c7dae7d5ef3dfb9473ab6a785b34dda",
+        "size": 85992,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/37257a9c8c7dae7d5ef3dfb9473ab6a785b34dda"
+      },
+      "upstream": {
+        "path": "lampOS/docs/policy.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "37257a9c8c7dae7d5ef3dfb9473ab6a785b34dda",
+        "size": 85992,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/37257a9c8c7dae7d5ef3dfb9473ab6a785b34dda"
+      }
+    },
+    {
+      "path": "lampOS/docs/setup.md",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "b0de28ab5949f3521aef062ec6b05802951bb3cb"
+      },
+      "normal_merge": {
+        "path": "lampOS/docs/setup.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "fa861d0e317418664f8f2ba43e84f4444d8fe247",
+        "size": 25775,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/fa861d0e317418664f8f2ba43e84f4444d8fe247"
+      },
+      "upstream": {
+        "path": "lampOS/docs/setup.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "fa861d0e317418664f8f2ba43e84f4444d8fe247",
+        "size": 25775,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/fa861d0e317418664f8f2ba43e84f4444d8fe247"
+      }
+    },
+    {
+      "path": "lampOS/docs/skills.md",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "169335c1f741d7e70cf3c743c90ee7be72f564b7"
+      },
+      "normal_merge": {
+        "path": "lampOS/docs/skills.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "4b6091c0ff85091db005bf7a21820f1773983162",
+        "size": 26845,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/4b6091c0ff85091db005bf7a21820f1773983162"
+      },
+      "upstream": {
+        "path": "lampOS/docs/skills.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "4b6091c0ff85091db005bf7a21820f1773983162",
+        "size": 26845,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/4b6091c0ff85091db005bf7a21820f1773983162"
+      }
+    },
+    {
+      "path": "lampOS/docs/speaking-first.md",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "3470dc49cb8a65ddbf4ce4cb7951fe731dc4fcc6"
+      },
+      "normal_merge": {
+        "path": "lampOS/docs/speaking-first.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "869235bc4b7a9a5058e977c8ce8cd44725dbcec7",
+        "size": 19859,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/869235bc4b7a9a5058e977c8ce8cd44725dbcec7"
+      },
+      "upstream": {
+        "path": "lampOS/docs/speaking-first.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "869235bc4b7a9a5058e977c8ce8cd44725dbcec7",
+        "size": 19859,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/869235bc4b7a9a5058e977c8ce8cd44725dbcec7"
+      }
+    },
+    {
+      "path": "lampOS/docs/stop-word.md",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "73b734fef81d0312a4276120c872626cef4651c4"
+      },
+      "normal_merge": {
+        "path": "lampOS/docs/stop-word.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "fa0f24e05130bc7c10558272b0fc4ded599f351f",
+        "size": 45388,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/fa0f24e05130bc7c10558272b0fc4ded599f351f"
+      },
+      "upstream": {
+        "path": "lampOS/docs/stop-word.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "fa0f24e05130bc7c10558272b0fc4ded599f351f",
+        "size": 45388,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/fa0f24e05130bc7c10558272b0fc4ded599f351f"
+      }
+    },
+    {
+      "path": "lampOS/docs/tasks.md",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "e992693655c08b4c9fea963495f0b2447a5cfac6"
+      },
+      "normal_merge": {
+        "path": "lampOS/docs/tasks.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "0a2c62e978596358025356cbd710bad841cb3f05",
+        "size": 95137,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/0a2c62e978596358025356cbd710bad841cb3f05"
+      },
+      "upstream": {
+        "path": "lampOS/docs/tasks.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "0a2c62e978596358025356cbd710bad841cb3f05",
+        "size": 95137,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/0a2c62e978596358025356cbd710bad841cb3f05"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/first-words-20261016/README.md",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/docs/verification/first-words-20261016/README.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "e489659a5e785515e9c95b07f3167c346471da14",
+        "size": 3335,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/e489659a5e785515e9c95b07f3167c346471da14"
+      },
+      "upstream": {
+        "path": "lampOS/docs/verification/first-words-20261016/README.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "e489659a5e785515e9c95b07f3167c346471da14",
+        "size": 3335,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/e489659a5e785515e9c95b07f3167c346471da14"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/policy-lines-loaded-eighth-20261016/README.md",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/docs/verification/policy-lines-loaded-eighth-20261016/README.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "3e36119d24710b29a4e19a6b5246a735a61e4b42",
+        "size": 2101,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/3e36119d24710b29a4e19a6b5246a735a61e4b42"
+      },
+      "upstream": {
+        "path": "lampOS/docs/verification/policy-lines-loaded-eighth-20261016/README.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "3e36119d24710b29a4e19a6b5246a735a61e4b42",
+        "size": 2101,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/3e36119d24710b29a4e19a6b5246a735a61e4b42"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/policy-lines-loaded-eighth-20261016/after-head",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/docs/verification/policy-lines-loaded-eighth-20261016/after-head",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "79eff9f117d4720d020c685dad4a0e1da1dab531",
+        "size": 41,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/79eff9f117d4720d020c685dad4a0e1da1dab531"
+      },
+      "upstream": {
+        "path": "lampOS/docs/verification/policy-lines-loaded-eighth-20261016/after-head",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "79eff9f117d4720d020c685dad4a0e1da1dab531",
+        "size": 41,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/79eff9f117d4720d020c685dad4a0e1da1dab531"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/policy-lines-loaded-eighth-20261016/after-source.txt",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/docs/verification/policy-lines-loaded-eighth-20261016/after-source.txt",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "44705002a83e6ead9928077235bcabd04d1e3c5d",
+        "size": 1084,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/44705002a83e6ead9928077235bcabd04d1e3c5d"
+      },
+      "upstream": {
+        "path": "lampOS/docs/verification/policy-lines-loaded-eighth-20261016/after-source.txt",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "44705002a83e6ead9928077235bcabd04d1e3c5d",
+        "size": 1084,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/44705002a83e6ead9928077235bcabd04d1e3c5d"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/policy-lines-loaded-eighth-20261016/before-head",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/docs/verification/policy-lines-loaded-eighth-20261016/before-head",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "79eff9f117d4720d020c685dad4a0e1da1dab531",
+        "size": 41,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/79eff9f117d4720d020c685dad4a0e1da1dab531"
+      },
+      "upstream": {
+        "path": "lampOS/docs/verification/policy-lines-loaded-eighth-20261016/before-head",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "79eff9f117d4720d020c685dad4a0e1da1dab531",
+        "size": 41,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/79eff9f117d4720d020c685dad4a0e1da1dab531"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/policy-lines-loaded-eighth-20261016/full-1.txt",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/docs/verification/policy-lines-loaded-eighth-20261016/full-1.txt",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "3102be7007f8495bf2e5e7093a331d906811390e",
+        "size": 17698,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/3102be7007f8495bf2e5e7093a331d906811390e"
+      },
+      "upstream": {
+        "path": "lampOS/docs/verification/policy-lines-loaded-eighth-20261016/full-1.txt",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "3102be7007f8495bf2e5e7093a331d906811390e",
+        "size": 17698,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/3102be7007f8495bf2e5e7093a331d906811390e"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/policy-lines-loaded-eighth-20261016/full-10.txt",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/docs/verification/policy-lines-loaded-eighth-20261016/full-10.txt",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "4f472fbcd86c7e608a5322e22385be220780095b",
+        "size": 17698,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/4f472fbcd86c7e608a5322e22385be220780095b"
+      },
+      "upstream": {
+        "path": "lampOS/docs/verification/policy-lines-loaded-eighth-20261016/full-10.txt",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "4f472fbcd86c7e608a5322e22385be220780095b",
+        "size": 17698,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/4f472fbcd86c7e608a5322e22385be220780095b"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/policy-lines-loaded-eighth-20261016/full-2.txt",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/docs/verification/policy-lines-loaded-eighth-20261016/full-2.txt",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "b0d48858f653f1ca6410c0d84a461a45213b909e",
+        "size": 17698,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/b0d48858f653f1ca6410c0d84a461a45213b909e"
+      },
+      "upstream": {
+        "path": "lampOS/docs/verification/policy-lines-loaded-eighth-20261016/full-2.txt",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "b0d48858f653f1ca6410c0d84a461a45213b909e",
+        "size": 17698,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/b0d48858f653f1ca6410c0d84a461a45213b909e"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/policy-lines-loaded-eighth-20261016/full-3.txt",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/docs/verification/policy-lines-loaded-eighth-20261016/full-3.txt",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "b06f00e401f00940ade05f86cac4e2c27700cb95",
+        "size": 17698,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/b06f00e401f00940ade05f86cac4e2c27700cb95"
+      },
+      "upstream": {
+        "path": "lampOS/docs/verification/policy-lines-loaded-eighth-20261016/full-3.txt",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "b06f00e401f00940ade05f86cac4e2c27700cb95",
+        "size": 17698,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/b06f00e401f00940ade05f86cac4e2c27700cb95"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/policy-lines-loaded-eighth-20261016/full-4.txt",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/docs/verification/policy-lines-loaded-eighth-20261016/full-4.txt",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "52ddbf730735cd47bb67aba0c71fc6cbee973e9d",
+        "size": 17698,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/52ddbf730735cd47bb67aba0c71fc6cbee973e9d"
+      },
+      "upstream": {
+        "path": "lampOS/docs/verification/policy-lines-loaded-eighth-20261016/full-4.txt",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "52ddbf730735cd47bb67aba0c71fc6cbee973e9d",
+        "size": 17698,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/52ddbf730735cd47bb67aba0c71fc6cbee973e9d"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/policy-lines-loaded-eighth-20261016/full-5.txt",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/docs/verification/policy-lines-loaded-eighth-20261016/full-5.txt",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "90cf77f237ddd563fa87a8d1ef4442fd6a72973c",
+        "size": 17698,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/90cf77f237ddd563fa87a8d1ef4442fd6a72973c"
+      },
+      "upstream": {
+        "path": "lampOS/docs/verification/policy-lines-loaded-eighth-20261016/full-5.txt",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "90cf77f237ddd563fa87a8d1ef4442fd6a72973c",
+        "size": 17698,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/90cf77f237ddd563fa87a8d1ef4442fd6a72973c"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/policy-lines-loaded-eighth-20261016/full-6.txt",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/docs/verification/policy-lines-loaded-eighth-20261016/full-6.txt",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "a3e6af4a4ccd7bc918504c3460bb7f3e2b8685b1",
+        "size": 17698,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/a3e6af4a4ccd7bc918504c3460bb7f3e2b8685b1"
+      },
+      "upstream": {
+        "path": "lampOS/docs/verification/policy-lines-loaded-eighth-20261016/full-6.txt",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "a3e6af4a4ccd7bc918504c3460bb7f3e2b8685b1",
+        "size": 17698,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/a3e6af4a4ccd7bc918504c3460bb7f3e2b8685b1"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/policy-lines-loaded-eighth-20261016/full-7.txt",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/docs/verification/policy-lines-loaded-eighth-20261016/full-7.txt",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "c103fbb9ddcae41e88febc9886731d665c363c68",
+        "size": 17698,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/c103fbb9ddcae41e88febc9886731d665c363c68"
+      },
+      "upstream": {
+        "path": "lampOS/docs/verification/policy-lines-loaded-eighth-20261016/full-7.txt",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "c103fbb9ddcae41e88febc9886731d665c363c68",
+        "size": 17698,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/c103fbb9ddcae41e88febc9886731d665c363c68"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/policy-lines-loaded-eighth-20261016/full-8.txt",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/docs/verification/policy-lines-loaded-eighth-20261016/full-8.txt",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "3eec92175346a37f3581b7bc3a101a2f004811f2",
+        "size": 17698,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/3eec92175346a37f3581b7bc3a101a2f004811f2"
+      },
+      "upstream": {
+        "path": "lampOS/docs/verification/policy-lines-loaded-eighth-20261016/full-8.txt",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "3eec92175346a37f3581b7bc3a101a2f004811f2",
+        "size": 17698,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/3eec92175346a37f3581b7bc3a101a2f004811f2"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/policy-lines-loaded-eighth-20261016/full-9.txt",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/docs/verification/policy-lines-loaded-eighth-20261016/full-9.txt",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "a5dd6d7127aa067870c73d16f77c6708d15ebc59",
+        "size": 17698,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/a5dd6d7127aa067870c73d16f77c6708d15ebc59"
+      },
+      "upstream": {
+        "path": "lampOS/docs/verification/policy-lines-loaded-eighth-20261016/full-9.txt",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "a5dd6d7127aa067870c73d16f77c6708d15ebc59",
+        "size": 17698,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/a5dd6d7127aa067870c73d16f77c6708d15ebc59"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/policy-lines-loaded-eighth-20261016/loadavg.txt",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/docs/verification/policy-lines-loaded-eighth-20261016/loadavg.txt",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "215ab1daeb53e676c1b5e37470bd67235a14ad5f",
+        "size": 554,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/215ab1daeb53e676c1b5e37470bd67235a14ad5f"
+      },
+      "upstream": {
+        "path": "lampOS/docs/verification/policy-lines-loaded-eighth-20261016/loadavg.txt",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "215ab1daeb53e676c1b5e37470bd67235a14ad5f",
+        "size": 554,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/215ab1daeb53e676c1b5e37470bd67235a14ad5f"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/policy-lines-loaded-eighth-20261016/parallel-summary.txt",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/docs/verification/policy-lines-loaded-eighth-20261016/parallel-summary.txt",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "3d13cbda482853f83f06229feb32b81bdc678343",
+        "size": 121,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/3d13cbda482853f83f06229feb32b81bdc678343"
+      },
+      "upstream": {
+        "path": "lampOS/docs/verification/policy-lines-loaded-eighth-20261016/parallel-summary.txt",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "3d13cbda482853f83f06229feb32b81bdc678343",
+        "size": 121,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/3d13cbda482853f83f06229feb32b81bdc678343"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/policy-lines-loaded-eighth-20261016/qual.sh.txt",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/docs/verification/policy-lines-loaded-eighth-20261016/qual.sh.txt",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "9f407fbba3078214937179a29c8a75b0115b8a27",
+        "size": 1815,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/9f407fbba3078214937179a29c8a75b0115b8a27"
+      },
+      "upstream": {
+        "path": "lampOS/docs/verification/policy-lines-loaded-eighth-20261016/qual.sh.txt",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "9f407fbba3078214937179a29c8a75b0115b8a27",
+        "size": 1815,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/9f407fbba3078214937179a29c8a75b0115b8a27"
+      }
+    },
+    {
+      "path": "lampOS/docs/verification/policy-lines-loaded-eighth-20261016/summary.txt",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/docs/verification/policy-lines-loaded-eighth-20261016/summary.txt",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "b2718e96836878447b902479cc154e6236ef04cf",
+        "size": 3833,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/b2718e96836878447b902479cc154e6236ef04cf"
+      },
+      "upstream": {
+        "path": "lampOS/docs/verification/policy-lines-loaded-eighth-20261016/summary.txt",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "b2718e96836878447b902479cc154e6236ef04cf",
+        "size": 3833,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/b2718e96836878447b902479cc154e6236ef04cf"
+      }
+    },
+    {
+      "path": "lampOS/skill-creator/README.md",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/skill-creator/README.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "2b4d3dda125bbd03cb930d3f1c071cd89f06cd89",
+        "size": 835,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/2b4d3dda125bbd03cb930d3f1c071cd89f06cd89"
+      },
+      "upstream": {
+        "path": "lampOS/skill-creator/README.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "2b4d3dda125bbd03cb930d3f1c071cd89f06cd89",
+        "size": 835,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/2b4d3dda125bbd03cb930d3f1c071cd89f06cd89"
+      }
+    },
+    {
+      "path": "lampOS/skill-creator/SKILL.md",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/skill-creator/SKILL.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "32d22aa6822bd75c7d97d95a451f84fe5c94a28c",
+        "size": 7535,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/32d22aa6822bd75c7d97d95a451f84fe5c94a28c"
+      },
+      "upstream": {
+        "path": "lampOS/skill-creator/SKILL.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "32d22aa6822bd75c7d97d95a451f84fe5c94a28c",
+        "size": 7535,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/32d22aa6822bd75c7d97d95a451f84fe5c94a28c"
+      }
+    },
+    {
+      "path": "lampOS/skill-creator/references/installing.md",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/skill-creator/references/installing.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "5a448664e48d6243371d77321a2a3fe663d13519",
+        "size": 2853,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/5a448664e48d6243371d77321a2a3fe663d13519"
+      },
+      "upstream": {
+        "path": "lampOS/skill-creator/references/installing.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "5a448664e48d6243371d77321a2a3fe663d13519",
+        "size": 2853,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/5a448664e48d6243371d77321a2a3fe663d13519"
+      }
+    },
+    {
+      "path": "lampOS/skill-creator/references/senses-and-actions.md",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/skill-creator/references/senses-and-actions.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "da620bebdf116f199b44c5edfeacc161ad3c219d",
+        "size": 3999,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/da620bebdf116f199b44c5edfeacc161ad3c219d"
+      },
+      "upstream": {
+        "path": "lampOS/skill-creator/references/senses-and-actions.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "da620bebdf116f199b44c5edfeacc161ad3c219d",
+        "size": 3999,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/da620bebdf116f199b44c5edfeacc161ad3c219d"
+      }
+    },
+    {
+      "path": "lampOS/skill-creator/references/skill-folder.md",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/skill-creator/references/skill-folder.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "9daacc1b587db5f4b8ed693574564ae1dc020880",
+        "size": 5317,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/9daacc1b587db5f4b8ed693574564ae1dc020880"
+      },
+      "upstream": {
+        "path": "lampOS/skill-creator/references/skill-folder.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "9daacc1b587db5f4b8ed693574564ae1dc020880",
+        "size": 5317,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/9daacc1b587db5f4b8ed693574564ae1dc020880"
+      }
+    },
+    {
+      "path": "lampOS/skill-creator/references/testing.md",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/skill-creator/references/testing.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "a6ca985dedb3ba4033ea2f752091e90fe52db0c0",
+        "size": 3794,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/a6ca985dedb3ba4033ea2f752091e90fe52db0c0"
+      },
+      "upstream": {
+        "path": "lampOS/skill-creator/references/testing.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "a6ca985dedb3ba4033ea2f752091e90fe52db0c0",
+        "size": 3794,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/a6ca985dedb3ba4033ea2f752091e90fe52db0c0"
+      }
+    },
+    {
+      "path": "lampOS/skills/stretch-break/SKILL.md",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/skills/stretch-break/SKILL.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "ff88eca35b14df9ea7e54c9094370fdff6366910",
+        "size": 779,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/ff88eca35b14df9ea7e54c9094370fdff6366910"
+      },
+      "upstream": {
+        "path": "lampOS/skills/stretch-break/SKILL.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "ff88eca35b14df9ea7e54c9094370fdff6366910",
+        "size": 779,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/ff88eca35b14df9ea7e54c9094370fdff6366910"
+      }
+    },
+    {
+      "path": "lampOS/skills/stretch-break/skill.toml",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/skills/stretch-break/skill.toml",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "3e60c804a0d4a67fd5ae9beb7abe6768f1a7a0f9",
+        "size": 1020,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/3e60c804a0d4a67fd5ae9beb7abe6768f1a7a0f9"
+      },
+      "upstream": {
+        "path": "lampOS/skills/stretch-break/skill.toml",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "3e60c804a0d4a67fd5ae9beb7abe6768f1a7a0f9",
+        "size": 1020,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/3e60c804a0d4a67fd5ae9beb7abe6768f1a7a0f9"
+      }
+    },
+    {
+      "path": "lampOS/skills/stretch-break/tests/README.md",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/skills/stretch-break/tests/README.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "96d27661455b814acb4e30650a040405057f7764",
+        "size": 1573,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/96d27661455b814acb4e30650a040405057f7764"
+      },
+      "upstream": {
+        "path": "lampOS/skills/stretch-break/tests/README.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "96d27661455b814acb4e30650a040405057f7764",
+        "size": 1573,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/96d27661455b814acb4e30650a040405057f7764"
+      }
+    },
+    {
+      "path": "lampOS/skills/stretch-break/tests/acts-after-50-minutes/expect.toml",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/skills/stretch-break/tests/acts-after-50-minutes/expect.toml",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "d3b8461c10f041efc6a12c3a536b7d7b9d3ddbd1",
+        "size": 263,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/d3b8461c10f041efc6a12c3a536b7d7b9d3ddbd1"
+      },
+      "upstream": {
+        "path": "lampOS/skills/stretch-break/tests/acts-after-50-minutes/expect.toml",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "d3b8461c10f041efc6a12c3a536b7d7b9d3ddbd1",
+        "size": 263,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/d3b8461c10f041efc6a12c3a536b7d7b9d3ddbd1"
+      }
+    },
+    {
+      "path": "lampOS/skills/stretch-break/tests/acts-after-50-minutes/humans_faces_tracked.jsonl",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/skills/stretch-break/tests/acts-after-50-minutes/humans_faces_tracked.jsonl",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "258683afa5bd0a33a63d81e2b793335389910127",
+        "size": 35613,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/258683afa5bd0a33a63d81e2b793335389910127"
+      },
+      "upstream": {
+        "path": "lampOS/skills/stretch-break/tests/acts-after-50-minutes/humans_faces_tracked.jsonl",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "258683afa5bd0a33a63d81e2b793335389910127",
+        "size": 35613,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/258683afa5bd0a33a63d81e2b793335389910127"
+      }
+    },
+    {
+      "path": "lampOS/skills/stretch-break/tests/acts-after-50-minutes/voice_state.jsonl",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/skills/stretch-break/tests/acts-after-50-minutes/voice_state.jsonl",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "856663f2f6aff0b89a2f25ed0d259a8c0737a0bb",
+        "size": 332,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/856663f2f6aff0b89a2f25ed0d259a8c0737a0bb"
+      },
+      "upstream": {
+        "path": "lampOS/skills/stretch-break/tests/acts-after-50-minutes/voice_state.jsonl",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "856663f2f6aff0b89a2f25ed0d259a8c0737a0bb",
+        "size": 332,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/856663f2f6aff0b89a2f25ed0d259a8c0737a0bb"
+      }
+    },
+    {
+      "path": "lampOS/skills/stretch-break/tests/quiet-until-they-leave/expect.toml",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/skills/stretch-break/tests/quiet-until-they-leave/expect.toml",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "47d354a8f0265549061a64584c2927095d787468",
+        "size": 304,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/47d354a8f0265549061a64584c2927095d787468"
+      },
+      "upstream": {
+        "path": "lampOS/skills/stretch-break/tests/quiet-until-they-leave/expect.toml",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "47d354a8f0265549061a64584c2927095d787468",
+        "size": 304,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/47d354a8f0265549061a64584c2927095d787468"
+      }
+    },
+    {
+      "path": "lampOS/skills/stretch-break/tests/quiet-until-they-leave/humans_faces_tracked.jsonl",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/skills/stretch-break/tests/quiet-until-they-leave/humans_faces_tracked.jsonl",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "3805faf70765267e435efc6febc2e4abe2b07281",
+        "size": 59669,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/3805faf70765267e435efc6febc2e4abe2b07281"
+      },
+      "upstream": {
+        "path": "lampOS/skills/stretch-break/tests/quiet-until-they-leave/humans_faces_tracked.jsonl",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "3805faf70765267e435efc6febc2e4abe2b07281",
+        "size": 59669,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/3805faf70765267e435efc6febc2e4abe2b07281"
+      }
+    },
+    {
+      "path": "lampOS/skills/stretch-break/tests/quiet-until-they-leave/voice_state.jsonl",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/skills/stretch-break/tests/quiet-until-they-leave/voice_state.jsonl",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "c4cf1d324a7d47e6e5e10017cda4ee63cdcd3c69",
+        "size": 332,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/c4cf1d324a7d47e6e5e10017cda4ee63cdcd3c69"
+      },
+      "upstream": {
+        "path": "lampOS/skills/stretch-break/tests/quiet-until-they-leave/voice_state.jsonl",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "c4cf1d324a7d47e6e5e10017cda4ee63cdcd3c69",
+        "size": 332,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/c4cf1d324a7d47e6e5e10017cda4ee63cdcd3c69"
+      }
+    },
+    {
+      "path": "lampOS/skills/stretch-break/tests/quiet-when-paused/expect.toml",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/skills/stretch-break/tests/quiet-when-paused/expect.toml",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "96686d3161b858a499ff887fa3742b02f1714293",
+        "size": 104,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/96686d3161b858a499ff887fa3742b02f1714293"
+      },
+      "upstream": {
+        "path": "lampOS/skills/stretch-break/tests/quiet-when-paused/expect.toml",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "96686d3161b858a499ff887fa3742b02f1714293",
+        "size": 104,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/96686d3161b858a499ff887fa3742b02f1714293"
+      }
+    },
+    {
+      "path": "lampOS/skills/stretch-break/tests/quiet-when-short-sitting/expect.toml",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/skills/stretch-break/tests/quiet-when-short-sitting/expect.toml",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "657487eec9b5db939505f2441539748b22e1e7c0",
+        "size": 70,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/657487eec9b5db939505f2441539748b22e1e7c0"
+      },
+      "upstream": {
+        "path": "lampOS/skills/stretch-break/tests/quiet-when-short-sitting/expect.toml",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "657487eec9b5db939505f2441539748b22e1e7c0",
+        "size": 70,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/657487eec9b5db939505f2441539748b22e1e7c0"
+      }
+    },
+    {
+      "path": "lampOS/skills/stretch-break/tests/quiet-when-short-sitting/humans_faces_tracked.jsonl",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/skills/stretch-break/tests/quiet-when-short-sitting/humans_faces_tracked.jsonl",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "a3755272c7b187be1c8707af7363ab99ebca5b95",
+        "size": 27007,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/a3755272c7b187be1c8707af7363ab99ebca5b95"
+      },
+      "upstream": {
+        "path": "lampOS/skills/stretch-break/tests/quiet-when-short-sitting/humans_faces_tracked.jsonl",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "a3755272c7b187be1c8707af7363ab99ebca5b95",
+        "size": 27007,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/a3755272c7b187be1c8707af7363ab99ebca5b95"
+      }
+    },
+    {
+      "path": "lampOS/skills/stretch-break/tests/quiet-when-short-sitting/voice_state.jsonl",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/skills/stretch-break/tests/quiet-when-short-sitting/voice_state.jsonl",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "08e5af450436c0a22f3e7addf006b7bc290c0144",
+        "size": 332,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/08e5af450436c0a22f3e7addf006b7bc290c0144"
+      },
+      "upstream": {
+        "path": "lampOS/skills/stretch-break/tests/quiet-when-short-sitting/voice_state.jsonl",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "08e5af450436c0a22f3e7addf006b7bc290c0144",
+        "size": 332,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/08e5af450436c0a22f3e7addf006b7bc290c0144"
+      }
+    },
+    {
+      "path": "lampOS/skills/stretch-break/tests/quiet-while-talking/expect.toml",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/skills/stretch-break/tests/quiet-while-talking/expect.toml",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "494f5fa049839a3ef7c466155d5223801e7f6628",
+        "size": 175,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/494f5fa049839a3ef7c466155d5223801e7f6628"
+      },
+      "upstream": {
+        "path": "lampOS/skills/stretch-break/tests/quiet-while-talking/expect.toml",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "494f5fa049839a3ef7c466155d5223801e7f6628",
+        "size": 175,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/494f5fa049839a3ef7c466155d5223801e7f6628"
+      }
+    },
+    {
+      "path": "lampOS/skills/stretch-break/tests/quiet-while-talking/humans_faces_tracked.jsonl",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/skills/stretch-break/tests/quiet-while-talking/humans_faces_tracked.jsonl",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "31463a11e693baeaa38f008912b7c485858e1588",
+        "size": 38453,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/31463a11e693baeaa38f008912b7c485858e1588"
+      },
+      "upstream": {
+        "path": "lampOS/skills/stretch-break/tests/quiet-while-talking/humans_faces_tracked.jsonl",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "31463a11e693baeaa38f008912b7c485858e1588",
+        "size": 38453,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/31463a11e693baeaa38f008912b7c485858e1588"
+      }
+    },
+    {
+      "path": "lampOS/skills/stretch-break/tests/quiet-while-talking/voice_state.jsonl",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/skills/stretch-break/tests/quiet-while-talking/voice_state.jsonl",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "5e1dc7d0de5e2206c36112dbf2bfb0cc2b921c74",
+        "size": 1061,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/5e1dc7d0de5e2206c36112dbf2bfb0cc2b921c74"
+      },
+      "upstream": {
+        "path": "lampOS/skills/stretch-break/tests/quiet-while-talking/voice_state.jsonl",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "5e1dc7d0de5e2206c36112dbf2bfb0cc2b921c74",
+        "size": 1061,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/5e1dc7d0de5e2206c36112dbf2bfb0cc2b921c74"
+      }
+    },
+    {
+      "path": "lampOS/skills/stuffy-air/SKILL.md",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/skills/stuffy-air/SKILL.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "0fe127b68ee37456ff76cbe8ad3b22859c075603",
+        "size": 1011,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/0fe127b68ee37456ff76cbe8ad3b22859c075603"
+      },
+      "upstream": {
+        "path": "lampOS/skills/stuffy-air/SKILL.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "0fe127b68ee37456ff76cbe8ad3b22859c075603",
+        "size": 1011,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/0fe127b68ee37456ff76cbe8ad3b22859c075603"
+      }
+    },
+    {
+      "path": "lampOS/skills/stuffy-air/skill.toml",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/skills/stuffy-air/skill.toml",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "2c8bb6b56317947baedf5939771117529d7c3ca1",
+        "size": 1193,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/2c8bb6b56317947baedf5939771117529d7c3ca1"
+      },
+      "upstream": {
+        "path": "lampOS/skills/stuffy-air/skill.toml",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "2c8bb6b56317947baedf5939771117529d7c3ca1",
+        "size": 1193,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/2c8bb6b56317947baedf5939771117529d7c3ca1"
+      }
+    },
+    {
+      "path": "lampOS/skills/stuffy-air/tests/README.md",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/skills/stuffy-air/tests/README.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "3216da11777c2220ef1639df6dd0ddb354732c92",
+        "size": 1444,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/3216da11777c2220ef1639df6dd0ddb354732c92"
+      },
+      "upstream": {
+        "path": "lampOS/skills/stuffy-air/tests/README.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "3216da11777c2220ef1639df6dd0ddb354732c92",
+        "size": 1444,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/3216da11777c2220ef1639df6dd0ddb354732c92"
+      }
+    },
+    {
+      "path": "lampOS/skills/stuffy-air/tests/acts-when-stuffy-ten-minutes/air_state.jsonl",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/skills/stuffy-air/tests/acts-when-stuffy-ten-minutes/air_state.jsonl",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "ca70377188048ca6d971b239ff5a5ed9b8fe9f1b",
+        "size": 18199,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/ca70377188048ca6d971b239ff5a5ed9b8fe9f1b"
+      },
+      "upstream": {
+        "path": "lampOS/skills/stuffy-air/tests/acts-when-stuffy-ten-minutes/air_state.jsonl",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "ca70377188048ca6d971b239ff5a5ed9b8fe9f1b",
+        "size": 18199,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/ca70377188048ca6d971b239ff5a5ed9b8fe9f1b"
+      }
+    },
+    {
+      "path": "lampOS/skills/stuffy-air/tests/acts-when-stuffy-ten-minutes/expect.toml",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/skills/stuffy-air/tests/acts-when-stuffy-ten-minutes/expect.toml",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "c44fcdb5bd1e0c5fbdf3676dc59b66d59e49603a",
+        "size": 207,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/c44fcdb5bd1e0c5fbdf3676dc59b66d59e49603a"
+      },
+      "upstream": {
+        "path": "lampOS/skills/stuffy-air/tests/acts-when-stuffy-ten-minutes/expect.toml",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "c44fcdb5bd1e0c5fbdf3676dc59b66d59e49603a",
+        "size": 207,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/c44fcdb5bd1e0c5fbdf3676dc59b66d59e49603a"
+      }
+    },
+    {
+      "path": "lampOS/skills/stuffy-air/tests/acts-when-stuffy-ten-minutes/humans_faces_tracked.jsonl",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/skills/stuffy-air/tests/acts-when-stuffy-ten-minutes/humans_faces_tracked.jsonl",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "b90cce55ac3d377987a7a392780b55c21f7b0c8b",
+        "size": 495486,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/b90cce55ac3d377987a7a392780b55c21f7b0c8b"
+      },
+      "upstream": {
+        "path": "lampOS/skills/stuffy-air/tests/acts-when-stuffy-ten-minutes/humans_faces_tracked.jsonl",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "b90cce55ac3d377987a7a392780b55c21f7b0c8b",
+        "size": 495486,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/b90cce55ac3d377987a7a392780b55c21f7b0c8b"
+      }
+    },
+    {
+      "path": "lampOS/skills/stuffy-air/tests/once-per-stuffy-spell/air_state.jsonl",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/skills/stuffy-air/tests/once-per-stuffy-spell/air_state.jsonl",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "2cbd17868ef05c1e23b2235937d6728d83f3f93a",
+        "size": 36349,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/2cbd17868ef05c1e23b2235937d6728d83f3f93a"
+      },
+      "upstream": {
+        "path": "lampOS/skills/stuffy-air/tests/once-per-stuffy-spell/air_state.jsonl",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "2cbd17868ef05c1e23b2235937d6728d83f3f93a",
+        "size": 36349,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/2cbd17868ef05c1e23b2235937d6728d83f3f93a"
+      }
+    },
+    {
+      "path": "lampOS/skills/stuffy-air/tests/once-per-stuffy-spell/expect.toml",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/skills/stuffy-air/tests/once-per-stuffy-spell/expect.toml",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "c8f47225e333c3dcabefe677d0738e8616747d9d",
+        "size": 225,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/c8f47225e333c3dcabefe677d0738e8616747d9d"
+      },
+      "upstream": {
+        "path": "lampOS/skills/stuffy-air/tests/once-per-stuffy-spell/expect.toml",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "c8f47225e333c3dcabefe677d0738e8616747d9d",
+        "size": 225,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/c8f47225e333c3dcabefe677d0738e8616747d9d"
+      }
+    },
+    {
+      "path": "lampOS/skills/stuffy-air/tests/once-per-stuffy-spell/humans_faces_tracked.jsonl",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/skills/stuffy-air/tests/once-per-stuffy-spell/humans_faces_tracked.jsonl",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "a7622f0eb44344348d8c165274211cd2b998e629",
+        "size": 991986,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/a7622f0eb44344348d8c165274211cd2b998e629"
+      },
+      "upstream": {
+        "path": "lampOS/skills/stuffy-air/tests/once-per-stuffy-spell/humans_faces_tracked.jsonl",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "a7622f0eb44344348d8c165274211cd2b998e629",
+        "size": 991986,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/a7622f0eb44344348d8c165274211cd2b998e629"
+      }
+    },
+    {
+      "path": "lampOS/skills/stuffy-air/tests/quiet-on-a-short-rise/air_state.jsonl",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/skills/stuffy-air/tests/quiet-on-a-short-rise/air_state.jsonl",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "e2c90a660c85ad8dde21305b97606ac07a81ced9",
+        "size": 10855,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/e2c90a660c85ad8dde21305b97606ac07a81ced9"
+      },
+      "upstream": {
+        "path": "lampOS/skills/stuffy-air/tests/quiet-on-a-short-rise/air_state.jsonl",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "e2c90a660c85ad8dde21305b97606ac07a81ced9",
+        "size": 10855,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/e2c90a660c85ad8dde21305b97606ac07a81ced9"
+      }
+    },
+    {
+      "path": "lampOS/skills/stuffy-air/tests/quiet-on-a-short-rise/expect.toml",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/skills/stuffy-air/tests/quiet-on-a-short-rise/expect.toml",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "5f26f3b4be4a0b088e75db74e58732465c90db58",
+        "size": 75,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/5f26f3b4be4a0b088e75db74e58732465c90db58"
+      },
+      "upstream": {
+        "path": "lampOS/skills/stuffy-air/tests/quiet-on-a-short-rise/expect.toml",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "5f26f3b4be4a0b088e75db74e58732465c90db58",
+        "size": 75,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/5f26f3b4be4a0b088e75db74e58732465c90db58"
+      }
+    },
+    {
+      "path": "lampOS/skills/stuffy-air/tests/quiet-on-a-short-rise/humans_faces_tracked.jsonl",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/skills/stuffy-air/tests/quiet-on-a-short-rise/humans_faces_tracked.jsonl",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "4393dcaf1c2fccfb620821fcb99a6567dc0ebf5b",
+        "size": 296986,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/4393dcaf1c2fccfb620821fcb99a6567dc0ebf5b"
+      },
+      "upstream": {
+        "path": "lampOS/skills/stuffy-air/tests/quiet-on-a-short-rise/humans_faces_tracked.jsonl",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "4393dcaf1c2fccfb620821fcb99a6567dc0ebf5b",
+        "size": 296986,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/4393dcaf1c2fccfb620821fcb99a6567dc0ebf5b"
+      }
+    },
+    {
+      "path": "lampOS/skills/stuffy-air/tests/quiet-when-nobody-there/air_state.jsonl",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/skills/stuffy-air/tests/quiet-when-nobody-there/air_state.jsonl",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "3cdf3152964238487b48defa2eff4d2cf55f3f96",
+        "size": 18199,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/3cdf3152964238487b48defa2eff4d2cf55f3f96"
+      },
+      "upstream": {
+        "path": "lampOS/skills/stuffy-air/tests/quiet-when-nobody-there/air_state.jsonl",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "3cdf3152964238487b48defa2eff4d2cf55f3f96",
+        "size": 18199,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/3cdf3152964238487b48defa2eff4d2cf55f3f96"
+      }
+    },
+    {
+      "path": "lampOS/skills/stuffy-air/tests/quiet-when-nobody-there/expect.toml",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/skills/stuffy-air/tests/quiet-when-nobody-there/expect.toml",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "6cec5cf1ac3f012b9238a17816c9ab05f68b4f1b",
+        "size": 83,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/6cec5cf1ac3f012b9238a17816c9ab05f68b4f1b"
+      },
+      "upstream": {
+        "path": "lampOS/skills/stuffy-air/tests/quiet-when-nobody-there/expect.toml",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "6cec5cf1ac3f012b9238a17816c9ab05f68b4f1b",
+        "size": 83,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/6cec5cf1ac3f012b9238a17816c9ab05f68b4f1b"
+      }
+    },
+    {
+      "path": "lampOS/skills/stuffy-air/tests/quiet-when-nobody-there/humans_faces_tracked.jsonl",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/skills/stuffy-air/tests/quiet-when-nobody-there/humans_faces_tracked.jsonl",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "4355e4f67b72f7673f18d0cb677705e580a3efca",
+        "size": 563,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/4355e4f67b72f7673f18d0cb677705e580a3efca"
+      },
+      "upstream": {
+        "path": "lampOS/skills/stuffy-air/tests/quiet-when-nobody-there/humans_faces_tracked.jsonl",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "4355e4f67b72f7673f18d0cb677705e580a3efca",
+        "size": 563,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/4355e4f67b72f7673f18d0cb677705e580a3efca"
+      }
+    },
+    {
+      "path": "lampOS/skills/stuffy-air/tests/quiet-when-paused/expect.toml",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/skills/stuffy-air/tests/quiet-when-paused/expect.toml",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "b8db5482bb5e2658f5564b7f664462e7def32219",
+        "size": 108,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/b8db5482bb5e2658f5564b7f664462e7def32219"
+      },
+      "upstream": {
+        "path": "lampOS/skills/stuffy-air/tests/quiet-when-paused/expect.toml",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "b8db5482bb5e2658f5564b7f664462e7def32219",
+        "size": 108,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/b8db5482bb5e2658f5564b7f664462e7def32219"
+      }
+    },
+    {
+      "path": "lampOS/skills/welcome-back/skill.toml",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "a55c3e1ef6c13f10e3fe4b54f1e58c9066a2db00"
+      },
+      "normal_merge": {
+        "path": "lampOS/skills/welcome-back/skill.toml",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "d2976823f827298f579639702d3be10fcf757c8b",
+        "size": 811,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/d2976823f827298f579639702d3be10fcf757c8b"
+      },
+      "upstream": {
+        "path": "lampOS/skills/welcome-back/skill.toml",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "d2976823f827298f579639702d3be10fcf757c8b",
+        "size": 811,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/d2976823f827298f579639702d3be10fcf757c8b"
+      }
+    },
+    {
+      "path": "lampOS/skills/welcome-back/tests/back-after-ten-minutes/expect.toml",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "d217830011ecf120f9067683460e744674ce8f2d"
+      },
+      "normal_merge": {
+        "path": "lampOS/skills/welcome-back/tests/back-after-ten-minutes/expect.toml",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "18ec038fa58f2e9777a70eabe50cf1694d2858f6",
+        "size": 941,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/18ec038fa58f2e9777a70eabe50cf1694d2858f6"
+      },
+      "upstream": {
+        "path": "lampOS/skills/welcome-back/tests/back-after-ten-minutes/expect.toml",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "18ec038fa58f2e9777a70eabe50cf1694d2858f6",
+        "size": 941,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/18ec038fa58f2e9777a70eabe50cf1694d2858f6"
+      }
+    },
+    {
+      "path": "lampOS/skills/welcome-back/tests/back-after-ten-minutes/humans_faces_tracked.jsonl",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "bb2b65fb875542dd16206a789675658416370380"
+      },
+      "normal_merge": {
+        "path": "lampOS/skills/welcome-back/tests/back-after-ten-minutes/humans_faces_tracked.jsonl",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "921ce7f13a5195ddfa1948f3a8b6739b4cdad1eb",
+        "size": 6485,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/921ce7f13a5195ddfa1948f3a8b6739b4cdad1eb"
+      },
+      "upstream": {
+        "path": "lampOS/skills/welcome-back/tests/back-after-ten-minutes/humans_faces_tracked.jsonl",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "921ce7f13a5195ddfa1948f3a8b6739b4cdad1eb",
+        "size": 6485,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/921ce7f13a5195ddfa1948f3a8b6739b4cdad1eb"
+      }
+    },
+    {
+      "path": "lampOS/skills/welcome-back/tests/back-after-ten-minutes/voice_state.jsonl",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/skills/welcome-back/tests/back-after-ten-minutes/voice_state.jsonl",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "e07d13c26959c85ac3a726cbae97d7b2584e7874",
+        "size": 332,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/e07d13c26959c85ac3a726cbae97d7b2584e7874"
+      },
+      "upstream": {
+        "path": "lampOS/skills/welcome-back/tests/back-after-ten-minutes/voice_state.jsonl",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "e07d13c26959c85ac3a726cbae97d7b2584e7874",
+        "size": 332,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/e07d13c26959c85ac3a726cbae97d7b2584e7874"
+      }
+    },
+    {
+      "path": "lampOS/skills/welcome-back/tests/there-at-start-then-away/expect.toml",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "27b18901a8deba3a772000c5d02cda51bb018f8f"
+      },
+      "normal_merge": null,
+      "upstream": null
+    },
+    {
+      "path": "lampOS/skills/welcome-back/tests/there-at-start-then-away/humans_faces_tracked.jsonl",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "02faf91dc9e4cff6e674419a229f30a71f5dbb21"
+      },
+      "normal_merge": null,
+      "upstream": null
+    },
+    {
+      "path": "lampOS/skills/welcome-back/tests/there-at-start-then-talking/expect.toml",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/skills/welcome-back/tests/there-at-start-then-talking/expect.toml",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "742d7ee3ef1f9677b472ee8c3476e3ce3bea9719",
+        "size": 557,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/742d7ee3ef1f9677b472ee8c3476e3ce3bea9719"
+      },
+      "upstream": {
+        "path": "lampOS/skills/welcome-back/tests/there-at-start-then-talking/expect.toml",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "742d7ee3ef1f9677b472ee8c3476e3ce3bea9719",
+        "size": 557,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/742d7ee3ef1f9677b472ee8c3476e3ce3bea9719"
+      }
+    },
+    {
+      "path": "lampOS/skills/welcome-back/tests/there-at-start-then-talking/humans_faces_tracked.jsonl",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/skills/welcome-back/tests/there-at-start-then-talking/humans_faces_tracked.jsonl",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "c44f211b19b6c88ea03e555de9019bf18bbc8134",
+        "size": 5132,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/c44f211b19b6c88ea03e555de9019bf18bbc8134"
+      },
+      "upstream": {
+        "path": "lampOS/skills/welcome-back/tests/there-at-start-then-talking/humans_faces_tracked.jsonl",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "c44f211b19b6c88ea03e555de9019bf18bbc8134",
+        "size": 5132,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/c44f211b19b6c88ea03e555de9019bf18bbc8134"
+      }
+    },
+    {
+      "path": "lampOS/skills/welcome-back/tests/there-at-start-then-talking/voice_state.jsonl",
+      "head": null,
+      "normal_merge": {
+        "path": "lampOS/skills/welcome-back/tests/there-at-start-then-talking/voice_state.jsonl",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "1793fc9cf3db550e0f8e01131a2db22b5819f310",
+        "size": 816,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/1793fc9cf3db550e0f8e01131a2db22b5819f310"
+      },
+      "upstream": {
+        "path": "lampOS/skills/welcome-back/tests/there-at-start-then-talking/voice_state.jsonl",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "1793fc9cf3db550e0f8e01131a2db22b5819f310",
+        "size": 816,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/1793fc9cf3db550e0f8e01131a2db22b5819f310"
+      }
+    }
+  ],
+  "workflow_filters_manifests_lock_comparison": [
+    {
+      "path": ".github/workflows/lampos-arm64.yml",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "01309b57005ff770d23ee3dbc378a3ccfa2cf014"
+      },
+      "normal": {
+        "path": ".github/workflows/lampos-arm64.yml",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "01309b57005ff770d23ee3dbc378a3ccfa2cf014",
+        "size": 7440,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/01309b57005ff770d23ee3dbc378a3ccfa2cf014"
+      },
+      "same": true
+    },
+    {
+      "path": "lampOS/.config/nextest.toml",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "f83b3204b9c159d19c7bb90e003a28f05fd61268"
+      },
+      "normal": {
+        "path": "lampOS/.config/nextest.toml",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "f83b3204b9c159d19c7bb90e003a28f05fd61268",
+        "size": 6466,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/f83b3204b9c159d19c7bb90e003a28f05fd61268"
+      },
+      "same": true
+    },
+    {
+      "path": "lampOS/Cargo.toml",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "5a6b745d437ff32d70a5cde48e079c66397d2b94"
+      },
+      "normal": {
+        "path": "lampOS/Cargo.toml",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "5a6b745d437ff32d70a5cde48e079c66397d2b94",
+        "size": 1228,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/5a6b745d437ff32d70a5cde48e079c66397d2b94"
+      },
+      "same": true
+    },
+    {
+      "path": "lampOS/Cargo.lock",
+      "head": {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "957606464ad61f2e3c5a652b73ebb6885b3f297d"
+      },
+      "normal": {
+        "path": "lampOS/Cargo.lock",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "05d7c715767795d1edbdcc678a77841b6e339693",
+        "size": 114237,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/05d7c715767795d1edbdcc678a77841b6e339693"
+      },
+      "same": false
+    }
+  ],
+  "scope": "Full shard4 checked out exact branch head and failed dependency retrieval. Normal used its merge with a newer upstream parent and failed on two actual compiler diagnostics. The audit does not infer all other shards or any retry result."
+}

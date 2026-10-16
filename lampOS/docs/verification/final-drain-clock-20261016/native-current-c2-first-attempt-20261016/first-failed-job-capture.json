@@ -1,0 +1,74 @@
+{
+  "date_from_date": "2026-10-16 10:46:40 +0700",
+  "scope": "Only two owner-reported terminal failed jobs; no polling of remaining full shards and no watcher-directory writes",
+  "records": [
+    {
+      "label": "normal",
+      "run": 38846187840,
+      "job": 116797136519,
+      "command": [
+        "gh",
+        "api",
+        "repos/autonomous-ai/lampOS/actions/jobs/116797136519"
+      ],
+      "started_from_date": "2026-10-16 10:46:35 +0700",
+      "finished_from_date": "2026-10-16 10:46:35 +0700",
+      "exit_code": 0,
+      "path": "normal/job.json",
+      "sha256": "0daa3732830b835fed9d4d0ef06cef1e3efe82eac963aff53f37cfba14c49b6d",
+      "bytes": 3346,
+      "stderr_bytes": 0
+    },
+    {
+      "label": "normal",
+      "run": 38846187840,
+      "job": 116797136519,
+      "command": [
+        "gh",
+        "api",
+        "repos/autonomous-ai/lampOS/actions/jobs/116797136519/logs"
+      ],
+      "started_from_date": "2026-10-16 10:46:35 +0700",
+      "finished_from_date": "2026-10-16 10:46:37 +0700",
+      "exit_code": 0,
+      "path": "normal/job.log",
+      "sha256": "40823d902d2869d25db480701b1914212c3a9f9ebea6638776dc662382cfa1e8",
+      "bytes": 39019,
+      "stderr_bytes": 0
+    },
+    {
+      "label": "full-shard4",
+      "run": 38846183455,
+      "job": 116797126853,
+      "command": [
+        "gh",
+        "api",
+        "repos/autonomous-ai/lampOS/actions/jobs/116797126853"
+      ],
+      "started_from_date": "2026-10-16 10:46:37 +0700",
+      "finished_from_date": "2026-10-16 10:46:38 +0700",
+      "exit_code": 0,
+      "path": "full-shard4/job.json",
+      "sha256": "a1b6deb8aececc9c353ecf972e1d360f030979f25d4200fe96a4e07666f2496e",
+      "bytes": 3346,
+      "stderr_bytes": 0
+    },
+    {
+      "label": "full-shard4",
+      "run": 38846183455,
+      "job": 116797126853,
+      "command": [
+        "gh",
+        "api",
+        "repos/autonomous-ai/lampOS/actions/jobs/116797126853/logs"
+      ],
+      "started_from_date": "2026-10-16 10:46:38 +0700",
+      "finished_from_date": "2026-10-16 10:46:40 +0700",
+      "exit_code": 0,
+      "path": "full-shard4/job.log",
+      "sha256": "145700567748d132015d45c863f61d2599344823e0f85f4aa04cc9ede96447dc",
+      "bytes": 31275,
+      "stderr_bytes": 0
+    }
+  ]
+}

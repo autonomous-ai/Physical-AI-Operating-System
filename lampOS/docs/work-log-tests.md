@@ -1,5 +1,13 @@
 # Tests work log
 
+## 2026-10-16 10:57:05 +0700 — First c2 native failures retained
+
+Ready for lamp-voice: no (#963)
+
+[The complete two-job first-attempt failure record](verification/final-drain-clock-20261016/native-current-c2-first-attempt-20261016/README.md) preserves normal run 38846187840/job116797136519 and full run 38846183455/shard4 job116797126853. Both executed zero tests: normal compiled synthetic merge e7b170fb with upstream 8da7d7ee and failed on two missing Reply.say fields; shard4 checked out exact c2 and failed downloading hound's registry index with HTTP/2 framing error. All 56 owned files match the merge; all 142 other differences come exactly from the upstream parent. Complete raw logs, job APIs, source snapshots and identity expectations remain. [Root proof](verification/final-drain-current-native-failure-root-20261016/proof.json) independently verifies all 37 payload files and skipped test stages.
+
+The other three full shards are terminal successful; their exact partial membership is being audited separately. This does not complete the run or establish all123/all521 coverage. No job/test retry. Normal and full remain failed. The source-only rebase to db7201d0 on fixed upstream f5a20ba28 completed cleanly, preserving every one of the 56 owned files byte-for-byte. Its fresh local gate follows the separate closure526 gate; remote PR remains c2 until qualification. The original123 standalone serial target remains unproved.
+
 ## 2026-10-16 10:50:34 +0700 — Current final-drain gates and first native blockers
 
 Ready for lamp-voice: no (#963 and its continuations)

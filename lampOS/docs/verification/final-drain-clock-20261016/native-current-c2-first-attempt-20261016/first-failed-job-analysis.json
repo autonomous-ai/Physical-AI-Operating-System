@@ -1,0 +1,92 @@
+{
+  "date_from_date": "2026-10-16 10:47:14 +0700",
+  "records": [
+    {
+      "label": "normal",
+      "run": 38846187840,
+      "job": 116797136519,
+      "job_status": "completed",
+      "job_conclusion": "failure",
+      "head": "c2eacfa4e29a5c9db21d4d919a77d33ce8112238",
+      "checkout": [
+        {
+          "command_line": 261,
+          "sha_line": 262,
+          "text": "2026-10-16T03:34:55.9999792Z e7b170fb166ba2f16c6d3f6fa7e5ee0b192eb308"
+        }
+      ],
+      "errors": [
+        {
+          "line": 447,
+          "text": "2026-10-16T03:36:08.4496909Z error[E0063]: missing field `say` in initializer of `coordinator::Reply`"
+        },
+        {
+          "line": 453,
+          "text": "2026-10-16T03:36:08.4661588Z error[E0063]: missing field `say` in initializer of `coordinator::Reply`"
+        }
+      ],
+      "test_execution_markers": [],
+      "nextest_step": {
+        "name": "test (full run, every test one at a time; otherwise without the realtime group, in parallel)",
+        "status": "completed",
+        "conclusion": "skipped",
+        "number": 8,
+        "started_at": "2026-10-16T03:36:16Z",
+        "completed_at": "2026-10-16T03:36:16Z"
+      },
+      "doc_harness_step": {
+        "name": "doc tests and the own-harness tests (nextest runs neither)",
+        "status": "completed",
+        "conclusion": "skipped",
+        "number": 9,
+        "started_at": "2026-10-16T03:36:16Z",
+        "completed_at": "2026-10-16T03:36:16Z"
+      },
+      "log_sha256": "40823d902d2869d25db480701b1914212c3a9f9ebea6638776dc662382cfa1e8"
+    },
+    {
+      "label": "full-shard4",
+      "run": 38846183455,
+      "job": 116797126853,
+      "job_status": "completed",
+      "job_conclusion": "failure",
+      "head": "c2eacfa4e29a5c9db21d4d919a77d33ce8112238",
+      "checkout": [
+        {
+          "command_line": 245,
+          "sha_line": 246,
+          "text": "2026-10-16T03:34:51.5966632Z c2eacfa4e29a5c9db21d4d919a77d33ce8112238"
+        }
+      ],
+      "errors": [
+        {
+          "line": 377,
+          "text": "2026-10-16T03:35:00.6101519Z error: failed to get `hound` as a dependency of package `lamp-sound-fixtures v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/sound-fixtures)`"
+        },
+        {
+          "line": 392,
+          "text": "2026-10-16T03:35:00.6114465Z   [16] Error in the HTTP2 framing layer"
+        }
+      ],
+      "test_execution_markers": [],
+      "nextest_step": {
+        "name": "test (full run, every test one at a time; otherwise without the realtime group, in parallel)",
+        "status": "completed",
+        "conclusion": "skipped",
+        "number": 8,
+        "started_at": "2026-10-16T03:35:00Z",
+        "completed_at": "2026-10-16T03:35:00Z"
+      },
+      "doc_harness_step": {
+        "name": "doc tests and the own-harness tests (nextest runs neither)",
+        "status": "completed",
+        "conclusion": "skipped",
+        "number": 9,
+        "started_at": "2026-10-16T03:35:00Z",
+        "completed_at": "2026-10-16T03:35:00Z"
+      },
+      "log_sha256": "145700567748d132015d45c863f61d2599344823e0f85f4aa04cc9ede96447dc"
+    }
+  ],
+  "remaining_full_shards": "Parent watches; not polled by this audit."
+}

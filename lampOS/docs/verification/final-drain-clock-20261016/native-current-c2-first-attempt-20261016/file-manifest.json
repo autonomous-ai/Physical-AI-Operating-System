@@ -1,0 +1,217 @@
+{
+  "date_from_date": "2026-10-16 10:54:13 +0700",
+  "destination": "lampOS/docs/verification/final-drain-clock-20261016/native-current-c2-first-attempt-20261016",
+  "files": [
+    {
+      "path": "README.md",
+      "sha256": "deea8d8c0175cfa027bfc23748b07c1ff108623ef4bf3ecbba5720debeaf3a13",
+      "bytes": 3733,
+      "mode": "100644"
+    },
+    {
+      "path": "coordinator-head-to-normal.diff",
+      "sha256": "6cbe21ba913061d4427a935574d0622e434b6a2327164299a6765b2021abbcc5",
+      "bytes": 28063,
+      "mode": "100644"
+    },
+    {
+      "path": "expected-full-membership.json",
+      "sha256": "fecf6de835b96fcd01c1a4cfa7d5c8a8a60903a08de5bc0c8bbc20706362b3b7",
+      "bytes": 114474,
+      "mode": "100644"
+    },
+    {
+      "path": "failure-excerpts.txt",
+      "sha256": "c12aef0747208358e7089b174fc035012e9277b7aa3b119288fa94af7bd51538",
+      "bytes": 6843,
+      "mode": "100644"
+    },
+    {
+      "path": "first-failed-job-analysis.json",
+      "sha256": "8a95b354699d6b26cc0ebf616707360530c5ee24936cc43cf8f129a6b1922981",
+      "bytes": 3212,
+      "mode": "100644"
+    },
+    {
+      "path": "first-failed-job-capture.json",
+      "sha256": "a2b4b1c09a591c0a5a7a0d1007cd86a34812bbbbb4d1074b810e4293c26d171f",
+      "bytes": 2261,
+      "mode": "100644"
+    },
+    {
+      "path": "first-native-failure-result.json",
+      "sha256": "052b5ffa3d34f6346ea44e36cc151c3ded39043c296489fb75fae7a531e0402f",
+      "bytes": 2058,
+      "mode": "100644"
+    },
+    {
+      "path": "full-shard4/job.json",
+      "sha256": "a1b6deb8aececc9c353ecf972e1d360f030979f25d4200fe96a4e07666f2496e",
+      "bytes": 3346,
+      "mode": "100644"
+    },
+    {
+      "path": "full-shard4/job.json.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "mode": "100644"
+    },
+    {
+      "path": "full-shard4/job.log",
+      "sha256": "145700567748d132015d45c863f61d2599344823e0f85f4aa04cc9ede96447dc",
+      "bytes": 31275,
+      "mode": "100644"
+    },
+    {
+      "path": "full-shard4/job.log.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "mode": "100644"
+    },
+    {
+      "path": "normal/job.json",
+      "sha256": "0daa3732830b835fed9d4d0ef06cef1e3efe82eac963aff53f37cfba14c49b6d",
+      "bytes": 3346,
+      "mode": "100644"
+    },
+    {
+      "path": "normal/job.json.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "mode": "100644"
+    },
+    {
+      "path": "normal/job.log",
+      "sha256": "40823d902d2869d25db480701b1914212c3a9f9ebea6638776dc662382cfa1e8",
+      "bytes": 39019,
+      "mode": "100644"
+    },
+    {
+      "path": "normal/job.log.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "mode": "100644"
+    },
+    {
+      "path": "provenance.json",
+      "sha256": "1c1646330f532297d9133404f4d811e2478ee3cd2926af888dea5bd908917db9",
+      "bytes": 12932,
+      "mode": "100644"
+    },
+    {
+      "path": "source/head/.github/workflows/lampos-arm64.yml",
+      "sha256": "11cbcf5ced5022ca685b5c9e51f349c986259a5044575a20f39d3b8e869a045f",
+      "bytes": 7440,
+      "mode": "100644"
+    },
+    {
+      "path": "source/head/lampOS/.cargo/config.toml",
+      "sha256": "48a3e9ff36c92393a61c94924a7268fd9e732dc55afe239842fe7fdd2fa7db71",
+      "bytes": 210,
+      "mode": "100644"
+    },
+    {
+      "path": "source/head/lampOS/.config/nextest.toml",
+      "sha256": "33254521c34198ae2d4f988c4b7d04391c03da769ad91769e691171ae3b87367",
+      "bytes": 6466,
+      "mode": "100644"
+    },
+    {
+      "path": "source/head/lampOS/Cargo.lock",
+      "sha256": "eee69fedca6b934f6bb1824a5bba96b54008be90fa02fe1cf4cec6f7c4ff299c",
+      "bytes": 114226,
+      "mode": "100644"
+    },
+    {
+      "path": "source/head/lampOS/Cargo.toml",
+      "sha256": "dcb7474c7a11ab42e7bae9fc30abdb9d7cdbdc9874597dbffb4e06ceefcd5658",
+      "bytes": 1228,
+      "mode": "100644"
+    },
+    {
+      "path": "source/head/lampOS/crates/sound-fixtures/Cargo.toml",
+      "sha256": "b790403fada9e341620a67350d6c09844ff2e243ec44c8b549ef7b1f461fd28f",
+      "bytes": 282,
+      "mode": "100644"
+    },
+    {
+      "path": "source/head/lampOS/crates/voice/src/coordinator.rs",
+      "sha256": "c1f96a34e465bc6166999028d261cac3b303847095daf8a97a12170bf0342884",
+      "bytes": 367653,
+      "mode": "100644"
+    },
+    {
+      "path": "source/head/lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+      "sha256": "fcc6988f7837440550a090ea6e2b04c9b9f569f3f7589558234780477880148e",
+      "bytes": 13432,
+      "mode": "100644"
+    },
+    {
+      "path": "source/head/lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "sha256": "aca9379bbb7c993267251c1103a88f91d06ad8468e7f3cc936efb0d44797227c",
+      "bytes": 17959,
+      "mode": "100644"
+    },
+    {
+      "path": "source/head/lampOS/docs/voice-test-fixtures.md",
+      "sha256": "e6793bfdc94e95cf29393061638c6c0a418e109016a7c87c699c5b9df3bde98a",
+      "bytes": 20983,
+      "mode": "100644"
+    },
+    {
+      "path": "source/normal-merge/lampOS/crates/voice/src/coordinator.rs",
+      "sha256": "e2b6619e83548ca052a1bb0d3ead950d8436a9eebdf36f0f6ccd6b6b115dc15a",
+      "bytes": 383896,
+      "mode": "100644"
+    },
+    {
+      "path": "source-input-proof.json",
+      "sha256": "acdbba31576e55daa1b810ac5689cb555aab8bf618b2da078c7d22bfd5d4b190",
+      "bytes": 129207,
+      "mode": "100644"
+    },
+    {
+      "path": "source-provenance/normal-merge-commit.json",
+      "sha256": "8aeab640a07a1c2d94a7c75657d9e707348427082442bb2df5399b0700e22cb4",
+      "bytes": 2603,
+      "mode": "100644"
+    },
+    {
+      "path": "source-provenance/normal-merge-commit.json.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "mode": "100644"
+    },
+    {
+      "path": "source-provenance/normal-merge-tree.json.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "mode": "100644"
+    },
+    {
+      "path": "source-provenance/normal-upstream-commit.json",
+      "sha256": "397cd5badf28c672d270ec485eeade89eaf10854dd3c9ce27a795daa9a312112",
+      "bytes": 1240,
+      "mode": "100644"
+    },
+    {
+      "path": "source-provenance/normal-upstream-commit.json.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "mode": "100644"
+    },
+    {
+      "path": "source-provenance/normal-upstream-tree.json.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "mode": "100644"
+    },
+    {
+      "path": "source-provenance-capture.json",
+      "sha256": "9336e96304ef884ac89e707b412b1f6308f402ec31e9e477d5016efaecee7ce1",
+      "bytes": 1935,
+      "mode": "100644"
+    }
+  ],
+  "excludes_self_and_SHA256SUMS": true
+}

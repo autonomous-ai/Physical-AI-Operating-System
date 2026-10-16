@@ -1,0 +1,41 @@
+{
+  "date_from_date": "2026-10-16 10:51:25 +0700",
+  "normal": {
+    "run": 38846187840,
+    "job": 116797136519,
+    "attempt": 1,
+    "status": "terminal failure",
+    "stage": "release workspace build",
+    "exit": 101,
+    "category": "Rust source compilation",
+    "actual_checkout": "e7b170fb166ba2f16c6d3f6fa7e5ee0b192eb308",
+    "errors": [
+      "E0063 missing Reply.say at crates/voice/src/coordinator.rs:6209:23",
+      "E0063 missing Reply.say at crates/voice/src/coordinator.rs:6279:19"
+    ],
+    "E0061_reported": false,
+    "executed_tests": 0,
+    "nextest_doc_harness": "all skipped",
+    "source_relation": "coordinator.rs is byte-exact to newer upstream parent 8da7d7ee and differs from branch c2. All three owned source/doc paths and 53 historical evidence files remain exact. This proves the failed source location and merge provenance, not a new all-upstream gate result."
+  },
+  "full_shard4": {
+    "run": 38846183455,
+    "job": 116797126853,
+    "attempt": 1,
+    "status": "terminal failure",
+    "stage": "release workspace build dependency retrieval",
+    "exit": 101,
+    "category": "registry transport failure before compilation/test execution",
+    "actual_checkout": "c2eacfa4e29a5c9db21d4d919a77d33ce8112238",
+    "error": "hound crates.io index entry ho/un/hound: curl [16] Error in the HTTP2 framing layer",
+    "executed_tests": 0,
+    "nextest_doc_harness": "all skipped",
+    "cause_limit": "The log identifies the failed HTTP2 transfer; it does not identify whether client, intermediary or remote server caused it."
+  },
+  "other_full_shards": {
+    "1": "pending terminal capture from parent notice",
+    "2": "pending terminal capture from parent notice",
+    "3": "pending terminal capture from parent notice"
+  },
+  "qualification": "Neither normal nor full run is green; complete original123/local521/new6 native qualification is not established. Retain both first-attempt failures. No retries requested or performed. Root owns integration onto fixed upstream and any genuinely changed-source qualification."
+}

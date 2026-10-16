@@ -1,0 +1,140 @@
+--- normal/job.log lines 259-263 ---
+259: 2026-10-16T03:34:55.9495979Z HEAD is now at e7b170f Merge c2eacfa4e29a5c9db21d4d919a77d33ce8112238 into 8da7d7ee175da8aa2b77717e189f540eb3904569
+260: 2026-10-16T03:34:55.9939598Z ##[endgroup]
+261: 2026-10-16T03:34:55.9976860Z [command]/usr/bin/git log -1 --format=%H
+262: 2026-10-16T03:34:55.9999792Z e7b170fb166ba2f16c6d3f6fa7e5ee0b192eb308
+263: 2026-10-16T03:34:56.0138880Z ##[group]Run curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain 1.96.0 -c clippy -c rustfmt
+
+--- normal/job.log lines 406-409 ---
+406: 2026-10-16T03:35:44.5374164Z ##[group]Run cargo build --locked --release --workspace --bins --examples
+407: 2026-10-16T03:35:44.5374714Z [36;1mcargo build --locked --release --workspace --bins --examples[0m
+408: 2026-10-16T03:35:44.5400431Z shell: /usr/bin/bash -e {0}
+409: 2026-10-16T03:35:44.5400933Z ##[endgroup]
+
+--- normal/job.log lines 447-462 ---
+447: 2026-10-16T03:36:08.4496909Z error[E0063]: missing field `say` in initializer of `coordinator::Reply`
+448: 2026-10-16T03:36:08.4532155Z     --> crates/voice/src/coordinator.rs:6209:23
+449: 2026-10-16T03:36:08.4532519Z      |
+450: 2026-10-16T03:36:08.4581235Z 6209 |     let mut current = Reply {
+451: 2026-10-16T03:36:08.4611395Z      |                       ^^^^^ missing `say`
+452: 2026-10-16T03:36:08.4631134Z 
+453: 2026-10-16T03:36:08.4661588Z error[E0063]: missing field `say` in initializer of `coordinator::Reply`
+454: 2026-10-16T03:36:08.4662151Z     --> crates/voice/src/coordinator.rs:6279:19
+455: 2026-10-16T03:36:08.4691277Z      |
+456: 2026-10-16T03:36:08.4721365Z 6279 |     let current = Reply {
+457: 2026-10-16T03:36:08.4721893Z      |                   ^^^^^ missing `say`
+458: 2026-10-16T03:36:08.4751110Z 
+459: 2026-10-16T03:36:11.4611860Z For more information about this error, try `rustc --explain E0063`.
+460: 2026-10-16T03:36:11.4942232Z error: could not compile `lamp-voice` (lib) due to 2 previous errors
+461: 2026-10-16T03:36:11.4943063Z warning: build failed, waiting for other jobs to finish...
+462: 2026-10-16T03:36:16.5901605Z ##[error]Process completed with exit code 101.
+
+--- full-shard4/job.log lines 245-246 ---
+245: 2026-10-16T03:34:51.5935967Z [command]/usr/bin/git log -1 --format=%H
+246: 2026-10-16T03:34:51.5966632Z c2eacfa4e29a5c9db21d4d919a77d33ce8112238
+
+--- full-shard4/job.log lines 371-393 ---
+371: 2026-10-16T03:34:59.4907024Z ##[group]Run cargo build --locked --release --workspace --bins --examples
+372: 2026-10-16T03:34:59.4907720Z [36;1mcargo build --locked --release --workspace --bins --examples[0m
+373: 2026-10-16T03:34:59.4935264Z shell: /usr/bin/bash -e {0}
+374: 2026-10-16T03:34:59.4935713Z ##[endgroup]
+375: 2026-10-16T03:34:59.5751835Z     Updating crates.io index
+376: 2026-10-16T03:34:59.5757503Z     Updating git repository `https://github.com/RustAudio/cpal.git`
+377: 2026-10-16T03:35:00.6101519Z error: failed to get `hound` as a dependency of package `lamp-sound-fixtures v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/sound-fixtures)`
+378: 2026-10-16T03:35:00.6102957Z 
+379: 2026-10-16T03:35:00.6110641Z Caused by:
+380: 2026-10-16T03:35:00.6111009Z   failed to load source for dependency `hound`
+381: 2026-10-16T03:35:00.6111269Z 
+382: 2026-10-16T03:35:00.6112009Z Caused by:
+383: 2026-10-16T03:35:00.6112706Z   unable to update registry `crates-io`
+384: 2026-10-16T03:35:00.6112928Z 
+385: 2026-10-16T03:35:00.6113024Z Caused by:
+386: 2026-10-16T03:35:00.6113455Z   download of ho/un/hound failed
+387: 2026-10-16T03:35:00.6113627Z 
+388: 2026-10-16T03:35:00.6113723Z Caused by:
+389: 2026-10-16T03:35:00.6113974Z   curl failed
+390: 2026-10-16T03:35:00.6114091Z 
+391: 2026-10-16T03:35:00.6114214Z Caused by:
+392: 2026-10-16T03:35:00.6114465Z   [16] Error in the HTTP2 framing layer
+393: 2026-10-16T03:35:00.6137351Z ##[error]Process completed with exit code 101.
+
+--- source/normal-merge/lampOS/crates/voice/src/coordinator.rs lines 205-230 ---
+205: struct Reply {
+206:     owner: TurnOwner,
+207:     cloud: CloudRequest,
+208:     local_input_ended: bool,
+209:     plan: OutputOwner,
+210:     playback: Option<PlaybackToken>,
+211:     pcm: VecDeque<i16>,
+212:     generation_done: bool,
+213:     provider_idle: bool,
+214:     input_sequence: u64,
+215:     had_audio: bool,
+216:     final_chunk: Option<u64>,
+217:     playback_gaps: u64,
+218:     last_provider_audio_at_us: Option<u64>,
+219:     start: StartGate,
+220:     need: StartNeed,
+221:     notice: NoticeDelivery,
+222:     /// Taken while the internet could not be reached (#830): never sent.
+223:     local_only: Option<notices::LocalOnly>,
+224:     reminder: Option<crate::reminders::Receipt>,
+225:     /// A say asked of the voice ([`crate::say`], #939), answered when the
+226:     /// turn ends.
+227:     say: Option<crate::say::Ticket>,
+228:     /// How loud the block last handed to the speaker is, for the ring's face.
+229:     voice_level: u8,
+230: }
+
+--- source/normal-merge/lampOS/crates/voice/src/coordinator.rs lines 6209-6233 ---
+6209:     let mut current = Reply {
+6210:         owner: turn,
+6211:         cloud: CloudRequest::local_only(),
+6212:         local_input_ended: false,
+6213:         plan,
+6214:         playback: None,
+6215:         pcm: VecDeque::new(),
+6216:         generation_done: true,
+6217:         provider_idle: true,
+6218:         input_sequence: 0,
+6219:         had_audio: false,
+6220:         voice_level: 0,
+6221:         final_chunk: None,
+6222:         playback_gaps: 0,
+6223:         notice: NoticeDelivery::default(),
+6224:         local_only: Some(notices::LocalOnly {
+6225:             speech: false,
+6226:             back: false,
+6227:         }),
+6228:         reminder: None,
+6229:         last_provider_audio_at_us: None,
+6230:         start: playout_start.gate(),
+6231:         need: StartNeed::default(),
+6232:     };
+6233:     current.input_sequence = accepted.audio.len() as u64;
+
+--- source/normal-merge/lampOS/crates/voice/src/coordinator.rs lines 6279-6302 ---
+6279:     let current = Reply {
+6280:         owner: turn,
+6281:         cloud: CloudRequest::local_only(),
+6282:         local_input_ended: true,
+6283:         plan,
+6284:         playback: None,
+6285:         pcm: VecDeque::new(),
+6286:         generation_done: true,
+6287:         provider_idle: true,
+6288:         input_sequence: 0,
+6289:         had_audio: false,
+6290:         voice_level: 0,
+6291:         final_chunk: None,
+6292:         playback_gaps: 0,
+6293:         notice: NoticeDelivery::default(),
+6294:         local_only: Some(notices::LocalOnly {
+6295:             speech: true,
+6296:             back: true,
+6297:         }),
+6298:         reminder: None,
+6299:         last_provider_audio_at_us: None,
+6300:         start: playout_start.gate(),
+6301:         need: StartNeed::default(),
+6302:     };

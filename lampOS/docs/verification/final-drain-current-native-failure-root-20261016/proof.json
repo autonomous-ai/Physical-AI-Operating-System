@@ -1,0 +1,24 @@
+{
+  "date_from_date": "2026-10-16 10:56:18 +0700",
+  "manifest_sha256": "c502ca41ee2cc6bf6b7b0d4c961aaf2e7c0bff3a1397642def248d84d8e1317f",
+  "files_verified": 37,
+  "jobs": [
+    {
+      "name": "normal",
+      "id": 116797136519,
+      "conclusion": "failure",
+      "test_steps_skipped": true,
+      "test_executions": 0,
+      "log_sha256": "40823d902d2869d25db480701b1914212c3a9f9ebea6638776dc662382cfa1e8"
+    },
+    {
+      "name": "full-shard4",
+      "id": 116797126853,
+      "conclusion": "failure",
+      "test_steps_skipped": true,
+      "test_executions": 0,
+      "log_sha256": "145700567748d132015d45c863f61d2599344823e0f85f4aa04cc9ede96447dc"
+    }
+  ],
+  "limits": "The separate first full shards1/2/3 succeeded, but their membership audit is pending. This two-job failure package establishes no complete native qualification."
+}

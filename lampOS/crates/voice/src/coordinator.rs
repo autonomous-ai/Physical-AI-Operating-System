@@ -2100,7 +2100,13 @@ fn spawn_rig(
         second_config.is_some(),
     )?;
     let second_arguments = second_config
-        .map(|config| second::arguments(&arguments, &config))
+        .map(|config| {
+            second::arguments(
+                &arguments,
+                &config,
+                crate::second_provider::worker::wait_cue_from_environment(),
+            )
+        })
         .transpose()?;
     let arguments: Vec<&str> = arguments.iter().map(String::as_str).collect();
     let mut provider = Worker::spawn_with_boot_and_tick(

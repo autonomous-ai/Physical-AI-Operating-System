@@ -143,9 +143,14 @@ pub(super) fn configured(value: Option<OsString>) -> Option<PathBuf> {
 }
 
 /// The `worker second` arguments: the Live worker's, its configuration
-/// first, then the second route's, then its flags but `--keep-link` and
+/// first, then the second route's, `--wait-cue` with `wait_cue`
+/// (`LAMP_SECOND_WAIT_CUE=on`), then its flags but `--keep-link` and
 /// `--wait-for-room`, which are for Gemini's link.
-pub(super) fn arguments(provider: &[String], second_config: &Path) -> io::Result<Vec<String>> {
+pub(super) fn arguments(
+    provider: &[String],
+    second_config: &Path,
+    wait_cue: bool,
+) -> io::Result<Vec<String>> {
     let (config, flags) = provider
         .split_first()
         .ok_or_else(|| io::Error::other("provider arguments lack a configuration"))?;
@@ -153,6 +158,9 @@ pub(super) fn arguments(provider: &[String], second_config: &Path) -> io::Result
         .to_str()
         .ok_or_else(|| io::Error::other("second route configuration path must be UTF-8"))?;
     let mut arguments = vec![config.clone(), second_config.to_owned()];
+    if wait_cue {
+        arguments.push(crate::second_provider::worker::WAIT_CUE_FLAG.to_owned());
+    }
     arguments.extend(
         flags
             .iter()
@@ -791,7 +799,7 @@ mod tests {
         .map(String::from)
         .to_vec();
         assert_eq!(
-            arguments(&provider, Path::new("/etc/second.json")).unwrap(),
+            arguments(&provider, Path::new("/etc/second.json"), false).unwrap(),
             [
                 "/etc/provider.json",
                 "/etc/second.json",
@@ -799,6 +807,10 @@ mod tests {
                 "/t",
                 "--tools"
             ]
+        );
+        assert_eq!(
+            arguments(&provider, Path::new("/etc/second.json"), true).unwrap()[..3],
+            ["/etc/provider.json", "/etc/second.json", "--wait-cue"]
         );
         assert!(configured(None).is_none());
         assert!(configured(Some(OsString::new())).is_none());

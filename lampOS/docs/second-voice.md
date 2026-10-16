@@ -148,6 +148,16 @@ A base URL on `campaign-api.autonomous.ai` ending in `/ai` is given `/v1`
   and an answer 12 s late is worse than none. A round after a tool ran is
   not bounded: what was done (a timer set, the light changed) has to be
   said, or it is asked for and done again.
+  With `LAMP_SECOND_WAIT_CUE=on` (sixth-P3), a spoken turn whose first
+  round has not begun 1.5 s after the words makes one soft sound ("Hmm.",
+  "Mm." or "Hm.", the next never the last one played), and is then given up
+  only at 4.5 s: a "hmm" followed by silence is the worst of both. The
+  sounds are said once by this route's own voice at its first spoken turn,
+  kept in memory, cut to 0.6 s with a 30 ms fade, at half the
+  reply's level. They go as audio only: nothing is kept in the thread, the 120 s
+  announcement still comes before the first real answer, and a written
+  turn never makes one. On lamp-4ace on 2026-10-16, 9 of 10 backup turns
+  waited past 1.5 s.
 - **Speech** (`net/tts.rs`), 24 kHz mono 16-bit PCM:
   - `openai`: `POST <base>/audio/speech`, `Authorization: Bearer <key>`,
     model `tts-1`, `response_format: pcm`.

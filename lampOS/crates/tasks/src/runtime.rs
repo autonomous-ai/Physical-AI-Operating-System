@@ -1,7 +1,11 @@
 //! Bounded local sockets, one durable owner and one independent Harness worker.
 use crate::{
-    engine::{Clock as ClockSample, Engine, Error as EngineError, LaunchJob, ObservationJob},
-    harness::{Cli, CliConfig, Launch, LaunchOutcome, Listed, Observation, Target},
+    engine::{
+        Clock as ClockSample, Engine, Error as EngineError, LaunchJob, ObservationJob, Watched,
+    },
+    harness::{
+        Cli, CliConfig, Ended, Launch, LaunchOutcome, Listed, MOST_WAITED, Observation, Target,
+    },
     progress::{Reads, Tracker},
     protocol::{MAX_LINE_BYTES, MAX_REPLY_BYTES, Request},
     store::Store,
@@ -12,7 +16,7 @@ use rustix::event::{PollFd, PollFlags, Timespec, poll};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     fs::{self, File, OpenOptions},
     io::{self, Read, Write},
     os::unix::{
@@ -37,6 +41,18 @@ pub const WORKERS: usize = 4;
 pub const CLIENT_QUEUE: usize = 4;
 pub const REQUEST_QUEUE: usize = 16;
 const TICK: Duration = Duration::from_millis(10);
+/// After a `wait` came back with an agent's end, the next on that machine
+/// starts no sooner than this: an agent Harness calls done while the store
+/// still finds it at work is not waited on in a loop.
+pub const WAIT_AGAIN: Duration = Duration::from_secs(3);
+/// After a `wait` failed, the next on that machine starts no sooner than
+/// this; the watch's own looks go on meanwhile.
+pub const WAIT_BACKOFF: Duration = Duration::from_secs(30);
+/// After this many `wait`s in a row came back on the same agents with none
+/// of them let go (Harness says idle while `show` still finds the agent at
+/// work), the next waits [`WAIT_BACKOFF`] instead of [`WAIT_AGAIN`], so a
+/// stuck case does not cost a `show` every 3 s (#1157 review).
+pub const WAIT_QUICK_MOST: u32 = 3;
 
 fn invalid(message: &'static str) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidInput, message)
@@ -111,6 +127,11 @@ pub struct Config {
     /// machine, on the watch's schedule, and say so on `tasks/status`
     /// (`serve --progress`, [`crate::progress`]). Off unless set.
     pub progress: bool,
+    /// Hold Harness's own `wait --any` on the agents the watch looks at, one
+    /// a machine, and read an agent at once when it ends (`serve
+    /// --push-wait`, #560). The watch's looks stay, as the backstop. Off
+    /// unless set.
+    pub push_wait: bool,
 }
 
 /// An operator-owned file selects targets; a model supplies only an alias.
@@ -194,6 +215,29 @@ pub fn read_targets(path: &Path) -> io::Result<BTreeMap<String, Target>> {
     Ok(document.targets)
 }
 
+/// Harness's own `wait`, held beside the adapter's one lane (`serve
+/// --push-wait`): several may run at once, one a machine.
+pub trait WaitLane: Send + Sync + 'static {
+    /// Held until one of `agents` on `machine_id` ends, or until its time
+    /// passes (none ended), or `cancel` is set (`cancelled`).
+    fn wait(
+        &self,
+        machine_id: &str,
+        agents: &[String],
+        cancel: &AtomicBool,
+    ) -> Result<Vec<Ended>, String>;
+}
+impl WaitLane for Cli {
+    fn wait(
+        &self,
+        machine_id: &str,
+        agents: &[String],
+        cancel: &AtomicBool,
+    ) -> Result<Vec<Ended>, String> {
+        Cli::wait(self, machine_id, agents, cancel)
+    }
+}
+
 pub trait Adapter: Send + 'static {
     fn launch(&self, launch: &Launch) -> LaunchOutcome;
     fn observe(&self, machine_id: &str, agent_id: &str) -> Result<Observation, String>;
@@ -203,8 +247,22 @@ pub trait Adapter: Send + 'static {
         let _ = machine_id;
         Err("unsupported".into())
     }
+    /// A lane for `wait`, apart from this adapter's own (`serve
+    /// --push-wait`); none when the adapter has no such thing.
+    fn wait_lane(&self) -> Option<Arc<dyn WaitLane>> {
+        None
+    }
 }
 impl Adapter for Cli {
+    fn wait_lane(&self) -> Option<Arc<dyn WaitLane>> {
+        match self.lane() {
+            Ok(lane) => Some(Arc::new(lane)),
+            Err(error) => {
+                eprintln!("tasks: no lane for wait: {error}");
+                None
+            }
+        }
+    }
     fn launch(&self, launch: &Launch) -> LaunchOutcome {
         Cli::launch(self, launch)
     }
@@ -362,10 +420,11 @@ fn owner<C: Clock>(
     (jobs, outcomes): (SyncSender<Job>, Receiver<Outcome>),
     current: Arc<Mutex<Report>>,
     stop: Arc<AtomicBool>,
-    (watch, progress): (bool, bool),
+    (watch, progress, lane): (bool, bool, Option<Arc<dyn WaitLane>>),
 ) -> io::Result<()> {
     let mut requests = 0u64;
     let mut busy = false;
+    let mut waits = Waits::new(lane);
     // Progress lives here, beside the engine, and only in memory: what an
     // agent says while it works is not part of the durable record.
     // Each run counts changes afresh, and says which run it is.
@@ -375,6 +434,10 @@ fn owner<C: Clock>(
     while !stop.load(Ordering::Acquire) {
         // Something that may have changed which tasks are watched.
         let mut moved = false;
+        if waits.lane.is_some() {
+            let now = clock.sample()?;
+            waits.tend(&engine.watched(&now), Instant::now());
+        }
         if let Ok(outcome) = outcomes.try_recv() {
             moved = true;
             let now = clock.sample()?;
@@ -450,6 +513,9 @@ fn owner<C: Clock>(
             let next = match engine.begin_launch(&now).map_err(io::Error::other)? {
                 Some(job) => Some(Job::Launch(job)),
                 None => {
+                    // An agent Harness's `wait` says ended is read first,
+                    // and its idle answer kept at once.
+                    waits.push(&mut engine, &now).map_err(io::Error::other)?;
                     if watch {
                         engine.watch(&now).map_err(io::Error::other)?;
                     }
@@ -507,6 +573,182 @@ fn owner<C: Clock>(
         };
     }
     Ok(())
+}
+
+/// The `wait`s held, one a machine, and the agents' ends they brought that
+/// are still to be read.
+struct Waits {
+    lane: Option<Arc<dyn WaitLane>>,
+    held: BTreeMap<String, Held>,
+    /// When the next `wait` on a machine may start.
+    rest: BTreeMap<String, Instant>,
+    /// Tasks whose agent ended, to be read at once.
+    pushes: BTreeSet<u64>,
+    ended: (mpsc::Sender<WaitEnd>, Receiver<WaitEnd>),
+    /// Each `wait` started is numbered, so an answer is matched to the one
+    /// that gave it: a cancelled `wait` that answers late, after another on
+    /// the same agents replaced it, is dropped (#1157 review).
+    next: u64,
+    /// The agents each machine's `wait`s last came back on, and how many in
+    /// a row did with that set unchanged.
+    quick: BTreeMap<String, (Vec<String>, u32)>,
+}
+/// What one `wait` came back with: its machine, its number, and the ends it
+/// brought or why it failed.
+type WaitEnd = (String, u64, Result<Vec<Ended>, String>);
+struct Held {
+    number: u64,
+    agents: Vec<String>,
+    cancel: Arc<AtomicBool>,
+    began: Instant,
+}
+
+impl Waits {
+    fn new(lane: Option<Arc<dyn WaitLane>>) -> Self {
+        Self {
+            lane,
+            held: BTreeMap::new(),
+            rest: BTreeMap::new(),
+            pushes: BTreeSet::new(),
+            ended: mpsc::channel(),
+            next: 0,
+            quick: BTreeMap::new(),
+        }
+    }
+
+    /// Takes what came back, and holds one `wait` a machine on exactly the
+    /// agents the watch looks at there: one whose set changed is cancelled
+    /// and started again with the new set.
+    fn tend(&mut self, watched: &[Watched], now: Instant) {
+        let Some(lane) = self.lane.clone() else {
+            return;
+        };
+        while let Ok((machine, number, result)) = self.ended.1.try_recv() {
+            let Some(held) = self.held.get(&machine).filter(|held| held.number == number) else {
+                continue;
+            };
+            let took = held.began.elapsed().as_millis();
+            let agents = held.agents.clone();
+            self.held.remove(&machine);
+            match result {
+                Ok(ended) if ended.is_empty() => {}
+                Ok(ended) => {
+                    let named: Vec<String> = ended
+                        .iter()
+                        .map(|end| {
+                            let task = watched
+                                .iter()
+                                .find(|w| w.machine_id == machine && w.agent_id == end.agent_id);
+                            if let Some(task) = task {
+                                self.pushes.insert(task.task_id);
+                            }
+                            format!(
+                                "task {} {}",
+                                task.map_or("?".into(), |task| task.task_id.to_string()),
+                                end.state
+                            )
+                        })
+                        .collect();
+                    eprintln!(
+                        "tasks: wait on {machine} came back after {took} ms: {}",
+                        named.join(", ")
+                    );
+                    let quick = self.quick.entry(machine.clone()).or_default();
+                    if quick.0 == agents {
+                        quick.1 = quick.1.saturating_add(1);
+                    } else {
+                        *quick = (agents, 1);
+                    }
+                    let again = if quick.1 >= WAIT_QUICK_MOST {
+                        WAIT_BACKOFF
+                    } else {
+                        WAIT_AGAIN
+                    };
+                    self.rest.insert(machine, now + again);
+                }
+                Err(code) if code == "cancelled" => {}
+                Err(code) => {
+                    eprintln!("tasks: wait on {machine} failed after {took} ms ({code})");
+                    self.rest.insert(machine, now + WAIT_BACKOFF);
+                }
+            }
+        }
+        let mut wanted: BTreeMap<&str, BTreeSet<&str>> = BTreeMap::new();
+        for task in watched {
+            wanted
+                .entry(task.machine_id.as_str())
+                .or_default()
+                .insert(task.agent_id.as_str());
+        }
+        let wanted: BTreeMap<String, Vec<String>> = wanted
+            .into_iter()
+            .map(|(machine, agents)| {
+                let agents = agents.into_iter().take(MOST_WAITED).map(str::to_owned);
+                (machine.to_owned(), agents.collect())
+            })
+            .collect();
+        self.held.retain(|machine, held| {
+            let keep = wanted.get(machine) == Some(&held.agents);
+            if !keep {
+                held.cancel.store(true, Ordering::Release);
+            }
+            keep
+        });
+        self.pushes
+            .retain(|id| watched.iter().any(|task| task.task_id == *id));
+        for (machine, agents) in wanted {
+            if self.held.contains_key(&machine)
+                || self.rest.get(&machine).is_some_and(|until| now < *until)
+            {
+                continue;
+            }
+            let cancel = Arc::new(AtomicBool::new(false));
+            let number = self.next;
+            self.next = self.next.wrapping_add(1);
+            let (lane, sender) = (lane.clone(), self.ended.0.clone());
+            let (asked, flag, on) = (agents.clone(), cancel.clone(), machine.clone());
+            let started = thread::Builder::new()
+                .name("tasks-wait".into())
+                .spawn(move || {
+                    let result = lane.wait(&on, &asked, &flag);
+                    let _ = sender.send((on, number, result));
+                });
+            if started.is_err() {
+                eprintln!("tasks: wait on {machine} could not start");
+                self.rest.insert(machine, now + WAIT_BACKOFF);
+                continue;
+            }
+            self.held.insert(
+                machine,
+                Held {
+                    number,
+                    agents,
+                    cancel,
+                    began: Instant::now(),
+                },
+            );
+        }
+    }
+
+    /// Asks for the read of one task whose agent ended, if the engine can
+    /// take it now; the rest wait their turn.
+    fn push(&mut self, engine: &mut Engine<Store>, now: &ClockSample) -> Result<(), EngineError> {
+        let Some(&id) = self.pushes.iter().next() else {
+            return Ok(());
+        };
+        if engine.push(id, now)? {
+            self.pushes.remove(&id);
+        }
+        Ok(())
+    }
+}
+
+impl Drop for Waits {
+    fn drop(&mut self) {
+        for held in self.held.values() {
+            held.cancel.store(true, Ordering::Release);
+        }
+    }
 }
 
 fn unix_ms() -> u64 {
@@ -753,6 +995,17 @@ pub fn serve_with_adapter<C: Clock, A: Adapter>(
     )
     .map_err(io::Error::other)?;
     let adapter = make_adapter(engine.store_id())?;
+    let lane = if config.push_wait {
+        let lane = adapter.wait_lane();
+        if lane.is_none() {
+            eprintln!(
+                "tasks: --push-wait asked, but this adapter has no wait; the watch looks as before"
+            );
+        }
+        lane
+    } else {
+        None
+    };
     let current = Arc::new(Mutex::new(Report {
         updated: Instant::now(),
         summary: engine.summary(),
@@ -819,7 +1072,7 @@ pub fn serve_with_adapter<C: Clock, A: Adapter>(
                 (jobs_tx, outcomes_rx),
                 report,
                 owner_stop,
-                switches,
+                (switches.0, switches.1, lane),
             )
         })?;
     let (clients_tx, clients_rx) = mpsc::sync_channel::<(UnixStream, Instant, bool)>(CLIENT_QUEUE);
@@ -993,6 +1246,131 @@ mod tests {
     use super::*;
     use std::os::unix::fs::symlink;
 
+    /// A lane whose waits are held until cancelled; the first one called
+    /// answers its cancel 300 ms late, as a slow child's reaping can.
+    #[derive(Default)]
+    struct SlowLane {
+        calls: AtomicU64,
+        running: AtomicU64,
+    }
+    impl WaitLane for SlowLane {
+        fn wait(&self, _: &str, _: &[String], cancel: &AtomicBool) -> Result<Vec<Ended>, String> {
+            let first = self.calls.fetch_add(1, Ordering::SeqCst) == 0;
+            self.running.fetch_add(1, Ordering::SeqCst);
+            while !cancel.load(Ordering::Acquire) {
+                thread::sleep(Duration::from_millis(2));
+            }
+            if first {
+                thread::sleep(Duration::from_millis(300));
+            }
+            self.running.fetch_sub(1, Ordering::SeqCst);
+            Err("cancelled".into())
+        }
+    }
+    fn watched(agents: &[&str]) -> Vec<Watched> {
+        agents
+            .iter()
+            .enumerate()
+            .map(|(at, agent)| Watched {
+                task_id: at as u64 + 1,
+                machine_id: "m".into(),
+                agent_id: (*agent).into(),
+                engine: "claude".into(),
+                accepted_ago_ms: Some(0),
+            })
+            .collect()
+    }
+    fn settle(lane: &SlowLane, started: u64) {
+        let until = Instant::now() + Duration::from_secs(2);
+        while lane.calls.load(Ordering::SeqCst) < started {
+            assert!(Instant::now() < until, "wait {started} never started");
+            thread::sleep(Duration::from_millis(2));
+        }
+    }
+
+    /// #1157 review: {A}, then {A, B}, then {A} again. The first wait,
+    /// cancelled, answers after the third began on the same agents; that
+    /// late answer must not untrack the third and leave two held.
+    #[test]
+    fn a_cancelled_waits_late_answer_never_untracks_the_wait_that_replaced_it() {
+        let lane = Arc::new(SlowLane::default());
+        let mut waits = Waits::new(Some(lane.clone()));
+        waits.tend(&watched(&["a"]), Instant::now());
+        settle(&lane, 1);
+        waits.tend(&watched(&["a", "b"]), Instant::now());
+        settle(&lane, 2);
+        waits.tend(&watched(&["a"]), Instant::now());
+        settle(&lane, 3);
+        // Long enough for the first to answer, tending all the while.
+        let until = Instant::now() + Duration::from_millis(600);
+        while Instant::now() < until {
+            waits.tend(&watched(&["a"]), Instant::now());
+            thread::sleep(Duration::from_millis(5));
+        }
+        assert_eq!(
+            lane.calls.load(Ordering::SeqCst),
+            3,
+            "a fourth wait started"
+        );
+        assert_eq!(lane.running.load(Ordering::SeqCst), 1);
+        assert_eq!(waits.held.len(), 1);
+        // The owner going away ends the one still held.
+        drop(waits);
+        let until = Instant::now() + Duration::from_secs(2);
+        while lane.running.load(Ordering::SeqCst) > 0 {
+            assert!(Instant::now() < until, "a wait outlived its owner");
+            thread::sleep(Duration::from_millis(2));
+        }
+    }
+
+    /// A lane that comes back at once, each time, with its one agent idle.
+    #[derive(Default)]
+    struct QuickLane {
+        calls: AtomicU64,
+    }
+    impl WaitLane for QuickLane {
+        fn wait(&self, _: &str, agents: &[String], _: &AtomicBool) -> Result<Vec<Ended>, String> {
+            self.calls.fetch_add(1, Ordering::SeqCst);
+            Ok(vec![Ended {
+                agent_id: agents[0].clone(),
+                state: "idle".into(),
+            }])
+        }
+    }
+
+    /// #1157 review: Harness says idle while the store still finds the
+    /// agent at work. After three such returns in a row the next waits
+    /// WAIT_BACKOFF, not WAIT_AGAIN; a new set starts the count again.
+    #[test]
+    fn waits_that_keep_coming_back_on_the_same_agents_back_off() {
+        let lane = Arc::new(QuickLane::default());
+        let mut waits = Waits::new(Some(lane.clone()));
+        let start = Instant::now();
+        let mut at = start;
+        let tend_until_back = |waits: &mut Waits, at: Instant, set: &[&str], calls: u64| {
+            waits.tend(&watched(set), at);
+            let until = Instant::now() + Duration::from_secs(2);
+            while lane.calls.load(Ordering::SeqCst) < calls || !waits.held.is_empty() {
+                assert!(Instant::now() < until, "wait {calls} never came back");
+                waits.tend(&watched(set), at);
+                thread::sleep(Duration::from_millis(2));
+            }
+        };
+        for calls in 1..=WAIT_QUICK_MOST as u64 {
+            tend_until_back(&mut waits, at, &["a"], calls);
+            assert!(waits.pushes.contains(&1));
+            at += WAIT_AGAIN;
+        }
+        // The third came back: the next is WAIT_BACKOFF away, not 3 s.
+        let rest = waits.rest["m"];
+        assert_eq!(rest, at - WAIT_AGAIN + WAIT_BACKOFF);
+        waits.tend(&watched(&["a"]), at);
+        assert!(waits.held.is_empty());
+        // Another set on the machine counts afresh.
+        tend_until_back(&mut waits, rest, &["a", "b"], WAIT_QUICK_MOST as u64 + 1);
+        assert_eq!(waits.rest["m"], rest + WAIT_AGAIN);
+    }
+
     fn root() -> tempfile::TempDir {
         tempfile::Builder::new()
             .prefix("tsk-")
@@ -1120,6 +1498,7 @@ mod tests {
             run_for: None,
             watch: false,
             progress: false,
+            push_wait: false,
         };
         serve_with_adapter::<_, Never>(config, Never, Arc::new(AtomicBool::new(false)), |_| {
             panic!("adapter configured while disabled")

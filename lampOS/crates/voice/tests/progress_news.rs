@@ -4,7 +4,9 @@
 //! with the words fetched from a stand-in tasks socket. No model, no Harness,
 //! no lamp: the policy's judge is a stand-in that answers at once.
 use lamp_bus::{Bus, Publisher};
-use lamp_msgs::{AgentState, Decision, Sign, TaskProgress, TaskStatus, Voice, VoiceState};
+use lamp_msgs::{
+    AgentState, Decision, Sign, TaskProgress, TaskSettled, TaskStatus, Voice, VoiceState,
+};
 use lamp_policy::{
     decide::{Answer, Asked, Decider, Failed, Question},
     policy::{self, Options},
@@ -96,8 +98,35 @@ impl Place {
         }
     }
 
+    /// The voice's task news, with progress on wherever there is a bus.
     fn news(&self, bus: Option<&Bus>) -> TaskNews {
-        TaskNews::start(&self.root.join("tasks"), self.told.clone(), bus).unwrap()
+        TaskNews::start(
+            &self.root.join("tasks"),
+            self.told.clone(),
+            bus,
+            bus.is_some(),
+        )
+        .unwrap()
+    }
+
+    /// The tasks part says task 3's agent settled and the watch let it go.
+    fn settle(&mut self) {
+        let run = self.snapshot.lock().unwrap().run;
+        let status = TaskStatus {
+            store_id: STORE.into(),
+            run,
+            unread: vec![],
+            settled: vec![TaskSettled {
+                task: 3,
+                engine: "claude".into(),
+                state: AgentState::Idle,
+                settled: true,
+                at_unix_ms: 1_792_022_712_345,
+            }],
+            tasks: Vec::new(),
+        };
+        status.check().unwrap();
+        self.status.publish_json(0, &status).unwrap();
     }
 
     /// The tasks part says task 3 is at `changes`.
@@ -534,7 +563,7 @@ fn after_a_restart_another_line_at_the_same_count_is_fetched_and_offered() {
 }
 
 #[test]
-fn without_the_switch_nothing_is_subscribed_asked_or_kept() {
+fn without_the_switch_no_progress_is_listened_for_asked_or_kept() {
     // Only `on` turns it on.
     for value in [
         None,
@@ -547,25 +576,51 @@ fn without_the_switch_nothing_is_subscribed_asked_or_kept() {
         assert!(!progress_on(value), "{value:?}");
     }
     assert!(progress_on(Some("on")));
+    // As the voice starts without the switch: the lamp's bus, progress off.
     let mut place = Place::new("off");
-    let mut news = place.news(None);
+    let mut news = TaskNews::start(
+        &place.root.join("tasks"),
+        place.told.clone(),
+        Some(&place.bus),
+        false,
+    )
+    .unwrap();
     place.work(1);
     place.decide("say_now", false, &place.key(1));
     assert!(offered(&mut news, ms(600)).is_none());
-    // No socket of the voice's on either topic, nothing but the settled
-    // news' own reads on the tasks socket, and no file of what was told.
-    for topic in [Decision::TOPIC, TaskStatus::TOPIC] {
-        assert!(
-            place
-                .bus
-                .subscribers(topic)
-                .unwrap_or_default()
-                .iter()
-                .all(|listener| !listener.socket.starts_with("voice.")),
-            "{topic}"
-        );
-    }
+    // No socket of the voice's on the decisions; on `tasks/status` only
+    // the one that listens for a task newly settled (#560).
+    let voice = |topic: &str| {
+        place
+            .bus
+            .subscribers(topic)
+            .unwrap_or_default()
+            .iter()
+            .filter(|listener| listener.socket.starts_with("voice."))
+            .count()
+    };
+    assert_eq!(voice(Decision::TOPIC), 0);
+    assert_eq!(voice(TaskStatus::TOPIC), 1);
+    // Nothing but the settled news' own reads on the tasks socket, and no
+    // file of what was told.
     let asked = place.asked.lock().unwrap().clone();
     assert!(asked.iter().all(|op| op == "list"), "{asked:?}");
     assert!(!place.told.exists());
+    // A task settled has it read at once, not at the next ten-second read
+    // (#560). The reader reads only where the tasks part's clock can be
+    // read (`/proc`: the lamp, and the ARM64 run); on a Mac it never reads,
+    // and `task_news::tests` shows the same with a clock of its own.
+    if !Path::new("/proc/uptime").exists() {
+        return;
+    }
+    let lists = asked.len();
+    assert!(lists > 0, "the first read, as the reader starts");
+    place.settle();
+    let deadline = Instant::now() + ms(2_000);
+    while place.asked.lock().unwrap().len() == lists && Instant::now() < deadline {
+        thread::sleep(ms(20));
+    }
+    let asked = place.asked.lock().unwrap().clone();
+    assert!(asked.len() > lists, "{asked:?}");
+    assert!(asked.iter().all(|op| op == "list"), "{asked:?}");
 }

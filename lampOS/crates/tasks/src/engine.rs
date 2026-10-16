@@ -175,6 +175,11 @@ struct Read {
     /// not kept as an observation, and the read ends `working`.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     watch: bool,
+    /// Asked for because Harness's own `wait` said the agent ended
+    /// ([`Engine::push`], `serve --push-wait`): its two looks at one turn
+    /// stand for the watch's second look, so an idle answer is kept at once.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    confirmed: bool,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -1163,6 +1168,7 @@ impl<P: Persistence> Engine<P> {
                     observation_id: None,
                     code: None,
                     watch: false,
+                    confirmed: false,
                 });
                 task.updated = at.clone();
             }
@@ -1416,6 +1422,33 @@ impl<P: Persistence> Engine<P> {
         let Some(index) = due else {
             return Ok(false);
         };
+        self.watch_read(index, false, now)?;
+        Ok(true)
+    }
+
+    /// Harness's own `wait` (`serve --push-wait`) says the agent of `task_id`
+    /// ended: ask for the watch's read of it now, not at its next look, and
+    /// keep an idle answer it finds at once. Only for a task the watch looks
+    /// at with nothing being read, and only while no launch or other read is
+    /// in hand; whether one was asked for, so the caller tries again later.
+    pub fn push(&mut self, task_id: u64, now: &Clock) -> Result<bool, Error> {
+        if self.active() {
+            return Ok(false);
+        }
+        let Some(index) = self.state.tasks.iter().position(|task| {
+            task.id == task_id
+                && watched_age(task, now).is_some()
+                && !task.read.as_ref().is_some_and(|r| {
+                    matches!(r.state, ReadState::Requested | ReadState::Attempting)
+                })
+        }) else {
+            return Ok(false);
+        };
+        self.watch_read(index, true, now)?;
+        Ok(true)
+    }
+
+    fn watch_read(&mut self, index: usize, confirmed: bool, now: &Clock) -> Result<(), Error> {
         self.clock(now)?;
         let mut next = self.state.clone();
         let at = next_audit(&mut next, now)?;
@@ -1439,10 +1472,10 @@ impl<P: Persistence> Engine<P> {
             observation_id: None,
             code: None,
             watch: true,
+            confirmed,
         });
         task.updated = at;
-        self.save(next)?;
-        Ok(true)
+        self.save(next)
     }
 
     /// Every task whose newest observation is settled (#1021): finished with
@@ -1569,7 +1602,8 @@ impl<P: Persistence> Engine<P> {
                 .observations
                 .iter()
                 .any(|o| o.digest == observed_digest);
-            let idle = observation.state == "idle" && settled(&observation) && !kept;
+            let confirmed = task.read.as_ref().is_some_and(|read| read.confirmed);
+            let idle = observation.state == "idle" && settled(&observation) && !kept && !confirmed;
             if !settled(&observation) || (idle && seen != Some(&observed_digest)) {
                 let watch_idle = idle.then(|| observed_digest.clone());
                 let failure = if idle { "idle_once" } else { "working" };
@@ -3124,13 +3158,16 @@ mod tests {
     /// settling. The tasks part's share of that can be no more than the
     /// whole, so an agent that settles must be listed as settled
     /// ([`Engine::settled_within`], what `tasks/status` says) by then.
-    /// Harness answers here only when the watch asks, so only a faster look
-    /// can pass it as it stands; a push of the agent's end (the other fix
-    /// #560 leaves open) needs a way to deliver it added to the test first.
+    /// The watch alone looks too seldom for it (30 s, then 2 min, and a
+    /// second look 10 s later), so the end is pushed: Harness's own `wait`
+    /// (`serve --push-wait`) comes back when the agent ends, after its two
+    /// looks [`WAIT_LOOKS_MS`] apart, and [`Engine::push`] reads it at once.
     const RESULT_HEARD_WITHIN_MS: u64 = 20_000;
+    /// Harness's `wait` looks every 3 s and calls an agent done on two looks
+    /// at one turn (Harness 0.4.17), so it returns within two looks.
+    const WAIT_LOOKS_MS: u64 = 2 * 3_000;
 
     #[test]
-    #[ignore = "#560: the watch looks 30 s after the hand-over, then every 30 s, then every 2 min, and keeps an idle answer only after its confirming look WATCH_CONFIRM_MS later, so an agent that settles is known only after the next look and the one after it"]
     fn an_agent_that_settles_is_listed_settled_within_the_time_the_result_is_owed() {
         let at_work = || Observation {
             state: "working".into(),
@@ -3142,7 +3179,7 @@ mod tests {
         // its first ten minutes, when it looks every two.
         for settles_after in [1_000, 45_000, WATCH_EARLY_FOR_MS + 5_000] {
             let (mut engine, _) = opened();
-            accepted(&mut engine, 10);
+            let id = accepted(&mut engine, 10);
             let settled_at = 10 + settles_after;
             let owed_by = settled_at + RESULT_HEARD_WITHIN_MS;
             let mut listed = None;
@@ -3150,8 +3187,14 @@ mod tests {
             // each second here is generous to the watch. Harness answers at
             // once: at work before the agent settles, done after.
             let mut at = 10;
+            let mut pushed = false;
             while listed.is_none() && at <= owed_by + WATCH_LATER_MS {
-                if engine.watch(&clock(at)).unwrap() {
+                // The wait comes back two looks after the agent settled; the
+                // runtime pushes until a read is taken.
+                let push = !pushed && at >= settled_at + WAIT_LOOKS_MS;
+                let push = push && engine.push(id, &clock(at)).unwrap();
+                pushed |= push;
+                if push || engine.watch(&clock(at)).unwrap() {
                     let job = engine.begin_observation(&clock(at)).unwrap().unwrap();
                     let seen = if at < settled_at {
                         at_work()
@@ -3177,6 +3220,43 @@ mod tests {
             late.is_empty(),
             "owed within {RESULT_HEARD_WITHIN_MS} ms: {late:?}"
         );
+    }
+
+    #[test]
+    fn a_push_reads_at_once_keeps_an_idle_answer_and_is_refused_when_it_cannot_be_taken() {
+        let (mut engine, memory) = opened();
+        // Not handed over yet: nothing to push.
+        let prepared = prepare(&mut engine, 5);
+        assert!(!engine.push(prepared, &clock(5)).unwrap());
+        let id = accepted(&mut engine, 10);
+        // A read already asked for: refused, the caller tries again.
+        let job = request_read(&mut engine, id, 20);
+        assert!(!engine.push(id, &clock(20)).unwrap());
+        engine
+            .finish_observation(
+                &job,
+                Observation {
+                    state: "working".into(),
+                    ..data("Halfway.")
+                },
+                &clock(30),
+            )
+            .unwrap();
+        // Long before the watch's own look: read now, stored as confirmed.
+        assert!(engine.push(id, &clock(40)).unwrap());
+        let saved = stored(&memory);
+        let index = find(&saved, id).unwrap();
+        assert!(saved.tasks[index].read.as_ref().unwrap().confirmed);
+        let job = engine.begin_observation(&clock(40)).unwrap().unwrap();
+        engine
+            .finish_observation(&job, data("Lumi, Sunny and Archie."), &clock(41))
+            .unwrap();
+        // Kept on that one read, with no second look; settled, so no more.
+        let task = &engine.state.tasks[find(&engine.state, id).unwrap()];
+        assert_eq!(task.observations.len(), 2);
+        assert!(task.watch_idle.is_none());
+        assert!(!engine.push(id, &clock(50)).unwrap());
+        assert!(!engine.push(999, &clock(50)).unwrap());
     }
 
     #[test]

@@ -1,8 +1,8 @@
 //! Scripted local executable fixtures. No installed Harness, daemon, account,
 //! remote agent, credentials or provider is invoked by these tests.
 use lamp_tasks::harness::{
-    Cli, CliConfig, EngineKind, Launch, LaunchOutcome, Listed, MOST_ABOUT_BYTES, MOST_LISTED,
-    PS_STDOUT_LIMIT, Target, iso_unix_ms, parse_ps,
+    Cli, CliConfig, Ended, EngineKind, Launch, LaunchOutcome, Listed, MOST_ABOUT_BYTES,
+    MOST_LISTED, MOST_WAITED, PS_STDOUT_LIMIT, Target, iso_unix_ms, parse_ps, parse_wait,
 };
 use serde_json::{Value, json};
 use std::{
@@ -934,4 +934,166 @@ fn status_is_one_ps_of_the_full_machine_id_bounded_and_never_retried() {
     let rig = Rig::new();
     assert_eq!(rig.cli().status("office"), Err("invalid_machine".into()));
     assert!(rig.calls().is_empty());
+}
+
+const OTHER: &str = "33333333-3333-4333-8333-333333333333";
+
+fn waited(state: &str, id: &str) -> String {
+    json!({"harnesses":[{"name":"lamp-task-1","id":id,"state":state,"next":[]}]}).to_string()
+}
+
+#[test]
+fn wait_holds_harness_own_wait_on_named_agents_beside_the_operation_lane() {
+    let rig = Rig::new();
+    rig.plan(json!({
+        "wait":{"stdout":waited("idle", AGENT),"delay_ms":600},
+        "show":{"default":true},
+    }));
+    let cli = Arc::new(rig.cli());
+    let lane = cli.clone();
+    let cancel = Arc::new(AtomicBool::new(false));
+    let flag = cancel.clone();
+    let agents = vec![AGENT.to_owned(), OTHER.to_owned()];
+    let held = thread::spawn(move || lane.wait(MACHINE, &agents, &flag));
+    rig.wait_operation("wait");
+    // A read goes on while the wait is held: it never takes the one lane.
+    let seen = cli.observe(MACHINE, AGENT).unwrap();
+    assert_eq!(seen.answer, "Observed answer");
+    assert_eq!(
+        held.join().unwrap().unwrap(),
+        vec![Ended {
+            agent_id: AGENT.into(),
+            state: "idle".into(),
+        }]
+    );
+    let call = rig
+        .calls()
+        .into_iter()
+        .find(|call| call["args"][0] == "wait")
+        .unwrap();
+    assert_eq!(
+        call["args"],
+        json!([
+            "wait",
+            "--machine",
+            MACHINE,
+            format!("{AGENT},{OTHER}"),
+            "--any",
+            "--timeout",
+            "600s",
+            "--json"
+        ])
+    );
+    assert!(!cancel.load(Ordering::Acquire));
+}
+
+#[test]
+fn wait_reads_each_exit_and_refuses_what_it_cannot_tell() {
+    let rig = Rig::new();
+    let cancel = AtomicBool::new(false);
+    let agents = [AGENT.to_owned()];
+    let run = |plan: Value| {
+        rig.plan(json!({ "wait": plan }));
+        rig.cli().wait(MACHINE, &agents, &cancel)
+    };
+    // The time passed with none ended: no agent, not a failure.
+    assert_eq!(
+        run(json!({"stdout":waited("timeout", AGENT),"exit":124})),
+        Ok(vec![])
+    );
+    // Waits for the person, or stopped: each said as Harness says it.
+    assert_eq!(
+        run(json!({"stdout":waited("needs-input", AGENT),"exit":3})).unwrap()[0].state,
+        "needs-input"
+    );
+    assert_eq!(
+        run(json!({"stdout":waited("stopped", AGENT),"exit":4})).unwrap()[0].state,
+        "stopped"
+    );
+    // A usage error, a reply that is not the listing, or an end for an agent
+    // not waited on: failed, never taken for an end.
+    assert_eq!(
+        run(json!({"stdout":"","exit":2})),
+        Err("wait_failed".into())
+    );
+    assert_eq!(
+        run(json!({"stdout":"not json"})),
+        Err("wait_invalid_reply".into())
+    );
+    assert_eq!(
+        run(json!({"stdout":waited("idle", OTHER)})),
+        Err("wait_invalid_reply".into())
+    );
+    // Bad names never start a process.
+    let calls = rig.calls().len();
+    let cli = rig.cli();
+    assert_eq!(
+        cli.wait("@desk", &agents, &cancel),
+        Err("invalid_machine".into())
+    );
+    assert_eq!(
+        cli.wait(MACHINE, &[], &cancel),
+        Err("invalid_agent_id".into())
+    );
+    assert_eq!(
+        cli.wait(MACHINE, &["not-an-agent".into()], &cancel),
+        Err("invalid_agent_id".into())
+    );
+    let many = vec![AGENT.to_owned(); MOST_WAITED + 1];
+    assert_eq!(
+        cli.wait(MACHINE, &many, &cancel),
+        Err("invalid_agent_id".into())
+    );
+    assert_eq!(rig.calls().len(), calls);
+}
+
+#[test]
+fn a_held_wait_ends_at_once_when_cancelled() {
+    let rig = Rig::new();
+    rig.plan(json!({"wait":{"stdout":waited("idle", AGENT),"delay_ms":5000}}));
+    let cli = Arc::new(rig.cli());
+    let cancel = Arc::new(AtomicBool::new(false));
+    let (lane, flag) = (cli.clone(), cancel.clone());
+    let held = thread::spawn(move || lane.wait(MACHINE, &[AGENT.to_owned()], &flag));
+    rig.wait_operation("wait");
+    let asked = Instant::now();
+    cancel.store(true, Ordering::Release);
+    assert_eq!(held.join().unwrap(), Err("cancelled".into()));
+    assert!(
+        asked.elapsed() < Duration::from_secs(2),
+        "{:?}",
+        asked.elapsed()
+    );
+    // Cancelled before it starts: no process at all.
+    let calls = rig.calls().len();
+    assert_eq!(
+        cli.wait(MACHINE, &[AGENT.to_owned()], &cancel),
+        Err("cancelled".into())
+    );
+    assert_eq!(rig.calls().len(), calls);
+}
+
+#[test]
+fn the_wait_listing_is_read_only_for_the_agents_waited_on() {
+    let agents = [AGENT.to_owned()];
+    let both = json!({"harnesses":[
+        {"id":OTHER,"state":"idle"},
+        {"id":AGENT,"state":"idle","needsPerson":false,"extra":1},
+        {"id":"creation-key","state":"failed","detail":"refused"}
+    ]})
+    .to_string();
+    assert_eq!(
+        parse_wait(Some(0), both.as_bytes(), &agents).unwrap(),
+        vec![Ended {
+            agent_id: AGENT.into(),
+            state: "idle".into(),
+        }]
+    );
+    let odd = json!({"harnesses":[{"id":AGENT,"state":"has space"}]}).to_string();
+    assert_eq!(
+        parse_wait(Some(0), odd.as_bytes(), &agents),
+        Err("wait_invalid_reply")
+    );
+    assert_eq!(parse_wait(None, b"", &agents), Err("wait_failed"));
+    assert_eq!(parse_wait(Some(124), b"", &agents), Ok(vec![]));
 }

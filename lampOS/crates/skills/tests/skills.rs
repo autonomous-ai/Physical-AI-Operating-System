@@ -162,6 +162,10 @@ struct Seen {
     looked: Option<String>,
     /// Each call to the actions part, in order.
     lights: Vec<String>,
+    /// When each call to the actions part was answered.
+    lit_at: Vec<Instant>,
+    /// When the voice wrote each of its answers.
+    answered_at: Vec<Instant>,
     /// What the voice was asked to say.
     asked: Option<String>,
     /// What the body's mood socket was told, for a skill that holds a pose.
@@ -241,11 +245,12 @@ fn the_program_with(
             (&stream)
                 .write_all(b"{\"ok\":true,\"result\":{}}\n")
                 .unwrap();
-            let _ = called.send(line);
+            let _ = called.send((line, Instant::now()));
         }
     });
     let voice = UnixListener::bind(root.join("say.sock")).unwrap();
     let (heard, asked) = mpsc::channel();
+    let (wrote, written) = mpsc::channel();
     std::thread::spawn(move || {
         for stream in voice.incoming().flatten() {
             let mut line = String::new();
@@ -256,6 +261,7 @@ fn the_program_with(
                 (&stream)
                     .write_all(format!("{answer}\n").as_bytes())
                     .unwrap();
+                let _ = wrote.send(Instant::now());
             }
         }
     });
@@ -322,10 +328,13 @@ fn the_program_with(
     {
         moods.push(String::from_utf8_lossy(&buffer[..length]).into_owned());
     }
+    let (lights, lit_at) = lights.try_iter().unzip();
     Seen {
         events: seen,
         looked,
-        lights: lights.try_iter().collect(),
+        lights,
+        lit_at,
+        answered_at: written.try_iter().collect(),
         asked: asked.try_recv().ok(),
         moods,
     }
@@ -374,6 +383,83 @@ fn a_dim_at_the_lowest_level_changes_nothing_and_is_given_back_as_nothing() {
         seen.lights
     );
     assert_eq!(seen.lights.len(), 2, "{:?}", seen.lights);
+}
+
+#[test]
+fn a_level_is_stepped_to_from_the_level_shown_and_given_back() {
+    let to_five = AT_ONCE.replace(
+        "light = { colour = \"warm\" }",
+        "light = { colour = \"warm\", level = 5 }",
+    );
+    let seen = the_program_with(
+        &to_five,
+        true,
+        &[r#"{"event":"begun","at_us":5}"#, r#"{"outcome":"spoken"}"#],
+        3,
+        1,
+        4,
+    );
+    let names: Vec<String> = seen
+        .lights
+        .iter()
+        .map(|line| serde_json::from_str::<serde_json::Value>(line).unwrap()["name"].to_string())
+        .collect();
+    // Blue at 3: warm, two steps up to 5, then blue and two steps down to 3.
+    assert_eq!(
+        names,
+        [
+            "\"light_colour\"",
+            "\"light_brighter\"",
+            "\"light_brighter\"",
+            "\"light_colour\"",
+            "\"light_dimmer\"",
+            "\"light_dimmer\""
+        ],
+        "{:?}",
+        seen.lights
+    );
+    let done = &seen.events[3].why;
+    assert!(
+        done.contains("light warm: done, to level 5: done, done"),
+        "{done}"
+    );
+    assert!(
+        done.contains("light given back to on blue at 3: done, done, done"),
+        "{done}"
+    );
+}
+
+#[test]
+fn a_dim_until_it_ends_stays_until_the_says_outcome_and_is_then_given_back() {
+    let until = DIMS.replace("{ dim = 1 }", "{ dim = 1, until = \"ends\" }");
+    // The words take a while: two lines between the beginning and the end.
+    let seen = the_program_with(
+        &until,
+        true,
+        &[
+            r#"{"event":"begun","at_us":5}"#,
+            r#"{"event":"speaking"}"#,
+            r#"{"event":"speaking"}"#,
+            r#"{"outcome":"spoken"}"#,
+        ],
+        3,
+        1,
+        4,
+    );
+    assert_eq!(seen.lights.len(), 2, "{:?}", seen.lights);
+    assert!(seen.lights[0].contains("light_dimmer"), "{:?}", seen.lights);
+    assert!(
+        seen.lights[1].contains("light_brighter"),
+        "{:?}",
+        seen.lights
+    );
+    let outcome = *seen.answered_at.last().unwrap();
+    assert!(seen.lit_at[0] < outcome && outcome < seen.lit_at[1]);
+    let done = &seen.events[3].why;
+    assert!(
+        done.contains("say: spoken; light given back to on blue at 3: done"),
+        "{done}"
+    );
 }
 
 #[test]

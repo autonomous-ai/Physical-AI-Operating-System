@@ -209,15 +209,15 @@ pub enum Call {
     /// A pose held on the body's mood socket for `lasting_us`, said again
     /// every second; the body comes back when it is no longer said.
     Mood { mood: String, lasting_us: u64 },
-    /// A colour, to the actions part's `light_colour`; a level and a while
-    /// that it cannot carry out yet, kept as written.
+    /// A colour, to the actions part's `light_colour`, then stepped to its
+    /// level; held for its while in a run with no say.
     Light {
         colour: String,
         level: Option<u8>,
         lasting: Option<String>,
     },
-    /// Steps dimmer, to the actions part's `light_dimmer`; "until it ends",
-    /// which it cannot carry out yet.
+    /// Steps dimmer, to the actions part's `light_dimmer`, held until the
+    /// run ends ("until it ends" says so).
     Dim { steps: u8, until_ends: bool },
     /// A note for the voice to say in its own words.
     Say(String),

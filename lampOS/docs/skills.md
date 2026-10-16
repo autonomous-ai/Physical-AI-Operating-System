@@ -152,7 +152,7 @@ must not leave a step silently undone)*.
 | `do.body.look_at` | no | Only `"face"`. The largest face in view goes to the body's `gaze.sock` as the eyes send one (`{"face":{"x","y","size","turned":0}}`) |
 | `do.body.gesture` | no | One of the body's six gestures (`nod`, `headshake`, `greeting`, `laugh`, `shy`, `stretching`), sent to `mood.sock` as `{"gesture":NAME}` |
 | `do.body.mood` + `do.body.for` | no | A pose held: only `"reading"` (#1011: the head looks down at the desk and the arm leans forward). Sent to `mood.sock` as `{"mood":"reading","level":0}` when the step is made and again every second for `for` (more than 0, at most `2m`); the body lets it go 1.5 s after the last, and comes back. One without the other is refused |
-| `do.light` | no | A file in `lights/`, written as its name, or a table in place. A file `lights/NAME.toml` holds the same keys. `{ colour, level, for }` asks the actions part for `light_colour`, and the light is given back after `for` (at most 10m), or when a say ends (below, "The light is given back"). *Not carried out yet:* `level` (1 to 5). `{ dim = N, until = "ends" }` asks for `light_dimmer` N times, given back when the run ends. *Not carried out yet:* `until` |
+| `do.light` | no | A file in `lights/`, written as its name, or a table in place. A file `lights/NAME.toml` holds the same keys. `{ colour, level, for }` asks the actions part for `light_colour`, then steps the light to `level` (1 to 5) with `light_brighter` or `light_dimmer` calls, counted from the level `light/state` shows; with that level not known it is left and the run says so. `for` holds the light in a run with no say. `{ dim = N, until = "ends" }` asks for `light_dimmer` N times. A light is held until the run ends (the say ends, or the run's longest `for`) and is then given back; `until = "ends"` says so of a dim |
 | `do.say` | no | A note for the voice to say in its own words, through the voice's say service (#954). One a skill. The run's other steps are made, in their order, when the voice begins the say, so the look and the light come with the words, and none if it is never begun. A light changed is given back when the say ends. In a tool's run the note goes to the model in the call's answer instead |
 | `do.look` | no | `true`: the voice's full look (#836). Only in a skill with a `tool` and no trigger: the call's answer tells the model to say "Let me take a look.", and the voice takes the look it already takes when the lamp says so, its still in the model's next turn |
 
@@ -249,8 +249,8 @@ As built on 2026-10-16 (#938, `crates/skills`, not yet run on a lamp):
   is at most 10 minutes. The other steps are made at `begun`; a say never
   begun moves nothing and lights nothing.
 - **The light is given back.** Before a run, the light shown is read from
-  `light/state`. When the say ends, however it ends, or after a light's
-  `for` in a run with no say, it is set back from the light shown then:
+  `light/state`. When the say ends, however it ends, or after the run's
+  longest `for` in a run with no say, it is set back from the light shown then:
   off if it was off, else its colour again and its level stepped back to
   the one before. A dim at the lowest level that changed nothing is given
   back as nothing. If `light/state` has said nothing for 3 s, a light step
@@ -282,7 +282,7 @@ What is not done, and why:
 - **The light is given back by hand.** Two skills changing the light at
   once, or a person changing it during a hello, are not arbitrated; the
   give-back sets the light seen before the run. A request that lapses is
-  Third's arbitration (#940). `until = "ends"` is still not carried out.
+  Third's arbitration (#940).
 
 ### Four additions to V2
 

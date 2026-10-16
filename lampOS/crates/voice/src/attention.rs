@@ -360,8 +360,12 @@ const NAMED: &str = "its name was heard in the room's sound";
 
 /// A tap on the lamp's head (#711, `docs/creature.md` "Touch") counts as a
 /// call for a request that begins no longer than this after it: the tap
-/// asks the lamp to listen, and the person may take a breath first.
-pub const TAPPED_BEFORE_US: u64 = 6_000_000;
+/// asks the lamp to listen, and the person may take a breath first. It is
+/// the one window the lamp shows it listens for, the ring's listening face
+/// ([`crate::ring_head::TAP_LISTENS_US`] is this) and Expression's look-up:
+/// as long as a call waits for the rest on lamp-4ace (#891, First on #711).
+/// A request that begins inside it keeps it however long it goes on.
+pub const TAPPED_BEFORE_US: u64 = 2_000_000;
 const TAPPED: &str = "someone tapped its head to talk to it";
 
 /// The provider worker's flag for taking the head's taps (#711), given
@@ -929,10 +933,11 @@ mod tests {
     }
 
     /// #711: a head tap asks the lamp to listen. A request that begins
-    /// within six seconds of it is a call in any room, even in the strict
-    /// busy form with nobody seen turned to the lamp; later ones are not.
+    /// within two seconds of it, the window the lamp shows it listens for,
+    /// is a call in any room, even in the strict busy form with nobody seen
+    /// turned to the lamp; later ones are not.
     #[test]
-    fn a_head_tap_is_a_call_for_the_next_six_seconds() {
+    fn a_head_tap_is_a_call_for_the_two_seconds_the_lamp_shows_it_listens() {
         let decide = |tapped_at: Option<u64>, began_at: u64| {
             let mut attention = Attention::default();
             for request in 1..=2 {
@@ -957,6 +962,25 @@ mod tests {
             Verdict::Hold(_)
         ));
         assert!(matches!(decide(None, tap + 500_000), Verdict::Hold(_)));
+        // After the window, a fresh utterance is not called: the face and
+        // the look-up have long settled.
+        assert!(matches!(
+            decide(Some(tap), tap + 3_000_000),
+            Verdict::Hold(_)
+        ));
+        // One that began inside it is, though it goes on past it and its
+        // first output comes later.
+        let mut attention = Attention::default();
+        for request in 1..=2 {
+            attention.began_at(request, 1, request * 1_000_000);
+        }
+        attention.head_tapped(tap);
+        attention.began_at(3, 1, tap + 1_900_000);
+        attention.ended(3, tap + 4_000_000);
+        assert_eq!(
+            attention.first_output_busy(3, Room::Busy, false, true, None),
+            Some(Verdict::Play(TAPPED))
+        );
         // A tap after the request began counts while its sound goes on.
         let mut attention = Attention::default();
         attention.began_at(1, 1, tap);

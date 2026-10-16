@@ -810,12 +810,116 @@ fn head_tap() -> lamp_msgs::TouchEvent {
     event
 }
 
-/// #849 review: head requests are optional input. A flood of them, from four
-/// senders as fast as they can, never holds back a pending Stop or a
-/// permit's expiry: both are measured while the flood still runs.
+/// Senders flooding `controls/touch` until dropped, or at most 5 s: on a
+/// failed assertion too they are stopped and joined, never left running.
+struct Flood {
+    flooding: Arc<std::sync::atomic::AtomicBool>,
+    sent: Arc<std::sync::atomic::AtomicU64>,
+    senders: Vec<thread::JoinHandle<()>>,
+}
+
+impl Flood {
+    /// Two senders of valid taps through the bus, and two writing messages
+    /// that look right but say another type straight to the subscribers'
+    /// sockets on the topic, each new, which a receive refuses and passes
+    /// over within the one call (as the reviewer's storm did).
+    fn start(root: &std::path::Path) -> Self {
+        use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+        let flooding = Arc::new(AtomicBool::new(true));
+        let sent = Arc::new(AtomicU64::new(0));
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let senders = (0..4)
+            .map(|number| {
+                let (root, flooding, sent) = (root.to_path_buf(), flooding.clone(), sent.clone());
+                thread::spawn(move || {
+                    let going = || flooding.load(Ordering::Acquire) && Instant::now() < deadline;
+                    if number % 2 == 1 {
+                        let subscribers: Vec<_> =
+                            std::fs::read_dir(root.join("controls/touch/subs"))
+                                .unwrap()
+                                .filter_map(|entry| entry.ok().map(|entry| entry.path()))
+                                .collect();
+                        assert!(!subscribers.is_empty(), "the head's subscriber");
+                        let socket = std::os::unix::net::UnixDatagram::unbound().unwrap();
+                        let payload = serde_json::to_vec(&head_tap()).unwrap();
+                        let mut header = lamp_bus::Header {
+                            topic: lamp_msgs::TouchEvent::TOPIC.into(),
+                            kind: lamp_bus::Kind::Event,
+                            enc: lamp_bus::JSON.into(),
+                            type_name: Some(lamp_msgs::TouchState::TYPE.into()),
+                            source: "controls".into(),
+                            boot: format!("{number:016x}"),
+                            seq: 0,
+                            at_us: monotonic_us(),
+                            at_unix_ms: 0,
+                            expires_ms: None,
+                        };
+                        while going() {
+                            header.seq += 1;
+                            header.at_unix_ms = std::time::SystemTime::now()
+                                .duration_since(std::time::UNIX_EPOCH)
+                                .unwrap()
+                                .as_millis() as u64;
+                            let mut datagram = serde_json::to_vec(&header).unwrap();
+                            datagram.push(b'\n');
+                            datagram.extend_from_slice(&payload);
+                            for path in &subscribers {
+                                if socket.send_to(&datagram, path).is_ok() {
+                                    sent.fetch_add(1, Ordering::Relaxed);
+                                }
+                            }
+                        }
+                        return;
+                    }
+                    let bus = lamp_bus::Bus::new(&root).unwrap();
+                    let mut out = bus
+                        .publisher_declared(
+                            lamp_msgs::TouchEvent::TOPIC,
+                            &lamp_msgs::TouchEvent::declaration(),
+                            "controls",
+                        )
+                        .unwrap();
+                    let tap = head_tap();
+                    while going() {
+                        if out.publish_json(1, &tap).is_ok() {
+                            sent.fetch_add(1, Ordering::Relaxed);
+                        }
+                    }
+                })
+            })
+            .collect();
+        Self {
+            flooding,
+            sent,
+            senders,
+        }
+    }
+
+    /// Whether it was still flooding, and stop it.
+    fn stop(&mut self) -> bool {
+        let was = self
+            .flooding
+            .swap(false, std::sync::atomic::Ordering::AcqRel);
+        for sender in self.senders.drain(..) {
+            let _ = sender.join();
+        }
+        was
+    }
+}
+
+impl Drop for Flood {
+    fn drop(&mut self) {
+        self.stop();
+    }
+}
+
+/// #849 review: head requests are optional input, read by the head's own
+/// thread. A flood on `controls/touch` from four senders, half of it of
+/// another type the subscriber refuses inside one receive, never holds back
+/// a permit's expiry or a Stop sent while it goes on: both are measured
+/// during the flood.
 #[test]
 fn a_flood_of_head_requests_never_holds_back_revocation_or_expiry() {
-    use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
     let root = std::path::PathBuf::from(format!("/tmp/lrw-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&root);
     let head = lamp_voice::ring_head::RingHead::on(&root).unwrap();
@@ -824,29 +928,7 @@ fn a_flood_of_head_requests_never_holds_back_revocation_or_expiry() {
         ..Senses::default()
     });
     rig.ready();
-    let flooding = Arc::new(AtomicBool::new(true));
-    let sent = Arc::new(AtomicU64::new(0));
-    let senders: Vec<_> = (0..4)
-        .map(|_| {
-            let (root, flooding, sent) = (root.clone(), flooding.clone(), sent.clone());
-            thread::spawn(move || {
-                let bus = lamp_bus::Bus::new(&root).unwrap();
-                let mut out = bus
-                    .publisher_declared(
-                        lamp_msgs::TouchEvent::TOPIC,
-                        &lamp_msgs::TouchEvent::declaration(),
-                        "controls",
-                    )
-                    .unwrap();
-                let tap = head_tap();
-                while flooding.load(Ordering::Acquire) {
-                    if out.publish_json(1, &tap).is_ok() {
-                        sent.fetch_add(1, Ordering::Relaxed);
-                    }
-                }
-            })
-        })
-        .collect();
+    let mut flood = Flood::start(&root);
     thread::sleep(Duration::from_millis(100));
     // A colored frame whose permit lasts 50 ms is blanked when it expires.
     let (mut controller, owner) = conversation(rig.boot);
@@ -864,18 +946,17 @@ fn a_flood_of_head_requests_never_holds_back_revocation_or_expiry() {
         }
     ));
     let expired_after = shown.elapsed();
-    // A Stop ends the worker at once.
+    // A Stop sent later, while it goes on, ends the worker at once.
+    thread::sleep(Duration::from_millis(10));
     let asked = Instant::now();
     rig.control(Control::Stop);
     rig.finish().unwrap();
     let stopped_after = asked.elapsed();
-    let still_flooding = flooding.swap(false, Ordering::AcqRel);
-    for sender in senders {
-        sender.join().unwrap();
-    }
+    let sent = flood.sent.load(std::sync::atomic::Ordering::Relaxed);
+    let still_flooding = flood.stop();
     let _ = std::fs::remove_dir_all(&root);
     assert!(still_flooding);
-    assert!(sent.load(Ordering::Relaxed) > 1_000, "{sent:?}");
+    assert!(sent > 1_000, "{sent}");
     assert!(
         expired_after < Duration::from_millis(150),
         "{expired_after:?}"

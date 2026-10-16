@@ -67,12 +67,22 @@ worker is gone while the voice is muted.
 ### A tap on the head at rest: the listening face (#711)
 
 Same switch and same worker. A tap on the head (Controls' `controls/touch`,
-a fresh, enabled head Tap from `controls`) is read on every ring tick, at
-most four requests a tick, and only after the tick's Stop, Authority and
-expiry have been served (#849 review): a flood of head requests from four
-senders cannot hold back a pending Stop or a permit's expiry
-(`a_flood_of_head_requests_never_holds_back_revocation_or_expiry`, which
-fails on the earlier unbounded read before the controls).
+a fresh, enabled head Tap from `controls`) and the head's hand time are read
+from the bus by a thread of the head's own (`ring_head.rs`), never by the
+ring's loop, which only reads the two numbers it last found, after each
+tick's Stop, Authority and expiry (#849 review, twice):
+- One receive from the bus passes over any number of messages it refuses, so
+  no count of receives would bound it. The loop does no bus work at all.
+- The test `a_flood_of_head_requests_never_holds_back_revocation_or_expiry`
+  floods `controls/touch` from four senders: valid taps through the bus, and
+  messages of another type written straight to the subscriber. While it goes
+  on, a 50 ms permit must blank within 150 ms and a Stop sent then must end
+  the worker within 50 ms.
+- It failed on the first head, which read the bus before the controls. On
+  the second (at most four receives a tick, after the controls) it fails
+  only where the socket's queue is large enough for a flood to stay ahead of
+  one receive: the reviewer reproduced that on Linux, and on Third's Mac the
+  queue holds a few messages, so the earlier head passes there.
 - **Shown:** at rest, the resting face becomes the listening face, the one a
   turn shows while it listens, for `TAP_LISTENS_US` (2 s, as long as a call
   waits for the rest on lamp-4ace, #891).

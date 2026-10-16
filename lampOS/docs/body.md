@@ -621,10 +621,17 @@ and eased out as it ends. On by default; there is no flag.
   (`--speed`): at 120 that is under 60 counts a second at its fastest.
 - **When not.** Not while the lamp rises or folds, not while a gesture
   plays (the gesture moves the arm itself; the lean eases out and back in
-  after), not while a hand holds the shoulder or the elbow (the hold has
-  them), not after it slumped, and nothing new while the wire fails. Every
+  after), not after it slumped, and nothing new while the wire fails. Every
   arm check stays as it was: its load bound, its tracking, its warmth, and
   `--limp` and `--overload release`.
+- **A hand on the arm.** Under `--give-way`, a shoulder or an elbow that
+  stops pushing against a hand is held where the hand has it for as long
+  as what is wanted of it does not change. While the lamp still wants to
+  lean, the lean stays exactly where it was, neither in nor out, so the
+  hold lasts and the lamp does not lean into the hand again. Once the lean
+  is no longer wanted (the answer over, a gesture, folding) it eases out,
+  and that change lets the hold go as any change of what is wanted does
+  (`an_arm_held_while_it_speaks_is_not_leaned_into_again`).
 
 With Expression on, a turn of the base that it asks while the lamp speaks,
 a sway between sentences, is taken as any other turn it asks: within 70

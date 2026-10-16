@@ -1,0 +1,4 @@
+start: 11:33:27 up 43 days, 28 min,  4 users,  load average: 2.13, 5.04, 5.82
+end: 11:34:01 up 43 days, 29 min,  4 users,  load average: 15.80, 8.07, 6.80
+third-start: 16:25:10 up 43 days,  5:20,  5 users,  load average: 5.37, 8.24, 8.18
+third-end: 16:25:17 up 43 days,  5:20,  5 users,  load average: 7.90, 8.72, 8.33

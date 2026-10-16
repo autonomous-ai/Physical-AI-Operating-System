@@ -763,8 +763,8 @@ head, a greeting, a laugh, a shy dip, a stretch (`src/clips.rs`, with the
 frames in `src/clips/data.rs`). Each is frames of offsets in encoder counts
 for head pitch, head roll, base yaw, shoulder and elbow, a fixed time apart,
 beginning and ending at nothing. They were recorded on the old runtime
-(`hal/recordings/NAME.csv`) and are generated from those files by a script
-kept outside this repository, which keeps 35 to 60% of each one's size and
+(`hal/recordings/NAME.csv`) and are generated from those files by
+`crates/body/tools/generate_clips.py`, which keeps 35 to 60% of each one's size and
 slows it until no joint is asked to go faster than 900, 1,300, 1,000, 800
 and 800 counts a second:
 
@@ -788,15 +788,27 @@ lamp-4ace at 10:4x: `acknowledge`, `curious`, `happy`, `excited` and `caring` re
 | Clip | From | Lasts | Mostly |
 | --- | --- | --- | --- |
 | `acknowledge` | `acknowledge` | 2.0 s | a quick bow: shoulder 222, elbow 325 |
-| `curious` | `curious` | 3.0 s | a tilt toward you: head roll 191, elbow 221 |
-| `happy` | `happy_wiggle` | 4.0 s | a sway of the base, 142 |
+| `curious` | `curious` | 3.0 s | a lean toward you: head 190, base 142, shoulder 133, elbow 142 (reworked) |
+| `happy` | `happy_wiggle` | 4.0 s | a wiggle: elbow 335, head 190, shoulder 171, base 142 (reworked) |
 | `caring` | `sad` | 5.0 s | a slow droop: elbow 333, head 157 |
 | `surprised` | `shock` | 2.0 s | a recoil: head back 190, shoulder 332 |
-| `confused` | `confused` | 4.0 s | a head tilt, roll 189 |
+| `confused` | `confused` | 3.0 s | a puzzled dip and turn: head 190, base 142 (reworked) |
 | `sleepy` | `sleepy` | 9.2 s | a slow droop with a catch |
-| `excited` | `excited` | 4.4 s | a bounce up: shoulder 216, elbow 333 |
+| `excited` | `excited` | 3.0 s | a quick bounce up: shoulder 331, elbow 219, head 190 (reworked) |
 | `scanning` | `scanning` | 9.1 s | a look round, roll 191, yaw 123: only when a person asks |
-| `dance_chill`, `dance_groove`, `dance_hype`, `dance_waltz`, `dance_jazz` | the music recordings | 7 to 9 s | dances, for the Dance skill |
+| `dance_chill` | `music_chill` | 9.1 s | base sweeps, 143 either way (reworked) |
+| `dance_groove` | `music_groove` | 8.1 s | a shoulder bounce, 284 (reworked) |
+| `dance_hype` | `music_hype` | 7.0 s | the whole lamp, fastest of the five (reworked) |
+| `dance_waltz` | `music_waltz` | 9.6 s | a slow lean on the elbow, 276 (reworked) |
+| `dance_jazz` | `music_jazz` | 9.1 s | a head bob, 191 (reworked) |
+
+Reworked on 2026-10-16 after a person judged every clip on lamp-06c1 (#995): `curious`, `happy`,
+`confused`, `excited` and the five dances are not scaled as a whole. Each joint has its own gain, as large as
+its reach and its speed allow (1.6 at most), times the clip's emphasis, so that one joint leads and the rest
+support it and nothing is slowed; the generator's `REWORKED` holds them. They carry no head roll: a head that
+does not tilt standing does not tilt in a gesture (above), and on lamp-06c1 `body/joint_states` showed `confused`
+and `headshake` command none of the 189 and 135 counts they ask, so a recording's roll is moved onto head pitch
+and base yaw. The other clips are as before, byte for byte.
 
 The voice service asks for one on the mood socket, `{"gesture":"nod"}`; a
 name that is not a clip is ignored. It asks at most once an answer, from the

@@ -47,3 +47,15 @@ starts only listed roles; the records guard knows exactly the list; a refusal
 names an unknown role, and after two refused cleanups in a row the records
 diagnostic says so. Stacked on #1076. docs/records.md, "The voice's own
 list".
+
+## 2026-10-16/17 — #1119, lamp-voice-eval export, and lamp-cb94
+
+- Role file names lamp-cb94, shared with twelve (#1133). The person later let thirteen ssh to it without asking each time; every use is under `lamp-lock.sh` with a line to twelve, read-only unless twelve agrees.
+- #1119 → #1134 (export with no words, by an allow-list), #1165 (faces and `voice/state` from `lamp-bus record`), #1170 (the reviewer's #1134 findings and Second's on #1170). All merged; #1119 closed.
+- On lamp-cb94's real data: 11 of its 24 session folders were from an earlier boot. My first #1134 evidence (`user_interrupted` 2) came from one of them, which is the reviewer's P2. Corrected on #1134 and #1165; #1170 catches it.
+- Also verified Eighth's #1164 (`lamp-lock.sh run` on macOS bash 3.2).
+
+### Found, not mine
+
+- `lamp-bus` `logging::tests::a_slow_log_follower_does_not_hold_a_fast_one_and_loss_remains_visible` failed once in ARM64 (38928613480) and passed on re-run.
+- On lamp-cb94, `ears/level`'s bus header `at_us` is on another clock than `voice/state`'s (about 3,486 s apart).

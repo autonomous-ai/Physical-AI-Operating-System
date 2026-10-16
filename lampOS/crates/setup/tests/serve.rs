@@ -370,6 +370,25 @@ fn the_own_page_and_the_product_plan_agree_on_what_setup_saves() {
     assert!(!plan.wipe.iter().any(|wiped| key.starts_with(wiped)));
 }
 
+/// Thirteen on #1016: a key an older setup left half-written is removed at
+/// start while its settings still name the credential; without that name,
+/// only the name's and the marker's temporary files are.
+#[test]
+fn a_leftover_temporary_key_from_an_older_setup_is_removed() {
+    let root = Root::new();
+    let mut config = root.config(true);
+    let tmp = |path: &std::path::Path| path.with_extension("lamp-setup-tmp");
+    assert_eq!(
+        lamp_setup::serve::leftover_temporaries(&config),
+        [tmp(&config.name), tmp(&config.marker)]
+    );
+    config.credential = Some(root.0.join("etc/credential"));
+    assert!(
+        lamp_setup::serve::leftover_temporaries(&config)
+            .contains(&root.0.join("etc/credential.lamp-setup-tmp"))
+    );
+}
+
 /// Settings written before #806's decision still name a credential file:
 /// they are read, and the file is never touched.
 #[test]

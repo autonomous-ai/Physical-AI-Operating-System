@@ -248,6 +248,22 @@ pub trait Save {
     fn marker(&mut self) -> io::Result<()>;
 }
 
+/// The temporary files a setup that crashed mid-write may have left, each of
+/// which may hold a secret: removed at every start. The credential's too,
+/// while older settings still name it: setup writes no key now (#806), but
+/// an older one may have left a key half-written (Thirteen on #1016).
+pub fn leftover_temporaries(config: &Config) -> Vec<PathBuf> {
+    [
+        Some(&config.name),
+        Some(&config.marker),
+        config.credential.as_ref(),
+    ]
+    .into_iter()
+    .flatten()
+    .map(|path| path.with_extension("lamp-setup-tmp"))
+    .collect()
+}
+
 /// Write a private file durably: temporary file, sync, rename, directory sync.
 pub fn write_private(path: &Path, bytes: &[u8]) -> io::Result<()> {
     if let Some(parent) = path.parent() {

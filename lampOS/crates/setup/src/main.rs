@@ -283,8 +283,8 @@ fn serve(
         return Ok(true);
     }
     // A temporary file a crash left holds a secret: never kept.
-    for path in [&config.name, &config.marker] {
-        let _ = std::fs::remove_file(path.with_extension("lamp-setup-tmp"));
+    for path in lamp_setup::serve::leftover_temporaries(&config) {
+        let _ = std::fs::remove_file(path);
     }
     // One look at the networks while the radio is still a station: as the
     // hotspot it may refuse to scan (V1 lists networks in station mode only).

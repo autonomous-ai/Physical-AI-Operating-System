@@ -17,19 +17,27 @@
 //! - **The parts' journal** (`journalctl -o json`): only the lines whose
 //!   shape is known, read into numbers and plain words (the Policy's
 //!   decisions and outcomes, the body's gestures, faces and goals, a skill's
-//!   stage). Every other line is left out and counted by its part.
+//!   stage). Every other line is left out and counted by its part: one of
+//!   [`PARTS`], else `other`, so no other program's tag is written.
 //! - **The bus** (`--bus`, `lamp-bus record` files): only
 //!   `humans/faces/tracked` and `voice/state`. A face keeps its box, its
 //!   confidence, its yaw and whether it faced the lamp; its passing id is
 //!   replaced by the export's own (`f1`, `f2`, ...) and every other field is
 //!   left out and counted. A state keeps one of the four `lamp_msgs::Voice`
 //!   words. Every other topic is left out and counted. The eyes write no face
-//!   boxes to the journal, so a recording is the only source of faces.
+//!   boxes to the journal, so a recording is the only source of faces. A
+//!   message is in the window by its wall `at_unix_ms`; the case is timed by
+//!   its `at_us`, which assumes the publisher stamps `CLOCK_MONOTONIC` as the
+//!   voice's trace does (true of these two topics, not of every one: checked
+//!   on lamp-cb94, `ears/level`'s differs).
 //!
 //! **The trust boundary.** A string is kept only from a field this file
 //! names: the voice's [`WORD_FIELDS`] and the Policy's [`POLICY_KEYS`], and
-//! only as one lower-case word. Those fields are trusted to be filled by
-//! code from a closed set; checked against today's producers (a `reason` is
+//! only as one lower-case word. Every event's `kind`, and the name of every
+//! top-level field kept for its number or boolean, is copied too when it is
+//! one such word. All of these are trusted to be filled by code from a
+//! closed set: a kind or a key name is written in the voice's source, never
+//! taken from what was heard; checked against today's producers (a `reason` is
 //! a code value or an error kind, never what a person said: a person's words
 //! that become a reason go to `marked/`, not the trace). Whoever adds a field
 //! there, or makes one of them echo a person's word, makes this tool export
@@ -37,13 +45,24 @@
 //! message is counted under its topic only when the topic is one of
 //! lampOS's ([`BUS_TOPICS`]), else as `other`.
 //!
+//! **One boot.** The monotonic clock starts again at every boot, and the
+//! sessions folder keeps sessions from earlier boots, so a session is read
+//! only when it ran in the offset's boot. Each session's folder is named by
+//! lamp-voice's systemd `INVOCATION_ID`. A session is read when the journal's
+//! lamp-voice lines for that boot name it (`_SYSTEMD_INVOCATION_ID`), or when
+//! its last event, mapped to the wall, is within a minute of its files'
+//! modification time: either is enough, since a volatile journal forgets this
+//! boot's earlier runs and an earlier boot's mapped times land hours from its
+//! files' time. Skipped sessions are counted, by why, in `left-out.json`. A
+//! bus recording needs neither: its window is its own wall time.
+//!
 //! What it writes, into a new folder: `events.jsonl` (both, in time order,
 //! each with `at_us` and the local wall time), `summary.json` (counts by kind,
 //! and by kind and plain-word value, such as
 //! `turn_finished.outcome=user_interrupted`), `left-out.json` (what was left
 //! out, counted), and `case/voice_state.jsonl`, `voice/state` as a
 //! `lamp-bus record` file a skill test replays (as recorded on `--bus`, else
-//! derived from the turn's events, below), and `case/humans_faces_tracked.jsonl`
+//! from the trace's `ring_requested.phase`, below), and `case/humans_faces_tracked.jsonl`
 //! when `--bus` held faces. The case's files share one start, timed by the
 //! monotonic `at_us` the voice's trace and the bus both carry, so a replay
 //! keeps their order and gaps.
@@ -53,7 +72,7 @@ use serde_json::{Map, Value, json};
 use std::{
     collections::BTreeMap,
     fs,
-    io::Write,
+    io::{BufRead, BufReader, Write},
     os::unix::fs::{DirBuilderExt, OpenOptionsExt},
     path::{Path, PathBuf},
 };
@@ -106,6 +125,35 @@ const POLICY_KEYS: &[&str] = &[
     "overtaken",
     "logged",
 ];
+
+/// lampOS's parts, as their units are named (`deploy/product/*.service`):
+/// a journal line left out is counted under one of these, else `other`, so
+/// no other program's name or tag reaches `left-out.json`.
+const PARTS: &[&str] = &[
+    "lamp-actions",
+    "lamp-air",
+    "lamp-body",
+    "lamp-controls",
+    "lamp-ears",
+    "lamp-expression",
+    "lamp-eyes",
+    "lamp-health",
+    "lamp-memory",
+    "lamp-name",
+    "lamp-policy",
+    "lamp-records",
+    "lamp-schedule",
+    "lamp-setup",
+    "lamp-setup-reset",
+    "lamp-skills",
+    "lamp-tasks",
+    "lamp-update",
+    "lamp-voice",
+];
+
+/// How far a session's last event may be from its files' modification time
+/// for it to count as this boot's, when the journal cannot say.
+const SAME_BOOT_WITHIN_MS: u64 = 60_000;
 
 /// The biggest input read: a day of a lamp's traces is well under this.
 const MAX_INPUT_BYTES: u64 = 256 * 1024 * 1024;
@@ -173,7 +221,7 @@ pub struct LeftOut {
     pub voice_fields: BTreeMap<String, u64>,
     /// Voice lines that are not JSON objects.
     pub voice_lines_unreadable: u64,
-    /// Journal lines left out, by part (`other` when the part is not a plain word).
+    /// Journal lines left out, by part (`other` when it is not one of [`PARTS`]).
     pub journal_lines: BTreeMap<String, u64>,
     /// `key=value` pairs left out of a known journal line, by its kind.
     pub journal_pairs: BTreeMap<String, u64>,
@@ -182,6 +230,11 @@ pub struct LeftOut {
     pub bus_messages: BTreeMap<String, u64>,
     /// Fields left out of a kept bus message, by topic.
     pub bus_fields: BTreeMap<String, u64>,
+    /// Session folders not read, by why: `other_boot` (the journal's
+    /// lamp-voice did not run it in this boot, and its files' time does not
+    /// agree either), `far_from_file_time` (no journal runs to ask, and its
+    /// last event is more than a minute from its files' time).
+    pub sessions_skipped: BTreeMap<String, u64>,
 }
 
 impl LeftOut {
@@ -194,6 +247,7 @@ impl LeftOut {
             "journal_pairs_by_kind": self.journal_pairs,
             "bus_messages_by_topic": self.bus_messages,
             "bus_fields_by_topic": self.bus_fields,
+            "sessions_skipped": self.sessions_skipped,
         })
     }
 }
@@ -387,6 +441,9 @@ struct Entry {
     monotonic_us: u64,
     boot: String,
     message: String,
+    /// lamp-voice's systemd invocation, when the line is lamp-voice's: the
+    /// name of the session folder that run wrote.
+    voice_invocation: Option<String>,
 }
 
 fn journal_entry(line: &Value) -> Option<Entry> {
@@ -396,16 +453,51 @@ fn journal_entry(line: &Value) -> Option<Entry> {
     let message = text("MESSAGE")?;
     // The part writes `lamp-policy: ...`; the identifier says the same.
     let (part, message) = match message.split_once(": ") {
-        Some((part, rest)) if part.starts_with("lamp-") && name_word(part) => (part, rest),
-        _ => (text("SYSLOG_IDENTIFIER").unwrap_or("other"), message),
+        Some((part, rest)) if PARTS.contains(&part) => (part, rest),
+        _ => (
+            text("SYSLOG_IDENTIFIER")
+                .filter(|identifier| PARTS.contains(identifier))
+                .unwrap_or("other"),
+            message,
+        ),
     };
+    let voice = text("_SYSTEMD_UNIT") == Some("lamp-voice.service") || part == "lamp-voice";
+    let voice_invocation = text("_SYSTEMD_INVOCATION_ID")
+        .filter(|_| voice)
+        .map(invocation_name);
     Some(Entry {
         part: part.to_owned(),
         realtime_us: micros("__REALTIME_TIMESTAMP")?,
         monotonic_us: micros("__MONOTONIC_TIMESTAMP")?,
         boot: text("_BOOT_ID").unwrap_or_default().to_owned(),
         message: message.to_owned(),
+        voice_invocation,
     })
+}
+
+/// A systemd invocation id as a session folder is named: 32 lower-case hex
+/// digits, the dashes of a UUID's text form taken out.
+fn invocation_name(text: &str) -> String {
+    text.chars()
+        .filter(|c| *c != '-')
+        .collect::<String>()
+        .to_ascii_lowercase()
+}
+
+/// The session a trace file belongs to: the folder holding its `metadata`.
+fn session_folder(file: &Path) -> PathBuf {
+    let parent = file.parent().unwrap_or(file);
+    match parent.file_name() {
+        Some(name) if name == "metadata" => parent.parent().unwrap_or(parent).to_owned(),
+        _ => parent.to_owned(),
+    }
+}
+
+/// A file's modification time, in Unix milliseconds.
+fn modified_ms(file: &Path) -> Option<u64> {
+    let modified = fs::metadata(file).ok()?.modified().ok()?;
+    let since = modified.duration_since(std::time::UNIX_EPOCH).ok()?;
+    u64::try_from(since.as_millis()).ok()
 }
 
 /// Days since 1970-01-01 of a civil date (Howard Hinnant's algorithm).
@@ -467,6 +559,18 @@ fn wall_text(zone: &LocalTime, unix_ms: u64) -> String {
     )
 }
 
+/// Each line of a file at most [`MAX_INPUT_BYTES`] long, read one at a time,
+/// so a long session is never held whole in memory.
+fn each_line(path: &Path, mut line: impl FnMut(&str)) -> Result<()> {
+    if fs::metadata(path)?.len() > MAX_INPUT_BYTES {
+        return Err(invalid(&format!("{} is over 256 MiB", path.display())));
+    }
+    for text in BufReader::new(fs::File::open(path)?).lines() {
+        line(&text?);
+    }
+    Ok(())
+}
+
 fn read_bounded(path: &Path) -> Result<String> {
     if fs::metadata(path)?.len() > MAX_INPUT_BYTES {
         return Err(invalid(&format!("{} is over 256 MiB", path.display())));
@@ -494,18 +598,22 @@ fn trace_files(root: &Path) -> Result<Vec<PathBuf>> {
     Ok(found)
 }
 
-/// The voice's `voice/state` from the turn's events, as `bus_out` publishes
-/// it from the ring's phase: listening from the admitted input, thinking from
-/// its end, speaking from the first sound, resting when the turn is over.
-/// Derived, not recorded: the voice does not write its state to its trace.
-fn voice_state(kind: &str) -> Option<&'static str> {
-    Some(match kind {
-        "input_admitted" => "listening",
-        "local_endpoint" | "input_discarded_endpoint" => "thinking",
-        "speaker_first_write" => "speaking",
-        "turn_finished" | "speech_final_sample_retired" | "provider_input_abandoned" => "resting",
-        _ => return None,
-    })
+/// The voice's `voice/state` as `bus_out::state` publishes it: from the
+/// ring's phase while a turn owns it (`listening` listening, `waiting`
+/// thinking, `speaking` speaking, as `ring_requested` traces each phase it
+/// asks for), and resting once the turn is over (`turn_finished`: no owner,
+/// no phase). Not recorded: the voice does not write its state to its trace.
+fn voice_state(event: &Map<String, Value>) -> Option<&'static str> {
+    match event["kind"].as_str()? {
+        "ring_requested" => match event.get("phase")?.as_str()? {
+            "listening" => Some("listening"),
+            "waiting" => Some("thinking"),
+            "speaking" => Some("speaking"),
+            _ => None,
+        },
+        "turn_finished" => Some("resting"),
+        _ => None,
+    }
 }
 
 fn base64(bytes: &[u8]) -> String {
@@ -821,6 +929,7 @@ pub fn export(options: &ExportOptions) -> Result<Value> {
 
     // The journal: its own wall time, and the boot's offset for the voice.
     let mut offsets: BTreeMap<String, Vec<i64>> = BTreeMap::new();
+    let mut voice_runs: BTreeMap<String, std::collections::BTreeSet<String>> = BTreeMap::new();
     if let Some(journal) = &options.journal {
         for line in read_bounded(journal)?.lines() {
             let Some(entry) = serde_json::from_str::<Value>(line)
@@ -835,6 +944,12 @@ pub fn export(options: &ExportOptions) -> Result<Value> {
                 .entry(entry.boot.clone())
                 .or_default()
                 .push(entry.realtime_us as i64 - entry.monotonic_us as i64);
+            if let Some(invocation) = &entry.voice_invocation {
+                voice_runs
+                    .entry(entry.boot.clone())
+                    .or_default()
+                    .insert(invocation.clone());
+            }
             let wall_ms = entry.realtime_us / 1000;
             if !(since_ms..=until_ms).contains(&wall_ms) {
                 continue;
@@ -845,26 +960,24 @@ pub fn export(options: &ExportOptions) -> Result<Value> {
                     event.insert("at_us".into(), entry.monotonic_us.into());
                     rows.push((wall_ms, event));
                 }
-                None => {
-                    let part = if name_word(&entry.part) {
-                        entry.part
-                    } else {
-                        "other".into()
-                    };
-                    *left.journal_lines.entry(part).or_default() += 1;
-                }
+                None => *left.journal_lines.entry(entry.part).or_default() += 1,
             }
         }
     }
     // The boot with the most journal lines is the one the window is in.
-    let journal_offset = offsets
-        .values()
-        .max_by_key(|values| values.len())
-        .map(|values| {
-            let mut values = values.clone();
-            values.sort_unstable();
-            values[values.len() / 2]
-        });
+    let main_boot = offsets
+        .iter()
+        .max_by_key(|(_, values)| values.len())
+        .map(|(boot, _)| boot.clone());
+    let journal_offset = main_boot.as_ref().map(|boot| {
+        let mut values = offsets[boot].clone();
+        values.sort_unstable();
+        values[values.len() / 2]
+    });
+    let boot_runs = main_boot
+        .as_ref()
+        .and_then(|boot| voice_runs.get(boot))
+        .filter(|runs| !runs.is_empty());
     let (offset_us, offset_from) = match (options.wall_offset_us, journal_offset) {
         (Some(offset), _) => (offset, "given"),
         (None, Some(offset)) => (offset, "journal"),
@@ -875,26 +988,91 @@ pub fn export(options: &ExportOptions) -> Result<Value> {
     };
 
     let mut states = Vec::new();
+    let mut sessions_used = 0u64;
+    // How each session read was found to be this boot's.
+    let mut sessions_by: BTreeMap<&str, u64> = BTreeMap::new();
+    let wall_of = |at_us: u64| ((at_us as i64 + offset_us) / 1000).max(0) as u64;
     if let Some(sessions) = &options.sessions {
+        let mut by_session: BTreeMap<PathBuf, Vec<PathBuf>> = BTreeMap::new();
         for file in trace_files(sessions)? {
-            for line in read_bounded(&file)?.lines() {
-                let Ok(value) = serde_json::from_str::<Value>(line) else {
-                    left.voice_lines_unreadable += 1;
-                    continue;
-                };
-                let Some(mut event) = voice_event(&value, &mut left) else {
-                    continue;
-                };
-                let at_us = event["at_us"].as_u64().unwrap_or_default();
-                let wall_ms = ((at_us as i64 + offset_us) / 1000).max(0) as u64;
-                if !(since_ms..=until_ms).contains(&wall_ms) {
-                    continue;
+            by_session
+                .entry(session_folder(&file))
+                .or_default()
+                .push(file);
+        }
+        for (folder, files) in by_session {
+            // First pass, a line at a time: the session's last event, to
+            // judge which boot it is. Nothing is counted yet, so a skipped
+            // session leaves no trace in what was left out.
+            let mut last_us: Option<u64> = None;
+            for file in &files {
+                each_line(file, |line| {
+                    if let Some(at_us) = serde_json::from_str::<Value>(line)
+                        .ok()
+                        .and_then(|value| value.get("at_us").and_then(Value::as_u64))
+                    {
+                        last_us = Some(last_us.map_or(at_us, |last| last.max(at_us)));
+                    }
+                })?;
+            }
+            // This boot's when the journal's lamp-voice ran it in this boot,
+            // or when its files' time agrees with its last event: a volatile
+            // journal forgets this boot's earlier runs, and an earlier boot's
+            // mapped times land hours from its files' time.
+            let listed = boot_runs.is_some_and(|runs| {
+                folder
+                    .file_name()
+                    .is_some_and(|name| runs.contains(&invocation_name(&name.to_string_lossy())))
+            });
+            let by_time = match (
+                last_us,
+                files.iter().filter_map(|file| modified_ms(file)).max(),
+            ) {
+                (Some(last_us), Some(modified)) => {
+                    wall_of(last_us).abs_diff(modified) <= SAME_BOOT_WITHIN_MS
                 }
-                if let Some(state) = event["kind"].as_str().and_then(voice_state) {
-                    states.push((at_us, wall_ms, state));
-                }
-                event.insert("source".into(), "voice".into());
-                rows.push((wall_ms, event));
+                (None, _) => true,
+                _ => false,
+            };
+            if listed {
+                *sessions_by.entry("journal_run").or_default() += 1;
+            } else if by_time {
+                *sessions_by.entry("file_time").or_default() += 1;
+            } else {
+                let why = if boot_runs.is_some() {
+                    "other_boot"
+                } else {
+                    "far_from_file_time"
+                };
+                *left.sessions_skipped.entry(why.into()).or_default() += 1;
+                continue;
+            }
+            sessions_used += 1;
+            // Second pass, a line at a time: the window first, so what is
+            // outside it is neither kept nor counted.
+            for file in &files {
+                each_line(file, |line| {
+                    let Ok(value) = serde_json::from_str::<Value>(line) else {
+                        left.voice_lines_unreadable += 1;
+                        return;
+                    };
+                    let Some(at_us) = value.get("at_us").and_then(Value::as_u64) else {
+                        left.voice_lines_unreadable += 1;
+                        return;
+                    };
+                    let wall_ms = wall_of(at_us);
+                    if !(since_ms..=until_ms).contains(&wall_ms) {
+                        return;
+                    }
+                    let Some(mut event) = voice_event(&value, &mut left) else {
+                        return;
+                    };
+                    if let Some(state) = voice_state(&event) {
+                        states.push((at_us, wall_ms, state));
+                    }
+                    event.insert("source".into(), "voice".into());
+                    rows.push((wall_ms, event));
+                })?;
             }
         }
     }
@@ -951,6 +1129,8 @@ pub fn export(options: &ExportOptions) -> Result<Value> {
     for (wall_ms, event) in &mut rows {
         let kind = event["kind"].as_str().unwrap_or_default().to_owned();
         *counts.entry(kind.clone()).or_default() += 1;
+        // `state` is one of the WORD_FIELDS: a recorded `voice_state` row's
+        // state is counted here, once.
         for key in WORD_FIELDS {
             if let Some(value) = event.get(*key).and_then(Value::as_str) {
                 *counts.entry(format!("{kind}.{key}={value}")).or_default() += 1;
@@ -977,7 +1157,7 @@ pub fn export(options: &ExportOptions) -> Result<Value> {
         }
         (
             derived,
-            "derived from the turn's events: input_admitted listening, local_endpoint thinking, speaker_first_write speaking, turn_finished resting",
+            "from the trace: ring_requested.phase listening listening, waiting thinking, speaking speaking; turn_finished resting",
         )
     } else {
         (recorded_states, "recorded: voice/state from --bus")
@@ -1009,6 +1189,8 @@ pub fn export(options: &ExportOptions) -> Result<Value> {
         "voice_state_from": state_from,
         "faces_messages": recorded_faces.len(),
         "faces_seen": ids.len(),
+        "sessions_used": sessions_used,
+        "sessions_by": sessions_by,
     });
 
     fs::DirBuilder::new().mode(0o700).create(&options.out)?;
@@ -1092,6 +1274,10 @@ mod tests {
         let events = [
             json!({"kind":"run_start","at_us":at(1),"provider_kind":"gemini","seconds":0,"note":SECRETS[0]}),
             json!({"kind":"input_admitted","at_us":at(2),"turn":1,"admission_basis":"speech","candidate":{"id":7,"label":SECRETS[1]}}),
+            // The ring's phases, as the voice traces each it asks for.
+            json!({"kind":"ring_requested","at_us":at(2),"owner":1,"phase":"listening","ceiling":24,"frame":{"phase":"listening"},"trace_role":"cue_or_periodic_head"}),
+            json!({"kind":"ring_requested","at_us":at(3),"owner":1,"phase":"waiting","ceiling":24,"trace_role":"cue_or_periodic_head"}),
+            json!({"kind":"ring_requested","at_us":at(5),"owner":1,"phase":"speaking","ceiling":24,"trace_role":"cue_or_periodic_head"}),
             json!({"kind":"transcript","at_us":at(3),"turn":null,"text":format!("hey {} what time", SECRETS[2]),"finished":true,"input_correlation":"unreliable; session scoped"}),
             json!({"kind":"local_endpoint","at_us":at(3),"turn":1,"includes_silence_wait_ms":300}),
             json!({"kind":"function_named","at_us":at(4),"turn":1,"name":SECRETS[3],"args":{"city":SECRETS[4]}}),
@@ -1111,6 +1297,8 @@ mod tests {
         )
         .unwrap();
         let wall = |seconds: u64| OFFSET_US + at(seconds);
+        // Written as its last event happened, as on a lamp.
+        set_modified(&session.join("events-0.jsonl"), wall(4000) / 1000);
         let journal = [
             journal_line(
                 "lamp-policy",
@@ -1176,9 +1364,31 @@ mod tests {
                 at(6),
             ),
         ];
+        // Another program's line, its tag one lower-case word (`logger`'s
+        // default is the login name): counted as `other`, never by name.
+        let journal = [
+            journal.to_vec(),
+            vec![
+                json!({"MESSAGE": "hello there", "SYSLOG_IDENTIFIER": SECRETS[1],
+                "__REALTIME_TIMESTAMP": wall(6).to_string(),
+                "__MONOTONIC_TIMESTAMP": at(6).to_string(), "_BOOT_ID": "b1"})
+                .to_string(),
+            ],
+        ]
+        .concat();
         let journal_path = dir.join("journal.json");
         fs::write(&journal_path, journal.join("\n") + "\n").unwrap();
         (dir.join("sessions"), journal_path)
+    }
+
+    /// Sets a file's modification time, in Unix milliseconds.
+    fn set_modified(file: &Path, unix_ms: u64) {
+        fs::File::options()
+            .write(true)
+            .open(file)
+            .unwrap()
+            .set_modified(std::time::UNIX_EPOCH + std::time::Duration::from_millis(unix_ms))
+            .unwrap();
     }
 
     fn options(dir: &Path, sessions: PathBuf, journal: Option<PathBuf>) -> ExportOptions {
@@ -1317,6 +1527,9 @@ mod tests {
         assert_eq!(left["voice_lines_unreadable"], 1);
         assert_eq!(left["journal_lines_by_part"]["lamp-eyes"], 1);
         assert_eq!(left["journal_lines_by_part"]["lamp-skills"], 1);
+        // Another program's tag is never a key: its line is `other`.
+        assert_eq!(left["journal_lines_by_part"]["other"], 1);
+        assert!(left["journal_lines_by_part"].get(SECRETS[1]).is_none());
         // `note=` and `heard=`: keys the Policy does not write, one of them a
         // single lower-case word (Second's P3 on #1134).
         assert_eq!(left["journal_pairs_by_kind"]["policy_outcome"], 2);
@@ -1344,6 +1557,228 @@ mod tests {
         assert_eq!(case[1]["header"]["at_us"], 0);
         assert_eq!(case[1]["payload_b64"], base64(br#"{"state":"listening"}"#));
         assert_eq!(case.len(), 4, "listening, thinking, speaking: {case:?}");
+    }
+
+    /// A session folder named `name` holding `events`, written as its last
+    /// event happened (`modified_ms`).
+    fn session(root: &Path, name: &str, events: &[Value], modified_ms: u64) {
+        let folder = root.join(name).join("metadata");
+        fs::create_dir_all(&folder).unwrap();
+        let text: String = events.iter().map(|event| format!("{event}\n")).collect();
+        fs::write(folder.join("events-0.jsonl"), text).unwrap();
+        set_modified(&folder.join("events-0.jsonl"), modified_ms);
+    }
+
+    /// One turn at the same uptime in two boots: today's interrupted,
+    /// yesterday's answered.
+    fn two_boots(root: &Path, today_ms: u64, yesterday_ms: u64) {
+        let at = |seconds: u64| 5_000_000_000 + seconds * 1_000_000;
+        let turn = |outcome: &str| {
+            [
+                json!({"kind":"input_admitted","at_us":at(2),"turn":1}),
+                json!({"kind":"turn_finished","at_us":at(6),"turn":1,"outcome":outcome}),
+            ]
+        };
+        session(root, TODAY, &turn("user_interrupted"), today_ms);
+        session(root, YESTERDAY, &turn("answered"), yesterday_ms);
+    }
+    const TODAY: &str = "0f1e2d3c4b5a69788796a5b4c3d2e1f0";
+    const YESTERDAY: &str = "aaaabbbbccccddddeeeeffff00001111";
+
+    /// The reviewer on #1134 (23:07): the sessions folder keeps earlier
+    /// boots, whose monotonic times repeat. With a journal, only the
+    /// sessions its lamp-voice ran in this boot are read.
+    #[test]
+    fn with_a_journal_only_this_boots_sessions_are_read() {
+        let dir = temp("boots-journal");
+        let sessions = dir.0.join("sessions");
+        let wall = |seconds: u64| OFFSET_US + 5_000_000_000 + seconds * 1_000_000;
+        // Yesterday's file was written a day ago, as on a lamp.
+        two_boots(&sessions, wall(6) / 1000, wall(6) / 1000 - 86_400_000);
+        let journal = dir.0.join("journal.json");
+        let voice = json!({"MESSAGE": "lamp-voice: started", "SYSLOG_IDENTIFIER": "lamp-voice",
+            "_SYSTEMD_UNIT": "lamp-voice.service", "_SYSTEMD_INVOCATION_ID": TODAY,
+            "__REALTIME_TIMESTAMP": wall(1).to_string(),
+            "__MONOTONIC_TIMESTAMP": (5_000_000_000u64 + 1_000_000).to_string(), "_BOOT_ID": "b1"});
+        fs::write(&journal, format!("{voice}\n")).unwrap();
+        let summary = export(&options(&dir.0, sessions, Some(journal))).unwrap();
+        assert_eq!(
+            summary["counts"]["turn_finished.outcome=user_interrupted"],
+            1
+        );
+        assert!(
+            summary["counts"]
+                .get("turn_finished.outcome=answered")
+                .is_none()
+        );
+        assert_eq!(summary["sessions_used"], 1);
+        let left: Value =
+            serde_json::from_str(&fs::read_to_string(dir.0.join("out/left-out.json")).unwrap())
+                .unwrap();
+        assert_eq!(left["sessions_skipped"]["other_boot"], 1);
+        assert_eq!(summary["sessions_by"]["journal_run"], 1);
+    }
+
+    /// Second on #1170: a volatile journal keeps only this boot's latest
+    /// run. An earlier run of the same boot, whose files' time agrees, is
+    /// still read, and its answered turn counted.
+    #[test]
+    fn an_earlier_run_of_this_boot_the_journal_forgot_is_still_read() {
+        let dir = temp("boots-forgotten");
+        let sessions = dir.0.join("sessions");
+        let at = |seconds: u64| 5_000_000_000 + seconds * 1_000_000;
+        let wall_ms = |seconds: u64| (OFFSET_US + at(seconds)) / 1000;
+        let turn = |start: u64, outcome: &str| {
+            [
+                json!({"kind":"input_admitted","at_us":at(start),"turn":1}),
+                json!({"kind":"turn_finished","at_us":at(start + 4),"turn":1,"outcome":outcome}),
+            ]
+        };
+        // Two runs an hour apart, each file written as its last event happened.
+        session(&sessions, YESTERDAY, &turn(2, "answered"), wall_ms(6));
+        session(
+            &sessions,
+            TODAY,
+            &turn(3_602, "user_interrupted"),
+            wall_ms(3_606),
+        );
+        let journal = dir.0.join("journal.json");
+        let voice = json!({"MESSAGE": "lamp-voice: started", "SYSLOG_IDENTIFIER": "lamp-voice",
+            "_SYSTEMD_UNIT": "lamp-voice.service", "_SYSTEMD_INVOCATION_ID": TODAY,
+            "__REALTIME_TIMESTAMP": (OFFSET_US + at(3_601)).to_string(),
+            "__MONOTONIC_TIMESTAMP": at(3_601).to_string(), "_BOOT_ID": "b1"});
+        fs::write(&journal, format!("{voice}\n")).unwrap();
+        let mut given = options(&dir.0, sessions, Some(journal));
+        given.until = "18:30:00".into();
+        let summary = export(&given).unwrap();
+        assert_eq!(summary["sessions_used"], 2);
+        assert_eq!(summary["counts"]["turn_finished.outcome=answered"], 1);
+        assert_eq!(
+            summary["counts"]["turn_finished.outcome=user_interrupted"],
+            1
+        );
+        assert_eq!(summary["sessions_by"]["journal_run"], 1);
+        assert_eq!(summary["sessions_by"]["file_time"], 1);
+        let left: Value =
+            serde_json::from_str(&fs::read_to_string(dir.0.join("out/left-out.json")).unwrap())
+                .unwrap();
+        assert!(left["sessions_skipped"].get("other_boot").is_none());
+    }
+
+    /// Without a journal: a session whose last event, mapped, is more than a
+    /// minute from its file's time is another boot's, and skipped.
+    #[test]
+    fn without_a_journal_a_session_far_from_its_file_time_is_skipped() {
+        let dir = temp("boots-mtime");
+        let sessions = dir.0.join("sessions");
+        let wall_ms = (OFFSET_US + 5_000_000_000 + 6_000_000) / 1000;
+        two_boots(&sessions, wall_ms + 2_000, wall_ms - 86_400_000);
+        // An unreadable line in the skipped session is not counted either.
+        let yesterday = sessions.join(YESTERDAY).join("metadata/events-0.jsonl");
+        let mut text = fs::read_to_string(&yesterday).unwrap();
+        text.push_str("not json\n");
+        fs::write(&yesterday, text).unwrap();
+        set_modified(&yesterday, wall_ms - 86_400_000);
+        let mut given = options(&dir.0, sessions, None);
+        given.wall_offset_us = Some(OFFSET_US as i64);
+        let summary = export(&given).unwrap();
+        assert_eq!(
+            summary["counts"]["turn_finished.outcome=user_interrupted"],
+            1
+        );
+        assert!(
+            summary["counts"]
+                .get("turn_finished.outcome=answered")
+                .is_none()
+        );
+        let left: Value =
+            serde_json::from_str(&fs::read_to_string(dir.0.join("out/left-out.json")).unwrap())
+                .unwrap();
+        assert_eq!(left["sessions_skipped"]["far_from_file_time"], 1);
+        assert_eq!(left["voice_lines_unreadable"], 0);
+        assert_eq!(summary["sessions_by"]["file_time"], 1);
+    }
+
+    /// The window first: what is outside it is not counted as left out
+    /// either (the reviewer's P3, a transcript 9,000 s after it).
+    #[test]
+    fn what_is_outside_the_window_is_not_counted() {
+        let dir = temp("window-first");
+        let sessions = dir.0.join("sessions");
+        let at = 5_000_000_000 + 9_000 * 1_000_000;
+        session(
+            &sessions,
+            TODAY,
+            &[json!({"kind":"transcript","at_us":at,"text":"far","turn":1})],
+            (OFFSET_US + at) / 1000,
+        );
+        let mut given = options(&dir.0, sessions, None);
+        given.wall_offset_us = Some(OFFSET_US as i64);
+        export(&given).unwrap();
+        let left: Value =
+            serde_json::from_str(&fs::read_to_string(dir.0.join("out/left-out.json")).unwrap())
+                .unwrap();
+        assert_eq!(left["voice_fields_by_kind"], json!({}), "{left}");
+    }
+
+    /// The reviewer's P3: a discarded input's `input_discarded_endpoint`
+    /// comes after its abandonment; the state follows the ring and the turn's
+    /// end, so the case ends resting, as `voice/state` did.
+    #[test]
+    fn a_discarded_turn_ends_resting() {
+        let dir = temp("discarded");
+        let sessions = dir.0.join("sessions");
+        let at = |seconds: u64| 5_000_000_000 + seconds * 1_000_000;
+        session(
+            &sessions,
+            TODAY,
+            &[
+                json!({"kind":"input_admitted","at_us":at(2),"turn":1}),
+                json!({"kind":"ring_requested","at_us":at(2),"owner":1,"phase":"listening"}),
+                json!({"kind":"ring_requested","at_us":at(3),"owner":1,"phase":"waiting"}),
+                json!({"kind":"provider_input_abandoned","at_us":at(3),"turn":1,"reason":"provider_turn_failed"}),
+                json!({"kind":"input_discarded_endpoint","at_us":at(3) + 1,"turn":1}),
+                json!({"kind":"turn_finished","at_us":at(4),"turn":1,"outcome":"provider_failed"}),
+            ],
+            (OFFSET_US + at(4)) / 1000,
+        );
+        let mut given = options(&dir.0, sessions, None);
+        given.wall_offset_us = Some(OFFSET_US as i64);
+        export(&given).unwrap();
+        let states: Vec<String> = fs::read_to_string(dir.0.join("out/case/voice_state.jsonl"))
+            .unwrap()
+            .lines()
+            .skip(1)
+            .map(|line| {
+                let line: Value = serde_json::from_str(line).unwrap();
+                String::from_utf8(unbase64(line["payload_b64"].as_str().unwrap()).unwrap()).unwrap()
+            })
+            .collect();
+        assert_eq!(
+            states,
+            [
+                r#"{"state":"listening"}"#,
+                r#"{"state":"thinking"}"#,
+                r#"{"state":"resting"}"#
+            ]
+        );
+    }
+
+    /// The parts a left-out line is counted under are lampOS's units.
+    #[test]
+    fn the_parts_are_the_products_units() {
+        let product = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../deploy/product");
+        let mut units: Vec<String> = fs::read_dir(product)
+            .unwrap()
+            .filter_map(|entry| {
+                let name = entry.unwrap().file_name().to_string_lossy().into_owned();
+                name.strip_suffix(".service").map(str::to_owned)
+            })
+            .collect();
+        units.sort();
+        let mut parts: Vec<String> = PARTS.iter().map(|part| (*part).to_owned()).collect();
+        parts.sort();
+        assert_eq!(parts, units);
     }
 
     #[test]

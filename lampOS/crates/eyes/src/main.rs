@@ -7,7 +7,7 @@
 
 use std::{ffi::OsString, path::PathBuf};
 
-const USAGE: &str = "lamp-eyes --device ABSOLUTE_PATH --lock-directory PRIVATE_ABSOLUTE_DIRECTORY --usb VENDOR:PRODUCT@TOPOLOGY --model ABSOLUTE_PATH --permit-socket ABSOLUTE_PATH --body-socket ABSOLUTE_PATH [--sight-file ABSOLUTE_PATH] [--presence-file ABSOLUTE_PATH] [--recogniser ABSOLUTE_PATH --people ABSOLUTE_PATH --who-socket ABSOLUTE_PATH [--known-file ABSOLUTE_PATH]] [--leave-still-faces on|off] [--full-look WIDTHxHEIGHT --full-look-file ABSOLUTE_PATH]\n\nOwns the camera at --device (checked against the USB identity given, hex vendor and\nproduct and the port topology, for example 01da:5875@3-1.1.4) and looks for a face in\nits frames four times a second while there is one and less than twice a second when\nthere is none, with the pinned YuNet model at --model. Each look\nsends one datagram to --body-socket: {\"face\":{\"x\":..,\"y\":..,\"size\":..,\"turned\":..}} or\n{\"face\":null}. The camera is open only while {\"camera\":true} keeps arriving on\n--permit-socket, at least every 1.5 s; {\"camera\":false} closes it at once. Without\n--sight-file and --full-look-file no frame is written anywhere and none leaves this process. With it the\nnewest frame, and only that one, is kept in that file (mode 0600) while the camera is\nopen and removed when it closes: it is what the voice service shows the model. With\n--presence-file one line, the near face's height as a share of the picture's, is kept\nfresh in that file while there is a face: no picture, only that number. With\n--recogniser (the pinned SFace model), --people and --who-socket, the eyes remember\na face when the voice service asks ({\"remember\":\"NAME\"} on the socket), forget it\n({\"forget\":\"NAME\"}), list the names ({\"list\":true}) and say whose face is at the\nlamp ({\"who\":true}). Only the prints of people who asked are kept, in --people\n(mode 0600); no picture. With --known-file, the name of the one known at the lamp is\nkept fresh in that file while they are there. With --leave-still-faces on, a face at a place\nwhere faces have come from for half an hour, every one small (under 0.14 of the height)\nand faint (scored under 0.8), is not a person: it is left out of what the body is told,\nthe bus and recognition (off unless given). With --full-look and --full-look-file the\ncamera runs at that size, the working frame is kept in --sight-file at 320 across as before, and {\"look_full\":ID} on\n--permit-socket asks for one still: taken once the head has settled\n(body/joint_states on the bus, at most 2 s), at most 1024 across and 64 KiB, or with\n{\"look_full\":ID,\"side\":PIXELS} at most that side across and 184 KiB, marked\nwith the ID in a JPEG comment, kept in --full-look-file for 15 s and removed (off unless given).\n";
+const USAGE: &str = "lamp-eyes --device ABSOLUTE_PATH --lock-directory PRIVATE_ABSOLUTE_DIRECTORY --usb VENDOR:PRODUCT@TOPOLOGY --model ABSOLUTE_PATH --permit-socket ABSOLUTE_PATH --body-socket ABSOLUTE_PATH [--sight-file ABSOLUTE_PATH] [--presence-file ABSOLUTE_PATH] [--recogniser ABSOLUTE_PATH --people ABSOLUTE_PATH --who-socket ABSOLUTE_PATH [--known-file ABSOLUTE_PATH]] [--leave-still-faces on|off] [--full-look WIDTHxHEIGHT --full-look-file ABSOLUTE_PATH]\n\nOwns the camera at --device (checked against the USB identity given, hex vendor and\nproduct and the port topology, for example 01da:5875@3-1.1.4) and looks for a face in\nits frames four times a second while there is one, twice a second while one face has\nsat still for 3 s, and less than twice a second when there is none, with the pinned YuNet model at --model. Each look\nsends one datagram to --body-socket: {\"face\":{\"x\":..,\"y\":..,\"size\":..,\"turned\":..}} or\n{\"face\":null}. The camera is open only while {\"camera\":true} keeps arriving on\n--permit-socket, at least every 1.5 s; {\"camera\":false} closes it at once. Without\n--sight-file and --full-look-file no frame is written anywhere and none leaves this process. With it the\nnewest frame, and only that one, is kept in that file (mode 0600) while the camera is\nopen and removed when it closes: it is what the voice service shows the model. With\n--presence-file one line, the near face's height as a share of the picture's, is kept\nfresh in that file while there is a face: no picture, only that number. With\n--recogniser (the pinned SFace model), --people and --who-socket, the eyes remember\na face when the voice service asks ({\"remember\":\"NAME\"} on the socket), forget it\n({\"forget\":\"NAME\"}), list the names ({\"list\":true}) and say whose face is at the\nlamp ({\"who\":true}). Only the prints of people who asked are kept, in --people\n(mode 0600); no picture. With --known-file, the name of the one known at the lamp is\nkept fresh in that file while they are there. With --leave-still-faces on, a face at a place\nwhere faces have come from for half an hour, every one small (under 0.14 of the height)\nand faint (scored under 0.8), is not a person: it is left out of what the body is told,\nthe bus and recognition (off unless given). With --full-look and --full-look-file the\ncamera runs at that size, the working frame is kept in --sight-file at 320 across as before, and {\"look_full\":ID} on\n--permit-socket asks for one still: taken once the head has settled\n(body/joint_states on the bus, at most 2 s), at most 1024 across and 64 KiB, or with\n{\"look_full\":ID,\"side\":PIXELS} at most that side across and 184 KiB, marked\nwith the ID in a JPEG comment, kept in --full-look-file for 15 s and removed (off unless given).\n";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct Usb {
@@ -289,6 +289,8 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
     /// above the 70 at which its kernel begins to hold it back.
     const GLANCE_EVERY: Duration = Duration::from_millis(600);
     const FOLLOW_FOR: Duration = Duration::from_secs(4);
+    /// And this often while one face has sat still (`steady.rs`, #705).
+    const STEADY_EVERY: Duration = Duration::from_millis(lamp_eyes::steady::STEADY_EVERY_MS);
     /// Time for STREAMOFF and the buffers' release to return when the camera
     /// is closed, so it is left stopped and freed before its file is closed.
     const STOP: u64 = DRIVER_TEARDOWN_BUDGET_US;
@@ -431,6 +433,8 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
     let mut latest: Option<usize> = None;
     let mut looked_at = Instant::now();
     let mut face_at: Option<Instant> = None;
+    // Whether one face has sat still long enough to look half as often.
+    let mut steady = lamp_eyes::steady::Steady::default();
     let (mut frames, mut looks, mut with_face, mut unreadable) = (0u32, 0u32, 0u32, 0u32);
     let mut spent = Duration::ZERO;
     let mut reported_at = Instant::now();
@@ -781,7 +785,14 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
             retry_at = Instant::now();
             continue;
         }
-        let every = if face_at.is_some_and(|at| at.elapsed() < FOLLOW_FOR) {
+        // A full look or remember under way wants every look it can have.
+        let halved = steady.halved(
+            wanted.is_some() || who.as_ref().is_some_and(|who| who.taking.is_some()),
+            lamp_ipc::monotonic_us(),
+        );
+        let every = if halved {
+            STEADY_EVERY
+        } else if face_at.is_some_and(|at| at.elapsed() < FOLLOW_FOR) {
             LOOK_EVERY
         } else {
             GLANCE_EVERY
@@ -856,7 +867,22 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
                                 keep_known(path, None);
                             }
                         }
-                        choose(&faces, picture.filled)
+                        let sight = choose(&faces, picture.filled);
+                        let tall = picture.filled.1.max(1) as f32;
+                        steady.look(
+                            faces
+                                .iter()
+                                .filter(|face| face.height / tall >= lamp_eyes::sight::LEAST_SIZE)
+                                .count(),
+                            sight,
+                            who.is_some(),
+                            who.as_ref()
+                                .and_then(|who| who.known.as_ref())
+                                .filter(|known| known.2.elapsed() < KNOWN_FOR)
+                                .map(|known| known.0.as_str()),
+                            lamp_ipc::monotonic_us(),
+                        );
+                        sight
                     })
                     .map_err(|error| error.to_string())
             });
@@ -878,8 +904,9 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
         }
         if reported_at.elapsed() >= REPORT_EVERY {
             eprintln!(
-                "lamp-eyes: {frames} frames, looked at {looks}, a face in {with_face}, {unreadable} unreadable, {:.0} ms a look{}",
+                "lamp-eyes: {frames} frames, looked at {looks}, a face in {with_face}, {unreadable} unreadable, {:.0} ms a look{}{}",
                 spent.as_secs_f32() * 1e3 / (looks + unreadable).max(1) as f32,
+                if halved { ", steady" } else { "" },
                 still.as_ref().map_or(String::new(), |still| format!(
                     ", {} still faces left out so far",
                     still.left_out

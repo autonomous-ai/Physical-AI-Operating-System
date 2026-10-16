@@ -14,7 +14,8 @@
 //! person has been seen, only small faint faces for half an hour. With
 //! `--full-look`, [`full_look`] makes one larger still for a request the
 //! lamp said it would look for, after its head has settled. [`permit`] says
-//! whether the camera may be open.
+//! whether the camera may be open. [`steady`] says when one face has sat
+//! still long enough for the eyes to look half as often.
 pub mod bus_out;
 pub mod faces;
 pub mod facing;
@@ -23,5 +24,6 @@ pub mod kept;
 pub mod permit;
 pub mod picture;
 pub mod sight;
+pub mod steady;
 pub mod still;
 pub mod who;

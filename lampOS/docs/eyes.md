@@ -34,6 +34,27 @@ sees" with what has and has not been shown of it.
   service had ended once that afternoon on a late audio reference, in the
   same second as the SD card retuned itself; whether heat had a part in
   that is not known.
+- While one face has sat still for 3 s it looks every 500 ms instead
+  (`src/steady.rs`, #705): on lamp-4ace looking four times a second at
+  someone sitting cost 44 % of a core. Still means the one face near
+  enough to follow (at least 0.15 of the height; with `--recogniser`, a
+  known face, and the same name throughout) has kept its centre within
+  0.06 of a half-picture and its height within 0.03 of where it settled.
+  Those are the eyes' own numbers: a person sitting at the desk wanders
+  0.01 to 0.02 of the picture from look to look, `still.rs` holds a place
+  to 0.03 of it, and the body turns for nothing under 0.15 across. It goes
+  back to every 250 ms at once when the face moves past them, a second
+  face comes near, it is lost, looks stop coming for a second (a camera
+  closed), another name is known, or a full look or a remember is under
+  way. The body is still sent every look, and its gaze is the same: it has
+  no staleness for a face but `LOST_US`, 6 s without one, so 500 ms apart
+  is fresh; three sights before a correction take 1.5 s instead of 0.75 s,
+  and a face that moves enough to be corrected ends the steady run first.
+  The presence file (stale after 1.5 s) and the bus (`LASTS`, 2 s) are
+  fresh at 500 ms too. A look took 14 ms on a Mac (M-series, release,
+  `--example look`): 56 ms of a core a second at four looks a second, 28 at
+  two. At lamp-4ace's 52 to 55 ms a look that is about 21 % of a core
+  against 11 %; lamp-52e6 is to be measured.
 - It sends one datagram per look to the body's gaze socket and nothing else
   anywhere:
 
@@ -51,7 +72,8 @@ sees" with what has and has not been shown of it.
   or sent anywhere. With it, the newest frame and no other is kept in that
   one file ("What the model sees", below). A line in the journal every ten
   seconds says how many frames came, how many were looked at, in how many
-  there was a face and how long a look took.
+  there was a face and how long a look took, and ends `, steady` while it
+  looks half as often.
 - It never moves anything and decides nothing about the conversation. It
   recognises a face only for someone who asked the lamp to remember them
   ("Who is there", below), and nobody else.

@@ -695,6 +695,16 @@ fn a_task_the_watch_finds_settled_moves_in_one_value_survives_a_restart_and_leav
         ("codex", AgentState::NeedsInput, true)
     );
     assert_eq!(s.counts.reads.load(Ordering::SeqCst), 1);
+    // Asked for its progress, it says what it ended in, never `not_found`
+    // (Ten and Nine on #705, problem 3 (b)).
+    let asked = s.ask(json!({"op":"get_progress","id":id}));
+    assert_eq!(asked["ok"], true, "{asked}");
+    assert_eq!(
+        (&asked["settled"]["task"], &asked["settled"]["state"]),
+        (&json!(id), &json!("needs_input")),
+        "{asked}"
+    );
+    assert!(asked.get("progress").is_none(), "{asked}");
     // Restarted inside the two minutes: the new run's first value has it.
     s.stop();
     s.start();
@@ -727,6 +737,10 @@ fn a_task_the_watch_finds_settled_moves_in_one_value_survives_a_restart_and_leav
     s.clock.0.lock().unwrap().monotonic_ms = WATCH_EARLY_MS + SETTLED_FOR_MS;
     let gone = next_status(&mut watch);
     assert_eq!(places(&gone), [false, false, false], "{gone:?}");
+    assert_eq!(
+        s.ask(json!({"op":"get_progress","id":id}))["error"],
+        "not_found"
+    );
     assert_eq!(
         (
             s.counts.reads.load(Ordering::SeqCst),

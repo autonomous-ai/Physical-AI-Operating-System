@@ -1271,7 +1271,12 @@ identity run it, and `serde_json` reads it.
   "revision":…,"completion":"unverified","id":3,"progress":{"engine","state",
   "about","run","changes","signs_seen","last_active_unix_ms","read_unix_ms"}}`;
   `not_read` for a task watched and not read yet, `not_found` for one not watched, and `progress_off` without the
-  switch. That is the only way the line leaves the tasks part.
+  switch. That is the only way the line leaves the tasks part. A task the
+  watch let go because its agent settled answers, while it is in
+  `settled`, `{"ok":true,…,"id":3,"settled":{"task","engine","state",
+  "settled":true,"at_unix_ms"}}`: what it ended in, not `not_found` (Ten and
+  Nine on #705, problem 3 (b)); its answer's words are `get_observation`'s.
+  Task news reads only `progress`, so it says nothing of one.
 - **The journal.** One line a read, so a minute on the lamp can be judged:
   `tasks: progress read of <machine> in 412 ms: 2 listed; task 7 working,
   new line, tests_pass fixed; task 8 needs_input, same line` (`first read`

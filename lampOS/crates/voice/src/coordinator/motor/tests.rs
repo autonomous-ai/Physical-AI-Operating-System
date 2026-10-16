@@ -1007,7 +1007,15 @@ fn readback_and_original_placement_are_required_and_bad_offers_do_not_enqueue() 
 }
 #[test]
 fn pending_inspection_is_revoked_before_worker_data_and_release_is_separate() {
-    let (dir, mut m, mut c) = fixture("gate");
+    pending_inspection_revoked_before_release(Duration::ZERO);
+}
+/// #906: as above, with a host pause before the gated worker's release.
+#[test]
+fn pending_inspection_revoke_survives_a_host_pause_before_the_gated_worker_is_released() {
+    pending_inspection_revoked_before_release(Duration::from_millis(30));
+}
+fn pending_inspection_revoked_before_release(host_pause: Duration) {
+    let (_scope, dir, mut m, mut c) = stepped_fixture("gate");
     wait(&mut m, &mut c, OptionalMotor::is_ready);
     let e = evidence(&mut m, &mut c, 1);
     m.offer_inspection(e).unwrap();
@@ -1022,6 +1030,7 @@ fn pending_inspection_is_revoked_before_worker_data_and_release_is_separate() {
     );
     assert!(!m.is_ready());
     assert!(m.pending.is_none());
+    std::thread::sleep(host_pause);
     fs::write(dir.path.join("motor/go"), b"release inert child").unwrap();
     wait(&mut m, &mut c, OptionalMotor::reaped);
     let child = m.child.as_ref().unwrap();
@@ -1327,7 +1336,17 @@ fn privacy_revoke_before_release(mode: &str, host_pause: Duration) {
 }
 #[test]
 fn late_started_callback_cannot_restore_an_offer_after_owner_replacement() {
-    let (dir, mut m, mut c) = fixture("gate_segment");
+    late_started_callback_after_owner_replacement(Duration::ZERO);
+}
+/// #906: the replacement's inhibit deadline starts while the worker is held
+/// at its gate; on one stepped clock a host pause before its release costs
+/// none of it.
+#[test]
+fn late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released() {
+    late_started_callback_after_owner_replacement(Duration::from_millis(30));
+}
+fn late_started_callback_after_owner_replacement(host_pause: Duration) {
+    let (_scope, dir, mut m, mut c) = stepped_fixture("gate_segment");
     wait(&mut m, &mut c, OptionalMotor::is_ready);
     let e = evidence(&mut m, &mut c, 1);
     m.offer_inspection(e).unwrap();
@@ -1356,6 +1375,7 @@ fn late_started_callback_cannot_restore_an_offer_after_owner_replacement() {
     assert!(m.pending.is_none());
     assert!(!m.is_ready());
     assert_eq!(c.snapshot(time()).unwrap().owner(), Some(successor));
+    std::thread::sleep(host_pause);
     fs::write(dir.path.join("motor/go"), b"release inert worker").unwrap();
     wait(&mut m, &mut c, OptionalMotor::reaped);
     assert_eq!(
@@ -1422,7 +1442,15 @@ fn explicit_current_segment_reaches_inert_counts_without_completing_voice() {
 
 #[test]
 fn same_owner_input_end_cancels_queued_gesture_before_inert_bus_write() {
-    let (dir, mut motor, mut controller) = fixture("gate_segment");
+    same_owner_input_end_before_release(Duration::ZERO);
+}
+/// #906: as above, with a host pause before the gated worker's release.
+#[test]
+fn same_owner_input_end_survives_a_host_pause_before_the_gated_worker_is_released() {
+    same_owner_input_end_before_release(Duration::from_millis(30));
+}
+fn same_owner_input_end_before_release(host_pause: Duration) {
+    let (_scope, dir, mut motor, mut controller) = stepped_fixture("gate_segment");
     wait(&mut motor, &mut controller, OptionalMotor::is_ready);
     let inspected = evidence(&mut motor, &mut controller, 1);
     motor.offer_inspection(inspected).unwrap();
@@ -1446,6 +1474,7 @@ fn same_owner_input_end_cancels_queued_gesture_before_inert_bus_write() {
         controller.snapshot(time()).unwrap().owner(),
         Some(offered.permit.owner())
     );
+    std::thread::sleep(host_pause);
     fs::write(dir.path.join("motor/go"), b"release inert child").unwrap();
     wait(&mut motor, &mut controller, OptionalMotor::reaped);
     assert_eq!(

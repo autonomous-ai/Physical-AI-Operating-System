@@ -23,6 +23,19 @@ The eighth builder's log, newest first. Role file:
 
 None yet.
 
+## 2026-10-16 14:25 — #900, #996, #1000 ready; #739's remainder asked
+
+Ready for lamp-voice: yes, #834, #900, #996 and #1000 (ARM64 38857971377,
+38864362057, 38864688387, 38864694778; stacked #900 → #996 → #1000)
+
+- The first builder's 02:58 on #739 ("native_head's count is enough, mark
+  #900 ready, list the others") was missed until 14:10. #900's description
+  now lists the 45 other full-run failures by issue (22 #823, 16 #893,
+  2 #906, 5 named by none: `provider_pair`, `duplex`). Those 5 are raised
+  on #705, not filed.
+- #739: proposed closing it when #900 merges, leaving the rest to Tests
+  under #823 (first builder's 14:13). Waiting on the answer.
+
 ## 2026-10-16 14:05 — #914 — done (#988 merged); stack rebased
 
 Ready for lamp-voice: #834 yes; #900, #996 and #1000 once their ARM64 runs

@@ -54,12 +54,12 @@ pub fn list_networks(shared: &Shared) -> std::io::Result<Vec<Network>> {
         }
         // Some radios as the hotspot answer with no networks rather than a
         // refusal (the fifth on #1045): a list seen before still answers.
+        // Kept for SCAN_KEPT like any answer (the reviewer on #1064): a radio
+        // that always answers empty is not scanned again at every poll.
         Ok(empty) => {
-            let good = shared.last_good.lock().unwrap().clone();
-            if good.is_none() {
-                *kept = Some((std::time::Instant::now(), empty.clone()));
-            }
-            Ok(good.unwrap_or(empty))
+            let answer = shared.last_good.lock().unwrap().clone().unwrap_or(empty);
+            *kept = Some((std::time::Instant::now(), answer.clone()));
+            Ok(answer)
         }
         Err(error) => shared.last_good.lock().unwrap().clone().ok_or(error),
     }

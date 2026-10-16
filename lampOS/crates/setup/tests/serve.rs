@@ -588,7 +588,33 @@ async fn an_empty_scan_never_replaces_a_list_seen_before() {
         (code, body["data"][0]["ssid"].clone()),
         (StatusCode::OK, json!("Home"))
     );
-    assert!(!warm(&shared, 3, std::time::Duration::from_millis(1)));
+    // A page that already has a list to show ends the warm-up: more scans
+    // as the hotspot would only answer empty again.
+    assert!(warm(&shared, 3, std::time::Duration::from_millis(1)));
+    // The answer is kept for 5 s like any other (the reviewer on #1064):
+    // a second poll within it runs no scan.
+    let scans = Arc::new(AtomicU64::new(0));
+    let counted = Arc::clone(&scans);
+    let (once, _root_once) = {
+        let root = Root::new();
+        let shared = Arc::new(Shared {
+            config: root.config(true),
+            status: Arc::new(Mutex::new(Status::new("lamp-06c1".into()))),
+            start: Box::new(|_| {}),
+            scanned: Mutex::new(None),
+            last_good: Mutex::new(Some(scan::parse(
+                "BSS 11:22:33:44:55:66(on wlan0)\n\tSSID: Home\n",
+            ))),
+            scan: Box::new(move || {
+                counted.fetch_add(1, Ordering::Relaxed);
+                Ok(Vec::new())
+            }),
+        });
+        (shared, root)
+    };
+    assert_eq!(named(&list_networks(&once).unwrap()), ["Home"]);
+    assert_eq!(named(&list_networks(&once).unwrap()), ["Home"]);
+    assert_eq!(scans.load(Ordering::Relaxed), 1);
     // With nothing seen, the empty list is the answer, as it was.
     let (none, _root_none) = empty(None);
     assert!(list_networks(&none).unwrap().is_empty());

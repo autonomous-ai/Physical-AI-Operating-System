@@ -752,6 +752,9 @@ pub struct Attention {
     /// that line, not the lamp's own last words (#1054). Whatever the
     /// switch.
     after_unanswered: bool,
+    /// It is night where the lamp stands ([`crate::local_time::night_here`]),
+    /// as the caller read it before judging.
+    night: bool,
 }
 
 /// The most text kept for one request.
@@ -1057,6 +1060,12 @@ impl Attention {
         self.near = near;
     }
 
+    /// Whether it is night where the lamp stands, for the next judgement:
+    /// at night the name heard in a busy room needs no face (#829).
+    pub fn set_night(&mut self, night: bool) {
+        self.night = night;
+    }
+
     /// Whether the request in hand was said to the lamp from close to it
     /// (`crate::addressed`): in a busy room, an answer the rule would hold
     /// is let out.
@@ -1259,10 +1268,14 @@ impl Attention {
             verdict => verdict,
         };
         // #829, step 2: it holds what nobody said to the lamp, in every
-        // room. And a request with the name heard in its sound needs no
-        // face, in a busy room too: at night nobody faces the lamp
+        // room. And at night a request with the name heard in its sound
+        // needs no face in a busy room either: nobody faces the lamp then
         // (lamp-4ace, 16 October at 03:28, "Hey Lamp, turn your volume down
-        // a little." was held for want of one).
+        // a little." was held for want of one). By day, in a busy room with
+        // nobody turned to it, the name counts only close to the lamp or
+        // heard surely, above: the first builder's table at 15:23 had three
+        // answers to office talk let out by a hearing of 0.93 to 0.997, and
+        // the name was heard 227 times in that room since 07:00.
         let spoken_to = if answering_another {
             called_in_text || self.named
         } else {
@@ -1280,7 +1293,13 @@ impl Attention {
                     NOT_SPOKEN_TO
                 })
             }
-            Verdict::Hold(_) if self.spoken_to && self.named => Verdict::Play(NAMED),
+            Verdict::Hold(_)
+                if self.spoken_to
+                    && self.named
+                    && (self.night || !(strict && room == Room::Busy)) =>
+            {
+                Verdict::Play(NAMED)
+            }
             verdict => verdict,
         };
         self.verdict = Some(verdict);
@@ -2335,27 +2354,29 @@ mod tests {
         }
     }
 
-    /// #829, the first builder at 03:29: a request said with the name needs
-    /// no face, in a busy room too. Without the switch the busy form holds
-    /// the name heard in the sound with nobody turned to the lamp; with it,
-    /// it is played. And the lamp's own turn is always played.
+    /// #829, the first builder at 03:29: at night a request said with the
+    /// name needs no face, in a busy room too. Without the switch the busy
+    /// form holds the name heard in the sound with nobody turned to the
+    /// lamp; with it, at night, it is played. By day it is held as without
+    /// the switch (the first builder at 15:23). And the lamp's own turn is
+    /// always played.
     #[test]
-    fn with_the_switch_the_name_needs_no_face_and_the_lamps_own_turn_plays() {
-        let named = |spoken_to: bool| {
+    fn with_the_switch_the_name_needs_no_face_at_night_and_the_lamps_own_turn_plays() {
+        let named = |spoken_to: bool, night: bool| {
             let mut attention = Attention::default();
             attention.speak_when_spoken_to(spoken_to);
+            attention.set_night(night);
             attention.began_at(5, 3, 10_000_000);
             attention.name_heard_scored(10_100_000, 0.97);
             attention.heard("turn your volume down a little.");
             attention.first_output_busy(5, Room::Busy, false, true, Some(false))
         };
-        assert_eq!(
-            named(false),
-            Some(Verdict::Hold(
-                "a busy room: its name was heard in the sound, and nobody is turned to the lamp"
-            ))
-        );
-        assert_eq!(named(true), Some(Verdict::Play(NAMED)));
+        let held = Some(Verdict::Hold(
+            "a busy room: its name was heard in the sound, and nobody is turned to the lamp",
+        ));
+        assert_eq!(named(false, true), held);
+        assert_eq!(named(true, true), Some(Verdict::Play(NAMED)));
+        assert_eq!(named(true, false), held);
         let mut attention = Attention::default();
         attention.speak_when_spoken_to(true);
         own_request().store(6_829, Ordering::Release);
@@ -2365,6 +2386,56 @@ mod tests {
             Some(Verdict::Play("the lamp began this turn itself"))
         );
         own_request().store(0, Ordering::Release);
+    }
+
+    /// #829, the first builder at 15:23: lamp-4ace in the busy office by
+    /// day, nobody turned to the lamp, with the switch. Every answer let out
+    /// that day for the name heard in the room's sound, by lamp-name's
+    /// score: four played calls and three hearings in office talk. The name
+    /// alone now counts only heard surely (0.999), or at 0.95 close to the
+    /// lamp (the room microphone 18 dB over its quiet). Which of the seven
+    /// were close was not recorded; each is judged both ways. With a face
+    /// turned, in a quiet room, or at night, a hearing at the 0.9 floor
+    /// still counts.
+    #[test]
+    fn by_day_in_a_busy_room_the_name_alone_counts_only_heard_surely_or_close() {
+        let judge = |score: f32, near: bool, room: Room, turned: Option<bool>, night: bool| {
+            let mut attention = Attention::default();
+            attention.speak_when_spoken_to(true);
+            attention.set_night(night);
+            attention.began_at(9, 4, 10_000_000);
+            attention.name_heard_scored(10_100_000, score);
+            attention.set_near(near);
+            attention.heard("What time is it?");
+            let verdict = attention.first_output_busy(9, room, false, true, turned);
+            matches!(verdict, Some(Verdict::Play(_)))
+        };
+        let by_day = |score, near| judge(score, near, Room::Busy, Some(false), false);
+        // (time, score, for the lamp)
+        let seven = [
+            ("07:12", 0.996, true),
+            ("07:14", 0.949, true),
+            ("07:16", 0.998, true),
+            ("09:42", 0.995, true),
+            ("14:58", 0.932, false),
+            ("15:12", 0.933, false),
+            ("15:14", 0.997, false),
+        ];
+        for (at, score, _) in seven {
+            // Not close: none is let out by its score alone.
+            assert!(!by_day(score, false), "{at}");
+            // Close: at 0.95 or more.
+            assert_eq!(by_day(score, true), score >= NEAR_SCORE, "{at}");
+        }
+        assert!(by_day(SURE_SCORE, false));
+        for score in [0.9, 0.932] {
+            assert!(judge(score, false, Room::Busy, Some(true), false), "turned");
+            assert!(
+                judge(score, false, Room::Quiet, Some(false), false),
+                "quiet"
+            );
+            assert!(judge(score, false, Room::Busy, Some(false), true), "night");
+        }
     }
 
     /// #829: with the switch the name counts when it is said to the lamp,

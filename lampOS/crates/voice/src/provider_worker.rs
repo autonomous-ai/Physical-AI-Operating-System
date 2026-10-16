@@ -1158,6 +1158,9 @@ async fn serve_with_visual<C: Connect>(
     // and the request, for its journal lines (#829, the first builder at
     // 15:23 and 17:09).
     let mut judged_rise: Option<(u64, f32)> = None;
+    // Whether it is night where the lamp stands, read once a request, for
+    // whether the name heard in a busy room needs a face (#829).
+    let mut night_read: Option<(u64, bool)> = None;
     let mut ears_read_at: Option<Instant> = None;
     let mut air_read_at: Option<Instant> = None;
     let mut told_session = None;
@@ -1907,6 +1910,10 @@ async fn serve_with_visual<C: Connect>(
                                 }
                                 None => going_on,
                             };
+                            if night_read.is_none_or(|(of, _)| of != request) {
+                                night_read = Some((request, crate::local_time::night_here()));
+                            }
+                            attention.set_night(night_read.is_some_and(|(_, night)| night));
                             let verdict = attention.first_output_busy(request, room, going_on, attention_busy, turned);
                             if let (Some(voices), Some(verdict)) = (intake.handoff.voices.as_mut(), verdict) {
                                 voices.decided(request, matches!(verdict, crate::attention::Verdict::Play(_)), going_on);

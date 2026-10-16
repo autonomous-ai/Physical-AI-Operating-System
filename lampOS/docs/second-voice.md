@@ -441,8 +441,10 @@ and its authority kept fresh during the rest of startup.
   (`second_route_failed`) as a turn the provider interrupted does: its
   unsent input and unwritten speech go, and the rest of a line still
   being said is drained rather than taken for a new request; the next
-  turn is Gemini's. The 50 ms health check leaves the second worker to
-  this. Recorded as
+  turn is Gemini's. The 50 ms health check and the authority sends leave
+  the second worker to this, in whichever slot it is; Gemini's worker,
+  waiting while the second route is active, stays mandatory, so its exit
+  still ends the voice (`coordinator::mandatory`). Recorded as
   `voice_route_dropped` (`status`, `active`). An authority that cannot
   reach it is not an error either. A worker that dies inside the very
   tick that touches it still ends the voice, as before.

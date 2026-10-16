@@ -245,19 +245,21 @@ read before it would send the page to the wrong `.local` address:
 |---|---|
 | `GET /api/device/setup/status` | V1's `phase` (`idle`/`connecting`/`connected`/`failed`), `lan_ip`, `error`, `mac` (the kernel's host name, `lamp-xxxx`, which avahi announces), `run`, `set_up_completed`, `runtime_phase`. |
 | `GET /api/network` | `iw dev wlan0 scan`, parsed as V1 does, in V1's `domain.Network` fields. |
-| `POST /api/device/setup` | V1's `SetupRequest`; its other fields are accepted and ignored. Checked before anything is touched: the network's name and password as for the join; `llm_api_key`, the user's voice key (at most 512 printable characters; none keeps the key already there, as on a lamp that ran V1); V2's own `name` (up to 64 characters) and `timezone` (an IANA name whose file, links followed, is a `TZif` zone file inside the zone data; one the lamp lacks is skipped, not a reason to refuse setup). Replies at once, then, 2 s later as in V1, joins; one run at a time; refused once the lamp is set up. |
+| `POST /api/device/setup` | V1's `SetupRequest`; its other fields are accepted and ignored. Checked before anything is touched: the network's name and password as for the join; `llm_api_key`, the user's voice key (at most 512 printable characters; none keeps the key already there, as on a lamp that ran V1, but a lamp missing either key file is refused with "the lamp needs its voice key", since it would have Wi-Fi and no voice); V2's own `name` (up to 64 characters) and `timezone` (an IANA name whose file, links followed, is a `TZif` zone file inside the zone data; one the lamp lacks is skipped, not a reason to refuse setup). Replies at once, then, 2 s later as in V1, joins; one run at a time; refused once the lamp is set up. |
 
 While joining it reads the station address every second and publishes it as
 `lan_ip`, V1's fix for the page that lost the lamp, and once more when the join
 is done; a new run clears the last run's address at once, so V1's page cannot
-follow an old one. Once joined, it saves the
-user's key (to the voice's credential and the Policy's `jev.key`, never
-logged, never in a reply), the name and the time zone (`/etc/localtime`
-linked to the zone,
-`/etc/timezone` naming it, as V1's `timezone.go`), each private and synced,
-and only then the marker; the keeper starts the lamp. If anything cannot be
-saved, there is no marker, the previous Wi-Fi file goes back, and the hotspot
-comes back. A temporary file a crash left behind is removed at the next start.
+follow an old one. Once joined, it saves the name, the time zone
+(`/etc/localtime` linked to the zone, `/etc/timezone` naming it, as V1's
+`timezone.go`) and then the user's key (to the voice's credential and the
+Policy's `jev.key`, both written before either is renamed into place, never
+logged, never in a reply), each private and synced, and only then the
+marker; the keeper starts the lamp. If anything cannot be saved, there is no
+marker, the previous Wi-Fi file goes back, and the hotspot comes back; what
+was saved before the failure stays, and the next run writes it again. The
+key is saved last, so a name or zone that fails leaves the old key as it
+was. A temporary file a crash left behind is removed at the next start.
 One network scan runs at a time, and its list answers for 5 s. The radio may
 refuse to scan while it is the hotspot (V1 lists networks in station mode
 only; lamp-06c1's phone said "Could not look for networks" until it asked a
@@ -279,7 +281,9 @@ hotspot is up and stops it when serving ends, 10 minutes after setup is done
 (the unit's `ExecStopPost` stops it however serving ends). `crates/setup/fixtures/nginx-setup.conf` is V1's site with what
 a V2 lamp has not removed (`hal`, `openclaw`, and V1's shell, exec, openapi,
 buddy and harness routes): V1's page and cache rules, `/api/` to `lamp-setup`,
-and the 204 sign-in answers. A home lamp's image (#811) must carry nginx, that
+and the 204 sign-in answers. It keeps no access log, since the account page's
+link carries the user's key in its URL and no reset wipes nginx's log. A home
+lamp's image (#811) must carry nginx, that
 config as its default site, and V1's page bundle.
 
 After the join, `runtime_phase` stays `preparing`. V1's page then keeps its

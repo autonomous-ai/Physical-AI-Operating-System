@@ -1,7 +1,7 @@
 import "./settings-polish.css";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { toast } from "sonner";
-import { getDeviceConfig, getCurrentNetwork, updateDeviceConfig, getTTSVoices, getTTSProviders, hwUrl, restoreAutonomousDefaults, WAKE_FOLLOWUP_DEFAULT_S } from "@/lib/api";
+import { getDeviceConfig, getCurrentNetwork, getPhononStatus, updateDeviceConfig, getTTSVoices, getTTSProviders, hwUrl, restoreAutonomousDefaults, WAKE_FOLLOWUP_DEFAULT_S } from "@/lib/api";
 import type { DeviceConfig, LLMConfigMode, VoiceInputMode, WakeLightConfig } from "@/lib/api";
 import { WAKE_LOOK_DEFAULT, type WakeLook } from "@/lib/ledColor";
 import type { ChannelType } from "@/types";
@@ -511,6 +511,16 @@ export function SettingsPanel({ activeSection }: { activeSection: SettingsSectio
     if (ttsNeedsOwnKey && !ttsApiKey && !(ttsLoaded.apiKey && ttsLoaded.choice === ttsChoiceToSave)) {
       setError(`${ttsChoiceToSave === "openai" ? "OpenAI" : "ElevenLabs"} (direct) needs its own API key — the AI brain key will not work with it.`);
       return;
+    }
+    // Switching to Phonon without its engine and model would leave the robot silent.
+    if (ttsChoiceToSave === "phonon" && ttsProvider !== baseline?.ttsProvider) {
+      const phonon = await getPhononStatus().catch(() => null);
+      if (!phonon?.engine_installed || !phonon?.model_installed) {
+        setError(phonon
+          ? `Phonon is not ready on the robot (${!phonon.engine_installed ? "engine" : "model"} missing) — install it or pick another voice provider.`
+          : "Could not check Phonon on the robot — try again in a moment.");
+        return;
+      }
     }
     wifiCheck.current?.abort();
     const controller = new AbortController();

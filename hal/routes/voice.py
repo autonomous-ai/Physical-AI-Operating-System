@@ -269,6 +269,10 @@ def get_voices(provider: Optional[str] = None, lang: Optional[str] = None):
             for p in glob.glob(os.path.join(voices_dir, "*.onnx"))
         )
         return {"provider": provider, "voices": names}
+    if provider == "phonon":
+        # Phonon: the voices bundled in the hand-installed checkpoint.
+        from hal.drivers.voice.tts.phonon import list_voices
+        return {"provider": provider, "voices": list_voices()}
     if provider == "gemini":
         # Gemini prebuilt voices are multilingual, so `lang` does not filter.
         from hal.drivers.voice.tts.gemini import GeminiTTSBackend
@@ -628,6 +632,12 @@ try:
     router.include_router(_piper_router)
 except Exception as _e:  # pragma: no cover - depends on partial deployments
     state.logger.warning("Piper install routes unavailable: %s", _e)
+
+try:
+    from hal.routes.phonon import router as _phonon_router  # noqa: E402
+    router.include_router(_phonon_router)
+except Exception as _e:  # pragma: no cover
+    state.logger.warning("Phonon status route unavailable: %s", _e)
 
 
 @router.get("/voice/wake-followup")

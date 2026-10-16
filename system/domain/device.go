@@ -1442,13 +1442,16 @@ const (
 	TTSProviderPiper = "piper"
 	// TTSProviderGemini uses Gemini TTS via the autonomous proxy relay.
 	TTSProviderGemini = "gemini"
+	// TTSProviderPhonon synthesizes on-device with Gradium's Phonon model
+	// (no base URL or API key; engine and model are installed by hand).
+	TTSProviderPhonon = "phonon"
 )
 
 // DefaultGeminiVoice is seeded when gemini has no voice; must stay in HAL's GeminiTTSBackend.VOICES.
 const DefaultGeminiVoice = "Kore"
 
 // TTSProviders is the list of supported TTS providers.
-var TTSProviders = []string{TTSProviderOpenAI, TTSProviderElevenLabs, TTSProviderPiper, TTSProviderGemini}
+var TTSProviders = []string{TTSProviderOpenAI, TTSProviderElevenLabs, TTSProviderPiper, TTSProviderGemini, TTSProviderPhonon}
 
 // IsValidTTSProvider reports whether p is a supported TTS provider.
 func IsValidTTSProvider(p string) bool {
@@ -1501,6 +1504,8 @@ var TTSVoicesByProvider = map[string][]string{
 	TTSProviderOpenAI: {"alloy", "ash", "coral", "echo", "fable", "onyx", "nova", "sage", "shimmer"},
 	// Empty on purpose: Piper voices are downloaded on demand and listed live by HAL.
 	TTSProviderPiper: {},
+	// Empty on purpose: Phonon voices come from the installed model, listed live by HAL.
+	TTSProviderPhonon: {},
 	// Mirrors HAL's GeminiTTSBackend.VOICES.
 	TTSProviderGemini:     {"Zephyr", "Puck", "Charon", "Kore", "Fenrir", "Leda", "Orus", "Aoede", "Callirrhoe", "Autonoe", "Enceladus", "Iapetus", "Umbriel", "Algieba", "Despina", "Erinome", "Algenib", "Rasalgethi", "Laomedeia", "Achernar", "Alnilam", "Schedar", "Gacrux", "Pulcherrima", "Achird", "Zubenelgenubi", "Vindemiatrix", "Sadachbia", "Sadaltager", "Sulafat"},
 	TTSProviderElevenLabs: ElevenLabsVoicesForLang(""),

@@ -457,6 +457,8 @@ func (s *Server) Serve(closeFn func()) error {
 	voice.POST("piper/install", adminAuthMiddleware(s.config), s.piperInstall)
 	voice.POST("piper/voice", adminAuthMiddleware(s.config), s.piperVoice)
 	voice.POST("piper/voice/remove", adminAuthMiddleware(s.config), s.piperVoiceRemove)
+	voice.GET("phonon/status", adminAuthMiddleware(s.config), s.phononStatus)
+	voice.POST("phonon/install", adminAuthMiddleware(s.config), s.phononInstall)
 
 	// Guard endpoints change persistent security state and can broadcast to
 	// every chat session.

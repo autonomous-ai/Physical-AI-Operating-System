@@ -1,12 +1,13 @@
 // Separate module so TTSSection.tsx only exports components (Fast Refresh).
 
 // Deepgram is omitted: HAL has no Deepgram TTS backend.
-export type ProviderChoice = "autonomous" | "openai" | "elevenlabs" | "piper" | "custom";
+export type ProviderChoice = "autonomous" | "openai" | "elevenlabs" | "piper" | "phonon" | "custom";
 
 // Detect the current choice from persisted (provider, baseUrl).
 export function detectChoice(baseUrl: string, provider?: string): ProviderChoice {
-  // Piper is URL-less; only the saved provider identifies it.
+  // Piper and Phonon are URL-less; only the saved provider identifies them.
   if (provider === "piper") return "piper";
+  if (provider === "phonon") return "phonon";
   let host = "";
   try { host = new URL(baseUrl).hostname.toLowerCase(); } catch { /* invalid — fall through */ }
   if (!host) return "autonomous";

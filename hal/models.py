@@ -351,7 +351,7 @@ class SpeakRequest(BaseModel):
     interruptible: bool = Field(False, description="If True, can be interrupted by next speech")
     passive_sensing: bool = Field(False, description="Passive sensing output must yield to an active user capture")
     harness_result: bool = Field(False, description="Play a short source cue before a Harness reply")
-    provider: Optional[str] = Field(None, description="Override TTS provider: 'openai', 'elevenlabs', 'gemini' or 'piper'")
+    provider: Optional[str] = Field(None, description="Override TTS provider: 'openai', 'elevenlabs', 'gemini', 'piper' or 'phonon'")
     tts_api_key: Optional[str] = Field(None, description="API key for provider override")
     tts_base_url: Optional[str] = Field(None, description="Base URL for provider override")
     cached: bool = Field(False, description="Look up WAV cache; render+save on miss")
@@ -802,7 +802,7 @@ class VoiceStartRequest(BaseModel):
         "", description="TTS style/vibe instructions (optional, e.g. 'Speak warmly')"
     )
     tts_provider: str = Field(
-        "openai", description="TTS provider: 'openai' (default), 'elevenlabs', 'gemini' or 'piper'"
+        "openai", description="TTS provider: 'openai' (default), 'elevenlabs', 'gemini', 'piper' or 'phonon'"
     )
 
 

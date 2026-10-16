@@ -1,0 +1,21 @@
+{
+  "date_from_date": "2026-10-16 09:42:57 +0700",
+  "failure": {
+    "status": "FAIL",
+    "duration": "1.491s",
+    "execution": 942,
+    "total": 2711,
+    "binary": "lamp-voice",
+    "test": "coordinator::motor::tests::native_head::native_head_six_explicit_actions_prepare_profile_then_new_requests"
+  },
+  "source_path": "lampOS/crates/voice/src/coordinator/motor/tests/native_head.rs",
+  "source_sha256": "a6870c6a1c2f063f5b83ec4e17bf3ed3f7e4d1c6c0bff3ee1942d1108ada38cc",
+  "clean_base_sha256": "a6870c6a1c2f063f5b83ec4e17bf3ed3f7e4d1c6c0bff3ee1942d1108ada38cc",
+  "original_identity_present_before_change": true,
+  "original_source_byte_unchanged": true,
+  "diagnostic": "crates/voice/src/coordinator/motor/tests/native_head.rs:172:13: phase Inhibited, failure Some(\"motor worker progress timed out\")",
+  "cause": "unclassified",
+  "no_test_retry": true,
+  "full_log_sha256": "fc7455deb8f8a5dcc746922e9641e2893c336cb56eff078da6d3728c1045abd5",
+  "excerpt_sha256": "714bbf10c529d18adabffb1259add43ce8f5c3abf5ef871f87ea18df80a2e7f5"
+}

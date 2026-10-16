@@ -1,0 +1,27 @@
+{
+  "name": "focused-list",
+  "command": [
+    "/Users/autonomous/.cargo/bin/cargo",
+    "nextest",
+    "list",
+    "--locked",
+    "--offline",
+    "-p",
+    "lamp-gemini",
+    "-p",
+    "lamp-memory",
+    "-p",
+    "lamp-surround",
+    "-p",
+    "lamp-voice",
+    "-p",
+    "lamp-voice-eval",
+    "--message-format",
+    "json",
+    "-E",
+    "test(testing::task_joins::tests::)"
+  ],
+  "cwd": "/private/tmp/lampos-tests-gemini-task-joins/lampOS",
+  "target": "/private/tmp/tests-823-rebase-target",
+  "started_from_date": "2026-10-16 09:20:23 +0700"
+}

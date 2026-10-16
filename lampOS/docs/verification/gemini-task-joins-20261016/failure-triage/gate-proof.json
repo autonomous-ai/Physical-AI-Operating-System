@@ -1,0 +1,32 @@
+{
+  "date_from_date": "2026-10-16 09:48:50 +0700",
+  "full_log_sha256": "fc7455deb8f8a5dcc746922e9641e2893c336cb56eff078da6d3728c1045abd5",
+  "counts": {
+    "executed": 2711,
+    "pass": 2710,
+    "fail": 1,
+    "skipped": 15
+  },
+  "unique_runtime_identities": 2711,
+  "failure": {
+    "binary": "lamp-voice",
+    "identity": "coordinator::motor::tests::native_head::native_head_six_explicit_actions_prepare_profile_then_new_requests",
+    "seconds": 1.491,
+    "assertion": "native_head.rs:172:13",
+    "phase": "Inhibited",
+    "failure": "motor worker progress timed out"
+  },
+  "summary_wall_seconds": 1186.068,
+  "failure_excerpt_original_lines": [
+    [
+      946,
+      979
+    ],
+    [
+      2749,
+      2752
+    ]
+  ],
+  "same_first_failure_retained": true,
+  "no_test_execution_by_auditor": true
+}

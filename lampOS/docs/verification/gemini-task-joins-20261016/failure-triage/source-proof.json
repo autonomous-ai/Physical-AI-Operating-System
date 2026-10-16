@@ -1,0 +1,121 @@
+{
+  "date_from_date": "2026-10-16 09:48:50 +0700",
+  "immutable_base": "1fb07c6f57ee280a49de7b4ddd74008c2a32a20d",
+  "method": "Read-only git show of exact base, current bytes and retained before/after gate source hashes; no Git mutations",
+  "compared_files": 12,
+  "all_exact": true,
+  "files": [
+    {
+      "path": "lampOS/crates/voice/src/coordinator/motor/tests/native_head.rs",
+      "current_sha256": "a6870c6a1c2f063f5b83ec4e17bf3ed3f7e4d1c6c0bff3ee1942d1108ada38cc",
+      "base_git_show_sha256": "a6870c6a1c2f063f5b83ec4e17bf3ed3f7e4d1c6c0bff3ee1942d1108ada38cc",
+      "gate_before_sha256": "a6870c6a1c2f063f5b83ec4e17bf3ed3f7e4d1c6c0bff3ee1942d1108ada38cc",
+      "gate_after_sha256": "a6870c6a1c2f063f5b83ec4e17bf3ed3f7e4d1c6c0bff3ee1942d1108ada38cc",
+      "exact_to_1fb_and_frozen_gate": true,
+      "bytes": 15938
+    },
+    {
+      "path": "lampOS/crates/voice/src/coordinator/motor/tests.rs",
+      "current_sha256": "33a8f47b0d69079697e5ef04bf1617f25dd4f81f3501d9524f1c024236f520ba",
+      "base_git_show_sha256": "33a8f47b0d69079697e5ef04bf1617f25dd4f81f3501d9524f1c024236f520ba",
+      "gate_before_sha256": "33a8f47b0d69079697e5ef04bf1617f25dd4f81f3501d9524f1c024236f520ba",
+      "gate_after_sha256": "33a8f47b0d69079697e5ef04bf1617f25dd4f81f3501d9524f1c024236f520ba",
+      "exact_to_1fb_and_frozen_gate": true,
+      "bytes": 47489
+    },
+    {
+      "path": "lampOS/crates/voice/src/coordinator/motor.rs",
+      "current_sha256": "29b82801801be234ae865f7593c957a79537acc3469805401b759c21cf6c748e",
+      "base_git_show_sha256": "29b82801801be234ae865f7593c957a79537acc3469805401b759c21cf6c748e",
+      "gate_before_sha256": "29b82801801be234ae865f7593c957a79537acc3469805401b759c21cf6c748e",
+      "gate_after_sha256": "29b82801801be234ae865f7593c957a79537acc3469805401b759c21cf6c748e",
+      "exact_to_1fb_and_frozen_gate": true,
+      "bytes": 37408
+    },
+    {
+      "path": "lampOS/crates/voice/src/coordinator/motor/head.rs",
+      "current_sha256": "4de64a3ab9fe22f6329e990bf1cc990d065fa781f2f38ff69b603fe9b05870b0",
+      "base_git_show_sha256": "4de64a3ab9fe22f6329e990bf1cc990d065fa781f2f38ff69b603fe9b05870b0",
+      "gate_before_sha256": "4de64a3ab9fe22f6329e990bf1cc990d065fa781f2f38ff69b603fe9b05870b0",
+      "gate_after_sha256": "4de64a3ab9fe22f6329e990bf1cc990d065fa781f2f38ff69b603fe9b05870b0",
+      "exact_to_1fb_and_frozen_gate": true,
+      "bytes": 8452
+    },
+    {
+      "path": "lampOS/crates/voice/src/head_qualification.rs",
+      "current_sha256": "22bcba83db468193d2b6c502108ebe24ac05a513da3097b865e1f184d5ebefb2",
+      "base_git_show_sha256": "22bcba83db468193d2b6c502108ebe24ac05a513da3097b865e1f184d5ebefb2",
+      "gate_before_sha256": "22bcba83db468193d2b6c502108ebe24ac05a513da3097b865e1f184d5ebefb2",
+      "gate_after_sha256": "22bcba83db468193d2b6c502108ebe24ac05a513da3097b865e1f184d5ebefb2",
+      "exact_to_1fb_and_frozen_gate": true,
+      "bytes": 26471
+    },
+    {
+      "path": "lampOS/crates/voice/src/process.rs",
+      "current_sha256": "f9f1173bd1d33ea9f5ebc9ed3ed6247b802dbf299d017dabef90f93eca074d54",
+      "base_git_show_sha256": "f9f1173bd1d33ea9f5ebc9ed3ed6247b802dbf299d017dabef90f93eca074d54",
+      "gate_before_sha256": "f9f1173bd1d33ea9f5ebc9ed3ed6247b802dbf299d017dabef90f93eca074d54",
+      "gate_after_sha256": "f9f1173bd1d33ea9f5ebc9ed3ed6247b802dbf299d017dabef90f93eca074d54",
+      "exact_to_1fb_and_frozen_gate": true,
+      "bytes": 31643
+    },
+    {
+      "path": "lampOS/crates/body/src/runtime.rs",
+      "current_sha256": "f70ac6cb58b472a85130c8b81eed4258f689afc644de9ffbab98e087f71a0c8b",
+      "base_git_show_sha256": "f70ac6cb58b472a85130c8b81eed4258f689afc644de9ffbab98e087f71a0c8b",
+      "gate_before_sha256": "f70ac6cb58b472a85130c8b81eed4258f689afc644de9ffbab98e087f71a0c8b",
+      "gate_after_sha256": "f70ac6cb58b472a85130c8b81eed4258f689afc644de9ffbab98e087f71a0c8b",
+      "exact_to_1fb_and_frozen_gate": true,
+      "bytes": 612
+    },
+    {
+      "path": "lampOS/crates/body/src/runtime/supervisor.rs",
+      "current_sha256": "103009ea8a3baf449a760cf7f1dc43d0aa0b47d999b585c4084c65ff63ff2a3f",
+      "base_git_show_sha256": "103009ea8a3baf449a760cf7f1dc43d0aa0b47d999b585c4084c65ff63ff2a3f",
+      "gate_before_sha256": "103009ea8a3baf449a760cf7f1dc43d0aa0b47d999b585c4084c65ff63ff2a3f",
+      "gate_after_sha256": "103009ea8a3baf449a760cf7f1dc43d0aa0b47d999b585c4084c65ff63ff2a3f",
+      "exact_to_1fb_and_frozen_gate": true,
+      "bytes": 22565
+    },
+    {
+      "path": "lampOS/crates/body/src/runtime/worker.rs",
+      "current_sha256": "d126a1b0020f202c22a0a7a9ec64f54dcb6a52d9f6d02e965d61871aa6ab4cca",
+      "base_git_show_sha256": "d126a1b0020f202c22a0a7a9ec64f54dcb6a52d9f6d02e965d61871aa6ab4cca",
+      "gate_before_sha256": "d126a1b0020f202c22a0a7a9ec64f54dcb6a52d9f6d02e965d61871aa6ab4cca",
+      "gate_after_sha256": "d126a1b0020f202c22a0a7a9ec64f54dcb6a52d9f6d02e965d61871aa6ab4cca",
+      "exact_to_1fb_and_frozen_gate": true,
+      "bytes": 23534
+    },
+    {
+      "path": "lampOS/crates/body/src/runtime/channel.rs",
+      "current_sha256": "471c6cad77547060ec69348ccf08cbb98878463d2038aa34999e4d4f5f3a48ee",
+      "base_git_show_sha256": "471c6cad77547060ec69348ccf08cbb98878463d2038aa34999e4d4f5f3a48ee",
+      "gate_before_sha256": "471c6cad77547060ec69348ccf08cbb98878463d2038aa34999e4d4f5f3a48ee",
+      "gate_after_sha256": "471c6cad77547060ec69348ccf08cbb98878463d2038aa34999e4d4f5f3a48ee",
+      "exact_to_1fb_and_frozen_gate": true,
+      "bytes": 6122
+    },
+    {
+      "path": "lampOS/Cargo.lock",
+      "current_sha256": "40d62fead16a6f138c4d7dbe400a2e4a9855ceece96d19b1e642136431aed4c5",
+      "base_git_show_sha256": "40d62fead16a6f138c4d7dbe400a2e4a9855ceece96d19b1e642136431aed4c5",
+      "gate_before_sha256": "40d62fead16a6f138c4d7dbe400a2e4a9855ceece96d19b1e642136431aed4c5",
+      "gate_after_sha256": "40d62fead16a6f138c4d7dbe400a2e4a9855ceece96d19b1e642136431aed4c5",
+      "exact_to_1fb_and_frozen_gate": true,
+      "bytes": 113084
+    },
+    {
+      "path": "lampOS/docs/joining.md",
+      "current_sha256": "a031c6ad1dd0c729623ce35736fa4373cdbcb5ffa2412947660714c0729ba706",
+      "base_git_show_sha256": "a031c6ad1dd0c729623ce35736fa4373cdbcb5ffa2412947660714c0729ba706",
+      "gate_before_sha256": "a031c6ad1dd0c729623ce35736fa4373cdbcb5ffa2412947660714c0729ba706",
+      "gate_after_sha256": "a031c6ad1dd0c729623ce35736fa4373cdbcb5ffa2412947660714c0729ba706",
+      "exact_to_1fb_and_frozen_gate": true,
+      "bytes": 22335
+    }
+  ],
+  "original_identity": "lamp-voice coordinator::motor::tests::native_head::native_head_six_explicit_actions_prepare_profile_then_new_requests",
+  "original_function_sha256": "3851ad21f3055f8f82b6afa35112940960ffce3386dc27f5319c5ed401c19154",
+  "original_function_exact": true,
+  "scope_limit": "This verifies the named Motor/Body call-path files and lockfile, not absence of indirect host/binary-layout effects from the Gemini change."
+}

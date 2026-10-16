@@ -1,0 +1,349 @@
+{
+  "date_from_date": "2026-10-16 08:49:52 +0700",
+  "root_supplied_base": "1fb07c6f57ee280a49de7b4ddd74008c2a32a20d",
+  "seed": "lamp-gemini",
+  "reverse_dependency_scope": "All workspace resolve edges, including normal, build and dev dependencies.",
+  "names": [
+    "lamp-gemini",
+    "lamp-memory",
+    "lamp-surround",
+    "lamp-voice",
+    "lamp-voice-eval"
+  ],
+  "args": [
+    "-p",
+    "lamp-gemini",
+    "-p",
+    "lamp-memory",
+    "-p",
+    "lamp-surround",
+    "-p",
+    "lamp-voice",
+    "-p",
+    "lamp-voice-eval"
+  ],
+  "packages": [
+    {
+      "name": "lamp-gemini",
+      "id": "path+file:///private/tmp/lampos-tests-gemini-task-joins/lampOS/crates/gemini#lamp-gemini@0.1.0",
+      "manifest_path": "lampOS/crates/gemini/Cargo.toml",
+      "workspace_dependencies": []
+    },
+    {
+      "name": "lamp-memory",
+      "id": "path+file:///private/tmp/lampos-tests-gemini-task-joins/lampOS/crates/memory#lamp-memory@0.1.0",
+      "manifest_path": "lampOS/crates/memory/Cargo.toml",
+      "workspace_dependencies": [
+        {
+          "name": "lamp-bus",
+          "kinds": [
+            {
+              "kind": null,
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-gemini",
+          "kinds": [
+            {
+              "kind": "dev",
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-ipc",
+          "kinds": [
+            {
+              "kind": null,
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-msgs",
+          "kinds": [
+            {
+              "kind": null,
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-voice",
+          "kinds": [
+            {
+              "kind": "dev",
+              "target": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "lamp-surround",
+      "id": "path+file:///private/tmp/lampos-tests-gemini-task-joins/lampOS/crates/surround#lamp-surround@0.1.0",
+      "manifest_path": "lampOS/crates/surround/Cargo.toml",
+      "workspace_dependencies": [
+        {
+          "name": "lamp-bus",
+          "kinds": [
+            {
+              "kind": null,
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-gemini",
+          "kinds": [
+            {
+              "kind": null,
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-ipc",
+          "kinds": [
+            {
+              "kind": null,
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-msgs",
+          "kinds": [
+            {
+              "kind": null,
+              "target": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "lamp-voice",
+      "id": "path+file:///private/tmp/lampos-tests-gemini-task-joins/lampOS/crates/voice#lamp-voice@0.1.0",
+      "manifest_path": "lampOS/crates/voice/Cargo.toml",
+      "workspace_dependencies": [
+        {
+          "name": "lamp-actions",
+          "kinds": [
+            {
+              "kind": "dev",
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-audio",
+          "kinds": [
+            {
+              "kind": null,
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-body",
+          "kinds": [
+            {
+              "kind": null,
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-bus",
+          "kinds": [
+            {
+              "kind": null,
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-camera",
+          "kinds": [
+            {
+              "kind": null,
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-controls",
+          "kinds": [
+            {
+              "kind": null,
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-expression",
+          "kinds": [
+            {
+              "kind": "dev",
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-gemini",
+          "kinds": [
+            {
+              "kind": null,
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-ipc",
+          "kinds": [
+            {
+              "kind": null,
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-msgs",
+          "kinds": [
+            {
+              "kind": null,
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-policy",
+          "kinds": [
+            {
+              "kind": "dev",
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-ring",
+          "kinds": [
+            {
+              "kind": null,
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-schedule",
+          "kinds": [
+            {
+              "kind": null,
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-turn-end-wire",
+          "kinds": [
+            {
+              "kind": null,
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-turn-owner",
+          "kinds": [
+            {
+              "kind": null,
+              "target": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "lamp-voice-eval",
+      "id": "path+file:///private/tmp/lampos-tests-gemini-task-joins/lampOS/crates/voice-eval#lamp-voice-eval@0.1.0",
+      "manifest_path": "lampOS/crates/voice-eval/Cargo.toml",
+      "workspace_dependencies": [
+        {
+          "name": "lamp-audio",
+          "kinds": [
+            {
+              "kind": null,
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-ipc",
+          "kinds": [
+            {
+              "kind": null,
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-observer",
+          "kinds": [
+            {
+              "kind": null,
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-sound-fixtures",
+          "kinds": [
+            {
+              "kind": null,
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-turn-end",
+          "kinds": [
+            {
+              "kind": "dev",
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-turn-end-wire",
+          "kinds": [
+            {
+              "kind": "dev",
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-turn-owner",
+          "kinds": [
+            {
+              "kind": null,
+              "target": null
+            }
+          ]
+        },
+        {
+          "name": "lamp-voice",
+          "kinds": [
+            {
+              "kind": null,
+              "target": null
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

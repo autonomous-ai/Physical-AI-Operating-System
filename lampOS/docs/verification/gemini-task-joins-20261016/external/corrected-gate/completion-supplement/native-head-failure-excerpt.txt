@@ -1,0 +1,33 @@
+        FAIL [   1.491s] ( 942/2711) lamp-voice coordinator::motor::tests::native_head::native_head_six_explicit_actions_prepare_profile_then_new_requests
+  stdout ───
+
+    running 1 test
+    test coordinator::motor::tests::native_head::native_head_six_explicit_actions_prepare_profile_then_new_requests ... FAILED
+
+    failures:
+
+    failures:
+        coordinator::motor::tests::native_head::native_head_six_explicit_actions_prepare_profile_then_new_requests
+
+    test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1259 filtered out; finished in 1.44s
+
+  stderr ───
+
+    thread 'coordinator::motor::tests::native_head::native_head_six_explicit_actions_prepare_profile_then_new_requests' (582496333) panicked at crates/voice/src/coordinator/motor/tests/native_head.rs:172:13:
+    phase Inhibited, failure Some("motor worker progress timed out")
+    stack backtrace:
+       0: __rustc::rust_begin_unwind
+                 at /rustc/ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96/library/std/src/panicking.rs:689:5
+       1: core::panicking::panic_fmt
+                 at /rustc/ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96/library/core/src/panicking.rs:80:14
+       2: lamp_voice::coordinator::motor::tests::native_head::run_sequence
+                 at ./src/coordinator/motor/tests/native_head.rs:172:13
+       3: lamp_voice::coordinator::motor::tests::native_head::native_head_six_explicit_actions_prepare_profile_then_new_requests
+                 at ./src/coordinator/motor/tests/native_head.rs:110:5
+       4: lamp_voice::coordinator::motor::tests::native_head::native_head_six_explicit_actions_prepare_profile_then_new_requests::{{closure}}
+                 at ./src/coordinator/motor/tests/native_head.rs:109:72
+       5: core::ops::function::FnOnce::call_once
+                 at /rustc/ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96/library/core/src/ops/function.rs:250:5
+       6: <fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once
+                 at /rustc/ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96/library/core/src/ops/function.rs:250:5
+    note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.

@@ -1,0 +1,15 @@
+{
+  "date_from_date": "2026-10-16 09:13:38 +0700",
+  "source_unchanged": true,
+  "source_path": "lampOS/crates/gemini/src/testing/task_joins/tests.rs",
+  "first_source_sha256": "036169b9d46d524cc8ba8162a7ccf0e0c45eefdb291433df09f8262cfb156506",
+  "candidate_sha256": "010fce88be96d93269f2779d1e40764d347283480a39dcf1c5715661c4a285a4",
+  "proposed_diff_sha256": "787f274aeb3c9eb116130796dc04a1ef3b3e64571b49ac0a1ce9aa539dc62e53",
+  "applied": false,
+  "source_edits_since_gate": false,
+  "compiler_error": "E0277 at new tests.rs:674; catch_unwind captures Arc<Shared> including AtomicWaker which is not RefUnwindSafe",
+  "proposed_change": "Capture only &registrar.0.state (Mutex<State>) and lock that reference. Preserve the caught deliberate poison panic and every result/assertion. No AssertUnwindSafe wrapper.",
+  "inverse_restores_first_source": true,
+  "tests_run": false,
+  "clippy_log_sha256": "94dd432514ad8986f066d2d5ad16ed1f998da6662c03e0e89fb9b0c56ec7381c"
+}

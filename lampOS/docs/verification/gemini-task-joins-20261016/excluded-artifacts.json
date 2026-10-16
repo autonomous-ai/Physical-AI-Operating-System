@@ -1,0 +1,82 @@
+{
+  "date_from_date": "2026-10-16 09:58:33 +0700",
+  "external_manifest_sha256": "c9e3c8da37671d75ffbc14732b563843433adcc46ad64cd0a30beac41c01203b",
+  "original_manifest_entries": 152,
+  "excluded_artifact_count": 9,
+  "excluded": [
+    {
+      "original_root": "/private/tmp/tests-823-gemini-task-joins-publication",
+      "original_path": "baseline-and-first-source/baseline-runner.py",
+      "sha256": "719a0c11222731fb5f2909dcf15e371cf51e7119cb1c0254494b99ac69b65a5a",
+      "bytes": 5198,
+      "reason": "Python execution runner; excluded from repository payload",
+      "description": "Captured clean 1fb source/environment, metadata and the five-package compiled baseline list; no baseline tests executed."
+    },
+    {
+      "original_root": "/private/tmp/tests-823-gemini-task-joins-publication",
+      "original_path": "baseline-and-first-source/freeze-runner.py",
+      "sha256": "f15a86d6683d57146bdd04b223a11b73ef0bcb576a9f708afc2c3f920f6bc654",
+      "bytes": 4470,
+      "reason": "Python execution runner; excluded from repository payload",
+      "description": "Captured first six-file source freeze, identity preservation and empty-file-removing inverse proof."
+    },
+    {
+      "original_root": "/private/tmp/tests-823-gemini-task-joins-publication",
+      "original_path": "baseline-and-first-source/inverse-check-first-runner.py",
+      "sha256": "33f29d456a64ba4a86e64c8f0140af76b93f8682dbddb4223f7baebe23fe7cd2",
+      "bytes": 4427,
+      "reason": "Python execution runner; excluded from repository payload",
+      "description": "Captured initial source diff/inverse check; its empty-file limitation and subsequent corrected proof remain documented."
+    },
+    {
+      "original_root": "/private/tmp/tests-823-gemini-task-joins-publication",
+      "original_path": "corrected-gate/completion-supplement/completion-runner.py",
+      "sha256": "9b5dc61626ff648b23981188a3d01e7042a369b915bb408ba93f1d3dcf2c97c6",
+      "bytes": 8110,
+      "reason": "Python execution runner; excluded from repository payload",
+      "description": "Corrected only the runtime evidence count, then ran authorized build/doc targets without rerunning normal tests."
+    },
+    {
+      "original_root": "/private/tmp/tests-823-gemini-task-joins-publication",
+      "original_path": "corrected-gate/motor-feature-evidence/evidence-runner.py",
+      "sha256": "d305a67a7e614dbe39b2a15464863fdd6ba06ff97c3a5ca9d5776cb15a5fd573",
+      "bytes": 7268,
+      "reason": "Python execution runner; excluded from repository payload",
+      "description": "Captured unchanged Motor source and matched compiled dependency feature metadata for the failed Voice binary."
+    },
+    {
+      "original_root": "/private/tmp/tests-823-gemini-task-joins-publication",
+      "original_path": "corrected-gate/motor-feature-evidence/fingerprints/lamp-gemini-a51afd4ee6b5e2f8/lib-lamp_gemini",
+      "sha256": "58b3992dce70467027c37e649bccd8030c95dda29ca6be554b8df2921edd48c6",
+      "bytes": 16,
+      "reason": "Opaque Cargo build fingerprint stamp; compiled artifact excluded, JSON feature metadata retained",
+      "description": "Sixteen-byte Cargo fingerprint identifier; no source or raw test result."
+    },
+    {
+      "original_root": "/private/tmp/tests-823-gemini-task-joins-publication",
+      "original_path": "corrected-gate/qualification-runner.py",
+      "sha256": "c7f817bff1ea1b434561b87fffcb30e91193a81f48248ab222aee3651c916c04",
+      "bytes": 9280,
+      "reason": "Python execution runner; excluded from repository payload",
+      "description": "Ran corrected format/Clippy/list/focused/full stages; its parser counted the post-Summary failure recap and stopped before build."
+    },
+    {
+      "original_root": "/private/tmp/tests-823-gemini-task-joins-publication",
+      "original_path": "first-compile-failure/qualification-runner.py",
+      "sha256": "fce3f4061b76e2d5bc454ef2355431a97e3cfd08e005adc74904203a5c61917e",
+      "bytes": 8259,
+      "reason": "Python execution runner; excluded from repository payload",
+      "description": "Attempted first gate; stopped on the new-test E0277 Clippy error before any test execution."
+    },
+    {
+      "original_root": "/private/tmp/tests-823-gemini-task-joins-publication",
+      "original_path": "packaging-runner.py",
+      "sha256": "152d559353781b6889e53e315ece9adb1d707da6c666f6943a9ce2a623b49880",
+      "bytes": 12321,
+      "reason": "Python execution runner; excluded from repository payload",
+      "description": "Packaged immutable raw stages, current six-file snapshots, inverses and input hashes into the original external folder."
+    }
+  ],
+  "binary_or_symlink_artifacts_found": 0,
+  "raw_evidence_rewritten": false
+}

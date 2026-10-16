@@ -642,6 +642,64 @@ enqueue or empty socket is not a completed poll. Existing test bodies and
 assertions are unchanged. This is clock preparation: it does not migrate a Voice
 scenario, provide a provider progress barrier, or establish device latency.
 
+### Fixture ownership of actual task joins
+
+The same default-off `fixture-clock` feature additionally exposes
+`testing::supervisor_with_capture_clock_and_joins(config, policy, capacity, clock,
+max_tasks)`. It returns the ordinary scripted Supervisor, its dial receiver and
+one `TaskJoins` collector. Registration is installed before the initial Dialing
+spawn and follows each actual Actor and reconnect attempt. Existing factories
+still select direct task ownership, including when the feature is enabled.
+No Cargo dependency, provider policy, protocol interval or capture-clock check
+changes. The fixture adds no task, reaper, timer or scheduling layer.
+
+`max_tasks` is a nonzero lifetime bound of at most `MAX_JOINED_TASKS` (64), shared
+by Actors and Dialing attempts. Slots are never reused, and the collector owns
+at most that many handles/results. Each registered task retains its actual
+Tokio task ID, session and kind. Exceeding the bound or losing observation
+latches a fault; it preserves the original consumer's result but makes the
+report incomplete. A successful registration or an abort request never counts
+as a join. Poisoned tracking state likewise cannot turn an actual panic or
+cancellation into success.
+
+The original owner polls its real `JoinHandle`, and receives its unchanged
+result or owning `JoinError`. For a consumed result the collector records only
+a classification borrowed from that actual Ready result; it cannot duplicate a
+non-cloneable panic payload. When the owner drops a handle instead, the fixture
+retains and polls that same handle and receives its actual unit result or
+owning `JoinError`. `TaskCompletion::Consumer` and `TaskCompletion::Fixture`
+keep these cases distinct. A Dialing task that returned a protocol error still
+has a successful task join; an Actor join says nothing about protocol success.
+
+An opt-in Dialing task publishes its unchanged attempt result in one bounded
+oneshot slot within its original task, with no subsequent await. The original
+consumer first joins the real task, then takes that value without waiting.
+Dialing drop keeps the original abort first, drops the result receiver (and any
+successful, unharvested Connection) next, then releases the unit-output handle
+to the collector. Retaining a task for join therefore does not keep that
+Connection alive. Connection drop retains input shutdown before Actor abort.
+Supervisor's final fixture lease drops after its original fields; completion
+also requires actual joins of all registered attempts, since one already
+running attempt may still create an Actor after its owner starts dropping.
+
+The fixture controller drops the Supervisor through its normal owning path,
+then awaits `TaskJoins::finish(&mut self)` within its one immutable host deadline.
+Cancelling that wait retains the handles in the collector. Finish neither
+requests shutdown, drives the Supervisor, consumes buffered events nor advances
+a clock. It resolves only after owner release and actual joins (or explicitly
+incomplete tracking). A second finish returns `AlreadyFinished`. Dropping the
+collector is best-effort cleanup and never certifies completion.
+
+The added `testing::task_joins::tests` cover actual setup cancellation, successful
+and failed Dialing results, consumed and abandoned panic/cancellation errors,
+Connection drop before an unharvested result is collected, ordered buffered PCM,
+reconnection, late Actor registration, cancelled waits and bounded tracking
+faults. Their fixed five-second host deadlines run without paused Tokio time,
+sleeps or retries. All earlier test bodies and thresholds remain unchanged.
+This preparation supplies task completion after shutdown; it does not establish
+a live Actor progress frontier, Provider worker return, service-task join or
+child-process exit. The original Voice scenarios remain unmigrated.
+
 ### Strict continuation probe (example-only addition)
 
 The explicit `continue-before-output` mode sends two **different**, already

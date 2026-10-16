@@ -1,0 +1,14 @@
+{
+  "command": [
+    "/Users/autonomous/.rustup/toolchains/1.96.0-x86_64-apple-darwin/bin/rustfmt",
+    "--edition",
+    "2024",
+    "--config",
+    "skip_children=true",
+    "lampOS/crates/gemini/src/testing/task_joins/tests.rs"
+  ],
+  "cwd": "/private/tmp/lampos-tests-gemini-task-joins",
+  "started_from_date": "2026-10-16 09:14:11 +0700",
+  "finished_from_date": "2026-10-16 09:14:11 +0700",
+  "exit": 0
+}

@@ -1,0 +1,68 @@
+{
+  "date_from_date": "2026-10-16 09:44:02 +0700",
+  "access": "gh issue view/search only; no writes",
+  "records": [
+    {
+      "command": [
+        "gh",
+        "issue",
+        "view",
+        "739",
+        "-R",
+        "autonomous-ai/lampOS",
+        "--json",
+        "number,title,body,comments,labels,assignees,state,url"
+      ],
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "command": [
+        "gh",
+        "issue",
+        "view",
+        "906",
+        "-R",
+        "autonomous-ai/lampOS",
+        "--json",
+        "number,title,body,comments,labels,assignees,state,url"
+      ],
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "command": [
+        "gh",
+        "search",
+        "issues",
+        "native_head_six_explicit_actions_prepare_profile_then_new_requests",
+        "--repo",
+        "autonomous-ai/lampOS",
+        "--include-prs",
+        "--limit",
+        "100",
+        "--json",
+        "number,title,state,url"
+      ],
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "command": [
+        "gh",
+        "search",
+        "issues",
+        "\"motor worker progress timed out\"",
+        "--repo",
+        "autonomous-ai/lampOS",
+        "--include-prs",
+        "--limit",
+        "100",
+        "--json",
+        "number,title,state,url"
+      ],
+      "exit_code": 0,
+      "stderr": ""
+    }
+  ]
+}

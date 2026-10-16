@@ -1,0 +1,1305 @@
+{
+  "date_from_date": "2026-10-16 09:58:33 +0700",
+  "repository_destination": "lampOS/docs/verification/gemini-task-joins-20261016",
+  "original_external_root": "/private/tmp/tests-823-gemini-task-joins-publication",
+  "original_triage_root": "/private/tmp/tests-823-gemini-native-head-failure-triage-20261016",
+  "all_copies_byte_exact": true,
+  "mappings": [
+    {
+      "origin": "external-publication",
+      "original_path": "baseline-and-first-source/added-source-identities.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/baseline-and-first-source/added-source-identities.json",
+      "sha256": "943a27ba109d7caf35ad968f340df5d6a13bc10ba97aad6ddd3d162f4d8f23eb",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "baseline-and-first-source/affected-graph.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/baseline-and-first-source/affected-graph.json",
+      "sha256": "14b93def11223a003d05c6c3ca2ae86740da25bb8b98f89693e1634e3856870b",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "baseline-and-first-source/after/lampOS/crates/gemini/src/recovery.rs",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/baseline-and-first-source/after/lampOS/crates/gemini/src/recovery.rs",
+      "sha256": "37ed679cd097da44791a356d7260343ebbe437fb8863b3e22174a1b5da92e98a",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "baseline-and-first-source/after/lampOS/crates/gemini/src/session.rs",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/baseline-and-first-source/after/lampOS/crates/gemini/src/session.rs",
+      "sha256": "edca2df22c9101fc3e7148c227e82ffde6685772b57baaabb7880e49208ebe2b",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "baseline-and-first-source/after/lampOS/crates/gemini/src/testing/task_joins/tests.rs",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/baseline-and-first-source/after/lampOS/crates/gemini/src/testing/task_joins/tests.rs",
+      "sha256": "036169b9d46d524cc8ba8162a7ccf0e0c45eefdb291433df09f8262cfb156506",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "baseline-and-first-source/after/lampOS/crates/gemini/src/testing/task_joins.rs",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/baseline-and-first-source/after/lampOS/crates/gemini/src/testing/task_joins.rs",
+      "sha256": "21cb7a49c8f1f012b5cf38ee089da42f8a6f2d26a4f3284d2e3926a8125f3934",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "baseline-and-first-source/after/lampOS/crates/gemini/src/testing.rs",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/baseline-and-first-source/after/lampOS/crates/gemini/src/testing.rs",
+      "sha256": "cad490f02196ead1aab9f0402064df84cfe61992fef3abb7a1648cf39e7013ff",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "baseline-and-first-source/after/lampOS/docs/gemini-session-reliability.md",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/baseline-and-first-source/after/lampOS/docs/gemini-session-reliability.md",
+      "sha256": "72445c8a193c41ce1bb4b412c5c6c4b0e57246e1bc93b1f405de0fcd6957eba1",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "baseline-and-first-source/artifact-manifest.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/baseline-and-first-source/artifact-manifest.json",
+      "sha256": "306dfc44791c1c94babd2f5734809a7a38680da277a1b8426fcad2b43ea72933",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "baseline-and-first-source/baseline-completed.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/baseline-and-first-source/baseline-completed.json",
+      "sha256": "c7238e3ed5abe431d949fca280c21d71d7e68f2980d0718636ad70c272240f4d",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "baseline-and-first-source/baseline-gates.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/baseline-and-first-source/baseline-gates.json",
+      "sha256": "3403ead718bc4ec0de785186618585aab3090dad7f62eff567491210ea676569",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "baseline-and-first-source/baseline-identities.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/baseline-and-first-source/baseline-identities.json",
+      "sha256": "c28a1feba8739731737786f9cba4d9ebc28cff2ebbc642d2b07e5cd0589b973d",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "baseline-and-first-source/baseline-list.command.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/baseline-and-first-source/baseline-list.command.json",
+      "sha256": "a6185950839fafc72b8cd518510f83d4c14c95651bbbcb3360f78d6115f6d70d",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "baseline-and-first-source/baseline-list.log",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/baseline-and-first-source/baseline-list.log",
+      "sha256": "96e79093b582c6c1c83cb0f126de7adf2a0fa287376bd35ac7df830845b3584d",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "baseline-and-first-source/baseline-source-after.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/baseline-and-first-source/baseline-source-after.json",
+      "sha256": "4fbb85ba79b2839c68c9ac82b801303a7a722e58452f1506c7f9b62da127558b",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "baseline-and-first-source/before/lampOS/crates/gemini/src/recovery.rs",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/baseline-and-first-source/before/lampOS/crates/gemini/src/recovery.rs",
+      "sha256": "d2cdb2e9e7ec4ddc5174b7fe63f1492c77d106650b15240da4415da2d9ffa90b",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "baseline-and-first-source/before/lampOS/crates/gemini/src/session.rs",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/baseline-and-first-source/before/lampOS/crates/gemini/src/session.rs",
+      "sha256": "a0c83add38edb58957a603d31b3894eb35771dabebdebc9c96479b63726bc997",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "baseline-and-first-source/before/lampOS/crates/gemini/src/testing.rs",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/baseline-and-first-source/before/lampOS/crates/gemini/src/testing.rs",
+      "sha256": "ac34ac1c456b9e87557bec5aa9c6c4f1a5bc86fcbd09d9518bc13c98859081d3",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "baseline-and-first-source/before/lampOS/docs/gemini-session-reliability.md",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/baseline-and-first-source/before/lampOS/docs/gemini-session-reliability.md",
+      "sha256": "753906cd40b84c767b04769e136b065b0ac17a6c8e970f3181f116ffcd50275e",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "baseline-and-first-source/clean-source.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/baseline-and-first-source/clean-source.json",
+      "sha256": "4485b8bab9fdb5cb5f81b31304bf2f67064b68c2011137378b09a51b7013423d",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "baseline-and-first-source/handoff.md",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/baseline-and-first-source/handoff.md",
+      "sha256": "8807b3883c00865f53378456e20115d97cda65592f668144fb7f6a3530d7e38c",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "baseline-and-first-source/inverse-check/lampOS/crates/gemini/src/recovery.rs",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/baseline-and-first-source/inverse-check/lampOS/crates/gemini/src/recovery.rs",
+      "sha256": "d2cdb2e9e7ec4ddc5174b7fe63f1492c77d106650b15240da4415da2d9ffa90b",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "baseline-and-first-source/inverse-check/lampOS/crates/gemini/src/session.rs",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/baseline-and-first-source/inverse-check/lampOS/crates/gemini/src/session.rs",
+      "sha256": "a0c83add38edb58957a603d31b3894eb35771dabebdebc9c96479b63726bc997",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "baseline-and-first-source/inverse-check/lampOS/crates/gemini/src/testing/task_joins/tests.rs",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/baseline-and-first-source/inverse-check/lampOS/crates/gemini/src/testing/task_joins/tests.rs",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "baseline-and-first-source/inverse-check/lampOS/crates/gemini/src/testing/task_joins.rs",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/baseline-and-first-source/inverse-check/lampOS/crates/gemini/src/testing/task_joins.rs",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "baseline-and-first-source/inverse-check/lampOS/crates/gemini/src/testing.rs",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/baseline-and-first-source/inverse-check/lampOS/crates/gemini/src/testing.rs",
+      "sha256": "ac34ac1c456b9e87557bec5aa9c6c4f1a5bc86fcbd09d9518bc13c98859081d3",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "baseline-and-first-source/inverse-check/lampOS/docs/gemini-session-reliability.md",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/baseline-and-first-source/inverse-check/lampOS/docs/gemini-session-reliability.md",
+      "sha256": "753906cd40b84c767b04769e136b065b0ac17a6c8e970f3181f116ffcd50275e",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "baseline-and-first-source/inverse-check-first-result.md",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/baseline-and-first-source/inverse-check-first-result.md",
+      "sha256": "ed1e07d2d5f13ec0bb8f903f215d7fbae1d60c39e0a761d7025f70d3e36c0aad",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "baseline-and-first-source/inverse-check-with-empty-removal/lampOS/crates/gemini/src/recovery.rs",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/baseline-and-first-source/inverse-check-with-empty-removal/lampOS/crates/gemini/src/recovery.rs",
+      "sha256": "d2cdb2e9e7ec4ddc5174b7fe63f1492c77d106650b15240da4415da2d9ffa90b",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "baseline-and-first-source/inverse-check-with-empty-removal/lampOS/crates/gemini/src/session.rs",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/baseline-and-first-source/inverse-check-with-empty-removal/lampOS/crates/gemini/src/session.rs",
+      "sha256": "a0c83add38edb58957a603d31b3894eb35771dabebdebc9c96479b63726bc997",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "baseline-and-first-source/inverse-check-with-empty-removal/lampOS/crates/gemini/src/testing.rs",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/baseline-and-first-source/inverse-check-with-empty-removal/lampOS/crates/gemini/src/testing.rs",
+      "sha256": "ac34ac1c456b9e87557bec5aa9c6c4f1a5bc86fcbd09d9518bc13c98859081d3",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "baseline-and-first-source/inverse-check-with-empty-removal/lampOS/docs/gemini-session-reliability.md",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/baseline-and-first-source/inverse-check-with-empty-removal/lampOS/docs/gemini-session-reliability.md",
+      "sha256": "753906cd40b84c767b04769e136b065b0ac17a6c8e970f3181f116ffcd50275e",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "baseline-and-first-source/inverse-check-with-empty-removal.log",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/baseline-and-first-source/inverse-check-with-empty-removal.log",
+      "sha256": "b40251c7db2e54a69310a6276571d49fd03bb585cc53bee162ce04b3a1bc3d79",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "baseline-and-first-source/inverse-check.log",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/baseline-and-first-source/inverse-check.log",
+      "sha256": "b40251c7db2e54a69310a6276571d49fd03bb585cc53bee162ce04b3a1bc3d79",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "baseline-and-first-source/inverse.diff",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/baseline-and-first-source/inverse.diff",
+      "sha256": "7364240494660bdc53a2739aa0ac7379c82dafe57397043563720cc76e8e0843",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "baseline-and-first-source/metadata.command.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/baseline-and-first-source/metadata.command.json",
+      "sha256": "df1afd07a757617cd126d8b5a77b580d3aeffa93c986f0ffbcf79543b26855df",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "baseline-and-first-source/metadata.log",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/baseline-and-first-source/metadata.log",
+      "sha256": "e84d634ee7a2099505c5934730cff807476b8540377a3886d95567518566eb5e",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "baseline-and-first-source/old-test-source-proof.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/baseline-and-first-source/old-test-source-proof.json",
+      "sha256": "c55061778fafaf90c5dec91c5c1b8afe8cb7b02804374dfb8568705a6cc2b57f",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "baseline-and-first-source/proposed.diff",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/baseline-and-first-source/proposed.diff",
+      "sha256": "4f79ebfd96a8f56e5cc93e4e03c9caeb24d5b27f5d11175150c4349633bf624f",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "baseline-and-first-source/rustc-version.command.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/baseline-and-first-source/rustc-version.command.json",
+      "sha256": "e4e19adc7705e4f94630e40545b3d8b45fba3840df60be373f84196af0030656",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "baseline-and-first-source/rustc-version.log",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/baseline-and-first-source/rustc-version.log",
+      "sha256": "4d8ef7a4d2fe91e2e73066fdff851a6b49773a97b60cf751f81045606a502281",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "baseline-and-first-source/source-formatting-final.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/baseline-and-first-source/source-formatting-final.json",
+      "sha256": "c8830ddff95c55a86dcfc878cc056796f33e5c3c3c975164bb6df4243347ff90",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "baseline-and-first-source/source-formatting-final.log",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/baseline-and-first-source/source-formatting-final.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "baseline-and-first-source/source-formatting.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/baseline-and-first-source/source-formatting.json",
+      "sha256": "3e49e48a4e4abdd53677c6e64e12f6e9d43200ea6c86b6f4172129291d1a060e",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "baseline-and-first-source/source-formatting.log",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/baseline-and-first-source/source-formatting.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "baseline-and-first-source/source-freeze.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/baseline-and-first-source/source-freeze.json",
+      "sha256": "8fdcacb7910bd5345e91840b2b3c81dc2a4634218e1e2d767c4e84f94b315f0f",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "baseline-and-first-source/unowned-inputs.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/baseline-and-first-source/unowned-inputs.json",
+      "sha256": "980bdbc949e1ba2153ddf6f518252878bf61af0b720ac796ac4292b071acb861",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/affected-graph.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/affected-graph.json",
+      "sha256": "14b93def11223a003d05c6c3ca2ae86740da25bb8b98f89693e1634e3856870b",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/clippy.command.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/clippy.command.json",
+      "sha256": "43f2c657781da677dd9e6270560e1f27e5da83ed41b3becbc20b34891a159caa",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/clippy.log",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/clippy.log",
+      "sha256": "3fed80331e13421538ff2f09c1e3169a4047067050defbaba8ee07ae294e2cef",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/compiled-list-comparison.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/compiled-list-comparison.json",
+      "sha256": "3188a6a2b62a7acb28bcbfd54a469a9672b42c052b20c337b596ce96a1e7d092",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/compiled-list.command.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/compiled-list.command.json",
+      "sha256": "3e060d1fcb53cdf6dab76fd373caa34778782b3cc3b6dbdf04dc2806b2adcc39",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/compiled-list.log",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/compiled-list.log",
+      "sha256": "99c438bf633b1cffdc011e9aa2eadd151d8a91b3059551ea62da7e87c7047b55",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/completion-supplement/continuation-context.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/completion-supplement/continuation-context.json",
+      "sha256": "57a71f57ef08f44ebb2a84296bc5a0d59dc36d7a66d986455f0418b4b3cb74d4",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/completion-supplement/failure-source-proof.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/completion-supplement/failure-source-proof.json",
+      "sha256": "ee8a439a00aa5288fcf06b3a3488db8464f9897aa39225705ff9f592bac5cffb",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/completion-supplement/full-runtime-identities-corrected.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/completion-supplement/full-runtime-identities-corrected.json",
+      "sha256": "5a1aa74eb08271729de8e5a3684322e2569bcf6741e0d7daf079629690bd7cab",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/completion-supplement/native-head-failure-excerpt.txt",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/completion-supplement/native-head-failure-excerpt.txt",
+      "sha256": "714bbf10c529d18adabffb1259add43ce8f5c3abf5ef871f87ea18df80a2e7f5",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/completion-supplement/native_head.rs",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/completion-supplement/native_head.rs",
+      "sha256": "a6870c6a1c2f063f5b83ec4e17bf3ed3f7e4d1c6c0bff3ee1942d1108ada38cc",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/completion-supplement/source-after-build.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/completion-supplement/source-after-build.json",
+      "sha256": "14941c52e18622c095ee4949552b238dd361e503b06864b9deaa566459932421",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/completion-supplement/source-before.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/completion-supplement/source-before.json",
+      "sha256": "f0951c831b35248ef0d591fdeaae9f346e3b8e20a2435e8a2487a914958db8b0",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/completion-supplement/terminal.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/completion-supplement/terminal.json",
+      "sha256": "5ba2b2093b2a8e8fb139e9a831cb37cd271807ad471d7a7a0324f276fcfe4433",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/completion-supplement/workspace-build.command.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/completion-supplement/workspace-build.command.json",
+      "sha256": "0a39bae3681492d0d3a5fc6d87d51f9bdcf76ae6f645bc138230023d00e01f9f",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/completion-supplement/workspace-build.log",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/completion-supplement/workspace-build.log",
+      "sha256": "d7a67044a5ea76b376669fcd66818ebd706ad207f652b48280ee18ba6bada91c",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/completion-supplement/workspace-build.result.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/completion-supplement/workspace-build.result.json",
+      "sha256": "7b770c9a4ad1763a93abc2f31aa2953e53ed06bd4fdc00ae6c7bf4d6f7f2f421",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/correction-context.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/correction-context.json",
+      "sha256": "0ea2d76271899a78ba50bf0d4cce5b7e194d0eee730a29507f04e2d62d631530",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/doc-test-supplement/doc-test-counts.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/doc-test-supplement/doc-test-counts.json",
+      "sha256": "3e68705c6d109560aa6dc4890cdecde41f4e7949de79716baddc299f6cf331e7",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/doc-test-supplement/doc-tests.command.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/doc-test-supplement/doc-tests.command.json",
+      "sha256": "f6c9c5ba40f98849eb770efed49eb1d19f384210def21eb916ccb18c00f5cfac",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/doc-test-supplement/doc-tests.log",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/doc-test-supplement/doc-tests.log",
+      "sha256": "51303e42e79372c5e4b6681d7e774688b5daadcf5b9e6398c3ca5ed4255ed5d4",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/doc-test-supplement/doc-tests.result.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/doc-test-supplement/doc-tests.result.json",
+      "sha256": "afc82ed9d26793f4c0c507b4f34dbee2d5c641d54bd957697a7c59cf7707027a",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/doc-test-supplement/source-after.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/doc-test-supplement/source-after.json",
+      "sha256": "9bcfe52bbdcb6294704a2a7dd962c3470f23e885107b66e13196c7d1a1acf56d",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/doc-test-supplement/source-before.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/doc-test-supplement/source-before.json",
+      "sha256": "14941c52e18622c095ee4949552b238dd361e503b06864b9deaa566459932421",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/fmt.command.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/fmt.command.json",
+      "sha256": "4b63f5479838a71fc6b231a73ff35ae302b68874dd19a82e57c2aaa10d732583",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/fmt.log",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/fmt.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/focused-list.command.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/focused-list.command.json",
+      "sha256": "fcc48dec6b0a431099e3b0b4b3dedd2936f66da99eeaf5527ffd1a66e51e8ad3",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/focused-list.log",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/focused-list.log",
+      "sha256": "d24e2e55254b027088647cdfef80c155fcc54b667c7ab1e4ebb1f30a986321ce",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/focused-runtime-identities.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/focused-runtime-identities.json",
+      "sha256": "c1a55a913d2ae172829e95ece743df7848533ccefc653001e259e777e2fa088d",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/focused-selection-proof.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/focused-selection-proof.json",
+      "sha256": "3bab0195843fb2dc66d2b4978f3b5c4e6bb84819620e881705f812794ae534c0",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/focused.command.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/focused.command.json",
+      "sha256": "0b5b220ba6c451da726a7db23d670da989594c1183338b0d4ca23690290bd8c7",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/focused.log",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/focused.log",
+      "sha256": "8b3fd5393e79d2a57676713dd8243dd4de3d14f24579c1bb827351de989fa710",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/full-runtime-identities.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/full-runtime-identities.json",
+      "sha256": "b9209c013ad841a2ca6739a5a754f0f74be2d7a3667fe88678e15b5950722f15",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/full.command.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/full.command.json",
+      "sha256": "f1f7bc11f4d9a52eaa69ebd4d438cedc4fabf03e15039eeeb3d561ae0c5aaca1",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/full.log",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/full.log",
+      "sha256": "fc7455deb8f8a5dcc746922e9641e2893c336cb56eff078da6d3728c1045abd5",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/gates.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/gates.json",
+      "sha256": "c54ff5f4147e8afa46eaa6cf72f8c1f737602412fbf490655b92ca76b08b47a4",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/motor-feature-evidence/artifact-manifest.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/motor-feature-evidence/artifact-manifest.json",
+      "sha256": "3475e3296cceea3aa35bfed249e5614f3eb1ae20cf9308b85f0797d07688d993",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/motor-feature-evidence/fingerprints/lamp-gemini-a51afd4ee6b5e2f8/lib-lamp_gemini.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/motor-feature-evidence/fingerprints/lamp-gemini-a51afd4ee6b5e2f8/lib-lamp_gemini.json",
+      "sha256": "3ca5a7d587fefc7e4eee03af0de2b7a412e7f5bf209af3cd781f66ef243761a1",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/motor-feature-evidence/fingerprints/lamp-voice-776bb3f8630d2566/test-lib-lamp_voice.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/motor-feature-evidence/fingerprints/lamp-voice-776bb3f8630d2566/test-lib-lamp_voice.json",
+      "sha256": "021658501f73b3cd833a848019f11cbe5174948d656f7f22d267bd7dc4b4cbd0",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/motor-feature-evidence/handoff.md",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/motor-feature-evidence/handoff.md",
+      "sha256": "9248f861d1aeb4fff90a7655ab5282e73cdd8b3379afc6428d597bba2effc36e",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/motor-feature-evidence/source/lampOS/Cargo.lock",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/motor-feature-evidence/source/lampOS/Cargo.lock",
+      "sha256": "40d62fead16a6f138c4d7dbe400a2e4a9855ceece96d19b1e642136431aed4c5",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/motor-feature-evidence/source/lampOS/Cargo.toml",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/motor-feature-evidence/source/lampOS/Cargo.toml",
+      "sha256": "dafaa1133d09ab0137847973359e8d1c01e7dc306aa54e299ec1a6f611e24c2b",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/motor-feature-evidence/source/lampOS/crates/body/src/runtime/supervisor.rs",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/motor-feature-evidence/source/lampOS/crates/body/src/runtime/supervisor.rs",
+      "sha256": "103009ea8a3baf449a760cf7f1dc43d0aa0b47d999b585c4084c65ff63ff2a3f",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/motor-feature-evidence/source/lampOS/crates/body/src/runtime/worker.rs",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/motor-feature-evidence/source/lampOS/crates/body/src/runtime/worker.rs",
+      "sha256": "d126a1b0020f202c22a0a7a9ec64f54dcb6a52d9f6d02e965d61871aa6ab4cca",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/motor-feature-evidence/source/lampOS/crates/gemini/Cargo.toml",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/motor-feature-evidence/source/lampOS/crates/gemini/Cargo.toml",
+      "sha256": "5b94eadddf2bdc8677d8e584a6cc3ffbdf38f79eba775a9dd141268b1c9a0816",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/motor-feature-evidence/source/lampOS/crates/voice/Cargo.toml",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/motor-feature-evidence/source/lampOS/crates/voice/Cargo.toml",
+      "sha256": "5da3e2d258a46b797bb25ec48ea538eba53f9b9d38dac1ff06abd8deb6597e72",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/motor-feature-evidence/source/lampOS/crates/voice/src/coordinator/motor/head.rs",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/motor-feature-evidence/source/lampOS/crates/voice/src/coordinator/motor/head.rs",
+      "sha256": "4de64a3ab9fe22f6329e990bf1cc990d065fa781f2f38ff69b603fe9b05870b0",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/motor-feature-evidence/source/lampOS/crates/voice/src/coordinator/motor/tests/native_head.rs",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/motor-feature-evidence/source/lampOS/crates/voice/src/coordinator/motor/tests/native_head.rs",
+      "sha256": "a6870c6a1c2f063f5b83ec4e17bf3ed3f7e4d1c6c0bff3ee1942d1108ada38cc",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/motor-feature-evidence/source/lampOS/crates/voice/src/coordinator/motor/tests.rs",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/motor-feature-evidence/source/lampOS/crates/voice/src/coordinator/motor/tests.rs",
+      "sha256": "33a8f47b0d69079697e5ef04bf1617f25dd4f81f3501d9524f1c024236f520ba",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/motor-feature-evidence/source/lampOS/crates/voice/src/coordinator/motor.rs",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/motor-feature-evidence/source/lampOS/crates/voice/src/coordinator/motor.rs",
+      "sha256": "29b82801801be234ae865f7593c957a79537acc3469805401b759c21cf6c748e",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/motor-feature-evidence/source/lampOS/crates/voice/src/head_qualification.rs",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/motor-feature-evidence/source/lampOS/crates/voice/src/head_qualification.rs",
+      "sha256": "22bcba83db468193d2b6c502108ebe24ac05a513da3097b865e1f184d5ebefb2",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/motor-feature-evidence/source/lampOS/crates/voice/src/process.rs",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/motor-feature-evidence/source/lampOS/crates/voice/src/process.rs",
+      "sha256": "f9f1173bd1d33ea9f5ebc9ed3ed6247b802dbf299d017dabef90f93eca074d54",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/motor-feature-evidence/source-feature-graph-proof.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/motor-feature-evidence/source-feature-graph-proof.json",
+      "sha256": "31db88e8e8e405e416ebcf40657885ab0cd24b42dd62602a254d428ddc1bdcfe",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/runner-exception.log",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/runner-exception.log",
+      "sha256": "aa8fdcd3b479d81a3f10836e6620c83d07b6162e7c9ce33978aa25cb73d29787",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/runner-preparation-note.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/runner-preparation-note.json",
+      "sha256": "384daa60a1dd155c7610a0fa486a62ba1d0e8790df2cfc0402eb8ee89b7a2995",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/source-after-exception.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/source-after-exception.json",
+      "sha256": "c029dbc56b734d36a29e5eed1cfdb559f631b41325b34a682bc031496f7ed25a",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/source-after-focused.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/source-after-focused.json",
+      "sha256": "bfee19fc615fd61ce290e8c6377b8375997fc44a0c7885748deda1dda0fc8611",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/source-before.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/source-before.json",
+      "sha256": "b635c7bb30c16d2e06746ea3bb9bae87a3daac7d57feb12d1b26ca59032b9916",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "corrected-gate/terminal.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/terminal.json",
+      "sha256": "51993dca548a13c007d1987b730b7f3f6d16f259ea9ca55487f59c2145648680",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "current-input-hashes.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/current-input-hashes.json",
+      "sha256": "5f6c006aa0cfaa2b4f44b2df6d09ec22c69f051f5b92091b13c1899b11cf6eb7",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "current-inverse-check/lampOS/crates/gemini/src/recovery.rs",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/current-inverse-check/lampOS/crates/gemini/src/recovery.rs",
+      "sha256": "d2cdb2e9e7ec4ddc5174b7fe63f1492c77d106650b15240da4415da2d9ffa90b",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "current-inverse-check/lampOS/crates/gemini/src/session.rs",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/current-inverse-check/lampOS/crates/gemini/src/session.rs",
+      "sha256": "a0c83add38edb58957a603d31b3894eb35771dabebdebc9c96479b63726bc997",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "current-inverse-check/lampOS/crates/gemini/src/testing.rs",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/current-inverse-check/lampOS/crates/gemini/src/testing.rs",
+      "sha256": "ac34ac1c456b9e87557bec5aa9c6c4f1a5bc86fcbd09d9518bc13c98859081d3",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "current-inverse-check/lampOS/docs/gemini-session-reliability.md",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/current-inverse-check/lampOS/docs/gemini-session-reliability.md",
+      "sha256": "753906cd40b84c767b04769e136b065b0ac17a6c8e970f3181f116ffcd50275e",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "current-inverse-check.log",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/current-inverse-check.log",
+      "sha256": "b40251c7db2e54a69310a6276571d49fd03bb585cc53bee162ce04b3a1bc3d79",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "current-source/lampOS/crates/gemini/src/recovery.rs",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/current-source/lampOS/crates/gemini/src/recovery.rs",
+      "sha256": "37ed679cd097da44791a356d7260343ebbe437fb8863b3e22174a1b5da92e98a",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "current-source/lampOS/crates/gemini/src/session.rs",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/current-source/lampOS/crates/gemini/src/session.rs",
+      "sha256": "edca2df22c9101fc3e7148c227e82ffde6685772b57baaabb7880e49208ebe2b",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "current-source/lampOS/crates/gemini/src/testing/task_joins/tests.rs",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/current-source/lampOS/crates/gemini/src/testing/task_joins/tests.rs",
+      "sha256": "010fce88be96d93269f2779d1e40764d347283480a39dcf1c5715661c4a285a4",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "current-source/lampOS/crates/gemini/src/testing/task_joins.rs",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/current-source/lampOS/crates/gemini/src/testing/task_joins.rs",
+      "sha256": "21cb7a49c8f1f012b5cf38ee089da42f8a6f2d26a4f3284d2e3926a8125f3934",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "current-source/lampOS/crates/gemini/src/testing.rs",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/current-source/lampOS/crates/gemini/src/testing.rs",
+      "sha256": "cad490f02196ead1aab9f0402064df84cfe61992fef3abb7a1648cf39e7013ff",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "current-source/lampOS/docs/gemini-session-reliability.md",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/current-source/lampOS/docs/gemini-session-reliability.md",
+      "sha256": "72445c8a193c41ce1bb4b412c5c6c4b0e57246e1bc93b1f405de0fcd6957eba1",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "current-source-proof.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/current-source-proof.json",
+      "sha256": "968c55d5d59f4b4f157b538fb7d10e289afd1d8a0110c056c8f7369353121fdc",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "current-source.diff",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/current-source.diff",
+      "sha256": "82c92c5d8e6f9fb5f0dd297106a8c31ba2fbace319883be895f5c9b32e25504d",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "current-source.inverse.diff",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/current-source.inverse.diff",
+      "sha256": "eafb9ef4c4a8722d321418e042829cc5fd3f9dc87fbc5b3c659762ea2af98da7",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "first-compile-failure/affected-graph.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/first-compile-failure/affected-graph.json",
+      "sha256": "14b93def11223a003d05c6c3ca2ae86740da25bb8b98f89693e1634e3856870b",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "first-compile-failure/artifact-manifest.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/first-compile-failure/artifact-manifest.json",
+      "sha256": "17402d5ff63248d056a1acf40b9d6bb96bca7c0fc4059ca4f2cb205fa46a9901",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "first-compile-failure/clippy.command.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/first-compile-failure/clippy.command.json",
+      "sha256": "66759fe83bd264021c8d44bb35aa18c7393ae6501500235b1073cefde4c9c12f",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "first-compile-failure/clippy.log",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/first-compile-failure/clippy.log",
+      "sha256": "94dd432514ad8986f066d2d5ad16ed1f998da6662c03e0e89fb9b0c56ec7381c",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "first-compile-failure/failure-handoff.md",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/first-compile-failure/failure-handoff.md",
+      "sha256": "d0f7921891f0dd8dc1cbc667a44e0f6952bd436109feaf0aafe9e37661f0a158",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "first-compile-failure/fmt.command.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/first-compile-failure/fmt.command.json",
+      "sha256": "c49a184afa8ab9999d99a1e4203ab517e3bdea2a81cec4ba9bade1d6dfd1a721",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "first-compile-failure/fmt.log",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/first-compile-failure/fmt.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "first-compile-failure/gates.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/first-compile-failure/gates.json",
+      "sha256": "e061575436d68a8ef272d91d769b0a5372f38d8d205f6fc1dcc6705613d3da17",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "first-compile-failure/proposed-test-only-correction.diff",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/first-compile-failure/proposed-test-only-correction.diff",
+      "sha256": "787f274aeb3c9eb116130796dc04a1ef3b3e64571b49ac0a1ce9aa539dc62e53",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "first-compile-failure/proposed-test-only-correction.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/first-compile-failure/proposed-test-only-correction.json",
+      "sha256": "fd30199629c19d26581537043b0a11bc50ca2a8750a5c27873b37046410dd5cb",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "first-compile-failure/proposed-test-only-correction.rs",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/first-compile-failure/proposed-test-only-correction.rs",
+      "sha256": "010fce88be96d93269f2779d1e40764d347283480a39dcf1c5715661c4a285a4",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "first-compile-failure/source-after-stopped.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/first-compile-failure/source-after-stopped.json",
+      "sha256": "18e54b950c435a7790d7ce9d7677d1625b32d26139507d384ff86605a06de27d",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "first-compile-failure/source-before.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/first-compile-failure/source-before.json",
+      "sha256": "a67d106fd6867130d2df96d8a5912d36b43785b3fda47ab7b30500b14c067232",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "first-compile-failure/terminal.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/first-compile-failure/terminal.json",
+      "sha256": "63702adb66a88c44ca45f7d8f373ffdedce185c16188170bc4a535bda889ee7a",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "handoff.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/handoff.json",
+      "sha256": "b2ffc2e1b8a39753cc3e62e98c49385d6329e3aae08e745fa50a86a811c40335",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "handoff.md",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/handoff.md",
+      "sha256": "6a9a24f261557a2c87945d0bf09807f4ac6978dbb4d4c4c97f012a984856afb6",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "reviewed-correction/after-tests.rs",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/reviewed-correction/after-tests.rs",
+      "sha256": "010fce88be96d93269f2779d1e40764d347283480a39dcf1c5715661c4a285a4",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "reviewed-correction/before-tests.rs",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/reviewed-correction/before-tests.rs",
+      "sha256": "036169b9d46d524cc8ba8162a7ccf0e0c45eefdb291433df09f8262cfb156506",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "reviewed-correction/correction-proof.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/reviewed-correction/correction-proof.json",
+      "sha256": "009a2e33263dad9d6f1032d7f2a61b60d795c5320c110da30734c5041df47fa0",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "reviewed-correction/correction.diff",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/reviewed-correction/correction.diff",
+      "sha256": "787f274aeb3c9eb116130796dc04a1ef3b3e64571b49ac0a1ce9aa539dc62e53",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "reviewed-correction/rustfmt.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/reviewed-correction/rustfmt.json",
+      "sha256": "f16b4bf512bd4f1b55c270d4645f8c90bf8c8e4964be143a13fed2d33051747a",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "reviewed-correction/rustfmt.log",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/reviewed-correction/rustfmt.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "byte_exact": true
+    },
+    {
+      "origin": "external-publication",
+      "original_path": "manifest.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/manifest.json",
+      "sha256": "c9e3c8da37671d75ffbc14732b563843433adcc46ad64cd0a30beac41c01203b",
+      "byte_exact": true
+    },
+    {
+      "origin": "failure-triage",
+      "original_path": "SHA256SUMS",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/failure-triage/original-SHA256SUMS",
+      "sha256": "c7fcf9bc19e0010c819353a7c4f4e7d4003e06b8d15bedcca8ed986b456fd4df",
+      "byte_exact": true
+    },
+    {
+      "origin": "failure-triage",
+      "original_path": "file-manifest.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/failure-triage/original-file-manifest.json",
+      "sha256": "dabdabe28786c16c853e8d37440bbfb397dcd81ddab60361eaa5872a402c1615",
+      "byte_exact": true
+    },
+    {
+      "origin": "failure-triage",
+      "original_path": "gate/failure-excerpt.txt",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/failure-triage/gate/failure-excerpt.txt",
+      "sha256": "c7ea018b5c7ab6ce5f834dfc37b9027bbb5d1d81b1cdef385df451edba10dbe7",
+      "byte_exact": true
+    },
+    {
+      "origin": "failure-triage",
+      "original_path": "gate/focused-runtime-identities.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/failure-triage/gate/focused-runtime-identities.json",
+      "sha256": "c1a55a913d2ae172829e95ece743df7848533ccefc653001e259e777e2fa088d",
+      "byte_exact": true
+    },
+    {
+      "origin": "failure-triage",
+      "original_path": "gate/focused.log",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/failure-triage/gate/focused.log",
+      "sha256": "8b3fd5393e79d2a57676713dd8243dd4de3d14f24579c1bb827351de989fa710",
+      "byte_exact": true
+    },
+    {
+      "origin": "failure-triage",
+      "original_path": "gate/full-runtime-identities.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/failure-triage/gate/full-runtime-identities.json",
+      "sha256": "b9209c013ad841a2ca6739a5a754f0f74be2d7a3667fe88678e15b5950722f15",
+      "byte_exact": true
+    },
+    {
+      "origin": "failure-triage",
+      "original_path": "gate/full.command.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/failure-triage/gate/full.command.json",
+      "sha256": "f1f7bc11f4d9a52eaa69ebd4d438cedc4fabf03e15039eeeb3d561ae0c5aaca1",
+      "byte_exact": true
+    },
+    {
+      "origin": "failure-triage",
+      "original_path": "gate/full.log",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/full.log",
+      "sha256": "fc7455deb8f8a5dcc746922e9641e2893c336cb56eff078da6d3728c1045abd5",
+      "byte_exact": true,
+      "deduplicated": true
+    },
+    {
+      "origin": "failure-triage",
+      "original_path": "gate/terminal.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/failure-triage/gate/terminal.json",
+      "sha256": "51993dca548a13c007d1987b730b7f3f6d16f259ea9ca55487f59c2145648680",
+      "byte_exact": true
+    },
+    {
+      "origin": "failure-triage",
+      "original_path": "gate-proof.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/failure-triage/gate-proof.json",
+      "sha256": "821c5ce6feb2c747a86ddca064cff86289f19908af52d484fe8c13ffc34e421d",
+      "byte_exact": true
+    },
+    {
+      "origin": "failure-triage",
+      "original_path": "issue-capture.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/failure-triage/issue-capture.json",
+      "sha256": "5f31f5b202e3c8cf56f2607abadba188e0f8796e4b72e5849d11f3397ce0194b",
+      "byte_exact": true
+    },
+    {
+      "origin": "failure-triage",
+      "original_path": "issue-excerpts.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/failure-triage/issue-excerpts.json",
+      "sha256": "11726f4d220e9ad6891da111fedf3490bb24fc953ba22fcc3e09cfae4e5de3fd",
+      "byte_exact": true
+    },
+    {
+      "origin": "failure-triage",
+      "original_path": "issues/739.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/failure-triage/issues/739.json",
+      "sha256": "60246be67e639c49ebdf4234747c274ba04b7009fd56018ed9cb7d5773c4875e",
+      "byte_exact": true
+    },
+    {
+      "origin": "failure-triage",
+      "original_path": "issues/906.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/failure-triage/issues/906.json",
+      "sha256": "022ca8fb7442206ae97a12b13aa7f2fe081fe229a42328a13d3936593c57869e",
+      "byte_exact": true
+    },
+    {
+      "origin": "failure-triage",
+      "original_path": "issues/pr-834.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/failure-triage/issues/pr-834.json",
+      "sha256": "2bf37ee908256822f95370f82cd616709a318be78f5efe111270e2b1dfe84fbe",
+      "byte_exact": true
+    },
+    {
+      "origin": "failure-triage",
+      "original_path": "issues/pr-900.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/failure-triage/issues/pr-900.json",
+      "sha256": "040a81ff94b96b299a8d0321c9f4593bd8fa5cce02e501bd21c3e19e4b89ab1c",
+      "byte_exact": true
+    },
+    {
+      "origin": "failure-triage",
+      "original_path": "issues/search-exact-identity.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/failure-triage/issues/search-exact-identity.json",
+      "sha256": "0a678d834bddc3f63a8104fd49f75d48304005ccaf5d37de89bb5894e63b9a7f",
+      "byte_exact": true
+    },
+    {
+      "origin": "failure-triage",
+      "original_path": "issues/search-exact-symptom.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/failure-triage/issues/search-exact-symptom.json",
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+      "byte_exact": true
+    },
+    {
+      "origin": "failure-triage",
+      "original_path": "issues/search-identity-comments.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/failure-triage/issues/search-identity-comments.json",
+      "sha256": "0a678d834bddc3f63a8104fd49f75d48304005ccaf5d37de89bb5894e63b9a7f",
+      "byte_exact": true
+    },
+    {
+      "origin": "failure-triage",
+      "original_path": "issues/search-symptom-comments.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/failure-triage/issues/search-symptom-comments.json",
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+      "byte_exact": true
+    },
+    {
+      "origin": "failure-triage",
+      "original_path": "pr-search-capture.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/failure-triage/pr-search-capture.json",
+      "sha256": "20dbb76d2e1a21fadb45a8002b0944d8d964171487741128d084e02f9b16201a",
+      "byte_exact": true
+    },
+    {
+      "origin": "failure-triage",
+      "original_path": "report.md",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/failure-triage/report.md",
+      "sha256": "daaf2b810ac740a40f75e2b5aa166a87c22a708237fbafcf16ab55b88259973e",
+      "byte_exact": true
+    },
+    {
+      "origin": "failure-triage",
+      "original_path": "source/lampOS/Cargo.lock",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/failure-triage/source/lampOS/Cargo.lock",
+      "sha256": "40d62fead16a6f138c4d7dbe400a2e4a9855ceece96d19b1e642136431aed4c5",
+      "byte_exact": true
+    },
+    {
+      "origin": "failure-triage",
+      "original_path": "source/lampOS/crates/body/src/runtime/channel.rs",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/failure-triage/source/lampOS/crates/body/src/runtime/channel.rs",
+      "sha256": "471c6cad77547060ec69348ccf08cbb98878463d2038aa34999e4d4f5f3a48ee",
+      "byte_exact": true
+    },
+    {
+      "origin": "failure-triage",
+      "original_path": "source/lampOS/crates/body/src/runtime/supervisor.rs",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/failure-triage/source/lampOS/crates/body/src/runtime/supervisor.rs",
+      "sha256": "103009ea8a3baf449a760cf7f1dc43d0aa0b47d999b585c4084c65ff63ff2a3f",
+      "byte_exact": true
+    },
+    {
+      "origin": "failure-triage",
+      "original_path": "source/lampOS/crates/body/src/runtime/worker.rs",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/failure-triage/source/lampOS/crates/body/src/runtime/worker.rs",
+      "sha256": "d126a1b0020f202c22a0a7a9ec64f54dcb6a52d9f6d02e965d61871aa6ab4cca",
+      "byte_exact": true
+    },
+    {
+      "origin": "failure-triage",
+      "original_path": "source/lampOS/crates/body/src/runtime.rs",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/failure-triage/source/lampOS/crates/body/src/runtime.rs",
+      "sha256": "f70ac6cb58b472a85130c8b81eed4258f689afc644de9ffbab98e087f71a0c8b",
+      "byte_exact": true
+    },
+    {
+      "origin": "failure-triage",
+      "original_path": "source/lampOS/crates/voice/src/coordinator/motor/head.rs",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/failure-triage/source/lampOS/crates/voice/src/coordinator/motor/head.rs",
+      "sha256": "4de64a3ab9fe22f6329e990bf1cc990d065fa781f2f38ff69b603fe9b05870b0",
+      "byte_exact": true
+    },
+    {
+      "origin": "failure-triage",
+      "original_path": "source/lampOS/crates/voice/src/coordinator/motor/tests/native_head.rs",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/failure-triage/source/lampOS/crates/voice/src/coordinator/motor/tests/native_head.rs",
+      "sha256": "a6870c6a1c2f063f5b83ec4e17bf3ed3f7e4d1c6c0bff3ee1942d1108ada38cc",
+      "byte_exact": true
+    },
+    {
+      "origin": "failure-triage",
+      "original_path": "source/lampOS/crates/voice/src/coordinator/motor/tests.rs",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/failure-triage/source/lampOS/crates/voice/src/coordinator/motor/tests.rs",
+      "sha256": "33a8f47b0d69079697e5ef04bf1617f25dd4f81f3501d9524f1c024236f520ba",
+      "byte_exact": true
+    },
+    {
+      "origin": "failure-triage",
+      "original_path": "source/lampOS/crates/voice/src/coordinator/motor.rs",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/failure-triage/source/lampOS/crates/voice/src/coordinator/motor.rs",
+      "sha256": "29b82801801be234ae865f7593c957a79537acc3469805401b759c21cf6c748e",
+      "byte_exact": true
+    },
+    {
+      "origin": "failure-triage",
+      "original_path": "source/lampOS/crates/voice/src/head_qualification.rs",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/failure-triage/source/lampOS/crates/voice/src/head_qualification.rs",
+      "sha256": "22bcba83db468193d2b6c502108ebe24ac05a513da3097b865e1f184d5ebefb2",
+      "byte_exact": true
+    },
+    {
+      "origin": "failure-triage",
+      "original_path": "source/lampOS/crates/voice/src/process.rs",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/failure-triage/source/lampOS/crates/voice/src/process.rs",
+      "sha256": "f9f1173bd1d33ea9f5ebc9ed3ed6247b802dbf299d017dabef90f93eca074d54",
+      "byte_exact": true
+    },
+    {
+      "origin": "failure-triage",
+      "original_path": "source/lampOS/docs/joining.md",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/failure-triage/source/lampOS/docs/joining.md",
+      "sha256": "a031c6ad1dd0c729623ce35736fa4373cdbcb5ffa2412947660714c0729ba706",
+      "byte_exact": true
+    },
+    {
+      "origin": "failure-triage",
+      "original_path": "source-proof.json",
+      "repository_path": "lampOS/docs/verification/gemini-task-joins-20261016/failure-triage/source-proof.json",
+      "sha256": "f35c062dec3c83856087b390acea5a5ae82f6d2c806572f4e13844c36c07f87a",
+      "byte_exact": true
+    },
+    {
+      "origin": "frozen-owned-source",
+      "original_path": "lampOS/crates/gemini/src/session.rs",
+      "repository_path": "lampOS/crates/gemini/src/session.rs",
+      "sha256": "edca2df22c9101fc3e7148c227e82ffde6685772b57baaabb7880e49208ebe2b",
+      "byte_exact": true
+    },
+    {
+      "origin": "frozen-owned-source",
+      "original_path": "lampOS/crates/gemini/src/recovery.rs",
+      "repository_path": "lampOS/crates/gemini/src/recovery.rs",
+      "sha256": "37ed679cd097da44791a356d7260343ebbe437fb8863b3e22174a1b5da92e98a",
+      "byte_exact": true
+    },
+    {
+      "origin": "frozen-owned-source",
+      "original_path": "lampOS/crates/gemini/src/testing.rs",
+      "repository_path": "lampOS/crates/gemini/src/testing.rs",
+      "sha256": "cad490f02196ead1aab9f0402064df84cfe61992fef3abb7a1648cf39e7013ff",
+      "byte_exact": true
+    },
+    {
+      "origin": "frozen-owned-source",
+      "original_path": "lampOS/crates/gemini/src/testing/task_joins.rs",
+      "repository_path": "lampOS/crates/gemini/src/testing/task_joins.rs",
+      "sha256": "21cb7a49c8f1f012b5cf38ee089da42f8a6f2d26a4f3284d2e3926a8125f3934",
+      "byte_exact": true
+    },
+    {
+      "origin": "frozen-owned-source",
+      "original_path": "lampOS/crates/gemini/src/testing/task_joins/tests.rs",
+      "repository_path": "lampOS/crates/gemini/src/testing/task_joins/tests.rs",
+      "sha256": "010fce88be96d93269f2779d1e40764d347283480a39dcf1c5715661c4a285a4",
+      "byte_exact": true
+    },
+    {
+      "origin": "frozen-owned-source",
+      "original_path": "lampOS/docs/gemini-session-reliability.md",
+      "repository_path": "lampOS/docs/gemini-session-reliability.md",
+      "sha256": "72445c8a193c41ce1bb4b412c5c6c4b0e57246e1bc93b1f405de0fcd6957eba1",
+      "byte_exact": true
+    }
+  ]
+}

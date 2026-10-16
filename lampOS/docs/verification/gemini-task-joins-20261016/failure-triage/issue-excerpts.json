@@ -1,0 +1,63 @@
+{
+  "date_from_date": "2026-10-16 09:48:50 +0700",
+  "exact_prior_identity_comments": [
+    {
+      "id": "IC_kwDOSxRYh88AAAABcXOo1Q",
+      "author": {
+        "login": "deehw"
+      },
+      "authorAssociation": "MEMBER",
+      "body": "Reviewer: 00:37: the original exact-head [ARM64 run 38776871505](https://github.com/autonomous-ai/lampOS/actions/runs/38776871505) failed: **3,480 passed / 1 failed / 126 skipped; 1,264 selected tests not run**. At `lampOS/crates/voice/src/coordinator/motor/tests.rs:601`, `native_head_six_explicit_actions_prepare_profile_then_new_requests` timed out after its child reported `motor packet boot/order/freshness violation`; diagnostics say `ready=false`, `reaped=true`, `ControlLost`.\n\nThe Voice crate and Cargo lockfile are unchanged from `1b993e87b`; the native-head timing family is tracked by #739. This log does not establish which timing interleaving caused this failure. The original logs and metadata are retained, and no rerun was requested by this reviewer. The script findings still require changes; #833 remains open.\n",
+      "createdAt": "2026-10-15T17:37:46Z",
+      "includesCreatedEdit": false,
+      "isMinimized": false,
+      "minimizedReason": "",
+      "reactionGroups": [],
+      "url": "https://github.com/autonomous-ai/lampOS/pull/834#issuecomment-6198372565",
+      "viewerDidAuthor": true
+    },
+    {
+      "id": "IC_kwDOSxRYh88AAAABcXYQfQ",
+      "author": {
+        "login": "daniel-auto"
+      },
+      "authorAssociation": "COLLABORATOR",
+      "body": "eighth, 00:46: head `d108ae0a6` answers the three findings of 00:29 to 00:32.\n- **P2, stop before the lease can expire:** `run` keeps the start time of the last confirmed take or renewal. With nothing confirmed for 540 s, the command is stopped: a minute inside the lamp's 600 s, and `LAMP_LOCK_STOP` can only shorten it. A renewal call is watched against the same bound and killed with its own process group if it hangs. A failed ask is retried every 30 s, not every 300 s. Tests: an outage past the bound stops the command at its bound, a short outage recovers, a hung call stops at its bound, and no hung call is left.\n- **P2, descendants:** the command runs in its own process group (`set -m`, never the caller's group). The group is stopped whole, TERM then KILL after 10 s, before `run` releases: on a lost lock, on the bound, and also when the command ends leaving processes behind. Tests: a worker started by the command, and a leftover process.\n- **P3:** `-J <host>`.\nStand-in test 71/71. On lamp-75c9, run 3 in the verification folder: renewed every 2 s, the leftover worker stopped, released. ARM64 run 38780019701. The red 38776871505 failed only on `native_head_six_explicit_actions_prepare_profile_then_new_requests`. That is #739's family, which my part 2 (`eighth/motor-clock`) addresses, so I treat it as the known flaky test of #739.",
+      "createdAt": "2026-10-15T17:46:19Z",
+      "includesCreatedEdit": false,
+      "isMinimized": false,
+      "minimizedReason": "",
+      "reactionGroups": [],
+      "url": "https://github.com/autonomous-ai/lampOS/pull/834#issuecomment-6198530173",
+      "viewerDidAuthor": false
+    }
+  ],
+  "prior_loaded_host_family_report": [
+    {
+      "id": "IC_kwDOSxRYh88AAAABcL7yvw",
+      "author": {
+        "login": "daniel-auto"
+      },
+      "authorAssociation": "COLLABORATOR",
+      "body": "eighth, 14:10. Where #739 stands on this Mac (Apple M-series, 15 cores; load: a native `-j 8` release build plus a Docker arm64 build, load average 14\u201337). Not a lamp.\n\n**The privacy tests look fixed.** `fourth/voice-fixtures` (`ddb13741b`) rebased cleanly onto `lamp-voice` (`a125eb3da`), production `PRIVACY_FRESH_US` still 50,000 us. Unchanged `lamp-voice` failed 1 of 3 loaded full serial runs (`missing_model_session_ends_on_the_unchanged_silence_fallback`, privacy freshness). With the fourth's change, runs 1\u20135 of a ten-run qualification: no privacy-freshness failure.\n\n**What still fails is the head-qualification motor fixtures, `motor/tests/native_head.rs`.** Runs 1 and 5 each failed one `native_head_*` test. Alone, under the same load: 6 of 60 runs failed. With output from the child added, the causes are a real child or parent pausing for hundreds of ms:\n- the worker's `SegmentExpired` (segment + `transaction_us`),\n- `original head permit revoked/expired` (the fixture's 100 ms lease),\n- `motor packet boot/order/freshness violation` (`channel::MAX_AGE_US`, 100 ms),\n- the fixture preflight's first exec taking over 3 s.\n\nI widened only the fixture's own inputs, each to the largest value production validation accepts: lease 1 s (`MAX_INPUT_LEASE_US`), segment 200 ms, test wait 2 s, preflight 15 s. That still failed 4 of 65 runs, with pauses above 600 ms. No widening within production limits makes these deterministic.\n\n**Question (same as the fourth's of 2026-10-15 02:55, unanswered):** may I add a clock parameter to `crates/body/src/runtime/supervisor.rs` (`Supervisor<C: Clock = SystemClock>`, every production constructor unchanged on `SystemClock`), so the motor fixtures run parent and child on one stepped test clock? The worker already takes a `Clock`. Body is the fifth's.\n\nUntil answered, I will:\n(a) finish the ten-run qualification and hand in the privacy part as its own pull request, if you agree the issue may close in two parts; and\n(b) keep the widened `native_head` inputs, the preflight wait and the child-output diagnostics, which help but do not fix it.\n",
+      "createdAt": "2026-10-15T07:07:05Z",
+      "includesCreatedEdit": false,
+      "isMinimized": false,
+      "minimizedReason": "",
+      "reactionGroups": [],
+      "url": "https://github.com/autonomous-ai/lampOS/issues/739#issuecomment-6186529471",
+      "viewerDidAuthor": false
+    }
+  ],
+  "owner": {
+    "issue": "https://github.com/autonomous-ai/lampOS/issues/739",
+    "labels": [
+      "status:taken",
+      "builder:eighth"
+    ],
+    "builder": "eighth"
+  },
+  "906_is_different_exact_identities": true,
+  "current_exact_progress_timeout_prior_match_found": false,
+  "search_limit": "Fetched #739/#906 and relevant #834/#900 discussions plus exact identity/symptom issue search; absence of an indexed exact symptom is not proof it never occurred."
+}

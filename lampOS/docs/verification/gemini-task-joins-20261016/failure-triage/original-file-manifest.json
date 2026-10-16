@@ -1,0 +1,171 @@
+{
+  "date_from_date": "2026-10-16 09:49:23 +0700",
+  "payload_count": 33,
+  "files": [
+    {
+      "path": "gate/failure-excerpt.txt",
+      "sha256": "c7ea018b5c7ab6ce5f834dfc37b9027bbb5d1d81b1cdef385df451edba10dbe7",
+      "bytes": 2493
+    },
+    {
+      "path": "gate/focused-runtime-identities.json",
+      "sha256": "c1a55a913d2ae172829e95ece743df7848533ccefc653001e259e777e2fa088d",
+      "bytes": 3611
+    },
+    {
+      "path": "gate/focused.log",
+      "sha256": "8b3fd5393e79d2a57676713dd8243dd4de3d14f24579c1bb827351de989fa710",
+      "bytes": 2927
+    },
+    {
+      "path": "gate/full-runtime-identities.json",
+      "sha256": "b9209c013ad841a2ca6739a5a754f0f74be2d7a3667fe88678e15b5950722f15",
+      "bytes": 466519
+    },
+    {
+      "path": "gate/full.command.json",
+      "sha256": "f1f7bc11f4d9a52eaa69ebd4d438cedc4fabf03e15039eeeb3d561ae0c5aaca1",
+      "bytes": 569
+    },
+    {
+      "path": "gate/full.log",
+      "sha256": "fc7455deb8f8a5dcc746922e9641e2893c336cb56eff078da6d3728c1045abd5",
+      "bytes": 373299
+    },
+    {
+      "path": "gate/terminal.json",
+      "sha256": "51993dca548a13c007d1987b730b7f3f6d16f259ea9ca55487f59c2145648680",
+      "bytes": 4852
+    },
+    {
+      "path": "gate-proof.json",
+      "sha256": "821c5ce6feb2c747a86ddca064cff86289f19908af52d484fe8c13ffc34e421d",
+      "bytes": 810
+    },
+    {
+      "path": "issue-capture.json",
+      "sha256": "5f31f5b202e3c8cf56f2607abadba188e0f8796e4b72e5849d11f3397ce0194b",
+      "bytes": 1376
+    },
+    {
+      "path": "issue-excerpts.json",
+      "sha256": "11726f4d220e9ad6891da111fedf3490bb24fc953ba22fcc3e09cfae4e5de3fd",
+      "bytes": 6276
+    },
+    {
+      "path": "issues/739.json",
+      "sha256": "60246be67e639c49ebdf4234747c274ba04b7009fd56018ed9cb7d5773c4875e",
+      "bytes": 51615
+    },
+    {
+      "path": "issues/906.json",
+      "sha256": "022ca8fb7442206ae97a12b13aa7f2fe081fe229a42328a13d3936593c57869e",
+      "bytes": 4718
+    },
+    {
+      "path": "issues/pr-834.json",
+      "sha256": "2bf37ee908256822f95370f82cd616709a318be78f5efe111270e2b1dfe84fbe",
+      "bytes": 33508
+    },
+    {
+      "path": "issues/pr-900.json",
+      "sha256": "040a81ff94b96b299a8d0321c9f4593bd8fa5cce02e501bd21c3e19e4b89ab1c",
+      "bytes": 3699
+    },
+    {
+      "path": "issues/search-exact-identity.json",
+      "sha256": "0a678d834bddc3f63a8104fd49f75d48304005ccaf5d37de89bb5894e63b9a7f",
+      "bytes": 210
+    },
+    {
+      "path": "issues/search-exact-symptom.json",
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+      "bytes": 3
+    },
+    {
+      "path": "issues/search-identity-comments.json",
+      "sha256": "0a678d834bddc3f63a8104fd49f75d48304005ccaf5d37de89bb5894e63b9a7f",
+      "bytes": 210
+    },
+    {
+      "path": "issues/search-symptom-comments.json",
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+      "bytes": 3
+    },
+    {
+      "path": "pr-search-capture.json",
+      "sha256": "20dbb76d2e1a21fadb45a8002b0944d8d964171487741128d084e02f9b16201a",
+      "bytes": 1404
+    },
+    {
+      "path": "report.md",
+      "sha256": "daaf2b810ac740a40f75e2b5aa166a87c22a708237fbafcf16ab55b88259973e",
+      "bytes": 6078
+    },
+    {
+      "path": "source/lampOS/Cargo.lock",
+      "sha256": "40d62fead16a6f138c4d7dbe400a2e4a9855ceece96d19b1e642136431aed4c5",
+      "bytes": 113084
+    },
+    {
+      "path": "source/lampOS/crates/body/src/runtime/channel.rs",
+      "sha256": "471c6cad77547060ec69348ccf08cbb98878463d2038aa34999e4d4f5f3a48ee",
+      "bytes": 6122
+    },
+    {
+      "path": "source/lampOS/crates/body/src/runtime/supervisor.rs",
+      "sha256": "103009ea8a3baf449a760cf7f1dc43d0aa0b47d999b585c4084c65ff63ff2a3f",
+      "bytes": 22565
+    },
+    {
+      "path": "source/lampOS/crates/body/src/runtime/worker.rs",
+      "sha256": "d126a1b0020f202c22a0a7a9ec64f54dcb6a52d9f6d02e965d61871aa6ab4cca",
+      "bytes": 23534
+    },
+    {
+      "path": "source/lampOS/crates/body/src/runtime.rs",
+      "sha256": "f70ac6cb58b472a85130c8b81eed4258f689afc644de9ffbab98e087f71a0c8b",
+      "bytes": 612
+    },
+    {
+      "path": "source/lampOS/crates/voice/src/coordinator/motor/head.rs",
+      "sha256": "4de64a3ab9fe22f6329e990bf1cc990d065fa781f2f38ff69b603fe9b05870b0",
+      "bytes": 8452
+    },
+    {
+      "path": "source/lampOS/crates/voice/src/coordinator/motor/tests/native_head.rs",
+      "sha256": "a6870c6a1c2f063f5b83ec4e17bf3ed3f7e4d1c6c0bff3ee1942d1108ada38cc",
+      "bytes": 15938
+    },
+    {
+      "path": "source/lampOS/crates/voice/src/coordinator/motor/tests.rs",
+      "sha256": "33a8f47b0d69079697e5ef04bf1617f25dd4f81f3501d9524f1c024236f520ba",
+      "bytes": 47489
+    },
+    {
+      "path": "source/lampOS/crates/voice/src/coordinator/motor.rs",
+      "sha256": "29b82801801be234ae865f7593c957a79537acc3469805401b759c21cf6c748e",
+      "bytes": 37408
+    },
+    {
+      "path": "source/lampOS/crates/voice/src/head_qualification.rs",
+      "sha256": "22bcba83db468193d2b6c502108ebe24ac05a513da3097b865e1f184d5ebefb2",
+      "bytes": 26471
+    },
+    {
+      "path": "source/lampOS/crates/voice/src/process.rs",
+      "sha256": "f9f1173bd1d33ea9f5ebc9ed3ed6247b802dbf299d017dabef90f93eca074d54",
+      "bytes": 31643
+    },
+    {
+      "path": "source/lampOS/docs/joining.md",
+      "sha256": "a031c6ad1dd0c729623ce35736fa4373cdbcb5ffa2412947660714c0729ba706",
+      "bytes": 22335
+    },
+    {
+      "path": "source-proof.json",
+      "sha256": "f35c062dec3c83856087b390acea5a5ae82f6d2c806572f4e13844c36c07f87a",
+      "bytes": 6943
+    }
+  ]
+}

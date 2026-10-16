@@ -1,0 +1,24 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.38s
+────────────
+ Nextest run ID d7cfadbc-6364-4089-8adc-18f4caaec03c with nextest profile: default
+    Starting 18 tests across 88 binaries (2708 tests skipped)
+        PASS [   0.160s] ( 1/18) lamp-gemini testing::task_joins::tests::abandoned_dialing_panic_retains_the_actual_join_error_for_the_fixture
+        PASS [   0.100s] ( 2/18) lamp-gemini testing::task_joins::tests::actual_actor_panic_is_joined_with_its_own_payload_after_connection_drop
+        PASS [   0.035s] ( 3/18) lamp-gemini testing::task_joins::tests::cancelled_finish_retains_actual_handles_until_the_same_collector_joins
+        PASS [   0.036s] ( 4/18) lamp-gemini testing::task_joins::tests::capacity_fault_keeps_real_ready_and_never_claims_complete_coverage
+        PASS [   0.088s] ( 5/18) lamp-gemini testing::task_joins::tests::dialing_panic_stays_a_join_error_at_the_original_recovery_consumer
+        PASS [   0.036s] ( 6/18) lamp-gemini testing::task_joins::tests::dropped_collector_does_not_change_the_real_setup_or_owner_shutdown
+        PASS [   0.037s] ( 7/18) lamp-gemini testing::task_joins::tests::independent_collectors_keep_task_identity_and_actual_cancellation_separate
+        PASS [   0.035s] ( 8/18) lamp-gemini testing::task_joins::tests::lifetime_limit_is_validated_without_spawning_and_slots_are_never_reused
+        PASS [   0.037s] ( 9/18) lamp-gemini testing::task_joins::tests::original_consumer_receives_actual_cancellation_with_the_same_task_identity
+        PASS [   0.098s] (10/18) lamp-gemini testing::task_joins::tests::original_handle_consumer_keeps_the_identical_panic_payload
+        PASS [   0.037s] (11/18) lamp-gemini testing::task_joins::tests::owner_release_cannot_hide_an_actor_admitted_before_its_dialing_task_joins
+        PASS [   0.036s] (12/18) lamp-gemini testing::task_joins::tests::pending_setup_drop_joins_the_actual_cancelled_dialing_task
+        PASS [   0.087s] (13/18) lamp-gemini testing::task_joins::tests::poisoned_observation_preserves_the_real_consumer_result_and_reports_incomplete
+        PASS [   0.035s] (14/18) lamp-gemini testing::task_joins::tests::protocol_failure_keeps_its_result_despite_a_successful_task_join
+        PASS [   0.037s] (15/18) lamp-gemini testing::task_joins::tests::ready_drop_keeps_consumed_dial_result_and_actually_joins_actor_abort
+        PASS [   0.040s] (16/18) lamp-gemini testing::task_joins::tests::reconnect_joins_both_sessions_and_preserves_the_earlier_buffered_answer
+        PASS [   0.039s] (17/18) lamp-gemini testing::task_joins::tests::remote_terminal_state_keeps_ordered_buffered_pcm_until_actual_actor_join
+        PASS [   0.037s] (18/18) lamp-gemini testing::task_joins::tests::unharvested_success_drops_connection_before_fixture_polls_retained_join
+────────────
+     Summary [   1.026s] 18 tests run: 18 passed, 2708 skipped

@@ -1,0 +1,12 @@
+{
+  "date_from_date": "2026-10-16 09:16:36 +0700",
+  "first_gate": "/private/tmp/tests-823-gemini-task-joins-1fb-gate",
+  "first_gate_fmt_exit": 0,
+  "first_gate_clippy_exit": 101,
+  "first_gate_error": "E0277: new poison test captured Arc<Shared> including AtomicWaker",
+  "test_executions_before_correction": 0,
+  "reviewed_correction_sha256": "787f274aeb3c9eb116130796dc04a1ef3b3e64571b49ac0a1ce9aa539dc62e53",
+  "corrected_testfile_sha256": "010fce88be96d93269f2779d1e40764d347283480a39dcf1c5715661c4a285a4",
+  "only_new_test_capture_changed": true,
+  "no_test_retry": true
+}

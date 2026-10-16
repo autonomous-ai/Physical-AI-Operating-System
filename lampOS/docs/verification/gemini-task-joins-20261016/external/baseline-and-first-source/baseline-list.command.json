@@ -1,0 +1,24 @@
+{
+  "name": "baseline-list",
+  "command": [
+    "/Users/autonomous/.cargo/bin/cargo",
+    "nextest",
+    "list",
+    "--locked",
+    "--offline",
+    "-p",
+    "lamp-gemini",
+    "-p",
+    "lamp-memory",
+    "-p",
+    "lamp-surround",
+    "-p",
+    "lamp-voice",
+    "-p",
+    "lamp-voice-eval",
+    "--message-format",
+    "json"
+  ],
+  "cwd": "/private/tmp/lampos-tests-gemini-task-joins/lampOS",
+  "started_from_date": "2026-10-16 08:49:52 +0700"
+}

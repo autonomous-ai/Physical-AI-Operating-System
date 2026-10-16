@@ -1,0 +1,1618 @@
+--- a/lampOS/crates/gemini/src/session.rs
++++ b/lampOS/crates/gemini/src/session.rs
+@@ -549,7 +549,10 @@
+     input: InputSender,
+     events: mpsc::Receiver<Event>,
+     state: watch::Receiver<State>,
++    #[cfg(not(any(test, feature = "fixture-clock")))]
+     task: JoinHandle<()>,
++    #[cfg(any(test, feature = "fixture-clock"))]
++    task: crate::testing::task_joins::UnitTask,
+     ready_at: Clock,
+ }
+ impl Connection {
+@@ -679,10 +682,30 @@
+ }
+ 
+ pub(crate) async fn setup_and_spawn_with_capture_clock<S>(
++    socket: WebSocketStream<S>,
++    config: SessionConfig,
++    session: SessionId,
++    capture_clock: CaptureClockSource,
++) -> Result<Connection>
++where
++    S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
++{
++    setup_and_spawn_with_sources(
++        socket,
++        config,
++        session,
++        capture_clock,
++        crate::testing::JoinSource::Plain,
++    )
++    .await
++}
++
++pub(crate) async fn setup_and_spawn_with_sources<S>(
+     mut socket: WebSocketStream<S>,
+     config: SessionConfig,
+     session: SessionId,
+     capture_clock: CaptureClockSource,
++    _joins: crate::testing::JoinSource,
+ ) -> Result<Connection>
+ where
+     S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+@@ -808,7 +831,11 @@
+     // The actor publishes its terminal state before it lets go of the event
+     // sender, so a receiver that sees the end of the stream never reads Ready
+     // and loses the sanitized failure, even on a multithreaded runtime.
+-    let task = tokio::spawn(actor.run());
++    #[cfg(any(test, feature = "fixture-clock"))]
++    let registration = _joins.reserve(crate::testing::task_joins::TaskKind::Actor, session);
++    let task: JoinHandle<()> = tokio::spawn(actor.run());
++    #[cfg(any(test, feature = "fixture-clock"))]
++    let task = crate::testing::task_joins::UnitTask::new(task, registration);
+     Ok(Connection {
+         input,
+         events,
+--- a/lampOS/crates/gemini/src/recovery.rs
++++ b/lampOS/crates/gemini/src/recovery.rs
+@@ -355,7 +355,10 @@
+     completed_at: Instant,
+ }
+ struct Dialing {
++    #[cfg(not(any(test, feature = "fixture-clock")))]
+     task: JoinHandle<AttemptResult>,
++    #[cfg(any(test, feature = "fixture-clock"))]
++    task: AttemptTask,
+     /// The attempt has ended in failure. A failure announces nothing, so it
+     /// can be acted on while an earlier update is still unread; a completed
+     /// setup cannot, and stays with its task until then.
+@@ -374,7 +377,44 @@
+                 completed_at,
+             }
+         });
++        #[cfg(any(test, feature = "fixture-clock"))]
++        let task = AttemptTask::Plain(task);
+         Self { task, failed }
++    }
++    fn start_with_source(
++        attempt: Attempt,
++        _session: SessionId,
++        _joins: &crate::testing::JoinSource,
++    ) -> Self {
++        #[cfg(any(test, feature = "fixture-clock"))]
++        if let Some(registration) =
++            _joins.reserve(crate::testing::task_joins::TaskKind::Dialing, _session)
++        {
++            let failed = Arc::new(AtomicBool::new(false));
++            let flag = failed.clone();
++            let (send, result) = tokio::sync::oneshot::channel();
++            // The original attempt still runs in exactly one task. Its result
++            // slot drops a returned Connection at the original owner's drop,
++            // even when a fixture retains the unit-output task for actual join.
++            let task = tokio::spawn(async move {
++                let result = attempt.await;
++                let completed_at = Instant::now();
++                flag.store(result.is_err(), Ordering::Release);
++                let result = AttemptResult {
++                    result,
++                    completed_at,
++                };
++                let _ = send.send(result);
++            });
++            return Self {
++                task: AttemptTask::Retained {
++                    task: crate::testing::task_joins::UnitTask::new(task, Some(registration)),
++                    result: Some(result),
++                },
++                failed,
++            };
++        }
++        Self::start(attempt)
+     }
+     fn failed(&self) -> bool {
+         self.failed.load(Ordering::Acquire)
+@@ -385,6 +425,63 @@
+         self.task.abort();
+     }
+ }
++/// A concrete fixture adapter, not a second task. The original consumer polls
++/// the real handle first and receives the exact original result or JoinError.
++#[cfg(any(test, feature = "fixture-clock"))]
++enum AttemptTask {
++    Plain(JoinHandle<AttemptResult>),
++    Retained {
++        task: crate::testing::task_joins::UnitTask,
++        result: Option<tokio::sync::oneshot::Receiver<AttemptResult>>,
++    },
++}
++#[cfg(any(test, feature = "fixture-clock"))]
++impl AttemptTask {
++    fn abort(&self) {
++        match self {
++            Self::Plain(task) => task.abort(),
++            Self::Retained { task, .. } => task.abort(),
++        }
++    }
++    #[cfg(test)]
++    fn is_finished(&self) -> bool {
++        match self {
++            Self::Plain(task) => task.is_finished(),
++            Self::Retained { task, .. } => task.is_finished(),
++        }
++    }
++}
++#[cfg(any(test, feature = "fixture-clock"))]
++impl Future for AttemptTask {
++    type Output = std::result::Result<AttemptResult, tokio::task::JoinError>;
++    fn poll(
++        mut self: Pin<&mut Self>,
++        cx: &mut std::task::Context<'_>,
++    ) -> std::task::Poll<Self::Output> {
++        match &mut *self {
++            Self::Plain(task) => Pin::new(task).poll(cx),
++            Self::Retained { task, result } => match std::task::ready!(Pin::new(task).poll(cx)) {
++                Err(error) => std::task::Poll::Ready(Err(error)),
++                Ok(()) => std::task::Poll::Ready(Ok(result
++                    .take()
++                    .expect("one attempt result receiver")
++                    .try_recv()
++                    .expect("successful actual task join publishes its attempt result"))),
++            },
++        }
++    }
++}
++#[cfg(any(test, feature = "fixture-clock"))]
++impl Drop for AttemptTask {
++    fn drop(&mut self) {
++        if let Self::Retained { result, .. } = self {
++            // Dialing::drop has already requested the original abort. Release
++            // any unharvested Connection before publishing its task handle.
++            drop(result.take());
++        }
++    }
++}
++
+ enum Link {
+     Connecting {
+         attempt: Dialing,
+@@ -575,16 +672,29 @@
+     revision: u64,
+     failure_observed_at: Option<Instant>,
+     terminal_announced: bool,
++    // Last: ordinary fields release their attempts/connections before the
++    // fixture admits that this owner can no longer start another attempt.
++    #[cfg(any(test, feature = "fixture-clock"))]
++    fixture_owner: Option<crate::testing::task_joins::OwnerLease>,
+ }
+ 
+ impl<C: Connect> Supervisor<C> {
+     /// Starts the first connection attempt on the current runtime. Its result
+     /// is reported by [`Self::next`].
+-    pub fn new(mut connector: C, policy: RecoveryPolicy) -> Result<Self> {
++    pub fn new(connector: C, policy: RecoveryPolicy) -> Result<Self> {
++        Self::new_with_join_source(connector, policy, crate::testing::JoinSource::Plain)
++    }
++
++    pub(crate) fn new_with_join_source(
++        mut connector: C,
++        policy: RecoveryPolicy,
++        _joins: crate::testing::JoinSource,
++    ) -> Result<Self> {
+         policy.validate()?;
+         let session = SessionId::new(1)?;
+         let started = Instant::now();
+-        let attempt = Dialing::start(connector.connect(session, None));
++        let attempt =
++            Dialing::start_with_source(connector.connect(session, None), session, &_joins);
+         Ok(Self {
+             connector,
+             policy,
+@@ -608,6 +718,8 @@
+             revision: 0,
+             failure_observed_at: None,
+             terminal_announced: false,
++            #[cfg(any(test, feature = "fixture-clock"))]
++            fixture_owner: _joins.owner(),
+         })
+     }
+ 
+@@ -1177,8 +1289,18 @@
+         self.sessions = next;
+         let handle = self.resume.as_ref().map(|point| point.handle().clone());
+         let started = Instant::now();
++        let joins = crate::testing::JoinSource::Plain;
++        #[cfg(any(test, feature = "fixture-clock"))]
++        let joins = self
++            .fixture_owner
++            .as_ref()
++            .map_or(joins, |owner| owner.source());
+         self.link = Link::Connecting {
+-            attempt: Dialing::start(self.connector.connect(session, handle)),
++            attempt: Dialing::start_with_source(
++                self.connector.connect(session, handle),
++                session,
++                &joins,
++            ),
+             session,
+             number,
+             started,
+--- a/lampOS/crates/gemini/src/testing.rs
++++ b/lampOS/crates/gemini/src/testing.rs
+@@ -3,7 +3,7 @@
+ //! request here, and nothing in this module is used by the runtime.
+ use crate::{
+     Attempt, Connect, Connection, Result, ResumptionHandle, SessionConfig, SessionId,
+-    session::{CaptureClockSource, setup_and_spawn_with_capture_clock, socket_config},
++    session::{CaptureClockSource, setup_and_spawn_with_sources, socket_config},
+ };
+ use base64::{Engine, engine::general_purpose::STANDARD};
+ use futures_util::{SinkExt, StreamExt};
+@@ -21,6 +21,23 @@
+ };
+ 
+ const RECEIVE_TIMEOUT: Duration = Duration::from_secs(2);
++
++#[cfg(any(test, feature = "fixture-clock"))]
++pub(crate) mod task_joins;
++#[cfg(any(test, feature = "fixture-clock"))]
++pub use task_joins::{
++    JoinFault, JoinOutcome, JoinReport, JoinedTask, MAX_JOINED_TASKS, TaskCompletion, TaskJoins,
++    TaskKind,
++};
++
++/// Production and existing fixtures keep the direct ownership path.
++#[derive(Clone, Default)]
++pub(crate) enum JoinSource {
++    #[default]
++    Plain,
++    #[cfg(any(test, feature = "fixture-clock"))]
++    Retained(task_joins::Registrar),
++}
+ 
+ /// Capture time supplied explicitly to an in-memory fixture connection.
+ ///
+@@ -190,13 +207,26 @@
+     impl Future<Output = Result<Connection>> + Send + 'static,
+     FakeService,
+ ) {
++    pair_with_sources(config, session, capacity, capture_clock, JoinSource::Plain).await
++}
++
++async fn pair_with_sources(
++    config: SessionConfig,
++    session: SessionId,
++    capacity: usize,
++    capture_clock: CaptureClockSource,
++    joins: JoinSource,
++) -> (
++    impl Future<Output = Result<Connection>> + Send + 'static,
++    FakeService,
++) {
+     let (client, server) = tokio::io::duplex(capacity);
+     let client =
+         WebSocketStream::from_raw_socket(client, Role::Client, Some(socket_config())).await;
+     let server =
+         WebSocketStream::from_raw_socket(server, Role::Server, Some(socket_config())).await;
+     (
+-        setup_and_spawn_with_capture_clock(client, config, session, capture_clock),
++        setup_and_spawn_with_sources(client, config, session, capture_clock, joins),
+         FakeService {
+             socket: server,
+             closed: false,
+@@ -219,6 +249,7 @@
+     dials: mpsc::UnboundedSender<Dial>,
+     capacity: usize,
+     capture_clock: CaptureClockSource,
++    joins: JoinSource,
+ }
+ pub fn connector(config: SessionConfig) -> (FakeConnector, mpsc::UnboundedReceiver<Dial>) {
+     connector_with_capacity(config, crate::MAX_WIRE_BYTES * 2)
+@@ -247,6 +278,15 @@
+     config: SessionConfig,
+     capacity: usize,
+     capture_clock: CaptureClockSource,
++) -> (FakeConnector, mpsc::UnboundedReceiver<Dial>) {
++    connector_with_sources(config, capacity, capture_clock, JoinSource::Plain)
++}
++
++fn connector_with_sources(
++    config: SessionConfig,
++    capacity: usize,
++    capture_clock: CaptureClockSource,
++    joins: JoinSource,
+ ) -> (FakeConnector, mpsc::UnboundedReceiver<Dial>) {
+     let (dials, observed) = mpsc::unbounded_channel();
+     (
+@@ -255,10 +295,42 @@
+             dials,
+             capacity,
+             capture_clock,
++            joins,
+         },
+         observed,
+     )
+ }
++/// In-memory supervisor with explicit capture time and actual task joins.
++///
++/// Install before the first attempt spawns. `max_tasks` bounds all Actor and
++/// Dialing registrations for this fixture's lifetime (1..=MAX_JOINED_TASKS).
++/// Drop the supervisor through its normal owner, then await `TaskJoins::finish`
++/// within the controller's immutable host deadline. Finish never drives the
++/// supervisor, drains output, requests shutdown or advances a clock.
++#[cfg(any(test, feature = "fixture-clock"))]
++pub fn supervisor_with_capture_clock_and_joins(
++    config: SessionConfig,
++    policy: crate::RecoveryPolicy,
++    capacity: usize,
++    clock: Arc<dyn CaptureClock>,
++    max_tasks: std::num::NonZeroUsize,
++) -> Result<(
++    crate::Supervisor<FakeConnector>,
++    mpsc::UnboundedReceiver<Dial>,
++    TaskJoins,
++)> {
++    let (registrar, tasks) = TaskJoins::new(max_tasks)?;
++    let joins = JoinSource::Retained(registrar);
++    let (connector, dials) = connector_with_sources(
++        config,
++        capacity,
++        CaptureClockSource::Fixture(clock),
++        joins.clone(),
++    );
++    let supervisor = crate::Supervisor::new_with_join_source(connector, policy, joins)?;
++    Ok((supervisor, dials, tasks))
++}
++
+ impl Connect for FakeConnector {
+     fn connect(&mut self, session: SessionId, resume: Option<ResumptionHandle>) -> Attempt {
+         let resumed = resume.is_some();
+@@ -266,9 +338,10 @@
+         let dials = self.dials.clone();
+         let capacity = self.capacity;
+         let capture_clock = self.capture_clock.clone();
++        let joins = self.joins.clone();
+         Box::pin(async move {
+             let (attempt, service) =
+-                pair_with_clock_source(config, session, capacity, capture_clock).await;
++                pair_with_sources(config, session, capacity, capture_clock, joins).await;
+             let _ = dials.send(Dial {
+                 session,
+                 resumed,
+--- /dev/null
++++ b/lampOS/crates/gemini/src/testing/task_joins.rs
+@@ -0,0 +1,474 @@
++//! Fixture ownership of actual Gemini task joins. No task is spawned here.
++use crate::{Error, Result, SessionId};
++use futures_util::task::AtomicWaker;
++use std::{
++    future::{Future, poll_fn},
++    num::NonZeroUsize,
++    pin::Pin,
++    sync::{
++        Arc, Mutex, MutexGuard,
++        atomic::{AtomicU8, Ordering},
++    },
++    task::{Context, Poll},
++};
++use tokio::task::{Id, JoinError, JoinHandle};
++
++/// Maximum lifetime task registrations in one fixture, without slot reuse.
++pub const MAX_JOINED_TASKS: usize = 64;
++
++#[derive(Clone, Copy, Debug, Eq, PartialEq)]
++pub enum TaskKind {
++    Actor,
++    Dialing,
++}
++
++/// Classification copied only from an actual JoinHandle's Ready result.
++#[derive(Clone, Copy, Debug, Eq, PartialEq)]
++pub enum JoinOutcome {
++    Returned,
++    Cancelled,
++    Panicked,
++    OtherError,
++}
++
++/// The original consumer keeps its exact value/error. Only an abandoned handle
++/// can give the fixture its owning JoinError and panic payload.
++#[derive(Debug)]
++pub enum TaskCompletion {
++    Consumer(JoinOutcome),
++    Fixture(std::result::Result<(), JoinError>),
++}
++
++#[derive(Debug)]
++pub struct JoinedTask {
++    pub kind: TaskKind,
++    pub session: SessionId,
++    pub task: Id,
++    pub abort_requested: bool,
++    pub completion: TaskCompletion,
++}
++
++#[derive(Clone, Copy, Debug, Eq, PartialEq)]
++#[repr(u8)]
++pub enum JoinFault {
++    Capacity = 1,
++    Closed = 2,
++    InvalidState = 3,
++    Poisoned = 4,
++    AlreadyFinished = 5,
++}
++
++#[derive(Debug)]
++pub struct JoinReport {
++    pub tasks: Vec<JoinedTask>,
++    pub fault: Option<JoinFault>,
++}
++impl JoinReport {
++    /// All registered tasks were actually joined and no registration was lost.
++    /// This says nothing about protocol success, event consumption or children.
++    pub fn complete(&self) -> bool {
++        self.fault.is_none()
++    }
++}
++
++enum SlotState {
++    Reserved,
++    Owned,
++    Released(JoinHandle<()>),
++    Joining,
++    Consumer(JoinOutcome),
++    Fixture,
++    Missing,
++}
++struct Slot {
++    kind: TaskKind,
++    session: SessionId,
++    task: Option<Id>,
++    abort_requested: bool,
++    state: SlotState,
++}
++struct State {
++    slots: Vec<Slot>,
++    owner_created: bool,
++    owner_released: bool,
++    closed: bool,
++}
++struct Shared {
++    limit: usize,
++    state: Mutex<State>,
++    fault: AtomicU8,
++    wake: AtomicWaker,
++}
++impl Shared {
++    fn fault(&self, fault: JoinFault) {
++        let _ = self
++            .fault
++            .compare_exchange(0, fault as u8, Ordering::AcqRel, Ordering::Acquire);
++    }
++    fn recorded_fault(&self) -> Option<JoinFault> {
++        match self.fault.load(Ordering::Acquire) {
++            0 => None,
++            1 => Some(JoinFault::Capacity),
++            2 => Some(JoinFault::Closed),
++            3 => Some(JoinFault::InvalidState),
++            4 => Some(JoinFault::Poisoned),
++            _ => Some(JoinFault::InvalidState),
++        }
++    }
++    fn state(&self) -> MutexGuard<'_, State> {
++        self.state.lock().unwrap_or_else(|error| {
++            self.fault(JoinFault::Poisoned);
++            error.into_inner()
++        })
++    }
++}
++
++#[derive(Clone)]
++pub(crate) struct Registrar(Arc<Shared>);
++pub(crate) struct OwnerLease(Arc<Shared>);
++impl OwnerLease {
++    pub(crate) fn source(&self) -> super::JoinSource {
++        super::JoinSource::Retained(Registrar(self.0.clone()))
++    }
++}
++impl Drop for OwnerLease {
++    fn drop(&mut self) {
++        self.0.state().owner_released = true;
++        self.0.wake.wake();
++    }
++}
++impl Registrar {
++    pub(crate) fn owner(&self) -> OwnerLease {
++        let mut state = self.0.state();
++        if state.owner_created {
++            self.0.fault(JoinFault::InvalidState);
++        }
++        state.owner_created = true;
++        OwnerLease(self.0.clone())
++    }
++    pub(crate) fn reserve(&self, kind: TaskKind, session: SessionId) -> Option<Registration> {
++        let mut state = self.0.state();
++        if state.closed || (state.owner_released && kind == TaskKind::Dialing) {
++            self.0.fault(JoinFault::Closed);
++            return None;
++        }
++        if state.slots.len() == self.0.limit {
++            self.0.fault(JoinFault::Capacity);
++            return None;
++        }
++        let index = state.slots.len();
++        state.slots.push(Slot {
++            kind,
++            session,
++            task: None,
++            abort_requested: false,
++            state: SlotState::Reserved,
++        });
++        Some(Registration {
++            shared: self.0.clone(),
++            index,
++        })
++    }
++}
++impl super::JoinSource {
++    pub(crate) fn reserve(&self, kind: TaskKind, session: SessionId) -> Option<Registration> {
++        match self {
++            Self::Plain => None,
++            Self::Retained(registrar) => registrar.reserve(kind, session),
++        }
++    }
++    pub(crate) fn owner(&self) -> Option<OwnerLease> {
++        match self {
++            Self::Plain => None,
++            Self::Retained(registrar) => Some(registrar.owner()),
++        }
++    }
++}
++
++pub(crate) struct Registration {
++    shared: Arc<Shared>,
++    index: usize,
++}
++impl Registration {
++    fn bind(&self, id: Id) {
++        let mut state = self.shared.state();
++        let slot = &mut state.slots[self.index];
++        if !matches!(slot.state, SlotState::Reserved) || slot.task.is_some() {
++            self.shared.fault(JoinFault::InvalidState);
++            return;
++        }
++        slot.task = Some(id);
++        slot.state = SlotState::Owned;
++    }
++    fn abort_requested(&self) {
++        self.shared.state().slots[self.index].abort_requested = true;
++    }
++    fn consumed(&self, result: &std::result::Result<(), JoinError>) {
++        let outcome = match result {
++            Ok(()) => JoinOutcome::Returned,
++            Err(error) if error.is_panic() => JoinOutcome::Panicked,
++            Err(error) if error.is_cancelled() => JoinOutcome::Cancelled,
++            Err(_) => JoinOutcome::OtherError,
++        };
++        let mut state = self.shared.state();
++        let slot = &mut state.slots[self.index];
++        if matches!(slot.state, SlotState::Owned) {
++            slot.state = SlotState::Consumer(outcome);
++        } else {
++            self.shared.fault(JoinFault::InvalidState);
++        }
++        drop(state);
++        self.shared.wake.wake();
++    }
++    fn release(&self, task: JoinHandle<()>) {
++        let mut task = Some(task);
++        let mut state = self.shared.state();
++        if state.closed {
++            self.shared.fault(JoinFault::Closed);
++        } else {
++            let slot = &mut state.slots[self.index];
++            if matches!(slot.state, SlotState::Owned) {
++                slot.state = SlotState::Released(task.take().expect("one handle"));
++            } else {
++                self.shared.fault(JoinFault::InvalidState);
++            }
++        }
++        drop(state);
++        // A rejected transfer drops only after releasing the registry lock.
++        drop(task);
++        self.shared.wake.wake();
++    }
++}
++impl Drop for Registration {
++    fn drop(&mut self) {
++        let mut state = self.shared.state();
++        let slot = &mut state.slots[self.index];
++        if matches!(slot.state, SlotState::Reserved) {
++            slot.state = SlotState::Missing;
++            self.shared.fault(JoinFault::InvalidState);
++        }
++        drop(state);
++        self.shared.wake.wake();
++    }
++}
++
++/// Keeps exactly one actual handle with its original owner until that owner
++/// either harvests it or releases it. It never adds an abort or another task.
++pub(crate) struct UnitTask {
++    task: Option<JoinHandle<()>>,
++    registration: Option<Registration>,
++    joined: bool,
++}
++impl UnitTask {
++    pub(crate) fn new(task: JoinHandle<()>, registration: Option<Registration>) -> Self {
++        if let Some(registration) = &registration {
++            registration.bind(task.id());
++        }
++        Self {
++            task: Some(task),
++            registration,
++            joined: false,
++        }
++    }
++    pub(crate) fn abort(&self) {
++        self.task.as_ref().expect("owned task").abort();
++        if let Some(registration) = &self.registration {
++            registration.abort_requested();
++        }
++    }
++    #[cfg(test)]
++    pub(crate) fn is_finished(&self) -> bool {
++        self.task.as_ref().expect("owned task").is_finished()
++    }
++}
++impl Future for UnitTask {
++    type Output = std::result::Result<(), JoinError>;
++    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
++        let result = Pin::new(self.task.as_mut().expect("owned task")).poll(cx);
++        if let Poll::Ready(result) = &result {
++            self.joined = true;
++            if let Some(registration) = &self.registration {
++                registration.consumed(result);
++            }
++        }
++        result
++    }
++}
++impl Drop for UnitTask {
++    fn drop(&mut self) {
++        if !self.joined
++            && let Some(registration) = &self.registration
++        {
++            registration.release(self.task.take().expect("owned task"));
++        }
++    }
++}
++
++/// Sole fixture collector. Cancelling `finish` leaves every handle owned here.
++/// Finish observes original shutdown; it neither requests it nor consumes PCM.
++pub struct TaskJoins {
++    shared: Arc<Shared>,
++    pending: Vec<Option<JoinHandle<()>>>,
++    completed: Vec<Option<std::result::Result<(), JoinError>>>,
++    finished: bool,
++}
++impl TaskJoins {
++    pub(crate) fn new(limit: NonZeroUsize) -> Result<(Registrar, Self)> {
++        let limit = limit.get();
++        if limit > MAX_JOINED_TASKS {
++            return Err(Error::InvalidConfiguration);
++        }
++        let shared = Arc::new(Shared {
++            limit,
++            state: Mutex::new(State {
++                slots: Vec::with_capacity(limit),
++                owner_created: false,
++                owner_released: false,
++                closed: false,
++            }),
++            fault: AtomicU8::new(0),
++            wake: AtomicWaker::new(),
++        });
++        Ok((
++            Registrar(shared.clone()),
++            Self {
++                shared,
++                pending: (0..limit).map(|_| None).collect(),
++                completed: (0..limit).map(|_| None).collect(),
++                finished: false,
++            },
++        ))
++    }
++    /// Wait for owner release and real joins. The caller supplies one immutable
++    /// host deadline outside this future; no clock is read or advanced here.
++    pub async fn finish(&mut self) -> std::result::Result<JoinReport, JoinFault> {
++        if self.finished {
++            return Err(JoinFault::AlreadyFinished);
++        }
++        Ok(poll_fn(|cx| self.poll_finish(cx)).await)
++    }
++    fn poll_finish(&mut self, cx: &mut Context<'_>) -> Poll<JoinReport> {
++        self.shared.wake.register(cx.waker());
++        {
++            let mut state = self.shared.state();
++            for (index, slot) in state.slots.iter_mut().enumerate() {
++                if matches!(slot.state, SlotState::Released(_)) {
++                    let SlotState::Released(task) =
++                        std::mem::replace(&mut slot.state, SlotState::Joining)
++                    else {
++                        unreachable!()
++                    };
++                    self.pending[index] = Some(task);
++                }
++            }
++        }
++        for index in 0..self.pending.len() {
++            let Some(task) = self.pending[index].as_mut() else {
++                continue;
++            };
++            if let Poll::Ready(result) = Pin::new(task).poll(cx) {
++                self.pending[index] = None;
++                self.completed[index] = Some(result);
++                let mut state = self.shared.state();
++                if matches!(state.slots[index].state, SlotState::Joining) {
++                    state.slots[index].state = SlotState::Fixture;
++                } else {
++                    self.shared.fault(JoinFault::InvalidState);
++                }
++            }
++        }
++        let mut state = self.shared.state();
++        // Actor admission happens inside a Dialing task before its real join.
++        // All slots must be joined, not merely the currently released handles.
++        if !state.owner_created
++            || !state.owner_released
++            || !state.slots.iter().all(|slot| {
++                matches!(
++                    slot.state,
++                    SlotState::Consumer(_) | SlotState::Fixture | SlotState::Missing
++                )
++            })
++        {
++            return Poll::Pending;
++        }
++        state.closed = true;
++        // Keep immutable slot identities until the registry itself is dropped:
++        // an original owner may still drop its already-consumed registration.
++        let terminal: Vec<_> = state
++            .slots
++            .iter()
++            .enumerate()
++            .filter_map(|(index, slot)| {
++                let outcome = match slot.state {
++                    SlotState::Consumer(outcome) => Some(outcome),
++                    SlotState::Fixture => None,
++                    SlotState::Missing => return None,
++                    _ => unreachable!("only completed slots leave the collector"),
++                };
++                Some((
++                    index,
++                    slot.kind,
++                    slot.session,
++                    slot.task.expect("bound real task"),
++                    slot.abort_requested,
++                    outcome,
++                ))
++            })
++            .collect();
++        drop(state);
++        let tasks = terminal
++            .into_iter()
++            .map(|(index, kind, session, task, abort_requested, outcome)| {
++                let completion = match outcome {
++                    Some(outcome) => TaskCompletion::Consumer(outcome),
++                    None => TaskCompletion::Fixture(
++                        self.completed[index].take().expect("actual joined result"),
++                    ),
++                };
++                JoinedTask {
++                    kind,
++                    session,
++                    task,
++                    abort_requested,
++                    completion,
++                }
++            })
++            .collect();
++        self.finished = true;
++        Poll::Ready(JoinReport {
++            tasks,
++            fault: self.shared.recorded_fault(),
++        })
++    }
++}
++impl Drop for TaskJoins {
++    fn drop(&mut self) {
++        let mut abandoned = Vec::new();
++        {
++            let mut state = self.shared.state();
++            state.closed = true;
++            for slot in &mut state.slots {
++                if matches!(slot.state, SlotState::Released(_)) {
++                    let SlotState::Released(task) =
++                        std::mem::replace(&mut slot.state, SlotState::Missing)
++                    else {
++                        unreachable!()
++                    };
++                    abandoned.push(task);
++                }
++            }
++        }
++        // Best effort only: dropping this controller never certifies a join.
++        for task in self
++            .pending
++            .iter_mut()
++            .filter_map(Option::take)
++            .chain(abandoned)
++        {
++            task.abort();
++        }
++    }
++}
++
++#[cfg(test)]
++mod tests;
+--- /dev/null
++++ b/lampOS/crates/gemini/src/testing/task_joins/tests.rs
+@@ -0,0 +1,689 @@
++//! Actual task/channel regressions. Each test has one fixed, unpaused host
++//! deadline; no sleeps, retries, clock advances or scheduling-count assertions.
++use super::*;
++use crate::{
++    Attempt, Connect, Credential, Error, Event, FailureReason, GOOGLE_ENDPOINT, InputSender,
++    Notice, RecoveryPolicy, RequestId, ResumptionHandle, SessionConfig, State, Supervisor,
++    testing::{self, CaptureClock, Dial, FakeConnector, FakeService, JoinSource},
++};
++use futures_util::FutureExt;
++use std::{sync::atomic::AtomicBool, time::Duration};
++use tokio::sync::{mpsc, oneshot};
++
++const HOST_LIMIT: Duration = Duration::from_secs(5);
++
++async fn bounded<F: Future>(future: F) -> F::Output {
++    // These tests do not pause Tokio: its fixed deadline is host monotonic time.
++    let deadline = tokio::time::Instant::now() + HOST_LIMIT;
++    tokio::time::timeout_at(deadline, future)
++        .await
++        .expect("one immutable host deadline for the entire test")
++}
++fn session(id: u64) -> SessionId {
++    SessionId::new(id).unwrap()
++}
++fn request(id: u64) -> RequestId {
++    RequestId::new(id).unwrap()
++}
++fn limit(count: usize) -> NonZeroUsize {
++    NonZeroUsize::new(count).unwrap()
++}
++fn config() -> SessionConfig {
++    SessionConfig::new(
++        GOOGLE_ENDPOINT,
++        Credential::api_key("task-joins-fixture").unwrap(),
++    )
++    .unwrap()
++}
++struct FrozenClock(std::time::Instant);
++impl FrozenClock {
++    fn new() -> Arc<Self> {
++        Arc::new(Self(std::time::Instant::now() + Duration::from_secs(3600)))
++    }
++}
++impl CaptureClock for FrozenClock {
++    fn now(&self) -> std::time::Instant {
++        self.0
++    }
++}
++type Rig = (
++    Supervisor<FakeConnector>,
++    mpsc::UnboundedReceiver<Dial>,
++    TaskJoins,
++);
++fn fixture(max_tasks: usize) -> Rig {
++    testing::supervisor_with_capture_clock_and_joins(
++        config(),
++        RecoveryPolicy::DISABLED,
++        crate::MAX_WIRE_BYTES * 2,
++        FrozenClock::new(),
++        limit(max_tasks),
++    )
++    .unwrap()
++}
++async fn ready(
++    supervisor: &mut Supervisor<FakeConnector>,
++    dials: &mut mpsc::UnboundedReceiver<Dial>,
++) -> Dial {
++    let (notice, dial) = tokio::join!(supervisor.next(), async {
++        let mut dial = dials.recv().await.unwrap();
++        dial.service.accept().await;
++        dial
++    });
++    assert!(
++        matches!(notice.unwrap(), Notice::Ready { session: actual, attempts: 1, after: None, .. } if actual == dial.session)
++    );
++    dial
++}
++async fn joined(tasks: &mut TaskJoins) -> JoinReport {
++    let report = tasks.finish().await.unwrap();
++    assert!(report.complete(), "{report:?}");
++    report
++}
++fn actor(report: &JoinReport, id: u64) -> &JoinedTask {
++    report
++        .tasks
++        .iter()
++        .find(|task| task.kind == TaskKind::Actor && task.session == session(id))
++        .unwrap()
++}
++fn dial(report: &JoinReport, id: u64) -> &JoinedTask {
++    report
++        .tasks
++        .iter()
++        .find(|task| task.kind == TaskKind::Dialing && task.session == session(id))
++        .unwrap()
++}
++fn returned_to_consumer(task: &JoinedTask) {
++    assert!(matches!(
++        task.completion,
++        TaskCompletion::Consumer(JoinOutcome::Returned)
++    ));
++}
++fn cancelled_in_fixture(task: &JoinedTask) {
++    assert!(
++        matches!(&task.completion, TaskCompletion::Fixture(Err(error)) if error.is_cancelled())
++    );
++    assert!(task.abort_requested);
++}
++async fn pair(
++    registrar: &Registrar,
++    id: u64,
++    clock: Arc<dyn CaptureClock>,
++) -> (crate::Connection, FakeService) {
++    let (attempt, mut service) = testing::pair_with_sources(
++        config(),
++        session(id),
++        crate::MAX_WIRE_BYTES * 2,
++        crate::session::CaptureClockSource::Fixture(clock),
++        JoinSource::Retained(registrar.clone()),
++    )
++    .await;
++    let (connection, _) = tokio::join!(attempt, service.accept());
++    (connection.unwrap(), service)
++}
++
++#[tokio::test]
++async fn pending_setup_drop_joins_the_actual_cancelled_dialing_task() {
++    bounded(async {
++        let (supervisor, mut dials, mut tasks) = fixture(4);
++        let mut service = dials.recv().await.unwrap().service;
++        assert!(service.receive().await["setup"].is_object());
++        assert!(tasks.finish().now_or_never().is_none());
++        drop(supervisor);
++        let report = joined(&mut tasks).await;
++        assert_eq!(report.tasks.len(), 1);
++        cancelled_in_fixture(dial(&report, 1));
++        assert!(tasks.finish().await.is_err());
++    })
++    .await;
++}
++
++#[tokio::test]
++async fn ready_drop_keeps_consumed_dial_result_and_actually_joins_actor_abort() {
++    bounded(async {
++        let (mut supervisor, mut dials, mut tasks) = fixture(4);
++        let service = ready(&mut supervisor, &mut dials).await;
++        assert!(supervisor.is_connected());
++        assert!(tasks.finish().now_or_never().is_none());
++        drop(supervisor);
++        let report = joined(&mut tasks).await;
++        assert_eq!(report.tasks.len(), 2);
++        returned_to_consumer(dial(&report, 1));
++        cancelled_in_fixture(actor(&report, 1));
++        assert_ne!(report.tasks[0].task, report.tasks[1].task);
++        drop(service);
++    })
++    .await;
++}
++
++struct ReceiptConnector {
++    joins: JoinSource,
++    dials: mpsc::UnboundedSender<FakeService>,
++    input: Option<oneshot::Sender<InputSender>>,
++}
++impl Connect for ReceiptConnector {
++    fn connect(&mut self, session: SessionId, _: Option<ResumptionHandle>) -> Attempt {
++        let joins = self.joins.clone();
++        let dials = self.dials.clone();
++        let input = self.input.take().unwrap();
++        Box::pin(async move {
++            let (attempt, service) = testing::pair_with_sources(
++                config(),
++                session,
++                crate::MAX_WIRE_BYTES * 2,
++                crate::session::CaptureClockSource::System,
++                joins,
++            )
++            .await;
++            assert!(dials.send(service).is_ok());
++            let connection = attempt.await?;
++            assert!(input.send(connection.input()).is_ok());
++            // No await follows this receipt. On this current-thread runtime,
++            // the attempt's actual task returns before its receiver can resume.
++            Ok(connection)
++        })
++    }
++}
++
++#[tokio::test]
++async fn unharvested_success_drops_connection_before_fixture_polls_retained_join() {
++    bounded(async {
++        let (registrar, mut tasks) = TaskJoins::new(limit(4)).unwrap();
++        let joins = JoinSource::Retained(registrar);
++        let (send, mut services) = mpsc::unbounded_channel();
++        let (input, received) = oneshot::channel();
++        let connector = ReceiptConnector {
++            joins: joins.clone(),
++            dials: send,
++            input: Some(input),
++        };
++        let supervisor =
++            Supervisor::new_with_join_source(connector, RecoveryPolicy::DISABLED, joins).unwrap();
++        let mut service = services.recv().await.unwrap();
++        service.accept().await;
++        let input = received.await.unwrap();
++        assert!(input.has_room());
++        // Never poll Supervisor: its successful Connection is still buffered.
++        drop(supervisor);
++        assert_eq!(input.try_start(request(1)), Err(Error::Closed));
++        let report = joined(&mut tasks).await;
++        assert_eq!(report.tasks.len(), 2);
++        assert!(matches!(
++            dial(&report, 1).completion,
++            TaskCompletion::Fixture(Ok(()))
++        ));
++        assert!(dial(&report, 1).abort_requested);
++        cancelled_in_fixture(actor(&report, 1));
++    })
++    .await;
++}
++
++#[tokio::test]
++async fn protocol_failure_keeps_its_result_despite_a_successful_task_join() {
++    bounded(async {
++        let (mut supervisor, mut dials, mut tasks) = fixture(4);
++        let mut service = dials.recv().await.unwrap().service;
++        assert!(service.receive().await["setup"].is_object());
++        service.close(1011, "fixture setup failure").await;
++        let failure = supervisor.next().await.unwrap_err();
++        assert_eq!(failure.error, Error::PeerClosed { code: Some(1011) });
++        assert_eq!(failure.reason, FailureReason::InitialConnect);
++        drop(supervisor);
++        let report = joined(&mut tasks).await;
++        assert_eq!(report.tasks.len(), 1);
++        returned_to_consumer(dial(&report, 1));
++    })
++    .await;
++}
++
++struct PanicConnector;
++impl Connect for PanicConnector {
++    fn connect(&mut self, _: SessionId, _: Option<ResumptionHandle>) -> Attempt {
++        Box::pin(async { panic!("actual dialing panic") })
++    }
++}
++
++#[tokio::test]
++async fn dialing_panic_stays_a_join_error_at_the_original_recovery_consumer() {
++    bounded(async {
++        let (registrar, mut tasks) = TaskJoins::new(limit(2)).unwrap();
++        let mut supervisor = Supervisor::new_with_join_source(
++            PanicConnector,
++            RecoveryPolicy::DISABLED,
++            JoinSource::Retained(registrar),
++        )
++        .unwrap();
++        let failure = supervisor.next().await.unwrap_err();
++        assert_eq!(failure.error, Error::Transport);
++        assert_eq!(failure.reason, FailureReason::InitialConnect);
++        drop(supervisor);
++        let report = joined(&mut tasks).await;
++        assert_eq!(report.tasks.len(), 1);
++        assert!(matches!(
++            dial(&report, 1).completion,
++            TaskCompletion::Consumer(JoinOutcome::Panicked)
++        ));
++    })
++    .await;
++}
++
++#[tokio::test]
++async fn original_handle_consumer_keeps_the_identical_panic_payload() {
++    bounded(async {
++        let (registrar, mut tasks) = TaskJoins::new(limit(1)).unwrap();
++        let owner = registrar.owner();
++        let payload = Arc::new(41_u64);
++        let sent = payload.clone();
++        let task = tokio::spawn(async move {
++            std::panic::panic_any(sent);
++        });
++        let id = task.id();
++        let mut task = UnitTask::new(task, registrar.reserve(TaskKind::Actor, session(7)));
++        let error = (&mut task).await.unwrap_err();
++        assert_eq!(error.id(), id);
++        assert!(error.is_panic());
++        let actual = error.into_panic().downcast::<Arc<u64>>().unwrap();
++        assert!(Arc::ptr_eq(&payload, &actual));
++        drop(owner);
++        let report = joined(&mut tasks).await;
++        assert!(matches!(
++            report.tasks[0].completion,
++            TaskCompletion::Consumer(JoinOutcome::Panicked)
++        ));
++        // A consumed registration may outlive report creation; dropping it is
++        // not another join or an access to a removed registry slot.
++        drop(task);
++    })
++    .await;
++}
++
++#[tokio::test]
++async fn cancelled_finish_retains_actual_handles_until_the_same_collector_joins() {
++    bounded(async {
++        let (registrar, mut tasks) = TaskJoins::new(limit(1)).unwrap();
++        let owner = registrar.owner();
++        let (release, held) = oneshot::channel();
++        let task = tokio::spawn(async {
++            held.await.unwrap();
++        });
++        let id = task.id();
++        let task = UnitTask::new(task, registrar.reserve(TaskKind::Actor, session(8)));
++        drop(task);
++        drop(owner);
++        assert!(tasks.finish().now_or_never().is_none());
++        release.send(()).unwrap();
++        let report = joined(&mut tasks).await;
++        assert_eq!(report.tasks[0].task, id);
++        assert!(!report.tasks[0].abort_requested);
++        assert!(matches!(
++            report.tasks[0].completion,
++            TaskCompletion::Fixture(Ok(()))
++        ));
++    })
++    .await;
++}
++
++struct PanicClock {
++    now: std::time::Instant,
++    armed: AtomicBool,
++    payload: Arc<u64>,
++}
++impl CaptureClock for PanicClock {
++    fn now(&self) -> std::time::Instant {
++        if self.armed.load(Ordering::Acquire) {
++            std::panic::panic_any(self.payload.clone());
++        }
++        self.now
++    }
++}
++
++#[tokio::test]
++async fn actual_actor_panic_is_joined_with_its_own_payload_after_connection_drop() {
++    bounded(async {
++        let (registrar, mut tasks) = TaskJoins::new(limit(1)).unwrap();
++        let owner = registrar.owner();
++        let payload = Arc::new(52_u64);
++        let clock = Arc::new(PanicClock {
++            now: std::time::Instant::now(),
++            armed: AtomicBool::new(false),
++            payload: payload.clone(),
++        });
++        let (mut connection, mut service) = pair(&registrar, 12, clock.clone()).await;
++        let input = connection.input();
++        input.try_start(request(1)).unwrap();
++        assert!(service.receive().await["realtimeInput"]["activityStart"].is_object());
++        assert!(matches!(
++            connection.next_event().await,
++            Some(Event::InputStarted { .. })
++        ));
++        input
++            .try_audio(request(1), 0, clock.now, &[3; 160])
++            .unwrap();
++        // No await between enqueue and arming: only the Actor's next read fails.
++        clock.armed.store(true, Ordering::Release);
++        assert!(connection.next_event().await.is_none());
++        drop(connection);
++        drop(owner);
++        let report = joined(&mut tasks).await;
++        assert_eq!(report.tasks.len(), 1);
++        let TaskCompletion::Fixture(Err(error)) =
++            report.tasks.into_iter().next().unwrap().completion
++        else {
++            panic!("actual Actor panic must retain its JoinError");
++        };
++        assert!(error.is_panic());
++        let actual = error.into_panic().downcast::<Arc<u64>>().unwrap();
++        assert!(Arc::ptr_eq(&payload, &actual));
++    })
++    .await;
++}
++
++#[tokio::test]
++async fn remote_terminal_state_keeps_ordered_buffered_pcm_until_actual_actor_join() {
++    bounded(async {
++        let (registrar, mut tasks) = TaskJoins::new(limit(1)).unwrap();
++        let owner = registrar.owner();
++        let (mut connection, mut service) = pair(&registrar, 13, FrozenClock::new()).await;
++        connection.input().try_start(request(1)).unwrap();
++        assert!(service.receive().await["realtimeInput"]["activityStart"].is_object());
++        assert!(matches!(connection.next_event().await, Some(Event::InputStarted { .. })));
++        connection.input().try_end(request(1)).unwrap();
++        assert!(service.receive().await["realtimeInput"]["activityEnd"].is_object());
++        let chunks = crate::EVENT_QUEUE_CAPACITY + 3;
++        service.burst((0..chunks).map(|index| testing::audio(index as i16, 240))).await;
++        service.close(1011, "fixture remote loss").await;
++        let mut state = connection.subscribe_state();
++        state.wait_for(|state| *state != State::Ready).await.unwrap();
++        assert_eq!(connection.state(), State::Disconnected(Error::PeerClosed { code: Some(1011) }));
++        assert!(tasks.finish().now_or_never().is_none());
++        for index in 0..chunks {
++            assert!(matches!(connection.next_event().await, Some(Event::Audio { lineage, pcm, .. })
++                if lineage.session == session(13) && lineage.request == request(1) && pcm == vec![index as i16; 240]));
++        }
++        assert!(connection.next_event().await.is_none());
++        drop(connection);
++        drop(owner);
++        let report = joined(&mut tasks).await;
++        assert!(matches!(actor(&report, 13).completion, TaskCompletion::Fixture(Ok(()))));
++    }).await;
++}
++
++#[tokio::test]
++async fn capacity_fault_keeps_real_ready_and_never_claims_complete_coverage() {
++    bounded(async {
++        let (mut supervisor, mut dials, mut tasks) = fixture(1);
++        let service = ready(&mut supervisor, &mut dials).await;
++        assert!(supervisor.is_connected());
++        drop(supervisor);
++        let report = tasks.finish().await.unwrap();
++        assert_eq!(report.fault, Some(JoinFault::Capacity));
++        assert!(!report.complete());
++        assert_eq!(report.tasks.len(), 1);
++        returned_to_consumer(dial(&report, 1));
++        drop(service);
++    })
++    .await;
++}
++
++#[tokio::test]
++async fn independent_collectors_keep_task_identity_and_actual_cancellation_separate() {
++    bounded(async {
++        let (one, mut dials_one, mut tasks_one) = fixture(2);
++        let (two, mut dials_two, mut tasks_two) = fixture(2);
++        let mut first = dials_one.recv().await.unwrap();
++        let mut second = dials_two.recv().await.unwrap();
++        first.service.receive().await;
++        second.service.receive().await;
++        drop(one);
++        let report_one = joined(&mut tasks_one).await;
++        cancelled_in_fixture(dial(&report_one, 1));
++        assert!(tasks_two.finish().now_or_never().is_none());
++        drop(two);
++        let report_two = joined(&mut tasks_two).await;
++        cancelled_in_fixture(dial(&report_two, 1));
++        assert_ne!(report_one.tasks[0].task, report_two.tasks[0].task);
++    })
++    .await;
++}
++
++#[tokio::test]
++async fn dropped_collector_does_not_change_the_real_setup_or_owner_shutdown() {
++    bounded(async {
++        let (mut supervisor, mut dials, tasks) = fixture(4);
++        drop(tasks);
++        let service = ready(&mut supervisor, &mut dials).await;
++        assert!(supervisor.is_connected());
++        supervisor.shutdown();
++        let failure = supervisor.next().await.unwrap_err();
++        assert_eq!(failure.reason, FailureReason::Shutdown);
++        assert_eq!(failure.error, Error::Closed);
++        drop(supervisor);
++        drop(service);
++    })
++    .await;
++}
++
++#[test]
++fn lifetime_limit_is_validated_without_spawning_and_slots_are_never_reused() {
++    assert!(matches!(
++        TaskJoins::new(limit(MAX_JOINED_TASKS + 1)),
++        Err(Error::InvalidConfiguration)
++    ));
++    let (registrar, _tasks) = TaskJoins::new(limit(1)).unwrap();
++    let reservation = registrar.reserve(TaskKind::Actor, session(1)).unwrap();
++    drop(reservation);
++    assert!(registrar.reserve(TaskKind::Actor, session(2)).is_none());
++    assert_eq!(registrar.0.state().slots.len(), 1);
++    assert_eq!(registrar.0.recorded_fault(), Some(JoinFault::InvalidState));
++}
++
++struct ReceiptPanicConnector(Option<oneshot::Sender<()>>);
++impl Connect for ReceiptPanicConnector {
++    fn connect(&mut self, _: SessionId, _: Option<ResumptionHandle>) -> Attempt {
++        let receipt = self.0.take().unwrap();
++        Box::pin(async move {
++            receipt.send(()).unwrap();
++            panic!("unharvested actual dialing panic");
++        })
++    }
++}
++
++#[tokio::test]
++async fn abandoned_dialing_panic_retains_the_actual_join_error_for_the_fixture() {
++    bounded(async {
++        let (registrar, mut tasks) = TaskJoins::new(limit(1)).unwrap();
++        let (receipt, received) = oneshot::channel();
++        let supervisor = Supervisor::new_with_join_source(
++            ReceiptPanicConnector(Some(receipt)),
++            RecoveryPolicy::DISABLED,
++            JoinSource::Retained(registrar),
++        )
++        .unwrap();
++        // There is no await after send: its current-thread task has panicked
++        // before this receiver resumes; no Supervisor poll harvests the error.
++        received.await.unwrap();
++        drop(supervisor);
++        let report = joined(&mut tasks).await;
++        assert_eq!(report.tasks.len(), 1);
++        let TaskCompletion::Fixture(Err(error)) =
++            report.tasks.into_iter().next().unwrap().completion
++        else {
++            panic!("the fixture must own this actual Dialing JoinError");
++        };
++        assert!(error.is_panic());
++        assert_eq!(
++            *error.into_panic().downcast::<&str>().unwrap(),
++            "unharvested actual dialing panic"
++        );
++    })
++    .await;
++}
++
++#[tokio::test]
++async fn original_consumer_receives_actual_cancellation_with_the_same_task_identity() {
++    bounded(async {
++        let (registrar, mut tasks) = TaskJoins::new(limit(1)).unwrap();
++        let owner = registrar.owner();
++        let (_release, held) = oneshot::channel::<()>();
++        let task = tokio::spawn(async {
++            held.await.unwrap();
++        });
++        let id = task.id();
++        let mut task = UnitTask::new(task, registrar.reserve(TaskKind::Actor, session(9)));
++        task.abort();
++        let error = (&mut task).await.unwrap_err();
++        assert_eq!(error.id(), id);
++        assert!(error.is_cancelled());
++        drop(task);
++        drop(owner);
++        let report = joined(&mut tasks).await;
++        assert!(matches!(
++            report.tasks[0].completion,
++            TaskCompletion::Consumer(JoinOutcome::Cancelled)
++        ));
++        assert!(report.tasks[0].abort_requested);
++    })
++    .await;
++}
++
++#[tokio::test]
++async fn owner_release_cannot_hide_an_actor_admitted_before_its_dialing_task_joins() {
++    bounded(async {
++        let (registrar, mut tasks) = TaskJoins::new(limit(2)).unwrap();
++        let owner = registrar.owner();
++        let (start, proceed) = oneshot::channel();
++        let (admitted, seen) = oneshot::channel();
++        let (finish_actor, actor_gate) = oneshot::channel();
++        let actor_registrar = registrar.clone();
++        let task = tokio::spawn(async move {
++            proceed.await.unwrap();
++            let registration = actor_registrar
++                .reserve(TaskKind::Actor, session(1))
++                .unwrap();
++            let actor = tokio::spawn(async {
++                actor_gate.await.unwrap();
++            });
++            let actor_id = actor.id();
++            drop(UnitTask::new(actor, Some(registration)));
++            admitted.send(actor_id).unwrap();
++        });
++        drop(UnitTask::new(
++            task,
++            registrar.reserve(TaskKind::Dialing, session(1)),
++        ));
++        drop(owner);
++        assert!(tasks.finish().now_or_never().is_none());
++        start.send(()).unwrap();
++        let actor_id = seen.await.unwrap();
++        assert!(tasks.finish().now_or_never().is_none());
++        finish_actor.send(()).unwrap();
++        let report = joined(&mut tasks).await;
++        assert_eq!(report.tasks.len(), 2);
++        assert_eq!(actor(&report, 1).task, actor_id);
++        for task in report.tasks {
++            assert!(matches!(task.completion, TaskCompletion::Fixture(Ok(()))));
++        }
++    })
++    .await;
++}
++
++#[tokio::test]
++async fn reconnect_joins_both_sessions_and_preserves_the_earlier_buffered_answer() {
++    bounded(async {
++        let policy = RecoveryPolicy {
++            max_attempts: 1, first_backoff: Duration::ZERO, max_backoff: Duration::ZERO,
++            outage_budget: Duration::from_secs(2), require_context: false,
++            ..RecoveryPolicy::default()
++        };
++        let clock = FrozenClock::new();
++        let (mut supervisor, mut dials, mut tasks) = testing::supervisor_with_capture_clock_and_joins(
++            config(), policy, crate::MAX_WIRE_BYTES * 2, clock.clone(), limit(4),
++        ).unwrap();
++        let mut first = ready(&mut supervisor, &mut dials).await;
++        supervisor.try_start(request(1)).unwrap();
++        assert!(first.service.receive().await["realtimeInput"]["activityStart"].is_object());
++        assert!(matches!(supervisor.next().await.unwrap(), Notice::Event(Event::InputStarted { .. })));
++        supervisor.try_end(request(1)).unwrap();
++        assert!(first.service.receive().await["realtimeInput"]["activityEnd"].is_object());
++        let chunks = crate::EVENT_QUEUE_CAPACITY + 3;
++        first.service.burst((0..chunks).map(|index| testing::audio(index as i16, 240))).await;
++        first.service.close(1011, "first session lost").await;
++        let (notices, mut replacement) = tokio::join!(async {
++            let mut notices = Vec::new();
++            for _ in 0..chunks + 4 {
++                let notice = supervisor.next().await.unwrap();
++                let ready = matches!(notice, Notice::Ready { session: id, after: Some(Error::PeerClosed { code: Some(1011) }), .. } if id == session(2));
++                notices.push(notice);
++                if ready { return notices; }
++            }
++            panic!("replacement Ready must follow the finite prior answer");
++        }, async {
++            let mut replacement = dials.recv().await.unwrap();
++            replacement.service.accept().await;
++            replacement
++        });
++        assert_eq!(replacement.session, session(2));
++        assert!(!replacement.resumed);
++        let mut audio = Vec::new();
++        let mut lost = 0;
++        let collect = |notice: Notice, audio: &mut Vec<i16>, lost: &mut usize| match notice {
++            Notice::Event(Event::Audio { lineage, pcm, .. }) => {
++                assert_eq!(lineage.session, session(1));
++                assert_eq!(lineage.request, request(1));
++                audio.extend(pcm);
++            }
++            Notice::TurnLost { lineage, stage: crate::Stage::Responding, .. } => {
++                assert_eq!(lineage.session, session(1));
++                *lost += 1;
++            }
++            Notice::Ready { .. } | Notice::Unavailable { .. } => {}
++            other => panic!("unexpected notice {other:?}"),
++        };
++        for notice in notices { collect(notice, &mut audio, &mut lost); }
++        for _ in 0..chunks + 1 {
++            if audio.len() == chunks * 240 && lost == 1 { break; }
++            collect(supervisor.next().await.unwrap(), &mut audio, &mut lost);
++        }
++        assert_eq!(audio, (0..chunks).flat_map(|index| std::iter::repeat_n(index as i16, 240)).collect::<Vec<_>>());
++        assert_eq!(lost, 1);
++        // The second real session shares the capture source, not host time.
++        supervisor.try_start(request(2)).unwrap();
++        assert!(replacement.service.receive().await["realtimeInput"]["activityStart"].is_object());
++        supervisor.try_audio(request(2), 0, clock.0, &[8; 160]).unwrap();
++        assert_eq!(testing::sent_audio(&replacement.service.receive().await), Some(vec![8; 160]));
++        drop(supervisor);
++        let report = joined(&mut tasks).await;
++        assert_eq!(report.tasks.len(), 4);
++        returned_to_consumer(dial(&report, 1));
++        returned_to_consumer(dial(&report, 2));
++        assert!(matches!(actor(&report, 1).completion, TaskCompletion::Fixture(Ok(()))));
++        cancelled_in_fixture(actor(&report, 2));
++    }).await;
++}
++
++#[tokio::test]
++async fn poisoned_observation_preserves_the_real_consumer_result_and_reports_incomplete() {
++    bounded(async {
++        let (registrar, mut tasks) = TaskJoins::new(limit(1)).unwrap();
++        let owner = registrar.owner();
++        let task = tokio::spawn(async {});
++        let mut task = UnitTask::new(task, registrar.reserve(TaskKind::Actor, session(14)));
++        let shared = registrar.0.clone();
++        assert!(
++            std::panic::catch_unwind(move || {
++                let _guard = shared.state.lock().unwrap();
++                panic!("poison only the fixture observation mutex");
++            })
++            .is_err()
++        );
++        assert!((&mut task).await.is_ok());
++        drop(task);
++        drop(owner);
++        let report = tasks.finish().await.unwrap();
++        assert_eq!(report.fault, Some(JoinFault::Poisoned));
++        assert!(!report.complete());
++        returned_to_consumer(&report.tasks[0]);
++    })
++    .await;
++}
+--- a/lampOS/docs/gemini-session-reliability.md
++++ b/lampOS/docs/gemini-session-reliability.md
+@@ -642,6 +642,64 @@
+ assertions are unchanged. This is clock preparation: it does not migrate a Voice
+ scenario, provide a provider progress barrier, or establish device latency.
+ 
++### Fixture ownership of actual task joins
++
++The same default-off `fixture-clock` feature additionally exposes
++`testing::supervisor_with_capture_clock_and_joins(config, policy, capacity, clock,
++max_tasks)`. It returns the ordinary scripted Supervisor, its dial receiver and
++one `TaskJoins` collector. Registration is installed before the initial Dialing
++spawn and follows each actual Actor and reconnect attempt. Existing factories
++still select direct task ownership, including when the feature is enabled.
++No Cargo dependency, provider policy, protocol interval or capture-clock check
++changes. The fixture adds no task, reaper, timer or scheduling layer.
++
++`max_tasks` is a nonzero lifetime bound of at most `MAX_JOINED_TASKS` (64), shared
++by Actors and Dialing attempts. Slots are never reused, and the collector owns
++at most that many handles/results. Each registered task retains its actual
++Tokio task ID, session and kind. Exceeding the bound or losing observation
++latches a fault; it preserves the original consumer's result but makes the
++report incomplete. A successful registration or an abort request never counts
++as a join. Poisoned tracking state likewise cannot turn an actual panic or
++cancellation into success.
++
++The original owner polls its real `JoinHandle`, and receives its unchanged
++result or owning `JoinError`. For a consumed result the collector records only
++a classification borrowed from that actual Ready result; it cannot duplicate a
++non-cloneable panic payload. When the owner drops a handle instead, the fixture
++retains and polls that same handle and receives its actual unit result or
++owning `JoinError`. `TaskCompletion::Consumer` and `TaskCompletion::Fixture`
++keep these cases distinct. A Dialing task that returned a protocol error still
++has a successful task join; an Actor join says nothing about protocol success.
++
++An opt-in Dialing task publishes its unchanged attempt result in one bounded
++oneshot slot within its original task, with no subsequent await. The original
++consumer first joins the real task, then takes that value without waiting.
++Dialing drop keeps the original abort first, drops the result receiver (and any
++successful, unharvested Connection) next, then releases the unit-output handle
++to the collector. Retaining a task for join therefore does not keep that
++Connection alive. Connection drop retains input shutdown before Actor abort.
++Supervisor's final fixture lease drops after its original fields; completion
++also requires actual joins of all registered attempts, since one already
++running attempt may still create an Actor after its owner starts dropping.
++
++The fixture controller drops the Supervisor through its normal owning path,
++then awaits `TaskJoins::finish(&mut self)` within its one immutable host deadline.
++Cancelling that wait retains the handles in the collector. Finish neither
++requests shutdown, drives the Supervisor, consumes buffered events nor advances
++a clock. It resolves only after owner release and actual joins (or explicitly
++incomplete tracking). A second finish returns `AlreadyFinished`. Dropping the
++collector is best-effort cleanup and never certifies completion.
++
++The added `testing::task_joins::tests` cover actual setup cancellation, successful
++and failed Dialing results, consumed and abandoned panic/cancellation errors,
++Connection drop before an unharvested result is collected, ordered buffered PCM,
++reconnection, late Actor registration, cancelled waits and bounded tracking
++faults. Their fixed five-second host deadlines run without paused Tokio time,
++sleeps or retries. All earlier test bodies and thresholds remain unchanged.
++This preparation supplies task completion after shutdown; it does not establish
++a live Actor progress frontier, Provider worker return, service-task join or
++child-process exit. The original Voice scenarios remain unmigrated.
++
+ ### Strict continuation probe (example-only addition)
+ 
+ The explicit `continue-before-output` mode sends two **different**, already

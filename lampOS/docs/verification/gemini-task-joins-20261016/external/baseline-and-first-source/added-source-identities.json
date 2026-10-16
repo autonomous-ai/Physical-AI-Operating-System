@@ -1,0 +1,25 @@
+{
+  "date_from_date": "2026-10-16 09:02:10 +0700",
+  "count": 18,
+  "identities": [
+    "testing::task_joins::tests::pending_setup_drop_joins_the_actual_cancelled_dialing_task",
+    "testing::task_joins::tests::ready_drop_keeps_consumed_dial_result_and_actually_joins_actor_abort",
+    "testing::task_joins::tests::unharvested_success_drops_connection_before_fixture_polls_retained_join",
+    "testing::task_joins::tests::protocol_failure_keeps_its_result_despite_a_successful_task_join",
+    "testing::task_joins::tests::dialing_panic_stays_a_join_error_at_the_original_recovery_consumer",
+    "testing::task_joins::tests::original_handle_consumer_keeps_the_identical_panic_payload",
+    "testing::task_joins::tests::cancelled_finish_retains_actual_handles_until_the_same_collector_joins",
+    "testing::task_joins::tests::actual_actor_panic_is_joined_with_its_own_payload_after_connection_drop",
+    "testing::task_joins::tests::remote_terminal_state_keeps_ordered_buffered_pcm_until_actual_actor_join",
+    "testing::task_joins::tests::capacity_fault_keeps_real_ready_and_never_claims_complete_coverage",
+    "testing::task_joins::tests::independent_collectors_keep_task_identity_and_actual_cancellation_separate",
+    "testing::task_joins::tests::dropped_collector_does_not_change_the_real_setup_or_owner_shutdown",
+    "testing::task_joins::tests::lifetime_limit_is_validated_without_spawning_and_slots_are_never_reused",
+    "testing::task_joins::tests::abandoned_dialing_panic_retains_the_actual_join_error_for_the_fixture",
+    "testing::task_joins::tests::original_consumer_receives_actual_cancellation_with_the_same_task_identity",
+    "testing::task_joins::tests::owner_release_cannot_hide_an_actor_admitted_before_its_dialing_task_joins",
+    "testing::task_joins::tests::reconnect_joins_both_sessions_and_preserves_the_earlier_buffered_answer",
+    "testing::task_joins::tests::poisoned_observation_preserves_the_real_consumer_result_and_reports_incomplete"
+  ],
+  "status": "Source declarations only. Changed-source compilation/list/run not authorized yet."
+}

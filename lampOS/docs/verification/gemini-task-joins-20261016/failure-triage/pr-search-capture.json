@@ -1,0 +1,67 @@
+{
+  "date_from_date": "2026-10-16 09:45:10 +0700",
+  "records": [
+    {
+      "command": [
+        "gh",
+        "pr",
+        "view",
+        "834",
+        "-R",
+        "autonomous-ai/lampOS",
+        "--json",
+        "number,title,body,comments,reviews,labels,assignees,state,url,headRefOid,baseRefName"
+      ],
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "command": [
+        "gh",
+        "pr",
+        "view",
+        "900",
+        "-R",
+        "autonomous-ai/lampOS",
+        "--json",
+        "number,title,body,comments,reviews,labels,assignees,state,url,headRefOid,baseRefName"
+      ],
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "command": [
+        "gh",
+        "search",
+        "issues",
+        "native_head_six_explicit_actions_prepare_profile_then_new_requests in:comments",
+        "--repo",
+        "autonomous-ai/lampOS",
+        "--include-prs",
+        "--limit",
+        "100",
+        "--json",
+        "number,title,state,url"
+      ],
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "command": [
+        "gh",
+        "search",
+        "issues",
+        "\"motor worker progress timed out\" in:comments",
+        "--repo",
+        "autonomous-ai/lampOS",
+        "--include-prs",
+        "--limit",
+        "100",
+        "--json",
+        "number,title,state,url"
+      ],
+      "exit_code": 0,
+      "stderr": ""
+    }
+  ]
+}

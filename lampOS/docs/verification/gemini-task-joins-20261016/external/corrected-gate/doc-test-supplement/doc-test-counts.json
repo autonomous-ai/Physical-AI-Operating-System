@@ -1,0 +1,58 @@
+{
+  "date_from_date": "2026-10-16 09:44:48 +0700",
+  "command_exit": 0,
+  "doc_test_targets": [
+    "lamp_gemini",
+    "lamp_memory",
+    "lamp_surround",
+    "lamp_voice",
+    "lamp_voice_eval"
+  ],
+  "result_summaries": [
+    {
+      "status": "ok",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0
+    },
+    {
+      "status": "ok",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0
+    },
+    {
+      "status": "ok",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0
+    },
+    {
+      "status": "ok",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0
+    },
+    {
+      "status": "ok",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0
+    }
+  ],
+  "total_passed": 0,
+  "total_failed": 0,
+  "total_ignored": 0,
+  "normal_tests_reexecuted": false,
+  "source_log_sha256": "51303e42e79372c5e4b6681d7e774688b5daadcf5b9e6398c3ca5ed4255ed5d4"
+}

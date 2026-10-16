@@ -549,7 +549,10 @@ pub struct Connection {
     input: InputSender,
     events: mpsc::Receiver<Event>,
     state: watch::Receiver<State>,
+    #[cfg(not(any(test, feature = "fixture-clock")))]
     task: JoinHandle<()>,
+    #[cfg(any(test, feature = "fixture-clock"))]
+    task: crate::testing::task_joins::UnitTask,
     ready_at: Clock,
 }
 impl Connection {
@@ -679,10 +682,30 @@ where
 }
 
 pub(crate) async fn setup_and_spawn_with_capture_clock<S>(
+    socket: WebSocketStream<S>,
+    config: SessionConfig,
+    session: SessionId,
+    capture_clock: CaptureClockSource,
+) -> Result<Connection>
+where
+    S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+{
+    setup_and_spawn_with_sources(
+        socket,
+        config,
+        session,
+        capture_clock,
+        crate::testing::JoinSource::Plain,
+    )
+    .await
+}
+
+pub(crate) async fn setup_and_spawn_with_sources<S>(
     mut socket: WebSocketStream<S>,
     config: SessionConfig,
     session: SessionId,
     capture_clock: CaptureClockSource,
+    _joins: crate::testing::JoinSource,
 ) -> Result<Connection>
 where
     S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
@@ -808,7 +831,11 @@ where
     // The actor publishes its terminal state before it lets go of the event
     // sender, so a receiver that sees the end of the stream never reads Ready
     // and loses the sanitized failure, even on a multithreaded runtime.
-    let task = tokio::spawn(actor.run());
+    #[cfg(any(test, feature = "fixture-clock"))]
+    let registration = _joins.reserve(crate::testing::task_joins::TaskKind::Actor, session);
+    let task: JoinHandle<()> = tokio::spawn(actor.run());
+    #[cfg(any(test, feature = "fixture-clock"))]
+    let task = crate::testing::task_joins::UnitTask::new(task, registration);
     Ok(Connection {
         input,
         events,

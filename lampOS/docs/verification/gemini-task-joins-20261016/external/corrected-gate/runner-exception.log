@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "/private/tmp/tests-823-gemini-task-joins-qualify-corrected.py", line 83, in <module>
+    full_rc=stage('full',common);failures=runtime('full',after)
+                                          ~~~~~~~^^^^^^^^^^^^^^
+  File "/private/tmp/tests-823-gemini-task-joins-qualify-corrected.py", line 64, in runtime
+    assert not missing and not extra and len(executed)==len(actual),(name,missing,extra)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ('full', [], [])

@@ -1,0 +1,23 @@
+{
+  "date_from_date": "2026-10-16 09:47:10 +0700",
+  "files": {
+    "evidence-runner.py": "d305a67a7e614dbe39b2a15464863fdd6ba06ff97c3a5ca9d5776cb15a5fd573",
+    "fingerprints/lamp-gemini-a51afd4ee6b5e2f8/lib-lamp_gemini": "58b3992dce70467027c37e649bccd8030c95dda29ca6be554b8df2921edd48c6",
+    "fingerprints/lamp-gemini-a51afd4ee6b5e2f8/lib-lamp_gemini.json": "3ca5a7d587fefc7e4eee03af0de2b7a412e7f5bf209af3cd781f66ef243761a1",
+    "fingerprints/lamp-voice-776bb3f8630d2566/test-lib-lamp_voice.json": "021658501f73b3cd833a848019f11cbe5174948d656f7f22d267bd7dc4b4cbd0",
+    "handoff.md": "9248f861d1aeb4fff90a7655ab5282e73cdd8b3379afc6428d597bba2effc36e",
+    "source/lampOS/Cargo.lock": "40d62fead16a6f138c4d7dbe400a2e4a9855ceece96d19b1e642136431aed4c5",
+    "source/lampOS/Cargo.toml": "dafaa1133d09ab0137847973359e8d1c01e7dc306aa54e299ec1a6f611e24c2b",
+    "source/lampOS/crates/body/src/runtime/supervisor.rs": "103009ea8a3baf449a760cf7f1dc43d0aa0b47d999b585c4084c65ff63ff2a3f",
+    "source/lampOS/crates/body/src/runtime/worker.rs": "d126a1b0020f202c22a0a7a9ec64f54dcb6a52d9f6d02e965d61871aa6ab4cca",
+    "source/lampOS/crates/gemini/Cargo.toml": "5b94eadddf2bdc8677d8e584a6cc3ffbdf38f79eba775a9dd141268b1c9a0816",
+    "source/lampOS/crates/voice/Cargo.toml": "5da3e2d258a46b797bb25ec48ea538eba53f9b9d38dac1ff06abd8deb6597e72",
+    "source/lampOS/crates/voice/src/coordinator/motor/head.rs": "4de64a3ab9fe22f6329e990bf1cc990d065fa781f2f38ff69b603fe9b05870b0",
+    "source/lampOS/crates/voice/src/coordinator/motor/tests/native_head.rs": "a6870c6a1c2f063f5b83ec4e17bf3ed3f7e4d1c6c0bff3ee1942d1108ada38cc",
+    "source/lampOS/crates/voice/src/coordinator/motor/tests.rs": "33a8f47b0d69079697e5ef04bf1617f25dd4f81f3501d9524f1c024236f520ba",
+    "source/lampOS/crates/voice/src/coordinator/motor.rs": "29b82801801be234ae865f7593c957a79537acc3469805401b759c21cf6c748e",
+    "source/lampOS/crates/voice/src/head_qualification.rs": "22bcba83db468193d2b6c502108ebe24ac05a513da3097b865e1f184d5ebefb2",
+    "source/lampOS/crates/voice/src/process.rs": "f9f1173bd1d33ea9f5ebc9ed3ed6247b802dbf299d017dabef90f93eca074d54",
+    "source-feature-graph-proof.json": "31db88e8e8e405e416ebcf40657885ab0cd24b42dd62602a254d428ddc1bdcfe"
+  }
+}

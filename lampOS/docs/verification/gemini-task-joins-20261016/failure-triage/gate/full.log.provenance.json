@@ -1,0 +1,7 @@
+{
+  "original_path": "/private/tmp/tests-823-gemini-native-head-failure-triage-20261016/gate/full.log",
+  "canonical_relative_to_verification_root": "external/corrected-gate/full.log",
+  "sha256": "fc7455deb8f8a5dcc746922e9641e2893c336cb56eff078da6d3728c1045abd5",
+  "bytes_identical_verified": true,
+  "reason": "One canonical complete first-failure log; no symlink or raw-log rewrite."
+}

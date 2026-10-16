@@ -1,0 +1,14 @@
+{
+  "recorded_from_date": "2026-10-16 09:18:20 +0700",
+  "before_corrected_runner_started": [
+    {
+      "tool_chunk": "3445bb",
+      "result": "External text-replacement assertion failed, so corrected runner was not written; attempted Python invocation found no file. No Cargo or tests launched."
+    },
+    {
+      "tool_chunk": "01b783",
+      "result": "External template substring check failed because original compact runner uses one-space indentation. No corrected runner written, Cargo or tests launched."
+    }
+  ],
+  "resolution": "Prepared and syntax-checked the external runner against its actual indentation. One corrected gate invocation started in session 49918. Repository source remained at reviewed correction throughout. Runtime identity parser counts progress-counter execution rows rather than duplicate final failure recaps."
+}

@@ -355,7 +355,10 @@ struct AttemptResult {
     completed_at: Instant,
 }
 struct Dialing {
+    #[cfg(not(any(test, feature = "fixture-clock")))]
     task: JoinHandle<AttemptResult>,
+    #[cfg(any(test, feature = "fixture-clock"))]
+    task: AttemptTask,
     /// The attempt has ended in failure. A failure announces nothing, so it
     /// can be acted on while an earlier update is still unread; a completed
     /// setup cannot, and stays with its task until then.
@@ -374,7 +377,44 @@ impl Dialing {
                 completed_at,
             }
         });
+        #[cfg(any(test, feature = "fixture-clock"))]
+        let task = AttemptTask::Plain(task);
         Self { task, failed }
+    }
+    fn start_with_source(
+        attempt: Attempt,
+        _session: SessionId,
+        _joins: &crate::testing::JoinSource,
+    ) -> Self {
+        #[cfg(any(test, feature = "fixture-clock"))]
+        if let Some(registration) =
+            _joins.reserve(crate::testing::task_joins::TaskKind::Dialing, _session)
+        {
+            let failed = Arc::new(AtomicBool::new(false));
+            let flag = failed.clone();
+            let (send, result) = tokio::sync::oneshot::channel();
+            // The original attempt still runs in exactly one task. Its result
+            // slot drops a returned Connection at the original owner's drop,
+            // even when a fixture retains the unit-output task for actual join.
+            let task = tokio::spawn(async move {
+                let result = attempt.await;
+                let completed_at = Instant::now();
+                flag.store(result.is_err(), Ordering::Release);
+                let result = AttemptResult {
+                    result,
+                    completed_at,
+                };
+                let _ = send.send(result);
+            });
+            return Self {
+                task: AttemptTask::Retained {
+                    task: crate::testing::task_joins::UnitTask::new(task, Some(registration)),
+                    result: Some(result),
+                },
+                failed,
+            };
+        }
+        Self::start(attempt)
     }
     fn failed(&self) -> bool {
         self.failed.load(Ordering::Acquire)
@@ -385,6 +425,63 @@ impl Drop for Dialing {
         self.task.abort();
     }
 }
+/// A concrete fixture adapter, not a second task. The original consumer polls
+/// the real handle first and receives the exact original result or JoinError.
+#[cfg(any(test, feature = "fixture-clock"))]
+enum AttemptTask {
+    Plain(JoinHandle<AttemptResult>),
+    Retained {
+        task: crate::testing::task_joins::UnitTask,
+        result: Option<tokio::sync::oneshot::Receiver<AttemptResult>>,
+    },
+}
+#[cfg(any(test, feature = "fixture-clock"))]
+impl AttemptTask {
+    fn abort(&self) {
+        match self {
+            Self::Plain(task) => task.abort(),
+            Self::Retained { task, .. } => task.abort(),
+        }
+    }
+    #[cfg(test)]
+    fn is_finished(&self) -> bool {
+        match self {
+            Self::Plain(task) => task.is_finished(),
+            Self::Retained { task, .. } => task.is_finished(),
+        }
+    }
+}
+#[cfg(any(test, feature = "fixture-clock"))]
+impl Future for AttemptTask {
+    type Output = std::result::Result<AttemptResult, tokio::task::JoinError>;
+    fn poll(
+        mut self: Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Self::Output> {
+        match &mut *self {
+            Self::Plain(task) => Pin::new(task).poll(cx),
+            Self::Retained { task, result } => match std::task::ready!(Pin::new(task).poll(cx)) {
+                Err(error) => std::task::Poll::Ready(Err(error)),
+                Ok(()) => std::task::Poll::Ready(Ok(result
+                    .take()
+                    .expect("one attempt result receiver")
+                    .try_recv()
+                    .expect("successful actual task join publishes its attempt result"))),
+            },
+        }
+    }
+}
+#[cfg(any(test, feature = "fixture-clock"))]
+impl Drop for AttemptTask {
+    fn drop(&mut self) {
+        if let Self::Retained { result, .. } = self {
+            // Dialing::drop has already requested the original abort. Release
+            // any unharvested Connection before publishing its task handle.
+            drop(result.take());
+        }
+    }
+}
+
 enum Link {
     Connecting {
         attempt: Dialing,
@@ -575,16 +672,29 @@ pub struct Supervisor<C> {
     revision: u64,
     failure_observed_at: Option<Instant>,
     terminal_announced: bool,
+    // Last: ordinary fields release their attempts/connections before the
+    // fixture admits that this owner can no longer start another attempt.
+    #[cfg(any(test, feature = "fixture-clock"))]
+    fixture_owner: Option<crate::testing::task_joins::OwnerLease>,
 }
 
 impl<C: Connect> Supervisor<C> {
     /// Starts the first connection attempt on the current runtime. Its result
     /// is reported by [`Self::next`].
-    pub fn new(mut connector: C, policy: RecoveryPolicy) -> Result<Self> {
+    pub fn new(connector: C, policy: RecoveryPolicy) -> Result<Self> {
+        Self::new_with_join_source(connector, policy, crate::testing::JoinSource::Plain)
+    }
+
+    pub(crate) fn new_with_join_source(
+        mut connector: C,
+        policy: RecoveryPolicy,
+        _joins: crate::testing::JoinSource,
+    ) -> Result<Self> {
         policy.validate()?;
         let session = SessionId::new(1)?;
         let started = Instant::now();
-        let attempt = Dialing::start(connector.connect(session, None));
+        let attempt =
+            Dialing::start_with_source(connector.connect(session, None), session, &_joins);
         Ok(Self {
             connector,
             policy,
@@ -608,6 +718,8 @@ impl<C: Connect> Supervisor<C> {
             revision: 0,
             failure_observed_at: None,
             terminal_announced: false,
+            #[cfg(any(test, feature = "fixture-clock"))]
+            fixture_owner: _joins.owner(),
         })
     }
 
@@ -1177,8 +1289,18 @@ impl<C: Connect> Supervisor<C> {
         self.sessions = next;
         let handle = self.resume.as_ref().map(|point| point.handle().clone());
         let started = Instant::now();
+        let joins = crate::testing::JoinSource::Plain;
+        #[cfg(any(test, feature = "fixture-clock"))]
+        let joins = self
+            .fixture_owner
+            .as_ref()
+            .map_or(joins, |owner| owner.source());
         self.link = Link::Connecting {
-            attempt: Dialing::start(self.connector.connect(session, handle)),
+            attempt: Dialing::start_with_source(
+                self.connector.connect(session, handle),
+                session,
+                &joins,
+            ),
             session,
             number,
             started,

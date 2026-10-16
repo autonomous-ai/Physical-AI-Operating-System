@@ -1,0 +1,47 @@
+[
+  {
+    "name": "fmt",
+    "command": [
+      "/Users/autonomous/.cargo/bin/cargo",
+      "fmt",
+      "--all",
+      "--",
+      "--check"
+    ],
+    "cwd": "/private/tmp/lampos-tests-gemini-task-joins/lampOS",
+    "target": "/private/tmp/tests-823-rebase-target",
+    "started_from_date": "2026-10-16 09:10:54 +0700",
+    "finished_from_date": "2026-10-16 09:10:59 +0700",
+    "exit": 0,
+    "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "name": "clippy",
+    "command": [
+      "/Users/autonomous/.cargo/bin/cargo",
+      "clippy",
+      "--locked",
+      "--offline",
+      "--all-targets",
+      "-p",
+      "lamp-gemini",
+      "-p",
+      "lamp-memory",
+      "-p",
+      "lamp-surround",
+      "-p",
+      "lamp-voice",
+      "-p",
+      "lamp-voice-eval",
+      "--",
+      "-D",
+      "warnings"
+    ],
+    "cwd": "/private/tmp/lampos-tests-gemini-task-joins/lampOS",
+    "target": "/private/tmp/tests-823-rebase-target",
+    "started_from_date": "2026-10-16 09:10:59 +0700",
+    "finished_from_date": "2026-10-16 09:12:08 +0700",
+    "exit": 101,
+    "log_sha256": "94dd432514ad8986f066d2d5ad16ed1f998da6662c03e0e89fb9b0c56ec7381c"
+  }
+]

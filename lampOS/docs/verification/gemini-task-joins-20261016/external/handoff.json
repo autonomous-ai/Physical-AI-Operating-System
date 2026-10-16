@@ -1,0 +1,417 @@
+{
+  "date_from_date": "2026-10-16 09:49:25 +0700",
+  "base": "1fb07c6f57ee280a49de7b4ddd74008c2a32a20d",
+  "scope": [
+    {
+      "path": "lampOS/crates/gemini/src/session.rs",
+      "before_sha256": "a0c83add38edb58957a603d31b3894eb35771dabebdebc9c96479b63726bc997",
+      "first_frozen_sha256": "edca2df22c9101fc3e7148c227e82ffde6685772b57baaabb7880e49208ebe2b",
+      "current_sha256": "edca2df22c9101fc3e7148c227e82ffde6685772b57baaabb7880e49208ebe2b",
+      "new_file": false
+    },
+    {
+      "path": "lampOS/crates/gemini/src/recovery.rs",
+      "before_sha256": "d2cdb2e9e7ec4ddc5174b7fe63f1492c77d106650b15240da4415da2d9ffa90b",
+      "first_frozen_sha256": "37ed679cd097da44791a356d7260343ebbe437fb8863b3e22174a1b5da92e98a",
+      "current_sha256": "37ed679cd097da44791a356d7260343ebbe437fb8863b3e22174a1b5da92e98a",
+      "new_file": false
+    },
+    {
+      "path": "lampOS/crates/gemini/src/testing.rs",
+      "before_sha256": "ac34ac1c456b9e87557bec5aa9c6c4f1a5bc86fcbd09d9518bc13c98859081d3",
+      "first_frozen_sha256": "cad490f02196ead1aab9f0402064df84cfe61992fef3abb7a1648cf39e7013ff",
+      "current_sha256": "cad490f02196ead1aab9f0402064df84cfe61992fef3abb7a1648cf39e7013ff",
+      "new_file": false
+    },
+    {
+      "path": "lampOS/crates/gemini/src/testing/task_joins.rs",
+      "before_sha256": null,
+      "first_frozen_sha256": "21cb7a49c8f1f012b5cf38ee089da42f8a6f2d26a4f3284d2e3926a8125f3934",
+      "current_sha256": "21cb7a49c8f1f012b5cf38ee089da42f8a6f2d26a4f3284d2e3926a8125f3934",
+      "new_file": true
+    },
+    {
+      "path": "lampOS/crates/gemini/src/testing/task_joins/tests.rs",
+      "before_sha256": null,
+      "first_frozen_sha256": "036169b9d46d524cc8ba8162a7ccf0e0c45eefdb291433df09f8262cfb156506",
+      "current_sha256": "010fce88be96d93269f2779d1e40764d347283480a39dcf1c5715661c4a285a4",
+      "new_file": true
+    },
+    {
+      "path": "lampOS/docs/gemini-session-reliability.md",
+      "before_sha256": "753906cd40b84c767b04769e136b065b0ac17a6c8e970f3181f116ffcd50275e",
+      "first_frozen_sha256": "72445c8a193c41ce1bb4b412c5c6c4b0e57246e1bc93b1f405de0fcd6957eba1",
+      "current_sha256": "72445c8a193c41ce1bb4b412c5c6c4b0e57246e1bc93b1f405de0fcd6957eba1",
+      "new_file": false
+    }
+  ],
+  "first_stages": [
+    {
+      "name": "fmt",
+      "command": [
+        "/Users/autonomous/.cargo/bin/cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "cwd": "/private/tmp/lampos-tests-gemini-task-joins/lampOS",
+      "target": "/private/tmp/tests-823-rebase-target",
+      "started_from_date": "2026-10-16 09:10:54 +0700",
+      "finished_from_date": "2026-10-16 09:10:59 +0700",
+      "exit": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "clippy",
+      "command": [
+        "/Users/autonomous/.cargo/bin/cargo",
+        "clippy",
+        "--locked",
+        "--offline",
+        "--all-targets",
+        "-p",
+        "lamp-gemini",
+        "-p",
+        "lamp-memory",
+        "-p",
+        "lamp-surround",
+        "-p",
+        "lamp-voice",
+        "-p",
+        "lamp-voice-eval",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "cwd": "/private/tmp/lampos-tests-gemini-task-joins/lampOS",
+      "target": "/private/tmp/tests-823-rebase-target",
+      "started_from_date": "2026-10-16 09:10:59 +0700",
+      "finished_from_date": "2026-10-16 09:12:08 +0700",
+      "exit": 101,
+      "log_sha256": "94dd432514ad8986f066d2d5ad16ed1f998da6662c03e0e89fb9b0c56ec7381c"
+    }
+  ],
+  "first_compile_failure": "E0277 in only the new poison regression; zero tests executed before correction.",
+  "correction_diff_sha256": "787f274aeb3c9eb116130796dc04a1ef3b3e64571b49ac0a1ce9aa539dc62e53",
+  "corrected_stages": [
+    {
+      "name": "fmt",
+      "command": [
+        "/Users/autonomous/.cargo/bin/cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "cwd": "/private/tmp/lampos-tests-gemini-task-joins/lampOS",
+      "target": "/private/tmp/tests-823-rebase-target",
+      "started_from_date": "2026-10-16 09:16:37 +0700",
+      "finished_from_date": "2026-10-16 09:16:42 +0700",
+      "exit": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "clippy",
+      "command": [
+        "/Users/autonomous/.cargo/bin/cargo",
+        "clippy",
+        "--locked",
+        "--offline",
+        "--all-targets",
+        "-p",
+        "lamp-gemini",
+        "-p",
+        "lamp-memory",
+        "-p",
+        "lamp-surround",
+        "-p",
+        "lamp-voice",
+        "-p",
+        "lamp-voice-eval",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "cwd": "/private/tmp/lampos-tests-gemini-task-joins/lampOS",
+      "target": "/private/tmp/tests-823-rebase-target",
+      "started_from_date": "2026-10-16 09:16:42 +0700",
+      "finished_from_date": "2026-10-16 09:16:49 +0700",
+      "exit": 0,
+      "log_sha256": "3fed80331e13421538ff2f09c1e3169a4047067050defbaba8ee07ae294e2cef"
+    },
+    {
+      "name": "compiled-list",
+      "command": [
+        "/Users/autonomous/.cargo/bin/cargo",
+        "nextest",
+        "list",
+        "--locked",
+        "--offline",
+        "-p",
+        "lamp-gemini",
+        "-p",
+        "lamp-memory",
+        "-p",
+        "lamp-surround",
+        "-p",
+        "lamp-voice",
+        "-p",
+        "lamp-voice-eval",
+        "--message-format",
+        "json"
+      ],
+      "cwd": "/private/tmp/lampos-tests-gemini-task-joins/lampOS",
+      "target": "/private/tmp/tests-823-rebase-target",
+      "started_from_date": "2026-10-16 09:16:49 +0700",
+      "finished_from_date": "2026-10-16 09:20:23 +0700",
+      "exit": 0,
+      "log_sha256": "99c438bf633b1cffdc011e9aa2eadd151d8a91b3059551ea62da7e87c7047b55"
+    },
+    {
+      "name": "focused-list",
+      "command": [
+        "/Users/autonomous/.cargo/bin/cargo",
+        "nextest",
+        "list",
+        "--locked",
+        "--offline",
+        "-p",
+        "lamp-gemini",
+        "-p",
+        "lamp-memory",
+        "-p",
+        "lamp-surround",
+        "-p",
+        "lamp-voice",
+        "-p",
+        "lamp-voice-eval",
+        "--message-format",
+        "json",
+        "-E",
+        "test(testing::task_joins::tests::)"
+      ],
+      "cwd": "/private/tmp/lampos-tests-gemini-task-joins/lampOS",
+      "target": "/private/tmp/tests-823-rebase-target",
+      "started_from_date": "2026-10-16 09:20:23 +0700",
+      "finished_from_date": "2026-10-16 09:20:28 +0700",
+      "exit": 0,
+      "log_sha256": "d24e2e55254b027088647cdfef80c155fcc54b667c7ab1e4ebb1f30a986321ce"
+    },
+    {
+      "name": "focused",
+      "command": [
+        "/Users/autonomous/.cargo/bin/cargo",
+        "nextest",
+        "run",
+        "--locked",
+        "--offline",
+        "-p",
+        "lamp-gemini",
+        "-p",
+        "lamp-memory",
+        "-p",
+        "lamp-surround",
+        "-p",
+        "lamp-voice",
+        "-p",
+        "lamp-voice-eval",
+        "--profile",
+        "default",
+        "--test-threads",
+        "1",
+        "--no-fail-fast",
+        "--retries",
+        "0",
+        "-E",
+        "test(testing::task_joins::tests::)"
+      ],
+      "cwd": "/private/tmp/lampos-tests-gemini-task-joins/lampOS",
+      "target": "/private/tmp/tests-823-rebase-target",
+      "started_from_date": "2026-10-16 09:20:28 +0700",
+      "finished_from_date": "2026-10-16 09:20:34 +0700",
+      "exit": 0,
+      "log_sha256": "8b3fd5393e79d2a57676713dd8243dd4de3d14f24579c1bb827351de989fa710"
+    },
+    {
+      "name": "full",
+      "command": [
+        "/Users/autonomous/.cargo/bin/cargo",
+        "nextest",
+        "run",
+        "--locked",
+        "--offline",
+        "-p",
+        "lamp-gemini",
+        "-p",
+        "lamp-memory",
+        "-p",
+        "lamp-surround",
+        "-p",
+        "lamp-voice",
+        "-p",
+        "lamp-voice-eval",
+        "--profile",
+        "default",
+        "--test-threads",
+        "1",
+        "--no-fail-fast",
+        "--retries",
+        "0"
+      ],
+      "cwd": "/private/tmp/lampos-tests-gemini-task-joins/lampOS",
+      "target": "/private/tmp/tests-823-rebase-target",
+      "started_from_date": "2026-10-16 09:20:35 +0700",
+      "finished_from_date": "2026-10-16 09:40:27 +0700",
+      "exit": 100,
+      "log_sha256": "fc7455deb8f8a5dcc746922e9641e2893c336cb56eff078da6d3728c1045abd5"
+    },
+    {
+      "name": "workspace-build",
+      "command": [
+        "/Users/autonomous/.cargo/bin/cargo",
+        "build",
+        "--workspace",
+        "--locked",
+        "--offline"
+      ],
+      "cwd": "/private/tmp/lampos-tests-gemini-task-joins/lampOS",
+      "environment": {
+        "RUSTUP_TOOLCHAIN": "1.96.0",
+        "CARGO_TARGET_DIR": "/private/tmp/tests-823-rebase-target",
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_TERM_COLOR": "never",
+        "RUST_BACKTRACE": "1",
+        "PATH": "/private/tmp/pipeline-788-tools:/Users/autonomous/.cargo/bin:/usr/local/Cellar/node/25.3.0/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-x64/vendor/x86_64-apple-darwin/codex-path:/usr/local/Cellar/node/25.3.0/bin:/Users/autonomous/.grok/bin:/Users/autonomous/.local/bin:/Users/autonomous/.local/bin:/Users/autonomous/.npm-global/bin:/usr/local/bin:/Users/autonomous/.codeium/windsurf/bin:/Users/autonomous/.nvm/versions/node/v20.9.0/bin:/Users/d/opt/anaconda3/bin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/pkg/env/global/bin:/Library/Apple/usr/bin:/usr/local/go/bin:/Users/autonomous/.codex/tmp/arg0/codex-arg0ahO1Nn:/usr/local/Cellar/node/25.3.0/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-x64/vendor/x86_64-apple-darwin/codex-path:/Users/autonomous/.harness/runtime/grid-0.3.59-darwin-x64/bin:/usr/local/Cellar/node/25.3.0/bin:/Users/autonomous/.grok/bin:/Users/autonomous/.local/bin:/Users/autonomous/.npm-global/bin:/Users/autonomous/.codeium/windsurf/bin:/Users/autonomous/.nvm/versions/node/v20.9.0/bin:/Users/d/opt/anaconda3/bin:/Users/autonomous/.harness/runtime/grid-0.3.55-darwin-x64/bin"
+      },
+      "started_from_date": "2026-10-16 09:42:57 +0700",
+      "finished_from_date": "2026-10-16 09:44:39 +0700",
+      "exit": 0,
+      "log_sha256": "d7a67044a5ea76b376669fcd66818ebd706ad207f652b48280ee18ba6bada91c"
+    },
+    {
+      "name": "doc-tests",
+      "command": [
+        "/Users/autonomous/.cargo/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "-p",
+        "lamp-gemini",
+        "-p",
+        "lamp-memory",
+        "-p",
+        "lamp-surround",
+        "-p",
+        "lamp-voice",
+        "-p",
+        "lamp-voice-eval",
+        "--doc",
+        "--",
+        "--test-threads=1"
+      ],
+      "cwd": "/private/tmp/lampos-tests-gemini-task-joins/lampOS",
+      "environment": {
+        "RUSTUP_TOOLCHAIN": "1.96.0",
+        "CARGO_TARGET_DIR": "/private/tmp/tests-823-rebase-target",
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_TERM_COLOR": "never",
+        "RUST_BACKTRACE": "1",
+        "PATH": "/private/tmp/pipeline-788-tools:/Users/autonomous/.cargo/bin:/usr/local/Cellar/node/25.3.0/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-x64/vendor/x86_64-apple-darwin/codex-path:/usr/local/Cellar/node/25.3.0/bin:/Users/autonomous/.grok/bin:/Users/autonomous/.local/bin:/Users/autonomous/.local/bin:/Users/autonomous/.npm-global/bin:/usr/local/bin:/Users/autonomous/.codeium/windsurf/bin:/Users/autonomous/.nvm/versions/node/v20.9.0/bin:/Users/d/opt/anaconda3/bin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/pkg/env/global/bin:/Library/Apple/usr/bin:/usr/local/go/bin:/Users/autonomous/.codex/tmp/arg0/codex-arg0ahO1Nn:/usr/local/Cellar/node/25.3.0/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-x64/vendor/x86_64-apple-darwin/codex-path:/Users/autonomous/.harness/runtime/grid-0.3.59-darwin-x64/bin:/usr/local/Cellar/node/25.3.0/bin:/Users/autonomous/.grok/bin:/Users/autonomous/.local/bin:/Users/autonomous/.npm-global/bin:/Users/autonomous/.codeium/windsurf/bin:/Users/autonomous/.nvm/versions/node/v20.9.0/bin:/Users/d/opt/anaconda3/bin:/Users/autonomous/.harness/runtime/grid-0.3.55-darwin-x64/bin"
+      },
+      "started_from_date": "2026-10-16 09:44:42 +0700",
+      "finished_from_date": "2026-10-16 09:44:47 +0700",
+      "exit": 0,
+      "log_sha256": "51303e42e79372c5e4b6681d7e774688b5daadcf5b9e6398c3ca5ed4255ed5d4"
+    }
+  ],
+  "compiled_before": 2708,
+  "compiled_after": 2726,
+  "original_ignores": 15,
+  "current_ignores": 15,
+  "exact_18_additions": true,
+  "focused_executions": 18,
+  "full_executions": 2711,
+  "full_counts": {
+    "PASS": 2710,
+    "FAIL": 1
+  },
+  "full_failures": [
+    {
+      "status": "FAIL",
+      "duration": "1.491s",
+      "execution": 942,
+      "total": 2711,
+      "binary": "lamp-voice",
+      "test": "coordinator::motor::tests::native_head::native_head_six_explicit_actions_prepare_profile_then_new_requests"
+    }
+  ],
+  "doc_tests": {
+    "date_from_date": "2026-10-16 09:44:48 +0700",
+    "command_exit": 0,
+    "doc_test_targets": [
+      "lamp_gemini",
+      "lamp_memory",
+      "lamp_surround",
+      "lamp_voice",
+      "lamp_voice_eval"
+    ],
+    "result_summaries": [
+      {
+        "status": "ok",
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered": 0
+      },
+      {
+        "status": "ok",
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered": 0
+      },
+      {
+        "status": "ok",
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered": 0
+      },
+      {
+        "status": "ok",
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered": 0
+      },
+      {
+        "status": "ok",
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered": 0
+      }
+    ],
+    "total_passed": 0,
+    "total_failed": 0,
+    "total_ignored": 0,
+    "normal_tests_reexecuted": false,
+    "source_log_sha256": "51303e42e79372c5e4b6681d7e774688b5daadcf5b9e6398c3ca5ed4255ed5d4"
+  },
+  "source_unchanged_during_qualification": true,
+  "no_test_retries": true,
+  "baseline_tests_executed": false,
+  "target_released": true,
+  "target": "/private/tmp/tests-823-rebase-target",
+  "root_handles_git_and_github": true,
+  "native_qualification": "not yet run by owner",
+  "readiness": "local full gate has one disclosed pre-existing Motor identity failure; no passing full gate or causal exception claimed"
+}

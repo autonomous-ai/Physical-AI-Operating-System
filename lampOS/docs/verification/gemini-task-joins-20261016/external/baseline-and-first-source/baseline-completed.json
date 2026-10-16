@@ -1,0 +1,78 @@
+{
+  "date_from_date": "2026-10-16 08:53:31 +0700",
+  "root_supplied_base": "1fb07c6f57ee280a49de7b4ddd74008c2a32a20d",
+  "status": "baseline-compiled-no-tests-executed",
+  "selected_packages": [
+    "lamp-gemini",
+    "lamp-memory",
+    "lamp-surround",
+    "lamp-voice",
+    "lamp-voice-eval"
+  ],
+  "count": 2708,
+  "ignored": 15,
+  "binary_count": 88,
+  "source_file_count": 7150,
+  "source_unchanged": true,
+  "list_sha256": "96e79093b582c6c1c83cb0f126de7adf2a0fa287376bd35ac7df830845b3584d",
+  "clean_source_sha256": "4485b8bab9fdb5cb5f81b31304bf2f67064b68c2011137378b09a51b7013423d",
+  "stages": [
+    {
+      "name": "rustc-version",
+      "command": [
+        "/Users/autonomous/.cargo/bin/rustc",
+        "--version",
+        "--verbose"
+      ],
+      "cwd": "/private/tmp/lampos-tests-gemini-task-joins/lampOS",
+      "started_from_date": "2026-10-16 08:49:52 +0700",
+      "finished_from_date": "2026-10-16 08:49:52 +0700",
+      "exit": 0,
+      "log_sha256": "4d8ef7a4d2fe91e2e73066fdff851a6b49773a97b60cf751f81045606a502281"
+    },
+    {
+      "name": "metadata",
+      "command": [
+        "/Users/autonomous/.cargo/bin/cargo",
+        "metadata",
+        "--locked",
+        "--offline",
+        "--format-version",
+        "1"
+      ],
+      "cwd": "/private/tmp/lampos-tests-gemini-task-joins/lampOS",
+      "started_from_date": "2026-10-16 08:49:52 +0700",
+      "finished_from_date": "2026-10-16 08:49:52 +0700",
+      "exit": 0,
+      "log_sha256": "e84d634ee7a2099505c5934730cff807476b8540377a3886d95567518566eb5e"
+    },
+    {
+      "name": "baseline-list",
+      "command": [
+        "/Users/autonomous/.cargo/bin/cargo",
+        "nextest",
+        "list",
+        "--locked",
+        "--offline",
+        "-p",
+        "lamp-gemini",
+        "-p",
+        "lamp-memory",
+        "-p",
+        "lamp-surround",
+        "-p",
+        "lamp-voice",
+        "-p",
+        "lamp-voice-eval",
+        "--message-format",
+        "json"
+      ],
+      "cwd": "/private/tmp/lampos-tests-gemini-task-joins/lampOS",
+      "started_from_date": "2026-10-16 08:49:52 +0700",
+      "finished_from_date": "2026-10-16 08:53:29 +0700",
+      "exit": 0,
+      "log_sha256": "96e79093b582c6c1c83cb0f126de7adf2a0fa287376bd35ac7df830845b3584d"
+    }
+  ],
+  "no_source_edits_yet": true
+}

@@ -1,0 +1,15 @@
+{
+  "date_from_date": "2026-10-16 09:42:54 +0700",
+  "prior_native_session": 49918,
+  "prior_native_exit": 2,
+  "full_test_exit": 100,
+  "full_log_sha256": "fc7455deb8f8a5dcc746922e9641e2893c336cb56eff078da6d3728c1045abd5",
+  "reason": "The external parser counted the failure recap after Summary as a second execution. Preserve all original files; reparse only the unedited log before its final Summary. No test re-execution.",
+  "already_executed_tests": {
+    "focused": 18,
+    "full": 2711
+  },
+  "first_gate": "/private/tmp/tests-823-gemini-task-joins-1fb-gate",
+  "previous_terminal_sha256": "51993dca548a13c007d1987b730b7f3f6d16f259ea9ca55487f59c2145648680",
+  "previous_parser_output_sha256": "b9209c013ad841a2ca6739a5a754f0f74be2d7a3667fe88678e15b5950722f15"
+}

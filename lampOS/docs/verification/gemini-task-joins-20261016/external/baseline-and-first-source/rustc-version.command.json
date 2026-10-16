@@ -1,0 +1,10 @@
+{
+  "name": "rustc-version",
+  "command": [
+    "/Users/autonomous/.cargo/bin/rustc",
+    "--version",
+    "--verbose"
+  ],
+  "cwd": "/private/tmp/lampos-tests-gemini-task-joins/lampOS",
+  "started_from_date": "2026-10-16 08:49:52 +0700"
+}

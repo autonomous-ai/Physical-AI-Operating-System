@@ -1,0 +1,15 @@
+--- a/lampOS/crates/gemini/src/testing/task_joins/tests.rs
++++ b/lampOS/crates/gemini/src/testing/task_joins/tests.rs
+@@ -669,10 +669,10 @@
+         let owner = registrar.owner();
+         let task = tokio::spawn(async {});
+         let mut task = UnitTask::new(task, registrar.reserve(TaskKind::Actor, session(14)));
+-        let shared = registrar.0.clone();
++        let state = &registrar.0.state;
+         assert!(
+             std::panic::catch_unwind(move || {
+-                let _guard = shared.state.lock().unwrap();
++                let _guard = state.lock().unwrap();
+                 panic!("poison only the fixture observation mutex");
+             })
+             .is_err()

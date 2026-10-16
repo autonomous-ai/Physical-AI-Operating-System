@@ -3,7 +3,7 @@
 //! request here, and nothing in this module is used by the runtime.
 use crate::{
     Attempt, Connect, Connection, Result, ResumptionHandle, SessionConfig, SessionId,
-    session::{CaptureClockSource, setup_and_spawn_with_capture_clock, socket_config},
+    session::{CaptureClockSource, setup_and_spawn_with_sources, socket_config},
 };
 use base64::{Engine, engine::general_purpose::STANDARD};
 use futures_util::{SinkExt, StreamExt};
@@ -21,6 +21,23 @@ use tokio_tungstenite::{
 };
 
 const RECEIVE_TIMEOUT: Duration = Duration::from_secs(2);
+
+#[cfg(any(test, feature = "fixture-clock"))]
+pub(crate) mod task_joins;
+#[cfg(any(test, feature = "fixture-clock"))]
+pub use task_joins::{
+    JoinFault, JoinOutcome, JoinReport, JoinedTask, MAX_JOINED_TASKS, TaskCompletion, TaskJoins,
+    TaskKind,
+};
+
+/// Production and existing fixtures keep the direct ownership path.
+#[derive(Clone, Default)]
+pub(crate) enum JoinSource {
+    #[default]
+    Plain,
+    #[cfg(any(test, feature = "fixture-clock"))]
+    Retained(task_joins::Registrar),
+}
 
 /// Capture time supplied explicitly to an in-memory fixture connection.
 ///
@@ -190,13 +207,26 @@ async fn pair_with_clock_source(
     impl Future<Output = Result<Connection>> + Send + 'static,
     FakeService,
 ) {
+    pair_with_sources(config, session, capacity, capture_clock, JoinSource::Plain).await
+}
+
+async fn pair_with_sources(
+    config: SessionConfig,
+    session: SessionId,
+    capacity: usize,
+    capture_clock: CaptureClockSource,
+    joins: JoinSource,
+) -> (
+    impl Future<Output = Result<Connection>> + Send + 'static,
+    FakeService,
+) {
     let (client, server) = tokio::io::duplex(capacity);
     let client =
         WebSocketStream::from_raw_socket(client, Role::Client, Some(socket_config())).await;
     let server =
         WebSocketStream::from_raw_socket(server, Role::Server, Some(socket_config())).await;
     (
-        setup_and_spawn_with_capture_clock(client, config, session, capture_clock),
+        setup_and_spawn_with_sources(client, config, session, capture_clock, joins),
         FakeService {
             socket: server,
             closed: false,
@@ -219,6 +249,7 @@ pub struct FakeConnector {
     dials: mpsc::UnboundedSender<Dial>,
     capacity: usize,
     capture_clock: CaptureClockSource,
+    joins: JoinSource,
 }
 pub fn connector(config: SessionConfig) -> (FakeConnector, mpsc::UnboundedReceiver<Dial>) {
     connector_with_capacity(config, crate::MAX_WIRE_BYTES * 2)
@@ -248,6 +279,15 @@ fn connector_with_clock_source(
     capacity: usize,
     capture_clock: CaptureClockSource,
 ) -> (FakeConnector, mpsc::UnboundedReceiver<Dial>) {
+    connector_with_sources(config, capacity, capture_clock, JoinSource::Plain)
+}
+
+fn connector_with_sources(
+    config: SessionConfig,
+    capacity: usize,
+    capture_clock: CaptureClockSource,
+    joins: JoinSource,
+) -> (FakeConnector, mpsc::UnboundedReceiver<Dial>) {
     let (dials, observed) = mpsc::unbounded_channel();
     (
         FakeConnector {
@@ -255,10 +295,42 @@ fn connector_with_clock_source(
             dials,
             capacity,
             capture_clock,
+            joins,
         },
         observed,
     )
 }
+/// In-memory supervisor with explicit capture time and actual task joins.
+///
+/// Install before the first attempt spawns. `max_tasks` bounds all Actor and
+/// Dialing registrations for this fixture's lifetime (1..=MAX_JOINED_TASKS).
+/// Drop the supervisor through its normal owner, then await `TaskJoins::finish`
+/// within the controller's immutable host deadline. Finish never drives the
+/// supervisor, drains output, requests shutdown or advances a clock.
+#[cfg(any(test, feature = "fixture-clock"))]
+pub fn supervisor_with_capture_clock_and_joins(
+    config: SessionConfig,
+    policy: crate::RecoveryPolicy,
+    capacity: usize,
+    clock: Arc<dyn CaptureClock>,
+    max_tasks: std::num::NonZeroUsize,
+) -> Result<(
+    crate::Supervisor<FakeConnector>,
+    mpsc::UnboundedReceiver<Dial>,
+    TaskJoins,
+)> {
+    let (registrar, tasks) = TaskJoins::new(max_tasks)?;
+    let joins = JoinSource::Retained(registrar);
+    let (connector, dials) = connector_with_sources(
+        config,
+        capacity,
+        CaptureClockSource::Fixture(clock),
+        joins.clone(),
+    );
+    let supervisor = crate::Supervisor::new_with_join_source(connector, policy, joins)?;
+    Ok((supervisor, dials, tasks))
+}
+
 impl Connect for FakeConnector {
     fn connect(&mut self, session: SessionId, resume: Option<ResumptionHandle>) -> Attempt {
         let resumed = resume.is_some();
@@ -266,9 +338,10 @@ impl Connect for FakeConnector {
         let dials = self.dials.clone();
         let capacity = self.capacity;
         let capture_clock = self.capture_clock.clone();
+        let joins = self.joins.clone();
         Box::pin(async move {
             let (attempt, service) =
-                pair_with_clock_source(config, session, capacity, capture_clock).await;
+                pair_with_sources(config, session, capacity, capture_clock, joins).await;
             let _ = dials.send(Dial {
                 session,
                 resumed,

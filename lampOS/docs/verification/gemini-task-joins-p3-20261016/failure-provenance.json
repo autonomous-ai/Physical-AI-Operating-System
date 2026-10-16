@@ -1,0 +1,23 @@
+{
+  "date_from_date": "2026-10-16 11:58:06 +0700",
+  "full_failures": [
+    {
+      "status": "FAIL",
+      "duration": "2.091s",
+      "execution": 1118,
+      "total": 2712,
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::a_short_xrun_reopen_inside_a_question_abandons_it_and_the_voice_goes_on"
+    }
+  ],
+  "source_locations": [
+    {
+      "reported_location": "panicked at crates/voice/src/coordinator/tests/pilot_faults.rs:1985:5:",
+      "source": "/private/tmp/lampos-tests-gemini-task-joins/lampOS/crates/voice/src/coordinator/tests/pilot_faults.rs",
+      "sha256": "217a109eaa90202de370be4db825f2285bd1b6582a0011b17bb8f4e183071d8e",
+      "copy": "failure-source/lampOS/crates/voice/src/coordinator/tests/pilot_faults.rs"
+    }
+  ],
+  "cause": "Unclassified for any failure; no retry or waiver",
+  "source_log_sha256": "85af3d5cd834af4c1ba92667072e12883fa18606982e72a2781ff641721f948a"
+}

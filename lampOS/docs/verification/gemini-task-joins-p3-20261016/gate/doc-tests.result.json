@@ -1,0 +1,30 @@
+{
+  "name": "doc-tests",
+  "command": [
+    "/Users/autonomous/.cargo/bin/cargo",
+    "test",
+    "--locked",
+    "--offline",
+    "-p",
+    "lamp-gemini",
+    "-p",
+    "lamp-memory",
+    "-p",
+    "lamp-surround",
+    "-p",
+    "lamp-voice",
+    "-p",
+    "lamp-voice-eval",
+    "--doc",
+    "--",
+    "--test-threads=1"
+  ],
+  "cwd": "/private/tmp/lampos-tests-gemini-task-joins/lampOS",
+  "target": "/private/tmp/tests-823-rebase-target",
+  "started_from_date": "2026-10-16 11:55:21 +0700",
+  "free_disk_bytes": 12177661952,
+  "finished_from_date": "2026-10-16 11:55:27 +0700",
+  "exit": 0,
+  "log_sha256": "dee13256878373a6eb52923609f0891768d5c781303ab0374e215ccde9237561",
+  "free_disk_bytes_after": 12192989184
+}

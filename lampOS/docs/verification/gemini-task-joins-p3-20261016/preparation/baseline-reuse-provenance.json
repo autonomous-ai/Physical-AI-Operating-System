@@ -1,0 +1,22 @@
+{
+  "date_from_date": "2026-10-16 11:25:50 +0700",
+  "original_path": "/private/tmp/tests-823-gemini-actor-work-8de-baseline",
+  "clean_source_before_sha256": "344c650a6c1e65384187c05b113b034419bfa4f632c103c7855e4d51ab8fb6c8",
+  "clean_source_after_sha256": "7fbf3ead498daabbf197c89b82696c159a91b31a57c38f5f76db725dbe372de9",
+  "raw_compiled_list_sha256": "486e39417a1bd65ab97a570c70c86bc98741c598ba9b23d91314455b2293b0f1",
+  "identities_sha256": "ffc2ae7cdea057a1a471bf8d60dd08c4457c49c479b3625acbe2583deaa7a8d1",
+  "baseline_compiled_identities": 2726,
+  "ignored": 15,
+  "test_executions": 0,
+  "current_all_7558_input_hashes_equal_before_edit": true,
+  "normalization_only_for_later_metadata": "Replace original absolute worktree root with current root; compare complete metadata after normalization. Source and test identities do not normalize.",
+  "baseline_worktree": "/private/tmp/lampos-tests-gemini-actor-work",
+  "current_worktree": "/private/tmp/lampos-tests-gemini-task-joins",
+  "excluded_external_scripts": [
+    {
+      "path": "/private/tmp/tests-823-gemini-actor-work-8de-baseline/baseline-runner.py",
+      "sha256": "5f5870d00ad2d502d1abbd69fd631722f05f2a2695f1230e5079cee5a81efd41",
+      "reason": "External orchestration script; omitted from Git-safe evidence"
+    }
+  ]
+}

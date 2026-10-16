@@ -1,0 +1,33 @@
+{
+  "name": "focused-list",
+  "command": [
+    "/Users/autonomous/.cargo/bin/cargo",
+    "nextest",
+    "list",
+    "--locked",
+    "--offline",
+    "-p",
+    "lamp-gemini",
+    "-p",
+    "lamp-memory",
+    "-p",
+    "lamp-surround",
+    "-p",
+    "lamp-voice",
+    "-p",
+    "lamp-voice-eval",
+    "--message-format",
+    "json",
+    "-E",
+    "test(=testing::task_joins::tests::ordinary_and_retained_supervisors_have_the_same_ordered_protocol_and_terminal_result)"
+  ],
+  "cwd": "/private/tmp/lampos-tests-gemini-task-joins/lampOS",
+  "target": "/private/tmp/tests-823-rebase-target",
+  "started_from_date": "2026-10-16 11:32:02 +0700",
+  "free_disk_bytes": 13158412288,
+  "finished_from_date": "2026-10-16 11:32:09 +0700",
+  "exit": 0,
+  "log_sha256": "d7dd6a7d68c3c981c97149ce31e5c614eff0cf190c73d544bd580e2a75ae363c",
+  "free_disk_bytes_after": 13153841152,
+  "stderr_sha256": "69371735beea9ff8cbcd70ea9bd2be7a4a5a0ce18adbe6e3beed659f752d727a"
+}

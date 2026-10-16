@@ -1,0 +1,6 @@
+   Compiling lamp-camera v0.1.0 (/private/tmp/lampos-tests-gemini-task-joins/lampOS/crates/camera)
+   Compiling lamp-gemini v0.1.0 (/private/tmp/lampos-tests-gemini-task-joins/lampOS/crates/gemini)
+   Compiling lamp-voice v0.1.0 (/private/tmp/lampos-tests-gemini-task-joins/lampOS/crates/voice)
+   Compiling lamp-voice-eval v0.1.0 (/private/tmp/lampos-tests-gemini-task-joins/lampOS/crates/voice-eval)
+   Compiling lamp-memory v0.1.0 (/private/tmp/lampos-tests-gemini-task-joins/lampOS/crates/memory)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2m 38s

@@ -1,0 +1,44 @@
+{
+  "date_from_date": "2026-10-16 12:00:05 +0700",
+  "base": "8de22aef8d5526f83b48b279e71706d71e7cdf5b",
+  "package_file_count": 116,
+  "all_package_hashes_and_text_modes_exact": true,
+  "compiled_before": 2726,
+  "compiled_after": 2727,
+  "unchanged_ignores": 15,
+  "exact_one_added_identity": [
+    "lamp-gemini",
+    "testing::task_joins::tests::ordinary_and_retained_supervisors_have_the_same_ordered_protocol_and_terminal_result"
+  ],
+  "all_previous_identities_preserved": true,
+  "full": {
+    "pass": 2711,
+    "fail": 1,
+    "skip": 15,
+    "unique_exact_once": true,
+    "failed_identity": [
+      "lamp-voice",
+      "coordinator::tests::pilot_faults::a_short_xrun_reopen_inside_a_question_abandons_it_and_the_voice_goes_on"
+    ],
+    "retries": 0
+  },
+  "old_18_test_file_exact_prefix_bytes": 26595,
+  "all_7558_inputs_exact": true,
+  "approved_two_source_files_exact": true,
+  "stage_exit_codes": {
+    "fmt": 0,
+    "metadata": 0,
+    "clippy": 0,
+    "compiled-list": 0,
+    "focused-list": 0,
+    "focused": 0,
+    "full": 100,
+    "workspace-build": 0,
+    "doc-tests": 0
+  },
+  "first_focused_comparison_pass_seconds": "0.062",
+  "source_classification": "Failure is unchanged short-XRun test on Threaded fixture. Its exact identity is covered by open PR #972; that pending change does not waive this failed gate.",
+  "native_current_revision_pending": true,
+  "ready": false,
+  "script_sha256": "52ddff4c2a2ad3044142ccdb4fdced93c191173dc570bdfd70268e79275fc732"
+}

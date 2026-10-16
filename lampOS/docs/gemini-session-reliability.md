@@ -700,6 +700,15 @@ This preparation supplies task completion after shutdown; it does not establish
 a live Actor progress frontier, Provider worker return, service-task join or
 child-process exit. The original Voice scenarios remain unmigrated.
 
+A direct ordinary/retained comparison runs the same ordered setup, Start,
+capture-clock audio, End, two reply frames and remote terminal failure through
+`connector_with_capture_clock` plus `Supervisor::new` and the explicit retained
+supervisor factory. It checks the ordinary connector selects `Plain`, compares
+complete wire messages and all semantic consumer results, and requires the
+retained collector's actual Dialing and Actor joins. Each setup's elapsed host
+duration is separately bounded, not equated. One five-second host deadline
+covers both runs and final collection; no sleep, retry or clock advance is used.
+
 ### Strict continuation probe (example-only addition)
 
 The explicit `continue-before-output` mode sends two **different**, already

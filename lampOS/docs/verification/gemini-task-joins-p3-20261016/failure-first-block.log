@@ -1,0 +1,40 @@
+        FAIL [   2.091s] (1118/2712) lamp-voice coordinator::tests::pilot_faults::a_short_xrun_reopen_inside_a_question_abandons_it_and_the_voice_goes_on
+  stdout ───
+
+    running 1 test
+    {"seconds":null,"status":"listening_ready"}
+    test coordinator::tests::pilot_faults::a_short_xrun_reopen_inside_a_question_abandons_it_and_the_voice_goes_on ... FAILED
+
+    failures:
+
+    failures:
+        coordinator::tests::pilot_faults::a_short_xrun_reopen_inside_a_question_abandons_it_and_the_voice_goes_on
+
+    test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1259 filtered out; finished in 2.02s
+
+  stderr ───
+    lamp-voice: the microphone stalled 70 ms; 1 late frames dropped, listening again
+    fixture Threaded, packet and policy clock host, real conversation and cleanup 1.900752981s
+    result Err("service privacy freshness lost before next observation")
+    kinds ["endpoint_policy", "turn_taking_availability", "capture_started", "provider_link_current", "listening_ready", "input_candidate", "input_admitted(1)", "provider_input_started", "capture_gap_closed", "hand_control_cancel", "turn_finished(\"capture_gap\")", "capture_started", "capture_gap", "worker_shutdown_event"]
+    peer privacy gap 114496 us, refused writes 0, end-to-speaker revocation [(1, 70)] us
+    capture send-attempt gap 119341 us, oldest source age at send attempt 109660 us (producer; consumption age unmeasured)
+    frames 184 starts [1] ends [] chunks 0 accepted 0 fired [(CaptureXRun, 2653290293044)] stopped ["provider", "privacy", "speaker", "capture"] abandoned []
+
+    thread 'coordinator::tests::pilot_faults::a_short_xrun_reopen_inside_a_question_abandons_it_and_the_voice_goes_on' (584207329) panicked at crates/voice/src/coordinator/tests/pilot_faults.rs:1985:5:
+    Err(Custom { kind: Other, error: "service privacy freshness lost before next observation" })
+    stack backtrace:
+       0: __rustc::rust_begin_unwind
+                 at /rustc/ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96/library/std/src/panicking.rs:689:5
+       1: core::panicking::panic_fmt
+                 at /rustc/ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96/library/core/src/panicking.rs:80:14
+       2: lamp_voice::coordinator::tests::pilot_faults::a_short_xrun_reopen_inside_a_question_abandons_it_and_the_voice_goes_on
+                 at ./src/coordinator/tests/pilot_faults.rs:1985:5
+       3: lamp_voice::coordinator::tests::pilot_faults::a_short_xrun_reopen_inside_a_question_abandons_it_and_the_voice_goes_on::{{closure}}
+                 at ./src/coordinator/tests/pilot_faults.rs:1974:77
+       4: core::ops::function::FnOnce::call_once
+                 at /rustc/ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96/library/core/src/ops/function.rs:250:5
+       5: <fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once
+                 at /rustc/ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96/library/core/src/ops/function.rs:250:5
+    note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+

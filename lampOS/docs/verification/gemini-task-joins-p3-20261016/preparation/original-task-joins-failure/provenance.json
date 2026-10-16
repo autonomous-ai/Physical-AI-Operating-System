@@ -1,0 +1,121 @@
+{
+  "date_from_date": "2026-10-16 11:28:51 +0700",
+  "original_publication_package": "/private/tmp/tests-823-gemini-task-joins-publication",
+  "original_manifest_sha256": "c9e3c8da37671d75ffbc14732b563843433adcc46ad64cd0a30beac41c01203b",
+  "copied": [
+    {
+      "original": "/private/tmp/tests-823-gemini-task-joins-publication/corrected-gate/full.log",
+      "copy": "/private/tmp/tests-966-off-on-preparation/original-task-joins-failure/corrected-gate/full.log",
+      "sha256": "fc7455deb8f8a5dcc746922e9641e2893c336cb56eff078da6d3728c1045abd5"
+    },
+    {
+      "original": "/private/tmp/tests-823-gemini-task-joins-publication/corrected-gate/full.command.json",
+      "copy": "/private/tmp/tests-966-off-on-preparation/original-task-joins-failure/corrected-gate/full.command.json",
+      "sha256": "f1f7bc11f4d9a52eaa69ebd4d438cedc4fabf03e15039eeeb3d561ae0c5aaca1"
+    },
+    {
+      "original": "/private/tmp/tests-823-gemini-task-joins-publication/corrected-gate/full-runtime-identities.json",
+      "copy": "/private/tmp/tests-966-off-on-preparation/original-task-joins-failure/corrected-gate/full-runtime-identities.json",
+      "sha256": "b9209c013ad841a2ca6739a5a754f0f74be2d7a3667fe88678e15b5950722f15"
+    },
+    {
+      "original": "/private/tmp/tests-823-gemini-task-joins-publication/corrected-gate/terminal.json",
+      "copy": "/private/tmp/tests-966-off-on-preparation/original-task-joins-failure/corrected-gate/terminal.json",
+      "sha256": "51993dca548a13c007d1987b730b7f3f6d16f259ea9ca55487f59c2145648680"
+    },
+    {
+      "original": "/private/tmp/tests-823-gemini-task-joins-publication/corrected-gate/completion-supplement/terminal.json",
+      "copy": "/private/tmp/tests-966-off-on-preparation/original-task-joins-failure/corrected-gate/completion-supplement/terminal.json",
+      "sha256": "5ba2b2093b2a8e8fb139e9a831cb37cd271807ad471d7a7a0324f276fcfe4433"
+    },
+    {
+      "original": "/private/tmp/tests-823-gemini-task-joins-publication/first-compile-failure/terminal.json",
+      "copy": "/private/tmp/tests-966-off-on-preparation/original-task-joins-failure/first-compile-failure/terminal.json",
+      "sha256": "63702adb66a88c44ca45f7d8f373ffdedce185c16188170bc4a535bda889ee7a"
+    },
+    {
+      "original": "/private/tmp/tests-823-gemini-task-joins-publication/corrected-gate/motor-feature-evidence/artifact-manifest.json",
+      "copy": "/private/tmp/tests-966-off-on-preparation/original-task-joins-failure/corrected-gate/motor-feature-evidence/artifact-manifest.json",
+      "sha256": "3475e3296cceea3aa35bfed249e5614f3eb1ae20cf9308b85f0797d07688d993"
+    },
+    {
+      "original": "/private/tmp/tests-823-gemini-task-joins-publication/corrected-gate/motor-feature-evidence/handoff.md",
+      "copy": "/private/tmp/tests-966-off-on-preparation/original-task-joins-failure/corrected-gate/motor-feature-evidence/handoff.md",
+      "sha256": "9248f861d1aeb4fff90a7655ab5282e73cdd8b3379afc6428d597bba2effc36e"
+    },
+    {
+      "original": "/private/tmp/tests-823-gemini-task-joins-publication/corrected-gate/motor-feature-evidence/source/lampOS/Cargo.lock",
+      "copy": "/private/tmp/tests-966-off-on-preparation/original-task-joins-failure/corrected-gate/motor-feature-evidence/source/lampOS/Cargo.lock",
+      "sha256": "40d62fead16a6f138c4d7dbe400a2e4a9855ceece96d19b1e642136431aed4c5"
+    },
+    {
+      "original": "/private/tmp/tests-823-gemini-task-joins-publication/corrected-gate/motor-feature-evidence/source/lampOS/Cargo.toml",
+      "copy": "/private/tmp/tests-966-off-on-preparation/original-task-joins-failure/corrected-gate/motor-feature-evidence/source/lampOS/Cargo.toml",
+      "sha256": "dafaa1133d09ab0137847973359e8d1c01e7dc306aa54e299ec1a6f611e24c2b"
+    },
+    {
+      "original": "/private/tmp/tests-823-gemini-task-joins-publication/corrected-gate/motor-feature-evidence/source/lampOS/crates/body/src/runtime/supervisor.rs",
+      "copy": "/private/tmp/tests-966-off-on-preparation/original-task-joins-failure/corrected-gate/motor-feature-evidence/source/lampOS/crates/body/src/runtime/supervisor.rs",
+      "sha256": "103009ea8a3baf449a760cf7f1dc43d0aa0b47d999b585c4084c65ff63ff2a3f"
+    },
+    {
+      "original": "/private/tmp/tests-823-gemini-task-joins-publication/corrected-gate/motor-feature-evidence/source/lampOS/crates/body/src/runtime/worker.rs",
+      "copy": "/private/tmp/tests-966-off-on-preparation/original-task-joins-failure/corrected-gate/motor-feature-evidence/source/lampOS/crates/body/src/runtime/worker.rs",
+      "sha256": "d126a1b0020f202c22a0a7a9ec64f54dcb6a52d9f6d02e965d61871aa6ab4cca"
+    },
+    {
+      "original": "/private/tmp/tests-823-gemini-task-joins-publication/corrected-gate/motor-feature-evidence/source/lampOS/crates/gemini/Cargo.toml",
+      "copy": "/private/tmp/tests-966-off-on-preparation/original-task-joins-failure/corrected-gate/motor-feature-evidence/source/lampOS/crates/gemini/Cargo.toml",
+      "sha256": "5b94eadddf2bdc8677d8e584a6cc3ffbdf38f79eba775a9dd141268b1c9a0816"
+    },
+    {
+      "original": "/private/tmp/tests-823-gemini-task-joins-publication/corrected-gate/motor-feature-evidence/source/lampOS/crates/voice/Cargo.toml",
+      "copy": "/private/tmp/tests-966-off-on-preparation/original-task-joins-failure/corrected-gate/motor-feature-evidence/source/lampOS/crates/voice/Cargo.toml",
+      "sha256": "5da3e2d258a46b797bb25ec48ea538eba53f9b9d38dac1ff06abd8deb6597e72"
+    },
+    {
+      "original": "/private/tmp/tests-823-gemini-task-joins-publication/corrected-gate/motor-feature-evidence/source/lampOS/crates/voice/src/coordinator/motor/head.rs",
+      "copy": "/private/tmp/tests-966-off-on-preparation/original-task-joins-failure/corrected-gate/motor-feature-evidence/source/lampOS/crates/voice/src/coordinator/motor/head.rs",
+      "sha256": "4de64a3ab9fe22f6329e990bf1cc990d065fa781f2f38ff69b603fe9b05870b0"
+    },
+    {
+      "original": "/private/tmp/tests-823-gemini-task-joins-publication/corrected-gate/motor-feature-evidence/source/lampOS/crates/voice/src/coordinator/motor/tests/native_head.rs",
+      "copy": "/private/tmp/tests-966-off-on-preparation/original-task-joins-failure/corrected-gate/motor-feature-evidence/source/lampOS/crates/voice/src/coordinator/motor/tests/native_head.rs",
+      "sha256": "a6870c6a1c2f063f5b83ec4e17bf3ed3f7e4d1c6c0bff3ee1942d1108ada38cc"
+    },
+    {
+      "original": "/private/tmp/tests-823-gemini-task-joins-publication/corrected-gate/motor-feature-evidence/source/lampOS/crates/voice/src/coordinator/motor/tests.rs",
+      "copy": "/private/tmp/tests-966-off-on-preparation/original-task-joins-failure/corrected-gate/motor-feature-evidence/source/lampOS/crates/voice/src/coordinator/motor/tests.rs",
+      "sha256": "33a8f47b0d69079697e5ef04bf1617f25dd4f81f3501d9524f1c024236f520ba"
+    },
+    {
+      "original": "/private/tmp/tests-823-gemini-task-joins-publication/corrected-gate/motor-feature-evidence/source/lampOS/crates/voice/src/coordinator/motor.rs",
+      "copy": "/private/tmp/tests-966-off-on-preparation/original-task-joins-failure/corrected-gate/motor-feature-evidence/source/lampOS/crates/voice/src/coordinator/motor.rs",
+      "sha256": "29b82801801be234ae865f7593c957a79537acc3469805401b759c21cf6c748e"
+    },
+    {
+      "original": "/private/tmp/tests-823-gemini-task-joins-publication/corrected-gate/motor-feature-evidence/source/lampOS/crates/voice/src/head_qualification.rs",
+      "copy": "/private/tmp/tests-966-off-on-preparation/original-task-joins-failure/corrected-gate/motor-feature-evidence/source/lampOS/crates/voice/src/head_qualification.rs",
+      "sha256": "22bcba83db468193d2b6c502108ebe24ac05a513da3097b865e1f184d5ebefb2"
+    },
+    {
+      "original": "/private/tmp/tests-823-gemini-task-joins-publication/corrected-gate/motor-feature-evidence/source/lampOS/crates/voice/src/process.rs",
+      "copy": "/private/tmp/tests-966-off-on-preparation/original-task-joins-failure/corrected-gate/motor-feature-evidence/source/lampOS/crates/voice/src/process.rs",
+      "sha256": "f9f1173bd1d33ea9f5ebc9ed3ed6247b802dbf299d017dabef90f93eca074d54"
+    },
+    {
+      "original": "/private/tmp/tests-823-gemini-task-joins-publication/corrected-gate/motor-feature-evidence/source-feature-graph-proof.json",
+      "copy": "/private/tmp/tests-966-off-on-preparation/original-task-joins-failure/corrected-gate/motor-feature-evidence/source-feature-graph-proof.json",
+      "sha256": "31db88e8e8e405e416ebcf40657885ab0cd24b42dd62602a254d428ddc1bdcfe"
+    }
+  ],
+  "excluded": [
+    {
+      "path": "/private/tmp/tests-823-gemini-task-joins-publication/corrected-gate/motor-feature-evidence/evidence-runner.py",
+      "sha256": "d305a67a7e614dbe39b2a15464863fdd6ba06ff97c3a5ca9d5776cb15a5fd573",
+      "reason": "Original external Python orchestration; kept external and omitted from Git-safe historical subset"
+    }
+  ],
+  "original_package_unchanged": true,
+  "meaning": "Historical first corrected TaskJoins full gate remains failed; this new off/on comparison does not erase it or classify its cause. The new gate has independent raw results."
+}

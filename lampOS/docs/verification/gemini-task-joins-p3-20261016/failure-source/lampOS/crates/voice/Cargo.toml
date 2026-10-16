@@ -1,0 +1,55 @@
+[package]
+name = "lamp-voice"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+rtrb.workspace = true
+sha2.workspace = true
+hound.workspace = true
+lamp-turn-owner = { path = "../turn-owner" }
+lamp-ipc = { path = "../ipc" }
+lamp-audio = { path = "../audio" }
+lamp-camera = { path = "../camera" }
+lamp-ring = { path = "../ring" }
+lamp-body = { path = "../body" }
+lamp-gemini = { path = "../gemini" }
+lamp-turn-end-wire = { path = "../turn-end-wire" }
+lamp-bus = { path = "../bus" }
+lamp-msgs = { path = "../msgs" }
+lamp-controls = { path = "../controls" }
+lamp-schedule = { path = "../schedule" }
+tokio = { version = "=1.53.1", features = ["rt", "time", "macros", "net", "sync", "io-util"] }
+# The second voice route's clients: the same pins and TLS setup (ring,
+# webpki roots) as `lamp-gemini` and `lamp-surround`, so no new package.
+futures-util = { version = "=0.3.34", default-features = false, features = ["std", "sink"] }
+tokio-tungstenite = { version = "=0.30.0", default-features = false, features = ["connect", "handshake", "rustls-tls-webpki-roots"] }
+reqwest = { version = "0.13", default-features = false, features = ["stream", "rustls-no-provider"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+webpki-roots = "1"
+rustix = { version = "=1.1.5", features = ["fs", "process", "net", "pipe", "stdio", "event"] }
+sonora-agc2 = "=0.2.0"
+sonora-simd = "=0.2.0"
+signal-hook = { version = "=0.4.4", default-features = false }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+gpiocdev = "=0.8.0"
+thread-priority = "=3.1.1"
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+lamp-actions = { path = "../actions" }
+# The reader of what `expression_out` says: tested against, never linked.
+lamp-expression = { path = "../expression" }
+# What decides progress news (`tests/progress_news.rs`): tested against,
+# never linked.
+lamp-policy = { path = "../policy" }
+# Paused runtime clock, as `lamp-gemini`'s: speech to text's wait for its
+# last words measured without the wait.
+tokio = { version = "=1.53.1", features = ["test-util"] }

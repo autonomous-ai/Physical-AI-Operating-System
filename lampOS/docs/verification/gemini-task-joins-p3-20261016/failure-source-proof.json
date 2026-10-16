@@ -1,0 +1,43 @@
+{
+  "date_from_date": "2026-10-16 11:58:06 +0700",
+  "identity": {
+    "status": "FAIL",
+    "duration": "2.091s",
+    "execution": 1118,
+    "total": 2712,
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::pilot_faults::a_short_xrun_reopen_inside_a_question_abandons_it_and_the_voice_goes_on"
+  },
+  "source": {
+    "lampOS/crates/voice/src/coordinator/tests/pilot_faults.rs": {
+      "sha256": "217a109eaa90202de370be4db825f2285bd1b6582a0011b17bb8f4e183071d8e",
+      "matches_clean_8de_baseline_and_every_gate_source_freeze": true
+    },
+    "lampOS/crates/voice/src/coordinator.rs": {
+      "sha256": "ad7074b1792278ffabb3ff6baf7dc3d57a84b6c1bb883062f90ab481555ef808",
+      "matches_clean_8de_baseline_and_every_gate_source_freeze": true
+    },
+    "lampOS/crates/voice/Cargo.toml": {
+      "sha256": "5da3e2d258a46b797bb25ec48ea538eba53f9b9d38dac1ff06abd8deb6597e72",
+      "matches_clean_8de_baseline_and_every_gate_source_freeze": true
+    }
+  },
+  "before_testcase": {
+    "kind": "test",
+    "ignored": false,
+    "filter-match": {
+      "status": "matches"
+    }
+  },
+  "after_testcase": {
+    "kind": "test",
+    "ignored": false,
+    "filter-match": {
+      "status": "matches"
+    }
+  },
+  "testcase_exact": true,
+  "raw_failure_excerpt_sha256": "b0c9ddf4ec0f6865713498d0ce533190585bfaffbd4d1f882777723b1fd336f9",
+  "assertion": "assert!(is_mute(&run.result), \"{:?}\", run.result)",
+  "cause": "Unclassified; reported timing does not establish the mechanism"
+}

@@ -1,0 +1,8 @@
+{
+  "date_from_date": "2026-10-16 12:00:01 +0700",
+  "first_script_sha256": "8ab30c37656cb7a4b29923be9e2a9e982e32456f07912365ad1be73be50f33c6",
+  "first_audit_exit": 1,
+  "failure": "Runtime parser included the post-Summary recap of the one FAIL, making 2713 parsed rows from 2712 executions.",
+  "correction": "Parse execution rows only before the final nextest Summary; retain and independently match the final failure recap.",
+  "tests_or_source_changed_or_rerun": false
+}

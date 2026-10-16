@@ -1,0 +1,10 @@
+{
+  "date_from_date": "2026-10-16 11:27:47 +0700",
+  "literal_harness_false": {
+    "lamp-gemini": false,
+    "lamp-memory": false,
+    "lamp-surround": false,
+    "lamp-voice": false,
+    "lamp-voice-eval": false
+  }
+}

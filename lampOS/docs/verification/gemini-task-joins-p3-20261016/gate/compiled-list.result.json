@@ -1,0 +1,31 @@
+{
+  "name": "compiled-list",
+  "command": [
+    "/Users/autonomous/.cargo/bin/cargo",
+    "nextest",
+    "list",
+    "--locked",
+    "--offline",
+    "-p",
+    "lamp-gemini",
+    "-p",
+    "lamp-memory",
+    "-p",
+    "lamp-surround",
+    "-p",
+    "lamp-voice",
+    "-p",
+    "lamp-voice-eval",
+    "--message-format",
+    "json"
+  ],
+  "cwd": "/private/tmp/lampos-tests-gemini-task-joins/lampOS",
+  "target": "/private/tmp/tests-823-rebase-target",
+  "started_from_date": "2026-10-16 11:28:41 +0700",
+  "free_disk_bytes": 13411270656,
+  "finished_from_date": "2026-10-16 11:32:01 +0700",
+  "exit": 0,
+  "log_sha256": "915ec5c9622ea26dd7051b04e9dcabdb53b6a1773d47c15d89e8b843224ff51b",
+  "free_disk_bytes_after": 13159772160,
+  "stderr_sha256": "4c6af587286917b74192ae2bb71a7c5e1f3f715df7adce04536c8a05c3a891b7"
+}

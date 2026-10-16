@@ -1,0 +1,36 @@
+{
+  "date_from_date": "2026-10-16 11:30:41 +0700",
+  "scripts": [
+    {
+      "path": "/private/tmp/tests-966-off-on-apply.py",
+      "sha256": "65c19997f4cb8b391f2eef5753c9a2d562ce67f2d9e82e76f44be93aed34c370",
+      "excluded_from_git_payload": true,
+      "retained_external": true
+    },
+    {
+      "path": "/private/tmp/tests-966-off-on-gate.py",
+      "sha256": "107bcfa6c22473646ac83708fc7d3e9e792891ecd28f02319e949955fc006569",
+      "excluded_from_git_payload": true,
+      "retained_external": true
+    },
+    {
+      "path": "/private/tmp/tests-966-off-on-comparison-package.py",
+      "sha256": "014eeaa4b771c3d40321f2d3e1f6cf3f0cf84de07edb9530e4037a1f1b54be58",
+      "excluded_from_git_payload": true,
+      "retained_external": true
+    },
+    {
+      "path": "/private/tmp/tests-823-gemini-actor-work-8de-baseline/baseline-runner.py",
+      "sha256": "5f5870d00ad2d502d1abbd69fd631722f05f2a2695f1230e5079cee5a81efd41",
+      "excluded_from_git_payload": true,
+      "retained_external": true
+    },
+    {
+      "path": "/private/tmp/tests-823-gemini-task-joins-publication/corrected-gate/motor-feature-evidence/evidence-runner.py",
+      "sha256": "d305a67a7e614dbe39b2a15464863fdd6ba06ff97c3a5ca9d5776cb15a5fd573",
+      "excluded_from_git_payload": true,
+      "retained_external": true
+    }
+  ],
+  "reason": "lampOS does not carry Python scripts. Qualification commands, raw results, source proofs and parser rules are retained as text; orchestration scripts remain only at these external paths."
+}

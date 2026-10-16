@@ -1,0 +1,7 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.09s
+────────────
+ Nextest run ID 45ed1ea7-eddc-4cc6-96cd-e9ad0b301d71 with nextest profile: default
+    Starting 1 test across 88 binaries (2726 tests skipped)
+        PASS [   0.042s] (1/1) lamp-gemini testing::task_joins::tests::ordinary_and_retained_supervisors_have_the_same_ordered_protocol_and_terminal_result
+────────────
+     Summary [   0.062s] 1 test run: 1 passed, 2726 skipped

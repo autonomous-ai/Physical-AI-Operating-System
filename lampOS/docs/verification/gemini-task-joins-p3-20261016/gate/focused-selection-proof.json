@@ -1,0 +1,24 @@
+{
+  "date_from_date": "2026-10-16 11:32:09 +0700",
+  "count": 1,
+  "identities": [
+    {
+      "binary": "lamp-gemini",
+      "test": "testing::task_joins::tests::ordinary_and_retained_supervisors_have_the_same_ordered_protocol_and_terminal_result",
+      "ignored": false
+    }
+  ],
+  "exact_one": true,
+  "same_package_args": [
+    "-p",
+    "lamp-gemini",
+    "-p",
+    "lamp-memory",
+    "-p",
+    "lamp-surround",
+    "-p",
+    "lamp-voice",
+    "-p",
+    "lamp-voice-eval"
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "date_from_date": "2026-10-16 11:27:39 +0700",
+  "path": "/private/tmp/tests-966-off-on-gate.py",
+  "sha256": "107bcfa6c22473646ac83708fc7d3e9e792891ecd28f02319e949955fc006569",
+  "excluded_from_git_payload": true,
+  "no_python_under_lampOS": true
+}

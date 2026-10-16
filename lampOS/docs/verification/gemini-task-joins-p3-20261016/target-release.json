@@ -1,0 +1,9 @@
+{
+  "date_from_date": "2026-10-16 11:58:06 +0700",
+  "target": "/private/tmp/tests-823-rebase-target",
+  "native_session": 71063,
+  "all_stages_terminal": true,
+  "remaining_binary_inspection": false,
+  "target_released": true,
+  "no_cleanup_or_artifact_deletion": true
+}

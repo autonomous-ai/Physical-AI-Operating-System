@@ -1,0 +1,15 @@
+{
+  "name": "metadata",
+  "command": [
+    "/Users/autonomous/.cargo/bin/cargo",
+    "metadata",
+    "--locked",
+    "--offline",
+    "--format-version",
+    "1"
+  ],
+  "cwd": "/private/tmp/lampos-tests-gemini-task-joins/lampOS",
+  "target": "/private/tmp/tests-823-rebase-target",
+  "started_from_date": "2026-10-16 11:27:46 +0700",
+  "free_disk_bytes": 13432733696
+}

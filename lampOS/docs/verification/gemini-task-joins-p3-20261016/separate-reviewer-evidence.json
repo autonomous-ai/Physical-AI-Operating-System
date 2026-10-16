@@ -1,0 +1,7 @@
+{
+  "recorded_from_date": "2026-10-16 11:58:06 +0700",
+  "provenance": "Parent /root message; not re-fetched by this delegated agent",
+  "reported_review": "Reviewer posted at 11:29 that original 8de full five-crate gate passed 2711/0/15 independently with all 18 once. P3 remained.",
+  "reported_related_publication": "#963 qualification at lamp-tests f360b3ee5eb591cc92078b23cfc07fc84efd7b6c",
+  "scope": "Separate reported reviewer evidence; it replaces neither the historical first Motor failure nor this new 2712-case gate."
+}

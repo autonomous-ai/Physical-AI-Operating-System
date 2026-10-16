@@ -1,0 +1,182 @@
+--- a/lampOS/crates/gemini/src/testing/task_joins/tests.rs
++++ b/lampOS/crates/gemini/src/testing/task_joins/tests.rs
+@@ -687,161 +687,3 @@
+     })
+     .await;
+ }
+-
+-#[derive(Debug, Eq, PartialEq)]
+-struct SupervisorVisibleRun {
+-    setup: serde_json::Value,
+-    ready: (SessionId, crate::Context, u32, Option<Error>),
+-    input: [serde_json::Value; 3],
+-    started: (crate::Lineage, bool),
+-    audio: Vec<(crate::Lineage, u64, Vec<i16>)>,
+-    unavailable: Error,
+-    lost: (crate::Lineage, crate::Stage, Error),
+-    terminal: crate::Failure,
+-    refused_after_terminal: crate::Result<()>,
+-}
+-
+-async fn ordered_supervisor_terminal_run(
+-    mut supervisor: Supervisor<FakeConnector>,
+-    mut dials: mpsc::UnboundedReceiver<Dial>,
+-    acquired: std::time::Instant,
+-) -> SupervisorVisibleRun {
+-    let mut dial = dials.recv().await.unwrap();
+-    assert_eq!(dial.session, session(1));
+-    assert!(!dial.resumed);
+-    let setup = dial.service.accept().await;
+-    assert!(setup["setup"].is_object());
+-    let Notice::Ready {
+-        session,
+-        context,
+-        attempts,
+-        elapsed,
+-        after,
+-    } = supervisor.next().await.unwrap()
+-    else {
+-        panic!("setup must be the first consumer notice");
+-    };
+-    // Each real setup measures its own host duration; compare its semantic
+-    // fields and enforce the same outer bound rather than equating runtimes.
+-    assert!(elapsed < HOST_LIMIT);
+-    let ready = (session, context, attempts, after);
+-    assert_eq!(ready, (dial.session, crate::Context::Initial, 1, None));
+-    let lineage = crate::Lineage {
+-        session: dial.session,
+-        request: request(1),
+-    };
+-
+-    supervisor.try_start(request(1)).unwrap();
+-    let start = dial.service.receive().await;
+-    assert!(start["realtimeInput"]["activityStart"].is_object());
+-    let Notice::Event(Event::InputStarted {
+-        lineage: started_lineage,
+-        waiting_for_barrier,
+-    }) = supervisor.next().await.unwrap()
+-    else {
+-        panic!("Start must produce InputStarted before answer data");
+-    };
+-    let started = (started_lineage, waiting_for_barrier);
+-    assert_eq!(started, (lineage, false));
+-    supervisor
+-        .try_audio(request(1), 0, acquired, &[7; 160])
+-        .unwrap();
+-    let input_audio = dial.service.receive().await;
+-    assert_eq!(testing::sent_audio(&input_audio), Some(vec![7; 160]));
+-    supervisor.try_end(request(1)).unwrap();
+-    let end = dial.service.receive().await;
+-    assert!(end["realtimeInput"]["activityEnd"].is_object());
+-
+-    dial.service
+-        .burst([testing::audio(11, 240), testing::audio(22, 240)])
+-        .await;
+-    let mut audio = Vec::new();
+-    for (expected_sequence, value) in [(0, 11), (1, 22)] {
+-        let Notice::Event(Event::Audio {
+-            lineage: actual,
+-            sequence,
+-            pcm,
+-        }) = supervisor.next().await.unwrap()
+-        else {
+-            panic!("the two answer frames must remain ordered audio notices");
+-        };
+-        assert_eq!(actual, lineage);
+-        assert_eq!(sequence, expected_sequence);
+-        assert_eq!(pcm, vec![value; 240]);
+-        audio.push((actual, sequence, pcm));
+-    }
+-    dial.service.close(1008, "same terminal sequence").await;
+-    let Notice::Unavailable { error: unavailable } = supervisor.next().await.unwrap() else {
+-        panic!("remote close must first make the connection unavailable");
+-    };
+-    assert_eq!(unavailable, Error::PeerClosed { code: Some(1008) });
+-    let Notice::TurnLost {
+-        lineage: lost_lineage,
+-        stage,
+-        error,
+-    } = supervisor.next().await.unwrap()
+-    else {
+-        panic!("the unfinished answer must be reported after its audio");
+-    };
+-    let lost = (lost_lineage, stage, error);
+-    assert_eq!(lost, (lineage, crate::Stage::Responding, unavailable));
+-    let terminal = supervisor.next().await.unwrap_err();
+-    assert_eq!(
+-        terminal,
+-        crate::Failure {
+-            error: unavailable,
+-            reason: FailureReason::NotRecoverable,
+-            attempts: 0,
+-        }
+-    );
+-    let refused_after_terminal = supervisor.try_start(request(2));
+-    assert_eq!(refused_after_terminal, Err(Error::NotConnected));
+-    drop(supervisor);
+-    drop(dial);
+-    SupervisorVisibleRun {
+-        setup,
+-        ready,
+-        input: [start, input_audio, end],
+-        started,
+-        audio,
+-        unavailable,
+-        lost,
+-        terminal,
+-        refused_after_terminal,
+-    }
+-}
+-
+-#[tokio::test]
+-async fn ordinary_and_retained_supervisors_have_the_same_ordered_protocol_and_terminal_result() {
+-    bounded(async {
+-        let clock = FrozenClock::new();
+-        let (connector, dials) = testing::connector_with_capture_clock(
+-            config(),
+-            crate::MAX_WIRE_BYTES * 2,
+-            clock.clone(),
+-        );
+-        assert!(matches!(&connector.joins, JoinSource::Plain));
+-        let ordinary = Supervisor::new(connector, RecoveryPolicy::DISABLED).unwrap();
+-        let ordinary = ordered_supervisor_terminal_run(ordinary, dials, clock.0).await;
+-
+-        let (retained, dials, mut tasks) = testing::supervisor_with_capture_clock_and_joins(
+-            config(),
+-            RecoveryPolicy::DISABLED,
+-            crate::MAX_WIRE_BYTES * 2,
+-            clock.clone(),
+-            limit(2),
+-        )
+-        .unwrap();
+-        let retained = ordered_supervisor_terminal_run(retained, dials, clock.0).await;
+-        assert_eq!(retained, ordinary);
+-        let report = joined(&mut tasks).await;
+-        assert_eq!(report.tasks.len(), 2);
+-        returned_to_consumer(dial(&report, 1));
+-        assert!(matches!(
+-            actor(&report, 1).completion,
+-            TaskCompletion::Fixture(Ok(()))
+-        ));
+-        assert_ne!(dial(&report, 1).task, actor(&report, 1).task);
+-    })
+-    .await;
+-}
+--- a/lampOS/docs/gemini-session-reliability.md
++++ b/lampOS/docs/gemini-session-reliability.md
+@@ -700,15 +700,6 @@
+ a live Actor progress frontier, Provider worker return, service-task join or
+ child-process exit. The original Voice scenarios remain unmigrated.
+ 
+-A direct ordinary/retained comparison runs the same ordered setup, Start,
+-capture-clock audio, End, two reply frames and remote terminal failure through
+-`connector_with_capture_clock` plus `Supervisor::new` and the explicit retained
+-supervisor factory. It checks the ordinary connector selects `Plain`, compares
+-complete wire messages and all semantic consumer results, and requires the
+-retained collector's actual Dialing and Actor joins. Each setup's elapsed host
+-duration is separately bounded, not equated. One five-second host deadline
+-covers both runs and final collection; no sleep, retry or clock advance is used.
+-
+ ### Strict continuation probe (example-only addition)
+ 
+ The explicit `continue-before-output` mode sends two **different**, already

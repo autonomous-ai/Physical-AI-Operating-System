@@ -1,0 +1,21 @@
+{
+  "date_from_date": "2026-10-16 11:32:01 +0700",
+  "baseline_raw_sha256": "486e39417a1bd65ab97a570c70c86bc98741c598ba9b23d91314455b2293b0f1",
+  "candidate_raw_sha256": "915ec5c9622ea26dd7051b04e9dcabdb53b6a1773d47c15d89e8b843224ff51b",
+  "before_count": 2726,
+  "after_count": 2727,
+  "before_ignored": 15,
+  "after_ignored": 15,
+  "removed": [],
+  "ignore_changes": [],
+  "added": [
+    {
+      "binary": "lamp-gemini",
+      "test": "testing::task_joins::tests::ordinary_and_retained_supervisors_have_the_same_ordered_protocol_and_terminal_result",
+      "ignored": false
+    }
+  ],
+  "exact_one": true,
+  "same_package_graph": true,
+  "expected_map_exact": true
+}

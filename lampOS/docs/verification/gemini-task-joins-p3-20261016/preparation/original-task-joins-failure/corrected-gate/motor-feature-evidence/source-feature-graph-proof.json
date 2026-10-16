@@ -1,0 +1,148 @@
+{
+  "date_from_date": "2026-10-16 09:47:10 +0700",
+  "base": "1fb07c6f57ee280a49de7b4ddd74008c2a32a20d",
+  "original_failure_identity": "coordinator::motor::tests::native_head::native_head_six_explicit_actions_prepare_profile_then_new_requests",
+  "source": [
+    {
+      "path": "lampOS/crates/voice/src/coordinator/motor/tests/native_head.rs",
+      "sha256": "a6870c6a1c2f063f5b83ec4e17bf3ed3f7e4d1c6c0bff3ee1942d1108ada38cc",
+      "matches_clean_base_and_final": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/coordinator/motor/tests.rs",
+      "sha256": "33a8f47b0d69079697e5ef04bf1617f25dd4f81f3501d9524f1c024236f520ba",
+      "matches_clean_base_and_final": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/coordinator/motor.rs",
+      "sha256": "29b82801801be234ae865f7593c957a79537acc3469805401b759c21cf6c748e",
+      "matches_clean_base_and_final": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/coordinator/motor/head.rs",
+      "sha256": "4de64a3ab9fe22f6329e990bf1cc990d065fa781f2f38ff69b603fe9b05870b0",
+      "matches_clean_base_and_final": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/head_qualification.rs",
+      "sha256": "22bcba83db468193d2b6c502108ebe24ac05a513da3097b865e1f184d5ebefb2",
+      "matches_clean_base_and_final": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/process.rs",
+      "sha256": "f9f1173bd1d33ea9f5ebc9ed3ed6247b802dbf299d017dabef90f93eca074d54",
+      "matches_clean_base_and_final": true
+    },
+    {
+      "path": "lampOS/crates/body/src/runtime/supervisor.rs",
+      "sha256": "103009ea8a3baf449a760cf7f1dc43d0aa0b47d999b585c4084c65ff63ff2a3f",
+      "matches_clean_base_and_final": true
+    },
+    {
+      "path": "lampOS/crates/body/src/runtime/worker.rs",
+      "sha256": "d126a1b0020f202c22a0a7a9ec64f54dcb6a52d9f6d02e965d61871aa6ab4cca",
+      "matches_clean_base_and_final": true
+    },
+    {
+      "path": "lampOS/crates/voice/Cargo.toml",
+      "sha256": "5da3e2d258a46b797bb25ec48ea538eba53f9b9d38dac1ff06abd8deb6597e72",
+      "matches_clean_base_and_final": true
+    },
+    {
+      "path": "lampOS/crates/gemini/Cargo.toml",
+      "sha256": "5b94eadddf2bdc8677d8e584a6cc3ffbdf38f79eba775a9dd141268b1c9a0816",
+      "matches_clean_base_and_final": true
+    },
+    {
+      "path": "lampOS/Cargo.toml",
+      "sha256": "dafaa1133d09ab0137847973359e8d1c01e7dc306aa54e299ec1a6f611e24c2b",
+      "matches_clean_base_and_final": true
+    },
+    {
+      "path": "lampOS/Cargo.lock",
+      "sha256": "40d62fead16a6f138c4d7dbe400a2e4a9855ceece96d19b1e642136431aed4c5",
+      "matches_clean_base_and_final": true
+    }
+  ],
+  "original_identity_not_ignored": true,
+  "unchanged_manifest_configuration_count": 48,
+  "same_package_selectors": [
+    {
+      "stage": "clippy",
+      "packages": [
+        "lamp-gemini",
+        "lamp-memory",
+        "lamp-surround",
+        "lamp-voice",
+        "lamp-voice-eval"
+      ]
+    },
+    {
+      "stage": "compiled-list",
+      "packages": [
+        "lamp-gemini",
+        "lamp-memory",
+        "lamp-surround",
+        "lamp-voice",
+        "lamp-voice-eval"
+      ]
+    },
+    {
+      "stage": "focused-list",
+      "packages": [
+        "lamp-gemini",
+        "lamp-memory",
+        "lamp-surround",
+        "lamp-voice",
+        "lamp-voice-eval"
+      ]
+    },
+    {
+      "stage": "focused",
+      "packages": [
+        "lamp-gemini",
+        "lamp-memory",
+        "lamp-surround",
+        "lamp-voice",
+        "lamp-voice-eval"
+      ]
+    },
+    {
+      "stage": "full",
+      "packages": [
+        "lamp-gemini",
+        "lamp-memory",
+        "lamp-surround",
+        "lamp-voice",
+        "lamp-voice-eval"
+      ]
+    }
+  ],
+  "metadata_sha256": "e84d634ee7a2099505c5934730cff807476b8540377a3886d95567518566eb5e",
+  "metadata_resolved_features": {
+    "lamp-gemini": [
+      "default"
+    ],
+    "lamp-memory": [],
+    "lamp-surround": [
+      "default"
+    ],
+    "lamp-voice": [],
+    "lamp-voice-eval": []
+  },
+  "affected_graph_sha256": "14b93def11223a003d05c6c3ca2ae86740da25bb8b98f89693e1634e3856870b",
+  "gate_graph_byte_exact": true,
+  "executed_voice_binary": "/private/tmp/tests-823-rebase-target/debug/deps/lamp_voice-776bb3f8630d2566",
+  "voice_binary_sha256": "304f0edd9898a3111846ce3da3cfae98e1f8bb5a9aeb86b111dc9a0b53a9c132",
+  "voice_binary_features": "[]",
+  "voice_fingerprint_sha256": "021658501f73b3cd833a848019f11cbe5174948d656f7f22d267bd7dc4b4cbd0",
+  "linked_gemini_fingerprint_value": 15727559092560430249,
+  "linked_gemini_fingerprint_bytes": "a98407a0aa8343da",
+  "linked_gemini_fingerprint_json_sha256": "3ca5a7d587fefc7e4eee03af0de2b7a412e7f5bf209af3cd781f66ef243761a1",
+  "linked_gemini_features": "[\"default\"]",
+  "linked_gemini_is_non_test_library": true,
+  "fixture_clock_not_enabled_for_voice_gemini_dependency": true,
+  "scope_conclusion": "The Motor source, its child fixture, thresholds, Cargo manifests and graph are unchanged. The actual Voice test binary links the normal Gemini library without fixture-clock; cfg(test) applies to the Gemini unit-test binary separately, not this dependency. The TaskJoins retained adapters are therefore absent from this Voice-linked Gemini library. This is source/configuration separation evidence, not a classification of the Motor failure cause.",
+  "cause": "unclassified",
+  "tests_rerun": false
+}

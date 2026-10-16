@@ -1,0 +1,8 @@
+{
+  "date_from_date": "2026-10-16 11:58:06 +0700",
+  "preliminary_message_inaccuracy": "An initial status message described line 1985 as an outcome.is_ok assertion before the source was read.",
+  "corrected_from_exact_source": "assert!(is_mute(&run.result), \"{:?}\", run.result), after run.assert_invariants()",
+  "raw_evidence_changed": false,
+  "parent_reported_identity_mapping": "Root read #972 and reported this exact short_xrun_reopen identity among its six Threaded to Stepped cases; #972 remains open at d99bc1677 with retained-block fix pending and 7df38c0a9 docs. This delegated agent did not re-fetch GitHub.",
+  "classification": "No retry, causal classification or waiver. Root owns publication and waits for a merged fix before a fresh integration gate."
+}

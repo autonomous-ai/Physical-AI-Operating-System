@@ -1,0 +1,29 @@
+{
+  "date_from_date": "2026-10-16 11:32:16 +0700",
+  "source_log_sha256": "dcc244964b2553e92ac30faca3670b01b236c1001caaa015d1879ebdef3a53e0",
+  "parser_rule": "Only numbered progress rows before the unique final Summary; no deduplication.",
+  "rows": [
+    {
+      "status": "PASS",
+      "duration": "0.042s",
+      "execution": 1,
+      "total": 1,
+      "binary": "lamp-gemini",
+      "test": "testing::task_joins::tests::ordinary_and_retained_supervisors_have_the_same_ordered_protocol_and_terminal_result"
+    }
+  ],
+  "counts": {
+    "PASS": 1
+  },
+  "executed_count": 1,
+  "unique_count": 1,
+  "expected_count": 1,
+  "all_expected_executed_once": true,
+  "missing": [],
+  "extra": [],
+  "failures": [],
+  "summaries": [
+    "Summary [   0.062s] 1 test run: 1 passed, 2726 skipped"
+  ],
+  "excluded_recaps": []
+}

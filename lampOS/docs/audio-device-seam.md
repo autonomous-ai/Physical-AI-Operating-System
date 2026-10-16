@@ -108,12 +108,36 @@ closed epoch's frames still in flight, and an utterance the gap cut into is
 abandoned as a hand Stop abandons it; what is still said of it after the gap
 is dropped until its speaker pauses, so it is not a new question.
 
+**The speaker** (#1178). At midnight on lamp-4ace the voice ended on a bare
+"authority snapshot has expired": a worker held up past its lease (a turn's
+is 100 ms) while the log sync loaded the eMMC, with nothing fresher in its
+queue, found its installed authority lapsed. In the speaker that is the
+check of its queued silence (`check_silence` under `maintain`), and minting
+or writing the next zeros (`zero_authority`, `try_write_silence`,
+`start_clock`, the prime): each returned the lapse as an error, the worker
+ended, and the voice with it. Now, as the provider workers skip a lapsed
+snapshot, the speaker worker (`audio_workers.rs`, `lapse`) stops the device
+once, reports the reset as after any discard (`PlaybackClockReset`), says so
+in one journal line ("its authority lapsed while it was held up; silent
+until a fresh one"), and writes and primes nothing until a fresh authority
+is installed; then it primes and starts its clock again, as after any
+reset, and says how long it was silent. Speech that was queued is
+discarded, as on any reset. Test: `tests/speaker_lapse_worker.rs`, the
+worker's own loop on ALSA's `null` device, its turn's 100 ms lease left
+unrenewed for 200 ms and then the capture side ready, so that its next
+prime needs the lapsed authority: it stays up and stops cleanly, where the
+prime's `zero_authority` ended it before (Linux only, so the ARM64 run).
+`null` plays every frame as it is written, so the clock never starts there
+(the prime needs 480 frames queued): the lapse with speech or silence
+queued, and the prime again after it, are shown on a lamp only.
+
 ## Not done
 
 - **The speaker half.** `pcm.rs` still calls ALSA directly and is Linux
   only. The trait for it was published in `A1-007`. Until it exists there is
-  no scripted speaker, no accepted-PCM echo path through a scripted device,
-  and no off-board test of the speaker loop.
+  no scripted speaker and no accepted-PCM echo path through a scripted
+  device; the speaker loop's one test runs on ALSA's `null` device on Linux
+  (`tests/speaker_lapse_worker.rs`), where its clock can never start.
 - **The capture loop itself has no test yet.** `capture_on` exists and
   compiles for the board; nothing drives it. `audio_workers` is compiled only
   on Linux (`crates/voice/src/lib.rs`, the integrator's file), so a test of it

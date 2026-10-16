@@ -348,6 +348,16 @@ impl Speaker {
         self.clock_started
     }
 
+    /// Whether the authority installed here has lapsed now: the worker was
+    /// held up past its lease and nothing fresher has been installed since.
+    /// None installed yet is not a lapse.
+    pub fn authority_lapsed(&self) -> bool {
+        let now = now();
+        self.guard
+            .state()
+            .is_some_and(|state| now >= state.expires_at())
+    }
+
     pub fn queued_range(&self) -> QueuedRange {
         self.pending.queued_range()
     }

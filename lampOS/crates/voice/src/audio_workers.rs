@@ -1066,8 +1066,10 @@ fn speaker_loop(
     let mut speech = SpeechPlayback::default();
     let mut last_sequence = 0;
     let mut flush_count = speaker.flush_count();
+    // Since when the authority has been lapsed, the speaker silent (#1178).
+    let mut lapsed_since: Option<u64> = None;
     channels.control.send(WorkerEvent::Ready)?;
-    loop {
+    'tick: loop {
         let tick = Instant::now();
         for index in 0..=MAX_CONTROL {
             let Some(control) = channels.control.receive::<Control>()? else {
@@ -1156,7 +1158,50 @@ fn speaker_loop(
                 }
             }
         }
-        speaker.maintain()?;
+        // #1178: held up past its lease (on lamp-4ace at midnight, the log
+        // sync loading the eMMC; a turn's lease is 100 ms) with nothing
+        // fresher queued, the authority has lapsed. That costs a gap, never
+        // the voice, as the provider workers skip a lapsed snapshot: the
+        // device stops, its reset is reported as after any discard, and
+        // nothing is written or primed until a fresh authority is installed
+        // above; then the clock is primed again, as after any reset.
+        if speaker.authority_lapsed() {
+            lapse(
+                channels,
+                speaker,
+                &mut output,
+                &mut flush_count,
+                &mut speech,
+                recording,
+                &mut lapsed_since,
+            )?;
+            finish_tick(tick);
+            continue;
+        }
+        if let Some(since) = lapsed_since.take() {
+            eprintln!(
+                "lamp-voice speaker: a fresh authority after {} ms silent; going on",
+                monotonic_us().saturating_sub(since) / 1_000
+            );
+        }
+        // It may lapse during the tick too; the device has then stopped.
+        match speaker.maintain() {
+            Ok(()) => {}
+            Err(error) if lapsed(error.as_ref()) => {
+                lapse(
+                    channels,
+                    speaker,
+                    &mut output,
+                    &mut flush_count,
+                    &mut speech,
+                    recording,
+                    &mut lapsed_since,
+                )?;
+                finish_tick(tick);
+                continue 'tick;
+            }
+            Err(error) => return Err(error),
+        }
         if report_discard(channels, speaker, &mut output, &mut flush_count, recording)? {
             report_speech_reset(channels, &mut speech)?;
         }
@@ -1203,7 +1248,23 @@ fn speaker_loop(
                     output.privacy = Some(privacy_generation);
                 }
                 ReferenceControl::ReferencePrimed { prepared } => {
-                    let token = speaker.zero_authority()?;
+                    let token = match speaker.zero_authority() {
+                        Ok(token) => token,
+                        Err(error) if lapsed(error.as_ref()) => {
+                            lapse(
+                                channels,
+                                speaker,
+                                &mut output,
+                                &mut flush_count,
+                                &mut speech,
+                                recording,
+                                &mut lapsed_since,
+                            )?;
+                            finish_tick(tick);
+                            continue 'tick;
+                        }
+                        Err(error) => return Err(error),
+                    };
                     let playback_epoch = output
                         .prime_barrier
                         .acknowledge(
@@ -1216,7 +1277,23 @@ fn speaker_loop(
                     // A host bound on the method call, not exact DAC start.
                     // Failed/expired starts return before any success receipt.
                     let start_requested_at_us = monotonic_us();
-                    let started_at_us = speaker.start_clock(token)?;
+                    let started_at_us = match speaker.start_clock(token) {
+                        Ok(at) => at,
+                        Err(error) if lapsed(error.as_ref()) => {
+                            lapse(
+                                channels,
+                                speaker,
+                                &mut output,
+                                &mut flush_count,
+                                &mut speech,
+                                recording,
+                                &mut lapsed_since,
+                            )?;
+                            finish_tick(tick);
+                            continue 'tick;
+                        }
+                        Err(error) => return Err(error),
+                    };
                     output.primed_at = None;
                     link.control.send(ReferenceControl::ClockStarted {
                         playback_epoch,
@@ -1240,7 +1317,23 @@ fn speaker_loop(
                 .into());
         }
         if output.privacy.is_some() && !speaker.clock_started() {
-            output.prime(speaker, link, recording)?;
+            match output.prime(speaker, link, recording) {
+                Ok(()) => {}
+                Err(error) if lapsed(error.as_ref()) => {
+                    lapse(
+                        channels,
+                        speaker,
+                        &mut output,
+                        &mut flush_count,
+                        &mut speech,
+                        recording,
+                        &mut lapsed_since,
+                    )?;
+                    finish_tick(tick);
+                    continue 'tick;
+                }
+                Err(error) => return Err(error),
+            }
         }
         if !speaker.clock_started() {
             finish_tick(tick);
@@ -1403,8 +1496,26 @@ fn speaker_loop(
                 && !wrote_speech
                 && (pending.is_none() || speaker.is_retiring_tail())
             {
-                let token = speaker.zero_authority()?;
-                let written = speaker.try_write_silence(token, RENDER_SAMPLES)?;
+                let written = match speaker
+                    .zero_authority()
+                    .and_then(|token| speaker.try_write_silence(token, RENDER_SAMPLES))
+                {
+                    Ok(written) => written,
+                    Err(error) if lapsed(error.as_ref()) => {
+                        lapse(
+                            channels,
+                            speaker,
+                            &mut output,
+                            &mut flush_count,
+                            &mut speech,
+                            recording,
+                            &mut lapsed_since,
+                        )?;
+                        finish_tick(tick);
+                        continue 'tick;
+                    }
+                    Err(error) => return Err(error),
+                };
                 if written.frames > 0 {
                     if let Some(recording) = recording {
                         let meta = recording.render(written, None, None);
@@ -1556,6 +1667,39 @@ fn report_fault(
         });
     }
 }
+/// Whether an error is the speaker's authority lapsing (#1178).
+fn lapsed(error: &(dyn std::error::Error + Send + Sync + 'static)) -> bool {
+    error.downcast_ref::<InteractionError>() == Some(&InteractionError::ExpiredState)
+}
+
+/// The speaker's authority lapsed (#1178): once a lapse, stop the device
+/// unless a check already has, report the reset as after any discard, and
+/// say so. Nothing is written until a fresh authority is installed.
+fn lapse(
+    channels: &mut WorkerChannels,
+    speaker: &mut Speaker,
+    output: &mut ReferenceOutput,
+    flush_count: &mut u64,
+    speech: &mut SpeechPlayback,
+    recording: &mut Option<Recording>,
+    lapsed_since: &mut Option<u64>,
+) -> Result<()> {
+    if lapsed_since.is_some() {
+        return Ok(());
+    }
+    *lapsed_since = Some(monotonic_us());
+    if speaker.flush_count() == *flush_count {
+        speaker.stop()?;
+    }
+    if report_discard(channels, speaker, output, flush_count, recording)? {
+        report_speech_reset(channels, speech)?;
+    }
+    eprintln!(
+        "lamp-voice speaker: its authority lapsed while it was held up; silent until a fresh one"
+    );
+    Ok(())
+}
+
 fn rejected_old_state(error: InteractionError) -> bool {
     matches!(
         error,

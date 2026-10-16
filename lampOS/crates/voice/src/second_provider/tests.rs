@@ -1393,14 +1393,23 @@ async fn a_stop_goes_with_a_request_going_on_and_never_past_two_minutes() {
 async fn a_chat_that_never_begins_says_the_down_line_at_most_once_a_minute() {
     async fn turns(on: bool) -> Vec<Vec<String>> {
         let script = Arc::new(Script {
-            chats: Mutex::new([vec![], vec![], vec![]].into()),
+            chats: Mutex::new(
+                [
+                    vec![text("It is noon."), Ok(ChatEvent::Done)],
+                    vec![],
+                    vec![],
+                    vec![],
+                ]
+                .into(),
+            ),
             hold_chat: true,
             ..Script::default()
         });
         let (engine, _, _) = scripted(script);
         let mut engine = engine.saying_when_down(on);
         let mut heard = Vec::new();
-        for (request, wait) in [(1, 0), (2, 1), (3, 61)] {
+        // The first, answered, renders the line after it is out.
+        for (request, wait) in [(1, 0), (2, 1), (3, 1), (4, 61)] {
             tokio::time::sleep(Duration::from_secs(wait)).await;
             engine.submit(written(request, "What time is it?"));
             heard.push(sent(&mut engine).await);
@@ -1409,9 +1418,11 @@ async fn a_chat_that_never_begins_says_the_down_line_at_most_once_a_minute() {
     }
     let line = format!("audio:{}", DOWN_LINE.len());
     let on = turns(true).await;
-    assert!(on[0].contains(&line), "{on:?}");
-    assert!(!on[0].iter().any(|event| event == "said"), "{on:?}");
-    assert_eq!(on[1], ["complete"]);
-    assert!(on[2].contains(&line), "{on:?}");
-    assert!(turns(false).await.iter().all(|turn| turn == &["complete"]));
+    assert!(!on[0].contains(&line), "{on:?}");
+    assert!(on[1].contains(&line), "{on:?}");
+    assert!(!on[1].iter().any(|event| event == "said"), "{on:?}");
+    assert_eq!(on[2], ["complete"]);
+    assert!(on[3].contains(&line), "{on:?}");
+    let off = turns(false).await;
+    assert!(off[1..].iter().all(|turn| turn == &["complete"]), "{off:?}");
 }

@@ -126,6 +126,10 @@ impl Rise {
                     .unwrap_or_else(|| lamp_bus::DEFAULT_ROOT.into())
             })
             .and_then(|root| lamp_bus::Bus::new(std::path::Path::new(&root)).ok());
+        Self::on(bus)
+    }
+
+    fn on(bus: Option<lamp_bus::Bus>) -> Self {
         Self {
             bus,
             sampled_us: 0,
@@ -257,6 +261,51 @@ impl RoomFloor {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A rise is taken from `room/sound` at most every 100 ms, never while
+    /// the lamp's own voice is in it, and kept 30 s; close since a moment
+    /// means a big enough rise at or after it.
+    #[test]
+    fn a_rise_is_taken_from_the_room_sound_without_the_lamps_own_voice_and_kept_thirty_seconds() {
+        let root = std::path::PathBuf::from(format!("/tmp/lvr-rise-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        let bus = lamp_bus::Bus::new(&root).unwrap();
+        let mut sound = bus
+            .publisher_declared(
+                lamp_msgs::RoomSound::TOPIC,
+                &lamp_msgs::RoomSound::declaration(),
+                "test",
+            )
+            .unwrap();
+        let mut say = |level_db: f32, own_voice: bool| {
+            let level = lamp_msgs::RoomSound {
+                level_db,
+                floor_db: Some(-60.0),
+                own_voice,
+            };
+            sound.publish_json(1, &level).unwrap();
+        };
+        let mut rise = Rise::on(Some(lamp_bus::Bus::new(&root).unwrap()));
+        let near = crate::attention::NEAR_RISE_DB;
+        say(-60.0 + near, false);
+        rise.sample(1_000_000);
+        assert!(rise.close_since(1_000_000));
+        assert!(!rise.close_since(1_000_001));
+        // Within 100 ms of the last sample, the bus is not read.
+        say(-60.0 + near + 10.0, false);
+        rise.sample(1_050_000);
+        assert!(!rise.close_since(1_050_000));
+        // The lamp's own voice is no one close.
+        say(-30.0, true);
+        rise.sample(1_200_000);
+        assert!(!rise.close_since(1_100_000));
+        // A small rise is not close; the big one is gone after 30 s.
+        say(-60.0 + near - 1.0, false);
+        rise.sample(31_100_000);
+        assert!(!rise.close_since(0));
+        let _ = std::fs::remove_dir_all(root);
+    }
 
     #[test]
     fn a_quiet_stretch_is_heard_after_a_run_over_the_floor_and_not_after_a_block_or_two() {

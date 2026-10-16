@@ -230,22 +230,40 @@ The switch stays on (it answers no noise), and short words are parked
 until the V2 MVP works end to end (the owner, 2026-10-15: "wide first.
 deep later"). Next time: with a person at the lamp, in view.
 
-## Said close: past the gate
+## Said close: loud blocks count
 
-An utterance said close to the lamp skips the gate's count
-(`not_speech::scrap`): the room microphone rose 18 dB or more over its quiet
-during it (`room/sound`, sampled every 100 ms by the coordinator,
-`room_floor::Rise`; the same sign as `LAMP_ATTENTION=busy-near`). Everything
-after the gate still judges it: attention, the name, the Policy. Without the
-bus it is never close, and the gate is as before.
+An utterance said close to the lamp is judged by the gate with its loud
+blocks counted as speech (`not_speech::scrap`). Close means the room
+microphone rose 18 dB or more over its quiet during it (`room/sound`,
+sampled every 100 ms by the coordinator, `room_floor::Rise`; the same sign
+as `LAMP_ATTENTION=busy-near`). Loud means a block at about -31 dBFS or
+louder (`LOUD_LEVEL`, 128 on the face's scale) that the detector did not
+call speech, while the lamp was not speaking. Such an utterance is a sound
+only with fewer than 16 speech and loud blocks together
+(`CLOSE_SCRAP_BLOCKS`), not the usual 30. Everything after the gate still
+judges it: attention, the name, the Policy. Without the bus it is never
+close, and the gate is as before. The utterance's record says so: `said_close`
+in `not_speech` and in `speech_level` is its loud blocks when it was close,
+`null` when it was not.
 
 Why: on lamp-4ace on 2026-10-16 from 17:13 the owner at the desk was dropped
-as a sound five times in two minutes (`not_speech`, 14 to 26 blocks counted).
-Their last blocks were loud: in two of them 42 and 49 blocks over -28 dBFS,
-one clipping. But the detector scored 15 and 20 of those loud blocks under
-0.5, and only 0 to 12 blocks were under the floor. **For whoever tunes the
-detector next:** it under-scores a loud voice at the desk; the counts above
-are from the word-free trace the first builder kept for 17:13 to 17:16.
+as a sound six times (`not_speech`, turns 5, 7 and 9 to 12). They had 16, 19,
+19, 17, 26 and 14 blocks counted, and 0, 0, 4, 5, 27 and 26 loud blocks not
+called speech. In two of them the detector scored 15 and 20 loud blocks under
+0.5, one clipping; only 0 to 12 blocks were under the floor. Loud blocks
+alone, with 30 needed, would have kept only two of the six. A count of 16
+alone would have lost the 14-block one. The two together keep all six, the
+lowest at exactly 16.
+
+Not skipped outright (Ten on #1137): a knock, a cough or a mug set down by
+the lamp rises as much as a voice, and is a few blocks, the kind of sound
+`SCRAP_BLOCKS` was made for on 2026-10-13. One with up to about 12 speech
+blocks and a few loud ones stays a sound. A longer bang close to the lamp
+can pass, and is then judged by what comes after the gate.
+
+**For whoever tunes the detector next:** it under-scores a loud voice at the
+desk. The counts above are from the word-free trace the first builder kept
+for 17:13 to 17:16.
 
 ## A room sound let through and answered (#800)
 

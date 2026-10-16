@@ -178,20 +178,35 @@ pub fn was_a_sound(speech_blocks: usize, took_over: bool, since_own_words_us: Op
         && since_own_words_us.is_none_or(|since| since >= AFTER_OWN_WORDS_US)
 }
 
-/// [`was_a_sound`], unless it was said close to the lamp: the room
+/// A block this loud or louder (about -31 dBFS, on the face's scale) counts
+/// as speech-like in an utterance said close to the lamp, whatever the
+/// detector scored it.
+pub const LOUD_LEVEL: u8 = 128;
+/// An utterance said close to the lamp with fewer speech-like blocks than
+/// this is a sound: its speech blocks and its loud ones together.
+pub const CLOSE_SCRAP_BLOCKS: usize = 16;
+
+/// [`was_a_sound`], or for an utterance said close to the lamp (the room
 /// microphone rose [`crate::attention::NEAR_RISE_DB`] or more over its quiet
-/// during it (`busy-near`'s sign). On lamp-4ace on 2026-10-16 from 17:13
-/// the owner at the desk was dropped as a sound five times in two minutes:
-/// 14 to 26 blocks counted, loud enough (42 and 49 blocks over -28 dBFS in
-/// two of them) but scored under 0.5 by the detector in 15 and 20 of those
-/// loud blocks. Everything after the gate still judges the utterance.
+/// during it, `busy-near`'s sign; `loud_when_close` is then its loud blocks
+/// the detector did not call speech) the same with its loud blocks counted
+/// as speech and [`CLOSE_SCRAP_BLOCKS`] needed. On lamp-4ace on 2026-10-16
+/// from 17:13 the owner at the desk was dropped as a sound six times: 14 to
+/// 26 blocks counted, and in two of them 15 and 20 loud blocks scored under
+/// 0.5. A knock or a mug set down by the lamp rises as much, and is a few
+/// blocks: it is still a sound (Ten on #1137). Everything after the gate
+/// still judges the utterance.
 pub fn scrap(
     speech_blocks: usize,
     took_over: bool,
     since_own_words_us: Option<u64>,
-    close: bool,
+    loud_when_close: Option<usize>,
 ) -> bool {
-    !close && was_a_sound(speech_blocks, took_over, since_own_words_us)
+    let a_sound = was_a_sound(speech_blocks, took_over, since_own_words_us);
+    match loud_when_close {
+        None => a_sound,
+        Some(loud) => a_sound && speech_blocks + loud < CLOSE_SCRAP_BLOCKS,
+    }
 }
 
 /// Whether an answer opens with the name of a function said aloud, not
@@ -864,17 +879,23 @@ mod tests {
         assert!(!calls.keeps(1, " not_for"));
         assert!(calls.keeps(2, "_me{} is mine"));
         assert!(calls.keeps(2, " It is noon."));
-}
+    }
 
     /// The owner's six turns at lamp-4ace's desk on 2026-10-16, 17:13 to
-    /// 17:16, by the blocks the gate counted: each passes the gate when it
-    /// was said close, and is a sound when it was not.
+    /// 17:16 (turns 5, 7 and 9 to 12), by the blocks the gate counted and
+    /// their loud blocks the detector did not call speech: each passes the
+    /// gate said close, and is a sound when it was not. A knock or a mug set
+    /// down close to the lamp, a few speech blocks and a few loud ones, is
+    /// still a sound (Ten on #1137).
     #[test]
-    fn a_short_utterance_said_close_passes_the_scrap_gate() {
-        for counted in [16, 19, 19, 17, 26, 14] {
-            assert!(scrap(counted, false, None, false), "{counted}");
-            assert!(!scrap(counted, false, None, true), "{counted}");
+    fn a_short_utterance_said_close_passes_the_scrap_gate_and_a_knock_does_not() {
+        for (counted, loud) in [(16, 0), (19, 0), (19, 4), (17, 5), (26, 27), (14, 26)] {
+            assert!(scrap(counted, false, None, None), "{counted}");
+            assert!(!scrap(counted, false, None, Some(loud)), "{counted}");
         }
-        assert!(!scrap(SCRAP_BLOCKS, false, None, false));
+        for (counted, loud) in [(5, 3), (10, 3), (12, 2), (3, 6)] {
+            assert!(scrap(counted, false, None, Some(loud)), "{counted} {loud}");
+        }
+        assert!(!scrap(SCRAP_BLOCKS, false, None, None));
     }
 }

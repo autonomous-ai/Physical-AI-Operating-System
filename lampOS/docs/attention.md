@@ -768,7 +768,10 @@ from `--touch` Controls on the bus (`controls/touch`, `bus_out::TapsIn`).
 A tap is a touch on the head let go between 0.12 and 0.5 s
 ([controls.md](controls.md)): the owner's "tap its head while it is quiet:
 you can talk without its name" ([creature.md](creature.md#touch)). A request
-that begins within 6 s of the tap's release (`TAPPED_BEFORE_US`), or one whose
+that begins within 2 s of the tap's release (`TAPPED_BEFORE_US`, the same
+window the ring's listening face and Expression's look-up show; it was 6 s
+until the #849 review found it let a request out after both had settled), or
+one whose
 sound is still going on when the tap comes, is let out in every room and
 every form of the rule, even the strict busy one with nobody seen turned to
 the lamp: a hand on the lamp's head is surer than any hearing of its name.
@@ -1066,7 +1069,7 @@ since 16 October; needs `lamp-policy --act attention`.
 
 `LAMP_HEAD_TOUCH=on` (the worker's `--head-touch`, right after the name
 note's flags; nothing without `LAMP_BUS=on` and Controls run with
-`--touch`): a head tap is a call for 6 s (above). Off by default; not on any
+`--touch`): a head tap is a call for 2 s (above). Off by default; not on any
 lamp.
 
 ## Not shown

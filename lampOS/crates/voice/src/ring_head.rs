@@ -12,82 +12,122 @@
 //!
 //! Switched on with `LAMP_HEAD_TOUCH=on`, which the voice passes to its ring
 //! worker as `--head-touch`. Off unless set.
-use lamp_bus::{Bus, Message, Subscriber};
+//!
+//! The bus is read by a thread of its own, never by the ring's loop: one
+//! receive from the bus passes over any number of messages it refuses, so a
+//! flood of them on `controls/touch` must never stand between the loop and
+//! its Stop, Authority and expiry (#849 review). The loop only reads what
+//! the thread last found, two numbers.
+use lamp_bus::{Bus, Message};
 use lamp_msgs::{TouchEvent, TouchGesture, TouchSource, TouchState};
-use std::{io, path::Path, time::Duration};
+use std::{
+    io,
+    path::Path,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, AtomicU64, Ordering},
+    },
+    thread,
+    time::Duration,
+};
 
 /// The ring worker's flag for it.
 pub const FLAG: &str = "--head-touch";
 
-/// Controls says the head's state at least every 20 ms; this looks every 50.
+/// Controls says the head's state at least every 20 ms; this looks every 50,
+/// and waits at most this long for a tap between looks.
 const LOOK_EVERY_US: u64 = 50_000;
 
-/// How long a tap on the head is listened for at rest: as long as a call's
-/// wait for the rest on lamp-4ace (`--call-wait-ms 2000`, #891). Speech that
-/// begins in it is a turn, whose own listening face goes on from there.
-pub const TAP_LISTENS_US: u64 = 2_000_000;
+/// How long a tap on the head is listened for at rest: the attention rule's
+/// own window for a tap ([`crate::attention::TAPPED_BEFORE_US`]), so the
+/// face is shown exactly as long as a request may begin as a call. Speech
+/// that begins in it is a turn, whose own listening face goes on from there.
+pub const TAP_LISTENS_US: u64 = crate::attention::TAPPED_BEFORE_US;
 
 /// The ring's name among the head's subscribers.
 const SUBSCRIBER: &str = "voice_ring";
 
-/// At most this many head requests are read in one tick of the ring (2 ms):
-/// far more than hands make, and never so many that a flood of them holds
-/// back the worker's revocation and expiry (#849 review).
-const MOST_AT_ONCE: usize = 4;
+/// No hand on the head, and no tap yet, as the thread says them.
+const NONE: u64 = u64::MAX;
+
+#[derive(Default)]
+struct Found {
+    held_us: AtomicU64,
+    tapped_at_us: AtomicU64,
+    stop: AtomicBool,
+}
 
 pub struct RingHead {
-    bus: Bus,
-    looked_at_us: Option<u64>,
-    held: Option<u64>,
-    taps: Subscriber,
-    tapped_until_us: Option<u64>,
+    found: Arc<Found>,
 }
 
 impl RingHead {
-    /// The head's state and requests on the bus under `root`.
+    /// The head's state and requests on the bus under `root`, read by a
+    /// thread of its own from now on.
     pub fn on(root: &Path) -> io::Result<Self> {
         let bus = Bus::new(root)?;
-        let taps = bus.subscribe_typed(TouchEvent::TOPIC, SUBSCRIBER, TouchEvent::TYPE)?;
-        Ok(Self {
-            bus,
-            looked_at_us: None,
-            held: None,
-            taps,
-            tapped_until_us: None,
-        })
+        let mut taps = bus.subscribe_typed(TouchEvent::TOPIC, SUBSCRIBER, TouchEvent::TYPE)?;
+        let found = Arc::new(Found {
+            held_us: AtomicU64::new(NONE),
+            tapped_at_us: AtomicU64::new(NONE),
+            stop: AtomicBool::new(false),
+        });
+        let reading = Arc::clone(&found);
+        thread::Builder::new()
+            .name("voice-ring-head".into())
+            .spawn(move || {
+                let mut looked_at_us = None;
+                while !reading.stop.load(Ordering::Acquire) {
+                    match taps.recv(Duration::from_micros(LOOK_EVERY_US)) {
+                        Ok(Some(message)) if tapped(&message) => reading
+                            .tapped_at_us
+                            .store(lamp_ipc::monotonic_us(), Ordering::Release),
+                        Ok(_) => {}
+                        // A bus that cannot be read is no hand and no tap.
+                        Err(_) => thread::sleep(Duration::from_micros(LOOK_EVERY_US)),
+                    }
+                    let now_us = lamp_ipc::monotonic_us();
+                    if looked_at_us.is_none_or(|at: u64| now_us.saturating_sub(at) >= LOOK_EVERY_US)
+                    {
+                        looked_at_us = Some(now_us);
+                        let held = bus
+                            .latest(TouchState::TOPIC)
+                            .ok()
+                            .flatten()
+                            .and_then(|message| held(&message));
+                        reading
+                            .held_us
+                            .store(held.unwrap_or(NONE), Ordering::Release);
+                    }
+                }
+            })?;
+        Ok(Self { found })
     }
 
-    /// Until when the latest tap on the head is listened for at rest.
+    /// Until when the latest tap on the head is listened for at rest, on
+    /// the same monotonic clock as the ring's.
     pub fn tapped_until(&self) -> Option<u64> {
-        self.tapped_until_us
+        match self.found.tapped_at_us.load(Ordering::Acquire) {
+            NONE => None,
+            at => Some(at + TAP_LISTENS_US),
+        }
     }
 
-    /// Call from the ring's loop with its clock: how long a hand has been on
-    /// the head, as Controls counts it, or `None`.
-    pub fn tick(&mut self, now_us: u64) -> Option<u64> {
-        // Taps on every tick, a few at a time: they wait in the queue, and
-        // the face should answer within the same moment as the hum.
-        for _ in 0..MOST_AT_ONCE {
-            let Ok(Some(message)) = self.taps.recv(Duration::ZERO) else {
-                break;
-            };
-            if tapped(&message) {
-                self.tapped_until_us = Some(now_us + TAP_LISTENS_US);
-            }
+    /// Call from the ring's loop: how long a hand has been on the head, as
+    /// Controls counts it, or `None`. It reads no bus and never waits.
+    pub fn tick(&mut self, _now_us: u64) -> Option<u64> {
+        match self.found.held_us.load(Ordering::Acquire) {
+            NONE => None,
+            held => Some(held),
         }
-        if self
-            .looked_at_us
-            .is_none_or(|at| now_us.saturating_sub(at) >= LOOK_EVERY_US)
-        {
-            self.looked_at_us = Some(now_us);
-            self.held = self
-                .bus
-                .latest(TouchState::TOPIC)
-                .ok()
-                .flatten()
-                .and_then(|message| held(&message));
-        }
-        self.held
+    }
+}
+
+impl Drop for RingHead {
+    /// The thread ends at its next look. It is not waited for: a flood on
+    /// the bus may keep one receive busy, and the ring's own end must not.
+    fn drop(&mut self) {
+        self.found.stop.store(true, Ordering::Release);
     }
 }
 
@@ -140,13 +180,30 @@ pub fn take(flags: &[String]) -> (bool, &[String]) {
 mod tests {
     use super::*;
 
+    /// What `read` gives once the head's thread has found it, within a
+    /// second.
+    fn soon<T: PartialEq + std::fmt::Debug>(wanted: T, mut read: impl FnMut() -> T) {
+        let deadline = std::time::Instant::now() + Duration::from_secs(1);
+        loop {
+            let found = read();
+            if found == wanted {
+                return;
+            }
+            assert!(
+                std::time::Instant::now() < deadline,
+                "{found:?}, not {wanted:?}"
+            );
+            thread::sleep(Duration::from_millis(2));
+        }
+    }
+
     #[test]
     fn the_heads_hand_time_is_read_from_controls_state_and_nothing_else() {
         let root = std::path::PathBuf::from(format!("/tmp/lrh-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         let bus = Bus::new(&root).unwrap();
         let mut head = RingHead::on(&root).unwrap();
-        assert_eq!(head.tick(1_000_000), None);
+        assert_eq!(head.tick(0), None);
         let (state, _) =
             crate::hand_controls::test_head_touch("boot", lamp_ipc::monotonic_us() - 60_000);
         let held_us = state.sources[0].held_us;
@@ -155,15 +212,14 @@ mod tests {
             .publisher_declared(TouchState::TOPIC, &TouchState::declaration(), "controls")
             .unwrap();
         said.publish_json(1, &state).unwrap();
-        // Looked at most every 50 ms: not again yet, then the hand's time.
-        assert_eq!(head.tick(1_000_001), None);
-        assert_eq!(head.tick(1_000_000 + LOOK_EVERY_US), held_us);
+        // Looked at every 50 ms by the head's thread: the hand's time.
+        soon(held_us, || head.tick(0));
         // Not from anyone but Controls.
         let mut other = bus
             .publisher_declared(TouchState::TOPIC, &TouchState::declaration(), "replay")
             .unwrap();
         other.publish_json(2, &state).unwrap();
-        assert_eq!(head.tick(1_000_000 + 2 * LOOK_EVERY_US), None);
+        soon(None, || head.tick(0));
         drop((said, other));
         std::fs::remove_dir_all(root).unwrap();
     }
@@ -173,7 +229,7 @@ mod tests {
         let root = std::path::PathBuf::from(format!("/tmp/lrt-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         let bus = Bus::new(&root).unwrap();
-        let mut head = RingHead::on(&root).unwrap();
+        let head = RingHead::on(&root).unwrap();
         let now = lamp_ipc::monotonic_us();
         let mut recognizer = crate::hand_controls::TestHead::new("boot", now - 1_500_000);
         let mut ticks = recognizer.run(now - 500_000, false);
@@ -202,15 +258,19 @@ mod tests {
         // A touch is not a tap; a tap from anyone but Controls is nothing.
         said.publish_json(1, &touch).unwrap();
         other.publish_json(2, &tap).unwrap();
-        head.tick(5_000_000);
+        thread::sleep(Duration::from_millis(150));
         assert_eq!(head.tapped_until(), None);
         // Controls' tap: listened for two seconds from when it was read.
+        let sent = lamp_ipc::monotonic_us();
         said.publish_json(3, &tap).unwrap();
-        head.tick(6_000_000);
-        assert_eq!(head.tapped_until(), Some(6_000_000 + TAP_LISTENS_US));
+        soon(true, || head.tapped_until().is_some());
+        let until = head.tapped_until().unwrap();
+        assert!(
+            (sent + TAP_LISTENS_US..=lamp_ipc::monotonic_us() + TAP_LISTENS_US).contains(&until)
+        );
         // Nothing new: the window stands.
-        head.tick(6_500_000);
-        assert_eq!(head.tapped_until(), Some(6_000_000 + TAP_LISTENS_US));
+        thread::sleep(Duration::from_millis(100));
+        assert_eq!(head.tapped_until(), Some(until));
         drop((said, other));
         std::fs::remove_dir_all(root).unwrap();
     }

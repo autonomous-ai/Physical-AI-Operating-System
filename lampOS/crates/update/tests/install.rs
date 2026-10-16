@@ -572,13 +572,35 @@ fn the_voice_gets_its_service_and_the_lamps_device_key_from_v1s_config() {
     assert_eq!(lamp.install().unwrap().changed, Vec::<String>::new());
     assert_eq!(tree(&lamp.root), before);
 
-    // A key already there is the lamp's: kept, even if V1's differs.
-    fs::write(lamp.on(install::V1_CONFIG), r#"{"llm_api_key": "another"}"#).unwrap();
+    // V1 rotates the key (the reviewer, thirteen): install's own copy
+    // follows it, still private.
+    fs::write(
+        lamp.on(install::V1_CONFIG),
+        r#"{"llm_api_key": "rotated-key-42"}"#,
+    )
+    .unwrap();
     lamp.install().unwrap();
     assert_eq!(
         fs::read_to_string(lamp.on(install::CREDENTIAL_PATH)).unwrap(),
-        KEY
+        "rotated-key-42"
     );
+    assert_eq!(private(&lamp, install::CREDENTIAL_PATH), 0o600);
+
+    // A key written on the lamp by someone else (the factory) is the
+    // lamp's: kept, even when V1's differs, and never said.
+    fs::write(lamp.on(install::CREDENTIAL_PATH), "factory-key").unwrap();
+    lamp.said.clear();
+    lamp.install().unwrap();
+    assert_eq!(
+        fs::read_to_string(lamp.on(install::CREDENTIAL_PATH)).unwrap(),
+        "factory-key"
+    );
+    assert!(
+        lamp.said
+            .iter()
+            .any(|line| line.starts_with(&format!("kept {}", install::CREDENTIAL_PATH)))
+    );
+    assert!(lamp.said.iter().all(|line| !line.contains("factory-key")));
 
     // No V1 config: nothing written, and said.
     let mut bare = Lamp::new(188, &[]);

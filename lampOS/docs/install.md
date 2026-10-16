@@ -373,10 +373,12 @@ As root, on a lamp with the base image (`crates/update/src/install.rs`):
    does not forward it; the first builder on #806, 2026-10-16 12:36), and the
    lamp's device key, `/etc/lampOS/voice/credential`, taken from V1's
    `llm_api_key` in `/root/config/config.json`. Both root's and 0600, as the
-   voice requires, and each only if it is not there: a key already on the
-   lamp is kept. The key is never said; with none in V1's config, install
-   says the voice cannot reach its service until the factory writes it. The
-   customer never types a key.
+   voice requires, and kept up to date as the settings are: while each is
+   still what an install wrote (its SHA-256 in `state.json`), a newer
+   provider, or a key V1 rotated in its config, replaces it; one written at
+   the factory or changed on the lamp is kept, and said. The key is never
+   said; with none in V1's config, install says the voice cannot reach its
+   service until the factory writes it. The customer never types a key.
    It never writes `/etc/lampOS/body/lamp.env`, and says that the body waits
    for it.
 7. Records the build and the folders it made in

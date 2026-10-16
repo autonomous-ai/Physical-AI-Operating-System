@@ -443,6 +443,38 @@ pub fn install(
         say,
         &mut |state| save(&records, state),
     )?;
+    // The voice's service and the lamp's device key, private. Each is
+    // install's while it is still what an install wrote, so a newer
+    // provider, or a device key V1 rotated in its config, reaches the lamp;
+    // one written at the factory, or changed on the lamp, is kept (the
+    // reviewer, thirteen, on #1050).
+    let key = device_key(config);
+    let mut private: Vec<(&str, &str)> = vec![(PROVIDER_PATH, PROVIDER)];
+    match &key {
+        Some(key) => private.push((CREDENTIAL_PATH, key)),
+        None if !config.on(CREDENTIAL_PATH).exists() => say(&format!(
+            "no device key: the voice cannot reach its service until {CREDENTIAL_PATH} holds the lamp's key (none in {V1_CONFIG})"
+        )),
+        None => {}
+    }
+    let wrote = changed.len();
+    settings_with_mode(
+        config,
+        &private,
+        0o600,
+        &mut state,
+        &mut changed,
+        say,
+        &mut |state| save(&records, state),
+    )?;
+    if changed[wrote..]
+        .iter()
+        .any(|line| line == &format!("wrote {CREDENTIAL_PATH}"))
+    {
+        say(&format!(
+            "the voice's device key was taken from {V1_CONFIG} into {CREDENTIAL_PATH}"
+        ));
+    }
     // Made 0755 here on a blank lamp. One made closed before (lamp-4ace's is
     // root's alone) is not opened: credentials may be below it. Said instead.
     if let Ok(meta) = fs::metadata(config.on("/etc/lampOS"))
@@ -462,28 +494,6 @@ pub fn install(
              LAMP_ZONE={zone}\nLAMP_UTC_OFFSET_MINUTES={offset}\n"
         );
         put(config, ZONE_PATH, text.as_bytes(), 0o644, &mut changed)?;
-    }
-    if !config.on(PROVIDER_PATH).exists() {
-        put(
-            config,
-            PROVIDER_PATH,
-            PROVIDER.as_bytes(),
-            0o600,
-            &mut changed,
-        )?;
-    }
-    if !config.on(CREDENTIAL_PATH).exists() {
-        match device_key(config) {
-            Some(key) => {
-                put(config, CREDENTIAL_PATH, key.as_bytes(), 0o600, &mut changed)?;
-                say(&format!(
-                    "the voice's device key was taken from {V1_CONFIG} into {CREDENTIAL_PATH}"
-                ));
-            }
-            None => say(&format!(
-                "no device key: the voice cannot reach its service until {CREDENTIAL_PATH} holds the lamp's key (none in {V1_CONFIG})"
-            )),
-        }
     }
     if !config.on("/etc/lampOS/body/lamp.env").exists() {
         say(
@@ -577,6 +587,20 @@ pub fn settings(
     say: &mut dyn FnMut(&str),
     persist: &mut dyn FnMut(&State) -> Result<(), String>,
 ) -> Result<(), String> {
+    settings_with_mode(config, defaults, 0o644, state, changed, say, persist)
+}
+
+/// [`settings`], written with `mode`: the voice's service and the device
+/// key are private (0600), as the voice requires.
+pub fn settings_with_mode(
+    config: &Install,
+    defaults: &[(&str, &str)],
+    mode: u32,
+    state: &mut State,
+    changed: &mut Vec<String>,
+    say: &mut dyn FnMut(&str),
+    persist: &mut dyn FnMut(&State) -> Result<(), String>,
+) -> Result<(), String> {
     let before = state.clone();
     let mut writes = Vec::new();
     for (path, text) in defaults {
@@ -618,7 +642,7 @@ pub fn settings(
         }
         persist(state)?;
         for (path, text, default) in writes {
-            put(config, path, text.as_bytes(), 0o644, changed)?;
+            put(config, path, text.as_bytes(), mode, changed)?;
             state.settings.insert(path.to_owned(), default);
         }
     }

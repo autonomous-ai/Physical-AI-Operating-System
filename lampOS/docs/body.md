@@ -764,8 +764,8 @@ frames in `src/clips/data.rs`). Each is frames of offsets in encoder counts
 for head pitch, head roll, base yaw, shoulder and elbow, a fixed time apart,
 beginning and ending at nothing. They were recorded on the old runtime
 (`hal/recordings/NAME.csv`) and are generated from those files by
-`crates/body/tools/generate_clips.py`, which keeps 35 to 60% of each one's size and
-slows it until no joint is asked to go faster than 900, 1,300, 1,000, 800
+`crates/body/tools/generate_clips.py`. These seven keep 35 to 60% of each one's size, and every clip is
+slowed until no joint is asked to go faster than 900, 1,300, 1,000, 800
 and 800 counts a second:
 
 | Clip | Lasts | Mostly |
@@ -794,7 +794,7 @@ lamp-4ace at 10:4x: `acknowledge`, `curious`, `happy`, `excited` and `caring` re
 | `surprised` | `shock` | 2.0 s | a recoil: head back 190, shoulder 332 |
 | `confused` | `confused` | 3.0 s | a puzzled dip and turn: head 190, base 142 (reworked) |
 | `sleepy` | `sleepy` | 9.2 s | a slow droop with a catch |
-| `excited` | `excited` | 4.6 s | two quick bounces up: shoulder 331, elbow 219 (reworked) |
+| `excited` | `excited` | 4.0 s | two quick bounces up: shoulder 248, elbow 219 (reworked) |
 | `scanning` | `scanning` | 9.1 s | a look round, roll 191, yaw 123: only when a person asks |
 | `dance_chill` | `music_chill` | 9.1 s | base sweeps about the standing pose, 142 either way (reworked) |
 | `dance_groove` | `music_groove` | 8.1 s | a shoulder bounce about the standing pose, 85 back and 78 forward, elbow 158 (reworked) |
@@ -805,12 +805,14 @@ lamp-4ace at 10:4x: `acknowledge`, `curious`, `happy`, `excited` and `caring` re
 Reworked on 2026-10-16 after a person judged every clip on lamp-06c1 (#995): `curious`, `happy`,
 `confused`, `excited` and the five dances are not scaled as a whole. Each joint has its own gain, as large as
 its reach and its speed allow (1.6 at most), times the clip's emphasis, so that one joint leads and the rest
-support it and nothing is slowed; the generator's `REWORKED` holds them. They carry no head roll: a head that
+support it and none is slowed by more than a few per cent (`dance_waltz`, x1.06); the generator's `REWORKED` holds them. They carry no head roll: a head that
 does not tilt standing does not tilt in a gesture (above), and on lamp-06c1 `body/joint_states` showed `confused`
 and `headshake` command none of the 189 and 135 counts they ask, so a recording's roll is moved onto head pitch
 and base yaw. `dance_chill`'s base and `dance_groove`'s shoulder swing about the standing pose (the middle of
 the swing eased in and out over 0.6 s, `CENTRED`), and `excited` is its bounce twice (`REPEATS`), as the person
-asked after a second look. The other clips are as before, byte for byte.
+asked after a second look. `excited`'s shoulder emphasis is 0.75 so that, through `lamp-lean` with V1's model
+(`deploy/lamp-4ace/lean-first-software.json`, lamp-4ace's stand), its centre of mass stays within about 18 mm (23.3 at
+1.0; `surprised`, unchanged, reaches 25.7). The other clips are as before, byte for byte.
 
 The voice service asks for one on the mood socket, `{"gesture":"nod"}`; a
 name that is not a clip is ignored. It asks at most once an answer, from the

@@ -628,7 +628,15 @@ used only to say it.
   lamp begins itself (basis `lamp_tells_news`, record `task_news`) when the
   eyes say someone is at the lamp, or something was said to or by it within
   two minutes; nothing has been said for 15 s; nothing is owed or being
-  heard; and the room is not busy. The note gives the model the task's words
+  heard; and the room is not busy. With `LAMP_TASK_NEWS_AT_PAUSE=on` (#560,
+  off unless set) the 15 s is the first pause of a second instead: nobody
+  heard speaking for 1 s and the lamp's last turn over for as long, as a
+  due reminder waits (`task_news::quiet_for_news`, `PAUSE_US`). The first
+  builder's bound on #560 is that a person at the lamp hears the result
+  within 20 s of the agent settling, at their first pause of at least 1 s if
+  they are talking; someone who talks with the lamp until 18 s after it
+  hears it at about 19 s, not 33. The record's `task_news` says `at_pause`
+  and `since_turn_ms`, how long after the last turn it was told. The note gives the model the task's words
   and up to 1,200 characters of the answer, and asks for one or two natural
   sentences starting like "Oh, Claude Code just finished…" ("earlier" after
   ten minutes), the gist in plain words, no code, lists, paths or links, and

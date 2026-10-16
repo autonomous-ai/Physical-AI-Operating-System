@@ -73,6 +73,35 @@ pub(crate) const MOST_TASK_CHARS: usize = 300;
 const TASK_CHARS_KEPT_FIRST: usize = 100;
 /// Nothing said by or to the lamp for this long before news is told.
 pub const QUIET_US: u64 = 15_000_000;
+/// `on`: news is told at the first pause of [`PAUSE_US`] instead of after
+/// [`QUIET_US`] with no turn (#560). The first builder's bound (20:49 on
+/// #560): a person at the lamp who handed work to it hears the result
+/// within 20 s of the agent settling, at their first pause of at least 1 s
+/// if they are talking. Read at start; off unless set.
+pub const AT_PAUSE_ENVIRONMENT: &str = "LAMP_TASK_NEWS_AT_PAUSE";
+/// The pause news waits for with [`AT_PAUSE_ENVIRONMENT`]: nobody heard
+/// speaking for this long, and the lamp's own turn over as long, as a due
+/// reminder waits (`coordinator::reminder_quiet`).
+pub const PAUSE_US: u64 = 1_000_000;
+
+/// Whether news is told at the first pause ([`AT_PAUSE_ENVIRONMENT`]):
+/// `on`, and nothing else.
+pub fn at_pause(value: Option<&str>) -> bool {
+    value == Some("on")
+}
+
+/// Whether it is quiet enough now (`now_us`) to tell news: [`QUIET_US`]
+/// since the last turn, by or to the lamp (`last_turn_us`); or, `at_pause`,
+/// [`PAUSE_US`] since it, with nobody heard speaking for as long
+/// (`speech_paused`, as the coordinator judges it for a reminder).
+pub fn quiet_for_news(at_pause: bool, now_us: u64, last_turn_us: u64, speech_paused: bool) -> bool {
+    let since_turn = now_us.saturating_sub(last_turn_us);
+    if at_pause {
+        speech_paused && since_turn >= PAUSE_US
+    } else {
+        since_turn >= QUIET_US
+    }
+}
 /// Without eyes that say someone is there, something said this recently
 /// says it.
 pub const HEARD_WITHIN_US: u64 = 120_000_000;
@@ -2019,5 +2048,53 @@ mod tests {
         stopping.store(true, Ordering::Relaxed);
         watcher.join().unwrap();
         let _ = std::fs::remove_dir_all(root);
+    }
+
+    /// #560, the first builder's bound, the eighth's case: someone talks
+    /// with the lamp until 18 s after the agent settled. With
+    /// `LAMP_TASK_NEWS_AT_PAUSE=on` the news is told at their first pause
+    /// of a second, about 19 s; without it, 15 s after the last turn, about
+    /// 33 s, as before.
+    #[test]
+    fn news_is_told_at_the_first_pause_of_a_second_only_with_the_switch() {
+        const S: u64 = 1_000_000;
+        let settled = 100 * S;
+        let talked_until = settled + 18 * S;
+        let first = |at_pause| {
+            (talked_until..=talked_until + 20 * S)
+                .step_by(100_000)
+                .find(|&now| {
+                    let paused = now - talked_until >= PAUSE_US;
+                    quiet_for_news(at_pause, now, talked_until, paused)
+                })
+                .map(|now| (now - settled) / 100_000)
+        };
+        assert_eq!(first(true), Some(190));
+        assert_eq!(first(false), Some(330));
+        // Someone still speaking, or the lamp's turn just over: not yet.
+        assert!(!quiet_for_news(
+            true,
+            talked_until + 5 * S,
+            talked_until,
+            false
+        ));
+        assert!(!quiet_for_news(
+            true,
+            talked_until + 900_000,
+            talked_until,
+            true
+        ));
+        // Without the switch, 15 s since the last turn whoever is heard.
+        assert!(quiet_for_news(
+            false,
+            talked_until + QUIET_US,
+            talked_until,
+            false
+        ));
+        // Only `on` turns it on.
+        for value in [None, Some(""), Some("off"), Some("ON"), Some("1")] {
+            assert!(!at_pause(value), "{value:?}");
+        }
+        assert!(at_pause(Some("on")));
     }
 }

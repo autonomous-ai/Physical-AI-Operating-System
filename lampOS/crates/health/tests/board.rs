@@ -37,6 +37,8 @@ fn well() -> Reading {
         busiest: Vec::new(),
         processes: Vec::new(),
         cpu_ticks: None,
+        cpufreq_cooling: false,
+        hot_held: false,
     }
 }
 
@@ -810,6 +812,8 @@ fn the_report_is_the_worst_finding_and_of_two_as_bad_the_first() {
         busiest: Vec::new(),
         processes: Vec::new(),
         cpu_ticks: None,
+        cpufreq_cooling: false,
+        hot_held: false,
     };
     assert_eq!(
         said(&reading),
@@ -949,6 +953,18 @@ fn processors_held_back_for_a_minute_are_an_error() {
             hardware_khz: 2_002_000,
         },
     ];
+    // A cap below the hardware's with nothing cooling and the zones under
+    // their first trip is not heat (the reviewer on #1105): boost speeds left
+    // out, or an image's own cap.
+    reading.throttled_for = Some(board::THROTTLED_ERROR_AFTER);
+    assert_eq!(
+        said(&reading),
+        (Level::Ok, String::new()),
+        "no cooling, no heat"
+    );
+    assert_eq!(value(&reading.report(), "throttled"), Some("false"));
+    // The board says it is cooling.
+    reading.cpufreq_cooling = true;
     reading.throttled_for = Some(std::time::Duration::from_secs(30));
     assert_eq!(
         said(&reading),
@@ -994,6 +1010,7 @@ fn the_watch_counts_the_held_time_and_finds_the_busiest() {
             .map(|(pid, name, t)| (*pid, name.to_string(), *t))
             .collect(),
         cpu_ticks: Some((total, 8)),
+        cpufreq_cooling: held,
         ..processors_at(90_000)
     };
     let mut watch = board::Watch::default();
@@ -1093,6 +1110,16 @@ fn processor_caps_are_read_from_each_cpufreq_policy() {
         "sys/devices/system/cpu/cpufreq/policy6/scaling_max_freq",
         "1000\n",
     );
+    // The real board's cooling devices: idle injection, then cpufreq, at work.
+    tree.file("sys/class/thermal/cooling_device0/type", "idle-cpu2\n");
+    tree.file("sys/class/thermal/cooling_device0/cur_state", "5\n");
+    tree.file("sys/class/thermal/cooling_device7/type", "cpufreq-cpu6\n");
+    tree.file("sys/class/thermal/cooling_device7/cur_state", "0\n");
+    assert!(
+        !board::read(&tree.places()).cpufreq_cooling,
+        "idle injection is not cpufreq"
+    );
+    tree.file("sys/class/thermal/cooling_device7/cur_state", "3\n");
     let reading = board::read(&tree.places());
     let caps: Vec<(&str, u64, u64)> = reading
         .cpu_caps
@@ -1107,4 +1134,25 @@ fn processor_caps_are_read_from_each_cpufreq_policy() {
         ]
     );
     assert_eq!(reading.throttled().unwrap().policy, "policy4");
+}
+
+/// The reviewer on #1105: a zone at the line must not flip the lamp's health
+/// on every reading. Once given, the warning holds until the zone is
+/// [`board::CPU_WARN_CLEARS_BELOW_C`] under it.
+#[test]
+fn the_heat_warning_holds_until_the_processors_cool_a_little() {
+    use std::time::{Duration, Instant};
+    let mut watch = board::Watch::default();
+    let start = Instant::now();
+    let mut levels = Vec::new();
+    for (step, milli_c) in [94_000, 95_000, 94_500, 93_000, 92_000, 91_900, 94_900]
+        .into_iter()
+        .enumerate()
+    {
+        let mut reading = processors_at(milli_c);
+        watch.observe(&mut reading, start + Duration::from_secs(5 * step as u64));
+        levels.push(said(&reading).0);
+    }
+    use Level::{Ok, Warn};
+    assert_eq!(levels, [Ok, Warn, Warn, Warn, Warn, Ok, Ok]);
 }

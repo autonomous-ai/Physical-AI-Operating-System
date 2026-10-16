@@ -66,6 +66,8 @@ fn well() -> Reading {
         busiest: Vec::new(),
         processes: Vec::new(),
         cpu_ticks: None,
+        cpufreq_cooling: false,
+        hot_held: false,
     }
 }
 

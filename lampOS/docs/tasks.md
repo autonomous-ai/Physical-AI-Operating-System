@@ -361,6 +361,13 @@ manifest. Deleting the database is not an ordinary retry strategy.
 
 ## Host qualification and first lamp check
 
+The crate's tests need the host's `install` command. They copy the scripted
+Harness with `install -m 0700`, so that no other test thread's child inherits a
+descriptor still open for writing (`ETXTBSY`, #898). They also clear the group
+and other write bits on the Cargo-built fixture, which a umask of 0002 leaves
+set, before the fixture is used. Both are for the tests only: production still
+refuses a group- or world-writable executable, unchanged.
+
 Build the process and the standalone check from the `lampOS/` root:
 
 ```sh

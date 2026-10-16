@@ -416,13 +416,26 @@ where
                             last_final = Some(Instant::now());
                         }
                         transcript.add(words);
-                        if finalize_by.is_some()
-                            && !closing
-                            && (finalized || transcript.settled(sent))
-                        {
-                            // Closes the socket; its answer is not waited for.
-                            let _ = write.send(close_stream()).await;
-                            return Ok((transcript.text(), told(&at_end, "finalize")));
+                        if finalize_by.is_some() && !closing {
+                            if transcript.settled(sent) {
+                                // Closes the socket; its answer is not waited for.
+                                let _ = write.send(close_stream()).await;
+                                return Ok((transcript.text(), told(&at_end, "finalize")));
+                            }
+                            if finalized {
+                                // `Finalize`'s answer short of the audio sent:
+                                // audio sent faster than speech (a held
+                                // burst) was not all heard yet, and nothing
+                                // more came for it on lamp-52e6 ("Hang" for
+                                // "Hang on.", #828). `CloseStream` flushes
+                                // the rest and closes; its words are waited
+                                // for.
+                                closing = true;
+                                write
+                                    .send(close_stream())
+                                    .await
+                                    .map_err(|_| Error::Transport("speech-to-text send"))?;
+                            }
                         }
                     } else if let Some(at) = speech_started(&text) {
                         transcript.speech_started(at);
@@ -732,6 +745,22 @@ mod tests {
         assert_eq!(words, "set a timer for twenty minutes");
         assert_eq!(took, Duration::from_millis(50));
         assert!(at_end.ends_with(", words from=finalize"), "{at_end}");
+    }
+
+    /// #828, lamp-52e6: after a held burst, `Finalize`'s answer covered
+    /// only part of the audio sent ("Hang" for "Hang on.", 0.30 of
+    /// 0.59 s). The line does not end on it: `CloseStream` goes at once,
+    /// without waiting out `FINALIZE`, and the rest of the words are kept.
+    #[tokio::test(start_paused = true)]
+    async fn a_finalize_answer_short_of_the_audio_sent_flushes_the_rest() {
+        const SHORT: &str = r#"{"type":"Results","is_final":true,"speech_final":true,"from_finalize":true,"start":0.0,"duration":0.3,"channel":{"alternatives":[{"transcript":"hang"}]}}"#;
+        let (words, at_end, took) =
+            finish_after(INTERIM, &[SHORT], Duration::from_millis(800), 0).await;
+        assert_eq!(words, "hang from close");
+        // The server's 50 ms after its answer, then `CloseStream`'s round
+        // trip: `FINALIZE` is not waited out.
+        assert_eq!(took, Duration::from_millis(850));
+        assert!(at_end.ends_with(", words from=close_stream"), "{at_end}");
     }
 
     /// A local plain websocket server stands in for Deepgram.

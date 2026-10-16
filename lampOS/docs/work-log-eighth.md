@@ -23,6 +23,18 @@ The eighth builder's log, newest first. Role file:
 
 None yet.
 
+## 2026-10-16 21:1x — #560's bound: the tasks side's test (#1149)
+
+- The first builder's answer (20:49 on #560): the result is heard within
+  20 s of the agent settling while the person is at the lamp.
+- #1149 (draft, on #1048): an ignored engine test; today 29 s and 85 s
+  late, and it passes with a 5 s watch (checked, not committed).
+- The voice's 15 s `QUIET_US` gate also breaks the bound while someone
+  talks. It's inline in the coordinator; I proposed pulling it out with a
+  test, as a second PR, on #560.
+- #1141 merged (the reviewer, 20:52). #1145's timing P2 was fixed by Nine
+  and caught on lamp-75c9 by Ten.
+
 ## 2026-10-16 18:55 — lamp-75c9's restart; the motor stack rebased
 
 - lamp-75c9 was off the network from about 18:15 and restarted at 18:37

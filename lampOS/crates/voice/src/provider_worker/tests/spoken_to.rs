@@ -27,6 +27,7 @@ fn options(
         name_in_passing_ignored: false,
         policy_holds: None,
         wait_for_room: false,
+        staff_note: false,
         ask_unclear: false,
         spoken_to,
         voices: None,

@@ -846,6 +846,7 @@ mod tests {
                 lead_in: true,
                 asked: true,
                 needs: None,
+                staff_note: false,
             }),
             schedule_tools: true,
             schedule_speak: true,
@@ -1010,6 +1011,7 @@ mod tests {
             lead_in: false,
             asked: false,
             needs: None,
+            staff_note: false,
         };
         assert_eq!(
             settings,
@@ -1501,6 +1503,7 @@ mod tests {
             lead_in: false,
             asked: false,
             needs: None,
+            staff_note: false,
         };
         let with = Settings {
             tasks: Some(place.clone()),

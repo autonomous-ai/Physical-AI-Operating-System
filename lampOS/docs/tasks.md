@@ -962,6 +962,65 @@ with the read-back. **Not shown yet.** Most likely wrong: the note alone may
 not hold the stories in a session that has already handed over, which only
 `handovers.sh` shows.
 
+### Named in the words, told in time (off unless `LAMP_STAFF_NOTE=on`)
+
+On lamp-4ace on 2026-10-16 (stack36, `LAMP_TASKS_WHO=on`,
+`LAMP_TASKS_ASKED=on`) "Hey Lamp, ask Codex to write a haiku about coffee."
+was heard right at 22:51:02, and the lamp said a haiku of its own with no
+`start_agent_task` call; at about 21:05 "ask Claude Code to write a short
+poem about the sea" got a poem of its own. The session note, read at 22:35:20
+before the session opened at 22:35:22, named both of the staff. The model
+had what it needed and did the work itself all the same.
+
+With `LAMP_STAFF_NOTE=on` (the provider worker's `--staff-note`, after
+`--policy-holds-actions`; only with the tasks part), `crate::staff_note`:
+
+- **What is matched:** the service's transcript of the request whose input
+  began last, its pieces joined (`staff_note::Heard`). A word, or two words
+  said together, that is one of the staff's close forms
+  (`agent_tasks::named_in_words`, the forms `who` already takes: "Codex",
+  "code X", "codecs", "Claude", "Claude Code", "cloud code", "OpenCode").
+  "Cloud" alone is not taken ("save it to the cloud"). Words naming two of
+  the staff name nobody. Without `LAMP_TASKS_WHO` the staff are not read and
+  only Claude Code is matched, since all work goes there.
+- **What the model is told,** once for the request:
+  "(For you to know, not to answer: the person named Codex, one of the
+  staff. If this is work for Codex, hand it over with start_agent_task; never
+  do it yourself.)" It is conditional where the first builder's wording
+  ("this is for Codex; hand it over") was not, because a name alone is not
+  always a request: "what does Codex cost?" names it too.
+- **Before the answer:** the note goes in as the lamp's name note does
+  (`crate::called`): `Session::try_note`, sent inside the request's activity,
+  after its audio and just before its end. The model answers only after the
+  end, so a note given while the request's input is open always reaches it
+  first (`a_request_that_names_one_of_the_staff_is_told_so_before_its_end`).
+  Words the service writes only after the input was closed are too late:
+  nothing is sent, and the journal says "named Codex after its input was
+  closed; the model is not told". Counting those lines on a lamp says how
+  often the transcript lags the end. Most requests name the staff early ("ask
+  Codex to …").
+- **The journal** says, for each request noted, "request N: named Codex;
+  the model is told". Nothing of what was said is written: only which of the
+  staff.
+- **`start_agent_task` says it too,** with work asked of the staff
+  (`LAMP_TASKS_ASKED=on`): its "The person chose who does it: never do the
+  work yourself instead, …" becomes "The person chose who does it (a note may
+  name them): never do the work yourself, never begin it, nor offer to." That
+  is 9 bytes more, where three of the staff with the lead-in leave 20 of the
+  1,024 the service takes
+  (`every_description_fits_the_service_whatever_the_switches`, now with the
+  note too). Without the switch, the description is as it was, word for
+  word (`the_description_says_the_staffs_note_names_who_only_with_it`). #903
+  showed this description is where a change loses the hand-overs, so the
+  change is one clause.
+
+Without the switch nothing is matched or sent
+(`a_request_that_names_none_of_the_staff_is_given_no_note` covers words that
+name nobody; `the_words_of_a_request_name_one_of_the_staff` the matching).
+**Not shown on a lamp yet.** Most likely wrong: the transcript of a long
+request may arrive after its end, which the "after its input was closed"
+lines count.
+
 ### Told twice, and no gist (#757, 2026-10-15)
 
 In the day played on lamp-4ace on 2026-10-15 at 08:02 (review page, Brain

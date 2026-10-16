@@ -1,0 +1,2800 @@
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r1-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.04s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r1-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r1-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.04s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r1-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.04s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r1-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r1-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.04s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r1-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r1-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.04s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r1-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r1-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.04s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r2-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.04s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r2-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.04s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r2-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.04s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r2-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r2-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r2-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.04s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r2-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r2-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r2-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r2-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.04s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r3-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r3-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.04s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r3-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r3-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r3-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r3-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r3-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r3-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r3-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r3-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r4-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.04s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r4-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r4-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r4-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r4-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r4-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.04s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r4-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.04s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r4-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r4-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.04s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r4-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r5-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r5-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r5-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r5-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r5-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r5-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r5-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.04s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r5-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r5-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r5-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.04s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r6-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.04s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r6-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r6-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r6-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r6-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r6-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r6-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r6-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r6-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r6-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r7-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r7-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r7-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r7-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r7-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r7-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r7-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r7-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r7-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r7-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r8-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r8-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r8-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.04s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r8-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r8-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.04s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r8-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.04s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r8-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.04s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r8-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r8-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.03s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r8-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.04s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r9-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r9-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r9-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r9-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r9-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r9-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r9-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r9-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r9-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.04s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r9-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r10-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r10-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r10-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r10-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r10-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r10-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.04s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r10-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r10-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r10-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r10-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r11-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r11-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r11-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r11-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r11-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r11-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r11-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r11-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r11-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r11-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r12-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.04s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r12-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r12-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r12-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r12-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r12-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r12-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r12-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r12-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r12-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r13-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r13-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r13-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r13-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r13-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r13-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r13-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r13-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r13-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r13-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r14-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r14-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r14-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r14-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r14-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r14-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r14-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r14-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r14-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r14-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r15-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r15-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r15-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r15-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r15-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r15-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.04s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r15-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r15-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r15-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r15-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r16-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r16-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r16-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r16-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r16-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r16-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r16-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r16-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r16-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r16-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r17-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.04s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r17-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r17-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r17-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r17-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r17-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r17-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.04s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r17-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r17-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r17-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.04s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r18-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r18-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r18-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r18-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r18-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r18-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r18-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r18-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r18-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r18-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r19-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.04s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r19-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r19-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r19-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.04s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r19-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r19-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r19-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.04s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r19-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r19-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.04s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r19-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r20-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r20-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r20-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r20-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r20-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r20-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r20-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r20-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r20-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r20-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r21-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r21-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r21-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r21-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r21-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r21-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r21-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r21-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r21-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r21-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r22-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r22-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r22-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r22-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r22-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.03s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r22-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r22-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r22-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r22-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r22-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r23-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.13s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r23-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.11s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r23-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r23-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r23-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r23-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r23-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r23-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r23-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.04s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r23-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r24-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r24-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r24-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r24-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r24-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r24-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r24-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r24-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r24-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r24-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r25-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r25-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r25-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r25-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r25-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r25-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r25-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r25-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r25-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r25-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r26-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r26-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r26-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r26-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r26-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r26-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r26-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r26-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r26-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r26-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r27-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.04s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r27-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r27-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r27-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r27-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r27-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r27-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.04s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r27-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r27-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r27-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r28-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r28-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r28-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r28-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r28-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r28-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r28-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r28-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r28-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r28-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r29-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r29-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r29-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r29-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r29-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r29-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r29-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r29-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r29-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r29-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r30-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r30-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r30-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r30-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r30-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r30-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r30-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r30-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r30-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r30-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r31-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r31-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r31-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r31-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r31-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r31-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r31-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r31-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r31-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r31-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r32-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r32-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r32-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r32-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r32-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r32-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r32-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r32-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r32-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r32-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r33-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r33-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r33-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r33-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r33-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r33-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r33-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r33-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.04s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r33-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r33-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r34-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r34-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r34-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r34-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r34-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r34-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r34-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r34-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r34-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r34-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r35-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r35-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r35-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r35-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r35-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r35-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r35-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r35-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r35-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r35-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r36-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r36-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r36-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r36-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r36-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r36-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r36-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r36-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r36-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r36-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r37-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r37-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r37-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r37-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r37-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r37-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r37-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r37-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r37-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r37-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r38-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r38-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r38-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r38-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r38-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r38-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r38-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r38-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r38-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r38-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r39-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r39-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r39-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r39-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.12s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r39-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r39-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r39-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r39-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r39-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.04s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r39-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r40-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r40-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r40-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r40-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r40-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r40-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r40-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r40-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.05s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r40-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_cannot_restore_an_offer_after_owner_replacement/r40-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.06s
+

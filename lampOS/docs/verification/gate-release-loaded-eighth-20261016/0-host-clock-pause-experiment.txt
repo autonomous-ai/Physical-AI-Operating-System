@@ -1,0 +1,520 @@
+=== exp906/late_started_callback_cannot_restore_an_offer_after_owner_replacement-p0-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.08s
+
+=== exp906/late_started_callback_cannot_restore_an_offer_after_owner_replacement-p0-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.08s
+
+=== exp906/late_started_callback_cannot_restore_an_offer_after_owner_replacement-p0-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.08s
+
+=== exp906/late_started_callback_cannot_restore_an_offer_after_owner_replacement-p0-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.08s
+
+=== exp906/late_started_callback_cannot_restore_an_offer_after_owner_replacement-p0-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.08s
+
+=== exp906/late_started_callback_cannot_restore_an_offer_after_owner_replacement-p0-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.08s
+
+=== exp906/late_started_callback_cannot_restore_an_offer_after_owner_replacement-p0-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.08s
+
+=== exp906/late_started_callback_cannot_restore_an_offer_after_owner_replacement-p0-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.08s
+
+=== exp906/late_started_callback_cannot_restore_an_offer_after_owner_replacement-p0-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.08s
+
+=== exp906/late_started_callback_cannot_restore_an_offer_after_owner_replacement-p0-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.08s
+
+=== exp906/late_started_callback_cannot_restore_an_offer_after_owner_replacement-p30-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... FAILED
+
+failures:
+
+---- coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement stdout ----
+
+thread 'coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement' (3644180) panicked at crates/voice/src/coordinator/motor/tests.rs:1352:68:
+called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.10s
+
+=== exp906/late_started_callback_cannot_restore_an_offer_after_owner_replacement-p30-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... FAILED
+
+failures:
+
+---- coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement stdout ----
+
+thread 'coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement' (3644186) panicked at crates/voice/src/coordinator/motor/tests.rs:1352:68:
+called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.11s
+
+=== exp906/late_started_callback_cannot_restore_an_offer_after_owner_replacement-p30-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... FAILED
+
+failures:
+
+---- coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement stdout ----
+
+thread 'coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement' (3644191) panicked at crates/voice/src/coordinator/motor/tests.rs:1352:68:
+called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.11s
+
+=== exp906/late_started_callback_cannot_restore_an_offer_after_owner_replacement-p30-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... FAILED
+
+failures:
+
+---- coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement stdout ----
+
+thread 'coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement' (3644196) panicked at crates/voice/src/coordinator/motor/tests.rs:1352:68:
+called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.10s
+
+=== exp906/late_started_callback_cannot_restore_an_offer_after_owner_replacement-p30-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... FAILED
+
+failures:
+
+---- coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement stdout ----
+
+thread 'coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement' (3644201) panicked at crates/voice/src/coordinator/motor/tests.rs:1352:68:
+called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.11s
+
+=== exp906/late_started_callback_cannot_restore_an_offer_after_owner_replacement-p30-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... FAILED
+
+failures:
+
+---- coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement stdout ----
+
+thread 'coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement' (3644209) panicked at crates/voice/src/coordinator/motor/tests.rs:1352:68:
+called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.11s
+
+=== exp906/late_started_callback_cannot_restore_an_offer_after_owner_replacement-p30-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... FAILED
+
+failures:
+
+---- coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement stdout ----
+
+thread 'coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement' (3644215) panicked at crates/voice/src/coordinator/motor/tests.rs:1352:68:
+called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.11s
+
+=== exp906/late_started_callback_cannot_restore_an_offer_after_owner_replacement-p30-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... FAILED
+
+failures:
+
+---- coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement stdout ----
+
+thread 'coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement' (3644220) panicked at crates/voice/src/coordinator/motor/tests.rs:1352:68:
+called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.11s
+
+=== exp906/late_started_callback_cannot_restore_an_offer_after_owner_replacement-p30-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... FAILED
+
+failures:
+
+---- coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement stdout ----
+
+thread 'coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement' (3644225) panicked at crates/voice/src/coordinator/motor/tests.rs:1352:68:
+called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.11s
+
+=== exp906/late_started_callback_cannot_restore_an_offer_after_owner_replacement-p30-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... FAILED
+
+failures:
+
+---- coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement stdout ----
+
+thread 'coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement' (3644230) panicked at crates/voice/src/coordinator/motor/tests.rs:1352:68:
+called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.11s
+
+=== exp906/same_owner_input_end_cancels_queued_gesture_before_inert_bus_write-p0-1
+
+running 1 test
+test coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.08s
+
+=== exp906/same_owner_input_end_cancels_queued_gesture_before_inert_bus_write-p0-2
+
+running 1 test
+test coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.08s
+
+=== exp906/same_owner_input_end_cancels_queued_gesture_before_inert_bus_write-p0-3
+
+running 1 test
+test coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.08s
+
+=== exp906/same_owner_input_end_cancels_queued_gesture_before_inert_bus_write-p0-4
+
+running 1 test
+test coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.08s
+
+=== exp906/same_owner_input_end_cancels_queued_gesture_before_inert_bus_write-p0-5
+
+running 1 test
+test coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.08s
+
+=== exp906/same_owner_input_end_cancels_queued_gesture_before_inert_bus_write-p0-6
+
+running 1 test
+test coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.08s
+
+=== exp906/same_owner_input_end_cancels_queued_gesture_before_inert_bus_write-p0-7
+
+running 1 test
+test coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.08s
+
+=== exp906/same_owner_input_end_cancels_queued_gesture_before_inert_bus_write-p0-8
+
+running 1 test
+test coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.08s
+
+=== exp906/same_owner_input_end_cancels_queued_gesture_before_inert_bus_write-p0-9
+
+running 1 test
+test coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.08s
+
+=== exp906/same_owner_input_end_cancels_queued_gesture_before_inert_bus_write-p0-10
+
+running 1 test
+test coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.08s
+
+=== exp906/same_owner_input_end_cancels_queued_gesture_before_inert_bus_write-p30-1
+
+running 1 test
+test coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write ... FAILED
+
+failures:
+
+---- coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write stdout ----
+
+thread 'coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write' (3644297) panicked at crates/voice/src/coordinator/motor/tests.rs:1445:68:
+called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.10s
+
+=== exp906/same_owner_input_end_cancels_queued_gesture_before_inert_bus_write-p30-2
+
+running 1 test
+test coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write ... FAILED
+
+failures:
+
+---- coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write stdout ----
+
+thread 'coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write' (3644302) panicked at crates/voice/src/coordinator/motor/tests.rs:1445:68:
+called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.11s
+
+=== exp906/same_owner_input_end_cancels_queued_gesture_before_inert_bus_write-p30-3
+
+running 1 test
+test coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write ... FAILED
+
+failures:
+
+---- coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write stdout ----
+
+thread 'coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write' (3644307) panicked at crates/voice/src/coordinator/motor/tests.rs:1445:68:
+called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.11s
+
+=== exp906/same_owner_input_end_cancels_queued_gesture_before_inert_bus_write-p30-4
+
+running 1 test
+test coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write ... FAILED
+
+failures:
+
+---- coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write stdout ----
+
+thread 'coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write' (3644316) panicked at crates/voice/src/coordinator/motor/tests.rs:1445:68:
+called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.11s
+
+=== exp906/same_owner_input_end_cancels_queued_gesture_before_inert_bus_write-p30-5
+
+running 1 test
+test coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write ... FAILED
+
+failures:
+
+---- coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write stdout ----
+
+thread 'coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write' (3644321) panicked at crates/voice/src/coordinator/motor/tests.rs:1445:68:
+called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.11s
+
+=== exp906/same_owner_input_end_cancels_queued_gesture_before_inert_bus_write-p30-6
+
+running 1 test
+test coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write ... FAILED
+
+failures:
+
+---- coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write stdout ----
+
+thread 'coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write' (3644333) panicked at crates/voice/src/coordinator/motor/tests.rs:1445:68:
+called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.11s
+
+=== exp906/same_owner_input_end_cancels_queued_gesture_before_inert_bus_write-p30-7
+
+running 1 test
+test coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write ... FAILED
+
+failures:
+
+---- coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write stdout ----
+
+thread 'coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write' (3644338) panicked at crates/voice/src/coordinator/motor/tests.rs:1445:68:
+called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.11s
+
+=== exp906/same_owner_input_end_cancels_queued_gesture_before_inert_bus_write-p30-8
+
+running 1 test
+test coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write ... FAILED
+
+failures:
+
+---- coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write stdout ----
+
+thread 'coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write' (3644343) panicked at crates/voice/src/coordinator/motor/tests.rs:1445:68:
+called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.11s
+
+=== exp906/same_owner_input_end_cancels_queued_gesture_before_inert_bus_write-p30-9
+
+running 1 test
+test coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write ... FAILED
+
+failures:
+
+---- coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write stdout ----
+
+thread 'coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write' (3644362) panicked at crates/voice/src/coordinator/motor/tests.rs:1445:68:
+called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.11s
+
+=== exp906/same_owner_input_end_cancels_queued_gesture_before_inert_bus_write-p30-10
+
+running 1 test
+test coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write ... FAILED
+
+failures:
+
+---- coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write stdout ----
+
+thread 'coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write' (3644367) panicked at crates/voice/src/coordinator/motor/tests.rs:1445:68:
+called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.10s
+

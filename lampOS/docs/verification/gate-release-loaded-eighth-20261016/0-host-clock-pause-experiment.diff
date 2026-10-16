@@ -1,0 +1,24 @@
+diff --git a/lampOS/crates/voice/src/coordinator/motor/tests.rs b/lampOS/crates/voice/src/coordinator/motor/tests.rs
+index 425b11698..2bded61d5 100644
+--- a/lampOS/crates/voice/src/coordinator/motor/tests.rs
++++ b/lampOS/crates/voice/src/coordinator/motor/tests.rs
+@@ -1343,6 +1343,9 @@ fn late_started_callback_cannot_restore_an_offer_after_owner_replacement() {
+     assert!(m.pending.is_none());
+     assert!(!m.is_ready());
+     assert_eq!(c.snapshot(time()).unwrap().owner(), Some(successor));
++    if let Ok(ms) = std::env::var("EXP906_PAUSE_MS") {
++        std::thread::sleep(Duration::from_millis(ms.parse().unwrap()));
++    }
+     fs::write(dir.path.join("motor/go"), b"release inert worker").unwrap();
+     wait(&mut m, &mut c, OptionalMotor::reaped);
+     assert_eq!(
+@@ -1433,6 +1436,9 @@ fn same_owner_input_end_cancels_queued_gesture_before_inert_bus_write() {
+         controller.snapshot(time()).unwrap().owner(),
+         Some(offered.permit.owner())
+     );
++    if let Ok(ms) = std::env::var("EXP906_PAUSE_MS") {
++        std::thread::sleep(Duration::from_millis(ms.parse().unwrap()));
++    }
+     fs::write(dir.path.join("motor/go"), b"release inert child").unwrap();
+     wait(&mut motor, &mut controller, OptionalMotor::reaped);
+     assert_eq!(

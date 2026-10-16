@@ -274,9 +274,9 @@ The privacy-revoke fixture runs this way (#949), with two causal regressions:
 a 30 ms host pause before its release, and a child that takes 300 ms to exit
 after finishing. On the host clock the first failed 10 of 10 runs with
 `motor inhibit acknowledgement timed out`. Without the exit wait the second
-failed 10 of 10 with an unconfirmed privacy release. #906's two gated tests
-(`late_started_callback_…` and `same_owner_input_end_…`) run the same way, each
-with a 30 ms-pause twin; on the host clock both failed 10 of 10 with that pause.
+failed 10 of 10 with an unconfirmed privacy release. #906's three gated tests
+(`late_started_callback_…`, `same_owner_input_end_…` and `pending_inspection_is_revoked_…`) run the same way, each
+with a 30 ms-pause twin; on the host clock each failed with that pause.
 
 The parent's Supervisor measures its deadlines on the same clock:
 `Supervisor<C: Clock = SystemClock>` in `crates/body/src/runtime/supervisor.rs`,

@@ -1,0 +1,2800 @@
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r1-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r1-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r1-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r1-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r1-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r1-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r1-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r1-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r1-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r1-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r2-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r2-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r2-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r2-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r2-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r2-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r2-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r2-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r2-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r2-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r3-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r3-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r3-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r3-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r3-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r3-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r3-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r3-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r3-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r3-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r4-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r4-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.11s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r4-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r4-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r4-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r4-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.11s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r4-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r4-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r4-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r4-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r5-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r5-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r5-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r5-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r5-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r5-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r5-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r5-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r5-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r5-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r6-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r6-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r6-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r6-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r6-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r6-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r6-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r6-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r6-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r6-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r7-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r7-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r7-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r7-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r7-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r7-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r7-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r7-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r7-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r7-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r8-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r8-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r8-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r8-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r8-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r8-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r8-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r8-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r8-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r8-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r9-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r9-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r9-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r9-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r9-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r9-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r9-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r9-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r9-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r9-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r10-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.14s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r10-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r10-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r10-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r10-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r10-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.11s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r10-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r10-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.11s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r10-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r10-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.11s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r11-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r11-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r11-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r11-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r11-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r11-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r11-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r11-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r11-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r11-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r12-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r12-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r12-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r12-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r12-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r12-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r12-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r12-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r12-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r12-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r13-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r13-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r13-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r13-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r13-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r13-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r13-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r13-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r13-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r13-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r14-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r14-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r14-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r14-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r14-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r14-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r14-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r14-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r14-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r14-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r15-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r15-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r15-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r15-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r15-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r15-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r15-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r15-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r15-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r15-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r16-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r16-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r16-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r16-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r16-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r16-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r16-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r16-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r16-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r16-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r17-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r17-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r17-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r17-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r17-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r17-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r17-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r17-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r17-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r17-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r18-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r18-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r18-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r18-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r18-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r18-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r18-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r18-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r18-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r18-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r19-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r19-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r19-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r19-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r19-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r19-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r19-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r19-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r19-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r19-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r20-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r20-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r20-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r20-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r20-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r20-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r20-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r20-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r20-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r20-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r21-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r21-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r21-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r21-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r21-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r21-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r21-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r21-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r21-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r21-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r22-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r22-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r22-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r22-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r22-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r22-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r22-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r22-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r22-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r22-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r23-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r23-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r23-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r23-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r23-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r23-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r23-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r23-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r23-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r23-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r24-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.18s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r24-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r24-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r24-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r24-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r24-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r24-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.20s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r24-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r24-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.18s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r24-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r25-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r25-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r25-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r25-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r25-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r25-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r25-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r25-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r25-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r25-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r26-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r26-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r26-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r26-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r26-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r26-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r26-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r26-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r26-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r26-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r27-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r27-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r27-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r27-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r27-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r27-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r27-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r27-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r27-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r27-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r28-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r28-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r28-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r28-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r28-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r28-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r28-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r28-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r28-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r28-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r29-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r29-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r29-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r29-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r29-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r29-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r29-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r29-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r29-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r29-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r30-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r30-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r30-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r30-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r30-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r30-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r30-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r30-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r30-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r30-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r31-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r31-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r31-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r31-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r31-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r31-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r31-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r31-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r31-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r31-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r32-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r32-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r32-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r32-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r32-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r32-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.11s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r32-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r32-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r32-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.11s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r32-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r33-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r33-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r33-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r33-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r33-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r33-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r33-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.11s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r33-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r33-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r33-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r34-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r34-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r34-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r34-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r34-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r34-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r34-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r34-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r34-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r34-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r35-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r35-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r35-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r35-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r35-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r35-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r35-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r35-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r35-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r35-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r36-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r36-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r36-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r36-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r36-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r36-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r36-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r36-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r36-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r36-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r37-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r37-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r37-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r37-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r37-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r37-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r37-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r37-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.13s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r37-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r37-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r38-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r38-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r38-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r38-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r38-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r38-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r38-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r38-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r38-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r38-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.11s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r39-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r39-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r39-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r39-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r39-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r39-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r39-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r39-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r39-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r39-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.07s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r40-1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.08s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r40-2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r40-3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.10s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r40-4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r40-5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r40-6
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r40-7
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r40-8
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r40-9
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+
+=== late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released/r40-10
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1182 filtered out; finished in 0.09s
+

@@ -273,8 +273,11 @@ When the coordinator switches (below):
   publishes it (`room/state`), the lamp's name as `lamp-name` hears it
   (`name/heard`, dated by the wall clock, in the window of the line's first
   and last microphone packets, so a replayed line keeps its time), whether
-  the eyes see someone turned to the lamp, and the thread (a conversation
-  going on, the lamp's last line a question). Words it holds end the turn
+  the eyes see someone turned to the lamp, the thread (a conversation
+  going on, the lamp's last line a question), and with
+  `LAMP_ATTENTION=busy-near` how far the room microphone rose over its
+  quiet during the line (`room/sound`, sampled every 100 ms on a thread of
+  its own, as the Live worker samples it). Words it holds end the turn
   after them, unanswered. Each turn is judged as a session's first. On
   lamp-4ace on 2026-10-16 this route answered "Me." and half a question
   between colleagues while Gemini's session was renewed; both are held now.
@@ -555,11 +558,12 @@ Reported by the builders:
   [not-speech.md](not-speech.md#a-room-sound-let-through-and-answered-800)).
   Being close to the lamp or facing it cannot be seen here, so it does not
   count as it does on the Live route.
-- **The rule for whom it answers, without three signs:** a tap on the head,
-  the room microphone's rise (`LAMP_ATTENTION=busy-near`) and whether it was
-  said from close (`--addressed`) are not given to it, so a line in a busy
-  room that only those would let through on the Live route is held here.
-  The Policy's attention decision is not waited for.
+- **The rule for whom it answers, without two signs:** a tap on the head
+  and whether it was said from close (`--addressed`) are not given to it,
+  so a line in a busy room that only those would let through on the Live
+  route is held here. Both are off on lamp-4ace. Like the Live route, it
+  does not wait for the Policy's attention decision, which holds only
+  actions.
 - **Deepgram direct uses nova-3 on `/v1/listen`.** V1's default
   (`hal/drivers/voice/stt/deepgram.py`) is `flux-general-en` on Deepgram's v2
   protocol.

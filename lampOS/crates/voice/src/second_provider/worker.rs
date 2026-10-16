@@ -343,6 +343,11 @@ pub fn serve(
             files.bus_root.as_deref(),
             thread.clone(),
         ));
+        if files.attention_near
+            && let (Ok(mut heeding), Some(root)) = (heeding.lock(), files.bus_root.as_deref())
+        {
+            heeding.hear_levels(root);
+        }
         engine = engine.heeding(Arc::new(move |request, said, heard| {
             heeding
                 .lock()
@@ -384,10 +389,11 @@ pub(crate) fn facts(session: bool, room: Option<crate::room_told::Room>) -> Stri
 /// lamp-4ace on 2026-10-16 this route answered two remarks in a busy room
 /// that Gemini's session left alone, nobody facing and no name (#1014).
 ///
-/// Not given: a tap on the head, the room microphone's rise
-/// (`--attention-near`) and whether it was said from close (`--addressed`),
-/// so a line in a busy room that only those would let through on the Live
-/// route is held here. Each turn is judged as a session's first: this
+/// With `--attention-near`, also how far the room microphone rose over its
+/// quiet during the line (`room/sound`), sampled as the Live worker samples
+/// it. Not given: a tap on the head and whether it was said from close
+/// (`--addressed`), so a line in a busy room that only those would let
+/// through on the Live route is held here. Each turn is judged as a session's first: this
 /// route keeps no session that has heard enough to be trusted.
 pub(crate) struct Heeding {
     attention: crate::attention::Attention,
@@ -395,7 +401,13 @@ pub(crate) struct Heeding {
     /// The bus, and the name's hearings on it since the last turn.
     bus: Option<(lamp_bus::Bus, lamp_bus::Subscriber)>,
     thread: Option<PathBuf>,
+    /// The room microphone's rise over its quiet, by when it was sampled,
+    /// with `--attention-near`: the last [`LEVELS_KEPT_US`].
+    levels: Option<Levels>,
 }
+
+/// The room microphone's rise over its quiet, dB, by when it was sampled.
+type Levels = Arc<Mutex<std::collections::VecDeque<(u64, f32)>>>;
 
 /// What the bus and the thread say as a spoken turn is judged.
 pub(crate) struct Signs {
@@ -406,10 +418,18 @@ pub(crate) struct Signs {
     /// The name's hearings: when each began, by this process's clock, and
     /// its score.
     pub names: Vec<(u64, f32)>,
+    /// The room microphone rose [`crate::attention::NEAR_RISE_DB`] or more
+    /// over its quiet during the line.
+    pub near: bool,
 }
 
 /// Hearings of the name read in one turn's judgement; more wait for the next.
 const NAMES_READ: usize = 64;
+/// The room microphone's level is sampled this often, as the Live worker does.
+const LEVEL_EVERY: Duration = Duration::from_millis(100);
+/// A level older than this is let go: longer than a line replayed to this
+/// route takes to be heard.
+const LEVELS_KEPT_US: u64 = 30_000_000;
 
 impl Heeding {
     pub(crate) fn new(
@@ -441,16 +461,64 @@ impl Heeding {
             strict,
             bus,
             thread,
+            levels: None,
+        }
+    }
+
+    /// Sample the room microphone's rise over its quiet from now on, on a
+    /// thread of its own: the turn's task cannot, since the line is judged
+    /// only after it has been heard.
+    fn hear_levels(&mut self, root: &Path) {
+        let Ok(bus) = lamp_bus::Bus::new(root) else {
+            return;
+        };
+        let levels: Levels = Arc::default();
+        // Weak: the thread ends once this `Heeding` is gone (Second on #1028).
+        let kept = Arc::downgrade(&levels);
+        let started = std::thread::Builder::new()
+            .name("second-levels".into())
+            .spawn(move || {
+                loop {
+                    std::thread::sleep(LEVEL_EVERY);
+                    let now_us = monotonic_us();
+                    let rise = bus
+                        .latest(lamp_msgs::RoomSound::TOPIC)
+                        .ok()
+                        .flatten()
+                        .filter(|message| {
+                            unix_ms(SystemTime::now()).saturating_sub(message.header.at_unix_ms)
+                                < 1_000
+                        })
+                        .and_then(|message| message.parse::<lamp_msgs::RoomSound>().ok())
+                        .filter(|level| !level.own_voice)
+                        .and_then(|level| Some(level.level_db - level.floor_db?));
+                    let Some(levels) = kept.upgrade() else { return };
+                    let Ok(mut levels) = levels.lock() else {
+                        return;
+                    };
+                    if let Some(rise) = rise {
+                        levels.push_back((now_us, rise));
+                    }
+                    while levels
+                        .front()
+                        .is_some_and(|(at, _)| now_us.saturating_sub(*at) > LEVELS_KEPT_US)
+                    {
+                        levels.pop_front();
+                    }
+                }
+            });
+        if started.is_ok() {
+            self.levels = Some(levels);
         }
     }
 
     fn heed(&mut self, request: u64, said: (u64, u64), heard: &str) -> Option<&'static str> {
-        let signs = self.signs(request);
+        let signs = self.signs(request, said);
         self.judge(request, said, heard, signs)
     }
 
-    /// What the bus and the thread say now.
-    fn signs(&mut self, request: u64) -> Signs {
+    /// What the bus and the thread say now of a line said in `began..=ended`.
+    fn signs(&mut self, request: u64, (began, ended): (u64, u64)) -> Signs {
         let (going_on, lamp_asked) = crate::thread::current(self.thread.as_deref(), |thread| {
             (thread.going_on(Instant::now()), thread.lamp_asked(request))
         })
@@ -461,6 +529,15 @@ impl Heeding {
             lamp_asked,
             turned: None,
             names: Vec::new(),
+            near: self
+                .levels
+                .as_ref()
+                .and_then(|levels| levels.lock().ok())
+                .is_some_and(|levels| {
+                    levels.iter().any(|(at, rise)| {
+                        (began..=ended).contains(at) && *rise >= crate::attention::NEAR_RISE_DB
+                    })
+                }),
         };
         let Some((bus, names)) = &mut self.bus else {
             return signs;
@@ -503,6 +580,7 @@ impl Heeding {
         }
         attention.heard(heard);
         attention.lamp_asked(signs.lamp_asked);
+        attention.set_near(signs.near);
         let turned = signs.turned.filter(|_| self.strict);
         match attention.first_output_busy(request, signs.room, signs.going_on, self.strict, turned)
         {
@@ -794,6 +872,7 @@ mod tests {
             lamp_asked: false,
             turned: Some(false),
             names,
+            near: false,
         };
         let said = (10_000_000, 11_500_000);
         let mut heeding = Heeding::new(true, true, None, None);
@@ -852,6 +931,22 @@ mod tests {
         let mut quiet = busy(Vec::new(), false);
         quiet.room = Room::Quiet;
         assert_eq!(heeding.judge(209, said, "Me.", quiet), None);
+        // busy-near: a name heard at 0.95 or more counts only with the room
+        // microphone 18 dB over its quiet during the line.
+        let (soon, sooner) = ((50_000_000, 51_500_000), (70_000_000, 71_500_000));
+        assert!(
+            heeding
+                .judge(
+                    210,
+                    soon,
+                    "What time is it?",
+                    busy(vec![(50_200_000, 0.96)], false)
+                )
+                .is_some()
+        );
+        let mut near = busy(vec![(70_200_000, 0.96)], false);
+        near.near = true;
+        assert_eq!(heeding.judge(211, sooner, "What time is it?", near), None);
     }
 
     use super::*;

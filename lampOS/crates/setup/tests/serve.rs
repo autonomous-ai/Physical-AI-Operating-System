@@ -381,8 +381,14 @@ fn the_own_page_and_the_product_plan_agree_on_what_setup_saves() {
             saved.display()
         );
     }
-    assert_eq!(own.credential, std::path::Path::new("/etc/lampOS/voice/credential"));
-    assert_eq!(own.policy_key, std::path::Path::new("/etc/lampOS/policy/jev.key"));
+    assert_eq!(
+        own.credential,
+        std::path::Path::new("/etc/lampOS/voice/credential")
+    );
+    assert_eq!(
+        own.policy_key,
+        std::path::Path::new("/etc/lampOS/policy/jev.key")
+    );
 }
 
 /// Thirteen on #1016: a key a setup left half-written is removed at start,
@@ -410,8 +416,14 @@ fn settings_without_key_files_take_the_products_places() {
         r#"{"listen":"0.0.0.0:80","marker":"/var/lib/lampos-setup/done",
             "name":"/etc/lampOS/person/name","country":"VN","page":true}"#,
     );
-    assert_eq!(plain.credential, std::path::Path::new("/etc/lampOS/voice/credential"));
-    assert_eq!(plain.policy_key, std::path::Path::new("/etc/lampOS/policy/jev.key"));
+    assert_eq!(
+        plain.credential,
+        std::path::Path::new("/etc/lampOS/voice/credential")
+    );
+    assert_eq!(
+        plain.policy_key,
+        std::path::Path::new("/etc/lampOS/policy/jev.key")
+    );
 }
 
 #[test]
@@ -470,7 +482,12 @@ fn the_files_are_private_and_the_zone_is_linked_as_v1_does() {
     files.name("Lan").unwrap();
     files.timezone("Asia/Ho_Chi_Minh").unwrap();
     files.marker().unwrap();
-    for path in [&config.credential, &config.policy_key, &config.name, &config.marker] {
+    for path in [
+        &config.credential,
+        &config.policy_key,
+        &config.name,
+        &config.marker,
+    ] {
         let mode = fs::metadata(path).unwrap().permissions().mode() & 0o777;
         assert_eq!(mode, 0o600, "{}", path.display());
     }

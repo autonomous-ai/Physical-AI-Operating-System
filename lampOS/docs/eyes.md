@@ -603,9 +603,11 @@ With the switch:
   `remember_my_face` is to be called when someone tells their name, not
   only when they ask. And once what they said in a request gives their
   name ("my name is Jim", "my name's Jim", "call me Jim", "I am called
-  Jim", "I'm Jim", "I am Jim", "this is Jim", "Jim's my name", "Jim is my
-  name", or "it's Jim" where the request speaks of a name, "Will you
-  remember my name? It's Jim."; the name capitalised and not a word that
+  Jim", "I'm Jim", "I am Jim", "this is Jim" with the name ending it,
+  "Jim's my name", "Jim is my name", or "it's Jim" where the request
+  speaks of "my name", "Will you remember my name? It's Jim."; not "This
+  is Jim, my colleague." nor "What's his name? It's Bob.", which name
+  someone else (Ten on #1224); the name capitalised and not a word that
   is no one's, such as "OK", a day or "American"; not after "what", and
   not in a question, except one that asks the lamp to call them so or to
   remember it, "Could you call me Jim?" or "Do you remember my name is
@@ -613,8 +615,8 @@ With the switch:
   that request (`known_faces::NAME_TOLD_NOTE`): if they have just told
   their own name, call `remember_my_face` now, or say the name back and
   ask for its spelling, and never only say it will be remembered. It is a
-  condition, so that a match that is no name ("I'm Irish.", "This is
-  B, my colleague.") costs nothing. The journal says "they gave their
+  condition, so that a match that is no name ("I'm Irish.") costs
+  nothing. The journal says "they gave their
   name, and the model is told to keep it".
 - The eyes take the plain `{"remember":"A"}` as before, so an older
   voice is unchanged. The other way round, a voice with the switch talking

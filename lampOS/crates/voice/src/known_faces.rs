@@ -425,17 +425,25 @@ const QUESTION: &[&str] = &[
 /// remember my name is Jim?").
 pub fn gives_a_name(said: &str) -> bool {
     let said = said.replace('\u{2019}', "'");
-    let speaks_of_a_name = said
+    let words: Vec<String> = said
         .split(|c: char| !(c.is_alphanumeric() || c == '\''))
-        .any(|word| word.eq_ignore_ascii_case("name") || word.eq_ignore_ascii_case("name's"));
+        .filter(|word| !word.is_empty())
+        .map(str::to_lowercase)
+        .collect();
+    // Their own name, not someone else's: "his name", "your name" are not
+    // (Ten on #1224).
+    let speaks_of_my_name = words
+        .windows(2)
+        .any(|pair| pair[0] == "my" && (pair[1] == "name" || pair[1] == "name's"));
     said.split_inclusive(['.', '!', '?'])
-        .any(|sentence| gives_a_name_in(sentence, speaks_of_a_name))
+        .any(|sentence| gives_a_name_in(sentence, speaks_of_my_name))
 }
 
-/// One sentence of [`gives_a_name`]; `speaks_of_a_name`: the request
-/// speaks of a name somewhere, so that "It's Jim." gives one ("Will you
-/// remember my name? It's Jim.", the reviewer on #1057).
-fn gives_a_name_in(sentence: &str, speaks_of_a_name: bool) -> bool {
+/// One sentence of [`gives_a_name`]; `speaks_of_my_name`: the request
+/// speaks of their own name somewhere, so that "It's Jim." gives one ("Will
+/// you remember my name? It's Jim.", the reviewer on #1057), and "What's
+/// his name? It's Bob." none.
+fn gives_a_name_in(sentence: &str, speaks_of_my_name: bool) -> bool {
     let words: Vec<&str> = sentence
         .split(|c: char| !(c.is_alphanumeric() || c == '\''))
         .filter(|word| !word.is_empty())
@@ -482,10 +490,12 @@ fn gives_a_name_in(sentence: &str, speaks_of_a_name: bool) -> bool {
         (Some("i"), Some("am"), Some("called")) => named(i + 3),
         (Some("i'm"), _, _) => named(i + 1),
         (Some("i"), Some("am"), _) => named(i + 2),
-        // An introduction: "Lamp, this is Jim."
-        (Some("this"), Some("is"), _) => named(i + 2),
-        (Some("it's"), _, _) => speaks_of_a_name && named(i + 1),
-        (Some("it"), Some("is"), _) => speaks_of_a_name && named(i + 2),
+        // An introduction of themselves: "Lamp, this is Jim.", the name
+        // ending it. "This is Jim, my colleague." introduces someone else
+        // (Ten on #1224).
+        (Some("this"), Some("is"), _) => named(i + 2) && lower.len() == i + 3,
+        (Some("it's"), _, _) => speaks_of_my_name && named(i + 1),
+        (Some("it"), Some("is"), _) => speaks_of_my_name && named(i + 2),
         _ => name_first(i),
     })
 }
@@ -939,6 +949,12 @@ mod tests {
             "What's my name? It's Monday.",
             "This is great.",
             "Is my name right?",
+            // Ten on #1224: someone else introduced, or named.
+            "Lamp, this is Jim, my colleague.",
+            "This is Jim from accounts.",
+            "What's his name? It's Bob.",
+            "Her name? It's Anna.",
+            "What's your name? It's Lamp.",
             "That's my name.",
             "Who's my name for?",
         ] {

@@ -288,6 +288,17 @@ impl Face {
         self.tapped_until_us = until_us;
     }
 
+    /// Whether a resting frame at `now_us` shows the lamp's own light: not
+    /// while a tap's listening face, or its settle back, is over it, nor
+    /// while the face closes and opens again after a turn it let go.
+    pub fn rests_on_its_light(&self, now_us: u64) -> bool {
+        self.tapped_until_us
+            .is_none_or(|until| now_us >= until.saturating_add(SETTLE_US))
+            && self
+                .let_go_us
+                .is_none_or(|at| now_us >= at.saturating_add(LET_GO_US))
+    }
+
     /// Show the accent `code` ([`accent_code`]) from `at_us` for [`ACCENT_US`].
     pub fn accent(&mut self, code: u8, at_us: u64) {
         self.accent = code;

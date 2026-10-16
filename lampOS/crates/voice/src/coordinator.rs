@@ -1181,6 +1181,19 @@ fn run_source(
             "clear":"fresh second local hold, durably saved before physical privacy checks",
             "observation_to_speaker_target_us":2000,"acoustic_stop_measured":false}),
         )?;
+        let restored = controls
+            .borrow()
+            .as_ref()
+            .is_some_and(HandControls::restored_after_fault);
+        if restored {
+            // #960: the mute is the restart guard's, after a fault, not the
+            // person's choice. Said once here; the wait shows nothing yet.
+            eprintln!("lamp-voice: muted by the restart guard after a fault, not by choice");
+            record(
+                &mut trace,
+                json!({"kind":"mute_restored_after_fault","at_us":monotonic_us()}),
+            )?;
+        }
     }
     let result = (|| {
         let diagnostic_directory = options
@@ -2518,7 +2531,18 @@ fn run_inner(
     });
     let requested_stop =
         guard_released_on_stop(result.is_ok() || interrupted, termination.signal_name());
+    // A person's mute, accepted and revoked: the restart guard's marker goes
+    // now, before teardown, so a crash in teardown cannot leave it for a tap
+    // to open (#997). A removal that fails ends the cycle as a fault would.
+    // Whatever the result: a run can end in a fault after the mute was taken
+    // (a failed publish, a speaker socket gone), and `arm_active` refuses to
+    // start muted, so a muted live latch here is always the person's (the
+    // reviewer's P3 on #997).
+    let chosen = controls
+        .as_mut()
+        .map_or(Ok(()), |controls| controls.mute_chosen());
     let result = finish_active_run(&mut rig, &mut owner, &mut reply, trace, cues, result);
+    chosen?;
     if let Some(motor) = &rig.motor {
         *motor_rearm &= motor.may_rearm_after_cycle(privacy_mute);
     }

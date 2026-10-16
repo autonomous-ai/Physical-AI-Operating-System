@@ -7,6 +7,11 @@
 //! cleanup, or a stop the service was asked for (SIGTERM, an update; #960),
 //! may disarm that guard, writing the live latch as it was. An unacknowledged request before any durable
 //! write cannot be promised to survive arbitrary storage/power failure.
+//!
+//! With `LAMP_RESTORED_MUTE=on` (#960), arming also leaves a marker beside the
+//! record, removed with the guard, by a mute the person chose, or by a clear.
+//! A restart that finds the record muted and the marker present knows the mute
+//! was restored by the guard after a fault, not chosen.
 use lamp_bus::{Bus, Kind, Message, Notice, Publisher, Subscriber};
 use lamp_controls::{mute::MuteRecord, receiver::Receiver, touch_receiver::TouchReceiver};
 use lamp_msgs::{
@@ -15,6 +20,7 @@ use lamp_msgs::{
 };
 use std::{
     io,
+    os::unix::fs::OpenOptionsExt,
     path::{Path, PathBuf},
     sync::{
         Arc,
@@ -33,6 +39,10 @@ const FINAL_JOIN_WAIT: Duration = Duration::from_millis(20);
 /// `voice/mute` is said when it changes and at least this often.
 const MUTE_SAID_EVERY: Duration = Duration::from_secs(1);
 const SUBSCRIBER: &str = "voice_hand";
+/// Off unless `on`: keep the restart guard's marker, so a restored mute can be
+/// told from a chosen one (#960).
+pub const RESTORED_MUTE_ENVIRONMENT: &str = "LAMP_RESTORED_MUTE";
+const GUARD_MARKER_SUFFIX: &str = ".restart-guard";
 
 fn invalid(message: &str) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidInput, message)
@@ -246,6 +256,10 @@ pub struct HandControls {
     /// The head pads' requests, checked as Controls' own receiver does:
     /// fresh, from the current Controls and reader, each once.
     touch: Option<TouchReceiver>,
+    /// `LAMP_RESTORED_MUTE=on`: arming leaves the guard's marker.
+    mark_guard: bool,
+    /// The record was muted by the restart guard, not by the person.
+    restored_after_fault: bool,
     // One handle for the entire service, not one per supervised audio cycle.
     _pump: Option<Pump>,
 }
@@ -387,6 +401,9 @@ impl HandControls {
         }
         let clock_id = lamp_controls::runtime::clock_id(None)?;
         let now_us = lamp_ipc::monotonic_us();
+        // The stored record as it is on disk, before a new boot's rebase:
+        // what the guard's marker must still match (the reviewer on #997).
+        let stored = options.mute_record.as_deref().and_then(stored_identity);
         let record = match &options.mute_record {
             Some(path) => {
                 let record = MuteRecord::load(path, &clock_id, now_us)?;
@@ -401,6 +418,9 @@ impl HandControls {
         let shared = Arc::new(Shared::default());
         let mut controls =
             Self::from_parts(options.clone(), &clock_id, record, input, shared, now_us)?;
+        controls.mark_guard =
+            std::env::var(RESTORED_MUTE_ENVIRONMENT).ok().as_deref() == Some("on");
+        controls.restore_guard_marker(stored);
         let root = options
             .bus_root
             .clone()
@@ -456,6 +476,8 @@ impl HandControls {
             armed: false,
             persistence_failed: false,
             touch,
+            mark_guard: false,
+            restored_after_fault: false,
             _pump: None,
         };
         controls.share_latch();
@@ -501,6 +523,125 @@ impl HandControls {
 
     fn asleep(&self) -> bool {
         self.options.mute_record.is_some() && self.receiver.mute_record().asleep()
+    }
+
+    /// The live mute was restored by the restart guard after a fault, and the
+    /// person has neither chosen a mute since nor cleared it (#960). Always
+    /// false without `LAMP_RESTORED_MUTE=on`.
+    pub fn restored_after_fault(&self) -> bool {
+        self.restored_after_fault && self.muted()
+    }
+
+    fn guard_marker(&self) -> Option<PathBuf> {
+        let path = self.options.mute_record.as_ref()?;
+        let mut name = path.file_name()?.to_owned();
+        name.push(GUARD_MARKER_SUFFIX);
+        Some(path.with_file_name(name))
+    }
+
+    /// At restore: a muted record with the marker beside it was muted by the
+    /// guard. An unmuted record's leftover marker (a fault between writing it
+    /// and the guard) means nothing and is removed. Without the switch, a
+    /// marker left by an earlier run is removed and never read.
+    ///
+    /// The marker names the very guard record it was written with (its
+    /// `clock_id` and `through_us`), and counts only while the record on
+    /// disk, as stored before any rebase, still is that one. Every person's
+    /// mute moves `through_us` forward, so a person's saved mute never matches
+    /// a marker left beside it, even one a failed removal could not take.
+    ///
+    /// After a reboot, restore saves the record rebased to the new clock, so
+    /// a match rewrites the marker to name that saved record: a second
+    /// restart in the same boot (an update's clean stop) still knows the
+    /// mute is the guard's (the first builder on #997). A rewrite that fails
+    /// leaves the old name, which the next restart no longer matches: it
+    /// fails closed, as a chosen mute.
+    fn restore_guard_marker(&mut self, stored: Option<(String, u64)>) {
+        let Some(marker) = self.guard_marker() else {
+            return;
+        };
+        let present = marker.symlink_metadata().is_ok_and(|m| m.is_file());
+        let names = std::fs::read_to_string(&marker)
+            .ok()
+            .and_then(|text| marker_identity(&text));
+        if self.mark_guard && present && self.muted() && names.is_some() && names == stored {
+            self.restored_after_fault = true;
+            let saved = self
+                .options
+                .mute_record
+                .as_deref()
+                .and_then(stored_identity);
+            if let Some(saved) = saved.filter(|saved| Some(saved) != names.as_ref()) {
+                let _ = write_guard_marker(&marker, &saved);
+            }
+        } else if present {
+            let _ = std::fs::remove_file(&marker);
+        }
+    }
+
+    /// Writing the marker is advice: failing to write it changes no
+    /// permission, since a missing marker reads as a chosen mute, which a tap
+    /// never opens. Removing it is not: the marker is what lets a tap clear a
+    /// mute, so it goes before a person's mute is saved or torn down, and a
+    /// removal that fails fails closed for this run; across the restart the
+    /// fault causes, the marker no longer matches the record ([`Self::drop_guard_marker`], the
+    /// reviewer on #997).
+    fn set_guard_marker(&mut self, present: bool) {
+        if !present {
+            self.restored_after_fault = false;
+        }
+        let Some(marker) = self.guard_marker() else {
+            return;
+        };
+        if present {
+            if self.mark_guard {
+                // The guard record's identity, written with it.
+                let record = self.receiver.mute_record();
+                let identity = (record.clock_id.clone(), record.through_us);
+                let _ = write_guard_marker(&marker, &identity);
+            }
+        } else if marker.symlink_metadata().is_ok() {
+            let _ = std::fs::remove_file(&marker);
+        }
+    }
+
+    /// Removes the guard's marker, its folder synced after, as
+    /// `MuteRecord::save` syncs: a power cut must not bring it back beside a
+    /// person's mute. A removal or sync that fails is a persistence fault,
+    /// as a failed save is: nothing opens until recovery.
+    fn drop_guard_marker(&mut self) -> io::Result<()> {
+        self.restored_after_fault = false;
+        let Some(marker) = self.guard_marker() else {
+            return Ok(());
+        };
+        let removed = match std::fs::remove_file(&marker) {
+            Ok(()) => true,
+            Err(error) if error.kind() == io::ErrorKind::NotFound => false,
+            Err(error) => {
+                self.persistence_failed = true;
+                return Err(error);
+            }
+        };
+        if removed
+            && let Some(parent) = marker.parent()
+            && let Err(error) = std::fs::File::open(parent).and_then(|dir| dir.sync_all())
+        {
+            self.persistence_failed = true;
+            return Err(error);
+        }
+        Ok(())
+    }
+
+    /// A person's own mute (the button's or the strip's hold, or sleep) was
+    /// accepted: the guard's marker goes at once, after revocation and before
+    /// teardown, so a crash in teardown can never leave it beside the mute
+    /// for a tap to open (the reviewer's P1 on #997). Not from the urgent
+    /// loop: it touches the disk.
+    pub fn mute_chosen(&mut self) -> io::Result<()> {
+        if self.muted() {
+            self.drop_guard_marker()?;
+        }
+        Ok(())
     }
 
     fn fence_at(&mut self, now_us: u64) {
@@ -643,12 +784,19 @@ impl HandControls {
             TouchGesture::Tap => {
                 earlier(&mut observation.head_tap_at_us, event.observed_us);
                 earlier(&mut observation.head_tap_began_us, event.began_us);
+                // A mute left by the restart guard wakes by a tap as sleep
+                // does (#960); a person's own mute stays until their hold.
+                let after_fault = self.restored_after_fault();
                 if mute
                     && let Some(released_us) = event.released_us
-                    && self
-                        .receiver
-                        .request_wake(now_us, event.began_us, released_us)
-                        .is_err()
+                    && if after_fault {
+                        self.receiver
+                            .request_wake_after_fault(now_us, event.began_us, released_us)
+                    } else {
+                        self.receiver
+                            .request_wake(now_us, event.began_us, released_us)
+                    }
+                    .is_err()
                 {
                     add(&self.shared.rejected, 1);
                 }
@@ -668,6 +816,11 @@ impl HandControls {
     /// teardown result is finalized. No acknowledgement precedes this save.
     pub fn persist_muted(&mut self) -> io::Result<()> {
         if self.muted() && self.dirty {
+            // The person chose this mute: the guard's marker goes before it
+            // is saved, never after. A removal that fails still lets the
+            // person's mute be saved (its moved `through_us` no longer matches
+            // the marker), and the fault is returned after.
+            let dropped = self.drop_guard_marker();
             let result = self
                 .receiver
                 .mute_record()
@@ -677,6 +830,7 @@ impl HandControls {
                 return Err(error);
             }
             self.dirty = false;
+            dropped?;
         }
         Ok(())
     }
@@ -749,6 +903,7 @@ impl HandControls {
                 }
                 self.receiver.commit_clear(prepared)?;
                 self.armed = false;
+                self.set_guard_marker(false);
             }
         }
         Ok(!self.muted())
@@ -757,16 +912,19 @@ impl HandControls {
     /// Before opening any audio worker, store the conservative restart guard.
     /// The live preference is unchanged. Do not call from the urgent audio loop.
     pub fn arm_active(&mut self) -> io::Result<()> {
-        let Some(path) = &self.options.mute_record else {
+        let Some(path) = self.options.mute_record.clone() else {
             return Ok(());
         };
         if self.muted() || self.persistence_failed {
             return Err(io::Error::other("hand mute inhibits an active runtime"));
         }
         if !self.armed {
+            // Marker first: a fault between the two leaves an unmuted record
+            // with a marker, which restore discards.
+            self.set_guard_marker(true);
             let mut guard = self.receiver.mute_record().clone();
             guard.muted = true;
-            if let Err(error) = guard.save(path) {
+            if let Err(error) = guard.save(&path) {
                 self.persistence_failed = true;
                 return Err(error);
             }
@@ -779,7 +937,7 @@ impl HandControls {
     /// physical/software lifecycle exits and interrupted cleanup must keep the
     /// conservative disk guard until the supervisor chooses its safe next step.
     pub fn disarm_after_cleanup(&mut self) -> io::Result<()> {
-        let Some(path) = &self.options.mute_record else {
+        let Some(path) = self.options.mute_record.clone() else {
             return Ok(());
         };
         if self.persistence_failed {
@@ -788,7 +946,10 @@ impl HandControls {
             ));
         }
         if self.armed || self.dirty {
-            if let Err(error) = self.receiver.mute_record().save(path) {
+            // The marker goes before the live latch is written: muted, it is a
+            // person's mute, which must never read as the guard's.
+            self.drop_guard_marker()?;
+            if let Err(error) = self.receiver.mute_record().save(&path) {
                 self.persistence_failed = true;
                 return Err(error);
             }
@@ -797,6 +958,41 @@ impl HandControls {
         }
         Ok(())
     }
+}
+
+/// The `clock_id` and `through_us` of the mute record stored at `path`, read
+/// as it is, before any rebase.
+fn stored_identity(path: &Path) -> Option<(String, u64)> {
+    let record: MuteRecord = serde_json::from_slice(&std::fs::read(path).ok()?).ok()?;
+    Some((record.clock_id, record.through_us))
+}
+
+/// Writes the marker naming the guard record `identity`, synced with its
+/// folder before the guard is saved: a power cut soon after arming must not
+/// leave it empty on ext4, where it would no longer count as the guard's
+/// (the first builder on #997).
+fn write_guard_marker(marker: &Path, identity: &(String, u64)) -> io::Result<()> {
+    let text = format!("{}\n{}\n", identity.0, identity.1);
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .mode(0o600)
+        .open(marker)?;
+    std::io::Write::write_all(&mut file, text.as_bytes())?;
+    file.sync_all()?;
+    if let Some(parent) = marker.parent() {
+        std::fs::File::open(parent)?.sync_all()?;
+    }
+    Ok(())
+}
+
+/// The guard record's identity a marker names: `clock_id`, then `through_us`.
+fn marker_identity(text: &str) -> Option<(String, u64)> {
+    let mut lines = text.lines();
+    let clock_id = lines.next()?.to_owned();
+    let through_us = lines.next()?.parse().ok()?;
+    (!clock_id.is_empty() && lines.next().is_none()).then_some((clock_id, through_us))
 }
 
 fn earlier(value: &mut Option<u64>, next: u64) {

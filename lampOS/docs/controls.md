@@ -721,7 +721,9 @@ reads as before, and an unmuted record with one is refused.
 Before audio starts, `arm_active` durably stores a conservative muted recovery
 record without changing the live preference. A crash, provider fault or failed
 cleanup therefore restores muted, even if no hand mute had been requested. This
-is a deliberate availability cost: a fresh local hold is needed after restart.
+is a deliberate availability cost: a fresh local hold is needed after restart
+(or, with `LAMP_RESTORED_MUTE=on` and `LAMP_HEAD_TOUCH=on`, a fresh head tap,
+below).
 Only verified clean destruction permits `disarm_after_cleanup` to store the
 actual unmuted preference, and so does a stop the service was asked for
 (`guard_released_on_stop`, #960): SIGTERM or SIGINT ended the conversation,
@@ -732,6 +734,54 @@ with nothing to show; such a stop now writes the latch as it was. A chosen
 mute stays muted; a fault or a privacy exit keeps the guard. A failed initial arm opens no audio; an accepted mute
 whose subsequent save fails still has the active durable guard. Persistence
 failure stays visible and cannot clear the live latch.
+
+**A restored mute told from a chosen one** (#960 point 2, `LAMP_RESTORED_MUTE=on`
+on the voice, off unless set). Arming also leaves a private marker,
+`<record>.restart-guard`, beside the record, written before the guard and
+naming the guard record it goes with (its `clock_id` and `through_us`). A clean
+release, a mute the person chose (as soon as it is taken), and a clear each
+remove it. A restart that finds the record muted with the marker present, and
+the record as stored (before any rebase on a new boot) still the one the
+marker names, knows the mute is the guard's after a fault: `HandControls::restored_after_fault`, the trace
+record `mute_restored_after_fault` and one log line. A marker beside an unmuted
+record (a fault between the two writes), or found with the switch off, is
+removed. **Writing** the marker is advice: failing to write it changes no
+permission, since a missing marker reads as a chosen mute, which stays shut.
+**Removing** it is not, because the marker is what lets a tap clear a mute
+(below). So it goes as soon as a person's mute is accepted: after every
+conversation, whatever its result, after revocation and before teardown
+(`HandControls::mute_chosen`, from `run_inner`; `arm_active` refuses to start
+muted, so a muted live latch there is the person's), and again before a muted
+record is saved (`persist_muted`, `disarm_after_cleanup`), never after. The
+folder is synced after the unlink, as a save is. A removal or sync that fails
+is a persistence fault for this run, and the person's mute is still saved.
+Across the restart that fault causes, a marker that could not be removed no
+longer counts: every person's mute moves `through_us` forward, so it never
+matches the guard record the marker names. A crash in teardown, between the
+removal and the save, or after a removal that failed while the save went
+through, therefore never lets a tap open a person's mute (the reviewer's P1
+and P2 on #997). One case is left, inherent to keeping the person's mute in
+the same record: if both the removal and the save fail, the record on disk is
+still the guard's and the marker still names it, so after the restart a tap
+can wake it, as a guard's mute. The person's mute never reached the disk in
+that case, which the persistence fault says.
+
+The marker is written with its folder synced before the guard is saved, so a
+power cut soon after arming cannot leave it empty. After a reboot, restore
+saves the record rebased to the new boot's clock, and when the marker matched
+it is rewritten to name that saved record: a second restart in the same boot,
+such as an update's clean stop, still knows the mute is the guard's (the first
+builder on #997). If that rewrite fails, the next restart no longer matches,
+and the mute reads as a chosen one.
+**A head tap wakes such a mute, as it wakes sleep** (`Receiver::request_wake_after_fault`):
+on lamp-4ace on 2026-10-16 a crash at 12:20 brought the voice up muted, and
+with no main button and the base strip off nothing at the lamp could open it.
+The tap is checked as a wake is (fresh, begun after the clear fence and the
+mute, released within the event lifetime), and only makes the clear pending
+for the quiescent owner to save. It needs `LAMP_HEAD_TOUCH=on` too: there is
+no head receiver without it. A person's own mute, or any mute without the
+switch, stays until their hold. With `LAMP_RING_ASLEEP=on` (#1025) the
+wait shows the asleep face, not a dark ring.
 
 Saves retain a private `.pending` inode while linking/renaming the replacement
 and syncing file and directory; `.replacement` and `.pending` evidence both

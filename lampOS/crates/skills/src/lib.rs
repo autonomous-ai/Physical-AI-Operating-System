@@ -45,6 +45,9 @@ struct TriggerFile {
     equals: Option<toml::Value>,
     above: Option<f64>,
     below: Option<f64>,
+    /// On `humans/faces/tracked`: only a face at least this share of the
+    /// picture's height counts.
+    near: Option<f32>,
     absent_for: Option<String>,
     #[serde(rename = "for")]
     lasting: Option<String>,
@@ -63,6 +66,9 @@ struct TestFile {
     above: Option<f64>,
     below: Option<f64>,
     present: Option<bool>,
+    /// It has held this long.
+    #[serde(rename = "for")]
+    lasting: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -120,8 +126,9 @@ pub struct Skill {
 /// What a message must show for a trigger or a condition to hold.
 #[derive(Clone, Debug)]
 enum Test {
-    /// A face in the list of `humans/faces/tracked`.
-    Faces,
+    /// A face in the list of `humans/faces/tracked`, at least this share of
+    /// the picture's height.
+    Faces(f32),
     Equals(String, Value),
     Above(String, f64),
     Below(String, f64),
@@ -130,9 +137,12 @@ enum Test {
 impl Test {
     fn holds(&self, value: &Value) -> bool {
         match self {
-            Self::Faces => value["faces"]
-                .as_array()
-                .is_some_and(|faces| !faces.is_empty()),
+            Self::Faces(near) => value["faces"].as_array().is_some_and(|faces| {
+                faces.iter().any(|face| {
+                    face["ymax"].as_f64().unwrap_or(0.0) - face["ymin"].as_f64().unwrap_or(0.0)
+                        >= f64::from(*near)
+                })
+            }),
             Self::Equals(field, wanted) => match (value[field].as_f64(), wanted.as_f64()) {
                 (Some(got), Some(wanted)) => got == wanted,
                 _ => &value[field] == wanted,
@@ -147,6 +157,7 @@ impl Test {
 struct Condition {
     topic: String,
     test: Test,
+    for_us: u64,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -291,7 +302,7 @@ fn test(
         .map(|value| serde_json::to_value(value).map_err(|error| error.to_string()))
         .transpose()?;
     match (field, equals, above, below) {
-        (None, None, None, None) if topic == Faces::TOPIC => Ok(Test::Faces),
+        (None, None, None, None) if topic == Faces::TOPIC => Ok(Test::Faces(0.0)),
         (Some(field), Some(value), None, None) => Ok(Test::Equals(field, value)),
         (Some(field), None, Some(line), None) => Ok(Test::Above(field, line)),
         (Some(field), None, None, Some(line)) => Ok(Test::Below(field, line)),
@@ -319,8 +330,19 @@ fn trigger(file: TriggerFile) -> Result<Trigger, String> {
         Some("leaves" | "ends") => true,
         Some(other) => return Err(format!("rearm = {other:?}: \"leaves\" or \"ends\"")),
     };
+    let mut test = test(&file.topic, file.field, file.equals, file.above, file.below)?;
+    match (file.near, &mut test) {
+        (None, _) => {}
+        (Some(near), Test::Faces(least)) if (0.0..=1.0).contains(&near) => *least = near,
+        _ => {
+            return Err(format!(
+                "near is a share of the picture from 0 to 1, on {} alone",
+                Faces::TOPIC
+            ));
+        }
+    }
     Ok(Trigger {
-        test: test(&file.topic, file.field, file.equals, file.above, file.below)?,
+        test,
         topic: file.topic,
         when,
         absent_for_us: optional(&file.absent_for)?,
@@ -382,7 +404,7 @@ pub fn load(dir: &Path) -> Result<Skill, String> {
                 condition.below,
             )?,
             Some(true) if condition.topic == Faces::TOPIC && condition.field.is_none() => {
-                Test::Faces
+                Test::Faces(0.0)
             }
             Some(_) => {
                 return Err(format!(
@@ -394,6 +416,7 @@ pub fn load(dir: &Path) -> Result<Skill, String> {
         conditions.push(Condition {
             topic: condition.topic,
             test,
+            for_us: condition.lasting.as_deref().map_or(Ok(0), duration_us)?,
         });
     }
     let mut steps = Vec::new();
@@ -536,6 +559,8 @@ pub struct Engine {
     watches: HashMap<(String, usize), Watch>,
     /// The newest value of each topic: when it came and how long it lasts.
     latest: HashMap<String, (Value, u64, Option<u64>)>,
+    /// Since when each skill's condition has held, by skill and condition.
+    holding: HashMap<(String, usize), u64>,
     skip_ask: bool,
 }
 
@@ -556,6 +581,7 @@ impl Engine {
             skills,
             watches: HashMap::new(),
             latest: HashMap::new(),
+            holding: HashMap::new(),
             skip_ask,
         }
     }
@@ -606,13 +632,17 @@ impl Engine {
             .map(|(value, _, _)| value)
     }
 
+    /// The condition holds on its topic's newest value that still lasts, and
+    /// has since `since_us` for its `for`.
     fn condition_holds(
         latest: &HashMap<String, (Value, u64, Option<u64>)>,
         condition: &Condition,
+        since_us: Option<&u64>,
         now_us: u64,
     ) -> bool {
         Self::fresh(latest, &condition.topic, now_us)
             .is_some_and(|value| condition.test.holds(value))
+            && since_us.is_some_and(|since| now_us - since >= condition.for_us)
     }
 
     /// A message on `topic`, at `now_us`. A payload that is not JSON is
@@ -632,6 +662,19 @@ impl Engine {
             .map(|ms| ms * 1_000);
         self.latest
             .insert(topic.to_owned(), (value.clone(), now_us, lifespan_us));
+        for skill in &self.skills {
+            for (index, condition) in skill.conditions.iter().enumerate() {
+                if condition.topic != topic {
+                    continue;
+                }
+                let key = (skill.name.clone(), index);
+                if condition.test.holds(&value) {
+                    self.holding.entry(key).or_insert(now_us);
+                } else {
+                    self.holding.remove(&key);
+                }
+            }
+        }
         let mut runs = Vec::new();
         for skill in &self.skills {
             for (index, trigger) in skill.triggers.iter().enumerate() {
@@ -678,7 +721,15 @@ impl Engine {
                     || !skill
                         .conditions
                         .iter()
-                        .all(|condition| Self::condition_holds(&self.latest, condition, now_us))
+                        .enumerate()
+                        .all(|(index, condition)| {
+                            Self::condition_holds(
+                                &self.latest,
+                                condition,
+                                self.holding.get(&(skill.name.clone(), index)),
+                                now_us,
+                            )
+                        })
                 {
                     continue;
                 }

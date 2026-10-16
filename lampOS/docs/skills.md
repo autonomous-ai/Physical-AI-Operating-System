@@ -137,18 +137,19 @@ must not leave a step silently undone)*.
 | `trigger.topic` | yes | The topic it listens to |
 | `trigger.field` with one of `equals`, `above`, `below` | yes, except on `humans/faces/tracked` | What a message must show for the trigger to hold. A number is compared as a number, anything else exactly. On `humans/faces/tracked` without them, it holds while a face is in view |
 | `trigger.when` | no | `present` (the default): it holds, and has held for `for`. `appears`: it holds where it did not just before, once each time. `leaves` and `changes` are refused for now |
+| `trigger.near` | no | On `humans/faces/tracked` alone: only a face at least this share of the picture's height counts (Welcome back: 0.14, the voice's Arrival's line for someone at the desk) |
 | `trigger.for` | no | It has held this long |
 | `trigger.gap` | no | A dropout shorter than this does not break `for` |
 | `trigger.absent_for` | no | `appears` only: at least this long before, it did not hold. At the program's start nothing has been away: someone there at the first message is not greeted |
 | `trigger.rearm` | no | `leaves` or `ends`, which mean the same: once each time it holds, and again only after it stopped. Without it, `present` runs at every message once `for` has passed, as often as `cooldown` lets it |
 | `trigger.cooldown` | no | Not again within this long of the last run. A run the Policy refused does not count |
-| `[[while]]` | no | Conditions that must also hold, all of them, on the newest value of each topic while that value lasts: a `topic` with `field` and one of `equals`, `above` or `below`, or `humans/faces/tracked` with `present = true` |
+| `[[while]]` | no | Conditions that must also hold, all of them, on the newest value of each topic while that value lasts: a `topic` with `field` and one of `equals`, `above` or `below`, or `humans/faces/tracked` with `present = true`; with `for`, it has also held that long, by the messages of its topic since this program started |
 | `[ask] policy` | yes | The Policy's question asked before anything is done *(chosen: required, since every trigger is something the lamp starts itself)* |
 | `[[do]]` | at least one | The steps, in order. Within one table: body, then light, then say |
 | `do.body.look_at` | no | Only `"face"`. The largest face in view goes to the body's `gaze.sock` as the eyes send one (`{"face":{"x","y","size","turned":0}}`) |
 | `do.body.gesture` | no | One of the body's six gestures (`nod`, `headshake`, `greeting`, `laugh`, `shy`, `stretching`), sent to `mood.sock` as `{"gesture":NAME}` |
 | `do.light` | no | A file in `lights/`, written as its name, or a table in place. A file `lights/NAME.toml` holds the same keys. `{ colour, level, for }` asks the actions part for `light_colour`. *Not carried out yet:* `level` (1 to 5) and `for`. `{ dim = N, until = "ends" }` asks for `light_dimmer` N times. *Not carried out yet:* `until` |
-| `do.say` | no | A note for the voice to say in its own words. A stub until the voice's say service (#939) |
+| `do.say` | no | A note for the voice to say in its own words, through the voice's say service (#954). The run's other steps are made when the voice begins the say, so the look and the light come with the words, and none if it is never begun. A light changed is given back when the say ends |
 
 A duration is a whole number and one of `ms`, `s`, `m` or `h` (`"5m"`).
 
@@ -209,7 +210,7 @@ Its own process, its own owner, like every part
 
 As built on 2026-10-16 (#938, `crates/skills`, not yet run on a lamp):
 
-    lamp-skills [--dir DIR] [--bus-root DIR] [--gaze-socket PATH] [--mood-socket PATH] [--actions-socket PATH]
+    lamp-skills [--dir DIR] [--bus-root DIR] [--gaze-socket PATH] [--mood-socket PATH] [--actions-socket PATH] [--say-socket PATH]
     lamp-skills test SKILL_DIR...
 
 - It loads every folder in `--dir` (`/var/lib/lampOS/skills`), looks at the
@@ -227,32 +228,49 @@ As built on 2026-10-16 (#938, `crates/skills`, not yet run on a lamp):
   `gaze.sock` and `mood.sock` (default `/run/lampos-body/`), never waited
   for. `light` is a `light_colour` call (or `light_dimmer` calls) to the
   actions part's `call.sock` (default `/run/lampos-actions/call.sock`). Each
-  call is waited for up to two seconds. `say` is a stub: nothing is
-  spoken.
+  call is waited for up to two seconds.
+- **`say`** goes to the voice's say service (#954, `LAMP_SAY=on` in the
+  voice; `--say-socket`, default `/run/lampos-say/say.sock`), built against
+  its interface as #939 agreed it, before #954 is merged: one line
+  `{"skill","note","priority":5,"expires_in_ms":30000}`, then a `begun`
+  line when the voice starts the turn, then one outcome (`spoken`,
+  `dropped`, `expired` or `refused`). A run waits for it in a thread of its
+  own. The other steps are made at `begun`; a say never begun moves
+  nothing and lights nothing.
+- **The light is given back.** Before a run, the light shown is read from
+  `light/state`. When the say ends, however it ends, or after a light's
+  `for` in a run with no say, it is set back: off if it was off, else its
+  colour again, and each step dimmed brightened back. If `light/state` has
+  no value, a light step is left out: a skill never leaves someone's light
+  changed.
 - `done` says how each step went: `look at the face: told the body`,
-  `light warm: done`, `say: a stub, nothing spoken (...)`, or why not.
+  `light warm: done`, `say: spoken`, `light given back to on blue at 3:
+  done`, or why not.
 
-Off unless installed: `deploy/units/lamp-skills.service` is a template no
-lamp's folder carries. Nothing in the voice changed: the voice's own hello
-(`speak_up.rs`, Arrival) still greets where it is switched on, and two
-hellos would come on a lamp that ran both.
+Off unless installed: `deploy/units/lamp-skills.service` is the template.
+lamp-4ace's folder carries `lamp-skills.service`, and its voice unit has the
+voice's own hello (`LAMP_SPEAK_FIRST`) off and the say service on, so only
+one greets. Elsewhere the voice's hello (`speak_up.rs`, Arrival) still
+greets where it is switched on, and a lamp that ran both would greet twice.
+
+Welcome back carries Arrival's rules as data: a face at least 0.14 of the
+picture's height (`near`), there three seconds (`for`), after five minutes
+with nobody near, and the voice resting for 30 s (`[[while]]` on
+`voice/state`, where Arrival counts the time since anything was said to the
+lamp or by it). Arrival forgives a face lost for under 20 s before it counts
+an absence; Welcome back counts the absence from the last near face, which
+comes to the same for an arrival after five minutes.
 
 What is not done, and why:
 
-- **No say service.** Until the voice has one (#939), Welcome back looks and
-  warms the light and says nothing.
 - **The look is one sight.** The body's gaze takes a sight only while the
   lamp listens or speaks, three in a row, so one datagram does not turn the
   head by itself; with the eyes' own stream it turns as the hello is
   spoken. A move the body plays on request is Third's (move files).
-- **The light stays warm.** `light_colour` is the same call a person's "make
-  it warm" makes; nothing gives the light back after the hello. A request
-  that lapses is Third's arbitration.
-- **Arrival's other rules are not in the skill**: a face nearer than 0.14 of
-  the picture's height, there for three seconds, and nothing said for half
-  a minute. The doc's example has none of them; Welcome back follows the
-  example. `for = "3s"` exists for the second; the others need a condition
-  that does not exist yet.
+- **The light is given back by hand.** Two skills changing the light at
+  once, or a person changing it during a hello, are not arbitrated; the
+  give-back sets the light seen before the run. A request that lapses is
+  Third's arbitration (#940). `until = "ends"` is still not carried out.
 
 ### Four additions to V2
 

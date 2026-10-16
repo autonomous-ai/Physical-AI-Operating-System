@@ -1,0 +1,18 @@
+# Someone there when the program starts was never away: no hello. Away 96 s:
+# nothing. The lamp speaks at 440-445 s; someone back at 450 s after 345 s
+# away is not greeted, since the lamp spoke 8 s before (it waits for 30 s of
+# quiet), and that arrival has had its chance. Away again 500-900 s with the
+# voice resting since 445 s: a hello at 903 s.
+[[expect]]
+at = "903s"
+call = "body.gaze"
+args = { look_at = "face", x = -0.5, y = 0.0, size = 0.5 }
+
+[[expect]]
+at = "903s"
+call = "light"
+args = { colour = "warm" }
+
+[[expect]]
+at = "903s"
+call = "say"

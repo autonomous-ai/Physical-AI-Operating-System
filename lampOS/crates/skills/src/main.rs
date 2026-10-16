@@ -203,6 +203,7 @@ fn serve(
     }
     // Runs waiting for the Policy's answer, by the ask's number.
     let mut waiting: HashMap<u64, (lamp_skills::Run, Instant)> = HashMap::new();
+    let mut last_ask = 0;
     let runner = Runner {
         sockets: sockets.clone(),
         finished,
@@ -234,7 +235,7 @@ fn serve(
             publish(&mut out, event);
         }
         if let Some((_, answers)) = &mut gate {
-            answer_asks(answers, &mut waiting, &mut busy, &mut out, &runner);
+            answer_asks(answers, &mut waiting, &engine, &mut busy, &mut out, &runner);
         }
         if looked.is_none_or(|at| at.elapsed() >= RELOAD_EVERY) {
             looked = Some(Instant::now());
@@ -274,12 +275,20 @@ fn serve(
             }
             continue;
         }
-        let wait =
-            Duration::from_millis(250 / subscribers.len() as u64).max(Duration::from_millis(10));
+        let count = subscribers.len() as u64;
         for subscriber in &mut subscribers {
             while let Ok(call) = asks.try_recv() {
                 tool_call(call, &engine, &mut busy, &mut out, &runner);
             }
+            if let Some((_, answers)) = &mut gate {
+                answer_asks(answers, &mut waiting, &engine, &mut busy, &mut out, &runner);
+            }
+            // While the Policy is asked, look for its answer every 5 ms.
+            let wait = if waiting.is_empty() {
+                Duration::from_millis(250 / count).max(Duration::from_millis(10))
+            } else {
+                Duration::from_millis(5)
+            };
             let message = match subscriber.recv(wait) {
                 Ok(Some(message)) => message,
                 Ok(None) => continue,
@@ -299,7 +308,15 @@ fn serve(
                     publish(&mut out, event);
                 }
                 if let (Some(question), Some((asks, _))) = (run.ask.take(), &mut gate) {
-                    ask_policy_for(question, run, asks, &mut waiting, &mut out);
+                    ask_policy_for(
+                        question,
+                        run,
+                        asks,
+                        &bus,
+                        &mut last_ask,
+                        &mut waiting,
+                        &mut out,
+                    );
                 } else if !run.calls.is_empty() {
                     start(run.skill, run.calls, &mut busy, &mut out, &runner);
                 }
@@ -361,11 +378,30 @@ fn ask_policy_for(
     mut question: serde_json::Value,
     run: lamp_skills::Run,
     asks: &mut Publisher,
+    bus: &Bus,
+    last: &mut u64,
     waiting: &mut HashMap<u64, (lamp_skills::Run, Instant)>,
     out: &mut Publisher,
 ) {
-    // The ask's number: this clock in µs, never 0 and growing.
-    let number = lamp_ipc::monotonic_us().max(1);
+    // Nobody to answer (lamp-policy down, or without --gate): no at once.
+    if bus
+        .subscribers("skills/ask")
+        .is_ok_and(|subs| subs.is_empty())
+    {
+        publish(
+            out,
+            SkillEvent {
+                skill: run.skill,
+                stage: SkillStage::Answered,
+                why: "not asked: nobody is subscribed to skills/ask (lamp-policy --gate)".into(),
+                allowed: Some(false),
+            },
+        );
+        return;
+    }
+    // The ask's number: this clock in µs, never 0 and always above the last.
+    let number = (*last + 1).max(lamp_ipc::monotonic_us());
+    *last = number;
     question["ask"] = json!(number);
     match asks.publish_json(1, &question) {
         Ok(_) => {
@@ -383,11 +419,13 @@ fn ask_policy_for(
     }
 }
 
-/// The Policy's answers to the asks waiting: `say_now` starts the run,
-/// anything else, or nothing within `ASK_WAIT`, leaves it undone.
+/// The Policy's answers to the asks waiting: a `say_now` not in shadow
+/// starts the run, made again now, if its trigger still holds. Anything
+/// else, or nothing within `ASK_WAIT`, leaves it undone.
 fn answer_asks(
     answers: &mut Subscriber,
     waiting: &mut HashMap<u64, (lamp_skills::Run, Instant)>,
+    engine: &Engine,
     busy: &mut HashSet<String>,
     out: &mut Publisher,
     runner: &Runner,
@@ -403,22 +441,33 @@ fn answer_asks(
             continue;
         };
         let choice = decision["choice"].as_str().unwrap_or("");
-        let allowed = choice == "say_now";
+        // A decision without `shadow` counts as one in shadow: "would say".
+        let shadow = decision["shadow"].as_bool() != Some(false);
+        let mut why = format!(
+            "the Policy answered {choice} ({}, by {})",
+            decision["about"].as_str().unwrap_or("?"),
+            decision["by"].as_str().unwrap_or("?")
+        );
+        let mut calls = None;
+        if choice == "say_now" && shadow {
+            why += " in shadow: nothing is done";
+        } else if choice == "say_now" {
+            calls = engine.still(&run.skill, lamp_ipc::monotonic_us());
+            if calls.is_none() {
+                why += ", but its trigger no longer holds: nothing is done";
+            }
+        }
         publish(
             out,
             SkillEvent {
                 skill: run.skill.clone(),
                 stage: SkillStage::Answered,
-                why: format!(
-                    "the Policy answered {choice} ({}, by {})",
-                    decision["about"].as_str().unwrap_or("?"),
-                    decision["by"].as_str().unwrap_or("?")
-                ),
-                allowed: Some(allowed),
+                why,
+                allowed: Some(calls.is_some()),
             },
         );
-        if allowed && !run.calls.is_empty() {
-            start(run.skill, run.calls, busy, out, runner);
+        if let Some(calls) = calls.filter(|calls| !calls.is_empty()) {
+            start(run.skill, calls, busy, out, runner);
         }
     }
     let now = Instant::now();

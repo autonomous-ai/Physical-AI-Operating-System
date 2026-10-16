@@ -666,8 +666,8 @@ fn event(skill: &str, stage: SkillStage, why: String, allowed: Option<bool>) -> 
 }
 
 impl Engine {
-    /// `skip_ask`: act without asking the Policy, whose gate is not built
-    /// yet (`LAMP_SKILLS_ASK=skip`). Without it nothing a skill starts is done.
+    /// `skip_ask`: act without asking the Policy (`LAMP_SKILLS_ASK=skip`).
+    /// Without it, or `asking_the_policy`, nothing a skill starts is done.
     pub fn new(skills: Vec<Skill>, skip_ask: bool) -> Self {
         Self {
             skills,
@@ -758,6 +758,41 @@ impl Engine {
             && since_us.is_some_and(|since| now_us - since >= condition.for_us)
     }
 
+    /// Every `[[while]]` condition of `skill` holds, as `condition_holds`.
+    fn conditions_hold(
+        latest: &HashMap<String, (Value, u64, Option<u64>)>,
+        holding: &HashMap<(String, usize), u64>,
+        skill: &Skill,
+        now_us: u64,
+    ) -> bool {
+        skill
+            .conditions
+            .iter()
+            .enumerate()
+            .all(|(index, condition)| {
+                Self::condition_holds(
+                    latest,
+                    condition,
+                    holding.get(&(skill.name.clone(), index)),
+                    now_us,
+                )
+            })
+    }
+
+    /// A run asked of the Policy, when its answer comes: its calls made
+    /// again at `now_us` (a look at where the face is now), if one of its
+    /// triggers still holds on its topic's newest value that lasts and its
+    /// conditions hold. `None`: the trigger is gone (nobody there any more).
+    pub fn still(&self, name: &str, now_us: u64) -> Option<Vec<Call>> {
+        let skill = self.skills.iter().find(|skill| skill.name == name)?;
+        let triggered = skill.triggers.iter().any(|trigger| {
+            Self::fresh(&self.latest, &trigger.topic, now_us)
+                .is_some_and(|value| trigger.test.holds(value))
+        });
+        (triggered && Self::conditions_hold(&self.latest, &self.holding, skill, now_us))
+            .then(|| calls(&self.latest, skill, now_us))
+    }
+
     /// A message on `topic`, at `now_us`. A payload that is not JSON is
     /// passed over.
     pub fn observe(
@@ -836,18 +871,7 @@ impl Engine {
                     || watch
                         .ran_us
                         .is_some_and(|ran| now_us - ran < trigger.cooldown_us)
-                    || !skill
-                        .conditions
-                        .iter()
-                        .enumerate()
-                        .all(|(index, condition)| {
-                            Self::condition_holds(
-                                &self.latest,
-                                condition,
-                                self.holding.get(&(skill.name.clone(), index)),
-                                now_us,
-                            )
-                        })
+                    || !Self::conditions_hold(&self.latest, &self.holding, skill, now_us)
                 {
                     continue;
                 }
@@ -892,8 +916,8 @@ impl Engine {
                     events.push(event(
                         &skill.name,
                         SkillStage::Answered,
-                        "the Policy's gate is not built yet, and nothing the lamp starts \
-                         itself is done without it (LAMP_SKILLS_ASK=skip acts without asking)"
+                        "LAMP_SKILLS_ASK is not set: nothing the lamp starts itself is done \
+                         (LAMP_SKILLS_ASK=policy asks the Policy's gate, skip acts without asking)"
                             .into(),
                         Some(false),
                     ));
@@ -908,7 +932,7 @@ impl Engine {
                 events.push(event(
                     &skill.name,
                     SkillStage::Answered,
-                    "the ask is skipped (LAMP_SKILLS_ASK=skip): the Policy's gate is not built yet"
+                    "the ask is skipped (LAMP_SKILLS_ASK=skip): LAMP_SKILLS_ASK=policy asks the Policy's gate"
                         .into(),
                     Some(true),
                 ));
@@ -935,19 +959,7 @@ impl Engine {
             .iter()
             .find(|skill| skill.tool.as_deref() == Some(name))
             .ok_or("No skill of mine does that just now.")?;
-        let holds = skill
-            .conditions
-            .iter()
-            .enumerate()
-            .all(|(index, condition)| {
-                Self::condition_holds(
-                    &self.latest,
-                    condition,
-                    self.holding.get(&(skill.name.clone(), index)),
-                    now_us,
-                )
-            });
-        if !holds {
+        if !Self::conditions_hold(&self.latest, &self.holding, skill, now_us) {
             return Err("I can't do that just now.".into());
         }
         Ok(Run {

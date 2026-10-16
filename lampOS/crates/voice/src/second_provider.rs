@@ -853,19 +853,25 @@ async fn answer(
     let saying = async {
         let mut after = false;
         while let Some((text, mut packets)) = queued.recv().await {
+            // The announcement is heard, not written: the coordinator reads
+            // an answer's opening words for its look ("Let me look.") and
+            // for the body's gesture, and they are the model's (#1075 on
+            // lamp-52e6: "My voice sounds… Let me look." took no look).
             // Sentences come trimmed: each after the first is said after a
             // space, so the lamp's words read "just now. Hmm," (#1014).
-            let words = ProviderOutput::Transcript {
-                request: Some(request),
-                text: if std::mem::replace(&mut after, true) {
-                    format!(" {text}")
-                } else {
-                    text
-                },
-                finished: false,
-            };
-            if !shared.emit(words).await {
-                return Err(Stop::Gone);
+            if text != ANNOUNCEMENT {
+                let words = ProviderOutput::Transcript {
+                    request: Some(request),
+                    text: if std::mem::replace(&mut after, true) {
+                        format!(" {text}")
+                    } else {
+                        text
+                    },
+                    finished: false,
+                };
+                if !shared.emit(words).await {
+                    return Err(Stop::Gone);
+                }
             }
             while let Some(packet) = packets.recv().await {
                 let samples = packet.map_err(|error| Stop::Failed(fault(&error)))?;

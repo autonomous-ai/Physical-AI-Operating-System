@@ -281,7 +281,10 @@ When the coordinator switches (below):
 - **One sentence:** "My voice sounds a little different just now." is said
   before the first answer when the route has not answered in the last 120 s
   (`ANNOUNCEMENT`, `ANNOUNCE_AFTER`), because the voice cannot be Gemini's.
-  It is not kept in the thread. Each sentence after it is said after a
+  It is not kept in the thread, and it is heard, not written: no
+  transcript of it goes to the coordinator, so an answer's opening words,
+  which it reads for a look ("Let me look.") and for the body's gesture,
+  are the model's. Each sentence after it is said after a
   space, so the lamp's words read "just now. Hmm," (#1014).
 - **As quiet as Gemini:** with `LAMP_ATTENTION` on, a spoken turn's words
   are judged by the Live route's own rule for whom it answers

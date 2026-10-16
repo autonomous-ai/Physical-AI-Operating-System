@@ -264,9 +264,8 @@ async fn a_spoken_turn_is_heard_then_said_sentence_by_sentence_in_order() {
         [
             "started:1".to_owned(),
             "heard:What time is it?".into(),
-            format!("said:{ANNOUNCEMENT}"),
             format!("audio:{SAID}"),
-            "said: It is noon.".into(),
+            "said:It is noon.".into(),
             "audio:11".into(),
             "said: Enjoy lunch!".into(),
             "audio:12".into(),
@@ -296,9 +295,8 @@ async fn a_written_turn_is_answered_without_listening() {
         turn(&mut engine).await,
         [
             "started:4".to_owned(),
-            format!("said:{ANNOUNCEMENT}"),
             format!("audio:{SAID}"),
-            "said: Here you are.".into(),
+            "said:Here you are.".into(),
             "audio:13".into(),
             "generated".into(),
             "complete".into(),
@@ -331,7 +329,7 @@ async fn a_tool_call_is_run_and_its_result_answered() {
     let labels = turn(&mut engine).await;
     assert_eq!(
         labels[labels.len() - 4..],
-        ["said: Timer set.", "audio:10", "generated", "complete"]
+        ["said:Timer set.", "audio:10", "generated", "complete"]
     );
     assert_eq!(
         *calls.lock().unwrap(),
@@ -720,7 +718,8 @@ async fn the_announcement_is_said_once_per_quiet_spell() {
         ..Script::default()
     });
     let (mut engine, _, now) = scripted(script);
-    let announced = |labels: &[String]| labels.contains(&format!("said:{ANNOUNCEMENT}"));
+    // Heard, not written: its audio, of its own length.
+    let announced = |labels: &[String]| labels.contains(&format!("audio:{SAID}"));
     engine.submit(written(1, "One?"));
     assert!(announced(&turn(&mut engine).await));
     *now.lock().unwrap() += Duration::from_secs(119);
@@ -807,9 +806,8 @@ async fn each_failing_service_fails_the_turn_at_its_stage() {
         turn(&mut engine).await,
         [
             "started:1".to_owned(),
-            format!("said:{ANNOUNCEMENT}"),
             format!("audio:{SAID}"),
-            "said: This will FAIL.".into(),
+            "said:This will FAIL.".into(),
             "failed:Responding:ServerUnavailable".into(),
         ]
     );

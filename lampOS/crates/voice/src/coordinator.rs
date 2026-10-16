@@ -3240,12 +3240,12 @@ fn conversation_with_gate(
     let mut asker_first = asker_mode
         .applies()
         .then(crate::asker_first::AskerFirst::default);
-    // The candidate the rule last kept waiting, as `(id, turn, own start)`:
-    // if the answer begins while it waits, what the rule would have done is
-    // still recorded (the reviewer on #1092).
     // The line the asker rule waits on: its candidate, the turn whose
     // answer is awaited, where its own speech began and its last chance.
+    // The answer's first block waits for it until then.
     let mut asker_waited: Option<(crate::admission::CandidateId, u64, u64, u64)> = None;
+    // The line the answer was last held for, so that `asker_first_answer_held`
+    // is recorded once a line.
     let mut asker_held_for: Option<crate::admission::CandidateId> = None;
     // Recorded only: a candidate taken at once, followed as `on` would
     // follow it, `(turn, own start, last chance)`, until `on` would have

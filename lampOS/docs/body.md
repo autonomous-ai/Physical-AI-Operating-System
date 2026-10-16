@@ -183,7 +183,11 @@ run ends on `Stop::Window` and lets go
 (`a_steady_wrong_elbow_reading_before_cancelled_is_not_written_at_the_exit`). The same holds when the folded arm comes
 to rest: its resting goal, which keeps torque on, is where it reads only
 within 50 counts of the goal it had, or farther while it pushes there (load
-over 100, an arm resting short of its fold), and otherwise that goal
+over 100, an arm resting short of its fold) and came there without a jump
+over 50 from one read to the next since it last stood or rose (a misread
+jumps:
+`a_steady_wrong_elbow_reading_under_load_as_the_arm_comes_to_rest_is_not_its_resting_goal`),
+and otherwise that goal
 (`an_arm_resting_short_of_its_fold_and_pushing_is_left_where_it_lies`,
 `a_steady_wrong_elbow_reading_as_the_arm_comes_to_rest_is_not_its_resting_goal`). The end report names the joint,
 the goal, the window and the goal it came from:

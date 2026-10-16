@@ -7082,3 +7082,75 @@ fn an_arm_goal_outside_its_window_is_not_eased_toward() {
         .collect();
     assert_eq!(elbow, [2_047]);
 }
+
+/// The seventh's 05:12 probe on #1192: the same misread of 2189 while the
+/// elbow also reads a load of 160. It reached that reading by a jump, not
+/// by coming down, so it is still not its resting goal.
+#[test]
+fn a_steady_wrong_elbow_reading_under_load_as_the_arm_comes_to_rest_is_not_its_resting_goal() {
+    for start in [13_000, 14_000, 15_000, 15_500] {
+        let start = Duration::from_millis(start);
+        let (mut lamp, mut clock) = folded(Duration::from_secs(20));
+        lamp.arm_moves = true;
+        lamp.overload_clears = 1;
+        for (servo, at) in lamp
+            .servos
+            .iter_mut()
+            .zip([2_028.0, 2_054.0, 2_047.0, 2_047.0, 1_948.0])
+        {
+            servo.position = at;
+            servo.goal = at as u16;
+            servo.status = 0;
+        }
+        lamp.misreads = vec![(start, 2, 2_189, u8::MAX); 4];
+        lamp.strains = vec![(start, Duration::from_secs(20), 2, 160)];
+        let up = Standing::new(
+            [2_048, 2_047],
+            [1_772, 2_043, 2_015, 2_657, 2_602],
+            100,
+            6,
+            5,
+            [950, 950],
+        )
+        .unwrap();
+        let time = clock.time.clone();
+        let news = move || {
+            Some(
+                if (Duration::from_secs(1)..Duration::from_secs(3)).contains(&time.get()) {
+                    (Mood::Listening, 100)
+                } else {
+                    (Mood::Resting, 0)
+                },
+            )
+        };
+        let report = run_alive(
+            &mut lamp,
+            &mut clock,
+            gesture_limits(),
+            Some([1_950, 2_043, 2_015]),
+            Some(up),
+            None,
+            news,
+            Asked::default,
+            |_| {},
+        );
+        assert!(report.stood, "{report:?}");
+        let late: Vec<u16> = lamp
+            .goals
+            .iter()
+            .zip(&lamp.goal_times)
+            .filter(|(_, at)| **at >= start)
+            .flat_map(|(write, _)| write.iter())
+            .filter(|(id, _)| *id == 3)
+            .map(|(_, goal)| *goal)
+            .collect();
+        // Still folding at the start or already down: from then on the
+        // elbow is only ever asked down, to its rest at 2047.
+        assert!(
+            late.windows(2).all(|pair| pair[1] <= pair[0])
+                && late.last().is_none_or(|goal| goal.abs_diff(2_047) <= 50),
+            "{start:?}: {late:?} {:?}",
+            report.stop
+        );
+    }
+}

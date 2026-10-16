@@ -3045,6 +3045,11 @@ fn run_on<P: PortIo, R: Runtime>(
     // counts past where a folded joint can go is what latched the elbow's
     // overload on lamp-4ace.
     let mut arm_rests = stand <= 0.0;
+    // Each arm joint came down to where it reads without a jump from one
+    // read to the next over `ARM_GOAL_STEP`, since the lamp last stood or
+    // rose: a misread under `READ_JUMP` jumps, an arm stopping short does
+    // not.
+    let mut arm_came = [true; 2];
     let mut down_steps = 0u16;
     // Where the eyes have it look, yaw and pitch in counts, and for how
     // many steps no joint has been asked to move.
@@ -3346,14 +3351,16 @@ fn run_on<P: PortIo, R: Runtime>(
                 arm_rests = true;
                 // Its resting goal keeps torque on: where it reads, if that
                 // is within a step of the goal it had, or farther only while
-                // it pushes there (over `STALL_LOAD`), as an arm resting
-                // short of its fold on a mat or a stiff joint does. A
-                // misread leaves the arm at its goal pushing at nothing, and
-                // keeps that goal.
+                // it pushes there (over `STALL_LOAD`) and came there without
+                // a jump (`arm_came`), as an arm resting short of its fold on
+                // a mat or a stiff joint does. A misread jumps, or leaves the
+                // arm at its goal pushing at nothing, and keeps that goal.
                 arm_goals = std::array::from_fn(|index| {
                     let is = last[ARM[index].index()];
                     let at = is.position;
-                    if at.abs_diff(arm_written[index]) > ARM_GOAL_STEP && is.load <= STALL_LOAD {
+                    if at.abs_diff(arm_written[index]) > ARM_GOAL_STEP
+                        && (is.load <= STALL_LOAD || !arm_came[index])
+                    {
                         arm_written[index]
                     } else {
                         at
@@ -3927,6 +3934,12 @@ fn run_on<P: PortIo, R: Runtime>(
         // A write below that fails changes nothing and is tried again.
         let mut failed: Option<String> = None;
         report.last = Some(samples);
+        if stand > 0.0 && stand_velocity >= 0.0 {
+            arm_came = [true; 2];
+        }
+        for (index, joint) in ARM.into_iter().enumerate() {
+            arm_came[index] &= bus.steady[joint.index()];
+        }
         if resting_steps >= REST_STEPS && !relaxed {
             let positions = COMMANDED.map(|joint| samples[joint.index()].position);
             let near = (0..3).all(|index| {

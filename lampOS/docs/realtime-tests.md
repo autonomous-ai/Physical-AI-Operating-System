@@ -138,7 +138,7 @@ Review points:
 - Who decides that a red full run holds the next merge? The workflow only
   opens the issue; it does not block merging.
 - Does a pull request's run list the expected number of tests (every test
-  but the group's, 28 skipped as of 2026-10-17)?
+  but the group's, 38 skipped as of 2026-10-17)?
 
 ## The measured list
 
@@ -853,6 +853,7 @@ waits, and Memory's slowest,
 `sqlite_reports_retained_counts_and_stays_well_after_caller_refusals`, 8.5 s
 over its many requests (0.035 s alone on ARM64). No test, assertion or
 bound changed. They left the group, in all three filtersets, on 2026-10-17,
-so pull requests run them again. The group keeps 28 tests (47.9 s in that
-run): `capture_hold_worker`, `endpoint_session` and three named single
-tests.
+so pull requests run them again. The group keeps 38 tests:
+`capture_hold_worker` (5), `endpoint_session` (30) and three named single
+tests. In that run it was 28 tests and 47.9 s; `endpoint_session` has gained
+ten since, the fourth's `with_asker_first_*` among them.

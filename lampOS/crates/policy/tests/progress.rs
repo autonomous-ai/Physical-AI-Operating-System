@@ -4,8 +4,8 @@
 //! writes down. No real model is asked.
 use lamp_bus::{Bus, Publisher, Subscriber};
 use lamp_msgs::{
-    AgentState, Decision, Diagnostic, Face, Faces, Room, RoomState, Sign, Speech, TaskProgress,
-    TaskStatus, Voice, VoiceState,
+    AgentState, Decision, Diagnostic, Face, Faces, Room, RoomState, Rules, Sign, Speech,
+    TaskProgress, TaskStatus, Unprompted, Voice, VoiceState,
 };
 use lamp_policy::{
     attention,
@@ -102,6 +102,7 @@ struct Rig {
     status: Publisher,
     voice: Publisher,
     heard: Publisher,
+    rules: Publisher,
     decisions: Subscriber,
     shown: mpsc::Receiver<Value>,
     replies: mpsc::Sender<Result<Asked, Failed>>,
@@ -114,6 +115,11 @@ impl Rig {
 
     /// With `act`, as `lamp-policy --act progress`.
     fn with(name: &str, utc_offset_minutes: Option<i32>, act: bool) -> Self {
+        Self::all(name, utc_offset_minutes, act, false)
+    }
+
+    /// With `rules`, as `lamp-policy --rules`.
+    fn all(name: &str, utc_offset_minutes: Option<i32>, act: bool, rules: bool) -> Self {
         let root = PathBuf::from(format!("/tmp/lpp-{name}-{}", std::process::id()));
         let log_dir = std::env::temp_dir().join(format!(
             "lamp-policy-progress-{name}-{}",
@@ -140,6 +146,7 @@ impl Rig {
             status: declared(TaskStatus::TOPIC, TaskStatus::declaration(), "tasks"),
             voice: declared(VoiceState::TOPIC, VoiceState::declaration(), "voice"),
             heard: declared(heard, Speech::declaration(), "voice"),
+            rules: declared(Rules::TOPIC, Rules::declaration(), "voice"),
             stop: Arc::new(AtomicBool::new(false)),
             running: None,
             saying,
@@ -161,6 +168,7 @@ impl Rig {
             note_every: ms(1_500),
             quiet_for: ms(400),
             act,
+            rules,
         };
         let judge = Judge {
             shown: shown_to,
@@ -218,6 +226,24 @@ impl Rig {
 
     fn voice(&mut self, state: Voice) {
         self.voice.publish_json(0, &VoiceState { state }).unwrap();
+    }
+
+    /// The voice says what the person at the lamp asked, typed as the
+    /// seventh's #904 keeps it: never to bring news of work unprompted, or
+    /// nothing.
+    fn keep(&mut self, no_news: bool) {
+        let rules = Rules {
+            person: "p-be9688998f085098".into(),
+            quiet: false,
+            quiet_mornings: false,
+            rules: u32::from(no_news),
+            hello: Unprompted::default(),
+            news: Unprompted {
+                never: no_news,
+                ..Unprompted::default()
+            },
+        };
+        self.rules.publish_json(0, &rules).unwrap();
     }
 
     /// The tasks part says task 3 is at `changes`, with `signs_seen`.
@@ -406,6 +432,15 @@ fn a_change_is_asked_about_once_decided_in_shadow_and_written_down_with_its_stat
     ] {
         assert!(report.contains(&(key.into(), value.into())), "{report:?}");
     }
+    // Without `--rules` the people's rules are not listened to (#813).
+    assert!(!report.iter().any(|(key, _)| key == "progress_held_rule"));
+    assert!(
+        !rig.bus
+            .subscribers(Rules::TOPIC)
+            .unwrap_or_default()
+            .iter()
+            .any(|listener| listener.socket.starts_with("policy."))
+    );
     // In shadow the report says nothing of acting.
     assert!(report.iter().all(|(key, _)| key != "progress_acts"));
     let notes = rig.stop();
@@ -562,6 +597,40 @@ fn work_not_going_on_is_not_asked_about_and_a_failed_model_leaves_it_to_the_rule
     let line = &rig.log(1)[0];
     assert_eq!(line["failed"], "timed_out");
     assert_eq!(line["judgement"]["from_rule"], true);
+    rig.stop();
+}
+
+/// #813: with `--rules`, what the person at the lamp asked about it
+/// speaking first (`memory/rules`, the typed `news.never`) holds progress
+/// news: no model is asked while it holds and `progress_held_rule` counts
+/// it. Forgotten, the change is asked about. Without `--rules` the topic is
+/// not listened to, and the report has no such line (the other tests).
+#[test]
+fn with_rules_a_kept_rule_holds_progress_news_and_no_model_is_asked() {
+    let mut rig = Rig::all("rules", None, false, true);
+    assert!(
+        rig.bus
+            .subscribers(Rules::TOPIC)
+            .unwrap()
+            .iter()
+            .any(|listener| listener.socket.starts_with("policy."))
+    );
+    rig.keep(true);
+    thread::sleep(ms(100));
+    rig.work(AgentState::Working, 0, &[]);
+    thread::sleep(ms(100));
+    rig.work(AgentState::Working, 1, &[Sign::BuildWorks]);
+    rig.not_asked_for(ms(600));
+    let report = rig.report();
+    assert!(
+        report.contains(&("progress_held_rule".into(), "1".into())),
+        "{report:?}"
+    );
+    rig.keep(false);
+    let state = rig.shown();
+    assert_eq!(state["work"]["state"], "working");
+    rig.answer([1.0, 1.0, 0.0]);
+    assert_eq!(rig.decision().choice, "say_now");
     rig.stop();
 }
 

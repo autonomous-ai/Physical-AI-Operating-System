@@ -520,7 +520,8 @@ facts stay `remember`.
   them; they stand for both kinds. Never a rule's words.
   It is said from a thread of its own, newest fact only, so a bus that
   hangs never holds up a session's note or a call. The policy reads it
-  with `latest`; reading and obeying it is the policy's own change (#752).
+  with `latest`, and obeys it with `lamp-policy --progress --rules` ([policy.md](policy.md#a-persons-rules-about-speaking-first-813));
+  the hello on arrival (#883) follows.
 - The exchange in which a rule was kept, forgotten or listed stays out of
   the journal, like `remember` and `forget`.
 

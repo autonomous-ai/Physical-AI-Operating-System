@@ -40,7 +40,7 @@ owner's rules for this part:
 
 ## The process
 
-    lamp-policy --key-file ABSOLUTE_PATH --log-dir ABSOLUTE_DIR [--endpoint URL] [--model NAME] [--deadline-ms N] [--bus-root ABSOLUTE_DIR] [--progress [--utc-offset-minutes N] [--act progress]] [--act attention]
+    lamp-policy --key-file ABSOLUTE_PATH --log-dir ABSOLUTE_DIR [--endpoint URL] [--model NAME] [--deadline-ms N] [--bus-root ABSOLUTE_DIR] [--progress [--utc-offset-minutes N] [--act progress] [--rules]] [--act attention]
 
 | Option | What it is | If left out |
 |---|---|---|
@@ -54,6 +54,7 @@ owner's rules for this part:
 | `--utc-offset-minutes` | The lamp's local time east of UTC, for that question's hour of the day | the hour is null |
 | `--act progress` | That question's decisions act: published with `shadow: false`, so that the voice tells a `say_now` ([below](#acting---act-progress-752)). Needs `--progress` | shadow |
 | `--act attention` | "Is this said to the lamp?" is published with `shadow: false`, for the voice to hold the lamp's actions by ([below](#acting-on-the-lamps-actions---act-attention-800)) | shadow |
+| `--rules` | That question obeys what the people at the lamp asked about it speaking first (`memory/rules`, [above](#a-persons-rules-about-speaking-first-813)). Needs `--progress` | not listened to |
 
 A wrong or missing option prints the usage and exits with 2. So does a
 `--log-dir` that cannot be made, or that its group or everyone can enter. A
@@ -82,18 +83,52 @@ It publishes `policy/decisions` (`lamp_msgs/Decision`) under the name
 `policy`, and says once a second that it is alive there, because the topic
 is silent between decisions for longer than the bus's lease.
 
-**A person's rules, not read yet (#813).** The voice keeps
-`memory/rules` (`lamp_msgs::Rules`, [msgs.md](msgs.md)) with typed facts
-from what the person at the lamp asked of it: `quiet` (never speak first)
-and `quiet_mornings` (not in the mornings, before noon local time, or
-never), and per kind, `hello` (the greeting on arrival) and `news`
-(progress and results of work), each `never`, `not_before_minute`,
-`not_from_minute` (local minute of the day) and `not_while_talking`,
-for `person`, the memory's id of the known person or `everyone`.
-It is kept until the next, so it is read with `latest`. The policy does
-not read it yet: a decision about speaking first (progress news, hello on
-arrival) should, and stay quiet when the fact says so for whoever is at
-the lamp.
+<a id="a-persons-rules-about-speaking-first-813"></a>
+**A person's rules about speaking first (#813, `--rules`).** The voice
+keeps `memory/rules` (`lamp_msgs::Rules`, [msgs.md](msgs.md)), kept until
+the next, with typed facts from what the person at the lamp asked of it,
+for `person`, the memory's id of the known person or `everyone`:
+- `quiet` (never speak first) and `quiet_mornings` (not in the mornings);
+- per kind, `hello` (the greeting on arrival) and `news` (progress and
+  results of work), the seventh's #904 with every typed rule merged and
+  the strictest winning: `never`, `not_before_minute`, `not_from_minute`
+  (the local minute of the day) and `not_while_talking` ("on a call, or
+  with someone").
+
+With `--rules` (which needs `--progress`) the policy listens to it, newest
+only, and the progress question obeys it as one more hard rule after its
+own two (`crates/policy/src/rules.rs`):
+- `quiet` holds always;
+- `quiet_mornings` holds before noon at the lamp, by
+  `--utc-offset-minutes`; without that the local time is not known, and it
+  holds all day, since a rule kept is obeyed whenever it may hold;
+- of `news`: `never` holds always; `not_before_minute` holds before that
+  minute and `not_from_minute` from it on, both all day with the local
+  time not known; `not_while_talking` holds while the room (`room/state`)
+  is not known to be quiet. The question already waits while anyone talks
+  to the lamp: this adds the talk that is not to it, a call or a visitor.
+  A limit on `hello` holds no news.
+
+While it holds the answer is `wait`, by the rule, with `guard`
+`kept_rule`, and **no model is asked**. News held so is asked about again
+once the rule no longer holds, as with the other hard rules. A yes that
+comes back after a rule was kept is turned to `wait` the same way. The
+newest `Rules` is obeyed whoever it names: who is at the lamp now is not
+known to the policy, and a rule errs toward quiet. It is kept when the
+voice goes, since a rule does not end with it. The diagnostics add
+`progress_held_rule` and the start line `rules=true`. Without `--rules`
+the topic is not listened to and everything is as it was. The hello on
+arrival (#883) obeys `hello` the same way once it is in. Tests:
+`crates/policy/src/rules.rs` (the hours; each limit for its own kind only,
+by the hour and the room), `progress.rs`
+(`a_kept_rule_holds_progress_news_and_no_model_is_asked`: `wait` with no
+model asked, quiet mornings until noon, a rule forgotten holds nothing,
+news not while talking held in a busy or unknown room and not in a quiet
+one, a limit on the hello holding no news, an answer after a rule kept),
+and `crates/policy/tests/progress.rs`
+(`with_rules_a_kept_rule_holds_progress_news_and_no_model_is_asked`, on a
+bus, with the typed `news.never`; without `--rules` nothing listens to the
+topic). Not shown on a lamp.
 
 Once a second it also says how it is itself, on `diagnostics`
 (`lamp_msgs/Diagnostic`, under the name `policy`), with how many
@@ -1032,6 +1067,7 @@ attention one, nor the other way round.
 | `--progress` | Listen to `tasks/status` and ask the progress question | off |
 | `--utc-offset-minutes` | The lamp's local time east of UTC, -720 to 840, for the hour of the day the model is shown | the hour is null |
 | `--act progress` | Its decisions act ([below](#acting---act-progress-752)) | shadow |
+| `--rules` | It obeys the people's rules about speaking first ([above](#a-persons-rules-about-speaking-first-813)) | not listened to |
 
 **When it asks.** For a task whose agent is `working` and whose progress
 line has changed (`changes`) since it was last judged. What a task says the

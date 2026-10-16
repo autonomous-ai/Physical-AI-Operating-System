@@ -99,6 +99,8 @@ pub const COULD_NOT_LOOK: &str = "I couldn't get a good look.";
 /// chat stopped answering at 02:29 and the backup voice went silent).
 pub const DOWN_LINE: &str = "I can't think right now; give me a minute.";
 pub const DOWN_LINE_EVERY: Duration = Duration::from_secs(60);
+/// The kept line is at most 4 s of speech.
+const DOWN_LINE_MOST_SAMPLES: usize = 4 * 24_000;
 /// The sounds, said by this route's own voice, so at the reply's level.
 pub const CUE_WORDS: [&str; 3] = ["Hmm.", "Mm.", "Hm."];
 /// A sound is at most 0.6 s, its last 30 ms faded out.
@@ -278,11 +280,19 @@ impl DownLine {
                         break;
                     }
                 }
+                if clip.len() >= DOWN_LINE_MOST_SAMPLES {
+                    clip.truncate(DOWN_LINE_MOST_SAMPLES);
+                    break;
+                }
             }
             match line.clip.lock() {
                 Ok(mut kept) if !clip.is_empty() => *kept = Some(clip),
-                // Not said (speech failed): tried again at the next turn.
-                _ => line.rendering.store(false, Ordering::Release),
+                _ => {
+                    eprintln!(
+                        "lamp-voice second: the down line could not be said; trying again after the next turn"
+                    );
+                    line.rendering.store(false, Ordering::Release);
+                }
             }
         });
     }
@@ -995,9 +1005,13 @@ async fn answer(
                             );
                             // Not nothing, when switched on: the line, as
                             // audio only, so it is no answer in the thread.
+                            // Only to someone who spoke: a lamp's own turn
+                            // (a hello, a skill's say) never says it (the
+                            // reviewer on #1195).
                             if let Some((down, clip)) = shared
                                 .down
                                 .as_ref()
+                                .filter(|_| heard)
                                 .and_then(|down| Some((down, down.due()?)))
                             {
                                 cue(shared, request, clip).await?;

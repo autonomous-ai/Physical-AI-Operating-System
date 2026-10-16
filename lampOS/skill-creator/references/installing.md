@@ -32,6 +32,16 @@ ssh orangepi@lamp-xxxx.local '
 
 (A folder whose name starts with a dot is not a skill: the runtime skips it.)
 
+From a Mac, never let it add its `._NAME` files: `scp -r` as above adds
+none, and a copy by `tar` needs `COPYFILE_DISABLE=1`:
+
+```sh
+COPYFILE_DISABLE=1 tar -C skills -cf - stretch-break | ssh orangepi@lamp-xxxx.local 'tar -C /tmp -xf -'
+```
+
+(The runtime skips any file whose name begins with a dot, `._NAME` among
+them, but a clean folder is the one to install.)
+
 The runtime looks at the folder every two seconds and loads every skill again
 when a file other than a test changed; cooldowns are kept across a reload.
 Until the Policy's gate is built (#939), a lamp runs `lamp-skills` with

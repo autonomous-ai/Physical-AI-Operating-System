@@ -99,6 +99,10 @@ fn fingerprint(dir: &Path) -> Vec<(PathBuf, u64, Option<SystemTime>)> {
     while let Some(folder) = folders.pop() {
         for entry in std::fs::read_dir(&folder).into_iter().flatten().flatten() {
             let path = entry.path();
+            // A Mac's `._NAME` files are not the skill's: no reload for them.
+            if lamp_skills::hidden(&path) {
+                continue;
+            }
             let Ok(meta) = entry.metadata() else { continue };
             if meta.is_dir() {
                 if entry.file_name() != "tests" {

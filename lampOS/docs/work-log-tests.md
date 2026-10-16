@@ -1,5 +1,17 @@
 # Tests work log
 
+## 2026-10-16 21:06:19 +0700 — #1088 merged; the reviewer's P3s answered; four branches rebased
+
+Ready for lamp-voice: yes (#1109, #1101, #1104, each again once its run on the new head is green); no (#1131, on #1104; #1152, waiting for its run)
+
+**#1088 merged at 20:48:56:** `early_end` on one logical clock, out of the realtime group. The reviewer (18:23, three P3s, ready) checked it by breaking it on purpose: an early end sent 100 ms late, the cut-in check removed, the go-on window cut, and playback not waiting for the lamp to be sure. The stepped tests failed each time. Its three P3s are in **#1152**: 7 ms in `faster-answers.md`, a line under the measured list, and `require_no_outer_scenario_clock`. Second's `a_question_in_four_pieces…` failure (#823, 18:04) is answered as fixed by #1088.
+
+**#1109:** the reviewer's two P3s (18:27) are fixed in `5acd1c83c`, rebased on #1088 with both `realtime-tests.md` sections kept. The still-loading test holds while its scenario takes under 6 s on the host. `run_scenario`'s comment now names `run_settled_process`.
+
+**Rebased on #1088:** #1101 (`9f9be6f1f`) and #1104 (`b18abcbb7`), each with a `realtime-tests.md` conflict resolved by keeping both sections. #1131 (`982d1b185`) is on the new #1104. Since #1088 brought `provider_link` onto the scenario clock, #1131 now also runs `a_stop_or_a_mute…` on it: 1.36–1.45 s → 0.10 s.
+
+**Missed:** the 13-minute check stopped across a session restart, so the reviewer's findings waited about two and a half hours.
+
 ## 2026-10-16 18:17:52 +0700 — two flaky-test fixes merged; #1131 for #1128
 
 Ready for lamp-voice: yes (#1088, #1101, #1104, #1109); no (#1131, a draft on top of #1104)

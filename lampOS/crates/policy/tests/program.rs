@@ -3,7 +3,7 @@
 //! 127.0.0.1, and reads what the program publishes, writes down and
 //! prints. Nothing leaves the machine.
 use lamp_bus::Bus;
-use lamp_msgs::{Decision, Speech, VoiceState};
+use lamp_msgs::{Decision, Face, Faces, Speech, VoiceState};
 use lamp_policy::attention;
 use serde_json::{Value, json};
 use std::{
@@ -566,4 +566,119 @@ fn with_act_attention_the_attention_decision_is_published_for_real() {
         .unwrap();
     assert!(started.contains(" shadow=false"), "{started}");
     assert!(started.contains(" act=attention"), "{started}");
+}
+
+/// #871: with `--images`, each question the policy asks is asked again of
+/// the images model, without the eyes' frame and with it, and written to
+/// `pictures-YYYY-MM-DD.jsonl`; the decision is published as before, and
+/// the frame is sent once, with TypeSafe's header, and written nowhere.
+#[test]
+fn with_images_the_question_is_asked_again_with_the_eyes_frame_beside_the_decision() {
+    let places = Places::new("pictures");
+    let (port, requests) = service();
+    let endpoint = format!("http://127.0.0.1:{port}/api/alpha/decisions");
+    let bus = Bus::new(&places.root).unwrap();
+    let [heard_topic, _] = Speech::TOPICS;
+    let mut heard = bus
+        .publisher_declared(heard_topic, &Speech::declaration(), "voice")
+        .unwrap();
+    let mut decisions = bus
+        .subscribe_typed(Decision::TOPIC, "test", Decision::TYPE)
+        .unwrap();
+    let sight = places.kept.join("sight.jpg");
+    let sight_arg = sight.to_str().unwrap().to_owned();
+    let running = start_with(
+        &places,
+        &endpoint,
+        &["--images", "typesafe/jev-1.14", "--sight-file", &sight_arg],
+    );
+    listening(&bus, heard_topic);
+    // The eyes' frame, as they keep one: 320 by 240, fresh.
+    let mut frame = Vec::new();
+    jpeg_encoder::Encoder::new(&mut frame, 80)
+        .encode(
+            &vec![100u8; 320 * 240 * 3],
+            320,
+            240,
+            jpeg_encoder::ColorType::Rgb,
+        )
+        .unwrap();
+    fs::write(&sight, &frame).unwrap();
+    // Someone at the lamp, as the eyes see: the picture is asked about only
+    // then (#871).
+    let mut eyes = bus
+        .publisher_declared(Faces::TOPIC, &Faces::declaration(), "eyes")
+        .unwrap();
+    listening(&bus, Faces::TOPIC);
+    let near = Face {
+        id: "f1".into(),
+        xmin: 0.3,
+        ymin: 0.2,
+        xmax: 0.6,
+        ymax: 0.6,
+        confidence: 0.9,
+        yaw: None,
+        facing: Some(true),
+    };
+    eyes.publish_json(0, &Faces { faces: vec![near] }).unwrap();
+    thread::sleep(Duration::from_millis(50));
+    for text in ["Hey Lamp,", " what time is it?"] {
+        let piece = Speech {
+            text: text.into(),
+            finished: false,
+            locale: None,
+            request: None,
+        };
+        heard.publish_json(0, &piece).unwrap();
+        thread::sleep(Duration::from_millis(50));
+    }
+    let decision: Decision = decisions
+        .recv(WAIT)
+        .unwrap()
+        .expect("a decision")
+        .parse()
+        .unwrap();
+    assert_eq!(decision.answers.len(), 7);
+
+    // The picture's line, beside the decisions.
+    let started = Instant::now();
+    let line: Value = loop {
+        let found = fs::read_dir(places.kept.join("decisions"))
+            .unwrap()
+            .filter_map(Result::ok)
+            .find(|entry| entry.file_name().to_string_lossy().starts_with("pictures-"))
+            .and_then(|entry| fs::read_to_string(entry.path()).ok())
+            .and_then(|text| text.lines().next().map(str::to_owned));
+        if let Some(text) = found {
+            break serde_json::from_str(&text).unwrap();
+        }
+        assert!(started.elapsed() < WAIT, "no picture line");
+        thread::sleep(Duration::from_millis(20));
+    };
+    assert_eq!(line["about"], "attention_picture");
+    assert_eq!(line["picture"]["sent"], true, "{}", line["picture"]);
+    assert_eq!(line["picture"]["width"], 640);
+    assert_eq!(line["without"]["by"], "typesafe/jev-1.13-20260917");
+    assert_eq!(line["with"]["answers"].as_object().unwrap().len(), 13);
+    let output = running.end(&["lamp-policy: started"]);
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(stderr.contains(" images=typesafe/jev-1.14"), "{stderr}");
+
+    // Three askings: the decision's, and the picture's two; only one with
+    // the frame and the header.
+    let asked: Vec<(String, Value)> = requests.try_iter().collect();
+    assert_eq!(asked.len(), 3, "{asked:?}");
+    let with: Vec<&(String, Value)> = asked
+        .iter()
+        .filter(|(_, body)| body.get("assets").is_some())
+        .collect();
+    assert_eq!(with.len(), 1);
+    assert!(with[0].0.contains("TypeSafe-Danger-Zone-Images: true"));
+    assert_eq!(with[0].1["model"], "typesafe/jev-1.14");
+    for (head, _) in asked
+        .iter()
+        .filter(|(_, body)| body.get("assets").is_none())
+    {
+        assert!(!head.contains("TypeSafe-Danger-Zone-Images"));
+    }
 }

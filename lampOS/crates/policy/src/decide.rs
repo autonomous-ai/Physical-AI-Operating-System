@@ -63,6 +63,30 @@ const ENDED_EARLY: &str = "it ended before it was whole";
 const NOT_A_PROBABILITY: &str = "a probability is not a number from 0 to 1";
 const ANOTHER_TYPE: &str = "an answer is of another type than its question";
 
+/// The header TypeSafe asks for with a picture (#871); sent only then.
+pub const IMAGES_HEADER: &str = "TypeSafe-Danger-Zone-Images: true";
+
+/// A picture sent with a question (#871), as TypeSafe's `assets` take one:
+/// `key` is a string the state or a question holds where the picture
+/// belongs, and the service puts the picture there. A JPEG's bytes. It is
+/// never shown: its `Debug` says its key and size only.
+#[derive(Clone, PartialEq, Eq)]
+pub struct Picture {
+    pub key: String,
+    pub jpeg: Vec<u8>,
+}
+
+impl fmt::Debug for Picture {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Picture {{ key: {:?}, bytes: {} }}",
+            self.key,
+            self.jpeg.len()
+        )
+    }
+}
+
 /// One question put to a decision model.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Question {
@@ -150,6 +174,9 @@ pub enum Failed {
     Unreadable(&'static str),
     /// The answers leave out this question.
     Missing(String),
+    /// What was to be sent was no longer permitted when it was to be
+    /// written (a picture, #871): nothing was sent.
+    Withdrawn,
 }
 
 impl Failed {
@@ -161,6 +188,7 @@ impl Failed {
             Self::Refused(_) => "refused",
             Self::Unreadable(_) => "unreadable",
             Self::Missing(_) => "missing",
+            Self::Withdrawn => "withdrawn",
         }
     }
 }
@@ -183,6 +211,9 @@ impl fmt::Display for Failed {
             }
             Self::Missing(question) => {
                 write!(f, "the decision model's answer leaves out {question}")
+            }
+            Self::Withdrawn => {
+                f.write_str("what was to be sent was no longer permitted: nothing was sent")
             }
         }
     }
@@ -573,21 +604,69 @@ fn chunked<S: Read>(stream: &mut S, mut held: Vec<u8>) -> Result<(Vec<u8>, bool)
 
 /// How an exchange on a connection went wrong.
 enum Lost {
-    /// Before a byte of an answer came: the request could not be sent, or
-    /// the other end had closed. On a connection kept from an earlier
-    /// asking that is the ordinary end of its life, not a failure.
+    /// The request could not be written whole: `written` of its bytes were
+    /// taken by the connection before it failed.
+    Unsent {
+        failed: Failed,
+        written: usize,
+    },
+    /// Written whole, and the other end closed before a byte of an answer
+    /// came. On a connection kept from an earlier asking that, like the
+    /// above, is the ordinary end of its life, not a failure.
     Unanswered(Failed),
     Failed(Failed),
+}
+
+/// What became of one request as it was written (#871, the reviewer on
+/// #873), told by [`Jev::ask_with_pictures`] after each try: so that a
+/// request with a picture that went and was not answered is never taken
+/// for one that never went.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Delivery {
+    /// Not written whole: this many of its bytes were taken by the
+    /// connection before it failed, none if 0.
+    Partly(usize),
+    /// Written whole, and the connection ended with no answer: whether it
+    /// arrived is not known.
+    Uncertain,
+    /// An answer to it came, whole or not: it arrived.
+    Answered,
+}
+
+impl Delivery {
+    fn of<T>(talked: &Result<T, Lost>) -> Self {
+        match talked {
+            Ok(_) | Err(Lost::Failed(_)) => Self::Answered,
+            Err(Lost::Unanswered(_)) => Self::Uncertain,
+            Err(Lost::Unsent { written, .. }) => Self::Partly(*written),
+        }
+    }
+
+    /// Whether any of the request left this side.
+    pub fn went(self) -> bool {
+        self != Self::Partly(0)
+    }
 }
 
 /// Send the request and read the answer's body. The second value says
 /// whether the connection is at the start of whatever comes next and the
 /// other end has not said it will close.
 fn talk<S: Read + Write>(stream: &mut S, request: &[u8]) -> Result<(Vec<u8>, bool), Lost> {
-    stream
-        .write_all(request)
-        .and_then(|()| stream.flush())
-        .map_err(|error| Lost::Unanswered(failed(SENDING, &error)))?;
+    // As `write_all`, counting what was taken before a failure.
+    let mut written = 0;
+    let unsent = |error: &io::Error, written| Lost::Unsent {
+        failed: failed(SENDING, error),
+        written,
+    };
+    while written < request.len() {
+        match stream.write(&request[written..]) {
+            Ok(0) => return Err(unsent(&io::ErrorKind::WriteZero.into(), written)),
+            Ok(taken) => written += taken,
+            Err(error) if error.kind() == io::ErrorKind::Interrupted => {}
+            Err(error) => return Err(unsent(&error, written)),
+        }
+    }
+    stream.flush().map_err(|error| unsent(&error, written))?;
     let mut held = Vec::with_capacity(4096);
     let (start, framing, closing) = loop {
         if let Some(found) = head(&held).map_err(Lost::Failed)? {
@@ -694,7 +773,12 @@ fn quoted(text: &str) -> String {
 /// The request's body. Written by hand so that the state goes as the text
 /// it was given as and the questions in the order they were asked in: the
 /// library's own map would put both in the order of the alphabet.
-fn body(model: &str, state: &str, questions: &[(String, Question)]) -> String {
+fn body(
+    model: &str,
+    state: &str,
+    questions: &[(String, Question)],
+    pictures: &[Picture],
+) -> String {
     let mut body = format!(
         "{{\"model\":{},\"state\":{state},\"questions\":{{",
         quoted(model)
@@ -729,7 +813,23 @@ fn body(model: &str, state: &str, questions: &[(String, Question)]) -> String {
         }
         body.push('}');
     }
-    body.push_str("}}");
+    body.push('}');
+    // Without a picture the body is as it always was.
+    if !pictures.is_empty() {
+        use base64::Engine as _;
+        body.push_str(",\"assets\":{");
+        for (index, picture) in pictures.iter().enumerate() {
+            if index > 0 {
+                body.push(',');
+            }
+            body.push_str(&quoted(&picture.key));
+            body.push_str(":{\"type\":\"image\",\"format\":\"jpg\",\"data_base64\":\"");
+            body.push_str(&base64::engine::general_purpose::STANDARD.encode(&picture.jpeg));
+            body.push_str("\"}");
+        }
+        body.push('}');
+    }
+    body.push('}');
     body
 }
 
@@ -924,9 +1024,11 @@ impl Jev {
     /// the connection kept from the last asking if there is one. A kept
     /// connection that turns out to have ended before a byte of an answer
     /// came is replaced once: the request has no effect to repeat.
+    /// `told` hears what became of each request written ([`Delivery`]).
     fn exchange(
         &mut self,
-        request: &[u8],
+        make: &dyn Fn() -> Result<Vec<u8>, Failed>,
+        told: &dyn Fn(Delivery),
         until: Instant,
     ) -> Result<(Vec<u8>, Connection), Failed> {
         let mut on = Connection::New;
@@ -934,8 +1036,12 @@ impl Jev {
             && Instant::now() < there_until
         {
             line.until(until);
+            // Made at the last moment before anything is written.
+            let request = make()?;
             on = Connection::Replaced;
-            match line.talk(request) {
+            let talked = line.talk(&request);
+            told(Delivery::of(&talked));
+            match talked {
                 Ok((body, again)) => {
                     if again {
                         let there_until = Instant::now() + self.keeping.answered;
@@ -946,13 +1052,21 @@ impl Jev {
                 // It had ended, which is how a kept connection's life
                 // ordinarily ends. With no time left there is nothing to
                 // try again with, and what it failed of is the failure.
-                Err(Lost::Unanswered(failed)) if Instant::now() >= until => return Err(failed),
-                Err(Lost::Unanswered(_)) => {}
+                Err(Lost::Unanswered(failed) | Lost::Unsent { failed, .. })
+                    if Instant::now() >= until =>
+                {
+                    return Err(failed);
+                }
+                Err(Lost::Unanswered(_) | Lost::Unsent { .. }) => {}
                 Err(Lost::Failed(failed)) => return Err(failed),
             }
         }
         let mut line = self.open(until)?;
-        match line.talk(request) {
+        // After the looking up and the connecting, however long they took.
+        let request = make()?;
+        let talked = line.talk(&request);
+        told(Delivery::of(&talked));
+        match talked {
             Ok((body, again)) => {
                 if again {
                     let there_until = Instant::now() + self.keeping.answered;
@@ -960,7 +1074,9 @@ impl Jev {
                 }
                 Ok((body, on))
             }
-            Err(Lost::Unanswered(failed) | Lost::Failed(failed)) => Err(failed),
+            Err(Lost::Unanswered(failed) | Lost::Unsent { failed, .. } | Lost::Failed(failed)) => {
+                Err(failed)
+            }
         }
     }
 
@@ -1015,29 +1131,79 @@ fn secure(roots: rustls::RootCertStore) -> io::Result<rustls::ClientConfig> {
     Ok(config)
 }
 
-impl Decider for Jev {
-    fn ask(
+impl Jev {
+    /// [`Decider::ask`] with pictures, which the state or the questions
+    /// name by their keys (#871). Sent with [`IMAGES_HEADER`].
+    ///
+    /// `take` gives the pictures, and it is called only at the moment the
+    /// request is to be written: after any looking up and connecting, and
+    /// again if it has to go on another connection. So what is sent is what
+    /// `take` gives then, never something it gave before a slow connection
+    /// (the reviewer on #873). If it fails, nothing is written and the asking
+    /// has failed as it says ([`Failed::Withdrawn`] for a picture no longer
+    /// permitted). `told` hears, after each request `take` gave pictures
+    /// for, what became of it: so a request that went, and was not
+    /// answered, before one withdrawn is known to have gone.
+    pub fn ask_with_pictures(
         &mut self,
         state: &str,
         questions: &[(String, Question)],
         deadline: Duration,
+        take: &dyn Fn() -> Result<Vec<Picture>, Failed>,
+        told: &dyn Fn(Delivery),
     ) -> Result<Asked, Failed> {
         let started = Instant::now();
-        let body = body(&self.model, state, questions);
-        // `identity`: this reads no compressed answer.
-        let mut request = format!(
-            "POST {} HTTP/1.1\r\nHost: {}\r\nAuthorization: {}\r\n\
-             Content-Type: application/json\r\nAccept: application/json\r\n\
-             Accept-Encoding: identity\r\nUser-Agent: lamp-policy\r\n\
-             Content-Length: {}\r\nConnection: keep-alive\r\n\r\n",
-            self.endpoint.path,
+        let request = self.request_maker();
+        let model = self.model.clone();
+        let make = || -> Result<Vec<u8>, Failed> {
+            let pictures = take()?;
+            Ok(request(
+                &body(&model, state, questions, &pictures),
+                !pictures.is_empty(),
+            ))
+        };
+        self.answered(&make, told, questions, started, deadline)
+    }
+
+    /// What puts a request together from its body, with the images header
+    /// or not: owned, so that it can be called while the connection is in
+    /// hand.
+    fn request_maker(&self) -> impl Fn(&str, bool) -> Vec<u8> + use<> {
+        let (path, authority, authorization) = (
+            self.endpoint.path.clone(),
             self.endpoint.authority(),
-            self.authorization,
-            body.len()
-        )
-        .into_bytes();
-        request.extend_from_slice(body.as_bytes());
-        let (answer, connection) = self.exchange(&request, started + deadline)?;
+            self.authorization.clone(),
+        );
+        move |body: &str, images: bool| {
+            let images = if images {
+                format!("{IMAGES_HEADER}\r\n")
+            } else {
+                String::new()
+            };
+            // `identity`: this reads no compressed answer.
+            let mut request = format!(
+                "POST {path} HTTP/1.1\r\nHost: {authority}\r\nAuthorization: {authorization}\r\n\
+                 Content-Type: application/json\r\nAccept: application/json\r\n\
+                 Accept-Encoding: identity\r\nUser-Agent: lamp-policy\r\n{images}\
+                 Content-Length: {}\r\nConnection: keep-alive\r\n\r\n",
+                body.len()
+            )
+            .into_bytes();
+            request.extend_from_slice(body.as_bytes());
+            request
+        }
+    }
+
+    /// The request `make` gives, sent, and its answer read and checked.
+    fn answered(
+        &mut self,
+        make: &dyn Fn() -> Result<Vec<u8>, Failed>,
+        told: &dyn Fn(Delivery),
+        questions: &[(String, Question)],
+        started: Instant,
+        deadline: Duration,
+    ) -> Result<Asked, Failed> {
+        let (answer, connection) = self.exchange(make, told, started + deadline)?;
         let answered = answers(&answer, questions)?;
         Ok(Asked {
             answers: answered.answers,
@@ -1048,6 +1214,25 @@ impl Decider for Jev {
             usage: answered.usage,
             connection: Some(connection),
         })
+    }
+}
+
+impl Decider for Jev {
+    fn ask(
+        &mut self,
+        state: &str,
+        questions: &[(String, Question)],
+        deadline: Duration,
+    ) -> Result<Asked, Failed> {
+        let started = Instant::now();
+        let request = self.request_maker()(&body(&self.model, state, questions, &[]), false);
+        self.answered(
+            &|| Ok(request.clone()),
+            &|_| {},
+            questions,
+            started,
+            deadline,
+        )
     }
 
     fn ready(&mut self, within: Duration) {

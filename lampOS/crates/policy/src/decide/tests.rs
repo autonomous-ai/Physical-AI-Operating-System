@@ -1301,3 +1301,194 @@ fn a_handshake_that_never_finishes_ends_at_the_deadline() {
     assert!(took >= deadline && took < deadline + MARGIN, "{took:?}");
     drop(listener);
 }
+
+/// #871: a picture goes as one of TypeSafe's `assets`, in standard base64
+/// under the key the state names it by, with the header TypeSafe asks for;
+/// a question without one is sent as it always was (the test above).
+#[test]
+fn a_picture_is_sent_as_an_asset_under_its_key_with_the_images_header() {
+    let server = answering(with_length(GOOD));
+    let mut jev = jev(&server.url(), "picture");
+    let picture = Picture {
+        key: "lamp-sight-7f3a".into(),
+        jpeg: vec![0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, b'J', b'F', b'I', b'F'],
+    };
+    assert_eq!(
+        format!("{picture:?}"),
+        "Picture { key: \"lamp-sight-7f3a\", bytes: 10 }"
+    );
+    let state = "{\"picture\":\"lamp-sight-7f3a\"}";
+    good(
+        &jev.ask_with_pictures(
+            state,
+            &questions(),
+            LONG,
+            &|| Ok(vec![picture.clone()]),
+            &|_| {},
+        )
+        .unwrap(),
+    );
+    let request = server.request();
+    let (head, body) = request.split_once("\r\n\r\n").unwrap();
+    assert!(
+        head.split("\r\n").any(|line| line == IMAGES_HEADER),
+        "{head}"
+    );
+    let sent: serde_json::Value = serde_json::from_str(body).unwrap();
+    assert_eq!(sent["state"]["picture"], "lamp-sight-7f3a");
+    assert_eq!(
+        sent["assets"],
+        serde_json::json!({"lamp-sight-7f3a": {"type": "image", "format": "jpg", "data_base64": "/9j/4AAQSkZJRg=="}})
+    );
+    assert!(body.starts_with("{\"model\":\"typesafe/jev-1.13\",\"state\":{\"picture\""));
+}
+
+/// Each request with pictures is told of as it went (the reviewer on #873):
+/// on a kept connection the service had closed, written whole and not
+/// answered, so not known to have arrived; then on a new one, answered.
+#[test]
+fn what_became_of_each_request_with_pictures_is_told() {
+    let server = answering(kept_with_length(GOOD));
+    let mut jev = jev(&server.url(), "told");
+    let picture = Picture {
+        key: "lamp-sight-told".into(),
+        jpeg: vec![0xff, 0xd8, 0xff, 0xd9],
+    };
+    let told = std::cell::RefCell::new(Vec::new());
+    let mut ask = || {
+        jev.ask_with_pictures(
+            "{\"picture\":\"lamp-sight-told\"}",
+            &questions(),
+            LONG,
+            &|| Ok(vec![picture.clone()]),
+            &|delivery| told.borrow_mut().push(delivery),
+        )
+    };
+    good(&ask().unwrap());
+    assert_eq!(*told.borrow(), [Delivery::Answered]);
+    // Time for the closing to arrive, as between two things said.
+    thread::sleep(Duration::from_millis(30));
+    good(&ask().unwrap());
+    assert_eq!(
+        *told.borrow(),
+        [Delivery::Answered, Delivery::Uncertain, Delivery::Answered]
+    );
+    assert!(Delivery::Uncertain.went() && Delivery::Partly(1).went());
+    assert!(!Delivery::Partly(0).went());
+}
+
+/// A frame as the eyes keep one: 320 by 240, of one shade.
+fn eyes_frame(shade: u8) -> Vec<u8> {
+    let mut out = Vec::new();
+    jpeg_encoder::Encoder::new(&mut out, 80)
+        .encode(
+            &vec![shade; 320 * 240 * 3],
+            320,
+            240,
+            jpeg_encoder::ColorType::Rgb,
+        )
+        .unwrap();
+    out
+}
+
+/// Written as the eyes write it: beside, then renamed over it.
+fn keep_frame(path: &Path, bytes: &[u8]) {
+    let beside = path.with_extension("jpg.new");
+    std::fs::write(&beside, bytes).unwrap();
+    std::fs::rename(&beside, path).unwrap();
+}
+
+static SCENE: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
+static SCENE_PORT: AtomicU16 = AtomicU16::new(0);
+static SCENE_FILE: std::sync::Mutex<Option<PathBuf>> = std::sync::Mutex::new(None);
+
+/// A slow lookup, during which the eyes' frame changes as [`SCENE`] says:
+/// 1, it is removed (the camera closed, as `Kept::forget` does); 2, removed,
+/// and 1.1 s later another frame kept (closed and opened again); 3, another
+/// frame kept over it, with no gap.
+fn scene_lookup(_: &str, _: u16) -> io::Result<Vec<SocketAddr>> {
+    let path = SCENE_FILE.lock().unwrap().clone().unwrap();
+    thread::sleep(Duration::from_millis(100));
+    match SCENE.load(Ordering::SeqCst) {
+        1 => std::fs::remove_file(&path).unwrap(),
+        2 => {
+            std::fs::remove_file(&path).unwrap();
+            thread::sleep(Duration::from_millis(1_100));
+            keep_frame(&path, &eyes_frame(200));
+        }
+        3 => keep_frame(&path, &eyes_frame(200)),
+        _ => {}
+    }
+    let port = SCENE_PORT.load(Ordering::SeqCst);
+    Ok(vec![SocketAddr::from(([127, 0, 0, 1], port))])
+}
+
+/// The reviewer on #873: what is sent is the eyes' frame at the moment the
+/// request is written, after any slow looking up and connecting, never a
+/// frame taken before. Removed meanwhile, nothing is sent; closed and opened
+/// again, or replaced, the new frame is sent, with its own age, and the old
+/// one never.
+#[test]
+fn a_picture_is_the_eyes_frame_when_it_is_written_never_one_taken_before() {
+    use base64::Engine as _;
+    let dir = std::env::temp_dir().join(format!("policy-scenes-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("sight.jpg");
+    *SCENE_FILE.lock().unwrap() = Some(path.clone());
+    let encoded = |shade: u8| {
+        let (jpeg, _) = crate::pictures::for_jev(&eyes_frame(shade)).unwrap();
+        base64::engine::general_purpose::STANDARD.encode(jpeg)
+    };
+    for scene in [1, 2, 3] {
+        keep_frame(&path, &eyes_frame(40));
+        let server = answering(with_length(GOOD));
+        SCENE_PORT.store(server.port, Ordering::SeqCst);
+        SCENE.store(scene, Ordering::SeqCst);
+        let url = format!("http://localhost:{}/api/alpha/decisions", server.port);
+        let mut jev = jev(&url, "scene");
+        jev.lookup.resolve = scene_lookup;
+        let taken = std::cell::RefCell::new(None);
+        let told = std::cell::RefCell::new(Vec::new());
+        let asked = jev.ask_with_pictures(
+            "{\"picture\":\"lamp-sight-picture-871\"}",
+            &questions(),
+            LONG,
+            &|| {
+                let now = crate::pictures::take_now(&path).map_err(|_| Failed::Withdrawn)?;
+                let picture = Picture {
+                    key: "lamp-sight-picture-871".into(),
+                    jpeg: now.jpeg.clone(),
+                };
+                *taken.borrow_mut() = Some(now);
+                Ok(vec![picture])
+            },
+            &|delivery| told.borrow_mut().push(delivery),
+        );
+        if scene == 1 {
+            assert_eq!(asked, Err(Failed::Withdrawn));
+            assert!(taken.borrow().is_none());
+            // Nothing was written, so nothing is told of.
+            assert!(told.borrow().is_empty());
+            // Nothing whole reached the service.
+            assert!(!matches!(
+                server.requests.recv_timeout(Duration::from_millis(500)),
+                Ok(Some(_))
+            ));
+            continue;
+        }
+        good(&asked.unwrap());
+        assert_eq!(*told.borrow(), [Delivery::Answered], "scene {scene}");
+        let request = server.request();
+        let (_, body) = request.split_once("\r\n\r\n").unwrap();
+        let sent: serde_json::Value = serde_json::from_str(body).unwrap();
+        let picture = sent["assets"]["lamp-sight-picture-871"]["data_base64"]
+            .as_str()
+            .unwrap();
+        assert_eq!(picture, encoded(200), "scene {scene}");
+        assert_ne!(picture, encoded(40), "scene {scene}");
+        let age = taken.borrow().as_ref().unwrap().age;
+        assert!(age < Duration::from_millis(500), "scene {scene}: {age:?}");
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}

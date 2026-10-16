@@ -26,6 +26,8 @@
 //! - [`rules`]: what the people at the lamp asked it about speaking first
 //!   (#813), obeyed by the progress question (`lamp-policy --rules`).
 //! - [`policy`]: the loop that listens on the bus and does the rest.
+//! - [`replay`]: the logged decisions asked again of other models
+//!   (`lamp-policy-replay`, #871), for comparing them, with no words out.
 
 // Nothing in this library prints. What it has to say about itself leaves
 // it as a `policy::Note`, which cannot hold what was heard or said, and
@@ -39,7 +41,9 @@ pub mod gather;
 pub mod hello;
 pub mod moment;
 pub mod outcome;
+pub mod pictures;
 pub mod policy;
 pub mod progress;
 pub mod record;
+pub mod replay;
 pub mod rules;

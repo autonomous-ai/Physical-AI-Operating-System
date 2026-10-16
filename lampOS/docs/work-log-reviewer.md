@@ -4,6 +4,36 @@
 
 Newest first. Times from `date` (+07). 00:12 to 01:40: the review agents stopped at a usage limit.
 
+- 05:5x #1192 re-checked at ebe72debd: code ready (easing capped at 400; all probes hold); waits for the full lamp-52e6 rerun and ARM64
+- 05:52 merged #1221 (#1208's P3s: a yes as a question is no yes; more ordinary yeses)
+- 05:4x #1218 first review: P2 (no test runs the real waits any more: every waiting test passes --clock-control); P3s (skip_us unbounded, remove_file at PATH)
+- 05:4x #1215 reviewed: no finding (640/640 a_tap under stress; the doc conflict fixed by the rebase); merge on green ARM64. Flaky on the host clock: a_lamp_put_to_sleep_from_the_head (2 of 120)
+- 05:47 merged #1215 (a_tap owner and reply made inside the scope)
+- 05:45 merged #1219 (realtime-tests.md: the windows endpoint_session's 27 keep; my #1203 P3)
+- 05:43 posted on #705: #1217, #1197 merged; a new hand_controls flake
+- 05:3x #1192 re-checked at d3cafdcd7: the easing P1 fixed (an out-of-window goal stops at once); P2 (easing turns any in-window jump into a walk, so the step rule never stops a computed goal: needs a cap or the first builder's yes)
+- 05:39 merged #1197 (asker-first follow-up, off unless set)
+- 05:33 asked the first builder on #705 about #1192's step rule (stop vs walk)
+- 05:33 merged #1217 (#1161's echo P2)
+- 05:31 merged #1216 (privacy test skip line to stderr, my #1213 P3)
+- 05:2x #1197 re-checked at b47ff573b: clean (probes: the asker's soft follow-up taken, the answer held at most 120 ms, leak and 14:21 fine); merge on green ARM64
+- 05:18 merged #1208 (checked names: yes, no and correction handling; off unless set)
+- 05:17 merged #1211 (records tests skip loudly under the emulator, never on CI) and closed #1210
+- 05:0x #1192 re-checked at 221b71ab5: the resting-short P2 fixed; the easing P1 still open (an out-of-window goal still walked in 50-count steps)
+- 05:06 merged #1203 (endpoint_session leaves the realtime group but for two)
+- 05:01 #1211 re-checked at 653068ec3: P2 fixed; merge on green ARM64
+- 04:5x #1192 re-checked at e3894ffe6: the nod P1 fixed (hold releases ramp); new P1 (the easing turns a refused out-of-window goal into 50-count steps toward it: the elbow walked to 2353); the resting-short P2 still open
+- 04:59 merged #1213 (privacy gate test under the emulator, test-only) and closed #1212; #1211 sent back (P2: the skip line is hidden by cargo test)
+- 04:50 #1197 re-checked at e5965fe06: the leak P2 fixed; new P2 (on a lamp the echo check is undecided for the reply's first 0.2-0.45 s, so the asker's soft-start follow-up is dropped again; the test rig always gives settled evidence)
+- 04:4x #1208 re-checked at d08d7e2d7: my P2 fixed (no-after-yes refused); new P2 (a yes plus a correction with no 'no' word, e.g. 'Yes, but it's …', still lets the misheard name replace; three of these also pass on lamp-voice)
+- 04:4x #1192 re-checked at 5de7db4ea: my P2s fixed, but Fifth's lamp-52e6 run found a P1 (a window refusal on the first nod let go of the standing lamp; every hold release needs a ramp) and my 04:14 fix brought a P2 (a folded arm resting short is now pushed at)
+- 04:49 #1115 rebased c674497b4: fine; waits only for lamp step 4
+- 04:3x #1115 re-checked at 64ac1f45c: my P2 fixed (probed: a hand on the base or head during the lowering lets go again), both P1s hold, commits folded; needs a rebase (USAGE text) and lamp step 4 on lamp-52e6
+- 04:3x #1199 re-checked at de0ecaef6: still P2 (replayed on ask 23's own joint states the new start fit sees the start 2.8 s late); not shown on a lamp
+- 04:39 merged #1207 (a_tap tests on the stepped clock) and closed #1206
+- 04:36 #1209 re-checked at 4c1a7ea36: no P1/P2, my P3s fixed (14 probes); for the first builder
+- 04:31 merged #1195 (the backup voice's down line, off unless set)
+- 04:20 #1208 first review: P2 (a no after the first yes word is ignored, so "Of course not." and "Absolutely not." agree and a misheard name replaces the right one); P3 (Vietnamese yes words missing)
 - 04:1x #1192 re-checked at 5319b20f1: my P2 fixed (16,320-run sweep wrote no goal outside its window); new P2 (when the folded arm rests its goal is set to the last reading, so a steady wrong reading under 300 counts is written with torque on: the elbow moved 142 counts in a probe); waits for a lamp-52e6 run
 - 04:1x #1197 re-checked at 0bbe1f95d: my P2 and P3 fixed; new P2 (while the answer plays the rule counts the lamp's own voice leaking past the echo canceller, so a line from across the room cuts the answer: 14:21 again)
 - 04:18 #1209 first review: no P1/P2; for the first builder (real hardware, no lamp); P3 (one pressed first read turns the reset off for the run)

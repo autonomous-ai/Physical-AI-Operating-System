@@ -60,6 +60,7 @@ impl Harness {
             notice: Default::default(),
             local_only: None,
             reminder: None,
+            say: None,
             last_provider_audio_at_us: None,
             start: lamp_audio::playout::StartGate::new(0),
             need: lamp_audio::playout::StartNeed::default(),

@@ -164,3 +164,11 @@ Ready for lamp-voice: no
   given way (probe, not committed: alone not shown, ring full shown red).
   fmt and clippy clean, ring tests 21/0, msgs 41/0. Reported on #993 and
   #705; list empty, next task asked of the first builder.
+
+## 2026-10-16 — #1035 merged
+
+Ready for lamp-voice: no
+
+- The first builder merged #1035 at 15:25 (ARM64 38871955140 green on
+  `c2d60f14c`, Sixth's re-look clean). Twelve's list is empty; the next
+  task was asked for on #705 after the #993 review.

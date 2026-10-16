@@ -234,6 +234,61 @@ not write, and the capture worker overran its read budget and ended the
 voice. That second crash is the likeliest effect of a blocked stderr; it is
 not proven.
 
+## What stalls the voice: `LAMP_STALLS=on`
+
+On lamp-4ace on 2026-10-17 the voice ended at 00:00:06, five seconds after
+the lamp's daily log jobs began, on an "authority snapshot has expired"
+(#1178). Each loop of the voice that holds an authority renews it against
+a lease of 250 ms (`turn-owner`'s `MAX_AUTHORITY_LEASE_US`), and **100 ms
+during a turn**, when `controller.rs` caps it at the capture and admission
+leases. So some loop was held past that. Log lines are not it (above), and
+the session trace is written by its own thread.
+
+With `LAMP_STALLS=on` in the voice's environment (off unless set), the
+coordinator's loop and the ring, speaker, capture, camera and provider
+workers' loops each time their passes (`crates/voice/src/stalls.rs`). One
+line is written, never on stderr, to `stalls-<role>.log` in
+`/run/lampos-voice` (or `LAMP_STALLS_DIR`), for:
+
+- a pass's own `work` of 50 ms or more, with how it ended: `end: "done"`
+  at its normal end (before its wait: each `continue` that skips the rest
+  of a pass calls `done()` first); `"skipped"` when it left early some
+  other way and the loop went on; `"loop"` when the loop itself ended in
+  it, on an error or a stop, which is the pass that ends a worker;
+- a `gap` of 50 ms or more from the end of one pass's work to the start of
+  the next: its wait overran. A slow pass is one `work` line, not also a gap.
+
+Each line has `role`, `pid`, `kind`, `ms` and `at_us` (and `lost_before`,
+the lines dropped since the last one, when any were), then:
+
+- `thread`: this thread's major and minor page faults and voluntary and
+  involuntary context switches over exactly that span
+  (`getrusage(RUSAGE_THREAD)` at its two ends; Linux only, so on a
+  builder's Mac they are zeros);
+- `system`, read just after by the recorder: the lamp's major faults
+  during the stall (`major_faults_during`, from the recorder's reading
+  `read_ms_before` the stall began: it reads every 100 ms and keeps 10 s),
+  its dirty and writeback pages, and its runnable and blocked processes
+  (`/proc/vmstat`, `/proc/stat`; the lamps' kernel has no `/proc/pressure`).
+  A recorder whose file cannot be opened says so once on stderr.
+
+The loop itself only reads the clock and `getrusage` twice a pass, and at a
+stall hands a few numbers to a thread of its own with `try_send` (a full
+queue of 64 loses that one): the recorder reads `/proc`, builds the line and
+writes it, so recording never lengthens the stall it measures. A file past
+512 KiB starts over, the one before kept as `stalls-<role>.old.log`, so the
+newest lines are always there. A loop's end never waits for its recorder,
+so its own cleanup (closing the microphone, blanking the ring) comes first;
+`main` gives the recorders up to 300 ms at its very end, after every device
+is closed, before `log_relay::finish`.
+
+How to read it: major faults say memory (the voice's own pages read back
+from the eMMC); involuntary switches with none say the CPU was taken;
+voluntary switches in a `work` line say the loop waited in the kernel, as
+the ring worker's SPI write does while the SD/MMC host re-tunes (#911).
+Workers are started with a cleared environment, so the coordinator passes
+`LAMP_STALLS` and `LAMP_STALLS_DIR` on to each.
+
 ## Stop and current limits
 
 After entering the coordinator loop, SIGTERM/SIGINT records a service-stop request,

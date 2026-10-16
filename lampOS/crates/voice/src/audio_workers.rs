@@ -432,8 +432,12 @@ fn capture_loop<D: CaptureDevice>(
     let mut started = false;
     let mut last_tick = Instant::now();
     channels.control.send(WorkerEvent::Ready)?;
+    // With LAMP_STALLS=on, a pass or an overrun wait of 50 ms or more is
+    // recorded with what held it (#1178).
+    let mut stalls = crate::stalls::Stalls::from_environment("capture");
     loop {
         let tick = Instant::now();
+        let stall_pass = stalls.begin();
         // A worker held up (#784) finds the snapshots sent meanwhile queued:
         // they are read in this tick, up to what the longest gap can leave.
         let bound = if tick.duration_since(last_tick) > HELD_UP {
@@ -716,6 +720,7 @@ fn capture_loop<D: CaptureDevice>(
             // first has, there is nothing to hand on: the reference was
             // reported just above, so the rest of this pass has nothing to do.
             let Some(frame) = hold.push(frame) else {
+                stall_pass.done();
                 finish_tick(tick);
                 continue;
             };
@@ -737,6 +742,7 @@ fn capture_loop<D: CaptureDevice>(
                 Ok(()) => {}
                 Err(error) if started && stall(&error).is_some() => {
                     into_gap(&mut gap, channels, microphone.epoch(), &error, &mut hold)?;
+                    stall_pass.done();
                     finish_tick(tick);
                     continue;
                 }
@@ -831,6 +837,7 @@ fn capture_loop<D: CaptureDevice>(
             microphone.epoch(),
             privacy,
         )?;
+        stall_pass.done();
         finish_tick(tick);
     }
 }
@@ -1072,8 +1079,12 @@ fn speaker_loop(
     // Since when the authority has been lapsed, the speaker silent (#1178).
     let mut lapsed_since: Option<u64> = None;
     channels.control.send(WorkerEvent::Ready)?;
+    // With LAMP_STALLS=on, a pass or an overrun wait of 50 ms or more is
+    // recorded with what held it (#1178).
+    let mut stalls = crate::stalls::Stalls::from_environment("speaker");
     'tick: loop {
         let tick = Instant::now();
+        let stall_pass = stalls.begin();
         for index in 0..=MAX_CONTROL {
             let Some(control) = channels.control.receive::<Control>()? else {
                 break;
@@ -1179,6 +1190,7 @@ fn speaker_loop(
                 recording,
                 &mut lapsed_since,
             )?;
+            stall_pass.done();
             finish_tick(tick);
             continue;
         }
@@ -1202,6 +1214,7 @@ fn speaker_loop(
                     recording,
                     &mut lapsed_since,
                 )?;
+                stall_pass.done();
                 finish_tick(tick);
                 continue 'tick;
             }
@@ -1232,10 +1245,12 @@ fn speaker_loop(
             report_speech_reset(channels, &mut speech)?;
         }
         let Some(link) = link.as_mut() else {
+            stall_pass.done();
             finish_tick(tick);
             continue;
         };
         if !link.connect_step()? {
+            stall_pass.done();
             finish_tick(tick);
             continue;
         }
@@ -1277,6 +1292,7 @@ fn speaker_loop(
                                 recording,
                                 &mut lapsed_since,
                             )?;
+                            stall_pass.done();
                             finish_tick(tick);
                             continue 'tick;
                         }
@@ -1307,6 +1323,7 @@ fn speaker_loop(
                                 recording,
                                 &mut lapsed_since,
                             )?;
+                            stall_pass.done();
                             finish_tick(tick);
                             continue 'tick;
                         }
@@ -1348,6 +1365,7 @@ fn speaker_loop(
                         recording,
                         &mut lapsed_since,
                     )?;
+                    stall_pass.done();
                     finish_tick(tick);
                     continue 'tick;
                 }
@@ -1355,6 +1373,7 @@ fn speaker_loop(
             }
         }
         if !speaker.clock_started() {
+            stall_pass.done();
             finish_tick(tick);
             continue;
         }
@@ -1448,6 +1467,7 @@ fn speaker_loop(
                         )? {
                             // Receipt first; the dropped tail is never new-epoch render.
                             pending = None;
+                            stall_pass.done();
                             finish_tick(tick);
                             continue;
                         }
@@ -1532,6 +1552,7 @@ fn speaker_loop(
                             recording,
                             &mut lapsed_since,
                         )?;
+                        stall_pass.done();
                         finish_tick(tick);
                         continue 'tick;
                     }
@@ -1577,6 +1598,7 @@ fn speaker_loop(
                 }
             }
         }
+        stall_pass.done();
         finish_tick(tick);
     }
 }

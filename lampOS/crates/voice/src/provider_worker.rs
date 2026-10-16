@@ -1279,6 +1279,9 @@ async fn serve_with_visual<C: Connect>(
     // When the name was last heard plainly enough to count as a call.
     let mut sure_name_us: Option<u64> = None;
     unanswered_requests().store(0, std::sync::atomic::Ordering::Relaxed);
+    // With LAMP_STALLS=on, a tick's work or a late tick of 50 ms or more is
+    // recorded with what held it (#1178).
+    let mut stalls = crate::stalls::Stalls::from_environment("provider");
     loop {
         // Control is polled first and never waits for the provider: stop,
         // privacy and retirement are serviced every tick whether a connection
@@ -1286,6 +1289,7 @@ async fn serve_with_visual<C: Connect>(
         tokio::select! {
             biased;
             _=ticker.tick()=>{
+                let stall_pass = stalls.begin();
                 let mut control_budget = CONTROL_SLICE;
                 let control = intake.drain_control(&mut monotonic_us, &mut || channels.control.receive(), &mut control_budget)?;
                 if control == ControlDrain::Stopped { provider.shutdown(); return Ok(()); }
@@ -1691,7 +1695,7 @@ async fn serve_with_visual<C: Connect>(
                 // Local retirement cannot wait behind a full control slice.
                 intake.handoff.synchronize(&provider)?;
                 prune_retired_output(&mut output, intake.handoff.retired_through);
-                if control == ControlDrain::Deferred { continue; }
+                if control == ControlDrain::Deferred { stall_pass.done(); continue; }
                 queue_undelivered(&mut intake.handoff, &mut output);
                 if intake.handoff.undelivered.is_none() {
                     let received = intake.receive_inputs(&mut monotonic_us, &mut || channels.control.receive(), &mut channels.data, &provider, &mut control_budget);
@@ -1743,6 +1747,7 @@ async fn serve_with_visual<C: Connect>(
                         queue.pop_front();
                     } else { break; }
                 }
+                stall_pass.done();
             },
             notice=next_notice(&mut provider, coordinated), if !upstream_ended && output.len() < OUTPUT_HIGH_WATER=>{
                 if let Ok(notice) = &notice

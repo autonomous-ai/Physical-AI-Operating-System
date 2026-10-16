@@ -13,6 +13,9 @@ fn main() {
     if let Err(error) = &result {
         eprintln!("lamp-voice: {error}");
     }
+    // Every device is closed by now: the stall recorders (#1178) may finish
+    // their lines, then the log relay its own.
+    lamp_voice::stalls::finish_all(std::time::Duration::from_millis(300));
     if relayed {
         lamp_voice::log_relay::finish(std::time::Duration::from_millis(500));
     }

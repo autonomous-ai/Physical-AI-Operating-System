@@ -2208,6 +2208,7 @@ dependencies = [
  "lamp-turn-end-wire",
  "lamp-turn-owner",
  "lamp-voice-processes",
+ "nix 0.29.0",
  "reqwest",
  "rtrb",
  "rustix",

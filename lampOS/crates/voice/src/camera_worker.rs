@@ -36,10 +36,15 @@ pub fn serve<P: InspectPort, C: Clock>(
     // No camera open or permission was obtained to reach this handshake.
     channels.control.send(crate::wire::WorkerEvent::Ready)?;
     let mut clock = lamp_ipc::monotonic_us;
+    // With LAMP_STALLS=on, a step or an overrun wait of 50 ms or more is
+    // recorded with what held it (#1178).
+    let mut stalls = crate::stalls::Stalls::from_environment("camera");
     loop {
+        let stall_pass = stalls.begin();
         if runtime.step(channels, &mut clock)? == Step::Stopped {
             return Ok(());
         }
+        stall_pass.done();
         // This is a cooperative target, not a scheduler/kernel guarantee.
         std::thread::sleep(std::time::Duration::from_micros(
             lamp_camera::POLL_TARGET_US,

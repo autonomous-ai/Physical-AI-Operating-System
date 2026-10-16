@@ -253,6 +253,7 @@ impl Worker {
             .arg(boot_text(boot))
             .args(extra)
             .env_clear()
+            .envs(crate::stalls::passed_on())
             .envs(memory_days_worker_environment(
                 role,
                 std::env::var_os("LAMP_MEMORY_DAYS").as_deref(),

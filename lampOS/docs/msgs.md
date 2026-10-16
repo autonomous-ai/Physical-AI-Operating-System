@@ -305,7 +305,10 @@ Added by the second builder on 2026-10-15 (#732). The type lives in
 |---|---|---|---|---|
 | `TaskStatus` | `tasks/status` | latest | none / none | How each piece of work handed over is going ([tasks.md](tasks.md#progress-on-the-bus-serve---progress-732)): the store, the run of the tasks part that counted the changes (counts begin again at each run), and for each task its engine, `AgentState`, seconds at it, when last active, when read, how many times its progress line changed, whether it changed at this read, the share of it that is new, and the `Sign`s new in it and seen in it; and the tasks watched whose progress has not been read yet (`unread`, added 2026-10-15, left out when none); and the tasks let go because their agent settled, for two minutes after, with that state (`settled`, `TaskSettled`, added 2026-10-16 for Task news, #1021, left out when none). Never the agent's words |
 
-Published by `lamp-tasks serve --progress` only, after each read; its
+Published by `lamp-tasks serve --progress` only: at start, after each
+read, when a task joins or leaves the watch, and when one joins or leaves
+`settled`, which at the end of its two minutes is published with nothing
+else happening; its
 publisher says once a second that it is alive. `check()` holds the store to
 32 lowercase hexadecimal characters, the run to a positive number, at most
 16 tasks listed once each in

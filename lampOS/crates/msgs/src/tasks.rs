@@ -87,8 +87,10 @@ pub struct TaskProgress {
 
 /// Every task the tasks part is watching, as last read
 /// (`lamp-tasks serve --progress`). Published at start with none, after
-/// every read, and when one leaves the watch, so the one kept value always
-/// holds all of them and an empty list means nothing is being worked on.
+/// every read, when one joins or leaves the watch, and when one joins or
+/// leaves `settled` (at the end of its two minutes with nothing else
+/// happening), so the one kept value always holds all of them and an empty
+/// list means nothing is being worked on.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TaskStatus {
     /// The tasks part's store: task numbers belong to it.
@@ -106,7 +108,8 @@ pub struct TaskStatus {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub unread: Vec<u64>,
     /// Tasks the watch let go because their agent settled, for a while
-    /// after (#1021): the tasks part's own look found the agent finished
+    /// after (#1021): the tasks part's own look, while it is the task's
+    /// latest read, found the agent finished
     /// (`idle`, with an answer), stopped to ask (`needs_input`), `stopped`
     /// or `failed`. A task is let go then, so `tasks` never shows that end
     /// when no `ps` read came between; this does, for a skill (Task news)

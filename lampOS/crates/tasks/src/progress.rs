@@ -816,10 +816,6 @@ mod tests {
         assert!(tracker.take(&store).is_none());
     }
 
-    /// The reviewer on #793 (16:46): a task watched and not yet read was
-    /// published as nothing at all, so `tasks: []` could mean work going
-    /// on. It is `unread` until a read of it comes back, and a failed read
-    /// keeps it so.
     /// #1021: a task let go because its agent settled is published apart,
     /// with its settled state, while the engine still finds it settled, and
     /// leaves when it does not; a value only when the list changes.
@@ -882,6 +878,10 @@ mod tests {
         assert!(tracker.take(&store).unwrap().settled.is_empty());
     }
 
+    /// The reviewer on #793 (16:46): a task watched and not yet read was
+    /// published as nothing at all, so `tasks: []` could mean work going
+    /// on. It is `unread` until a read of it comes back, and a failed read
+    /// keeps it so.
     #[test]
     fn a_watched_task_not_yet_read_is_published_as_unread() {
         let store = "0".repeat(32);

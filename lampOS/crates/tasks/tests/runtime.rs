@@ -1,8 +1,9 @@
 use lamp_bus::Bus;
 use lamp_msgs::{AgentState, Diagnostic, Sign, TaskStatus};
 use lamp_tasks::{
-    engine::Clock as Sample,
+    engine::{Clock as Sample, WATCH_EARLY_MS},
     harness::{EngineKind, Launch, LaunchOutcome, Listed, Observation, Target},
+    progress::SETTLED_FOR_MS,
     runtime::{Adapter, Clock, Config, request, serve_with_adapter},
 };
 use serde_json::{Value, json};
@@ -101,6 +102,9 @@ impl Running {
         Self::with(slow, false)
     }
     fn with(slow: bool, progress: bool) -> Self {
+        Self::configured(slow, progress, false)
+    }
+    fn configured(slow: bool, progress: bool, watch: bool) -> Self {
         let root = tempfile::Builder::new()
             .prefix("tsk-")
             .tempdir_in("/private/tmp")
@@ -121,7 +125,7 @@ impl Running {
                 },
             )]),
             run_for: None,
-            watch: false,
+            watch,
             progress,
         };
         let mut running = Self {
@@ -637,6 +641,99 @@ fn with_progress_a_value_from_the_start_each_task_read_at_once_then_on_schedule_
         }
     };
     assert!(left.tasks.is_empty(), "{left:?}");
+}
+
+/// Fourth on #1048, through the service with the watch on: a task the
+/// watch finds settled goes from `tasks` to `settled` in one value, is
+/// there in the first value after a restart inside the two minutes, and
+/// leaves at their end with nothing else happening. It is never in two
+/// lists, and never in none until it leaves.
+#[test]
+fn a_task_the_watch_finds_settled_moves_in_one_value_survives_a_restart_and_leaves_on_time() {
+    let mut s = Running::configured(false, true, true);
+    let bus = Bus::new(&s.config.bus_root).unwrap();
+    let mut watch = bus
+        .subscribe_typed(TaskStatus::TOPIC, "tasks_test", TaskStatus::TYPE)
+        .unwrap();
+    // The service's publisher looks for new subscribers at most every
+    // 200 ms (`lamp_bus`): a value sent before it has looked reaches only
+    // the kept file, which `recv` reads at the end of its 5 s, so every
+    // value is seen only once it has.
+    thread::sleep(Duration::from_millis(250));
+    let prepared = s.prepare();
+    assert_eq!(s.trusted(s.confirmation(&prepared))["ok"], true);
+    let id = prepared["id"].as_u64().unwrap();
+    // Where the task is: worked on, not read yet, settled.
+    let places = |status: &TaskStatus| {
+        [
+            status.tasks.iter().any(|task| task.task == id),
+            status.unread.contains(&id),
+            status.settled.iter().any(|settled| settled.task == id),
+        ]
+    };
+    // `ps` reads it at once: worked on.
+    let read = loop {
+        let status = next_status(&mut watch);
+        if places(&status) == [true, false, false] {
+            break status;
+        }
+        assert_ne!(places(&status), [false, false, true], "{status:?}");
+    };
+    // The watch's first look, half a minute on, finds it asking the
+    // person: the next value that differs has it settled, and only there.
+    s.clock.0.lock().unwrap().monotonic_ms = WATCH_EARLY_MS;
+    let moved = loop {
+        let status = next_status(&mut watch);
+        if places(&status) != [true, false, false] {
+            break status;
+        }
+    };
+    assert_eq!(places(&moved), [false, false, true], "{moved:?}");
+    let settled = &moved.settled[0];
+    assert_eq!(
+        (settled.engine.as_str(), settled.state, settled.settled),
+        ("codex", AgentState::NeedsInput, true)
+    );
+    assert_eq!(s.counts.reads.load(Ordering::SeqCst), 1);
+    // Restarted inside the two minutes: the new run's first value has it.
+    s.stop();
+    s.start();
+    let again = loop {
+        let status = next_status(&mut watch);
+        if status.run > read.run {
+            break status;
+        }
+    };
+    assert_eq!(places(&again), [false, false, true], "{again:?}");
+    assert_eq!(again.settled[0].state, AgentState::NeedsInput);
+    // Same clock, so the same moment, give or take the restart.
+    assert!(
+        again.settled[0].at_unix_ms.abs_diff(settled.at_unix_ms) < 5_000,
+        "{} then {}",
+        settled.at_unix_ms,
+        again.settled[0].at_unix_ms
+    );
+    // Nothing more is read or published until the two minutes are up; then
+    // it leaves, with no request and no read.
+    let (reads, listings) = (
+        s.counts.reads.load(Ordering::SeqCst),
+        s.counts.listings.load(Ordering::SeqCst),
+    );
+    s.clock.0.lock().unwrap().monotonic_ms = WATCH_EARLY_MS + SETTLED_FOR_MS - 1;
+    assert!(
+        watch.recv(Duration::from_millis(300)).unwrap().is_none(),
+        "a value before the two minutes were up"
+    );
+    s.clock.0.lock().unwrap().monotonic_ms = WATCH_EARLY_MS + SETTLED_FOR_MS;
+    let gone = next_status(&mut watch);
+    assert_eq!(places(&gone), [false, false, false], "{gone:?}");
+    assert_eq!(
+        (
+            s.counts.reads.load(Ordering::SeqCst),
+            s.counts.listings.load(Ordering::SeqCst)
+        ),
+        (reads, listings)
+    );
 }
 
 /// The reviewer on #793 (16:46): with every `ps` failing, a task handed

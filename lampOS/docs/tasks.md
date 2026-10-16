@@ -1198,8 +1198,9 @@ identity run it, and `serde_json` reads it.
   [msgs.md](msgs.md#the-tasks-contract)), a kept (`latest`) value with no
   period. It is published at start, so the kept topic always has a value
   and a reader can tell "nothing being worked on" from "the tasks part is
-  not there"; after every read; and at once when the set of tasks watched
-  changes, a task joining or leaving the watch (settled, or a day old). A
+  not there"; after every read; at once when the set of tasks watched
+  changes, a task joining or leaving the watch (settled, or a day old); and
+  when a task joins or leaves `settled`, below. A
   task watched whose progress has not been read yet in this run (just handed
   over, there when the run began, or every read of it failed so far) is in
   `unread`, not in `tasks`, so `tasks` and `unread` both empty is nothing
@@ -1232,12 +1233,18 @@ identity run it, and `serde_json` reads it.
   agent settled (finished with an answer, stopped to ask, stopped or
   failed), and the task leaves `tasks` at once, so its last `ps` state may
   still be `working` and `idle` is often never published (Jarvis, for Task
-  news). Such a task is said in `settled` instead, by its first settled
-  look (`Engine::settled_within`, by this boot's clock), for two minutes:
-  long enough for a skill that triggers on it (Task news, per task, on
-  `settled = true`), short enough to say what has just happened. The list
-  is looked at each turn of the service, so a value is published when a
-  task joins it and when it leaves. A task let go for age just leaves.
+  news). Such a task is said in `settled` instead, for two minutes from
+  the watch's read that found it so (`Engine::settled_within`, by this
+  boot's clock), and only while that read is the task's latest: a task the
+  person asked to have read, or one read with the watch off (`--no-watch`)
+  or after it was let go for age, is not listed, as the person has heard it
+  or it is not news (Fourth on #1048). The read is kept in the store, so a
+  restart of the tasks part inside the two minutes lists it again in its
+  first value. Two minutes: long enough for a skill that triggers on it
+  (Task news, per task, as it appears in `settled`, #1042), short enough to
+  say what has just happened. The list is looked at each turn of the
+  service, so a value is published when a task joins it and when it leaves,
+  with nothing else happening. A task let go for age just leaves.
 - **Signs**, cheap and without a model (`progress::SIGNS`): phrases matched
   as whole words, regardless of case, `#` for any number. A phrase with one
   of `not`, `no`, `never`, `cannot`, `can't`, `don't`, `doesn't`, `didn't`,

@@ -1,0 +1,4 @@
+# Recorded on lamp-06c1, 2026-10-16 17:50–17:58 (#995): the person comes back to the desk at 17:56:39 (face 0.21 to 0.31
+# of the picture's height) while the office keeps talking (voice/state busy every 10 to 60 s). With no quiet half minute
+# at the arrival the chance is spent: nothing. This is what the skill does today; with a `wait` (#1089) it would greet.
+none = true

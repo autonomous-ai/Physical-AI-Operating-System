@@ -3496,6 +3496,31 @@ fn a_standing_shoulder_pushing_short_of_its_goal_is_told_to_stop_and_keeps_its_t
     assert!(lamp.servos.iter().all(|servo| servo.torque == 1));
 }
 
+/// A shoulder already held 30 counts short at 400 when the lamp stands up
+/// does not learn 400 as what it carries: its bound stays 100, and the same
+/// push is told to stop.
+#[test]
+fn a_shoulder_already_pushed_when_the_lamp_stands_learns_no_load_and_still_stops() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(12));
+    lamp.arm_moves = true;
+    lamp.overload_clears = 1;
+    lamp.short = Some((1, 30.0));
+    lamp.strains = vec![(Duration::ZERO, Duration::from_secs(60), 1, 400)];
+    let news = || Some((Mood::Listening, 100));
+    let report = run_standing(
+        &mut lamp,
+        &mut clock,
+        giving_way(GiveWay::Stay),
+        Some(HOME),
+        Some(standing(100, 60)),
+        news,
+        |_| {},
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert!(report.stood, "{report:?}");
+    assert!(report.stalls[3] >= 1, "{report:?}");
+}
+
 /// A folded arm lifted by a hand and held is told to stop pushing, and is
 /// held there only for a while: then it goes back down to where it rested,
 /// so that the next start does not find it off its way.

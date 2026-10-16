@@ -293,24 +293,35 @@ impl NameIn {
 /// (`crate::attention`): a tap asks the lamp to listen.
 pub struct TapsIn {
     touches: lamp_bus::Subscriber,
+    /// Where `voice/state` is read: whether the lamp was speaking.
+    bus: Bus,
     looked_at_us: Option<u64>,
     /// The newest tap taken: its Controls session and event sequence.
     taken: Option<(String, u64)>,
+    /// When this reader last saw the voice speaking.
+    speaking_seen_us: Option<u64>,
 }
 
 /// A tap let go longer ago than this, by the time it is read, is not taken.
 const TAP_FRESH_US: u64 = 2_000_000;
 
+/// A tap whose hand arrived no later than this after the voice was last
+/// seen speaking stopped the lamp: two looks at `voice/state`.
+const STOPPED_SPEECH_US: u64 = 2 * NAME_LOOK_EVERY_US;
+
 impl TapsIn {
     pub fn on(root: &Path) -> io::Result<Self> {
+        let bus = Bus::new(root)?;
         Ok(Self {
-            touches: Bus::new(root)?.subscribe_typed(
+            touches: bus.subscribe_typed(
                 lamp_msgs::TouchEvent::TOPIC,
                 SOURCE,
                 lamp_msgs::TouchEvent::TYPE,
             )?,
+            bus,
             looked_at_us: None,
             taken: None,
+            speaking_seen_us: None,
         })
     }
 
@@ -325,6 +336,20 @@ impl TapsIn {
             return None;
         }
         self.looked_at_us = Some(now_us);
+        // Whether the lamp is speaking, each look: a tap whose hand arrived
+        // while it was stopped it, and is no call (the reviewer on #1107;
+        // the head's "hm?" holds back the same way, `head_cue::may_hum`).
+        if self
+            .bus
+            .latest(VoiceState::TOPIC)
+            .ok()
+            .flatten()
+            .filter(|message| !message.expired)
+            .and_then(|message| message.parse::<VoiceState>().ok())
+            .is_some_and(|voice| voice.state == Voice::Speaking)
+        {
+            self.speaking_seen_us = Some(now_us);
+        }
         let mut newest = None;
         for _ in 0..8 {
             let Ok(Some(message)) = self.touches.recv(std::time::Duration::ZERO) else {
@@ -350,6 +375,15 @@ impl TapsIn {
             && released <= now_us
             && now_us - released < TAP_FRESH_US
             && self.taken.as_ref() != Some(&identity);
+        if fresh
+            && self
+                .speaking_seen_us
+                .is_some_and(|seen| seen.saturating_add(STOPPED_SPEECH_US) >= event.began_us)
+        {
+            self.taken = Some(identity);
+            eprintln!("lamp-voice provider: a head tap that stopped the lamp's speech is no call");
+            return None;
+        }
         fresh.then(|| {
             self.taken = Some(identity);
             released
@@ -904,6 +938,78 @@ mod tests {
         std::thread::sleep(Duration::from_millis(50));
         let late = tap.released_us.unwrap() + TAP_FRESH_US;
         assert_eq!(taps.newest(late.max(look + 2 * NAME_LOOK_EVERY_US)), None);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    /// The reviewer on #1107: a head tap whose hand arrived while the lamp
+    /// was speaking stopped it, and is no call, so the thump or a
+    /// colleague's line in the next two seconds is not taken as said to the
+    /// lamp. One whose hand came once the lamp was quiet still is a call.
+    #[test]
+    fn a_head_tap_that_stopped_the_lamps_speech_is_no_call() {
+        use lamp_msgs::{TouchEvent, TouchGesture, TouchIntent};
+        let (bus, root) = bus("tap-stop");
+        let mut taps = TapsIn::on(&root).unwrap();
+        let mut voice = bus
+            .publisher_declared(VoiceState::TOPIC, &VoiceState::declaration(), SOURCE)
+            .unwrap();
+        let mut says = bus
+            .publisher_declared(TouchEvent::TOPIC, &TouchEvent::declaration(), "controls")
+            .unwrap();
+        let now = lamp_ipc::monotonic_us();
+        let tap_from = |began: u64, sequence: u64| {
+            let (_, touches) = crate::hand_controls::test_head_touch("boot", began);
+            let mut tap = touches[0].clone();
+            tap.gesture = TouchGesture::Tap;
+            (tap.when_speaking, tap.when_quiet) = (TouchIntent::Attend, TouchIntent::Attend);
+            tap.when_asleep = Some(TouchIntent::Wake);
+            tap.released_us = Some(tap.began_us + 200_000);
+            tap.observed_us = tap.began_us + 350_000;
+            tap.stamp.at_us = tap.observed_us;
+            tap.stamp.sequence += sequence;
+            (tap.active_mask, tap.active_names) = (0, Vec::new());
+            tap.check().unwrap();
+            tap
+        };
+        let look_until = |taps: &mut TapsIn, from: u64, until: u64| {
+            let mut look = from;
+            let mut taken = None;
+            while look < until && taken.is_none() {
+                look += NAME_LOOK_EVERY_US;
+                taken = taps.newest(look);
+                std::thread::sleep(Duration::from_millis(2));
+            }
+            taken
+        };
+        // Speaking when the hand arrives: the tap is no call.
+        voice
+            .publish_json(
+                1,
+                &VoiceState {
+                    state: Voice::Speaking,
+                },
+            )
+            .unwrap();
+        assert_eq!(look_until(&mut taps, now - 600_000, now - 500_000), None);
+        says.publish_json(1, &tap_from(now - 450_000, 1)).unwrap();
+        std::thread::sleep(Duration::from_millis(50));
+        assert_eq!(look_until(&mut taps, now, now + 200_000), None);
+        // Quiet, a tap a second later is a call.
+        voice
+            .publish_json(
+                2,
+                &VoiceState {
+                    state: Voice::Listening,
+                },
+            )
+            .unwrap();
+        let later = tap_from(now + 1_000_000, 2);
+        says.publish_json(2, &later).unwrap();
+        std::thread::sleep(Duration::from_millis(50));
+        assert_eq!(
+            look_until(&mut taps, now + 1_300_000, now + 1_600_000),
+            later.released_us
+        );
         std::fs::remove_dir_all(root).unwrap();
     }
 

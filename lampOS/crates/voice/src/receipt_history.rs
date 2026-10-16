@@ -33,6 +33,22 @@ impl Entry {
 pub(crate) struct ReceiptHistory {
     entries: VecDeque<Entry>,
 }
+/// The reasons of the local cancels (`hand::cancel`): each revokes the
+/// speaker itself, so the queued audio the speaker then drops is expected.
+/// The coordinator names its cancels with these, so they cannot drift apart.
+pub(crate) const HEAD_SLEEP: &str = "head_sleep";
+pub(crate) const SOFTWARE_MUTED: &str = "software_muted";
+pub(crate) const HAND_STOP: &str = "hand_stop";
+pub(crate) const HEAD_STOP: &str = "head_stop";
+pub(crate) const CAPTURE_GAP: &str = "capture_gap";
+pub(crate) const LOCAL_CANCELS: [&str; 5] = [
+    HEAD_SLEEP,
+    SOFTWARE_MUTED,
+    HAND_STOP,
+    HEAD_STOP,
+    CAPTURE_GAP,
+];
+
 impl ReceiptHistory {
     /// Bounded live obligations, never inferred from retained metadata rows.
     pub(crate) fn is_settled(&self) -> bool {
@@ -99,13 +115,17 @@ impl ReceiptHistory {
         entry.cancelled = Some(Cancel {
             at_us,
             user: reason == "user_interrupted",
+            // A local Stop (the button, a tap on the head), the mute, sleep
+            // and a capture gap revoke the speaker themselves, so the queued
+            // audio it then drops is theirs: on 16 Oct at 12:20 a head tap
+            // during a story ended the voice and it came back muted.
             expected_discard: matches!(
                 reason,
                 "user_interrupted"
                     | "provider_interrupted"
                     | "deadline_cancelled"
                     | "service_stopped"
-            ),
+            ) || LOCAL_CANCELS.contains(&reason),
         });
         entry.terminal = true;
         Ok(())
@@ -329,6 +349,29 @@ mod tests {
         assert!(history.entries[0].settled());
         assert!(history.discard(owner));
         assert!(!history.discard(owner));
+    }
+    #[test]
+    fn a_local_stop_expects_the_discard_it_causes_and_another_cancel_does_not() {
+        for (reason, expected) in [
+            ("hand_stop", true),
+            ("head_stop", true),
+            ("head_sleep", true),
+            ("software_muted", true),
+            ("capture_gap", true),
+            ("reminder_authority_lost", false),
+            ("playback_discarded", false),
+        ] {
+            let mut controller = controller();
+            let mut history = ReceiptHistory::default();
+            let owner = controller
+                .admit(MonoTime::from_micros(2), AdmittedInput::NewTurn)
+                .unwrap();
+            history.dispatched(owner, 1).unwrap();
+            history.cancelled(owner, 3, reason).unwrap();
+            assert_eq!(history.discard(owner), expected, "{reason}");
+            // Only once, whatever the reason.
+            assert!(!history.discard(owner), "{reason}");
+        }
     }
     #[test]
     fn unresolved_history_fails_closed_instead_of_eviction() {

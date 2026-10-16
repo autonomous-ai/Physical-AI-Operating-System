@@ -3270,16 +3270,19 @@ fn conversation_with_gate(
                 floor_held_for = None;
                 asked_in_busy_room = None;
                 busy_answer_since = None;
+                use crate::receipt_history::{
+                    CAPTURE_GAP, HAND_STOP, HEAD_SLEEP, HEAD_STOP, SOFTWARE_MUTED,
+                };
                 let reason = if asleep {
-                    "head_sleep"
+                    HEAD_SLEEP
                 } else if muted {
-                    "software_muted"
+                    SOFTWARE_MUTED
                 } else if stop {
-                    "hand_stop"
+                    HAND_STOP
                 } else if head_stop {
-                    "head_stop"
+                    HEAD_STOP
                 } else {
-                    "capture_gap"
+                    CAPTURE_GAP
                 };
                 record(
                     trace,
@@ -8707,6 +8710,31 @@ mod tests {
         // The enclosing failure path cannot append a second or successful result.
         cancel_reply(&mut owner, &mut reply, &mut trace, "runtime_failed").unwrap();
         assert_eq!(trace.len(), 2);
+    }
+
+    #[test]
+    fn a_head_or_button_stop_during_speech_drops_its_audio_without_ending_the_voice() {
+        // lamp-4ace, 16 Oct 12:20: a tap on the head during a story, then the
+        // speaker's stale-owner discard of the rest, ended the voice.
+        for reason in ["hand_stop", "head_stop", "capture_gap"] {
+            let (mut owner, current, _) = active_reply();
+            let affected = current.owner;
+            let mut reply = Some(current);
+            let mut trace = SessionState::default();
+            cancel_reply(&mut owner, &mut reply, &mut trace, reason).unwrap();
+            handle_playback_discard(
+                &mut owner,
+                &mut reply,
+                &mut trace,
+                discarded(affected, PlaybackDiscardReason::StaleOwner, false),
+            )
+            .unwrap();
+            let discard = (0..trace.len())
+                .map(|row| &trace[row])
+                .find(|row| row["kind"] == "playback_discarded")
+                .unwrap();
+            assert_eq!(discard["expected_cancellation"], true, "{reason}");
+        }
     }
 
     #[test]

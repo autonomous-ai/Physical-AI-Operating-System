@@ -2024,8 +2024,39 @@ pub(crate) fn run_looking(
 /// offsets are laid over whatever the lamp is doing and leave it where it
 /// was. If a joint strains or falls behind while one plays, the gesture is
 /// let go and the lamp carries on.
+///
+/// Every way a run ends passes here once: any surprise, at start-up, while
+/// waking or lowering the shoulder, or while running, lets go of the whole
+/// lamp, as V1 did, after the joints were held where they are (a stuck
+/// joint held at its goal with torque on keeps pushing and heats). Not when
+/// asked to stop, not on a refusal (one for a hot or loaded joint has let
+/// go already), and not under overload, where torque is already off.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn run_alive(
+    io: &mut impl PortIo,
+    runtime: &mut impl Runtime,
+    limits: Limits,
+    home: Option<[u16; 3]>,
+    standing: Option<Standing>,
+    looking: Option<Looking>,
+    news: impl FnMut() -> Option<(Mood, u8)>,
+    asked: impl FnMut() -> Asked,
+    watch: impl FnMut(&Glimpse),
+) -> BodyReport {
+    let mut report = run_until_stopped(
+        io, runtime, limits, home, standing, looking, news, asked, watch,
+    );
+    if !matches!(
+        report.stop,
+        Stop::Cancelled | Stop::Refused { .. } | Stop::Overload { .. }
+    ) {
+        let_go_at_end(&mut Bus { io, runtime }, &mut report);
+    }
+    report
+}
+
+#[allow(clippy::too_many_arguments)]
+fn run_until_stopped(
     io: &mut impl PortIo,
     runtime: &mut impl Runtime,
     limits: Limits,
@@ -3914,15 +3945,7 @@ pub(crate) fn run_alive(
             report.held_at = Some(hold);
         }
     }
-    // Any surprise lets go of the whole lamp, as V1 did, after the hold:
-    // a stuck joint held at its goal with torque on keeps pushing and heats.
-    // Under overload it is already off.
-    if !matches!(
-        stop,
-        Stop::Cancelled | Stop::Refused { .. } | Stop::Overload { .. }
-    ) {
-        let_go_at_end(&mut bus, &mut report);
-    }
+    // Any surprise lets go of the whole lamp: see `run_alive`.
     report.stop = stop;
     report
 }

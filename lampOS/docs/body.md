@@ -91,6 +91,15 @@ let go, and nothing is written after that, when:
 | A commanded joint's temperature register, on every step for a second | 62 |
 | A read, or a write, that fails on every step for half a second (25 steps) | missing, late, malformed or unexpected bytes |
 
+The same let-go ends every run that stops on a surprise, not only one in
+the loop: taking hold, a profile or force limit that does not write or read
+back at start, a wake that does not reach home, and a shoulder that does
+not come down when it is lowered all end with torque off on all five, after
+the hold where there is one. Every way a run ends passes through one place
+(`run_alive`) that does this. It is not done when the body is asked to
+stop, on a refusal to start (one for a hot or loaded joint has let go
+already), or under `--overload release`, where torque is already off.
+
 A load over its bound for six steps does not by itself end the run. The
 joint gives way: its goal becomes where it is, and nothing is asked of it for
 two seconds while the other joints go on. Then it moves again from there. If
@@ -1596,7 +1605,7 @@ moving away from home, the way itself never over 20 counts a second; that
 one found 450 away is refused with nothing written, as is a head on the base
 without a home given; that an arm off its way is never written and the lamp
 runs folded, saying why; and that a lamp found where it may start writes
-exactly what it writes without the option. And lamp-52e6 as found after its power cut (torque off and goal 0 on all five, head drooped to 2,034), with its unit's options and `--stand` and `--torque on`, in a simulation whose head lags 37 counts at a load of 320 while it lifts: the head is lifted home, never toward the base, and the run goes on; a head that will not lift ends the wake held where it is, the report saying how far its goal got. And a head that stops 32 short of home settles there: its goal and its home become where it is, and the run goes on. With `--wake on` too: lamp-52e6 as found unplugged standing (shoulder 2,633, elbow 2,074) has its shoulder lowered first, only ever down, under a count a write, the elbow never asked to move, and then stands when spoken to; without the option it is refused standing as before. A head held 35 short at rest rests where it is, where without the option the run ends on tracking. A base that sticks 34 behind its goal is led round and settles 34 short, running from there; a shoulder that sways 7 counts while the base wakes is let, and one moved 20 ends the run.
+exactly what it writes without the option. And lamp-52e6 as found after its power cut (torque off and goal 0 on all five, head drooped to 2,034), with its unit's options and `--stand` and `--torque on`, in a simulation whose head lags 37 counts at a load of 320 while it lifts: the head is lifted home, never toward the base, and the run goes on; a head that will not lift ends the wake held where it is, the report saying how far its goal got, and then lets go of all five. And a head that stops 32 short of home settles there: its goal and its home become where it is, and the run goes on. With `--wake on` too: lamp-52e6 as found unplugged standing (shoulder 2,633, elbow 2,074) has its shoulder lowered first, only ever down, under a count a write, the elbow never asked to move, and then stands when spoken to; without the option it is refused standing as before. A shoulder that does not come down as it is lowered ends the run held where it is, then torque off on all five. A head held 35 short at rest rests where it is, where without the option the run ends on tracking. A base that sticks 34 behind its goal is led round and settles 34 short, running from there; a shoulder that sways 7 counts while the base wakes is let, and one moved 20 ends the run.
 `gesture::tests` bounds every wanted pose. `body_link::tests` in `lamp-voice`
 checks the datagram.
 

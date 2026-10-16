@@ -3731,6 +3731,9 @@ fn a_head_that_cannot_lift_ends_the_wake_held_where_it_is_and_says_how_far_it_go
     assert_eq!(woke.from, vec![2_095]);
     assert_eq!(woke.to, vec![2_000]);
     assert_eq!(report.held_at.map(|held| held[0]), Some(2_095));
+    // Held, then let go of, as any surprise: a head pushing at a goal it
+    // cannot reach heats.
+    assert!(let_go_of_the_whole_lamp(&lamp), "{:?}", lamp.registers);
 }
 
 /// lamp-52e6 woken from a real droop on 2026-10-14: the head lifted and
@@ -4101,6 +4104,62 @@ fn a_shoulder_left_up_by_a_power_cut_is_lowered_first_and_the_lamp_may_then_stan
     );
     assert!(report.lowered.is_none());
     assert!(report.standing_refused.unwrap().contains("off the way"));
+}
+
+/// A shoulder left up by a power cut that does not come down when it is
+/// lowered: the run ends there, held where it is, and the whole lamp is
+/// let go, as any surprise.
+#[test]
+fn a_shoulder_that_will_not_come_down_ends_the_run_and_lets_the_whole_lamp_go() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(70));
+    lamp.may_take_hold = true;
+    lamp.arm_moves = false;
+    for (index, at) in [
+        (YAW, 1_979.0),
+        (1, 2_633.0),
+        (2, 2_074.0),
+        (ROLL, 2_101.0),
+        (PITCH, 2_029.0),
+    ] {
+        let servo = &mut lamp.servos[index];
+        (servo.position, servo.goal, servo.torque, servo.status) = (at, 0, 0, 0);
+    }
+    let limits = Limits {
+        torque_on: true,
+        wake: true,
+        ..Limits::folded_with(Tuning {
+            reach: [150, 15, 1, 250],
+            speed: 120,
+            servo_speed: 1_000,
+            servo_acceleration: 60,
+        })
+        .unwrap()
+    };
+    let up = Standing::new(
+        [2_053, 2_069],
+        [1_772, 2_035, 2_035, 2_657, 2_602],
+        100,
+        5,
+        90,
+        [560, 560],
+    )
+    .unwrap();
+    let report = run_standing(
+        &mut lamp,
+        &mut clock,
+        limits,
+        Some([1_771, 2_035, 2_035]),
+        Some(up),
+        || Some((Mood::Resting, 0)),
+        |_| {},
+    );
+    assert!(
+        matches!(report.stop, Stop::Tracking { joint: 2, .. }),
+        "{:?}",
+        report.stop
+    );
+    assert!(report.held_at.is_some(), "{report:?}");
+    assert!(let_go_of_the_whole_lamp(&lamp), "{:?}", lamp.registers);
 }
 
 /// A head held 35 counts short of its goal by its own weight, at rest:

@@ -314,6 +314,8 @@ pub struct Engine {
     sequence: u64,
     fault: Option<&'static str>,
     marks: [Option<(u64, u64)>; STREAMS],
+    /// The head with the lamp's own speech (#933).
+    speech: crate::speaking::SpeechMotion,
     voice: Option<VoiceTiming>,
     delivery: Option<Delivery>,
     voice_since: u64,
@@ -377,6 +379,7 @@ impl Engine {
             sequence: 0,
             fault: None,
             marks: [None; STREAMS],
+            speech: Default::default(),
             voice: None,
             delivery: None,
             voice_since: 0,
@@ -552,6 +555,15 @@ impl Engine {
         self.playout_since = None;
         self.interruption = None;
         self.late_schedule = false;
+        self.speech.forget();
+    }
+
+    /// An answer ending as it should at `now_us` owes its settle (#933).
+    fn owes_settle(&self, now_us: u64) -> bool {
+        self.catalogue
+            .speaking
+            .as_ref()
+            .is_some_and(|rules| self.speech.owes_settle(rules, now_us))
     }
 
     fn held(&self) -> bool {
@@ -1073,7 +1085,12 @@ impl Engine {
                 };
             }
             VoiceEvent::Cancelled | VoiceEvent::Finished if !repeated_terminal => {
+                // Only a finished answer is settled after, never a cancelled one.
+                let settle = voice.event == VoiceEvent::Finished && self.owes_settle(now_us);
                 self.clear_transients();
+                if settle {
+                    self.speech.settle_from(now_us);
+                }
                 self.retired_turn = true;
                 self.cancelled |= voice.event == VoiceEvent::Cancelled;
             }
@@ -1090,7 +1107,12 @@ impl Engine {
                         .as_ref()
                         .is_some_and(|old| matches!(old.state, Voice::Thinking | Voice::Speaking))
                 {
+                    // The answer ended as it should: its settle is still owed.
+                    let settle = self.owes_settle(now_us);
                     self.clear_transients();
+                    if settle {
+                        self.speech.settle_from(now_us);
+                    }
                     self.retired_turn = true;
                 }
             }
@@ -1434,6 +1456,20 @@ impl Engine {
             if weight > 0.0 {
                 state.behaviours.push(clip.name.clone());
             }
+        }
+        // The lamp's own speech in its head (#933), when the catalogue says
+        // how: in any room, never while held, concentrating, asleep or cut in.
+        if let Some(rules) = &self.catalogue.speaking {
+            let speaking = mode == Voice::Speaking && !self.retired_turn && !asleep;
+            let still = held || concentrating || !joints_fresh || self.interruption.is_some();
+            let mut names = Vec::new();
+            let motion = self
+                .speech
+                .step(rules, speaking, body_level, still, now_us, &mut names);
+            offsets = add(offsets, motion, 1.0);
+            state
+                .behaviours
+                .extend(names.iter().map(|name| (*name).to_owned()));
         }
         if let Some(planned) = planned {
             offsets = add(

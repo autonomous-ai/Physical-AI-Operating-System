@@ -7,6 +7,7 @@ mod catalogue;
 mod engine;
 pub mod replay;
 pub mod runtime;
+mod speaking;
 
 pub use alive::{
     Alive, Breath, DAYTIME_STALE_US, Drift, EYES_QUIET_US, HAND_FRESH_US, LEAN, LEAN_IN_US,
@@ -15,6 +16,7 @@ pub use alive::{
 };
 pub use catalogue::*;
 pub use engine::*;
+pub use speaking::Speaking;
 
 /// The proposed planner cadence; this is not a measured motor or acoustic lag.
 pub const TICK_US: u64 = 20_000;

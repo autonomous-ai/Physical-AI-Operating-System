@@ -172,6 +172,11 @@ pub struct Catalogue {
     /// planner plans exactly as it did before.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub alive: Option<Alive>,
+    /// The lamp's own speech in its head (#933): a nod on a stressed word,
+    /// a sway between sentences, a settle as it finishes. Without it the
+    /// planner plans exactly as it did before.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub speaking: Option<crate::speaking::Speaking>,
 }
 
 impl Catalogue {
@@ -193,6 +198,9 @@ impl Catalogue {
     pub fn check(&self) -> Result<(), Error> {
         if self.version != 1 {
             return Err(Error("catalogue version must be 1".into()));
+        }
+        if let Some(speaking) = &self.speaking {
+            speaking.check(self.limits)?;
         }
         if self
             .limits

@@ -200,6 +200,68 @@ leaned into, a three-second hold puts it to sleep, a tap wakes it
 ([alive.md](alive.md), "The head"; #711). With it, where the voice says
 `voice/mute`, sleep follows the voice's mute with the reason `sleep`.
 
+## Optional speaking: the lamp's own speech in its head (#933)
+
+Seen on lamp-4ace on 2026-10-16 at 06:21 and 07:44 (#933): while the lamp
+told a story its head and body held one pose, and only the ring changed. The
+only movement while speaking was the `follow played sound` clip: a fixed
+1.2 s back-and-forth of at most 0.022 rad of head pitch and 0.009 of roll,
+scaled by the sound's level, and only in a quiet room. Usually well under a
+degree.
+
+A catalogue with a `speaking` section (`crates/expression/src/speaking.rs`;
+in `alive-behaviours.json` since #933) adds three things from the lamp's own
+sound, as the body meets it: the playout said ahead, sampled at
+`body_lag_us`. All are head only, within the catalogue's limits, in any room
+(it is the lamp's own speech). None runs while the body is held, while
+concentrating, asleep, or once someone has cut in, and nothing is owed after.
+- **A nod on a stressed word.** A dip of `nod` (0.035 rad of head pitch, about
+  2°) over `nod_us` (0.36 s), in and out smoothly. It comes when the level is
+  at least `stress_level` (0.35) and `stress_rise` (1.5) times the recent
+  level, which follows the sound with a 0.25 s time constant. Never within
+  `nod_gap_us` (0.9 s) of the last nod's start, and each between 70% and
+  100% of `nod`, so no two are alike.
+- **A sway between sentences.** After `pause_us` (0.35 s) of the lamp silent
+  (level under 0.06), as the next sentence begins (level back over 0.12),
+  the head rolls over `sway_us` (0.6 s) to the other side: `sway_roll`
+  (0.025 rad, about 1.4°), 75% to 100% of it each time. It stays there until
+  the next pause, and comes back level when the answer ends.
+- **A settle as it finishes.** One soft nod (`settle`, 0.03 rad) over
+  `settle_us` (0.6 s) when an answer of at least `settle_after_us` (1.5 s)
+  ends, then rest.
+
+What moved the head with one answer ends at the fences that end it (#955
+review): a new session, turn or audio generation, a hold or resume, a
+cancellation, an interruption or a fault forgets every nod, sway and settle
+owed. Only an answer that ends as it should (Finished, or its turn's own
+Speaking-to-rest edge) keeps its settle across that fence. A new turn at once,
+someone speaking, cuts even that short.
+
+The behaviour names are `nodding on a stressed word`, `swaying between
+sentences` and `settling as it finishes`. The old clip and the speaking pose
+are unchanged, and a catalogue without `speaking` plans exactly as before.
+The thinking glance (`look away and back`, 0.065 rad of yaw, out in 0.25 s and
+held until just before the first word) was already there. It is too short to
+show in stills 4.5 s apart.
+
+Tests: `crates/expression/src/speaking.rs` (a stressed word nods and a steady
+voice does not; nods keep their gap and differ; a pause sways the next
+sentence to the other side, eased, and a short breath does not; a long
+answer settles and a short one does not; held or cut in on, nothing moves;
+poses outside the limits are refused). `crates/expression/tests/speaking_engine.rs`
+also checks the fences: a new turn, or a cancelled answer, carries none of
+the old answer's motion, the offsets equal to a catalogue without speaking,
+and a finished answer is settled after.
+runs an eight-second answer with stressed words every 1.1 s and a half-second
+pause every 3 s through the engine, in a quiet and a busy room. It expects
+5 to 8 nods, the head rolled both ways by more than 0.015 rad, over 0.02 rad
+of pitch range, the settle, and what speaking adds never stepping more than
+0.007 rad of pitch or 0.003 of roll in a 20 ms tick. Without `speaking`, the
+same answer plans none of it.
+
+Not shown: how it looks on a lamp, and the body's own smoothing and speed
+limits on these offsets.
+
 ## Optional recent playout level
 
 First's task 18 addendum reports 565 cumulative refusals on lamp-4ace since

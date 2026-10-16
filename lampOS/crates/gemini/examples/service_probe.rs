@@ -19,7 +19,10 @@
 //! offered as visual context, and reports how long the image took to write
 //! and what the model said. It is the one probe that prints the model's own
 //! words, because nothing else shows whether the picture was used: choose a
-//! picture and a question that are fit to appear in a log.
+//! picture and a question that are fit to appear in a log. With
+//! `LAMP_PROBE_INSTRUCTION_FILE` set, the session is told that file's text in
+//! place of the one-sentence instruction, as a skill's note would be (Desk
+//! tutor's "never guess" check, #941).
 //!
 //! `continue-before-output SECOND.wav [GAP_MS]` and the distinct
 //! `repeat-before-output [GAP_MS]` use strict Require/2 s and drain events

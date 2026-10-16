@@ -7292,8 +7292,12 @@ mod tests {
         let (sent, _) =
             heard_around_the_end(true, &["Write me a short", " poem about the sea."], &[]).await;
         assert_eq!(sent.len(), 1, "{sent:?}");
-        let (sent, _) =
-            heard_around_the_end(false, &["Hey Lamp, ask Codex", " to write a haiku."], &[]).await;
+        let (sent, _) = heard_around_the_end(
+            false,
+            &["Hey Lamp, ask Claude Code", " to write a haiku."],
+            &[],
+        )
+        .await;
         assert_eq!(sent.len(), 1, "{sent:?}");
     }
 

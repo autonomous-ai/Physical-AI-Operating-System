@@ -578,11 +578,26 @@ const ASKING: [&str; 4] = ["ask", "get", "have", "tell"];
 /// "to" after the name). "Cloud" alone
 /// is never taken: "save it to the cloud" names nobody.
 fn kinds_in_words(kinds: &[&'static Kind], heard: &str) -> Vec<&'static Kind> {
-    let words: Vec<String> = heard
-        .split(|letter: char| !letter.is_alphanumeric())
-        .filter(|word| !word.is_empty())
-        .map(plain)
-        .collect();
+    // Each word, and whether a stop or comma comes between it and the one
+    // before: two words make a pair only across spaces (or a hyphen), so
+    // "the cloud. Code it later." names nobody (the reviewer on #1173).
+    let mut words: Vec<String> = Vec::new();
+    let mut broken: Vec<bool> = Vec::new();
+    let mut gap_broken = false;
+    for piece in heard.split_inclusive(|letter: char| !letter.is_alphanumeric()) {
+        let word: String = piece
+            .chars()
+            .filter(|letter| letter.is_alphanumeric())
+            .collect();
+        if !word.is_empty() {
+            words.push(plain(&word));
+            broken.push(gap_broken);
+            gap_broken = false;
+        }
+        gap_broken |= piece
+            .chars()
+            .any(|letter| !letter.is_alphanumeric() && !letter.is_whitespace() && letter != '-');
+    }
     let mut found: Vec<&'static Kind> = Vec::new();
     for (at, word) in words.iter().enumerate() {
         let asked = at.checked_sub(1).is_some_and(|before| {
@@ -590,7 +605,10 @@ fn kinds_in_words(kinds: &[&'static Kind], heard: &str) -> Vec<&'static Kind> {
             ASKING.contains(&before)
                 && (before != "tell" || words.get(at + 1).is_some_and(|next| next == "to"))
         });
-        let pair = words.get(at + 1).map(|next| format!("{word}{next}"));
+        let pair = words
+            .get(at + 1)
+            .filter(|_| !broken[at + 1])
+            .map(|next| format!("{word}{next}"));
         for kind in kinds {
             let alone = asked && word != "cloud" && kind.close.contains(&word.as_str());
             let together = pair
@@ -1936,6 +1954,7 @@ mod tests {
             "ask Claude to sum it up",
             "Tell Codex to tidy the readme.",
             "Claude Code, write me a test.",
+            "ask Claude-Code to check it",
         ] {
             assert_eq!(named(heard).len(), 1, "{heard}");
         }
@@ -1946,6 +1965,8 @@ mod tests {
             "Tell Claude I'm late.",
             "Which codec does it use?",
             "Claude said it was fine.",
+            "Save it to the cloud. Code it later.",
+            "Open, code it again.",
         ] {
             assert!(named(heard).is_empty(), "{heard}");
         }

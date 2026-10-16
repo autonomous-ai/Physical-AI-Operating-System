@@ -979,8 +979,9 @@ With `LAMP_STAFF_NOTE=on` (the provider worker's `--staff-note`, after
   began last, all its pieces so far each time one comes
   (`staff_note::Heard`), against the staff's close forms, the ones `who`
   already takes (`agent_tasks::named_in_words`):
-  - two words said together, anywhere: "Claude Code", "code X", "cloud
-    code", "open code";
+  - two words said together, anywhere, across a space or a hyphen but
+    not a stop or comma: "Claude Code", "code X", "cloud code", "open
+    code" ("Save it to the cloud. Code it later." names nobody);
   - one word ("Codex", "Claude", "codecs", "OpenCode") only right after
     "ask", "get" or "have", or after "tell" with "to" after the name: alone,
     "Claude" or "codec" is as likely someone or something else ("tell Claude
@@ -1027,7 +1028,10 @@ With `LAMP_STAFF_NOTE=on` (the provider worker's `--staff-note`, after
   sent (`words_that_name_the_staff_after_the_end_send_nothing`).
 - **The journal** says which each match was, for counting on a lamp:
   "request N: named Codex in time; the model is told" or "request N: named
-  Codex after its input was closed; the model is not told". Nothing of what
+  Codex after its input was closed; the model is not told". A request told
+  in time whose later words name more says that apart ("named Codex once its
+  input was closed, after its note; the model keeps the note it had"), so a
+  count sees each request once. Nothing of what
   was said is written: only which of the staff. **Decided** (the first
   builder, #1173): they are counted on lamp-4ace through one battery with
   the switch on. If late is common, the next step is what `second_look`

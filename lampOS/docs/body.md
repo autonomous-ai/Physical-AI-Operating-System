@@ -870,9 +870,9 @@ What the body does with the request:
   overload or a hand and lies where it slumped (until a mood or somebody
   in front of it stands it up), and one that may not stand. A gesture
   asked while another plays is dropped too. Paused after a gesture was
-  taken and before it began, the gesture is dropped (`dropped: paused`)
-  and the awake window it opened is given back, so the lamp folds as a
-  paused body does.
+  taken, the awake window it opened is given back, so the lamp folds as a
+  paused body does: before it began, the gesture is dropped (`dropped:
+  paused`); once it plays, it ends first and the lamp folds after it.
 - The body has no idea of night, or of Expression's sleep: a gesture from
   outside stands a folded lamp up at any hour. What keeps a sleeping lamp
   down at night is only the Policy's unprompted question ("not late at
@@ -1874,10 +1874,14 @@ Gestures (`clips::tests`, several in `body::tests`, and `body_link::tests` in
 `lamp-voice`): every clip begins and ends at nothing and stays inside its
 speed and size; a standing lamp asked to nod makes the clip's move, for the
 clip's time, with no goal jumping, and stands afterwards exactly as it
-stood; a gesture asked of a rising lamp begins when it stands, and one
-asked too early is forgotten; one asked of a folded lamp at rest stands it
+stood; a gesture asked of a rising lamp, even one asked as the rise
+begins or a second one asked while it rises for the first, waits for the
+rest of the rise and begins when it stands, and one the lamp never stands
+up for goes stale and is said; one asked of a folded lamp at rest stands it
 up and then plays, and one asked of a paused, hand-held or slumped lamp is
-dropped with its line and the lamp stays as it was; a head joint that strains
+dropped with its line and the lamp stays as it was; paused after it was
+taken, it is dropped before it begins, or plays to its end, and the lamp
+folds; a head joint that strains
 ends the gesture and not the run; which first words get which gesture, that
 one is asked once an answer, and the datagram's exact text.
 

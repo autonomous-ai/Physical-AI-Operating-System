@@ -3009,18 +3009,22 @@ fn run_until_stopped(
             if mood != Mood::Resting || company {
                 awake_until = Some(now + up.awake);
             }
-            // Paused after a gesture was taken, before it began: it is
-            // dropped, and the window it opened given back (keeper.md: a
-            // paused body goes to rest).
-            if asked_now.paused
-                && let Some((clip, _)) = pending.filter(|(clip, _)| from_outside(clip))
-            {
-                pending = None;
-                gesture_fate = Some((clip.name, "dropped: paused"));
+            // Paused after a gesture was taken: one still waiting is
+            // dropped, and the window it opened is given back (keeper.md: a
+            // paused body goes to rest). One already playing ends, and the
+            // lamp folds once it has.
+            if asked_now.paused {
+                if let Some((clip, _)) = pending.filter(|(clip, _)| from_outside(clip)) {
+                    pending = None;
+                    gesture_fate = Some((clip.name, "dropped: paused"));
+                }
                 if let Some((before, opened)) = pending_window.take()
                     && awake_until == opened
                 {
-                    awake_until = before;
+                    let ends = playing
+                        .filter(|(clip, _)| from_outside(clip))
+                        .map(|(clip, began)| began + Duration::from_micros(clip.duration_us()));
+                    awake_until = before.max(ends);
                 }
             }
             window_before_ask = awake_until;

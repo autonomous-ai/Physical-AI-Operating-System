@@ -5645,3 +5645,45 @@ fn a_body_with_eyes_says_why_it_does_not_look() {
     assert_eq!(at(9_000), Some("neither listening nor speaking"));
     assert_eq!(at(15_000), Some("paused"));
 }
+
+/// Paused once the gesture it stood up for plays (the reviewer's 21:50 on
+/// #1080): the gesture plays to its end, and the lamp then folds instead of
+/// staying up, paused, for the rest of a 90 s awake window.
+#[test]
+fn a_pause_while_the_gesture_it_stood_up_for_plays_lets_it_end_and_folds() {
+    let pause_at = Duration::from_secs(6);
+    let mut asked = false;
+    let (report, fates, steps) = skill_run(
+        30,
+        standing(100, 90),
+        gesture_limits(),
+        |_| {},
+        || Some((Mood::Resting, 0)),
+        move |now| {
+            if now >= pause_at {
+                return Asked::PAUSED;
+            }
+            let due = !asked && now >= Duration::from_secs(1);
+            asked |= due;
+            Asked {
+                gesture: due.then_some(&crate::clips::NOD),
+                ..Asked::default()
+            }
+        },
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!(report.gestures, 1, "{report:?}");
+    assert_eq!(fates, [("nod", "taken: it was folded and stood up for it")]);
+    let nod: Vec<_> = steps.iter().filter(|s| s.2 == Some("nod")).collect();
+    assert!(nod[0].0 < pause_at, "{:?}", nod[0].0);
+    let lasted = nod.last().unwrap().0 - nod[0].0;
+    let clip = Duration::from_micros(crate::clips::NOD.duration_us());
+    assert!(lasted + Duration::from_millis(100) >= clip, "{lasted:?}");
+    assert!(nod.iter().all(|s| s.1 == 1.0));
+    assert!(
+        steps
+            .iter()
+            .filter(|s| s.0 >= Duration::from_secs(20))
+            .all(|s| s.1 == 0.0)
+    );
+}

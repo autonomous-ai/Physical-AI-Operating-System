@@ -1,10 +1,20 @@
 # Tests work log
 
+## 2026-10-16 07:07:23 +0700 — Records complete native coverage; capacity unblocked
+
+Ready for lamp-voice: yes (#931, #909 and #925); #924 and #927 merged
+
+- Records #931 head `42405bb318ddd91c4883e5a16183630c0282b675` has first normal **38822753449: 5,021 PASS** and full **38822752215: 5,166 distinct PASS across infrastructure attempts**. All original **123** and all **20** additions pass exactly once; original reporter **0.010 s**. Attempt 1's dependency-download failure remains retained. Only its unexecuted shard 3 was restarted, and the three original successful shard logs remain byte-exact. [Complete coverage and raw records](verification/records-complete-native-20261016/README.md). This is not a single-attempt full pass or standalone serial timing.
+- Gemini preparation #924 and transport probes #927 have merged; the actual integration head is `6970d5ab72e7cd648513febb0594cf9b1c02eb79`. Schedule #928 also merged, so capacity #868 can integrate its real owner fix and qualify afresh. The historical #866 failure remains unclassified; no fix for it is claimed.
+- Provider's original reminder failure is filed as #935 with its failed first gate retained. The inline-test inventory addendum corrects the early regex count from 103 to 105 without changing source or compiled membership. Corrected Provider observations and the separate original silent-service migration remain in their first full gates. The worker-progress preparation is in a preliminary gate only, pending actual prerequisite integration and a complete gate.
+
+#783 remains with Eighth for loaded qualification and close, and #914's product race awaits its owner. The fixed original-123 standalone serial under-two-minute target remains unproved; DevOps has the exact selector and measurement request on #788. No workflow, runner, setting or lamp is changed.
+
 ## 2026-10-16 06:51:04 +0700 — fixed serial measurement request; original reminder failure retained
 
 Ready for lamp-voice: no (new Provider preparation); #909, #924, #925 and #927 remain ready
 
-- [Fixed original-123 serial measurement package](verification/original 123-serial-request-20261016/README.md) gives DevOps the exact 123 binary/test selectors, expected compiled identity list and single-run command: release, one thread, zero retries, no partition. It is checked against the frozen inventory and complete observed native membership; Bash syntax and the JSON extractor pass. Actual native selected-list comparison and standalone elapsed time remain unmeasured. Workflow/runner ownership remains with DevOps on #788.
+- [Fixed original-123 serial measurement package](verification/original123-serial-request-20261016/README.md) gives DevOps the exact 123 binary/test selectors, expected compiled identity list and single-run command: release, one thread, zero retries, no partition. It is checked against the frozen inventory and complete observed native membership; Bash syntax and the JSON extractor pass. Actual native selected-list comparison and standalone elapsed time remain unmeasured. Workflow/runner ownership remains with DevOps on #788.
 - [Provider first-gate evidence](verification/provider-observation-first-gate-20261016/README.md) retains focused **19/1** and full **2262/2/13**. The new unpolled-Drop test's Mac ConnectionReset assumption is corrected only in that new test, with a fresh changed-source gate underway. The original coordinator reminder AckConfirmed case also failed; pending was false and one Ack request was observed, while actual resolution is unprinted. It is outside original 123 and differs from the accepted consumer reminder case on #739. Its exact failure gets a separate owner report; no cause or fix is claimed from unchanged code or other native passes.
 - Silent-service's same-command single pair is **4.097 → 0.337 s** on the shared Mac, with five assertions and both modes unchanged. All **2,266** compiled identities/13 ignores remain; fmt and strict affected Clippy pass; the complete serial gate continues. This is not native or combined 123 proof.
 

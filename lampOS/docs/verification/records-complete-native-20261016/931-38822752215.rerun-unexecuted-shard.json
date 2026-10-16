@@ -1,0 +1,17 @@
+{
+  "command": [
+    "gh",
+    "run",
+    "rerun",
+    "38822752215",
+    "-R",
+    "autonomous-ai/lampOS",
+    "--failed"
+  ],
+  "started_from_date": "2026-10-16 06:41:45 +0700",
+  "finished_from_date": "2026-10-16 06:41:47 +0700",
+  "exit": 0,
+  "stdout": "",
+  "stderr": "",
+  "reason": "Only shard3 failed before tests while fetching crates.io dependency, curl56 Connection reset by peer. Shards1/2/4 passed and are not restarted. Preserve attempt1 log and 3950 PASS/83 original identities/15 new identities. No failed test rerun."
+}

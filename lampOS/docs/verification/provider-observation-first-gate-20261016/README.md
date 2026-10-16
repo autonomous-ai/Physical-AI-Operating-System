@@ -2,7 +2,7 @@
 
 Recorded from `date`: 2026-10-16 06:51:04 +0700. Shared Mac debug build, Rust 1.96.0; no native or lamp qualification is claimed. This is the first frozen source on base `e7d0f673d0c4bde4a770b19783d6084a8d935ec3`. Raw commands, dates, logs, exits, compiled lists, source snapshots and failure triage are copied without editing. The original handoff records the state at its own timestamp; the reviewed new-test correction was applied later and its fresh gate is separate and pending.
 
-Fmt, strict Clippy, compiled identity comparison and workspace build pass. All **2,257 prior identities** and existing ignore flags remain, plus **20 new cases**. First focused gate is **19 passed / 1 failed**; full Voice/Memory/Evaluator/Surround serial gate is **2,262 passed / 2 failed / 13 existing ignores**. Each stage ran once. The new failed case runs once in focused and once in the full gate; both failures are retained, with no retry to obtain a green result.
+Fmt, strict Clippy, compiled identity comparison and workspace build pass. All **2,257 prior identities** and existing ignore flags remain, plus **20 new cases**. First focused gate is **19 passed / 1 failed**; full Voice/Memory/Evaluator/Surround serial gate is **2,262 passed / 2 failed / 13 existing ignores**. The original early source regex counted 103 inline tests; the retained inventory addendum corrects this to 105, including two existing ignored cases. The complete inline module and all 544 assertions are byte-exact, and both compiled comparisons independently retain all 2,257 originals and their ignore flags. Each stage ran once. The new failed case runs once in focused and once in the full gate; both failures are retained, with no retry to obtain a green result.
 
 ## New socket-test correction
 

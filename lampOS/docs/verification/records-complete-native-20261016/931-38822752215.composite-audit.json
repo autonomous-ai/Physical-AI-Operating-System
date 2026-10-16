@@ -1,0 +1,1627 @@
+{
+  "date_from_date": "2026-10-16 07:02:09 +0700",
+  "run": 38822752215,
+  "head": "42405bb318ddd91c4883e5a16183630c0282b675",
+  "conclusion": "success after one unexecuted infrastructure-failed shard restart",
+  "current_attempt": 2,
+  "source_tree": "5e75949dedbf624c711bf6dc2579badb15038c97",
+  "all_four_checkouts": [
+    {
+      "shard": 3,
+      "head": "42405bb318ddd91c4883e5a16183630c0282b675",
+      "line": 248
+    },
+    {
+      "shard": 1,
+      "head": "42405bb318ddd91c4883e5a16183630c0282b675",
+      "line": 2002
+    },
+    {
+      "shard": 4,
+      "head": "42405bb318ddd91c4883e5a16183630c0282b675",
+      "line": 4799
+    },
+    {
+      "shard": 2,
+      "head": "42405bb318ddd91c4883e5a16183630c0282b675",
+      "line": 7304
+    }
+  ],
+  "raw_attempt1_sha256": "8006abb50d5ad636bcf672a2b1a47eddd775085d839c17e3a06670123b0674f1",
+  "raw_attempt2_composite_sha256": "d3a0d3549ec04ed2c36e7b8ea2fa21f567297c7621a497983aed45efb919e7a8",
+  "unchanged_successful_job_logs_byte_exact": true,
+  "passes": 5166,
+  "failures": 0,
+  "leaks": 0,
+  "duplicates": [],
+  "shards": [
+    {
+      "shard": 1,
+      "passes": 1278,
+      "job_id": 116730636225,
+      "started_at": "2026-10-15T23:18:18Z",
+      "completed_at": "2026-10-15T23:36:52Z",
+      "successful_steps": 14,
+      "conditional_skipped_steps": [],
+      "source_attempt": 1,
+      "original_raw_log_byte_exact": true
+    },
+    {
+      "shard": 2,
+      "passes": 1316,
+      "job_id": 116730685338,
+      "started_at": "2026-10-15T23:18:18Z",
+      "completed_at": "2026-10-15T23:35:11Z",
+      "successful_steps": 11,
+      "conditional_skipped_steps": [
+        "doc tests and the own-harness tests (nextest runs neither)",
+        "SHA-256 of each binary",
+        "Run actions/upload-artifact@v4"
+      ],
+      "source_attempt": 1,
+      "original_raw_log_byte_exact": true
+    },
+    {
+      "shard": 3,
+      "passes": 1216,
+      "job_id": 116730635071,
+      "started_at": "2026-10-15T23:41:54Z",
+      "completed_at": "2026-10-15T23:56:51Z",
+      "successful_steps": 11,
+      "conditional_skipped_steps": [
+        "doc tests and the own-harness tests (nextest runs neither)",
+        "SHA-256 of each binary",
+        "Run actions/upload-artifact@v4"
+      ],
+      "source_attempt": 2,
+      "original_raw_log_byte_exact": false
+    },
+    {
+      "shard": 4,
+      "passes": 1356,
+      "job_id": 116730637243,
+      "started_at": "2026-10-15T23:18:18Z",
+      "completed_at": "2026-10-15T23:34:23Z",
+      "successful_steps": 11,
+      "conditional_skipped_steps": [
+        "doc tests and the own-harness tests (nextest runs neither)",
+        "SHA-256 of each binary",
+        "Run actions/upload-artifact@v4"
+      ],
+      "source_attempt": 1,
+      "original_raw_log_byte_exact": true
+    }
+  ],
+  "original123": {
+    "count": 123,
+    "all_passed_once": true,
+    "seconds_sum": "583.656",
+    "results": [
+      {
+        "status": "PASS",
+        "seconds": "4.110",
+        "ordinal": 10,
+        "total": 1316,
+        "binary": "lamp-actions::server",
+        "test": "the_light_is_offered_when_its_owner_appears_and_withdrawn_when_it_goes",
+        "shard": 2,
+        "line": 8212
+      },
+      {
+        "status": "PASS",
+        "seconds": "5.009",
+        "ordinal": 418,
+        "total": 1316,
+        "binary": "lamp-health::program",
+        "test": "between_two_healths_five_seconds_apart_the_program_is_not_taken_for_gone",
+        "shard": 2,
+        "line": 8620
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.016",
+        "ordinal": 451,
+        "total": 1278,
+        "binary": "lamp-memory::health",
+        "test": "a_failed_legacy_write_stays_warn_through_reads_until_a_write_succeeds",
+        "shard": 1,
+        "line": 3351
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.548",
+        "ordinal": 517,
+        "total": 1356,
+        "binary": "lamp-memory::health",
+        "test": "a_store_that_cannot_open_never_claims_readiness_and_any_delivered_report_is_warn",
+        "shard": 4,
+        "line": 6214
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.020",
+        "ordinal": 518,
+        "total": 1356,
+        "binary": "lamp-memory::health",
+        "test": "a_working_bus_that_fails_stays_failed_until_publication_really_recovers",
+        "shard": 4,
+        "line": 6215
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.013",
+        "ordinal": 519,
+        "total": 1356,
+        "binary": "lamp-memory::health",
+        "test": "an_unusable_bus_does_not_prevent_serving_and_reports_recover_when_it_returns",
+        "shard": 4,
+        "line": 6216
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.017",
+        "ordinal": 460,
+        "total": 1216,
+        "binary": "lamp-memory::health",
+        "test": "legacy_reports_retained_counts_and_stays_well_after_caller_refusals",
+        "shard": 3,
+        "line": 974
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.034",
+        "ordinal": 520,
+        "total": 1356,
+        "binary": "lamp-memory::health",
+        "test": "sqlite_reports_retained_counts_and_stays_well_after_caller_refusals",
+        "shard": 4,
+        "line": 6217
+      },
+      {
+        "status": "PASS",
+        "seconds": "4.442",
+        "ordinal": 461,
+        "total": 1216,
+        "binary": "lamp-memory::health",
+        "test": "the_environment_alone_does_not_enable_reporting_or_create_bus_data",
+        "shard": 3,
+        "line": 975
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.010",
+        "ordinal": 603,
+        "total": 1278,
+        "binary": "lamp-records::records",
+        "test": "real_reporter_reloads_switch_and_policy_and_requires_a_matching_receipt",
+        "shard": 1,
+        "line": 3503
+      },
+      {
+        "status": "PASS",
+        "seconds": "5.381",
+        "ordinal": 915,
+        "total": 1278,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::early_end::a_lone_lamp_and_a_pause_and_the_question_go_as_one_request",
+        "shard": 1,
+        "line": 3815
+      },
+      {
+        "status": "PASS",
+        "seconds": "1.114",
+        "ordinal": 856,
+        "total": 1216,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::early_end::a_name_note_told_with_a_request_ended_early_does_not_survive_it",
+        "shard": 3,
+        "line": 1370
+      },
+      {
+        "status": "PASS",
+        "seconds": "10.757",
+        "ordinal": 954,
+        "total": 1356,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::early_end::an_answer_that_arrives_after_the_lamp_is_sure_begins_400_ms_sooner_than_without",
+        "shard": 4,
+        "line": 6651
+      },
+      {
+        "status": "PASS",
+        "seconds": "4.381",
+        "ordinal": 946,
+        "total": 1316,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::early_end::an_answer_that_arrives_before_the_lamp_is_sure_begins_at_that_moment",
+        "shard": 2,
+        "line": 9148
+      },
+      {
+        "status": "PASS",
+        "seconds": "4.383",
+        "ordinal": 947,
+        "total": 1316,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::early_end::an_answer_with_nothing_said_before_the_lamp_is_sure_is_never_played",
+        "shard": 2,
+        "line": 9149
+      },
+      {
+        "status": "PASS",
+        "seconds": "5.381",
+        "ordinal": 858,
+        "total": 1216,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::early_end::lamp_stop_over_an_answer_stops_it_and_only_the_answer_to_the_whole_is_played",
+        "shard": 3,
+        "line": 1372
+      },
+      {
+        "status": "PASS",
+        "seconds": "4.383",
+        "ordinal": 957,
+        "total": 1356,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::early_end::quiet_to_the_end_the_answer_starts_when_the_lamp_is_sure_and_not_before",
+        "shard": 4,
+        "line": 6654
+      },
+      {
+        "status": "PASS",
+        "seconds": "6.383",
+        "ordinal": 949,
+        "total": 1316,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::early_end::speech_resumed_at_three_tenths_nothing_of_the_first_answer_is_played_and_one_turn_is_heard",
+        "shard": 2,
+        "line": 9151
+      },
+      {
+        "status": "PASS",
+        "seconds": "6.385",
+        "ordinal": 918,
+        "total": 1278,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::early_end::speech_resumed_at_three_tenths_under_the_lamps_duplex_policy",
+        "shard": 1,
+        "line": 3818
+      },
+      {
+        "status": "PASS",
+        "seconds": "6.380",
+        "ordinal": 919,
+        "total": 1278,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::early_end::the_link_dropping_in_between_fails_the_request_unheard_and_the_next_is_answered",
+        "shard": 1,
+        "line": 3819
+      },
+      {
+        "status": "PASS",
+        "seconds": "6.386",
+        "ordinal": 859,
+        "total": 1216,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::early_end::without_the_option_every_message_and_record_is_what_it_was",
+        "shard": 3,
+        "line": 1373
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.344",
+        "ordinal": 861,
+        "total": 1216,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::endpoint_session::a_complete_verdict_ends_at_one_second_and_its_answer_plays",
+        "shard": 3,
+        "line": 1375
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.367",
+        "ordinal": 952,
+        "total": 1316,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::endpoint_session::a_worker_failure_falls_back_through_recovery_and_then_resumes",
+        "shard": 2,
+        "line": 9154
+      },
+      {
+        "status": "PASS",
+        "seconds": "4.379",
+        "ordinal": 863,
+        "total": 1216,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::endpoint_session::a_worker_still_loading_leaves_the_baseline_window",
+        "shard": 3,
+        "line": 1377
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.338",
+        "ordinal": 920,
+        "total": 1278,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::endpoint_session::complete_verdict_ends_early_but_resumed_speech_keeps_the_turn",
+        "shard": 1,
+        "line": 3820
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.312",
+        "ordinal": 953,
+        "total": 1316,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::endpoint_session::confirmed_endpoint_exit_keeps_the_restartable_mute",
+        "shard": 2,
+        "line": 9155
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.344",
+        "ordinal": 921,
+        "total": 1278,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::endpoint_session::duplex_complete_verdict_ends_at_one_second_and_its_answer_plays",
+        "shard": 1,
+        "line": 3821
+      },
+      {
+        "status": "PASS",
+        "seconds": "4.379",
+        "ordinal": 922,
+        "total": 1278,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::endpoint_session::duplex_missing_model_session_ends_on_the_unchanged_silence_fallback",
+        "shard": 1,
+        "line": 3822
+      },
+      {
+        "status": "PASS",
+        "seconds": "6.379",
+        "ordinal": 866,
+        "total": 1216,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::endpoint_session::hung_worker_never_delays_capture_endpoint_or_session_end",
+        "shard": 3,
+        "line": 1380
+      },
+      {
+        "status": "PASS",
+        "seconds": "4.378",
+        "ordinal": 956,
+        "total": 1316,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::endpoint_session::missing_model_session_ends_on_the_unchanged_silence_fallback",
+        "shard": 2,
+        "line": 9158
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.620",
+        "ordinal": 923,
+        "total": 1278,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::endpoint_session::mute_then_reopen_never_overlaps_endpoint_workers",
+        "shard": 1,
+        "line": 3823
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.344",
+        "ordinal": 924,
+        "total": 1278,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::endpoint_session::rapid_resumes_never_end_the_turn_early",
+        "shard": 1,
+        "line": 3824
+      },
+      {
+        "status": "PASS",
+        "seconds": "1.518",
+        "ordinal": 925,
+        "total": 1278,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::endpoint_session::unconfirmed_endpoint_exit_fails_mute_cleanup_and_never_reopens_service",
+        "shard": 1,
+        "line": 3825
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.350",
+        "ordinal": 867,
+        "total": 1216,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::endpoint_session::verdicts_after_the_result_timeout_fall_back_on_every_turn",
+        "shard": 3,
+        "line": 1381
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.024",
+        "ordinal": 875,
+        "total": 1216,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::pilot_faults::a_paused_lamp_takes_no_question_and_says_why",
+        "shard": 3,
+        "line": 1389
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.047",
+        "ordinal": 878,
+        "total": 1216,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::pilot_faults::a_turn_under_way_when_paused_is_finished_and_the_next_is_not_taken",
+        "shard": 3,
+        "line": 1392
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.038",
+        "ordinal": 879,
+        "total": 1216,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::pilot_faults::camera_loss_during_an_answer_revokes_only_sight",
+        "shard": 3,
+        "line": 1393
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.029",
+        "ordinal": 970,
+        "total": 1356,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::pilot_faults::capture_fault_during_output_cancels_the_answer_and_ends_the_run",
+        "shard": 4,
+        "line": 6667
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.025",
+        "ordinal": 972,
+        "total": 1356,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::pilot_faults::capture_stall_during_a_question_ends_the_run_without_an_answer",
+        "shard": 4,
+        "line": 6669
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.033",
+        "ordinal": 973,
+        "total": 1356,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::pilot_faults::control_one_question_is_answered_once_then_mute_ends_the_run",
+        "shard": 4,
+        "line": 6670
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.032",
+        "ordinal": 937,
+        "total": 1278,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::pilot_faults::control_progress_without_settlement_is_bounded_under_v1_baseline",
+        "shard": 1,
+        "line": 3837
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.028",
+        "ordinal": 880,
+        "total": 1216,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::pilot_faults::control_progress_without_settlement_is_bounded_under_vad_only",
+        "shard": 3,
+        "line": 1394
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.004",
+        "ordinal": 881,
+        "total": 1216,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::pilot_faults::distinct_rejects_an_item_that_returns_later",
+        "shard": 3,
+        "line": 1395
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.034",
+        "ordinal": 938,
+        "total": 1278,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::pilot_faults::duplex_control_answers_once",
+        "shard": 1,
+        "line": 3838
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.031",
+        "ordinal": 882,
+        "total": 1216,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::pilot_faults::duplex_stalled_speaker_is_bounded",
+        "shard": 3,
+        "line": 1396
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.045",
+        "ordinal": 883,
+        "total": 1216,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::pilot_faults::failure_notice_plays_once_keeps_the_failure_and_yields_to_the_next_owner",
+        "shard": 3,
+        "line": 1397
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.039",
+        "ordinal": 940,
+        "total": 1278,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::pilot_faults::failure_notice_yields_mid_play_to_a_new_owner_under_vad_only",
+        "shard": 1,
+        "line": 3840
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.029",
+        "ordinal": 885,
+        "total": 1216,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::pilot_faults::mute_while_answer_speech_is_queued_cuts_it_and_never_resumes",
+        "shard": 3,
+        "line": 1399
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.029",
+        "ordinal": 886,
+        "total": 1216,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::pilot_faults::mute_while_the_failure_notice_plays_cuts_it_and_keeps_the_failure",
+        "shard": 3,
+        "line": 1400
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.033",
+        "ordinal": 941,
+        "total": 1278,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::pilot_faults::partial_write_then_stall_is_bounded_under_v1_baseline",
+        "shard": 1,
+        "line": 3841
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.027",
+        "ordinal": 974,
+        "total": 1356,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::pilot_faults::partial_write_then_stall_is_bounded_under_vad_only",
+        "shard": 4,
+        "line": 6671
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.028",
+        "ordinal": 975,
+        "total": 1356,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::pilot_faults::provider_failure_before_output_settles_failed_without_speech",
+        "shard": 4,
+        "line": 6672
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.033",
+        "ordinal": 976,
+        "total": 1356,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::pilot_faults::provider_failure_during_output_never_becomes_a_completed_answer",
+        "shard": 4,
+        "line": 6673
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.028",
+        "ordinal": 887,
+        "total": 1216,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::pilot_faults::provider_process_lost_before_output_ends_the_run_without_speech",
+        "shard": 3,
+        "line": 1401
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.029",
+        "ordinal": 962,
+        "total": 1316,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::pilot_faults::provider_process_lost_during_output_stops_speech_and_fails_the_turn",
+        "shard": 2,
+        "line": 9164
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.029",
+        "ordinal": 977,
+        "total": 1356,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::pilot_faults::provider_worker_fault_during_output_fails_the_turn_and_ends_the_run",
+        "shard": 4,
+        "line": 6674
+      },
+      {
+        "status": "PASS",
+        "seconds": "8.586",
+        "ordinal": 942,
+        "total": 1278,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::pilot_faults::rapid_mute_and_reopen_never_overlaps_workers_or_carries_speech_across",
+        "shard": 1,
+        "line": 3842
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.033",
+        "ordinal": 888,
+        "total": 1216,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::pilot_faults::readiness_publishes_the_link_state_it_was_validated_against",
+        "shard": 3,
+        "line": 1402
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.040",
+        "ordinal": 943,
+        "total": 1278,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::pilot_faults::resumed_the_lamp_answers_again",
+        "shard": 1,
+        "line": 3843
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.043",
+        "ordinal": 978,
+        "total": 1356,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::pilot_faults::ring_fault_during_an_answer_keeps_the_conversation_and_cleans_up",
+        "shard": 4,
+        "line": 6675
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.043",
+        "ordinal": 889,
+        "total": 1216,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::pilot_faults::ring_lost_without_blanking_keeps_the_answer_but_cleanup_fails_truthfully",
+        "shard": 3,
+        "line": 1403
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.029",
+        "ordinal": 890,
+        "total": 1216,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::pilot_faults::sigterm_while_answer_speech_is_pending_stops_cleanly",
+        "shard": 3,
+        "line": 1404
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.533",
+        "ordinal": 963,
+        "total": 1316,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::pilot_faults::sigterm_while_metadata_storage_is_stalled_stops_cleanly_and_reports_the_loss",
+        "shard": 2,
+        "line": 9165
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.029",
+        "ordinal": 891,
+        "total": 1216,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::pilot_faults::sigterm_while_the_failure_notice_plays_stops_cleanly",
+        "shard": 3,
+        "line": 1405
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.005",
+        "ordinal": 944,
+        "total": 1278,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::pilot_faults::speaker_progress_is_due_strictly_after_lease_plus_report_age",
+        "shard": 1,
+        "line": 3844
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.034",
+        "ordinal": 945,
+        "total": 1278,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::pilot_faults::stalled_speaker_during_output_is_bounded_and_never_completes_the_answer",
+        "shard": 1,
+        "line": 3845
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.030",
+        "ordinal": 892,
+        "total": 1216,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::pilot_faults::stalled_speaker_under_vad_only_is_bounded_too",
+        "shard": 3,
+        "line": 1406
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.031",
+        "ordinal": 979,
+        "total": 1356,
+        "binary": "lamp-voice",
+        "test": "coordinator::tests::pilot_faults::terminal_provider_link_during_output_settles_failed_and_ends_service",
+        "shard": 4,
+        "line": 6676
+      },
+      {
+        "status": "PASS",
+        "seconds": "4.532",
+        "ordinal": 1046,
+        "total": 1316,
+        "binary": "lamp-voice",
+        "test": "provider_worker::tests::kept_start::with_no_first_answer_the_patience_ends_in_the_strict_timeout_and_no_end",
+        "shard": 2,
+        "line": 9248
+      },
+      {
+        "status": "PASS",
+        "seconds": "4.054",
+        "ordinal": 1053,
+        "total": 1316,
+        "binary": "lamp-voice",
+        "test": "provider_worker::tests::resumed_question_survives_a_silent_service_and_the_assumption_is_reported",
+        "shard": 2,
+        "line": 9255
+      },
+      {
+        "status": "PASS",
+        "seconds": "5.228",
+        "ordinal": 983,
+        "total": 1216,
+        "binary": "lamp-voice",
+        "test": "provider_worker::tests::review_2026_10_14::review_a_name_heard_after_a_requests_sound_ended_does_not_let_out_its_answer",
+        "shard": 3,
+        "line": 1497
+      },
+      {
+        "status": "PASS",
+        "seconds": "4.430",
+        "ordinal": 1089,
+        "total": 1356,
+        "binary": "lamp-voice",
+        "test": "provider_worker::tests::review_2026_10_14::review_sound_a_name_heard_as_a_request_began_lets_out_the_answer_the_rule_would_hold",
+        "shard": 4,
+        "line": 6786
+      },
+      {
+        "status": "PASS",
+        "seconds": "24.028",
+        "ordinal": 1052,
+        "total": 1278,
+        "binary": "lamp-voice",
+        "test": "provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity",
+        "shard": 1,
+        "line": 3952
+      },
+      {
+        "status": "PASS",
+        "seconds": "5.012",
+        "ordinal": 1284,
+        "total": 1356,
+        "binary": "lamp-voice-eval",
+        "test": "physical::mac::audit_grant_tests::audit_transport_that_outlives_its_bound_is_killed_and_never_certified",
+        "shard": 4,
+        "line": 6981
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.351",
+        "ordinal": 1186,
+        "total": 1216,
+        "binary": "lamp-voice-eval::final_dispatch",
+        "test": "a_final_drain_that_exhausts_its_budget_requires_revalidation",
+        "shard": 3,
+        "line": 1700
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.251",
+        "ordinal": 1324,
+        "total": 1356,
+        "binary": "lamp-voice-eval::final_dispatch",
+        "test": "a_healthy_session_still_dispatches_once",
+        "shard": 4,
+        "line": 7021
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.050",
+        "ordinal": 1325,
+        "total": 1356,
+        "binary": "lamp-voice-eval::final_dispatch",
+        "test": "a_known_invalid_cue_withholds_dispatch_as_a_protocol_failure",
+        "shard": 4,
+        "line": 7022
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.051",
+        "ordinal": 1187,
+        "total": 1216,
+        "binary": "lamp-voice-eval::final_dispatch",
+        "test": "a_known_run_end_cue_withholds_dispatch",
+        "shard": 3,
+        "line": 1701
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.049",
+        "ordinal": 1284,
+        "total": 1316,
+        "binary": "lamp-voice-eval::final_dispatch",
+        "test": "a_known_session_end_withholds_dispatch",
+        "shard": 2,
+        "line": 9486
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.849",
+        "ordinal": 1285,
+        "total": 1316,
+        "binary": "lamp-voice-eval::final_dispatch",
+        "test": "a_relay_framing_error_first_seen_in_the_final_drain_withholds",
+        "shard": 2,
+        "line": 9487
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.850",
+        "ordinal": 1248,
+        "total": 1278,
+        "binary": "lamp-voice-eval::final_dispatch",
+        "test": "a_session_end_first_seen_in_the_final_drain_withholds_and_is_kept",
+        "shard": 1,
+        "line": 4148
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.830",
+        "ordinal": 1249,
+        "total": 1278,
+        "binary": "lamp-voice-eval::final_dispatch",
+        "test": "a_transport_closed_during_the_final_drain_withholds",
+        "shard": 1,
+        "line": 4149
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.848",
+        "ordinal": 1188,
+        "total": 1216,
+        "binary": "lamp-voice-eval::final_dispatch",
+        "test": "an_invalid_cue_first_seen_in_the_final_drain_withholds",
+        "shard": 3,
+        "line": 1702
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.849",
+        "ordinal": 1286,
+        "total": 1316,
+        "binary": "lamp-voice-eval::final_dispatch",
+        "test": "an_unobserved_event_in_the_final_drain_requires_revalidation",
+        "shard": 2,
+        "line": 9488
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.100",
+        "ordinal": 1326,
+        "total": 1356,
+        "binary": "lamp-voice-eval::final_dispatch",
+        "test": "audit_physical_boundary_does_not_dispatch_during_post_exit_trace_relay",
+        "shard": 4,
+        "line": 7023
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.098",
+        "ordinal": 1189,
+        "total": 1216,
+        "binary": "lamp-voice-eval::final_dispatch",
+        "test": "audit_physical_boundary_rejects_a_target_already_over_100ms_late",
+        "shard": 3,
+        "line": 1703
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.052",
+        "ordinal": 1250,
+        "total": 1278,
+        "binary": "lamp-voice-eval::final_dispatch",
+        "test": "the_first_terminal_cause_wins_and_a_provider_failure_stays_provider_unavailable",
+        "shard": 1,
+        "line": 4150
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.033",
+        "ordinal": 1252,
+        "total": 1278,
+        "binary": "lamp-voice-eval::physical_loopback",
+        "test": "a_transport_that_closes_mid_trace_invalidates_the_attempt",
+        "shard": 1,
+        "line": 4152
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.404",
+        "ordinal": 1328,
+        "total": 1356,
+        "binary": "lamp-voice-eval::physical_loopback",
+        "test": "cue_triggered_acknowledgment_is_injected_during_playback_and_scored",
+        "shard": 4,
+        "line": 7025
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.698",
+        "ordinal": 1329,
+        "total": 1356,
+        "binary": "lamp-voice-eval::physical_loopback",
+        "test": "directed_followup_waits_for_whole_reply_completion_then_admits_a_new_turn",
+        "shard": 4,
+        "line": 7026
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.730",
+        "ordinal": 1287,
+        "total": 1316,
+        "binary": "lamp-voice-eval::physical_loopback",
+        "test": "directed_interruption_during_second_occurrence_preserves_owner_and_yields",
+        "shard": 2,
+        "line": 9489
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.984",
+        "ordinal": 1288,
+        "total": 1316,
+        "binary": "lamp-voice-eval::physical_loopback",
+        "test": "directed_missing_or_stale_retirement_never_falls_back_to_a_timer_or_final_trace",
+        "shard": 2,
+        "line": 9490
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.020",
+        "ordinal": 1330,
+        "total": 1356,
+        "binary": "lamp-voice-eval::physical_loopback",
+        "test": "directed_mode_keeps_provider_fault_and_asset_restrictions",
+        "shard": 4,
+        "line": 7027
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.707",
+        "ordinal": 1253,
+        "total": 1278,
+        "binary": "lamp-voice-eval::physical_loopback",
+        "test": "directed_natural_interruption_runs_during_reply_with_original_cancel_reason",
+        "shard": 1,
+        "line": 4153
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.713",
+        "ordinal": 1331,
+        "total": 1356,
+        "binary": "lamp-voice-eval::physical_loopback",
+        "test": "directed_two_occurrences_wait_for_true_completion_before_followup",
+        "shard": 4,
+        "line": 7028
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.355",
+        "ordinal": 1332,
+        "total": 1356,
+        "binary": "lamp-voice-eval::physical_loopback",
+        "test": "echo_only_window_passes_through_the_relay_without_extra_admissions",
+        "shard": 4,
+        "line": 7029
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.976",
+        "ordinal": 1190,
+        "total": 1216,
+        "binary": "lamp-voice-eval::physical_loopback",
+        "test": "missing_or_stale_whole_completion_withholds_followup_after_valid_retirement",
+        "shard": 3,
+        "line": 1704
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.645",
+        "ordinal": 1333,
+        "total": 1356,
+        "binary": "lamp-voice-eval::physical_loopback",
+        "test": "physical_next_turn_ready_follows_lamp_voice_readiness_cues",
+        "shard": 4,
+        "line": 7030
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.399",
+        "ordinal": 1191,
+        "total": 1216,
+        "binary": "lamp-voice-eval::physical_loopback",
+        "test": "undelivered_stimuli_are_withheld_not_scored_as_silence",
+        "shard": 3,
+        "line": 1705
+      },
+      {
+        "status": "PASS",
+        "seconds": "3.009",
+        "ordinal": 1209,
+        "total": 1216,
+        "binary": "lamp-voice-eval::serve_relay",
+        "test": "a_closed_runner_transport_stops_the_runtime_through_the_same_path",
+        "shard": 3,
+        "line": 1723
+      },
+      {
+        "status": "PASS",
+        "seconds": "3.025",
+        "ordinal": 1271,
+        "total": 1278,
+        "binary": "lamp-voice-eval::serve_relay",
+        "test": "a_nonzero_runtime_exit_after_clean_metadata_is_a_relay_error",
+        "shard": 1,
+        "line": 4171
+      },
+      {
+        "status": "PASS",
+        "seconds": "3.025",
+        "ordinal": 1309,
+        "total": 1316,
+        "binary": "lamp-voice-eval::serve_relay",
+        "test": "a_runner_stop_is_one_sigterm_and_a_clean_reaped_end",
+        "shard": 2,
+        "line": 9511
+      },
+      {
+        "status": "PASS",
+        "seconds": "13.022",
+        "ordinal": 1355,
+        "total": 1356,
+        "binary": "lamp-voice-eval::serve_relay",
+        "test": "a_runtime_that_ignores_sigterm_is_force_killed_and_never_clean",
+        "shard": 4,
+        "line": 7052
+      },
+      {
+        "status": "PASS",
+        "seconds": "6.020",
+        "ordinal": 1272,
+        "total": 1278,
+        "binary": "lamp-voice-eval::serve_relay",
+        "test": "the_hard_deadline_stops_the_runtime_and_is_an_error",
+        "shard": 1,
+        "line": 4172
+      },
+      {
+        "status": "PASS",
+        "seconds": "3.025",
+        "ordinal": 1210,
+        "total": 1216,
+        "binary": "lamp-voice-eval::serve_relay",
+        "test": "the_pilot_runtime_settings_reach_the_serve_child_exactly",
+        "shard": 3,
+        "line": 1724
+      },
+      {
+        "status": "PASS",
+        "seconds": "23.083",
+        "ordinal": 1273,
+        "total": 1278,
+        "binary": "lamp-voice-eval::serve_session",
+        "test": "a_declared_capture_end_before_the_next_prompt_and_its_window_withholds_it",
+        "shard": 1,
+        "line": 4173
+      },
+      {
+        "status": "PASS",
+        "seconds": "26.711",
+        "ordinal": 1274,
+        "total": 1278,
+        "binary": "lamp-voice-eval::serve_session",
+        "test": "a_late_first_copy_or_failed_player_withholds_every_later_turn",
+        "shard": 1,
+        "line": 4174
+      },
+      {
+        "status": "PASS",
+        "seconds": "10.544",
+        "ordinal": 1310,
+        "total": 1316,
+        "binary": "lamp-voice-eval::serve_session",
+        "test": "a_nonzero_runtime_exit_never_completes_a_serve_attempt",
+        "shard": 2,
+        "line": 9512
+      },
+      {
+        "status": "PASS",
+        "seconds": "34.718",
+        "ordinal": 1311,
+        "total": 1316,
+        "binary": "lamp-voice-eval::serve_session",
+        "test": "a_provider_outage_is_waited_out_by_event_and_a_terminal_link_ends_it",
+        "shard": 2,
+        "line": 9513
+      },
+      {
+        "status": "PASS",
+        "seconds": "6.084",
+        "ordinal": 1275,
+        "total": 1278,
+        "binary": "lamp-voice-eval::serve_session",
+        "test": "a_recorder_that_exits_zero_mid_conversation_withholds_the_rest_and_certifies_nothing",
+        "shard": 1,
+        "line": 4175
+      },
+      {
+        "status": "PASS",
+        "seconds": "6.081",
+        "ordinal": 1211,
+        "total": 1216,
+        "binary": "lamp-voice-eval::serve_session",
+        "test": "a_room_recording_that_ends_early_withholds_the_rest",
+        "shard": 3,
+        "line": 1725
+      },
+      {
+        "status": "PASS",
+        "seconds": "48.298",
+        "ordinal": 1276,
+        "total": 1278,
+        "binary": "lamp-voice-eval::serve_session",
+        "test": "a_runtime_stop_mute_or_ignored_sigterm_is_retained_and_reaped",
+        "shard": 1,
+        "line": 4176
+      },
+      {
+        "status": "PASS",
+        "seconds": "12.699",
+        "ordinal": 1212,
+        "total": 1216,
+        "binary": "lamp-voice-eval::serve_session",
+        "test": "an_extra_candidate_during_the_wait_withholds_the_rest",
+        "shard": 3,
+        "line": 1726
+      },
+      {
+        "status": "PASS",
+        "seconds": "30.273",
+        "ordinal": 1356,
+        "total": 1356,
+        "binary": "lamp-voice-eval::serve_session",
+        "test": "delayed_readiness_is_awaited_by_event_not_by_completion",
+        "shard": 4,
+        "line": 7053
+      },
+      {
+        "status": "PASS",
+        "seconds": "64.973",
+        "ordinal": 1213,
+        "total": 1216,
+        "binary": "lamp-voice-eval::serve_session",
+        "test": "normal_eight_turn_conversation_in_one_serve_session",
+        "shard": 3,
+        "line": 1728
+      },
+      {
+        "status": "PASS",
+        "seconds": "10.542",
+        "ordinal": 1214,
+        "total": 1216,
+        "binary": "lamp-voice-eval::serve_session",
+        "test": "serve_readiness_comes_only_from_the_fresh_cue_never_from_stdout",
+        "shard": 3,
+        "line": 1729
+      },
+      {
+        "status": "PASS",
+        "seconds": "63.518",
+        "ordinal": 1215,
+        "total": 1216,
+        "binary": "lamp-voice-eval::serve_session",
+        "test": "stale_duplicate_reordered_foreign_and_lost_cues_end_the_conversation",
+        "shard": 3,
+        "line": 1731
+      },
+      {
+        "status": "PASS",
+        "seconds": "21.657",
+        "ordinal": 1312,
+        "total": 1316,
+        "binary": "lamp-voice-eval::serve_session",
+        "test": "startup_cues_stay_fresh_through_a_slow_transport_and_a_slow_first_preparer",
+        "shard": 2,
+        "line": 9514
+      },
+      {
+        "status": "PASS",
+        "seconds": "10.548",
+        "ordinal": 1277,
+        "total": 1278,
+        "binary": "lamp-voice-eval::serve_session",
+        "test": "the_runner_forwards_pilot_runtime_settings_through_the_relay",
+        "shard": 1,
+        "line": 4177
+      },
+      {
+        "status": "PASS",
+        "seconds": "1.610",
+        "ordinal": 1089,
+        "total": 1216,
+        "binary": "lamp-voice::capture_hold_worker",
+        "test": "a_microphone_busy_for_a_moment_at_start_is_opened_once_it_is_free",
+        "shard": 3,
+        "line": 1603
+      },
+      {
+        "status": "PASS",
+        "seconds": "5.107",
+        "ordinal": 1225,
+        "total": 1356,
+        "binary": "lamp-voice::capture_hold_worker",
+        "test": "another_microphone_is_handed_on_at_once_and_its_early_sound_is_not_accounted_for",
+        "shard": 4,
+        "line": 6922
+      },
+      {
+        "status": "PASS",
+        "seconds": "5.107",
+        "ordinal": 1226,
+        "total": 1356,
+        "binary": "lamp-voice::capture_hold_worker",
+        "test": "mic1_frames_wait_four_blocks_with_their_own_times_and_a_stop_drops_what_is_held",
+        "shard": 4,
+        "line": 6923
+      },
+      {
+        "status": "PASS",
+        "seconds": "2.106",
+        "ordinal": 1090,
+        "total": 1216,
+        "binary": "lamp-voice::capture_hold_worker",
+        "test": "mic1_muted_while_frames_are_held_hands_none_of_them_on",
+        "shard": 3,
+        "line": 1604
+      }
+    ]
+  },
+  "added20": {
+    "count": 20,
+    "all_passed_once": true,
+    "seconds_sum": "5.106",
+    "results": [
+      {
+        "status": "PASS",
+        "seconds": "0.004",
+        "ordinal": 610,
+        "total": 1278,
+        "binary": "lamp-records::bin/lamp-records",
+        "test": "fixture_schedule_tests::a_stale_round_backwards_time_or_future_jump_after_settling_is_terminal",
+        "shard": 1,
+        "line": 3510
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.006",
+        "ordinal": 600,
+        "total": 1216,
+        "binary": "lamp-records::bin/lamp-records",
+        "test": "fixture_schedule_tests::actual_first_and_due_factories_must_finish_before_checked_or_event",
+        "shard": 3,
+        "line": 1114
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.004",
+        "ordinal": 601,
+        "total": 1216,
+        "binary": "lamp-records::bin/lamp-records",
+        "test": "fixture_schedule_tests::invalid_initial_identity_round_or_time_never_advances_and_latches_failure",
+        "shard": 3,
+        "line": 1115
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.004",
+        "ordinal": 683,
+        "total": 1356,
+        "binary": "lamp-records::bin/lamp-records",
+        "test": "fixture_schedule_tests::reads_and_pre_due_steps_are_pure_and_due_reply_waits_for_the_next_cycle",
+        "shard": 4,
+        "line": 6380
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.005",
+        "ordinal": 684,
+        "total": 1356,
+        "binary": "lamp-records::bin/lamp-records",
+        "test": "fixture_schedule_tests::real_construction_failure_can_only_recover_on_the_original_next_due",
+        "shard": 4,
+        "line": 6381
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.003",
+        "ordinal": 602,
+        "total": 1216,
+        "binary": "lamp-records::bin/lamp-records",
+        "test": "fixture_schedule_tests::zero_wait_and_changed_host_lifetime_cannot_acknowledge_a_cycle",
+        "shard": 3,
+        "line": 1116
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.004",
+        "ordinal": 631,
+        "total": 1316,
+        "binary": "lamp-records::records_control",
+        "test": "a_complete_checked_queued_before_peer_close_is_consumed_and_committed",
+        "shard": 2,
+        "line": 8833
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.007",
+        "ordinal": 604,
+        "total": 1278,
+        "binary": "lamp-records::records_control",
+        "test": "actual_child_returns_three_distinct_events_at_full_due_intervals",
+        "shard": 1,
+        "line": 3504
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.006",
+        "ordinal": 632,
+        "total": 1316,
+        "binary": "lamp-records::records_control",
+        "test": "actual_control_close_requires_actual_error_exit_and_reap",
+        "shard": 2,
+        "line": 8834
+      },
+      {
+        "status": "PASS",
+        "seconds": "1.007",
+        "ordinal": 676,
+        "total": 1356,
+        "binary": "lamp-records::records_control",
+        "test": "blocked_control_keeps_the_real_one_second_lifetime_and_exits_with_error_64",
+        "shard": 4,
+        "line": 6373
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.005",
+        "ordinal": 633,
+        "total": 1316,
+        "binary": "lamp-records::records_control",
+        "test": "every_initial_response_identity_and_cycle_field_is_validated",
+        "shard": 2,
+        "line": 8835
+      },
+      {
+        "status": "PASS",
+        "seconds": "4.008",
+        "ordinal": 605,
+        "total": 1278,
+        "binary": "lamp-records::records_control",
+        "test": "filled_real_pipe_write_uses_the_single_absolute_host_deadline",
+        "shard": 1,
+        "line": 3505
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.006",
+        "ordinal": 597,
+        "total": 1216,
+        "binary": "lamp-records::records_control",
+        "test": "fragmented_real_pipe_frames_work_and_oversized_reads_fail_at_the_byte_bound",
+        "shard": 3,
+        "line": 1111
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.004",
+        "ordinal": 677,
+        "total": 1356,
+        "binary": "lamp-records::records_control",
+        "test": "framing_rejects_truncation_unknown_fields_and_malformed_json",
+        "shard": 4,
+        "line": 6374
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.008",
+        "ordinal": 634,
+        "total": 1316,
+        "binary": "lamp-records::records_control",
+        "test": "invalid_bootstrap_is_an_actual_child_error_before_any_reporting_event",
+        "shard": 2,
+        "line": 8836
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.004",
+        "ordinal": 678,
+        "total": 1356,
+        "binary": "lamp-records::records_control",
+        "test": "malformed_due_receipt_after_peer_advance_latches_without_parent_time_commit",
+        "shard": 4,
+        "line": 6375
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.004",
+        "ordinal": 598,
+        "total": 1216,
+        "binary": "lamp-records::records_control",
+        "test": "parent_rejects_future_steps_and_one_window_retains_full_periods_and_end",
+        "shard": 3,
+        "line": 1112
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.005",
+        "ordinal": 679,
+        "total": 1356,
+        "binary": "lamp-records::records_control",
+        "test": "partial_setup_and_parent_unwind_both_reap_the_owned_child",
+        "shard": 4,
+        "line": 6376
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.007",
+        "ordinal": 606,
+        "total": 1278,
+        "binary": "lamp-records::records_control",
+        "test": "returned_ok_without_a_subscriber_is_not_a_delivered_event",
+        "shard": 1,
+        "line": 3506
+      },
+      {
+        "status": "PASS",
+        "seconds": "0.005",
+        "ordinal": 607,
+        "total": 1278,
+        "binary": "lamp-records::records_control",
+        "test": "same_time_and_pre_due_replies_cannot_fabricate_new_work_or_change_outcome",
+        "shard": 1,
+        "line": 3507
+      }
+    ]
+  },
+  "reporter": {
+    "count": 1,
+    "all_passed_once": true,
+    "seconds_sum": "0.010",
+    "results": [
+      {
+        "status": "PASS",
+        "seconds": "0.010",
+        "ordinal": 603,
+        "total": 1278,
+        "binary": "lamp-records::records",
+        "test": "real_reporter_reloads_switch_and_policy_and_requires_a_matching_receipt",
+        "shard": 1,
+        "line": 3503
+      }
+    ]
+  },
+  "source_files": [
+    {
+      "path": "lampOS/crates/records/Cargo.toml",
+      "sha256": "d624cddfc993a78af2510a9fef47ef192221da0a49c00051aa2ab63da25dada1",
+      "git_blob": "92e1ba07a5ad1c9e1f5c3f73c489d902ed5615c6"
+    },
+    {
+      "path": "lampOS/crates/records/src/main.rs",
+      "sha256": "40d8eba533e42937e71b2995ae022acb2d7e1994e8e162005c166726041a2400",
+      "git_blob": "f575299fe01d1cda45e875dcafcec89c7912cedb"
+    },
+    {
+      "path": "lampOS/crates/records/src/bin/lamp-records-fixture.rs",
+      "sha256": "56ed3d6bd78679b9f93b911ba531487fc02507abd88f4903939920aa360604d7",
+      "git_blob": "5e08bceef3d94a29e17c780fe5d41bbdada8df3d"
+    },
+    {
+      "path": "lampOS/crates/records/src/fixture_protocol.rs",
+      "sha256": "4d2bd95d5b273b7af70a408d513fa47a6ceb4e9d16fb81c68e604520dfdb48d3",
+      "git_blob": "0187413a187701b3d8bb82b37e4538305e50177f"
+    },
+    {
+      "path": "lampOS/crates/records/src/fixture_schedule.rs",
+      "sha256": "54a8e0c9562ceada01ce3b0d26bdc2d92c0d5d8e954e880e011ddaef71a9a187",
+      "git_blob": "b7deb2095024adce581a0bc4e2816013f8014054"
+    },
+    {
+      "path": "lampOS/crates/records/src/fixture_schedule_tests.rs",
+      "sha256": "cb7ff4cf0928ef0dd539ce696f6036943e788f8fbe80482b7815205a9b1e46c1",
+      "git_blob": "f838468fe9d292c10e0f38858e6c212b7493f69f"
+    },
+    {
+      "path": "lampOS/crates/records/tests/support/records_control.rs",
+      "sha256": "b769a36f1cf542c436704cbf90ca1a50bf3b6ab371d907be95c5c1f0f67e8234",
+      "git_blob": "ee125e2e6a4a49fcf47d5dcadb8732f236b94397"
+    },
+    {
+      "path": "lampOS/crates/records/tests/records_control.rs",
+      "sha256": "04083e277b0d02d65ab4193afe7814218b60e287059a81e7cf7a46e2a7d51924",
+      "git_blob": "829124e1e7c950ef33267feda863b0c220c31dee"
+    },
+    {
+      "path": "lampOS/crates/records/tests/records.rs",
+      "sha256": "ed3504349c3a48400f2db666a5653588eee25cc602d664b95bea5962a20535f9",
+      "git_blob": "485aadcb0abab2c956e0981edf61342256812227"
+    },
+    {
+      "path": "lampOS/docs/records.md",
+      "sha256": "940ea122d4b3328d5aac12a3cdf2cecf2eb2e262a75a8244e06d43c5c1014ce2",
+      "git_blob": "ecb268f6c78b098181c76a5f4f0787899ae2dd21"
+    }
+  ],
+  "headers": [
+    "lampOS \u2014 build and test on Linux ARM64 (3/4)\tUNKNOWN STEP\t2026-10-15T23:51:58.3189414Z     Starting 1216 tests across 279 binaries (3987 tests and 2 binaries skipped)",
+    "lampOS \u2014 build and test on Linux ARM64 (3/4)\tUNKNOWN STEP\t2026-10-15T23:56:49.6691809Z      Summary [ 291.365s] 1216 tests run: 1216 passed (2 slow), 3987 skipped",
+    "lampOS \u2014 build and test on Linux ARM64 (1/4)\tUNKNOWN STEP\t2026-10-15T23:31:58.6258199Z     Starting 1278 tests across 279 binaries (3925 tests and 2 binaries skipped)",
+    "lampOS \u2014 build and test on Linux ARM64 (1/4)\tUNKNOWN STEP\t2026-10-15T23:36:21.0336642Z      Summary [ 262.408s] 1278 tests run: 1278 passed, 3925 skipped",
+    "lampOS \u2014 build and test on Linux ARM64 (4/4)\tUNKNOWN STEP\t2026-10-15T23:31:09.8376555Z     Starting 1356 tests across 279 binaries (3847 tests and 2 binaries skipped)",
+    "lampOS \u2014 build and test on Linux ARM64 (4/4)\tUNKNOWN STEP\t2026-10-15T23:34:12.1046143Z      Summary [ 182.267s] 1356 tests run: 1356 passed, 3847 skipped",
+    "lampOS \u2014 build and test on Linux ARM64 (2/4)\tUNKNOWN STEP\t2026-10-15T23:31:10.3265680Z     Starting 1316 tests across 279 binaries (3887 tests and 2 binaries skipped)",
+    "lampOS \u2014 build and test on Linux ARM64 (2/4)\tUNKNOWN STEP\t2026-10-15T23:35:04.6248215Z      Summary [ 234.296s] 1316 tests run: 1316 passed, 3887 skipped"
+  ],
+  "new_executions": {
+    "shard": 3,
+    "total": 1216,
+    "originals": 40,
+    "new_boundaries": 5
+  },
+  "failure_preservation": "Attempt1 remains failed with a registry connection reset during shard3 build. No tests ran in that failed shard. Attempt2 log combines unchanged first-attempt successful job logs with the new shard3; do not double-count the first three shards.",
+  "timing_limit": "Durations span four shards with shard3 executed in a later infrastructure attempt. This is neither a single-attempt full pass nor a standalone serial measurement or controlled before/after pair.",
+  "original123_serial_under120_proved": false
+}

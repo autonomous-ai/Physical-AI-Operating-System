@@ -270,6 +270,8 @@ pub struct Engine {
     urgent: VecDeque<ProviderOutput>,
     turn: Option<Turn>,
     retired_through: u64,
+    /// The request begun last, with its session.
+    begun_last: Option<(u64, u64)>,
     /// `--sounds-checked`: a short sound is answered only when heard as a
     /// short word.
     sounds_checked: bool,
@@ -312,6 +314,7 @@ impl Engine {
             urgent: VecDeque::new(),
             turn: None,
             retired_through: 0,
+            begun_last: None,
             sounds_checked: false,
             look: None,
         }
@@ -362,16 +365,25 @@ impl Engine {
                 continues_cut_off,
                 ..
             } => {
+                let previous = self.begun_last;
                 if !self.begin(request, session) {
                     return;
                 }
                 // Going on from a request whose end went early and was given
                 // up when the person spoke again: its words begin this one,
-                // as Gemini, which heard them, is told (`CUT_OFF_NOTE`).
-                let before = continues_cut_off
-                    .then(|| self.shared.heard_last.lock().ok()?.take())
-                    .flatten()
-                    .filter(|(of, _)| *of < request)
+                // as Gemini, which heard them, is told (`CUT_OFF_NOTE`). Only
+                // that request's own words, in this session: taken at every
+                // start, so none are kept for a later one. With none heard
+                // yet (given up before its speech to text finished), this
+                // one is asked alone (the reviewer on #1168).
+                let last = self
+                    .shared
+                    .heard_last
+                    .lock()
+                    .ok()
+                    .and_then(|mut last| last.take());
+                let before = last
+                    .filter(|(of, _)| continues_cut_off && previous == Some((*of, session)))
                     .map(|(_, words)| words);
                 let (audio, heard) = mpsc::channel(AUDIO_QUEUE);
                 let sound = Arc::new(AtomicBool::new(false));
@@ -510,6 +522,7 @@ impl Engine {
             return false;
         }
         self.turn = None;
+        self.begun_last = Some((request, session));
         self.urgent.push_back(ProviderOutput::Started {
             request,
             session,

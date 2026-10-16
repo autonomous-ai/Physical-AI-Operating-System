@@ -255,9 +255,12 @@ order is kept. A written turn is the same from the chat on.
   the successor's start carries `continues_cut_off`. Gemini, which heard
   both, is told so (`CUT_OFF_NOTE`). This route never heard the first one
   inside the second: the chat is asked with the given-up request's words
-  (the last heard) before the successor's, while what is told as heard
-  stays the successor's own words. A first request whose speech to text had
-  not finished when it was given up has no words to give.
+  before the successor's, while what is told as heard stays the
+  successor's own words. Only the words of the request begun just before
+  it, in the same session, are taken, and the words last heard are dropped
+  at every start, so none are kept for a later request. A request given up
+  before its speech to text finished has no words to give: its successor is
+  asked with its own words alone (the reviewer on #1168).
 - **Each turn is one person's**, as a Live session is since #775: before
   the chat, the thread is opened for whoever the eyes know at the lamp
   (`Sessions::open`), and that person's kept things are asked for. With

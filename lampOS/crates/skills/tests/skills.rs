@@ -3,8 +3,8 @@
 //! actions part's sockets stood in for.
 use lamp_bus::Bus;
 use lamp_msgs::{
-    Faces, Hand, JointState, Light, LightRequest, Priority, SkillEvent, SkillStage, Speech,
-    VoiceState,
+    BodyGesture, Faces, GestureState, Hand, Light, LightRequest, Priority, SkillEvent, SkillStage,
+    Speech, VoiceState,
 };
 use lamp_skills::{
     Admission, BODY_STEP_US, CLIP_GAP_US, Call, Engine, clip_us, load, load_all, read_recordings,
@@ -2672,79 +2672,84 @@ body = { gesture = "nod", again_if = "long" }
 
 /// The body's rule for a gesture on its mood socket
 /// (`crates/body/src/body.rs`, `run_body`): at each step it reads what came
-/// since the step before, once, takes a gesture only while none plays or
-/// waits, and lets a clip go at the first step that reaches its length,
-/// after that step's read. A gesture that comes while one plays is dropped.
-/// With `late_us`, a gesture taken waits that long before it begins, as on
-/// a lamp still rising (#1080).
+/// since the step before, once, takes a gesture only while none plays, and
+/// lets a clip go at the first step that reaches its length, after that
+/// step's read. A gesture that comes while one plays is dropped.
 #[derive(Default)]
 struct StandInBody {
-    late_us: u64,
-    /// When a gesture taken begins, and its length.
-    waiting: Option<(u64, u64)>,
-    /// Since when the clip plays, and its length.
-    playing: Option<(u64, u64)>,
+    /// Since when the clip plays, its length and name.
+    playing: Option<(u64, u64, String)>,
+}
+
+/// What the stand-in body says on `body/gesture` of the clips it takes.
+#[derive(Clone, Copy, PartialEq)]
+enum Says {
+    /// `began`, then `over` when it has played, or at once when a hand
+    /// pushes it (`body/hand`), as lamp-body does.
+    BeganOver,
+    /// `dropped`, and plays nothing: paused, or a hand holds it.
+    Dropped,
+    /// `began`, and nothing when it ends: a body without the topic.
+    NoOver,
+    /// `began`, then, a step later, `dropped`: ended for a higher ask
+    /// (#1239, `ended: by conversation`), as lamp-body says it (#1230).
+    EndedBy,
 }
 
 impl StandInBody {
     /// One step at `now_us`, with the gesture read in it: whether it was
-    /// taken, and whether a clip began.
-    fn step(&mut self, now_us: u64, gesture: Option<&str>) -> (Option<bool>, bool) {
+    /// taken (and so began), and the clip that ended in it, if one did.
+    fn step(&mut self, now_us: u64, gesture: Option<&str>) -> (Option<bool>, Option<String>) {
         let taken = gesture.map(|name| {
-            let free = self.playing.is_none() && self.waiting.is_none();
+            let free = self.playing.is_none();
             if free {
-                self.waiting = Some((now_us + self.late_us, clip_us(name).unwrap()));
+                self.playing = Some((now_us, clip_us(name).unwrap(), name.to_owned()));
             }
             free
         });
-        let mut began = false;
-        if let Some((due, length)) = self.waiting
-            && now_us >= due
+        let mut ended = None;
+        if let Some((since, length, name)) = &self.playing
+            && now_us - since >= *length
         {
-            self.waiting = None;
-            self.playing = Some((now_us, length));
-            began = true;
-        }
-        if let Some((since, length)) = self.playing
-            && now_us - since >= length
-        {
+            ended = Some(name.clone());
             self.playing = None;
         }
-        (taken, began)
+        (taken, ended)
     }
 
     /// Steps every `BODY_STEP_US` on `mood`, as the body does, until the
-    /// socket is gone, each gesture beginning `late` after it is taken:
-    /// each clip begun, and when, on `played`; each gesture dropped on
-    /// `dropped`. Says `body/joint_states` on `bus` every 100 ms, its
-    /// `commanded` off the rest pose while a clip plays.
-    /// Its time is the program's `clock`, and each gesture taken, when, is
-    /// on `took`; each clip let go, when, on `freed`.
-    #[allow(clippy::too_many_arguments)]
+    /// socket is gone, on the program's `clock`, saying on `bus`'s
+    /// `body/gesture` what `says`: each clip begun, and when, on `played`;
+    /// each gesture taken (or, with [`Says::Dropped`], said dropped) on
+    /// `took`; each dropped as another played on `dropped`.
     fn run(
         mood: UnixDatagram,
         bus: &Bus,
-        late: Duration,
+        says: Says,
         clock: Clock,
         took: mpsc::Sender<Instant>,
         played: mpsc::Sender<(Instant, String)>,
         dropped: mpsc::Sender<(Instant, String)>,
-        freed: mpsc::Sender<Instant>,
     ) {
         mood.set_nonblocking(true).unwrap();
-        let mut joints = bus
-            .publisher_declared(JointState::TOPIC, &JointState::declaration(), "body")
+        let mut gestures = bus
+            .publisher_declared(BodyGesture::TOPIC, &BodyGesture::declaration(), "body")
             .unwrap();
+        let bus = bus.clone();
         std::thread::spawn(move || {
-            let mut body = Self {
-                late_us: u64::try_from(late.as_micros()).unwrap(),
-                ..Self::default()
-            };
+            let mut body = Self::default();
             let began = clock.now();
             let mut next = Instant::now();
             let mut buffer = [0u8; 512];
-            let mut steps = 0u64;
-            let mut asked_text = String::new();
+            let mut say = |name: &str, state| {
+                let _ = gestures.publish_json(
+                    1,
+                    &BodyGesture {
+                        name: name.to_owned(),
+                        state,
+                    },
+                );
+            };
             loop {
                 let mut asked = None;
                 loop {
@@ -2764,38 +2769,52 @@ impl StandInBody {
                         .to_owned()
                 });
                 let now_us = u64::try_from((now - began).as_micros()).unwrap();
-                let was_playing = body.playing.is_some();
-                let (taken, begun) = body.step(now_us, name.as_deref());
-                if was_playing && body.playing.is_none() {
-                    let _ = freed.send(now);
-                }
-                match (taken, asked) {
-                    (Some(true), Some(text)) => {
-                        asked_text = text;
+                if says == Says::Dropped {
+                    if let Some(name) = name {
+                        say(&name, GestureState::Dropped);
                         let _ = took.send(now);
                     }
-                    (Some(false), Some(text)) => {
-                        let _ = dropped.send((now, text));
+                } else {
+                    // A hand on it: the clip is let go, and said over.
+                    let pushed = bus
+                        .latest(Hand::TOPIC)
+                        .ok()
+                        .flatten()
+                        .and_then(|message| message.parse::<Hand>().ok())
+                        .is_some_and(|hand| hand.pushed);
+                    if pushed
+                        && says == Says::BeganOver
+                        && let Some((_, _, name)) = body.playing.take()
+                    {
+                        say(&name, GestureState::Over);
                     }
-                    _ => {}
+                    if says == Says::EndedBy
+                        && let Some((since, _, playing)) = &body.playing
+                        && now_us > *since
+                    {
+                        say(playing, GestureState::Dropped);
+                        body.playing = None;
+                    }
+                    let (taken, ended) = body.step(now_us, name.as_deref());
+                    match (taken, asked, name) {
+                        (Some(true), Some(text), Some(name)) => {
+                            say(&name, GestureState::Began);
+                            let _ = took.send(now);
+                            if played.send((now, text)).is_err() {
+                                return;
+                            }
+                        }
+                        (Some(false), Some(text), _) => {
+                            let _ = dropped.send((now, text));
+                        }
+                        _ => {}
+                    }
+                    if let Some(name) = ended
+                        && says == Says::BeganOver
+                    {
+                        say(&name, GestureState::Over);
+                    }
                 }
-                if begun && played.send((now, asked_text.clone())).is_err() {
-                    return;
-                }
-                if steps.is_multiple_of(5) {
-                    let off = if body.playing.is_some() { 0.1 } else { 0.0 };
-                    let state = JointState {
-                        name: ["base_yaw", "shoulder", "elbow", "head_roll", "head_pitch"]
-                            .map(str::to_owned)
-                            .to_vec(),
-                        position: vec![off; 5],
-                        velocity: Vec::new(),
-                        effort: Vec::new(),
-                        commanded: vec![off; 5],
-                    };
-                    let _ = joints.publish_json(now_us, &state);
-                }
-                steps += 1;
                 next += Duration::from_micros(BODY_STEP_US);
                 std::thread::sleep(next.saturating_duration_since(Instant::now()));
             }
@@ -2862,33 +2881,46 @@ enum Line {
 }
 
 /// What the program did with one call of `nods` with `long`, against a
-/// stand-in body that drops a gesture sent while one plays and begins each
-/// `late` after it takes it: with `push`, a hand pushes the body 1 s into
+/// stand-in body that drops a gesture sent while one plays and says on
+/// `body/gesture` what `says`: with `push`, a hand pushes the body 1 s into
 /// the first nod. When the voice stopped, each gesture the body began and
-/// when, the actions part's calls, and the run's done event. No gesture is
-/// dropped.
+/// when, the actions part's calls, the run's done event, and how many
+/// gestures reached the body. No gesture is dropped for another playing.
 fn the_dance(
     push: bool,
     ending: Line,
 ) -> (Instant, Vec<(Instant, String)>, Vec<String>, SkillEvent) {
-    the_dance_late(push, ending, Duration::ZERO)
+    let (stopped, played, lights, done, _) = the_dance_saying(push, ending, Says::BeganOver);
+    (stopped, played, lights, done)
 }
 
-fn the_dance_late(
+fn the_dance_saying(
     push: bool,
     ending: Line,
-    late: Duration,
-) -> (Instant, Vec<(Instant, String)>, Vec<String>, SkillEvent) {
-    the_dance_asking(push, ending, late, false)
+    says: Says,
+) -> (
+    Instant,
+    Vec<(Instant, String)>,
+    Vec<String>,
+    SkillEvent,
+    usize,
+) {
+    the_dance_asking(push, ending, says, false)
 }
 
 /// The same, with `LAMP_BODY_REQUESTS=on` when `body_requests` (#940).
 fn the_dance_asking(
     push: bool,
     ending: Line,
-    late: Duration,
+    says: Says,
     body_requests: bool,
-) -> (Instant, Vec<(Instant, String)>, Vec<String>, SkillEvent) {
+) -> (
+    Instant,
+    Vec<(Instant, String)>,
+    Vec<String>,
+    SkillEvent,
+    usize,
+) {
     // Short: a socket's whole path has to fit in 103 bytes.
     let dir = tempfile::Builder::new()
         .prefix("dn")
@@ -2926,17 +2958,7 @@ fn the_dance_asking(
     let (lost, dropped) = mpsc::channel();
     let clock = Clock::at(root);
     let (took, taken) = mpsc::channel();
-    let (let_go, freed) = mpsc::channel();
-    let mut joints = bus.subscribe(JointState::TOPIC, "test").unwrap();
-    StandInBody::run(mood, &bus, late, clock.clone(), took, moved, lost, let_go);
-    // A wait on the stand-in body says what it waited for, and any gesture
-    // the body dropped meanwhile.
-    let within = |what: &str, got: Result<Instant, mpsc::RecvTimeoutError>| {
-        got.unwrap_or_else(|error| {
-            let dropped: Vec<_> = dropped.try_iter().collect();
-            panic!("{what}: {error:?} after 5 s; dropped {dropped:?}")
-        })
-    };
+    StandInBody::run(mood, &bus, says, clock.clone(), took, moved, lost);
     let tools = root.join("tools");
     let mut command = Command::new(env!("CARGO_BIN_EXE_lamp-skills"));
     command
@@ -3020,62 +3042,33 @@ fn the_dance_asking(
     let stopped = clock.now();
     let nod = Duration::from_micros(clip_us("nod").unwrap());
     let gap = Duration::from_micros(CLIP_GAP_US);
-    let five = Duration::from_secs(5);
     let mut played = Vec::new();
+    let mut reached = 0;
     if ending != Line::Cut {
-        // Sent and taken at the line's end, and begun `late` after.
-        let took = within("the first clip taken", taken.recv_timeout(five));
-        clock.skip_to(took + late);
-        played.push(
-            gestures
-                .recv_timeout(five)
-                .unwrap_or_else(|error| panic!("the first clip begun: {error:?} after 5 s")),
-        );
+        // Sent at the line's end, and taken (or said dropped) at once.
+        taken.recv_timeout(Duration::from_secs(5)).unwrap();
+        reached += 1;
+        if says != Says::Dropped {
+            played.push(gestures.recv_timeout(Duration::from_secs(5)).unwrap());
+        }
         if push {
             clock.skip_to(stopped + Duration::from_secs(1));
             hand.publish_json(1, &serde_json::json!({"pushed": true, "since_us": 5}))
                 .unwrap();
-        } else {
-            // The program sees the clip begin on `body/joint_states`: once
-            // the body has said it, a moment for the program to read it.
-            // Then it sends the next once the clip has played and the body
-            // has stepped past it: skipped to the clip's end, and the gap
-            // after it left to the body's own steps.
-            while joints
-                .recv(Duration::from_secs(5))
-                .unwrap()
-                .expect("no joint state while the clip plays")
-                .parse::<JointState>()
-                .unwrap()
-                .commanded
-                .iter()
-                .all(|joint| *joint == 0.0)
-            {
-                // The stand-in body says its joints every 100 ms, so each
-                // read returns within that and its 5 s never applies: bounded
-                // by the run's deadline instead, so a clip that never begins
-                // fails here and does not hang.
-                assert!(
-                    Instant::now() < deadline,
-                    "the clip never began on body/joint_states"
-                );
-            }
+        } else if says == Says::NoOver {
+            // The clip ends and nothing says so: past its length, the gap
+            // and the 3 s the program waits for `over`.
+            clock.skip_to(played[0].0 + nod + gap + Duration::from_millis(3_100));
+        } else if says == Says::BeganOver {
+            // Nothing more is sent while the clip plays.
             std::thread::sleep(Duration::from_millis(300));
-            // Skipped to the clip's end, the body lets it go before the
-            // program's time moves: the program's next clip, `gap` after,
-            // finds it free however late the body's thread steps.
-            let end = (played[0].0 + nod).saturating_duration_since(clock.now());
-            clock.skip_after(end, || {
-                within("the first clip let go", freed.recv_timeout(five));
-            });
-            // Taken, and begun `late` after, as the first.
-            let took = within("the second clip taken", taken.recv_timeout(five));
-            clock.skip_to(took + late);
-            played.push(
-                gestures
-                    .recv_timeout(five)
-                    .unwrap_or_else(|error| panic!("the second clip begun: {error:?} after 5 s")),
-            );
+            assert!(taken.try_recv().is_err());
+            // It ends at its length: the body says `over`, and the program
+            // sends the next, which the body takes.
+            clock.skip_to(played[0].0 + nod);
+            taken.recv_timeout(Duration::from_secs(5)).unwrap();
+            reached += 1;
+            played.push(gestures.recv_timeout(Duration::from_secs(5)).unwrap());
             // The run is done once that one has played too.
             clock.skip_to(played[1].0 + nod + gap);
         }
@@ -3095,7 +3088,8 @@ fn the_dance_asking(
     let dropped: Vec<_> = dropped.try_iter().collect();
     assert!(dropped.is_empty(), "dropped {dropped:?}; {}", done.why);
     played.extend(gestures.try_iter());
-    (stopped, played, lights.try_iter().collect(), done)
+    reached += taken.try_iter().count();
+    (stopped, played, lights.try_iter().collect(), done, reached)
 }
 
 #[test]
@@ -3110,13 +3104,12 @@ fn a_dance_waits_for_the_line_plays_twice_and_gives_the_light_back_at_its_end() 
             .all(|(_, text)| text == r#"{"gesture":"nod"}"#)
     );
     // The first within 300 ms of the line's end (#999's target); the second
-    // when the first has played and the body can take it.
+    // once the body said the first was over, at its length.
     let first = gestures[0].0 - stopped;
     assert!(first < Duration::from_millis(300), "{first:?}");
     let between = gestures[1].0 - gestures[0].0;
-    let gap = Duration::from_micros(CLIP_GAP_US);
     assert!(
-        between > nod && between < nod + gap + Duration::from_millis(300),
+        between >= nod && between < nod + Duration::from_millis(300),
         "{between:?}"
     );
     assert!(lights[0].contains("warm"), "{lights:?}");
@@ -3129,24 +3122,48 @@ fn a_dance_waits_for_the_line_plays_twice_and_gives_the_light_back_at_its_end() 
 }
 
 #[test]
-fn a_clip_the_body_begins_late_is_followed_from_when_it_began() {
-    // A lamp still rising at the line's end begins the first clip 1 s after
-    // it was sent (the reviewer, 01:56). Timed from the send, the second
-    // would come while the first plays and be dropped (`the_dance_late`
-    // fails on a drop); timed from `body/joint_states`, both play.
-    let late = Duration::from_secs(1);
-    let (stopped, gestures, _, done) = the_dance_late(false, Line::Said, late);
-    let nod = Duration::from_micros(clip_us("nod").unwrap());
-    assert_eq!(gestures.len(), 2, "{gestures:?}; {}", done.why);
-    let first = gestures[0].0 - stopped;
+fn a_clip_the_body_said_dropped_is_followed_by_nothing() {
+    // `body/gesture` said `dropped` for the first: nothing more is sent.
+    let (_, played, _, done, reached) = the_dance_saying(false, Line::Said, Says::Dropped);
+    assert!(played.is_empty(), "{played:?}");
+    assert_eq!(reached, 1, "{}", done.why);
     assert!(
-        first >= late && first < late + Duration::from_millis(300),
-        "{first:?}"
+        done.why.contains(
+            "gesture nod: not sent, the body dropped nod (body/gesture), so nothing more is sent"
+        ),
+        "{}",
+        done.why
     );
-    let between = gestures[1].0 - gestures[0].0;
+}
+
+#[test]
+fn a_clip_ended_for_a_higher_ask_is_followed_by_nothing() {
+    // The first began, then the body ended it for the conversation's
+    // gesture and said `dropped` (`ended: by conversation`): no second.
+    let (_, played, _, done, reached) = the_dance_saying(false, Line::Said, Says::EndedBy);
+    assert_eq!(played.len(), 1, "{played:?}");
+    assert_eq!(reached, 1, "{}", done.why);
     assert!(
-        between > nod && between < nod + late + Duration::from_millis(500),
-        "{between:?}; {}",
+        done.why.contains(
+            "gesture nod: not sent, the body dropped nod (body/gesture), so nothing more is sent"
+        ),
+        "{}",
+        done.why
+    );
+}
+
+#[test]
+fn with_no_over_from_the_body_the_second_clip_is_not_sent() {
+    // The first played, and `body/gesture` never said it was over: past its
+    // length and 3 s more, the second is not sent, and `done` says why.
+    let (_, played, _, done, reached) = the_dance_saying(false, Line::Said, Says::NoOver);
+    assert_eq!(played.len(), 1, "{played:?}");
+    assert_eq!(reached, 1, "{}", done.why);
+    assert!(
+        done.why.contains(
+            "gesture nod: not sent, the body said no over for nod on body/gesture within"
+        ),
+        "{}",
         done.why
     );
 }
@@ -3156,7 +3173,7 @@ fn a_clip_the_body_begins_late_is_followed_from_when_it_began() {
 /// `--arbitration on` weighs it. Without it, as before (the test above).
 #[test]
 fn with_body_requests_each_gesture_a_skill_sends_says_who_asks() {
-    let (_, gestures, _, done) = the_dance_asking(false, Line::Said, Duration::ZERO, true);
+    let (_, gestures, _, done, _) = the_dance_asking(false, Line::Said, Says::BeganOver, true);
     assert_eq!(gestures.len(), 2, "{gestures:?}; {}", done.why);
     for (_, text) in &gestures {
         assert_eq!(
@@ -3168,8 +3185,11 @@ fn with_body_requests_each_gesture_a_skill_sends_says_who_asks() {
 
 #[test]
 fn a_hand_on_the_body_ends_the_dance_and_the_clip_is_not_sent_again() {
-    let (_, gestures, lights, done) = the_dance(true, Line::Said);
+    // The body lets the clip go under the hand and says it `over`: the
+    // second is not sent all the same.
+    let (_, gestures, lights, done, reached) = the_dance_saying(true, Line::Said, Says::BeganOver);
     assert_eq!(gestures.len(), 1, "{gestures:?}; {}", done.why);
+    assert_eq!(reached, 1, "{}", done.why);
     assert!(
         done.why
             .contains("gesture nod: not sent, the body was pushed"),

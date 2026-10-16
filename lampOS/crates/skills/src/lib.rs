@@ -48,15 +48,14 @@ pub fn body_ask(mut ask: Value, skill: Option<&str>) -> String {
 /// The body's step: `lamp_body::body::TICK`, which is built for Linux alone.
 pub const BODY_STEP_US: u64 = 20_000;
 
-/// How long after a clip's length the next clip is sent, so that the body
-/// takes it (#999). The body reads a gesture once, at a step, and takes it
-/// only while none plays; it lets a clip go at the first step that reaches
-/// the clip's length, after that step's read (`crates/body/src/body.rs`:
-/// the gesture taken, then `playing = None`). So a clip sent at `t` begins
-/// by `t` + 1 step, is let go by its length + 1 more, and the next is taken
-/// from the step after that: 2 steps with every step on time. 5 steps
-/// (100 ms) leave 3 for steps run late on a loaded lamp, and the lamp is
-/// still for a tenth of a second between two clips.
+/// A clip's length and this is when the body would have played it out had
+/// it begun the clip as it was sent: the earliest the light is given back
+/// after the last clip, and, with 3 s more, how long the next waits for
+/// `body/gesture` to say `over`. The body reads a gesture once, at a step,
+/// and lets a clip go at the first step that reaches its length, after that
+/// step's read (`crates/body/src/body.rs`); 5 steps (100 ms) cover that and
+/// steps run late on a loaded lamp. The next clip itself is sent on `over`
+/// (#1199).
 pub const CLIP_GAP_US: u64 = 5 * BODY_STEP_US;
 // A few of the body's steps, and at least 60 ms (the reviewer on #1012).
 const _: () = assert!(CLIP_GAP_US >= 3 * BODY_STEP_US && CLIP_GAP_US >= 60_000);

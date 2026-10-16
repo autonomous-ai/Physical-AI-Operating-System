@@ -19,8 +19,9 @@ lamp-skills`, which runs every skill's cases).
 
 A replay lists the calls in order; it does not wait. That the dance waits
 for the line to end, does not dance after a line the person spoke over,
-sends its second clip 100 ms after the first's length so that the body
-takes it, sends no second after a push, refuses a call while it plays, and
+sends its second clip when the body says on `body/gesture` that the
+first is over (and none after `dropped`, or with no `over`), sends no
+second after a push, refuses a call while it plays, and
 gives the light back at its end is the program's, tested in
 `crates/skills/tests/skills.rs` against a stand-in voice and a stand-in
 body that drops a gesture sent while one plays, as the body does. Whether

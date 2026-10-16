@@ -154,7 +154,9 @@ impl From<String> for Told {
 /// request's first and last packets, so a line replayed to this route keeps
 /// the time it was said. The worker's is the Live route's own rule
 /// (`worker::Heeding`, `crate::attention`).
-pub type Heed = Arc<dyn Fn(u64, (u64, u64), &str) -> Option<&'static str> + Send + Sync>;
+/// The rule's verdict on a spoken turn: its request, when its line was said,
+/// what was heard, and whether it goes on from the one before (`continues`).
+pub type Heed = Arc<dyn Fn(u64, (u64, u64), &str, bool) -> Option<&'static str> + Send + Sync>;
 /// The lamp's eye for a look: the newest picture, as a JPEG, or why there
 /// is none (`worker::serve` reads the eyes' look file with the Live route's
 /// bounds).
@@ -472,6 +474,7 @@ impl Engine {
             ProviderInput::Start {
                 request,
                 session,
+                continues,
                 continues_cut_off,
                 after_stop,
                 ..
@@ -536,6 +539,7 @@ impl Engine {
                     checked,
                     said.clone(),
                     before,
+                    continues,
                 ));
                 self.turn = Some(Turn {
                     request,
@@ -787,6 +791,7 @@ async fn spoken(
     checked: Option<Arc<AtomicBool>>,
     said: Arc<Mutex<(u64, u64)>>,
     before: Option<String>,
+    continues: bool,
 ) {
     let listener = match shared.services.listen().await {
         Ok(listener) => listener,
@@ -850,7 +855,7 @@ async fn spoken(
     let heeded = match &shared.heed {
         Some(heed) if !empty && !held => {
             let window = said.lock().map_or((0, 0), |said| *said);
-            heed(request, window, &text)
+            heed(request, window, &text, continues)
         }
         _ => None,
     };

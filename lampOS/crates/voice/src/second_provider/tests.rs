@@ -389,7 +389,7 @@ async fn words_the_heed_holds_end_the_turn_unanswered() {
     type Judged = Vec<(u64, (u64, u64), String)>;
     let judged: Arc<Mutex<Judged>> = Arc::default();
     let seen = judged.clone();
-    let mut engine = engine.heeding(Arc::new(move |request, said, heard| {
+    let mut engine = engine.heeding(Arc::new(move |request, said, heard, _| {
         seen.lock().unwrap().push((request, said, heard.to_owned()));
         Some("a busy room")
     }));

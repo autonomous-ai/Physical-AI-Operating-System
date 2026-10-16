@@ -23,6 +23,21 @@ The eighth builder's log, newest first. Role file:
 
 None yet.
 
+## 2026-10-16 11:35 — #949 — draft #996; owner changes; #988 green
+
+Ready for lamp-voice: no (#996 draft on #900, ARM64 pending; #988 draft,
+ARM64 38848902927 green, waiting on the fifth's read)
+
+- #949 assigned by the first builder at 11:04; plan posted 11:1x, taken.
+- Two host-time boundaries, both causal: the gate's release counted against
+  the 20 ms inhibit ack (30 ms pause: 0/10 on the host clock), and after
+  FINISHED the stepped parent ran to the 250 ms teardown while the child was
+  still exiting (300 ms slow exit: 0/10 without the fix). Fix: tests only,
+  on #900's stepped clock. Final head 400/400 for each of three identities.
+- Owner, 11:1x: no new issues for problems found; raise them with the first
+  builder first. Owner, 11:2x: close every issue eighth created. Closed #833,
+  #893 and #913; #834's body now says "Part of #833".
+
 ## 2026-10-16 11:15 — #914 — fix A drafted as #988
 
 Ready for lamp-voice: no (draft; ARM64 38848902927 running; needs the fifth's

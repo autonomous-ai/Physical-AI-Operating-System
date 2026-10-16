@@ -1,0 +1,28 @@
+[package]
+name = "lamp-skills"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+# Physical skills (docs/skills.md): loads skill folders, listens to the
+# topics their triggers name, applies the conditions, asks the Policy, and
+# runs the steps through the parts that own the body, the light and the
+# voice. Its own process: with it gone the lamp does everything else.
+[[bin]]
+name = "lamp-skills"
+path = "src/main.rs"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+lamp-bus = { path = "../bus" }
+lamp-msgs = { path = "../msgs" }
+lamp-ipc = { path = "../ipc" }
+toml = { version = "1", default-features = false, features = ["parse", "serde", "std"] }
+
+[dev-dependencies]
+tempfile = "3"
+
+[lints]
+workspace = true

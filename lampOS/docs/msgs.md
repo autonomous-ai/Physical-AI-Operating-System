@@ -354,3 +354,18 @@ accuracy, acoustic completion or reminder latency on a lamp.
 The touch contract tests likewise establish shape, sampled recognition and
 receiver fences. They do not establish real electrode/head calibration,
 physical contact latency, capture closure or applied Sleep/Wake/Stop on a lamp.
+
+## The skills contract
+
+Added by the seventh builder on 2026-10-16 (#938). The type lives in
+`src/skills.rs` and is re-exported at the crate root; `skills_topics()` and
+`declaration_of()` find its topic, and `first_topics()` is unchanged.
+
+| Type | Topic | Kind | Period / lifespan | Meaning |
+|---|---|---|---|---|
+| `SkillEvent` | `skills/events` | event | none / none | One stage of a run of a physical skill ([skills.md](skills.md)): the skill's name, the `SkillStage` (`triggered`, `asked`, `answered`, `done`), why in words, and, with `answered` only, whether the Policy `allowed` it |
+
+Published by `lamp-skills` only. `check()` holds the name to 1 to 64
+lowercase letters, digits and hyphens, `why` to 2,000 bytes, and `allowed`
+to `answered`. `SkillStage` is an enumeration: a stage this version does
+not know refuses the message.

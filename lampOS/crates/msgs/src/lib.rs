@@ -70,6 +70,8 @@ pub use speaker_check::*;
 pub use tasks::*;
 mod selftest;
 pub use selftest::*;
+mod skills;
+pub use skills::*;
 
 /// Why a message is not one its type allows, in words.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -1066,6 +1068,7 @@ pub fn declaration_of(topic: &str) -> Option<Declaration> {
         .chain(tasks_topics())
         .chain(logging_topics())
         .chain(memory_topics())
+        .chain(skills_topics())
         .find_map(|(name, declaration)| (name == topic).then_some(declaration))
 }
 

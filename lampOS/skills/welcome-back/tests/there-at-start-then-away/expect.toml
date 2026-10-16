@@ -1,0 +1,15 @@
+# Someone there when the program starts: never away, no hello. Away 97 s:
+# nothing. Away 349 s: a hello at 450 s, and only one while they stay.
+[[expect]]
+at = "450s"
+call = "body.gaze"
+args = { look_at = "face", x = -0.5, y = 0.0, size = 0.5 }
+
+[[expect]]
+at = "450s"
+call = "light"
+args = { colour = "warm" }
+
+[[expect]]
+at = "450s"
+call = "say"

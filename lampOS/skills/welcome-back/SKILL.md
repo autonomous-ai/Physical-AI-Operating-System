@@ -1,0 +1,20 @@
+---
+name: welcome-back
+description: When someone comes back to the desk after at least five minutes away, the lamp turns to them, warms its light and says a short hello, by name if it knows them.
+---
+
+# Welcome back
+
+The lamp's hello on arrival, as a physical skill (`lampOS/docs/skills.md`).
+It is as small as what a person at the next desk does when a colleague
+comes back: look up, a word or two, and nothing more. It does not greet
+people walking past or speak into a conversation.
+
+- **Trigger:** a face on `humans/faces/tracked` where there was none, after
+  at least five minutes with nobody; at most once every twenty minutes.
+- **Ask:** the Policy's `hello` question, before anything is done.
+- **Do:** look at the face, warm the light (`lights/warm_glow.toml`), and
+  give the voice a note to say the hello in its own words.
+
+Asked about it, the lamp says it greets people when they come back to
+their desk, and that it can be switched off.

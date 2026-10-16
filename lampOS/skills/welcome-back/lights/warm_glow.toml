@@ -1,0 +1,2 @@
+# The ring warms: the actions part's `warm` colour (lamp_msgs::Light::COLOURS).
+colour = "warm"

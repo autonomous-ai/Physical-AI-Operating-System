@@ -774,7 +774,10 @@ async fn voice_line(
 async fn with_the_switch_and_a_voice_check_a_line_held_as_another_voice_counts_as_talk() {
     const CALL: &str = "Hey Lamp, how much is one hundred dollars in euros?";
     const SAMANTHA: &str = "Anyway, if we drop the trip we save almost half.";
-    const DANIEL: &str = "True, but the client wants to meet in person.";
+    // Not "True, but …": the rule for whom a line answers takes "True," for
+    // a name, so the budget line would be held as a reply to "True" (fixed
+    // with the other openers on #1090).
+    const DANIEL: &str = "But the client wants to meet in person.";
     let scene = |check: bool| async move {
         let _mark = OwnMark::kept();
         let _room = OwnRoom::fresh();

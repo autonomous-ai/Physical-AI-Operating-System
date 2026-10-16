@@ -51,7 +51,8 @@ impl Root {
         Config {
             listen: "127.0.0.1:5000".into(),
             marker: self.0.join("etc/setup-done"),
-            credential: None,
+            credential: self.0.join("etc/credential"),
+            policy_key: self.0.join("etc/jev.key"),
             name: self.0.join("etc/name"),
             country: "VN".into(),
             interface: "wlan0".into(),
@@ -92,18 +93,24 @@ fn a_request_is_checked_before_anything_is_touched() {
         Accepted {
             ssid: "Home".into(),
             password: "password1".into(),
+            credential: Some("AIza-key_1".into()),
             name: Some("Lan".into()),
             timezone: Some("Asia/Ho_Chi_Minh".into()),
         }
     );
-    // The voice's key is the lamp's own (#806, 12:36): none is needed, and
-    // one V1's page still sends is taken nowhere.
+    // The key is the user's (the owner, #806, 16:13). Without one, the key
+    // already there stays, as on a lamp that ran V1.
     let without = check(&request(json!({"ssid": "Cafe", "password": ""})), &config).unwrap();
-    assert_eq!((without.name, without.timezone), (None, None));
+    assert_eq!(
+        (without.credential, without.name, without.timezone),
+        (None, None, None)
+    );
     for (field, value) in [
         ("ssid", json!("")),
         ("ssid", json!("Home\nnetwork={")),
         ("password", json!("short")),
+        ("llm_api_key", json!("two words")),
+        ("llm_api_key", json!("k".repeat(513))),
         ("name", json!("x".repeat(65))),
         ("name", json!("La\nn")),
     ] {
@@ -218,6 +225,9 @@ struct Saved {
     fail_on: Option<&'static str>,
 }
 impl Save for Saved {
+    fn credential(&mut self, key: &str) -> io::Result<()> {
+        self.record("credential", key)
+    }
     fn name(&mut self, name: &str) -> io::Result<()> {
         self.record("name", name)
     }
@@ -263,7 +273,12 @@ fn a_joined_lamp_saves_the_settings_then_the_marker_and_says_it_is_set_up() {
     assert_eq!(status.lan_ip, "192.168.1.23", "published while joining");
     assert_eq!(
         saved.calls,
-        ["name=Lan", "timezone=Asia/Ho_Chi_Minh", "marker="]
+        [
+            "credential=AIza-key_1",
+            "name=Lan",
+            "timezone=Asia/Ho_Chi_Minh",
+            "marker="
+        ]
     );
 }
 
@@ -347,10 +362,11 @@ fn fixture(text: &str) -> Config {
 }
 
 /// The product's pair (#1016, install.md): the own page's settings and the
-/// product reset plan agree on the marker, and the person's name setup saves
-/// is one the reset wipes. The time zone setup writes (`/etc/localtime`,
-/// `/etc/timezone`) is kept: it is where the lamp is, not who had it (the
-/// fifth on #1016).
+/// product reset plan agree on the marker, and what setup saves of the
+/// person, the name and the user's key in both its places, is what the reset
+/// wipes (the owner, #806, 16:13). The time zone setup writes
+/// (`/etc/localtime`, `/etc/timezone`) is kept: it is where the lamp is, not
+/// who had it (the fifth on #1016).
 #[test]
 fn the_own_page_and_the_product_plan_agree_on_what_setup_saves() {
     let own = fixture(include_str!("../fixtures/serve-own-page.json"));
@@ -358,50 +374,44 @@ fn the_own_page_and_the_product_plan_agree_on_what_setup_saves() {
         serde_json::from_str(include_str!("../fixtures/reset-plan-product.json")).unwrap();
     plan.check().unwrap();
     assert_eq!(own.marker, plan.marker);
-    assert!(
-        plan.wipe.iter().any(|wiped| own.name.starts_with(wiped)),
-        "the name is saved and not wiped"
-    );
-    // The voice's key is the lamp's own, written at the factory or by
-    // `install` (#806, 12:36): setup names none, and a reset keeps it, as it
-    // keeps the update key.
-    assert_eq!(own.credential, None);
-    let key = std::path::Path::new("/etc/lampOS/voice/credential");
-    assert!(!plan.wipe.iter().any(|wiped| key.starts_with(wiped)));
+    for saved in [&own.name, &own.credential, &own.policy_key] {
+        assert!(
+            plan.wipe.iter().any(|wiped| saved.starts_with(wiped)),
+            "{} is saved and not wiped",
+            saved.display()
+        );
+    }
+    assert_eq!(own.credential, std::path::Path::new("/etc/lampOS/voice/credential"));
+    assert_eq!(own.policy_key, std::path::Path::new("/etc/lampOS/policy/jev.key"));
 }
 
-/// Thirteen on #1016: a key an older setup left half-written is removed at
-/// start while its settings still name the credential; without that name,
-/// only the name's and the marker's temporary files are.
+/// Thirteen on #1016: a key a setup left half-written is removed at start,
+/// in both its places, with the name's and the marker's temporary files.
 #[test]
-fn a_leftover_temporary_key_from_an_older_setup_is_removed() {
+fn a_leftover_temporary_key_is_removed() {
     let root = Root::new();
-    let mut config = root.config(true);
+    let config = root.config(true);
     let tmp = |path: &std::path::Path| path.with_extension("lamp-setup-tmp");
     assert_eq!(
         lamp_setup::serve::leftover_temporaries(&config),
-        [tmp(&config.name), tmp(&config.marker)]
-    );
-    config.credential = Some(root.0.join("etc/credential"));
-    assert!(
-        lamp_setup::serve::leftover_temporaries(&config)
-            .contains(&root.0.join("etc/credential.lamp-setup-tmp"))
+        [
+            tmp(&config.name),
+            tmp(&config.marker),
+            tmp(&config.credential),
+            tmp(&config.policy_key)
+        ]
     );
 }
 
-/// Settings written before #806's decision still name a credential file:
-/// they are read, and the file is never touched.
+/// Settings that name no key files (#1016's) take the product's places.
 #[test]
-fn older_settings_that_name_a_credential_are_still_read() {
-    let older = fixture(
+fn settings_without_key_files_take_the_products_places() {
+    let plain = fixture(
         r#"{"listen":"0.0.0.0:80","marker":"/var/lib/lampos-setup/done",
-            "credential":"/etc/lampOS/voice/credential","name":"/etc/lampOS/person/name",
-            "country":"VN","page":true}"#,
+            "name":"/etc/lampOS/person/name","country":"VN","page":true}"#,
     );
-    assert_eq!(
-        older.credential.as_deref(),
-        Some(std::path::Path::new("/etc/lampOS/voice/credential"))
-    );
+    assert_eq!(plain.credential, std::path::Path::new("/etc/lampOS/voice/credential"));
+    assert_eq!(plain.policy_key, std::path::Path::new("/etc/lampOS/policy/jev.key"));
 }
 
 #[test]
@@ -456,13 +466,17 @@ fn the_files_are_private_and_the_zone_is_linked_as_v1_does() {
     let root = Root::new();
     let config = root.config(false);
     let mut files = Files(&config);
+    files.credential("AIza-key_1").unwrap();
     files.name("Lan").unwrap();
     files.timezone("Asia/Ho_Chi_Minh").unwrap();
     files.marker().unwrap();
-    for path in [&config.name, &config.marker] {
+    for path in [&config.credential, &config.policy_key, &config.name, &config.marker] {
         let mode = fs::metadata(path).unwrap().permissions().mode() & 0o777;
         assert_eq!(mode, 0o600, "{}", path.display());
     }
+    // The user's key, to the voice and to the Policy's judge.
+    assert_eq!(fs::read(&config.credential).unwrap(), b"AIza-key_1");
+    assert_eq!(fs::read(&config.policy_key).unwrap(), b"AIza-key_1");
     assert_eq!(fs::read(&config.name).unwrap(), b"Lan\n");
     assert_eq!(
         fs::read_link(&config.localtime).unwrap(),

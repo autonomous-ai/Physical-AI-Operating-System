@@ -27,6 +27,12 @@ fn default_interface() -> String {
 fn default_hotspot() -> String {
     "192.168.100.1".into()
 }
+fn default_credential() -> PathBuf {
+    "/etc/lampOS/voice/credential".into()
+}
+fn default_policy_key() -> PathBuf {
+    "/etc/lampOS/policy/jev.key".into()
+}
 fn default_zoneinfo() -> PathBuf {
     "/usr/share/zoneinfo".into()
 }
@@ -46,12 +52,14 @@ pub struct Config {
     pub listen: String,
     /// Written once setup is done; the keeper starts the lamp when it appears.
     pub marker: PathBuf,
-    /// Read from older settings and never used: a home lamp's voice key is
-    /// its own device key, written at the factory or by `install`, never by
-    /// setup, and the person never types or sees it (the first builder on
-    /// #806, 2026-10-16 12:36).
-    #[serde(default, skip_serializing)]
-    pub credential: Option<PathBuf>,
+    /// The voice's credential file, named by `provider.json`. The key is
+    /// the user's, posted down by the account page or the app as V1 takes it,
+    /// and written here root's, 0600 (the owner, #806, 2026-10-16 16:13).
+    #[serde(default = "default_credential")]
+    pub credential: PathBuf,
+    /// The Policy's judge key (`jev.key`), the same key, written the same way.
+    #[serde(default = "default_policy_key")]
+    pub policy_key: PathBuf,
     /// The person's name, for the voice to give the model.
     pub name: PathBuf,
     /// wpa_supplicant's two-letter country.
@@ -89,6 +97,8 @@ impl Config {
     pub fn check(&self) -> Result<(), String> {
         for path in [
             &self.marker,
+            &self.credential,
+            &self.policy_key,
             &self.name,
             &self.zoneinfo,
             &self.localtime,
@@ -154,9 +164,9 @@ impl Status {
     }
 }
 
-/// V1's `SetupRequest`. V1's page also sends channel, voice and MQTT fields,
-/// and the voice's key from its URL; they are accepted and ignored (the key
-/// is the lamp's own, #806). `name` and `timezone` are V2's own.
+/// V1's `SetupRequest`. V1's page also sends channel, voice and MQTT fields;
+/// they are accepted and ignored. `llm_api_key` is the user's voice key, as
+/// in V1 (#806); `name` and `timezone` are V2's own.
 #[derive(Clone, Debug, Default, Deserialize)]
 pub struct SetupRequest {
     #[serde(default)]
@@ -180,6 +190,9 @@ pub struct SetupRequest {
 pub struct Accepted {
     pub ssid: String,
     pub password: String,
+    /// The user's voice key, when one was posted down. None keeps the key
+    /// already there, as on a lamp that ran V1 (`install` copied it).
+    pub credential: Option<String>,
     pub name: Option<String>,
     pub timezone: Option<String>,
 }
@@ -199,6 +212,10 @@ pub fn check(request: &SetupRequest, config: &Config) -> Result<Accepted, String
         }
         .to_owned()
     })?;
+    let credential = request.llm_api_key.trim();
+    if credential.len() > 512 || !credential.bytes().all(|b| b.is_ascii_graphic()) {
+        return Err("the voice's key has a character it cannot have, or is too long".into());
+    }
     let name = request.name.trim();
     if name.chars().count() > 64 || name.chars().any(char::is_control) {
         return Err("a name has at most 64 characters".into());
@@ -209,6 +226,7 @@ pub fn check(request: &SetupRequest, config: &Config) -> Result<Accepted, String
     Ok(Accepted {
         ssid: request.ssid.trim().to_owned(),
         password: request.password.clone(),
+        credential: (!credential.is_empty()).then(|| credential.to_owned()),
         name: (!name.is_empty()).then(|| name.to_owned()),
         timezone: zone_known(timezone, &config.zoneinfo).then(|| timezone.to_owned()),
     })
@@ -243,23 +261,24 @@ pub fn zone_known(zone: &str, zoneinfo: &Path) -> bool {
 
 /// What a finished setup writes. Injected for tests.
 pub trait Save {
+    /// The user's voice key, to the voice's credential and the Policy's key.
+    fn credential(&mut self, key: &str) -> io::Result<()>;
     fn name(&mut self, name: &str) -> io::Result<()>;
     fn timezone(&mut self, zone: &str) -> io::Result<()>;
     fn marker(&mut self) -> io::Result<()>;
 }
 
 /// The temporary files a setup that crashed mid-write may have left, each of
-/// which may hold a secret: removed at every start. The credential's too,
-/// while older settings still name it: setup writes no key now (#806), but
-/// an older one may have left a key half-written (Thirteen on #1016).
+/// which may hold a secret, the user's key among them: removed at every
+/// start (Thirteen on #1016).
 pub fn leftover_temporaries(config: &Config) -> Vec<PathBuf> {
     [
-        Some(&config.name),
-        Some(&config.marker),
-        config.credential.as_ref(),
+        &config.name,
+        &config.marker,
+        &config.credential,
+        &config.policy_key,
     ]
     .into_iter()
-    .flatten()
     .map(|path| path.with_extension("lamp-setup-tmp"))
     .collect()
 }
@@ -289,6 +308,10 @@ pub fn write_private(path: &Path, bytes: &[u8]) -> io::Result<()> {
 pub struct Files<'a>(pub &'a Config);
 
 impl Save for Files<'_> {
+    fn credential(&mut self, key: &str) -> io::Result<()> {
+        write_private(&self.0.credential, key.as_bytes())?;
+        write_private(&self.0.policy_key, key.as_bytes())
+    }
     fn name(&mut self, name: &str) -> io::Result<()> {
         write_private(&self.0.name, format!("{name}\n").as_bytes())
     }
@@ -393,10 +416,14 @@ pub fn run(
     let failure = match joined {
         Joined::Failed { reason } => Some(reason.detail().to_owned()),
         Joined::Connected => {
-            let saved = match &accepted.name {
-                Some(name) => save.name(name),
+            let saved = match &accepted.credential {
+                Some(key) => save.credential(key),
                 None => Ok(()),
             }
+            .and_then(|()| match &accepted.name {
+                Some(name) => save.name(name),
+                None => Ok(()),
+            })
             .and_then(|()| match &accepted.timezone {
                 Some(zone) => save.timezone(zone),
                 None => Ok(()),

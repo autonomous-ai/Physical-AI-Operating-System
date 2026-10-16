@@ -1,6 +1,8 @@
 {
   "listen": "127.0.0.1:5000",
   "marker": "/var/lib/lampos-setup/done",
+  "credential": "/etc/lampOS/voice/credential",
+  "policy_key": "/etc/lampOS/policy/jev.key",
   "name": "/etc/lampOS/person/name",
   "country": "VN",
   "web_start": [

@@ -105,7 +105,9 @@ own two (`crates/policy/src/rules.rs`):
 - of `news`: `never` holds always; `not_before_minute` holds before that
   minute and `not_from_minute` from it on, both all day with the local
   time not known; `not_while_talking` holds while the room (`room/state`)
-  is not known to be quiet. The question already waits while anyone talks
+  is not known to be quiet, as it is when the answer comes back, not as it
+  was when the question was asked (the reviewer on #937). The question
+  already waits while anyone talks
   to the lamp: this adds the talk that is not to it, a call or a visitor.
   A limit on `hello` holds no news.
 
@@ -124,7 +126,10 @@ by the hour and the room), `progress.rs`
 (`a_kept_rule_holds_progress_news_and_no_model_is_asked`: `wait` with no
 model asked, quiet mornings until noon, a rule forgotten holds nothing,
 news not while talking held in a busy or unknown room and not in a quiet
-one, a limit on the hello holding no news, an answer after a rule kept),
+one, a limit on the hello holding no news, an answer after a rule kept;
+`a_yes_that_comes_back_into_a_room_now_busy_is_held_by_not_while_talking`:
+asked in a quiet room, the answer coming back into a busy or unknown one
+is a `wait`),
 and `crates/policy/tests/progress.rs`
 (`with_rules_a_kept_rule_holds_progress_news_and_no_model_is_asked`, on a
 bus, with the typed `news.never`; without `--rules` nothing listens to the

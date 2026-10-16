@@ -561,6 +561,37 @@ fn both_pipe_caps_and_exit_deadline_are_enforced_after_new() {
     }
 }
 
+/// The held descendant, once its group has been killed: gone within a
+/// second, far inside its own five-second life. A zombie counts as gone. A
+/// system call it was already in when the kill came, such as opening its
+/// heartbeat with truncation, has finished by then, so the heartbeat read
+/// after this cannot change under the test.
+fn descendant_gone(rig: &Rig) {
+    let pid: i32 = fs::read_to_string(rig.root.path().join("descendant.pid"))
+        .unwrap()
+        .trim()
+        .parse()
+        .unwrap();
+    let process = rustix::process::Pid::from_raw(pid).unwrap();
+    let zombie = || {
+        fs::read_to_string(format!("/proc/{pid}/stat"))
+            .ok()
+            .and_then(|stat| {
+                stat.rsplit_once(')')
+                    .map(|(_, rest)| rest.trim_start().starts_with('Z'))
+            })
+            .unwrap_or(false)
+    };
+    let until = Instant::now() + Duration::from_secs(1);
+    while rustix::process::test_kill_process(process).is_ok() && !zombie() {
+        assert!(
+            Instant::now() < until,
+            "the held descendant {pid} is still alive a second after its group was killed"
+        );
+        thread::sleep(Duration::from_millis(1));
+    }
+}
+
 #[test]
 fn a_descendant_holding_pipes_is_killed_without_an_unbounded_drain() {
     let rig = Rig::new();
@@ -568,6 +599,7 @@ fn a_descendant_holding_pipes_is_killed_without_an_unbounded_drain() {
     let began = Instant::now();
     assert_eq!(rig.cli().launch(&launch()), uncertain("pipes_open"));
     assert!(began.elapsed() < Duration::from_secs(2));
+    descendant_gone(&rig);
     let heartbeat = fs::read(rig.root.path().join("heartbeat")).unwrap();
     thread::sleep(Duration::from_millis(50));
     assert_eq!(
@@ -594,6 +626,7 @@ fn a_live_descendant_with_closed_pipes_is_still_killed_on_normal_exit() {
             agent_id: AGENT.into()
         }
     );
+    descendant_gone(&rig);
     let heartbeat = fs::read(rig.root.path().join("heartbeat")).unwrap();
     thread::sleep(Duration::from_millis(50));
     assert_eq!(

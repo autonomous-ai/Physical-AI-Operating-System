@@ -230,9 +230,14 @@ What steps 2 and 3 build, unless an answer on #811 changes it.
 - **The zone**, `/etc/lampOS/zone.env`: `LAMP_ZONE` (schedule) and
   `LAMP_UTC_OFFSET_MINUTES` (memory, Expression), written by the install
   from the system's zone and again by setup.
-- **Locks and the bus**, `/etc/tmpfiles.d/lampos.conf`: `/run/lampos-bus`
-  as the keeper makes it, and `/run/lampos-locks/{motor,camera}` in place
-  of lamp-4ace's lock folders under the board user's home.
+- **Locks, the bus and the voice's state**, `/etc/tmpfiles.d/lampos.conf`:
+  `/run/lampos-bus` as the keeper makes it, and `/run/lampos-locks/{motor,camera}`
+  (each 0700 and `lampos`'s, under a root 0755 parent, as the body and the
+  eyes require) in place of lamp-4ace's lock folders under the board user's
+  home; and `/var/lib/lampOS/voice/sessions` (root, 0700), which the voice's
+  unit names and nothing else makes. Both were found on lamp-06c1 on
+  2026-10-16: with the locks 0775 the body never opened the servo port, and
+  without the sessions folder the voice could not start.
 - **The body's unit id** is the host name (`--unit-id %H`), and no unit
   says `ConditionHost=`.
 - **Switches** are in the product unit as `Environment=` lines, on; a lamp

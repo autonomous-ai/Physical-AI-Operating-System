@@ -573,6 +573,42 @@ fn setup_settings_are_written_only_with_setup_on_and_kept_once_changed() {
     );
 }
 
+/// #811, found on lamp-06c1: the lock folders are what the body and the eyes
+/// accept (each 0700 and the parts' own, under a parent nobody else may
+/// write), and the voice's sessions folder, which its unit names and nothing
+/// else makes, is there.
+#[test]
+fn tmpfiles_make_lock_folders_the_parts_accept_and_the_voices_sessions_folder() {
+    let lines: Vec<Vec<&str>> = install::TMPFILES
+        .lines()
+        .filter(|line| line.starts_with("d "))
+        .map(|line| line.split_whitespace().collect())
+        .collect();
+    let line = |path: &str| {
+        lines
+            .iter()
+            .find(|fields| fields[1] == path)
+            .unwrap_or_else(|| panic!("no tmpfiles line for {path}"))
+            .clone()
+    };
+    let parent = line("/run/lampos-locks");
+    assert_eq!(u32::from_str_radix(parent[2], 8).unwrap() & 0o022, 0);
+    assert_eq!(parent[3], "root");
+    for lock in ["/run/lampos-locks/motor", "/run/lampos-locks/camera"] {
+        assert_eq!(line(lock)[2..4], ["0700", install::USER]);
+    }
+    assert_eq!(
+        line("/var/lib/lampOS/voice/sessions")[2..4],
+        ["0700", "root"]
+    );
+    let voice = install::PRODUCT
+        .iter()
+        .find(|(name, _)| *name == "lamp-voice.service")
+        .unwrap()
+        .1;
+    assert!(voice.contains("/var/lib/lampOS/voice/sessions/${INVOCATION_ID}"));
+}
+
 /// A newer build's default reaches a setting nobody changed; a setting
 /// changed on the lamp, or there before any install, keeps the lamp's
 /// bytes; a setting that is missing is written.

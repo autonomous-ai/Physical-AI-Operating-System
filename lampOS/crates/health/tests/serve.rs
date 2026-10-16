@@ -142,6 +142,7 @@ impl Rig {
                 board_every: ms(100),
             },
             online: false,
+            needs: Vec::new(),
         };
         change(&mut options);
         let (said_so, saying) = mpsc::channel();

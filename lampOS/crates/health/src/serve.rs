@@ -74,6 +74,10 @@ pub struct Options {
     pub times: Times,
     /// Also publish `lamp/online`, once each report's time (#830).
     pub online: bool,
+    /// Parts that run only where a file is (`--needs`): while it is not
+    /// there, the part is listed as off, never missing (#811: tasks without
+    /// Harness).
+    pub needs: Vec<(String, std::path::PathBuf)>,
 }
 
 /// What was counted from start to stop.
@@ -454,12 +458,20 @@ impl Serve<'_> {
     /// publish it if it is news or its time has come.
     fn work_out(&mut self, now: Instant) {
         let options = self.options;
-        let health = parts::health(
-            self.parts.reports(),
-            now,
-            &options.expected,
-            options.stale_after,
-        );
+        let off: Vec<(String, String)> = options
+            .needs
+            .iter()
+            .filter(|(_, path)| !path.exists())
+            .map(|(name, path)| (name.clone(), path.display().to_string()))
+            .collect();
+        let expected: Vec<String> = options
+            .expected
+            .iter()
+            .filter(|name| !off.iter().any(|(off, _)| off == *name))
+            .cloned()
+            .collect();
+        let mut health = parts::health(self.parts.reports(), now, &expected, options.stale_after);
+        parts::mark_off(&mut health, &off);
         if self.level != Some(health.level) {
             (self.say)(Note::Health {
                 from: self.level,

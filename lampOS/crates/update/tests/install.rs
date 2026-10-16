@@ -976,6 +976,37 @@ fn harness_is_set_to_start_at_boot_once_when_it_is_there() {
     assert!(!again.changed.iter().any(|line| line.contains("Harness")));
     assert_eq!(asked(&lamp), 1);
 
+    // The reviewer's case on #934: the CLI wrote its unit (and linger was
+    // set) and then failed. The next install asks again, and only a success
+    // is recorded.
+    let mut lamp = Lamp::new(188, &[]);
+    let harness = lamp.on(install::HARNESS);
+    fs::create_dir_all(harness.parent().unwrap()).unwrap();
+    fs::write(&harness, "#!/bin/sh\n").unwrap();
+    for (dir, file) in [
+        ("var/lib/systemd/linger", "lampos"),
+        (
+            "var/lib/lampos-tasks/.config/systemd/user",
+            "harnessd.service",
+        ),
+    ] {
+        fs::create_dir_all(lamp.root.join(dir)).unwrap();
+        fs::write(lamp.root.join(dir).join(file), "").unwrap();
+    }
+    lamp.host.harness_refuses = true;
+    assert!(lamp.install().is_err());
+    lamp.host.harness_refuses = false;
+    let retried = lamp.install().unwrap();
+    assert!(
+        retried
+            .changed
+            .iter()
+            .any(|line| line == "Harness starts at boot as lampos")
+    );
+    assert_eq!(asked(&lamp), 2, "asked again after the failure");
+    lamp.install().unwrap();
+    assert_eq!(asked(&lamp), 2, "and not after the success");
+
     // Refused: the install says why and stops there.
     let mut lamp = Lamp::new(188, &[]);
     let harness = lamp.on(install::HARNESS);

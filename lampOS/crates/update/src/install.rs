@@ -162,10 +162,11 @@ pub const GROUPS: &[&str] = &["audio", "video", "dialout", "i2c", "gpio"];
 /// in: the tasks part's state folder (`deploy/product/lamp-tasks.service`).
 pub const HARNESS: &str = "/usr/local/bin/harness";
 pub const HARNESS_HOME: &str = "/var/lib/lampos-tasks";
-/// What says Harness starts at boot: logind's linger file for the user,
-/// and the user unit `harness service install` writes.
-const LINGER: &str = "/var/lib/systemd/linger/lampos";
-const HARNESS_UNIT: &str = "/var/lib/lampos-tasks/.config/systemd/user/harnessd.service";
+/// What says Harness was set to start at boot: written in lamp-update's
+/// records only after `harness service install` succeeded. Not the files
+/// the CLI leaves: it writes its unit before registering it, and keeps it
+/// when a later step fails (the reviewer on #934), so they prove nothing.
+const HARNESS_DONE: &str = "harness-at-boot";
 
 /// Binaries a build carries that live in another part's folder: the voice
 /// starts its turn-end worker from its own (docs/endpoint-detection.md).
@@ -496,9 +497,15 @@ pub fn install(
         say(&format!(
             "Harness is not at {HARNESS}: it is not set to start at boot"
         ));
-    } else if !(config.on(LINGER).exists() && config.on(HARNESS_UNIT).exists()) {
-        host.harness_at_boot(USER, HARNESS_HOME)?;
-        changed.push(format!("Harness starts at boot as {USER}"));
+    } else {
+        let done = config.on(&config.records).join(HARNESS_DONE);
+        if !done.exists() {
+            // A failure leaves nothing recorded: the next install asks again.
+            host.harness_at_boot(USER, HARNESS_HOME)?;
+            write_whole(&done, format!("{USER} {HARNESS_HOME}\n").as_bytes(), 0o644)
+                .map_err(|error| format!("{}: {error}", done.display()))?;
+            changed.push(format!("Harness starts at boot as {USER}"));
+        }
     }
     for line in &changed {
         say(line);

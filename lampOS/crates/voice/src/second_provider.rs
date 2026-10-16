@@ -139,6 +139,10 @@ impl From<String> for Told {
 /// the time it was said. The worker's is the Live route's own rule
 /// (`worker::Heeding`, `crate::attention`).
 pub type Heed = Arc<dyn Fn(u64, (u64, u64), &str) -> Option<&'static str> + Send + Sync>;
+/// The lamp's eye for a look: the newest picture, as a JPEG, or why there
+/// is none (`worker::serve` reads the eyes' look file with the Live route's
+/// bounds).
+pub type Look = Arc<dyn Fn() -> Result<Vec<u8>, &'static str> + Send + Sync>;
 /// The engine's clock, for the announcement's spell.
 pub type Clock = Arc<dyn Fn() -> Instant + Send + Sync>;
 
@@ -258,6 +262,8 @@ pub struct Engine {
     /// `--sounds-checked`: a short sound is answered only when heard as a
     /// short word.
     sounds_checked: bool,
+    /// The eye a look reads, when the eyes keep a look file.
+    look: Option<Look>,
 }
 
 impl Engine {
@@ -295,6 +301,7 @@ impl Engine {
             turn: None,
             retired_through: 0,
             sounds_checked: false,
+            look: None,
         }
     }
 
@@ -323,6 +330,12 @@ impl Engine {
                 shared.cues = Some(Arc::default());
             }
         }
+        self
+    }
+
+    /// A look reads its picture with `look` (`LAMP_EYES_LOOK_FILE`).
+    pub fn looking(mut self, look: Look) -> Self {
+        self.look = Some(look);
         self
     }
 
@@ -408,20 +421,43 @@ impl Engine {
                 if !self.begin(request, session) {
                     return;
                 }
-                // The lamp taking a look: this route has no picture to give
-                // the model, so it is told it saw nothing, as the Live route
-                // tells it with its eyes shut, and never left to describe a
-                // picture it was not given (sixth-P2, #1044).
-                let text = if look {
+                // The lamp taking a look: the eye's newest picture goes with
+                // the words, as on the Live route. With none, the model is
+                // told it saw nothing, never left to describe a picture it
+                // was not given (sixth-P2, #1044).
+                let picture = look
+                    .then(|| match self.look.as_ref().map(|look| look()) {
+                        Some(Ok(jpeg)) => Some(jpeg),
+                        Some(Err(why)) => {
+                            eprintln!(
+                                "lamp-voice second: the lamp looked: no picture with request {request}: {why}"
+                            );
+                            None
+                        }
+                        None => {
+                            eprintln!(
+                                "lamp-voice second: the lamp looked: no picture with request {request}: no look file"
+                            );
+                            None
+                        }
+                    })
+                    .flatten();
+                if let Some(jpeg) = &picture {
                     eprintln!(
-                        "lamp-voice second: the lamp looked: no picture with request {request}: this route takes none"
+                        "lamp-voice second: the lamp looked: a picture of {} bytes went with request {request}",
+                        jpeg.len()
                     );
+                }
+                let text = if look && picture.is_none() {
                     crate::speak_up::NO_LOOK_NOTE.to_owned()
                 } else {
                     text
                 };
                 let shared = self.shared.clone();
-                let task = tokio::spawn(async move { answer(&shared, request, text, false).await });
+                let task =
+                    tokio::spawn(
+                        async move { answer(&shared, request, text, false, picture).await },
+                    );
                 self.turn = Some(Turn {
                     request,
                     audio: None,
@@ -632,7 +668,7 @@ async fn spoken(
             .await;
         return;
     }
-    answer(&shared, request, text, true).await;
+    answer(&shared, request, text, true, None).await;
 }
 
 /// How an answer stopped short.
@@ -664,8 +700,16 @@ async fn cue(shared: &Shared, request: u64, clip: Vec<i16>) -> Result<(), Stop> 
     Ok(())
 }
 
-/// Chat, speech and the turn's last events, for the person's `said`.
-async fn answer(shared: &Shared, request: u64, said: String, heard: bool) {
+/// Chat, speech and the turn's last events, for the person's `said`, with
+/// the picture of a look. The picture goes in this request only, never into
+/// the thread or a later turn's history.
+async fn answer(
+    shared: &Shared,
+    request: u64,
+    said: String,
+    heard: bool,
+    picture: Option<Vec<u8>>,
+) {
     // Started now, with the chat request, so it is ready first.
     let mut speech = JoinSet::new();
     let announcement = shared
@@ -686,7 +730,10 @@ async fn answer(shared: &Shared, request: u64, said: String, heard: bool) {
     if heard && let Some(cues) = &shared.cues {
         cues.render(&shared.services);
     }
-    let asked = Message::user(said);
+    let asked = match picture {
+        Some(jpeg) => Message::user_seeing(said, &jpeg),
+        None => Message::user(said),
+    };
     let writing = async move {
         let told = (shared.system)();
         let mut messages = vec![Message::system(told.text)];

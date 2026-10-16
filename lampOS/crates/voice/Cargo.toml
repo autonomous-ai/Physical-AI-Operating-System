@@ -32,6 +32,8 @@ tokio-tungstenite = { version = "=0.30.0", default-features = false, features = 
 reqwest = { version = "0.13", default-features = false, features = ["stream", "rustls-no-provider"] }
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 webpki-roots = "1"
+# A look's picture in a chat request (`second_provider`), as `lamp-gemini` pins it.
+base64 = "=0.22.1"
 rustix = { version = "=1.1.5", features = ["fs", "process", "net", "pipe", "stdio", "event"] }
 sonora-agc2 = "=0.2.0"
 sonora-simd = "=0.2.0"

@@ -560,14 +560,22 @@ and its authority kept fresh during the rest of startup.
 Reported by the builders:
 
 - **Facts not told:** the worker accepts the Gemini worker's flags, but
-  sight, `look`, the camera and air facts are not told to the text
-  model. A written turn with `look` (the lamp taking a look) is sent with the Live route's no-look note in place of its words (`speak_up::NO_LOOK_NOTE`): the model is told it saw nothing, never left to describe a picture it was not given. With `LAMP_SESSION_FACT`
-  and `LAMP_ROOM_FACTS` on, each turn's system message carries the facts a
-  Live session is told, in its words, after the memory note and before the
-  thread's recall: the session fact when no conversation is going on, and
-  the room as Gemini's worker publishes it (`room/state`) when it is known
-  and said in the last 3 s (`bus_out::room_now`; a worker that has stopped
-  leaves its last room kept, however old). Air facts wait for a stuffy spell of ten
+  sight, the camera and air facts are not told to the text model. A
+  written turn with `look` (the lamp taking a look) sends the eyes'
+  newest picture with its words, as an OpenAI image part (a JPEG `data:`
+  URL), read from `LAMP_EYES_LOOK_FILE` with the Live route's bounds (1 s
+  and 64 KiB; with `LAMP_LOOK_FULL`, a full look's still and 184 KiB). The
+  picture goes in that one request, never into the thread or a later turn.
+  With no fresh picture, or no look file, the Live route's no-look note
+  goes in place of the words (`speak_up::NO_LOOK_NOTE`): the model is told
+  it saw nothing, never left to describe a picture it was not given
+  (sixth-P2, #1044). With `LAMP_SESSION_FACT` and `LAMP_ROOM_FACTS` on,
+  each turn's system message carries the facts a Live session is told, in
+  its words, after the memory note and before the thread's recall: the
+  session fact when no conversation is going on, and the room as Gemini's
+  worker publishes it (`room/state`) when it is known and said in the last
+  3 s (`bus_out::room_now`; a worker that has stopped leaves its last room
+  kept, however old). Air facts wait for a stuffy spell of ten
   minutes, which this route, used only while Gemini is away, does not
   follow.
 - **Short sounds, by words alone:** with `LAMP_SHORT_SOUNDS=quiet-room-checked`

@@ -640,6 +640,62 @@ async fn a_look_without_a_picture_tells_the_model_it_saw_nothing() {
     );
 }
 
+/// A look with a fresh picture sends it with the words as an image part;
+/// one whose eye has none tells the model it saw nothing (#1044).
+#[tokio::test]
+async fn a_look_sends_the_eyes_picture_or_says_there_is_none() {
+    let script = Arc::new(Script {
+        chats: Mutex::new(
+            [
+                vec![text("A blue mug."), Ok(ChatEvent::Done)],
+                vec![text("My eye is shut."), Ok(ChatEvent::Done)],
+            ]
+            .into(),
+        ),
+        ..Script::default()
+    });
+    let (engine, _, now) = scripted(script.clone());
+    let shut = Arc::new(AtomicBool::new(false));
+    let eye = shut.clone();
+    let mut engine = engine.looking(Arc::new(move || {
+        if eye.load(Ordering::Relaxed) {
+            Err("the eyes' picture is old")
+        } else {
+            Ok(vec![0xFF, 0xD8, 0xFF])
+        }
+    }));
+    let look = |request| ProviderInput::Written {
+        request,
+        session: 1,
+        privacy_generation: 1,
+        text: crate::speak_up::LOOK_FULL_NOTE.into(),
+        look: true,
+    };
+    engine.submit(look(1));
+    turn(&mut engine).await;
+    shut.store(true, Ordering::Relaxed);
+    *now.lock().unwrap() += ANNOUNCE_AFTER;
+    engine.submit(look(2));
+    turn(&mut engine).await;
+    let asked = script.asked.lock().unwrap();
+    assert_eq!(
+        asked[0].last(),
+        Some(&Message::user_seeing(
+            crate::speak_up::LOOK_FULL_NOTE,
+            &[0xFF, 0xD8, 0xFF]
+        ))
+    );
+    let sent = serde_json::to_value(asked[0].last().unwrap()).unwrap();
+    assert_eq!(
+        sent["content"][1]["image_url"]["url"],
+        "data:image/jpeg;base64,/9j/"
+    );
+    assert_eq!(
+        asked[1].last(),
+        Some(&Message::user(crate::speak_up::NO_LOOK_NOTE))
+    );
+}
+
 #[tokio::test]
 async fn nothing_heard_is_a_quiet_complete_turn() {
     let script = Arc::new(Script {

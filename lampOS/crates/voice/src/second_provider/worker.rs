@@ -358,6 +358,18 @@ pub fn serve(
     let mut engine = Engine::new(Arc::new(net), system, runner)
         .checking_sounds(checked)
         .waiting_with_a_sound(wait_cue);
+    // A look reads the eyes' look file with the Live route's bounds: a full
+    // look's still may be older and larger (#836, #941).
+    if let Some(path) = files.look.clone() {
+        let (within, most) = if files.look_full {
+            (crate::sight::FULL_FRESH, lamp_gemini::MAX_LOOK_IMAGE_BYTES)
+        } else {
+            (Duration::from_secs(1), lamp_gemini::MAX_IMAGE_BYTES)
+        };
+        engine = engine.looking(Arc::new(move || {
+            crate::sight::fresh_up_to(&path, SystemTime::now(), within, most).map(|(jpeg, _)| jpeg)
+        }));
+    }
     if files.attention {
         let heeding = Mutex::new(Heeding::new(
             files.attention_busy,

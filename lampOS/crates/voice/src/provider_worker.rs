@@ -523,12 +523,16 @@ pub enum ProviderOutput {
         request: u64,
         why: String,
     },
-    /// A function the model called for `request` was answered with
+    /// A skill's function the model called for `request` was answered with
     /// `"look": true` (a skill's look step, #941): the coordinator takes
     /// the full look for that turn itself, as if the lamp had said it
-    /// would look. Sent once the answer has gone to the model.
+    /// would look, for `session`, the one that made the call. With
+    /// `dropped`, the look is not taken, and why: the answer never reached
+    /// the model, or the turn is one the lamp wrote itself.
     LookAsked {
         request: u64,
+        session: u64,
+        dropped: Option<String>,
     },
     TurnFailed {
         request: u64,
@@ -817,7 +821,7 @@ fn prune_retired_output(output: &mut VecDeque<Outbound>, retired_through: u64) {
             | ProviderOutput::Interrupted { request }
             | ProviderOutput::TurnComplete { request, .. }
         | ProviderOutput::Unclear { request, .. }
-        | ProviderOutput::LookAsked { request } => Some(*request),
+        | ProviderOutput::LookAsked { request, .. } => Some(*request),
         };
         request.is_none_or(|request| request > retired_through)
     });
@@ -1077,6 +1081,8 @@ async fn serve_with_visual<C: Connect>(
     let mut output_sequence = 0u64;
     let mut discards = DiscardLog::default();
     let mut renewed_at = Instant::now();
+    // Until when a skill tool's look may still be owed (#941).
+    let mut look_owed_until: Option<Instant> = None;
     let mut thread_saved_at = Instant::now();
     // The session last told how things stand, if new ones are.
     let session_fact = SESSION_FACT.load(std::sync::atomic::Ordering::Relaxed);
@@ -1251,8 +1257,13 @@ async fn serve_with_visual<C: Connect>(
                 desk.release(&provider, |request| intake.handoff.retired(request));
                 // What the executive made of the calls it was asked.
                 desk.answer(&provider);
-                for request in desk.take_looks() {
-                    output.push_back(Outbound::Output(ProviderOutput::LookAsked { request }));
+                for (request, session, dropped) in desk.take_looks() {
+                    // No session renewed under a look still owed: its
+                    // written turn goes to the session that saw the call.
+                    if dropped.is_none() {
+                        look_owed_until = Some(Instant::now() + LOOK_OWED_AT_MOST);
+                    }
+                    output.push_back(Outbound::Output(ProviderOutput::LookAsked { request, session, dropped }));
                 }
                 // Each call answered, for the first-output record when
                 // there is one (#799); let go when there is none.
@@ -1265,6 +1276,7 @@ async fn serve_with_visual<C: Connect>(
                 // requests is replaced the next time nothing is owed on it.
                 if unanswered_requests().load(std::sync::atomic::Ordering::Relaxed) >= RENEW_AFTER_UNANSWERED
                     && renewed_at.elapsed() >= RENEW_AT_MOST_EVERY
+                    && !look_owed(look_owed_until)
                     && provider.renew_when_idle()
                 {
                     eprintln!(
@@ -1518,6 +1530,7 @@ async fn serve_with_visual<C: Connect>(
                     if due
                         && live.is_some()
                         && live != switch_asked
+                        && !look_owed(look_owed_until)
                         && provider.renew_when_idle()
                     {
                         switch_asked = live;
@@ -1567,6 +1580,7 @@ async fn serve_with_visual<C: Connect>(
                     && monotonic_us().saturating_sub(
                         SUBMITTED_AT_US.load(std::sync::atomic::Ordering::Relaxed).max(looked),
                     ) >= RENEW_AFTER_LOOK_QUIET_US
+                    && !look_owed(look_owed_until)
                     && provider.renew_when_idle()
                 {
                     eprintln!(
@@ -1974,10 +1988,22 @@ struct ToolDesk {
     /// The newest request one of whose actions the Policy held: none of its
     /// sound is let out.
     quieted: Option<u64>,
-    /// Requests whose call was answered with `"look": true` since the
-    /// worker last took them: the coordinator takes their look (#941).
-    looks: Vec<u64>,
+    /// Requests whose skill call was answered with `"look": true` since the
+    /// worker last took them, with the call's session and why the look is
+    /// dropped, if it is: the coordinator takes their look (#941).
+    looks: Vec<(u64, u64, Option<String>)>,
 }
+/// The longest a skill tool's look is owed after its answer: it begins
+/// within `LOOK_BEGINS_WITHIN` and waits `STILL_WAIT` for its still.
+const LOOK_OWED_AT_MOST: Duration =
+    crate::sight::LOOK_BEGINS_WITHIN.saturating_add(crate::sight::STILL_WAIT);
+
+/// Whether a skill tool's look is still owed, so no session is renewed.
+/// ponytail: held to the bound, not cleared as the look's turn begins.
+fn look_owed(until: Option<Instant>) -> bool {
+    until.is_some_and(|until| Instant::now() < until)
+}
+
 /// The turn a call came in, someone's, not the lamp's own.
 #[derive(Clone, Copy, Debug, PartialEq)]
 struct Turn {
@@ -2002,6 +2028,12 @@ struct Asked {
     told: serde_json::Value,
     /// Whom it went to, for the journal.
     whom: &'static str,
+    /// Whether it went to the skills (`skills/`): only their answer can ask
+    /// for a look (#941).
+    skill: bool,
+    /// Whether someone was heard in its request, not a turn the lamp wrote
+    /// itself (a hello, a look's own turn): only then can it ask for a look.
+    heard: bool,
     answered: bool,
     took: Duration,
     /// When the call reached the worker.
@@ -2283,6 +2315,8 @@ impl ToolDesk {
         // a yes to a task cannot come in one.
         let heard =
             crate::attention::own_request().load(std::sync::atomic::Ordering::Acquire) != request;
+        let skill =
+            matches!(&route, Route::Executive(dir) if dir.ends_with(crate::tools::SKILLS_DIR));
         let asked = self.asked.clone();
         let session = lineage.session;
         let work = call.clone();
@@ -2298,6 +2332,8 @@ impl ToolDesk {
                     call: work,
                     told,
                     whom,
+                    skill,
+                    heard,
                     answered,
                     took: started.elapsed(),
                     called_us,
@@ -2489,9 +2525,24 @@ impl ToolDesk {
             self.waiting = self.waiting.saturating_sub(1);
             let taken = send(&done);
             let sent_us = monotonic_us();
-            // The look is the voice's, not the model's to remember (#941).
-            if taken && done.told["look"] == true && !self.looks.contains(&done.request) {
-                self.looks.push(done.request);
+            // The look is the voice's, not the model's to remember (#941),
+            // and only a skill's answer asks for it: no other part makes a
+            // picture leave the lamp.
+            if done.skill
+                && done.told["look"] == true
+                && !self
+                    .looks
+                    .iter()
+                    .any(|(request, ..)| *request == done.request)
+            {
+                let dropped = if !done.heard {
+                    Some("the lamp's own turn".to_owned())
+                } else if !taken {
+                    Some("the answer never reached the model".to_owned())
+                } else {
+                    None
+                };
+                self.looks.push((done.request, done.session.get(), dropped));
             }
             self.line(
                 done.session,
@@ -2534,7 +2585,7 @@ impl ToolDesk {
         std::mem::take(&mut self.lines)
     }
     /// The requests whose look was asked in a call's answer since the last take.
-    fn take_looks(&mut self) -> Vec<u64> {
+    fn take_looks(&mut self) -> Vec<(u64, u64, Option<String>)> {
         std::mem::take(&mut self.looks)
     }
 }
@@ -3839,6 +3890,8 @@ mod tests {
             },
             told: serde_json::json!({"prepared": true}),
             whom: "the tasks part",
+            skill: false,
+            heard: true,
             answered,
             took: Duration::from_millis(41),
             called_us: 1_000,
@@ -3886,12 +3939,14 @@ mod tests {
     }
 
     /// #941: a skill's answer with `"look": true` that reached the model
-    /// asks the coordinator for the look once; one not sent, or with no
-    /// look, asks nothing. The model saying anything is not needed.
+    /// asks the coordinator for the look once, for the call's session. One
+    /// not sent, or in a turn the lamp wrote itself (the look's own turn: a
+    /// call there takes no second still, #1146), goes as a dropped look; one
+    /// with no look, or another part's answer with a look, asks nothing.
     #[test]
     fn a_call_answered_with_a_look_asks_the_coordinator_for_it_once_it_is_sent() {
         let mut desk = ToolDesk::new(crate::tools::Settings::default());
-        let asked = |request: u64, told: serde_json::Value| Asked {
+        let asked = |request: u64, told: serde_json::Value, skill: bool, heard: bool| Asked {
             session: SessionId::new(2).unwrap(),
             request,
             call: lamp_gemini::ToolCall {
@@ -3901,21 +3956,36 @@ mod tests {
             },
             told,
             whom: "the executive",
+            skill,
+            heard,
             answered: true,
             took: Duration::from_millis(3),
             called_us: 1,
         };
         let look = serde_json::json!({"next": "Say only \"Let me take a look.\"", "look": true});
-        desk.asked.send(asked(7, look.clone())).unwrap();
-        desk.asked.send(asked(7, look.clone())).unwrap();
-        desk.asked.send(asked(8, look)).unwrap();
+        desk.asked.send(asked(7, look.clone(), true, true)).unwrap();
+        desk.asked.send(asked(7, look.clone(), true, true)).unwrap();
+        desk.asked.send(asked(8, look.clone(), true, true)).unwrap();
         desk.asked
-            .send(asked(9, serde_json::json!({"next": "Done."})))
+            .send(asked(9, serde_json::json!({"next": "Done."}), true, true))
             .unwrap();
-        desk.waiting = 4;
+        // The actions part's answer with the key: no picture leaves for it.
+        desk.asked
+            .send(asked(10, look.clone(), false, true))
+            .unwrap();
+        // The look's own turn, written by the lamp: no second still.
+        desk.asked.send(asked(11, look, true, false)).unwrap();
+        desk.waiting = 6;
         // Request 8's connection has gone: its answer was never the model's.
         desk.answer_with(|done| done.request != 8, |_, _| {});
-        assert_eq!(desk.take_looks(), [7]);
+        assert_eq!(
+            desk.take_looks(),
+            [
+                (7, 2, None),
+                (8, 2, Some("the answer never reached the model".into())),
+                (11, 2, Some("the lamp's own turn".into())),
+            ]
+        );
         assert!(desk.take_looks().is_empty());
     }
 
@@ -3937,6 +4007,8 @@ mod tests {
                 },
                 told: serde_json::json!({}),
                 whom: "the tasks part",
+                skill: false,
+                heard: true,
                 answered: true,
                 took: Duration::from_millis(40),
                 called_us: 1,
@@ -6976,6 +7048,72 @@ mod tests {
         // Nobody knocked on the executive's door. (That the held answer's
         // sound is dropped is the busy-room test's above.)
         assert!(listener.accept().is_err());
+        rig.stop().await;
+    }
+
+    /// #941, #1146: a skill's call answered with a look, through the
+    /// worker's loop: once its answer has gone to the model, the
+    /// coordinator is asked for the look, for the call's request and
+    /// session.
+    #[tokio::test]
+    async fn a_skill_call_answered_with_a_look_asks_the_coordinator_for_it() {
+        use std::io::{BufRead, Write};
+        let home = crate::process::SessionDirectory::create().unwrap();
+        let skills = home.path.join(crate::tools::SKILLS_DIR);
+        std::fs::create_dir(&skills).unwrap();
+        std::fs::write(
+            skills.join(crate::tools::CATALOG_FILE),
+            r#"{"tools":[{"name":"check_my_work","description":"A test."}]}"#,
+        )
+        .unwrap();
+        let listener =
+            std::os::unix::net::UnixListener::bind(skills.join(crate::tools::CALL_SOCKET)).unwrap();
+        let skill = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut line = String::new();
+            std::io::BufReader::new(stream.try_clone().unwrap())
+                .read_line(&mut line)
+                .unwrap();
+            stream
+                .write_all(b"{\"ok\":true,\"result\":{\"next\":\"Look.\",\"look\":true}}\n")
+                .unwrap();
+        });
+        let mut rig = LiveRig::start_with(
+            quick_policy(),
+            typed_with(crate::tools::Settings {
+                decline: false,
+                exec: Some(home.path.clone()),
+                memory: None,
+                clock: false,
+                ..Default::default()
+            }),
+        );
+        let mut dial = rig.ready().await;
+        let request = rig.speak(&mut dial, false, true).await;
+        dial.service
+            .send(function_call("c8", "check_my_work"))
+            .await;
+        dial.service.send(idle_complete()).await;
+        assert_eq!(
+            rig.service_message(&mut dial).await,
+            json!({"toolResponse":{"functionResponses":[
+                {"id":"c8","name":"check_my_work","response":{"next":"Look.","look":true}}
+            ]}})
+        );
+        skill.join().unwrap();
+        let asked = loop {
+            match rig.output().await {
+                ProviderOutput::LookAsked {
+                    request,
+                    session,
+                    dropped,
+                } => break (request, session, dropped),
+                _ => continue,
+            }
+        };
+        assert_eq!(asked.0, request);
+        assert!(asked.1 > 0);
+        assert_eq!(asked.2, None);
         rig.stop().await;
     }
 

@@ -143,10 +143,18 @@ giving the model one with everything said was switched off).
   (`lamp-skills`, `look = true`; [skills.md](skills.md)) is a full look for
   its turn whether or not the model then says "Let me look". Once the answer
   has gone to the model the worker sends `LookAsked` to the coordinator,
-  which asks the eyes at once (`look_asked` with `"by":"tool"`, then
-  `look_full_asked`) and goes on from there as above; the model's own words
-  after it ask nothing more. Only with `LAMP_LOOK_FULL=on`, only for the turn
-  in hand, never for a reminder's.
+  only for a call the skills answered (`skills/`), never another part's.
+  The coordinator records `look_asked` with `"by":"tool"` and asks the eyes
+  (`look_full_asked`) when the turn's first audio plays or its reply ends,
+  whichever is first, as the phrase would have: lamp-skills has sent the
+  head down before answering (#1146), so the eyes wait for it to settle.
+  It goes on from there as above, the still's wait counted from that ask;
+  the model's own words after it ask nothing more. Only with
+  `LAMP_LOOK_FULL=on`, only for the turn in hand, never for a reminder's
+  or one the lamp wrote itself, and only for the session that made the
+  call (no renewal while it is owed). A look dropped, tool's or words',
+  is recorded as `look_dropped` with `why`. Gemini Live only: the second
+  route sends no `LookAsked`.
   A full look that goes without its still says so in one journal line,
   "a full look went without its still: asked for ID, the file held ..., N
   ms old" (nothing, another ask's still, or a picture with no id; no
@@ -165,7 +173,7 @@ giving the model one with everything said was switched off).
 
 A picture leaves the lamp only on such a look: when a person has asked the
 lamp to and the lamp has said it will, or the model has called a skill's
-tool that looks. With `LAMP_VOICE_SECOND_CONFIG` set
+tool that looks (only a skill's answer asks for one). With `LAMP_VOICE_SECOND_CONFIG` set
 and Gemini away, a look's picture goes to the second voice's `llm_base_url`
 (the company relay and the chat model behind it), not to Gemini
 ([second-voice.md](second-voice.md)).

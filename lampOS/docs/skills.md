@@ -156,7 +156,7 @@ must not leave a step silently undone)*.
 | `do.light` | no | A file in `lights/`, written as its name, or a table in place. A file `lights/NAME.toml` holds the same keys. `{ colour, level, for }` asks the actions part for `light_colour`, then steps the light to `level` (1 to 5) with `light_brighter` or `light_dimmer` calls, counted from the level `light/state` shows; with that level not known it is left and the run says so. `for` holds the light in a run with no say. `{ dim = N, until = "ends" }` asks for `light_dimmer` N times. A light is held until the run ends (the say ends, or the run's longest `for`) and is then given back; `until = "ends"` says so of a dim. With `LAMP_LIGHT_REQUESTS=on` it is asked of the ring instead, and the person's light is never touched (#940, below) |
 | `do.say` | no | A note for the voice to say in its own words, through the voice's say service (#954). One a skill. The run's other steps are made, in their order, when the voice begins the say, so the look and the light come with the words, and none if it is never begun. A light changed is given back when the say ends. In a tool's run the note goes to the model in the call's answer instead. Or `{ from = "schedule" }` or `{ from = "tasks" }`: words the voice keeps itself and says when asked, the reminder due or the news of work handed over (#939, (c), the first builder's 12:32). The voice keeps the words and their delivery (a reminder's acknowledgement, news told once); the skill says when, and moves and lights with them as with a note. Sent to the say service as `from` in place of `note`, at priority 8 for `schedule` and 5 for `tasks`. Any other `from`, another key beside it, or a `from` in a skill with a `tool` refuses the skill: what the voice keeps is said when a trigger starts the skill, never from the model's call (Fourth on #1033) |
 | `do.sound` | no | A file in `sounds/`, written as its name: `sound = "ding"` plays `sounds/ding.wav` (#938). Checked at load by the voice's own check (`lamp_voice::say::read_sound`), and the skill refused with why: a regular file, not a link, of at most 148,140 bytes; a WAV of 16-bit mono PCM at 24 kHz (the speaker path's rate), 1 frame to 3 s; no 10 ms of it louder than -30 dBFS RMS (well under the lamp's speech) and no sample past -12 dBFS. Played by the voice, through its say service (`LAMP_SAY=on`) as `{"sound": PATH}`, the file's absolute path; the voice reads it again, only from under the skills folder, and plays it as a turn of its own, so it never overlaps speech ([speaking-first.md](speaking-first.md), the say service). A lamp not at rest as a say needs it (paused, muted, speaking, listening, owing an answer, a reminder due, within 15 s of its last turn) does not play it, nor a second sound within 30 s, and the voice refuses it at once, never later; the run's `done` says why (`sound: refused (the lamp is speaking)`). One say or sound a skill: the run's other steps are made when the voice begins it, as with a say. Refused in a skill with a `tool`: a tool is called while the voice answers |
-| `do.look` | no | `true`: the voice's full look (#836). Only in a skill with a `tool` and no trigger: the call's answer carries `"look": true` and tells the model to say "Let me take a look."; the voice takes its full look for that turn itself as the answer goes to the model, whatever the model says, its still in the model's next turn, or a note that it could not see if none comes (#941) |
+| `do.look` | no | `true`: the voice's full look (#836). Only in a skill with a `tool` and no trigger: the call's answer carries `"look": true` and tells the model to say "Let me take a look."; lamp-skills makes the run's body and light before it answers, and the voice takes its full look for that turn itself as the answer's first audio plays, whatever the model says, its still in the model's next turn, or a note that it could not see if none comes (#941) |
 
 A duration is a whole number and one of `ms`, `s`, `m` or `h` (`"5m"`).
 
@@ -401,18 +401,35 @@ a tool, and answers on `DIR/call.sock` the way the actions part does
 ([tools.md](tools.md#the-skills)). A call runs the skill's steps without
 asking the Policy, since a person asked: the body and the light are made
 as in any run, the light given back after its `for`, and the voice is
-answered at once, before they are made, with what the model is to do
-next (`{"next": "..."}`): with `look = true`, to say only "Let me take a
+answered with what the model is to do next: at once, before they are
+made, or, for a call with a look, once they are made (at most 800 ms,
+`MADE_BEFORE_ANSWER`; a repeat call's pose made again first too), so the
+head is on its way down over the page and the light up before the voice
+asks the eyes (#1146) (`{"next": "..."}`): with `look = true`, to say only "Let me take a
 look.", and `"look": true` beside it; with `say`, the note.
 
 The look is the voice's, not the model's to remember (#941; at 16:05 the
 model answered without one). Once the answer with
 `"look": true` has gone to the model, the provider worker tells the
-coordinator (`LookAsked`), which takes the full look (#836) for that turn
-as it does when the lamp says it will look: the eyes are asked for one
-still at once (`look_full_asked`; `look_asked` with `"by":"tool"` in the
-record), at `LAMP_LOOK_FULL_SIDE` if set, and the model's "Let me take a
-look." after it asks nothing more. When the turn is over the look's
+coordinator (`LookAsked`), only for a call routed to the skills
+(`skills/`), never for another part's answer with that key. The
+coordinator takes the full look (#836) for that turn as it does when the
+lamp says it will look (`look_asked` with `"by":"tool"` in the record),
+but asks the eyes for the still (`look_full_asked`), at
+`LAMP_LOOK_FULL_SIDE` if set, only when the turn's first audio plays or
+its reply ends, whichever is first: the moment the model's "Let me take a
+look." would have come. The head is then moving, so the eyes wait for it
+to settle (`full_look.rs`). The still's wait counts from that ask, and
+the model's own "Let me take a look." asks nothing more. The look is
+the calling session's: no session is renewed while it is owed (at most
+`LOOK_BEGINS_WITHIN` plus `STILL_WAIT`), and if another session is the
+ready one when its turn would go, it is dropped. A call in a turn the
+lamp wrote itself (the look's own turn, a hello) takes no look, nor does
+one whose answer never reached the model; every dropped look is
+recorded as `look_dropped` with `why`. Only Gemini Live takes a tool's
+look: the second route answers the same tools but sends no `LookAsked`
+(its engine answers the call inside the tool round), so there the
+model's words are the look, as before. When the turn is over the look's
 written turn goes with the still. The still cannot go in the call's answer
 itself: a function's answer to Gemini Live is words, and the call is
 answered at once while the still takes up to 2.5 s. If no still with

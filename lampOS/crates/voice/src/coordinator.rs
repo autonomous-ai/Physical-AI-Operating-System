@@ -2745,6 +2745,14 @@ fn said_close(
         .then(|| loud_blocks.iter().filter(|at| **at >= began).count())
 }
 
+#[cfg(test)]
+thread_local! {
+    /// A loop test's full look, in place of the environment: the still's
+    /// file. Thread-local, so no other test's loop takes it.
+    static TEST_FULL_LOOK: std::cell::RefCell<Option<std::path::PathBuf>> =
+        const { std::cell::RefCell::new(None) };
+}
+
 #[allow(clippy::too_many_arguments)]
 fn conversation_with_gate(
     rig: &mut Rig,
@@ -2925,18 +2933,31 @@ fn conversation_with_gate(
     // Taking a look when asked: the lamp's own "Let me look" is how it asks
     // for its eyes, and the look is the turn after it. Only where the eyes
     // keep a frame for it.
-    let looks = lifetime.continuous()
-        && std::env::var_os(crate::sight::LOOK_ENVIRONMENT).is_some_and(|path| !path.is_empty());
+    #[cfg(test)]
+    let test_look = TEST_FULL_LOOK.with(|still| still.borrow().clone());
+    #[cfg(not(test))]
+    let test_look: Option<std::path::PathBuf> = None;
+    let looks = test_look.is_some()
+        || lifetime.continuous()
+            && std::env::var_os(crate::sight::LOOK_ENVIRONMENT)
+                .is_some_and(|path| !path.is_empty());
     // A full look (#836, `LAMP_LOOK_FULL=on`): the eyes are asked for one
     // still as the lamp says it will look, the look waits for it at most
     // `STILL_WAIT`, and the model is told to say what it cannot make out.
-    let mut look = if looks {
-        crate::sight::Look::from_environment()
-    } else {
-        crate::sight::Look::new(None)
+    let mut look = match test_look {
+        Some(still) => crate::sight::Look::new(Some(still)),
+        None if looks => crate::sight::Look::from_environment(),
+        None => crate::sight::Look::new(None),
     };
     let mut answer_opening: Option<(u64, String)> = None;
     let mut look_wanted: Option<(u64, u64)> = None;
+    // The turn whose look a skill's tool asked for (#941): the eyes are
+    // asked only once its first audio plays or its reply ends, the moment
+    // the lamp would have said it will look, so the head lamp-skills sent
+    // down before answering is moving and the eyes wait for it to settle.
+    // With the session that made the call: the look's turn goes to it, or
+    // the look is dropped.
+    let mut look_held: Option<(u64, u64)> = None;
     // A turn held as unclear in a conversation, and when (#926): asked again
     // with a written turn once it is over.
     let mut asking = AskAgainState::default();
@@ -3643,14 +3664,29 @@ fn conversation_with_gate(
                         json!({"kind":"provider_turn_unclear","turn":request,"why":why,"at_us":monotonic_us(),"asked_again":current}),
                     )?;
                 }
-                ProviderOutput::LookAsked { request } => record_tool_look(
-                    look.full(),
+                ProviderOutput::LookAsked {
                     request,
-                    reply.as_ref().map(|current| current.owner.turn()),
-                    last_reminder_turn,
-                    &mut look_wanted,
-                    trace,
-                )?,
+                    session,
+                    dropped,
+                } => match dropped {
+                    Some(why) if look.full() => record(
+                        trace,
+                        json!({"kind":"look_dropped","turn":request,"by":"tool","why":why,"at_us":monotonic_us()}),
+                    )?,
+                    Some(_) => {}
+                    None => {
+                        if record_tool_look(
+                            look.full(),
+                            request,
+                            reply.as_ref().map(|current| current.owner.turn()),
+                            last_reminder_turn,
+                            &mut look_wanted,
+                            trace,
+                        )? {
+                            look_held = Some((request, session));
+                        }
+                    }
+                },
                 ProviderOutput::TurnComplete { request, idle } => {
                     record(
                         trace,
@@ -5159,16 +5195,46 @@ fn conversation_with_gate(
         // The look the lamp said it would take, as soon as it has finished
         // saying so. Someone speaking first takes the turn and the look is
         // dropped; so is one that could not begin within fifteen seconds of being asked for.
-        if let Some((turn, asked_us)) = look_wanted {
-            ask_for_still(&mut look, eyes_link.as_mut(), turn, clock, trace)?;
+        if let Some((turn, mut asked_us)) = look_wanted {
+            // A tool's look waits for its turn's first audio or its end; the
+            // still's wait counts from the eyes' ask.
+            let by_tool = look_held
+                .filter(|(of, _)| *of == turn)
+                .map(|(_, session)| session);
+            if (by_tool.is_none() || tool_look_due(reply.as_ref(), turn))
+                && ask_for_still(&mut look, eyes_link.as_mut(), turn, clock, trace)?
+                && by_tool.is_some()
+            {
+                asked_us = clock;
+                look_wanted = Some((turn, asked_us));
+            }
             let waited = Duration::from_micros(clock.saturating_sub(asked_us));
+            let dropped = |why: &str, trace: &mut SessionState| {
+                record(
+                    trace,
+                    json!({"kind":"look_dropped","turn":turn,"by":if by_tool.is_some() {"tool"} else {"words"},"why":why,"at_us":clock}),
+                )
+            };
             match reply.as_ref().map(|current| current.owner.turn()) {
                 Some(current) if current == turn => {}
-                Some(_) => look_wanted = None,
+                Some(_) => {
+                    look_wanted = None;
+                    dropped("another turn began first", trace)?;
+                }
                 None if clock.saturating_sub(asked_us)
                     > crate::sight::LOOK_BEGINS_WITHIN.as_micros() as u64 =>
                 {
-                    look_wanted = None
+                    look_wanted = None;
+                    dropped("it could not begin in time", trace)?;
+                }
+                // A tool's look goes only to the session that made the call:
+                // one renewed meanwhile never saw it.
+                None if by_tool.is_some_and(|session| {
+                    unasked_session(&cloud, paused).is_some_and(|ready| ready != session)
+                }) =>
+                {
+                    look_wanted = None;
+                    dropped("the session that made the call has gone", trace)?;
                 }
                 None => {
                     if look.due(waited)
@@ -6535,16 +6601,17 @@ fn record_look_intent(
     Ok(())
 }
 
-/// The eyes asked for a full look's still, once a turn (#836).
+/// The eyes asked for a full look's still, once a turn (#836): whether
+/// they were asked now.
 fn ask_for_still(
     look: &mut crate::sight::Look,
     eyes: Option<&mut crate::body_link::EyesLink>,
     turn: u64,
     clock: u64,
     trace: &mut SessionState,
-) -> Result<()> {
+) -> Result<bool> {
     let Some((id, side)) = look.ask(turn) else {
-        return Ok(());
+        return Ok(false);
     };
     if let Some(eyes) = eyes {
         eyes.look_full(id, side);
@@ -6552,7 +6619,16 @@ fn ask_for_still(
     record(
         trace,
         json!({"kind":"look_full_asked","turn":turn,"side":side,"at_us":clock}),
-    )
+    )?;
+    Ok(true)
+}
+
+/// Whether a tool's look for `turn` may ask the eyes now (#941): once the
+/// turn's first audio plays or its reply is over, whichever is first. Not
+/// at the answer: lamp-skills has only just sent the head down. Another
+/// turn's reply drops the look, and asks nothing.
+fn tool_look_due(reply: Option<&Reply>, turn: u64) -> bool {
+    reply.is_none_or(|current| current.owner.turn() == turn && current.playback.is_some())
 }
 
 /// A skill's tool asked for a look in its answer (#941): the full look is
@@ -6567,19 +6643,20 @@ fn record_tool_look(
     last_reminder_turn: Option<u64>,
     look_wanted: &mut Option<(u64, u64)>,
     trace: &mut SessionState,
-) -> Result<()> {
+) -> Result<bool> {
     if !full
         || current != Some(request)
         || last_reminder_turn.is_some_and(|reminder| request <= reminder)
         || look_wanted.is_some_and(|(of, _)| of == request)
     {
-        return Ok(());
+        return Ok(false);
     }
     *look_wanted = Some((request, monotonic_us()));
     record(
         trace,
         json!({"kind":"look_asked","turn":request,"by":"tool","at_us":monotonic_us()}),
-    )
+    )?;
+    Ok(true)
 }
 
 /// A turn the lamp begins itself. Nothing was heard: the request is a

@@ -730,6 +730,10 @@ async fn answer(
     if heard && let Some(cues) = &shared.cues {
         cues.render(&shared.services);
     }
+    // The picture of a look goes in round 1 only: a later round after a
+    // tool is asked with the words alone (the reviewer on #1075).
+    let mut seeing = picture.is_some();
+    let words = Message::user(said.clone());
     let asked = match picture {
         Some(jpeg) => Message::user_seeing(said, &jpeg),
         None => Message::user(said),
@@ -739,7 +743,13 @@ async fn answer(
         let mut messages = vec![Message::system(told.text)];
         messages.extend(told.history);
         messages.push(asked);
-        for round in 1..=MAX_ROUNDS {
+        let asked_at = messages.len() - 1;
+        // A refused picture's retry keeps the one sound and its longer wait.
+        let mut cued = false;
+        let mut round = 0;
+        while round < MAX_ROUNDS {
+            round += 1;
+            let mut refused = false;
             let mut stream = shared.services.chat(messages.clone());
             let mut first = true;
             let mut split = Sentences::default();
@@ -749,13 +759,16 @@ async fn answer(
                 let next = if first && round == 1 {
                     let at = |after: Duration| begun + after;
                     let cues = shared.cues.as_ref().filter(|_| heard);
-                    let first_wait = if cues.is_some() {
+                    let first_wait = if cued {
+                        BEGIN_WITHIN_AFTER_CUE
+                    } else if cues.is_some() {
                         CUE_AFTER
                     } else {
                         BEGIN_WITHIN
                     };
                     let mut next = tokio::time::timeout_at(at(first_wait), stream.next()).await;
                     if next.is_err()
+                        && !cued
                         && let Some(cues) = cues
                     {
                         // One soft sound, then a longer wait; with no sound
@@ -767,6 +780,7 @@ async fn answer(
                                     began.elapsed().as_millis()
                                 );
                                 cue(shared, request, clip).await?;
+                                cued = true;
                                 BEGIN_WITHIN_AFTER_CUE
                             }
                             None => BEGIN_WITHIN,
@@ -787,10 +801,24 @@ async fn answer(
                     stream.next().await
                 };
                 let Some(event) = next else { break };
-                let event = event.map_err(|error| {
-                    eprintln!("lamp-voice second: request {request} chat round {round} failed after {} ms: {error}", began.elapsed().as_millis());
-                    Stop::Failed(fault(&error))
-                })?;
+                let event = match event {
+                    // A picture the chat refuses is no failure of the look:
+                    // asked once more, within the same bound, with the
+                    // no-look note (#1044).
+                    Err(net::Error::Status(status)) if seeing && first && round == 1 => {
+                        eprintln!(
+                            "lamp-voice second: request {request} the chat refused the look's picture ({status}); asked again without it"
+                        );
+                        messages[asked_at] = Message::user(crate::speak_up::NO_LOOK_NOTE);
+                        seeing = false;
+                        refused = true;
+                        break;
+                    }
+                    event => event.map_err(|error| {
+                        eprintln!("lamp-voice second: request {request} chat round {round} failed after {} ms: {error}", began.elapsed().as_millis());
+                        Stop::Failed(fault(&error))
+                    })?,
+                };
                 if first {
                     first = false;
                     eprintln!(
@@ -822,6 +850,10 @@ async fn answer(
                     ChatEvent::Done => break,
                 }
             }
+            if refused {
+                round -= 1;
+                continue;
+            }
             // Before the unfinished last words are said.
             if !calls.is_empty() {
                 let names: Vec<&str> = calls.iter().map(|call| call.name.as_str()).collect();
@@ -838,6 +870,9 @@ async fn answer(
             }
             if calls.is_empty() {
                 return Ok(());
+            }
+            if std::mem::take(&mut seeing) {
+                messages[asked_at] = words.clone();
             }
             messages.push(Message::assistant_calls(Some(text), &calls));
             for call in &calls {

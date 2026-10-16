@@ -7,7 +7,7 @@
 //! conversation thread as a Live session is, with the same tools, and each
 //! turn kept in that thread and the memory's journal as the Live route
 //! keeps its own.
-use super::{ANNOUNCEMENT, Engine, Net, Told, ToolRunner, net::Message, output_request};
+use super::{Engine, Net, Told, ToolRunner, net::Message, output_request};
 use crate::{
     provider_flow::OutputSender,
     provider_link::{LinkContext, ProviderLink, ProviderLinkState},
@@ -741,7 +741,7 @@ pub(crate) fn keep(event: &ProviderOutput, file: Option<&Path>) {
             request: Some(request),
             text,
             ..
-        } if text.trim_start() != ANNOUNCEMENT => {
+        } => {
             // Sentences come trimmed, those after the first with a space
             // before; the thread joins its pieces as given.
             if let Ok(mut thread) = crate::thread::THREAD.lock() {
@@ -1237,11 +1237,6 @@ mod tests {
             },
             ProviderOutput::Transcript {
                 request: Some(request),
-                text: super::ANNOUNCEMENT.into(),
-                finished: false,
-            },
-            ProviderOutput::Transcript {
-                request: Some(request),
                 text: "Try some tea.".into(),
                 finished: false,
             },
@@ -1262,7 +1257,6 @@ mod tests {
             written.contains("What should I drink?")
                 && written.contains("Try some tea. It is calm.")
         );
-        assert!(!written.contains(super::ANNOUNCEMENT));
         let journalled = memory.join().unwrap();
         assert_eq!(journalled["heard"], "What should I drink?");
         assert_eq!(journalled["said"], "Try some tea. It is calm.");

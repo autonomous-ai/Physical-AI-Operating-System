@@ -566,9 +566,12 @@ Reported by the builders:
   sight, the camera and air facts are not told to the text model. A
   written turn with `look` (the lamp taking a look) sends the eyes'
   newest picture with its words, as an OpenAI image part (a JPEG `data:`
-  URL), read from `LAMP_EYES_LOOK_FILE` with the Live route's bounds (1 s
+  URL) to this route's `llm_base_url` (the company relay and the model
+  behind it, not Gemini), read from `LAMP_EYES_LOOK_FILE` with the Live route's bounds (1 s
   and 64 KiB; with `LAMP_LOOK_FULL`, a full look's still and 184 KiB). The
-  picture goes in that one request, never into the thread or a later turn.
+  picture goes in that turn's first chat round only, never into a round
+  after a tool, the thread or a later turn; a picture the chat refuses is
+  asked once more with the no-look note, within the 3 s bound.
   With no fresh picture, or no look file, the Live route's no-look note
   goes in place of the words (`speak_up::NO_LOOK_NOTE`): the model is told
   it saw nothing, never left to describe a picture it was not given

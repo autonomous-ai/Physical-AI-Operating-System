@@ -694,6 +694,94 @@ async fn a_look_sends_the_eyes_picture_or_says_there_is_none() {
     );
 }
 
+/// The reviewer on #1075: a refused picture asks once more with the
+/// no-look note; a tool round after a look is asked without the picture; a
+/// plain or spoken turn on an engine with an eye carries none.
+#[tokio::test]
+async fn a_look_s_picture_goes_once_and_never_otherwise() {
+    let eye = || -> Look { Arc::new(|| Ok(vec![0xFF, 0xD8, 0xFF])) };
+    let look = |request| ProviderInput::Written {
+        request,
+        session: 1,
+        privacy_generation: 1,
+        text: crate::speak_up::LOOK_FULL_NOTE.into(),
+        look: true,
+    };
+    // Refused: asked again with the note, and answered.
+    let script = Arc::new(Script {
+        chats: Mutex::new(
+            [
+                vec![Err(net::Error::Status(400))],
+                vec![text("My eye is shut."), Ok(ChatEvent::Done)],
+            ]
+            .into(),
+        ),
+        ..Script::default()
+    });
+    let (engine, _, _) = scripted(script.clone());
+    let mut engine = engine.looking(eye());
+    engine.submit(look(1));
+    assert_eq!(
+        turn(&mut engine).await.last().map(String::as_str),
+        Some("complete")
+    );
+    let asked = script.asked.lock().unwrap().clone();
+    assert_eq!(
+        asked[1].last(),
+        Some(&Message::user(crate::speak_up::NO_LOOK_NOTE))
+    );
+    // A tool round after a look: the words alone.
+    let script = Arc::new(Script {
+        chats: Mutex::new(
+            [
+                vec![
+                    Ok(ChatEvent::ToolCalls(vec![call(
+                        "c1",
+                        "set_timer",
+                        json!({}),
+                    )])),
+                    Ok(ChatEvent::Done),
+                ],
+                vec![text("Done."), Ok(ChatEvent::Done)],
+            ]
+            .into(),
+        ),
+        ..Script::default()
+    });
+    let (engine, _, _) = scripted(script.clone());
+    let mut engine = engine.looking(eye());
+    engine.submit(look(1));
+    turn(&mut engine).await;
+    let asked = script.asked.lock().unwrap().clone();
+    assert_eq!(
+        asked[1].iter().find(|message| message.role == "user"),
+        Some(&Message::user(crate::speak_up::LOOK_FULL_NOTE))
+    );
+    // Never otherwise: a plain written turn and a spoken one.
+    let script = Arc::new(Script {
+        heard: Mutex::new([Ok("Hi.".to_owned())].into()),
+        chats: Mutex::new(
+            [
+                vec![text("Hello."), Ok(ChatEvent::Done)],
+                vec![text("Hello."), Ok(ChatEvent::Done)],
+            ]
+            .into(),
+        ),
+        ..Script::default()
+    });
+    let (engine, _, _) = scripted(script.clone());
+    let mut engine = engine.looking(eye());
+    engine.submit(written(1, "Hello?"));
+    turn(&mut engine).await;
+    engine.submit(start(2));
+    engine.submit(audio(2, 1));
+    engine.submit(end(2));
+    turn(&mut engine).await;
+    let asked = script.asked.lock().unwrap().clone();
+    assert_eq!(asked[0].last(), Some(&Message::user("Hello?")));
+    assert_eq!(asked[1].last(), Some(&Message::user("Hi.")));
+}
+
 #[tokio::test]
 async fn nothing_heard_is_a_quiet_complete_turn() {
     let script = Arc::new(Script {

@@ -700,7 +700,12 @@ used only to say it.
   and 17 s, each "Oh, Claude Code just finished…", and a fourth missed the
   20 s bound. One note holds 1,024 bytes, so fewer go together when each
   answer would keep under 120 characters: three long answers go as two,
-  about 210 characters of each, then one. A task waiting for the person,
+  about 180 characters of each, then one. How many go together is settled
+  before any is taken from the line, so the rest keep their places: one
+  left out never goes ahead of a task waiting for the person that came
+  before it (the reviewer on #1223). A cut answer keeps #757's guard told
+  together too: its gist in one plain line from its beginning, then that
+  the rest is on their computer, never only that. A task waiting for the person,
   one that stopped, a hand-over that failed and progress are told on their
   own, and so is all news while it waits for a skill (`LAMP_TASK_NEWS=skill`):
   the skill tells each task in its own run (#1042). The record's `task_news` says `at_pause`, `since_turn_ms`, how long

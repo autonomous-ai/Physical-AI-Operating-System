@@ -5,9 +5,13 @@ use super::*;
 use crate::activity::{ConfirmPolicy, START_BLOCKS};
 use lamp_audio::ownership::PlaybackCursor;
 use lamp_turn_end_wire::{Availability, Classifier, Outcome, Submit, Token};
-use std::sync::{
-    Arc,
-    atomic::{AtomicUsize, Ordering},
+use std::{
+    cell::RefCell,
+    rc::Rc,
+    sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    },
 };
 
 #[test]
@@ -1059,25 +1063,94 @@ struct Ran {
     chunks: Vec<SpeakerChunk>,
 }
 
+/// How the loop's time passes. On the host's clock, each fixture worker's
+/// side is read on its own thread. Stepped, they are read on the test thread
+/// before each two-millisecond step of the scenario clock, so a slow host,
+/// such as an ARM64 emulator, cannot age a tap before the loop first looks.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Clocking {
+    Host,
+    Stepped,
+}
+
+/// A fixture worker's side read on the stepped clock, as the thread in
+/// [`run_loop_with`] reads it on the host's.
+struct SteppedPeer {
+    speaker: bool,
+    peer: WorkerChannels,
+    input: Option<std::process::ChildStdin>,
+    pid: u32,
+    keeping: bool,
+    stopped: bool,
+    told: Vec<Snapshot>,
+    chunks: Vec<SpeakerChunk>,
+}
+
+impl SteppedPeer {
+    fn read(&mut self, deadline: Instant) -> io::Result<()> {
+        if self.stopped {
+            return Ok(());
+        }
+        while let Some(message) = self.peer.control.receive::<Control>().unwrap() {
+            match message {
+                Control::Stop => {
+                    self.stopped = true;
+                    // The child exits once its input closes; logical time
+                    // does not pass in a shutdown step.
+                    drop(self.input.take());
+                    return crate::scenario_clock::wait_child_exited(self.pid, deadline);
+                }
+                Control::Authority { snapshot } if self.speaker && self.keeping => {
+                    self.told.push(snapshot)
+                }
+                Control::Authority { .. } => {}
+                _ => panic!("unexpected command to a head-touch fixture worker"),
+            }
+        }
+        if self.speaker {
+            while let Some(chunk) = self.peer.data.receive::<SpeakerChunk>().unwrap() {
+                if self.keeping {
+                    self.chunks.push(chunk);
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
 /// The loop with these controls, ended by a provider fault queued before
 /// it starts (`fault_first`), or else by itself a few passes in: the
 /// fixture's privacy worker says nothing, so physical privacy becomes
 /// unavailable.
 fn run_loop(
     controls: impl FnOnce() -> HandControls,
+    owner: Controller,
+    reply: Option<Reply>,
+    fault_first: bool,
+) -> Ran {
+    run_loop_with(controls, owner, reply, fault_first, Clocking::Host)
+}
+
+/// As [`run_loop`], with the loop's time passing as `clocking` says.
+fn run_loop_with(
+    controls: impl FnOnce() -> HandControls,
     mut owner: Controller,
     mut reply: Option<Reply>,
     fault_first: bool,
+    clocking: Clocking,
 ) -> Ran {
     let directory = SessionDirectory::create().unwrap();
-    let (speaker, speaker_peer, speaker_input) =
-        Worker::cooperative_fixture(&directory.path, "speaker");
-    let (capture, capture_peer, capture_input) =
-        Worker::cooperative_fixture(&directory.path, "capture");
-    let (provider, provider_peer, provider_input) =
-        Worker::cooperative_fixture(&directory.path, "provider");
-    let (privacy, privacy_peer, privacy_input) =
-        Worker::cooperative_fixture(&directory.path, "privacy");
+    // The stepped clock cannot rely on the scheduler running each child
+    // before logical time advances: its fixture's echo proves it ready.
+    let fixture = match clocking {
+        Clocking::Host => Worker::cooperative_fixture,
+        Clocking::Stepped => Worker::cooperative_ready_fixture,
+    };
+    let (speaker, speaker_peer, speaker_input) = fixture(&directory.path, "speaker");
+    let (capture, capture_peer, capture_input) = fixture(&directory.path, "capture");
+    let (provider, provider_peer, provider_input) = fixture(&directory.path, "provider");
+    let (privacy, privacy_peer, privacy_input) = fixture(&directory.path, "privacy");
+    let pids = [&speaker, &capture, &provider, &privacy].map(|worker| worker.fixture_pid());
     let mut rig = Rig {
         second: None,
         microphone: crate::options::Microphone::Mic2,
@@ -1126,47 +1199,89 @@ fn run_loop(
         (false, capture_peer, capture_input),
         (false, provider_peer, provider_input),
         (false, privacy_peer, privacy_input),
-    ]
-    .into_iter()
-    .map(|(speaker, mut peer, input)| {
-        let (running, drained) = (Arc::clone(&running), Arc::clone(&drained));
-        std::thread::spawn(move || {
-            let (mut told, mut chunks) = (Vec::new(), Vec::new());
-            let mut keeping = true;
-            let deadline = Instant::now() + Duration::from_secs(10);
-            loop {
-                let ended = !running.load(Ordering::Acquire);
-                while let Some(message) = peer.control.receive::<Control>().unwrap() {
-                    match message {
-                        Control::Stop => {
-                            drop(input);
-                            return (peer, told, chunks);
-                        }
-                        Control::Authority { snapshot } if speaker && keeping => {
-                            told.push(snapshot)
-                        }
-                        Control::Authority { .. } => {}
-                        _ => panic!("unexpected command to a head-touch fixture worker"),
+    ];
+    let (mut threads, mut stepped, mut scope) = (Vec::new(), None, None);
+    if clocking == Clocking::Stepped {
+        // Every child has crossed its readiness barrier: the loop, its
+        // controls and these peers share the scenario clock from here.
+        let clock = crate::scenario_clock::Scope::enter(Duration::from_secs(10)).unwrap();
+        let shared = Rc::new(RefCell::new(
+            peers
+                .into_iter()
+                .zip(pids)
+                .map(|((speaker, peer, input), pid)| SteppedPeer {
+                    speaker,
+                    peer,
+                    input: Some(input),
+                    pid,
+                    keeping: true,
+                    stopped: false,
+                    told: Vec::new(),
+                    chunks: Vec::new(),
+                })
+                .collect::<Vec<_>>(),
+        ));
+        let pumped = Rc::clone(&shared);
+        clock
+            .set_pump(move |phase| {
+                // A real child's exit is not simulated: one deadline bounds
+                // the children a step stops, and shutdown brings its own.
+                let deadline = match phase {
+                    crate::scenario_clock::Phase::Run => {
+                        Instant::now() + Duration::from_millis(300)
                     }
+                    crate::scenario_clock::Phase::Shutdown { deadline } => deadline,
+                };
+                for peer in pumped.borrow_mut().iter_mut() {
+                    peer.read(deadline)?;
                 }
-                if speaker {
-                    while let Some(chunk) = peer.data.receive::<SpeakerChunk>().unwrap() {
-                        if keeping {
-                            chunks.push(chunk);
+                Ok(())
+            })
+            .unwrap();
+        (stepped, scope) = (Some(shared), Some(clock));
+    } else {
+        threads = peers
+            .into_iter()
+            .map(|(speaker, mut peer, input)| {
+                let (running, drained) = (Arc::clone(&running), Arc::clone(&drained));
+                std::thread::spawn(move || {
+                    let (mut told, mut chunks) = (Vec::new(), Vec::new());
+                    let mut keeping = true;
+                    let deadline = Instant::now() + Duration::from_secs(10);
+                    loop {
+                        let ended = !running.load(Ordering::Acquire);
+                        while let Some(message) = peer.control.receive::<Control>().unwrap() {
+                            match message {
+                                Control::Stop => {
+                                    drop(input);
+                                    return (peer, told, chunks);
+                                }
+                                Control::Authority { snapshot } if speaker && keeping => {
+                                    told.push(snapshot)
+                                }
+                                Control::Authority { .. } => {}
+                                _ => panic!("unexpected command to a head-touch fixture worker"),
+                            }
                         }
+                        if speaker {
+                            while let Some(chunk) = peer.data.receive::<SpeakerChunk>().unwrap() {
+                                if keeping {
+                                    chunks.push(chunk);
+                                }
+                            }
+                        }
+                        // Everything sent before the loop ended has been read now.
+                        if ended && keeping {
+                            keeping = false;
+                            drained.fetch_add(1, Ordering::AcqRel);
+                        }
+                        assert!(Instant::now() < deadline, "mock peer did not receive Stop");
+                        std::thread::sleep(Duration::from_millis(1));
                     }
-                }
-                // Everything sent before the loop ended has been read now.
-                if ended && keeping {
-                    keeping = false;
-                    drained.fetch_add(1, Ordering::AcqRel);
-                }
-                assert!(Instant::now() < deadline, "mock peer did not receive Stop");
-                std::thread::sleep(Duration::from_millis(1));
-            }
-        })
-    })
-    .collect::<Vec<_>>();
+                })
+            })
+            .collect::<Vec<_>>();
+    }
     let mut trace = SessionState::default();
     // Made last, just before the loop first polls it: a touch is fresh for
     // 100 ms only.
@@ -1187,8 +1302,16 @@ fn run_loop(
     .unwrap_err();
     let message = error.to_string();
     running.store(false, Ordering::Release);
-    while drained.load(Ordering::Acquire) < peers.len() {
+    while drained.load(Ordering::Acquire) < threads.len() {
         std::thread::sleep(Duration::from_millis(1));
+    }
+    // Everything sent before the loop ended is read now, as the threads do.
+    if let Some(shared) = &stepped {
+        for peer in shared.borrow_mut().iter_mut() {
+            peer.read(Instant::now() + Duration::from_millis(300))
+                .unwrap();
+            peer.keeping = false;
+        }
     }
     let left = reply.take();
     let _ = finish_active_run(
@@ -1200,11 +1323,16 @@ fn run_loop(
         Err(error),
     );
     let (mut told, mut chunks) = (Vec::new(), Vec::new());
-    for peer in peers {
+    for peer in threads {
         let (peer, peer_told, peer_chunks) = peer.join().unwrap();
         drop(peer);
         told.extend(peer_told);
         chunks.extend(peer_chunks);
+    }
+    for peer in stepped.map(|shared| shared.take()).unwrap_or_default() {
+        assert!(peer.stopped, "mock peer did not receive Stop");
+        told.extend(peer.told);
+        chunks.extend(peer.chunks);
     }
     for worker in [
         &mut rig.speaker,
@@ -1215,6 +1343,7 @@ fn run_loop(
         assert!(worker.try_exit().unwrap().is_some());
     }
     drop(rig);
+    drop(scope.take());
     fs::remove_dir(&directory.path).unwrap();
     Ran {
         error: message,
@@ -1298,7 +1427,7 @@ fn head_tap() -> HandControls {
 #[test]
 fn a_tap_on_a_quiet_lamps_head_plays_its_hm_as_a_turn_of_its_own() {
     // #711: a soft "hm?", through the speaker path, nothing to the provider.
-    let ran = run_loop(head_tap, quiet_owner(), None, false);
+    let ran = run_loop_with(head_tap, quiet_owner(), None, false, Clocking::Stepped);
     let cue = ran
         .trace
         .iter()
@@ -1329,7 +1458,7 @@ fn a_tap_while_the_lamp_is_still_thinking_keeps_its_answer_and_does_not_hum() {
     let (owner, mut current, _) = active_reply();
     current.had_audio = false;
     current.playback = None;
-    let ran = run_loop(head_tap, owner, Some(current), false);
+    let ran = run_loop_with(head_tap, owner, Some(current), false, Clocking::Stepped);
     let cue = ran
         .trace
         .iter()

@@ -30,6 +30,12 @@ use std::{
     thread::{self, JoinHandle},
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
+// The clock the coordinator's loop polls with: in its stepped tests the
+// scenario clock, which is the host's for every unscoped test.
+#[cfg(test)]
+use crate::scenario_clock::monotonic_us;
+#[cfg(not(test))]
+use lamp_ipc::monotonic_us;
 
 const QUEUE_CAPACITY: usize = 32;
 const POLL_LIMIT: usize = 16;
@@ -654,7 +660,7 @@ impl HandControls {
 
     /// No bus/filesystem I/O, blocking receive, channel send or provider call.
     pub fn poll(&mut self) -> io::Result<Observation> {
-        self.poll_with_clock(lamp_ipc::monotonic_us)
+        self.poll_with_clock(monotonic_us)
     }
 
     #[cfg(test)]
@@ -808,7 +814,7 @@ impl HandControls {
     /// Discard any queued/previous clear before an active runtime transition.
     /// It never clears software mute or grants a physical privacy permission.
     pub fn fence_clear(&mut self) -> io::Result<()> {
-        self.fence_at(lamp_ipc::monotonic_us());
+        self.fence_at(monotonic_us());
         Ok(())
     }
 
@@ -846,7 +852,7 @@ impl HandControls {
     /// action. `muted` reflects the final latch after the persistence/clear
     /// transaction; the other fields describe this bounded input poll.
     pub fn quiescent_observation(&mut self) -> io::Result<(bool, Observation)> {
-        self.quiescent_observation_with_clock(lamp_ipc::monotonic_us)
+        self.quiescent_observation_with_clock(monotonic_us)
     }
 
     #[cfg(test)]

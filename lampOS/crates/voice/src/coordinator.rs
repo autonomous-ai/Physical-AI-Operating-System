@@ -522,16 +522,19 @@ impl Rig {
         Ok(())
     }
     fn running(&mut self) -> io::Result<()> {
+        // The second route's worker, standing by or active in
+        // `self.provider`, is not mandatory: one that exited is dropped at
+        // the next tick (`second::dropped_if_gone`, #960).
+        let second_active = self.second.as_ref().is_some_and(second::Route::active);
         for worker in [
             &mut self.provider,
             &mut self.capture,
             &mut self.speaker,
             &mut self.privacy,
-        ]
-        .into_iter()
-        .chain(self.second.as_mut().map(second::Route::worker_mut))
-        {
-            worker.check_running()?;
+        ] {
+            if !(second_active && worker.role == "second") {
+                worker.check_running()?;
+            }
         }
         self.ring.check_running();
         Ok(())
@@ -2912,9 +2915,22 @@ fn conversation_with_gate(
         // A second route whose worker exited is dropped before anything
         // else of this tick touches it, and a turn it held ends (#960).
         if second::dropped_if_gone(rig, &mut cloud, &mut output_flow, trace)? {
+            // As a turn the provider interrupted: its unsent input and
+            // unwritten speech go with it, and the rest of a line still
+            // being said is drained, never taken for a new request.
+            let input_active = reply
+                .as_ref()
+                .is_some_and(|current| !current.local_input_ended);
             cancel_reply(owner, reply, trace, "second_route_failed")?;
+            provider_queue.clear();
+            speaker_pending = None;
+            if input_active {
+                admission.discard_stream_until_end(monotonic_us())?;
+                submission_draining = true;
+            }
             snapshot = owner.snapshot(now())?;
             rig.publish(snapshot)?;
+            last_publish = monotonic_us();
         }
         if let Some(current) = reply.as_ref() {
             let turn = current.owner.turn();

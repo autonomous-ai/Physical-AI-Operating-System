@@ -598,8 +598,15 @@ used only to say it.
   lamp-75c9 on 2026-10-16, a task that ran `sleep 25` in the background read
   idle → working → idle on one line before it was done. So "done" is told
   about 10 s after the agent goes idle. A question (`needs-input`), a stop
-  or a failure is kept on the first look. Once one such observation is
-  kept, the watch leaves that task.
+  or a failure is kept on the first look. A wait longer than the second
+  look still reads idle twice, and neither `show` nor Harness's own `wait`
+  (two looks about 3 s apart) can tell, so after an idle answer is kept the
+  watch goes on looking every 2 minutes for 10 (`WATCH_FOLLOW_MS`). The same
+  answer is only seen again; a different one, confirmed the same way, is
+  kept as a new observation, and the voice tells it as news of its own. A
+  question, a stop or a failure kept, or a task's four observations, end
+  it; what progress reads (`tasks/status`) is unchanged. Otherwise, once
+  such an observation is kept, the watch leaves that task.
   An asked read's receipt that a watch read replaces is dropped: a retry of
   that request finds the revision moved on and is refused, never run twice.
   Nothing is read while a launch or another read is in hand.

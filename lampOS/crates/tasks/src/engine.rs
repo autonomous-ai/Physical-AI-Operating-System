@@ -28,6 +28,12 @@ pub const WATCH_AT_MOST_MS: u64 = 86_400_000;
 /// How soon the watch looks again after it first finds an agent idle with
 /// an answer, to see whether that turn holds ([`Task::watch_idle`]).
 pub const WATCH_CONFIRM_MS: u64 = 10_000;
+/// How long the watch goes on looking, every [`WATCH_LATER_MS`], after it
+/// kept an idle answer: an agent that waits on its own background work for
+/// longer than [`WATCH_CONFIRM_MS`] reads idle twice and then goes on, and
+/// neither `show` nor Harness's own `wait` can tell (#1145 review). A
+/// different answer it ends with later is kept as a new observation.
+pub const WATCH_FOLLOW_MS: u64 = 600_000;
 
 pub trait Persistence {
     fn load(&self) -> io::Result<Option<Vec<u8>>>;
@@ -1368,9 +1374,11 @@ impl<P: Persistence> Engine<P> {
                 let Some(accepted) = task.dispatch.finished.as_ref() else {
                     return false;
                 };
-                let Some(age) = watched_age(task, now) else {
+                let age = watched_age(task, now);
+                let follow = age.is_none() && following(task, now);
+                if age.is_none() && !follow {
                     return false;
-                };
+                }
                 if task.read.as_ref().is_some_and(|r| {
                     matches!(r.state, ReadState::Requested | ReadState::Attempting)
                 }) {
@@ -1378,7 +1386,9 @@ impl<P: Persistence> Engine<P> {
                 }
                 let every = if task.watch_idle.is_some() {
                     WATCH_CONFIRM_MS
-                } else if age.is_some_and(|age| age < WATCH_EARLY_FOR_MS) {
+                } else if follow {
+                    WATCH_LATER_MS
+                } else if age.flatten().is_some_and(|age| age < WATCH_EARLY_FOR_MS) {
                     WATCH_EARLY_MS
                 } else {
                     WATCH_LATER_MS
@@ -1495,8 +1505,15 @@ impl<P: Persistence> Engine<P> {
             .as_ref()
             .is_some_and(|read| read.watch)
         {
-            let seen = self.state.tasks[index].watch_idle.as_ref();
-            let idle = observation.state == "idle" && settled(&observation);
+            let task = &self.state.tasks[index];
+            let seen = task.watch_idle.as_ref();
+            // An answer already kept needs no second look: it is only seen
+            // again.
+            let kept = task
+                .observations
+                .iter()
+                .any(|o| o.digest == observed_digest);
+            let idle = observation.state == "idle" && settled(&observation) && !kept;
             if !settled(&observation) || (idle && seen != Some(&observed_digest)) {
                 let watch_idle = idle.then(|| observed_digest.clone());
                 let failure = if idle { "idle_once" } else { "working" };
@@ -1617,6 +1634,25 @@ fn watched_age(task: &Task, now: &Clock) -> Option<Option<u64>> {
         return None;
     }
     Some(age)
+}
+
+/// Whether the watch still looks at `task` after it kept an idle answer:
+/// that answer is its newest observation, kept in this boot at most
+/// [`WATCH_FOLLOW_MS`] ago, with room for another. A question, a stop or a
+/// failure ends it. What progress reads ([`Engine::watched`]) is unchanged.
+fn following(task: &Task, now: &Clock) -> bool {
+    let Some(newest) = task.observations.last() else {
+        return false;
+    };
+    task.dispatch.state == DispatchState::Accepted
+        && task.observations.len() < MAX_OBSERVATIONS
+        && newest.data.state == "idle"
+        && settled(&newest.data)
+        && newest.observed.boot_id == now.boot_id
+        && now
+            .monotonic_ms
+            .saturating_sub(newest.observed.monotonic_ms)
+            <= WATCH_FOLLOW_MS
 }
 
 fn take(counter: &mut u64) -> Result<u64, Error> {
@@ -3093,7 +3129,8 @@ mod tests {
         );
         assert!(!engine.watch(&clock(once + WATCH_CONFIRM_MS - 1)).unwrap());
         assert!(engine.watch(&clock(once + WATCH_CONFIRM_MS)).unwrap());
-        // The same answer again: kept, and the watch stops.
+        // The same answer again: kept, and the watch stops once it has
+        // followed it for WATCH_FOLLOW_MS.
         let job = engine
             .begin_observation(&clock(once + WATCH_CONFIRM_MS))
             .unwrap()
@@ -3171,7 +3208,19 @@ mod tests {
         assert_eq!(task(&engine).observations.len(), 1);
         assert_eq!(task(&engine).observations[0].data.answer, "Done.");
         assert!(task(&engine).watch_idle.is_none());
-        assert!(!engine.watch(&clock(at + WATCH_LATER_MS)).unwrap());
+        // Kept, and still looked at every two minutes for ten: the same
+        // answer is only seen again, with no second look.
+        assert!(!engine.watch(&clock(at + WATCH_LATER_MS - 1)).unwrap());
+        at += WATCH_LATER_MS;
+        look(&mut engine, at, data("Done."));
+        assert_eq!(task(&engine).observations.len(), 1);
+        assert_eq!(task(&engine).observations[0].seen_count, 2);
+        assert!(task(&engine).watch_idle.is_none());
+        // Ten minutes after it was kept, the watch leaves it.
+        let kept = at - WATCH_LATER_MS;
+        assert!(!engine.watch(&clock(kept + WATCH_FOLLOW_MS + 1)).unwrap());
+        // Progress reads it no longer either way.
+        assert!(engine.watched(&clock(at)).is_empty());
         // A question for the person is kept on the first look.
         let (mut asking, _) = opened();
         accepted(&mut asking, 10);
@@ -3181,6 +3230,45 @@ mod tests {
         };
         look(&mut asking, 10 + WATCH_EARLY_MS, question);
         assert_eq!(asking.state.tasks[0].observations.len(), 1);
+    }
+
+    #[test]
+    fn an_idle_wait_longer_than_the_second_look_is_followed_to_its_real_end() {
+        // The #1145 review: the agent waits 25 s on its background `sleep`,
+        // so both looks find it idle and its "I'll say done after" is kept.
+        // The watch goes on looking and keeps what it really ends with.
+        let (mut engine, _) = opened();
+        accepted(&mut engine, 10);
+        let look = |engine: &mut Engine<Memory>, at: u64, seen: Observation| {
+            assert!(engine.watch(&clock(at)).unwrap());
+            let job = engine.begin_observation(&clock(at)).unwrap().unwrap();
+            engine.finish_observation(&job, seen, &clock(at)).unwrap();
+        };
+        let waiting = data("Sleeping 25 s in the background; I'll say done after.");
+        let mut at = 10 + WATCH_EARLY_MS;
+        look(&mut engine, at, waiting.clone());
+        at += WATCH_CONFIRM_MS;
+        look(&mut engine, at, waiting);
+        assert_eq!(engine.state.tasks[0].observations.len(), 1);
+        // Two minutes on, the agent has gone on and finished: a new answer,
+        // confirmed by a second look, kept as a new observation.
+        at += WATCH_LATER_MS;
+        look(&mut engine, at, data("Done: slept 25 s."));
+        assert_eq!(engine.state.tasks[0].observations.len(), 1);
+        at += WATCH_CONFIRM_MS;
+        look(&mut engine, at, data("Done: slept 25 s."));
+        let observations = &engine.state.tasks[0].observations;
+        assert_eq!(observations.len(), 2);
+        assert_eq!(observations[1].data.answer, "Done: slept 25 s.");
+        // A question ends the following at once.
+        at += WATCH_LATER_MS;
+        let question = Observation {
+            state: "needs-input".into(),
+            ..data("May I delete the log?")
+        };
+        look(&mut engine, at, question);
+        assert_eq!(engine.state.tasks[0].observations.len(), 3);
+        assert!(!engine.watch(&clock(at + WATCH_LATER_MS)).unwrap());
     }
 
     #[test]

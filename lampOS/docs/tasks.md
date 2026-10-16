@@ -652,9 +652,10 @@ used only to say it.
   10); Harness's two-look rule makes that rare (the reviewer on #1157). A push read leaves
   `"confirmed": true` in the store, which a `lamp-tasks` built before
   `--push-wait` refuses, as it refused `watch` when that came: going back
-  needs the tasks store removed. Both units (`deploy/product/lamp-tasks.service`
-  and `deploy/lamp-4ace/`) run `serve --enable --watch --progress --push-wait
-  …` since #1157 was shown on lamp-75c9 (Ten, 2026-10-16, with the real
+  needs the tasks store removed. The product unit
+  (`deploy/product/lamp-tasks.service`) runs `serve --enable --watch
+  --progress --push-wait …` (lamp-4ace runs the same by its own record, since
+  stack38) since #1157 was shown on lamp-75c9 (Ten, 2026-10-16, with the real
   Harness and the lamp's own Harness daemon running): from Harness's `idle`
   to `tasks/status` saying `settled`, 8.3 to 10.2 s over five tasks, against
   38.9 to 41.2 s without; the whole lamp 12.3 % of its cores busy against

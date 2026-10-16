@@ -7,7 +7,10 @@
 //! before by the band round the eyes, which moves only with the head: the
 //! shift of a few pixels that makes it change least is how far the face
 //! moved in the picture (the lamp's head follows the face, so it always
-//! moves a little), and the lower face is read shifted by as much. Then the
+//! moves a little), and the lower face is read shifted by as much. Each
+//! point is the mean of the 3 by 3 pixels round it, and a region's mean
+//! change between frames (the light or the camera's exposure stepping) is
+//! taken out before a point counts as changed. Then the
 //! share of the lower face's points that changed by more than noise is the
 //! mouth's movement, in the frames where the eyes, once lined up, held
 //! still: a head that turns or nods, or a light that flickers, still
@@ -56,20 +59,21 @@ pub const CHANGED: f32 = 12.0;
 /// First guess, for the raw run to set: at a metre the lips open by 5 to
 /// 14 pixels, a few hundredths to a tenth of the region, plus the jaw.
 pub const FULL_SHARE: f32 = 0.15;
-/// A frame whose eyes, once lined up with the frame before, still changed
-/// by more than this mean grey is a head turning or nodding (or the light)
-/// and is left out of the score. First guess, for the next raw run to set:
-/// a still face's eyes change by a few grey levels (noise, a blink over a
-/// few points); unaligned they changed by 19 to 22 on lamp-52e6 with its
-/// head following the face (2026-10-16, `eyes_mean`).
+/// A frame whose eyes, once lined up with the frame before and their
+/// offset taken out, still changed by more than this mean grey is a head
+/// turning or nodding and is left out of the score. First guess, for the
+/// next raw run to set: a still face's eyes changed by 4 to 7 a frame on
+/// lamp-52e6 one pixel at a time (2026-10-16, run 4, before the prompts),
+/// a head in motion by 9 to 30 even lined up (a turn or nod is not a
+/// shift); unaligned 19 to 22 (run 3, `eyes_mean`).
 pub const HEAD_MOVED: f32 = 10.0;
 /// How far a frame is searched for its line-up with the one before, in
 /// the detector's pixels each way. First guess: the gaze moves the head at
 /// 50 counts a second at most (`--speed`, docs/body.md), about 4.4 degrees
 /// a second, 0.6 degrees a frame at 7 frames a second; at 320 pixels over
 /// 60 to 78 degrees that is 2.5 to 3.4 pixels, and 6 leaves as much again
-/// for the person's own sway. 169 shifts of 192 points: about 32,000 reads
-/// a frame, against the 384 before (the time is in the journal's line).
+/// for the person's own sway. 169 shifts of 192 points, each the mean of 9
+/// pixels: about 290,000 reads a frame (the time is in the journal's line).
 pub const SEARCH: i32 = 6;
 /// The lower face and the eyes are each read as this many points across
 /// and down, whatever the face's size.
@@ -128,11 +132,23 @@ impl Grey {
         Self::from_luma(pixels, width, height).map_err(Into::into)
     }
 
-    /// The grey at a point of the detector's picture, the nearest pixel.
+    /// The grey at a point of the detector's picture: the mean of the 3 by
+    /// 3 pixels round the nearest (fewer at the picture's edge). One pixel
+    /// alone changed by about 5 grey levels a frame on a still face on
+    /// lamp-52e6 (run 4, `eyes_after` and `lower_mean` before the prompts),
+    /// and by more where the face slid by part of a pixel; nine of them
+    /// change about a third as much.
     fn at(&self, x: f32, y: f32) -> f32 {
         let column = ((x / self.scale) as usize).min(self.width - 1);
         let row = ((y / self.scale) as usize).min(self.height - 1);
-        f32::from(self.pixels[row * self.width + column])
+        let (mut sum, mut count) = (0u32, 0u32);
+        for row in row.saturating_sub(1)..=(row + 1).min(self.height - 1) {
+            for column in column.saturating_sub(1)..=(column + 1).min(self.width - 1) {
+                sum += u32::from(self.pixels[row * self.width + column]);
+                count += 1;
+            }
+        }
+        sum as f32 / count as f32
     }
 
     /// A region, shifted by `by` pixels, read as `GRID` points; none if it
@@ -189,21 +205,35 @@ pub fn regions(marks: &[(f32, f32); 5]) -> Option<([f32; 4], [f32; 4])> {
     Some((lower, around_eyes))
 }
 
-fn change(now: &[f32], before: &[f32]) -> f32 {
+/// The mean signed change: how much brighter the region came out as a
+/// whole (the light, or the camera's exposure).
+fn offset(now: &[f32], before: &[f32]) -> f32 {
+    now.iter().zip(before).map(|(a, b)| a - b).sum::<f32>() / now.len().max(1) as f32
+}
+
+/// The mean change of the points, less `less` (an offset, or 0).
+fn change(now: &[f32], before: &[f32], less: f32) -> f32 {
     now.iter()
         .zip(before)
-        .map(|(a, b)| (a - b).abs())
+        .map(|(a, b)| (a - b - less).abs())
         .sum::<f32>()
         / now.len().max(1) as f32
 }
 
-/// The share of points that changed by at least `at` grey levels.
-fn share(now: &[f32], before: &[f32], at: f32) -> f32 {
+/// The share of points that changed by at least `at` grey levels, less
+/// `less`.
+fn share(now: &[f32], before: &[f32], at: f32, less: f32) -> f32 {
     now.iter()
         .zip(before)
-        .filter(|(a, b)| (*a - *b).abs() >= at)
+        .filter(|(a, b)| (*a - *b - less).abs() >= at)
         .count() as f32
         / now.len().max(1) as f32
+}
+
+/// The change of a region with its offset taken out, and the offset.
+fn change_less_offset(now: &[f32], before: &[f32]) -> (f32, f32) {
+    let less = offset(now, before);
+    (change(now, before, less), less)
 }
 
 /// One frame's changes since the frame before, as numbers only: said with
@@ -216,15 +246,28 @@ pub struct Raw {
     /// the detector's pixels: the shift the lower face was read at.
     pub shift_x: i32,
     pub shift_y: i32,
-    /// The lower face's mean change, lined up, in grey levels.
+    /// The lower face's mean change, lined up, in grey levels, its offset
+    /// left in.
     pub lower_mean: f32,
-    /// The share of its points that changed by at least 8, 12 and 16.
+    /// The share of its points that changed by at least 8, 12 and 16, its
+    /// offset left in.
     pub lower_share8: f32,
     pub lower_share12: f32,
     pub lower_share16: f32,
-    /// The eyes' mean change where they were, and lined up, in grey levels.
+    /// The eyes' mean change where they were, and lined up, in grey levels,
+    /// their offset taken out.
     pub eyes_mean: f32,
     pub eyes_after: f32,
+    /// The mean signed change of the lower face and of the eyes, lined up:
+    /// how much brighter each came out as a whole.
+    #[serde(default)]
+    pub lower_offset: f32,
+    #[serde(default)]
+    pub eyes_offset: f32,
+    /// The share of the lower face's points that changed by at least
+    /// `CHANGED` once its offset is taken out: what the score is made of.
+    #[serde(default)]
+    pub lower_share12_corr: f32,
 }
 
 impl Raw {
@@ -233,18 +276,23 @@ impl Raw {
         shift: (i32, i32),
         lower: (&[f32], &[f32]),
         eyes_mean: f32,
-        eyes_after: f32,
+        (eyes_after, eyes_offset): (f32, f32),
     ) -> Self {
+        let (now, before) = lower;
+        let lower_offset = offset(now, before);
         Self {
             taken_us,
             shift_x: shift.0,
             shift_y: shift.1,
-            lower_mean: change(lower.0, lower.1),
-            lower_share8: share(lower.0, lower.1, 8.0),
-            lower_share12: share(lower.0, lower.1, 12.0),
-            lower_share16: share(lower.0, lower.1, 16.0),
+            lower_mean: change(now, before, 0.0),
+            lower_share8: share(now, before, 8.0, 0.0),
+            lower_share12: share(now, before, 12.0, 0.0),
+            lower_share16: share(now, before, 16.0, 0.0),
             eyes_mean,
             eyes_after,
+            lower_offset,
+            eyes_offset,
+            lower_share12_corr: share(now, before, CHANGED, lower_offset),
         }
     }
 
@@ -255,7 +303,7 @@ impl Raw {
 
     /// How far the mouth moved, 0 to 1.
     fn moved(&self) -> f32 {
-        (self.lower_share12 / FULL_SHARE).clamp(0.0, 1.0)
+        (self.lower_share12_corr / FULL_SHARE).clamp(0.0, 1.0)
     }
 }
 
@@ -271,14 +319,14 @@ fn line_up(
     taken_us: u64,
 ) -> Option<Raw> {
     let at = |shift: (i32, i32)| (offset.0 + shift.0, offset.1 + shift.1);
-    let eyes_mean = change(&grey.read(eyes, offset)?, eyes_before);
+    let still = change_less_offset(&grey.read(eyes, offset)?, eyes_before);
     // Not moving wins a tie, then the first found.
-    let mut best = ((0, 0), eyes_mean);
+    let mut best = ((0, 0), still);
     for y in -SEARCH..=SEARCH {
         for x in -SEARCH..=SEARCH {
             if let Some(now) = grey.read(eyes, at((x, y))) {
-                let changed = change(&now, eyes_before);
-                if changed < best.1 {
+                let changed = change_less_offset(&now, eyes_before);
+                if changed.0 < best.1.0 {
                     best = ((x, y), changed);
                 }
             }
@@ -289,7 +337,7 @@ fn line_up(
         taken_us,
         best.0,
         (&lower_now, lower_before),
-        eyes_mean,
+        still.0,
         best.1,
     ))
 }
@@ -538,9 +586,10 @@ mod tests {
         }
         assert!(still.scores(500 * MS).remove(0).unwrap().moving < 0.01);
 
-        // The light flickers: lined up or not, the eyes change. Every frame
-        // is left out, so it reads 0 with all its frames left out, not
-        // speech.
+        // The light (or the camera's exposure) steps by 30 grey levels
+        // every other frame: every point changes by 30, and with the
+        // offset taken out none does. It reads still, with no frame left
+        // out, and the offsets say the step.
         let mut flicker = Mouths::default();
         flicker.faces(&[face(100.0)]);
         for frame in 0..6u64 {
@@ -550,8 +599,71 @@ mod tests {
             );
         }
         let flicker = flicker.scores(500 * MS).remove(0).unwrap();
-        assert_eq!(flicker.moving, 0.0);
-        assert_eq!(flicker.head_moved, flicker.frames);
+        assert!(flicker.moving < 0.01, "{flicker:?}");
+        assert_eq!(flicker.head_moved, 0, "{flicker:?}");
+        for raw in &flicker.raw {
+            assert!((raw.lower_offset.abs() - 30.0).abs() < 0.01, "{raw:?}");
+            assert!((raw.eyes_offset - raw.lower_offset).abs() < 0.01, "{raw:?}");
+            assert_eq!(raw.lower_share12, 1.0, "{raw:?}");
+            assert_eq!(raw.lower_share12_corr, 0.0, "{raw:?}");
+        }
+
+        // The same steps with the lips moving: still a mouth.
+        let mut lit = Mouths::default();
+        lit.faces(&[face(100.0)]);
+        for frame in 0..6u64 {
+            lit.frame(
+                &picture_at(frame as usize % 2, (0, 0), frame as u8 % 2 * 30),
+                frame * 100 * MS,
+            );
+        }
+        let lit = lit.scores(500 * MS).remove(0).unwrap();
+        assert!(lit.moving > 0.8, "{lit:?}");
+        assert_eq!(lit.head_moved, 0, "{lit:?}");
+    }
+
+    /// `grey` with each pixel moved by up to 12 grey levels either way,
+    /// differently for each `seed`: a camera's noise.
+    fn noisy(mut grey: Grey, seed: u32) -> Grey {
+        for (index, pixel) in grey.pixels.iter_mut().enumerate() {
+            let mut hash = (index as u32).wrapping_add(seed.wrapping_mul(0x9E37_79B9));
+            hash ^= hash >> 16;
+            hash = hash.wrapping_mul(0x7feb_352d);
+            hash ^= hash >> 15;
+            hash = hash.wrapping_mul(0x846c_a68b);
+            hash ^= hash >> 16;
+            *pixel = (i32::from(*pixel) + (hash % 25) as i32 - 12) as u8;
+        }
+        grey
+    }
+
+    #[test]
+    fn a_still_face_under_pixel_noise_reads_still_and_a_moving_mouth_still_moves() {
+        // Pixel noise of up to 12 grey levels: one pixel's change passes 12
+        // at about a quarter of the points, which would read as a mouth
+        // fully moving; the mean of nine passes it at almost none.
+        let mut still = Mouths::default();
+        still.faces(&[face(100.0)]);
+        for frame in 0..6u64 {
+            still.frame(&noisy(picture(0, 0), frame as u32), frame * 100 * MS);
+        }
+        let still = still.scores(500 * MS).remove(0).unwrap();
+        assert!(still.moving < 0.1, "{still:?}");
+        assert_eq!(still.head_moved, 0, "{still:?}");
+        for raw in &still.raw {
+            assert_eq!((raw.shift_x, raw.shift_y), (0, 0), "{raw:?}");
+        }
+
+        let mut talking = Mouths::default();
+        talking.faces(&[face(100.0)]);
+        for frame in 0..6u64 {
+            talking.frame(
+                &noisy(picture(frame as usize % 2, 0), frame as u32),
+                frame * 100 * MS,
+            );
+        }
+        let talking = talking.scores(500 * MS).remove(0).unwrap();
+        assert!(talking.moving > 0.8, "{talking:?}");
     }
 
     #[test]
@@ -667,19 +779,23 @@ mod tests {
         let before = [100.0; 8];
         // Changes of 0, 7, 8, 11, 12, 15, 16 and -20 grey.
         let now = [100.0, 107.0, 108.0, 111.0, 112.0, 115.0, 116.0, 80.0];
-        assert_eq!(share(&now, &before, 8.0), 6.0 / 8.0);
-        assert_eq!(share(&now, &before, 12.0), 4.0 / 8.0);
-        assert_eq!(share(&now, &before, 16.0), 2.0 / 8.0);
-        let raw = Raw::of(7, (0, 0), (&now, &before), 10.0, 10.0);
+        assert_eq!(share(&now, &before, 8.0, 0.0), 6.0 / 8.0);
+        assert_eq!(share(&now, &before, 12.0, 0.0), 4.0 / 8.0);
+        assert_eq!(share(&now, &before, 16.0, 0.0), 2.0 / 8.0);
+        let raw = Raw::of(7, (0, 0), (&now, &before), 10.0, (10.0, 0.0));
         assert_eq!(raw.lower_mean, 89.0 / 8.0);
         assert_eq!(raw.eyes_mean, 10.0);
-        // Half the points past 12 is more than the full share: 1.
-        assert_eq!(raw.moved(), 1.0);
+        // Signed: 0+7+8+11+12+15+16-20 over 8.
+        assert_eq!(raw.lower_offset, 49.0 / 8.0);
+        // Less 6.125 only the -20 passes 12 (16 is 9.875 now).
+        assert_eq!(raw.lower_share12_corr, 1.0 / 8.0);
+        assert!((raw.moved() - 0.125 / FULL_SHARE).abs() < 1e-6);
         assert!(!raw.head_moved(), "10 grey is still a still head");
         let tenth = [
             100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 120.0,
         ];
-        let raw = Raw::of(7, (0, 0), (&tenth, &[100.0; 10]), 0.0, 0.0);
+        let raw = Raw::of(7, (0, 0), (&tenth, &[100.0; 10]), 0.0, (0.0, 0.0));
+        // The one point changed by 20, the offset is 2: it still counts.
         assert!((raw.moved() - 0.1 / FULL_SHARE).abs() < 1e-6);
     }
 
@@ -697,6 +813,9 @@ mod tests {
             lower_share16: 0.1,
             eyes_mean: eyes,
             eyes_after: eyes,
+            lower_offset: 0.0,
+            eyes_offset: 0.0,
+            lower_share12_corr: 0.15,
         };
         // Four still frames with the mouth moving fully, two with the head
         // moving, whose lower face is all change.
@@ -704,7 +823,7 @@ mod tests {
             let mut raw = moving(eyes);
             raw.taken_us = frame as u64 * 100 * MS;
             if eyes > HEAD_MOVED {
-                raw.lower_share12 = 1.0;
+                raw.lower_share12_corr = 1.0;
             }
             mouths.tracks[0].moved.push_back(raw);
         }
@@ -714,7 +833,7 @@ mod tests {
         // With the still frames' mouths half as open: half.
         for raw in &mut mouths.tracks[0].moved {
             if !raw.head_moved() {
-                raw.lower_share12 = FULL_SHARE / 2.0;
+                raw.lower_share12_corr = FULL_SHARE / 2.0;
             }
         }
         let score = mouths.scores(500 * MS).remove(0).unwrap();
@@ -751,10 +870,13 @@ mod tests {
             lower_share16: 0.0,
             eyes_mean: 9.5,
             eyes_after: 1.5,
+            lower_offset: -0.5,
+            eyes_offset: 3.0,
+            lower_share12_corr: 0.125,
         }]);
         assert_eq!(
             serde_json::to_string(&with_raw).unwrap(),
-            r#"{"mouths":[{"id":"f3","moving":0.5,"window_ms":1200,"frames":8,"age_ms":40,"head_moved":1,"raw":[{"taken_us":5,"shift_x":-2,"shift_y":1,"lower_mean":2.5,"lower_share8":0.25,"lower_share12":0.125,"lower_share16":0.0,"eyes_mean":9.5,"eyes_after":1.5}]}]}"#
+            r#"{"mouths":[{"id":"f3","moving":0.5,"window_ms":1200,"frames":8,"age_ms":40,"head_moved":1,"raw":[{"taken_us":5,"shift_x":-2,"shift_y":1,"lower_mean":2.5,"lower_share8":0.25,"lower_share12":0.125,"lower_share16":0.0,"eyes_mean":9.5,"eyes_after":1.5,"lower_offset":-0.5,"eyes_offset":3.0,"lower_share12_corr":0.125}]}]}"#
         );
     }
 }

@@ -14,11 +14,13 @@
 #
 # The eyes also say each frame's raw changes (LAMP_EYES_MOUTH_RAW=on): the
 # shift each frame was lined up by, the lower face's mean change and its
-# share of points past 8, 12 and 16 grey, and the eyes' mean change before
-# and after the line-up, with each frame's taking time. They stay in the
+# share of points past 8, 12 and 16 grey, the eyes' mean change before
+# and after the line-up, each region's offset (mean signed change) and the
+# share past 12 with it taken out, with each frame's taking time. They stay in the
 # .mouths files whole, to set the step, the full share and the head gate
 # from (a frame is in several messages: count each taken_us once); the
-# run ends by printing each prompt's median of each (raw-medians.txt).
+# run ends by printing each prompt's median of each, and the frames the
+# head gate keeps (raw-medians.txt).
 set -eu
 LAMP=$1 SHA=$2 OUT=$3 BUS=${4:-'~/fifth-lamp-bus'}
 DROP=/etc/systemd/system/lamp-eyes.service.d/mouth-trial.conf
@@ -146,4 +148,13 @@ for marks in sorted(glob.glob(os.path.join(out, "*.marks"))):
         keys = sorted(k for k in raws[0] if k != "taken_us")
         cols = " ".join(f"{k} {statistics.median(r[k] for r in raws):.3f}" for k in keys)
         print(f"{name} {label} frames {len(raws)} {cols}")
+        # The frames the head gate keeps (HEAD_MOVED, 10), what the score
+        # is made of in them, and whether the two regions change together.
+        kept = [r["lower_share12_corr"] for r in raws if r["eyes_after"] <= 10 and "lower_share12_corr" in r]
+        try:
+            together = statistics.correlation([r["eyes_after"] for r in raws], [r["lower_mean"] for r in raws])
+        except statistics.StatisticsError:
+            together = 0.0
+        middle = f"{statistics.median(kept):.3f}" if kept else "-"
+        print(f"{name} {label} kept {len(kept)} of {len(raws)} lower_share12_corr {middle} corr_eyes_lower {together:.2f}")
 PY

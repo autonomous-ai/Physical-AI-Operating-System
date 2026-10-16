@@ -172,3 +172,53 @@ test slides a textured picture 2 pixels left and 1 up a frame (16 and 8 in
 all): it reads still, with every shift found; the same slide with the lips
 moving reads as a mouth. `mouths.sh` now ends by printing these medians
 for every raw field (`raw-medians.txt`), so the next run reports itself.
+
+## Fourth run, 2026-10-16: lined up, yet not a still face
+
+Build `fd51867b2` (`~/mouths-run4` on the Mac; the person followed every
+prompt). The medians, as `raw-medians.txt` printed them:
+
+| Scene | Prompt | `lower_mean` | `lower_share12` | `eyes_mean` | `eyes_after` |
+|---|---|---|---|---|---|
+| talking | QUIET | 12.8 | 0.310 | 27.6 | 15.1 |
+| talking | SPEAK | 16.6 | 0.427 | 31.5 | 17.1 |
+| over | QUIET | 11.5 | 0.315 | 14.1 | 11.0 |
+| over | SPEAK | 11.5 | 0.302 | 21.5 | 13.3 |
+| silent | QUIET | 8.3 | 0.221 | 14.7 | 12.8 |
+| chewing | QUIET | 5.3 | 0.120 | 9.0 | 9.0 |
+| chewing | CHEW | 6.6 | 0.146 | 10.3 | 10.3 |
+| chewing | SMILE | 7.7 | 0.193 | 16.5 | 11.6 |
+
+The median shift was 0 everywhere. Frame by frame (each `taken_us` once)
+the medians hid two kinds of frame:
+
+- **Still.** Before the first prompt and in the silent scene's still
+  stretches (14 frames and more in a row), both regions changed by 4 to 7
+  grey a frame, `lower_share12` 0.02 to 0.10, with no shift: pixel noise,
+  one pixel at a time. No flicker showed: a light flickering against the
+  shutter would have lifted those stretches too.
+- **Moving.** Bursts with a shift found and `eyes_mean` 20 to 40, in which
+  even the lined-up eyes changed by 9 to 30 (`eyes_after`): a head turning
+  or nodding, which a whole-pixel shift cannot undo. Lower and eyes went
+  together in them (correlation of `eyes_after` with `lower_mean` 0.37 to
+  0.85 by prompt). In talking only 13 to 16% of frames had `eyes_after`
+  under 10; in silent 39%, with `lower_share12` 0.08 in them; talking
+  SPEAK's still frames 0.19 to 0.25.
+
+So the "still face changing by 8 to 15" was mostly a face in motion, and
+the rest pixel noise of about 5 grey. The fix (`mouth.rs`): each point is
+the mean of the 3 by 3 pixels round it (noise and part-pixel slides cut to
+about a third), and each region's mean signed change is taken out before
+its points are compared (a light or exposure step, not ruled out by run 4
+since it kept no signed change). `raw` now also says `lower_offset`,
+`eyes_offset` and `lower_share12_corr` (the share the score is made of);
+`eyes_mean` and `eyes_after` have the offset taken out, `lower_mean` and
+`lower_share*` keep it. A row-wise flicker band is not taken out: none
+showed. Tests: a step of 30 grey every other frame reads still with no
+frame left out, and with the lips moving reads as a mouth; noise of up to
+12 grey a pixel reads still (one pixel at a time it read 1.0, `lower_mean`
+9.2, as silent did on the lamp) and a moving mouth under it moves.
+`mouths.sh` now also prints, for each prompt, the frames the head gate
+keeps, the median `lower_share12_corr` in them, and the correlation of the
+eyes' change with the lower face's. `HEAD_MOVED`, `CHANGED` and
+`FULL_SHARE` stay until the next run, whose numbers the 3 by 3 means change.

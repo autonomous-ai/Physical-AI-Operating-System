@@ -347,16 +347,20 @@ the two corners of the mouth. From every camera frame while there is a
 face (not only the four a second the detector looks at), the lower face
 (from the nose down to 2.5 times the nose-to-lips drop below the lips, so
 a dropping jaw stays in it; twice the mouth's width) and a band round the
-eyes are each read as 16 by 12 points. Each frame is first lined up with
+eyes are each read as 16 by 12 points, each the mean of the 3 by 3
+pixels round it (one pixel alone changes by about 5 grey levels a frame on
+a still face, more where the face slid by part of a pixel). Each frame is first lined up with
 the one before: the shift of up to 6 pixels each way (`SEARCH`) that makes
 the band round the eyes change least is how far the face moved in the
 picture, the lower face is read shifted by as much, and the shifts add up
 so the regions follow the face (the lamp's head follows it, so the face
-always slides a little). A frame whose eyes, once lined up, still changed
-by more than 10 grey levels on average is a head turning or nodding (or
-the light), and is left out (`HEAD_MOVED`). Otherwise the share of the
+always slides a little). Each region's mean signed change (its offset:
+the light or the camera's exposure stepping) is taken out before its
+points are compared. A frame whose eyes, once lined up, still changed
+by more than 10 grey levels on average is a head turning or nodding,
+and is left out (`HEAD_MOVED`). Otherwise the share of the
 lower face's points that changed by at least 12 grey levels (`CHANGED`)
-is the mouth's movement, and a share of 0.15 is "fully moving"
+past its offset is the mouth's movement, and a share of 0.15 is "fully moving"
 (`FULL_SHARE`). All four numbers are first guesses, for the raw run to
 set. 6 pixels: the gaze turns the head at 50 counts a second at most
 (about 4.4 degrees a second, [body.md](body.md)), 0.6 degrees a frame at 7
@@ -381,9 +385,12 @@ With `LAMP_EYES_MOUTH_RAW=on` as well, each mouth also carries `raw`, each
 frame in its window as numbers only: `taken_us`, the shift it was lined
 up by (`shift_x`, `shift_y`, in the detector's pixels), the lower face's
 mean change lined up (`lower_mean`), its share of points past 8, 12 and 16
-grey levels (`lower_share8`, `lower_share12`, `lower_share16`), and the
+grey levels (`lower_share8`, `lower_share12`, `lower_share16`), these four
+with the offset left in, the
 eyes' mean change where they were (`eyes_mean`) and lined up
-(`eyes_after`). Readers of the first version read both new fields as
+(`eyes_after`), with theirs taken out, each region's offset (`lower_offset`,
+`eyes_offset`), and the share past 12 with the offset taken out that the
+score is made of (`lower_share12_corr`). Readers of the first version read both new fields as
 absent. Without the switch no
 frame is read for mouths, the topic is not declared, and every message on
 `humans/faces/tracked` is byte for byte what it was (a test).
@@ -426,6 +433,21 @@ head followed the face (the body's gaze ran in the second and third runs;
 in the first, with the body off, the changes were small), and the regions
 stayed where the face was found. Hence the line-up above, with the shift
 and the eyes' change after it said in `raw`.
+
+**Fourth run, 2026-10-16 (lined up).** No shift was found in the median
+frame (`shift_x`, `shift_y` 0), yet the medians were still 8 to 17 grey
+(silent `lower_mean` 8.3, `eyes_after` 12.8). Frame by frame they were not
+a still face's: before the prompts, and in the silent scene's still
+stretches, both regions changed by 4 to 7 a frame (`lower_share12` 0.02 to
+0.10); the high frames came in bursts with a shift found and `eyes_mean`
+20 to 40, a head in motion that a whole-pixel shift does not undo (in the
+talking scene only 13 to 16% of frames had the eyes under 10 after the
+line-up). The two regions' changes went together (correlation 0.37 to 0.85)
+through those bursts, not as a flicker: the still stretches showed none.
+Hence the 3 by 3 means (pixel noise, part-pixel slides) and the offset
+taken out (a light or exposure step, which run 4 could not rule out, with
+`lower_offset` and `eyes_offset` said to show it); a row-wise flicker band
+is not taken out, none showed.
 
 **What it cannot do.** Tell talking from chewing, laughing or a smile; see
 a mouth behind a hand, in a face turned side on, or in a face too small:

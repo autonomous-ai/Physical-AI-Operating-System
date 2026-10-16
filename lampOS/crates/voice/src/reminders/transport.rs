@@ -73,7 +73,10 @@ impl Transport {
         command
             .stdin(Stdio::from(stdin))
             .stdout(Stdio::null())
-            .stderr(Stdio::null())
+            // The consumer's journal lines go where the voice's go: they
+            // name ids and reasons, never a reminder's words. With stderr
+            // closed they reached no journal on lamp-4ace (2026-10-16).
+            .stderr(Stdio::inherit())
             .process_group(0);
         let child = command.spawn()?;
         Ok(Self {

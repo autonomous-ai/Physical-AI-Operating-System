@@ -140,12 +140,23 @@ const HELD: &str = "held: an attempt may have been heard and was never proven sa
 /// available when it is not: a line in the journal when either changes,
 /// never one per tick (the first builder, 2026-10-16: due reminders on
 /// lamp-4ace were never said and nothing said where they stopped).
-#[derive(Default)]
 struct Journal {
     items: BTreeMap<DeliveryKey, String>,
+    /// Why due work was last unavailable; at start, that it is not read
+    /// yet, so the first good read is said.
     unavailable: Option<String>,
     #[cfg(test)]
     lines: Vec<String>,
+}
+impl Default for Journal {
+    fn default() -> Self {
+        Self {
+            items: BTreeMap::new(),
+            unavailable: Some("not read yet".into()),
+            #[cfg(test)]
+            lines: Vec::new(),
+        }
+    }
 }
 impl Journal {
     /// Items remembered at once; past it the oldest line may repeat.
@@ -375,9 +386,17 @@ impl<P: Persistence> Consumer<P> {
             current.token.clone()
         } else if let Some((previous, proof)) = self.retry.remove(pending.key()) {
             let correlation = self.correlation()?;
-            self.ledger
+            match self
+                .ledger
                 .retry_interrupted(&previous, &pending, &proof, correlation)
-                .map_err(invalid)?
+            {
+                Ok(token) => token,
+                Err(error) => {
+                    // Kept for the next tick, not held for ever.
+                    self.retry.insert(pending.key().clone(), (previous, proof));
+                    return Err(invalid(error));
+                }
+            }
         } else {
             let correlation = self.correlation()?;
             self.ledger
@@ -613,6 +632,7 @@ pub(super) fn run(ledger_dir: &Path, socket: &Path, root: &Path) -> io::Result<(
     let clock = lamp_controls::runtime::clock_id(None)?;
     let ledger = DeliveryLedger::open(Store::open(ledger_dir)?, &session).map_err(invalid)?;
     let mut consumer = Consumer::new(ledger, session);
+    consumer.journal.say("started".into());
     // The claim taken above moved to the voice that started this consumer,
     // so every earlier voice has exited.
     consumer.retire_earlier_voices()?;

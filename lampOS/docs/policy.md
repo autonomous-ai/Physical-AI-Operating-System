@@ -330,9 +330,13 @@ decisions in conversation, the 33 said to the lamp had a median
 decision is also judged by `attention::combine_next`: the same sum and, in
 conversation only, 3 for each unit of `follows_lamp` above 0.55. The term
 is one-sided, so the second judgement is never below today's, and out of
-conversation it is the same. The 3 and the 0.55 are a logistic fit of
-those 79 labels on `follows_lamp` alone (+3.02, centred at 0.55), with
-each row left out in turn. With it, 13 of the 33 said to the lamp leave
+conversation it is the same. The 3 and the 0.55 are a logistic fit of all
+79 labels on `follows_lamp` alone, with a ridge (L2) penalty of 0.5 on the
+summed log loss and the bias not penalised: +3.02, centred at 0.55. Scored
+with each row left out in turn, 14 of the 33 said to the lamp and 1 of the
+46 not reach 0.6. A plain fit gives +5.02 centred at 0.51 (17 and 7): the
+penalty is what keeps the term this cautious (the reviewer on #1106; the
+script is on #1040). With 3 and 0.55, 13 of the 33 said to the lamp leave
 `stay_quiet` (to `look_up`) and none of the 46 not. The other three answers
 in the rows (`calls_lamp`, `lamp_could_answer`, `others_business`) add
 nothing on the rows left out. The second judgement is written on the

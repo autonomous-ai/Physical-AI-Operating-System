@@ -459,9 +459,13 @@ pub const NEXT_FOLLOWS_WEIGHT: f64 = 3.0;
 /// to the lamp against answering (`follows_lamp` −0.136, in conversation
 /// −0.206), though the answer tells such replies apart. From the first
 /// builder's 79 hand-read `stay_quiet` turns in conversation on lamp-4ace on
-/// 2026-10-16: a logistic fit of their labels on `follows_lamp` alone, each
-/// left out in turn, gave +3.02 centred at 0.55, and with it 13 of the 33
-/// said to the lamp leave `stay_quiet` and none of the 46 not.
+/// 2026-10-16: a logistic fit of all 79 labels on `follows_lamp` alone,
+/// with a ridge (L2) penalty of 0.5 on the summed log loss and the bias not
+/// penalised, gave +3.02 centred at 0.55; scored with each row left out in
+/// turn, 14 of the 33 said to the lamp and 1 of the 46 not reach 0.6. A
+/// plain fit gives +5.02 centred at 0.51 (17 and 7): the penalty is what
+/// keeps the term this cautious. With 3 and 0.55, 13 of the 33 said to the
+/// lamp leave `stay_quiet` and none of the 46 not (the reviewer on #1106).
 pub fn combine_next(answers: &Answers, context: &Context) -> Judgement {
     let mut sum = sum(answers, context);
     if context.in_conversation() {

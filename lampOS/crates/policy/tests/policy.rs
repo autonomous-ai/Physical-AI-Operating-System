@@ -1018,8 +1018,11 @@ fn what_the_lamp_last_said_is_in_the_context_as_it_was_when_the_utterance_began(
 /// #1040, in shadow: with `--attention-next` each decision's line carries a
 /// second judgement, raised in conversation by `follows_lamp` above 0.55
 /// (3 for each unit), and the diagnostics count the decisions where the two
-/// choices differ. What is published is today's judgement. Without the
-/// switch the line has no `next`.
+/// choices differ. Nothing else changes: the same reply, judged with the
+/// switch and without, publishes the same decision (apart from how long it
+/// took) and writes the same line (apart from `next` and its times), and
+/// without the switch the report has no `attention_next_differs` (the
+/// reviewer on #1106).
 #[test]
 fn with_attention_next_a_second_judgement_is_written_beside_and_nothing_published_changes() {
     let follows = attention::questions()
@@ -1029,7 +1032,7 @@ fn with_attention_next_a_second_judgement_is_written_beside_and_nothing_publishe
     let mut seven = SEVEN;
     seven[follows] = 1.0;
     let logit = |p: f64| (p / (1.0 - p)).ln();
-    for on in [true, false] {
+    let run = |on: bool| {
         let name = if on { "next-on" } else { "next-off" };
         let mut rig = if on {
             Rig::next(name, move |_| Ok(asked(seven)))
@@ -1044,43 +1047,68 @@ fn with_attention_next_a_second_judgement_is_written_beside_and_nothing_publishe
         thread::sleep(ms(200));
         rig.hear_as("I should bring an umbrella then.", true, None);
         let decision = rig.decision();
-        let line = &rig.log(1)[0];
-        assert_eq!(line["in_conversation"], true);
-        let today = line["judgement"]["probability"].as_f64().unwrap();
-        assert!((f64::from(decision.probability) - today).abs() < 1e-6);
-        assert_eq!(decision.choice, "look_up");
-        if !on {
-            assert!(line.get("next").is_none(), "{line}");
-            rig.stop();
-            continue;
-        }
-        // 3 × (1.0 − 0.55) on the sum: from look_up to answer.
-        let next = &line["next"];
-        let raised = logit(next["probability"].as_f64().unwrap()) - logit(today);
-        assert!((raised - 1.35).abs() < 1e-3, "{raised}");
-        assert_eq!(next["choice"], "answer");
-        assert_eq!(next["from_rule"], false);
-        // Counted in the diagnostics, once.
+        let line = rig.log(1).remove(0);
+        // The policy's next report after the decision.
         let mut reports = rig
             .bus
             .subscribe_typed(Diagnostic::TOPIC, "test_next", Diagnostic::TYPE)
             .unwrap();
         let started = Instant::now();
-        loop {
+        let report = loop {
             let left = WAIT.saturating_sub(started.elapsed());
             let message = reports.recv(left).unwrap().expect("a report");
             let report: Diagnostic = message.parse().unwrap();
-            if let Some(fact) = report
-                .values
-                .iter()
-                .find(|fact| fact.key == "attention_next_differs")
-            {
-                assert_eq!(fact.value, "1");
-                break;
+            if report.values.iter().any(|fact| fact.key == "decided") {
+                break report;
+            }
+        };
+        rig.stop();
+        let differs = report
+            .values
+            .iter()
+            .find(|fact| fact.key == "attention_next_differs")
+            .map(|fact| fact.value.clone());
+        (decision, line, differs)
+    };
+    let (decision, line, differs) = run(true);
+    assert_eq!(line["in_conversation"], true);
+    let today = line["judgement"]["probability"].as_f64().unwrap();
+    assert!((f64::from(decision.probability) - today).abs() < 1e-6);
+    assert_eq!(decision.choice, "look_up");
+    // 3 × (1.0 − 0.55) on the sum: from look_up to answer.
+    let next = &line["next"];
+    let raised = logit(next["probability"].as_f64().unwrap()) - logit(today);
+    assert!((raised - 1.35).abs() < 1e-3, "{raised}");
+    assert_eq!(next["choice"], "answer");
+    assert_eq!(next["from_rule"], false);
+    assert_eq!(differs.as_deref(), Some("1"));
+    // Without the switch: the same decision, the same line but `next`, and
+    // nothing counted.
+    let (off_decision, off_line, off_differs) = run(false);
+    assert_eq!(
+        Decision {
+            took_ms: decision.took_ms,
+            ..off_decision
+        },
+        decision
+    );
+    // What depends on the moment the test ran, not on the switch.
+    let timeless = |line: &Value| {
+        let mut line = line.clone();
+        let object = line.as_object_mut().unwrap();
+        for key in ["next", "at_unix_ms", "took_ms", "waited_ms"] {
+            object.remove(key);
+        }
+        for part in ["context", "state"] {
+            if let Some(part) = object.get_mut(part).and_then(Value::as_object_mut) {
+                part.remove("seconds_since_lamp_spoke");
             }
         }
-        rig.stop();
-    }
+        line
+    };
+    assert!(off_line.get("next").is_none(), "{off_line}");
+    assert_eq!(timeless(&off_line), timeless(&line));
+    assert_eq!(off_differs, None);
 }
 
 #[test]

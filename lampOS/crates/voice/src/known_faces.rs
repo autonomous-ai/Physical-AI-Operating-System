@@ -74,13 +74,25 @@ const AGREE: &[&[&str]] = &[
     &["vâng"],
     &["dạ"],
     &["ừ"],
+    &["có"],
+    &["được"],
     &["đúng", "rồi"],
 ];
-/// Words that take a turn's agreement back when they come before it: "No,
-/// it's…", "Not quite. Yes, K, E, S, S." After it they are part of the yes:
-/// "Sure, no problem!", "Yes, I don't mind."
+/// Words that take a turn's agreement back, anywhere in it: "No, it's…",
+/// "Yeah, no, it's Kim.", "Of course not.", "Dạ không." (Ten and the
+/// reviewer on #1208: a correction mostly comes right after the yes word).
 const DISAGREE: &[&str] = &[
-    "no", "nope", "not", "wrong", "don't", "dont", "isn't", "isnt", "nah",
+    "no", "nope", "not", "wrong", "don't", "dont", "isn't", "isnt", "nah", "không", "chưa", "sai",
+];
+/// Yeses that hold a word that would take one back: "Sure, no problem!",
+/// "Yes, I don't mind.", "Sure, why not?". Its words take nothing back.
+const AGREE_WITH_A_NO: &[&[&str]] = &[
+    &["no", "problem"],
+    &["no", "worries"],
+    &["why", "not"],
+    &["don't", "mind"],
+    &["dont", "mind"],
+    &["do", "not", "mind"],
 ];
 
 fn lower_words(text: &str) -> Vec<String> {
@@ -93,24 +105,30 @@ fn lower_words(text: &str) -> Vec<String> {
 }
 
 /// Whether the turn agrees to what the lamp said back: something that
-/// agrees ([`AGREE`]), with nothing before it that takes it back.
+/// agrees ([`AGREE`]), and nothing anywhere in it that takes it back
+/// ([`DISAGREE`]) but in a yes that holds one ([`AGREE_WITH_A_NO`]).
+/// Refusing a yes costs a turn; keeping a wrong name does not fail safe.
 fn agrees(said: &str) -> bool {
     let words = lower_words(said);
-    let agrees_at = |at: usize| {
-        AGREE.iter().any(|phrase| {
-            phrase
-                .iter()
-                .enumerate()
-                .all(|(next, word)| words.get(at + next).is_some_and(|said| said == word))
-        })
+    let phrase_at = |at: usize, phrase: &[&str]| {
+        phrase
+            .iter()
+            .enumerate()
+            .all(|(next, word)| words.get(at + next).is_some_and(|said| said == word))
     };
-    (0..words.len())
-        .find(|at| agrees_at(*at))
-        .is_some_and(|at| {
-            !words[..at]
-                .iter()
-                .any(|word| DISAGREE.contains(&word.as_str()))
-        })
+    let mut pleasantry = vec![false; words.len()];
+    for at in 0..words.len() {
+        if let Some(phrase) = AGREE_WITH_A_NO.iter().find(|phrase| phrase_at(at, phrase)) {
+            pleasantry[at..at + phrase.len()].fill(true);
+        }
+    }
+    let agreeing = (0..words.len())
+        .any(|at| pleasantry[at] || AGREE.iter().any(|phrase| phrase_at(at, phrase)));
+    agreeing
+        && !words
+            .iter()
+            .zip(&pleasantry)
+            .any(|(word, kept)| !kept && DISAGREE.contains(&word.as_str()))
 }
 
 /// How many letters the person said a name has: "three letters", "it's 4
@@ -138,8 +156,9 @@ fn letters_counted(said: &str) -> Option<usize> {
 /// (`LAMP_NAMES=checked`): said or spelled in the turn in hand
 /// ([`said_by_them`]); or said in an exchange before it, said back by the
 /// lamp in its last answer, and agreed to in the turn in hand ("Shall I
-/// call you Jim?" "Yes."), not a yes to something asked since. Never one whose letters they counted otherwise, in either turn
-/// ("three letters", for seven taken).
+/// call you Jim?" "Yes."), not a yes to something asked since. Never one
+/// whose letters they counted otherwise, in either turn ("three letters",
+/// for seven taken).
 ///
 /// Why, from lamp-4ace on 16 October at 16:46 (the first builder on
 /// #1057): a name was kept after "Sure." and a lone digit, from the turn
@@ -1003,10 +1022,11 @@ mod tests {
         assert!(!name_heard("Jim", &later));
     }
 
-    /// The reviewer on #1057: ordinary yeses agree, and words that take
-    /// one back count only before it.
+    /// The reviewer on #1057: ordinary yeses agree. A word that takes a yes
+    /// back takes it back anywhere in the turn, but in a yes that holds one
+    /// ("no problem"): Ten and the reviewer on #1208.
     #[test]
-    fn a_yes_is_any_ordinary_one_and_is_taken_back_only_before_it() {
+    fn a_yes_is_any_ordinary_one_and_any_no_takes_it_back() {
         for yes in [
             "Yes.",
             "Sure, no problem!",
@@ -1023,6 +1043,9 @@ mod tests {
             "Vâng.",
             "Dạ.",
             "Đúng rồi.",
+            "Có.",
+            "Được.",
+            "No problem.",
         ] {
             assert!(agrees(yes), "{yes}");
         }
@@ -1034,9 +1057,30 @@ mod tests {
             "That's not right.",
             "7",
             "Kess.",
+            // Ten and the reviewer on #1208: a yes word, then a no.
+            "Yeah, no, it's Kim.",
+            "Yeah no.",
+            "Yes, no wait, it's Kim.",
+            "Right, not Jim, Kim.",
+            "Of course not.",
+            "Absolutely not.",
+            "Sure, no.",
+            "Okay, no, it's Kess.",
+            "Yes and no.",
+            "Dạ không.",
+            "Dạ, không phải ạ.",
+            "Vâng, không phải.",
+            "Ừ, sai rồi.",
         ] {
             assert!(!agrees(not), "{not}");
         }
+        // So "Yeah, no, Kim." keeps no misheard "Jim", nor puts it in place.
+        let corrected = Said {
+            this: "Yeah, no, Kim.".into(),
+            before: vec![("My name is Jim.".into(), "Shall I call you Jim?".into())],
+        };
+        assert!(!name_heard("Jim", &corrected));
+        assert!(!agreed_to("Jim", &corrected));
     }
 
     /// The eyes stand-in on a real socket: what each request sent, and the

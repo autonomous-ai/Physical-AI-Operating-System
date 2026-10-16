@@ -182,6 +182,8 @@ new:
 - **The note.** The provider worker writes `CUT_OFF_NOTE` beside that
   request, inside its activity just before its end, together with any
   other note it is given (the name heard, the room), once.
+  On the second route (`second_provider`) there is no session to tell: the
+  successor is asked with the given-up request's words before its own.
 
 A chain of pieces gives each successor the note. Without `--early-end-ms`
 no request is ever marked, and every start is written exactly as before:

@@ -168,6 +168,9 @@ struct Shared {
     heed: Option<Heed>,
     /// The sounds made while a first round is awaited, when switched on.
     cues: Option<Arc<Cues>>,
+    /// The words last heard, with their request: a request that goes on
+    /// from one given up after an early end begins with them.
+    heard_last: Mutex<Option<(u64, String)>>,
 }
 
 /// The wait's sounds, rendered once by [`Services::speak`] and kept in
@@ -303,6 +306,7 @@ impl Engine {
                 out,
                 heed: None,
                 cues: None,
+                heard_last: Mutex::new(None),
             }),
             output,
             urgent: VecDeque::new(),
@@ -353,11 +357,22 @@ impl Engine {
     pub fn submit(&mut self, input: ProviderInput) {
         match input {
             ProviderInput::Start {
-                request, session, ..
+                request,
+                session,
+                continues_cut_off,
+                ..
             } => {
                 if !self.begin(request, session) {
                     return;
                 }
+                // Going on from a request whose end went early and was given
+                // up when the person spoke again: its words begin this one,
+                // as Gemini, which heard them, is told (`CUT_OFF_NOTE`).
+                let before = continues_cut_off
+                    .then(|| self.shared.heard_last.lock().ok()?.take())
+                    .flatten()
+                    .filter(|(of, _)| *of < request)
+                    .map(|(_, words)| words);
                 let (audio, heard) = mpsc::channel(AUDIO_QUEUE);
                 let sound = Arc::new(AtomicBool::new(false));
                 let checked = self.sounds_checked.then(|| sound.clone());
@@ -368,6 +383,7 @@ impl Engine {
                     heard,
                     checked,
                     said.clone(),
+                    before,
                 ));
                 self.turn = Some(Turn {
                     request,
@@ -616,6 +632,7 @@ async fn spoken(
     mut heard: mpsc::Receiver<Vec<i16>>,
     checked: Option<Arc<AtomicBool>>,
     said: Arc<Mutex<(u64, u64)>>,
+    before: Option<String>,
 ) {
     let listener = match shared.services.listen().await {
         Ok(listener) => listener,
@@ -643,7 +660,9 @@ async fn spoken(
                 .await;
         }
     };
-    let empty = text.trim().is_empty();
+    if let Ok(mut last) = shared.heard_last.lock() {
+        *last = Some((request, text.clone()));
+    }
     if !shared
         .emit(ProviderOutput::Transcript {
             request: None,
@@ -654,6 +673,19 @@ async fn spoken(
     {
         return;
     }
+    // What was heard in this request is told as heard; the model is asked
+    // with the words of the one it goes on from before them.
+    let text = match before {
+        Some(before) if !before.trim().is_empty() => {
+            eprintln!(
+                "lamp-voice second: request {request} goes on from the request given up: its {} words begin it",
+                before.split_whitespace().count()
+            );
+            format!("{} {}", before.trim(), text.trim())
+        }
+        _ => text,
+    };
+    let empty = text.trim().is_empty();
     let held = checked.is_some_and(|sound| sound.load(Ordering::Acquire))
         && !crate::not_speech::short_word(&text);
     if held && !empty {

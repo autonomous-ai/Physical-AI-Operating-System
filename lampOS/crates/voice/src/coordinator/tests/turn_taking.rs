@@ -178,6 +178,9 @@ impl Harness {
         }
     }
     fn commit(&mut self, accepted: Accepted) -> VecDeque<ProviderInput> {
+        self.commit_with(accepted, false)
+    }
+    fn commit_with(&mut self, accepted: Accepted, cut_in: bool) -> VecDeque<ProviderInput> {
         let mut queue = VecDeque::new();
         commit_admitted_input(
             &mut self.owner,
@@ -187,6 +190,7 @@ impl Harness {
             accepted,
             1,
             false,
+            cut_in,
             PlayoutStart::default(),
             &mut self.trace,
             |_| Ok(()),
@@ -290,6 +294,31 @@ fn v1_baseline_cloud_wait_without_any_write_still_accepts_resume() {
     let queue = h.commit(accepted.unwrap());
     assert_ne!(h.old(), old);
     assert!(matches!(queue.front(), Some(ProviderInput::Start { .. })));
+}
+
+/// #926, the reviewer: a candidate that had already ended when it was
+/// admitted queues its End in the commit itself; a cut-in's says so, an
+/// ordinary turn's does not.
+#[test]
+fn an_input_ended_at_admission_carries_whether_it_cut_in() {
+    for cut_in in [true, false] {
+        let mut h = Harness::new(TurnTaking::V1Baseline);
+        let mut accepted = None;
+        for n in 1..=6 {
+            accepted = h.feed(n * 10_000, 0.99).unwrap().or(accepted);
+        }
+        let mut accepted = accepted.unwrap();
+        accepted.ended = true;
+        let queue = h.commit_with(accepted, cut_in);
+        let end = queue
+            .iter()
+            .find(|input| matches!(input, ProviderInput::End { .. }))
+            .expect("an input ended at admission queues its End");
+        assert!(
+            matches!(end, ProviderInput::End { cut_in: marked, sound: false, .. } if *marked == cut_in),
+            "{end:?}"
+        );
+    }
 }
 
 #[test]

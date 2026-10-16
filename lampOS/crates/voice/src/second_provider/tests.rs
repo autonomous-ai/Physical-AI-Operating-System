@@ -156,6 +156,7 @@ fn end(request: u64) -> ProviderInput {
         request,
         privacy_generation: 1,
         sound: false,
+        cut_in: false,
     }
 }
 fn written(request: u64, words: &str) -> ProviderInput {
@@ -586,6 +587,7 @@ async fn sound_turn(checked: bool, marked: bool, heard: &str) -> (Vec<String>, u
         request: 1,
         privacy_generation: 1,
         sound: marked,
+        cut_in: false,
     });
     let labels = turn(&mut engine).await;
     let asked = script.asked.lock().unwrap().len();

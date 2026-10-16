@@ -79,6 +79,7 @@ impl Desk {
             attention: None,
             name_signal: false,
             sounds_checked: false,
+            ask_unclear: false,
             name_in_passing_ignored: false,
             policy_holds: holds.then(|| self.bus.clone()),
             wait_for_room: false,

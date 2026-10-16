@@ -680,7 +680,8 @@ fn output_request(event: &ProviderOutput) -> Option<u64> {
         | ProviderOutput::Audio { request, .. }
         | ProviderOutput::GenerationComplete { request }
         | ProviderOutput::Interrupted { request }
-        | ProviderOutput::TurnComplete { request, .. } => Some(*request),
+        | ProviderOutput::TurnComplete { request, .. }
+        | ProviderOutput::Unclear { request, .. } => Some(*request),
         ProviderOutput::Transcript { request, .. } => *request,
     }
 }

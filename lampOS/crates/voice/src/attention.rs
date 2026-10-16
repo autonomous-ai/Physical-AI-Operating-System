@@ -492,6 +492,15 @@ pub struct Attention {
     /// shows it was said to the lamp (`LAMP_SHORT_SOUNDS=quiet-room-checked`,
     /// #800), and whether the request in hand ended as such a sound.
     sounds_checked: bool,
+    /// Ask again rather than answer what makes no sense in a conversation
+    /// (#926, `LAMP_OTHER_LANGUAGE=sorry`), and whether the lamp's last line
+    /// was a question.
+    ask_unclear: bool,
+    lamp_asked: bool,
+    /// The request judged unclear, and why.
+    unclear: Option<(u64, &'static str)>,
+    /// The request in hand ended as a cut-in over the lamp's own answer.
+    cut_in: bool,
     sound: bool,
     /// Whether the request judged last was the lamp's own turn, as the
     /// judging read it, for the record ([`Attention::baseline`]).
@@ -608,9 +617,36 @@ impl Attention {
         self.near = false;
         self.addressed = false;
         self.sound = false;
+        self.cut_in = false;
     }
 
     /// Short sounds let through are checked (`--sounds-checked`, #800).
+    /// Ask again ("Sorry?") rather than answer a turn of a conversation heard
+    /// in another script, or as a number alone (#926).
+    pub fn ask_again_when_unclear(&mut self, on: bool) {
+        self.ask_unclear = on;
+    }
+
+    /// The request in hand ended as a cut-in over the lamp's answer (#926).
+    pub fn ended_as_cut_in(&mut self, request: u64) {
+        if request == self.request {
+            self.cut_in = true;
+        }
+    }
+
+    /// Whether the lamp's last line was a question, for the next judgement.
+    pub fn lamp_asked(&mut self, asked: bool) {
+        self.lamp_asked = asked;
+    }
+
+    /// Why `request` was held as unclear, if it was: then it is to be asked
+    /// again.
+    pub fn unclear(&self, request: u64) -> Option<&'static str> {
+        self.unclear
+            .filter(|(unclear, _)| *unclear == request)
+            .map(|(_, why)| why)
+    }
+
     pub fn check_sounds(&mut self, on: bool) {
         self.sounds_checked = on;
     }
@@ -697,6 +733,24 @@ impl Attention {
         let own = OWN_REQUEST.load(Ordering::Acquire) == request;
         self.judged_own = own;
         let fresh = self.begun <= FRESH_REQUESTS;
+        // In a conversation held in English, a turn heard mostly in another
+        // script, or as a number alone after no question, was misheard
+        // (#926): on lamp-4ace on 2026-10-16 at 05:39 a cut-in heard as
+        // Hindi was answered in Hindi. It is held and asked again.
+        if self.ask_unclear
+            && going_on
+            && !own
+            && let Some(why) = crate::not_speech::unclear_in_conversation(
+                &self.heard,
+                self.lamp_asked,
+                self.cut_in,
+            )
+        {
+            let verdict = Verdict::Hold(why);
+            self.unclear = Some((request, why));
+            self.verdict = Some(verdict);
+            return Some(verdict);
+        }
         // A short sound let through in a quiet room (#800): on lamp-52e6 on
         // 2026-10-15 at 13:03 a room sound of 0.7 s was heard as "¿Qué?" and
         // answered, nobody having spoken to the lamp. It is answered only

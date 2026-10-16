@@ -572,6 +572,7 @@ async fn unanswered_reminders_and_sounds_are_not_talk_but_speech_and_actual_audi
                 request,
                 privacy_generation: rig.snapshot.microphone_generation(),
                 sound,
+                cut_in: false,
             })
             .unwrap();
         assert!(

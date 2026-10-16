@@ -288,6 +288,7 @@ impl Harness {
                 accepted,
                 1,
                 false,
+                false,
                 PlayoutStart::default(),
                 &mut self.trace,
                 |_| Ok(()),
@@ -1227,13 +1228,28 @@ fn provider_pcm_threshold_keeps_exactly_one_terminal_allowance_in_both_modes() {
         );
         assert_eq!(current.input_sequence, input_sequence);
         assert_eq!(queue.len(), bound);
-        queue_input_end(&mut queue, &current, privacy, bound, false).unwrap();
+        queue_input_end(&mut queue, &current, privacy, bound, false, false).unwrap();
         assert_eq!(queue.len(), bound + 1);
         assert!(
             matches!(queue.back(),Some(ProviderInput::End {request,..}) if *request==current.owner.turn())
         );
-        assert!(queue_input_end(&mut queue, &current, privacy, bound, false).is_err());
+        assert!(queue_input_end(&mut queue, &current, privacy, bound, false, false).is_err());
         assert_eq!(queue.len(), bound + 1);
+        // A cut-in's End says so (#926); an ordinary one never does.
+        let mut cut = VecDeque::new();
+        queue_input_end(&mut cut, &current, privacy, bound, false, true).unwrap();
+        assert!(matches!(
+            cut.back(),
+            Some(ProviderInput::End {
+                cut_in: true,
+                sound: false,
+                ..
+            })
+        ));
+        assert!(matches!(
+            queue.back(),
+            Some(ProviderInput::End { cut_in: false, .. })
+        ));
     }
 }
 

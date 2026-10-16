@@ -107,6 +107,7 @@ fn in_a_busy_room() -> Options {
         attention: Some(busy),
         name_signal: false,
         sounds_checked: false,
+        ask_unclear: false,
         name_in_passing_ignored: false,
         policy_holds: None,
         wait_for_room: false,
@@ -204,6 +205,7 @@ async fn review_sound_a_name_heard_as_a_request_began_lets_out_the_answer_the_ru
             request,
             privacy_generation: rig.snapshot.microphone_generation(),
             sound: false,
+            cut_in: false,
         })
         .unwrap();
     let message = rig.service_message(&mut dial).await;

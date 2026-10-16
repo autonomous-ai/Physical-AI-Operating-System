@@ -146,6 +146,7 @@ impl Rig {
             request: self.turn.turn(),
             privacy_generation: self.privacy,
             sound: false,
+            cut_in: false,
         });
     }
     fn drain(&mut self) -> Vec<Value> {
@@ -283,6 +284,7 @@ fn no_audio_before_real_endpoint_or_without_admitted_authority() {
                     request: 1,
                     privacy_generation: rig.privacy,
                     sound: false,
+                    cut_in: false,
                 }
             )
             .is_err()
@@ -379,6 +381,7 @@ fn cancellation_overtaking_end_drops_queued_pcm() {
         request: 1,
         privacy_generation: rig.privacy,
         sound: false,
+        cut_in: false,
     });
     assert!(!rig.drain().iter().any(|e| e["kind"] == "audio"));
 }
@@ -746,6 +749,7 @@ fn real_fixture_worker_exchanges_exact_pcm_and_stops_without_devices_or_cloud() 
             request: 1,
             privacy_generation: state.microphone_generation(),
             sound: false,
+            cut_in: false,
         },
     ] {
         worker.channels.data.send(command).unwrap();

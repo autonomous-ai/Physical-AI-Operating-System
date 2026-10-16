@@ -132,25 +132,31 @@ async fn asked_for_volume_about(
     if let Some(choice) = choice {
         desk.decide(about(request), choice);
     }
-    let called = Instant::now();
+    let called = crate::scenario_clock::instant();
     dial.service.send(volume_up("v1")).await;
     let told = rig.service_message(&mut dial).await;
-    (rig, dial, request, told, called.elapsed())
+    (
+        rig,
+        dial,
+        request,
+        told,
+        crate::scenario_clock::instant() - called,
+    )
 }
 
 /// The worker's outputs for `long`, its heartbeat kept. In this rig a turn
 /// that made a call is not completed, so nothing out is waited for this way.
 async fn outputs_for(rig: &mut LiveRig, long: Duration) -> Vec<ProviderOutput> {
-    let until = Instant::now() + long;
+    let until = crate::scenario_clock::instant() + long;
     let mut out = Vec::new();
-    while Instant::now() < until {
+    while crate::scenario_clock::instant() < until {
         rig.publish();
         while let Some(wire) = rig.take() {
             if let Wire::Output(output) = wire {
                 out.push(output);
             }
         }
-        tokio::time::sleep(Duration::from_millis(2)).await;
+        rig.tick(Duration::from_millis(2)).await;
     }
     out
 }
@@ -163,8 +169,9 @@ fn response(told: &serde_json::Value) -> serde_json::Value {
 /// Policy `stay_quiet`, and the lamp turned itself up for eleven hours.
 /// Held: the model is told it was not done and to say nothing, the
 /// executive is never asked, and what the model says next is not let out.
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn an_action_in_a_turn_the_policy_judged_not_for_the_lamp_is_not_done_and_nothing_is_said() {
+    let _clock = logical_clock();
     let mut desk = Desk::new("held");
     let (mut rig, mut dial, request, told, _) =
         asked_for_volume(&mut desk, true, Some("stay_quiet")).await;
@@ -190,8 +197,9 @@ async fn an_action_in_a_turn_the_policy_judged_not_for_the_lamp_is_not_done_and_
 
 /// A turn the Policy took as the lamp's (`answer`, or `look_up`): the
 /// action runs, and its answer goes back as it would without the switch.
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn an_action_in_a_turn_the_policy_took_as_the_lamps_runs() {
+    let _clock = logical_clock();
     for choice in ["answer", "look_up"] {
         let mut desk = Desk::new(choice);
         let (mut rig, mut dial, request, told, _) =
@@ -213,8 +221,9 @@ async fn an_action_in_a_turn_the_policy_took_as_the_lamps_runs() {
 
 /// No decision, or only a shadow one: after the wait the action runs as it
 /// did; without the switch it runs at once, whatever was decided.
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn with_no_decision_in_time_it_runs_after_the_wait_and_without_the_switch_at_once() {
+    let _clock = logical_clock();
     let mut desk = Desk::new("late");
     let (mut rig, _dial, _, told, took) = asked_for_volume(&mut desk, true, None).await;
     assert_eq!(response(&told), json!({"volume": 60}));
@@ -235,8 +244,9 @@ async fn with_no_decision_in_time_it_runs_after_the_wait_and_without_the_switch_
 /// The reviewer on #908, 05:09: a decision about another turn, the one
 /// before or one that does not say, holds nothing here. With none about
 /// its own turn the action runs after the wait, as without a decision.
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn another_turns_stay_quiet_holds_nothing() {
+    let _clock = logical_clock();
     for (tag, about) in [
         (
             "before",
@@ -298,8 +308,9 @@ async fn parked_volume_on(mut rig: LiveRig) -> (LiveRig, Dial) {
 /// is cancelled meanwhile (its owner gone) is never run, also after the
 /// wait in which an uncancelled one would have run, the worker healthy all
 /// through and stopped cleanly at the end (the reviewer, 05:52).
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn a_kept_action_whose_turn_is_cancelled_is_never_run() {
+    let _clock = logical_clock();
     let mut desk = Desk::new("cancelled");
     let (mut rig, mut dial) = parked_volume(&mut desk).await;
     let owner = rig.snapshot.owner().unwrap();
@@ -325,12 +336,13 @@ async fn a_kept_action_whose_turn_is_cancelled_is_never_run() {
     dial.service.send(idle_complete()).await;
     // Never run, through the wait in which an uncancelled one would have
     // run, the worker alive and taking its heartbeat all along.
-    let until = Instant::now() + crate::policy_holds::WAIT + Duration::from_millis(300);
-    while Instant::now() < until {
+    let until =
+        crate::scenario_clock::instant() + crate::policy_holds::WAIT + Duration::from_millis(300);
+    while crate::scenario_clock::instant() < until {
         assert!(!rig.worker.is_finished(), "the worker ended");
         rig.publish();
         while rig.take().is_some() {}
-        tokio::time::sleep(Duration::from_millis(5)).await;
+        rig.tick(Duration::from_millis(5)).await;
     }
     assert!(desk.asked.try_recv().is_err(), "volume_up was run");
     // And it stops cleanly: its result is Ok.
@@ -339,8 +351,9 @@ async fn a_kept_action_whose_turn_is_cancelled_is_never_run() {
 
 /// The reviewer on #908: a call the service withdrew while it was kept is
 /// never run.
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn a_kept_action_the_service_withdrew_is_never_run() {
+    let _clock = logical_clock();
     let mut desk = Desk::new("withdrawn");
     let (mut rig, mut dial) = parked_volume(&mut desk).await;
     dial.service
@@ -359,8 +372,9 @@ async fn a_kept_action_the_service_withdrew_is_never_run() {
 /// takes nothing, so no credit comes back), the worker takes no provider
 /// event, and the service's cancellation waits behind the sound before it.
 /// The call is still never run: the session is asked right before.
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn a_kept_action_withdrawn_while_the_output_is_full_is_never_run() {
+    let _clock = logical_clock();
     let desk = Desk::new("full");
     let rig = LiveRig::start_capacity(
         quick_policy(),
@@ -394,14 +408,15 @@ async fn a_kept_action_withdrawn_while_the_output_is_full_is_never_run() {
 /// The first builder on #908 (05:57): listing reminders is not held. On
 /// `stay_quiet` without the name it is asked at once, as without the
 /// switch.
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn listing_reminders_is_not_held() {
+    let _clock = logical_clock();
     let mut desk = Desk::new("list");
     let mut rig = LiveRig::start_with(quick_policy(), desk.options(true));
     let mut dial = rig.ready().await;
     let request = rig.speak(&mut dial, false, true).await;
     desk.decide(Some(request), "stay_quiet");
-    let called = Instant::now();
+    let called = crate::scenario_clock::instant();
     dial.service
         .send(json!({"toolCall":{"functionCalls":[
             {"id":"l1","name":"list_reminders","args":{}}
@@ -412,7 +427,7 @@ async fn listing_reminders_is_not_held() {
         response(&told),
         json!({"done": false, "next": crate::policy_holds::HELD})
     );
-    assert!(called.elapsed() < Duration::from_secs(1));
+    assert!(crate::scenario_clock::instant() - called < Duration::from_secs(1));
     // The schedule was asked (through the same socket here).
     assert!(desk.asked.try_recv().is_ok());
     rig.stop().await;
@@ -422,8 +437,9 @@ async fn listing_reminders_is_not_held() {
 /// someone else in a conversation, set a five-minute timer. A timer is held
 /// as the volume is: on `stay_quiet` it is not set, and the executive is
 /// never asked.
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn a_timer_in_a_turn_the_policy_judged_not_for_the_lamp_is_not_set() {
+    let _clock = logical_clock();
     let mut desk = Desk::new("timer");
     let mut rig = LiveRig::start_with(quick_policy(), desk.options(true));
     let mut dial = rig.ready().await;

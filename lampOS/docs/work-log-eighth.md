@@ -23,6 +23,16 @@ The eighth builder's log, newest first. Role file:
 
 None yet.
 
+## 2026-10-16 11:45 — #906 — taken, draft #1000
+
+Ready for lamp-voice: no (#1000 draft, stacked on #900 and #996; ARM64
+pending; #996's ARM64 38850888395 running)
+
+- #906's two identities are #949's first boundary: a 30 ms host pause
+  before `go` fails each 10/10 with the missing `child-position-writes`.
+- On #996's stepped gate: host clock 396/400 and 399/400 under load,
+  stepped 400/400 for each original and each 30 ms-pause twin.
+
 ## 2026-10-16 11:35 — #949 — draft #996; owner changes; #988 green
 
 Ready for lamp-voice: no (#996 draft on #900, ARM64 pending; #988 draft,

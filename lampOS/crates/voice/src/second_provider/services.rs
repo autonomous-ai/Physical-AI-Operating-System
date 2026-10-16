@@ -46,9 +46,10 @@ pub struct Net {
 }
 
 impl Net {
-    pub fn new(config: SecondConfig, tools: &[lamp_gemini::Tool]) -> net::Result<Self> {
+    /// `declare` gives the lamp's tools as they stand, at each chat request.
+    pub fn new(config: SecondConfig, declare: net::Declare) -> net::Result<Self> {
         Ok(Self {
-            chat: Arc::new(Chat::new(&config, tools)?),
+            chat: Arc::new(Chat::new(&config, declare)?),
             tts: Arc::new(Tts::new(&config)?),
             config: Arc::new(config),
         })

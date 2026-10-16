@@ -133,7 +133,9 @@ A base URL on `campaign-api.autonomous.ai` ending in `/ai` is given `/v1`
   every case to close the socket, but waited on only in that fallback.
 - **Text model** (`net/chat.rs`): `POST <base>/chat/completions`,
   `Authorization: Bearer <key>`, `"stream": true`, with `tools` when any are
-  declared. The answer is read as server-sent events and cut into
+  declared. They are declared as they stand at each request, as a Live
+  session is told them when it opens, so the executive's actions come and
+  go with the executive (one that starts after the voice is not missed). The answer is read as server-sent events and cut into
   sentences as it arrives (`net/sentences.rs`).
 - **Speech** (`net/tts.rs`), 24 kHz mono 16-bit PCM:
   - `openai`: `POST <base>/audio/speech`, `Authorization: Bearer <key>`,
@@ -524,7 +526,6 @@ Reported by the builders:
   [not-speech.md](not-speech.md#a-room-sound-let-through-and-answered-800)).
   Being close to the lamp or facing it cannot be seen here, so it does not
   count as it does on the Live route.
-- **Tools are declared once,** when the worker starts.
 - **Deepgram direct uses nova-3 on `/v1/listen`.** V1's default
   (`hal/drivers/voice/stt/deepgram.py`) is `flux-general-en` on Deepgram's v2
   protocol.

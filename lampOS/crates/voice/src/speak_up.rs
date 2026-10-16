@@ -41,8 +41,10 @@ pub const LOOK_NOTE: &str = "(You are looking now, and this is what your eye see
 /// cannot make out it says, rather than guess.
 pub const LOOK_FULL_NOTE: &str = "(You are looking now, and this is what your eye sees. Answer what they just asked you in a sentence or two, the way you would tell a friend what you see. It is not a picture or a camera to you: it is what you see. If you cannot make out what they are showing you, say so plainly and ask them to hold it a bit closer to you; never guess what it might be.)";
 /// The written turn that asks again when what was heard in a conversation
-/// made no sense in it (#926): another script, or a number alone.
-pub const ASK_AGAIN_NOTE: &str = "(What you just heard made no sense in this conversation: it was misheard. Do not answer it. Say only, in the language of the conversation: Sorry?)";
+/// made no sense in it (#926): another script, or a number alone. On
+/// lamp-4ace (09:42) the model took a softer note as its cue to go on with
+/// the story it had been cut off in, so this one says that is over.
+pub const ASK_AGAIN_NOTE: &str = "(The person just cut in and you could not make out what they said: it was misheard. What you were saying before is over: do not go on with it, do not finish it, do not sum it up, and do not answer what was misheard. Say only one word, in the language of the conversation, as a question: \"Sorry?\" Then stop and listen.)";
 pub const NO_LOOK_NOTE: &str = "(You tried to look, but your eye is shut just now and you saw nothing. Tell them so in a few light words.)";
 
 /// Whether an answer that opens like this is the lamp saying it will look:

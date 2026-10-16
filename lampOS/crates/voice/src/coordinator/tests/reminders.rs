@@ -696,6 +696,11 @@ fn an_unclear_turn_is_asked_again_once_over_and_never_late_or_over_someone() {
         ask_again_now((7, at), Some(7), at + ASK_AGAIN_TURN_LONGEST_US + 1),
         AskAgain::Drop
     );
+    // The note ends what was being said, and asks only "Sorry?" (lamp-4ace
+    // 09:42: a softer one let the model go on with its story).
+    for must in ["do not go on with it", "Sorry?", "Then stop and listen"] {
+        assert!(crate::speak_up::ASK_AGAIN_NOTE.contains(must), "{must}");
+    }
     let mut test = Test::new();
     let queue = test.followup(crate::speak_up::ASK_AGAIN_NOTE, false, "asked_again");
     let asking = test.reply.as_ref().unwrap().owner;

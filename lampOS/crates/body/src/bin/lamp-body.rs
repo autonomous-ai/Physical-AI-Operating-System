@@ -10,7 +10,7 @@ slump). With --give-way, a joint that pushes at its goal without moving for\n1.5
 did, a head or base joint that a hand stops and still pushes a second later makes the lamp
 slump (torque off on all five, held again 5 s later where it lies; after an overload, 120 s);
 a hand never ends the run, and a head roll or base found beyond 400 counts of home at start is
-taken hold of where it lies. With --overload release, any joint that\nreads a load of 800 of 1000 (80% of --force-limit for a joint held to one) for 1.5 s has\ntorque switched off on all five, so the lamp slumps; 120 s later each is held where it is\n(its goal, then torque on) and the head is brought home as --wake does, while the arm\nwaits where it slumped until the lamp is next asked to stand; a second time within ten\nminutes ends the run with torque off. With --rest-glance on, a lamp at rest takes what\nExpression asks of the head (50 counts of pitch, 25 of roll at most, never the base or the arm)\nand comes back to rest when it runs out. --pitch-window is this lamp's own window for the\nhead's pitch while it is beside the base (by default lamp-4ace's, 1740,2030): never under\nthe head's floor (1670), around --home's pitch, and inside the servo's own limits or it does\nnot start. With --look-at-name on, the lamp's name heard on the bus\n(name/heard) while it does not speak is taken as being spoken to for two seconds: it rises,\nlooks up and turns to a face at once; with nobody in view it glances a little to one side and\nthe other once it stands, and lets it go. At most once in ten seconds. Stops at the first surprise, holding\nwhere it is, then, as the old runtime did, lets go: torque off on all five. Ends on SIGINT or SIGTERM after easing back to where it started.\nThe mood socket takes datagrams of JSON: {\"mood\":\"resting|listening|thinking|speaking\",\"level\":0..255}.\nA lamp standing at its full height also makes a gesture asked for there: {\"gesture\":\"nod\"}\n(nod, headshake, greeting, laugh, shy, stretching). With --moves, the moves in that folder\n(NAME.json, docs/body.md) are read at start and asked for by name the same way; one this body\ncannot play is refused with why, and a folder that cannot be read leaves the body's own.\nPrints one JSON report when it ends.\n";
+taken hold of where it lies. With --overload release, any joint that\nreads a load of 800 of 1000 (80% of --force-limit for a joint held to one) for 1.5 s has\ntorque switched off on all five, so the lamp slumps; 120 s later each is held where it is\n(its goal, then torque on) and the head is brought home as --wake does, while the arm\nwaits where it slumped until the lamp is next asked to stand; a second time within ten\nminutes ends the run with torque off. With --rest-glance on, a lamp at rest takes what\nExpression asks of the head (50 counts of pitch, 25 of roll at most, never the base or the arm)\nand comes back to rest when it runs out. --pitch-window is this lamp's own window for the\nhead's pitch while it is beside the base (by default lamp-4ace's, 1740,2030): never under\nthe head's floor (1670), around --home's pitch, and inside the servo's own limits or it does\nnot start. With --look-at-name on, the lamp's name heard on the bus\n(name/heard) while it does not speak is taken as being spoken to for two seconds: it rises,\nlooks up and turns to a face at once; with nobody in view it glances a little to one side and\nthe other once it stands, and lets it go. At most once in ten seconds. Stops at the first surprise, holding\nwhere it is, then, as the old runtime did, lets go: torque off on all five. Ends on SIGINT or SIGTERM after easing back to where it started.\nThe mood socket takes datagrams of JSON: {\"mood\":\"resting|listening|thinking|speaking\",\"level\":0..255}.\nA lamp standing at its full height also makes a gesture asked for there: {\"gesture\":\"nod\"}\n(nod, headshake, greeting, laugh, shy, stretching); a folded one with --stand stands up for it\nfirst, unless paused, held by a hand or slumped, and the journal says why each was taken or dropped. With --moves, the moves in that folder\n(NAME.json, docs/body.md) are read at start and asked for by name the same way; one this body\ncannot play is refused with why, and a folder that cannot be read leaves the body's own.\nPrints one JSON report when it ends.\n";
 
 #[derive(Debug)]
 struct Arguments {
@@ -502,6 +502,45 @@ fn gesture_of(
     lamp_body::clips::named(message.gesture).or_else(|| moves.named(message.gesture))
 }
 
+/// Each journal line about what was asked is said at most once in this
+/// long, and then with how many like it were not said.
+#[cfg_attr(not(any(target_os = "linux", test)), allow(dead_code))]
+const HUSH: std::time::Duration = std::time::Duration::from_secs(5);
+
+/// Lines said lately, by their text, and how many repeats were held back.
+#[cfg_attr(not(any(target_os = "linux", test)), allow(dead_code))]
+#[derive(Default)]
+struct Hush(std::collections::HashMap<String, (std::time::Instant, u32)>);
+
+#[cfg_attr(not(any(target_os = "linux", test)), allow(dead_code))]
+impl Hush {
+    /// `line` if it is due at `now`, with how many like it were held back
+    /// since it was last said; `None` while it is held back. A line not
+    /// heard of for a minute is forgotten, so the map stays small.
+    fn due(&mut self, line: String, now: std::time::Instant) -> Option<String> {
+        self.0
+            .retain(|_, (at, _)| now.saturating_duration_since(*at) < HUSH * 12);
+        match self.0.get_mut(&line) {
+            Some((at, held)) if now.saturating_duration_since(*at) < HUSH => {
+                *held += 1;
+                None
+            }
+            Some((at, held)) => {
+                let said = match std::mem::take(held) {
+                    0 => line,
+                    more => format!("{line} ({more} more like it before this)"),
+                };
+                *at = now;
+                Some(said)
+            }
+            None => {
+                self.0.insert(line.clone(), (now, 0));
+                Some(line)
+            }
+        }
+    }
+}
+
 /// The moves in `--moves`, read once at start. A refused move and a folder
 /// that cannot be read are said, and the body runs with what it has.
 #[cfg_attr(not(any(target_os = "linux", test)), allow(dead_code))]
@@ -642,6 +681,7 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
         .ok()
         .map(lamp_body::pause_in::PauseIn::on);
     let paused = std::cell::Cell::new(false);
+    let mut unknown_said = Hush::default();
     let news = || {
         paused.set(pause.as_mut().is_some_and(|pause| pause.paused()));
         // Everything waiting, and only the newest of it counts.
@@ -649,15 +689,28 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
         let mut datagram = [0u8; 128];
         for _ in 0..32 {
             match moods.recv(&mut datagram) {
-                Ok(length) => match gesture_of(&datagram[..length], &moves) {
-                    Some(clip) => gesture_asked.set(Some(clip)),
-                    None => latest = mood_of(&datagram[..length]).or(latest),
-                },
+                Ok(length) => {
+                    let sent = &datagram[..length];
+                    match (gesture_of(sent, &moves), mood_of(sent)) {
+                        (Some(clip), _) => gesture_asked.set(Some(clip)),
+                        (None, Some(mood)) => latest = Some(mood),
+                        // An unknown gesture, most often: said, as the
+                        // body says what it does with every gesture.
+                        (None, None) => {
+                            let line = format!(
+                                "lamp-body: dropped from the mood socket, not a mood or a gesture this body has: {}",
+                                String::from_utf8_lossy(sent)
+                            );
+                            if let Some(line) = unknown_said.due(line, std::time::Instant::now()) {
+                                eprintln!("{line}");
+                            }
+                        }
+                    }
+                }
                 Err(_) => break,
             }
         }
         if paused.get() {
-            gesture_asked.set(None);
             return Some((lamp_body::gesture::Mood::Resting, 0));
         }
         latest
@@ -706,6 +759,8 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
     let mut face_said = 0u64;
     let mut gesture_said: Option<&'static str> = None;
     let mut tipping_said = lamp_body::body::Tipping::default();
+    let mut looks_said: Option<&'static str> = None;
+    let mut fate_said = Hush::default();
     let mut eased = [0u16; 3];
     let mut handled = ([0u16; 3], [0u16; 5]);
     let mut limp = false;
@@ -801,6 +856,25 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
             );
         }
         tipping_said = tipping;
+        // Each gesture asked from outside, taken or dropped, and why.
+        if let Some((name, why)) = glimpse.gesture_fate
+            && let Some(line) =
+                fate_said.due(format!("gesture {name} {why}"), std::time::Instant::now())
+        {
+            eprintln!("lamp-body: step {} {line}", glimpse.step);
+        }
+        // Whether a face in view is looked at, when that changes: a skill's
+        // look and the eyes' come on one socket and read the same.
+        if (glimpse.face.is_some() || paused.get()) && glimpse.looks_dropped != looks_said {
+            looks_said = glimpse.looks_dropped;
+            match looks_said {
+                Some(why) => eprintln!(
+                    "lamp-body: step {} a face is not looked at: {why}",
+                    glimpse.step
+                ),
+                None => eprintln!("lamp-body: step {} a face is looked at", glimpse.step),
+            }
+        }
         if glimpse.gesture != gesture_said {
             gesture_said = glimpse.gesture;
             match glimpse.gesture {
@@ -816,8 +890,16 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
         {
             face_said = glimpse.step;
             eprintln!(
-                "lamp-body: step {} {:?} face at {:.2} across {:.2} down, size {:.2}; looking {:?}",
-                glimpse.step, glimpse.mood, face[0], face[1], face[2], glimpse.look
+                "lamp-body: step {} {:?} face at {:.2} across {:.2} down, size {:.2}; looking {:?}{}",
+                glimpse.step,
+                glimpse.mood,
+                face[0],
+                face[1],
+                face[2],
+                glimpse.look,
+                glimpse
+                    .looks_dropped
+                    .map_or(String::new(), |why| format!(" (not looked at: {why})"))
             );
         }
         if due {
@@ -950,11 +1032,16 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
                 still: expression
                     .as_ref()
                     .is_some_and(|asked| asked.holding(now_us)),
+                paused: false,
             };
             // Read all the same, so that nothing kept from before the pause
             // is acted on after it.
+            // A gesture is passed on to be dropped and said.
             if paused.get() {
-                lamp_body::body::Asked::PAUSED
+                lamp_body::body::Asked {
+                    gesture: asked.gesture,
+                    ..lamp_body::body::Asked::PAUSED
+                }
             } else {
                 asked
             }
@@ -1559,6 +1646,33 @@ mod tests {
         }
         // And a gesture is not a mood.
         assert_eq!(mood_of(br#"{"gesture":"nod"}"#), None);
+    }
+
+    /// A line asked again and again is said once in five seconds, then with
+    /// how many were held back; another line is said at once.
+    #[test]
+    fn a_line_repeated_is_said_once_in_five_seconds_with_a_count() {
+        let start = std::time::Instant::now();
+        let at = |ms: u64| start + std::time::Duration::from_millis(ms);
+        let mut hush = Hush::default();
+        let line = || "gesture nod dropped: another gesture plays".to_owned();
+        assert_eq!(hush.due(line(), at(0)), Some(line()));
+        for step in 1..250 {
+            assert_eq!(hush.due(line(), at(step * 20)), None);
+        }
+        assert_eq!(
+            hush.due("gesture nod dropped: paused".into(), at(100))
+                .as_deref(),
+            Some("gesture nod dropped: paused")
+        );
+        assert_eq!(
+            hush.due(line(), at(5_000)),
+            Some(format!("{} (249 more like it before this)", line()))
+        );
+        assert_eq!(hush.due(line(), at(5_020)), None);
+        // Not heard of for a minute: forgotten, and said plainly again.
+        assert_eq!(hush.due(line(), at(70_000)), Some(line()));
+        assert_eq!(hush.0.len(), 1);
     }
 
     #[test]

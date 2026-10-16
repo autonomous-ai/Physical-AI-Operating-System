@@ -2263,6 +2263,8 @@ fn speaking_run_with(
             gesture: None,
             expression: (time.get() >= from && time.get() < until).then_some(offsets),
             called: false,
+            still: false,
+            paused: false,
         },
         |glimpse| seen.push((seen_at.get(), *glimpse)),
     );

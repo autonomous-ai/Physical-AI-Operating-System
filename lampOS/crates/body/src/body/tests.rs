@@ -2303,6 +2303,89 @@ fn a_standing_lamp_nods_and_is_left_exactly_where_it_was() {
     assert_eq!((lamp.servos[1].goal, lamp.servos[2].goal), (2_050, 2_047));
 }
 
+/// V1's anti-tip rule (src/cog.rs): a gesture any frame of which would
+/// take the lamp's centre of gravity more than 22 mm off its base's axis is
+/// refused whole before it moves anything, and the run goes on.
+#[test]
+fn a_gesture_past_v1s_tip_over_line_is_refused_whole_and_one_inside_it_plays() {
+    let (report, lamp, seen) =
+        gesture_run(&crate::clips::SURPRISED, Duration::from_secs(8), 12, |_| {});
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!(report.tipping.refused, 1, "{:?}", report.tipping);
+    let (name, _, mm) = report.tipping.last_refused.unwrap();
+    assert_eq!(name, "surprised");
+    assert!(mm > 22.0, "{mm}");
+    assert!(seen.iter().all(|step| step.1.is_none()));
+    // Nothing of it was played: the pose before is the pose after.
+    let at = |when: u64| {
+        let step = seen
+            .iter()
+            .rfind(|step| step.0 < Duration::from_secs(when))
+            .unwrap();
+        (step.2, step.3)
+    };
+    assert_eq!(at(8), at(12));
+    assert_eq!((lamp.servos[1].goal, lamp.servos[2].goal), (2_050, 2_047));
+    // One inside the line plays as before, and nothing is said of it.
+    let (report, _, _) = gesture_run(&crate::clips::NOD, Duration::from_secs(8), 12, |_| {});
+    assert_eq!(report.gestures, 1);
+    assert_eq!(report.tipping, Tipping::default());
+}
+
+/// V1's anti-tip rule: no goal leans the lamp back past 22 mm while it
+/// rises, nor past where it is once it stands (16 mm, and it is past
+/// that): a standing pose behind that line is stopped short of, and said.
+#[test]
+fn a_lamp_is_not_stood_up_farther_back_than_v1s_line() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(10));
+    lamp.arm_moves = true;
+    lamp.overload_clears = 1;
+    let limits = Limits::folded_with(Tuning {
+        reach: [150, 15, 1, 250],
+        speed: 120,
+        servo_speed: 1_000,
+        servo_acceleration: 60,
+    })
+    .unwrap();
+    // The shoulder 250 counts under folded: some 27 mm back.
+    let pose = [1_900, 2_044, 2_015, 1_800, 2_047];
+    let up = Standing::new([2_050, 2_047], pose, 100, 4, 60, [950, 950]).unwrap();
+    let back = |head: [u16; 3], arm: [u16; 2]| {
+        crate::cog::lean_back_mm([head[2], arm[0], arm[1], head[1], head[0]].map(f32::from))
+    };
+    assert!(back([1_900, 2_044, 2_015], [1_800, 2_047]) > 25.0);
+    let mut steps = Vec::new();
+    let report = run_alive(
+        &mut lamp,
+        &mut clock,
+        limits,
+        Some(HOME),
+        Some(up),
+        None,
+        || Some((Mood::Speaking, 60)),
+        || Asked {
+            seen: None,
+            gesture: None,
+            expression: None,
+            called: false,
+        },
+        |glimpse| steps.push((glimpse.goals, glimpse.arm_goals)),
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert!(report.stood);
+    assert_eq!(report.tipping.cuts, 1, "{:?}", report.tipping);
+    assert_eq!(report.tipping.ceiling_mm, 22.0);
+    assert!(report.tipping.would_mm > 22.0);
+    let most = steps
+        .iter()
+        .map(|(head, arm)| back(*head, *arm))
+        .fold(0.0, f64::max);
+    assert!(most <= 22.0 && most > 21.5, "{most}");
+    // It stood as far as the line, not where it was told.
+    let lowest = steps.iter().map(|(_, arm)| arm[0]).min().unwrap();
+    assert!(lowest > 1_850 && lowest < 2_050, "{lowest}");
+}
+
 #[test]
 fn a_gesture_waits_for_a_lamp_that_is_rising_and_is_forgotten_by_one_that_is_not() {
     // Asked three seconds in, while it rises: it begins once it stands.

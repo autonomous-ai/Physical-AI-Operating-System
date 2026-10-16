@@ -705,6 +705,7 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
     let mut told_whether_it_stands = false;
     let mut face_said = 0u64;
     let mut gesture_said: Option<&'static str> = None;
+    let mut tipping_said = lamp_body::body::Tipping::default();
     let mut eased = [0u16; 3];
     let mut handled = ([0u16; 3], [0u16; 5]);
     let mut limp = false;
@@ -775,6 +776,31 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
                 glimpse.arm_loads
             );
         }
+        // V1's anti-tip rule acting (src/cog.rs), each time it does.
+        let tipping = glimpse.tipping;
+        if tipping.cuts != tipping_said.cuts {
+            eprintln!(
+                "lamp-body: step {} anti-tip: cut a move short that would lean the lamp back {:.1} mm, over its {:.0} mm (V1's rule; {} so far)",
+                glimpse.step, tipping.would_mm, tipping.ceiling_mm, tipping.cuts
+            );
+        }
+        if tipping.refused != tipping_said.refused
+            && let Some((name, frame, mm)) = tipping.last_refused
+        {
+            eprintln!(
+                "lamp-body: step {} anti-tip: REFUSED gesture {name}: frame {frame} takes the centre of gravity {mm:.1} mm off the base's axis, over V1's 22 mm ({} so far)",
+                glimpse.step, tipping.refused
+            );
+        }
+        if tipping.close != tipping_said.close
+            && let Some((name, frame, mm)) = tipping.last_close
+        {
+            eprintln!(
+                "lamp-body: step {} anti-tip: gesture {name} plays close to the limit: frame {frame} at {mm:.1} mm of 22",
+                glimpse.step
+            );
+        }
+        tipping_said = tipping;
         if glimpse.gesture != gesture_said {
             gesture_said = glimpse.gesture;
             match glimpse.gesture {

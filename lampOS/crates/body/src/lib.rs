@@ -31,6 +31,7 @@ pub mod pause_in;
 
 pub mod calibration;
 pub mod clips;
+pub mod cog;
 pub mod command;
 pub mod control;
 pub mod gaze;

@@ -477,6 +477,7 @@ mod tests {
             released: 0,
             limp: false,
             hand: false,
+            tipping: Default::default(),
         }
     }
 

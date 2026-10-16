@@ -32,6 +32,7 @@
 use crate::{
     Joint,
     clips::{self, Clip},
+    cog,
     gaze::{Gaze, Looking, Seen},
     gesture::{Gestures, Mood, Pose},
     inspection::{Interest, PortIo, Runtime},
@@ -718,6 +719,28 @@ pub struct Glimpse {
     /// A head or base joint met resistance and is held where it gave way:
     /// a hand, as far as the body can tell (`body/hand`).
     pub hand: bool,
+    /// What V1's anti-tip rule has done so far.
+    pub tipping: Tipping,
+}
+
+/// What V1's anti-tip rule ([`crate::cog`]) did in a run.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize)]
+pub struct Tipping {
+    /// Times steps were cut short so the lamp would not lean back past
+    /// its ceiling; a run of such steps counts once.
+    pub cuts: u32,
+    /// The last such: its ceiling and how far back the step would have
+    /// leaned, mm.
+    pub ceiling_mm: f32,
+    pub would_mm: f32,
+    /// Gestures refused before they played, any frame of them over 22 mm
+    /// off the base's axis on the pose the lamp was in, and the last one:
+    /// its name, the frame and how far, mm.
+    pub refused: u32,
+    pub last_refused: Option<(&'static str, u16, f32)>,
+    /// Gestures played that came within 85% of that, and the last one.
+    pub close: u32,
+    pub last_close: Option<(&'static str, u16, f32)>,
 }
 
 /// Why the run ended. Only `Cancelled` is an ordinary end. Every other end
@@ -839,6 +862,8 @@ pub struct BodyReport {
     pub calls: u32,
     /// Under `--overload release`, each time it let go.
     pub released: Vec<Released>,
+    /// What V1's anti-tip rule did.
+    pub tipping: Tipping,
     pub stop: Stop,
 }
 
@@ -2120,6 +2145,7 @@ fn run_until_stopped(
         idles: 0,
         calls: 0,
         released: Vec::new(),
+        tipping: Tipping::default(),
         stop: Stop::Cancelled,
     };
     let mut bus = Bus { io, runtime };
@@ -2714,6 +2740,8 @@ fn run_until_stopped(
     let mut pending: Option<(&'static Clip, Duration)> = None;
     let mut gesture_now = [0.0f32; 5];
     let mut gesture_cooling = 0u16;
+    // The last step was cut short by the anti-tip rule.
+    let mut tipping = false;
     // Looks in a row in which its eyes reported a face.
     let mut faces_running = 0u8;
     // When a lamp standing at rest next shifts by itself.
@@ -3009,6 +3037,32 @@ fn run_until_stopped(
                 pending = None;
             }
         }
+        // V1's anti-tip rule (src/cog.rs, V1 `check_stable`): a gesture any
+        // frame of which, laid over the pose the lamp is in, takes its
+        // centre of gravity farther than 22 mm off the base's axis is
+        // refused whole before it plays, and one within 85% of that is
+        // said.
+        if let Some((clip, since)) = playing
+            && since == now
+        {
+            let pose = [
+                written[0],
+                written[1],
+                written[2],
+                arm_written[0],
+                arm_written[1],
+            ];
+            let (frame, mm) = cog::worst_frame(pose, clip.frames);
+            let at = Some((clip.name, frame.try_into().unwrap_or(u16::MAX), mm as f32));
+            if mm > cog::CLIP_MM {
+                playing = None;
+                report.tipping.refused += 1;
+                report.tipping.last_refused = at;
+            } else if mm >= cog::CLIP_MM * cog::WARN_SHARE {
+                report.tipping.close += 1;
+                report.tipping.last_close = at;
+            }
+        }
         // A face found while it glances for its caller: the gaze has them.
         if faces_running > 0 {
             for clip in [&mut playing, &mut pending] {
@@ -3216,6 +3270,60 @@ fn run_until_stopped(
                 }
             }
         }
+        // V1's anti-tip rule (src/cog.rs, V1 `limit_lean_back`): no step
+        // leans the lamp back farther than 16 mm (V1's bound for where the
+        // eyes and the moods take it, `MAX_LEAN_BACK_MM`), or 22 mm while
+        // a gesture plays or it rises or folds (V1's for a commanded move,
+        // `max_cog_offset_mm`; folded, a lamp sits 18 to 20 mm back by this
+        // model). The step is cut short; one already past may only come
+        // forward. Every goal that moves the lamp is made here.
+        if goals != written || arm_goals != arm_written {
+            let arm_is = match (standing, report.last) {
+                (None, Some(last)) => ARM.map(|joint| last[joint.index()].position),
+                _ => arm_written,
+            };
+            let arm_to = if standing.is_some() {
+                arm_goals
+            } else {
+                arm_is
+            };
+            let by_id = |head: [u16; 3], arm: [u16; 2]| {
+                [head[2], arm[0], arm[1], head[1], head[0]].map(f32::from)
+            };
+            let (from, to) = (by_id(written, arm_is), by_id(goals, arm_to));
+            let ceiling = if gesturing || !upright {
+                cog::CLIP_MM
+            } else {
+                cog::LOOK_MM
+            };
+            let (cut, share) = cog::limit_lean_back(from, to, ceiling);
+            if share < 1.0 {
+                let count = |value: f32| value.round().clamp(0.0, 4_095.0) as u16;
+                let mut head = [count(cut[4]), count(cut[3]), count(cut[0])];
+                let mut arm = [count(cut[1]), count(cut[2])];
+                // Rounded, a step that would still lean past is not taken.
+                if cog::lean_back_mm(by_id(head, arm)) > ceiling.max(cog::lean_back_mm(from)) + 1e-6
+                {
+                    (head, arm) = (written, arm_is);
+                }
+                for index in 0..3 {
+                    // What follows the mood is held where the step stopped,
+                    // so nothing jumps once the rule lets go.
+                    commanded[index] -= f32::from(goals[index]) - f32::from(head[index]);
+                    velocity[index] = 0.0;
+                }
+                goals = head;
+                if standing.is_some() {
+                    arm_goals = arm;
+                }
+                if !tipping {
+                    report.tipping.cuts += 1;
+                    report.tipping.ceiling_mm = ceiling as f32;
+                    report.tipping.would_mm = cog::lean_back_mm(to) as f32;
+                }
+            }
+            tipping = share < 1.0;
+        }
         still_steps = if goals != written || arm_goals != arm_written {
             0
         } else {
@@ -3370,6 +3478,7 @@ fn run_until_stopped(
             released: report.released.len().try_into().unwrap_or(u16::MAX),
             limp: false,
             hand: held.iter().any(|held| *held),
+            tipping: report.tipping,
         };
         watch(&glimpse);
         // A joint pushing at a goal it does not reach, and not moving, is

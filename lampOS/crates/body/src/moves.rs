@@ -5,7 +5,7 @@
 //! One move a file, `NAME.json`:
 //!
 //! ```json
-//! {"name": "wiggle", "step_ms": 50, "frames": [[0, 0, 0, 0, 0], [4, 0, 2, 6, 6], [0, 0, 0, 0, 0]]}
+//! {"name": "wiggle", "step_ms": 750, "frames": [[0, 0, 0, 0, 0], [4, 0, 2, 6, 6], [0, 0, 0, 0, 0]]}
 //! ```
 //!
 //! Each frame is offsets in encoder counts from the pose a standing lamp is
@@ -30,8 +30,12 @@ pub const FARTHEST: [i16; 5] = [200, 200, 150, 350, 350];
 /// count of rounding either way at each end of a step. As the built-in
 /// clips.
 pub const FASTEST: [f32; 5] = [900.0, 1_300.0, 1_000.0, 800.0, 800.0];
-/// At most this many moves are read from a folder.
+/// At most this many moves are read from a folder; a folder with more is
+/// refused whole.
 pub const MOST_MOVES: usize = 64;
+/// At most this many entries of the folder are looked at, moves or not; a
+/// folder with more is refused whole.
+pub const MOST_ENTRIES: usize = 1_024;
 /// A move's file is at most this long.
 const MOST_BYTES: u64 = 256 * 1024;
 const SHORTEST_US: u64 = 1_500_000;
@@ -60,13 +64,32 @@ struct File {
     frames: Vec<[i16; 5]>,
 }
 
-/// Read every `*.json` in `folder`, at most [`MOST_MOVES`]. A folder that
-/// cannot be read is an error; a file that is not a move this body can
-/// play is refused and the rest are taken. The moves live as long as the
-/// body: they are read once, at start.
+/// Read every `*.json` in `folder`. A folder that cannot be read is an
+/// error; a file that is not a move this body can play is refused and the
+/// rest are taken. A folder of more than [`MOST_MOVES`] moves or
+/// [`MOST_ENTRIES`] entries is refused whole, in one line and without
+/// reading on, so the start's work stays bounded and which moves play never
+/// depends on how many were left there. The moves live as long as the body:
+/// they are read once, at start.
 pub fn load(folder: &Path) -> io::Result<Loaded> {
     let mut files = Vec::new();
-    for entry in fs::read_dir(folder)? {
+    for (looked, entry) in fs::read_dir(folder)?.enumerate() {
+        let too_many = if looked >= MOST_ENTRIES {
+            Some(format!("more than {MOST_ENTRIES} entries"))
+        } else if files.len() > MOST_MOVES {
+            Some(format!("more than {MOST_MOVES} moves"))
+        } else {
+            None
+        };
+        if let Some(why) = too_many {
+            return Ok(Loaded {
+                moves: Vec::new(),
+                refused: vec![(
+                    folder.to_owned(),
+                    format!("{why} in the folder: none taken"),
+                )],
+            });
+        }
         let path = entry?.path();
         let name = path
             .file_name()
@@ -78,15 +101,18 @@ pub fn load(folder: &Path) -> io::Result<Loaded> {
         }
         files.push(path);
     }
+    if files.len() > MOST_MOVES {
+        return Ok(Loaded {
+            moves: Vec::new(),
+            refused: vec![(
+                folder.to_owned(),
+                format!("more than {MOST_MOVES} moves in the folder: none taken"),
+            )],
+        });
+    }
     files.sort();
     let mut loaded = Loaded::default();
-    for (index, path) in files.into_iter().enumerate() {
-        if index >= MOST_MOVES {
-            loaded
-                .refused
-                .push((path, format!("more than {MOST_MOVES} moves in the folder")));
-            continue;
-        }
+    for path in files {
         match read(&path).and_then(|file| check(file, &loaded)) {
             Ok(clip) => loaded.moves.push(clip),
             Err(why) => loaded.refused.push((path, why)),
@@ -292,16 +318,52 @@ mod tests {
     }
 
     #[test]
-    fn a_folder_that_cannot_be_read_is_an_error_and_past_sixty_four_moves_are_refused() {
+    fn a_folder_that_cannot_be_read_is_an_error_and_an_oversized_one_is_refused_whole() {
         assert!(load(Path::new("/nonexistent/lamp-moves")).is_err());
         let folder = Folder::new("many");
-        for n in 0..=MOST_MOVES {
+        for n in 0..MOST_MOVES {
             folder.write(&format!("{n:03}.json"), &good(&format!("m{n}")));
         }
+        assert_eq!(load(&folder.0).unwrap().moves.len(), MOST_MOVES);
+        // One more: none taken, in one line naming the folder.
+        folder.write("064.json", &good("m64"));
         let loaded = load(&folder.0).unwrap();
-        assert_eq!(loaded.moves.len(), MOST_MOVES);
+        assert!(loaded.moves.is_empty());
         assert_eq!(loaded.refused.len(), 1);
-        assert!(loaded.refused[0].0.ends_with("064.json"));
+        assert_eq!(loaded.refused[0].0, folder.0);
+        assert!(
+            loaded.refused[0].1.contains("more than 64 moves"),
+            "{:?}",
+            loaded.refused
+        );
+        // A folder of many other files is not read through either.
+        let crowded = Folder::new("crowded");
+        for n in 0..=MOST_ENTRIES {
+            crowded.write(&format!("{n:04}.txt"), "");
+        }
+        let loaded = load(&crowded.0).unwrap();
+        assert!(loaded.moves.is_empty());
+        assert_eq!(loaded.refused.len(), 1);
+        assert!(
+            loaded.refused[0].1.contains("more than 1024 entries"),
+            "{:?}",
+            loaded.refused
+        );
+    }
+
+    #[test]
+    fn the_documented_example_is_a_move_this_body_takes() {
+        let folder = Folder::new("example");
+        let module = include_str!("moves.rs");
+        let example = module
+            .lines()
+            .find_map(|line| line.strip_prefix("//! {\"name\""))
+            .map(|rest| format!("{{\"name\"{rest}"))
+            .unwrap();
+        folder.write("wiggle.json", &example);
+        let loaded = load(&folder.0).unwrap();
+        assert!(loaded.refused.is_empty(), "{:?}", loaded.refused);
+        assert_eq!(loaded.named("wiggle").unwrap().duration_us(), 1_500_000);
     }
 
     #[test]

@@ -852,7 +852,7 @@ moves in that folder once at start (`src/moves.rs`), one a file,
 `NAME.json`:
 
 ```json
-{"name": "wiggle", "step_ms": 50, "frames": [[0, 0, 0, 0, 0], [4, 0, 2, 6, 6], [0, 0, 0, 0, 0]]}
+{"name": "wiggle", "step_ms": 750, "frames": [[0, 0, 0, 0, 0], [4, 0, 2, 6, 6], [0, 0, 0, 0, 0]]}
 ```
 
 Each frame is offsets in encoder counts for head pitch, head roll, base
@@ -872,8 +872,11 @@ report counts. It is held to what the generator promises the clips:
 
 A file that breaks any of these, is not JSON of exactly these three fields
 or is longer than 256 KiB is refused, and its reason is said in the log.
-The others are still taken. At most 64 are read, in the order of their file
-names; Mac `._` files and anything hidden are passed over. A folder that
+The others are still taken. They are read in the order of their file names;
+Mac `._` files and anything hidden are passed over. A folder of more than
+64 moves, or more than 1,024 entries of any kind, is refused whole in one
+line and not read through, so the start's work stays bounded and no move
+plays or not by how many others are there. A folder that
 cannot be read is said once, and the body runs with its own gestures. The
 start says how many moves it took and their names. Which part asks for a
 move, and how the body weighs it against Expression and the eyes, is the

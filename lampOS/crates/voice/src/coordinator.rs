@@ -8709,6 +8709,31 @@ mod tests {
     }
 
     #[test]
+    fn a_head_or_button_stop_during_speech_drops_its_audio_without_ending_the_voice() {
+        // lamp-4ace, 16 Oct 12:20: a tap on the head during a story, then the
+        // speaker's stale-owner discard of the rest, ended the voice.
+        for reason in ["hand_stop", "head_stop", "capture_gap"] {
+            let (mut owner, current, _) = active_reply();
+            let affected = current.owner;
+            let mut reply = Some(current);
+            let mut trace = SessionState::default();
+            cancel_reply(&mut owner, &mut reply, &mut trace, reason).unwrap();
+            handle_playback_discard(
+                &mut owner,
+                &mut reply,
+                &mut trace,
+                discarded(affected, PlaybackDiscardReason::StaleOwner, false),
+            )
+            .unwrap();
+            let discard = (0..trace.len())
+                .map(|row| &trace[row])
+                .find(|row| row["kind"] == "playback_discarded")
+                .unwrap();
+            assert_eq!(discard["expected_cancellation"], true, "{reason}");
+        }
+    }
+
+    #[test]
     fn cancelled_old_owner_discard_preserves_the_new_answer_and_permission() {
         let (mut owner, old, _) = active_reply();
         let affected = old.owner;

@@ -99,12 +99,21 @@ impl ReceiptHistory {
         entry.cancelled = Some(Cancel {
             at_us,
             user: reason == "user_interrupted",
+            // A local Stop (the button, a tap on the head), the mute, sleep
+            // and a capture gap revoke the speaker themselves, so the queued
+            // audio it then drops is theirs: on 16 Oct at 12:20 a head tap
+            // during a story ended the voice and it came back muted.
             expected_discard: matches!(
                 reason,
                 "user_interrupted"
                     | "provider_interrupted"
                     | "deadline_cancelled"
                     | "service_stopped"
+                    | "hand_stop"
+                    | "head_stop"
+                    | "head_sleep"
+                    | "software_muted"
+                    | "capture_gap"
             ),
         });
         entry.terminal = true;
@@ -329,6 +338,29 @@ mod tests {
         assert!(history.entries[0].settled());
         assert!(history.discard(owner));
         assert!(!history.discard(owner));
+    }
+    #[test]
+    fn a_local_stop_expects_the_discard_it_causes_and_another_cancel_does_not() {
+        for (reason, expected) in [
+            ("hand_stop", true),
+            ("head_stop", true),
+            ("head_sleep", true),
+            ("software_muted", true),
+            ("capture_gap", true),
+            ("reminder_authority_lost", false),
+            ("playback_discarded", false),
+        ] {
+            let mut controller = controller();
+            let mut history = ReceiptHistory::default();
+            let owner = controller
+                .admit(MonoTime::from_micros(2), AdmittedInput::NewTurn)
+                .unwrap();
+            history.dispatched(owner, 1).unwrap();
+            history.cancelled(owner, 3, reason).unwrap();
+            assert_eq!(history.discard(owner), expected, "{reason}");
+            // Only once, whatever the reason.
+            assert!(!history.discard(owner), "{reason}");
+        }
     }
     #[test]
     fn unresolved_history_fails_closed_instead_of_eviction() {

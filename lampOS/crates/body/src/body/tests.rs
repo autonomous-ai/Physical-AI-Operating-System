@@ -2306,14 +2306,27 @@ fn a_standing_lamp_nods_and_is_left_exactly_where_it_was() {
 /// V1's anti-tip rule (src/cog.rs): a gesture any frame of which would
 /// take the lamp's centre of gravity more than 22 mm off its base's axis is
 /// refused whole before it moves anything, and the run goes on.
+/// A clip made here past the line, so the test does not hang on how far
+/// the shipped clips reach: the shoulder and elbow swung 400 counts.
+static PAST_THE_LINE: Clip = Clip {
+    name: "past_the_line",
+    step_ms: 50,
+    frames: &[
+        [0, 0, 0, 0, 0],
+        [0, 0, 0, 200, -200],
+        [0, 0, 0, 400, -400],
+        [0, 0, 0, 200, -200],
+        [0, 0, 0, 0, 0],
+    ],
+};
+
 #[test]
 fn a_gesture_past_v1s_tip_over_line_is_refused_whole_and_one_inside_it_plays() {
-    let (report, lamp, seen) =
-        gesture_run(&crate::clips::SURPRISED, Duration::from_secs(8), 12, |_| {});
+    let (report, lamp, seen) = gesture_run(&PAST_THE_LINE, Duration::from_secs(8), 12, |_| {});
     assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
     assert_eq!(report.tipping.refused, 1, "{:?}", report.tipping);
     let (name, _, mm) = report.tipping.last_refused.unwrap();
-    assert_eq!(name, "surprised");
+    assert_eq!(name, "past_the_line");
     assert!(mm > 22.0, "{mm}");
     assert!(seen.iter().all(|step| step.1.is_none()));
     // Nothing of it was played: the pose before is the pose after.

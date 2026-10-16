@@ -440,3 +440,62 @@ fn parent_poll_cost() {
         "cases":report})
     );
 }
+
+/// The first builder, 2026-10-16: a reminder due an hour ago or more is
+/// said only when someone is at the lamp, never into an empty room; one due
+/// less long ago, or not late, begins as before.
+#[test]
+fn an_overdue_reminder_begins_only_with_someone_at_the_lamp() {
+    let late = |late: bool, late_by_ms: Option<u64>| Offer {
+        late,
+        late_by_ms,
+        ..offer()
+    };
+    let overdue = late(true, Some(12 * 3_600_000));
+    assert!(overdue.overdue());
+    assert!(!overdue.may_begin(false));
+    assert!(overdue.may_begin(true));
+    // Lateness unknown (no trusted wall clock yet after a boot): it waits
+    // too, so an overdue one is never said into an empty room as due now
+    // (the reviewer on #1103).
+    for waits in [late(true, None), late(false, None)] {
+        assert!(waits.overdue());
+        assert!(!waits.may_begin(false));
+        assert!(waits.may_begin(true));
+    }
+    for begins in [late(false, Some(0)), late(true, Some(59 * 60_000))] {
+        assert!(!begins.overdue());
+        assert!(begins.may_begin(false));
+    }
+    assert!(late(true, Some(super::OVERDUE_MS)).overdue());
+}
+
+/// Someone is here from the eyes, or from something said within two
+/// minutes, and no longer; the wait is said once for each attempt.
+#[test]
+fn someone_is_here_for_two_minutes_after_speech_and_the_wait_is_said_once() {
+    let s = 1_000_000u64;
+    assert!(super::someone_here(true, None, 500 * s));
+    assert!(!super::someone_here(false, None, 500 * s));
+    assert!(super::someone_here(false, Some(100 * s), 219 * s));
+    assert!(!super::someone_here(false, Some(100 * s), 220 * s));
+    let overdue = Offer {
+        late: true,
+        late_by_ms: Some(2 * super::OVERDUE_MS),
+        ..offer()
+    };
+    let mut wait = super::OverdueWait::default();
+    assert!(!wait.may_begin(&overdue, false));
+    assert_eq!(wait.told(), Some(&overdue.token));
+    assert!(!wait.may_begin(&overdue, false));
+    assert!(wait.may_begin(&overdue, true));
+    let mut retried = overdue.clone();
+    retried.token.attempt += 1;
+    assert!(!wait.may_begin(&retried, false));
+    assert_eq!(wait.told(), Some(&retried.token));
+    let on_time = Offer {
+        late_by_ms: Some(0),
+        ..offer()
+    };
+    assert!(wait.may_begin(&on_time, false), "an on-time one begins");
+}

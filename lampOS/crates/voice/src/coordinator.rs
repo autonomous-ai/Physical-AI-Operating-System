@@ -3103,6 +3103,8 @@ fn conversation_with_gate(
     // when: someone was there then.
     let mut said_turn: Option<u64> = None;
     let mut said_at_us: Option<u64> = None;
+    // The overdue reminder last said to be waiting for someone.
+    let mut overdue_wait = crate::reminders::OverdueWait::default();
     // The turn last judged a sound and sent on only for the model to judge
     // (`LAMP_SHORT_SOUNDS`): until it is answered the lamp does not ponder
     // it, and the room and the provider do not count it as talk.
@@ -6053,6 +6055,23 @@ fn conversation_with_gate(
         } else {
             clock
         };
+        // A reminder due an hour ago or more, or by an unknown amount,
+        // waits for someone at the lamp and is never told to an empty room.
+        // While it waits it holds no skill's ask (the reviewer on #1103).
+        let someone_here = crate::reminders::someone_here(
+            arrival
+                .as_ref()
+                .is_some_and(|arrival| arrival.present(clock)),
+            said_at_us,
+            clock,
+        );
+        let overdue_may_begin = reminders
+            .as_ref()
+            .and_then(|reminders| reminders.offer(reminder_now_us))
+            .is_none_or(|offer| overdue_wait.may_begin(&offer, someone_here));
+        if !overdue_may_begin {
+            reminder_held = None;
+        }
         if let Some(reminders) = reminders.as_mut()
             && reply.is_none()
             && provider_queue.is_empty()
@@ -6075,6 +6094,7 @@ fn conversation_with_gate(
                 &mut second_look,
                 reminder_now_us,
             )
+            && overdue_may_begin
             && let Some(ticket) = for_skill(
                 says.as_mut(),
                 crate::say::Source::Schedule,

@@ -640,6 +640,20 @@ in rounded words: `about 7 minutes`, `about 12 hours`, `about 3 days`. Late
 with no delay known (recovered after time off), it is said as late without
 one (`provider_worker/reminder_policy.rs`).
 
+A reminder due an hour or more ago (`reminders::OVERDUE_MS`), or due by an
+amount Schedule cannot give (no `late_by_ms` while the wall clock is not yet
+trusted, as in the first minute after a boot), is not told to an empty room.
+It begins only when someone is at the lamp, as for the news: the eyes'
+presence file says so, or something speech-long was heard within the last
+two minutes (a TV counts, as it does for the news). While it waits it holds
+no skill's ask. It is then said once, gently, as something asked for
+earlier ("You'd asked me to remind you to stretch, earlier."), with no delay
+named, and acknowledged as any other. While it waits the voice says once for each attempt (again after a
+withdraw and retry),
+`lamp-voice: a reminder due over an hour ago waits for someone at the lamp`.
+The consumer offers its oldest due item first, so newer due work waits
+behind it until someone comes.
+
 Admission requires current microphone retention/privacy, ready provider, no
 reply, queued input, speaker receipt or draining/prospective utterance, and one
 second of fresh local silence. A promised camera look and the existing

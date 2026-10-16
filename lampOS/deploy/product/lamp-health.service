@@ -15,7 +15,7 @@ User=lampos
 Group=lampos
 Slice=lampos-parts.slice
 Nice=5
-ExecStart=/opt/lampOS/health/current/lamp-health serve --bus-root /run/lampos-bus --expect board --expect voice --expect eyes --expect body --expect policy --expect name --expect controls --expect expression --expect actions --expect ears --expect memory --expect schedule --expect air --judge-zone cpu --judge-zone skin
+ExecStart=/opt/lampOS/health/current/lamp-health serve --bus-root /run/lampos-bus --expect board --expect voice --expect eyes --expect body --expect policy --expect name --expect controls --expect expression --expect actions --expect ears --expect memory --expect schedule --expect air --expect tasks --needs tasks=/usr/local/bin/harness --judge-zone cpu --judge-zone skin
 Restart=on-failure
 RestartSec=5s
 StandardInput=null

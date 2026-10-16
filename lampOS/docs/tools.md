@@ -73,8 +73,9 @@ description over 1,024 bytes, parameters that are not an object or are over
 journal says why, by name and never a description's words (`lamp-voice: the
 executive's functions are left out of the session: tools.json has what the
 link would refuse: Light Off (a name the link does not take)`; #799). At most
-32 functions reach a session, the voice's own included; `not_for_me` in the
-file is ignored.
+32 functions reach a session, the voice's own included: a file with more is
+not refused, and the first of it that fit are told (Sixth on #1020);
+`not_for_me` in the file is ignored.
 
 A call is one line to the socket and one line back, on a connection of its
 own:

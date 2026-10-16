@@ -44,6 +44,28 @@ fn stt_check_options(rest: &[String]) -> Result<(u32, u32)> {
 
 fn run() -> Result<()> {
     let args = std::env::args().skip(1).collect::<Vec<_>>();
+    // The voice runs only as a command on its list, and a worker only in a
+    // role on it: the lists the records guard knows too
+    // (lamp-voice-processes, #1071).
+    if let Some(command) = args.first()
+        && lamp_voice_processes::Command::parse(command).is_none()
+    {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("command `{command}` is not on the voice's list (lamp-voice-processes)"),
+        )
+        .into());
+    }
+    if let [command, role, ..] = args.as_slice()
+        && command == lamp_voice_processes::Command::Worker.as_str()
+        && lamp_voice_processes::WorkerRole::parse(role).is_none()
+    {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("worker role `{role}` is not on the voice's list (lamp-voice-processes)"),
+        )
+        .into());
+    }
     match args.as_slice() {
         // How often a short sound got an answer, from the lamp's own
         // records (#800): one line a short turn, then counts. Reads only;
@@ -174,7 +196,7 @@ fn run() -> Result<()> {
             let lead_in=std::env::var(lamp_voice::agent_tasks::LEAD_IN_ENVIRONMENT).as_deref()==Ok("on");
             // LAMP_TASKS_ASKED=on: the functions as with work asked of the staff handed over every time (#854).
             let asked=std::env::var(lamp_voice::agent_tasks::ASKED_ENVIRONMENT).as_deref()==Ok("on");
-            let place=lamp_voice::agent_tasks::Place{directory:"/nonexistent".into(),target:lamp_voice::agent_tasks::DEFAULT_TARGET.into(),who:false,lead_in,asked};
+            let place=lamp_voice::agent_tasks::Place{directory:"/nonexistent".into(),target:lamp_voice::agent_tasks::DEFAULT_TARGET.into(),who:false,lead_in,asked,needs:None};
             // With the switch, each session is told after the persona what a lamp's would be (#854).
             let note=lamp_voice::agent_tasks::session_note(&place).unwrap_or_default();
             let colour=lamp_gemini::Tool{name:"light_colour".into(),description:"Set the colour of your own light when you are asked to.".into(),parameters:Some(serde_json::json!({"type":"object","properties":{"colour":{"type":"string","enum":["white","warm","red","green","blue","purple"]}},"required":["colour"]})),silent:false};
@@ -599,7 +621,18 @@ fn run() -> Result<()> {
             }
             let mut channels = WorkerChannels::bind(Path::new(dir), role, parent, worker, true)?;
             channels.connect(Path::new(dir), role, true)?;
-            lamp_voice::ring_worker::run_continuous(channels, parent, ceiling, bus_root.as_deref(), eye, eye_strong, head_touch, light_requests)?;
+            lamp_voice::ring_worker::run_continuous(
+                channels,
+                parent,
+                lamp_voice::ring_worker::RingOptions {
+                    resting: ceiling,
+                    bus_root: bus_root.as_deref(),
+                    eye,
+                    eye_strong,
+                    head_touch,
+                    light_requests,
+                },
+            )?;
         }
         [command,role,dir,parent,worker] if command=="worker" => {
             let parent=parse_boot(parent)?;

@@ -434,7 +434,9 @@ fn read_catalog(path: &Path) -> Result<Vec<Tool>, String> {
     let tools = serde_json::from_str::<Catalog>(&text)
         .map_err(|_| format!("{CATALOG_FILE} is not {{\"tools\":[...]}} of functions"))?
         .tools;
-    let (kept, left_out) = admitted(tools);
+    // More functions than a session takes is no fault of the file: the
+    // first that fit are told (`declared`), as before #1020 (Sixth on it).
+    let (kept, left_out) = admitted_within(tools, usize::MAX);
     if left_out.is_empty() {
         Ok(kept)
     } else {
@@ -713,6 +715,11 @@ pub fn exchange_up_to(socket: &Path, line: &Value, deadline: Duration, most: u64
 /// done that, and nothing said so (#799). Names and lengths only:
 /// descriptions are the voice's own fixed words or the executive's.
 pub fn admitted(tools: Vec<Tool>) -> (Vec<Tool>, Vec<String>) {
+    admitted_within(tools, lamp_gemini::MAX_TOOLS)
+}
+
+/// [`admitted`], keeping at most `most`.
+fn admitted_within(tools: Vec<Tool>, most: usize) -> (Vec<Tool>, Vec<String>) {
     let mut kept: Vec<Tool> = Vec::new();
     let mut left_out = Vec::new();
     for tool in tools {
@@ -721,8 +728,8 @@ pub fn admitted(tools: Vec<Tool>) -> (Vec<Tool>, Vec<String>) {
             left_out.push(format!("{name} ({})", fault(&tool)));
         } else if kept.iter().any(|earlier| earlier.name == tool.name) {
             left_out.push(format!("{name} (a name given twice)"));
-        } else if kept.len() == lamp_gemini::MAX_TOOLS {
-            left_out.push(format!("{name} (past {})", lamp_gemini::MAX_TOOLS));
+        } else if kept.len() == most {
+            left_out.push(format!("{name} (past {most})"));
         } else {
             kept.push(tool);
         }
@@ -838,6 +845,7 @@ mod tests {
                 who: true,
                 lead_in: true,
                 asked: true,
+                needs: None,
             }),
             schedule_tools: true,
             schedule_speak: true,
@@ -1001,6 +1009,7 @@ mod tests {
             who: false,
             lead_in: false,
             asked: false,
+            needs: None,
         };
         assert_eq!(
             settings,
@@ -1429,6 +1438,22 @@ mod tests {
             read_catalog(&dir.join(CATALOG_FILE)).unwrap_err(),
             format!("tools.json is over {MAX_CATALOG_BYTES} bytes")
         );
+        // More than a session takes is no fault of the file: it is read
+        // whole, and the first that fit are told (Sixth on #1020).
+        let many: Vec<serde_json::Value> = (0..40)
+            .map(|index| json!({"name":format!("f{index}"),"description":"a"}))
+            .collect();
+        write(&json!({"tools":many}).to_string());
+        assert_eq!(
+            read_catalog(&dir.join(CATALOG_FILE)).map(|tools| tools.len()),
+            Ok(40)
+        );
+        let names: Vec<String> = declared(&with).into_iter().map(|tool| tool.name).collect();
+        assert_eq!(names.len(), lamp_gemini::MAX_TOOLS);
+        assert_eq!(
+            [&names[0], &names[1], &names[31]],
+            [NOT_FOR_ME, "f0", "f30"]
+        );
         // No file: no executive, nothing to say.
         std::fs::remove_file(dir.join(CATALOG_FILE)).unwrap();
         assert_eq!(read_catalog(&dir.join(CATALOG_FILE)), Ok(Vec::new()));
@@ -1475,6 +1500,7 @@ mod tests {
             who: false,
             lead_in: false,
             asked: false,
+            needs: None,
         };
         let with = Settings {
             tasks: Some(place.clone()),

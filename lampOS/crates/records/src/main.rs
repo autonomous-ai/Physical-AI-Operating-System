@@ -168,7 +168,7 @@ mod tests {
         assert!(failure.roots.is_empty());
         assert_eq!(failure.config_fingerprint, config.fingerprint());
         assert_eq!(
-            diagnostic(Some(&failure), 10).level,
+            lamp_records::report::diagnostic(Some(&failure), 10).level,
             lamp_msgs::Level::Error
         );
         let config_path = dir.join("records.json");

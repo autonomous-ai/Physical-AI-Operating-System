@@ -415,8 +415,9 @@ As root, on a lamp with the base image (`crates/update/src/install.rs`):
    written, leaves the debt, and the next run pays it though it writes
    nothing (the reviewer on #815, 19:17 and 19:32).
 9. **Harness at boot** (#811, the first builder's recipe, 01:56), once
-   Harness is on the lamp at `/usr/local/bin/harness` (its own installer
-   puts it there; without it, install says so and goes on). Unless an
+   Harness is on the lamp at `/usr/local/bin/harness` (its own installer,
+   run as `lampos`, puts it in `~/.local/bin`, then a link is made there; see
+   "What was not shown"; without it, install says so and goes on). Unless an
    earlier install recorded it done (`/var/lib/lampos-update/harness-at-boot`,
    written only after `harness service install` succeeded; the CLI's own
    files are no proof, since it writes its unit before registering it and
@@ -442,10 +443,20 @@ program was built from; the binaries are the channel's newest build.
 
 ## What was not shown
 
-- Harness at boot (step 9) only in tests, with a stand-in host: no real
-  `loginctl` or `harness service install` for a system user without a
-  login shell has been run on any lamp. lamp-4ace runs the same recipe for
-  `orangepi`, which has survived a power cut since 2026-10-15 20:19.
+- Harness at boot (step 9) was run by hand on lamp-75c9 (the home image) on
+  2026-10-16, with a throwaway system user with no login shell in place of
+  `lampos`, then undone (#811): Harness's own per-user installer, run as that
+  user with its `HOME`, needed no root (the image has tmux) and put Harness
+  0.4.16 under `~/.harness` and `~/.local/bin/harness`; `/usr/local/bin/harness`
+  a link to that; then step 9's `loginctl enable-linger` and `harness service
+  install` exactly as `install` runs them, which succeeded in 3.9 s. After a
+  reboot, with that user never logged in, `harnessd` was running 11 s after
+  boot. So where Harness lives on a home lamp has one working answer: its
+  own installer as `lampos` with `HOME=/var/lib/lampos-tasks`, and that link.
+  `install` does not run the installer (the Harness team's, from their CDN,
+  self-updating). Not shown: signing in or pairing as `lampos`, or tasks
+  handing work over through it. Note for a reset: `~/.harness` holds Harness
+  itself (`cli/`, `runtime/`, `bin/`) beside the person's sign-in and pairings.
 
 - `install` was run only in tests, on a lamp made of files with a channel
   and a machine of the test's own (`crates/update/tests/install.rs`): a

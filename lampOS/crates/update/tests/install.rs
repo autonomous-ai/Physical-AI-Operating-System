@@ -678,6 +678,52 @@ fn a_blank_lamp_gets_lamp_skills_with_welcome_back_and_greets_once() {
     assert!(skills.contains("--dir /var/lib/lampOS/skills"));
 }
 
+/// #811, from lamp-06c1: without Harness (its own installer's to put on the
+/// lamp), the tasks part is skipped by its unit's condition rather than
+/// failing ten times; the install says Harness is missing.
+#[test]
+fn the_tasks_part_waits_for_harness_rather_than_failing() {
+    let tasks = install::PRODUCT
+        .iter()
+        .find(|(name, _)| *name == "lamp-tasks.service")
+        .unwrap()
+        .1;
+    let unit = section(tasks, "Unit");
+    assert!(unit.contains(&format!("ConditionPathExists={}", install::HARNESS).as_str()));
+    let exec = section(tasks, "Service")
+        .into_iter()
+        .find(|line| line.starts_with("ExecStart="))
+        .unwrap();
+    assert!(exec.contains(&format!("--harness {}", install::HARNESS)));
+    // Health lists it as off, not missing, while Harness is not there.
+    let health = install::PRODUCT
+        .iter()
+        .find(|(name, _)| *name == "lamp-health.service")
+        .unwrap()
+        .1;
+    assert!(health.contains(&format!(
+        "--expect tasks --needs tasks={}",
+        install::HARNESS
+    )));
+    // The voice says it isn't set up, not that a part failed, by the same file.
+    let voice = install::PRODUCT
+        .iter()
+        .find(|(name, _)| *name == "lamp-voice.service")
+        .unwrap()
+        .1;
+    assert!(voice.contains(&format!(
+        "Environment=LAMP_TASKS_NEEDS={}",
+        install::HARNESS
+    )));
+    let mut lamp = Lamp::new(188, &[]);
+    lamp.install().unwrap();
+    assert!(
+        lamp.said.iter().any(|line| line.contains("harness")),
+        "{:?}",
+        lamp.said
+    );
+}
+
 const PINS: &str = "/etc/lampOS/controls/controls-pins.json";
 
 /// The reviewer's case on #815: install, move the primary button to

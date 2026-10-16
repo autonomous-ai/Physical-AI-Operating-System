@@ -62,7 +62,7 @@ impl Transport {
             ));
         }
         let mut command = Command::new(executable);
-        command.arg("schedule-consumer");
+        command.arg(lamp_voice_processes::Command::ScheduleConsumer.as_str());
         let mut transport = Self::spawn_command(command)?;
         transport.retain_claim_until_process_exit();
         Ok(transport)

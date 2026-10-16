@@ -172,6 +172,32 @@ fn said(item: &HealthItem) -> String {
     }
 }
 
+/// Parts off because a file each needs is not on the lamp (`--needs`): one
+/// that has not reported is listed as ok, "off: no <file>". The caller
+/// leaves them out of `expected` first, so none is missing and the level
+/// is untouched (an ok item lowers nothing); the result still passes
+/// `Health::check`. A part that reports anyway keeps its own report.
+pub fn mark_off(health: &mut Health, off: &[(String, String)]) {
+    for (name, path) in off {
+        if health.items.iter().any(|item| &item.name == name) {
+            continue;
+        }
+        let file = path.rsplit('/').next().unwrap_or(path);
+        health.items.push(HealthItem {
+            name: name.clone(),
+            level: Level::Ok,
+            message: one_line(&format!("off: no {file} on this lamp ({path})")),
+            age_ms: 0,
+        });
+    }
+    health.items.sort_by(|a, b| {
+        b.level
+            .rank()
+            .cmp(&a.level.rank())
+            .then_with(|| a.name.cmp(&b.name))
+    });
+}
+
 /// How the whole lamp is at `now`, from each part's newest report.
 ///
 /// - A part heard from within `stale_after` has the level and the message
@@ -324,6 +350,43 @@ mod tests {
             .collect()
     }
 
+    /// #811: a part that runs only where its file is (tasks needs Harness)
+    /// is listed as off while the file is missing: ok, never missing, and the
+    /// lamp's health stays ok.
+    #[test]
+    fn a_part_off_for_want_of_its_file_is_listed_off_not_missing() {
+        let parts = Parts::new();
+        let now = Instant::now();
+        let expected = vec!["voice".to_owned()];
+        let mut health = health(parts.reports(), now, &expected, STALE);
+        assert_eq!(health.missing, vec!["voice".to_owned()]);
+        mark_off(
+            &mut health,
+            &[("tasks".into(), "/usr/local/bin/harness".into())],
+        );
+        assert_eq!(
+            health.missing,
+            vec!["voice".to_owned()],
+            "only the off part is spared"
+        );
+        let tasks = health
+            .items
+            .iter()
+            .find(|item| item.name == "tasks")
+            .unwrap();
+        assert_eq!(tasks.level, Level::Ok);
+        assert_eq!(
+            tasks.message,
+            "off: no harness on this lamp (/usr/local/bin/harness)"
+        );
+        let mut alone = super::health(parts.reports(), now, &[], STALE);
+        mark_off(
+            &mut alone,
+            &[("tasks".into(), "/usr/local/bin/harness".into())],
+        );
+        assert_eq!(alone.level, Level::Ok);
+        assert!(alone.missing.is_empty());
+    }
     #[test]
     fn a_lamp_whose_parts_are_all_well_is_ok_and_says_nothing() {
         let health = of(

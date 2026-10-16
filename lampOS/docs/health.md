@@ -26,7 +26,7 @@ anybody listens.
 
 ## The commands
 
-    lamp-health serve [--bus-root ABSOLUTE_DIR] [--expect NAME]... [--stale-ms N] [--judge-zone BEGINNING]... [--proc DIR] [--sys DIR] [--run DIR] [--disk PATH] [--clock timesync|kernel] [--online on|off]
+    lamp-health serve [--bus-root ABSOLUTE_DIR] [--expect NAME]... [--stale-ms N] [--judge-zone BEGINNING]... [--proc DIR] [--sys DIR] [--run DIR] [--disk PATH] [--clock timesync|kernel] [--online on|off] [--needs NAME=PATH]...
     lamp-health [show] [--bus-root ABSOLUTE_DIR] [--json]
     lamp-health --help
 
@@ -36,6 +36,7 @@ anybody listens.
 |---|---|---|
 | `--bus-root` | The bus's directory | `LAMP_BUS_ROOT`, or `/run/lampos-bus` |
 | `--expect` | A part that should be reporting. May be given up to 64 times, each name once | none |
+| `--needs` | `NAME=PATH`: the part runs only where the absolute file `PATH` is. While it is not there, the part is listed as ok with "off: no <file> on this lamp (PATH)", never as missing, and the lamp's health is not lowered by it; checked at every working out. On a home lamp, `tasks=/usr/local/bin/harness`: the tasks part waits for Harness by its unit's condition (#811) | none |
 | `--stale-ms` | After how long without a report a part is stale, from 100 to 600000 | 5000 |
 | `--judge-zone` (repeatable, at most 16) | How the name of a thermal zone begins whose own limits are judged. A board has zones for parts the lamp does not use: on lamp-4ace the graphics zone names a first limit of 60 °C and reads 64 at rest. Every zone's temperature is published whether it is judged or not | every zone is judged |
 | `--proc` | Where load, memory, uptime and the Wi-Fi signal are read | `/proc` |

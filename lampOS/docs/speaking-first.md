@@ -321,7 +321,13 @@ for `say = { from = "schedule" | "tasks" }` ([skills.md](skills.md)).
   `dropped`. Not taken in time, it is `expired`: a `from` ask lives at most
   20 s from when its line was read (`say::FROM_LIVES_US`), whatever its
   `expires_in_ms`, so one that came too late for its reminder is never
-  taken for the next one due (Fourth on #1038).
+  taken for the next one due (Fourth on #1038). Within those 20 s it can
+  be: an ask names its source, not an item (the Reminders skill sees
+  `schedule/due`'s counts, not which reminder), so one read just after the
+  voice said its reminder rides a second reminder or news due in that
+  window, and the skill looks and moves with that one. It is still a
+  reminder said, with its own words; the case is two reminders due within
+  20 s of each other (Thirteen on #1038).
 - With **`LAMP_SCHEDULE_SPEAK=skill`** (Schedule speech on, as `on`), a due
   reminder waits for such an ask, at most 10 s from when it was first held
   (`say::SKILL_WAITS_US`), and then the voice says it itself, with
@@ -342,6 +348,13 @@ for `say = { from = "schedule" | "tasks" }` ([skills.md](skills.md)).
   `coordinator::tests::reminders::a_reminder_a_skill_asked_for_is_answered_on_the_acknowledgements_own_proof`,
   `reminders::tests::on_and_skill_turn_schedule_speech_on_and_nothing_else_does`,
   `coordinator::tests::reminders::a_reminder_held_for_its_skill_keeps_other_unasked_speech_waiting_while_it_is_offered`.
+  The last is of the condition only: the three places it holds (the say
+  service's turn, the hello and the news, in the coordinator's loop) are
+  driven by no test, as no harness runs the loop with all three (Thirteen
+  on #1038). On a lamp: with `LAMP_SCHEDULE_SPEAK=skill` and `lamp-skills`
+  stopped, a say sent in the 10 s a due reminder is held is said after the
+  reminder, never before (`no skill asked for the reminder due within
+  10 s` comes before `saying what the skill … asked` in the journal).
 
 **Most likely wrong:** a say of priority 8 or more in the second after a
 conversation's last turn: a reminder takes that second today, and a skill

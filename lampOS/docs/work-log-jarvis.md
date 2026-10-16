@@ -56,3 +56,33 @@ Ready for lamp-voice: no (draft #1012, waiting on lamp-06c1)
 - Not on a lamp. lamp-06c1 is held by el for the V2 bring-up until 13:30; I
   install `lamp-skills` there under a `skills` hold after the release, and ask
   our person before every ssh and before the lamp moves.
+
+## 2026-10-16 — #999 on lamp-06c1; #1021 Task news and Stuffy air
+
+Ready for lamp-voice: no (#1012, #1042 and #1066 are drafts)
+
+- **#999 Dance, on lamp-06c1** (shared with el, holds on #705; our person
+  handed the lamp and the Mac to el and jarvis). Eight asks spoken by the
+  Mac's `say`, with bus recordings and the numbers in
+  `docs/verification/dance-lamp-06c1-20261016/` (`fe4accdf9`).
+  - The tool was called in 5 of 8, each time with the meant mood. The clip
+    was commanded 11–228 ms after the line ended. Jazz and waltz are small;
+    the long groove reads as a dance.
+  - Failures, kept: one dance began mid-line, because `voice/state` went
+    `speaking` → `thinking` (fixed in `55617e0ac`, ARM64 38866186369; the
+    re-asks were held back by the voice's busy-room gate). One unasked
+    second dance on a noise request (cooldown question on #999). Three asks
+    had no call.
+  - Install gap: `/var/lib/lampOS` was `0700 root`, so `lamp-skills` (user
+    `lampos`) loaded nothing; it is set to `0711` on lamp-06c1, with the
+    old mode recorded in `~/jarvis-backup-20261016/`.
+- **#1021 Task news** (draft #1042): stacked on #1012, #1033 and #1048,
+  and it fires when a task appears in `settled`. ARM64 38870254671 green.
+- **#1021 Stuffy air** (draft #1066): `co2_ppm` > 1,200 for 10 minutes; it
+  rearms after 10 minutes under 1,000, with quiet hours, and the dim lasts
+  until the air clears. ARM64 38870323231 green. No lamp, because no air
+  sensor works.
+- Gates on the Mac, **Homebrew Rust 1.99, no rustup, no Docker**: fmt and
+  clippy clean. Timed program tests fail under the machine's load (load
+  average about 77) and pass with `--test-threads=1`. The 1.96 gate is
+  each ARM64 run above.

@@ -464,7 +464,11 @@ impl Hello {
     /// What the people at the lamp asked it about speaking first, newest:
     /// kept here and by the moment question beside it.
     pub fn rules(&mut self, rules: Rules) {
-        if let Some(moment) = self.moment.as_mut() {
+        // The moment question has no switch of its own: it obeys them only
+        // with `--rules` (the reviewer on #1003).
+        if self.options.rules
+            && let Some(moment) = self.moment.as_mut()
+        {
             moment.rules(rules.clone());
         }
         self.rules.set(rules);
@@ -756,7 +760,7 @@ impl Hello {
                 Some(_) => answer.1,
                 None => now.saturating_duration_since(asking.sent),
             };
-            return Some(self.decide(asking.context, answer.0, None, took, now, unix_ms));
+            return Some(self.decide(asking.context, answer.0, None, took, (now, unix_ms, room)));
         }
         // One the voice has stopped waiting for is let go undecided.
         while self
@@ -807,10 +811,16 @@ impl Hello {
                 Hold::GreetedRecently => self.totals.held_recent += 1,
                 Hold::KeptRule => self.totals.held_rule += 1,
             }
-            return Some(self.decide(context, None, Some(hold), Duration::ZERO, now, unix_ms));
+            return Some(self.decide(
+                context,
+                None,
+                Some(hold),
+                Duration::ZERO,
+                (now, unix_ms, room),
+            ));
         }
         if self.asker_gone {
-            return Some(self.decide(context, None, None, Duration::ZERO, now, unix_ms));
+            return Some(self.decide(context, None, None, Duration::ZERO, (now, unix_ms, room)));
         }
         // The model is given only what is left of the wait; with nothing
         // left, the rule answers now.
@@ -822,7 +832,7 @@ impl Hello {
         );
         if deadline.is_zero() {
             let failed = Some(Err(Failed::TimedOut));
-            return Some(self.decide(context, failed, None, Duration::ZERO, now, unix_ms));
+            return Some(self.decide(context, failed, None, Duration::ZERO, (now, unix_ms, room)));
         }
         match self.states.try_send((state_text(&context), deadline)) {
             Ok(()) => {
@@ -835,7 +845,7 @@ impl Hello {
             }
             Err(_) => {
                 self.asker_gone = true;
-                Some(self.decide(context, None, None, Duration::ZERO, now, unix_ms))
+                Some(self.decide(context, None, None, Duration::ZERO, (now, unix_ms, room)))
             }
         }
     }
@@ -848,8 +858,7 @@ impl Hello {
         answer: Option<Result<Asked, Failed>>,
         held: Option<Hold>,
         took: Duration,
-        now: Instant,
-        unix_ms: u64,
+        (now, unix_ms, room): (Instant, u64, Room),
     ) -> Decided {
         let connection = answer
             .as_ref()
@@ -898,21 +907,28 @@ impl Hello {
         };
         // The hard rules again, as the answer comes: someone began to talk
         // while the model was asked, or a rule was kept meanwhile. The room
-        // is as it was when the question was put.
-        let guard = held.or_else(|| {
-            (judgement.choice == Choice::SayNow)
-                .then(|| {
-                    let arrival = VoiceArrival {
-                        arrival: context.arrival,
-                        away_min: context.away_min,
-                        there_s: context.there_s,
-                        quiet_s: context.quiet_s,
-                        since_hello_min: context.since_hello_min,
-                    };
-                    self.hold(&arrival, now, unix_ms, context.room)
-                })
-                .flatten()
-        });
+        // is as it is now, as the moment and progress questions take it, and
+        // a yes held then is counted as one held before the model is (the
+        // reviewer on #1003).
+        let late = (held.is_none() && judgement.choice == Choice::SayNow)
+            .then(|| {
+                let arrival = VoiceArrival {
+                    arrival: context.arrival,
+                    away_min: context.away_min,
+                    there_s: context.there_s,
+                    quiet_s: context.quiet_s,
+                    since_hello_min: context.since_hello_min,
+                };
+                self.hold(&arrival, now, unix_ms, room)
+            })
+            .flatten();
+        match late {
+            Some(Hold::Talking) => self.totals.held_talking += 1,
+            Some(Hold::GreetedRecently) => self.totals.held_recent += 1,
+            Some(Hold::KeptRule) => self.totals.held_rule += 1,
+            None => {}
+        }
+        let guard = held.or(late);
         if guard.is_some() {
             judgement.choice = Choice::Wait;
         }

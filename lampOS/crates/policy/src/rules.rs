@@ -38,6 +38,8 @@ pub enum Kind {
     /// News of work: progress, results.
     News,
     /// Anything else it would start itself: held by either kind's limits.
+    /// Not a reminder the person set: no kept rule holds that, only someone
+    /// talking (`moment::REMINDER`, the reviewer on #1003).
     Unprompted,
 }
 

@@ -1730,6 +1730,15 @@ the voice's own hello waits. With `--gate`, which needs `--hello` and
   those and the `hello` limits too (`rules::Kind::Unprompted`): someone
   who asked for no hello before nine, or no news while on a call, is not to
   be invited to stretch then either. Authored: a rule errs toward quiet.
+  A `reminder` is held by none of them, only by someone talking (below; the
+  reviewer on #1003): a rule about the lamp speaking first is not about
+  what the person asked it to say. The rules are handed to the moment
+  question only with `--rules`. As an answer comes back the hello question
+  now judges by the room as it is then, as the moment and progress
+  questions do, and a yes held then is counted with the holds before the
+  model (`hello_held_talking`, `hello_held_recent`, `hello_held_rule`).
+  Tests: `moment::tests::a_kept_rule_never_holds_a_reminder_and_still_holds_the_rest`,
+  `moment::tests::a_rule_kept_while_the_question_is_out_holds_it_when_the_asker_goes`.
 - `reminder`, a reminder the person set and now due (the Reminders skill,
   `[ask] policy = "reminder"`), is the moment question's **hard rule
   alone**: `wait` while anyone is talking to the lamp, else `say_now` by

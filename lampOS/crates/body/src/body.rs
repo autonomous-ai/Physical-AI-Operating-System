@@ -12,7 +12,9 @@
 //!   once at start their goal speed and acceleration, so that the servo
 //!   itself is slow whatever this process sends.
 //! - It never touches torque unless told to take hold (`Limits::torque_on`),
-//!   to let go under overload or, with `Limits::limp`, under a hand.
+//!   to let go under overload or, with `Limits::limp`, under a hand, or as
+//!   it ends on a surprise or refuses a joint found hot or loaded: then, as
+//!   V1, torque off on all five.
 //!   A joint whose torque is off, or whose status byte is not clear, is a
 //!   reason not to start; told to take hold, it first sets the goal of a
 //!   joint found without torque to where it is and then writes torque on.
@@ -26,7 +28,7 @@
 //!   joint that does not follow, a status byte that changes, a shoulder or
 //!   elbow that moves, a joint that stays hot or a wire that is not exactly
 //!   as expected ends the run: the present positions are written as the goals, so that
-//!   nothing keeps pushing, and nothing is written after that.
+//!   nothing keeps pushing, then torque off on all five, and nothing after that.
 use crate::{
     Joint,
     clips::{self, Clip},
@@ -717,13 +719,15 @@ pub struct Glimpse {
     pub hand: bool,
 }
 
-/// Why the run ended. Only `Cancelled` is an ordinary end.
+/// Why the run ended. Only `Cancelled` is an ordinary end. Every other end
+/// but `Refused` leaves torque off on all five, as V1 let the lamp go.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Stop {
     /// Asked to stop: the head eased back to where it was found.
     Cancelled,
-    /// A reason not to start. Nothing was written.
+    /// A reason not to start. Nothing was written, except torque off on all
+    /// five when a joint was found hot or loaded: as V1, the lamp is let go.
     Refused {
         why: String,
     },
@@ -1771,19 +1775,7 @@ fn let_go<P: PortIo, R: Runtime>(
             return Err(Stop::Cancelled);
         }
         let _ = (news(), asked());
-        let mut failed = None;
-        holding.retain(|joint| {
-            match bus.write_acknowledged(*joint, &torque_write(*joint, 0), true) {
-                Ok(()) => {
-                    report.torque_writes = report.torque_writes.saturating_add(1);
-                    false
-                }
-                Err(detail) => {
-                    failed.get_or_insert(detail);
-                    true
-                }
-            }
-        });
+        let failed = torque_off(bus, report, &mut holding);
         report.steps += 1;
         let read = bus.samples();
         if let Ok(now) = &read {
@@ -1814,6 +1806,35 @@ fn let_go<P: PortIo, R: Runtime>(
         }
         bus.sleep_until(due);
     }
+}
+
+/// Torque off (register 40, 0) to each of `holding`, each acknowledged;
+/// one that took it is dropped from `holding`. The first failure, if any.
+fn torque_off<P: PortIo, R: Runtime>(
+    bus: &mut Bus<'_, P, R>,
+    report: &mut BodyReport,
+    holding: &mut Vec<Joint>,
+) -> Option<String> {
+    let mut failed = None;
+    holding.retain(
+        |joint| match bus.write_acknowledged(*joint, &torque_write(*joint, 0), true) {
+            Ok(()) => {
+                report.torque_writes = report.torque_writes.saturating_add(1);
+                false
+            }
+            Err(detail) => {
+                failed.get_or_insert(detail);
+                true
+            }
+        },
+    );
+    failed
+}
+
+/// As V1, a run that ends on a surprise lets go of the whole lamp: torque
+/// off on all five, once each (a wire that has gone silent is not waited on).
+fn let_go_at_end<P: PortIo, R: Runtime>(bus: &mut Bus<'_, P, R>, report: &mut BodyReport) {
+    let _ = torque_off(bus, report, &mut Joint::ALL.to_vec());
 }
 
 /// One step of a joint that gave way at `from` and is still held at `goal`,
@@ -2162,6 +2183,11 @@ pub(crate) fn run_alive(
             None
         };
         if let Some(why) = why {
+            // A joint found hot or loaded is pushing at something: as V1,
+            // the whole lamp is let go, or every restart finds it so again.
+            if sample.temperature >= limits.temperature || sample.load > limits.start_load[index] {
+                let_go_at_end(&mut bus, &mut report);
+            }
             report.stop = refused(why);
             return report;
         }
@@ -3887,6 +3913,15 @@ pub(crate) fn run_alive(
             report.goal_writes += 1;
             report.held_at = Some(hold);
         }
+    }
+    // Any surprise lets go of the whole lamp, as V1 did, after the hold:
+    // a stuck joint held at its goal with torque on keeps pushing and heats.
+    // Under overload it is already off.
+    if !matches!(
+        stop,
+        Stop::Cancelled | Stop::Refused { .. } | Stop::Overload { .. }
+    ) {
+        let_go_at_end(&mut bus, &mut report);
     }
     report.stop = stop;
     report

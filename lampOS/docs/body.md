@@ -29,7 +29,8 @@ run on a lamp.
   in one sync write, and once at start their goal speed (46) and acceleration
   (41), so that the servo itself is slow whatever this process sends. Unless
   it was given a pose to stand in, `--torque on` or `--overload release`, it
-  never writes torque. With
+  writes torque only off, on all five, as a run ends on a surprise or a start
+  is refused for heat or load (see "When it stops"). With
   `--force-limit` it writes one more, once at start: the force limit (48)
   of the joints that carry the lamp (below, "The force its servos are
   allowed").
@@ -37,7 +38,12 @@ run on a lamp.
   on, a clear status byte, a temperature and a load under their bounds, and
   the head's pitch is found between 1,760 and 2,020. A head pressed on the
   base (found at 2,095 on lamp-4ace on 2026-10-12) is refused, with nothing
-  written, unless it was given `--wake on` (see "Waking").
+  written, unless it was given `--wake on` (see "Waking"). A joint found at
+  62 or warmer, or over its start load, is refused with torque off on all
+  five and nothing else written: such a joint is pushing at something, and
+  left held it would push on and be refused at every start until a power cut
+  (base yaw on lamp-52e6, 2026-10-16: load 212, 65 °C, refused at every
+  restart).
 - With `--torque on` (off unless given) it first takes hold of a joint it
   would otherwise refuse because its torque is off: the three it commands
   always, the shoulder and the elbow only for a lamp given `--stand`. A
@@ -72,8 +78,9 @@ run on a lamp.
 ## When it stops
 
 After every step it reads all five joints. The run ends, the present positions
-are written as the three goals so that nothing keeps pushing, and nothing is
-written after that, when:
+are written as the three goals so that nothing keeps pushing, then, as V1,
+torque off (40, 0) is written once to each of the five so that the lamp is
+let go, and nothing is written after that, when:
 
 | What is seen | Bound |
 | --- | --- |
@@ -851,7 +858,7 @@ four rows, "Without it" is what `off` leaves.
 | `--limp on\|off` (default on while giving way) | a hand forcing a joint past V1's contact floor slumps the lamp (below) | `off`: gives way without the slump | on or off; on needs `--give-way` |
 | `--torque on` | take hold of a joint found without torque: its goal written as where it is, then torque on, and refused if it then moves more than 12 counts | a joint without torque is refused, and torque is not written | on or off |
 | `--wake on` (default) | with `--home`, a joint found out of where it may start but within 400 counts of home is brought home slowly before anything else; a shoulder left up with its elbow folded is lowered first; in the run, a joint held 30 to 50 counts short of its goal, still, rests where it is (see "Waking") | such a joint is refused | on or off |
-| `--overload release` | any joint at a load of 800 (80% of `--force-limit` for a joint held to one) for 1.5 s: torque off on all five for 120 s, then held where they are and the head brought home slowly; a second time within ten minutes ends the run, torque off (see "Letting go under overload") | torque is never written off | release |
+| `--overload release` | any joint at a load of 800 (80% of `--force-limit` for a joint held to one) for 1.5 s: torque off on all five for 120 s, then held where they are and the head brought home slowly; a second time within ten minutes ends the run, torque off (see "Letting go under overload") | torque is written off only as a run ends on a surprise | release |
 | `--gaze-socket PATH` with `--gaze Y,P` | where the eyes report, and the signed counts of yaw and pitch that a half-picture is worth | never looks | 900 either way |
 | `--gaze-reach Y,P` | the farthest the gaze takes yaw and pitch; the yaw may be wider than `--reach`'s | 250,120 | 500, 200 |
 | `--look-at-name on` (default) | the lamp's name heard on the bus taken as being spoken to for two seconds, and with nobody in view one small glance once it stands (see "Turning to a call") | a call is not taken | on or off |
@@ -1342,8 +1349,8 @@ Not yet tried on any lamp, by a hand or otherwise. Everything in this
 section is what the code does against simulated servos.
 
 `--overload release`, off unless given. Without it the body does exactly
-what it did before, write for write, and never writes torque off to all
-five (with `--limp on` a hand makes the same slump: "Giving way to a
+what it did before, write for write, and writes torque off to all five
+only as a run ends on a surprise ("When it stops"; with `--limp on` a hand makes the same slump: "Giving way to a
 hand").
 
 The hardware team's view, given through the owner's builder: the old
@@ -1569,8 +1576,9 @@ clock. They show that it writes only the three packets above, byte for byte;
 that over a scripted exchange every goal names servos 5, 4 and 1, stays within
 reach and moves at most two counts per write, and that the goals end exactly
 where they were found; that it refuses each start condition with nothing
-written; that an obstacle ten counts into a tilt ends the run within a few
-steps with the goal held at the obstacle; that a new flag on the shoulder, a
+written, but torque off on all five for a joint found hot or loaded; that an
+obstacle ten counts into a tilt ends the run within a few steps with the goal
+held at the obstacle and then torque off on all five; that a new flag on the shoulder, a
 changed flag or a nine-count move on the elbow, a head servo that stays hot,
 and a silent wire each end it, while one hot reading does not; that a head
 found 43 counts from a given home is brought there in small steps and never

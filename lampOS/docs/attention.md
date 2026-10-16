@@ -1113,6 +1113,23 @@ short sound let through and checked (#800) is held the same way: a short
 word, said close, or with a face turned to the lamp, is still the other
 person's reply (the reviewer on #918 at 06:06).
 
+The same scene at 15:39 on lamp-4ace (the first builder at 15:40, #829):
+after Samantha's "Daniel, are you coming to the meeting at two?", Daniel's
+"Yes, give me five minutes." set a timer again, and the lamp, which had
+just told him a story, said "Got it. Five minutes, starting now." Two more
+cases are now that person's, with the switch:
+- **A line that itself calls someone else by name** (`addresses_someone_else`
+  on its own text, `TO_ANOTHER`), in every room. The call and its reply can
+  come as one request, and the line before then calls no one.
+- **In a busy room, a line that follows a question the lamp left
+  unanswered** (`AFTER_QUESTION`): within the same 10 s of a line heard as
+  a question (ending "?") whose answer was held or never came. Named or
+  not, the question was for someone else, and the reply is to them. A
+  question the lamp answered leaves the next line alone, and so does a
+  quiet room.
+The lamp's name still lets the answer out in both. Any timer or reminder
+it would set is held with it, before the Policy's hold (#1054) is asked.
+
 And one from 06:07 (#918, the first builder at 06:15): in the two-person
 scene, Daniel asked "Hey Lamp, how much is one hundred dollars in euros?"
 and was answered. Samantha and he then said a line each to each other,

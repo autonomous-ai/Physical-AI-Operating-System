@@ -255,6 +255,18 @@ const ABOUT_ITS_WORK: &str = "a question about the lamp's own task, reminder or 
 pub const ANOTHER_REPLY_US: u64 = 10_000_000;
 const ANSWERING_ANOTHER: &str =
     "a reply to someone the room had just called by name, not said to the lamp";
+/// With the switch, a line that itself calls someone other than the lamp
+/// by name ("Daniel, are you coming to the meeting at two?") is said to
+/// them, however it follows the lamp: the first builder's 15:40 on #829,
+/// where such a line and its reply could be one request.
+const TO_ANOTHER: &str = "said to someone it calls by name, not to the lamp";
+/// With the switch, in a busy room, a line that follows, by at most
+/// [`ANOTHER_REPLY_US`], a question the lamp left unanswered answers the
+/// one who asked it (the first builder at 15:40 on #829): "Yes, give me
+/// five minutes." after "Are you coming to the meeting at two?" sets no
+/// timer.
+const AFTER_QUESTION: &str =
+    "a busy room: a reply to a question the lamp left unanswered, not said to the lamp";
 
 /// Words that open a sentence of their own before a comma, and are no
 /// one's name ("Okay, stop.", "Well, I think so.").
@@ -685,6 +697,10 @@ pub struct Attention {
     /// The request in hand follows, within [`ANOTHER_REPLY_US`], one that
     /// called someone other than the lamp by name. With `spoken_to` only.
     after_another: bool,
+    /// The request in hand follows, within [`ANOTHER_REPLY_US`], a question
+    /// the lamp left unanswered ([`AFTER_QUESTION`]); counted only in a busy
+    /// room. With `spoken_to` only.
+    after_question: bool,
 }
 
 /// The most text kept for one request.
@@ -744,8 +760,19 @@ impl Attention {
                 .or(self.began_us)
                 .is_some_and(|end| end.saturating_add(ANOTHER_REPLY_US) >= now_us)
             && addresses_someone_else(&self.heard);
+        // The line before, if it was a question the lamp left unanswered
+        // and ended just now (#829, 15:40).
+        let after_question = self.spoken_to
+            && own_request().load(Ordering::Acquire) != request
+            && self
+                .ended_us
+                .or(self.began_us)
+                .is_some_and(|end| end.saturating_add(ANOTHER_REPLY_US) >= now_us)
+            && self.heard.trim_end().ends_with('?')
+            && !matches!(self.verdict, Some(Verdict::Play(_)));
         self.began(request, session);
         self.after_another = after_another;
+        self.after_question = after_question;
         self.began_us = Some(now_us);
         self.named = self
             .named_us
@@ -767,6 +794,7 @@ impl Attention {
     pub fn continued_at(&mut self, request: u64, session: u64, now_us: u64) {
         let tapped = session == self.session && self.began_us.is_some() && self.tapped;
         let after_another = self.after_another;
+        let after_question = self.after_question;
         let before = (session == self.session && self.began_us.is_some()).then(|| {
             (
                 self.named,
@@ -788,6 +816,7 @@ impl Attention {
             self.addressed |= addressed;
             self.began_us = began_us;
             self.after_another = after_another;
+            self.after_question = after_question;
         }
         self.tapped |= tapped;
     }
@@ -977,7 +1006,21 @@ impl Attention {
         // #829, with the switch: a reply to someone the room had just
         // called by name is that person's conversation, not the lamp's.
         // Only the lamp's name counts for it.
-        let answering_another = self.spoken_to && self.after_another && !own;
+        // #829, 15:40: a line that itself calls someone else by name is
+        // theirs too, and in a busy room so is a reply to a question the
+        // lamp left unanswered.
+        let another = if !self.spoken_to || own {
+            None
+        } else if self.after_another {
+            Some(ANSWERING_ANOTHER)
+        } else if addresses_someone_else(&self.heard) {
+            Some(TO_ANOTHER)
+        } else if self.after_question && room == Room::Busy {
+            Some(AFTER_QUESTION)
+        } else {
+            None
+        };
+        let answering_another = another.is_some();
         let going_on = going_on && !answering_another;
         // The lamp's news has one reply: the first thing judged after it,
         // whatever path judges it, takes it (the reviewer on #918 at 07:12:
@@ -1022,8 +1065,8 @@ impl Attention {
             // A reply to someone the room had just called by name is not
             // the lamp's, short or not (the reviewer on #918 at 06:06): only
             // the lamp's name lets it out.
-            let verdict = if answering_another && !(called_in_text || self.named) {
-                Verdict::Hold(ANSWERING_ANOTHER)
+            let verdict = if let Some(why) = another.filter(|_| !(called_in_text || self.named)) {
+                Verdict::Hold(why)
             } else if crate::not_speech::short_word(&self.heard) {
                 Verdict::Play(SOUND_A_WORD)
             } else if self.near {
@@ -1106,8 +1149,8 @@ impl Attention {
         };
         let verdict = match verdict {
             Verdict::Play(_) if self.spoken_to && !spoken_to => {
-                Verdict::Hold(if answering_another {
-                    ANSWERING_ANOTHER
+                Verdict::Hold(if let Some(why) = another {
+                    why
                 } else {
                     NOT_SPOKEN_TO
                 })
@@ -1883,6 +1926,81 @@ mod tests {
             attention.first_output(3, Room::Quiet, false),
             Some(Verdict::Hold(NOT_SPOKEN_TO))
         );
+    }
+
+    /// #829, the first builder at 15:40, the two-person round on lamp-4ace:
+    /// Samantha's "Daniel, are you coming to the meeting at two?", Daniel's
+    /// "Yes, give me five minutes.", and the lamp, which had just told
+    /// Daniel a story, set a five-minute timer. With the switch, a line that
+    /// itself calls someone else by name is theirs, even when it and the
+    /// reply are one request; and in a busy room, a reply to a question the
+    /// lamp left unanswered is the asker's, named or not. The lamp's name
+    /// still counts, a question the lamp answered leaves the next line
+    /// alone, and in a quiet room an unnamed question changes nothing.
+    #[test]
+    fn with_the_switch_a_line_to_someone_else_or_after_an_unanswered_question_is_not_the_lamps() {
+        const S: u64 = 1_000_000;
+        // Two lines: `asked`, let out if `answered` (else no output), and
+        // `answer` `gap_s` later, in `room`, a conversation with the lamp
+        // going on. In a busy room the reason held is the busy room's own,
+        // as the conversation no longer counts.
+        let reply = |asked: &str, answered: bool, gap_s: u64, answer: &str, room: Room| {
+            let mut attention = Attention::default();
+            attention.speak_when_spoken_to(true);
+            attention.began_at(41, 7, 100 * S);
+            attention.heard(asked);
+            if answered {
+                assert!(matches!(
+                    attention.first_output_busy(41, room, true, false, None),
+                    Some(Verdict::Play(_))
+                ));
+            }
+            attention.ended(41, 103 * S);
+            attention.began_at(42, 7, (103 + gap_s) * S);
+            attention.heard(answer);
+            attention
+                .first_output_busy(42, room, true, false, None)
+                .unwrap()
+        };
+        const ANSWER: &str = "Yes, give me five minutes.";
+        // One request: the call and its reply together, in any room.
+        let together = |room: Room| {
+            let mut attention = Attention::default();
+            attention.speak_when_spoken_to(true);
+            attention.began_at(40, 7, 10 * S);
+            attention
+                .heard("Daniel, are you coming to the meeting at two? Yes, give me five minutes.");
+            attention.first_output_busy(40, room, true, false, None)
+        };
+        assert_eq!(together(Room::Quiet), Some(Verdict::Hold(TO_ANOTHER)));
+        assert!(matches!(together(Room::Busy), Some(Verdict::Hold(_))));
+        // In a busy room, a reply to a question the lamp left unanswered.
+        const ASKED: &str = "Are you coming to the meeting at two?";
+        assert!(matches!(
+            reply(ASKED, false, 1, ANSWER, Room::Busy),
+            Verdict::Hold(_)
+        ));
+        // The lamp's name still counts.
+        assert!(matches!(
+            reply(ASKED, false, 1, "Lamp, give me five minutes.", Room::Busy),
+            Verdict::Play(_)
+        ));
+        // A question the lamp answered, one long before, a line that was
+        // not a question, or a quiet room: as before.
+        for (asked, answered, gap_s, room) in [
+            (ASKED, true, 1, Room::Busy),
+            (ASKED, false, 11, Room::Busy),
+            ("We are coming to the meeting at two.", false, 1, Room::Busy),
+            (ASKED, false, 1, Room::Quiet),
+        ] {
+            assert!(
+                matches!(
+                    reply(asked, answered, gap_s, ANSWER, room),
+                    Verdict::Play(_)
+                ),
+                "{asked} {answered} {gap_s} {room:?}"
+            );
+        }
     }
 
     /// #829, the first builder at 05:02, scene 4 on lamp-4ace: Samantha's

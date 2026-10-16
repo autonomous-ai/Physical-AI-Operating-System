@@ -1013,9 +1013,21 @@ Mac `._` files and anything hidden are passed over. A folder of more than
 line and not read through, so the start's work stays bounded and no move
 plays or not by how many others are there. A folder that
 cannot be read is said once, and the body runs with its own gestures. The
-start says how many moves it took and their names. Which part asks for a
-move, and how the body weighs it against Expression and the eyes, is the
-body's arbitration (#940), not built yet.
+start says how many moves it took and their names.
+
+A skill's own move (`do.body.move`, [skills.md](skills.md)) comes whole on
+the mood socket instead, in one datagram of at most 16 KiB:
+`{"move":{"name":"wiggle","step_ms":750,"frames":[...]}}`. The body holds it
+to the same rules (`moves::check`; it need not be another file's name), and
+plays it as a gesture: the same drop rules (paused, held by a hand, slumped,
+another playing), the same journal line of why it was taken or dropped, the
+same smoothing and speed limits, and V1's anti-tip rule below as it begins.
+One it cannot play is dropped, and the journal says
+`dropped from the mood socket, a move this body cannot play: move "NAME": WHY`.
+The same move sent again plays what was kept; each different one is kept for
+the body's life, and past 64 of them no new one plays until it restarts.
+How the body weighs a move against Expression and the eyes is the body's
+arbitration (#940), not built yet.
 
 ## Not tipping over (V1's anti-tip rule)
 
@@ -1027,7 +1039,7 @@ agrees with V1's `cog_offset_mm` to 0.03 mm). The limits are also V1's:
 
 | V1 | Limit | What the body does |
 | --- | --- | --- |
-| `check_stable`, `SAFETY.md` `motion.max_cog_offset_mm` | 22 mm off the axis, in any direction | A gesture, built in or from `--moves`, is checked frame by frame on the pose the lamp is in when it would begin (the idle shift too). If any frame goes past 22 mm, the whole gesture is refused and nothing moves. One that comes within 85% of 22 mm plays, and a line says so. |
+| `check_stable`, `SAFETY.md` `motion.max_cog_offset_mm` | 22 mm off the axis, in any direction | A gesture, built in, from `--moves` or a skill's move, is checked frame by frame on the pose the lamp is in when it would begin (the idle shift too). If any frame goes past 22 mm, the whole gesture is refused and nothing moves. One that comes within 85% of 22 mm plays, and a line says so. |
 | `limit_lean_back` in `/servo/move` and `nudge` | 22 mm behind the axis | Every step while a gesture plays, and while the lamp rises, folds or is folded. |
 | `limit_lean_back` in `distribute_pitch`, `MAX_LEAN_BACK_MM` | 16 mm behind the axis | Every step of a lamp standing still at its full height: the mood's pose, the eyes, Expression, and anything else laid on the pose. |
 

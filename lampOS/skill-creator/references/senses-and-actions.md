@@ -46,7 +46,7 @@ look at the picture itself, only at the faces the eyes report.
 
 ## Names in tests
 
-A skill's steps, and its tests, name six calls: `body.gaze`, `body.gesture`,
+A skill's steps, and its tests, name seven calls: `body.gaze`, `body.gesture`, `body.move`,
 `body.mood`, `light`, `say` and `look`. Schedule, tasks and memory are services the lamp has, but
 a skill's steps cannot call them yet.
 

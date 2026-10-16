@@ -2103,3 +2103,86 @@ fn asking_the_policy_a_skill_that_is_not_a_hello_asks_its_act() {
         );
     }
 }
+
+#[test]
+fn a_skills_own_move_loads_as_the_body_takes_it_and_a_bad_one_is_refused_with_why() {
+    let toml = AT_ONCE.replace(
+        "body = { look_at = \"face\" }",
+        "body = { move = \"sway\" }",
+    );
+    let dir = tempfile::tempdir().unwrap();
+    let skill = skill_with(dir.path(), "hello", &toml);
+    fs::create_dir(skill.join("moves")).unwrap();
+    fs::write(skill.join("moves/sway.json"), sway("sway", 60)).unwrap();
+    let runs = runs_at(
+        &skill,
+        &[(0, Faces::TOPIC, NOBODY), (1, Faces::TOPIC, FACE)],
+    );
+    let calls = &runs[0].1;
+    let Some(Call::Move(clip)) = calls.first() else {
+        panic!("{runs:?}");
+    };
+    assert_eq!(clip.name, "sway");
+    assert_eq!(clip.frames.len(), 41);
+    assert_eq!(
+        calls[0].named(),
+        ("body.move", serde_json::json!({ "move": "sway" }))
+    );
+    // What the program sends the mood socket is a move the body plays.
+    let datagram = serde_json::json!({ "move": clip }).to_string();
+    let played = lamp_body::moves::Sent::default()
+        .take(datagram.as_bytes())
+        .unwrap()
+        .unwrap();
+    assert_eq!((played.name, played.frames), ("sway", &clip.frames[..]));
+    // What the body would refuse is refused here, and why.
+    for (text, why) in [
+        (sway("sway", 201), "farther than 200"),
+        (
+            sway("sway", 60).replace("\"step_ms\":50", "\"step_ms\":20"),
+            "not from 40 to 1000",
+        ),
+        (
+            sway("sway", 60).replace("\"step_ms\":50", "\"step_ms\":300"),
+            "not 1500 to 10000",
+        ),
+        (
+            sway("sway", 60).replace("\"step_ms\"", "\"speed\":2,\"step_ms\""),
+            "not a move",
+        ),
+        (sway("nod", 60), "names \"nod\", not \"sway\""),
+    ] {
+        fs::write(skill.join("moves/sway.json"), &text).unwrap();
+        let error = load(&skill).unwrap_err();
+        assert!(
+            error.contains("moves/sway.json") && error.contains(why),
+            "{why}: {error}"
+        );
+    }
+    // A move in the body's own name, and a file that is not there.
+    fs::write(skill.join("moves/nod.json"), sway("nod", 60)).unwrap();
+    for (step, why) in [
+        (
+            "body = { move = \"nod\" }",
+            "one of the body's own gestures",
+        ),
+        ("body = { move = \"gone\" }", "moves/gone.json"),
+        ("body = { move = \"../sway\" }", "not a file name in moves/"),
+    ] {
+        let toml = AT_ONCE.replace("body = { look_at = \"face\" }", step);
+        fs::write(skill.join("skill.toml"), toml).unwrap();
+        let error = load(&skill).unwrap_err();
+        assert!(error.contains(why), "{step}: {error}");
+    }
+}
+
+/// A 2 s move of the head and back, 50 ms a step: the body's file format.
+fn sway(name: &str, peak: i16) -> String {
+    let mut frames = vec![[0i16; 5]];
+    for step in 1..40i16 {
+        let share = if step <= 20 { step } else { 40 - step };
+        frames.push([0, peak * share / 20, 0, 0, 0]);
+    }
+    frames.push([0; 5]);
+    serde_json::json!({ "name": name, "step_ms": 50, "frames": frames }).to_string()
+}

@@ -10,7 +10,7 @@ slump). With --give-way, a joint that pushes at its goal without moving for\n1.5
 did, a head or base joint that a hand stops and still pushes a second later makes the lamp
 slump (torque off on all five, held again 5 s later where it lies; after an overload, 120 s);
 a hand never ends the run, and a head roll or base found beyond 400 counts of home at start is
-taken hold of where it lies. With --overload release, any joint that\nreads a load of 800 of 1000 (80% of --force-limit for a joint held to one) for 1.5 s has\ntorque switched off on all five, so the lamp slumps; 120 s later each is held where it is\n(its goal, then torque on) and the head is brought home as --wake does, while the arm\nwaits where it slumped until the lamp is next asked to stand; a second time within ten\nminutes ends the run with torque off. With --rest-glance on, a lamp at rest takes what\nExpression asks of the head (50 counts of pitch, 25 of roll at most, never the base or the arm)\nand comes back to rest when it runs out. --pitch-window is this lamp's own window for the\nhead's pitch while it is beside the base (by default lamp-4ace's, 1740,2030): never under\nthe head's floor (1670), around --home's pitch, and inside the servo's own limits or it does\nnot start. With --look-at-name on, the lamp's name heard on the bus\n(name/heard) while it does not speak is taken as being spoken to for two seconds: it rises,\nlooks up and turns to a face at once; with nobody in view it glances a little to one side and\nthe other once it stands, and lets it go. At most once in ten seconds. Stops at the first surprise, holding\nwhere it is, then, as the old runtime did, lets go: torque off on all five. Ends on SIGINT or SIGTERM after easing back to where it started.\nThe mood socket takes datagrams of JSON: {\"mood\":\"resting|listening|thinking|speaking\",\"level\":0..255}.\nA lamp standing at its full height also makes a gesture asked for there: {\"gesture\":\"nod\"}\n(nod, headshake, greeting, laugh, shy, stretching); a folded one with --stand stands up for it\nfirst, unless paused, held by a hand or slumped, and the journal says why each was taken or dropped. With --moves, the moves in that folder\n(NAME.json, docs/body.md) are read at start and asked for by name the same way; one this body\ncannot play is refused with why, and a folder that cannot be read leaves the body's own.\nPrints one JSON report when it ends.\n";
+taken hold of where it lies. With --overload release, any joint that\nreads a load of 800 of 1000 (80% of --force-limit for a joint held to one) for 1.5 s has\ntorque switched off on all five, so the lamp slumps; 120 s later each is held where it is\n(its goal, then torque on) and the head is brought home as --wake does, while the arm\nwaits where it slumped until the lamp is next asked to stand; a second time within ten\nminutes ends the run with torque off. With --rest-glance on, a lamp at rest takes what\nExpression asks of the head (50 counts of pitch, 25 of roll at most, never the base or the arm)\nand comes back to rest when it runs out. --pitch-window is this lamp's own window for the\nhead's pitch while it is beside the base (by default lamp-4ace's, 1740,2030): never under\nthe head's floor (1670), around --home's pitch, and inside the servo's own limits or it does\nnot start. With --look-at-name on, the lamp's name heard on the bus\n(name/heard) while it does not speak is taken as being spoken to for two seconds: it rises,\nlooks up and turns to a face at once; with nobody in view it glances a little to one side and\nthe other once it stands, and lets it go. At most once in ten seconds. Stops at the first surprise, holding\nwhere it is, then, as the old runtime did, lets go: torque off on all five. Ends on SIGINT or SIGTERM after easing back to where it started.\nThe mood socket takes datagrams of JSON: {\"mood\":\"resting|listening|thinking|speaking\",\"level\":0..255}.\nA lamp standing at its full height also makes a gesture asked for there: {\"gesture\":\"nod\"}\n(nod, headshake, greeting, laugh, shy, stretching); a folded one with --stand stands up for it\nfirst, unless paused, held by a hand or slumped, and the journal says why each was taken or dropped. With --moves, the moves in that folder\n(NAME.json, docs/body.md) are read at start and asked for by name the same way; one this body\ncannot play is refused with why, and a folder that cannot be read leaves the body's own.\nA skill sends its own move whole, {\"move\":{\"name\":...,\"step_ms\":...,\"frames\":[...]}}, held to the same\nbounds and played the same way; one it cannot play is dropped with why.\nPrints one JSON report when it ends.\n";
 
 #[derive(Debug)]
 struct Arguments {
@@ -682,24 +682,38 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
         .map(lamp_body::pause_in::PauseIn::on);
     let paused = std::cell::Cell::new(false);
     let mut unknown_said = Hush::default();
+    // A skill's move sent whole, played as a gesture (docs/body.md).
+    let mut moves_sent = lamp_body::moves::Sent::default();
+    let mut datagram = vec![0u8; lamp_body::moves::MOST_DATAGRAM];
     let news = || {
         paused.set(pause.as_mut().is_some_and(|pause| pause.paused()));
         // Everything waiting, and only the newest of it counts.
         let mut latest = None;
-        let mut datagram = [0u8; 128];
         for _ in 0..32 {
             match moods.recv(&mut datagram) {
                 Ok(length) => {
                     let sent = &datagram[..length];
-                    match (gesture_of(sent, &moves), mood_of(sent)) {
-                        (Some(clip), _) => gesture_asked.set(Some(clip)),
+                    let skills = match gesture_of(sent, &moves) {
+                        Some(clip) => Some(Ok(clip)),
+                        None => moves_sent.take(sent),
+                    };
+                    match (skills, mood_of(sent)) {
+                        (Some(Ok(clip)), _) => gesture_asked.set(Some(clip)),
+                        (Some(Err(why)), _) => {
+                            let line = format!(
+                                "lamp-body: dropped from the mood socket, a move this body cannot play: {why}"
+                            );
+                            if let Some(line) = unknown_said.due(line, std::time::Instant::now()) {
+                                eprintln!("{line}");
+                            }
+                        }
                         (None, Some(mood)) => latest = Some(mood),
                         // An unknown gesture, most often: said, as the
                         // body says what it does with every gesture.
                         (None, None) => {
                             let line = format!(
                                 "lamp-body: dropped from the mood socket, not a mood or a gesture this body has: {}",
-                                String::from_utf8_lossy(sent)
+                                String::from_utf8_lossy(&sent[..sent.len().min(200)])
                             );
                             if let Some(line) = unknown_said.due(line, std::time::Instant::now()) {
                                 eprintln!("{line}");

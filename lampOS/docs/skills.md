@@ -67,8 +67,8 @@ What is missing for skills:
   asked; the body merges its inputs by fixed rules. bus.md's table says so
   ("Several requesters, one actuator: No").
 - **`camera/image` is declared and published by nobody.**
-- **The body plays only its six built-in gestures**; a skill cannot bring a
-  move of its own.
+- **The body plays only its six built-in gestures and a skill's own moves
+  (`moves/`, below)**; nothing weighs them against Expression and the eyes.
 - Expression's catalogue is data, but its triggers are a fixed list in code.
 
 ## The design
@@ -152,6 +152,7 @@ must not leave a step silently undone)*.
 | `[[do]]` | at least one | The steps, in order. Within one table: body, then light, then say, then sound |
 | `do.body.look_at` | no | Only `"face"`. The largest face in view goes to the body's `gaze.sock` as the eyes send one (`{"face":{"x","y","size","turned":0}}`) |
 | `do.body.gesture` | no | One of the body's six gestures (`nod`, `headshake`, `greeting`, `laugh`, `shy`, `stretching`), sent to `mood.sock` as `{"gesture":NAME}`. A folded lamp is stood up for it at any hour: the body has no idea of night or of Expression's sleep. Only the Policy's unprompted question ("not late at night", under `LAMP_SKILLS_ASK=policy` with the hour known) keeps a sleeping lamp down; with `skip`, nothing does ([body.md](body.md)) |
+| `do.body.move` | no | A move of the skill's own: the file `moves/NAME.json`, in the body's move format ([body.md](body.md#moves-from-files)), whose `name` is `NAME`. Checked at load by the body's own check (`lamp_body::moves::check`): not one of the body's gestures, 1.5 to 10 s, `step_ms` 40 to 1000, beginning and ending at nothing, each joint inside the clips' size and speed. Sent whole to `mood.sock` as `{"move":{"name","step_ms","frames"}}`, where the body checks it again and plays it as a gesture (below) |
 | `do.body.mood` + `do.body.for` | no | A pose held: only `"reading"` (#1011: the head looks down at the desk and the arm leans forward). Sent to `mood.sock` as `{"mood":"reading","level":0}` when the step is made and again every second for `for` (more than 0, at most `2m`); the body lets it go 1.5 s after the last, and comes back. One without the other is refused |
 | `do.light` | no | A file in `lights/`, written as its name, or a table in place. A file `lights/NAME.toml` holds the same keys. `{ colour, level, for }` asks the actions part for `light_colour`, then steps the light to `level` (1 to 5) with `light_brighter` or `light_dimmer` calls, counted from the level `light/state` shows; with that level not known it is left and the run says so. `for` holds the light in a run with no say. `{ dim = N, until = "ends" }` asks for `light_dimmer` N times. A light is held until the run ends (the say ends, or the run's longest `for`) and is then given back; `until = "ends"` says so of a dim. With `LAMP_LIGHT_REQUESTS=on` it is asked of the ring instead, and the person's light is never touched (#940, below) |
 | `do.say` | no | A note for the voice to say in its own words, through the voice's say service (#954). One a skill. The run's other steps are made, in their order, when the voice begins the say, so the look and the light come with the words, and none if it is never begun. A light changed is given back when the say ends. In a tool's run the note goes to the model in the call's answer instead. Or `{ from = "schedule" }` or `{ from = "tasks" }`: words the voice keeps itself and says when asked, the reminder due or the news of work handed over (#939, (c), the first builder's 12:32). The voice keeps the words and their delivery (a reminder's acknowledgement, news told once); the skill says when, and moves and lights with them as with a note. Sent to the say service as `from` in place of `note`, at priority 8 for `schedule` and 5 for `tasks`. Any other `from`, another key beside it, or a `from` in a skill with a `tool` refuses the skill: what the voice keeps is said when a trigger starts the skill, never from the model's call (Fourth on #1033) |
@@ -165,10 +166,18 @@ the pause or someone speaking: per the design above, the Policy is the one
 gate for everything the lamp starts itself (#939). Until that gate exists, a
 skill that must keep quiet in those cases says so with a `[[while]]`.
 
-**`moves/`** may exist and is not read. The body plays only its six
-gestures, and `body.move` is refused. **`sounds/`** holds the files
-`do.sound` names; the others are not read. A
-**`run.py`** refuses the skill, because nothing runs it yet.
+**`moves/`** holds the skill's own moves, read only as `do.body.move` names
+them. The body plays one as it plays its own gestures: on a standing lamp
+(a folded one stands up for it first), with the same smoothing and speed
+limits, refused whole by V1's anti-tip rule when a frame would take the
+centre of gravity past 22 mm off the base's axis (the journal says
+`anti-tip: REFUSED gesture NAME`), and dropped, with the reason in the
+journal, while the lamp is paused, held by a hand or slumped. A skill never
+writes an arm goal of its own. Whether a move may play from the pose the
+lamp is in is known only to the body, so a skill that loads may still have
+its move refused there. **`sounds/`** holds the files `do.sound` names;
+the others are not read. A **`run.py`** refuses the skill, because nothing
+runs it yet.
 
 **`tests/`** has one folder for each case. A case holds the `.jsonl` files
 `lamp-bus record` wrote and an `expect.toml`. The expect file lists, as
@@ -177,7 +186,7 @@ gestures, and `body.move` is refused. **`sounds/`** holds the files
     [[expect]]
     at = "600s"                # optional: when, from the case's first message
     within = "1s"              # optional; without it, exactly
-    call = "body.gaze"         # body.gaze, body.gesture, body.mood, light, say or sound
+    call = "body.gaze"         # body.gaze, body.gesture, body.move, body.mood, light, say or sound
     args = { look_at = "face" }
 
 A call matches when its name is the same and each argument named in `args`
@@ -186,6 +195,7 @@ runtime gives are:
 
 - `body.gaze`: `look_at`, `x`, `y`, `size`
 - `body.gesture`: `gesture`
+- `body.move`: `move` (its name)
 - `body.mood`: `mood`, `for_ms`
 - `light`: `colour`, `level`, `for`, or `dim`, `until`
 - `say`: `note`, or `from` for what the voice keeps (`say = { from = … }`)
@@ -382,9 +392,10 @@ What is not done, and why:
 3. **The eyes publish `camera/image`** (a file and when it was taken), so a
    skill can look.
 4. **The body plays move files** from a skill, within its own speed and
-   force limits. Loading is built: `lamp-body --moves DIR` reads
-   `NAME.json` moves at start, held to the built-in clips' bounds, and
-   plays one by name as a gesture ([body.md](body.md#moves-from-files)).
+   force limits. Built: `lamp-body --moves DIR` reads `NAME.json` moves at
+   start, and a skill's `do.body.move` sends its `moves/NAME.json` whole on
+   the mood socket; both are held to the built-in clips' bounds and played
+   as a gesture ([body.md](body.md#moves-from-files)).
 
 ### Tools for the model
 

@@ -7,6 +7,7 @@
   tests/        a folder for each case: recordings and expect.toml
   lights/       optional: named light steps (lights/NAME.toml)
   sounds/       optional: short sounds (sounds/NAME.wav)
+  moves/        optional: the skill's own moves (moves/NAME.json)
 ```
 
 The runtime (`lamp-skills`) reads this; its schema is in the lamp's
@@ -15,8 +16,7 @@ the truth. **A key the runtime does not know refuses the whole skill**, and
 the runtime says why in its journal: write only the keys below.
 
 Refused for now, so never write them: `run.py`, a `tools` key (the key is
-`tool`, below), `body = { move = ... }` (move files, #940), `when = "leaves"`
-or `"changes"`. `moves/` may exist but is not read.
+`tool`, below), `when = "leaves"` or `"changes"`.
 
 ## `SKILL.md`
 
@@ -139,6 +139,7 @@ In order. Within one table: body, then light, then say, then sound.
 |---|---|
 | `body = { look_at = "face" }` | Turn to the largest face in view |
 | `body = { gesture = "..." }` | One of `nod`, `headshake`, `greeting`, `laugh`, `shy`, `stretching` |
+| `body = { move = "NAME" }` | The skill's own move, `moves/NAME.json` (below), played by the body as a gesture |
 | `body = { mood = "reading", for = "20s" }` | A pose held for `for` (more than 0, at most `2m`): `reading` is the only one, the head down over the desk and the arm leaning forward (#1011). The run lasts while it is held. Both keys or neither |
 | `light = { colour = "...", level = 1..5, for = "4s" }` | The colour, then stepped to `level` from the level shown; `for` holds it in a run with no say. Given back when the run ends |
 | `light = { dim = 1, until = "ends" }` | Dimmer by N steps, held until the run ends (the say ends, or its longest `for`), then given back |
@@ -154,6 +155,27 @@ the light step is left out: a skill never leaves someone's light changed. A
 light lasts at most 10 minutes, so "a calm light while I focus for 25
 minutes" cannot be a skill's. Two skills, or a person, changing the light
 meanwhile are not arbitrated yet (#940).
+
+## `moves/`
+
+One move a file, `moves/NAME.json`, in the body's own format, its `name` the
+file's:
+
+```json
+{"name": "wiggle", "step_ms": 750, "frames": [[0, 0, 0, 0, 0], [4, 0, 2, 6, 6], [0, 0, 0, 0, 0]]}
+```
+
+Each frame is offsets in encoder counts from the pose the standing lamp is
+in: head pitch, head roll, base yaw, shoulder, elbow, `step_ms` apart. The
+runtime refuses the skill, and says why, unless the move is what the body
+takes: a name of 1 to 32 of `a-z`, `0-9`, `-`, `_` that is not one of the
+body's gestures (nor `called`); `step_ms` 40 to 1000 and 1.5 to 10 s in all;
+the first and last frame all zeros; no joint farther than 200, 200, 150,
+350, 350 counts, nor faster than 900, 1,300, 1,000, 800, 800 counts a
+second. The body plays it only on a standing lamp, never while it is paused,
+held or slumped, and refuses it whole if a frame would tip the lamp past V1's
+22 mm from the pose it is in: keep moves small. A test expects it as
+`call = "body.move"`, `args = { move = "NAME" }`.
 
 ## `tests/`
 

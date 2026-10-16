@@ -2066,6 +2066,7 @@ name = "lamp-skills"
 version = "0.1.0"
 dependencies = [
  "hound",
+ "lamp-body",
  "lamp-bus",
  "lamp-ipc",
  "lamp-msgs",

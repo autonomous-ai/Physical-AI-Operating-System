@@ -55,11 +55,17 @@ static BODY: LazyLock<Body> = LazyLock::new(|| {
     }
 });
 
-/// Radians of encoder counts, servo IDs 1..5 (`Joint::index` order).
+/// Whether every count is one a servo can be at, 0 to 4,095. A count
+/// outside is refused, not clamped: clamped, lamp-4ace's elbow goal of
+/// 37,639 read as 4,095 and was cut toward and written (2026-10-17).
+fn in_range(counts: [f32; JOINT_COUNT]) -> bool {
+    counts.iter().all(|count| (0.0..=4_095.0).contains(count))
+}
+
+/// Radians of encoder counts, servo IDs 1..5 (`Joint::index` order), each
+/// 0 to 4,095.
 fn radians(counts: [f32; JOINT_COUNT]) -> [f64; JOINT_COUNT] {
-    counts.map(|count| {
-        (f64::from(count.clamp(0.0, 4_095.0)) - 2048.0) * std::f64::consts::TAU / 4096.0
-    })
+    counts.map(|count| (f64::from(count) - 2048.0) * std::f64::consts::TAU / 4096.0)
 }
 
 fn centre_mm(radians: [f64; JOINT_COUNT]) -> [f64; 2] {
@@ -69,15 +75,23 @@ fn centre_mm(radians: [f64; JOINT_COUNT]) -> [f64; 2] {
 }
 
 /// How far (mm) the centre of gravity sits off the base's axis, in any
-/// direction (V1 `cog_offset_mm`). Counts by servo ID 1..5.
+/// direction (V1 `cog_offset_mm`). Counts by servo ID 1..5; a pose with a
+/// count outside 0..=4,095 is infinitely far.
 pub fn off_axis_mm(counts: [f32; JOINT_COUNT]) -> f64 {
+    if !in_range(counts) {
+        return f64::INFINITY;
+    }
     let [x, y] = centre_mm(radians(counts));
     x.hypot(y)
 }
 
 /// How far (mm) the centre of gravity sits behind the base's axis, along
-/// the arm's own heading (V1 `lean_back_mm`): base yaw left out.
+/// the arm's own heading (V1 `lean_back_mm`): base yaw left out. A pose
+/// with a count outside 0..=4,095 is infinitely far.
 pub fn lean_back_mm(counts: [f32; JOINT_COUNT]) -> f64 {
+    if !in_range(counts) {
+        return f64::INFINITY;
+    }
     let mut radians = radians(counts);
     radians[0] = BODY.yaw_zero;
     -centre_mm(radians)[0]
@@ -86,7 +100,8 @@ pub fn lean_back_mm(counts: [f32; JOINT_COUNT]) -> f64 {
 /// `target` cut short so the lamp leans back no farther than `ceiling_mm`,
 /// and the share of the step from `start` that was kept (V1
 /// `limit_lean_back`). A pose already past the ceiling may only come
-/// forward. The whole step and 1.0 when it fits.
+/// forward. The whole step and 1.0 when it fits. A target with a count
+/// outside 0..=4,095 is not stepped toward at all: `start` and 0.0.
 pub fn limit_lean_back(
     start: [f32; JOINT_COUNT],
     target: [f32; JOINT_COUNT],
@@ -95,6 +110,9 @@ pub fn limit_lean_back(
     let along = |share: f32| -> [f32; JOINT_COUNT] {
         std::array::from_fn(|index| start[index] + (target[index] - start[index]) * share)
     };
+    if !in_range(target) {
+        return (start, 0.0);
+    }
     let limit = ceiling_mm.max(lean_back_mm(start));
     if lean_back_mm(target) <= limit {
         return (target, 1.0);
@@ -189,6 +207,20 @@ mod tests {
         assert!(lean_back_mm(further) > lean_back_mm(back));
         assert_eq!(limit_lean_back(back, further, LOOK_MM).1, 0.0);
         assert_eq!(limit_lean_back(back, stand, LOOK_MM), (stand, 1.0));
+    }
+
+    /// A count no servo can be at is refused, not clamped to the seam: a
+    /// step toward it is not taken, and a pose with it is infinitely far.
+    #[test]
+    fn a_count_outside_the_servos_range_is_refused_not_clamped() {
+        let folded = by_id(LAMPS[0].2);
+        let mut wrapped = folded;
+        wrapped[2] = 37_639.0;
+        assert_eq!(lean_back_mm(wrapped), f64::INFINITY);
+        assert_eq!(off_axis_mm(wrapped), f64::INFINITY);
+        assert_eq!(limit_lean_back(folded, wrapped, CLIP_MM), (folded, 0.0));
+        wrapped[2] = -1.0;
+        assert_eq!(limit_lean_back(folded, wrapped, CLIP_MM), (folded, 0.0));
     }
 
     /// Every built-in clip, on each deployed lamp's standing pose, passes

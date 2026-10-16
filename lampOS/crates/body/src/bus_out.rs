@@ -240,6 +240,29 @@ pub fn stopped(stop: &Stop) -> Diagnostic {
             Level::Error,
             "stopped: the servos did not answer as expected".to_owned(),
         ),
+        Stop::Window {
+            joint,
+            goal,
+            window: (low, high),
+            from,
+        } => (
+            Level::Error,
+            format!(
+                "stopped: {} was not asked for {goal}, outside {low}..={high} or too far from {from}",
+                joint_word(*joint)
+            ),
+        ),
+        Stop::BadRead {
+            joint,
+            position,
+            from,
+        } => (
+            Level::Error,
+            format!(
+                "stopped: {} read {position} three times in a row, not where it can be (last good {from})",
+                joint_word(*joint)
+            ),
+        ),
         Stop::Overload {
             joint,
             load,
@@ -665,6 +688,23 @@ mod tests {
                     detail: "41 bytes of a late reply".into(),
                 },
                 "stopped: the servos did not answer as expected",
+            ),
+            (
+                Stop::Window {
+                    joint: 3,
+                    goal: 4_095,
+                    window: (1_627, 3_022),
+                    from: 2_047,
+                },
+                "stopped: elbow was not asked for 4095, outside 1627..=3022 or too far from 2047",
+            ),
+            (
+                Stop::BadRead {
+                    joint: 3,
+                    position: 37_639,
+                    from: 2_049,
+                },
+                "stopped: elbow read 37639 three times in a row, not where it can be (last good 2049)",
             ),
             (
                 Stop::Refused {

@@ -83,6 +83,11 @@ struct Lamp {
     /// whatever its goal: from, until, servo, position. Its load is a
     /// strain of the same time.
     hand: Option<(Duration, Duration, usize, f32)>,
+    /// Positions read that are not where a servo is: from this time, its
+    /// next reads give this, this many times. From, servo, reading, reads.
+    misreads: Vec<(Duration, usize, u16, u8)>,
+    /// When each read of the positions was answered.
+    read_times: Vec<Duration>,
 }
 
 struct Clock {
@@ -148,6 +153,8 @@ fn folded(cancel_at: Duration) -> (Lamp, Clock) {
             drops_goal: None,
             deaf: None,
             hand: None,
+            misreads: Vec::new(),
+            read_times: Vec::new(),
         },
         Clock { time, cancel_at },
     )
@@ -306,9 +313,22 @@ impl Lamp {
             match instruction {
                 0x82 => {
                     let (address, count) = (parameters[0], parameters[1]);
+                    let now = self.time.get();
+                    if address == 56 {
+                        self.read_times.push(now);
+                    }
                     for asked in parameters[2..].iter().copied() {
-                        let data =
-                            self.registers_of(&self.servos[usize::from(asked) - 1], address, count);
+                        let index = usize::from(asked) - 1;
+                        let mut servo = self.servos[index];
+                        if address == 56
+                            && let Some(misread) = self.misreads.iter_mut().find(|misread| {
+                                misread.1 == index && now >= misread.0 && misread.3 > 0
+                            })
+                        {
+                            servo.position = f32::from(misread.2);
+                            misread.3 -= 1;
+                        }
+                        let data = self.registers_of(&servo, address, count);
                         self.answer(asked, &data);
                     }
                     if address == 56
@@ -5788,4 +5808,1423 @@ fn a_pause_during_a_second_gesture_after_the_first_ended_still_folds() {
             .filter(|s| s.0 >= Duration::from_secs(22))
             .all(|s| s.1 == 0.0)
     );
+}
+
+/// lamp-4ace's standing pose and folded arm (`deploy/lamp-4ace/lamp-body.service`).
+fn lamp_4ace_standing() -> Standing {
+    Standing::new(
+        [2_048, 2_047],
+        [1_772, 2_043, 2_015, 2_657, 2_602],
+        100,
+        6,
+        90,
+        [950, 950],
+    )
+    .unwrap()
+}
+
+/// lamp-4ace, 2026-10-17 01:58: the elbow's goal register held 37,639 at
+/// start. The body took it as the arm's goal, the anti-tip cut clamped it
+/// to 4,095 and wrote it, and the elbow was driven past the seam. A
+/// register that is not a count near where the joint is found is not
+/// taken: the goal is where the joint is.
+#[test]
+fn a_goal_register_far_from_the_arm_is_not_taken_as_its_goal() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(1));
+    lamp.arm_moves = true;
+    // Its elbow without the old flag, and its goal register far off.
+    lamp.servos[2].status = 0;
+    lamp.servos[2].goal = 4_200;
+    // The head a little under home, so that it steps up to it.
+    lamp.servos[PITCH].position = 1_980.0;
+    lamp.servos[PITCH].goal = 1_980;
+    let report = run_alive(
+        &mut lamp,
+        &mut clock,
+        gesture_limits(),
+        Some(HOME),
+        Some(lamp_4ace_standing()),
+        None,
+        || Some((Mood::Resting, 0)),
+        Asked::default,
+        |_| {},
+    );
+    let elbow: Vec<u16> = lamp
+        .goals
+        .iter()
+        .flatten()
+        .filter(|(id, _)| *id == Joint::ElbowPitch.id())
+        .map(|(_, goal)| *goal)
+        .collect();
+    // Its first goal is where it is, not the register.
+    assert_eq!(elbow.first(), Some(&2_047), "{report:?}");
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert!(
+        elbow.iter().all(|goal| (1_627..=3_022).contains(goal)),
+        "{elbow:?}"
+    );
+}
+
+/// The guard where every arm goal goes to the wire: a goal outside its
+/// joint's window, or more than a step from the last, is refused before it
+/// is written, and says which joint, which goal and which window.
+#[test]
+fn an_arm_goal_outside_its_window_never_reaches_the_wire() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(1));
+    lamp.servos[2].status = 0;
+    {
+        let mut bus = Bus::new(&mut lamp, &mut clock, Some(lamp_4ace_standing()));
+        bus.samples().unwrap();
+        // Where it is, and a step from there: written.
+        bus.send_goals(HOME, Some([2_050, 2_047])).unwrap();
+        bus.send_goals(HOME, Some([2_050, 2_090])).unwrap();
+        // The seam, as lamp-4ace's elbow was sent: refused.
+        assert!(bus.send_goals(HOME, Some([2_050, 4_095])).is_err());
+        assert_eq!(
+            bus.refused.take(),
+            Some(Stop::Window {
+                joint: 3,
+                goal: 4_095,
+                window: (1_627, 3_022),
+                from: 2_090,
+            })
+        );
+        // Inside the window, but a jump of 310 counts in one step, 353 from
+        // where the elbow is: refused.
+        assert!(bus.send_goals(HOME, Some([2_050, 2_400])).is_err());
+        assert!(matches!(
+            bus.refused.take(),
+            Some(Stop::Window {
+                joint: 3,
+                goal: 2_400,
+                ..
+            })
+        ));
+    }
+    let elbow: Vec<u16> = lamp
+        .goals
+        .iter()
+        .flatten()
+        .filter(|(id, _)| *id == Joint::ElbowPitch.id())
+        .map(|(_, goal)| *goal)
+        .collect();
+    assert_eq!(elbow, [2_047, 2_090]);
+}
+
+/// lamp-4ace at 01:58:42 on 2026-10-17 (#705, the 02:05 P1): folded, at
+/// rest, its joints found at [2028, 2054, 2049, 2047, 1948], started as its
+/// unit starts it (`--stand 1772,2043,2015,2657,2602 --folded-arm
+/// 2048,2047 --stand-seconds 6 --awake-seconds 90 --idle on --wake on
+/// --rest-glance on --look-at-name on --home 1950,2043,2015`), with the
+/// elbow's goal register (42) reading 37639 (0x9307, as its journal
+/// showed) while the elbow sits at 2049. The body takes that register as the arm's last goal; folded, it is
+/// carried as the arm's goal; V1's anti-tip rule sees the lamp 47 mm back
+/// and cuts the head's first step home, and the cut's rounding clamps the
+/// elbow to 4095 and writes it: the lamp's own report, `cuts 1 ... 47.1 mm`,
+/// `stop: tracking, joint 3, goal 4095`. No goal outside a joint's own
+/// window (0..=4095, and here the way between folded and stood) may be
+/// written, whatever a register reads.
+#[test]
+fn an_elbow_goal_register_past_its_range_is_never_written_as_a_goal() {
+    for register in [37_639u16, 4_096] {
+        let (mut lamp, mut clock) = folded(Duration::from_secs(10));
+        lamp.arm_moves = true;
+        lamp.overload_clears = 1;
+        for (servo, at) in lamp
+            .servos
+            .iter_mut()
+            .zip([2_028.0, 2_054.0, 2_049.0, 2_047.0, 1_948.0])
+        {
+            servo.position = at;
+            servo.goal = at as u16;
+            servo.status = 0;
+        }
+        lamp.servos[2].goal = register;
+        let limits = Limits {
+            wake: true,
+            rest_glance: true,
+            look_at_name: true,
+            ..Limits::folded_with(Tuning {
+                reach: [150, 15, 1, 250],
+                speed: 120,
+                servo_speed: 1_000,
+                servo_acceleration: 60,
+            })
+            .unwrap()
+        };
+        let up = Standing::new(
+            [2_048, 2_047],
+            [1_772, 2_043, 2_015, 2_657, 2_602],
+            100,
+            6,
+            90,
+            [950, 950],
+        )
+        .unwrap()
+        .idling(true);
+        let report = run_alive(
+            &mut lamp,
+            &mut clock,
+            limits,
+            Some([1_950, 2_043, 2_015]),
+            Some(up),
+            None,
+            || Some((Mood::Resting, 0)),
+            Asked::default,
+            |_| {},
+        );
+        let elbow: Vec<u16> = lamp
+            .goals
+            .iter()
+            .flatten()
+            .filter(|(id, _)| *id == 3)
+            .map(|(_, goal)| *goal)
+            .collect();
+        // Its first goal is where it is, not the register.
+        assert_eq!(elbow.first(), Some(&2_049), "register {register}");
+        assert!(
+            elbow.iter().all(|goal| (2_040..=2_610).contains(goal)),
+            "register {register}: elbow asked {elbow:?}, {:?}, {:?}",
+            report.stop,
+            report.tipping
+        );
+        assert_eq!(report.stop, Stop::Cancelled, "register {register}");
+    }
+}
+
+/// lamp-4ace standing and folded as the seventh's test above has it, its
+/// goal registers where it is, with `misreads` of its positions: the run
+/// until it is asked to stop at ten seconds, and every elbow goal written.
+fn misread_4ace(misreads: Vec<(Duration, usize, u16, u8)>) -> (BodyReport, Vec<u16>, Lamp) {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(10));
+    lamp.arm_moves = true;
+    lamp.overload_clears = 1;
+    for (servo, at) in lamp
+        .servos
+        .iter_mut()
+        .zip([2_028.0, 2_054.0, 2_049.0, 2_047.0, 1_948.0])
+    {
+        servo.position = at;
+        servo.goal = at as u16;
+        servo.status = 0;
+    }
+    lamp.misreads = misreads;
+    let limits = Limits {
+        wake: true,
+        rest_glance: true,
+        look_at_name: true,
+        ..Limits::folded_with(Tuning {
+            reach: [150, 15, 1, 250],
+            speed: 120,
+            servo_speed: 1_000,
+            servo_acceleration: 60,
+        })
+        .unwrap()
+    };
+    let up = Standing::new(
+        [2_048, 2_047],
+        [1_772, 2_043, 2_015, 2_657, 2_602],
+        100,
+        6,
+        90,
+        [950, 950],
+    )
+    .unwrap()
+    .idling(true);
+    let report = run_alive(
+        &mut lamp,
+        &mut clock,
+        limits,
+        Some([1_950, 2_043, 2_015]),
+        Some(up),
+        None,
+        || Some((Mood::Resting, 0)),
+        Asked::default,
+        |_| {},
+    );
+    let elbow = lamp
+        .goals
+        .iter()
+        .flatten()
+        .filter(|(id, _)| *id == 3)
+        .map(|(_, goal)| *goal)
+        .collect();
+    (report, elbow, lamp)
+}
+
+/// lamp-4ace, 01:58:39: the body ended on `Cancelled`, and its exit sent
+/// the arm's last positions back as goals. One elbow reading of 37639 went
+/// out as the elbow's goal. A reading outside 0..=4095 is not where the
+/// joint is: it is counted, never written, and the run ends as asked.
+#[test]
+fn an_elbow_read_past_its_range_just_before_cancelled_is_never_written_as_a_goal() {
+    let (report, _, lamp) = misread_4ace(Vec::new());
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    let last = *lamp.read_times.last().unwrap();
+    let (report, elbow, lamp) = misread_4ace(vec![(last, 2, 37_639, 1)]);
+    assert!(lamp.misreads.iter().all(|misread| misread.3 == 0));
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!(report.bad_reads, [0, 0, 1, 0, 0]);
+    assert_eq!(report.last.unwrap()[2].position, 2_049);
+    assert!(
+        elbow.iter().all(|goal| (2_040..=2_610).contains(goal)),
+        "elbow asked {elbow:?}"
+    );
+}
+
+/// One bad read, out of range or too far from the step before, is counted
+/// and skipped: the run goes on as if the joint read where it was.
+#[test]
+fn one_bad_read_of_a_joint_is_counted_and_skipped() {
+    for reading in [37_639, 3_100] {
+        let (report, elbow, _) = misread_4ace(vec![(Duration::from_secs(4), 2, reading, 1)]);
+        assert_eq!(report.stop, Stop::Cancelled, "{reading}: {report:?}");
+        assert_eq!(report.bad_reads, [0, 0, 1, 0, 0], "{reading}");
+        assert!(
+            elbow.iter().all(|goal| (2_040..=2_610).contains(goal)),
+            "{reading}: elbow asked {elbow:?}"
+        );
+    }
+}
+
+/// Three bad reads of one joint in a row are a servo or a wire that cannot
+/// be trusted: the body stops, naming the joint, and writes none of them.
+#[test]
+fn three_bad_reads_of_a_joint_in_a_row_stop_the_body_naming_it() {
+    let (report, elbow, lamp) = misread_4ace(vec![(Duration::from_secs(4), 2, 37_639, 3)]);
+    // It stops on the third, not after more steps tried as a failed read.
+    let reads = lamp
+        .read_times
+        .iter()
+        .filter(|at| **at >= Duration::from_secs(4));
+    assert_eq!(reads.count(), 3, "{report:?}");
+    assert!(
+        matches!(
+            report.stop,
+            Stop::BadRead {
+                joint: 3,
+                position: 37_639,
+                from: 2_040..=2_610,
+            }
+        ),
+        "{report:?}"
+    );
+    assert_eq!(report.bad_reads, [0, 0, 3, 0, 0]);
+    assert!(
+        elbow.iter().all(|goal| (2_040..=2_610).contains(goal)),
+        "elbow asked {elbow:?}"
+    );
+}
+
+/// Taking hold of an arm joint writes its goal by itself, and that write is
+/// checked as every other arm goal is: an elbow found without torque
+/// outside its window is not given that as its goal.
+#[test]
+fn an_arm_joint_taken_hold_of_outside_its_window_is_not_given_that_goal() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(1));
+    lamp.may_take_hold = true;
+    lamp.arm_moves = true;
+    lamp.overload_clears = 1;
+    lamp.servos[2].torque = 0;
+    lamp.servos[2].position = 3_900.0;
+    lamp.servos[2].goal = 3_900;
+    let report = run_standing(
+        &mut lamp,
+        &mut clock,
+        Limits {
+            torque_on: true,
+            ..Limits::FOLDED
+        },
+        Some(HOME),
+        Some(standing(100, 5)),
+        || Some((Mood::Resting, 0)),
+        |_| {},
+    );
+    assert!(
+        lamp.registers
+            .iter()
+            .all(|(id, address, _)| (*id, *address) != (3, 42)),
+        "{:?}",
+        lamp.registers
+    );
+    assert!(
+        matches!(
+            report.stop,
+            Stop::Window {
+                joint: 3,
+                goal: 3_900,
+                ..
+            }
+        ),
+        "{report:?}"
+    );
+}
+
+/// An arm goal moves at most `ARM_GOAL_STEP` a step from the last one
+/// written, however near the arm reads: 240 counts from a goal and a
+/// reading both at 2047 is refused, and a hold may only lie between the
+/// last goal and where the arm steadily reads.
+#[test]
+fn an_arm_goal_is_never_more_than_a_step_from_the_last_unless_it_holds_where_the_arm_is() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(1));
+    lamp.servos[2].status = 0;
+    {
+        let mut bus = Bus::new(&mut lamp, &mut clock, Some(lamp_4ace_standing()));
+        bus.samples().unwrap();
+        bus.send_goals(HOME, Some([2_050, 2_047])).unwrap();
+        assert!(bus.send_goals(HOME, Some([2_050, 2_287])).is_err());
+        assert!(matches!(
+            bus.refused.take(),
+            Some(Stop::Window {
+                joint: 3,
+                goal: 2_287,
+                from: 2_047,
+                ..
+            })
+        ));
+    }
+    let elbow: Vec<u16> = lamp
+        .goals
+        .iter()
+        .flatten()
+        .filter(|(id, _)| *id == Joint::ElbowPitch.id())
+        .map(|(_, goal)| *goal)
+        .collect();
+    assert_eq!(elbow, [2_047]);
+}
+
+/// The seventh's probe on #1192: lamp-4ace folded at rest, the elbow truly
+/// at 2049, reads 900 counts off from the last step before it is asked to
+/// stop on. That reading is never written back as the elbow's goal at the
+/// exit, however long it stays.
+#[test]
+fn an_elbow_read_far_off_in_the_last_step_is_not_written_back_at_the_exit() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(10));
+    lamp.overload_clears = 1;
+    for (servo, at) in lamp
+        .servos
+        .iter_mut()
+        .zip([2_028.0, 2_054.0, 2_049.0, 2_047.0, 1_948.0])
+    {
+        servo.position = at;
+        servo.goal = at as u16;
+        servo.status = 0;
+    }
+    lamp.event = Some((Duration::from_millis(9_980), 2, Event::Push(900.0)));
+    let limits = Limits {
+        wake: true,
+        rest_glance: true,
+        look_at_name: true,
+        ..gesture_limits()
+    };
+    let report = run_alive(
+        &mut lamp,
+        &mut clock,
+        limits,
+        Some([1_950, 2_043, 2_015]),
+        Some(lamp_4ace_standing().idling(true)),
+        None,
+        || Some((Mood::Resting, 0)),
+        Asked::default,
+        |_| {},
+    );
+    let elbow: Vec<u16> = lamp
+        .goals
+        .iter()
+        .flatten()
+        .filter(|(id, _)| *id == 3)
+        .map(|(_, goal)| *goal)
+        .collect();
+    assert!(
+        elbow.iter().all(|goal| goal.abs_diff(2_049) <= 50),
+        "{elbow:?} {:?}",
+        report.stop
+    );
+    // It stays there, so three reads in a row are bad: the body stops on it.
+    assert!(
+        matches!(
+            report.stop,
+            Stop::BadRead {
+                joint: 3,
+                position: 2_949,
+                from: 2_049,
+            }
+        ),
+        "{report:?}"
+    );
+}
+
+/// Head and base goals are checked at the wire too: one past 4095, in the
+/// sync write or by itself, is never written.
+#[test]
+fn a_head_goal_past_the_servos_range_never_reaches_the_wire() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(1));
+    lamp.may_take_hold = true;
+    {
+        let mut bus = Bus::new(&mut lamp, &mut clock, None);
+        bus.samples().unwrap();
+        bus.send_goals(HOME, None).unwrap();
+        assert!(bus.send_goals([2_000, 2_044, 37_639], None).is_err());
+        assert!(matches!(
+            bus.refused.take(),
+            Some(Stop::Window {
+                joint: 1,
+                goal: 37_639,
+                window: (0, 4_095),
+                from: 2_015,
+            })
+        ));
+        assert!(bus.write_goal(Joint::WristRoll, 4_096, false).is_err());
+        assert!(matches!(
+            bus.refused.take(),
+            Some(Stop::Window { joint: 4, .. })
+        ));
+    }
+    assert_eq!(lamp.goals, [vec![(5, 2_000), (4, 2_044), (1, 2_015)]]);
+    assert!(lamp.registers.is_empty(), "{:?}", lamp.registers);
+}
+
+/// Part 4 of #1192: the hold at the end of a run that ended on a surprise
+/// writes the arm where it was last read, not the goal last written to it,
+/// which may be the one that ended the run. The elbow pushed 200 counts off
+/// its goal ends the run on `Tracking`, and is held where it was pushed.
+#[test]
+fn the_hold_after_a_surprise_writes_the_arm_where_it_was_last_read() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(10));
+    lamp.overload_clears = 1;
+    for (servo, at) in lamp
+        .servos
+        .iter_mut()
+        .zip([2_028.0, 2_054.0, 2_049.0, 2_047.0, 1_948.0])
+    {
+        servo.position = at;
+        servo.goal = at as u16;
+        servo.status = 0;
+    }
+    lamp.event = Some((Duration::from_millis(4_000), 2, Event::Push(200.0)));
+    let limits = Limits {
+        wake: true,
+        rest_glance: true,
+        look_at_name: true,
+        ..gesture_limits()
+    };
+    let report = run_alive(
+        &mut lamp,
+        &mut clock,
+        limits,
+        Some([1_950, 2_043, 2_015]),
+        Some(lamp_4ace_standing().idling(true)),
+        None,
+        || Some((Mood::Resting, 0)),
+        Asked::default,
+        |_| {},
+    );
+    assert_eq!(
+        report.stop,
+        Stop::Tracking {
+            joint: 3,
+            goal: 2_049,
+            position: 2_249,
+        },
+        "{report:?}"
+    );
+    assert!(report.held_at.is_some(), "{report:?}");
+    let last = lamp.goals.last().unwrap();
+    assert!(last.contains(&(3, 2_249)), "{last:?}");
+}
+
+/// The seventh's 03:33 probe on #1192: the elbow truly at 2049 reads 2289
+/// or 2349 (under `READ_JUMP`, steady) from the last steps before it is
+/// asked to stop. The exit, the one write that keeps torque on, never
+/// writes it: the run ends on `Window` and lets go.
+#[test]
+fn a_steady_wrong_elbow_reading_before_cancelled_is_not_written_at_the_exit() {
+    for (from, reading) in [(9_900, 2_289), (9_960, 2_289), (9_900, 2_349)] {
+        let (report, elbow, _) =
+            misread_4ace(vec![(Duration::from_millis(from), 2, reading, u8::MAX)]);
+        assert!(
+            elbow.iter().all(|goal| goal.abs_diff(2_049) <= 50),
+            "{from} {reading}: {elbow:?} {:?}",
+            report.stop
+        );
+        assert!(
+            matches!(
+                report.stop,
+                Stop::Window {
+                    joint: 3,
+                    goal,
+                    from: 2_049,
+                    ..
+                } if goal == reading
+            ),
+            "{from} {reading}: {report:?}"
+        );
+    }
+}
+
+/// A hold where the arm is asks only for a reading the arm has held for a
+/// step: the elbow reads 200 counts off in the very step its servo flags a
+/// fault. The hold does not write that reading, and the run ends on the
+/// fault, not on the refused hold.
+#[test]
+fn a_hold_at_a_reading_that_just_jumped_is_not_written_and_the_fault_stands() {
+    let at = Duration::from_secs(4);
+    let (mut lamp, mut clock) = folded(Duration::from_secs(10));
+    lamp.arm_moves = true;
+    lamp.overload_clears = 1;
+    for (servo, position) in lamp
+        .servos
+        .iter_mut()
+        .zip([2_028.0, 2_054.0, 2_049.0, 2_047.0, 1_948.0])
+    {
+        servo.position = position;
+        servo.goal = position as u16;
+        servo.status = 0;
+    }
+    lamp.misreads = vec![(at, 2, 2_249, u8::MAX)];
+    lamp.event = Some((at, 2, Event::Flag(0x20)));
+    let limits = Limits {
+        wake: true,
+        rest_glance: true,
+        look_at_name: true,
+        ..gesture_limits()
+    };
+    let report = run_alive(
+        &mut lamp,
+        &mut clock,
+        limits,
+        Some([1_950, 2_043, 2_015]),
+        Some(lamp_4ace_standing().idling(true)),
+        None,
+        || Some((Mood::Resting, 0)),
+        Asked::default,
+        |_| {},
+    );
+    let elbow: Vec<u16> = lamp
+        .goals
+        .iter()
+        .flatten()
+        .filter(|(id, _)| *id == 3)
+        .map(|(_, goal)| *goal)
+        .collect();
+    assert!(
+        elbow.iter().all(|goal| goal.abs_diff(2_049) <= 50),
+        "{elbow:?} {:?}",
+        report.stop
+    );
+    assert!(
+        matches!(report.stop, Stop::Status { joint: 3, .. }),
+        "{report:?}"
+    );
+}
+
+/// Three bad reads in a row end the run on the third, whatever it is doing:
+/// the reads made from when they begin.
+fn reads_from(lamp: &Lamp, from: Duration) -> usize {
+    lamp.read_times.iter().filter(|at| **at >= from).count()
+}
+
+/// While the head wakes out of the base, three bad reads of the elbow stop
+/// the body on the third.
+#[test]
+fn three_bad_reads_while_waking_stop_the_body_on_the_third() {
+    let from = Duration::from_secs(2);
+    let (mut lamp, mut clock) = folded(Duration::from_secs(12));
+    lamp.servos[PITCH].position = 2_095.0;
+    lamp.servos[PITCH].goal = 2_095;
+    lamp.misreads = vec![(from, 2, 37_639, 3)];
+    let report = run(
+        &mut lamp,
+        &mut clock,
+        waking(),
+        Some(HOME),
+        || Some((Mood::Resting, 0)),
+        |_| {},
+    );
+    assert!(
+        matches!(report.stop, Stop::BadRead { joint: 3, .. }),
+        "{report:?}"
+    );
+    assert_eq!(reads_from(&lamp, from), 3, "{report:?}");
+}
+
+/// While the lamp lies let go under overload, three bad reads of the base
+/// stop the body on the third.
+#[test]
+fn three_bad_reads_while_let_go_stop_the_body_on_the_third() {
+    let from = Duration::from_secs(20);
+    let (mut lamp, mut clock) = folded(Duration::from_secs(60));
+    lamp.may_take_hold = true;
+    lamp.strains = vec![(Duration::from_secs(1), Duration::from_secs_f32(2.6), 2, 800)];
+    lamp.misreads = vec![(from, YAW, 37_639, 3)];
+    let report = run(
+        &mut lamp,
+        &mut clock,
+        releasing(),
+        Some(HOME),
+        || Some((Mood::Resting, 0)),
+        |_| {},
+    );
+    assert!(
+        matches!(report.stop, Stop::BadRead { joint: 1, .. }),
+        "{report:?}"
+    );
+    assert_eq!(reads_from(&lamp, from), 3, "{report:?}");
+}
+
+/// While a shoulder left up is lowered, three bad reads of the base stop
+/// the body on the third.
+#[test]
+fn three_bad_reads_while_lowering_the_shoulder_stop_the_body_on_the_third() {
+    let from = Duration::from_secs(10);
+    let (mut lamp, mut clock) = folded(Duration::from_secs(70));
+    lamp.may_take_hold = true;
+    lamp.arm_moves = true;
+    for (index, at) in [
+        (YAW, 1_979.0),
+        (1, 2_633.0),
+        (2, 2_074.0),
+        (ROLL, 2_101.0),
+        (PITCH, 2_029.0),
+    ] {
+        let servo = &mut lamp.servos[index];
+        (servo.position, servo.goal, servo.torque, servo.status) = (at, 0, 0, 0);
+    }
+    lamp.misreads = vec![(from, YAW, 37_639, 3)];
+    lamp.heavy = Some((PITCH, 1_850.0, 37.0, 232));
+    let limits = Limits {
+        force: Some(600),
+        torque_on: true,
+        wake: true,
+        ..Limits::folded_with(Tuning {
+            reach: [150, 15, 1, 250],
+            speed: 120,
+            servo_speed: 1_000,
+            servo_acceleration: 60,
+        })
+        .unwrap()
+    };
+    let up = Standing::new(
+        [2_053, 2_069],
+        [1_772, 2_035, 2_035, 2_657, 2_602],
+        100,
+        5,
+        90,
+        [560, 560],
+    )
+    .unwrap();
+    // Spoken to once it is awake.
+    let time = clock.time.clone();
+    let news = move || {
+        Some(if time.get() > Duration::from_secs(50) {
+            (Mood::Listening, 120)
+        } else {
+            (Mood::Resting, 0)
+        })
+    };
+    let report = run_standing(
+        &mut lamp,
+        &mut clock,
+        limits,
+        Some([1_771, 2_035, 2_035]),
+        Some(up),
+        news,
+        |_| {},
+    );
+    assert!(
+        matches!(report.stop, Stop::BadRead { joint: 1, .. }),
+        "{report:?}"
+    );
+    assert!(report.lowered.is_some(), "{report:?}");
+    assert_eq!(reads_from(&lamp, from), 3, "{report:?}");
+}
+
+/// While a shoulder left up is lowered, its servo flags a fault in the
+/// step it reads 200 counts off. The hold where it is asks only for a
+/// reading the arm has held for a step, so it does not write that one, and
+/// the run ends on the fault.
+#[test]
+fn a_fault_while_lowering_the_shoulder_stands_whatever_its_hold() {
+    let at = Duration::from_secs(10);
+    let (mut lamp, mut clock) = folded(Duration::from_secs(70));
+    lamp.may_take_hold = true;
+    lamp.arm_moves = true;
+    for (index, at) in [
+        (YAW, 1_979.0),
+        (1, 2_633.0),
+        (2, 2_074.0),
+        (ROLL, 2_101.0),
+        (PITCH, 2_029.0),
+    ] {
+        let servo = &mut lamp.servos[index];
+        (servo.position, servo.goal, servo.torque, servo.status) = (at, 0, 0, 0);
+    }
+    lamp.misreads = vec![(at, 1, 2_200, u8::MAX)];
+    lamp.event = Some((at, 1, Event::Flag(0x20)));
+    lamp.heavy = Some((PITCH, 1_850.0, 37.0, 232));
+    let limits = Limits {
+        force: Some(600),
+        torque_on: true,
+        wake: true,
+        ..Limits::folded_with(Tuning {
+            reach: [150, 15, 1, 250],
+            speed: 120,
+            servo_speed: 1_000,
+            servo_acceleration: 60,
+        })
+        .unwrap()
+    };
+    let up = Standing::new(
+        [2_053, 2_069],
+        [1_772, 2_035, 2_035, 2_657, 2_602],
+        100,
+        5,
+        90,
+        [560, 560],
+    )
+    .unwrap();
+    // Spoken to once it is awake.
+    let time = clock.time.clone();
+    let news = move || {
+        Some(if time.get() > Duration::from_secs(50) {
+            (Mood::Listening, 120)
+        } else {
+            (Mood::Resting, 0)
+        })
+    };
+    let report = run_standing(
+        &mut lamp,
+        &mut clock,
+        limits,
+        Some([1_771, 2_035, 2_035]),
+        Some(up),
+        news,
+        |_| {},
+    );
+    let shoulder = goals_of(&lamp, Joint::BasePitch);
+    assert!(!shoulder.contains(&2_200), "{shoulder:?}");
+    assert!(
+        matches!(report.stop, Stop::Status { joint: 2, .. }),
+        "{report:?}"
+    );
+}
+
+/// The seventh's 04:03 probe on #1192: the elbow, truly at 2049 with its
+/// goal register there, reads 2117 from the very first read. Its first goal
+/// is that reading; the next step asks it back to the register, 68 counts
+/// at once, and is refused. That ends the run at that step on `Window`,
+/// not tried again as a failed write.
+#[test]
+fn an_arm_goal_refused_in_a_step_ends_the_run_at_that_step() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(10));
+    lamp.overload_clears = 1;
+    for (servo, at) in lamp
+        .servos
+        .iter_mut()
+        .zip([2_028.0, 2_054.0, 2_049.0, 2_047.0, 1_948.0])
+    {
+        servo.position = at;
+        servo.goal = at as u16;
+        servo.status = 0;
+    }
+    // Wrong for the whole run: more reads than one entry gives.
+    lamp.misreads = vec![(Duration::ZERO, 2, 2_117, u8::MAX); 4];
+    let limits = Limits {
+        wake: true,
+        rest_glance: true,
+        look_at_name: true,
+        ..gesture_limits()
+    };
+    let report = run_alive(
+        &mut lamp,
+        &mut clock,
+        limits,
+        Some([1_950, 2_043, 2_015]),
+        Some(lamp_4ace_standing().idling(true)),
+        None,
+        || Some((Mood::Resting, 0)),
+        Asked::default,
+        |_| {},
+    );
+    let elbow: Vec<u16> = lamp
+        .goals
+        .iter()
+        .flatten()
+        .filter(|(id, _)| *id == 3)
+        .map(|(_, goal)| *goal)
+        .collect();
+    assert_eq!(elbow, [2_117], "{report:?}");
+    assert_eq!(
+        report.stop,
+        Stop::Window {
+            joint: 3,
+            goal: 2_049,
+            window: (1_627, 3_022),
+            from: 2_117,
+        },
+        "{report:?}"
+    );
+    assert_eq!(report.missed_reads, 0, "{report:?}");
+}
+
+/// The reviewer's 04:14 probe on #1192: lamp-4ace talked to from 1 to 3 s,
+/// awake 5 s, so it stands, folds and comes to rest. The elbow, truly at
+/// 2047, reads 2189 from somewhere between 13 and 15.5 s on. Coming to
+/// rest takes the arm's resting goal from where it reads only within a
+/// step of the goal it had: that reading is never written.
+#[test]
+fn a_steady_wrong_elbow_reading_as_the_arm_comes_to_rest_is_not_its_resting_goal() {
+    for start in [13_000, 14_000, 15_000, 15_500] {
+        let start = Duration::from_millis(start);
+        let (mut lamp, mut clock) = folded(Duration::from_secs(20));
+        lamp.arm_moves = true;
+        lamp.overload_clears = 1;
+        for (servo, at) in lamp
+            .servos
+            .iter_mut()
+            .zip([2_028.0, 2_054.0, 2_047.0, 2_047.0, 1_948.0])
+        {
+            servo.position = at;
+            servo.goal = at as u16;
+            servo.status = 0;
+        }
+        lamp.misreads = vec![(start, 2, 2_189, u8::MAX); 4];
+        let up = Standing::new(
+            [2_048, 2_047],
+            [1_772, 2_043, 2_015, 2_657, 2_602],
+            100,
+            6,
+            5,
+            [950, 950],
+        )
+        .unwrap();
+        let time = clock.time.clone();
+        let news = move || {
+            Some(
+                if (Duration::from_secs(1)..Duration::from_secs(3)).contains(&time.get()) {
+                    (Mood::Listening, 100)
+                } else {
+                    (Mood::Resting, 0)
+                },
+            )
+        };
+        let report = run_alive(
+            &mut lamp,
+            &mut clock,
+            gesture_limits(),
+            Some([1_950, 2_043, 2_015]),
+            Some(up),
+            None,
+            news,
+            Asked::default,
+            |_| {},
+        );
+        assert!(report.stood, "{report:?}");
+        let late: Vec<u16> = lamp
+            .goals
+            .iter()
+            .zip(&lamp.goal_times)
+            .filter(|(_, at)| **at >= start)
+            .flat_map(|(write, _)| write.iter())
+            .filter(|(id, _)| *id == 3)
+            .map(|(_, goal)| *goal)
+            .collect();
+        // Still folding at the start or already down: from then on the
+        // elbow is only ever asked down, to its rest at 2047.
+        assert!(
+            late.windows(2).all(|pair| pair[1] <= pair[0])
+                && late.last().is_none_or(|goal| goal.abs_diff(2_047) <= 50),
+            "{start:?}: {late:?} {:?}",
+            report.stop
+        );
+    }
+}
+
+/// An arm pose whose window (420 either side) would reach past 0 or 4095
+/// is refused, so no window is ever cut at the seam.
+#[test]
+fn an_arm_pose_whose_window_would_reach_the_seam_is_refused() {
+    let pose = |folded: [u16; 2], shoulder: u16, elbow: u16| {
+        Standing::new(
+            folded,
+            [1_772, 2_043, 2_015, shoulder, elbow],
+            100,
+            6,
+            90,
+            [950, 950],
+        )
+    };
+    assert!(pose([2_048, 2_047], 2_657, 2_602).is_ok());
+    assert!(pose([2_048, 3_400], 2_657, 3_675).is_ok());
+    assert!(pose([2_048, 3_400], 2_657, 3_676).is_err());
+    assert!(pose([420, 2_047], 600, 2_602).is_ok());
+    assert!(pose([419, 2_047], 600, 2_602).is_err());
+}
+
+/// One lamp's standing flags: `--stand`, `--folded-arm`, `--home` and
+/// `--arm-load`.
+struct Flags {
+    stand: [u16; 5],
+    folded: [u16; 2],
+    home: [u16; 3],
+    load: [u16; 2],
+}
+
+const LAMP_4ACE: Flags = Flags {
+    stand: [1_772, 2_043, 2_015, 2_657, 2_602],
+    folded: [2_048, 2_047],
+    home: [1_950, 2_043, 2_015],
+    load: [950, 950],
+};
+
+const LAMP_52E6: Flags = Flags {
+    stand: [1_772, 2_035, 2_035, 2_657, 2_602],
+    folded: [2_053, 2_069],
+    home: [1_771, 2_035, 2_035],
+    load: [560, 560],
+};
+
+/// A lamp with these flags, found folded, run for `seconds` as its unit
+/// runs it (give way, limp, wake, rest glance, idle), awake `awake` s after
+/// it is talked to from 1 to 3 s and in each of `talks`, `prepare`d, asked
+/// to nod at each of `nods`. The run's end and every arm goal write,
+/// shoulder and elbow.
+fn standing_session(
+    flags: &Flags,
+    seconds: u64,
+    awake: u16,
+    talks: &[(Duration, Duration)],
+    nods: &[Duration],
+    prepare: impl FnOnce(&mut Lamp),
+) -> (BodyReport, Vec<[u16; 2]>) {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(seconds));
+    lamp.arm_moves = true;
+    lamp.overload_clears = 1;
+    let found = [
+        flags.home[2],
+        flags.folded[0],
+        flags.folded[1],
+        flags.home[1],
+        flags.home[0],
+    ];
+    for (servo, at) in lamp.servos.iter_mut().zip(found) {
+        servo.position = f32::from(at);
+        servo.goal = at;
+        servo.status = 0;
+    }
+    prepare(&mut lamp);
+    let up = Standing::new(flags.folded, flags.stand, 100, 6, awake, flags.load)
+        .unwrap()
+        .idling(true);
+    let limits = Limits {
+        give_way: Some(GiveWay::Return),
+        limp: true,
+        wake: true,
+        rest_glance: true,
+        look_at_name: true,
+        ..gesture_limits()
+    };
+    let time = clock.time.clone();
+    let mut talks = talks.to_vec();
+    talks.push((Duration::from_secs(1), Duration::from_secs(3)));
+    let news = move || {
+        let now = time.get();
+        Some(
+            if talks
+                .iter()
+                .any(|(from, until)| (*from..*until).contains(&now))
+            {
+                (Mood::Listening, 100)
+            } else {
+                (Mood::Resting, 0)
+            },
+        )
+    };
+    let asked_at = clock.time.clone();
+    let mut due: Vec<Duration> = nods.to_vec();
+    let report = run_alive(
+        &mut lamp,
+        &mut clock,
+        limits,
+        Some(flags.home),
+        Some(up),
+        None,
+        news,
+        move || {
+            let now = asked_at.get();
+            let nod = due.first().is_some_and(|at| now >= *at);
+            if nod {
+                due.remove(0);
+            }
+            Asked {
+                gesture: nod.then_some(&crate::clips::NOD),
+                ..Asked::default()
+            }
+        },
+        |_| {},
+    );
+    let arm = lamp
+        .goals
+        .iter()
+        .filter_map(|write| {
+            let of = |id: u8| {
+                write
+                    .iter()
+                    .find(|(at, _)| *at == id)
+                    .map(|(_, goal)| *goal)
+            };
+            Some([of(2)?, of(3)?])
+        })
+        .collect();
+    (report, arm)
+}
+
+/// The largest move of an arm goal from one write to the next.
+fn largest_arm_step(arm: &[[u16; 2]]) -> u16 {
+    arm.windows(2)
+        .flat_map(|pair| (0..2).map(move |index| pair[0][index].abs_diff(pair[1][index])))
+        .max()
+        .unwrap_or(0)
+}
+
+/// lamp-52e6 on 2026-10-17 at 04:26 (#1192): stood up, its shoulder short
+/// of its pose at 2609 and told to stop pushing there, then asked to nod.
+/// The nod's first goal was 2683, 74 counts from the hold in one step, and
+/// the guard let the standing lamp go (`window`, joint 2). With each lamp's
+/// flags: stand, a nod while held short, rest, idle shifts (awake five
+/// minutes, so that some come), fold. No arm goal moves more than
+/// `ARM_GOAL_STEP` a write, and the run ends as asked.
+#[test]
+fn a_standing_session_never_moves_an_arm_goal_more_than_a_step_a_write() {
+    for (name, flags) in [("lamp-4ace", &LAMP_4ACE), ("lamp-52e6", &LAMP_52E6)] {
+        let nod = [Duration::from_secs(8)];
+        let (report, arm) = standing_session(flags, 400, 300, &[], &nod, |lamp| {
+            lamp.wall = Some((1, 2_609.0));
+        });
+        assert!(report.stalls[3] >= 1, "{name}: {report:?}");
+        assert!(report.idles >= 1, "{name}: {report:?}");
+        assert!(report.gestures >= 1, "{name}: {report:?}");
+        assert_eq!(report.stop, Stop::Cancelled, "{name}: {report:?}");
+        assert!(
+            largest_arm_step(&arm) <= ARM_GOAL_STEP,
+            "{name}: {}",
+            largest_arm_step(&arm)
+        );
+    }
+}
+
+/// A nod asked right after a hand lets go of the folded elbow it lifted
+/// 150 counts and held: the arm is still on its way back down, and the lamp
+/// stands up for the nod from there. With each lamp's flags (awake 5 s, so
+/// it is folded at rest by then), no arm goal moves more than a step a
+/// write except the hold where the hand put it, and no `Window` stop.
+#[test]
+fn a_nod_right_after_a_hand_lets_go_of_the_arm_does_not_stop_the_lamp() {
+    for (name, flags) in [("lamp-4ace", &LAMP_4ACE), ("lamp-52e6", &LAMP_52E6)] {
+        let ms = Duration::from_millis;
+        let nod = [ms(25_200)];
+        let (report, _) = standing_session(flags, 45, 5, &[], &nod, |lamp| {
+            let rest = f32::from(flags.folded[1]);
+            lamp.hand = Some((ms(20_000), ms(24_000), 2, rest + 150.0));
+            lamp.strains = vec![(ms(20_000), ms(24_000), 2, 200)];
+        });
+        assert!(report.stalls[4] >= 1, "{name}: {report:?}");
+        assert!(report.gestures >= 1, "{name}: {report:?}");
+        assert_eq!(report.stop, Stop::Cancelled, "{name}: {report:?}");
+    }
+}
+
+/// A give-way hold on the arm let go by the rise: the folded elbow pushed
+/// 80 counts down by a hand and held there, then the lamp is talked to and
+/// rises, which lets the hold go 100 counts from where the rise wants the
+/// elbow. With each lamp's flags it eases there, and no `Window` stop.
+#[test]
+fn a_hold_let_go_by_the_rise_eases_and_does_not_stop_the_lamp() {
+    for (name, flags) in [("lamp-4ace", &LAMP_4ACE), ("lamp-52e6", &LAMP_52E6)] {
+        let ms = Duration::from_millis;
+        let talk = [(ms(23_500), ms(26_000))];
+        let (report, _) = standing_session(flags, 45, 5, &talk, &[], |lamp| {
+            let rest = f32::from(flags.folded[1]);
+            lamp.hand = Some((ms(20_000), ms(24_000), 2, rest - 80.0));
+            lamp.strains = vec![(ms(20_000), ms(24_000), 2, 200)];
+        });
+        assert!(report.stalls[4] >= 1, "{name}: {report:?}");
+        assert!(
+            !matches!(report.stop, Stop::Window { .. }),
+            "{name}: {report:?}"
+        );
+    }
+}
+
+/// The same let go by the fold: the standing elbow pushed 80 counts up by
+/// a hand and held there, then the lamp's awake time (20 s) runs out and it
+/// folds.
+#[test]
+fn a_hold_let_go_by_the_fold_eases_and_does_not_stop_the_lamp() {
+    for (name, flags) in [("lamp-4ace", &LAMP_4ACE), ("lamp-52e6", &LAMP_52E6)] {
+        let ms = Duration::from_millis;
+        let (report, _) = standing_session(flags, 45, 20, &[], &[], |lamp| {
+            let pose = f32::from(flags.stand[4]);
+            lamp.hand = Some((ms(12_000), ms(20_000), 2, pose + 80.0));
+            lamp.strains = vec![(ms(12_000), ms(20_000), 2, 450)];
+        });
+        assert!(report.stalls[4] >= 1, "{name}: {report:?}");
+        assert!(
+            !matches!(report.stop, Stop::Window { .. }),
+            "{name}: {report:?}"
+        );
+    }
+}
+
+/// The reviewer's 04:39 probe on #1192: the folded elbow truly rests 60
+/// counts short of its fold (on a mat, a stiff joint) and pushes there. As
+/// it comes to rest it is left where it lies, at 2107, not walked back to
+/// 2047 to push again, and the run ends as asked rather than on `Window` at
+/// the exit; a misread with nothing pushing keeps its goal (the test above).
+#[test]
+fn an_arm_resting_short_of_its_fold_and_pushing_is_left_where_it_lies() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(30));
+    lamp.arm_moves = true;
+    lamp.overload_clears = 1;
+    for (servo, at) in lamp
+        .servos
+        .iter_mut()
+        .zip([2_028.0, 2_054.0, 2_047.0, 2_047.0, 1_948.0])
+    {
+        servo.position = at;
+        servo.goal = at as u16;
+        servo.status = 0;
+    }
+    lamp.short = Some((2, 60.0));
+    lamp.strains = vec![(
+        Duration::from_millis(14_700),
+        Duration::from_secs(20),
+        2,
+        160,
+    )];
+    let up = Standing::new(
+        [2_048, 2_047],
+        [1_772, 2_043, 2_015, 2_657, 2_602],
+        100,
+        6,
+        5,
+        [950, 950],
+    )
+    .unwrap();
+    let time = clock.time.clone();
+    let news = move || {
+        Some(
+            if (Duration::from_secs(1)..Duration::from_secs(3)).contains(&time.get()) {
+                (Mood::Listening, 100)
+            } else {
+                (Mood::Resting, 0)
+            },
+        )
+    };
+    let limits = Limits {
+        give_way: Some(GiveWay::Return),
+        ..gesture_limits()
+    };
+    let report = run_alive(
+        &mut lamp,
+        &mut clock,
+        limits,
+        Some([1_950, 2_043, 2_015]),
+        Some(up),
+        None,
+        news,
+        Asked::default,
+        |_| {},
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    let elbow: Vec<u16> = lamp
+        .goals
+        .iter()
+        .flatten()
+        .filter(|(id, _)| *id == 3)
+        .map(|(_, goal)| *goal)
+        .collect();
+    assert_eq!(elbow.last(), Some(&2_107), "{elbow:?}");
+}
+
+/// The reviewer's 04:53 probe on #1192: an elbow goal outside its window
+/// (4095 on lamp-4ace) is not eased toward, 50 counts a step, to the edge:
+/// it is left for the guard, which refuses it at once, nothing written.
+#[test]
+fn an_arm_goal_outside_its_window_is_not_eased_toward() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(1));
+    lamp.servos[2].status = 0;
+    {
+        let mut bus = Bus::new(&mut lamp, &mut clock, Some(lamp_4ace_standing()));
+        bus.samples().unwrap();
+        bus.send_goals(HOME, Some([2_050, 2_047])).unwrap();
+        let goal = bus.eased(Joint::ElbowPitch, 2_047, 4_095, false);
+        assert_eq!(goal, 4_095);
+        assert!(bus.send_goals(HOME, Some([2_050, goal])).is_err());
+        assert_eq!(
+            bus.refused.take(),
+            Some(Stop::Window {
+                joint: 3,
+                goal: 4_095,
+                window: (1_627, 3_022),
+                from: 2_047,
+            })
+        );
+        // Inside the window it still eases.
+        assert_eq!(bus.eased(Joint::ElbowPitch, 2_047, 2_400, false), 2_097);
+    }
+    let elbow: Vec<u16> = lamp
+        .goals
+        .iter()
+        .flatten()
+        .filter(|(id, _)| *id == 3)
+        .map(|(_, goal)| *goal)
+        .collect();
+    assert_eq!(elbow, [2_047]);
+}
+
+/// The seventh's 05:12 probe on #1192: the same misread of 2189 while the
+/// elbow also reads a load of 160. It reached that reading by a jump, not
+/// by coming down, so it is still not its resting goal.
+#[test]
+fn a_steady_wrong_elbow_reading_under_load_as_the_arm_comes_to_rest_is_not_its_resting_goal() {
+    for start in [13_000, 14_000, 15_000, 15_500] {
+        let start = Duration::from_millis(start);
+        let (mut lamp, mut clock) = folded(Duration::from_secs(20));
+        lamp.arm_moves = true;
+        lamp.overload_clears = 1;
+        for (servo, at) in lamp
+            .servos
+            .iter_mut()
+            .zip([2_028.0, 2_054.0, 2_047.0, 2_047.0, 1_948.0])
+        {
+            servo.position = at;
+            servo.goal = at as u16;
+            servo.status = 0;
+        }
+        lamp.misreads = vec![(start, 2, 2_189, u8::MAX); 4];
+        lamp.strains = vec![(start, Duration::from_secs(20), 2, 160)];
+        let up = Standing::new(
+            [2_048, 2_047],
+            [1_772, 2_043, 2_015, 2_657, 2_602],
+            100,
+            6,
+            5,
+            [950, 950],
+        )
+        .unwrap();
+        let time = clock.time.clone();
+        let news = move || {
+            Some(
+                if (Duration::from_secs(1)..Duration::from_secs(3)).contains(&time.get()) {
+                    (Mood::Listening, 100)
+                } else {
+                    (Mood::Resting, 0)
+                },
+            )
+        };
+        let report = run_alive(
+            &mut lamp,
+            &mut clock,
+            gesture_limits(),
+            Some([1_950, 2_043, 2_015]),
+            Some(up),
+            None,
+            news,
+            Asked::default,
+            |_| {},
+        );
+        assert!(report.stood, "{report:?}");
+        let late: Vec<u16> = lamp
+            .goals
+            .iter()
+            .zip(&lamp.goal_times)
+            .filter(|(_, at)| **at >= start)
+            .flat_map(|(write, _)| write.iter())
+            .filter(|(id, _)| *id == 3)
+            .map(|(_, goal)| *goal)
+            .collect();
+        // Still folding at the start or already down: from then on the
+        // elbow is only ever asked down, to its rest at 2047.
+        assert!(
+            late.windows(2).all(|pair| pair[1] <= pair[0])
+                && late.last().is_none_or(|goal| goal.abs_diff(2_047) <= 50),
+            "{start:?}: {late:?} {:?}",
+            report.stop
+        );
+    }
+}
+
+/// The reviewer's 05:32 probe on #1192: lamp-4ace folded at rest, its
+/// elbow asked 2900 at once, inside its window but 851 from its goal. It is
+/// not walked there 50 a step: it is refused at once, nothing written.
+#[test]
+fn an_arm_goal_farther_than_a_hold_release_is_refused_not_eased_toward() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(1));
+    lamp.servos[2].status = 0;
+    lamp.servos[2].position = 2_049.0;
+    {
+        let mut bus = Bus::new(&mut lamp, &mut clock, Some(lamp_4ace_standing()));
+        bus.samples().unwrap();
+        bus.send_goals(HOME, Some([2_050, 2_049])).unwrap();
+        let goal = bus.eased(Joint::ElbowPitch, 2_049, 2_900, false);
+        assert_eq!(goal, 2_900);
+        assert!(bus.send_goals(HOME, Some([2_050, goal])).is_err());
+        assert_eq!(
+            bus.refused.take(),
+            Some(Stop::Window {
+                joint: 3,
+                goal: 2_900,
+                window: (1_627, 3_022),
+                from: 2_049,
+            })
+        );
+        // A hold let go, 318 off at most in the runs measured, still eases.
+        assert_eq!(bus.eased(Joint::ElbowPitch, 2_049, 2_367, false), 2_099);
+    }
+    let elbow: Vec<u16> = lamp
+        .goals
+        .iter()
+        .flatten()
+        .filter(|(id, _)| *id == 3)
+        .map(|(_, goal)| *goal)
+        .collect();
+    assert_eq!(elbow, [2_049]);
+}
+
+/// The reviewer's 05:51 probe on #1192: a folded elbow at rest asked 2449,
+/// 400 from its goal and inside both its window and `ARM_EASE_REACH`. A
+/// resting arm has no hold to let go, so nothing eases it there: the guard
+/// refuses it at once, nothing written.
+#[test]
+fn a_resting_arm_goal_more_than_a_step_away_is_refused_not_eased_toward() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(1));
+    lamp.servos[2].status = 0;
+    lamp.servos[2].position = 2_049.0;
+    {
+        let mut bus = Bus::new(&mut lamp, &mut clock, Some(lamp_4ace_standing()));
+        bus.samples().unwrap();
+        bus.send_goals(HOME, Some([2_050, 2_049])).unwrap();
+        assert_eq!(bus.eased(Joint::ElbowPitch, 2_049, 2_449, false), 2_099);
+        let goal = bus.eased(Joint::ElbowPitch, 2_049, 2_449, true);
+        assert_eq!(goal, 2_449);
+        assert!(bus.send_goals(HOME, Some([2_050, goal])).is_err());
+        assert!(matches!(
+            bus.refused.take(),
+            Some(Stop::Window {
+                joint: 3,
+                goal: 2_449,
+                from: 2_049,
+                ..
+            })
+        ));
+    }
+    let elbow: Vec<u16> = lamp
+        .goals
+        .iter()
+        .flatten()
+        .filter(|(id, _)| *id == 3)
+        .map(|(_, goal)| *goal)
+        .collect();
+    assert_eq!(elbow, [2_049]);
 }

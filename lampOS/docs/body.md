@@ -90,6 +90,7 @@ let go, and nothing is written after that, when:
 | The shoulder or the elbow away from where it was found, in a body that does not stand | 6 counts |
 | A commanded joint's temperature register, on every step for a second | 62 |
 | A read, or a write, that fails on every step for half a second (25 steps) | missing, late, malformed or unexpected bytes |
+| An arm goal outside its joint's window, or too far in one step (below) | refused before it is written, at once |
 
 The same let-go ends every run that stops on a surprise, not only one in
 the loop: taking hold, a profile or force limit that does not write or read
@@ -136,6 +137,120 @@ since the head test of 2026-10-12. A change of that byte is.
 
 It also ends on SIGINT or SIGTERM, after easing back to its home (three
 seconds at most), and prints one JSON report either way.
+
+### Every arm goal inside its window
+
+Every goal of the shoulder and the elbow is checked in one place,
+`Bus::goal_refused` in `src/body.rs`, before anything is written. Goals reach
+the wire only through `Bus::send_goals` (every step, lowering a shoulder,
+every hold) and `Bus::write_goal`, one joint's goal by itself (taking hold of
+a joint found without torque, telling an overloaded one to stop pushing),
+and both ask it first. Head and base goals are asked too, and only to be 0
+to 4,095: their goals are bounded where they are made, and the head is sent
+home in one write at the end. An arm goal must be inside its joint's
+window: the joint's way between `--folded-arm` and `--stand`,
+with 420 counts either side (the most a gesture adds to it, 360, and 60 to
+spare). On lamp-4ace that is shoulder 1,628 to 3,077 and elbow 1,627 to
+3,022. A pose whose window would reach past 0 or 4,095 (an arm count of
+`--folded-arm` or `--stand` under 420 or over 3,675) is refused, so no
+window is cut at the seam
+(`an_arm_pose_whose_window_would_reach_the_seam_is_refused`). It must also be within 50 counts of the arm goal last written (a rise
+moves it a few counts a step, a gesture 21, and an arm let go by a hand
+goes back down to its resting goal at 50 a step), or lie between that goal
+and where the joint was last read, if that reading was within 50 of the one
+before it: a hold where it is, as when it gives way to a hand, is taken hold
+of or stops pushing, never asks it past either. A goal that is neither is
+not written. The guard only stops: what makes the arm's goals never asks
+it. Each step, after the rise or fold, a gesture, a hold or its release,
+the rest and a shift have made them, `Bus::eased` moves each arm goal at
+most 50 counts from the one last written unless the guard takes it as it
+is. A goal outside the joint's window, or more than 400 counts away
+(`ARM_EASE_REACH`: what a hold let go needs, a gesture's 360 at most; the
+largest over 378 simulated runs of every clip after a held arm on both
+lamps' flags was 318), is not eased toward: the guard refuses it at once
+(`an_arm_goal_outside_its_window_is_not_eased_toward`,
+`an_arm_goal_farther_than_a_hold_release_is_refused_not_eased_toward`).
+Nor is any goal of a folded arm at rest: it has no hold to let go, and its
+way back from a hand is ramped already
+(`a_resting_arm_goal_more_than_a_step_away_is_refused_not_eased_toward`). On lamp-52e6 on 2026-10-17 a standing shoulder held at 2,609, short of
+its pose, was asked 2,683 at once by a nod, and the lamp was let go
+(`a_standing_session_never_moves_an_arm_goal_more_than_a_step_a_write`, with
+lamp-4ace's and lamp-52e6's flags, and
+`a_nod_right_after_a_hand_lets_go_of_the_arm_does_not_stop_the_lamp`). A
+goal the guard refuses is not written. The run ends on `Stop::Window` at that step, never retried as
+a failed write nor reported as `Stop::Bus`, and lets go as any surprise
+does, after the hold, which writes the arm where it was last read and is
+checked the same way. A hold refused is not written, and the run ends on
+what ended it; at the end of a run asked to stop, a refused write ends it
+on `Stop::Window` instead of `Cancelled`. That last write keeps torque on,
+so when it is made (not for a lamp that did not get down in time, which is
+left as it is) the arm may only be left within 50 counts of its last goal: a
+reading farther off, even a steady one under 300, is not written, and the
+run ends on `Stop::Window` and lets go
+(`a_steady_wrong_elbow_reading_before_cancelled_is_not_written_at_the_exit`). The same holds when the folded arm comes
+to rest: its resting goal, which keeps torque on, is where it reads only
+within 50 counts of the goal it had, or farther while it pushes there (load
+over 100, an arm resting short of its fold) and came there without a jump
+over 50 from one read to the next since it last stood or rose (a misread
+jumps:
+`a_steady_wrong_elbow_reading_under_load_as_the_arm_comes_to_rest_is_not_its_resting_goal`),
+and otherwise that goal
+(`an_arm_resting_short_of_its_fold_and_pushing_is_left_where_it_lies`,
+`a_steady_wrong_elbow_reading_as_the_arm_comes_to_rest_is_not_its_resting_goal`). The end report names the joint,
+the goal, the window and the goal it came from:
+
+```text
+"stop":{"kind":"window","joint":3,"goal":4095,"window":[1627,3022],"from":2047}
+```
+
+Why, lamp-4ace on 2026-10-17 at 01:58. A body that may stand took the arm's
+goals at start from the servos' goal registers (40 to 47, read with the
+profile), raw. The elbow's register held 37,639 (0x9307). Folded at rest the
+body sends the arm's goals back every step, the anti-tip cut clamped the
+37,639 to 4,095 inside its model and wrote 4,095, and the elbow, found at
+2,049, was driven to the seam and ended at 4 (`stop: tracking, joint 3, goal
+4095, position 4`). Since then a register is taken only if it is 0 to 4,095
+and within 80 counts (`Standing::FOUND_SLACK`) of where the joint is found;
+otherwise the arm's goal is where it is. The anti-tip model refuses a count
+outside 0 to 4,095 instead of clamping it (below). What wrote 37,639 into
+that register is not known: the body is the only thing in lampOS that writes
+goals. The tests are `a_goal_register_far_from_the_arm_is_not_taken_as_its_goal`,
+`an_elbow_goal_register_past_its_range_is_never_written_as_a_goal`,
+`an_arm_goal_outside_its_window_never_reaches_the_wire`,
+`an_arm_joint_taken_hold_of_outside_its_window_is_not_given_that_goal`,
+`an_arm_goal_is_never_more_than_a_step_from_the_last_unless_it_holds_where_the_arm_is`,
+`a_head_goal_past_the_servos_range_never_reaches_the_wire` and
+`the_hold_after_a_surprise_writes_the_arm_where_it_was_last_read`.
+
+### Every position read checked before it is used
+
+Every position the body reads passes one place, `Bus::judge_positions` in
+`src/body.rs`, before anything uses it. A position is a bad read if it is
+outside 0 to 4,095, or more than 300 counts (`READ_JUMP`) per 20 ms step
+since the last read from the joint's last good reading, and as far from the
+goal last written to it. The steps are counted since the last read, not the
+last good one, so a bad value that stays does not become good by staying. An STS3215 turns at most about 3,000 counts a second unloaded; at 4,096
+a step is 82 counts, and 300 is near four times that. A bad read is counted
+in the end report (`bad_reads`, yaw, shoulder, elbow, roll, pitch) and
+replaced by the joint's last good reading, so it never becomes a goal, a
+hold, a resting goal or where the arm slumped. With no good reading yet (the
+first read) the read fails. Three bad reads of one joint in a row end the
+run on `Stop::BadRead`, which lets go as any surprise does and names the
+joint in the end report and the journal (`stopped: elbow read 37639 three
+times in a row, not where it can be (last good 2049)`):
+
+```text
+"stop":{"kind":"bad_read","joint":3,"position":37639,"from":2049}
+```
+
+Why, lamp-4ace on 2026-10-17 at 01:58:39. The body ended on `Cancelled`, and
+its exit sent the arm's last positions back as goals, raw. One elbow reading
+of 37,639 went out as the elbow's goal. The tests are
+`an_elbow_read_past_its_range_just_before_cancelled_is_never_written_as_a_goal`,
+`one_bad_read_of_a_joint_is_counted_and_skipped`,
+`three_bad_reads_of_a_joint_in_a_row_stop_the_body_naming_it` and
+`an_elbow_read_far_off_in_the_last_step_is_not_written_back_at_the_exit`
+(2,049 read as 2,949 from the last step on).
 
 ## What moves it
 
@@ -1091,6 +1206,12 @@ The report counts these under `tipping`. The masses in the model are V1's
 estimates, 1.49 kg against the 7 kg in the spec. V1 also scored its 22 mm on
 motor values it read as degrees ([lean.md](lean.md)). So these millimetres
 are V1's numbers on V1's model. They are not a measurement of any lamp.
+
+A pose with a count outside 0 to 4,095 is no pose a servo can be in. The
+model takes it as infinitely far off the axis, and a step toward it is not
+taken at all; it is not clamped to the seam, which is how an elbow goal of
+37,639 was written as 4,095 on lamp-4ace (above, "Every arm goal inside its
+window").
 
 ## Running it
 

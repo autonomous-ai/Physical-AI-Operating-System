@@ -619,7 +619,12 @@ impl Heeding {
         match attention.first_output_busy(request, signs.room, signs.going_on, self.strict, turned)
         {
             Some(crate::attention::Verdict::Hold(why)) => Some(why),
-            _ => None,
+            // Said, as each hold is by the route (#829, 17:21).
+            Some(crate::attention::Verdict::Play(why)) => {
+                eprintln!("lamp-voice second: request {request}: its answer is played: {why}");
+                None
+            }
+            None => None,
         }
     }
 }

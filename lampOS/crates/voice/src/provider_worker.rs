@@ -1112,6 +1112,9 @@ async fn serve_with_visual<C: Connect>(
         .filter(|_| attention_near || addressed)
         .and_then(|root| lamp_bus::Bus::new(root).ok());
     let mut ears_levels: VecDeque<(u64, f32)> = VecDeque::new();
+    // The newest request whose output came with another in hand, and was
+    // so never judged: said once (#829, 17:21).
+    let mut unjudged_told: Option<u64> = None;
     let mut ears_read_at: Option<Instant> = None;
     let mut air_read_at: Option<Instant> = None;
     let mut told_session = None;
@@ -1717,6 +1720,16 @@ async fn serve_with_visual<C: Connect>(
                             if let (Some(voices), Some(verdict)) = (intake.handoff.voices.as_mut(), verdict) {
                                 voices.decided(request, matches!(verdict, crate::attention::Verdict::Play(_)), going_on);
                             }
+                            if verdict.is_none()
+                                && !attention.judged(request)
+                                && unjudged_told != Some(request)
+                            {
+                                unjudged_told = Some(request);
+                                eprintln!(
+                                    "lamp-voice provider: request {request}: its output came with request {} in hand, and is not judged",
+                                    attention.in_hand_request()
+                                );
+                            }
                             // Held as unclear: the coordinator asks again. Said
                             // once, when the verdict is given, never again for
                             // the request's later output (lamp-4ace 06:42: eight
@@ -1774,7 +1787,13 @@ async fn serve_with_visual<C: Connect>(
                                 Some(_) if attention.played_for_its_name() => {
                                     eprintln!("lamp-voice provider: request {request}: its answer is played: the lamp's name was heard in the room's sound");
                                 }
-                                _ => {}
+                                // Every other answer let out says why too (the
+                                // first builder, #829, 17:21: an answer to the
+                                // office played with no verdict in the journal).
+                                Some(crate::attention::Verdict::Play(why)) => {
+                                    eprintln!("lamp-voice provider: request {request}: its answer is played: {why}");
+                                }
+                                None => {}
                             }
                         }
                         _ => {}

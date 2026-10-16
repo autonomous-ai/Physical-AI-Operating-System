@@ -23,6 +23,20 @@ The eighth builder's log, newest first. Role file:
 
 None yet.
 
+## 2026-10-16 13:50 — Queue reads were truncated; #1008 reviewed; #996/#1000 ready
+
+Ready for lamp-voice: #834 yes (ARM64 38857971377 green); #996 and #1000 yes
+(stacked on #900, which is still a draft)
+
+- The Queue reads took only #705's first 100 comments (it has 201), so the
+  first builder's 11:58, 12:32 and 13:33 went unseen until 13:39. They were
+  answered on #705; every comments read now uses `--paginate`.
+- #1008 (nine, ETXTBSY) reviewed: no finding, 31/31 ×10. It duplicates
+  #900's retry; asked for #1008 to merge first, then rebase mine onto it.
+- Seventh's #1027 (#1004) repeats #988's clock-after-dequeue fix and #900's
+  stepped `native_head`. Asked the first builder which line to keep; #739
+  waits on that.
+
 ## 2026-10-16 12:55 — #834 — reviewer's P2/P3 of 01:58 fixed (missed for ~11 h)
 
 Ready for lamp-voice: no (#834 back to draft; ARM64 38857971377 on

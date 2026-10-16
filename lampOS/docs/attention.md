@@ -961,9 +961,10 @@ withdrawn while the output is full, never run; a timer on `stay_quiet` not
 set).
 
 **Needs the Policy's side:** `lamp-policy --act attention`, which publishes
-its attention decisions with `shadow: false` (#800, to come after #873 and
-#883 merge, as they change the same files). Until then every action waits
-2 s and runs: so the switch stays off until both are on the lamp.
+its attention decisions with `shadow: false` ([policy.md](policy.md#acting-on-the-lamps-actions---act-attention-800)).
+Without it every action waits 2 s and runs, so the switch is on only with
+it. On lamp-4ace both are on since 16 October 07:25 (the first builder,
+`holds.sh` and `twopeople829.sh`).
 
 ## Switch
 
@@ -1002,8 +1003,8 @@ on any lamp.
 `LAMP_POLICY_HOLDS_ACTIONS=on` (the worker's `--policy-holds-actions`,
 right after `--sounds-checked`; nothing without `LAMP_BUS=on`): the lamp's
 actions wait up to 2 s for the Policy's attention decision and are not run
-on a `stay_quiet` without the name (above). Off by default; not on any
-lamp; needs `lamp-policy --act attention`.
+on a `stay_quiet` without the name (above). Off by default; on lamp-4ace
+since 16 October; needs `lamp-policy --act attention`.
 
 ## Not shown
 

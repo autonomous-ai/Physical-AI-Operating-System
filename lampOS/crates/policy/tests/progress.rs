@@ -153,6 +153,7 @@ impl Rig {
             log_dir: rig.log_dir.clone(),
             deadline: ms(900),
             pause: ms(300),
+            act_attention: false,
         };
         let progress = progress::Options {
             deadline: ms(900),
@@ -582,6 +583,7 @@ fn without_the_switch_the_tasks_topic_is_not_listened_to_and_the_report_is_as_be
             log_dir: log_dir.clone(),
             deadline: ms(900),
             pause: ms(300),
+            act_attention: false,
         };
         thread::spawn(move || policy::run(&bus, Attention, &options, &stop, &mut |_| {}))
     };

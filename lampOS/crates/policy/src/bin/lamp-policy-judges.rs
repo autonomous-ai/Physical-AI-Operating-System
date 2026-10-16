@@ -193,6 +193,7 @@ fn run<D: Decider + Send + 'static>(
             log_dir: args.log.clone(),
             deadline: args.request,
             pause: PAUSE,
+            act_attention: false,
         },
         &stop,
         &mut |note| {

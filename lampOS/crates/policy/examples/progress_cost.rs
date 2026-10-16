@@ -124,6 +124,7 @@ fn main() -> io::Result<()> {
             log_dir: log_dir.clone(),
             deadline: Duration::from_secs(1),
             pause: Duration::from_millis(300),
+            act_attention: false,
         };
         let progress = progress::Options::new(Duration::from_secs(1), Some(420));
         thread::spawn(move || {

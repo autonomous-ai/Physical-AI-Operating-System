@@ -127,6 +127,7 @@ impl Rig {
             log_dir: log.clone(),
             deadline: WAIT,
             pause: ms(10),
+            act_attention: false,
         };
         let worker = thread::spawn(move || {
             let result = policy::run_with_local(

@@ -81,6 +81,11 @@ pub struct Options {
     pub deadline: Duration,
     /// How long after its last piece an utterance is over.
     pub pause: Duration,
+    /// The attention decisions act (`lamp-policy --act attention`, #800):
+    /// published, and written down, with `shadow: false`, for the voice to
+    /// hold the lamp's actions by (`LAMP_POLICY_HOLDS_ACTIONS=on`). Speech
+    /// is not held. Off unless set: shadow.
+    pub act_attention: bool,
 }
 
 /// What was counted from start to stop.
@@ -716,6 +721,9 @@ struct Policy<'a> {
     judge_log: Option<judge_log::Writer>,
     /// The progress question, only with `--progress` (`run_with_progress`).
     progress: Option<Progress>,
+    /// Whether the attention decisions are shadow: always, unless
+    /// `--act attention` ([`Options::act_attention`], #800).
+    attention_shadow: bool,
 }
 
 impl Policy<'_> {
@@ -904,7 +912,7 @@ impl Policy<'_> {
             answers: answers.clone(),
             by: by.clone(),
             took_ms,
-            shadow: SHADOW,
+            shadow: self.attention_shadow,
             request: utterance.request,
             task: None,
         });
@@ -922,7 +930,7 @@ impl Policy<'_> {
         let line = Line {
             at_unix_ms,
             about: attention::ABOUT,
-            shadow: SHADOW,
+            shadow: self.attention_shadow,
             context: &context,
             in_conversation: context.in_conversation(),
             state: attention::state(&context),
@@ -1134,7 +1142,7 @@ impl Policy<'_> {
         let report = Diagnostic::new(level, NAME, message)
             .with("decided", self.totals.decided)
             .with("by_rule", self.totals.by_rule)
-            .with("shadow", SHADOW);
+            .with("shadow", self.attention_shadow);
         // Only with `--progress`: without it the report is as it was.
         match self.progress.as_ref() {
             Some(progress) => {
@@ -1321,6 +1329,7 @@ fn run_inner<D: Decider + Send + 'static>(
         judges,
         judge_log,
         progress,
+        attention_shadow: SHADOW && !options.act_attention,
     };
     policy.second();
     if let Some(judges) = policy.judges.take() {

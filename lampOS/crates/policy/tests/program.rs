@@ -173,6 +173,11 @@ fn service() -> (u16, mpsc::Receiver<(String, Value)>) {
 }
 
 fn start(places: &Places, endpoint: &str) -> Running {
+    start_with(places, endpoint, &[])
+}
+
+/// As [`start`], with `more` options after the rest.
+fn start_with(places: &Places, endpoint: &str, more: &[&str]) -> Running {
     let child = Command::new(PROGRAM)
         .arg("--key-file")
         .arg(places.kept.join("key"))
@@ -181,6 +186,7 @@ fn start(places: &Places, endpoint: &str) -> Running {
         .args(["--endpoint", endpoint, "--deadline-ms", "2000"])
         .arg("--bus-root")
         .arg(&places.root)
+        .args(more)
         // Whatever the test was started with, the option decides.
         .env_remove("LAMP_BUS_ROOT")
         .stdin(Stdio::null())
@@ -501,4 +507,61 @@ fn a_log_directory_others_can_enter_or_a_missing_key_ends_it_before_it_listens()
     );
     // Neither run subscribed to anything.
     assert!(Bus::new(&places.root).unwrap().topics().unwrap().is_empty());
+}
+
+/// `--act attention` (#800): "is this said to the lamp?" is published, and
+/// written down, with `shadow: false`, for the voice to hold the lamp's
+/// actions by; the start line says so. Without it every attention decision
+/// stays shadow (the tests above).
+#[test]
+fn with_act_attention_the_attention_decision_is_published_for_real() {
+    let places = Places::new("act");
+    let (port, _requests) = service();
+    let endpoint = format!("http://127.0.0.1:{port}/api/alpha/decisions");
+    let bus = Bus::new(&places.root).unwrap();
+    let [heard_topic, said_topic] = Speech::TOPICS;
+    let mut heard = bus
+        .publisher_declared(heard_topic, &Speech::declaration(), "voice")
+        .unwrap();
+    let _said = bus
+        .publisher_declared(said_topic, &Speech::declaration(), "voice")
+        .unwrap();
+    let mut decisions = bus
+        .subscribe_typed(Decision::TOPIC, "test", Decision::TYPE)
+        .unwrap();
+    let running = start_with(&places, &endpoint, &["--act", "attention"]);
+    for topic in [heard_topic, said_topic, VoiceState::TOPIC] {
+        listening(&bus, topic);
+    }
+    for text in ["I left", " the lamp on", " in the kitchen."] {
+        heard
+            .publish_json(
+                0,
+                &Speech {
+                    text: text.into(),
+                    finished: false,
+                    locale: None,
+                    request: Some(4),
+                },
+            )
+            .unwrap();
+        thread::sleep(Duration::from_millis(50));
+    }
+    let message = decisions.recv(WAIT).unwrap().expect("a decision");
+    let decision: Decision = message.parse().unwrap();
+    assert_eq!(decision.check(), Ok(()));
+    assert_eq!(
+        (decision.about.as_str(), decision.shadow, decision.request),
+        ("attention", false, Some(4))
+    );
+    let lines = log(&places.kept.join("decisions"), 1);
+    assert_eq!(lines[0]["shadow"], false);
+    let output = running.end(&["lamp-policy: started", "lamp-policy: decision"]);
+    let printed = String::from_utf8_lossy(&output.stderr);
+    let started = printed
+        .lines()
+        .find(|line| line.starts_with("lamp-policy: started"))
+        .unwrap();
+    assert!(started.contains(" shadow=false"), "{started}");
+    assert!(started.contains(" act=attention"), "{started}");
 }

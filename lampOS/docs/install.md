@@ -217,7 +217,9 @@ What steps 2 and 3 build, unless an answer on #811 changes it.
   `current`; the product's settings in `/etc/lampOS/<part>/` (decided by the
   first builder on #811, 2026-10-15 17:37): Expression's catalogue as
   `/etc/lampOS/expression/expression.json`, the controls' two files in
-  `/etc/lampOS/controls/`. `/etc/lampOS` is made 0755 and each of these
+  `/etc/lampOS/controls/` (the pins name the button, the two head pads and
+  the reset button, line 100; the unit serves `--touch`, the path whose
+  head and reset events the voice, Expression and `watch-reset` read). `/etc/lampOS` is made 0755 and each of these
   folders 0755, files 0644: readable by `lampos`. lamp-4ace's `/etc/lampOS`
   is root's alone; `install` does not open one made closed (credentials may
   be below it) and says so. The voice's turn-end model and ONNX

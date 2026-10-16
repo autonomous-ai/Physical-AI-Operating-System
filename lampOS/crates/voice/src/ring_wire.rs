@@ -72,6 +72,13 @@ pub struct RingFrame {
     /// tap's window. It shapes the frame and grants nothing.
     #[serde(default)]
     pub listening: bool,
+    /// A short accent to the face with the lamp's gesture (#940): which one
+    /// ([`crate::ring_face::accent_code`], 0 for none) and when it began on
+    /// the monotonic clock. It shapes the frame and grants nothing.
+    #[serde(default)]
+    pub accent: u8,
+    #[serde(default)]
+    pub accent_at_us: u64,
 }
 
 impl RingFrame {

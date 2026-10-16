@@ -215,6 +215,8 @@ fn frame(controller: &mut Controller, owner: TurnOwner, lease_us: u64) -> RingFr
         attending: false,
         offline: false,
         listening: false,
+        accent: 0,
+        accent_at_us: 0,
     }
 }
 fn present(rig: &Rig, frame: RingFrame) {

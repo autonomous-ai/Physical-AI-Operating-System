@@ -13,10 +13,12 @@
 //! - At rest, to the second route while Gemini's link is not Ready (and has
 //!   not ended for good: Gemini's end still ends the service), and back to
 //!   Gemini, silently, on the first idle tick its link is Ready again.
-//! - At startup, before Gemini's first Ready, the second route only stands
-//!   in: a request admitted on it is held, for up to [`STARTUP_HOLD_US`],
-//!   and goes to Gemini if its link is Ready by then; only otherwise (or
-//!   when Gemini's link has ended) is the second route given the line.
+//! - At startup, before Gemini's first Ready, and at rest while its link
+//!   reconnects (#960), the second route only stands in: a request admitted
+//!   on it is held, for up to [`STARTUP_HOLD_US`], and goes to Gemini if its
+//!   link is Ready by then; only otherwise (or when Gemini's link has ended)
+//!   is the second route given the line. A line already under way when the
+//!   link drops is not held: it is replayed to the second route (below).
 //! - Mid-turn, when Gemini fails the turn before any of its answer was
 //!   heard, or its link changes during the line: the line is replayed to
 //!   the second route from [`Line`], a copy of what was sent for it.
@@ -42,9 +44,9 @@ const LEAD_IN_US: u64 =
 /// first block to reach Gemini's link.
 const HOLD_MARGIN_US: u64 = 300_000;
 /// How long a request that begins before Gemini's first Ready of this
-/// process waits for it before the second route is given the line
-/// (lampOS#779: on lamp-4ace Gemini's first Ready came 1.9 s after the
-/// second route's). It is what Gemini's audio age bound leaves after the
+/// process, or while its link reconnects at rest (#960), waits for it
+/// before the second route is given the line (lampOS#779: on lamp-4ace
+/// Gemini's first Ready came 1.9 s after the second route's). It is what Gemini's audio age bound leaves after the
 /// lead-in and a margin, 1.9 s: a line held longer would replay a block
 /// Gemini's worker refuses as stale, which ends the worker (lampOS#892).
 pub(super) const STARTUP_HOLD_US: u64 =
@@ -127,8 +129,6 @@ pub(super) struct Route {
     /// A line being replayed to the second route, sent before anything
     /// queued after it; or, while a request is held, all of it so far.
     replay: VecDeque<ProviderInput>,
-    /// Gemini's link has been Ready in this process.
-    live_was_ready: bool,
     /// The second route is active only to stand in while Gemini's link is
     /// not Ready yet: before its first Ready, or while it reconnects
     /// (#960). A request admitted on it is held, not given to it.
@@ -174,7 +174,6 @@ impl Route {
             second_active: false,
             line: Line::default(),
             replay: VecDeque::new(),
-            live_was_ready: false,
             stand_in: false,
             hold: None,
         }
@@ -535,13 +534,6 @@ pub(super) fn service(
         return Ok(());
     };
     route.drain(trace)?;
-    // Gemini's register latches a Ready as it is observed, even when a
-    // later report of the same drain took it away.
-    route.live_was_ready |= if route.second_active {
-        route.cloud.was_ready()
-    } else {
-        cloud.was_ready()
-    };
     route.upkeep(reply.as_ref());
     resolve_hold(provider, cloud, flow, route, reply, queue, trace)?;
     if let Some(current) = reply.as_mut() {
@@ -1220,7 +1212,6 @@ mod tests {
         bench.gemini_link(1, true);
         bench.gemini_link(2, false);
         bench.service(&mut None, &mut VecDeque::new());
-        assert!(bench.route().live_was_ready);
         let (_owner, current) = unsent_reply();
         let turn = current.owner.turn();
         let mut reply = Some(current);

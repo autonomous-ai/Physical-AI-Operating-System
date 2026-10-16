@@ -281,6 +281,8 @@ pub struct Engine {
     sequence: u64,
     fault: Option<&'static str>,
     marks: [Option<(u64, u64)>; STREAMS],
+    /// The head with the lamp's own speech (#933).
+    speech: crate::speaking::SpeechMotion,
     voice: Option<VoiceTiming>,
     delivery: Option<Delivery>,
     voice_since: u64,
@@ -344,6 +346,7 @@ impl Engine {
             sequence: 0,
             fault: None,
             marks: [None; STREAMS],
+            speech: Default::default(),
             voice: None,
             delivery: None,
             voice_since: 0,
@@ -1394,6 +1397,20 @@ impl Engine {
             if weight > 0.0 {
                 state.behaviours.push(clip.name.clone());
             }
+        }
+        // The lamp's own speech in its head (#933), when the catalogue says
+        // how: in any room, never while held, concentrating, asleep or cut in.
+        if let Some(rules) = &self.catalogue.speaking {
+            let speaking = mode == Voice::Speaking && !self.retired_turn && !asleep;
+            let still = held || concentrating || !joints_fresh || self.interruption.is_some();
+            let mut names = Vec::new();
+            let motion = self
+                .speech
+                .step(rules, speaking, body_level, still, now_us, &mut names);
+            offsets = add(offsets, motion, 1.0);
+            state
+                .behaviours
+                .extend(names.iter().map(|name| (*name).to_owned()));
         }
         if let Some(planned) = planned {
             offsets = add(

@@ -5105,6 +5105,119 @@ fn a_shoulder_left_up_by_a_power_cut_is_lowered_first_and_the_lamp_may_then_stan
     assert!(report.standing_refused.unwrap().contains("off the way"));
 }
 
+/// As lamp-52e6 on 2026-10-16: standing, let go under overload, and the
+/// elbow fell folded while the shoulder stayed up on its gears. Taken up
+/// again, the shoulder is lowered as after a power cut, the lamp counts as
+/// folded (it said `stand 1.00` and never stood again), the head is
+/// brought to its folded home, and the next time it is spoken to it
+/// stands by the ordinary way up. A hand's slump takes the same path.
+#[test]
+fn let_go_standing_with_the_elbow_fallen_it_is_folded_and_stands_again_when_spoken_to() {
+    for by_hand in [false, true] {
+        let_go_standing_with_the_elbow_fallen(by_hand);
+    }
+}
+
+fn let_go_standing_with_the_elbow_fallen(by_hand: bool) {
+    let secs = Duration::from_secs_f32;
+    let (mut lamp, mut clock) = folded(secs(215.0));
+    lamp.may_take_hold = true;
+    lamp.arm_moves = true;
+    // Found standing.
+    for (index, at) in [
+        (YAW, 2_035.0),
+        (1, 2_657.0),
+        (2, 2_602.0),
+        (ROLL, 2_035.0),
+        (PITCH, 1_772.0),
+    ] {
+        let servo = &mut lamp.servos[index];
+        (servo.position, servo.goal, servo.status) = (at, at as u16, 0);
+    }
+    // The elbow over the cut-off (80% of 600) for 1.6 s, or a hand on the
+    // base, as on lamp-52e6, a second after it stopped; let go, the elbow
+    // falls within the rest.
+    if by_hand {
+        lamp.hand = Some((secs(1.5), secs(3.0), YAW, 2_065.0));
+        lamp.strains = vec![(secs(1.5), secs(3.0), YAW, 600)];
+    } else {
+        lamp.strains = vec![(secs(1.0), secs(2.6), 2, 500)];
+    }
+    lamp.event = Some((secs(4.0), 2, Event::Push(-520.0)));
+    let limits = Limits {
+        force: Some(600),
+        overload_release: !by_hand,
+        give_way: by_hand.then_some(GiveWay::Return),
+        limp: by_hand,
+        ..Limits::folded_with(Tuning {
+            reach: [150, 15, 1, 250],
+            speed: 120,
+            servo_speed: 1_000,
+            servo_acceleration: 60,
+        })
+        .unwrap()
+    };
+    let up = Standing::new(
+        [2_053, 2_069],
+        [1_772, 2_035, 2_035, 2_657, 2_602],
+        100,
+        5,
+        90,
+        [560, 560],
+    )
+    .unwrap();
+    // Spoken to once it has been taken up again and has settled.
+    let time = clock.time.clone();
+    let news = move || {
+        Some(if (secs(190.0)..secs(200.0)).contains(&time.get()) {
+            (Mood::Speaking, 60)
+        } else {
+            (Mood::Resting, 0)
+        })
+    };
+    let mut seen: Vec<(Duration, Glimpse)> = Vec::new();
+    let time = clock.time.clone();
+    let report = run_standing(
+        &mut lamp,
+        &mut clock,
+        limits,
+        Some([1_771, 2_035, 2_035]),
+        Some(up),
+        news,
+        |g| seen.push((time.get(), *g)),
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!(report.released.len(), 1, "{report:?}");
+    assert_eq!(report.released_by_hand, [0, 0, u16::from(by_hand)]);
+    assert_eq!(report.standing_refused, None, "{report:?}");
+    let lowered = report.lowered.clone().unwrap();
+    assert_eq!((lowered.from, lowered.to), (vec![2_657], vec![2_053]));
+    // Let go, and until spoken to again, it never says it stands.
+    let quiet = |(t, g): &&(Duration, Glimpse)| g.released > 0 && *t < secs(190.0);
+    assert!(
+        seen.iter().filter(quiet).all(|(_, g)| g.stand < 0.05),
+        "{:?}",
+        seen.iter().filter(quiet).find(|(_, g)| g.stand >= 0.05)
+    );
+    // Folded, the head is at its folded home before it is spoken to.
+    let (_, before) = seen.iter().rfind(|(t, _)| *t < secs(190.0)).unwrap();
+    assert!(before.stands && before.stand == 0.0, "{before:?}");
+    assert_eq!(before.goals, [1_771, 2_035, 2_035]);
+    assert!(before.arm_positions[0].abs_diff(2_053) <= 80, "{before:?}");
+    // Spoken to, it stands by the ordinary way up: fully stood, the arm at
+    // its pose or within a speaking lean of it (up to 60 counts, #1010),
+    // and the arm where it is asked to be.
+    let (_, after) = seen.iter().rfind(|(t, _)| *t < secs(200.0)).unwrap();
+    assert!(after.stands && after.stand == 1.0, "{after:?}");
+    for (index, pose) in [2_657u16, 2_602].into_iter().enumerate() {
+        assert!(after.arm_goals[index].abs_diff(pose) <= 60, "{after:?}");
+        assert!(
+            after.arm_positions[index].abs_diff(after.arm_goals[index]) <= 2,
+            "{after:?}"
+        );
+    }
+}
+
 /// A shoulder left up by a power cut that does not come down when it is
 /// lowered: the run ends there, held where it is, and the whole lamp is
 /// let go, as any surprise.

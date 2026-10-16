@@ -6,9 +6,8 @@ description: Call when someone working on paper at the desk asks the lamp to che
 # Desk tutor
 
 Started by its tool, `check_my_work` (`skill.toml`): the model calls it
-when someone asks for it, the lamp lights the page and takes one full look
-at it (#941). Still to come: a sharper picture of the page for handwriting
-(#987), and the lean over the page (move files, #940).
+when someone asks for it, the lamp leans over the page, lights it and takes
+one full look at it (#941).
 
 Someone is working on paper under the lamp: maths, a language exercise,
 anything written by hand. When they say "Lamp, check my work", "I'm stuck",

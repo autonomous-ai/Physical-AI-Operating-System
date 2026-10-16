@@ -15,5 +15,7 @@ lists `check_my_work` with the description, and a call answers at once with
 "Say only \"Let me take a look.\" now, in those words. When the picture
 comes: Tutor, don't solve: …".
 
-Still to come (#941): a case that the tutor never guesses (a blurred still,
-run against the model), and the lean over the page while it looks.
+The tutoring note was run against the model with a blurred and a sharp
+page on lamp-52e6 (#1053): it never guessed. The lean is held again on a
+repeat call (`a_repeat_tool_call_holds_the_runs_pose_again_and_only_that`,
+#1051).

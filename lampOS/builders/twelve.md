@@ -28,9 +28,7 @@ Never `lamp-voice`, and never another builder's branch.
 - Deploy folders: none
 - Log: [lampOS/docs/work-log-twelve.md](https://github.com/autonomous-ai/lampOS/blob/lamp-twelve/lampOS/docs/work-log-twelve.md) on `lamp-twelve`
 - Tasks: the `builder:twelve` issues, in the order of the Queue issue
-  ([#705](https://github.com/autonomous-ai/lampOS/issues/705)). First, at its
-  person's request: [#920](https://github.com/autonomous-ai/lampOS/issues/920),
-  a lamp-actions test whose 20 ms window fails on a loaded runner.
+  ([#705](https://github.com/autonomous-ai/lampOS/issues/705)). None yet.
 
 ## It may
 

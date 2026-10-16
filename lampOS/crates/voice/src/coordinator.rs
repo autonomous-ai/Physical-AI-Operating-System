@@ -2386,7 +2386,7 @@ fn run_inner(
         trace,
         json!({"kind":"session_boot","at_us":monotonic_us(),"boot":boot}),
     )?;
-    let mut owner = Controller::new(boot, now());
+    let mut owner = cycle_controller(boot);
     let mut startup = StartupEvents::default();
     let camera = camera_config.and_then(|path| {
         match PreparedCamera::load(path, &directory.path) {
@@ -5216,8 +5216,19 @@ fn conversation_with_gate(
                 .filter(|(of, _)| *of == turn)
                 .map(|(_, session)| session);
             let asked_again = asking.wanted().is_some_and(|(of, _)| of == turn);
+            // A tool's look goes only to the session that made the call: one
+            // renewed meanwhile never saw it, nor the second route, whose
+            // sessions are numbered apart (only Gemini's worker asks a
+            // tool's look). Worked out before the ask, so none is made.
+            let gone = by_tool.is_some_and(|session| {
+                rig.second
+                    .as_ref()
+                    .is_some_and(second::Route::second_active)
+                    || unasked_session(&cloud, paused).is_some_and(|ready| ready != session)
+            });
             if (by_tool.is_none() || tool_look_due(reply.as_ref(), turn))
                 && !asked_again
+                && !gone
                 && ask_for_still(&mut look, eyes_link.as_mut(), turn, clock, trace)?
                 && by_tool.is_some()
             {
@@ -5232,6 +5243,10 @@ fn conversation_with_gate(
                 )
             };
             match reply.as_ref().map(|current| current.owner.turn()) {
+                _ if gone => {
+                    look_wanted = None;
+                    dropped("the session that made the call has gone", trace)?;
+                }
                 Some(current) if current == turn => {}
                 Some(_) => {
                     look_wanted = None;
@@ -5248,20 +5263,6 @@ fn conversation_with_gate(
                 None if asked_again => {
                     look_wanted = None;
                     dropped("its turn is asked again", trace)?;
-                }
-                // A tool's look goes only to the session that made the call:
-                // one renewed meanwhile never saw it, nor the second route,
-                // whose sessions are numbered apart (only Gemini's worker
-                // asks a tool's look).
-                None if by_tool.is_some_and(|session| {
-                    rig.second
-                        .as_ref()
-                        .is_some_and(second::Route::second_active)
-                        || unasked_session(&cloud, paused).is_some_and(|ready| ready != session)
-                }) =>
-                {
-                    look_wanted = None;
-                    dropped("the session that made the call has gone", trace)?;
                 }
                 None => {
                     if look.due(waited)
@@ -6722,6 +6723,14 @@ fn record_tool_look(
         json!({"kind":"look_asked","turn":request,"by":"tool","at_us":monotonic_us()}),
     )?;
     Ok(true)
+}
+
+/// A service cycle's turn owner. Its turns number from 1 again (a mute, a
+/// head sleep, a privacy switch), so the last cycle's own turn goes with it:
+/// a spoken turn with the same number is not the lamp's.
+fn cycle_controller(boot: BootId) -> Controller {
+    own_turn().store(0, std::sync::atomic::Ordering::Release);
+    Controller::new(boot, now())
 }
 
 worker_global! {

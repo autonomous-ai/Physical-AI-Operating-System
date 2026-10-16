@@ -814,6 +814,29 @@ fn a_lamp_written_turn_s_phrase_asks_for_no_still() {
     }
 }
 
+/// The reviewer's 23:47 P2 on #1172: a new service cycle (a mute) numbers its
+/// turns from 1 again, so the turn the lamp wrote last cycle is not its own
+/// now: the same number spoken asks for the still.
+#[test]
+fn after_a_new_cycle_the_last_cycle_s_written_turn_number_spoken_asks_for_the_still() {
+    let mut test = Test::new();
+    test.followup(crate::speak_up::LOOK_FULL_NOTE, true, "lamp_looks");
+    let written = test.reply.as_ref().unwrap().owner.turn();
+    let _owner = cycle_controller(crate::process::new_boot().unwrap());
+    let (mut opening, mut wanted) = (None, None);
+    record_look_intent(
+        true,
+        Some(written),
+        "Let me take a look.",
+        None,
+        &mut opening,
+        &mut wanted,
+        &mut test.trace,
+    )
+    .unwrap();
+    assert_eq!(wanted.map(|(turn, _)| turn), Some(written));
+}
+
 /// #926, the reviewer: an Unclear consumed before a hand's Stop is dropped
 /// with its turn, and one arriving after it (its turn gone) is never taken;
 /// only one for the turn in hand is.

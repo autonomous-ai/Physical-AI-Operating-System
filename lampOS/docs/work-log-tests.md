@@ -1,5 +1,20 @@
 # Tests work log
 
+## 2026-10-17 05:56:16 +0700 — seven merged; #1222 (#1220) and the #1218 review
+
+Ready for lamp-voice: #1222 once its run on the rebased head is green
+
+**Merged:** #1207 at 04:38 (a_tap stepped), #1213 at 04:59 (the privacy probe), #1203 at 05:06 (27 `endpoint_session` tests back on pull requests), #1211 at 05:17 (`openat2` under qemu), #1216 at 05:31 (the privacy skip line to stderr), #1219 at 05:45 (the endpoint windows doc), #1215 at 05:47 (the a_tap owner made in the scope).
+
+**Findings from reviews, all fixed:**
+- The seventh's P1 on #1207: the a_tap owner was still made on the host clock before the scope; a 500 ms stall there failed both. Fixed in #1215.
+- The reviewer's P2 on #1211: `eprintln!` is captured by libtest, so the skip line did not show in a normal run. It now goes straight to stderr (#1211, and #1216 for the privacy test).
+- The reviewer's P3s on #1202 and #1203: two wrong claims of mine in `realtime-tests.md`. `final_dispatch` is mostly on the system clock, and none of the 27 `endpoint_session` tests uses the 100 ms tolerance. Fixed in #1203 and #1219, with the windows they keep and a put-back-by-name rule for the tightest (`confirmed_endpoint_exit…`, 200 ms to spare).
+
+**#1220 / #1222:** the reviewer saw `a_lamp_put_to_sleep_from_the_head…` fail 2 of 120 under stress. The loop checks physical privacy's freshness before it polls the controls, so a stall after `privacy_started` ends it first. A 120 ms sleep there failed four host-clock `hand_controls` tests. #1222 runs all four stepped, with the owner made in the scope; with 120 ms or 1 s there all 16 pass, and `lamp-voice` is 1,803/0/11.
+
+**#1218 (the seventh's `lamp-skills` test clock), my review:** no P1 or P2. Run as nextest runs them, 490 of 490 passed 48 at once. Three P3s: the gaze timeout 1 s → 100 ms in two negative checks, no timeout on the clock-control read, and twice the base's failures at 320 at once. The reviewer then found a P2 (no test runs the real waits) and a `take_skips` order P3, which likely explains that third one.
+
 ## 2026-10-17 04:23:58 +0700 — #1198, #1202 and #1205 merged; the first builder's emulator list done (#1207, #1211, #1213)
 
 Ready for lamp-voice: yes (#1207); #1203, #1211 and #1213 wait for their runs

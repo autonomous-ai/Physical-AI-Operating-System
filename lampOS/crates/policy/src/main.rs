@@ -28,7 +28,7 @@ use std::{
     time::Duration,
 };
 
-const USAGE: &str = "usage: lamp-policy --key-file ABSOLUTE_PATH --log-dir ABSOLUTE_DIR [--endpoint URL] [--model NAME] [--deadline-ms N] [--bus-root ABSOLUTE_DIR] [--progress [--utc-offset-minutes N] [--act progress]] [--act attention]";
+const USAGE: &str = "usage: lamp-policy --key-file ABSOLUTE_PATH --log-dir ABSOLUTE_DIR [--endpoint URL] [--model NAME] [--deadline-ms N] [--bus-root ABSOLUTE_DIR] [--progress [--utc-offset-minutes N] [--act progress] [--rules]] [--act attention]";
 const HELP: &str = "The lamp's policy, in shadow mode: judges whether each thing the voice hears was said to\n\
 the lamp, publishes the decision on the bus (policy/decisions) and writes it down. Nothing\n\
 acts on it. See docs/policy.md.\n\
@@ -50,6 +50,10 @@ acts on it. See docs/policy.md.\n\
   --act attention  \"is this said to the lamp?\" is published with shadow false, so that the voice\n\
                  holds the lamp's actions on a stay_quiet (LAMP_POLICY_HOLDS_ACTIONS=on); speech\n\
                  is not held. Off unless set\n\
+  --rules        the progress question obeys what the people at the lamp asked about it speaking\n\
+                 first (memory/rules): never, not in the mornings, not before or from a time of\n\
+                 day (by --utc-offset-minutes; all day without it), not while they talk; no model\n\
+                 is asked then. Needs --progress. Off unless set\n\
 What is heard is sent to the decision model's service. Do not run this on real speech in the\n\
 office until the owner has said so: it is for played tests.";
 
@@ -69,6 +73,9 @@ struct Arguments {
     /// The attention decisions act (`--act attention`, #800): off unless
     /// set.
     act_attention: bool,
+    /// It obeys the people's rules about speaking first (`--rules`, #813):
+    /// off unless set.
+    rules: bool,
 }
 
 fn parse(arguments: impl Iterator<Item = String>) -> Result<Option<Arguments>, String> {
@@ -76,15 +83,21 @@ fn parse(arguments: impl Iterator<Item = String>) -> Result<Option<Arguments>, S
         (None, None, None, None, None, None);
     let (mut progress, mut utc_offset_minutes) = (false, None);
     let (mut act_progress, mut act_attention) = (false, false);
+    let mut rules = false;
     let mut arguments = arguments;
     while let Some(option) = arguments.next() {
         if option == "--help" || option == "-h" {
             return Ok(None);
         }
-        // The one option without a value.
-        if option == "--progress" {
-            if std::mem::replace(&mut progress, true) {
-                return Err("--progress was given twice".into());
+        // The options without a value.
+        if option == "--progress" || option == "--rules" {
+            let flag = if option == "--progress" {
+                &mut progress
+            } else {
+                &mut rules
+            };
+            if std::mem::replace(flag, true) {
+                return Err(format!("{option} was given twice"));
             }
             continue;
         }
@@ -148,6 +161,9 @@ fn parse(arguments: impl Iterator<Item = String>) -> Result<Option<Arguments>, S
     if act_progress && !progress {
         return Err("--act progress needs --progress".into());
     }
+    if rules && !progress {
+        return Err("--rules needs --progress, the question that may speak first".into());
+    }
     Ok(Some(Arguments {
         key_file: key_file.ok_or("--key-file is required")?,
         log_dir: log_dir.ok_or("--log-dir is required")?,
@@ -159,6 +175,7 @@ fn parse(arguments: impl Iterator<Item = String>) -> Result<Option<Arguments>, S
         utc_offset_minutes,
         act_progress,
         act_attention,
+        rules,
     }))
 }
 
@@ -168,6 +185,9 @@ fn questions(arguments: &Arguments) -> String {
     let mut said = String::new();
     if arguments.progress {
         said.push_str(" progress=true");
+    }
+    if arguments.rules {
+        said.push_str(" rules=true");
     }
     let acting: Vec<&str> = [
         (arguments.act_progress, "progress"),
@@ -222,6 +242,7 @@ fn run(arguments: &Arguments) -> io::Result<()> {
         let second = Jev::new(&arguments.endpoint, &arguments.model, &arguments.key_file)?;
         let progress = progress::Options {
             act: arguments.act_progress,
+            rules: arguments.rules,
             ..progress::Options::new(arguments.deadline, arguments.utc_offset_minutes)
         };
         return policy::run_with_progress(
@@ -297,6 +318,7 @@ mod tests {
                 utc_offset_minutes: None,
                 act_progress: false,
                 act_attention: false,
+                rules: false,
             }
         );
         let least = of("--log-dir /d --key-file /k").unwrap().unwrap();
@@ -313,6 +335,7 @@ mod tests {
                 utc_offset_minutes: None,
                 act_progress: false,
                 act_attention: false,
+                rules: false,
             }
         );
         // The progress question, and the lamp's local time for it.
@@ -338,6 +361,12 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(questions(&both), " progress=true act=progress,attention");
+        // And obeying the people's rules about speaking first (#813).
+        let ruled = of("--log-dir /d --progress --rules --key-file /k")
+            .unwrap()
+            .unwrap();
+        assert!(ruled.progress && ruled.rules && !ruled.act_progress);
+        assert_eq!(questions(&ruled), " progress=true rules=true");
         assert_eq!(
             of("--log-dir /d --key-file /k --utc-offset-minutes -300")
                 .unwrap()
@@ -378,6 +407,8 @@ mod tests {
             "--key-file /k --log-dir /d --act progress",
             "--key-file /k --log-dir /d --act attention --act attention",
             "--key-file /k --log-dir /d --act hello",
+            "--key-file /k --log-dir /d --rules",
+            "--key-file /k --log-dir /d --progress --rules --rules",
             "--key-file /k --log-dir /d --progress --act progress --act progress",
             "--key-file /k --log-dir /d --progress --act",
             "--key-file /k --log-dir /d --utc-offset-minutes 841",

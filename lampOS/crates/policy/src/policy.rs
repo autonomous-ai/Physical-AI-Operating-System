@@ -25,7 +25,8 @@ use crate::{
 };
 use lamp_bus::{Bus, Notice, Publisher, Subscriber};
 use lamp_msgs::{
-    Decision, Diagnostic, Faces, Level, NameHeard, RoomState, Speech, TaskStatus, Voice, VoiceState,
+    Decision, Diagnostic, Faces, Level, NameHeard, RoomState, Rules, Speech, TaskStatus, Voice,
+    VoiceState,
 };
 use serde::{Serialize, de::DeserializeOwned};
 use std::{
@@ -1153,6 +1154,12 @@ impl Policy<'_> {
                     .with("progress_said", totals.said)
                     .with("progress_held_talking", totals.held_talking)
                     .with("progress_held_recent", totals.held_recent);
+                // Only with `--rules`.
+                let report = if progress.obeys_rules() {
+                    report.with("progress_held_rule", totals.held_rule)
+                } else {
+                    report
+                };
                 // Only with `--act progress`.
                 if progress.acts() {
                     report.with("progress_acts", true)
@@ -1290,6 +1297,11 @@ fn run_inner<D: Decider + Send + 'static>(
     let mut tasks = match progress {
         Some(_) => Some(Ear::new(bus, TaskStatus::TOPIC, TaskStatus::TYPE)?),
         None => None,
+    };
+    // Nor, without `--rules`, the people's rules about speaking first.
+    let mut kept_rules = match progress.as_ref() {
+        Some(progress) if progress.obeys_rules() => Some(Ear::new(bus, Rules::TOPIC, Rules::TYPE)?),
+        _ => None,
     };
     let judge_name = decider.name().to_owned();
     let (judges, judge_log) = match local {
@@ -1436,6 +1448,17 @@ fn run_inner<D: Decider + Send + 'static>(
             policy.names.push_back((began, heard.score));
         }
         names.source(policy.say);
+        // What the people at the lamp asked about speaking first, newest,
+        // with `--rules` only. Kept when the voice goes: a rule does not end
+        // with it.
+        if let Some(kept_rules) = kept_rules.as_mut() {
+            for told in kept_rules.take::<Rules>(Duration::ZERO, unreadable, policy.say) {
+                if let Some(progress) = policy.progress.as_mut() {
+                    progress.rules(told);
+                }
+            }
+            kept_rules.source(policy.say);
+        }
         // How the work handed over is going, with `--progress` only.
         if let Some(tasks) = tasks.as_mut() {
             for status in tasks.take::<TaskStatus>(Duration::ZERO, unreadable, policy.say) {

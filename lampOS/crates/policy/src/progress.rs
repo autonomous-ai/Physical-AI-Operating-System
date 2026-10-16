@@ -18,7 +18,10 @@
 //! back once one holds is turned to `wait`, and asked again later. An
 //! answer about work that is no longer as it was asked about (another
 //! store, the task gone or no longer at work, or its line changed again) is
-//! a `wait` too, and changes nothing kept for the work there now.
+//! a `wait` too, and changes nothing kept for the work there now. With
+//! `lamp-policy --rules` a third hard rule holds a question as the other
+//! two do: a rule the person at the lamp kept about it speaking first
+//! ([`crate::rules`], #813).
 //!
 //! Shadow first: decisions are published on `policy/decisions` and written
 //! down with the state they were made from, and nothing acts on them.
@@ -29,8 +32,9 @@
 use crate::{
     attention::Room,
     decide::{Answer, Asked, Connection, Decider, Failed, Question, Usage},
+    rules::{Kept, Kind},
 };
-use lamp_msgs::{AgentState, Decision, Sign, TaskProgress, TaskStatus, Voice};
+use lamp_msgs::{AgentState, Decision, Rules, Sign, TaskProgress, TaskStatus, Voice};
 use serde::Serialize;
 use serde_json::{Value, json};
 use std::{
@@ -76,6 +80,10 @@ pub struct Options {
     /// with `shadow: false`, and the voice tells a `say_now`. Off unless
     /// set: shadow, as every other question.
     pub act: bool,
+    /// It obeys what the people at the lamp asked about speaking first
+    /// (`memory/rules`, `lamp-policy --rules`, [`crate::rules`], #813).
+    /// Off unless set: the topic is not listened to.
+    pub rules: bool,
 }
 
 impl Options {
@@ -86,6 +94,7 @@ impl Options {
             note_every: NOTE_EVERY,
             quiet_for: QUIET_FOR,
             act: false,
+            rules: false,
         }
     }
 }
@@ -122,6 +131,8 @@ pub enum Hold {
     /// about: another store, the task gone or no longer at work, or its
     /// line changed again (or counted afresh) while the question was out.
     Outdated,
+    /// The person at the lamp asked it not to speak first now (#813).
+    KeptRule,
 }
 
 impl Hold {
@@ -130,6 +141,7 @@ impl Hold {
             Self::Talking => "talking",
             Self::ToldRecently => "told_recently",
             Self::Outdated => "outdated",
+            Self::KeptRule => "kept_rule",
         }
     }
 }
@@ -411,6 +423,7 @@ pub struct Totals {
     /// Questions kept back by each hard rule, once for each change.
     pub held_talking: u64,
     pub held_recent: u64,
+    pub held_rule: u64,
 }
 
 #[derive(Debug)]
@@ -458,6 +471,8 @@ pub struct Progress {
     turn: Option<Turn>,
     unasked: VecDeque<Instant>,
     notes: VecDeque<Instant>,
+    /// The newest rules about speaking first, with `--rules` only.
+    rules: Kept,
     totals: Totals,
 }
 
@@ -510,6 +525,7 @@ impl Progress {
             turn: None,
             unasked: VecDeque::new(),
             notes: VecDeque::new(),
+            rules: Kept::default(),
             totals: Totals::default(),
         })
     }
@@ -521,6 +537,11 @@ impl Progress {
     /// Whether its decisions act ([`Options::act`]).
     pub fn acts(&self) -> bool {
         self.options.act
+    }
+
+    /// Whether it obeys the people's rules ([`Options::rules`]).
+    pub fn obeys_rules(&self) -> bool {
+        self.options.rules
     }
 
     /// A new status from the tasks part. A message that fails its check is
@@ -691,7 +712,12 @@ impl Progress {
             })
     }
 
-    fn hold(&self, tracked: &Tracked, now: Instant) -> Option<Hold> {
+    /// What the people at the lamp asked it about speaking first, newest.
+    pub fn rules(&mut self, rules: Rules) {
+        self.rules.set(rules);
+    }
+
+    fn hold(&self, tracked: &Tracked, now: Instant, unix_ms: u64, room: Room) -> Option<Hold> {
         if self.talking(now) {
             Some(Hold::Talking)
         } else if tracked
@@ -699,6 +725,13 @@ impl Progress {
             .is_some_and(|at| now.saturating_duration_since(at) < self.options.note_every)
         {
             Some(Hold::ToldRecently)
+        } else if self.rules.hold(
+            Kind::News,
+            unix_ms,
+            self.options.utc_offset_minutes,
+            room == Room::Quiet,
+        ) {
+            Some(Hold::KeptRule)
         } else {
             None
         }
@@ -743,7 +776,7 @@ impl Progress {
                 }
             };
         }
-        let task = self.next(now)?;
+        let task = self.next(now, unix_ms, room)?;
         let context = self.context(task, now, unix_ms, room, someone_here);
         if self.asker_gone {
             return Some(self.decide(context, None, Duration::ZERO, now, unix_ms));
@@ -764,7 +797,7 @@ impl Progress {
     /// The task with new progress to ask about: still at work, its line
     /// changed since it was last judged, and no hard rule holding it. Each
     /// hold is counted once for each change it holds.
-    fn next(&mut self, now: Instant) -> Option<u64> {
+    fn next(&mut self, now: Instant, unix_ms: u64, room: Room) -> Option<u64> {
         if !self.live {
             return None;
         }
@@ -777,7 +810,7 @@ impl Progress {
             {
                 continue;
             }
-            match self.hold(tracked, now) {
+            match self.hold(tracked, now, unix_ms, room) {
                 Some(hold) => holds.push((*task, hold)),
                 None => {
                     found.get_or_insert(*task);
@@ -792,6 +825,7 @@ impl Progress {
                 match hold {
                     Hold::Talking => self.totals.held_talking += 1,
                     Hold::ToldRecently => self.totals.held_recent += 1,
+                    Hold::KeptRule => self.totals.held_rule += 1,
                     // Only an answer can be outdated, never a question.
                     Hold::Outdated => {}
                 }
@@ -911,7 +945,7 @@ impl Progress {
         } else {
             self.tasks
                 .get(&context.task)
-                .and_then(|tracked| self.hold(tracked, now))
+                .and_then(|tracked| self.hold(tracked, now, unix_ms, context.room))
         }
         .filter(|_| judgement.choice == Choice::SayNow);
         if guard.is_some() {
@@ -1154,33 +1188,33 @@ mod tests {
             Progress::start(Never, Options::new(Duration::from_secs(1), None)).unwrap();
         let now = Instant::now();
         progress.status(status(5, AgentState::Working));
-        assert_eq!(progress.next(now), None);
+        assert_eq!(progress.next(now, 0, Room::Quiet), None);
         progress.status(status(6, AgentState::Working));
-        assert_eq!(progress.next(now), Some(3));
+        assert_eq!(progress.next(now, 0, Room::Quiet), Some(3));
         // The tasks part restarted and counts from nothing again.
         progress.status(status(0, AgentState::Working));
-        assert_eq!(progress.next(now), None);
+        assert_eq!(progress.next(now, 0, Room::Quiet), None);
         progress.status(status(1, AgentState::Working));
-        assert_eq!(progress.next(now), Some(3));
+        assert_eq!(progress.next(now, 0, Room::Quiet), Some(3));
         // Not at work: not progress.
         progress.status(status(2, AgentState::Idle));
-        assert_eq!(progress.next(now), None);
+        assert_eq!(progress.next(now, 0, Room::Quiet), None);
         // Another store: begun again; a status that fails its check is
         // passed over.
         let mut other = status(9, AgentState::Working);
         other.store_id = "f".repeat(32);
         progress.status(other);
-        assert_eq!(progress.next(now), None);
+        assert_eq!(progress.next(now, 0, Room::Quiet), None);
         let mut wrong = status(10, AgentState::Working);
         wrong.store_id = "x".into();
         progress.status(wrong);
-        assert_eq!(progress.next(now), None);
+        assert_eq!(progress.next(now, 0, Room::Quiet), None);
         // The tasks part gone: nothing is asked until it says again.
         progress.status(status(11, AgentState::Working));
         progress.gone();
-        assert_eq!(progress.next(now), None);
+        assert_eq!(progress.next(now, 0, Room::Quiet), None);
         progress.status(status(12, AgentState::Working));
-        assert_eq!(progress.next(now), Some(3));
+        assert_eq!(progress.next(now, 0, Room::Quiet), Some(3));
     }
 
     #[test]
@@ -1312,7 +1346,11 @@ mod tests {
             ("say_now", None)
         );
         progress.status(status(3, AgentState::Working));
-        assert_eq!(progress.next(then), None, "told less than 15 minutes ago");
+        assert_eq!(
+            progress.next(then, 0, Room::Quiet),
+            None,
+            "told less than 15 minutes ago"
+        );
 
         // The task left the watch and someone began to talk: talking holds
         // it whatever became of the task.
@@ -1363,7 +1401,11 @@ mod tests {
         );
         let there = &progress.tasks[&3];
         assert_eq!((there.judged, there.told_at, there.notes), (7, None, 0));
-        assert_eq!(progress.next(then), Some(3), "its own change is asked");
+        assert_eq!(
+            progress.next(then, 0, Room::Quiet),
+            Some(3),
+            "its own change is asked"
+        );
 
         // The line changed again while the question was out, or the task
         // stopped working: a wait, and the newer change is asked about.
@@ -1373,7 +1415,7 @@ mod tests {
         );
         assert_eq!(decided.line.guard, Some(Hold::Outdated));
         assert_eq!(progress.tasks[&3].judged, 1);
-        assert_eq!(progress.next(then), Some(3));
+        assert_eq!(progress.next(then, 0, Room::Quiet), Some(3));
         let (_, decided) = asked_then(
             |progress| progress.status(status(2, AgentState::Idle)),
             then,
@@ -1406,7 +1448,11 @@ mod tests {
             Some("0123456789abcdef0123456789abcdef:3:2@1791964000000")
         );
         assert_eq!(progress.tasks[&3].judged, 0);
-        assert_eq!(progress.next(then), Some(3), "run B's change is asked");
+        assert_eq!(
+            progress.next(then, 0, Room::Quiet),
+            Some(3),
+            "run B's change is asked"
+        );
         let asked = progress.context(3, then, 0, Room::Quiet, Some(true));
         assert_eq!(
             asked.key(),
@@ -1425,16 +1471,20 @@ mod tests {
         let now = Instant::now();
         progress.status(status_of(RUN_A, 0, AgentState::Working));
         progress.status(status_of(RUN_A, 1, AgentState::Working));
-        assert_eq!(progress.next(now), Some(3));
+        assert_eq!(progress.next(now, 0, Room::Quiet), Some(3));
         progress.tasks.get_mut(&3).unwrap().judged = 1;
-        assert_eq!(progress.next(now), None, "run A's change 1 was judged");
+        assert_eq!(
+            progress.next(now, 0, Room::Quiet),
+            None,
+            "run A's change 1 was judged"
+        );
         // Run B, its first count not seen here, at the same count.
         progress.status(status_of(RUN_B, 1, AgentState::Working));
-        assert_eq!(progress.next(now), Some(3));
+        assert_eq!(progress.next(now, 0, Room::Quiet), Some(3));
         // A note told a moment ago still holds the task back.
         progress.tasks.get_mut(&3).unwrap().told_at = Some(now);
         progress.status(status_of(RUN_A, 1, AgentState::Working));
-        assert_eq!(progress.next(now), None);
+        assert_eq!(progress.next(now, 0, Room::Quiet), None);
     }
 
     /// The reviewer's finding on #751 (15:26): `Resting` left the quiet
@@ -1452,13 +1502,13 @@ mod tests {
         progress.voice(Voice::Resting, stopped);
         progress.status(status(2, AgentState::Working));
         assert!(progress.talking(t + QUIET_FOR));
-        assert_eq!(progress.next(t + QUIET_FOR), None);
+        assert_eq!(progress.next(t + QUIET_FOR, 0, Room::Quiet), None);
         // Resting said again a few seconds on: the quiet still began when
         // the voice stopped.
         progress.voice(Voice::Resting, stopped + Duration::from_secs(5));
         assert!(progress.talking(stopped + QUIET_FOR - Duration::from_millis(1)));
         assert!(!progress.talking(stopped + QUIET_FOR));
-        assert_eq!(progress.next(stopped + QUIET_FOR), Some(3));
+        assert_eq!(progress.next(stopped + QUIET_FOR, 0, Room::Quiet), Some(3));
         // From Listening and from Thinking too.
         for active in [Voice::Listening, Voice::Thinking] {
             let at = t + Duration::from_secs(100);
@@ -1480,11 +1530,11 @@ mod tests {
         let now = Instant::now();
         progress.status(status_of(RUN_A, 1, AgentState::Working));
         progress.status(status_of(RUN_A, 2, AgentState::Working));
-        assert_eq!(progress.next(now), Some(3));
+        assert_eq!(progress.next(now, 0, Room::Quiet), Some(3));
         progress.tasks.get_mut(&3).unwrap().judged = 2;
         progress.status(status_of(RUN_B, 1, AgentState::Working));
         assert_eq!(progress.tasks[&3].judged, 0);
-        assert_eq!(progress.next(now), Some(3));
+        assert_eq!(progress.next(now, 0, Room::Quiet), Some(3));
     }
 
     /// The reviewer on #751 (17:05): a note was chosen, the tasks part went
@@ -1499,16 +1549,23 @@ mod tests {
         assert_eq!(decided.decision.choice, "say_now");
         progress.gone();
         // While it is gone nothing is asked, and an answer would be outdated.
-        assert_eq!(progress.next(then + Duration::from_secs(4)), None);
+        assert_eq!(
+            progress.next(then + Duration::from_secs(4), 0, Room::Quiet),
+            None
+        );
         assert!(!progress.live);
         progress.status(status_of(RUN_B, 0, AgentState::Working));
         progress.status(status_of(RUN_B, 1, AgentState::Working));
         let at = then + Duration::from_secs(34);
-        assert_eq!(progress.next(at), None, "told less than 15 minutes ago");
+        assert_eq!(
+            progress.next(at, 0, Room::Quiet),
+            None,
+            "told less than 15 minutes ago"
+        );
         assert_eq!(progress.totals().held_recent, 1);
         assert_eq!(progress.tasks[&3].notes, 1);
         // After the quarter hour, the new run's change is asked about.
-        assert_eq!(progress.next(then + NOTE_EVERY), Some(3));
+        assert_eq!(progress.next(then + NOTE_EVERY, 0, Room::Quiet), Some(3));
     }
 
     /// The reviewer on #793 (16:46): a new run's first value lists its
@@ -1530,13 +1587,13 @@ mod tests {
         let kept = &progress.tasks[&3];
         assert!(kept.unread && kept.notes == 1 && kept.told_at.is_some());
         // Run A's change 2 is no change of run B's to ask about.
-        assert_eq!(progress.next(then + NOTE_EVERY), None);
+        assert_eq!(progress.next(then + NOTE_EVERY, 0, Room::Quiet), None);
         // Its first read in run B: asked about once there is a change.
         progress.status(status_of(RUN_B, 0, AgentState::Working));
         assert!(!progress.tasks[&3].unread);
-        assert_eq!(progress.next(then + NOTE_EVERY), None);
+        assert_eq!(progress.next(then + NOTE_EVERY, 0, Room::Quiet), None);
         progress.status(status_of(RUN_B, 1, AgentState::Working));
-        assert_eq!(progress.next(then + NOTE_EVERY), Some(3));
+        assert_eq!(progress.next(then + NOTE_EVERY, 0, Room::Quiet), Some(3));
         // The reviewer on #793 (17:48): run A reached count 2, run B listed
         // the task unread, its first read at count 0 was missed, and its
         // next came at count 1. That is run B's first change, asked about.
@@ -1553,7 +1610,7 @@ mod tests {
         });
         missed.status(status_of(RUN_B, 1, AgentState::Working));
         assert_eq!(missed.tasks[&3].judged, 0);
-        assert_eq!(missed.next(then + NOTE_EVERY), Some(3));
+        assert_eq!(missed.next(then + NOTE_EVERY, 0, Room::Quiet), Some(3));
         // A task neither read nor unread has left the watch: let go.
         progress.status(TaskStatus {
             store_id: "0123456789abcdef0123456789abcdef".into(),
@@ -1571,5 +1628,71 @@ mod tests {
         assert_eq!(hour_of_day(1_791_999_062_000, 420), 0);
         assert_eq!(hour_of_day(1_791_999_062_000, -300), 12);
         assert_eq!(hour_of_day(0, -60), 23);
+    }
+
+    fn rules(quiet: bool, quiet_mornings: bool) -> Rules {
+        Rules {
+            person: "p-be9688998f085098".into(),
+            quiet,
+            quiet_mornings,
+            rules: 1,
+            hello: lamp_msgs::Unprompted::default(),
+            news: lamp_msgs::Unprompted::default(),
+        }
+    }
+
+    /// #813: what the person at the lamp asked about it speaking first
+    /// holds a question as the other hard rules do: not asked while it
+    /// holds, counted once for the change, and asked once it no longer
+    /// holds (noon at the lamp, or the rule forgotten). An answer that
+    /// comes back after a rule was kept is a `wait` by it.
+    #[test]
+    fn a_kept_rule_holds_progress_news_and_no_model_is_asked() {
+        // 2026-10-16 08:59 at a lamp seven hours east of UTC, and its noon.
+        let (hanoi_0859, hanoi_noon) = (1_792_115_940_000, 1_792_115_940_000 + 181 * 60_000);
+        let mut progress =
+            Progress::start(Never, Options::new(Duration::from_secs(1), Some(7 * 60))).unwrap();
+        let now = Instant::now();
+        progress.status(status(1, AgentState::Working));
+        progress.status(status(2, AgentState::Working));
+        assert_eq!(progress.next(now, hanoi_0859, Room::Quiet), Some(3));
+        progress.rules(rules(false, true));
+        assert_eq!(progress.next(now, hanoi_0859, Room::Quiet), None);
+        assert_eq!(progress.next(now, hanoi_0859, Room::Quiet), None);
+        assert_eq!(progress.totals().held_rule, 1, "once for the change");
+        assert_eq!(progress.next(now, hanoi_noon, Room::Quiet), Some(3));
+        progress.rules(rules(true, false));
+        assert_eq!(progress.next(now, hanoi_noon, Room::Quiet), None);
+        progress.rules(rules(false, false));
+        assert_eq!(progress.next(now, hanoi_0859, Room::Quiet), Some(3));
+        // The seventh's typed limits (#904): news not while they talk holds
+        // in a busy room, or one not known, and not in a quiet one; a
+        // limit on the hello holds no news.
+        progress.rules(Rules {
+            news: lamp_msgs::Unprompted {
+                not_while_talking: true,
+                ..lamp_msgs::Unprompted::default()
+            },
+            hello: lamp_msgs::Unprompted {
+                never: true,
+                ..lamp_msgs::Unprompted::default()
+            },
+            ..rules(false, false)
+        });
+        assert_eq!(progress.next(now, hanoi_0859, Room::Busy), None);
+        assert_eq!(progress.next(now, hanoi_0859, Room::Unknown), None);
+        assert_eq!(progress.next(now, hanoi_0859, Room::Quiet), Some(3));
+        assert_eq!(progress.totals().decided, 0);
+
+        let (_, decided) = asked_then(
+            |progress| progress.rules(rules(true, false)),
+            Instant::now() + Duration::from_secs(120),
+        );
+        assert_eq!(
+            (decided.line.judgement.choice, decided.line.guard),
+            (Choice::Wait, Some(Hold::KeptRule))
+        );
+        assert_eq!(decided.decision.choice, "wait");
+        assert_eq!(Hold::KeptRule.as_str(), "kept_rule");
     }
 }

@@ -3109,6 +3109,13 @@ fn conversation_with_gate(
     } else {
         None
     };
+    // Told at the first pause of a second, not after 15 s with no turn
+    // (#560, `LAMP_TASK_NEWS_AT_PAUSE=on`).
+    let news_at_pause = crate::task_news::at_pause(
+        std::env::var(crate::task_news::AT_PAUSE_ENVIRONMENT)
+            .ok()
+            .as_deref(),
+    );
     // What other parts ask the voice to say, skills first (#939,
     // `LAMP_SAY=on`).
     let mut says = if lifetime.continuous() {
@@ -6121,12 +6128,26 @@ fn conversation_with_gate(
         // something a moment ago; a bump is not a person, and a restart is
         // not someone speaking: on lamp-4ace on 2026-10-15 the first build
         // took the start of the service for it and told the empty office at
-        // 00:49:48), nothing has been said for a little while, nothing is
-        // owed, and the room is not busy with other talk.
+        // 00:49:48), nothing has been said for a little while (or, with
+        // `LAMP_TASK_NEWS_AT_PAUSE=on`, at the first pause of a second, as
+        // a due reminder waits, #560), nothing is owed, and the room is not
+        // busy with other talk.
         if let Some(news) = task_news.as_mut()
             && !reminder_waiting
             && news.waiting().is_some()
-            && clock.saturating_sub(last_turn_us) >= crate::task_news::QUIET_US
+            && crate::task_news::quiet_for_news(
+                news_at_pause,
+                clock,
+                last_turn_us,
+                last_spoke_us,
+                last_speech_us,
+                reminder_quiet(
+                    clock,
+                    reminder_cycle_started_us,
+                    last_speech_us,
+                    last_capture,
+                ),
+            )
             && (arrival
                 .as_ref()
                 .is_some_and(|arrival| arrival.present(clock))
@@ -6148,7 +6169,8 @@ fn conversation_with_gate(
             );
             record(
                 trace,
-                json!({"kind":"task_news","at_us":clock,"key":told.key,"provider_session":provider_session}),
+                json!({"kind":"task_news","at_us":clock,"key":told.key,"provider_session":provider_session,
+                    "at_pause":news_at_pause,"since_turn_ms":clock.saturating_sub(last_turn_us) / 1_000}),
             )?;
             snapshot = commit_written_turn(
                 owner,

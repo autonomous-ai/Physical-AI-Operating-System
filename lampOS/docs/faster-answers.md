@@ -401,10 +401,13 @@ session tests also on their own:
   times from 0 to 1.5 s, never before the lamp is sure and never later
   than without.
 - `coordinator::tests::early_end`: the coordinator's own loop, capture
-  in real 10 ms blocks, the real provider worker and Gemini session
+  in 10 ms blocks, the real provider worker and Gemini session
   started as kept-start starts them, against the scripted service of
-  `lamp_gemini::testing`. Counted at the service (one request is one
-  `activityStart` and one `activityEnd`):
+  `lamp_gemini::testing`. Since 2026-10-16 (#823) they run on one logical
+  clock (realtime-tests.md, "early_end on one logical clock"); the times
+  below were measured in real time, and on the logical clock they agree
+  within 6 ms, the counts exactly. Counted at the service (one request is
+  one `activityStart` and one `activityEnd`):
 
 | Case | What the service received | Given up | Answers begun / played | Last sound to first block to the speaker |
 |---|---|---|---|---|

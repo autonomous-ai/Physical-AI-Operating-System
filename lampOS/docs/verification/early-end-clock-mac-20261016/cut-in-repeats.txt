@@ -1,0 +1,10 @@
+stepped: with the switch: Hey Lamp, 0.7 s, the question, stop: connections 1; activityStart 3, audio blocks 420, activityEnd 3, other 0; requests given up 0; answers begun 3, blocks played 94; last sound to first block handed to the speaker Some(1066) ms
+stepped: with the switch: Hey Lamp, 0.7 s, the question, stop: connections 1; activityStart 3, audio blocks 420, activityEnd 3, other 0; requests given up 0; answers begun 3, blocks played 94; last sound to first block handed to the speaker Some(1066) ms
+stepped: with the switch: Hey Lamp, 0.7 s, the question, stop: connections 1; activityStart 3, audio blocks 420, activityEnd 3, other 0; requests given up 0; answers begun 3, blocks played 94; last sound to first block handed to the speaker Some(1066) ms
+stepped: with the switch: Hey Lamp, 0.7 s, the question, stop: connections 1; activityStart 3, audio blocks 420, activityEnd 3, other 0; requests given up 0; answers begun 3, blocks played 94; last sound to first block handed to the speaker Some(1066) ms
+stepped: with the switch: Hey Lamp, 0.7 s, the question, stop: connections 1; activityStart 3, audio blocks 420, activityEnd 3, other 0; requests given up 0; answers begun 3, blocks played 94; last sound to first block handed to the speaker Some(1066) ms
+base: with the switch: Hey Lamp, 0.7 s, the question, stop: connections 1; activityStart 3, audio blocks 420, activityEnd 3, other 0; requests given up 0; answers begun 3, blocks played 92; last sound to first block handed to the speaker Some(1071) ms
+base: with the switch: Hey Lamp, 0.7 s, the question, stop: connections 1; activityStart 3, audio blocks 420, activityEnd 3, other 0; requests given up 0; answers begun 3, blocks played 91; last sound to first block handed to the speaker Some(1071) ms
+base: with the switch: Hey Lamp, 0.7 s, the question, stop: connections 1; activityStart 3, audio blocks 420, activityEnd 3, other 0; requests given up 0; answers begun 3, blocks played 92; last sound to first block handed to the speaker Some(1069) ms
+
+[exited with code 0]

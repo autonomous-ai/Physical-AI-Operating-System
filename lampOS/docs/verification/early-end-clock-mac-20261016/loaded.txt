@@ -1,0 +1,25 @@
+r1-p1: test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 1370 filtered out; finished in 27.02s
+r1-p2: test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 1370 filtered out; finished in 27.12s
+r1-p3: test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 1370 filtered out; finished in 27.08s
+r1-p4: test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 1370 filtered out; finished in 27.00s
+r1-p5: test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 1370 filtered out; finished in 26.99s
+r1-p6: test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 1370 filtered out; finished in 27.01s
+r2-p1: test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 1370 filtered out; finished in 22.84s
+r2-p2: test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 1370 filtered out; finished in 22.95s
+r2-p3: test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 1370 filtered out; finished in 22.96s
+r2-p4: test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 1370 filtered out; finished in 22.93s
+r2-p5: test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 1370 filtered out; finished in 22.91s
+r2-p6: test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 1370 filtered out; finished in 22.86s
+r3-p1: test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 1370 filtered out; finished in 32.07s
+r3-p2: test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 1370 filtered out; finished in 32.11s
+r3-p3: test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 1370 filtered out; finished in 32.11s
+r3-p4: test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 1370 filtered out; finished in 32.11s
+r3-p5: test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 1370 filtered out; finished in 32.07s
+r3-p6: test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 1370 filtered out; finished in 32.08s
+n-p1 (--nocapture): test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 1370 filtered out; finished in 28.70s; summary lines md5 1e65832654737863feba30a1008b6138
+n-p2 (--nocapture): test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 1370 filtered out; finished in 28.80s; summary lines md5 1e65832654737863feba30a1008b6138
+n-p3 (--nocapture): test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 1370 filtered out; finished in 28.77s; summary lines md5 1e65832654737863feba30a1008b6138
+n-p4 (--nocapture): test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 1370 filtered out; finished in 28.75s; summary lines md5 1e65832654737863feba30a1008b6138
+n-p5 (--nocapture): test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 1370 filtered out; finished in 28.79s; summary lines md5 1e65832654737863feba30a1008b6138
+n-p6 (--nocapture): test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 1370 filtered out; finished in 28.76s; summary lines md5 1e65832654737863feba30a1008b6138
+stepped.txt (unloaded): summary lines md5 1e65832654737863feba30a1008b6138

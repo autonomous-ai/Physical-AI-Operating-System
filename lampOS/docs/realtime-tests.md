@@ -58,8 +58,8 @@ selection), which must stay identical:
   `lamp-voice-eval::final_dispatch`, `lamp-memory::health`,
   `lamp-voice::capture_hold_worker`;
 - whole modules of `lamp-voice`'s unit tests:
-  `coordinator::tests::pilot_faults`, `coordinator::tests::early_end`,
-  `coordinator::tests::endpoint_session`;
+  `coordinator::tests::pilot_faults`, `coordinator::tests::endpoint_session`
+  (`coordinator::tests::early_end` left on 2026-10-16, below);
 - single tests that took 4 s or more outside those, named exactly;
 - tests with a real-clock bound that a loaded runner misses. Pull requests
   run one test per core, and this failed twice on 2026-10-15/16, on changes
@@ -668,3 +668,47 @@ reaped) are taken on the host clock: they are real process events, and
 `rapid_mute…` compares them across runs, whose logical times are their own.
 Its cross-cycle privacy wait was already a separate mock thread. The
 SIGTERM raised on the stepping thread is the section above (#739).
+
+## early_end on one logical clock (#823)
+
+`coordinator::tests::early_end`'s 13 conversations ran in real time: the
+coordinator, three peer threads polling every millisecond, and the real
+provider worker, Gemini session and scripted service on a runtime of their
+own. Each lasted its script's `seconds` (4 to 8; the cut-in case runs twice),
+93 s for the module. They now share one logical clock, all on the test's
+thread:
+
+- the coordinator and its capture, privacy and speaker peers on
+  `scenario_clock`, the peers run inside its step, as in `pilot_faults`;
+- the provider worker, its Gemini session and the scripted service on a
+  paused current-thread Tokio runtime. Each step first advances it to the
+  step's logical instant (`sleep_until`), its timers firing in order on the
+  way, and then the peers run. In cleanup the logical instant stands and the
+  runtime goes on 2 ms a step, so that the worker takes Stop;
+- `provider_link.rs` reads `scenario_clock::monotonic_us` under `cfg(test)`,
+  as `provider_worker.rs` does since #1035: the worker's link clock pairs its
+  Tokio instants with the voice's microseconds, and in a scope both are
+  logical. Unscoped tests and release builds read `lamp_ipc::monotonic_us` as
+  before;
+- what the service and the peers record (`Seen`) is stamped with
+  `scenario_clock::instant()`, which is `Instant::now()` without a scope.
+
+The child processes (`sleep 60`), their start barrier, the coordinator's
+cleanup and the 12 s conversation watchdog stay on the host clock. The
+assertions, the scripts, the service's timings and every production bound
+are unchanged. `a_name_note_told_with_a_request_ended_early_does_not_survive_it`
+runs on `#[tokio::test(start_paused = true)]`.
+
+On one Intel Mac, one test at a time: the 19 tests took 93.17 s before and
+16.26 s after; the name note 1.12 s and 0.01 s. Each conversation's summary
+line (connections, activity starts and ends, audio blocks sent, requests
+given up, answers begun, blocks played, last sound to the first block handed
+to the speaker) is the same before and after, except that times differ by up
+to 6 ms (602 ms where real time gave 601 to 604: the 2 ms step), and in the
+cut-in case 94 blocks are played before "stop" cuts in, on every run, where
+real time played 91 or 92 (not asserted). Six copies of the module at once
+on 16 logical CPUs passed 24 of 24 runs in 23 to 32 s each, and their summary lines
+were byte for byte those of an unloaded run.
+
+So `coordinator::tests::early_end` left the group, in all three filtersets,
+on 2026-10-16.

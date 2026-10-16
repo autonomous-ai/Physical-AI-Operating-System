@@ -7,14 +7,21 @@
 //! asked to and stops an answer when a new activity begins over it, as the
 //! real one does with `START_OF_ACTIVITY_INTERRUPTS`.
 //!
-//! Capture blocks follow a 10 ms schedule in real time, and each carries
-//! its own number as its samples, so that what reached the service can be
-//! read back block by block. The detector's decisions are counted in
-//! blocks and are exact; the times the service takes are real and are
-//! asserted with room to spare. No audio device, cloud service or model
-//! is used. Each coordinator scenario explicitly selects bounded host
-//! scheduling tolerance for privacy; these are ordering tests, not measurements
-//! of the lamp's 50 ms privacy response.
+//! Capture blocks follow a 10 ms schedule, and each carries its own number
+//! as its samples, so that what reached the service can be read back block
+//! by block. The detector's decisions are counted in blocks and are exact;
+//! the times the service takes are asserted with room to spare. No audio
+//! device, cloud service or model is used. Each coordinator scenario
+//! explicitly selects bounded host scheduling tolerance for privacy; these
+//! are ordering tests, not measurements of the lamp's 50 ms privacy response.
+//!
+//! The scenarios run on one logical clock (#823): `scenario_clock` for the
+//! coordinator and its peers, and a paused Tokio clock for the provider
+//! worker, its Gemini session and the scripted service. All of them run on
+//! the test's thread inside the coordinator's step, and the clock moves
+//! 2 ms only once each has run, so a conversation of seconds takes a
+//! fraction of that. Child processes and their cleanup stay on the host
+//! clock.
 use super::endpoint_session::one_session;
 use super::*;
 use crate::{
@@ -27,11 +34,11 @@ use lamp_gemini::{
     testing::{Dial, audio, connector, sent_audio},
 };
 use std::{
+    rc::Rc,
     sync::{
         Arc, Mutex,
         atomic::{AtomicBool, Ordering},
     },
-    thread,
 };
 use tokio::sync::mpsc::UnboundedReceiver;
 
@@ -39,9 +46,14 @@ const SPEECH: f32 = 0.95;
 const QUIET: f32 = 0.05;
 // These provider integrations accept bounded host scheduling delay;
 // it is not a measurement of the lamp's 50 ms privacy response. IPC/capture
-// freshness, real clocks and the real 300 ms shared cleanup budget are intact.
+// freshness and the real 300 ms shared cleanup budget are intact.
 const FIXTURE_PRIVACY_FRESH_US: u64 = 100_000;
 const FIXTURE_CONVERSATION_WATCHDOG: Duration = Duration::from_secs(12);
+/// The host's bound on one scenario's logical clock: the provider's 3 s to
+/// be ready, the conversation's watchdog, and cleanup.
+const FIXTURE_SCENARIO_WATCHDOG: Duration = Duration::from_secs(20);
+/// One logical step, as `scenario_clock` takes it.
+const STEP: Duration = Duration::from_millis(2);
 /// Speech probability of each 10 ms capture block, by block number.
 type Script = fn(u64) -> f32;
 
@@ -206,10 +218,11 @@ async fn one_connection(
         if let Some(message) = dial.service.rest(Duration::from_millis(1)).await {
             let what = wire(&message);
             let now = tokio::time::Instant::now();
-            seen.lock()
-                .unwrap()
-                .wire
-                .push((connection, what.clone(), Instant::now()));
+            seen.lock().unwrap().wire.push((
+                connection,
+                what.clone(),
+                crate::scenario_clock::instant(),
+            ));
             match what {
                 Wire::End => {
                     ends += 1;
@@ -242,7 +255,10 @@ async fn one_connection(
         {
             due = None;
             speaking = Some((value, 0, now));
-            seen.lock().unwrap().answers.push((value, Instant::now()));
+            seen.lock()
+                .unwrap()
+                .answers
+                .push((value, crate::scenario_clock::instant()));
         }
         if let Some((value, sent, next)) = speaking.as_mut()
             && now >= *next
@@ -304,28 +320,32 @@ impl CaptureSchedule {
 
 /// Frames on a fixed 10 ms schedule, like a capture device; each block's
 /// samples are its own number.
-fn capture_peer(
-    mut channels: WorkerChannels,
+struct CapturePeer {
+    channels: WorkerChannels,
     script: Script,
     seen: Arc<Mutex<Seen>>,
-    stop: Arc<AtomicBool>,
-) {
-    let mut generation = 0;
-    let mut started = None;
-    while !stop.load(Ordering::SeqCst) {
-        while let Some(control) = channels.control.receive::<Control>().unwrap() {
+    generation: u64,
+    started: Option<CaptureSchedule>,
+}
+
+impl CapturePeer {
+    /// One step: false once told to stop.
+    fn step(&mut self) -> bool {
+        while let Some(control) = self.channels.control.receive::<Control>().unwrap() {
             match control {
-                Control::Authority { snapshot } => generation = snapshot.microphone_generation(),
-                Control::StartCapture if started.is_none() => {
+                Control::Authority { snapshot } => {
+                    self.generation = snapshot.microphone_generation()
+                }
+                Control::StartCapture if self.started.is_none() => {
                     let at = monotonic_us();
-                    let instant = Instant::now();
-                    channels
+                    let instant = crate::scenario_clock::instant();
+                    self.channels
                         .control
                         .send(WorkerEvent::CaptureStarted {
                             epoch: 1,
                             dsp_epoch: 1,
                             noise_suppression: NoiseSuppression::On,
-                            privacy_generation: generation,
+                            privacy_generation: self.generation,
                             rate: 16_000,
                             channels: 1,
                             period_frames: 160,
@@ -337,24 +357,24 @@ fn capture_peer(
                             start_completed_at_us: at,
                         })
                         .unwrap();
-                    started = Some(CaptureSchedule::new(at));
-                    seen.lock().unwrap().capture_started = Some(instant);
+                    self.started = Some(CaptureSchedule::new(at));
+                    self.seen.lock().unwrap().capture_started = Some(instant);
                 }
-                Control::Stop => return,
+                Control::Stop => return false,
                 _ => {}
             }
         }
-        while let Some(schedule) = started.as_mut() {
+        while let Some(schedule) = self.started.as_mut() {
             let Some((sequence, at)) = schedule.next_due(monotonic_us()) else {
                 break;
             };
             let frame = MicrophoneFrame {
                 epoch: 1,
                 dsp_epoch: 1,
-                privacy_generation: generation,
+                privacy_generation: self.generation,
                 frame_sequence: sequence,
                 read_completed_at_us: at,
-                probability: script(sequence),
+                probability: (self.script)(sequence),
                 echo: None,
                 reference: Default::default(),
                 samples: vec![sequence as i16; 160],
@@ -375,53 +395,73 @@ fn capture_peer(
                     },
                 },
             };
-            channels.data.send(frame).unwrap();
+            self.channels.data.send(frame).unwrap();
         }
-        thread::sleep(Duration::from_millis(1));
+        true
     }
 }
 
-fn privacy_peer(mut channels: WorkerChannels, stop: Arc<AtomicBool>) {
-    let mut generation = 0;
-    let mut next = Instant::now();
-    while !stop.load(Ordering::SeqCst) && drain_control(&mut channels, &mut generation) {
-        if Instant::now() >= next {
-            channels
+struct PrivacyPeer {
+    channels: WorkerChannels,
+    generation: u64,
+    next: Instant,
+}
+
+impl PrivacyPeer {
+    /// One step: false once told to stop.
+    fn step(&mut self) -> bool {
+        if !drain_control(&mut self.channels, &mut self.generation) {
+            return false;
+        }
+        if crate::scenario_clock::instant() >= self.next {
+            self.channels
                 .control
                 .send(WorkerEvent::Privacy {
                     acquired_at_us: monotonic_us(),
                     muted: false,
                 })
                 .unwrap();
-            next += Duration::from_millis(10);
+            self.next += Duration::from_millis(10);
         }
-        thread::sleep(Duration::from_millis(1));
+        true
     }
 }
 
 /// Takes every block at once, as ALSA would accept it.
-fn speaker_peer(mut channels: WorkerChannels, seen: Arc<Mutex<Seen>>, stop: Arc<AtomicBool>) {
-    let mut generation = 0;
-    let mut frame = 1_000u64;
-    while !stop.load(Ordering::SeqCst) && drain_control(&mut channels, &mut generation) {
-        while let Some(chunk) = channels.data.receive::<SpeakerChunk>().unwrap() {
+struct SpeakerPeer {
+    channels: WorkerChannels,
+    seen: Arc<Mutex<Seen>>,
+    generation: u64,
+    frame: u64,
+}
+
+impl SpeakerPeer {
+    /// One step: false once told to stop.
+    fn step(&mut self) -> bool {
+        if !drain_control(&mut self.channels, &mut self.generation) {
+            return false;
+        }
+        while let Some(chunk) = self.channels.data.receive::<SpeakerChunk>().unwrap() {
             let owner = chunk.permit.owner();
-            seen.lock().unwrap().chunks.push((
+            self.seen.lock().unwrap().chunks.push((
                 owner.turn(),
-                Instant::now(),
+                crate::scenario_clock::instant(),
                 chunk.samples[0],
                 monotonic_us(),
             ));
             let frames = chunk.samples.len();
             let at = monotonic_us();
-            channels
+            self.channels
                 .control
                 .send(WorkerEvent::Playback {
                     owner,
-                    first_sample: PlaybackCursor { epoch: 1, frame },
+                    first_sample: PlaybackCursor {
+                        epoch: 1,
+                        frame: self.frame,
+                    },
                     end_sample: PlaybackCursor {
                         epoch: 1,
-                        frame: frame + frames as u64,
+                        frame: self.frame + frames as u64,
                     },
                     queue_observed_at_us: at,
                     turn: owner.turn(),
@@ -431,30 +471,56 @@ fn speaker_peer(mut channels: WorkerChannels, seen: Arc<Mutex<Seen>>, stop: Arc<
                     observed_at_us: at,
                 })
                 .unwrap();
-            frame += frames as u64;
+            self.frame += frames as u64;
         }
-        thread::sleep(Duration::from_millis(1));
+        true
     }
 }
 
-fn peripheral_peers(
-    channels: [WorkerChannels; 3],
-    script: Script,
-    seen: Arc<Mutex<Seen>>,
-    stop: Arc<AtomicBool>,
-) -> [thread::JoinHandle<()>; 3] {
-    let [capture, privacy, speaker] = channels;
-    [
-        thread::spawn({
-            let (stop, seen) = (stop.clone(), seen.clone());
-            move || capture_peer(capture, script, seen, stop)
-        }),
-        thread::spawn({
-            let stop = stop.clone();
-            move || privacy_peer(privacy, stop)
-        }),
-        thread::spawn(move || speaker_peer(speaker, seen, stop)),
-    ]
+/// Capture, privacy and the speaker, each run once a step. A peer told to
+/// stop is dropped with its channels, as its process ends.
+struct PeripheralPeers {
+    capture: Option<CapturePeer>,
+    privacy: Option<PrivacyPeer>,
+    speaker: Option<SpeakerPeer>,
+}
+
+impl PeripheralPeers {
+    fn new(channels: [WorkerChannels; 3], script: Script, seen: Arc<Mutex<Seen>>) -> Self {
+        let [capture, privacy, speaker] = channels;
+        Self {
+            capture: Some(CapturePeer {
+                channels: capture,
+                script,
+                seen: seen.clone(),
+                generation: 0,
+                started: None,
+            }),
+            privacy: Some(PrivacyPeer {
+                channels: privacy,
+                generation: 0,
+                next: crate::scenario_clock::instant(),
+            }),
+            speaker: Some(SpeakerPeer {
+                channels: speaker,
+                seen,
+                generation: 0,
+                frame: 1_000,
+            }),
+        }
+    }
+
+    fn step(&mut self) {
+        if self.capture.as_mut().is_some_and(|peer| !peer.step()) {
+            self.capture = None;
+        }
+        if self.privacy.as_mut().is_some_and(|peer| !peer.step()) {
+            self.privacy = None;
+        }
+        if self.speaker.as_mut().is_some_and(|peer| !peer.step()) {
+            self.speaker = None;
+        }
+    }
 }
 
 struct Session {
@@ -585,7 +651,8 @@ impl Setup {
     /// Every caller explicitly selects the same bounded scheduling allowance.
     /// The gate belongs to this conversation; unrelated fixtures retain 50 ms.
     fn run_with_privacy_tolerance(self) -> Session {
-        // Check before any process, provider runtime or sample producer starts.
+        // Check before any process, provider runtime or sample producer
+        // starts: the scenario's logical clock is its own, entered below.
         require_real_fixture_clock();
         let fixture_privacy =
             PrivacyGate::with_fixture_freshness(FIXTURE_PRIVACY_FRESH_US).unwrap();
@@ -594,6 +661,10 @@ impl Setup {
         let (speaker, speaker_peer_channels) = Worker::sleeping_fixture(&dir.path, "speaker");
         let (provider, provider_peer_channels) = Worker::sleeping_fixture(&dir.path, "provider");
         let (privacy, privacy_peer_channels) = Worker::sleeping_fixture(&dir.path, "privacy");
+        // Every child has crossed its startup barrier. From here the
+        // coordinator, its peers, the provider worker and the scripted
+        // service share one logical clock on this thread.
+        let scope = crate::scenario_clock::Scope::enter(FIXTURE_SCENARIO_WATCHDOG).unwrap();
         let mut owner = Controller::new(new_boot().unwrap(), now());
         let boot = owner.snapshot(now()).unwrap().boot();
         let stop = Arc::new(AtomicBool::new(false));
@@ -605,67 +676,45 @@ impl Setup {
             privacy_peer_channels,
             speaker_peer_channels,
         ];
-        let (answering_abort_tx, answering_abort_rx) = std::sync::mpsc::sync_channel(1);
-        let mut peers = Vec::with_capacity(4);
-        peers.push(
-            // The real provider worker and session, and the scripted service.
-            thread::spawn({
-                let (stop, seen) = (stop.clone(), seen.clone());
-                move || {
-                    let runtime = tokio::runtime::Builder::new_current_thread()
-                        .enable_all()
-                        .build()
-                        .unwrap();
-                    runtime.block_on(async move {
-                        let config = Continuation::KeptStart
-                            .apply(
-                                SessionConfig::new(
-                                    lamp_gemini::GOOGLE_ENDPOINT,
-                                    Credential::api_key("test-only").unwrap(),
-                                )
-                                .unwrap()
-                                .resumption(Resumption::Retain)
-                                .barrier_policy(BarrierPolicy::Require),
-                            )
-                            .unwrap();
-                        let (connect, dials) = connector(config);
-                        let provider = Supervisor::new(
-                            connect,
-                            RecoveryPolicy {
-                                first_backoff: Duration::from_millis(20),
-                                max_backoff: Duration::from_millis(40),
-                                ..RecoveryPolicy::default()
-                            },
-                        )
-                        .unwrap();
-                        let worker = tokio::spawn(serve_coordinated_test(
-                            provider_peer_channels,
-                            boot,
-                            provider,
-                        ));
-                        let answering =
-                            tokio::spawn(serve_dials(dials, service, seen.clone(), stop.clone()));
-                        // Publish before the current-thread runtime first yields.
-                        // The one-slot channel cannot wait for a consumer here.
-                        answering_abort_tx.send(answering.abort_handle()).unwrap();
-                        while !stop.load(Ordering::SeqCst) {
-                            tokio::time::sleep(Duration::from_millis(5)).await;
-                        }
-                        worker.abort();
-                        answering.abort();
-                        // Join both before propagating either panic, so no task
-                        // is left running when this provider thread unwinds.
-                        let worker_result = worker.await;
-                        let answering_result = answering.await;
-                        // A worker that ended by itself says why.
-                        if let Some(Err(error)) = fixture_task_result(worker_result, true) {
-                            seen.lock().unwrap().worker = Some(error.to_string());
-                        }
-                        let _ = fixture_task_result(answering_result, true);
-                    });
-                }
-            }),
+        // The real provider worker and session, and the scripted service, on
+        // a paused current-thread runtime that runs only inside a step.
+        let runtime = Rc::new(
+            tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .start_paused(true)
+                .build()
+                .unwrap(),
         );
+        let (worker, answering) = runtime.block_on(async {
+            let config = Continuation::KeptStart
+                .apply(
+                    SessionConfig::new(
+                        lamp_gemini::GOOGLE_ENDPOINT,
+                        Credential::api_key("test-only").unwrap(),
+                    )
+                    .unwrap()
+                    .resumption(Resumption::Retain)
+                    .barrier_policy(BarrierPolicy::Require),
+                )
+                .unwrap();
+            let (connect, dials) = connector(config);
+            let provider = Supervisor::new(
+                connect,
+                RecoveryPolicy {
+                    first_backoff: Duration::from_millis(20),
+                    max_backoff: Duration::from_millis(40),
+                    ..RecoveryPolicy::default()
+                },
+            )
+            .unwrap();
+            let worker = tokio::spawn(serve_coordinated_test(
+                provider_peer_channels,
+                boot,
+                provider,
+            ));
+            let answering = tokio::spawn(serve_dials(dials, service, seen.clone(), stop.clone()));
+            (worker, answering)
+        });
         let mut rig = Rig {
             second: None,
             microphone: crate::options::Microphone::Mic2,
@@ -690,12 +739,11 @@ impl Setup {
             cut_keeps_name: self.cut_keeps_name,
             paused: Box::new(|| false),
         };
-        // The worker says it is ready before anything else.
+        // The worker says it is ready before anything else. Until then only
+        // the provider's runtime runs; the logical clock stands.
         let deadline = Instant::now() + Duration::from_secs(3);
-        let answering_abort = answering_abort_rx
-            .recv_timeout(deadline.saturating_duration_since(Instant::now()))
-            .expect("the provider did not publish its scripted-service task in time");
         loop {
+            runtime.block_on(tokio::task::yield_now());
             match rig
                 .provider
                 .channels
@@ -705,24 +753,44 @@ impl Setup {
             {
                 Some(WorkerEvent::Ready) => break,
                 Some(other) => panic!("before the worker was ready: {other:?}"),
-                None => {
-                    assert!(
-                        Instant::now() < deadline,
-                        "the provider worker never started"
-                    );
-                    thread::sleep(Duration::from_millis(1));
-                }
+                None => assert!(
+                    Instant::now() < deadline,
+                    "the provider worker never started"
+                ),
             }
         }
         // Start sample producers only after the real provider's Ready barrier.
         // Startup cannot queue old privacy reads while the runtime is still
         // initializing; source observations keep their acquisition timestamps.
-        peers.extend(peripheral_peers(
-            peripheral_channels,
-            script,
-            seen.clone(),
-            stop.clone(),
-        ));
+        let mut peers = PeripheralPeers::new(peripheral_channels, script, seen.clone());
+        // Each step the provider's runtime first catches up with the step's
+        // logical instant, its timers firing in order on the way, then each
+        // peer runs; the clock moves only after. Cleanup holds the logical
+        // instant, while the provider's runtime goes on a step at a time so
+        // that its worker takes Stop as it would.
+        let tokio_origin = runtime.block_on(async { tokio::time::Instant::now() });
+        let logical_origin = crate::scenario_clock::instant();
+        scope
+            .set_pump({
+                let runtime = runtime.clone();
+                move |phase| {
+                    runtime.block_on(async {
+                        match phase {
+                            crate::scenario_clock::Phase::Run => {
+                                let at = crate::scenario_clock::instant() - logical_origin;
+                                tokio::time::sleep_until(tokio_origin + at).await;
+                            }
+                            crate::scenario_clock::Phase::Shutdown { .. } => {
+                                tokio::time::sleep(STEP).await
+                            }
+                        }
+                        tokio::task::yield_now().await;
+                    });
+                    peers.step();
+                    Ok(())
+                }
+            })
+            .unwrap();
         let mut trace = SessionState::finite();
         let mut reply = None;
         let result = conversation_with_fixture_privacy(
@@ -741,14 +809,22 @@ impl Setup {
         // Stop future service sends before provider Stop can close its socket.
         // Both tasks share one current-thread runtime; the provider and every
         // peripheral peer remain active through the ordinary shared cleanup.
-        answering_abort.abort();
+        answering.abort();
         let _ = rig.shutdown(&mut trace);
         stop.store(true, Ordering::SeqCst);
-        for peer in peers {
-            if let Err(panic) = peer.join() {
-                std::panic::resume_unwind(panic);
+        worker.abort();
+        runtime.block_on(async {
+            // Join both before propagating either panic, so no task is left
+            // running when this test unwinds.
+            let worker_result = worker.await;
+            let answering_result = answering.await;
+            // A worker that ended by itself says why.
+            if let Some(Err(error)) = fixture_task_result(worker_result, true) {
+                seen.lock().unwrap().worker = Some(error.to_string());
             }
-        }
+            let _ = fixture_task_result(answering_result, true);
+        });
+        drop(scope);
         let seen = std::mem::take(&mut *seen.lock().unwrap());
         Session {
             result,
@@ -1549,8 +1625,10 @@ fn without_the_option_every_message_and_record_is_what_it_was() {
 /// `--provider-continuation kept-start` configures them, called in the
 /// order the provider worker calls them for the coordinator's early end:
 /// `retire` for a request continued by a newer owner, `discard` for one
-/// with no owner after it (`ProviderIntake::synchronize`).
-#[tokio::test]
+/// with no owner after it (`ProviderIntake::synchronize`). On a paused
+/// clock: the session's timers and each wait for quiet pass only once
+/// every task is idle (#823).
+#[tokio::test(start_paused = true)]
 async fn a_name_note_told_with_a_request_ended_early_does_not_survive_it() {
     require_real_fixture_clock();
     use lamp_gemini::{Notice, RequestId, testing::next_dial};

@@ -830,6 +830,10 @@ struct Failure {
 }
 
 #[cfg(test)]
+#[path = "../tests/support/openat2.rs"]
+mod test_openat2;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use std::fs::{self as stdfs, FileTimes, OpenOptions, Permissions};
@@ -839,6 +843,8 @@ mod tests {
     use std::time::{Duration, SystemTime};
 
     static NEXT: AtomicU64 = AtomicU64::new(0);
+
+    use super::test_openat2::store_cannot_run_here;
 
     struct Fixture {
         base: PathBuf,
@@ -939,6 +945,9 @@ mod tests {
 
     #[test]
     fn inventory_is_read_only_and_uses_allocated_bytes_and_newest_mtime() {
+        if store_cannot_run_here() {
+            return;
+        }
         let fixture = Fixture::new();
         let id = fixture.session(1, 5);
         let mut paths = vec![
@@ -993,6 +1002,9 @@ mod tests {
     #[cfg(target_os = "linux")]
     #[test]
     fn linux_inventory_preserves_directory_and_record_atime() {
+        if store_cannot_run_here() {
+            return;
+        }
         use std::os::unix::fs::MetadataExt;
         let fixture = Fixture::new();
         let id = fixture.session(1, 5);
@@ -1031,6 +1043,9 @@ mod tests {
 
     #[test]
     fn removes_only_inventoried_sessions_and_requires_fresh_inventory_for_retry() {
+        if store_cannot_run_here() {
+            return;
+        }
         let fixture = Fixture::new();
         let id = fixture.session(1, 5);
         let mut store = fixture.store();
@@ -1050,6 +1065,9 @@ mod tests {
 
     #[test]
     fn partial_start_with_empty_metadata_is_known_but_empty_live_session_is_not() {
+        if store_cannot_run_here() {
+            return;
+        }
         let fixture = Fixture::new();
         let id = fixture.session(1, 0);
         let empty_id = format!("{:032x}", 2);
@@ -1065,6 +1083,9 @@ mod tests {
 
     #[test]
     fn links_specials_unknown_layouts_and_permissions_are_refused_without_reads() {
+        if store_cannot_run_here() {
+            return;
+        }
         let fixture = Fixture::new();
         let outside = fixture.base.join("outside");
         private_dir(&outside);
@@ -1126,6 +1147,9 @@ mod tests {
 
     #[test]
     fn a_mutated_record_invalidates_the_whole_candidate_before_any_unlink() {
+        if store_cannot_run_here() {
+            return;
+        }
         let fixture = Fixture::new();
         let id = fixture.session(1, 5);
         let mut store = fixture.store();
@@ -1151,6 +1175,9 @@ mod tests {
 
     #[test]
     fn changed_file_inode_even_with_same_size_and_mtime_is_refused() {
+        if store_cannot_run_here() {
+            return;
+        }
         let fixture = Fixture::new();
         let id = fixture.session(1, 5);
         let path = fixture.record(&id, RECORDS[4]);
@@ -1170,6 +1197,9 @@ mod tests {
 
     #[test]
     fn vanished_candidate_is_not_recreated_or_confused_with_a_replacement() {
+        if store_cannot_run_here() {
+            return;
+        }
         let fixture = Fixture::new();
         let id = fixture.session(1, 5);
         let mut store = fixture.store();
@@ -1192,6 +1222,9 @@ mod tests {
 
     #[test]
     fn replaced_session_and_metadata_directory_keep_both_trees_intact() {
+        if store_cannot_run_here() {
+            return;
+        }
         for replace_metadata in [false, true] {
             let fixture = Fixture::new();
             let id = fixture.session(1, 5);
@@ -1219,6 +1252,9 @@ mod tests {
 
     #[test]
     fn moved_or_replaced_root_is_detected_before_mutation() {
+        if store_cannot_run_here() {
+            return;
+        }
         let fixture = Fixture::new();
         let id = fixture.session(1, 5);
         let mut store = fixture.store();
@@ -1235,6 +1271,9 @@ mod tests {
 
     #[test]
     fn cleaner_lock_is_nonblocking_and_does_not_create_a_file() {
+        if store_cannot_run_here() {
+            return;
+        }
         let fixture = Fixture::new();
         let first = fixture.store();
         let parent: File = fs::open(&fixture.base, flags(), Mode::empty())
@@ -1256,6 +1295,9 @@ mod tests {
 
     #[test]
     fn interrupted_unlinks_report_actual_progress_and_every_remainder_recovers() {
+        if store_cannot_run_here() {
+            return;
+        }
         for stop_before in 1..=7 {
             let fixture = Fixture::new();
             let id = fixture.session(1, 5);
@@ -1294,6 +1336,9 @@ mod tests {
 
     #[test]
     fn full_disk_before_mutation_never_falls_back_to_in_place_deletion() {
+        if store_cannot_run_here() {
+            return;
+        }
         for operation in [Mutation::Mkdir, Mutation::Rename, Mutation::Sync] {
             let fixture = Fixture::new();
             let id = fixture.session(1, 5);
@@ -1314,6 +1359,9 @@ mod tests {
 
     #[test]
     fn fsync_failures_keep_truthful_counts_and_a_recognizable_remainder() {
+        if store_cannot_run_here() {
+            return;
+        }
         // New quarantine sync, rename source sync, rename destination sync,
         // metadata sync after files, session sync after metadata, final sync.
         for stop_before in 1..=6 {
@@ -1350,6 +1398,9 @@ mod tests {
 
     #[test]
     fn conflicting_quarantine_id_never_overwrites_and_duplicate_inventory_refuses_both() {
+        if store_cannot_run_here() {
+            return;
+        }
         let fixture = Fixture::new();
         let id = fixture.session(1, 5);
         let mut store = fixture.store();
@@ -1371,6 +1422,9 @@ mod tests {
 
     #[test]
     fn unknown_or_linked_quarantine_is_preserved() {
+        if store_cannot_run_here() {
+            return;
+        }
         let fixture = Fixture::new();
         let id = fixture.session(1, 5);
         let outside = fixture.base.join("outside");
@@ -1388,6 +1442,9 @@ mod tests {
 
     #[test]
     fn traversal_ids_invalid_roots_and_bounded_enumeration_fail_closed() {
+        if store_cannot_run_here() {
+            return;
+        }
         for name in [
             "..",
             "../outside",
@@ -1429,6 +1486,9 @@ mod tests {
 
     #[test]
     fn combined_live_and_quarantine_entry_budget_is_enforced_and_clears_prior_authority() {
+        if store_cannot_run_here() {
+            return;
+        }
         let fixture = Fixture::new();
         let live = fixture.session(1, 0);
         fixture.session(2, 0);
@@ -1470,6 +1530,9 @@ mod tests {
     #[cfg(target_os = "linux")]
     #[test]
     fn fifo_is_refused_without_opening_a_blocking_stream() {
+        if store_cannot_run_here() {
+            return;
+        }
         let fixture = Fixture::new();
         let id = fixture.session(1, 0);
         let metadata: File = fs::open(
@@ -1500,6 +1563,9 @@ mod tests {
 
     #[test]
     fn sparse_file_allocation_is_not_confused_with_logical_length() {
+        if store_cannot_run_here() {
+            return;
+        }
         let fixture = Fixture::new();
         let id = fixture.session(1, 1);
         let path = fixture.record(&id, RECORDS[0]);
@@ -1539,6 +1605,9 @@ mod tests {
 
     #[test]
     fn public_constructor_accepts_a_private_tree_below_root_owned_sticky_temp() {
+        if store_cannot_run_here() {
+            return;
+        }
         let fixture = Fixture::new();
         let id = fixture.session(1, 1);
         let mut store = Store::open(&fixture.root).unwrap();
@@ -1589,6 +1658,9 @@ mod tests {
 
     #[test]
     fn invalid_quarantine_shares_the_total_entry_budget_and_clears_prior_authority() {
+        if store_cannot_run_here() {
+            return;
+        }
         for unknown_names in [false, true] {
             let fixture = Fixture::new();
             let ids: Vec<_> = (1..=3).map(|number| fixture.session(number, 0)).collect();

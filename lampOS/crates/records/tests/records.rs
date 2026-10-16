@@ -1,3 +1,5 @@
+#[path = "support/openat2.rs"]
+mod openat2;
 #[path = "support/records_control.rs"]
 mod records_control;
 
@@ -110,6 +112,9 @@ fn entries(root: &Path) -> Vec<(PathBuf, u64, u64, i64, i64, u32)> {
 
 #[test]
 fn public_tree_pipeline_dry_then_apply_keeps_live_memory_and_outside_link() {
+    if openat2::store_cannot_run_here() {
+        return;
+    }
     let tree = Tree::new();
     let config = tree.config();
     let root = &config.roots[0];

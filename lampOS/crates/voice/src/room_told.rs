@@ -228,8 +228,9 @@ impl RoomTold {
         self.last_sound_us = now_us;
     }
 
-    /// The lamp answered `request` with a call and no words of its own (a
-    /// light, a timer). With [`Self::count_only_talk`] that is an answer
+    /// The lamp answered `request` by doing something, a light or a timer,
+    /// whether or not it said a word: a call that is run, not a lookup
+    /// such as the time or a memory, and not one the Policy held. With [`Self::count_only_talk`] that is an answer
     /// as speaking is: not talk past the lamp, and the count since it last
     /// spoke begins afresh (the sixth on #1029: "lights off", then
     /// "brighter", each done without a word, ended the conversation).

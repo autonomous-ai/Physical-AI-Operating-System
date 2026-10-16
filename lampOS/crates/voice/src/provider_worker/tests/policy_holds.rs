@@ -9,16 +9,17 @@ use super::*;
 use std::io::{BufRead, Write};
 
 /// An executive that answers every call done, telling the test each line
-/// it was sent; and the Policy's place on the bus.
-struct Desk {
+/// it was sent; and the Policy's place on the bus. Also used by
+/// [`super::spoken_to`].
+pub(super) struct Desk {
     home: crate::process::SessionDirectory,
     bus: std::path::PathBuf,
     decisions: lamp_bus::Publisher,
-    asked: std::sync::mpsc::Receiver<serde_json::Value>,
+    pub(super) asked: std::sync::mpsc::Receiver<serde_json::Value>,
 }
 
 impl Desk {
-    fn new(tag: &str) -> Self {
+    pub(super) fn new(tag: &str) -> Self {
         let home = crate::process::SessionDirectory::create().unwrap();
         let listener =
             std::os::unix::net::UnixListener::bind(home.path.join(crate::tools::CALL_SOCKET))
@@ -65,7 +66,7 @@ impl Desk {
         }
     }
 
-    fn options(&self, holds: bool) -> Options {
+    pub(super) fn options(&self, holds: bool) -> Options {
         Options {
             reporting: Reporting::Typed,
             tools: crate::tools::Settings {
@@ -89,7 +90,7 @@ impl Desk {
     }
 
     /// The Policy decides about what was said in turn `request`, for real.
-    fn decide(&mut self, request: Option<u64>, choice: &str) {
+    pub(super) fn decide(&mut self, request: Option<u64>, choice: &str) {
         let decision = json!({"about": "attention", "choice": choice, "probability": 0.235,
                               "answers": {}, "by": "typesafe/jev-1.13-20260917",
                               "took_ms": 540, "shadow": false, "request": request});

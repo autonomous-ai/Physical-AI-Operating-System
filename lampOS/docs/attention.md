@@ -1158,8 +1158,10 @@ people have gone on talking to each other. A sound, or a request the
 rule held, is not such talk, and a request is counted once. One line left
 alone is not enough: a person says "okay" or thinks aloud between their
 questions. The lamp speaking again, an answer or its news, begins the
-count afresh, and so does an answer made by a call alone, a light or a
-timer with no word said (the sixth on #1029). The name, a face turned to
+count afresh, and so does something done for a line, a light or a timer,
+with no word said (the sixth on #1029). That is a call that is run: a
+lookup, the time or a memory, is not, and nor is an action the Policy
+held. The name, a face turned to
 the lamp, or close and turned to it, still let an answer out. Not yet
 played.
 

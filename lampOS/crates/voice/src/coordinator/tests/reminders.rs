@@ -776,6 +776,44 @@ fn an_unclear_turn_is_asked_again_once_over_and_never_late_or_over_someone() {
     }) if *request == asking.turn() && text == crate::speak_up::ASK_AGAIN_NOTE));
 }
 
+/// #941, the first builder on #1146: a turn the lamp wrote itself (its own
+/// look, a hello, a "Sorry?") takes no still from "Let me take a look.":
+/// pictures never chain with nobody speaking. A turn someone spoke still does.
+#[test]
+fn a_lamp_written_turn_s_phrase_asks_for_no_still() {
+    for (note, look) in [
+        (crate::speak_up::LOOK_FULL_NOTE, true),
+        (crate::speak_up::ASK_AGAIN_NOTE, false),
+    ] {
+        let mut test = Test::new();
+        test.followup(note, look, "lamp_looks");
+        let written = test.reply.as_ref().unwrap().owner.turn();
+        let (mut opening, mut wanted) = (None, None);
+        record_look_intent(
+            true,
+            Some(written),
+            "Let me take a look.",
+            None,
+            &mut opening,
+            &mut wanted,
+            &mut test.trace,
+        )
+        .unwrap();
+        assert_eq!(wanted, None, "{note}");
+        record_look_intent(
+            true,
+            Some(written + 1),
+            "Let me take a look.",
+            None,
+            &mut opening,
+            &mut wanted,
+            &mut test.trace,
+        )
+        .unwrap();
+        assert_eq!(wanted.map(|(turn, _)| turn), Some(written + 1), "{note}");
+    }
+}
+
 /// #926, the reviewer: an Unclear consumed before a hand's Stop is dropped
 /// with its turn, and one arriving after it (its turn gone) is never taken;
 /// only one for the turn in hand is.

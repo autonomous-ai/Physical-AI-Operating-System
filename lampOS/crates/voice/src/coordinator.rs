@@ -6904,9 +6904,14 @@ fn record_look_intent(
     look_wanted: &mut Option<(u64, u64)>,
     trace: &mut SessionState,
 ) -> Result<()> {
-    let Some(turn) = request
-        .filter(|turn| enabled && last_reminder_turn.is_none_or(|reminder| *turn > reminder))
-    else {
+    // A turn the lamp wrote itself (its own look, a hello, a "Sorry?", a
+    // reminder) takes no still from its words: nobody spoke, so pictures
+    // cannot chain with nobody speaking. The worker's `heard` rule.
+    let Some(turn) = request.filter(|turn| {
+        enabled
+            && last_reminder_turn.is_none_or(|reminder| *turn > reminder)
+            && own_turn().load(std::sync::atomic::Ordering::Acquire) != *turn
+    }) else {
         return Ok(());
     };
     // Ordinary answer words retain the existing camera-request policy. Stored
@@ -6985,6 +6990,12 @@ fn record_tool_look(
         json!({"kind":"look_asked","turn":request,"by":"tool","at_us":monotonic_us()}),
     )?;
     Ok(true)
+}
+
+worker_global! {
+    /// The newest turn the lamp wrote itself (`commit_written_turn`), as the
+    /// provider worker's `attention::own_request` is for its requests.
+    fn own_turn() -> std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 }
 
 /// A turn the lamp begins itself. Nothing was heard: the request is a
@@ -7129,6 +7140,7 @@ fn commit_written_turn(
     mut publish: impl FnMut(Snapshot) -> io::Result<()>,
 ) -> Result<Snapshot> {
     let turn = owner.admit(now(), AdmittedInput::NewTurn)?;
+    own_turn().store(turn.turn(), std::sync::atomic::Ordering::Release);
     let plan = owner.plan_output(now(), turn, OutputKind::Speech, None)?;
     let mut snapshot = owner.snapshot(now())?;
     publish(snapshot)?;

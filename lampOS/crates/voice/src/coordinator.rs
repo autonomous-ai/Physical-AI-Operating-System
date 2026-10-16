@@ -2462,6 +2462,16 @@ fn run_inner(
         .as_ref()
         .err()
         .is_some_and(|error| error.is::<PhysicalMute>() || error.is::<SoftwareMute>());
+    // A stop systemd asked for (an update, a restart) that the conversation
+    // ended cleanly: whatever cleanup then says, it was no crash (#960).
+    // A signal may also end it at a `termination.check()`, as Interrupted.
+    let interrupted = result.as_ref().err().is_some_and(|error| {
+        error
+            .downcast_ref::<io::Error>()
+            .is_some_and(|error| error.kind() == io::ErrorKind::Interrupted)
+    });
+    let requested_stop =
+        guard_released_on_stop(result.is_ok() || interrupted, termination.signal_name());
     let result = finish_active_run(&mut rig, &mut owner, &mut reply, trace, cues, result);
     if let Some(motor) = &rig.motor {
         *motor_rearm &= motor.may_rearm_after_cycle(privacy_mute);
@@ -2474,12 +2484,28 @@ fn run_inner(
     } else {
         result
     };
-    if result.is_ok()
+    if (result.is_ok() || requested_stop)
         && let Some(controls) = controls.as_mut()
     {
+        if result.is_err() {
+            eprintln!(
+                "lamp-voice: a requested stop's cleanup reported a fault; the mute is kept as it was, not restored muted"
+            );
+        }
         controls.disarm_after_cleanup()?;
     }
     result
+}
+
+/// Whether the restart guard is released as for a clean stop (#960): the
+/// conversation ended because the service was asked to stop (SIGTERM from
+/// systemd for an update or a restart, or SIGINT), cleanly or at a
+/// termination check, not by a fault or a privacy event. Its cleanup may still report a fault (on lamp-4ace at
+/// 09:40 on 2026-10-16, "endpoint worker exit not confirmed within 500 ms"):
+/// that is not a crash, and the latch is written as it was: muted only if
+/// it was muted. A fault or a privacy exit keeps the conservative guard.
+fn guard_released_on_stop(ended_by_the_stop: bool, signal: Option<&str>) -> bool {
+    ended_by_the_stop && signal.is_some()
 }
 
 fn service_head(

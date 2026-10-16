@@ -668,7 +668,13 @@ record without changing the live preference. A crash, provider fault or failed
 cleanup therefore restores muted, even if no hand mute had been requested. This
 is a deliberate availability cost: a fresh local hold is needed after restart.
 Only verified clean destruction permits `disarm_after_cleanup` to store the
-actual unmuted preference. A failed initial arm opens no audio; an accepted mute
+actual unmuted preference, and so does a stop the service was asked for
+(`guard_released_on_stop`, #960): SIGTERM or SIGINT ended the conversation,
+cleanly or at a termination check, and then cleanup reported a fault. On
+lamp-4ace at 09:40 on 2026-10-16 an ordinary restart for an install logged
+"endpoint worker exit not confirmed within 500 ms" and came back muted, deaf
+with nothing to show; such a stop now writes the latch as it was. A chosen
+mute stays muted; a fault or a privacy exit keeps the guard. A failed initial arm opens no audio; an accepted mute
 whose subsequent save fails still has the active durable guard. Persistence
 failure stays visible and cannot clear the live latch.
 

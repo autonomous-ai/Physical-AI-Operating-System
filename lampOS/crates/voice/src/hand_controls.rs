@@ -4,7 +4,8 @@
 //! A mute request closes live authority before persistence. Before audio opens,
 //! `arm_active` stores a conservative muted recovery record without changing the
 //! live preference. A crash/fault therefore restores muted; only verified clean
-//! cleanup may disarm that guard. An unacknowledged request before any durable
+//! cleanup, or a stop the service was asked for (SIGTERM, an update; #960),
+//! may disarm that guard, writing the live latch as it was. An unacknowledged request before any durable
 //! write cannot be promised to survive arbitrary storage/power failure.
 use lamp_bus::{Bus, Kind, Message, Notice, Subscriber};
 use lamp_controls::{mute::MuteRecord, receiver::Receiver};

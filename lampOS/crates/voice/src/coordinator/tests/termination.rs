@@ -580,3 +580,19 @@ fn muted_signal_child(output: PathBuf, termination: Termination, mut trace: Sess
     assert!(finish_run(&output, &mut trace, &mut None, result, &termination).is_ok());
     fs::remove_dir(&directory.path).unwrap();
 }
+
+/// #960: only a stop the service was asked for releases the restart guard
+/// when its cleanup reports a fault; a fault or a privacy exit never does.
+#[test]
+fn only_a_requested_stop_releases_the_mute_guard_despite_a_cleanup_fault() {
+    // Asked to stop (systemd's SIGTERM on an update), ended cleanly or at a
+    // termination check: released, whatever the cleanup then says.
+    assert!(guard_released_on_stop(true, Some("SIGTERM")));
+    assert!(guard_released_on_stop(true, Some("SIGINT")));
+    // A fault or a privacy exit while a signal also arrived: kept.
+    assert!(!guard_released_on_stop(false, Some("SIGTERM")));
+    // No signal: a crash or a fault, kept as before (a clean cycle releases
+    // it on its own path, `result.is_ok()`).
+    assert!(!guard_released_on_stop(true, None));
+    assert!(!guard_released_on_stop(false, None));
+}

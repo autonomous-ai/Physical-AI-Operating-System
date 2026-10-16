@@ -524,6 +524,23 @@ fn whole_reminder_joins_two_real_retirements_and_successful_provider_terminal() 
     assert_eq!(proof.turn, first.permit.owner().turn());
 }
 
+/// Fourth on #1038: while a reminder is held for its skill, and is still
+/// the one offered, the say service, the hello and the news wait for it;
+/// one said or let go, or another due, holds nothing.
+#[test]
+fn a_reminder_held_for_its_skill_keeps_other_unasked_speech_waiting_while_it_is_offered() {
+    let mut fixture = RoundtripFixture::new();
+    let offer = fixture.offer();
+    let key = reminder_key(&offer);
+    assert!(reminder_waits(&Some((key.clone(), 0)), Some(&offer)));
+    assert!(!reminder_waits(&None, Some(&offer)));
+    assert!(!reminder_waits(&Some((key, 0)), None), "no longer offered");
+    assert!(!reminder_waits(
+        &Some(("0123/9/1".to_owned(), 0)),
+        Some(&offer)
+    ));
+}
+
 /// #939, (c): a reminder a skill asked for carries the ask's ticket on its
 /// turn: `begun` as the turn is committed, and `spoken` on the very proof
 /// the reminder's acknowledgement takes. Cut off, the reminder is

@@ -311,49 +311,54 @@ fn a_say_the_model_left_silent_is_dropped() {
 fn a_due_reminder_or_news_waits_for_a_skill_at_most_its_time() {
     use crate::say::{SKILL_WAITS_US, Says, Source};
     let mut held = None;
-    // Without the switch: said at once, as always.
+    let mut idle = Says::idle_for_test();
+    // Without the switch and nobody asking: said at once, as always.
     assert!(matches!(
-        for_skill(None, Source::Schedule, false, "s/1/1", &mut held, 0),
+        for_skill(
+            Some(&mut idle),
+            Source::Schedule,
+            false,
+            "s/1/1",
+            &mut held,
+            0
+        ),
+        Some(None)
+    ));
+    // With no say service nothing can ask: said at once, switch or not
+    // (Fourth on #1038).
+    assert!(matches!(
+        for_skill(None, Source::Schedule, true, "s/1/1", &mut held, 0),
         Some(None)
     ));
     assert_eq!(held, None);
     // With it and nobody asking: held, and said by the voice at 10 s.
-    assert!(for_skill(None, Source::Schedule, true, "s/1/1", &mut held, 1_000).is_none());
-    assert!(
-        for_skill(
-            None,
-            Source::Schedule,
-            true,
-            "s/1/1",
-            &mut held,
-            SKILL_WAITS_US
-        )
-        .is_none()
-    );
+    let mut wait = |key: &str, at: u64, held: &mut Option<(String, u64)>| {
+        for_skill(Some(&mut idle), Source::Schedule, true, key, held, at)
+    };
+    assert!(wait("s/1/1", 1_000, &mut held).is_none());
+    assert!(wait("s/1/1", SKILL_WAITS_US, &mut held).is_none());
     // Another reminder due begins its own wait.
-    assert!(
-        for_skill(
-            None,
-            Source::Schedule,
-            true,
-            "s/2/1",
-            &mut held,
-            SKILL_WAITS_US + 5
-        )
-        .is_none()
-    );
+    assert!(wait("s/2/1", SKILL_WAITS_US + 5, &mut held).is_none());
     assert!(matches!(
-        for_skill(
-            None,
-            Source::Schedule,
-            true,
-            "s/2/1",
-            &mut held,
-            2 * SKILL_WAITS_US + 5
-        ),
+        wait("s/2/1", 2 * SKILL_WAITS_US + 5, &mut held),
         Some(None)
     ));
     assert_eq!(held, None);
+    // Without the switch, a skill that asked is still told: its ask is
+    // taken, and it moves with the words (Fourth on #1038).
+    let (mut says, answered) = Says::asking_for_test(Source::Schedule, "reminders", 60_000_000);
+    let ticket = for_skill(
+        Some(&mut says),
+        Source::Schedule,
+        false,
+        "s/3/1",
+        &mut held,
+        2_000,
+    )
+    .flatten()
+    .expect("the skill's ticket, switch off");
+    ticket.answer(Outcome::Spoken);
+    assert_eq!(answered.try_recv(), Ok(Answer::Done(Outcome::Spoken)));
     // A skill asked for news: a reminder does not take it; news does.
     let (mut says, answered) = Says::asking_for_test(Source::Tasks, "task-news", 60_000_000);
     assert!(
@@ -361,7 +366,7 @@ fn a_due_reminder_or_news_waits_for_a_skill_at_most_its_time() {
             Some(&mut says),
             Source::Schedule,
             true,
-            "s/3/1",
+            "s/4/1",
             &mut held,
             2_000
         )

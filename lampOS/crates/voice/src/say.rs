@@ -72,6 +72,12 @@ pub const LONGEST_EXPIRY_MS: u64 = 3_600_000;
 /// the voice says it itself: a reminder never waits on `lamp-skills` being
 /// up. Authored, not measured.
 pub const SKILL_WAITS_US: u64 = 10_000_000;
+/// The longest a `from` ask waits, whatever its `expires_in_ms`: it is for
+/// the reminder or the news due as the skill asked, and the voice says that
+/// one itself after [`SKILL_WAITS_US`]. An ask still waiting later is
+/// `expired`, never taken for the next one due (Fourth on #1038). Twice the
+/// wait, for news, which the voice reads every 10 s.
+pub const FROM_LIVES_US: u64 = 2 * SKILL_WAITS_US;
 /// The priority when none is given, from 0 to 9.
 pub const NORMAL_PRIORITY: u8 = 5;
 /// From this priority up, a say needs only [`URGENT_QUIET_US`] after the
@@ -382,6 +388,12 @@ impl Says {
         })
     }
 
+    /// For a test of the voice's turn: a say service nobody has asked.
+    #[cfg(test)]
+    pub(crate) fn idle_for_test() -> Self {
+        Self::by_hand().0
+    }
+
     /// For a test of the voice's turn: one `from` ask for what `source`
     /// keeps, waiting until `expires_at_us`, and where its answer goes.
     #[cfg(test)]
@@ -427,10 +439,21 @@ impl Says {
     pub fn poll(&mut self, now_us: u64) {
         while let Ok(asked) = self.incoming.try_recv() {
             self.order += 1;
+            // A `from` ask lives at most `FROM_LIVES_US` from when its line
+            // was read.
+            let expires_at_us = match asked.request.words {
+                Words::From(_) => asked.expires_at_us.min(
+                    asked
+                        .expires_at_us
+                        .saturating_sub(asked.request.expires_in_ms.saturating_mul(1_000))
+                        .saturating_add(FROM_LIVES_US),
+                ),
+                _ => asked.expires_at_us,
+            };
             self.waiting.push(Waiting {
                 request: asked.request,
                 answer: asked.answer,
-                expires_at_us: asked.expires_at_us,
+                expires_at_us,
                 order: self.order,
             });
         }
@@ -494,6 +517,7 @@ impl Says {
     }
 
     /// Whether an ask for what `source` keeps waits, not yet expired.
+    #[cfg(test)]
     pub fn asks_for(&self, source: Source, now_us: u64) -> bool {
         self.waiting.iter().any(|waiting| {
             waiting.request.words == Words::From(source) && now_us < waiting.expires_at_us
@@ -894,6 +918,21 @@ mod tests {
             "task-news"
         );
         assert_eq!(says.waiting(), 0);
+        // A `from` ask lives at most `FROM_LIVES_US` from when it was read,
+        // whatever it asked for, so it is never taken for a later reminder
+        // (Fourth on #1038); a note keeps its own time.
+        let (mut says, ask) = Says::by_hand();
+        let (mut late, late_answer) = asked("reminders", 8, 3_600_000_000);
+        late.request.words = Words::From(Source::Schedule);
+        late.request.expires_in_ms = 3_600_000;
+        let (note, _) = asked("stretch", 3, 3_600_000_000);
+        ask.send(late).unwrap();
+        ask.send(note).unwrap();
+        says.poll(0);
+        assert!(says.asks_for(Source::Schedule, FROM_LIVES_US - 1));
+        assert!(says.take_from(Source::Schedule, FROM_LIVES_US).is_none());
+        assert_eq!(late_answer.try_recv(), Ok(Answer::Done(Outcome::Expired)));
+        assert_eq!(says.waiting(), 1, "the note waits on");
     }
 
     /// The reviewer on #954: a say is never begun after its time, however

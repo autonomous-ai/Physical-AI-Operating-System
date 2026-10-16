@@ -318,7 +318,10 @@ for `say = { from = "schedule" | "tasks" }` ([skills.md](skills.md)).
   (`Says::take_from`) and says the reminder or the news as it always did,
   with the ask's ticket on that turn: `begun` as the turn is committed, and
   `spoken` on the same proof the reminder's acknowledgement takes, or
-  `dropped`. Not taken in time, it is `expired`.
+  `dropped`. Not taken in time, it is `expired`: a `from` ask lives at most
+  20 s from when its line was read (`say::FROM_LIVES_US`), whatever its
+  `expires_in_ms`, so one that came too late for its reminder is never
+  taken for the next one due (Fourth on #1038).
 - With **`LAMP_SCHEDULE_SPEAK=skill`** (Schedule speech on, as `on`), a due
   reminder waits for such an ask, at most 10 s from when it was first held
   (`say::SKILL_WAITS_US`), and then the voice says it itself, with
@@ -326,12 +329,19 @@ for `say = { from = "schedule" | "tasks" }` ([skills.md](skills.md)).
   journal: a reminder never waits on `lamp-skills` being up. With
   **`LAMP_TASK_NEWS=skill`** news of work finished, stopped or asking waits
   the same way; progress is the Policy's to time already and is told as it
-  was. Without them nothing waits, and a `from` ask is taken whenever its
-  source next says one.
+  was. Without them nothing waits, and a `from` ask that is waiting is
+  taken whenever its source next says one, so the skill still moves with
+  the words. With the switch but no say service (`LAMP_SAY` off), nothing
+  can ask, and nothing waits.
+- While a reminder is held for its skill, and is still the one offered,
+  the say service's own says, the hello and the news wait for it: a due
+  reminder comes before anything else the lamp says unasked, as it did
+  without the switch (Fourth on #1038).
 - Tests: `say::tests::an_ask_for_what_the_voice_keeps_waits_for_its_own_source`,
   `coordinator::tests::say::a_due_reminder_or_news_waits_for_a_skill_at_most_its_time`,
   `coordinator::tests::reminders::a_reminder_a_skill_asked_for_is_answered_on_the_acknowledgements_own_proof`,
-  `reminders::tests::on_and_skill_turn_schedule_speech_on_and_nothing_else_does`.
+  `reminders::tests::on_and_skill_turn_schedule_speech_on_and_nothing_else_does`,
+  `coordinator::tests::reminders::a_reminder_held_for_its_skill_keeps_other_unasked_speech_waiting_while_it_is_offered`.
 
 **Most likely wrong:** a say of priority 8 or more in the second after a
 conversation's last turn: a reminder takes that second today, and a skill

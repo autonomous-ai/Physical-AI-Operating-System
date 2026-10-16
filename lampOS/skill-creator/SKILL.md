@@ -10,8 +10,10 @@ something with its senses (topics on the lamp's bus) and answers with its
 body, its light and its voice (services). This skill helps an owner make one
 for their own lamp, test it on the lamp's own recordings, and install it.
 
-The design is `lampOS/docs/skills.md`. Read [references/senses-and-actions.md](references/senses-and-actions.md)
-before writing anything: a skill can only use what is listed there.
+Read [references/senses-and-actions.md](references/senses-and-actions.md)
+before writing anything: a skill can only use what is listed there. The
+lamp's design is `lampOS/docs/skills.md` in its repository; you do not need
+it to write a skill, and if it disagrees with these files, it is right.
 
 The person is usually the lamp's owner, not a programmer. They said "Lamp,
 learn to ..." out loud; the lamp handed it to you. Speak plainly. Never ask

@@ -1,0 +1,14 @@
+# Someone at the desk for 3 hours without leaving: it acts once, at about 50 minutes, and never again while they stay (it re-arms only when they leave).
+[[expect]]
+at = "50m"
+within = "1m"
+call = "body.gaze"
+args = { look_at = "face" }
+
+[[expect]]
+call = "body.gesture"
+args = { gesture = "stretching" }
+
+[[expect]]
+call = "light"
+args = { colour = "warm", level = 2, for = "4s" }

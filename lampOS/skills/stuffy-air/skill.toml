@@ -1,0 +1,27 @@
+# Stuffy air (lampOS/docs/creature.md: "first its posture droops a little and
+# its eye dims a shade while it lasts; it says ... only if someone talks to
+# it"). Speech is the voice's, never this skill's. Fields marked proposed are
+# the lamp skill creator's, until the runtime (#938) takes or renames them.
+needs = ["air", "eyes", "light"]
+
+[trigger]
+topic = "air/state"
+field = "co2_ppm"
+above = 1200              # proposed: the lamp's own line for "stuffy" (air/state's feel)
+for = "10m"               # a short rise (someone breathing close to the sensor) does nothing
+rearm = "ends"            # proposed: once per stuffy spell
+cooldown = "1h"
+
+[[while]]                 # proposed: only with someone at the desk to see it
+topic = "humans/faces/tracked"
+present = true
+
+[ask]
+policy = "nudge"
+
+[[do]]
+light = { dim = 1, until = "ends" }   # proposed: a shade dimmer than the person's light, until the air clears
+
+# Once move files land (#940): a small droop held while it lasts.
+# [[do]]
+# body = { move = "moves/droop.toml", until = "ends" }

@@ -1,7 +1,6 @@
 {
   "listen": "0.0.0.0:80",
   "marker": "/var/lib/lampos-setup/done",
-  "credential": "/etc/lampOS/voice/credential",
   "name": "/etc/lampOS/person/name",
   "country": "VN",
   "page": true,

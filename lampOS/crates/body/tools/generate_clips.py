@@ -39,6 +39,8 @@ GAIN_CAP = 1.6
 REWORKED = {'curious': ('curious', 3.0, [1.0, 0.0, 1.0, 0.5, 0.6], (0.35, 0.5, 0.0)),
             'happy': ('happy_wiggle', 4.0, [1.0, 0.0, 1.0, 0.6, 1.0], (0.0, 0.0, 0.0)),
             'confused': ('confused', 3.0, [1.0, 0.0, 1.0, 0.5, 0.5], (0.5, 0.4, 0.0)),
+            # The full head recoil, less shoulder: under V1's 22 mm tip line with a margin (#1072).
+            'surprised': ('shock', 2.0, [1.0, 0.0, 0.0, 0.6, 0.6], (0.0, 0.0, 0.0)),
             'excited': ('excited', 2.0, [1.0, 0.0, 0.0, 0.75, 1.0], (0.0, 0.0, 0.0)),
             # Five dances, each led by its own joint and rhythm.
             'dance_chill': ('music_chill', 9.0, [0.25, 0.0, 1.0, 0.15, 0.12], (0.0, 0.0, 0.0)),  # base yaw sweeps

@@ -791,7 +791,7 @@ lamp-4ace at 10:4x: `acknowledge`, `curious`, `happy`, `excited` and `caring` re
 | `curious` | `curious` | 3.0 s | a lean toward you: head 190, base 142, shoulder 133, elbow 142 (reworked) |
 | `happy` | `happy_wiggle` | 4.0 s | a wiggle: elbow 335, head 190, shoulder 171, base 142 (reworked) |
 | `caring` | `sad` | 5.0 s | a slow droop: elbow 333, head 157 |
-| `surprised` | `shock` | 2.0 s | a recoil: head back 190, shoulder 332 |
+| `surprised` | `shock` | 2.0 s | a recoil: head back 190, elbow 200, shoulder 195 (reworked for the tip line) |
 | `confused` | `confused` | 3.0 s | a puzzled dip and turn: head 190, base 142 (reworked) |
 | `sleepy` | `sleepy` | 9.2 s | a slow droop with a catch |
 | `excited` | `excited` | 4.0 s | two quick bounces up: shoulder 248, elbow 219 (reworked) |
@@ -812,7 +812,8 @@ and base yaw. `dance_chill`'s base and `dance_groove`'s shoulder swing about the
 the swing eased in and out over 0.6 s, `CENTRED`), and `excited` is its bounce twice (`REPEATS`), as the person
 asked after a second look. `excited`'s shoulder emphasis is 0.75 so that, through `lamp-lean` with V1's model
 (`deploy/lamp-4ace/lean-first-software.json`, lamp-4ace's stand), its centre of mass stays within about 18 mm (23.3 at
-1.0; `surprised`, unchanged, reaches 25.7). The other clips are as before, byte for byte.
+1.0). `surprised` keeps its full head recoil with the shoulder at 0.6, 18.0 mm (25.7 before), and `dance_groove`
+is 8.8: every clip is under V1's 22 mm line (#1072) with a margin. The other clips are as before, byte for byte.
 
 The voice service asks for one on the mood socket, `{"gesture":"nod"}`; a
 name that is not a clip is ignored. It asks at most once an answer, from the

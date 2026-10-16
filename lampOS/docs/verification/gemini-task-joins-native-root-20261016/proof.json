@@ -1,0 +1,27 @@
+{
+  "date_from_date": "2026-10-16 10:27:40 +0700",
+  "head": "8de22aef8d5526f83b48b279e71706d71e7cdf5b",
+  "run": 38843507733,
+  "job": 116788702286,
+  "attempt": 1,
+  "actual_merge": "a9719f18473ec0b0fc170c9cee3b6a5390fdbbfb",
+  "native_unique_passes": 5290,
+  "normal_local_expected_present": 2569,
+  "new_cases_once": 18,
+  "gemini_normal_count": 287,
+  "motor_once": {
+    "status": "PASS",
+    "seconds": 0.303,
+    "ordinal": 3656,
+    "total": 5290,
+    "binary": "lamp-voice",
+    "test": "coordinator::motor::tests::native_head::native_head_six_explicit_actions_prepare_profile_then_new_requests"
+  },
+  "original123_in_normal": 0,
+  "all_192_publication_blobs_match": true,
+  "raw_log_sha256": "2537c422928ed18b982950dad1516abcafd43068af41a48fd533798b7f8a654f",
+  "local_gate": "2710/1/15 retained; native success does not erase the failure",
+  "source_limit": "203 upstream merge differences remain separately enumerated; no complete dependency-equivalence or causal claim",
+  "native_has_clippy": false,
+  "no_test_retry": true
+}

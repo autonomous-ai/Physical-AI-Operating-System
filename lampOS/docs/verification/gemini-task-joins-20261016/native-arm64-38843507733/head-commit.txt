@@ -1,0 +1,6 @@
+tree 2410d2e23d57372c81d32f5b024f36b12710ce0e
+parent 1fb07c6f57ee280a49de7b4ddd74008c2a32a20d
+author deehw <dee@autonomous.ai> 1792119741 +0700
+committer deehw <dee@autonomous.ai> 1792119741 +0700
+
+lampOS: retain actual Gemini task joins for fixtures

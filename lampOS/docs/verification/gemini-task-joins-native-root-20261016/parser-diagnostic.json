@@ -1,0 +1,8 @@
+{
+  "date_from_date": "2026-10-16 10:27:33 +0700",
+  "stopped_assertion": "len(gemini)==287",
+  "actual_library_only": 257,
+  "correct_package_total": 287,
+  "reason": "The first independent parser selected only the library binary, omitting the package integration and example binaries. Correct the binary prefix; no source, log or test execution changes.",
+  "first_script_sha256": "9d61ae9d738adbd1757b129413234bdb287b3a1d1366c7cd3faf703f8488a75e"
+}

@@ -1,0 +1,177 @@
+{
+  "date_from_date": "2026-10-16 10:21:09 +0700",
+  "records": [
+    {
+      "repository_path": "lampOS/Cargo.toml",
+      "command": [
+        "gh",
+        "api",
+        "repos/autonomous-ai/lampOS/git/blobs/5a6b745d437ff32d70a5cde48e079c66397d2b94"
+      ],
+      "start_from_date": "2026-10-16 10:21:04 +0700",
+      "end_from_date": "2026-10-16 10:21:04 +0700",
+      "git_blob": "5a6b745d437ff32d70a5cde48e079c66397d2b94",
+      "bytes": 1228,
+      "sha256": "dcb7474c7a11ab42e7bae9fc30abdb9d7cdbdc9874597dbffb4e06ceefcd5658",
+      "decoded_path": "merge-source/lampOS/Cargo.toml",
+      "before": {
+        "path": "head-comparison-source/lampOS/Cargo.toml",
+        "sha256": "dafaa1133d09ab0137847973359e8d1c01e7dc306aa54e299ec1a6f611e24c2b",
+        "git_blob": "0f7ce266fb6ddfda78bce959200026354d477a76"
+      },
+      "decode": "base64-decoded GitHub blob content; verified canonical Git blob SHA-1"
+    },
+    {
+      "repository_path": "lampOS/Cargo.lock",
+      "command": [
+        "gh",
+        "api",
+        "repos/autonomous-ai/lampOS/git/blobs/59be127f65310004199badf6e4ebfb50359d9c62"
+      ],
+      "start_from_date": "2026-10-16 10:21:04 +0700",
+      "end_from_date": "2026-10-16 10:21:05 +0700",
+      "git_blob": "59be127f65310004199badf6e4ebfb50359d9c62",
+      "bytes": 114217,
+      "sha256": "3278103e66f5cb2b8441f2aa61d8810beaa179e0ca8195818fad6eb01af71e1e",
+      "decoded_path": "merge-source/lampOS/Cargo.lock",
+      "before": {
+        "path": "head-comparison-source/lampOS/Cargo.lock",
+        "sha256": "40d62fead16a6f138c4d7dbe400a2e4a9855ceece96d19b1e642136431aed4c5",
+        "git_blob": "a8f411e0571e2c658a29f9a89f6c81ff4eb9d728"
+      },
+      "decode": "base64-decoded GitHub blob content; verified canonical Git blob SHA-1"
+    },
+    {
+      "repository_path": "lampOS/crates/voice/src/body_link.rs",
+      "command": [
+        "gh",
+        "api",
+        "repos/autonomous-ai/lampOS/git/blobs/307b795c1b5724ff4ce9a606cc189eff1c338666"
+      ],
+      "start_from_date": "2026-10-16 10:21:05 +0700",
+      "end_from_date": "2026-10-16 10:21:06 +0700",
+      "git_blob": "307b795c1b5724ff4ce9a606cc189eff1c338666",
+      "bytes": 23066,
+      "sha256": "8ece9e1e57aab6cf2da30d9265f30c7187af237892c8791b38918271ae1dae86",
+      "decoded_path": "merge-source/lampOS/crates/voice/src/body_link.rs",
+      "before": {
+        "path": "head-comparison-source/lampOS/crates/voice/src/body_link.rs",
+        "sha256": "53fb2f61e756b6f0de15c9996620fb27f15dd52b43928c8dcd0c943d710d2bae",
+        "git_blob": "ee71b8040b3271e68d93ca42a475f0015dffe715"
+      },
+      "decode": "base64-decoded GitHub blob content; verified canonical Git blob SHA-1"
+    },
+    {
+      "repository_path": "lampOS/crates/voice/src/onboarding.rs",
+      "command": [
+        "gh",
+        "api",
+        "repos/autonomous-ai/lampOS/git/blobs/0c575c13e90fd4e8c30d5082fe45e206c482e503"
+      ],
+      "start_from_date": "2026-10-16 10:21:06 +0700",
+      "end_from_date": "2026-10-16 10:21:07 +0700",
+      "git_blob": "0c575c13e90fd4e8c30d5082fe45e206c482e503",
+      "bytes": 53530,
+      "sha256": "2cf38ca2bb8e3ca294f8e90d4e015d2b0a9d26ac56364e14bd9ebc9a6aca52a1",
+      "decoded_path": "merge-source/lampOS/crates/voice/src/onboarding.rs",
+      "before": {
+        "path": "head-comparison-source/lampOS/crates/voice/src/onboarding.rs",
+        "sha256": "28180d3b374768165c758b5237801458a3abbd1d53ab378cd9eed8fcbd81808a",
+        "git_blob": "75ae51c2273cf4b8f222a8f0eb156dbb810243d6"
+      },
+      "decode": "base64-decoded GitHub blob content; verified canonical Git blob SHA-1"
+    },
+    {
+      "repository_path": "lampOS/crates/voice/src/second_provider/net/stt.rs",
+      "command": [
+        "gh",
+        "api",
+        "repos/autonomous-ai/lampOS/git/blobs/6f54ed9ca09195b2c4fabf39e0b2ceec1077f90e"
+      ],
+      "start_from_date": "2026-10-16 10:21:07 +0700",
+      "end_from_date": "2026-10-16 10:21:07 +0700",
+      "git_blob": "6f54ed9ca09195b2c4fabf39e0b2ceec1077f90e",
+      "bytes": 35027,
+      "sha256": "d3c1f71ccf1e110a486277f1de7bd9bfd803ffce861ffef47631da7df0662260",
+      "decoded_path": "merge-source/lampOS/crates/voice/src/second_provider/net/stt.rs",
+      "before": {
+        "path": "head-comparison-source/lampOS/crates/voice/src/second_provider/net/stt.rs",
+        "sha256": "96cc32eb57fb6471cab3c75d9ea0ab0d43e8eae1914d8497a31e93ce02d46d14",
+        "git_blob": "c591fe9163c36ac117d1b66a77508f4c8c7b5219"
+      },
+      "decode": "base64-decoded GitHub blob content; verified canonical Git blob SHA-1"
+    },
+    {
+      "repository_path": "lampOS/crates/voice/src/sight.rs",
+      "command": [
+        "gh",
+        "api",
+        "repos/autonomous-ai/lampOS/git/blobs/f6375495715f3efa45a897eab65842e2ebaa83b4"
+      ],
+      "start_from_date": "2026-10-16 10:21:07 +0700",
+      "end_from_date": "2026-10-16 10:21:08 +0700",
+      "git_blob": "f6375495715f3efa45a897eab65842e2ebaa83b4",
+      "bytes": 26469,
+      "sha256": "fd677fa109582893f6f5149f5ee738099898e60d0ac2c9e1fb232edb0aa726a5",
+      "decoded_path": "merge-source/lampOS/crates/voice/src/sight.rs",
+      "before": {
+        "path": "head-comparison-source/lampOS/crates/voice/src/sight.rs",
+        "sha256": "1766e152f99c70f0ed5e1f80de622b45aea56dac5e701dd7c1d06874a0812b75",
+        "git_blob": "a398e84f0d9e5208bc41c1754602211a40de1879"
+      },
+      "decode": "base64-decoded GitHub blob content; verified canonical Git blob SHA-1"
+    },
+    {
+      "repository_path": "lampOS/crates/voice/src/main.rs",
+      "command": [
+        "gh",
+        "api",
+        "repos/autonomous-ai/lampOS/git/blobs/6c37b77155dc15f1722008dbf548adbd0d0a31d4"
+      ],
+      "start_from_date": "2026-10-16 10:21:08 +0700",
+      "end_from_date": "2026-10-16 10:21:08 +0700",
+      "git_blob": "6c37b77155dc15f1722008dbf548adbd0d0a31d4",
+      "bytes": 45443,
+      "sha256": "e0953a07cf9f8a3bd5550e2f3522137ad4919139d6d15b8dc3f893804759b5db",
+      "decoded_path": "merge-source/lampOS/crates/voice/src/main.rs",
+      "before": {
+        "path": "head-comparison-source/lampOS/crates/voice/src/main.rs",
+        "sha256": "b095961c0e6737af9a0047a6f3b08ab4f09832be337a7e4a7a4380f5ebf44a58",
+        "git_blob": "b79590c336a2d98dfed5643174fa4d80568ee6ba"
+      },
+      "decode": "base64-decoded GitHub blob content; verified canonical Git blob SHA-1"
+    },
+    {
+      "repository_path": "lampOS/crates/voice-eval/src/physical/serve_invocation_tests.rs",
+      "command": [
+        "gh",
+        "api",
+        "repos/autonomous-ai/lampOS/git/blobs/b1e41cccc159b893287f35fdde495142b62f807b"
+      ],
+      "start_from_date": "2026-10-16 10:21:08 +0700",
+      "end_from_date": "2026-10-16 10:21:09 +0700",
+      "git_blob": "b1e41cccc159b893287f35fdde495142b62f807b",
+      "bytes": 4289,
+      "sha256": "89f89a010c4a240aa699fd37fb49e0a2c4f2ed8f65ce77332c5c9b575e3d12dc",
+      "decoded_path": "merge-source/lampOS/crates/voice-eval/src/physical/serve_invocation_tests.rs",
+      "before": null,
+      "decode": "base64-decoded GitHub blob content; verified canonical Git blob SHA-1"
+    },
+    {
+      "repository_path": "lampOS/crates/voice/src/hand_controls/tests.rs",
+      "source": "read-only local Git blob already proved exact to the native merge tree",
+      "git_blob": "3436b54f59765baabf8bd3b91d6955fc0322e912",
+      "bytes": 29855,
+      "sha256": "7563f250a327d71d05aa76eadd3359da2622d72bd9d0267c24b7d29df58d747c",
+      "decoded_path": "merge-source/lampOS/crates/voice/src/hand_controls/tests.rs"
+    },
+    {
+      "repository_path": "lampOS/crates/voice/src/reminders/scheduling.rs",
+      "source": "read-only local Git blob already proved exact to the native merge tree",
+      "git_blob": "42f1c119c8fc21e771b4b4ab23a7685ef7630f72",
+      "bytes": 2601,
+      "sha256": "1e168a42221dddd2352a99ef636311156c98bcf1f693e4a31b081aae7f34caac",
+      "decoded_path": "merge-source/lampOS/crates/voice/src/reminders/scheduling.rs"
+    }
+  ]
+}

@@ -1,5 +1,19 @@
 # Tests work log
 
+## 2026-10-16 10:31:04 +0700 — Gemini actual task joins native green
+
+Ready for lamp-voice: yes (#966)
+
+[Task joins #966](https://github.com/autonomous-ai/lampOS/pull/966), exact `8de22aef8d5526f83b48b279e71706d71e7cdf5b`, passed first normal ARM64 **38843507733: 5,290/0/130**. All eighteen additions, all 287 expected nonignored Gemini cases and the locally failed Motor identity pass once; no duplicate results or retries. Release build, four doc cases across 39 targets, IPC relay signals and twelve process cases pass. [Complete raw native source/execution audit](verification/gemini-task-joins-20261016/native-arm64-38843507733/README.md) and [independent root proof](verification/gemini-task-joins-native-root-20261016/README.md) retain the exact actual merge and 192 matching publication blobs. The 203 upstream merge differences are explicit; no whole-dependency equivalence is claimed. Native has no fmt/Clippy stage; retained local strict checks are separate.
+
+The complete local first gate remains **2,710 passed / 1 failed / 15 skipped**, with all eighteen additions passing. The exact native-head motor identity was previously accepted into #739, though this progress-timeout symptom differs and its cause is unproved. Joining's known-timed-test exception now applies after this own-head green run and audit; the local failure is retained without retry. No original scenario migrates in this preparation. The original 123 standalone serial target remains unproved.
+
+Ready for lamp-voice: no (#963 current integration and subsequent work)
+
+#963's reviewer confirmed the original 504/0/0 gate and both native runs, and requested one README timestamp correction. The recorded timestamp and checksum are corrected, with all raw evidence retained. A subsequent documentation append conflict with merged #957 required integration onto ec8317fe2; both complete sections and the two owned Rust files are preserved. Its new integration gate is running before republishing, and it stays draft until its new-head native qualification. The three-event continuation keeps its first 504/0/0 and 3.733 → 1.322 s pair, awaiting that merge. Its unpublished timestamp placeholder is also corrected from its own provenance.
+
+Closed transport's first local original observation is **1.216 → 0.428 s** with all original assertions and the 300/800 ms logical boundaries unchanged. Five additions pass; its inventory preserves all 504 identities and adds exactly five. Its complete gate is in progress. Gemini Actor work remains an uncompiled external candidate; source review corrected maintenance coverage to the frontier captured at pass entry rather than commands replayed later in that pass. No workflow, runner, settings, spending or device action. #783's loaded policy qualification remains with Eighth.
+
 ## 2026-10-16 10:05:07 +0700 — Gemini actual task-join preparation in native qualification
 
 Ready for lamp-voice: no (#966)

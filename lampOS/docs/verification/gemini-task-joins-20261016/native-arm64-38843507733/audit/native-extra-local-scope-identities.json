@@ -1,0 +1,387 @@
+{
+  "date_from_date": "2026-10-16 10:24:28 +0700",
+  "all_expected_local_normal_identities_retained": true,
+  "extra_count": 18,
+  "upstream_additions": 16,
+  "existing_Linux_only": 2,
+  "identities": [
+    {
+      "binary": "lamp-voice",
+      "test": "body_link::tests::the_eyes_are_asked_for_a_full_look_in_one_exact_datagram",
+      "classification": "upstream-added case absent from published-head source",
+      "source_path": "lampOS/crates/voice/src/body_link.rs",
+      "source_line": 343,
+      "source_sha256": "8ece9e1e57aab6cf2da30d9265f30c7187af237892c8791b38918271ae1dae86",
+      "exact_same_file_at_head": false,
+      "head_file_contains_function": false,
+      "linux_cfg_line": null,
+      "native_result": {
+        "line": 4039,
+        "github_timestamp": "2026-10-16T03:10:44.7645623Z",
+        "status": "PASS",
+        "seconds": 0.003,
+        "ordinal": 3526,
+        "total": 5290,
+        "binary": "lamp-voice",
+        "test": "body_link::tests::the_eyes_are_asked_for_a_full_look_in_one_exact_datagram"
+      }
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "hand_controls::tests::live_bus::actual_bus_pump_restarts_publisher_fences_old_owner_and_keeps_mute",
+      "classification": "existing Linux-only case",
+      "source_path": "lampOS/crates/voice/src/hand_controls/tests.rs",
+      "source_line": 725,
+      "source_sha256": "7563f250a327d71d05aa76eadd3359da2622d72bd9d0267c24b7d29df58d747c",
+      "exact_same_file_at_head": true,
+      "head_file_contains_function": false,
+      "linux_cfg_line": 680,
+      "native_result": {
+        "line": 4566,
+        "github_timestamp": "2026-10-16T03:10:52.7858589Z",
+        "status": "PASS",
+        "seconds": 0.371,
+        "ordinal": 4053,
+        "total": 5290,
+        "binary": "lamp-voice",
+        "test": "hand_controls::tests::live_bus::actual_bus_pump_restarts_publisher_fences_old_owner_and_keeps_mute"
+      }
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "onboarding::tests::a_step_done_asks_the_body_for_one_move_and_a_skip_for_none",
+      "classification": "upstream-added case absent from published-head source",
+      "source_path": "lampOS/crates/voice/src/onboarding.rs",
+      "source_line": 1139,
+      "source_sha256": "2cf38ca2bb8e3ca294f8e90d4e015d2b0a9d26ac56364e14bd9ebc9a6aca52a1",
+      "exact_same_file_at_head": false,
+      "head_file_contains_function": false,
+      "linux_cfg_line": null,
+      "native_result": {
+        "line": 4489,
+        "github_timestamp": "2026-10-16T03:10:52.5389807Z",
+        "status": "PASS",
+        "seconds": 0.005,
+        "ordinal": 3976,
+        "total": 5290,
+        "binary": "lamp-voice",
+        "test": "onboarding::tests::a_step_done_asks_the_body_for_one_move_and_a_skip_for_none"
+      }
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "onboarding::tests::a_step_that_was_not_available_is_offered_once_a_day_when_it_is",
+      "classification": "upstream-added case absent from published-head source",
+      "source_path": "lampOS/crates/voice/src/onboarding.rs",
+      "source_line": 1146,
+      "source_sha256": "2cf38ca2bb8e3ca294f8e90d4e015d2b0a9d26ac56364e14bd9ebc9a6aca52a1",
+      "exact_same_file_at_head": false,
+      "head_file_contains_function": false,
+      "linux_cfg_line": null,
+      "native_result": {
+        "line": 4491,
+        "github_timestamp": "2026-10-16T03:10:52.5517757Z",
+        "status": "PASS",
+        "seconds": 0.007,
+        "ordinal": 3978,
+        "total": 5290,
+        "binary": "lamp-voice",
+        "test": "onboarding::tests::a_step_that_was_not_available_is_offered_once_a_day_when_it_is"
+      }
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "reminders::scheduling::tests::only_the_optional_thread_becomes_other_zero_with_nice_nineteen",
+      "classification": "existing Linux-only case",
+      "source_path": "lampOS/crates/voice/src/reminders/scheduling.rs",
+      "source_line": 54,
+      "source_sha256": "1e168a42221dddd2352a99ef636311156c98bcf1f693e4a31b081aae7f34caac",
+      "exact_same_file_at_head": true,
+      "head_file_contains_function": false,
+      "linux_cfg_line": 36,
+      "native_result": {
+        "line": 4833,
+        "github_timestamp": "2026-10-16T03:11:05.4056369Z",
+        "status": "PASS",
+        "seconds": 0.003,
+        "ordinal": 4320,
+        "total": 5290,
+        "binary": "lamp-voice",
+        "test": "reminders::scheduling::tests::only_the_optional_thread_becomes_other_zero_with_nice_nineteen"
+      }
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "second_provider::net::stt::tests::a_finalize_answer_short_of_the_audio_sent_flushes_the_rest",
+      "classification": "upstream-added case absent from published-head source",
+      "source_path": "lampOS/crates/voice/src/second_provider/net/stt.rs",
+      "source_line": 755,
+      "source_sha256": "d3c1f71ccf1e110a486277f1de7bd9bfd803ffce861ffef47631da7df0662260",
+      "exact_same_file_at_head": false,
+      "head_file_contains_function": false,
+      "linux_cfg_line": null,
+      "native_result": {
+        "line": 4947,
+        "github_timestamp": "2026-10-16T03:11:05.9349728Z",
+        "status": "PASS",
+        "seconds": 0.003,
+        "ordinal": 4434,
+        "total": 5290,
+        "binary": "lamp-voice",
+        "test": "second_provider::net::stt::tests::a_finalize_answer_short_of_the_audio_sent_flushes_the_rest"
+      }
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "second_provider::net::stt::tests::the_first_words_are_timed_from_the_first_result_with_words",
+      "classification": "upstream-added case absent from published-head source",
+      "source_path": "lampOS/crates/voice/src/second_provider/net/stt.rs",
+      "source_line": 670,
+      "source_sha256": "d3c1f71ccf1e110a486277f1de7bd9bfd803ffce861ffef47631da7df0662260",
+      "exact_same_file_at_head": false,
+      "head_file_contains_function": false,
+      "linux_cfg_line": null,
+      "native_result": {
+        "line": 4956,
+        "github_timestamp": "2026-10-16T03:11:05.9588027Z",
+        "status": "PASS",
+        "seconds": 0.003,
+        "ordinal": 4443,
+        "total": 5290,
+        "binary": "lamp-voice",
+        "test": "second_provider::net::stt::tests::the_first_words_are_timed_from_the_first_result_with_words"
+      }
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "sight::tests::a_full_look_asks_once_and_waits_for_the_still_with_its_own_id",
+      "classification": "upstream-added case absent from published-head source",
+      "source_path": "lampOS/crates/voice/src/sight.rs",
+      "source_line": 520,
+      "source_sha256": "fd677fa109582893f6f5149f5ee738099898e60d0ac2c9e1fb232edb0aa726a5",
+      "exact_same_file_at_head": false,
+      "head_file_contains_function": false,
+      "linux_cfg_line": null,
+      "native_result": {
+        "line": 5005,
+        "github_timestamp": "2026-10-16T03:11:06.7671365Z",
+        "status": "PASS",
+        "seconds": 0.004,
+        "ordinal": 4492,
+        "total": 5290,
+        "binary": "lamp-voice",
+        "test": "sight::tests::a_full_look_asks_once_and_waits_for_the_still_with_its_own_id"
+      }
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "sight::tests::a_full_look_s_still_may_be_older_than_a_working_frame",
+      "classification": "upstream-added case absent from published-head source",
+      "source_path": "lampOS/crates/voice/src/sight.rs",
+      "source_line": 613,
+      "source_sha256": "fd677fa109582893f6f5149f5ee738099898e60d0ac2c9e1fb232edb0aa726a5",
+      "exact_same_file_at_head": false,
+      "head_file_contains_function": false,
+      "linux_cfg_line": null,
+      "native_result": {
+        "line": 5006,
+        "github_timestamp": "2026-10-16T03:11:06.7703716Z",
+        "status": "PASS",
+        "seconds": 0.003,
+        "ordinal": 4493,
+        "total": 5290,
+        "binary": "lamp-voice",
+        "test": "sight::tests::a_full_look_s_still_may_be_older_than_a_working_frame"
+      }
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "sight::tests::a_full_look_without_its_own_still_says_the_eye_was_shut_and_takes_no_picture",
+      "classification": "upstream-added case absent from published-head source",
+      "source_path": "lampOS/crates/voice/src/sight.rs",
+      "source_line": 552,
+      "source_sha256": "fd677fa109582893f6f5149f5ee738099898e60d0ac2c9e1fb232edb0aa726a5",
+      "exact_same_file_at_head": false,
+      "head_file_contains_function": false,
+      "linux_cfg_line": null,
+      "native_result": {
+        "line": 5007,
+        "github_timestamp": "2026-10-16T03:11:06.7738497Z",
+        "status": "PASS",
+        "seconds": 0.003,
+        "ordinal": 4494,
+        "total": 5290,
+        "binary": "lamp-voice",
+        "test": "sight::tests::a_full_look_without_its_own_still_says_the_eye_was_shut_and_takes_no_picture"
+      }
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "sight::tests::a_full_look_without_its_still_says_in_one_line_what_the_file_held",
+      "classification": "upstream-added case absent from published-head source",
+      "source_path": "lampOS/crates/voice/src/sight.rs",
+      "source_line": 585,
+      "source_sha256": "fd677fa109582893f6f5149f5ee738099898e60d0ac2c9e1fb232edb0aa726a5",
+      "exact_same_file_at_head": false,
+      "head_file_contains_function": false,
+      "linux_cfg_line": null,
+      "native_result": {
+        "line": 5008,
+        "github_timestamp": "2026-10-16T03:11:06.7770214Z",
+        "status": "PASS",
+        "seconds": 0.003,
+        "ordinal": 4495,
+        "total": 5290,
+        "binary": "lamp-voice",
+        "test": "sight::tests::a_full_look_without_its_still_says_in_one_line_what_the_file_held"
+      }
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "sight::tests::a_still_s_id_is_read_from_its_comment_and_nothing_else_has_one",
+      "classification": "upstream-added case absent from published-head source",
+      "source_path": "lampOS/crates/voice/src/sight.rs",
+      "source_line": 509,
+      "source_sha256": "fd677fa109582893f6f5149f5ee738099898e60d0ac2c9e1fb232edb0aa726a5",
+      "exact_same_file_at_head": false,
+      "head_file_contains_function": false,
+      "linux_cfg_line": null,
+      "native_result": {
+        "line": 5009,
+        "github_timestamp": "2026-10-16T03:11:06.7800992Z",
+        "status": "PASS",
+        "seconds": 0.003,
+        "ordinal": 4496,
+        "total": 5290,
+        "binary": "lamp-voice",
+        "test": "sight::tests::a_still_s_id_is_read_from_its_comment_and_nothing_else_has_one"
+      }
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "sight::tests::without_a_full_look_a_look_goes_at_once_with_the_old_note_and_asks_nothing",
+      "classification": "upstream-added case absent from published-head source",
+      "source_path": "lampOS/crates/voice/src/sight.rs",
+      "source_line": 486,
+      "source_sha256": "fd677fa109582893f6f5149f5ee738099898e60d0ac2c9e1fb232edb0aa726a5",
+      "exact_same_file_at_head": false,
+      "head_file_contains_function": false,
+      "linux_cfg_line": null,
+      "native_result": {
+        "line": 5013,
+        "github_timestamp": "2026-10-16T03:11:06.7927741Z",
+        "status": "PASS",
+        "seconds": 0.003,
+        "ordinal": 4500,
+        "total": 5290,
+        "binary": "lamp-voice",
+        "test": "sight::tests::without_a_full_look_a_look_goes_at_once_with_the_old_note_and_asks_nothing"
+      }
+    },
+    {
+      "binary": "lamp-voice-eval",
+      "test": "physical::fake_lamp::invocation_tests::a_written_invocation_without_a_successful_flush_has_no_receipt",
+      "classification": "upstream-added case absent from published-head source",
+      "source_path": "lampOS/crates/voice-eval/src/physical/serve_invocation_tests.rs",
+      "source_line": 105,
+      "source_sha256": "89f89a010c4a240aa699fd37fb49e0a2c4f2ed8f65ce77332c5c9b575e3d12dc",
+      "exact_same_file_at_head": false,
+      "head_file_contains_function": false,
+      "linux_cfg_line": null,
+      "native_result": {
+        "line": 5359,
+        "github_timestamp": "2026-10-16T03:11:11.6860774Z",
+        "status": "PASS",
+        "seconds": 0.003,
+        "ordinal": 4846,
+        "total": 5290,
+        "binary": "lamp-voice-eval",
+        "test": "physical::fake_lamp::invocation_tests::a_written_invocation_without_a_successful_flush_has_no_receipt"
+      }
+    },
+    {
+      "binary": "lamp-voice-eval",
+      "test": "physical::fake_lamp::invocation_tests::invalid_invocation_prefixes_fail_before_any_clock_or_hook",
+      "classification": "upstream-added case absent from published-head source",
+      "source_path": "lampOS/crates/voice-eval/src/physical/serve_invocation_tests.rs",
+      "source_line": 37,
+      "source_sha256": "89f89a010c4a240aa699fd37fb49e0a2c4f2ed8f65ce77332c5c9b575e3d12dc",
+      "exact_same_file_at_head": false,
+      "head_file_contains_function": false,
+      "linux_cfg_line": null,
+      "native_result": {
+        "line": 5361,
+        "github_timestamp": "2026-10-16T03:11:11.6886674Z",
+        "status": "PASS",
+        "seconds": 0.003,
+        "ordinal": 4848,
+        "total": 5290,
+        "binary": "lamp-voice-eval",
+        "test": "physical::fake_lamp::invocation_tests::invalid_invocation_prefixes_fail_before_any_clock_or_hook"
+      }
+    },
+    {
+      "binary": "lamp-voice-eval",
+      "test": "physical::fake_lamp::invocation_tests::invocation_and_direct_paths_keep_the_same_parser_and_mode_errors",
+      "classification": "upstream-added case absent from published-head source",
+      "source_path": "lampOS/crates/voice-eval/src/physical/serve_invocation_tests.rs",
+      "source_line": 58,
+      "source_sha256": "89f89a010c4a240aa699fd37fb49e0a2c4f2ed8f65ce77332c5c9b575e3d12dc",
+      "exact_same_file_at_head": false,
+      "head_file_contains_function": false,
+      "linux_cfg_line": null,
+      "native_result": {
+        "line": 5362,
+        "github_timestamp": "2026-10-16T03:11:11.6904311Z",
+        "status": "PASS",
+        "seconds": 0.004,
+        "ordinal": 4849,
+        "total": 5290,
+        "binary": "lamp-voice-eval",
+        "test": "physical::fake_lamp::invocation_tests::invocation_and_direct_paths_keep_the_same_parser_and_mode_errors"
+      }
+    },
+    {
+      "binary": "lamp-voice-eval",
+      "test": "physical::fake_lamp::invocation_tests::only_the_leading_control_pair_is_removed_from_the_parser_view",
+      "classification": "upstream-added case absent from published-head source",
+      "source_path": "lampOS/crates/voice-eval/src/physical/serve_invocation_tests.rs",
+      "source_line": 7,
+      "source_sha256": "89f89a010c4a240aa699fd37fb49e0a2c4f2ed8f65ce77332c5c9b575e3d12dc",
+      "exact_same_file_at_head": false,
+      "head_file_contains_function": false,
+      "linux_cfg_line": null,
+      "native_result": {
+        "line": 5363,
+        "github_timestamp": "2026-10-16T03:11:11.6913705Z",
+        "status": "PASS",
+        "seconds": 0.003,
+        "ordinal": 4850,
+        "total": 5290,
+        "binary": "lamp-voice-eval",
+        "test": "physical::fake_lamp::invocation_tests::only_the_leading_control_pair_is_removed_from_the_parser_view"
+      }
+    },
+    {
+      "binary": "lamp-voice::bin/lamp-voice",
+      "test": "tests::stt_checks_options_are_rounds_then_what_is_held_within_their_bounds",
+      "classification": "upstream-added case absent from published-head source",
+      "source_path": "lampOS/crates/voice/src/main.rs",
+      "source_line": 658,
+      "source_sha256": "e0953a07cf9f8a3bd5550e2f3522137ad4919139d6d15b8dc3f893804759b5db",
+      "exact_same_file_at_head": false,
+      "head_file_contains_function": false,
+      "linux_cfg_line": null,
+      "native_result": {
+        "line": 5345,
+        "github_timestamp": "2026-10-16T03:11:11.6705350Z",
+        "status": "PASS",
+        "seconds": 0.002,
+        "ordinal": 4832,
+        "total": 5290,
+        "binary": "lamp-voice::bin/lamp-voice",
+        "test": "tests::stt_checks_options_are_rounds_then_what_is_held_within_their_bounds"
+      }
+    }
+  ]
+}

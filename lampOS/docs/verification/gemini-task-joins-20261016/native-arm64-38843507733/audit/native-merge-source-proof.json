@@ -1,0 +1,3265 @@
+{
+  "date_from_date": "2026-10-16 10:24:28 +0700",
+  "actual_checkout_log_line": {
+    "line": 239,
+    "github_timestamp": "2026-10-16T03:03:06.5308304Z",
+    "text": "a9719f18473ec0b0fc170c9cee3b6a5390fdbbfb"
+  },
+  "merge": "a9719f18473ec0b0fc170c9cee3b6a5390fdbbfb",
+  "merge_tree": "c59592b2c2b4eddd90a27915e1e68d472668f544",
+  "parents": [
+    "b419747e896907bb999e1dd25d943bdc35af32be",
+    "8de22aef8d5526f83b48b279e71706d71e7cdf5b"
+  ],
+  "raw_recursive_trees_complete": true,
+  "head_tracked_blobs": 7558,
+  "native_tracked_blobs": 7716,
+  "head_to_native_changed_paths": 203,
+  "change_kind_counts": {
+    "modified": 45,
+    "added": 158
+  },
+  "all_head_to_native_differences_exactly_upstream_parent_bytes_and_modes": true,
+  "upstream_to_merge_is_exactly_192_publication_paths": true,
+  "all_192_publication_paths_exact_head_and_merge": true,
+  "owned_source_count": 6,
+  "owned_sources": [
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-repository-payload/repository/lampOS/crates/gemini/src/recovery.rs",
+      "destination": "lampOS/crates/gemini/src/recovery.rs",
+      "sha256": "37ed679cd097da44791a356d7260343ebbe437fb8863b3e22174a1b5da92e98a",
+      "bytes": 58496,
+      "mode": "100644",
+      "role": "owned-source",
+      "head_git_blob": "900fe05827398ff0cd2789e8550b39835531be7b",
+      "merge_git_blob": "900fe05827398ff0cd2789e8550b39835531be7b"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-repository-payload/repository/lampOS/crates/gemini/src/session.rs",
+      "destination": "lampOS/crates/gemini/src/session.rs",
+      "sha256": "edca2df22c9101fc3e7148c227e82ffde6685772b57baaabb7880e49208ebe2b",
+      "bytes": 101462,
+      "mode": "100644",
+      "role": "owned-source",
+      "head_git_blob": "3d9d54aa3b514cbd7a61015d352360a9ade3f08d",
+      "merge_git_blob": "3d9d54aa3b514cbd7a61015d352360a9ade3f08d"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-repository-payload/repository/lampOS/crates/gemini/src/testing/task_joins/tests.rs",
+      "destination": "lampOS/crates/gemini/src/testing/task_joins/tests.rs",
+      "sha256": "010fce88be96d93269f2779d1e40764d347283480a39dcf1c5715661c4a285a4",
+      "bytes": 26595,
+      "mode": "100644",
+      "role": "owned-source",
+      "head_git_blob": "e2abb8566445ba91764e1c53e7755b955f8b8c5d",
+      "merge_git_blob": "e2abb8566445ba91764e1c53e7755b955f8b8c5d"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-repository-payload/repository/lampOS/crates/gemini/src/testing/task_joins.rs",
+      "destination": "lampOS/crates/gemini/src/testing/task_joins.rs",
+      "sha256": "21cb7a49c8f1f012b5cf38ee089da42f8a6f2d26a4f3284d2e3926a8125f3934",
+      "bytes": 14971,
+      "mode": "100644",
+      "role": "owned-source",
+      "head_git_blob": "9f51cf0d24a78fc244942d23b1eddc9f9d7e62a7",
+      "merge_git_blob": "9f51cf0d24a78fc244942d23b1eddc9f9d7e62a7"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-repository-payload/repository/lampOS/crates/gemini/src/testing.rs",
+      "destination": "lampOS/crates/gemini/src/testing.rs",
+      "sha256": "cad490f02196ead1aab9f0402064df84cfe61992fef3abb7a1648cf39e7013ff",
+      "bytes": 12833,
+      "mode": "100644",
+      "role": "owned-source",
+      "head_git_blob": "ccc1a9bcbd628ab1b851d37599f76fe0b8e12933",
+      "merge_git_blob": "ccc1a9bcbd628ab1b851d37599f76fe0b8e12933"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-repository-payload/repository/lampOS/docs/gemini-session-reliability.md",
+      "destination": "lampOS/docs/gemini-session-reliability.md",
+      "sha256": "72445c8a193c41ce1bb4b412c5c6c4b0e57246e1bc93b1f405de0fcd6957eba1",
+      "bytes": 109909,
+      "mode": "100644",
+      "role": "owned-source",
+      "head_git_blob": "45d236a99266f48ab8337345a8e2209cb03a76ef",
+      "merge_git_blob": "45d236a99266f48ab8337345a8e2209cb03a76ef"
+    }
+  ],
+  "local_7152_frozen_inputs_to_head_proof": "head-source-proof.json",
+  "all_Gemini_paths_exact": true,
+  "Gemini_path_count": 36,
+  "workflow_and_filters_exact": [
+    {
+      "path": ".github/workflows/lampos-arm64.yml",
+      "mode": "100644",
+      "git_blob": "01309b57005ff770d23ee3dbc378a3ccfa2cf014",
+      "sha256": "11cbcf5ced5022ca685b5c9e51f349c986259a5044575a20f39d3b8e869a045f",
+      "bytes": 7440,
+      "native_git_blob": "01309b57005ff770d23ee3dbc378a3ccfa2cf014"
+    },
+    {
+      "path": "lampOS/.config/nextest.toml",
+      "mode": "100644",
+      "git_blob": "f83b3204b9c159d19c7bb90e003a28f05fd61268",
+      "sha256": "33254521c34198ae2d4f988c4b7d04391c03da769ad91769e691171ae3b87367",
+      "bytes": 6466,
+      "native_git_blob": "f83b3204b9c159d19c7bb90e003a28f05fd61268"
+    }
+  ],
+  "local_failure_source_comparison": [
+    {
+      "path": "lampOS/crates/voice/src/coordinator/motor/tests/native_head.rs",
+      "local_and_head_sha256": "a6870c6a1c2f063f5b83ec4e17bf3ed3f7e4d1c6c0bff3ee1942d1108ada38cc",
+      "head_git_blob": "189c5aab1949962d93f9c4e4fbd04827718b9fb7",
+      "native_git_blob": "189c5aab1949962d93f9c4e4fbd04827718b9fb7",
+      "exact_to_local": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/coordinator/motor/tests.rs",
+      "local_and_head_sha256": "33a8f47b0d69079697e5ef04bf1617f25dd4f81f3501d9524f1c024236f520ba",
+      "head_git_blob": "cbe66e10d24634722b150a6cd10e782a28c3d15d",
+      "native_git_blob": "cbe66e10d24634722b150a6cd10e782a28c3d15d",
+      "exact_to_local": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/coordinator/motor.rs",
+      "local_and_head_sha256": "29b82801801be234ae865f7593c957a79537acc3469805401b759c21cf6c748e",
+      "head_git_blob": "31eff934d443232251076fa8adf0bfab7fa54380",
+      "native_git_blob": "31eff934d443232251076fa8adf0bfab7fa54380",
+      "exact_to_local": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/coordinator/motor/head.rs",
+      "local_and_head_sha256": "4de64a3ab9fe22f6329e990bf1cc990d065fa781f2f38ff69b603fe9b05870b0",
+      "head_git_blob": "2ca45a3061ef33056102a111b337de1f52eeb2db",
+      "native_git_blob": "2ca45a3061ef33056102a111b337de1f52eeb2db",
+      "exact_to_local": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/head_qualification.rs",
+      "local_and_head_sha256": "22bcba83db468193d2b6c502108ebe24ac05a513da3097b865e1f184d5ebefb2",
+      "head_git_blob": "01f4aca76ea42111913b4469cbb740d489e7366e",
+      "native_git_blob": "01f4aca76ea42111913b4469cbb740d489e7366e",
+      "exact_to_local": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/process.rs",
+      "local_and_head_sha256": "f9f1173bd1d33ea9f5ebc9ed3ed6247b802dbf299d017dabef90f93eca074d54",
+      "head_git_blob": "5ed70bc77eb0470adc85c418a5b63f03838409d2",
+      "native_git_blob": "5ed70bc77eb0470adc85c418a5b63f03838409d2",
+      "exact_to_local": true
+    },
+    {
+      "path": "lampOS/crates/body/src/runtime.rs",
+      "local_and_head_sha256": "f70ac6cb58b472a85130c8b81eed4258f689afc644de9ffbab98e087f71a0c8b",
+      "head_git_blob": "f7629af6324d0c4aac1d964b624ceace3bb836a1",
+      "native_git_blob": "f7629af6324d0c4aac1d964b624ceace3bb836a1",
+      "exact_to_local": true
+    },
+    {
+      "path": "lampOS/crates/body/src/runtime/supervisor.rs",
+      "local_and_head_sha256": "103009ea8a3baf449a760cf7f1dc43d0aa0b47d999b585c4084c65ff63ff2a3f",
+      "head_git_blob": "0d476fc9a36ede29b79b205f2f13fb918719d7da",
+      "native_git_blob": "0d476fc9a36ede29b79b205f2f13fb918719d7da",
+      "exact_to_local": true
+    },
+    {
+      "path": "lampOS/crates/body/src/runtime/worker.rs",
+      "local_and_head_sha256": "d126a1b0020f202c22a0a7a9ec64f54dcb6a52d9f6d02e965d61871aa6ab4cca",
+      "head_git_blob": "ada5240b5c77d206bb39f75906ddf9c3b5df96e5",
+      "native_git_blob": "ada5240b5c77d206bb39f75906ddf9c3b5df96e5",
+      "exact_to_local": true
+    },
+    {
+      "path": "lampOS/crates/body/src/runtime/channel.rs",
+      "local_and_head_sha256": "471c6cad77547060ec69348ccf08cbb98878463d2038aa34999e4d4f5f3a48ee",
+      "head_git_blob": "0e8f961633b3123d6f3657236daaea0c2c62fb87",
+      "native_git_blob": "0e8f961633b3123d6f3657236daaea0c2c62fb87",
+      "exact_to_local": true
+    },
+    {
+      "path": "lampOS/Cargo.lock",
+      "local_and_head_sha256": "40d62fead16a6f138c4d7dbe400a2e4a9855ceece96d19b1e642136431aed4c5",
+      "head_git_blob": "a8f411e0571e2c658a29f9a89f6c81ff4eb9d728",
+      "native_git_blob": "59be127f65310004199badf6e4ebfb50359d9c62",
+      "exact_to_local": false
+    },
+    {
+      "path": "lampOS/docs/joining.md",
+      "local_and_head_sha256": "a031c6ad1dd0c729623ce35736fa4373cdbcb5ffa2412947660714c0729ba706",
+      "head_git_blob": "917f454d5ab340ed9483b2d1b904e7941f69bc82",
+      "native_git_blob": "917f454d5ab340ed9483b2d1b904e7941f69bc82",
+      "exact_to_local": true
+    }
+  ],
+  "limit": "The six owned sources and complete Gemini crate are exact, but the native merge is not an identical whole dependency closure to the local gate. Cargo.lock, workspace membership and upstream consumers changed. Matching the original Motor test does not prove a host-load cause or absence of an indirect timing effect.",
+  "upstream_differences": [
+    {
+      "path": "lampOS/Cargo.lock",
+      "kind": "modified",
+      "head": {
+        "mode": "100644",
+        "git_blob": "a8f411e0571e2c658a29f9a89f6c81ff4eb9d728",
+        "sha256": "40d62fead16a6f138c4d7dbe400a2e4a9855ceece96d19b1e642136431aed4c5",
+        "bytes": 113084
+      },
+      "native_merge": {
+        "path": "lampOS/Cargo.lock",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "59be127f65310004199badf6e4ebfb50359d9c62",
+        "size": 114217,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/59be127f65310004199badf6e4ebfb50359d9c62"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/Cargo.toml",
+      "kind": "modified",
+      "head": {
+        "mode": "100644",
+        "git_blob": "0f7ce266fb6ddfda78bce959200026354d477a76",
+        "sha256": "dafaa1133d09ab0137847973359e8d1c01e7dc306aa54e299ec1a6f611e24c2b",
+        "bytes": 1211
+      },
+      "native_merge": {
+        "path": "lampOS/Cargo.toml",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "5a6b745d437ff32d70a5cde48e079c66397d2b94",
+        "size": 1228,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/5a6b745d437ff32d70a5cde48e079c66397d2b94"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/crates/camera/src/linux/params.rs",
+      "kind": "modified",
+      "head": {
+        "mode": "100644",
+        "git_blob": "0d3a43b79ba546a6935e884170226d52a2f0d809",
+        "sha256": "794d63cc2c80a2838668c622d296e93a052c0a493ffbd875853020f317e18576",
+        "bytes": 12844
+      },
+      "native_merge": {
+        "path": "lampOS/crates/camera/src/linux/params.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "e327cdd317e904e0a636c69c73a12eb750ff3ec8",
+        "size": 13795,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/e327cdd317e904e0a636c69c73a12eb750ff3ec8"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/crates/camera/src/types.rs",
+      "kind": "modified",
+      "head": {
+        "mode": "100644",
+        "git_blob": "9b8a13bfc354e397550d63c401b104fb8c316ecf",
+        "sha256": "6c2c9c30384066049a114cdd8c28c1baabc8161e5560b947429d4fc396c7e8f0",
+        "bytes": 14278
+      },
+      "native_merge": {
+        "path": "lampOS/crates/camera/src/types.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "21124805cacddccb8b5e66339cc3195505ce5fdc",
+        "size": 15898,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/21124805cacddccb8b5e66339cc3195505ce5fdc"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/crates/camera/tests/lifecycle.rs",
+      "kind": "modified",
+      "head": {
+        "mode": "100644",
+        "git_blob": "ba517ec402d5ac3ee1e83f33cb3b86782efed25b",
+        "sha256": "538bfcaaddd89932c7eec940f799a3519a78769a586935893ac38a0aeba2ed30",
+        "bytes": 39115
+      },
+      "native_merge": {
+        "path": "lampOS/crates/camera/tests/lifecycle.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "38cbd5063ed095fff1f3a9fcea5b00d1bb44ac50",
+        "size": 40070,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/38cbd5063ed095fff1f3a9fcea5b00d1bb44ac50"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/crates/eyes/Cargo.toml",
+      "kind": "modified",
+      "head": {
+        "mode": "100644",
+        "git_blob": "41f4052c437ed9277add81e082c47ac710a40392",
+        "sha256": "b784116b5d87e552e25caaf7c8e41797ae7ce7252e9736e7c2465eb00c25d34f",
+        "bytes": 915
+      },
+      "native_merge": {
+        "path": "lampOS/crates/eyes/Cargo.toml",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "e002730138934e8e29bbcb9ebeb0bc153a5abdfc",
+        "size": 1056,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/e002730138934e8e29bbcb9ebeb0bc153a5abdfc"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/crates/eyes/src/full_look.rs",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/crates/eyes/src/full_look.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "bfd0a078841407505fc4a9aa9f6f50f9cc853391",
+        "size": 28153,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/bfd0a078841407505fc4a9aa9f6f50f9cc853391"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/crates/eyes/src/kept.rs",
+      "kind": "modified",
+      "head": {
+        "mode": "100644",
+        "git_blob": "d9ae623f95206a2edadbdc015a294704189f819e",
+        "sha256": "26598716bbeab36c40b6648cc1eb6616450ab7876c55d93dc297d0ffcd02feea",
+        "bytes": 7790
+      },
+      "native_merge": {
+        "path": "lampOS/crates/eyes/src/kept.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "620ba2cfd3f4b946ddc4dc211cba3db15b330463",
+        "size": 9407,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/620ba2cfd3f4b946ddc4dc211cba3db15b330463"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/crates/eyes/src/lib.rs",
+      "kind": "modified",
+      "head": {
+        "mode": "100644",
+        "git_blob": "867edf7af8049a2c69c6b527cbee2823d1fed329",
+        "sha256": "97dd18a2c732f41119467be9d25e0845b14ff8ebe20dd6a18dc9602a0e4accd9",
+        "bytes": 1142
+      },
+      "native_merge": {
+        "path": "lampOS/crates/eyes/src/lib.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "8f7f18cdb7d97386e0f2ce73c4aa1722f44b7e19",
+        "size": 1301,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/8f7f18cdb7d97386e0f2ce73c4aa1722f44b7e19"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/crates/eyes/src/main.rs",
+      "kind": "modified",
+      "head": {
+        "mode": "100644",
+        "git_blob": "e955bd6a490c119ff428f2fde513dd074ae9f27e",
+        "sha256": "cffd4bba5bc399fe44d008a7913625e82215db520b71310a3d744f48cf62acf7",
+        "bytes": 37288
+      },
+      "native_merge": {
+        "path": "lampOS/crates/eyes/src/main.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "1e379c304bdc019cccaf8258524eaef8cf79df10",
+        "size": 50828,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/1e379c304bdc019cccaf8258524eaef8cf79df10"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/crates/eyes/src/permit.rs",
+      "kind": "modified",
+      "head": {
+        "mode": "100644",
+        "git_blob": "e6e967e7c9bf3d89f988515a08fbe3586f498465",
+        "sha256": "d9d84bef971ba0dd12a9ddbb820fa43271398c96cfff1c76cd9abf3e9a75d0bd",
+        "bytes": 5737
+      },
+      "native_merge": {
+        "path": "lampOS/crates/eyes/src/permit.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "2c8525fa2be0c073636c3bc91aabeaa4901072de",
+        "size": 8237,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/2c8525fa2be0c073636c3bc91aabeaa4901072de"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/crates/msgs/src/lib.rs",
+      "kind": "modified",
+      "head": {
+        "mode": "100644",
+        "git_blob": "bd61b8d0aad6206c013ea6673bf34a0e0a6a1632",
+        "sha256": "1f75a4d0969dcd153b5037606f5d2519dd5df02587000da07f7310456324a10b",
+        "bytes": 68236
+      },
+      "native_merge": {
+        "path": "lampOS/crates/msgs/src/lib.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "b047f3deb45e15d04523eec8fb3c602b922957a6",
+        "size": 68299,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/b047f3deb45e15d04523eec8fb3c602b922957a6"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/crates/msgs/src/skills.rs",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/crates/msgs/src/skills.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "b281a44ee50d940ddec1544f73233a4469542203",
+        "size": 2442,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/b281a44ee50d940ddec1544f73233a4469542203"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/crates/msgs/tests/skills.rs",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/crates/msgs/tests/skills.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "5fe1a8389ede531c35f7c158c0301c522e51facb",
+        "size": 2155,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/5fe1a8389ede531c35f7c158c0301c522e51facb"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/crates/policy/examples/progress_cost.rs",
+      "kind": "modified",
+      "head": {
+        "mode": "100644",
+        "git_blob": "cb6727531c9f74241fc70d0fe2957fb6fb869138",
+        "sha256": "36d9c302cdf9407251fa0260d9accece20de391735d9191701fdd186fbd5b618",
+        "bytes": 7178
+      },
+      "native_merge": {
+        "path": "lampOS/crates/policy/examples/progress_cost.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "fb18b272325e9fbd1bca57d6be13d2e169987690",
+        "size": 7212,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/fb18b272325e9fbd1bca57d6be13d2e169987690"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/crates/policy/src/bin/lamp-policy-judges.rs",
+      "kind": "modified",
+      "head": {
+        "mode": "100644",
+        "git_blob": "02db0345b8b1c777d20821f596166d80a642fbda",
+        "sha256": "52b8ecb2fda123510434324f59b98b0a79f4d0becf7323378187dd215124edf4",
+        "bytes": 11337
+      },
+      "native_merge": {
+        "path": "lampOS/crates/policy/src/bin/lamp-policy-judges.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "499e25a3b3b059dac1c35359892cf5086424beb0",
+        "size": 11371,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/499e25a3b3b059dac1c35359892cf5086424beb0"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/crates/policy/src/main.rs",
+      "kind": "modified",
+      "head": {
+        "mode": "100644",
+        "git_blob": "d47fb578db269736115f547ee4453de47f4a8852",
+        "sha256": "54d82cd038a9f93cf196dacc4412aa61e8aeb55925e3c1008eac69fb785230c1",
+        "bytes": 14952
+      },
+      "native_merge": {
+        "path": "lampOS/crates/policy/src/main.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "a609b9bb21c8505c08a4c62af24daf04895c9035",
+        "size": 16865,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/a609b9bb21c8505c08a4c62af24daf04895c9035"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/crates/policy/src/policy.rs",
+      "kind": "modified",
+      "head": {
+        "mode": "100644",
+        "git_blob": "4fa7efa4be940bffdf20edb1fe50ed9413a5c84b",
+        "sha256": "877a83b7202b1926ba0339fc4fb52ecc43ea702142af20991ac9c4aace1ae059",
+        "bytes": 55230
+      },
+      "native_merge": {
+        "path": "lampOS/crates/policy/src/policy.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "50ecd18b7dfc8dcb8d0e448c88fb72d90a06c959",
+        "size": 55793,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/50ecd18b7dfc8dcb8d0e448c88fb72d90a06c959"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/crates/policy/tests/judges.rs",
+      "kind": "modified",
+      "head": {
+        "mode": "100644",
+        "git_blob": "3686931466dd3159d4497dbecac50670bef44f7c",
+        "sha256": "531deae849d25bd95adf874aa1e5ba6238a85225bac6d9cea0831f6880201492",
+        "bytes": 18680
+      },
+      "native_merge": {
+        "path": "lampOS/crates/policy/tests/judges.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "c129489e4ce391b583cdd2ddf974409e6e29ee4e",
+        "size": 18714,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/c129489e4ce391b583cdd2ddf974409e6e29ee4e"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/crates/policy/tests/policy.rs",
+      "kind": "modified",
+      "head": {
+        "mode": "100644",
+        "git_blob": "07a0b48e1e0232ddc6440f78df9264d6d5f895fe",
+        "sha256": "00d446ab4a62066db9eb5020dead4d9d4a8aa323f9e71b434965c4fbdeca98a5",
+        "bytes": 51913
+      },
+      "native_merge": {
+        "path": "lampOS/crates/policy/tests/policy.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "83c6eea54ed3af8793032758bfc77b804c2ecdaf",
+        "size": 51947,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/83c6eea54ed3af8793032758bfc77b804c2ecdaf"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/crates/policy/tests/program.rs",
+      "kind": "modified",
+      "head": {
+        "mode": "100644",
+        "git_blob": "9e160da4b96823e59f493645acca4b2bb51513e6",
+        "sha256": "5922380c5944fe8edcb5d9cadc9bcf8d52ff9912d05eaf925611e2d8e859d710",
+        "bytes": 18318
+      },
+      "native_merge": {
+        "path": "lampOS/crates/policy/tests/program.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "30ee9fea1ff1bb94175da83dd22e5e5593d7961d",
+        "size": 20817,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/30ee9fea1ff1bb94175da83dd22e5e5593d7961d"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/crates/policy/tests/progress.rs",
+      "kind": "modified",
+      "head": {
+        "mode": "100644",
+        "git_blob": "6934ca044a2b597d5d89af7b088f49c10a4423a9",
+        "sha256": "aec34777e8d965f2026c341ee1c38c431e0b17bcaa0dd7dc487a5cec849eaf18",
+        "bytes": 20914
+      },
+      "native_merge": {
+        "path": "lampOS/crates/policy/tests/progress.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "86e49f709fe608c9d79a5e9bda465506669cbebc",
+        "size": 20982,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/86e49f709fe608c9d79a5e9bda465506669cbebc"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/crates/skills/Cargo.toml",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/crates/skills/Cargo.toml",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "4e4f5b7add574f39427ee8e51b82bcddbb55f9f1",
+        "size": 788,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/4e4f5b7add574f39427ee8e51b82bcddbb55f9f1"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/crates/skills/src/lib.rs",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/crates/skills/src/lib.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "1e8e1373519635af5b381280af828f9f02491a89",
+        "size": 32728,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/1e8e1373519635af5b381280af828f9f02491a89"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/crates/skills/src/main.rs",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/crates/skills/src/main.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "66ad8ff7be47cebe024f2a266a08ad01c347b58a",
+        "size": 11333,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/66ad8ff7be47cebe024f2a266a08ad01c347b58a"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/crates/skills/tests/skills.rs",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/crates/skills/tests/skills.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "a7a1d710da81012623c8ed944deb02f498cd0db2",
+        "size": 17985,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/a7a1d710da81012623c8ed944deb02f498cd0db2"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+      "kind": "modified",
+      "head": {
+        "mode": "100644",
+        "git_blob": "c62744c60c173ee27cec320b27e3f5f22128656e",
+        "sha256": "7707b987700293a31096338ccd4364e34aa70bce59bca2dd3c1cdaef15c0c9a1",
+        "bytes": 22868
+      },
+      "native_merge": {
+        "path": "lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "60aff5ba4c02a04b2f834853f2c94d56390ded8c",
+        "size": 24315,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/60aff5ba4c02a04b2f834853f2c94d56390ded8c"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+      "kind": "modified",
+      "head": {
+        "mode": "100644",
+        "git_blob": "6ad2188d3ad7331509e5ca89dc70bf309304b83b",
+        "sha256": "df424358eb99ab6982ef8cd3ea3d7484f55bf3c033aabcf29ca0b07c0df5ab0a",
+        "bytes": 27975
+      },
+      "native_merge": {
+        "path": "lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "eeb3ee6e57b20648b73e8d120ddb14625bb83340",
+        "size": 27980,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/eeb3ee6e57b20648b73e8d120ddb14625bb83340"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_invocation_tests.rs",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/crates/voice-eval/src/physical/serve_invocation_tests.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "b1e41cccc159b893287f35fdde495142b62f807b",
+        "size": 4289,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/b1e41cccc159b893287f35fdde495142b62f807b"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/common/serve_relay_clock.rs",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/crates/voice-eval/tests/common/serve_relay_clock.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "7b57594e58776f711abf728f33408ce0ed1e0c61",
+        "size": 16129,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/7b57594e58776f711abf728f33408ce0ed1e0c61"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/serve_relay.rs",
+      "kind": "modified",
+      "head": {
+        "mode": "100644",
+        "git_blob": "91c1124e1be6be16c8cf0fb5959b03cfdcef1a13",
+        "sha256": "53f5cc802a0101518da7214b63b77e052b3406fe1b5db3ce43d5c0c305145bf5",
+        "bytes": 10467
+      },
+      "native_merge": {
+        "path": "lampOS/crates/voice-eval/tests/serve_relay.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "9c3b33264152a6b500f24b0479d822c4163362af",
+        "size": 9396,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/9c3b33264152a6b500f24b0479d822c4163362af"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/body_link.rs",
+      "kind": "modified",
+      "head": {
+        "mode": "100644",
+        "git_blob": "ee71b8040b3271e68d93ca42a475f0015dffe715",
+        "sha256": "53fb2f61e756b6f0de15c9996620fb27f15dd52b43928c8dcd0c943d710d2bae",
+        "bytes": 21855
+      },
+      "native_merge": {
+        "path": "lampOS/crates/voice/src/body_link.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "307b795c1b5724ff4ce9a606cc189eff1c338666",
+        "size": 23066,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/307b795c1b5724ff4ce9a606cc189eff1c338666"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/camera_config.rs",
+      "kind": "modified",
+      "head": {
+        "mode": "100644",
+        "git_blob": "d48b86011ded156700cdd142bca35627b8139e74",
+        "sha256": "0992a2104f726fe816de5a678d902b310e5990cb4f66018b86f8e57149171696",
+        "bytes": 6000
+      },
+      "native_merge": {
+        "path": "lampOS/crates/voice/src/camera_config.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "d194fae479e3cfc541f615ac2fe52936d12970a3",
+        "size": 6625,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/d194fae479e3cfc541f615ac2fe52936d12970a3"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/coordinator.rs",
+      "kind": "modified",
+      "head": {
+        "mode": "100644",
+        "git_blob": "8787a86a2a776c99538fef0992229cffc28b5009",
+        "sha256": "ad7074b1792278ffabb3ff6baf7dc3d57a84b6c1bb883062f90ab481555ef808",
+        "bytes": 354876
+      },
+      "native_merge": {
+        "path": "lampOS/crates/voice/src/coordinator.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "5d878c81f0246ff260c78e0b206431862081834c",
+        "size": 357101,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/5d878c81f0246ff260c78e0b206431862081834c"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/main.rs",
+      "kind": "modified",
+      "head": {
+        "mode": "100644",
+        "git_blob": "b79590c336a2d98dfed5643174fa4d80568ee6ba",
+        "sha256": "b095961c0e6737af9a0047a6f3b08ab4f09832be337a7e4a7a4380f5ebf44a58",
+        "bytes": 40742
+      },
+      "native_merge": {
+        "path": "lampOS/crates/voice/src/main.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "6c37b77155dc15f1722008dbf548adbd0d0a31d4",
+        "size": 45443,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/6c37b77155dc15f1722008dbf548adbd0d0a31d4"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/onboarding.rs",
+      "kind": "modified",
+      "head": {
+        "mode": "100644",
+        "git_blob": "75ae51c2273cf4b8f222a8f0eb156dbb810243d6",
+        "sha256": "28180d3b374768165c758b5237801458a3abbd1d53ab378cd9eed8fcbd81808a",
+        "bytes": 47591
+      },
+      "native_merge": {
+        "path": "lampOS/crates/voice/src/onboarding.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "0c575c13e90fd4e8c30d5082fe45e206c482e503",
+        "size": 53530,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/0c575c13e90fd4e8c30d5082fe45e206c482e503"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/provider_worker.rs",
+      "kind": "modified",
+      "head": {
+        "mode": "100644",
+        "git_blob": "5c21d463ab3ebf9a397c1e83c2a37a9dccdeda63",
+        "sha256": "5cd8cc110e3156a8d4b353b54975d23bb237a823a91c04910daf7eca684ccaef",
+        "bytes": 416659
+      },
+      "native_merge": {
+        "path": "lampOS/crates/voice/src/provider_worker.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "44ae871573cd7fb5965e9e20cdaf1044d3a856f2",
+        "size": 417748,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/44ae871573cd7fb5965e9e20cdaf1044d3a856f2"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/second_provider/net/stt.rs",
+      "kind": "modified",
+      "head": {
+        "mode": "100644",
+        "git_blob": "c591fe9163c36ac117d1b66a77508f4c8c7b5219",
+        "sha256": "96cc32eb57fb6471cab3c75d9ea0ab0d43e8eae1914d8497a31e93ce02d46d14",
+        "bytes": 29692
+      },
+      "native_merge": {
+        "path": "lampOS/crates/voice/src/second_provider/net/stt.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "6f54ed9ca09195b2c4fabf39e0b2ceec1077f90e",
+        "size": 35027,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/6f54ed9ca09195b2c4fabf39e0b2ceec1077f90e"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/sight.rs",
+      "kind": "modified",
+      "head": {
+        "mode": "100644",
+        "git_blob": "a398e84f0d9e5208bc41c1754602211a40de1879",
+        "sha256": "1766e152f99c70f0ed5e1f80de622b45aea56dac5e701dd7c1d06874a0812b75",
+        "bytes": 12051
+      },
+      "native_merge": {
+        "path": "lampOS/crates/voice/src/sight.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "f6375495715f3efa45a897eab65842e2ebaa83b4",
+        "size": 26469,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/f6375495715f3efa45a897eab65842e2ebaa83b4"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/speak_up.rs",
+      "kind": "modified",
+      "head": {
+        "mode": "100644",
+        "git_blob": "59116aa278a8a18158bf05055667e99c783a105a",
+        "sha256": "85a006df428a337987bda4e395062a38fef2f9e11a9f37d57e1b4952674cace3",
+        "bytes": 13563
+      },
+      "native_merge": {
+        "path": "lampOS/crates/voice/src/speak_up.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "510f6e388346e9df8ef793cb64d46201b2b2bd41",
+        "size": 14075,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/510f6e388346e9df8ef793cb64d46201b2b2bd41"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/crates/voice/tests/camera_config.rs",
+      "kind": "modified",
+      "head": {
+        "mode": "100644",
+        "git_blob": "0c5143637aecc53402bd65cef7286289f1361137",
+        "sha256": "8413224910d3c2f7108c9adbc25b1066af9a60193d00d50f35cd217a3826f8c8",
+        "bytes": 3951
+      },
+      "native_merge": {
+        "path": "lampOS/crates/voice/tests/camera_config.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "f08376a26e75c57b3bad699851048d19958deab7",
+        "size": 4102,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/f08376a26e75c57b3bad699851048d19958deab7"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/crates/voice/tests/progress_news.rs",
+      "kind": "modified",
+      "head": {
+        "mode": "100644",
+        "git_blob": "5bdcfd7f0cd028058d3bb98a13d5b8d565728905",
+        "sha256": "88de8591968b71b6614b19ea2bff32c7aa39143f584cc6f0db33c9ac85dc33c2",
+        "bytes": 20269
+      },
+      "native_merge": {
+        "path": "lampOS/crates/voice/tests/progress_news.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "de9a6e915a2f31ee44d09c5eac51dc06046953fc",
+        "size": 20303,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/de9a6e915a2f31ee44d09c5eac51dc06046953fc"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/deploy/units/README.md",
+      "kind": "modified",
+      "head": {
+        "mode": "100644",
+        "git_blob": "acb9a5a108c6a971163495ebbfffae427a2438c3",
+        "sha256": "70e6b6b3f38402785b266d6506ea26cf5bac4c7db7dcff8207b13f5bda1b8ed0",
+        "bytes": 2506
+      },
+      "native_merge": {
+        "path": "lampOS/deploy/units/README.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "1d272b3b6a4dba0af2abc6d0d44f49ae69103e22",
+        "size": 2932,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/1d272b3b6a4dba0af2abc6d0d44f49ae69103e22"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/deploy/units/lamp-skills.service",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/deploy/units/lamp-skills.service",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "f233981ab15fb48aa5770aac4205712be45613e4",
+        "size": 1091,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/f233981ab15fb48aa5770aac4205712be45613e4"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/attention.md",
+      "kind": "modified",
+      "head": {
+        "mode": "100644",
+        "git_blob": "33f8ae54ce631842292cb1866b296e62695c0bb4",
+        "sha256": "cc8294297399bc3a95cfff8e1797f3e8a8fac388103036be048a625af9f0c2d3",
+        "bytes": 62020
+      },
+      "native_merge": {
+        "path": "lampOS/docs/attention.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "725f90ebf498c53d8dd287210a49888f935128bf",
+        "size": 62206,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/725f90ebf498c53d8dd287210a49888f935128bf"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/bus.md",
+      "kind": "modified",
+      "head": {
+        "mode": "100644",
+        "git_blob": "2393157d27b982ef7513736d2001911c40e0e1fb",
+        "sha256": "51e6b684fd59469006f163be1fe332310355424f3770586082aa147cb62ff6d7",
+        "bytes": 38178
+      },
+      "native_merge": {
+        "path": "lampOS/docs/bus.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "baeea581c15a06e364a5f2efe4fff7b4e77b22b2",
+        "size": 38803,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/baeea581c15a06e364a5f2efe4fff7b4e77b22b2"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/camera-runtime.md",
+      "kind": "modified",
+      "head": {
+        "mode": "100644",
+        "git_blob": "40a2b69ff1600e3c82b3f8eac9255c4176463a63",
+        "sha256": "34a7839e5419c3d25b52fdbbedd0b032fc48345dd9003b02683f3a93acf9f085",
+        "bytes": 43880
+      },
+      "native_merge": {
+        "path": "lampOS/docs/camera-runtime.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "bf6b922733e76d95d84a2afb30c421302bb17794",
+        "size": 44137,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/bf6b922733e76d95d84a2afb30c421302bb17794"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/eyes.md",
+      "kind": "modified",
+      "head": {
+        "mode": "100644",
+        "git_blob": "430683263b9ae427c7c0231b7885f5e7be4e44f6",
+        "sha256": "0a67fcf456c76efbdb6754a0fed60a2a7421e77257d40e4723a2e8be0c09de53",
+        "bytes": 23252
+      },
+      "native_merge": {
+        "path": "lampOS/docs/eyes.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "c95501c11c55ac2ca170e79d4d4a33ea80973115",
+        "size": 31080,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/c95501c11c55ac2ca170e79d4d4a33ea80973115"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/msgs.md",
+      "kind": "modified",
+      "head": {
+        "mode": "100644",
+        "git_blob": "6bba916c1e48478e53779848ed606765f8d5f4c9",
+        "sha256": "30f7861396e3decedb5d1114c4747e81cb6c68400c1e15211521d5d8bcf6e5f9",
+        "bytes": 25546
+      },
+      "native_merge": {
+        "path": "lampOS/docs/msgs.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "2c36f45a473f3a2e0b40ef8687f511666810bce4",
+        "size": 26387,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/2c36f45a473f3a2e0b40ef8687f511666810bce4"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/onboarding.md",
+      "kind": "modified",
+      "head": {
+        "mode": "100644",
+        "git_blob": "a2c737964e69a12881f441fc19f33023345887fd",
+        "sha256": "be7b70282e1c248405eef9678c2bcdf2fab13182d98729c8a75d55449a8a0614",
+        "bytes": 6547
+      },
+      "native_merge": {
+        "path": "lampOS/docs/onboarding.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "77a155ba16122a5fd92c2bb6775119e467d24d51",
+        "size": 7560,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/77a155ba16122a5fd92c2bb6775119e467d24d51"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/policy.md",
+      "kind": "modified",
+      "head": {
+        "mode": "100644",
+        "git_blob": "464286249a98cb54fc86ef524e8357bf5b2a10ee",
+        "sha256": "0d6daba76c9c08b61dac1089fe3f54e640b9432d2efdcef43883ced6c50c2f0f",
+        "bytes": 81289
+      },
+      "native_merge": {
+        "path": "lampOS/docs/policy.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "d0e5a16bbb3d224ccc1f8c379814e26978026239",
+        "size": 83300,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/d0e5a16bbb3d224ccc1f8c379814e26978026239"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/realtime-tests.md",
+      "kind": "modified",
+      "head": {
+        "mode": "100644",
+        "git_blob": "747dddf670324205fc7f3b90544cc147ddb5128c",
+        "sha256": "379e5b356b4e69322609ce87f44ab61fd3632b969f09afcde56f7cc8f73c4f68",
+        "bytes": 39693
+      },
+      "native_merge": {
+        "path": "lampOS/docs/realtime-tests.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "2d8adfbdcb3f41dc6a2acb3df19462f1585aa02e",
+        "size": 41562,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/2d8adfbdcb3f41dc6a2acb3df19462f1585aa02e"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/second-voice.md",
+      "kind": "modified",
+      "head": {
+        "mode": "100644",
+        "git_blob": "a302a40695cab5b4b5cb8ddfc95a8f580adde9a3",
+        "sha256": "627e124fefac6308c8a651206e5f79710fb93ace2531f6d8930db9ba0f5e18a5",
+        "bytes": 28272
+      },
+      "native_merge": {
+        "path": "lampOS/docs/second-voice.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "d7afbd7ad8158ae2d8a7cb53b50a30773962c81f",
+        "size": 30452,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/d7afbd7ad8158ae2d8a7cb53b50a30773962c81f"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/skills.md",
+      "kind": "modified",
+      "head": {
+        "mode": "100644",
+        "git_blob": "f9e2d3ba52bd1014ec1eeb9451542855aa310bb4",
+        "sha256": "daf49d850533db8e17c91565392bbcbece3e88a59fc15acd4e8f527b0112fc78",
+        "bytes": 15098
+      },
+      "native_merge": {
+        "path": "lampOS/docs/skills.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "169335c1f741d7e70cf3c743c90ee7be72f564b7",
+        "size": 24257,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/169335c1f741d7e70cf3c743c90ee7be72f564b7"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/speaking-first.md",
+      "kind": "modified",
+      "head": {
+        "mode": "100644",
+        "git_blob": "b7e9c23ed8192903b9e44f87fb2c46fc89a945a1",
+        "sha256": "db71e4d28b595a6464b9d7ebcb0d499994ad2e7a7b9df57c615097d49a55def1",
+        "bytes": 12521
+      },
+      "native_merge": {
+        "path": "lampOS/docs/speaking-first.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "3470dc49cb8a65ddbf4ce4cb7951fe731dc4fcc6",
+        "size": 14684,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/3470dc49cb8a65ddbf4ce4cb7951fe731dc4fcc6"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/full-look-held-lamp-52e6-20261016/README.md",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/full-look-held-lamp-52e6-20261016/README.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "93a310f2bc136803a8e3cc85d3a6a4e5e3088231",
+        "size": 4347,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/93a310f2bc136803a8e3cc85d3a6a4e5e3088231"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/full-look-lamp-52e6-20261015/README.md",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/full-look-lamp-52e6-20261015/README.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "8547665819dab8100de25bb21b3e3204655265fb",
+        "size": 3748,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/8547665819dab8100de25bb21b3e3204655265fb"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/full-look-lamp-52e6-20261015/eyes-journal.txt",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/full-look-lamp-52e6-20261015/eyes-journal.txt",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "c02891a9d8273fee8978d2ee6153faf949f5dc51",
+        "size": 1992,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/c02891a9d8273fee8978d2ee6153faf949f5dc51"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/full-look-lamp-52e6-20261015/look-timing.txt",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/full-look-lamp-52e6-20261015/look-timing.txt",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "49b59f79ca17be6c77b542f6538eebda2b9efe6b",
+        "size": 421,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/49b59f79ca17be6c77b542f6538eebda2b9efe6b"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/full-look-lamp-52e6-20261015/looks-after.txt",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/full-look-lamp-52e6-20261015/looks-after.txt",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "e5616ee6a8a6e98c9e880f47a1857f71b8ef7938",
+        "size": 2751,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/e5616ee6a8a6e98c9e880f47a1857f71b8ef7938"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/full-look-lamp-52e6-20261015/looks-before.txt",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/full-look-lamp-52e6-20261015/looks-before.txt",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "61c204b8787a926d5ea6ac618ae2f27d16f87322",
+        "size": 1878,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/61c204b8787a926d5ea6ac618ae2f27d16f87322"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/README.md",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/README.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "7a01f7ba83a5c62f0bb2f65d3ed63a56c3360a30",
+        "size": 2947,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/7a01f7ba83a5c62f0bb2f65d3ed63a56c3360a30"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/SHA256SUMS",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/SHA256SUMS",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "3ba86536cfbaee7f02b9287aac55c654cdba6e8a",
+        "size": 7887,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/3ba86536cfbaee7f02b9287aac55c654cdba6e8a"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/README.md",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/README.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "133e798514375567a7916680a50e98e4f804bfad",
+        "size": 3961,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/133e798514375567a7916680a50e98e4f804bfad"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/SHA256SUMS",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/SHA256SUMS",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "6b5e2918357595e34a59d498ccd1abfb7ee958f7",
+        "size": 5695,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/6b5e2918357595e34a59d498ccd1abfb7ee958f7"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/audit-command.json",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/audit-command.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "9a778ed8ebe87f4e8f32f22688916304c66cc4d7",
+        "size": 426,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/9a778ed8ebe87f4e8f32f22688916304c66cc4d7"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/audit-command.log",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/audit-command.log",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "fb8d1a7eac52babcbc41f717c21e5480f826e2a4",
+        "size": 375,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/fb8d1a7eac52babcbc41f717c21e5480f826e2a4"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/baseline-provenance.json",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/baseline-provenance.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "2c12c496fe53be90d83b4ab1ef9c17ef77ed0a87",
+        "size": 79880,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/2c12c496fe53be90d83b4ab1ef9c17ef77ed0a87"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/build.log",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/build.log",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "0e887988a3fbbe140ad97a38d18444bf533141d2",
+        "size": 4052,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/0e887988a3fbbe140ad97a38d18444bf533141d2"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/clean-e5aa-baseline/baseline-list.exit",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/clean-e5aa-baseline/baseline-list.exit",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+        "size": 2,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/clean-e5aa-baseline/baseline-list.log",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/clean-e5aa-baseline/baseline-list.log",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "6cd3081941ef59d1cad0cf16e8aa4d5e0ce2a9a6",
+        "size": 413045,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/6cd3081941ef59d1cad0cf16e8aa4d5e0ce2a9a6"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/clean-e5aa-baseline/baseline-source.json",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/clean-e5aa-baseline/baseline-source.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "73f6f30ce4561b55347624aece51a13798e8c84a",
+        "size": 101684,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/73f6f30ce4561b55347624aece51a13798e8c84a"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/clean-e5aa-baseline/gates.json",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/clean-e5aa-baseline/gates.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "ca5148a9e11f15dde322db5240db180a4a36a37e",
+        "size": 2484,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/ca5148a9e11f15dde322db5240db180a4a36a37e"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/clippy.log",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/clippy.log",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "6569761fa425c146fd57dfd33d47ccf9fe67d37b",
+        "size": 1925,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/6569761fa425c146fd57dfd33d47ccf9fe67d37b"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/compiled-comparison.json",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/compiled-comparison.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "a87d19f7ab75c9c71ccba73042864c34ea0f3eab",
+        "size": 77395,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/a87d19f7ab75c9c71ccba73042864c34ea0f3eab"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/completed.json",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/completed.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "b9ccc5a6c7a4155aa37d6901d73dae91e41d28ac",
+        "size": 5320,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/b9ccc5a6c7a4155aa37d6901d73dae91e41d28ac"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/fmt.log",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/fmt.log",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+        "size": 0,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/gates.json",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/gates.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "85f382ea4337660b5d9b641d53e518b570f5d807",
+        "size": 4619,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/85f382ea4337660b5d9b641d53e518b570f5d807"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/list.log",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/list.log",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "bff546a58c93103b7bf660c78b759e57b7fd7cd1",
+        "size": 94244,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/bff546a58c93103b7bf660c78b759e57b7fd7cd1"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/metadata-command.json",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/metadata-command.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "e952a4fc5b2e02aa044111ace92aabe45fe4af70",
+        "size": 541,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/e952a4fc5b2e02aa044111ace92aabe45fe4af70"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/metadata.json",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/metadata.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "b96a793f9c5b6ca42e3c57ea1e2fb41fc4282acc",
+        "size": 2184466,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/b96a793f9c5b6ca42e3c57ea1e2fb41fc4282acc"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/metadata.stderr.log",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/metadata.stderr.log",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+        "size": 0,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/result-audit.json",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/result-audit.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "0d7f3182a29ff6799b3a3a65ffc79902f3d2245a",
+        "size": 136647,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/0d7f3182a29ff6799b3a3a65ffc79902f3d2245a"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/reverse-dependents.json",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/reverse-dependents.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "0c802fdd78ac28313e129c558577540aafc877ad",
+        "size": 451,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/0c802fdd78ac28313e129c558577540aafc877ad"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/reviewed-integration/independent-inverse.json",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/reviewed-integration/independent-inverse.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "c17d31e82714a839863563573e6384b795060cd0",
+        "size": 5059,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/c17d31e82714a839863563573e6384b795060cd0"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/reviewed-integration/root-independent-review.json",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/reviewed-integration/root-independent-review.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "1041e0718f5a11a5d0b6059e97a94df902905eb0",
+        "size": 373,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/1041e0718f5a11a5d0b6059e97a94df902905eb0"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/reviewed-integration/source-proof.json",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/reviewed-integration/source-proof.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "6f207cb5bd4752004f0977b09370156ebc423ba3",
+        "size": 20927,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/6f207cb5bd4752004f0977b09370156ebc423ba3"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/reviewed-integration/test-body-proof.json",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/reviewed-integration/test-body-proof.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "f606e66ee4871849fefec8af37e96909247d7b04",
+        "size": 139828,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/f606e66ee4871849fefec8af37e96909247d7b04"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/root-result-audit.json",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/root-result-audit.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "1b5bb55e95771111035338114ef85f0513fe6888",
+        "size": 1163,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/1b5bb55e95771111035338114ef85f0513fe6888"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/source.json",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/source.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "67537016eaae6c12845b3139b7e41817341c59c3",
+        "size": 194848,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/67537016eaae6c12845b3139b7e41817341c59c3"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/tests.log",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/gate/tests.log",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "7f7d1733961e1fa8aefe70188e9200bff6fc89d5",
+        "size": 55430,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/7f7d1733961e1fa8aefe70188e9200bff6fc89d5"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/SHA256SUMS",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/SHA256SUMS",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "aa3b9d6e11fcd66277a7e8fabc819f0683fad09f",
+        "size": 2423,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/aa3b9d6e11fcd66277a7e8fabc819f0683fad09f"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/base/lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/base/lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "c62744c60c173ee27cec320b27e3f5f22128656e",
+        "size": 22868,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/c62744c60c173ee27cec320b27e3f5f22128656e"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/base/lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/base/lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "6ad2188d3ad7331509e5ca89dc70bf309304b83b",
+        "size": 27975,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/6ad2188d3ad7331509e5ca89dc70bf309304b83b"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/base/lampOS/crates/voice-eval/tests/serve_relay.rs",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/base/lampOS/crates/voice-eval/tests/serve_relay.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "91c1124e1be6be16c8cf0fb5959b03cfdcef1a13",
+        "size": 10467,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/91c1124e1be6be16c8cf0fb5959b03cfdcef1a13"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/base/lampOS/docs/realtime-tests.md",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/base/lampOS/docs/realtime-tests.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "747dddf670324205fc7f3b90544cc147ddb5128c",
+        "size": 39693,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/747dddf670324205fc7f3b90544cc147ddb5128c"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/candidate/lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/candidate/lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "60aff5ba4c02a04b2f834853f2c94d56390ded8c",
+        "size": 24315,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/60aff5ba4c02a04b2f834853f2c94d56390ded8c"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/candidate/lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/candidate/lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "eeb3ee6e57b20648b73e8d120ddb14625bb83340",
+        "size": 27980,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/eeb3ee6e57b20648b73e8d120ddb14625bb83340"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/candidate/lampOS/crates/voice-eval/src/physical/serve_invocation_tests.rs",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/candidate/lampOS/crates/voice-eval/src/physical/serve_invocation_tests.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "b1e41cccc159b893287f35fdde495142b62f807b",
+        "size": 4289,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/b1e41cccc159b893287f35fdde495142b62f807b"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/candidate/lampOS/crates/voice-eval/tests/common/serve_relay_clock.rs",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/candidate/lampOS/crates/voice-eval/tests/common/serve_relay_clock.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "7b57594e58776f711abf728f33408ce0ed1e0c61",
+        "size": 16129,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/7b57594e58776f711abf728f33408ce0ed1e0c61"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/candidate/lampOS/crates/voice-eval/tests/serve_relay.rs",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/candidate/lampOS/crates/voice-eval/tests/serve_relay.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "9c3b33264152a6b500f24b0479d822c4163362af",
+        "size": 9396,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/9c3b33264152a6b500f24b0479d822c4163362af"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/candidate/lampOS/docs/realtime-tests.md",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/candidate/lampOS/docs/realtime-tests.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "2d8adfbdcb3f41dc6a2acb3df19462f1585aa02e",
+        "size": 41562,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/2d8adfbdcb3f41dc6a2acb3df19462f1585aa02e"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/clean-base.json",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/clean-base.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "845dd5bf1b8f2b09586d0ac42b7ca813e239d5f3",
+        "size": 125343,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/845dd5bf1b8f2b09586d0ac42b7ca813e239d5f3"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/doc-append.md",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/doc-append.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "9f5ef1dcb67ba6e5e15116f015eaf7d49ee7b132",
+        "size": 1869,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/9f5ef1dcb67ba6e5e15116f015eaf7d49ee7b132"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/expected-identities-qualified-source-only.json",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/expected-identities-qualified-source-only.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "4c8dc38526147cf95c16062e74cdedfde8b31832",
+        "size": 98162,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/4c8dc38526147cf95c16062e74cdedfde8b31832"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/handoff.md",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/handoff.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "5cb6db9e2d41eaf5990a37b99275c34ba131ffce",
+        "size": 3037,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/5cb6db9e2d41eaf5990a37b99275c34ba131ffce"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/independent-inverse.json",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/independent-inverse.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "c17d31e82714a839863563573e6384b795060cd0",
+        "size": 5059,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/c17d31e82714a839863563573e6384b795060cd0"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/integration-tracked.diff",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/integration-tracked.diff",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "a2856bc58dd5e42b6cc60f922099cb79b308b49a",
+        "size": 8394,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/a2856bc58dd5e42b6cc60f922099cb79b308b49a"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/reversed/lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/reversed/lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "c62744c60c173ee27cec320b27e3f5f22128656e",
+        "size": 22868,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/c62744c60c173ee27cec320b27e3f5f22128656e"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/reversed/lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/reversed/lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "6ad2188d3ad7331509e5ca89dc70bf309304b83b",
+        "size": 27975,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/6ad2188d3ad7331509e5ca89dc70bf309304b83b"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/reversed/lampOS/crates/voice-eval/tests/serve_relay.rs",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/reversed/lampOS/crates/voice-eval/tests/serve_relay.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "91c1124e1be6be16c8cf0fb5959b03cfdcef1a13",
+        "size": 10467,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/91c1124e1be6be16c8cf0fb5959b03cfdcef1a13"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/reversed/lampOS/docs/realtime-tests.md",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/reversed/lampOS/docs/realtime-tests.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "747dddf670324205fc7f3b90544cc147ddb5128c",
+        "size": 39693,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/747dddf670324205fc7f3b90544cc147ddb5128c"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/root-independent-review.json",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/root-independent-review.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "1041e0718f5a11a5d0b6059e97a94df902905eb0",
+        "size": 373,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/1041e0718f5a11a5d0b6059e97a94df902905eb0"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/source-proof.json",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/source-proof.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "6f207cb5bd4752004f0977b09370156ebc423ba3",
+        "size": 20927,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/6f207cb5bd4752004f0977b09370156ebc423ba3"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/test-body-proof.json",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/integration/test-body-proof.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "f606e66ee4871849fefec8af37e96909247d7b04",
+        "size": 139828,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/f606e66ee4871849fefec8af37e96909247d7b04"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/preservation-audit.json",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/preservation-audit.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "33ecb6b805c3b02ed1a764e0bfe8465457a13f84",
+        "size": 19893,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/33ecb6b805c3b02ed1a764e0bfe8465457a13f84"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/provenance.json",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/provenance.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "54990fbbf953270f3b4dacfee8b7f38e384d186a",
+        "size": 23829,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/54990fbbf953270f3b4dacfee8b7f38e384d186a"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/publication-input-manifest.json",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current-base-20261016-e5aa437/publication-input-manifest.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "b8173f02e46d330ad5ecd3478d02f24109358d1b",
+        "size": 37864,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/b8173f02e46d330ad5ecd3478d02f24109358d1b"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/SHA256SUMS",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/SHA256SUMS",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "9382695b2104ee3dc21f34d2ddf2491c28f56a61",
+        "size": 3250,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/9382695b2104ee3dc21f34d2ddf2491c28f56a61"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/base-inventory.json",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/base-inventory.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "3fded5c030ed75d990ac9d47d3e435a851ead945",
+        "size": 2003639,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/3fded5c030ed75d990ac9d47d3e435a851ead945"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/base/lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/base/lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "c62744c60c173ee27cec320b27e3f5f22128656e",
+        "size": 22868,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/c62744c60c173ee27cec320b27e3f5f22128656e"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/base/lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/base/lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "6ad2188d3ad7331509e5ca89dc70bf309304b83b",
+        "size": 27975,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/6ad2188d3ad7331509e5ca89dc70bf309304b83b"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/base/lampOS/crates/voice-eval/tests/serve_relay.rs",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/base/lampOS/crates/voice-eval/tests/serve_relay.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "91c1124e1be6be16c8cf0fb5959b03cfdcef1a13",
+        "size": 10467,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/91c1124e1be6be16c8cf0fb5959b03cfdcef1a13"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/base/lampOS/docs/realtime-tests.md",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/base/lampOS/docs/realtime-tests.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "9b8f6ef19114f5525417c81ab2c4828dc5f51c98",
+        "size": 37178,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/9b8f6ef19114f5525417c81ab2c4828dc5f51c98"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/baseline-compiled-identities.json",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/baseline-compiled-identities.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "b4a44383b9d0a731f2de0d6adc34591127ced24b",
+        "size": 89994,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/b4a44383b9d0a731f2de0d6adc34591127ced24b"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/baseline-compiled-list.log",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/baseline-compiled-list.log",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "f1b58ac5747d7f1711bf327c89d6ad7db0b1a1df",
+        "size": 90846,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/f1b58ac5747d7f1711bf327c89d6ad7db0b1a1df"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/candidate/lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/candidate/lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "60aff5ba4c02a04b2f834853f2c94d56390ded8c",
+        "size": 24315,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/60aff5ba4c02a04b2f834853f2c94d56390ded8c"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/candidate/lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/candidate/lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "eeb3ee6e57b20648b73e8d120ddb14625bb83340",
+        "size": 27980,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/eeb3ee6e57b20648b73e8d120ddb14625bb83340"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/candidate/lampOS/crates/voice-eval/src/physical/serve_invocation_tests.rs",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/candidate/lampOS/crates/voice-eval/src/physical/serve_invocation_tests.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "b1e41cccc159b893287f35fdde495142b62f807b",
+        "size": 4289,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/b1e41cccc159b893287f35fdde495142b62f807b"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/candidate/lampOS/crates/voice-eval/tests/common/serve_relay_clock.rs",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/candidate/lampOS/crates/voice-eval/tests/common/serve_relay_clock.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "7b57594e58776f711abf728f33408ce0ed1e0c61",
+        "size": 16129,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/7b57594e58776f711abf728f33408ce0ed1e0c61"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/candidate/lampOS/crates/voice-eval/tests/serve_relay.rs",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/candidate/lampOS/crates/voice-eval/tests/serve_relay.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "9c3b33264152a6b500f24b0479d822c4163362af",
+        "size": 9396,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/9c3b33264152a6b500f24b0479d822c4163362af"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/candidate/lampOS/docs/realtime-tests.md",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/candidate/lampOS/docs/realtime-tests.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "e4bd25f904077f57930a614bba3b90eabad7c67d",
+        "size": 39047,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/e4bd25f904077f57930a614bba3b90eabad7c67d"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/doc-append.md",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/doc-append.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "9f5ef1dcb67ba6e5e15116f015eaf7d49ee7b132",
+        "size": 1869,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/9f5ef1dcb67ba6e5e15116f015eaf7d49ee7b132"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/expected-after-identities-source-only.json",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/expected-after-identities-source-only.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "e39ccc835b755a5a74f701ae6ee874ab59889ed5",
+        "size": 92705,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/e39ccc835b755a5a74f701ae6ee874ab59889ed5"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/fake-lamp-live-body-reversed.rs",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/fake-lamp-live-body-reversed.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "c62744c60c173ee27cec320b27e3f5f22128656e",
+        "size": 22868,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/c62744c60c173ee27cec320b27e3f5f22128656e"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/final-evaluator-source.json",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/final-evaluator-source.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "fe8c7313f20117f2f1edde172e68bcbda4c309da",
+        "size": 9986,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/fe8c7313f20117f2f1edde172e68bcbda4c309da"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/final-status.txt",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/final-status.txt",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "5add2861df619d0521207291e02fce708105730f",
+        "size": 326,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/5add2861df619d0521207291e02fce708105730f"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/handoff.md",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/handoff.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "1d66d1dd71b0b7e67955832ba6312b7b54518fd6",
+        "size": 8766,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/1d66d1dd71b0b7e67955832ba6312b7b54518fd6"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/initial-audit-interruption.json",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/initial-audit-interruption.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "7ed64e84c78ec940b0a2057b60097ab6cb79b1e6",
+        "size": 669,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/7ed64e84c78ec940b0a2057b60097ab6cb79b1e6"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/original-six-preservation.json",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/original-six-preservation.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "2b78b673d5d231d1a1d80f770575f78efd3dcd8e",
+        "size": 1756,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/2b78b673d5d231d1a1d80f770575f78efd3dcd8e"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/participant-only.diff",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/participant-only.diff",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "4990f76af3dc353318bfa4074319f9ac36248dbf",
+        "size": 28932,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/4990f76af3dc353318bfa4074319f9ac36248dbf"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/qualified-provenance.json",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/qualified-provenance.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "134151c4bd19db170fd9bedd91f4e5bd969f531b",
+        "size": 6284,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/134151c4bd19db170fd9bedd91f4e5bd969f531b"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/reversed/lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/reversed/lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "c62744c60c173ee27cec320b27e3f5f22128656e",
+        "size": 22868,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/c62744c60c173ee27cec320b27e3f5f22128656e"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/reversed/lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/reversed/lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "6ad2188d3ad7331509e5ca89dc70bf309304b83b",
+        "size": 27975,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/6ad2188d3ad7331509e5ca89dc70bf309304b83b"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/reversed/lampOS/crates/voice-eval/tests/serve_relay.rs",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/reversed/lampOS/crates/voice-eval/tests/serve_relay.rs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "91c1124e1be6be16c8cf0fb5959b03cfdcef1a13",
+        "size": 10467,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/91c1124e1be6be16c8cf0fb5959b03cfdcef1a13"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/reversed/lampOS/docs/realtime-tests.md",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/reversed/lampOS/docs/realtime-tests.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "9b8f6ef19114f5525417c81ab2c4828dc5f51c98",
+        "size": 37178,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/9b8f6ef19114f5525417c81ab2c4828dc5f51c98"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-build.log",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-build.log",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "be7acde8519c45e0e9387cbd8c329c15657e2b16",
+        "size": 4130,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/be7acde8519c45e0e9387cbd8c329c15657e2b16"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-clippy.log",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-clippy.log",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "4a72b6b16410e469095625b3ff199674d9e7b057",
+        "size": 1961,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/4a72b6b16410e469095625b3ff199674d9e7b057"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-fmt.log",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-fmt.log",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+        "size": 0,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-gates.json",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-gates.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "576211c3d9f51ea7255bf55b5e2572e3eeaf3719",
+        "size": 2184,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/576211c3d9f51ea7255bf55b5e2572e3eeaf3719"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-identity-proof.json",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-identity-proof.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "4d1db628a1db3620e7e8755bfc7dacc655662787",
+        "size": 1684,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/4d1db628a1db3620e7e8755bfc7dacc655662787"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-list.log",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-list.log",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "46cd98a52883817ba72e94e6d3ef1d9df0e133aa",
+        "size": 94560,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/46cd98a52883817ba72e94e6d3ef1d9df0e133aa"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-result.json",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-result.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "7de0042c46fa1945858241048057788a03a4a61b",
+        "size": 162,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/7de0042c46fa1945858241048057788a03a4a61b"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-source-before.json",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-source-before.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "e8062c39755d457cc975b6f2e976c61ff22c1813",
+        "size": 10010,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/e8062c39755d457cc975b6f2e976c61ff22c1813"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-tests.log",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/root-tests.log",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "8b2592e1bd656e31f54f517285498c86d4cc44c4",
+        "size": 55597,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/8b2592e1bd656e31f54f517285498c86d4cc44c4"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/rustfmt.json",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/rustfmt.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "48e2b6b717c8eefeae79fcfac832b4e85075e55c",
+        "size": 764,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/48e2b6b717c8eefeae79fcfac832b4e85075e55c"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/rustfmt.log",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/rustfmt.log",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+        "size": 0,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/source-proof.json",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/source-proof.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "5ee151a7cf18ac63aab12f0bc0d442481c375299",
+        "size": 5571,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/5ee151a7cf18ac63aab12f0bc0d442481c375299"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/test-source-preservation.json",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/current/test-source-preservation.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "34cd06c7cc9f8c3d18303b5de68de8d223355d7c",
+        "size": 158151,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/34cd06c7cc9f8c3d18303b5de68de8d223355d7c"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/handoff.md",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/handoff.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "7451c549165dafd23413bf82507c5dc11f672e75",
+        "size": 8415,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/7451c549165dafd23413bf82507c5dc11f672e75"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/integration-proof.json",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/integration-proof.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "6cf0074a1d99dfd4131854656663c1f7ca1965ea",
+        "size": 2526,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/6cf0074a1d99dfd4131854656663c1f7ca1965ea"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/participant-only.diff",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/participant-only.diff",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "a608f010b2f2dae720d893f05168e1c26b3b98f6",
+        "size": 29539,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/a608f010b2f2dae720d893f05168e1c26b3b98f6"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-build.exit",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-build.exit",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+        "size": 2,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-build.finished",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-build.finished",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "720b3672a2244fecd1d8d141b02de0a535e31bd2",
+        "size": 26,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/720b3672a2244fecd1d8d141b02de0a535e31bd2"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-build.log",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-build.log",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "b9e8fccbca762b31e4d7c89f9cc26b580e95c88a",
+        "size": 4247,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/b9e8fccbca762b31e4d7c89f9cc26b580e95c88a"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-build.started",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-build.started",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "f284f96cc95876c000ceb10c362f3e44869ca8b4",
+        "size": 26,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/f284f96cc95876c000ceb10c362f3e44869ca8b4"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-cache-reset.exit",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-cache-reset.exit",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+        "size": 2,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-cache-reset.finished",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-cache-reset.finished",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "550e11184c033c0c30d6f704454424cb92fbf7a6",
+        "size": 26,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/550e11184c033c0c30d6f704454424cb92fbf7a6"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-cache-reset.log",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-cache-reset.log",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "bc3ff9bd269206d310867f44792744e2043c3fe2",
+        "size": 38,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/bc3ff9bd269206d310867f44792744e2043c3fe2"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-cache-reset.started",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-cache-reset.started",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "76f2a1cf66305d77a902cd7395e680cad3469956",
+        "size": 26,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/76f2a1cf66305d77a902cd7395e680cad3469956"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-clippy.exit",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-clippy.exit",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+        "size": 2,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-clippy.finished",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-clippy.finished",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "31b6129dd98e5b78345b3ab25ee157a61ed1cef4",
+        "size": 26,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/31b6129dd98e5b78345b3ab25ee157a61ed1cef4"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-clippy.log",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-clippy.log",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "a45f14ad5fffed473dda42cf327444dbc3b4a552",
+        "size": 2015,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/a45f14ad5fffed473dda42cf327444dbc3b4a552"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-clippy.started",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-clippy.started",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "e0c7ea786a7c71390867f56b1945b746f9d0db23",
+        "size": 26,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/e0c7ea786a7c71390867f56b1945b746f9d0db23"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-fmt.exit",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-fmt.exit",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+        "size": 2,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-fmt.finished",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-fmt.finished",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "e0c7ea786a7c71390867f56b1945b746f9d0db23",
+        "size": 26,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/e0c7ea786a7c71390867f56b1945b746f9d0db23"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-fmt.log",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-fmt.log",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+        "size": 0,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-fmt.started",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-fmt.started",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "550e11184c033c0c30d6f704454424cb92fbf7a6",
+        "size": 26,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/550e11184c033c0c30d6f704454424cb92fbf7a6"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-gates.json",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-gates.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "c64f57d86aa6a146e5f853c88252924071a8b556",
+        "size": 3789,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/c64f57d86aa6a146e5f853c88252924071a8b556"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-list.exit",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-list.exit",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+        "size": 2,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-list.finished",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-list.finished",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "b0f7cb64765aee178a850fcfad70c9a3ed9ce6bc",
+        "size": 26,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/b0f7cb64765aee178a850fcfad70c9a3ed9ce6bc"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-list.log",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-list.log",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "f4a8deb20f0fee428f5eac1e5a25d42aee0ba91e",
+        "size": 80457,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/f4a8deb20f0fee428f5eac1e5a25d42aee0ba91e"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-list.started",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-list.started",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "31b6129dd98e5b78345b3ab25ee157a61ed1cef4",
+        "size": 26,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/31b6129dd98e5b78345b3ab25ee157a61ed1cef4"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-result.json",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-result.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "01a61184bd6794134af94417c36e2e413fe39762",
+        "size": 2117,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/01a61184bd6794134af94417c36e2e413fe39762"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-source-before.json",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-source-before.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "60f9655e2821e2c4065987f2f767762f5d861842",
+        "size": 8971,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/60f9655e2821e2c4065987f2f767762f5d861842"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-tests.exit",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-tests.exit",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+        "size": 2,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-tests.finished",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-tests.finished",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "f284f96cc95876c000ceb10c362f3e44869ca8b4",
+        "size": 26,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/f284f96cc95876c000ceb10c362f3e44869ca8b4"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-tests.log",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-tests.log",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "156e06d9c237f3e4622eeeaae995e04552c6242d",
+        "size": 45717,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/156e06d9c237f3e4622eeeaae995e04552c6242d"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-tests.started",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/root-tests.started",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "b0f7cb64765aee178a850fcfad70c9a3ed9ce6bc",
+        "size": 26,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/b0f7cb64765aee178a850fcfad70c9a3ed9ce6bc"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/source-audit.json",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/earlier-432/source-audit.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "6fdccc4ffc20f616ea3283e092e76c23534fd0f4",
+        "size": 18418,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/6fdccc4ffc20f616ea3283e092e76c23534fd0f4"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/pair/baseline.json",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/pair/baseline.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "25b3d4ff02b1474ec972c95f59b65aa7dcbab6fb",
+        "size": 949,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/25b3d4ff02b1474ec972c95f59b65aa7dcbab6fb"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/pair/baseline.log",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/pair/baseline.log",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "cbc3a7c4b9ab49ad392af99509f6da79fd4a461d",
+        "size": 1037,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/cbc3a7c4b9ab49ad392af99509f6da79fd4a461d"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/pair/comparison.json",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/pair/comparison.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "9ab038808db0b3348136ec94fdaf4cbdeb899231",
+        "size": 1818,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/9ab038808db0b3348136ec94fdaf4cbdeb899231"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/pair/migrated.json",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/pair/migrated.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "19b183f6f6ad635c8606e8448423e5c551a8bae3",
+        "size": 1585,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/19b183f6f6ad635c8606e8448423e5c551a8bae3"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/pair/migrated.log",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/pair/migrated.log",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "e16edfd323a3fa773cade7d8ac95b3a6fbc4e19c",
+        "size": 1055,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/e16edfd323a3fa773cade7d8ac95b3a6fbc4e19c"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/docs/verification/serve-relay-original-six-20261016/provenance.json",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/docs/verification/serve-relay-original-six-20261016/provenance.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "b8939cad204a588570c81a12e846b22db999d5a9",
+        "size": 20555,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/b8939cad204a588570c81a12e846b22db999d5a9"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/skills/welcome-back/SKILL.md",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/skills/welcome-back/SKILL.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "6dc0357b3d99f765d1d58ae2ff89e8d6b16da649",
+        "size": 951,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/6dc0357b3d99f765d1d58ae2ff89e8d6b16da649"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/skills/welcome-back/lights/warm_glow.toml",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/skills/welcome-back/lights/warm_glow.toml",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "f5c44d86786e3dc11ad6d374cba8ca8f29906afd",
+        "size": 96,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/f5c44d86786e3dc11ad6d374cba8ca8f29906afd"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/skills/welcome-back/skill.toml",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/skills/welcome-back/skill.toml",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "a55c3e1ef6c13f10e3fe4b54f1e58c9066a2db00",
+        "size": 481,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/a55c3e1ef6c13f10e3fe4b54f1e58c9066a2db00"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/skills/welcome-back/tests/back-after-ten-minutes/expect.toml",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/skills/welcome-back/tests/back-after-ten-minutes/expect.toml",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "d217830011ecf120f9067683460e744674ce8f2d",
+        "size": 750,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/d217830011ecf120f9067683460e744674ce8f2d"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/skills/welcome-back/tests/back-after-ten-minutes/humans_faces_tracked.jsonl",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/skills/welcome-back/tests/back-after-ten-minutes/humans_faces_tracked.jsonl",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "bb2b65fb875542dd16206a789675658416370380",
+        "size": 3145,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/bb2b65fb875542dd16206a789675658416370380"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/skills/welcome-back/tests/there-at-start-then-away/expect.toml",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/skills/welcome-back/tests/there-at-start-then-away/expect.toml",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "27b18901a8deba3a772000c5d02cda51bb018f8f",
+        "size": 349,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/27b18901a8deba3a772000c5d02cda51bb018f8f"
+      },
+      "native_equals_upstream_parent": true
+    },
+    {
+      "path": "lampOS/skills/welcome-back/tests/there-at-start-then-away/humans_faces_tracked.jsonl",
+      "kind": "added",
+      "head": null,
+      "native_merge": {
+        "path": "lampOS/skills/welcome-back/tests/there-at-start-then-away/humans_faces_tracked.jsonl",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "02faf91dc9e4cff6e674419a229f30a71f5dbb21",
+        "size": 2560,
+        "url": "https://api.github.com/repos/autonomous-ai/lampOS/git/blobs/02faf91dc9e4cff6e674419a229f30a71f5dbb21"
+      },
+      "native_equals_upstream_parent": true
+    }
+  ]
+}

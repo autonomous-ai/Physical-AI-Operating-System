@@ -1,0 +1,11 @@
+{
+  "date_from_date": "2026-10-16 10:07:52 +0700",
+  "initial_audit_assertion": "Expected full tracked tree to equal the rg freeze plus evidence; extra count was 406 rather than 186.",
+  "resolution": "186 added evidence files plus 220 already-tracked ignored paths. Full base/head Git tree comparison proves exactly the 192 publication paths changed, all 220 other tracked paths exact. No source or test failure occurred.",
+  "external_only_nul_tree_capture": {
+    "path": "head-tree.raw",
+    "sha256": "41ebf77c5863219f083d780137fd4e2fc7338d9687133ad99ba937515c42017a",
+    "exclude_from_repository_payload": true,
+    "text_representation": "head-tree.txt"
+  }
+}

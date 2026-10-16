@@ -1,0 +1,61 @@
+{
+  "date_from_date": "2026-10-16 10:18:53 +0700",
+  "records": [
+    {
+      "command": [
+        "gh",
+        "api",
+        "repos/autonomous-ai/lampOS/git/commits/a9719f18473ec0b0fc170c9cee3b6a5390fdbbfb"
+      ],
+      "start_from_date": "2026-10-16 10:18:49 +0700",
+      "end_from_date": "2026-10-16 10:18:50 +0700",
+      "exit_code": 0,
+      "path": "native/merge-commit.json",
+      "bytes": 2603,
+      "sha256": "49bc6eb7fc4807b3aeaffae4d47284d61e0ec948e398dc4dbc3a371bf70baccc",
+      "stderr_bytes": 0
+    },
+    {
+      "command": [
+        "gh",
+        "api",
+        "repos/autonomous-ai/lampOS/git/trees/c59592b2c2b4eddd90a27915e1e68d472668f544?recursive=1"
+      ],
+      "start_from_date": "2026-10-16 10:18:50 +0700",
+      "end_from_date": "2026-10-16 10:18:51 +0700",
+      "exit_code": 0,
+      "path": "native/merge-tree.json",
+      "bytes": 2449534,
+      "sha256": "858d1150be4452cf61416c2bb72f48781ce16d49329cc5bf7afd691c1a0b8762",
+      "stderr_bytes": 0
+    },
+    {
+      "command": [
+        "gh",
+        "api",
+        "repos/autonomous-ai/lampOS/git/commits/b419747e896907bb999e1dd25d943bdc35af32be"
+      ],
+      "start_from_date": "2026-10-16 10:18:51 +0700",
+      "end_from_date": "2026-10-16 10:18:52 +0700",
+      "exit_code": 0,
+      "path": "native/upstream-commit.json",
+      "bytes": 1152,
+      "sha256": "a855ed0f532c0ba976aa18472545b1a5d22ec407661341e651076b7bcb9c2d0a",
+      "stderr_bytes": 0
+    },
+    {
+      "command": [
+        "gh",
+        "api",
+        "repos/autonomous-ai/lampOS/git/trees/5e952b07ec0e26192fa12a717546c2fece272558?recursive=1"
+      ],
+      "start_from_date": "2026-10-16 10:18:52 +0700",
+      "end_from_date": "2026-10-16 10:18:53 +0700",
+      "exit_code": 0,
+      "path": "native/upstream-tree.json",
+      "bytes": 2363881,
+      "sha256": "06464bd0f4887b9ebed9d688871224000a80a3416c7923491c496c4df4817f75",
+      "stderr_bytes": 0
+    }
+  ]
+}

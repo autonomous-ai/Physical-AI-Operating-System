@@ -1,0 +1,772 @@
+{
+  "date_from_date": "2026-10-16 10:24:28 +0700",
+  "run_url": "https://github.com/autonomous-ai/lampOS/actions/runs/38843507733",
+  "run": 38843507733,
+  "run_attempt": 1,
+  "job": 116788702286,
+  "event": "pull_request",
+  "head": "8de22aef8d5526f83b48b279e71706d71e7cdf5b",
+  "run_conclusion": "success",
+  "job_conclusion": "success",
+  "all_actual_job_steps_success": true,
+  "full_failure_report_job_skipped_as_expected": [
+    [
+      "report-full-run-failure",
+      "skipped"
+    ]
+  ],
+  "job_steps": [
+    {
+      "name": "Set up job",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 1,
+      "started_at": "2026-10-16T03:02:45Z",
+      "completed_at": "2026-10-16T03:02:46Z"
+    },
+    {
+      "name": "system packages",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 2,
+      "started_at": "2026-10-16T03:02:46Z",
+      "completed_at": "2026-10-16T03:03:02Z"
+    },
+    {
+      "name": "Run actions/checkout@v4",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 3,
+      "started_at": "2026-10-16T03:03:02Z",
+      "completed_at": "2026-10-16T03:03:06Z"
+    },
+    {
+      "name": "Rust 1.96.0",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 4,
+      "started_at": "2026-10-16T03:03:06Z",
+      "completed_at": "2026-10-16T03:03:12Z"
+    },
+    {
+      "name": "Run actions/cache@v4",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 5,
+      "started_at": "2026-10-16T03:03:12Z",
+      "completed_at": "2026-10-16T03:03:47Z"
+    },
+    {
+      "name": "Run taiki-e/install-action@v2",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 6,
+      "started_at": "2026-10-16T03:03:47Z",
+      "completed_at": "2026-10-16T03:03:49Z"
+    },
+    {
+      "name": "build (release, the lamps' binaries)",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 7,
+      "started_at": "2026-10-16T03:03:49Z",
+      "completed_at": "2026-10-16T03:05:39Z"
+    },
+    {
+      "name": "test (full run, every test one at a time; otherwise without the realtime group, in parallel)",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 8,
+      "started_at": "2026-10-16T03:05:39Z",
+      "completed_at": "2026-10-16T03:11:12Z"
+    },
+    {
+      "name": "doc tests and the own-harness tests (nextest runs neither)",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 9,
+      "started_at": "2026-10-16T03:11:12Z",
+      "completed_at": "2026-10-16T03:11:23Z"
+    },
+    {
+      "name": "SHA-256 of each binary",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 10,
+      "started_at": "2026-10-16T03:11:23Z",
+      "completed_at": "2026-10-16T03:11:23Z"
+    },
+    {
+      "name": "Run actions/upload-artifact@v4",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 11,
+      "started_at": "2026-10-16T03:11:23Z",
+      "completed_at": "2026-10-16T03:11:28Z"
+    },
+    {
+      "name": "Post Run actions/cache@v4",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 21,
+      "started_at": "2026-10-16T03:11:28Z",
+      "completed_at": "2026-10-16T03:11:28Z"
+    },
+    {
+      "name": "Post Run actions/checkout@v4",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 22,
+      "started_at": "2026-10-16T03:11:28Z",
+      "completed_at": "2026-10-16T03:11:28Z"
+    },
+    {
+      "name": "Complete job",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 23,
+      "started_at": "2026-10-16T03:11:28Z",
+      "completed_at": "2026-10-16T03:11:28Z"
+    }
+  ],
+  "actual_commands": [
+    {
+      "line": 380,
+      "github_timestamp": "2026-10-16T03:03:49.2462624Z",
+      "text": "##[group]Run cargo build --locked --release --workspace --bins --examples"
+    },
+    {
+      "line": 446,
+      "github_timestamp": "2026-10-16T03:05:39.7010204Z",
+      "text": "##[group]Run echo \"cores: $(nproc)\" && cargo nextest run --locked --release --workspace --profile pr --no-tests=pass -j num-cpus --partition hash:1/1 -E 'not (binary_id(lamp-ipc::relay_signals) | binary_id(lamp-turn-end-wire::process))'"
+    },
+    {
+      "line": 5806,
+      "github_timestamp": "2026-10-16T03:11:12.9578336Z",
+      "text": "##[group]Run cargo test --locked --release --workspace --doc -- --test-threads=1"
+    }
+  ],
+  "native_target_evidence": [
+    {
+      "line": 249,
+      "github_timestamp": "2026-10-16T03:03:07.6657548Z",
+      "text": "info: default host tuple is aarch64-unknown-linux-gnu"
+    },
+    {
+      "line": 255,
+      "github_timestamp": "2026-10-16T03:03:12.5506544Z",
+      "text": "  1.96.0-aarch64-unknown-linux-gnu installed - rustc 1.96.0 (ac68faa20 2026-05-25)"
+    }
+  ],
+  "release_build_and_nextest_compilation_finishes": [
+    {
+      "line": 445,
+      "github_timestamp": "2026-10-16T03:05:39.6595311Z",
+      "text": "    Finished `release` profile [optimized] target(s) in 1m 50s"
+    },
+    {
+      "line": 510,
+      "github_timestamp": "2026-10-16T03:09:53.4773640Z",
+      "text": "    Finished `release` profile [optimized] target(s) in 4m 13s"
+    }
+  ],
+  "nextest_summary": {
+    "line": 5805,
+    "github_timestamp": "2026-10-16T03:11:12.9507401Z",
+    "text": "     Summary [  79.009s] 5290 tests run: 5290 passed, 130 skipped"
+  },
+  "doc_target_count": 39,
+  "doc_passed_cases": 4,
+  "doc_target_records": [
+    {
+      "line": 5813,
+      "github_timestamp": "2026-10-16T03:11:13.1240364Z",
+      "text": "   Doc-tests lamp_actions"
+    },
+    {
+      "line": 5819,
+      "github_timestamp": "2026-10-16T03:11:13.1649908Z",
+      "text": "   Doc-tests lamp_air"
+    },
+    {
+      "line": 5825,
+      "github_timestamp": "2026-10-16T03:11:13.1802523Z",
+      "text": "   Doc-tests lamp_audio"
+    },
+    {
+      "line": 5831,
+      "github_timestamp": "2026-10-16T03:11:13.2830786Z",
+      "text": "   Doc-tests lamp_body"
+    },
+    {
+      "line": 5837,
+      "github_timestamp": "2026-10-16T03:11:13.4495392Z",
+      "text": "   Doc-tests lamp_bus"
+    },
+    {
+      "line": 5846,
+      "github_timestamp": "2026-10-16T03:11:13.7269716Z",
+      "text": "   Doc-tests lamp_camera"
+    },
+    {
+      "line": 5852,
+      "github_timestamp": "2026-10-16T03:11:13.7999151Z",
+      "text": "   Doc-tests lamp_controls"
+    },
+    {
+      "line": 5858,
+      "github_timestamp": "2026-10-16T03:11:13.9147257Z",
+      "text": "   Doc-tests lamp_ears"
+    },
+    {
+      "line": 5864,
+      "github_timestamp": "2026-10-16T03:11:13.9303591Z",
+      "text": "   Doc-tests lamp_environment"
+    },
+    {
+      "line": 5870,
+      "github_timestamp": "2026-10-16T03:11:13.9490747Z",
+      "text": "   Doc-tests lamp_expression"
+    },
+    {
+      "line": 5876,
+      "github_timestamp": "2026-10-16T03:11:14.0364086Z",
+      "text": "   Doc-tests lamp_eyes"
+    },
+    {
+      "line": 5882,
+      "github_timestamp": "2026-10-16T03:11:14.0753637Z",
+      "text": "   Doc-tests lamp_gemini"
+    },
+    {
+      "line": 5888,
+      "github_timestamp": "2026-10-16T03:11:14.1482085Z",
+      "text": "   Doc-tests lamp_health"
+    },
+    {
+      "line": 5894,
+      "github_timestamp": "2026-10-16T03:11:14.1728448Z",
+      "text": "   Doc-tests lamp_ipc"
+    },
+    {
+      "line": 5902,
+      "github_timestamp": "2026-10-16T03:11:14.4017090Z",
+      "text": "   Doc-tests lamp_keeper"
+    },
+    {
+      "line": 5908,
+      "github_timestamp": "2026-10-16T03:11:14.4262346Z",
+      "text": "   Doc-tests lamp_lean"
+    },
+    {
+      "line": 5914,
+      "github_timestamp": "2026-10-16T03:11:14.4573794Z",
+      "text": "   Doc-tests lamp_memory"
+    },
+    {
+      "line": 5920,
+      "github_timestamp": "2026-10-16T03:11:14.5388637Z",
+      "text": "   Doc-tests lamp_mood"
+    },
+    {
+      "line": 5926,
+      "github_timestamp": "2026-10-16T03:11:14.5767378Z",
+      "text": "   Doc-tests lamp_msgs"
+    },
+    {
+      "line": 5934,
+      "github_timestamp": "2026-10-16T03:11:14.9955334Z",
+      "text": "   Doc-tests lamp_name"
+    },
+    {
+      "line": 5940,
+      "github_timestamp": "2026-10-16T03:11:15.0167017Z",
+      "text": "   Doc-tests lamp_observer"
+    },
+    {
+      "line": 5946,
+      "github_timestamp": "2026-10-16T03:11:15.0448884Z",
+      "text": "   Doc-tests lamp_policy"
+    },
+    {
+      "line": 5952,
+      "github_timestamp": "2026-10-16T03:11:15.1387240Z",
+      "text": "   Doc-tests lamp_records"
+    },
+    {
+      "line": 5958,
+      "github_timestamp": "2026-10-16T03:11:15.1929488Z",
+      "text": "   Doc-tests lamp_ring"
+    },
+    {
+      "line": 5964,
+      "github_timestamp": "2026-10-16T03:11:15.2110870Z",
+      "text": "   Doc-tests lamp_same_voice"
+    },
+    {
+      "line": 5970,
+      "github_timestamp": "2026-10-16T03:11:15.2292976Z",
+      "text": "   Doc-tests lamp_schedule"
+    },
+    {
+      "line": 5976,
+      "github_timestamp": "2026-10-16T03:11:15.3374677Z",
+      "text": "   Doc-tests lamp_selftest"
+    },
+    {
+      "line": 5982,
+      "github_timestamp": "2026-10-16T03:11:15.3608658Z",
+      "text": "   Doc-tests lamp_settings"
+    },
+    {
+      "line": 5988,
+      "github_timestamp": "2026-10-16T03:11:15.4111003Z",
+      "text": "   Doc-tests lamp_setup"
+    },
+    {
+      "line": 5994,
+      "github_timestamp": "2026-10-16T03:11:15.4485888Z",
+      "text": "   Doc-tests lamp_skills"
+    },
+    {
+      "line": 6000,
+      "github_timestamp": "2026-10-16T03:11:15.4831982Z",
+      "text": "   Doc-tests lamp_sound_fixtures"
+    },
+    {
+      "line": 6006,
+      "github_timestamp": "2026-10-16T03:11:15.5188122Z",
+      "text": "   Doc-tests lamp_surround"
+    },
+    {
+      "line": 6012,
+      "github_timestamp": "2026-10-16T03:11:15.7821570Z",
+      "text": "   Doc-tests lamp_tasks"
+    },
+    {
+      "line": 6018,
+      "github_timestamp": "2026-10-16T03:11:15.8875059Z",
+      "text": "   Doc-tests lamp_turn_end"
+    },
+    {
+      "line": 6024,
+      "github_timestamp": "2026-10-16T03:11:15.9148684Z",
+      "text": "   Doc-tests lamp_turn_end_wire"
+    },
+    {
+      "line": 6030,
+      "github_timestamp": "2026-10-16T03:11:15.9361167Z",
+      "text": "   Doc-tests lamp_turn_owner"
+    },
+    {
+      "line": 6034,
+      "github_timestamp": "2026-10-16T03:11:15.9760545Z",
+      "text": "   Doc-tests lamp_update"
+    },
+    {
+      "line": 6042,
+      "github_timestamp": "2026-10-16T03:11:16.0328960Z",
+      "text": "   Doc-tests lamp_voice"
+    },
+    {
+      "line": 6048,
+      "github_timestamp": "2026-10-16T03:11:16.6533328Z",
+      "text": "   Doc-tests lamp_voice_eval"
+    }
+  ],
+  "doc_aggregate_result_records": [
+    {
+      "line": 5817,
+      "github_timestamp": "2026-10-16T03:11:13.1629871Z",
+      "text": "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "line": 5823,
+      "github_timestamp": "2026-10-16T03:11:13.1793341Z",
+      "text": "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "line": 5829,
+      "github_timestamp": "2026-10-16T03:11:13.2809514Z",
+      "text": "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "line": 5835,
+      "github_timestamp": "2026-10-16T03:11:13.4472295Z",
+      "text": "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "line": 5843,
+      "github_timestamp": "2026-10-16T03:11:13.7232642Z",
+      "text": "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "passed": 2,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "line": 5850,
+      "github_timestamp": "2026-10-16T03:11:13.7976963Z",
+      "text": "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "line": 5856,
+      "github_timestamp": "2026-10-16T03:11:13.9126630Z",
+      "text": "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "line": 5862,
+      "github_timestamp": "2026-10-16T03:11:13.9285634Z",
+      "text": "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "line": 5868,
+      "github_timestamp": "2026-10-16T03:11:13.9473097Z",
+      "text": "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "line": 5874,
+      "github_timestamp": "2026-10-16T03:11:14.0342690Z",
+      "text": "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "line": 5880,
+      "github_timestamp": "2026-10-16T03:11:14.0734055Z",
+      "text": "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "line": 5886,
+      "github_timestamp": "2026-10-16T03:11:14.1457982Z",
+      "text": "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "line": 5892,
+      "github_timestamp": "2026-10-16T03:11:14.1710032Z",
+      "text": "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "line": 5899,
+      "github_timestamp": "2026-10-16T03:11:14.3985062Z",
+      "text": "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "line": 5906,
+      "github_timestamp": "2026-10-16T03:11:14.4241690Z",
+      "text": "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "line": 5912,
+      "github_timestamp": "2026-10-16T03:11:14.4553772Z",
+      "text": "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "line": 5918,
+      "github_timestamp": "2026-10-16T03:11:14.5370019Z",
+      "text": "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "line": 5924,
+      "github_timestamp": "2026-10-16T03:11:14.5748555Z",
+      "text": "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "line": 5931,
+      "github_timestamp": "2026-10-16T03:11:14.9914118Z",
+      "text": "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "line": 5938,
+      "github_timestamp": "2026-10-16T03:11:15.0148467Z",
+      "text": "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "line": 5944,
+      "github_timestamp": "2026-10-16T03:11:15.0429881Z",
+      "text": "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "line": 5950,
+      "github_timestamp": "2026-10-16T03:11:15.1366355Z",
+      "text": "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "line": 5956,
+      "github_timestamp": "2026-10-16T03:11:15.1910290Z",
+      "text": "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "line": 5962,
+      "github_timestamp": "2026-10-16T03:11:15.2093686Z",
+      "text": "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "line": 5968,
+      "github_timestamp": "2026-10-16T03:11:15.2275166Z",
+      "text": "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "line": 5974,
+      "github_timestamp": "2026-10-16T03:11:15.3352031Z",
+      "text": "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "line": 5980,
+      "github_timestamp": "2026-10-16T03:11:15.3589915Z",
+      "text": "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "line": 5986,
+      "github_timestamp": "2026-10-16T03:11:15.4091046Z",
+      "text": "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "line": 5992,
+      "github_timestamp": "2026-10-16T03:11:15.4467290Z",
+      "text": "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "line": 5998,
+      "github_timestamp": "2026-10-16T03:11:15.4811900Z",
+      "text": "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "line": 6004,
+      "github_timestamp": "2026-10-16T03:11:15.5169519Z",
+      "text": "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "line": 6010,
+      "github_timestamp": "2026-10-16T03:11:15.7795902Z",
+      "text": "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "line": 6016,
+      "github_timestamp": "2026-10-16T03:11:15.8854760Z",
+      "text": "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "line": 6022,
+      "github_timestamp": "2026-10-16T03:11:15.9129791Z",
+      "text": "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "line": 6028,
+      "github_timestamp": "2026-10-16T03:11:15.9341093Z",
+      "text": "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "line": 6035,
+      "github_timestamp": "2026-10-16T03:11:15.9760901Z",
+      "text": "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "line": 6040,
+      "github_timestamp": "2026-10-16T03:11:16.0308267Z",
+      "text": "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "line": 6046,
+      "github_timestamp": "2026-10-16T03:11:16.6502567Z",
+      "text": "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "line": 6052,
+      "github_timestamp": "2026-10-16T03:11:16.9734292Z",
+      "text": "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0
+    }
+  ],
+  "doc_interleaving_limit": "stderr target headings can interleave with the prior target stdout; aggregate target/result counts and four passing cases are checked without falsely attributing zero-result rows.",
+  "relay_signals": {
+    "line": 6057,
+    "github_timestamp": "2026-10-16T03:11:17.6388310Z",
+    "text": "relay_signals: ok"
+  },
+  "process_result_cases": [
+    {
+      "line": 6062,
+      "github_timestamp": "2026-10-16T03:11:20.5996900Z",
+      "text": "test an_idle_worker_stays_ready_across_a_long_quiet ... ok (2008 ms)"
+    },
+    {
+      "line": 6063,
+      "github_timestamp": "2026-10-16T03:11:20.6017012Z",
+      "text": "test a_worker_reporting_another_model_is_refused_before_any_request ... ok (2 ms)"
+    },
+    {
+      "line": 6064,
+      "github_timestamp": "2026-10-16T03:11:20.6062678Z",
+      "text": "test no_outcome_is_delivered_after_close_even_for_an_answer_on_its_way ... ok (4 ms)"
+    },
+    {
+      "line": 6065,
+      "github_timestamp": "2026-10-16T03:11:20.6631748Z",
+      "text": "test verdict_carries_identity_and_one_request_at_a_time ... ok (56 ms)"
+    },
+    {
+      "line": 6066,
+      "github_timestamp": "2026-10-16T03:11:20.8257691Z",
+      "text": "test missing_model_is_final_and_never_restarted ... ok (162 ms)"
+    },
+    {
+      "line": 6067,
+      "github_timestamp": "2026-10-16T03:11:20.8278343Z",
+      "text": "test missing_executable_fails_at_once ... ok (2 ms)"
+    },
+    {
+      "line": 6068,
+      "github_timestamp": "2026-10-16T03:11:21.2388654Z",
+      "text": "test startup_failures_are_final ... ok (411 ms)"
+    },
+    {
+      "line": 6069,
+      "github_timestamp": "2026-10-16T03:11:21.7546294Z",
+      "text": "test serving_failures_are_replaced_within_budget ... ok (515 ms)"
+    },
+    {
+      "line": 6070,
+      "github_timestamp": "2026-10-16T03:11:21.9340827Z",
+      "text": "test protocol_violations_are_replaced ... ok (179 ms)"
+    },
+    {
+      "line": 6071,
+      "github_timestamp": "2026-10-16T03:11:22.0895482Z",
+      "text": "test cancelled_answers_are_never_delivered ... ok (155 ms)"
+    },
+    {
+      "line": 6072,
+      "github_timestamp": "2026-10-16T03:11:22.3241178Z",
+      "text": "test close_during_inference_never_waits ... ok (234 ms)"
+    },
+    {
+      "line": 6074,
+      "github_timestamp": "2026-10-16T03:11:23.0172795Z",
+      "text": "test sustained_requests_stay_bounded ... ok (693 ms)"
+    }
+  ],
+  "process_summary": {
+    "line": 6075,
+    "github_timestamp": "2026-10-16T03:11:23.0173107Z",
+    "text": "test result: 12 passed; 0 failed"
+  },
+  "artifact_upload": {
+    "line": 6154,
+    "github_timestamp": "2026-10-16T03:11:28.0717177Z",
+    "text": "Artifact lampos-arm64-8de22aef8d5526f83b48b279e71706d71e7cdf5b.zip successfully finalized. Artifact ID 12022652637"
+  },
+  "artifact_bytes_downloaded": false,
+  "strict_clippy": "No native Clippy/fmt stage exists in this workflow. Strict all-target Clippy and fmt are the retained host gates, not newly claimed native gates.",
+  "scope": "Normal PR profile/partition hash:1/1, not full nightly realtime run. No retries, Cargo invocation, or execution occurred during this audit."
+}

@@ -1,0 +1,1763 @@
+{
+  "date_from_date": "2026-10-16 10:24:28 +0700",
+  "limit": "Case durations are the rounded durations printed by nextest. Sums do not measure wall time in this parallel run and do not demonstrate a before/after speedup.",
+  "binaries": [
+    {
+      "binary": "lamp-actions",
+      "executions": 14,
+      "passed": 14,
+      "sum_reported_case_seconds": 0.699,
+      "max_case_seconds": 0.605
+    },
+    {
+      "binary": "lamp-actions::bin/lamp-actions",
+      "executions": 1,
+      "passed": 1,
+      "sum_reported_case_seconds": 0.002,
+      "max_case_seconds": 0.002
+    },
+    {
+      "binary": "lamp-actions::schedule",
+      "executions": 15,
+      "passed": 15,
+      "sum_reported_case_seconds": 4.418,
+      "max_case_seconds": 1.407
+    },
+    {
+      "binary": "lamp-actions::server",
+      "executions": 3,
+      "passed": 3,
+      "sum_reported_case_seconds": 1.533,
+      "max_case_seconds": 1.477
+    },
+    {
+      "binary": "lamp-air",
+      "executions": 4,
+      "passed": 4,
+      "sum_reported_case_seconds": 0.009,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-air::bin/lamp-air",
+      "executions": 1,
+      "passed": 1,
+      "sum_reported_case_seconds": 0.002,
+      "max_case_seconds": 0.002
+    },
+    {
+      "binary": "lamp-audio",
+      "executions": 76,
+      "passed": 76,
+      "sum_reported_case_seconds": 0.643,
+      "max_case_seconds": 0.136
+    },
+    {
+      "binary": "lamp-audio::cancelled_tail",
+      "executions": 9,
+      "passed": 9,
+      "sum_reported_case_seconds": 0.025,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-audio::capture_linux",
+      "executions": 7,
+      "passed": 7,
+      "sum_reported_case_seconds": 0.281,
+      "max_case_seconds": 0.263
+    },
+    {
+      "binary": "lamp-audio::dsp",
+      "executions": 8,
+      "passed": 8,
+      "sum_reported_case_seconds": 0.449,
+      "max_case_seconds": 0.163
+    },
+    {
+      "binary": "lamp-audio::evidence",
+      "executions": 9,
+      "passed": 9,
+      "sum_reported_case_seconds": 1.166,
+      "max_case_seconds": 0.351
+    },
+    {
+      "binary": "lamp-audio::fixtures",
+      "executions": 10,
+      "passed": 10,
+      "sum_reported_case_seconds": 0.755,
+      "max_case_seconds": 0.351
+    },
+    {
+      "binary": "lamp-audio::notice",
+      "executions": 7,
+      "passed": 7,
+      "sum_reported_case_seconds": 0.064,
+      "max_case_seconds": 0.025
+    },
+    {
+      "binary": "lamp-audio::pcm_linux",
+      "executions": 7,
+      "passed": 7,
+      "sum_reported_case_seconds": 0.023,
+      "max_case_seconds": 0.005
+    },
+    {
+      "binary": "lamp-audio::playout_continuity",
+      "executions": 10,
+      "passed": 10,
+      "sum_reported_case_seconds": 0.829,
+      "max_case_seconds": 0.289
+    },
+    {
+      "binary": "lamp-audio::playout_current_arrivals",
+      "executions": 1,
+      "passed": 1,
+      "sum_reported_case_seconds": 0.003,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-audio::queued_ownership",
+      "executions": 16,
+      "passed": 16,
+      "sum_reported_case_seconds": 0.057,
+      "max_case_seconds": 0.005
+    },
+    {
+      "binary": "lamp-audio::replay",
+      "executions": 18,
+      "passed": 18,
+      "sum_reported_case_seconds": 0.754,
+      "max_case_seconds": 0.239
+    },
+    {
+      "binary": "lamp-audio::steady_reference",
+      "executions": 2,
+      "passed": 2,
+      "sum_reported_case_seconds": 4.332,
+      "max_case_seconds": 2.208
+    },
+    {
+      "binary": "lamp-body",
+      "executions": 159,
+      "passed": 159,
+      "sum_reported_case_seconds": 2.057,
+      "max_case_seconds": 1.214
+    },
+    {
+      "binary": "lamp-body::bin/lamp-body",
+      "executions": 15,
+      "passed": 15,
+      "sum_reported_case_seconds": 0.03,
+      "max_case_seconds": 0.002
+    },
+    {
+      "binary": "lamp-body::bin/lamp-body-inspect",
+      "executions": 2,
+      "passed": 2,
+      "sum_reported_case_seconds": 0.004,
+      "max_case_seconds": 0.002
+    },
+    {
+      "binary": "lamp-body::bin/lamp-body-worker",
+      "executions": 1,
+      "passed": 1,
+      "sum_reported_case_seconds": 0.002,
+      "max_case_seconds": 0.002
+    },
+    {
+      "binary": "lamp-body::calibration",
+      "executions": 11,
+      "passed": 11,
+      "sum_reported_case_seconds": 0.025,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-body::control",
+      "executions": 48,
+      "passed": 48,
+      "sum_reported_case_seconds": 0.098,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-body::head_qualification",
+      "executions": 9,
+      "passed": 9,
+      "sum_reported_case_seconds": 0.03,
+      "max_case_seconds": 0.007
+    },
+    {
+      "binary": "lamp-body::protocol",
+      "executions": 20,
+      "passed": 20,
+      "sum_reported_case_seconds": 0.042,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-body::readback",
+      "executions": 5,
+      "passed": 5,
+      "sum_reported_case_seconds": 0.01,
+      "max_case_seconds": 0.002
+    },
+    {
+      "binary": "lamp-body::selection",
+      "executions": 3,
+      "passed": 3,
+      "sum_reported_case_seconds": 0.006,
+      "max_case_seconds": 0.002
+    },
+    {
+      "binary": "lamp-body::worker",
+      "executions": 20,
+      "passed": 20,
+      "sum_reported_case_seconds": 0.051,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-body::worker_config",
+      "executions": 7,
+      "passed": 7,
+      "sum_reported_case_seconds": 0.015,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-bus",
+      "executions": 39,
+      "passed": 39,
+      "sum_reported_case_seconds": 0.233,
+      "max_case_seconds": 0.103
+    },
+    {
+      "binary": "lamp-bus::bin/lamp-bus",
+      "executions": 2,
+      "passed": 2,
+      "sum_reported_case_seconds": 0.005,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-bus::bus",
+      "executions": 32,
+      "passed": 32,
+      "sum_reported_case_seconds": 3.889,
+      "max_case_seconds": 0.643
+    },
+    {
+      "binary": "lamp-bus::cli",
+      "executions": 11,
+      "passed": 11,
+      "sum_reported_case_seconds": 6.268,
+      "max_case_seconds": 2.832
+    },
+    {
+      "binary": "lamp-bus::logs",
+      "executions": 5,
+      "passed": 5,
+      "sum_reported_case_seconds": 0.034,
+      "max_case_seconds": 0.008
+    },
+    {
+      "binary": "lamp-camera",
+      "executions": 28,
+      "passed": 28,
+      "sum_reported_case_seconds": 0.057,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-camera::frames",
+      "executions": 12,
+      "passed": 12,
+      "sum_reported_case_seconds": 0.221,
+      "max_case_seconds": 0.11
+    },
+    {
+      "binary": "lamp-camera::lifecycle",
+      "executions": 43,
+      "passed": 43,
+      "sum_reported_case_seconds": 0.092,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-camera::timestamp_diagnostics",
+      "executions": 3,
+      "passed": 3,
+      "sum_reported_case_seconds": 0.006,
+      "max_case_seconds": 0.002
+    },
+    {
+      "binary": "lamp-controls",
+      "executions": 17,
+      "passed": 17,
+      "sum_reported_case_seconds": 0.042,
+      "max_case_seconds": 0.007
+    },
+    {
+      "binary": "lamp-controls::base",
+      "executions": 24,
+      "passed": 24,
+      "sum_reported_case_seconds": 0.05,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-controls::bin/lamp-controls",
+      "executions": 2,
+      "passed": 2,
+      "sum_reported_case_seconds": 0.004,
+      "max_case_seconds": 0.002
+    },
+    {
+      "binary": "lamp-controls::engine",
+      "executions": 38,
+      "passed": 38,
+      "sum_reported_case_seconds": 0.081,
+      "max_case_seconds": 0.004
+    },
+    {
+      "binary": "lamp-controls::head_discovery",
+      "executions": 3,
+      "passed": 3,
+      "sum_reported_case_seconds": 0.006,
+      "max_case_seconds": 0.002
+    },
+    {
+      "binary": "lamp-controls::hold_clear",
+      "executions": 15,
+      "passed": 15,
+      "sum_reported_case_seconds": 0.034,
+      "max_case_seconds": 0.004
+    },
+    {
+      "binary": "lamp-controls::mpr121",
+      "executions": 47,
+      "passed": 47,
+      "sum_reported_case_seconds": 0.104,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-controls::mute",
+      "executions": 9,
+      "passed": 9,
+      "sum_reported_case_seconds": 0.027,
+      "max_case_seconds": 0.004
+    },
+    {
+      "binary": "lamp-controls::program",
+      "executions": 7,
+      "passed": 7,
+      "sum_reported_case_seconds": 0.139,
+      "max_case_seconds": 0.06
+    },
+    {
+      "binary": "lamp-controls::receiver",
+      "executions": 14,
+      "passed": 14,
+      "sum_reported_case_seconds": 0.031,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-controls::replay",
+      "executions": 10,
+      "passed": 10,
+      "sum_reported_case_seconds": 0.085,
+      "max_case_seconds": 0.03
+    },
+    {
+      "binary": "lamp-controls::runtime",
+      "executions": 12,
+      "passed": 12,
+      "sum_reported_case_seconds": 1.102,
+      "max_case_seconds": 1.064
+    },
+    {
+      "binary": "lamp-controls::strip",
+      "executions": 53,
+      "passed": 53,
+      "sum_reported_case_seconds": 0.11,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-controls::strip_worker",
+      "executions": 9,
+      "passed": 9,
+      "sum_reported_case_seconds": 0.049,
+      "max_case_seconds": 0.021
+    },
+    {
+      "binary": "lamp-controls::touch",
+      "executions": 40,
+      "passed": 40,
+      "sum_reported_case_seconds": 0.08,
+      "max_case_seconds": 0.002
+    },
+    {
+      "binary": "lamp-controls::touch_calibrate",
+      "executions": 11,
+      "passed": 11,
+      "sum_reported_case_seconds": 0.106,
+      "max_case_seconds": 0.059
+    },
+    {
+      "binary": "lamp-controls::touch_pins",
+      "executions": 16,
+      "passed": 16,
+      "sum_reported_case_seconds": 0.035,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-controls::touch_program",
+      "executions": 9,
+      "passed": 9,
+      "sum_reported_case_seconds": 0.273,
+      "max_case_seconds": 0.075
+    },
+    {
+      "binary": "lamp-controls::touch_receiver",
+      "executions": 22,
+      "passed": 22,
+      "sum_reported_case_seconds": 0.045,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-controls::touch_replay",
+      "executions": 17,
+      "passed": 17,
+      "sum_reported_case_seconds": 0.149,
+      "max_case_seconds": 0.047
+    },
+    {
+      "binary": "lamp-controls::touch_runtime",
+      "executions": 11,
+      "passed": 11,
+      "sum_reported_case_seconds": 0.096,
+      "max_case_seconds": 0.028
+    },
+    {
+      "binary": "lamp-ears",
+      "executions": 8,
+      "passed": 8,
+      "sum_reported_case_seconds": 0.022,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-ears::bin/lamp-ears",
+      "executions": 2,
+      "passed": 2,
+      "sum_reported_case_seconds": 0.004,
+      "max_case_seconds": 0.002
+    },
+    {
+      "binary": "lamp-environment::snapshots",
+      "executions": 12,
+      "passed": 12,
+      "sum_reported_case_seconds": 0.024,
+      "max_case_seconds": 0.002
+    },
+    {
+      "binary": "lamp-expression::alive_engine",
+      "executions": 37,
+      "passed": 37,
+      "sum_reported_case_seconds": 0.311,
+      "max_case_seconds": 0.066
+    },
+    {
+      "binary": "lamp-expression::alive_replay",
+      "executions": 6,
+      "passed": 6,
+      "sum_reported_case_seconds": 1.163,
+      "max_case_seconds": 1.021
+    },
+    {
+      "binary": "lamp-expression::bin/lamp-expression",
+      "executions": 3,
+      "passed": 3,
+      "sum_reported_case_seconds": 0.006,
+      "max_case_seconds": 0.002
+    },
+    {
+      "binary": "lamp-expression::catalogue_playout",
+      "executions": 5,
+      "passed": 5,
+      "sum_reported_case_seconds": 0.01,
+      "max_case_seconds": 0.002
+    },
+    {
+      "binary": "lamp-expression::catalogue_rest",
+      "executions": 6,
+      "passed": 6,
+      "sum_reported_case_seconds": 0.012,
+      "max_case_seconds": 0.002
+    },
+    {
+      "binary": "lamp-expression::engine",
+      "executions": 33,
+      "passed": 33,
+      "sum_reported_case_seconds": 0.067,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-expression::program",
+      "executions": 3,
+      "passed": 3,
+      "sum_reported_case_seconds": 0.049,
+      "max_case_seconds": 0.03
+    },
+    {
+      "binary": "lamp-expression::recent_playout",
+      "executions": 29,
+      "passed": 29,
+      "sum_reported_case_seconds": 0.06,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-expression::recent_playout_replay",
+      "executions": 8,
+      "passed": 8,
+      "sum_reported_case_seconds": 0.024,
+      "max_case_seconds": 0.004
+    },
+    {
+      "binary": "lamp-expression::recent_playout_runtime",
+      "executions": 4,
+      "passed": 4,
+      "sum_reported_case_seconds": 0.028,
+      "max_case_seconds": 0.019
+    },
+    {
+      "binary": "lamp-expression::replay",
+      "executions": 21,
+      "passed": 21,
+      "sum_reported_case_seconds": 0.149,
+      "max_case_seconds": 0.086
+    },
+    {
+      "binary": "lamp-expression::rest_engine",
+      "executions": 32,
+      "passed": 32,
+      "sum_reported_case_seconds": 0.092,
+      "max_case_seconds": 0.006
+    },
+    {
+      "binary": "lamp-expression::rest_replay",
+      "executions": 18,
+      "passed": 18,
+      "sum_reported_case_seconds": 0.488,
+      "max_case_seconds": 0.163
+    },
+    {
+      "binary": "lamp-expression::runtime",
+      "executions": 16,
+      "passed": 16,
+      "sum_reported_case_seconds": 1.736,
+      "max_case_seconds": 1.107
+    },
+    {
+      "binary": "lamp-expression::sudden_engine",
+      "executions": 9,
+      "passed": 9,
+      "sum_reported_case_seconds": 0.025,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-eyes",
+      "executions": 52,
+      "passed": 52,
+      "sum_reported_case_seconds": 2.205,
+      "max_case_seconds": 1.644
+    },
+    {
+      "binary": "lamp-eyes::bin/lamp-eyes",
+      "executions": 5,
+      "passed": 5,
+      "sum_reported_case_seconds": 0.015,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-gemini",
+      "executions": 257,
+      "passed": 257,
+      "sum_reported_case_seconds": 18.353,
+      "max_case_seconds": 1.669
+    },
+    {
+      "binary": "lamp-gemini::comparison_config",
+      "executions": 10,
+      "passed": 10,
+      "sum_reported_case_seconds": 0.026,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-gemini::example/early_end_probe",
+      "executions": 6,
+      "passed": 6,
+      "sum_reported_case_seconds": 0.055,
+      "max_case_seconds": 0.022
+    },
+    {
+      "binary": "lamp-gemini::review_2026_10_14",
+      "executions": 2,
+      "passed": 2,
+      "sum_reported_case_seconds": 1.716,
+      "max_case_seconds": 0.907
+    },
+    {
+      "binary": "lamp-gemini::wire",
+      "executions": 12,
+      "passed": 12,
+      "sum_reported_case_seconds": 0.028,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-health",
+      "executions": 19,
+      "passed": 19,
+      "sum_reported_case_seconds": 0.043,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-health::bin/lamp-health",
+      "executions": 3,
+      "passed": 3,
+      "sum_reported_case_seconds": 0.006,
+      "max_case_seconds": 0.002
+    },
+    {
+      "binary": "lamp-health::board",
+      "executions": 15,
+      "passed": 15,
+      "sum_reported_case_seconds": 0.054,
+      "max_case_seconds": 0.011
+    },
+    {
+      "binary": "lamp-health::program",
+      "executions": 6,
+      "passed": 6,
+      "sum_reported_case_seconds": 1.918,
+      "max_case_seconds": 1.526
+    },
+    {
+      "binary": "lamp-health::serve",
+      "executions": 12,
+      "passed": 12,
+      "sum_reported_case_seconds": 7.139,
+      "max_case_seconds": 2.118
+    },
+    {
+      "binary": "lamp-ipc",
+      "executions": 5,
+      "passed": 5,
+      "sum_reported_case_seconds": 0.439,
+      "max_case_seconds": 0.21
+    },
+    {
+      "binary": "lamp-ipc::probe",
+      "executions": 3,
+      "passed": 3,
+      "sum_reported_case_seconds": 0.019,
+      "max_case_seconds": 0.007
+    },
+    {
+      "binary": "lamp-ipc::relay_exit",
+      "executions": 1,
+      "passed": 1,
+      "sum_reported_case_seconds": 1.161,
+      "max_case_seconds": 1.161
+    },
+    {
+      "binary": "lamp-ipc::sockets",
+      "executions": 13,
+      "passed": 13,
+      "sum_reported_case_seconds": 0.033,
+      "max_case_seconds": 0.008
+    },
+    {
+      "binary": "lamp-keeper",
+      "executions": 22,
+      "passed": 22,
+      "sum_reported_case_seconds": 0.048,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-keeper::bin/lamp-keeper",
+      "executions": 2,
+      "passed": 2,
+      "sum_reported_case_seconds": 0.036,
+      "max_case_seconds": 0.033
+    },
+    {
+      "binary": "lamp-lean",
+      "executions": 10,
+      "passed": 10,
+      "sum_reported_case_seconds": 0.022,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-lean::catalogue",
+      "executions": 3,
+      "passed": 3,
+      "sum_reported_case_seconds": 0.009,
+      "max_case_seconds": 0.004
+    },
+    {
+      "binary": "lamp-lean::first_software",
+      "executions": 3,
+      "passed": 3,
+      "sum_reported_case_seconds": 0.006,
+      "max_case_seconds": 0.002
+    },
+    {
+      "binary": "lamp-lean::paths",
+      "executions": 15,
+      "passed": 15,
+      "sum_reported_case_seconds": 0.066,
+      "max_case_seconds": 0.026
+    },
+    {
+      "binary": "lamp-lean::poses",
+      "executions": 30,
+      "passed": 30,
+      "sum_reported_case_seconds": 0.064,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-memory",
+      "executions": 77,
+      "passed": 77,
+      "sum_reported_case_seconds": 2.827,
+      "max_case_seconds": 1.003
+    },
+    {
+      "binary": "lamp-memory::bin/lamp-memory",
+      "executions": 6,
+      "passed": 6,
+      "sum_reported_case_seconds": 0.015,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-memory::bin/lamp-memory-eval",
+      "executions": 8,
+      "passed": 8,
+      "sum_reported_case_seconds": 0.017,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-memory::binary",
+      "executions": 6,
+      "passed": 6,
+      "sum_reported_case_seconds": 0.188,
+      "max_case_seconds": 0.082
+    },
+    {
+      "binary": "lamp-memory::days",
+      "executions": 31,
+      "passed": 31,
+      "sum_reported_case_seconds": 1.499,
+      "max_case_seconds": 0.276
+    },
+    {
+      "binary": "lamp-memory::fixture_child",
+      "executions": 12,
+      "passed": 12,
+      "sum_reported_case_seconds": 0.038,
+      "max_case_seconds": 0.006
+    },
+    {
+      "binary": "lamp-memory::health_control",
+      "executions": 23,
+      "passed": 23,
+      "sum_reported_case_seconds": 0.153,
+      "max_case_seconds": 0.043
+    },
+    {
+      "binary": "lamp-memory::retrieval",
+      "executions": 10,
+      "passed": 10,
+      "sum_reported_case_seconds": 0.037,
+      "max_case_seconds": 0.006
+    },
+    {
+      "binary": "lamp-memory::server",
+      "executions": 3,
+      "passed": 3,
+      "sum_reported_case_seconds": 0.881,
+      "max_case_seconds": 0.873
+    },
+    {
+      "binary": "lamp-memory::voice",
+      "executions": 8,
+      "passed": 8,
+      "sum_reported_case_seconds": 2.094,
+      "max_case_seconds": 1.827
+    },
+    {
+      "binary": "lamp-memory::voice_people",
+      "executions": 10,
+      "passed": 10,
+      "sum_reported_case_seconds": 1.967,
+      "max_case_seconds": 1.721
+    },
+    {
+      "binary": "lamp-memory::voice_submit",
+      "executions": 4,
+      "passed": 4,
+      "sum_reported_case_seconds": 0.139,
+      "max_case_seconds": 0.081
+    },
+    {
+      "binary": "lamp-mood",
+      "executions": 1,
+      "passed": 1,
+      "sum_reported_case_seconds": 0.007,
+      "max_case_seconds": 0.007
+    },
+    {
+      "binary": "lamp-mood::engine",
+      "executions": 45,
+      "passed": 45,
+      "sum_reported_case_seconds": 0.097,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-mood::input",
+      "executions": 31,
+      "passed": 31,
+      "sum_reported_case_seconds": 0.072,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-mood::program",
+      "executions": 4,
+      "passed": 4,
+      "sum_reported_case_seconds": 0.233,
+      "max_case_seconds": 0.221
+    },
+    {
+      "binary": "lamp-mood::replay",
+      "executions": 6,
+      "passed": 6,
+      "sum_reported_case_seconds": 0.096,
+      "max_case_seconds": 0.026
+    },
+    {
+      "binary": "lamp-mood::runtime",
+      "executions": 8,
+      "passed": 8,
+      "sum_reported_case_seconds": 0.949,
+      "max_case_seconds": 0.286
+    },
+    {
+      "binary": "lamp-msgs",
+      "executions": 31,
+      "passed": 31,
+      "sum_reported_case_seconds": 0.065,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-msgs::bus",
+      "executions": 1,
+      "passed": 1,
+      "sum_reported_case_seconds": 0.006,
+      "max_case_seconds": 0.006
+    },
+    {
+      "binary": "lamp-msgs::controls",
+      "executions": 13,
+      "passed": 13,
+      "sum_reported_case_seconds": 0.026,
+      "max_case_seconds": 0.002
+    },
+    {
+      "binary": "lamp-msgs::expression",
+      "executions": 8,
+      "passed": 8,
+      "sum_reported_case_seconds": 0.017,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-msgs::expression_rest",
+      "executions": 6,
+      "passed": 6,
+      "sum_reported_case_seconds": 0.012,
+      "max_case_seconds": 0.002
+    },
+    {
+      "binary": "lamp-msgs::logging",
+      "executions": 1,
+      "passed": 1,
+      "sum_reported_case_seconds": 0.002,
+      "max_case_seconds": 0.002
+    },
+    {
+      "binary": "lamp-msgs::schedule",
+      "executions": 12,
+      "passed": 12,
+      "sum_reported_case_seconds": 0.026,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-msgs::skills",
+      "executions": 3,
+      "passed": 3,
+      "sum_reported_case_seconds": 0.006,
+      "max_case_seconds": 0.002
+    },
+    {
+      "binary": "lamp-msgs::tasks",
+      "executions": 4,
+      "passed": 4,
+      "sum_reported_case_seconds": 0.01,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-msgs::touch",
+      "executions": 15,
+      "passed": 15,
+      "sum_reported_case_seconds": 0.031,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-name",
+      "executions": 5,
+      "passed": 5,
+      "sum_reported_case_seconds": 0.015,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-name::bin/lamp-name",
+      "executions": 4,
+      "passed": 4,
+      "sum_reported_case_seconds": 2.013,
+      "max_case_seconds": 2.005
+    },
+    {
+      "binary": "lamp-name::review_2026_10_14",
+      "executions": 2,
+      "passed": 2,
+      "sum_reported_case_seconds": 0.006,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-observer",
+      "executions": 45,
+      "passed": 45,
+      "sum_reported_case_seconds": 0.121,
+      "max_case_seconds": 0.006
+    },
+    {
+      "binary": "lamp-observer::bin/lamp-observer",
+      "executions": 1,
+      "passed": 1,
+      "sum_reported_case_seconds": 0.002,
+      "max_case_seconds": 0.002
+    },
+    {
+      "binary": "lamp-policy",
+      "executions": 91,
+      "passed": 91,
+      "sum_reported_case_seconds": 3.38,
+      "max_case_seconds": 0.81
+    },
+    {
+      "binary": "lamp-policy::baseline",
+      "executions": 16,
+      "passed": 16,
+      "sum_reported_case_seconds": 0.034,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-policy::bin/lamp-policy",
+      "executions": 2,
+      "passed": 2,
+      "sum_reported_case_seconds": 0.005,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-policy::bin/lamp-policy-judges",
+      "executions": 3,
+      "passed": 3,
+      "sum_reported_case_seconds": 0.007,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-policy::fit_lamp_scenes",
+      "executions": 1,
+      "passed": 1,
+      "sum_reported_case_seconds": 0.005,
+      "max_case_seconds": 0.005
+    },
+    {
+      "binary": "lamp-policy::judges",
+      "executions": 7,
+      "passed": 7,
+      "sum_reported_case_seconds": 7.283,
+      "max_case_seconds": 1.081
+    },
+    {
+      "binary": "lamp-policy::judges_program",
+      "executions": 3,
+      "passed": 3,
+      "sum_reported_case_seconds": 2.032,
+      "max_case_seconds": 2.014
+    },
+    {
+      "binary": "lamp-policy::local_comparison",
+      "executions": 1,
+      "passed": 1,
+      "sum_reported_case_seconds": 0.003,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-policy::local_fit",
+      "executions": 7,
+      "passed": 7,
+      "sum_reported_case_seconds": 0.062,
+      "max_case_seconds": 0.038
+    },
+    {
+      "binary": "lamp-policy::local_model",
+      "executions": 7,
+      "passed": 7,
+      "sum_reported_case_seconds": 0.022,
+      "max_case_seconds": 0.005
+    },
+    {
+      "binary": "lamp-policy::policy",
+      "executions": 19,
+      "passed": 19,
+      "sum_reported_case_seconds": 19.223,
+      "max_case_seconds": 3.519
+    },
+    {
+      "binary": "lamp-policy::program",
+      "executions": 4,
+      "passed": 4,
+      "sum_reported_case_seconds": 1.04,
+      "max_case_seconds": 0.547
+    },
+    {
+      "binary": "lamp-policy::progress",
+      "executions": 5,
+      "passed": 5,
+      "sum_reported_case_seconds": 7.788,
+      "max_case_seconds": 3.053
+    },
+    {
+      "binary": "lamp-records",
+      "executions": 110,
+      "passed": 110,
+      "sum_reported_case_seconds": 0.424,
+      "max_case_seconds": 0.069
+    },
+    {
+      "binary": "lamp-records::bin/lamp-records",
+      "executions": 20,
+      "passed": 20,
+      "sum_reported_case_seconds": 0.072,
+      "max_case_seconds": 0.014
+    },
+    {
+      "binary": "lamp-records::records",
+      "executions": 3,
+      "passed": 3,
+      "sum_reported_case_seconds": 0.011,
+      "max_case_seconds": 0.005
+    },
+    {
+      "binary": "lamp-records::records_control",
+      "executions": 14,
+      "passed": 14,
+      "sum_reported_case_seconds": 5.056,
+      "max_case_seconds": 4.007
+    },
+    {
+      "binary": "lamp-ring",
+      "executions": 25,
+      "passed": 25,
+      "sum_reported_case_seconds": 0.107,
+      "max_case_seconds": 0.058
+    },
+    {
+      "binary": "lamp-same-voice",
+      "executions": 2,
+      "passed": 2,
+      "sum_reported_case_seconds": 0.007,
+      "max_case_seconds": 0.004
+    },
+    {
+      "binary": "lamp-schedule",
+      "executions": 3,
+      "passed": 3,
+      "sum_reported_case_seconds": 0.338,
+      "max_case_seconds": 0.168
+    },
+    {
+      "binary": "lamp-schedule::calendar",
+      "executions": 37,
+      "passed": 37,
+      "sum_reported_case_seconds": 0.083,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-schedule::client",
+      "executions": 8,
+      "passed": 8,
+      "sum_reported_case_seconds": 2.171,
+      "max_case_seconds": 2.004
+    },
+    {
+      "binary": "lamp-schedule::delivery_ledger",
+      "executions": 24,
+      "passed": 24,
+      "sum_reported_case_seconds": 0.083,
+      "max_case_seconds": 0.024
+    },
+    {
+      "binary": "lamp-schedule::engine",
+      "executions": 36,
+      "passed": 36,
+      "sum_reported_case_seconds": 0.101,
+      "max_case_seconds": 0.012
+    },
+    {
+      "binary": "lamp-schedule::example/schedule_check",
+      "executions": 10,
+      "passed": 10,
+      "sum_reported_case_seconds": 0.304,
+      "max_case_seconds": 0.153
+    },
+    {
+      "binary": "lamp-schedule::protocol",
+      "executions": 4,
+      "passed": 4,
+      "sum_reported_case_seconds": 0.008,
+      "max_case_seconds": 0.002
+    },
+    {
+      "binary": "lamp-schedule::runtime",
+      "executions": 18,
+      "passed": 18,
+      "sum_reported_case_seconds": 2.69,
+      "max_case_seconds": 1.048
+    },
+    {
+      "binary": "lamp-schedule::runtime_failures",
+      "executions": 2,
+      "passed": 2,
+      "sum_reported_case_seconds": 1.639,
+      "max_case_seconds": 1.607
+    },
+    {
+      "binary": "lamp-schedule::storage",
+      "executions": 21,
+      "passed": 21,
+      "sum_reported_case_seconds": 0.272,
+      "max_case_seconds": 0.056
+    },
+    {
+      "binary": "lamp-selftest",
+      "executions": 42,
+      "passed": 42,
+      "sum_reported_case_seconds": 21.038,
+      "max_case_seconds": 10.054
+    },
+    {
+      "binary": "lamp-selftest::bin/lamp-selftest",
+      "executions": 1,
+      "passed": 1,
+      "sum_reported_case_seconds": 0.002,
+      "max_case_seconds": 0.002
+    },
+    {
+      "binary": "lamp-settings",
+      "executions": 31,
+      "passed": 31,
+      "sum_reported_case_seconds": 0.095,
+      "max_case_seconds": 0.007
+    },
+    {
+      "binary": "lamp-settings::client",
+      "executions": 10,
+      "passed": 10,
+      "sum_reported_case_seconds": 4.031,
+      "max_case_seconds": 2.004
+    },
+    {
+      "binary": "lamp-settings::runtime",
+      "executions": 4,
+      "passed": 4,
+      "sum_reported_case_seconds": 1.333,
+      "max_case_seconds": 1.156
+    },
+    {
+      "binary": "lamp-setup::reset",
+      "executions": 10,
+      "passed": 10,
+      "sum_reported_case_seconds": 2.041,
+      "max_case_seconds": 2.003
+    },
+    {
+      "binary": "lamp-setup::serve",
+      "executions": 8,
+      "passed": 8,
+      "sum_reported_case_seconds": 3.026,
+      "max_case_seconds": 1.003
+    },
+    {
+      "binary": "lamp-setup::wifi",
+      "executions": 9,
+      "passed": 9,
+      "sum_reported_case_seconds": 0.019,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-skills::skills",
+      "executions": 11,
+      "passed": 11,
+      "sum_reported_case_seconds": 5.297,
+      "max_case_seconds": 3.258
+    },
+    {
+      "binary": "lamp-sound-fixtures::cache_and_mix",
+      "executions": 15,
+      "passed": 15,
+      "sum_reported_case_seconds": 0.082,
+      "max_case_seconds": 0.023
+    },
+    {
+      "binary": "lamp-surround",
+      "executions": 2,
+      "passed": 2,
+      "sum_reported_case_seconds": 0.016,
+      "max_case_seconds": 0.014
+    },
+    {
+      "binary": "lamp-surround::atomic",
+      "executions": 9,
+      "passed": 9,
+      "sum_reported_case_seconds": 0.025,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-surround::cli",
+      "executions": 4,
+      "passed": 4,
+      "sum_reported_case_seconds": 2.031,
+      "max_case_seconds": 2.011
+    },
+    {
+      "binary": "lamp-surround::config",
+      "executions": 7,
+      "passed": 7,
+      "sum_reported_case_seconds": 0.02,
+      "max_case_seconds": 0.004
+    },
+    {
+      "binary": "lamp-surround::configuration",
+      "executions": 10,
+      "passed": 10,
+      "sum_reported_case_seconds": 0.182,
+      "max_case_seconds": 0.091
+    },
+    {
+      "binary": "lamp-surround::http_limit",
+      "executions": 6,
+      "passed": 6,
+      "sum_reported_case_seconds": 0.168,
+      "max_case_seconds": 0.104
+    },
+    {
+      "binary": "lamp-surround::network",
+      "executions": 22,
+      "passed": 22,
+      "sum_reported_case_seconds": 0.05,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-surround::operator",
+      "executions": 11,
+      "passed": 11,
+      "sum_reported_case_seconds": 0.033,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-surround::owner",
+      "executions": 23,
+      "passed": 23,
+      "sum_reported_case_seconds": 0.305,
+      "max_case_seconds": 0.104
+    },
+    {
+      "binary": "lamp-surround::release",
+      "executions": 31,
+      "passed": 31,
+      "sum_reported_case_seconds": 1.107,
+      "max_case_seconds": 0.105
+    },
+    {
+      "binary": "lamp-surround::reset",
+      "executions": 21,
+      "passed": 21,
+      "sum_reported_case_seconds": 1.208,
+      "max_case_seconds": 0.904
+    },
+    {
+      "binary": "lamp-surround::runtime",
+      "executions": 10,
+      "passed": 10,
+      "sum_reported_case_seconds": 0.029,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-surround::selection",
+      "executions": 16,
+      "passed": 16,
+      "sum_reported_case_seconds": 1.415,
+      "max_case_seconds": 0.612
+    },
+    {
+      "binary": "lamp-surround::setup",
+      "executions": 15,
+      "passed": 15,
+      "sum_reported_case_seconds": 0.104,
+      "max_case_seconds": 0.011
+    },
+    {
+      "binary": "lamp-surround::startup",
+      "executions": 17,
+      "passed": 17,
+      "sum_reported_case_seconds": 0.044,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-surround::tls_provider",
+      "executions": 1,
+      "passed": 1,
+      "sum_reported_case_seconds": 0.003,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-surround::update",
+      "executions": 30,
+      "passed": 30,
+      "sum_reported_case_seconds": 0.094,
+      "max_case_seconds": 0.008
+    },
+    {
+      "binary": "lamp-surround::worker",
+      "executions": 25,
+      "passed": 25,
+      "sum_reported_case_seconds": 0.695,
+      "max_case_seconds": 0.282
+    },
+    {
+      "binary": "lamp-tasks",
+      "executions": 58,
+      "passed": 58,
+      "sum_reported_case_seconds": 0.256,
+      "max_case_seconds": 0.043
+    },
+    {
+      "binary": "lamp-tasks::harness",
+      "executions": 28,
+      "passed": 28,
+      "sum_reported_case_seconds": 2.546,
+      "max_case_seconds": 0.52
+    },
+    {
+      "binary": "lamp-tasks::runtime",
+      "executions": 13,
+      "passed": 13,
+      "sum_reported_case_seconds": 14.863,
+      "max_case_seconds": 6.107
+    },
+    {
+      "binary": "lamp-tasks::runtime_failures",
+      "executions": 3,
+      "passed": 3,
+      "sum_reported_case_seconds": 2.142,
+      "max_case_seconds": 1.556
+    },
+    {
+      "binary": "lamp-tasks::store",
+      "executions": 22,
+      "passed": 22,
+      "sum_reported_case_seconds": 1.285,
+      "max_case_seconds": 0.854
+    },
+    {
+      "binary": "lamp-turn-end",
+      "executions": 16,
+      "passed": 16,
+      "sum_reported_case_seconds": 0.078,
+      "max_case_seconds": 0.015
+    },
+    {
+      "binary": "lamp-turn-end-wire",
+      "executions": 4,
+      "passed": 4,
+      "sum_reported_case_seconds": 0.009,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-turn-end::bin/lamp-turn-end",
+      "executions": 7,
+      "passed": 7,
+      "sum_reported_case_seconds": 0.021,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-turn-end::fast",
+      "executions": 1,
+      "passed": 1,
+      "sum_reported_case_seconds": 0.003,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-turn-end::parity",
+      "executions": 5,
+      "passed": 5,
+      "sum_reported_case_seconds": 0.061,
+      "max_case_seconds": 0.033
+    },
+    {
+      "binary": "lamp-turn-owner",
+      "executions": 1,
+      "passed": 1,
+      "sum_reported_case_seconds": 0.002,
+      "max_case_seconds": 0.002
+    },
+    {
+      "binary": "lamp-turn-owner::camera_authority",
+      "executions": 3,
+      "passed": 3,
+      "sum_reported_case_seconds": 0.006,
+      "max_case_seconds": 0.002
+    },
+    {
+      "binary": "lamp-turn-owner::observations",
+      "executions": 4,
+      "passed": 4,
+      "sum_reported_case_seconds": 0.008,
+      "max_case_seconds": 0.002
+    },
+    {
+      "binary": "lamp-turn-owner::ownership",
+      "executions": 26,
+      "passed": 26,
+      "sum_reported_case_seconds": 0.053,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-turn-owner::zero_authority",
+      "executions": 3,
+      "passed": 3,
+      "sum_reported_case_seconds": 0.006,
+      "max_case_seconds": 0.002
+    },
+    {
+      "binary": "lamp-update",
+      "executions": 34,
+      "passed": 34,
+      "sum_reported_case_seconds": 1.2,
+      "max_case_seconds": 1.108
+    },
+    {
+      "binary": "lamp-update::install",
+      "executions": 16,
+      "passed": 16,
+      "sum_reported_case_seconds": 0.258,
+      "max_case_seconds": 0.037
+    },
+    {
+      "binary": "lamp-update::round",
+      "executions": 19,
+      "passed": 19,
+      "sum_reported_case_seconds": 0.143,
+      "max_case_seconds": 0.014
+    },
+    {
+      "binary": "lamp-voice",
+      "executions": 1176,
+      "passed": 1176,
+      "sum_reported_case_seconds": 93.272,
+      "max_case_seconds": 4.051
+    },
+    {
+      "binary": "lamp-voice-eval",
+      "executions": 299,
+      "passed": 299,
+      "sum_reported_case_seconds": 2.286,
+      "max_case_seconds": 0.324
+    },
+    {
+      "binary": "lamp-voice-eval::acceptance_boundaries",
+      "executions": 5,
+      "passed": 5,
+      "sum_reported_case_seconds": 0.036,
+      "max_case_seconds": 0.008
+    },
+    {
+      "binary": "lamp-voice-eval::answer_review",
+      "executions": 14,
+      "passed": 14,
+      "sum_reported_case_seconds": 0.092,
+      "max_case_seconds": 0.025
+    },
+    {
+      "binary": "lamp-voice-eval::audit_final_dispatch",
+      "executions": 2,
+      "passed": 2,
+      "sum_reported_case_seconds": 0.068,
+      "max_case_seconds": 0.049
+    },
+    {
+      "binary": "lamp-voice-eval::audit_importer",
+      "executions": 11,
+      "passed": 11,
+      "sum_reported_case_seconds": 0.07,
+      "max_case_seconds": 0.011
+    },
+    {
+      "binary": "lamp-voice-eval::audit_runner_dispatch",
+      "executions": 2,
+      "passed": 2,
+      "sum_reported_case_seconds": 0.006,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-voice-eval::canary_plan",
+      "executions": 3,
+      "passed": 3,
+      "sum_reported_case_seconds": 0.026,
+      "max_case_seconds": 0.012
+    },
+    {
+      "binary": "lamp-voice-eval::evaluator",
+      "executions": 14,
+      "passed": 14,
+      "sum_reported_case_seconds": 0.121,
+      "max_case_seconds": 0.027
+    },
+    {
+      "binary": "lamp-voice-eval::fake_runtime",
+      "executions": 23,
+      "passed": 23,
+      "sum_reported_case_seconds": 0.532,
+      "max_case_seconds": 0.251
+    },
+    {
+      "binary": "lamp-voice-eval::next_turn_ready",
+      "executions": 2,
+      "passed": 2,
+      "sum_reported_case_seconds": 0.014,
+      "max_case_seconds": 0.01
+    },
+    {
+      "binary": "lamp-voice-eval::playback_occurrences",
+      "executions": 10,
+      "passed": 10,
+      "sum_reported_case_seconds": 0.105,
+      "max_case_seconds": 0.027
+    },
+    {
+      "binary": "lamp-voice-eval::provider_failed",
+      "executions": 7,
+      "passed": 7,
+      "sum_reported_case_seconds": 0.038,
+      "max_case_seconds": 0.008
+    },
+    {
+      "binary": "lamp-voice-eval::recording_evidence",
+      "executions": 19,
+      "passed": 19,
+      "sum_reported_case_seconds": 0.181,
+      "max_case_seconds": 0.026
+    },
+    {
+      "binary": "lamp-voice-eval::recording_import",
+      "executions": 10,
+      "passed": 10,
+      "sum_reported_case_seconds": 0.066,
+      "max_case_seconds": 0.01
+    },
+    {
+      "binary": "lamp-voice-eval::relay_clock",
+      "executions": 2,
+      "passed": 2,
+      "sum_reported_case_seconds": 0.04,
+      "max_case_seconds": 0.027
+    },
+    {
+      "binary": "lamp-voice-eval::relay_hardening",
+      "executions": 7,
+      "passed": 7,
+      "sum_reported_case_seconds": 0.404,
+      "max_case_seconds": 0.325
+    },
+    {
+      "binary": "lamp-voice-eval::report_validity",
+      "executions": 14,
+      "passed": 14,
+      "sum_reported_case_seconds": 0.113,
+      "max_case_seconds": 0.051
+    },
+    {
+      "binary": "lamp-voice-eval::serve_plan",
+      "executions": 6,
+      "passed": 6,
+      "sum_reported_case_seconds": 0.331,
+      "max_case_seconds": 0.108
+    },
+    {
+      "binary": "lamp-voice-eval::target_audio",
+      "executions": 6,
+      "passed": 6,
+      "sum_reported_case_seconds": 0.044,
+      "max_case_seconds": 0.008
+    },
+    {
+      "binary": "lamp-voice::admission",
+      "executions": 21,
+      "passed": 21,
+      "sum_reported_case_seconds": 0.044,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-voice::bin/lamp-voice",
+      "executions": 1,
+      "passed": 1,
+      "sum_reported_case_seconds": 0.002,
+      "max_case_seconds": 0.002
+    },
+    {
+      "binary": "lamp-voice::call_wait",
+      "executions": 5,
+      "passed": 5,
+      "sum_reported_case_seconds": 0.011,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-voice::camera_config",
+      "executions": 4,
+      "passed": 4,
+      "sum_reported_case_seconds": 0.013,
+      "max_case_seconds": 0.005
+    },
+    {
+      "binary": "lamp-voice::camera_runtime",
+      "executions": 33,
+      "passed": 33,
+      "sum_reported_case_seconds": 0.081,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-voice::core",
+      "executions": 10,
+      "passed": 10,
+      "sum_reported_case_seconds": 0.023,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-voice::diagnostics",
+      "executions": 18,
+      "passed": 18,
+      "sum_reported_case_seconds": 0.091,
+      "max_case_seconds": 0.008
+    },
+    {
+      "binary": "lamp-voice::end_silence",
+      "executions": 4,
+      "passed": 4,
+      "sum_reported_case_seconds": 0.008,
+      "max_case_seconds": 0.002
+    },
+    {
+      "binary": "lamp-voice::endpoint_confirmation",
+      "executions": 23,
+      "passed": 23,
+      "sum_reported_case_seconds": 0.073,
+      "max_case_seconds": 0.021
+    },
+    {
+      "binary": "lamp-voice::expression_out",
+      "executions": 3,
+      "passed": 3,
+      "sum_reported_case_seconds": 0.011,
+      "max_case_seconds": 0.004
+    },
+    {
+      "binary": "lamp-voice::first_control_message",
+      "executions": 1,
+      "passed": 1,
+      "sum_reported_case_seconds": 3.703,
+      "max_case_seconds": 3.703
+    },
+    {
+      "binary": "lamp-voice::fixture_provider",
+      "executions": 27,
+      "passed": 27,
+      "sum_reported_case_seconds": 0.119,
+      "max_case_seconds": 0.028
+    },
+    {
+      "binary": "lamp-voice::privacy_state",
+      "executions": 4,
+      "passed": 4,
+      "sum_reported_case_seconds": 0.008,
+      "max_case_seconds": 0.002
+    },
+    {
+      "binary": "lamp-voice::process",
+      "executions": 1,
+      "passed": 1,
+      "sum_reported_case_seconds": 0.015,
+      "max_case_seconds": 0.015
+    },
+    {
+      "binary": "lamp-voice::progress_news",
+      "executions": 9,
+      "passed": 9,
+      "sum_reported_case_seconds": 7.34,
+      "max_case_seconds": 2.135
+    },
+    {
+      "binary": "lamp-voice::provider_config",
+      "executions": 7,
+      "passed": 7,
+      "sum_reported_case_seconds": 0.027,
+      "max_case_seconds": 0.005
+    },
+    {
+      "binary": "lamp-voice::reference_link",
+      "executions": 6,
+      "passed": 6,
+      "sum_reported_case_seconds": 0.018,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-voice::reference_prime",
+      "executions": 8,
+      "passed": 8,
+      "sum_reported_case_seconds": 0.024,
+      "max_case_seconds": 0.005
+    },
+    {
+      "binary": "lamp-voice::review_2026_10_14",
+      "executions": 5,
+      "passed": 5,
+      "sum_reported_case_seconds": 0.014,
+      "max_case_seconds": 0.003
+    },
+    {
+      "binary": "lamp-voice::ring_worker",
+      "executions": 18,
+      "passed": 18,
+      "sum_reported_case_seconds": 0.782,
+      "max_case_seconds": 0.255
+    },
+    {
+      "binary": "lamp-voice::visual_options",
+      "executions": 2,
+      "passed": 2,
+      "sum_reported_case_seconds": 0.005,
+      "max_case_seconds": 0.003
+    }
+  ]
+}

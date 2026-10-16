@@ -1,0 +1,471 @@
+{
+  "date_from_date": "2026-10-16 10:26:58 +0700",
+  "repository_destination": "lampOS/docs/verification/gemini-task-joins-20261016/native-arm64-38843507733",
+  "run": 38843507733,
+  "job": 116788702286,
+  "attempt": 1,
+  "head": "8de22aef8d5526f83b48b279e71706d71e7cdf5b",
+  "tested_synthetic_merge": "a9719f18473ec0b0fc170c9cee3b6a5390fdbbfb",
+  "local_gate_canonical_references": [
+    {
+      "path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/full.log",
+      "sha256": "fc7455deb8f8a5dcc746922e9641e2893c336cb56eff078da6d3728c1045abd5",
+      "bytes": 373299,
+      "head": "8de22aef8d5526f83b48b279e71706d71e7cdf5b",
+      "url": "https://github.com/autonomous-ai/lampOS/blob/8de22aef8d5526f83b48b279e71706d71e7cdf5b/lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/full.log",
+      "deduplicated": "Already byte-exact in published head and actual native merge; not recopied into this supplement."
+    },
+    {
+      "path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/source-before.json",
+      "sha256": "b635c7bb30c16d2e06746ea3bb9bae87a3daac7d57feb12d1b26ca59032b9916",
+      "bytes": 977564,
+      "head": "8de22aef8d5526f83b48b279e71706d71e7cdf5b",
+      "url": "https://github.com/autonomous-ai/lampOS/blob/8de22aef8d5526f83b48b279e71706d71e7cdf5b/lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/source-before.json",
+      "deduplicated": "Already byte-exact in published head and actual native merge; not recopied into this supplement."
+    },
+    {
+      "path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/source-after-exception.json",
+      "sha256": "c029dbc56b734d36a29e5eed1cfdb559f631b41325b34a682bc031496f7ed25a",
+      "bytes": 975707,
+      "head": "8de22aef8d5526f83b48b279e71706d71e7cdf5b",
+      "url": "https://github.com/autonomous-ai/lampOS/blob/8de22aef8d5526f83b48b279e71706d71e7cdf5b/lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/source-after-exception.json",
+      "deduplicated": "Already byte-exact in published head and actual native merge; not recopied into this supplement."
+    },
+    {
+      "path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/doc-test-supplement/source-after.json",
+      "sha256": "9bcfe52bbdcb6294704a2a7dd962c3470f23e885107b66e13196c7d1a1acf56d",
+      "bytes": 975707,
+      "head": "8de22aef8d5526f83b48b279e71706d71e7cdf5b",
+      "url": "https://github.com/autonomous-ai/lampOS/blob/8de22aef8d5526f83b48b279e71706d71e7cdf5b/lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/doc-test-supplement/source-after.json",
+      "deduplicated": "Already byte-exact in published head and actual native merge; not recopied into this supplement."
+    },
+    {
+      "path": "lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/compiled-list.log",
+      "sha256": "99c438bf633b1cffdc011e9aa2eadd151d8a91b3059551ea62da7e87c7047b55",
+      "bytes": 463091,
+      "head": "8de22aef8d5526f83b48b279e71706d71e7cdf5b",
+      "url": "https://github.com/autonomous-ai/lampOS/blob/8de22aef8d5526f83b48b279e71706d71e7cdf5b/lampOS/docs/verification/gemini-task-joins-20261016/external/corrected-gate/compiled-list.log",
+      "deduplicated": "Already byte-exact in published head and actual native merge; not recopied into this supplement."
+    },
+    {
+      "path": "lampOS/docs/verification/gemini-task-joins-20261016/failure-triage/report.md",
+      "sha256": "daaf2b810ac740a40f75e2b5aa166a87c22a708237fbafcf16ab55b88259973e",
+      "bytes": 6078,
+      "head": "8de22aef8d5526f83b48b279e71706d71e7cdf5b",
+      "url": "https://github.com/autonomous-ai/lampOS/blob/8de22aef8d5526f83b48b279e71706d71e7cdf5b/lampOS/docs/verification/gemini-task-joins-20261016/failure-triage/report.md",
+      "deduplicated": "Already byte-exact in published head and actual native merge; not recopied into this supplement."
+    },
+    {
+      "path": "lampOS/docs/verification/gemini-task-joins-20261016/failure-triage/source-proof.json",
+      "sha256": "f35c062dec3c83856087b390acea5a5ae82f6d2c806572f4e13844c36c07f87a",
+      "bytes": 6943,
+      "head": "8de22aef8d5526f83b48b279e71706d71e7cdf5b",
+      "url": "https://github.com/autonomous-ai/lampOS/blob/8de22aef8d5526f83b48b279e71706d71e7cdf5b/lampOS/docs/verification/gemini-task-joins-20261016/failure-triage/source-proof.json",
+      "deduplicated": "Already byte-exact in published head and actual native merge; not recopied into this supplement."
+    },
+    {
+      "path": "lampOS/docs/verification/gemini-task-joins-20261016/failure-triage/source/lampOS/docs/joining.md",
+      "sha256": "a031c6ad1dd0c729623ce35736fa4373cdbcb5ffa2412947660714c0729ba706",
+      "bytes": 22335,
+      "head": "8de22aef8d5526f83b48b279e71706d71e7cdf5b",
+      "url": "https://github.com/autonomous-ai/lampOS/blob/8de22aef8d5526f83b48b279e71706d71e7cdf5b/lampOS/docs/verification/gemini-task-joins-20261016/failure-triage/source/lampOS/docs/joining.md",
+      "deduplicated": "Already byte-exact in published head and actual native merge; not recopied into this supplement."
+    }
+  ],
+  "raw_copies": [
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-native-audit/audit/expected-membership-result.json",
+      "path": "audit/expected-membership-result.json",
+      "sha256": "906882d96dc97b726365fa9eac2335218a63adb46d968e5f9dd0c96d5a389ff2",
+      "bytes": 99638,
+      "copy": "byte-exact"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-native-audit/audit/key-log-excerpts.txt",
+      "path": "audit/key-log-excerpts.txt",
+      "sha256": "96208157ee6b22e258b59e99361b9b4d5d08ba7fd5f27e73e9c5a890c3ac531e",
+      "bytes": 5333,
+      "copy": "byte-exact"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-native-audit/audit/native-extra-local-scope-identities.json",
+      "path": "audit/native-extra-local-scope-identities.json",
+      "sha256": "aa557b34aa155d954f7b7cee9a00f5b5315dc57f3642a6d8ce777463e5fd7da5",
+      "bytes": 16054,
+      "copy": "byte-exact"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-native-audit/audit/native-merge-source-proof.json",
+      "path": "audit/native-merge-source-proof.json",
+      "sha256": "0a14cb478523486a1dd8509cd3fbeda8ea7c760837befad982d555e9b4512a22",
+      "bytes": 138002,
+      "copy": "byte-exact"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-native-audit/audit/native-result-identities.json",
+      "path": "audit/native-result-identities.json",
+      "sha256": "18f4117f33aa240af6594756fdf23ff1481b39f1415863b81ccd82119ba074d4",
+      "bytes": 1644436,
+      "copy": "byte-exact"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-native-audit/audit/native-stage-result.json",
+      "path": "audit/native-stage-result.json",
+      "sha256": "bed27a427eb8ee3dfed1d357115e6431ef806ec8d1f345a0a4829e9222d540d9",
+      "bytes": 23972,
+      "copy": "byte-exact"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-native-audit/audit/parser-development-note.json",
+      "path": "audit/parser-development-note.json",
+      "sha256": "18b3b1e6d9920d6bb80b281c7a86833a434e6c12c898c45568bbc41fd1513063",
+      "bytes": 449,
+      "copy": "byte-exact"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-native-audit/audit/per-binary-results.json",
+      "path": "audit/per-binary-results.json",
+      "sha256": "7e95db26e8fd5898f66fdf1edab1a534d0c0bd93feacacc5b49422a8f39eec8d",
+      "bytes": 43565,
+      "copy": "byte-exact"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-native-audit/audit/result.json",
+      "path": "audit/result.json",
+      "sha256": "8559bb363b59f525bb1c40ea76e34c4264f77bf18d63c30ffe3565194eda08ba",
+      "bytes": 1392,
+      "copy": "byte-exact"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-native-audit/expectations.json",
+      "path": "expectations.json",
+      "sha256": "3b7c8bf7f2f0f0022fae045c2b5b3b023a5f345cade23c25bd7af6ae0f83d266",
+      "bytes": 864986,
+      "copy": "byte-exact"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-native-audit/expected-18.json",
+      "path": "expected-18.json",
+      "sha256": "6f191a870e96b814a941bb988104166c3440500efb7f6d3eb15a1918520d2309",
+      "bytes": 5703,
+      "copy": "byte-exact"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-native-audit/expected-gemini-membership.json",
+      "path": "expected-gemini-membership.json",
+      "sha256": "806180c5aa4544f2905c86a6256ced87728efa62e87f904d4e6aa0a88caba2f9",
+      "bytes": 87735,
+      "copy": "byte-exact"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-native-audit/head-commit.txt",
+      "path": "head-commit.txt",
+      "sha256": "6e8b34d47793708535cab419267ddad68ef4d2fe324331c93f5ca1d296069891",
+      "bytes": 251,
+      "copy": "byte-exact"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-native-audit/head-comparison-source/lampOS/Cargo.lock",
+      "path": "head-comparison-source/lampOS/Cargo.lock",
+      "sha256": "40d62fead16a6f138c4d7dbe400a2e4a9855ceece96d19b1e642136431aed4c5",
+      "bytes": 113084,
+      "copy": "byte-exact"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-native-audit/head-comparison-source/lampOS/Cargo.toml",
+      "path": "head-comparison-source/lampOS/Cargo.toml",
+      "sha256": "dafaa1133d09ab0137847973359e8d1c01e7dc306aa54e299ec1a6f611e24c2b",
+      "bytes": 1211,
+      "copy": "byte-exact"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-native-audit/head-comparison-source/lampOS/crates/voice/src/body_link.rs",
+      "path": "head-comparison-source/lampOS/crates/voice/src/body_link.rs",
+      "sha256": "53fb2f61e756b6f0de15c9996620fb27f15dd52b43928c8dcd0c943d710d2bae",
+      "bytes": 21855,
+      "copy": "byte-exact"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-native-audit/head-comparison-source/lampOS/crates/voice/src/main.rs",
+      "path": "head-comparison-source/lampOS/crates/voice/src/main.rs",
+      "sha256": "b095961c0e6737af9a0047a6f3b08ab4f09832be337a7e4a7a4380f5ebf44a58",
+      "bytes": 40742,
+      "copy": "byte-exact"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-native-audit/head-comparison-source/lampOS/crates/voice/src/onboarding.rs",
+      "path": "head-comparison-source/lampOS/crates/voice/src/onboarding.rs",
+      "sha256": "28180d3b374768165c758b5237801458a3abbd1d53ab378cd9eed8fcbd81808a",
+      "bytes": 47591,
+      "copy": "byte-exact"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-native-audit/head-comparison-source/lampOS/crates/voice/src/second_provider/net/stt.rs",
+      "path": "head-comparison-source/lampOS/crates/voice/src/second_provider/net/stt.rs",
+      "sha256": "96cc32eb57fb6471cab3c75d9ea0ab0d43e8eae1914d8497a31e93ce02d46d14",
+      "bytes": 29692,
+      "copy": "byte-exact"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-native-audit/head-comparison-source/lampOS/crates/voice/src/sight.rs",
+      "path": "head-comparison-source/lampOS/crates/voice/src/sight.rs",
+      "sha256": "1766e152f99c70f0ed5e1f80de622b45aea56dac5e701dd7c1d06874a0812b75",
+      "bytes": 12051,
+      "copy": "byte-exact"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-native-audit/head-source/lampos-arm64.yml",
+      "path": "head-source/lampos-arm64.yml",
+      "sha256": "11cbcf5ced5022ca685b5c9e51f349c986259a5044575a20f39d3b8e869a045f",
+      "bytes": 7440,
+      "copy": "byte-exact"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-native-audit/head-source/nextest.toml",
+      "path": "head-source/nextest.toml",
+      "sha256": "33254521c34198ae2d4f988c4b7d04391c03da769ad91769e691171ae3b87367",
+      "bytes": 6466,
+      "copy": "byte-exact"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-native-audit/head-source-proof.json",
+      "path": "head-source-proof.json",
+      "sha256": "ab5368f5eec220b0d798a3372425530caed4ed1bfbafd58a8eb1c2ef823093b6",
+      "bytes": 2051543,
+      "copy": "byte-exact"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-native-audit/head-tree.txt",
+      "path": "head-tree.txt",
+      "sha256": "c48b6f8438689d4e8a9b601d08dca0b1d1048412ac37856f9e203507bb13528b",
+      "bytes": 876504,
+      "copy": "byte-exact"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-native-audit/merge-capture.json",
+      "path": "merge-capture.json",
+      "sha256": "6a417870a504a80d99cfd8e6a0faa49789a80fb9eb2cf9c6bd07f30c32884832",
+      "bytes": 1935,
+      "copy": "byte-exact"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-native-audit/merge-source/lampOS/Cargo.lock",
+      "path": "merge-source/lampOS/Cargo.lock",
+      "sha256": "3278103e66f5cb2b8441f2aa61d8810beaa179e0ca8195818fad6eb01af71e1e",
+      "bytes": 114217,
+      "copy": "byte-exact"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-native-audit/merge-source/lampOS/Cargo.toml",
+      "path": "merge-source/lampOS/Cargo.toml",
+      "sha256": "dcb7474c7a11ab42e7bae9fc30abdb9d7cdbdc9874597dbffb4e06ceefcd5658",
+      "bytes": 1228,
+      "copy": "byte-exact"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-native-audit/merge-source/lampOS/crates/voice/src/body_link.rs",
+      "path": "merge-source/lampOS/crates/voice/src/body_link.rs",
+      "sha256": "8ece9e1e57aab6cf2da30d9265f30c7187af237892c8791b38918271ae1dae86",
+      "bytes": 23066,
+      "copy": "byte-exact"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-native-audit/merge-source/lampOS/crates/voice/src/hand_controls/tests.rs",
+      "path": "merge-source/lampOS/crates/voice/src/hand_controls/tests.rs",
+      "sha256": "7563f250a327d71d05aa76eadd3359da2622d72bd9d0267c24b7d29df58d747c",
+      "bytes": 29855,
+      "copy": "byte-exact"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-native-audit/merge-source/lampOS/crates/voice/src/main.rs",
+      "path": "merge-source/lampOS/crates/voice/src/main.rs",
+      "sha256": "e0953a07cf9f8a3bd5550e2f3522137ad4919139d6d15b8dc3f893804759b5db",
+      "bytes": 45443,
+      "copy": "byte-exact"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-native-audit/merge-source/lampOS/crates/voice/src/onboarding.rs",
+      "path": "merge-source/lampOS/crates/voice/src/onboarding.rs",
+      "sha256": "2cf38ca2bb8e3ca294f8e90d4e015d2b0a9d26ac56364e14bd9ebc9a6aca52a1",
+      "bytes": 53530,
+      "copy": "byte-exact"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-native-audit/merge-source/lampOS/crates/voice/src/reminders/scheduling.rs",
+      "path": "merge-source/lampOS/crates/voice/src/reminders/scheduling.rs",
+      "sha256": "1e168a42221dddd2352a99ef636311156c98bcf1f693e4a31b081aae7f34caac",
+      "bytes": 2601,
+      "copy": "byte-exact"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-native-audit/merge-source/lampOS/crates/voice/src/second_provider/net/stt.rs",
+      "path": "merge-source/lampOS/crates/voice/src/second_provider/net/stt.rs",
+      "sha256": "d3c1f71ccf1e110a486277f1de7bd9bfd803ffce861ffef47631da7df0662260",
+      "bytes": 35027,
+      "copy": "byte-exact"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-native-audit/merge-source/lampOS/crates/voice/src/sight.rs",
+      "path": "merge-source/lampOS/crates/voice/src/sight.rs",
+      "sha256": "fd677fa109582893f6f5149f5ee738099898e60d0ac2c9e1fb232edb0aa726a5",
+      "bytes": 26469,
+      "copy": "byte-exact"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-native-audit/merge-source/lampOS/crates/voice-eval/src/physical/serve_invocation_tests.rs",
+      "path": "merge-source/lampOS/crates/voice-eval/src/physical/serve_invocation_tests.rs",
+      "sha256": "89f89a010c4a240aa699fd37fb49e0a2c4f2ed8f65ce77332c5c9b575e3d12dc",
+      "bytes": 4289,
+      "copy": "byte-exact"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-native-audit/merge-source-capture.json",
+      "path": "merge-source-capture.json",
+      "sha256": "03c2303fde5c7d47ed914efb941c637f1725dbf49254e55ad1e3c2f141ebb316",
+      "bytes": 7976,
+      "copy": "byte-exact"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-native-audit/native/job.json",
+      "path": "native/job.json",
+      "sha256": "1c8d405b325d7127d5a0f96e01c054118ab0642dda086b40aac2d145a4c7c1ea",
+      "bytes": 3346,
+      "copy": "byte-exact"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-native-audit/native/job.log",
+      "path": "native/job.log",
+      "sha256": "2537c422928ed18b982950dad1516abcafd43068af41a48fd533798b7f8a654f",
+      "bytes": 1283068,
+      "copy": "byte-exact"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-native-audit/native/jobs.json",
+      "path": "native/jobs.json",
+      "sha256": "11cf134321b2f1931a03e98a22bc93267757433726e693d1dbefd1c463c0e70b",
+      "bytes": 4267,
+      "copy": "byte-exact"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-native-audit/native/merge-commit.json",
+      "path": "native/merge-commit.json",
+      "sha256": "49bc6eb7fc4807b3aeaffae4d47284d61e0ec948e398dc4dbc3a371bf70baccc",
+      "bytes": 2603,
+      "copy": "byte-exact"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-native-audit/native/merge-commit.json.stderr.txt",
+      "path": "native/merge-commit.json.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "copy": "byte-exact"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-native-audit/native/merge-tree.json",
+      "path": "native/merge-tree.json",
+      "sha256": "858d1150be4452cf61416c2bb72f48781ce16d49329cc5bf7afd691c1a0b8762",
+      "bytes": 2449534,
+      "copy": "byte-exact"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-native-audit/native/merge-tree.json.stderr.txt",
+      "path": "native/merge-tree.json.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "copy": "byte-exact"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-native-audit/native/run.json",
+      "path": "native/run.json",
+      "sha256": "cd3fd679275e8cab153becb88111b9c5e14f2773f4a9d99112b32dac6ef8ac55",
+      "bytes": 12702,
+      "copy": "byte-exact"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-native-audit/native/upstream-commit.json",
+      "path": "native/upstream-commit.json",
+      "sha256": "a855ed0f532c0ba976aa18472545b1a5d22ec407661341e651076b7bcb9c2d0a",
+      "bytes": 1152,
+      "copy": "byte-exact"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-native-audit/native/upstream-commit.json.stderr.txt",
+      "path": "native/upstream-commit.json.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "copy": "byte-exact"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-native-audit/native/upstream-tree.json",
+      "path": "native/upstream-tree.json",
+      "sha256": "06464bd0f4887b9ebed9d688871224000a80a3416c7923491c496c4df4817f75",
+      "bytes": 2363881,
+      "copy": "byte-exact"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-native-audit/native/upstream-tree.json.stderr.txt",
+      "path": "native/upstream-tree.json.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "copy": "byte-exact"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-native-audit/native-capture.json",
+      "path": "native-capture.json",
+      "sha256": "f4837c8180b0dc14720d27bf536a22cfe0b9cea81a5e282255914c82b8f0191c",
+      "bytes": 1914,
+      "copy": "byte-exact"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-native-audit/preparation-SHA256SUMS",
+      "path": "preparation-SHA256SUMS",
+      "sha256": "5e6f6efcc33b7bd81da9b6cf63ffe49c3380abf7972cdb632e217898014d4849",
+      "bytes": 1047,
+      "copy": "byte-exact"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-native-audit/preparation-note.json",
+      "path": "preparation-note.json",
+      "sha256": "72ab9523b61f530dc7cd44bd4d620b440ad900068d506133c5327b32b0d5ceca",
+      "bytes": 668,
+      "copy": "byte-exact"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-native-audit/preparation-report.md",
+      "path": "preparation-report.md",
+      "sha256": "b753735a64787b44106132641458497223c35b4e219917ad054a39a628ee8945",
+      "bytes": 2608,
+      "copy": "byte-exact"
+    },
+    {
+      "source": "/private/tmp/tests-823-gemini-task-joins-native-audit/publication-files.json",
+      "path": "publication-files.json",
+      "sha256": "816c529585f18e894af8111d13290e313e4b375c194e199b7c93b18fa1d2d7c0",
+      "bytes": 95973,
+      "copy": "byte-exact"
+    }
+  ],
+  "excluded_artifacts": [
+    {
+      "external_path": "/private/tmp/tests-823-gemini-task-joins-native-audit/head-tree.raw",
+      "sha256": "41ebf77c5863219f083d780137fd4e2fc7338d9687133ad99ba937515c42017a",
+      "bytes": 876504,
+      "reason": "NUL-delimited raw Git tree capture; binary-form metadata. Complete derived plain-text tree and hashed blob proof are retained."
+    },
+    {
+      "external_path": "/private/tmp/tests-823-gemini-native-result-audit.py",
+      "sha256": "5b008a6181599332ef0854f5a6d721a579aea2bd578be2aa1d622364bedd5d50",
+      "bytes": 15546,
+      "reason": "External read-only audit runner; no executable/script is published. Parsing and exact assertions are described in the derived JSON and README."
+    },
+    {
+      "external_path": "/private/tmp/tests-823-gemini-native-package.py",
+      "sha256": "8202da18a6f33c6194af8a0902a48170daa422b7ec9e650285eb009f6eddf0fb",
+      "bytes": 11378,
+      "reason": "External packaging runner; not included in repository payload."
+    }
+  ],
+  "access": "Read-only Git blob inspection and GitHub API/log reads after parent terminal notification. No Cargo, reruns, repository edits, Git mutation, GitHub mutation or device action. The external audit scripts are not publication files.",
+  "timestamps": "Audit timestamps come from date. Raw GitHub run/job/log timestamps are retained as source metadata, not asserted as local date measurements.",
+  "checksum_contract": "file-manifest.json enumerates payload files except itself and SHA256SUMS. SHA256SUMS covers every other payload file including file-manifest.json. External destination manifest includes every payload file, including both manifests."
+}

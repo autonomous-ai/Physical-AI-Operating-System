@@ -1,0 +1,6 @@
+{
+  "date_from_date": "2026-10-16 10:23:58 +0700",
+  "initial_external_script_sha256": "80cda1a51e829f9b06c4a68d2929d3e11dfd81e6effb55b172ab98a32fc2423a",
+  "failure": "ValueError: not enough values to unpack (expected 2, got 1) at line14 splitting a timestamp-only blank GitHub log row.",
+  "correction": "Use partition to preserve timestamp-only rows with empty text. Raw log unchanged; this is postprocessing, not a Cargo run or test failure."
+}

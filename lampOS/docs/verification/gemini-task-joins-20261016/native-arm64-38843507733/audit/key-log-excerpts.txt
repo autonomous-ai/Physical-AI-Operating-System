@@ -1,0 +1,33 @@
+job.log:239: 2026-10-16T03:03:06.5308304Z a9719f18473ec0b0fc170c9cee3b6a5390fdbbfb
+job.log:380: 2026-10-16T03:03:49.2462624Z ##[group]Run cargo build --locked --release --workspace --bins --examples
+job.log:445: 2026-10-16T03:05:39.6595311Z     Finished `release` profile [optimized] target(s) in 1m 50s
+job.log:446: 2026-10-16T03:05:39.7010204Z ##[group]Run echo "cores: $(nproc)" && cargo nextest run --locked --release --workspace --profile pr --no-tests=pass -j num-cpus --partition hash:1/1 -E 'not (binary_id(lamp-ipc::relay_signals) | binary_id(lamp-turn-end-wire::process))'
+job.log:510: 2026-10-16T03:09:53.4773640Z     Finished `release` profile [optimized] target(s) in 4m 13s
+job.log:513: 2026-10-16T03:09:53.9416303Z     Starting 5290 tests across 278 binaries (130 tests and 8 binaries skipped, including 93 tests and 6 binaries via profile.pr.default-filter)
+job.log:2138: 2026-10-16T03:10:07.8998038Z         PASS [   0.003s] (1625/5290) lamp-gemini testing::task_joins::tests::abandoned_dialing_panic_retains_the_actual_join_error_for_the_fixture
+job.log:2139: 2026-10-16T03:10:07.9025035Z         PASS [   0.003s] (1626/5290) lamp-gemini testing::task_joins::tests::actual_actor_panic_is_joined_with_its_own_payload_after_connection_drop
+job.log:2140: 2026-10-16T03:10:07.9050472Z         PASS [   0.002s] (1627/5290) lamp-gemini testing::task_joins::tests::cancelled_finish_retains_actual_handles_until_the_same_collector_joins
+job.log:2141: 2026-10-16T03:10:07.9076527Z         PASS [   0.003s] (1628/5290) lamp-gemini testing::task_joins::tests::capacity_fault_keeps_real_ready_and_never_claims_complete_coverage
+job.log:2142: 2026-10-16T03:10:07.9102163Z         PASS [   0.003s] (1629/5290) lamp-gemini testing::task_joins::tests::dialing_panic_stays_a_join_error_at_the_original_recovery_consumer
+job.log:2143: 2026-10-16T03:10:07.9128817Z         PASS [   0.003s] (1630/5290) lamp-gemini testing::task_joins::tests::dropped_collector_does_not_change_the_real_setup_or_owner_shutdown
+job.log:2144: 2026-10-16T03:10:07.9155069Z         PASS [   0.003s] (1631/5290) lamp-gemini testing::task_joins::tests::independent_collectors_keep_task_identity_and_actual_cancellation_separate
+job.log:2146: 2026-10-16T03:10:07.9182587Z         PASS [   0.003s] (1633/5290) lamp-gemini testing::task_joins::tests::lifetime_limit_is_validated_without_spawning_and_slots_are_never_reused
+job.log:2147: 2026-10-16T03:10:07.9185859Z         PASS [   0.003s] (1634/5290) lamp-gemini testing::task_joins::tests::original_consumer_receives_actual_cancellation_with_the_same_task_identity
+job.log:2148: 2026-10-16T03:10:07.9210862Z         PASS [   0.003s] (1635/5290) lamp-gemini testing::task_joins::tests::original_handle_consumer_keeps_the_identical_panic_payload
+job.log:2149: 2026-10-16T03:10:07.9213531Z         PASS [   0.003s] (1636/5290) lamp-gemini testing::task_joins::tests::owner_release_cannot_hide_an_actor_admitted_before_its_dialing_task_joins
+job.log:2150: 2026-10-16T03:10:07.9238197Z         PASS [   0.003s] (1637/5290) lamp-gemini testing::task_joins::tests::pending_setup_drop_joins_the_actual_cancelled_dialing_task
+job.log:2151: 2026-10-16T03:10:07.9241671Z         PASS [   0.003s] (1638/5290) lamp-gemini testing::task_joins::tests::poisoned_observation_preserves_the_real_consumer_result_and_reports_incomplete
+job.log:2152: 2026-10-16T03:10:07.9266812Z         PASS [   0.003s] (1639/5290) lamp-gemini testing::task_joins::tests::protocol_failure_keeps_its_result_despite_a_successful_task_join
+job.log:2153: 2026-10-16T03:10:07.9271981Z         PASS [   0.003s] (1640/5290) lamp-gemini testing::task_joins::tests::ready_drop_keeps_consumed_dial_result_and_actually_joins_actor_abort
+job.log:2154: 2026-10-16T03:10:07.9297280Z         PASS [   0.003s] (1641/5290) lamp-gemini testing::task_joins::tests::reconnect_joins_both_sessions_and_preserves_the_earlier_buffered_answer
+job.log:2155: 2026-10-16T03:10:07.9302968Z         PASS [   0.003s] (1642/5290) lamp-gemini testing::task_joins::tests::remote_terminal_state_keeps_ordered_buffered_pcm_until_actual_actor_join
+job.log:2156: 2026-10-16T03:10:07.9324502Z         PASS [   0.003s] (1643/5290) lamp-gemini testing::task_joins::tests::unharvested_success_drops_connection_before_fixture_polls_retained_join
+job.log:4169: 2026-10-16T03:10:47.1362963Z         PASS [   0.303s] (3656/5290) lamp-voice coordinator::motor::tests::native_head::native_head_six_explicit_actions_prepare_profile_then_new_requests
+job.log:5805: 2026-10-16T03:11:12.9507401Z      Summary [  79.009s] 5290 tests run: 5290 passed, 130 skipped
+job.log:5806: 2026-10-16T03:11:12.9578336Z ##[group]Run cargo test --locked --release --workspace --doc -- --test-threads=1
+job.log:5812: 2026-10-16T03:11:13.1167169Z     Finished `release` profile [optimized] target(s) in 0.14s
+job.log:6055: 2026-10-16T03:11:17.6336027Z     Finished `release` profile [optimized] target(s) in 0.63s
+job.log:6057: 2026-10-16T03:11:17.6388310Z relay_signals: ok
+job.log:6059: 2026-10-16T03:11:18.5861729Z     Finished `release` profile [optimized] target(s) in 0.92s
+job.log:6075: 2026-10-16T03:11:23.0173107Z test result: 12 passed; 0 failed
+job.log:6154: 2026-10-16T03:11:28.0717177Z Artifact lampos-arm64-8de22aef8d5526f83b48b279e71706d71e7cdf5b.zip successfully finalized. Artifact ID 12022652637

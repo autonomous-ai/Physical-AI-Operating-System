@@ -1,0 +1,35 @@
+{
+  "date_from_date": "2026-10-16 10:24:28 +0700",
+  "run": 38843507733,
+  "job": 116788702286,
+  "head": "8de22aef8d5526f83b48b279e71706d71e7cdf5b",
+  "synthetic_merge": "a9719f18473ec0b0fc170c9cee3b6a5390fdbbfb",
+  "result": {
+    "passed": 5290,
+    "failed": 0,
+    "skipped_aggregate": 130,
+    "unique_binary_test_pairs": 5290,
+    "executed_binaries": 251,
+    "nextest_starting_binary_count": 278,
+    "binary_count_limit": "278 is nextest Starting-header selection accounting; 251 distinct binary IDs have actual result rows. Do not equate a header binary count with observed executions.",
+    "new_18_pass_once": true,
+    "Gemini_expected_normal_pass_once": 287,
+    "all_local_expected_normal_retained": 2569,
+    "known_failed_Motor_pass_once_seconds": 0.303,
+    "retries": 0,
+    "duplicate_results": 0
+  },
+  "docs": {
+    "targets": 39,
+    "passed_cases": 4
+  },
+  "own_harness": {
+    "relay_signals": "ok",
+    "process_passed": 12
+  },
+  "head_to_merge_changed_paths": 203,
+  "all_publication_paths_exact": 192,
+  "all_Gemini_paths_exact": 36,
+  "original_local_gate_unchanged": "2710 passed / 1 failed / 15 skipped; no retry, no causal claim",
+  "known_failure_exception": "The own-head normal ARM64 condition is now met for the already accepted #739 identity; the distinct local timeout symptom remains disclosed. Root/reviewer makes readiness/publication decision."
+}

@@ -755,6 +755,26 @@ and 800 counts a second:
 | `stretching` | 6.5 s | shoulder up 296, elbow 339 |
 | `idle` | 10.0 s | shoulder and elbow sway about 40 either way, the head lifts 47 |
 
+Added on 2026-10-16 (the V1 moves judged on lamp-4ace, `docs/skills.md`, "V1's moves and emotions: what we take"):
+each is the most active stretch of its recording of the length given, begun at its stillest frame nearby, scaled
+into the reach the test below allows (at most 80% of the recording), ended at nothing over its last half second and
+slowed under the same speeds. They are what skills and expressions ask for by name. Filmed from the iMac on
+lamp-4ace at 10:4x: `acknowledge`, `curious`, `happy`, `excited` and `caring` read from the front; `surprised`,
+`confused` and `sleepy` are small there.
+
+| Clip | From | Lasts | Mostly |
+| --- | --- | --- | --- |
+| `acknowledge` | `acknowledge` | 2.0 s | a quick bow: shoulder 222, elbow 325 |
+| `curious` | `curious` | 3.0 s | a tilt toward you: head roll 191, elbow 221 |
+| `happy` | `happy_wiggle` | 4.0 s | a sway of the base, 142 |
+| `caring` | `sad` | 5.0 s | a slow droop: elbow 333, head 157 |
+| `surprised` | `shock` | 2.0 s | a recoil: head back 190, shoulder 332 |
+| `confused` | `confused` | 4.0 s | a head tilt, roll 189 |
+| `sleepy` | `sleepy` | 9.2 s | a slow droop with a catch |
+| `excited` | `excited` | 4.4 s | a bounce up: shoulder 216, elbow 333 |
+| `scanning` | `scanning` | 9.1 s | a look round, roll 191, yaw 123: only when a person asks |
+| `dance_chill`, `dance_groove`, `dance_hype`, `dance_waltz`, `dance_jazz` | the music recordings | 7 to 9 s | dances, for the Dance skill |
+
 The voice service asks for one on the mood socket, `{"gesture":"nod"}`; a
 name that is not a clip is ignored. It asks at most once an answer, from the
 first words of what the lamp itself says (`crates/voice/src/body_link.rs`,

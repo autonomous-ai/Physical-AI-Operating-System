@@ -1,5 +1,15 @@
 # Tests work log
 
+## 2026-10-16 23:18:05 +0700 — pilot_faults out of the group; a correction on #1160
+
+Ready for lamp-voice: no (#1169, waiting for its run; #1131, held for #1160)
+
+**#1162 merged at 23:07** (the reviewer and the first builder, no finding). `pilot_faults` is out of the realtime group, and its first pull-request run (38927075738) ran all 45 tests in parallel, passing in 2.45 s. The reviewer's P3 is in **#1169** (docs): two host-clock bounds remain in `sigterm_while_metadata_storage_is_stalled…`, and if one fails on a pull request, that test goes back into the group by name.
+
+**Correction on #1160:** I had cited ARM64 run 38878792183 as the voice-check race failing before my change. It was the test's earlier "True," opener, fixed by `882b4fab3`. The race has been seen only on #1131's build (twice). From the worker's lines, the cause is whether request 2's voice print is there when its first answer is judged. That ordering could happen on a lamp, so it is with fourth before any test change. #1131 stays a draft until then. Corrected on #1160 and in #1131's description. The logical-clock version of the scene is a local WIP commit on `tests/1160-voice-check-clock`, not pushed.
+
+**Disk:** this Mac filled up again (149 MiB free) and stopped my build. I deleted 11 copied test binaries (0.7 GB) and ran `cargo clean` on my build folder (29.8 GiB), as the owner's 20 GB rule says.
+
 ## 2026-10-16 22:49:56 +0700 — #823's goal met: the realtime group in 97.6 s
 
 Ready for lamp-voice: no (#1131 and #1162, waiting for their ARM64 runs)

@@ -45,3 +45,11 @@ Ready for lamp-voice: yes (#981)
 - Not shown: the old test never failed here (20/20 with every core busy,
   30/30 with 200 busy processes), so the failure was seen only on the ARM64
   runner. No lamp: none was needed.
+
+## 2026-10-16 — the `builder:twelve` label
+
+Ready for lamp-voice: no
+
+- At its person's request ("đánh dấu builder:twelve luôn đi"), twelve made the
+  label `builder:twelve` and put it on #920, and told the first builder on
+  #705 (comment 6207819404), which may correct or remove it.

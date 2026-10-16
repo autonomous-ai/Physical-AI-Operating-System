@@ -61,7 +61,13 @@ that cannot be read (no source, a fault, stale or broken evidence, its worker
 ended) is closed instead: the cycle ends as a fresh mute does, with the same
 verified cleanup, and the wait reads the switch again each second with a fresh
 worker, so the voice stays up with its microphones shut and never crash-loops
-(#795; lamp-4ace, 2026-10-16). A failed cleanup still ends it. A previous runtime
+(#795; lamp-4ace, 2026-10-16). The worker's own `privacy switch unreadable:`
+fault, queued before it ended, and a message of its aged out after a clean
+exit are part of that ending, not a failed cleanup; its exit status is still
+checked. A failed cleanup still ends it. One window is left: in the muted
+wait, if the wait notices the worker's end more than about 10 ms after the
+muted-ring writer loses its lease, that writer blanks and exits with a fault,
+and the wait ends as a failed cleanup. A previous runtime
 error cannot hide a shutdown failure. The combined error retains both causes
 and does not expose a restartable physical- or software-mute token.
 

@@ -675,10 +675,6 @@ fn unasked_session(cloud: &CloudAvailability, paused: bool) -> Option<u64> {
     cloud.ready_session().filter(|_| !paused)
 }
 
-/// Whether a worker's failure ends the voice. Only the second route's is
-/// optional, in whichever slot it is (`rig.provider` while it is the active
-/// route): one that exited is dropped by `second::dropped_if_gone` (#960).
-/// Gemini's worker stays mandatory when it waits in `Route::worker`.
 /// Whether the asleep face (#712) may show while the service waits: with its
 /// switch on, and never with the Controls privacy route, whose wait paints
 /// the physical-mute indication; the ring has one writer (#795).
@@ -686,6 +682,10 @@ fn asleep_face_allowed(switch_on: bool, privacy_controls: bool) -> bool {
     switch_on && !privacy_controls
 }
 
+/// Whether a worker's failure ends the voice. Only the second route's is
+/// optional, in whichever slot it is (`rig.provider` while it is the active
+/// route): one that exited is dropped by `second::dropped_if_gone` (#960).
+/// Gemini's worker stays mandatory when it waits in `Route::worker`.
 fn mandatory(worker: &Worker) -> bool {
     worker.role != "second"
 }
@@ -836,6 +836,11 @@ impl Rig {
         ];
         let mut receipts: [Option<DiagnosticFinished>; 2] = [None, None];
         let mut ring_blank_confirmed = self.ring.blank_confirmed();
+        // On the Controls route the privacy worker ends itself, cleanly, on a
+        // switch it cannot read, saying so first: that is why the cycle ended,
+        // not a failed shutdown, and its exit status is still checked below
+        // (the reviewer on #795, 15:50).
+        let privacy_controls = self.privacy_controls;
         let mut final_drain = false;
         loop {
             #[cfg(test)]
@@ -894,10 +899,16 @@ impl Rig {
                             );
                         }
                         Ok(Some(event)) => {
-                            if matches!(
-                                event,
-                                WorkerEvent::Fault { .. } | WorkerEvent::ReferenceFault { .. }
-                            ) {
+                            let unreadable = privacy_controls
+                                && worker.role == "privacy"
+                                && matches!(&event, WorkerEvent::Fault { code }
+                                    if code.starts_with(crate::privacy_bus::UNREADABLE));
+                            if !unreadable
+                                && matches!(
+                                    event,
+                                    WorkerEvent::Fault { .. } | WorkerEvent::ReferenceFault { .. }
+                                )
+                            {
                                 failure = Some(io::Error::other(format!(
                                     "{} failed during shutdown: {event:?}",
                                     worker.role
@@ -910,7 +921,14 @@ impl Rig {
                         }
                         Ok(None) => break,
                         Err(error) => {
-                            failure = Some(error);
+                            // What it queued before ending cleanly may have
+                            // aged out on the way; its exit is the check.
+                            let ended_cleanly = privacy_controls
+                                && worker.role == "privacy"
+                                && matches!(worker.try_exit(), Ok(Some(status)) if status.success());
+                            if !ended_cleanly {
+                                failure = Some(error);
+                            }
                             break;
                         }
                     }

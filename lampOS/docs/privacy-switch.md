@@ -114,8 +114,10 @@ bus passes over any number of messages it refuses, so a flood of them on
 - The writer takes the last lease found, if still fresh at that moment, or
   the reader's failure. Its own Stop, Authority and expiry checks come first,
   as before.
-- A refused message still ends the reader at once, and the writer blanks and
-  exits on that failure.
+- A refused message ends the reader once its receive returns: the receive
+  itself passes over any number of refused messages before it does, so this
+  is not at once, and that is why it runs on the watch's own thread. The
+  writer then blanks and exits on that failure.
 - Tests: `the_lease_watch_answers_at_once_through_refused_input_and_lets_a_lease_expire`
   (each answer under 5 ms during the flood, no lease past its freshness, the
   failure kept) and

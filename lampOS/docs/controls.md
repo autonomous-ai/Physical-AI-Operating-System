@@ -715,9 +715,11 @@ and type/version/declaration. The nested value carries an actual-acquisition
 `ClockStamp`, `reader_session_id`, `muted: true|false|null`, and `fault`.
 Exactly one of a known level or a fault is present. Before any accepted
 acquisition, the unknown sentinel has time and sequence zero; it cannot be
-fresh. Read/open failure is unknown `Missing`, never HIGH. A failed initial
-request remains unavailable until process restart, without automatic retries or
-another worker.
+fresh. Read/open failure is unknown `Missing`, never HIGH. A line that cannot
+be taken (another process holds it, or this user may not open it) is asked for
+again each second (`privacy::Reopening`, `REOPEN_EVERY`), each new reason said
+once in the log, and a line that stops answering is let go and asked for again
+(#795, lamp-4ace 2026-10-16); there is never another worker.
 
 The independent monitor rejects malformed, future, wrong-boot, old, duplicate,
 out-of-order and skipped acquisitions. Reader changes withdraw evidence for the

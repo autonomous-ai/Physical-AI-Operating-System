@@ -174,9 +174,10 @@ Not done, from the task: the mood's pace and warmth (from the inner state,
 #713, when it publishes). The muted look is the asleep face, below.
 With the Controls privacy route on (`LAMP_PRIVACY_CONTROLS=on`), the muted
 look is the physical-mute indication below instead, and the asleep face stays
-off whatever `LAMP_RING_ASLEEP` says: the red breath means the hardware
-switch, the warm one sleep or a software mute, and the ring has one writer at
-a time (the first builder on #795, 2026-10-16 13:50).
+off whatever `LAMP_RING_ASLEEP` says: the ring has one writer at a time (the
+first builder on #795, 2026-10-16 13:50). So with the route on, the red breath
+is the hardware switch and sleep or a software mute leaves the ring dark; the
+warm asleep face is the route-off look.
 
 ### Physical mute indication (#755)
 

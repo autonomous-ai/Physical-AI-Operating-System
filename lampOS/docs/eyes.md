@@ -558,8 +558,9 @@ With the switch:
   one by one ("J-I-M"), the run being the name's word itself. One letter
   said again and again ("It's Q. Q. Q.") spells only that letter. A word
   with an apostrophe is kept whole, so "It's cold" spells no "S". Accents
-  count for nothing ("Jose" is "José", Vietnamese's marks too), and
-  "double N" is two N. A name whose letters they counted otherwise, in
+  count for nothing ("Jose" is "José", Vietnamese's marks too, and the
+  comma below of "ș" and "ț"), whether written as one letter or as a
+  letter and its mark, and "double N" is two N, but "double U" is W. A name whose letters they counted otherwise, in
   the turn it came from or the turn in hand ("three letters", seven
   taken), is refused. The model is told to say the name back and ask them
   to spell it (`known_faces::said_by_them`). A "yes" alone never passes,

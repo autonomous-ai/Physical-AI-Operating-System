@@ -10,7 +10,7 @@ mod sentences;
 mod stt;
 mod tts;
 
-pub use chat::{Chat, ChatEvent, ChatStream, Message, ToolCall};
+pub use chat::{Chat, ChatEvent, ChatStream, Declare, Message, ToolCall};
 pub use sentences::Sentences;
 pub use stt::SttStream;
 pub use tts::{PACKET_SAMPLES, TTS_SAMPLE_RATE, Tts, TtsStream};

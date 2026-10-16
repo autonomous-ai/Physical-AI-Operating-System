@@ -5,6 +5,7 @@ use super::{Error, Result, chunk, http_client, openai_base, post};
 use crate::second_config::SecondConfig;
 use serde::Serialize;
 use serde_json::{Value, json};
+use std::sync::Arc;
 
 /// One message of the conversation, in the wire's own shape.
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -96,39 +97,51 @@ fn functions(tools: &[lamp_gemini::Tool]) -> Vec<Value> {
         .collect()
 }
 
+/// The lamp's tools as they stand now: asked at each chat request, as a
+/// Live session is told them when it opens (`thread::Recalling::equipped`),
+/// so the executive's come and go with the executive.
+pub type Declare = Arc<dyn Fn() -> Vec<lamp_gemini::Tool> + Send + Sync>;
+
 pub struct Chat {
     client: reqwest::Client,
     url: String,
     auth: String,
     model: String,
-    tools: Vec<Value>,
+    declare: Declare,
 }
 
 impl Chat {
-    pub fn new(config: &SecondConfig, tools: &[lamp_gemini::Tool]) -> Result<Self> {
+    pub fn new(config: &SecondConfig, declare: Declare) -> Result<Self> {
         Self::with(
             &config.llm_base_url,
             &config.llm_model,
             config.llm_key.expose(),
-            tools,
+            declare,
         )
     }
 
-    fn with(base_url: &str, model: &str, key: &str, tools: &[lamp_gemini::Tool]) -> Result<Self> {
+    fn with(base_url: &str, model: &str, key: &str, declare: Declare) -> Result<Self> {
         Ok(Self {
             client: http_client()?,
             url: format!("{}/chat/completions", openai_base(base_url)),
             auth: format!("Bearer {key}"),
             model: model.to_owned(),
-            tools: functions(tools),
+            declare,
         })
     }
 
-    pub async fn send(&self, messages: &[Message]) -> Result<ChatStream> {
+    /// The request's body, with the tools declared now.
+    fn body(&self, messages: &[Message]) -> Value {
         let mut body = json!({"model": self.model, "stream": true, "messages": messages});
-        if !self.tools.is_empty() {
-            body["tools"] = Value::Array(self.tools.clone());
+        let tools = functions(&(self.declare)());
+        if !tools.is_empty() {
+            body["tools"] = Value::Array(tools);
         }
+        body
+    }
+
+    pub async fn send(&self, messages: &[Message]) -> Result<ChatStream> {
+        let body = self.body(messages);
         let response = post(
             &self.client,
             &self.url,
@@ -353,6 +366,33 @@ data: [DONE]
         );
     }
 
+    /// A tool the executive offers after the worker started is declared
+    /// from the next request on, and one it takes away is not.
+    #[test]
+    fn the_tools_are_declared_as_they_stand_at_each_request() {
+        let offered: Arc<std::sync::Mutex<Vec<lamp_gemini::Tool>>> = Arc::default();
+        let now = offered.clone();
+        let chat = Chat::with(
+            "http://127.0.0.1:9/v1/",
+            "m",
+            "k",
+            Arc::new(move || now.lock().unwrap().clone()),
+        )
+        .unwrap();
+        let asked = [Message::user("Lights on.")];
+        assert!(chat.body(&asked).get("tools").is_none());
+        *offered.lock().unwrap() = serde_json::from_value(json!([
+            {"name": "light_on", "description": "Light on.", "parameters": {"type": "object", "properties": {}}}
+        ]))
+        .unwrap();
+        assert_eq!(
+            chat.body(&asked)["tools"][0]["function"]["name"],
+            "light_on"
+        );
+        offered.lock().unwrap().clear();
+        assert!(chat.body(&asked).get("tools").is_none());
+    }
+
     #[test]
     fn broken_arguments_are_an_error() {
         let mut deltas = Deltas::default();
@@ -433,7 +473,13 @@ data: [DONE]
                 .unwrap();
             String::from_utf8(request).unwrap()
         });
-        let chat = Chat::with(&format!("http://{address}/v1/"), "m", "secret", &[]).unwrap();
+        let chat = Chat::with(
+            &format!("http://{address}/v1/"),
+            "m",
+            "secret",
+            Arc::new(Vec::new),
+        )
+        .unwrap();
         let mut stream = chat.send(&[Message::user("hello")]).await.unwrap();
         let mut got = Vec::new();
         while let Some(event) = stream.next().await.unwrap() {

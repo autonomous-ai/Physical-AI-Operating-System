@@ -263,7 +263,9 @@ pub fn serve(
             tools.who.as_deref().map(crate::known_faces::known_file_of),
         );
     }
-    let net = Net::new(config, &crate::tools::declared(&tools)).map_err(io::Error::other)?;
+    let declared = tools.clone();
+    let net = Net::new(config, Arc::new(move || crate::tools::declared(&declared)))
+        .map_err(io::Error::other)?;
     let thread = files.thread;
     let file = thread.clone();
     let clock = tools.clock;

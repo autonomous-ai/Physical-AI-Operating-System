@@ -118,6 +118,78 @@ const CAPTURE_GAP_US: u64 = 1_500_000;
 /// room while its answer has not begun. Answers begin 1.0 to 1.5 s after the
 /// question ends.
 const HOLD_FLOOR_US: u64 = 1_800_000;
+/// `LAMP_WAIT_KEEPS_ANSWER=on` (#1123): while an answer is awaited and has
+/// not sounded yet, a new sound takes the turn only once it has gone on, not
+/// as soon as it begins. On lamp-52e6 on 2026-10-16 (the sixth's 16:5x)
+/// short sounds with no words, 0.6 to 1.4 s long, admitted 1.4 to 2.6 s
+/// after a question, ended 4 of 10 waiting answers as `user_interrupted`;
+/// the owner's session on lamp-4ace had dozens. Off unless set.
+pub const WAIT_KEEPS_ANSWER_ENVIRONMENT: &str = "LAMP_WAIT_KEEPS_ANSWER";
+/// How long after its trigger a new sound waits, with the switch, before it
+/// may take the turn; and how long before its own decision deadline it is
+/// decided at the latest, so that a real follow-up is never let go for
+/// lateness (the duplex hold gives 1.2 s; the standard one 200 ms, which
+/// leaves nearly nothing to wait).
+const WAIT_KEEPS_FOR_US: u64 = 1_000_000;
+const WAIT_DECIDES_BEFORE_US: u64 = 100_000;
+/// A sound quiet this long when its wait is over has ended: it is let go.
+/// In the detector's blocks of 10 ms, as its pause is counted.
+const WAIT_QUIET_BLOCKS: u16 = 30;
+
+/// Whether the voice's environment says `LAMP_WAIT_KEEPS_ANSWER=on`.
+fn wait_keeps_answer_from_environment() -> bool {
+    std::env::var(WAIT_KEEPS_ANSWER_ENVIRONMENT).ok().as_deref() == Some("on")
+}
+
+/// What a new sound does while an answer is awaited and has not sounded
+/// yet ([`WAIT_KEEPS_ANSWER_ENVIRONMENT`], #1123).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum WhileAnswerWaits {
+    /// Decided as before: no answer waits unheard, the switch is off, or
+    /// the sound has gone on long enough.
+    Decide,
+    /// Not yet: it stays pending, its audio kept from its start.
+    Wait,
+    /// It ended, or went quiet, before it could take the turn: let go, and
+    /// the answer goes on.
+    LetGo(&'static str),
+}
+
+/// [`WhileAnswerWaits`] for `candidate` at `at_us`: `ended` if its sound is
+/// over, and the detector's pause in blocks.
+fn while_answer_waits(
+    on: bool,
+    reply: Option<&Reply>,
+    candidate: &crate::admission::Candidate,
+    ended: bool,
+    pause_blocks: u16,
+    at_us: u64,
+) -> WhileAnswerWaits {
+    let unheard = reply.is_some_and(|current| {
+        current.local_input_ended && !current.had_audio && current.playback.is_none()
+    });
+    if !on || !unheard {
+        return WhileAnswerWaits::Decide;
+    }
+    if ended {
+        return WhileAnswerWaits::LetGo("ended");
+    }
+    let decide_at = candidate
+        .trigger_read_at_us
+        .saturating_add(WAIT_KEEPS_FOR_US)
+        .min(
+            candidate
+                .decision_deadline_us
+                .saturating_sub(WAIT_DECIDES_BEFORE_US),
+        );
+    if at_us < decide_at {
+        WhileAnswerWaits::Wait
+    } else if pause_blocks >= WAIT_QUIET_BLOCKS {
+        WhileAnswerWaits::LetGo("quiet")
+    } else {
+        WhileAnswerWaits::Decide
+    }
+}
 /// How long an answer to something asked in a busy room is not stopped for a
 /// voice over it. The first time the lamp kept its turn there, on lamp-4ace,
 /// it began "It's a beautiful, bright blue" under a colleague's sentence and
@@ -2828,6 +2900,11 @@ fn conversation_with_gate(
     // Short utterances in a room that is not busy go to the model after all
     // (`LAMP_SHORT_SOUNDS=quiet-room`, off unless set).
     let short_sounds = crate::not_speech::short_sounds_from_environment();
+    // A new sound waits while an answer is awaited unheard
+    // (`LAMP_WAIT_KEEPS_ANSWER=on`, #1123), and the candidate it was last
+    // recorded for, so that the record says so once.
+    let wait_keeps_answer = wait_keeps_answer_from_environment();
+    let mut answer_kept_for: Option<crate::admission::CandidateId> = None;
     // The turn whose speech last ended and when, and the turn for which the
     // floor was last held, so that the record says so once.
     let mut speech_ended: Option<(u64, u64)> = None;
@@ -4297,6 +4374,44 @@ fn conversation_with_gate(
                             )?;
                         }
                         continue;
+                    }
+                    // #1123: while an answer is awaited and has not
+                    // sounded, a new sound takes the turn only once it has
+                    // gone on; one that ends or goes quiet first is let go,
+                    // and the answer goes on.
+                    match while_answer_waits(
+                        wait_keeps_answer,
+                        reply.as_ref(),
+                        &candidate,
+                        admission.pending_ended(),
+                        detector.pause_blocks(),
+                        at_us,
+                    ) {
+                        WhileAnswerWaits::Decide => {}
+                        WhileAnswerWaits::Wait => {
+                            if answer_kept_for != Some(candidate.id) {
+                                answer_kept_for = Some(candidate.id);
+                                record(
+                                    trace,
+                                    json!({"kind":"answer_waits","turn":reply.as_ref().map(|current| current.owner.turn()),
+                                        "candidate":candidate.id,"at_us":at_us}),
+                                )?;
+                            }
+                            continue;
+                        }
+                        WhileAnswerWaits::LetGo(why) => {
+                            if let Some(rejection) = admission.release_prospective(monotonic_us())?
+                            {
+                                record_input_rejection(trace, rejection)?;
+                            }
+                            detector.clear_prospective();
+                            record(
+                                trace,
+                                json!({"kind":"input_let_go_answer_waits","turn":reply.as_ref().map(|current| current.owner.turn()),
+                                    "candidate":candidate.id,"why":why,"at_us":at_us}),
+                            )?;
+                            continue;
+                        }
                     }
                     let Some(accepted) = decide_prospective_input(
                         &playback_mask,

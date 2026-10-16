@@ -13,8 +13,23 @@ struct Harness {
     lineage: CaptureLineage,
     base: u64,
     sequence: u64,
+    /// Why each sound let go while an answer waited was let go (#1123).
+    let_go: Vec<&'static str>,
+    /// The microphone's and the admission's leases renewed with each block.
+    renew: bool,
 }
 impl Harness {
+    /// With the product's turn-taking: duplex, and its hold.
+    /// Its leases renewed with each block, as the loop renews them, and its
+    /// clock 1.5 s back: the tests of a wait run past the 0.9 s the others
+    /// need, and a commit reads the real clock, which must come after the
+    /// last block (at most 1.4 s in) and within its 0.9 s lease.
+    fn duplex() -> Self {
+        let mut h = Self::with_lag(TurnTaking::Duplex, 1_500_000);
+        h.admission = InputAdmission::with_hold(crate::admission::Hold::DUPLEX);
+        h.renew = true;
+        h
+    }
     fn new(policy: TurnTaking) -> Self {
         Self::with_lag(policy, 500_000)
     }
@@ -75,6 +90,8 @@ impl Harness {
             lineage,
             base,
             sequence: 0,
+            let_go: Vec::new(),
+            renew: false,
         }
     }
     fn old(&self) -> TurnOwner {
@@ -128,8 +145,29 @@ impl Harness {
         received: u64,
         score: f32,
     ) -> Result<Option<Accepted>> {
+        self.step(offset, received, score, false)
+    }
+    /// [`Self::feed`], with #1123's wait applied as the loop applies it.
+    fn feed_waiting(&mut self, offset: u64, score: f32) -> Result<Option<Accepted>> {
+        self.step(offset, offset, score, true)
+    }
+    fn step(
+        &mut self,
+        offset: u64,
+        received: u64,
+        score: f32,
+        wait: bool,
+    ) -> Result<Option<Accepted>> {
         self.sequence += 1;
         let at_us = self.base + received;
+        if self.renew {
+            let time = MonoTime::from_micros(at_us);
+            let until = MonoTime::from_micros(at_us + 900_000);
+            self.owner
+                .set_capture(time, CaptureState::RetainingUntil(until))?;
+            self.owner
+                .set_admission(time, AdmissionState::OpenUntil(until))?;
+        }
         let read_us = self.base + offset;
         let context = AdmissionContext {
             capture: self.lineage,
@@ -165,6 +203,27 @@ impl Harness {
             }
             _ => None,
         };
+        if wait && let Some(c) = candidate.as_ref() {
+            match while_answer_waits(
+                true,
+                self.reply.as_ref(),
+                c,
+                self.admission.pending_ended(),
+                self.detector.pause_blocks(),
+                at_us,
+            ) {
+                WhileAnswerWaits::Decide => {}
+                WhileAnswerWaits::Wait => return Ok(None),
+                WhileAnswerWaits::LetGo(why) => {
+                    if let Some(r) = self.admission.release_prospective(at_us)? {
+                        record_input_rejection(&mut self.trace, r)?;
+                    }
+                    self.detector.clear_prospective();
+                    self.let_go.push(why);
+                    return Ok(None);
+                }
+            }
+        }
         match candidate {
             Some(c) => decide_prospective_input(
                 &self.mask,
@@ -282,6 +341,116 @@ fn v1_baseline_after_reply_starts_fresh_without_suppressed_prefix() {
             .count(),
         1
     );
+}
+
+/// Feeds `blocks` of 10 ms at `score` from `*t`, and keeps the first input
+/// admitted.
+fn sound(
+    h: &mut Harness,
+    t: &mut u64,
+    blocks: u32,
+    score: f32,
+    wait: bool,
+    accepted: &mut Option<Accepted>,
+) {
+    for _ in 0..blocks {
+        *t += 10_000;
+        let admitted = if wait {
+            h.feed_waiting(*t, score)
+        } else {
+            h.feed(*t, score)
+        }
+        .unwrap();
+        if accepted.is_none() {
+            *accepted = admitted;
+        }
+    }
+}
+
+/// #1123, `LAMP_WAIT_KEEPS_ANSWER=on`, on the product's duplex hold: while an
+/// answer is awaited and has not sounded, a short sound with no words (0.4 s,
+/// as the sixth saw 0.6 to 1.4 s on lamp-52e6) does not take the turn. It
+/// waits, goes quiet and is let go, and the answer goes on; a second one
+/// after it the same, with no error. Without the wait, the same sound takes
+/// the turn as soon as it begins.
+#[test]
+fn while_an_answer_waits_a_short_sound_is_let_go_and_the_answer_goes_on() {
+    let mut h = Harness::duplex();
+    let old = h.old();
+    let (mut t, mut accepted) = (0, None);
+    for _ in 0..2 {
+        sound(&mut h, &mut t, 40, 0.99, true, &mut accepted);
+        sound(&mut h, &mut t, 150, 0.0, true, &mut accepted);
+    }
+    assert!(accepted.is_none(), "a short sound took the turn");
+    assert_eq!(h.old(), old);
+    assert_eq!(h.let_go.len(), 2, "{:?}", h.let_go);
+    assert!(h.let_go.iter().all(|why| ["quiet", "ended"].contains(why)));
+    let mut h = Harness::duplex();
+    let (mut t, mut accepted) = (0, None);
+    sound(&mut h, &mut t, 40, 0.99, false, &mut accepted);
+    assert!(accepted.is_some(), "without the wait it takes the turn");
+}
+
+/// #1123: a sound that goes on takes the turn once it has gone on for 1 s
+/// after its trigger, with its audio from its start, and the waiting answer
+/// is replaced as before. A follow-up with a short pause in it (0.5 s, 0.2 s
+/// of quiet, 0.8 s) is taken too, never let go.
+#[test]
+fn while_an_answer_waits_a_sound_that_goes_on_takes_the_turn_from_its_start() {
+    let mut h = Harness::duplex();
+    let old = h.old();
+    let (mut t, mut accepted) = (0, None);
+    sound(&mut h, &mut t, 140, 0.99, true, &mut accepted);
+    let accepted = accepted.expect("a sound that goes on takes the turn");
+    let first = accepted.audio.first().unwrap().captured_at_us;
+    assert!(
+        first <= h.base + 10_000,
+        "its start is kept: {}",
+        first - h.base
+    );
+    // Taken only after its wait: 1 s after its trigger, 60 ms in.
+    let last = accepted.audio.last().unwrap().captured_at_us;
+    assert!(
+        last >= h.base + 1_060_000,
+        "taken at {} ms",
+        (last - h.base) / 1_000
+    );
+    assert!(h.let_go.is_empty());
+    let queue = h.commit(accepted);
+    assert_ne!(h.old(), old);
+    assert!(matches!(queue.front(), Some(ProviderInput::Start { .. })));
+    let mut h = Harness::duplex();
+    let (mut t, mut accepted) = (0, None);
+    sound(&mut h, &mut t, 50, 0.99, true, &mut accepted);
+    sound(&mut h, &mut t, 20, 0.0, true, &mut accepted);
+    sound(&mut h, &mut t, 80, 0.99, true, &mut accepted);
+    assert!(
+        accepted.is_some(),
+        "a follow-up with a pause was let go: {:?}",
+        h.let_go
+    );
+    assert!(h.let_go.is_empty());
+}
+
+/// #1123: nothing waits when no answer is awaited unheard (the answer has
+/// begun to sound), and on the standard hold (200 ms) the wait ends 100 ms
+/// before its deadline, so a short sound is taken as before, never lost.
+#[test]
+fn the_wait_is_only_while_an_answer_is_unheard_and_never_outlasts_the_hold() {
+    let mut h = Harness::duplex();
+    h.reply.as_mut().unwrap().had_audio = true;
+    let (mut t, mut accepted) = (0, None);
+    sound(&mut h, &mut t, 10, 0.99, true, &mut accepted);
+    assert!(
+        accepted.is_some(),
+        "an answer already sounding is cut as before"
+    );
+    let mut h = Harness::new(TurnTaking::V1Baseline);
+    let (mut t, mut accepted) = (0, None);
+    sound(&mut h, &mut t, 40, 0.99, true, &mut accepted);
+    assert!(accepted.is_some(), "the standard hold's sound was lost");
+    assert!(h.let_go.is_empty());
 }
 
 #[test]

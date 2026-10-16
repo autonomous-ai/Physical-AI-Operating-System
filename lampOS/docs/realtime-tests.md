@@ -145,7 +145,10 @@ Review points:
 ## The measured list
 
 Seconds per test on the ARM64 runner, 2026-10-15 (the longer of the two
-runs' times when both ran it). Binary, then test.
+runs' times when both ran it). Binary, then test. The rows stay as measured
+then. A test that has since left the group, such as the 19 of
+`coordinator::tests::early_end` on 2026-10-16, is named in its own section
+below, with the day it left.
 
 | s | Binary | Test |
 |---|---|---|

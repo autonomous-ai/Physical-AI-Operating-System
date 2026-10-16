@@ -710,6 +710,40 @@ fn run_process_policy_with_privacy_tolerance(
     )
 }
 
+/// A real endpoint worker whose state no longer changes within the
+/// scenario: it has failed, or it stays loading far longer than the scenario
+/// lasts. The host waits for that state before the logical clock starts, so
+/// the real process cannot race the stepped scenario (#823). Its startup,
+/// exit and teardown stay on the host clock.
+fn run_settled_process(
+    turn_taking: TurnTaking,
+    seconds: u64,
+    script: Script,
+    endpoint: EndpointRig,
+    settled: fn(&Availability) -> bool,
+) -> Session {
+    let monitor = endpoint.monitor.as_ref().expect("real endpoint").clone();
+    let by = Instant::now() + Duration::from_secs(5);
+    while !settled(&monitor.availability()) {
+        assert!(
+            Instant::now() < by,
+            "endpoint worker never settled: {:?}",
+            monitor.report()
+        );
+        thread::sleep(Duration::from_millis(1));
+    }
+    run_policy_with_peers(
+        turn_taking,
+        seconds,
+        script,
+        endpoint,
+        None,
+        None,
+        PeerMode::Stepped,
+        Lamp::default(),
+    )
+}
+
 #[derive(Clone, Copy)]
 enum PeerMode {
     RealProcessWithPrivacyTolerance,
@@ -778,8 +812,10 @@ mod fixture_policy_tests {
     }
 }
 
-/// Only an in-process classifier can use the logical scenario clock. Real
-/// ProcessClassifier readiness, deadlines and teardown stay on the host clock.
+/// An in-process classifier on the logical scenario clock. A real
+/// ProcessClassifier's readiness, deadlines and teardown stay on the host
+/// clock; only a settled one runs in a stepped scenario
+/// ([`run_settled_process`]).
 fn run_scenario(seconds: u64, script: Script, classifier: Box<dyn Classifier>) -> Session {
     run_scenario_with(seconds, script, classifier, None)
 }
@@ -1096,10 +1132,12 @@ fn missing_model_session_ends_on_the_unchanged_silence_fallback() {
         request: 0,
         reason: "model /lamp/smart-turn-v3.2-gpu.onnx: No such file or directory".into(),
     };
-    let session = run_process_with_privacy_tolerance(
+    let session = run_settled_process(
+        TurnTaking::V1Baseline,
         4,
         one_question,
         scripted_process(&[missing], "exit 2", Limits::default()),
+        |state| matches!(state, Availability::Failed(_)),
     );
     session.result.as_ref().unwrap();
     let policy = &session.events("endpoint_policy")[0];
@@ -1530,7 +1568,13 @@ fn a_worker_still_loading_leaves_the_baseline_window() {
     // No Ready while the single owned worker sleeps for 6 s.
     let endpoint = scripted_process(&[], "exec sleep 6", Limits::default());
     let mut cleanup = EndpointCleanup::new(endpoint);
-    let session = run_process_with_privacy_tolerance(4, one_question, cleanup.take());
+    let session = run_settled_process(
+        TurnTaking::V1Baseline,
+        4,
+        one_question,
+        cleanup.take(),
+        |state| *state == Availability::Loading,
+    );
     session.result.as_ref().unwrap();
     assert_eq!(
         bases(&session),
@@ -1776,11 +1820,12 @@ fn duplex_missing_model_session_ends_on_the_unchanged_silence_fallback() {
         request: 0,
         reason: "model /lamp/smart-turn-v3.2-gpu.onnx: No such file or directory".into(),
     };
-    let session = run_process_policy_with_privacy_tolerance(
+    let session = run_settled_process(
         TurnTaking::Duplex,
         4,
         one_question,
         scripted_process(&[missing], "exit 2", Limits::default()),
+        |state| matches!(state, Availability::Failed(_)),
     );
     session.result.as_ref().unwrap();
     let endpoints = endpoint_rows(&session);

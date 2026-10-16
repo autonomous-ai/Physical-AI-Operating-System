@@ -712,3 +712,33 @@ were byte for byte those of an unloaded run.
 
 So `coordinator::tests::early_end` left the group, in all three filtersets,
 on 2026-10-16.
+
+## endpoint_session's settled real workers (#823)
+
+Three `coordinator::tests::endpoint_session` tests drive a real end-of-turn
+worker that makes no progress during their four-second conversation:
+`missing_model_session_ends_on_the_unchanged_silence_fallback` and
+`duplex_missing_model_session_ends_on_the_unchanged_silence_fallback` (the
+worker reports a missing model and exits) and
+`a_worker_still_loading_leaves_the_baseline_window` (it sleeps for 6 s
+without `Ready`). They ran the conversation in real time. Now
+`run_settled_process` waits, on the host, until the worker's monitor shows
+that state (`Failed`, or `Loading`), and then runs the conversation on the
+stepped fixture. For the missing-model pair `Failed` is final, so the real
+process cannot race the logical clock. `Loading` is the monitor's first
+state, so for the still-loading test the wait returns at once. What keeps
+that worker unchanged is its 6 s sleep against a scenario that takes under
+a second on the host. The test holds only while the scenario takes under
+6 s; the scope's watchdog is 12 s. The worker's
+startup, exit and teardown stay on the host clock, and so do the assertions
+on them. The missing-model tests already allowed a worker that fails "before
+the loop first looks"; the wait makes that the only order. On the Intel Mac
+the three took 4.42 to 4.51 s each before and 0.62 to 0.77 s after, one run
+2.10 s. Six copies at once passed 24 of 24 runs.
+
+`hung_worker_never_delays_capture_endpoint_or_session_end` stays on real
+time: its assertions need the worker supervisor's 700 ms hang detection
+(`turn-end-wire`, on the host clock) to happen during the conversation. The
+module stays in the group as a whole, for it and the module's other
+real-process tests.
+

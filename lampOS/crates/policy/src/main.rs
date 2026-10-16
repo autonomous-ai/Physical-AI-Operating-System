@@ -17,6 +17,7 @@ use lamp_policy::{
     decide::{DEFAULT_DEADLINE, DEFAULT_ENDPOINT, DEFAULT_MODEL, Endpoint, Jev},
     gather::PAUSE,
     hello::{self, Hello},
+    moment::{self, Moment},
     policy::{self, Options},
     progress::{self, LocalTime, Progress},
     record::private_dir,
@@ -61,8 +62,9 @@ acts on it. See docs/policy.md.\n\
                  first (memory/rules): never, not in the mornings, not before or from a time of\n\
                  day (by --utc-offset-minutes; all day without it), not while they talk; no model\n\
                  is asked then. Needs --progress. Off unless set\n\
-  --gate         also answer a skill that asks to say hello (skills/ask), as the voice's arrivals\n\
-                 are answered: the decision names the ask. Needs --hello and --act hello\n\
+  --gate         also answer a skill that asks (skills/ask) whether the lamp may say hello, tell\n\
+                 news or start something itself, with the hello question or a moment question\n\
+                 of its own: the decision names the ask. Needs --hello and --act hello\n\
 What is heard is sent to the decision model's service. Do not run this on real speech in the\n\
 office until the owner has said so: it is for played tests.";
 
@@ -319,9 +321,17 @@ fn run(arguments: &Arguments) -> io::Result<()> {
             let options = hello::Options {
                 act: arguments.act_hello,
                 gate: arguments.gate,
-                ..hello::Options::new(arguments.deadline, local)
+                ..hello::Options::new(arguments.deadline, local.clone())
             };
-            Some(Hello::start(judge()?, options)?)
+            let hello = Hello::start(judge()?, options)?;
+            // Answering skills, the moment question too, with a judge of
+            // its own (#939).
+            Some(if arguments.gate {
+                let options = moment::Options::new(arguments.deadline, local);
+                hello.with_moment(Moment::start(judge()?, options)?)
+            } else {
+                hello
+            })
         } else {
             None
         };

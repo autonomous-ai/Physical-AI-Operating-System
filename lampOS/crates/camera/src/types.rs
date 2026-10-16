@@ -4,12 +4,16 @@ use std::{fmt, num::NonZeroU64};
 /// The largest buffer a frame may need. A UVC driver sizes an MJPG buffer at
 /// two bytes a pixel: 1,843,200 at 1280x720 and 2,457,600 at 1280x960 (the
 /// ZVCAI on lamp-52e6, 2026-10-15), which a bound of 2 MiB refused at
-/// SetFormat (#836).
-pub const MAX_FRAME_BYTES: usize = 4 * 1024 * 1024;
-pub const MAX_WIDTH: u32 = 1280;
-/// 1280 by 960 is the whole 4:3 picture of the lamps' camera at 1280 across: a
-/// full look asks for it (`lamp-eyes --full-look`, #836).
-pub const MAX_HEIGHT: u32 = 960;
+/// SetFormat (#836). At the camera's largest mode, 3264x2448, that rule
+/// gives 15,980,544: 16 MiB, for a full look at writing on paper (#941).
+/// It is a ceiling, not an allocation: the driver's buffers are the
+/// negotiated mode's size, and the 320x240 working stream's stay 153,600.
+pub const MAX_FRAME_BYTES: usize = 16 * 1024 * 1024;
+/// 3264 by 2448 is the largest MJPG mode the lamps' camera lists (ZVCAI
+/// 01da:5875 on lamp-52e6): a full look asks for it to read handwriting
+/// (`lamp-eyes --full-look`, #836, #941). Nothing larger is listed.
+pub const MAX_WIDTH: u32 = 3264;
+pub const MAX_HEIGHT: u32 = 2448;
 pub const POLL_TARGET_US: u64 = 2_000;
 pub const REVOKE_TARGET_US: u64 = 20_000;
 pub const READ_BUDGET_US: u64 = 10_000;
@@ -489,5 +493,32 @@ mod tests {
             .validate(config)
             .is_err()
         );
+    }
+
+    /// The camera's largest mode, its buffer sized at two bytes a pixel as
+    /// the driver sized 1280x960's: inside the bounds (#941).
+    #[test]
+    fn the_lamp_camera_s_largest_mjpg_mode_fits_the_frame_bound() {
+        let config = CaptureConfig {
+            source: SourceId::new("lamp-eyes").unwrap(),
+            width: 3264,
+            height: 2448,
+            interval: Some(FrameInterval::new(1, 10).unwrap()),
+            max_frame_bytes: MAX_FRAME_BYTES,
+            buffers: 2,
+        };
+        assert!(config.validate().is_ok());
+        let size_image = 3264 * 2448 * 2;
+        assert!(size_image <= MAX_FRAME_BYTES);
+        let mode = NegotiatedMode {
+            source: config.source,
+            format: PixelFormat::MJPG,
+            width: 3264,
+            height: 2448,
+            interval: config.interval,
+            size_image,
+            buffers: 2,
+        };
+        assert!(mode.validate(config).is_ok());
     }
 }

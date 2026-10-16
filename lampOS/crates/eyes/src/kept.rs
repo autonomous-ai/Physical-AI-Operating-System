@@ -20,6 +20,7 @@ pub struct Kept {
     path: PathBuf,
     writing: PathBuf,
     present: bool,
+    most: usize,
 }
 
 /// A whole JPEG with its own Huffman tables: what a reader other than this
@@ -42,22 +43,29 @@ pub fn whole_jpeg(frame: &[u8]) -> bool {
 
 impl Kept {
     pub fn new(path: PathBuf) -> Self {
+        Self::up_to(path, MOST_BYTES)
+    }
+
+    /// A file that takes frames of up to `most` bytes: a full look's still
+    /// asked for at a size of its own (`full_look::LARGE_MOST_BYTES`).
+    pub fn up_to(path: PathBuf, most: usize) -> Self {
         let mut writing = path.clone().into_os_string();
         writing.push(".new");
         Self {
             path,
             writing: writing.into(),
             present: false,
+            most,
         }
     }
 
     /// Put this frame in the file's place. A reader sees the frame before or
     /// this one, never part of either.
     pub fn keep(&mut self, frame: &[u8]) -> io::Result<()> {
-        if frame.len() > MOST_BYTES || !whole_jpeg(frame) {
+        if frame.len() > self.most || !whole_jpeg(frame) {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
-                "not a whole JPEG of at most 64 KiB",
+                "not a whole JPEG of the file's size at most",
             ));
         }
         let mut file = fs::OpenOptions::new()
@@ -239,6 +247,13 @@ mod tests {
         assert!(kept.keep(&frame(false, 10)).is_err());
         assert!(kept.keep(&frame(true, MOST_BYTES)).is_err());
         assert_eq!(fs::read(&path).unwrap(), second);
+        // A still's file takes what its own bound allows, and no more.
+        let large = directory.join("full.jpg");
+        let mut still = Kept::up_to(large.clone(), 4 * MOST_BYTES);
+        still.keep(&frame(true, MOST_BYTES)).unwrap();
+        assert!(still.keep(&frame(true, 4 * MOST_BYTES)).is_err());
+        drop(still);
+        assert!(!large.exists());
         assert_eq!(fs::read_dir(&directory).unwrap().count(), 1);
         kept.forget();
         assert!(!path.exists());

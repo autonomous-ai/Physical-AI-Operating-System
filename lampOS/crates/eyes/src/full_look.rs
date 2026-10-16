@@ -59,18 +59,52 @@ pub const LONGEST_SIDE: usize = 1_024;
 const QUALITIES: [u8; 4] = [85, 75, 65, 50];
 const MAX_SIDE: usize = 4_096;
 
-/// Exactly `{"look_full":ID}`, the ask's id from 1: anything else asks
-/// nothing.
-pub fn asked(datagram: &[u8]) -> Option<u64> {
+/// One full look asked for: its id from 1, and the still's longer side when
+/// the ask names one.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct Ask {
+    pub id: u64,
+    pub side: Option<usize>,
+}
+
+/// The longest side an ask may name: the largest the decoder takes.
+pub const ASKED_SIDE: std::ops::RangeInclusive<usize> = 320..=MAX_SIDE;
+
+/// The most bytes of a still asked for at a side of its own, for writing on
+/// paper (Desk tutor, #941). The provider worker sends a still as base64
+/// inside one websocket message, and `lamp_gemini` bounds every message at
+/// `MAX_WIRE_BYTES`, 256 KiB (its write buffer at 4 KiB more): 184 KiB is
+/// 245 KiB as base64, which leaves room for the look's note (1 KiB at most)
+/// and the JSON around it. That message bound is the real one; Google's own
+/// request bound is far larger.
+pub const LARGE_MOST_BYTES: usize = 184 * 1024;
+
+impl Ask {
+    /// The still's bytes and longer side at most: 64 KiB and 1024 across
+    /// unless the ask names a side, as before; with one, that side and
+    /// [`LARGE_MOST_BYTES`]. What the id adds is left out of both.
+    pub fn bounds(self) -> (usize, usize) {
+        match self.side {
+            None => (crate::kept::MOST_BYTES - TAG_BYTES, LONGEST_SIDE),
+            Some(side) => (LARGE_MOST_BYTES - TAG_BYTES, side),
+        }
+    }
+}
+
+/// Exactly `{"look_full":ID}` or `{"look_full":ID,"side":PIXELS}`, the id
+/// from 1 and the side within [`ASKED_SIDE`]: anything else asks nothing.
+pub fn asked(datagram: &[u8]) -> Option<Ask> {
     #[derive(serde::Deserialize)]
     #[serde(deny_unknown_fields)]
-    struct Ask {
+    struct Wire {
         look_full: u64,
+        side: Option<usize>,
     }
-    serde_json::from_slice::<Ask>(datagram)
-        .ok()
-        .map(|ask| ask.look_full)
-        .filter(|id| *id > 0)
+    let wire = serde_json::from_slice::<Wire>(datagram).ok()?;
+    (wire.look_full > 0 && wire.side.is_none_or(|side| ASKED_SIDE.contains(&side))).then_some(Ask {
+        id: wire.look_full,
+        side: wire.side,
+    })
 }
 
 /// Bytes a still's id takes: what [`tagged`] adds, at most.
@@ -207,6 +241,12 @@ pub fn fit(frame: &[u8], most_bytes: usize) -> Result<(Vec<u8>, (usize, usize)),
     fit_within(frame, most_bytes, LONGEST_SIDE)
 }
 
+/// The still for one ask, within its [`Ask::bounds`].
+pub fn fit_for(frame: &[u8], ask: Ask) -> Result<(Vec<u8>, (usize, usize)), String> {
+    let (most_bytes, longest) = ask.bounds();
+    fit_within(frame, most_bytes, longest)
+}
+
 /// The working frame kept in `--sight-file` while the stream runs at the
 /// full size: the frame at 320 across, as the eyes kept it before (#873
 /// reads it at any time). A frame already that small goes as it is.
@@ -240,20 +280,31 @@ fn fit_within(
         .decode()
         .map_err(|error| format!("jpeg: {error:?}"))?;
     let (mut rgb, mut size) = shrink(&rgb, (width, height), longest);
+    let encode = |rgb: &[u8], (across, down): (usize, usize), quality: u8| {
+        let mut out = Vec::new();
+        jpeg_encoder::Encoder::new(&mut out, quality)
+            .encode(
+                rgb,
+                across as u16,
+                down as u16,
+                jpeg_encoder::ColorType::Rgb,
+            )
+            .map(|()| out)
+            .map_err(|error| format!("encoding: {error}"))
+    };
+    let lowest = QUALITIES[QUALITIES.len() - 1];
     loop {
-        for quality in QUALITIES {
-            let mut out = Vec::new();
-            jpeg_encoder::Encoder::new(&mut out, quality)
-                .encode(
-                    &rgb,
-                    size.0 as u16,
-                    size.1 as u16,
-                    jpeg_encoder::ColorType::Rgb,
-                )
-                .map_err(|error| format!("encoding: {error}"))?;
-            if out.len() <= most_bytes {
-                return Ok((out, size));
+        // The lowest quality first: a size it does not fit at is shrunk at
+        // once, not encoded four times. At 3264x2448 that was 13 encodes.
+        let least = encode(&rgb, size, lowest)?;
+        if least.len() <= most_bytes {
+            for quality in &QUALITIES[..QUALITIES.len() - 1] {
+                let out = encode(&rgb, size, *quality)?;
+                if out.len() <= most_bytes {
+                    return Ok((out, size));
+                }
             }
+            return Ok((least, size));
         }
         if size.0.max(size.1) <= 160 {
             return Err("no size fits".into());
@@ -426,9 +477,20 @@ mod tests {
 
     #[test]
     fn only_the_exact_ask_is_one() {
-        assert_eq!(asked(br#"{"look_full":42}"#), Some(42));
+        let ask = |id, side| Some(Ask { id, side });
+        assert_eq!(asked(br#"{"look_full":42}"#), ask(42, None));
+        assert_eq!(
+            asked(br#"{"look_full":42,"side":3264}"#),
+            ask(42, Some(3_264))
+        );
+        assert_eq!(asked(br#"{"side":320,"look_full":9}"#), ask(9, Some(320)));
         for not in [
-            &br#"{"look_full":true}"#[..],
+            &br#"{"look_full":42,"side":319}"#[..],
+            br#"{"look_full":42,"side":4097}"#,
+            br#"{"look_full":42,"side":"3264x2448"}"#,
+            br#"{"look_full":42,"side":-1}"#,
+            br#"{"look_full":0,"side":1024}"#,
+            br#"{"look_full":true}"#,
             br#"{"look_full":0}"#,
             br#"{"look_full":-1}"#,
             br#"{"camera":true}"#,
@@ -653,6 +715,79 @@ mod tests {
         assert!(small.len() <= most);
         assert_eq!(fit(&small, most).unwrap(), (small.clone(), (320, 240)));
         assert!(fit(b"not a jpeg", most).is_err());
+    }
+
+    #[test]
+    fn an_ask_without_a_side_is_bounded_as_before_and_one_with_a_side_by_its_own() {
+        let before = Ask { id: 1, side: None };
+        assert_eq!(before.bounds(), (64 * 1024 - TAG_BYTES, LONGEST_SIDE));
+        let paper = Ask {
+            id: 1,
+            side: Some(3_264),
+        };
+        assert_eq!(paper.bounds(), (LARGE_MOST_BYTES - TAG_BYTES, 3_264));
+        // Without a side the still is the one made before (#836).
+        let frame = camera_frame(1_280, 960, 90);
+        assert_eq!(
+            fit_for(&frame, before).unwrap(),
+            fit(&frame, 64 * 1024 - TAG_BYTES).unwrap()
+        );
+        // A side smaller than the frame's is kept to; a larger one is not
+        // enlarged to.
+        let (_, size) = fit_for(
+            &frame,
+            Ask {
+                id: 1,
+                side: Some(640),
+            },
+        )
+        .unwrap();
+        assert_eq!(size.0, 640);
+        let (still, size) = fit_for(
+            &frame,
+            Ask {
+                id: 1,
+                side: Some(4_096),
+            },
+        )
+        .unwrap();
+        assert!(size.0 <= 1_280 && still.len() <= LARGE_MOST_BYTES - TAG_BYTES);
+        // Tagged, it still fits the larger file.
+        assert!(tagged(&still, u64::MAX).len() <= LARGE_MOST_BYTES);
+    }
+
+    /// The camera's largest mode (3264x2448, ZVCAI 01da:5875) asked for at
+    /// its own side, as Desk tutor asks: made to fit the larger bound, and
+    /// what it costs here. Decode is what every look pays at this size.
+    #[test]
+    fn the_camera_s_largest_frame_fits_the_larger_bound() {
+        let large = camera_frame(3_264, 2_448, 90);
+        let started = std::time::Instant::now();
+        let picture = crate::picture::Picture::from_jpeg(&large).unwrap();
+        let decoded = started.elapsed();
+        assert_eq!(picture.filled, (320, 240));
+        let started = std::time::Instant::now();
+        let working = working(&large).unwrap();
+        let worked = started.elapsed();
+        assert!(working.len() <= crate::kept::MOST_BYTES);
+        let started = std::time::Instant::now();
+        let ask = Ask {
+            id: 1,
+            side: Some(3_264),
+        };
+        let (still, size) = fit_for(&large, ask).unwrap();
+        eprintln!(
+            "3264x2448 of {} bytes: the detector's decode {} ms, the working frame {} ms, a still of {size:?} and {} bytes in {} ms",
+            large.len(),
+            decoded.as_millis(),
+            worked.as_millis(),
+            still.len(),
+            started.elapsed().as_millis()
+        );
+        assert!(still.len() <= LARGE_MOST_BYTES - TAG_BYTES);
+        // 4:3 within the rounding of each shrink.
+        assert!(size.0.abs_diff(size.1 * 4 / 3) <= 2 && size.0 > LONGEST_SIDE);
+        assert!(crate::kept::whole_jpeg(&still));
     }
 
     #[test]

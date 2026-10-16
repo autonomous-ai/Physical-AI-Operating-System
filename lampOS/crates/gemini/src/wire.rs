@@ -5,9 +5,9 @@
 //! call is read as the service sent it, within bounds; whether its name and
 //! arguments mean anything is for whoever runs it.
 use crate::{
-    Error, MAX_IMAGE_BYTES, MAX_INPUT_SAMPLES, MAX_OUTPUT_SAMPLES, MAX_TEXT_BYTES, MAX_TOOL_CALLS,
-    MAX_TOOL_ID_BYTES, MAX_TOOL_JSON_BYTES, MAX_WIRE_BYTES, Result, Resumption, ResumptionHandle,
-    SessionConfig, ToolCall, Usage, VoiceActivity,
+    Error, MAX_IMAGE_BYTES, MAX_INPUT_SAMPLES, MAX_LOOK_IMAGE_BYTES, MAX_OUTPUT_SAMPLES,
+    MAX_TEXT_BYTES, MAX_TOOL_CALLS, MAX_TOOL_ID_BYTES, MAX_TOOL_JSON_BYTES, MAX_WIRE_BYTES, Result,
+    Resumption, ResumptionHandle, SessionConfig, ToolCall, Usage, VoiceActivity,
 };
 use base64::{Engine, engine::general_purpose::STANDARD};
 use serde::{
@@ -747,20 +747,24 @@ pub fn encode_written_turn(text: &str, picture: Option<&[u8]>) -> Result<String>
     }
     let mut parts = Vec::with_capacity(2);
     // What the lamp sees, with the note that says it is looking: a JPEG of
-    // at most the size an image offered with speech may be.
+    // at most a look's still, the whole turn one message.
     if let Some(jpeg) = picture {
-        if jpeg.len() > MAX_IMAGE_BYTES || jpeg.len() < 4 {
+        if jpeg.len() > MAX_LOOK_IMAGE_BYTES || jpeg.len() < 4 {
             return Err(Error::InvalidConfiguration);
         }
         parts
             .push(json!({"inlineData": {"mimeType": "image/jpeg", "data": STANDARD.encode(jpeg)}}));
     }
     parts.push(json!({"text": text}));
-    serde_json::to_string(&json!({"clientContent": {
+    let encoded = serde_json::to_string(&json!({"clientContent": {
         "turns": [{"role": "user", "parts": parts}],
         "turnComplete": true
     }}))
-    .map_err(|_| Error::InvalidConfiguration)
+    .map_err(|_| Error::InvalidConfiguration)?;
+    if encoded.len() > MAX_WIRE_BYTES {
+        return Err(Error::MessageTooLarge);
+    }
+    Ok(encoded)
 }
 /// Something for the service to know and not to answer: a turn in writing
 /// that is left incomplete, so that it joins what the service has been told
@@ -812,3 +816,22 @@ pub fn encode_tool_response(
 pub const MAX_NOTE_BYTES: usize = 1_024;
 pub const ACTIVITY_START: &str = r#"{"realtimeInput":{"activityStart":{}}}"#;
 pub const ACTIVITY_END: &str = r#"{"realtimeInput":{"activityEnd":{}}}"#;
+
+#[cfg(test)]
+mod written_turn_tests {
+    use super::*;
+    use crate::testing::jpeg;
+
+    /// A look's largest still with the longest note is one message under
+    /// the wire bound; a byte more is refused (#941).
+    #[test]
+    fn a_looks_largest_still_and_the_longest_note_fit_one_message() {
+        let note = "n".repeat(MAX_NOTE_BYTES);
+        let message = encode_written_turn(&note, Some(&jpeg(MAX_LOOK_IMAGE_BYTES, 0xfe))).unwrap();
+        assert!(message.len() <= MAX_WIRE_BYTES, "{}", message.len());
+        assert!(encode_written_turn(&note, Some(&jpeg(MAX_LOOK_IMAGE_BYTES + 1, 0xfe))).is_err());
+        // Pictures with speech keep their own, smaller bound.
+        assert!(encode_image(&jpeg(MAX_IMAGE_BYTES, 7)).is_ok());
+        assert!(encode_image(&jpeg(MAX_IMAGE_BYTES + 1, 7)).is_err());
+    }
+}

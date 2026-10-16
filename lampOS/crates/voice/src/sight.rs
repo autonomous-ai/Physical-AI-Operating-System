@@ -46,6 +46,23 @@ pub const LOOK_ENVIRONMENT: &str = "LAMP_EYES_LOOK_FILE";
 /// told with a flag after the look's path.
 pub const LOOK_FULL_ENVIRONMENT: &str = "LAMP_LOOK_FULL";
 pub const LOOK_FULL_FLAG: &str = "--eyes-look-full";
+/// The still's longer side for every full look, in pixels from 320 to
+/// 4096 (`LAMP_LOOK_FULL_SIDE`, off unless set): the eyes make it up to
+/// that side and 184 KiB (`lamp-eyes`, `{"look_full":ID,"side":N}`), for
+/// writing on paper (#941). Unset, a look's still is 1024 across and 64 KiB
+/// as before. One look may ask its own side instead ([`Look::side_next`]).
+pub const LOOK_FULL_SIDE_ENVIRONMENT: &str = "LAMP_LOOK_FULL_SIDE";
+/// The sides a look may ask for: what the eyes take.
+pub const LOOK_SIDES: std::ops::RangeInclusive<u32> = 320..=4_096;
+
+/// `LAMP_LOOK_FULL_SIDE`, when it is a side the eyes take.
+pub fn side_from_environment() -> Option<u32> {
+    std::env::var(LOOK_FULL_SIDE_ENVIRONMENT)
+        .ok()
+        .and_then(|value| value.parse().ok())
+        .filter(|side| LOOK_SIDES.contains(side))
+}
+
 /// A look that has not begun this long after the lamp said it would look
 /// is dropped.
 pub const LOOK_BEGINS_WITHIN: Duration = Duration::from_secs(15);
@@ -159,12 +176,28 @@ pub struct Look {
     /// The next ask's id: from the clock when this began, so that a still
     /// of a service that stopped is not taken for one of the next.
     next_id: u64,
+    /// The still's side for every look, and for the next one only.
+    side: Option<u32>,
+    side_next: Option<u32>,
 }
 
 impl Look {
     /// From `LAMP_LOOK_FULL` and the look's file, for a lamp that looks.
     pub fn from_environment() -> Self {
-        Self::new(full_look_file())
+        Self::new(full_look_file()).with_side(side_from_environment())
+    }
+
+    /// Every look's still at this side; `None`, as before.
+    pub fn with_side(mut self, side: Option<u32>) -> Self {
+        self.side = side.filter(|side| LOOK_SIDES.contains(side));
+        self
+    }
+
+    /// The next look only at this side: what a skill tool's look step asks
+    /// for (`look = { side = N }`, #941). A side the eyes do not take is
+    /// ignored. Taken by the next [`Self::ask`].
+    pub fn side_next(&mut self, side: u32) {
+        self.side_next = LOOK_SIDES.contains(&side).then_some(side);
     }
 
     pub fn new(full: Option<PathBuf>) -> Self {
@@ -175,6 +208,8 @@ impl Look {
             full,
             asked: None,
             next_id: now_ms.max(1),
+            side: None,
+            side_next: None,
         }
     }
 
@@ -183,15 +218,16 @@ impl Look {
     }
 
     /// The lamp said in `turn` that it will look: the id to ask the eyes
-    /// for a still with, once. Never without a full look.
-    pub fn ask(&mut self, turn: u64) -> Option<u64> {
+    /// for a still with, once, and the still's side if one is asked for.
+    /// Never without a full look.
+    pub fn ask(&mut self, turn: u64) -> Option<(u64, Option<u32>)> {
         if self.full.is_none() || self.asked.is_some_and(|(of, _)| of == turn) {
             return None;
         }
         let id = self.next_id;
         self.next_id += 1;
         self.asked = Some((turn, id));
-        Some(id)
+        Some((id, self.side_next.take().or(self.side)))
     }
 
     /// Whether the eyes' file holds the still taken for this ask: one with
@@ -276,6 +312,17 @@ pub fn fresh_within(
     now: SystemTime,
     within: Duration,
 ) -> Result<(Vec<u8>, Duration), &'static str> {
+    fresh_up_to(path, now, within, MAX_IMAGE_BYTES)
+}
+
+/// The same, of at most `most` bytes: a full look's still may be one asked
+/// at a side of its own, up to `lamp_gemini::MAX_LOOK_IMAGE_BYTES` (#941).
+pub fn fresh_up_to(
+    path: &Path,
+    now: SystemTime,
+    within: Duration,
+    most: usize,
+) -> Result<(Vec<u8>, Duration), &'static str> {
     let about = std::fs::metadata(path).map_err(|_| "the eyes have no picture")?;
     let age = about
         .modified()
@@ -285,7 +332,7 @@ pub fn fresh_within(
     if age > within {
         return Err("the eyes' picture is old");
     }
-    if about.len() > MAX_IMAGE_BYTES as u64 {
+    if about.len() > most as u64 {
         return Err("the eyes' picture is too large");
     }
     let jpeg = std::fs::read(path).map_err(|_| "the eyes have no picture")?;
@@ -524,7 +571,7 @@ mod tests {
         std::fs::write(&path, b"\xff\xd8\xff\xdb\x00\x02").unwrap();
         let mut look = Look::new(Some(path.clone()));
         assert!(look.full());
-        let id = look.ask(7).unwrap();
+        let id = look.ask(7).unwrap().0;
         assert_eq!(look.ask(7), None);
         assert!(!look.still());
         assert!(!look.due(Duration::from_millis(900)));
@@ -542,9 +589,49 @@ mod tests {
         assert!(note.contains("never guess"));
         assert!(!crate::speak_up::LOOK_NOTE.contains("closer"));
         // The next look asks again, with another id.
-        let next = look.ask(9).unwrap();
+        let next = look.ask(9).unwrap().0;
         assert_ne!(next, id);
         assert!(!look.still());
+        std::fs::remove_dir_all(&directory).unwrap();
+    }
+
+    #[test]
+    fn a_look_asks_no_side_unless_one_is_set_and_one_look_may_ask_its_own() {
+        let path = PathBuf::from("/run/lampos-eyes/full-look.jpg");
+        // Unset: no side, as before.
+        let mut look = Look::new(Some(path.clone()));
+        assert_eq!(look.ask(1).unwrap().1, None);
+        // One look at its own side, the next as before.
+        look.side_next(3_264);
+        assert_eq!(look.ask(2).unwrap().1, Some(3_264));
+        assert_eq!(look.ask(3).unwrap().1, None);
+        // A side the eyes do not take is none.
+        look.side_next(100);
+        assert_eq!(look.ask(4).unwrap().1, None);
+        // Every look at a side, one look at another.
+        let mut look = Look::new(Some(path)).with_side(Some(2_048));
+        assert_eq!(look.ask(1).unwrap().1, Some(2_048));
+        look.side_next(3_264);
+        assert_eq!(look.ask(2).unwrap().1, Some(3_264));
+        assert_eq!(look.ask(3).unwrap().1, Some(2_048));
+        assert_eq!(
+            Look::new(None).with_side(Some(5_000)).side,
+            None,
+            "outside 320 to 4096"
+        );
+    }
+
+    #[test]
+    fn a_sided_still_is_read_up_to_the_look_bound_and_a_frame_only_to_the_old_one() {
+        let directory = scratch("sided-still");
+        let path = directory.join("full.jpg");
+        std::fs::write(&path, vec![0u8; MAX_IMAGE_BYTES + 1]).unwrap();
+        let now = SystemTime::now();
+        assert!(fresh_within(&path, now, FULL_FRESH).is_err());
+        let most = lamp_gemini::MAX_LOOK_IMAGE_BYTES;
+        assert!(fresh_up_to(&path, now, FULL_FRESH, most).is_ok());
+        std::fs::write(&path, vec![0u8; most + 1]).unwrap();
+        assert!(fresh_up_to(&path, now, FULL_FRESH, most).is_err());
         std::fs::remove_dir_all(&directory).unwrap();
     }
 
@@ -554,7 +641,7 @@ mod tests {
         let path = directory.join("sight.jpg");
         // No file at all.
         let mut look = Look::new(Some(path.clone()));
-        let first = look.ask(3).unwrap();
+        let first = look.ask(3).unwrap().0;
         assert!(!look.due(STILL_WAIT - Duration::from_millis(1)));
         assert!(look.due(STILL_WAIT));
         assert_eq!(look.turn(), (crate::speak_up::NO_LOOK_NOTE, false));
@@ -570,8 +657,8 @@ mod tests {
         // written after this look asked, so later than the ask by any
         // clock. Its id is not this one's.
         std::fs::remove_file(&path).unwrap();
-        let cancelled = look.ask(5).unwrap();
-        let asked = look.ask(6).unwrap();
+        let cancelled = look.ask(5).unwrap().0;
+        let asked = look.ask(6).unwrap().0;
         std::fs::write(&path, still_of(cancelled)).unwrap();
         assert!(!look.still());
         assert!(!look.due(Duration::from_millis(900)));
@@ -586,7 +673,7 @@ mod tests {
         let directory = scratch("full-look-missing");
         let path = directory.join("look.jpg");
         let mut look = Look::new(Some(path.clone()));
-        let id = look.ask(3).unwrap();
+        let id = look.ask(3).unwrap().0;
         let now = SystemTime::now();
         assert_eq!(
             look.missing(now),

@@ -3384,12 +3384,15 @@ impl InputHandoff {
                     .then(|| LOOK_FILE.get())
                     .flatten()
                     .and_then(|path| {
-                        let within = if LOOK_FULL.load(std::sync::atomic::Ordering::Relaxed) {
-                            crate::sight::FULL_FRESH
+                        // A full look's still may have been asked at a
+                        // side of its own, and be larger (#941).
+                        let (within, most) = if LOOK_FULL.load(std::sync::atomic::Ordering::Relaxed)
+                        {
+                            (crate::sight::FULL_FRESH, lamp_gemini::MAX_LOOK_IMAGE_BYTES)
                         } else {
-                            std::time::Duration::from_secs(1)
+                            (std::time::Duration::from_secs(1), lamp_gemini::MAX_IMAGE_BYTES)
                         };
-                        crate::sight::fresh_within(path, std::time::SystemTime::now(), within)
+                        crate::sight::fresh_up_to(path, std::time::SystemTime::now(), within, most)
                             .inspect_err(|why| {
                                 eprintln!(
                                     "lamp-voice provider: the lamp looked: no picture with request {}: {why}",

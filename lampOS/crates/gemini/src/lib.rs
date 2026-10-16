@@ -45,6 +45,13 @@ pub const MAX_WIRE_BYTES: usize = 262_144;
 /// connection in order, so an image delays the audio behind it by its own
 /// transmission time; this bound keeps that delay small on an ordinary link.
 pub const MAX_IMAGE_BYTES: usize = 64 * 1024;
+/// Largest JPEG a written turn may carry: the still of a look asked for at
+/// a side of its own (`lamp-eyes`, `full_look::LARGE_MOST_BYTES`), for
+/// writing on paper (#941). A look is a turn of its own, with no audio
+/// behind it. 184 KiB is 245 KiB as base64, so the turn with its note
+/// ([`wire::MAX_NOTE_BYTES`]) and JSON stays one message under
+/// [`MAX_WIRE_BYTES`]. Pictures with speech keep [`MAX_IMAGE_BYTES`].
+pub const MAX_LOOK_IMAGE_BYTES: usize = 184 * 1024;
 /// Images one request may carry. A newer image replacing one not yet sent
 /// does not count twice.
 pub const MAX_IMAGES_PER_REQUEST: u8 = 2;

@@ -24,6 +24,7 @@ input.image_ledger() -> ImageLedger
 | Bound | Value |
 |---|---|
 | Image size (`MAX_IMAGE_BYTES`) | 64 KiB of JPEG, about 87 KiB on the wire |
+| A look's picture in a written turn (`MAX_LOOK_IMAGE_BYTES`, #941) | 184 KiB of JPEG, about 245 KiB on the wire; the turn with its note must be one message of at most `MAX_WIRE_BYTES` (256 KiB), or it is refused as `MessageTooLarge` |
 | Images per request (`MAX_IMAGES_PER_REQUEST`) | 2 |
 | Age from capture, at offer and again at sending (`MAX_IMAGE_AGE`) | 2 s |
 | Waiting images | 1 slot per connection; a newer image of the same request replaces an unsent one and does not count twice |

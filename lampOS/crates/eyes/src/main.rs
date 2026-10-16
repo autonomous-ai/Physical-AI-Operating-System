@@ -7,7 +7,7 @@
 
 use std::{ffi::OsString, path::PathBuf};
 
-const USAGE: &str = "lamp-eyes --device ABSOLUTE_PATH --lock-directory PRIVATE_ABSOLUTE_DIRECTORY --usb VENDOR:PRODUCT@TOPOLOGY --model ABSOLUTE_PATH --permit-socket ABSOLUTE_PATH --body-socket ABSOLUTE_PATH [--sight-file ABSOLUTE_PATH] [--presence-file ABSOLUTE_PATH] [--recogniser ABSOLUTE_PATH --people ABSOLUTE_PATH --who-socket ABSOLUTE_PATH [--known-file ABSOLUTE_PATH]] [--leave-still-faces on|off] [--full-look WIDTHxHEIGHT --full-look-file ABSOLUTE_PATH]\n\nOwns the camera at --device (checked against the USB identity given, hex vendor and\nproduct and the port topology, for example 01da:5875@3-1.1.4) and looks for a face in\nits frames four times a second while there is one and less than twice a second when\nthere is none, with the pinned YuNet model at --model. Each look\nsends one datagram to --body-socket: {\"face\":{\"x\":..,\"y\":..,\"size\":..,\"turned\":..}} or\n{\"face\":null}. The camera is open only while {\"camera\":true} keeps arriving on\n--permit-socket, at least every 1.5 s; {\"camera\":false} closes it at once. Without\n--sight-file and --full-look-file no frame is written anywhere and none leaves this process. With it the\nnewest frame, and only that one, is kept in that file (mode 0600) while the camera is\nopen and removed when it closes: it is what the voice service shows the model. With\n--presence-file one line, the near face's height as a share of the picture's, is kept\nfresh in that file while there is a face: no picture, only that number. With\n--recogniser (the pinned SFace model), --people and --who-socket, the eyes remember\na face when the voice service asks ({\"remember\":\"NAME\"} on the socket), forget it\n({\"forget\":\"NAME\"}), list the names ({\"list\":true}) and say whose face is at the\nlamp ({\"who\":true}). Only the prints of people who asked are kept, in --people\n(mode 0600); no picture. With --known-file, the name of the one known at the lamp is\nkept fresh in that file while they are there. With --leave-still-faces on, a face at a place\nwhere faces have come from for half an hour, every one small (under 0.14 of the height)\nand faint (scored under 0.8), is not a person: it is left out of what the body is told,\nthe bus and recognition (off unless given). With --full-look and --full-look-file the\ncamera runs at that size, the working frame is kept in --sight-file at 320 across as before, and {\"look_full\":ID} on\n--permit-socket asks for one still: taken once the head has settled\n(body/joint_states on the bus, at most 2 s), at most 1024 across and 64 KiB, marked\nwith the ID in a JPEG comment, kept in --full-look-file for 15 s and removed (off unless given).\n";
+const USAGE: &str = "lamp-eyes --device ABSOLUTE_PATH --lock-directory PRIVATE_ABSOLUTE_DIRECTORY --usb VENDOR:PRODUCT@TOPOLOGY --model ABSOLUTE_PATH --permit-socket ABSOLUTE_PATH --body-socket ABSOLUTE_PATH [--sight-file ABSOLUTE_PATH] [--presence-file ABSOLUTE_PATH] [--recogniser ABSOLUTE_PATH --people ABSOLUTE_PATH --who-socket ABSOLUTE_PATH [--known-file ABSOLUTE_PATH]] [--leave-still-faces on|off] [--full-look WIDTHxHEIGHT --full-look-file ABSOLUTE_PATH]\n\nOwns the camera at --device (checked against the USB identity given, hex vendor and\nproduct and the port topology, for example 01da:5875@3-1.1.4) and looks for a face in\nits frames four times a second while there is one and less than twice a second when\nthere is none, with the pinned YuNet model at --model. Each look\nsends one datagram to --body-socket: {\"face\":{\"x\":..,\"y\":..,\"size\":..,\"turned\":..}} or\n{\"face\":null}. The camera is open only while {\"camera\":true} keeps arriving on\n--permit-socket, at least every 1.5 s; {\"camera\":false} closes it at once. Without\n--sight-file and --full-look-file no frame is written anywhere and none leaves this process. With it the\nnewest frame, and only that one, is kept in that file (mode 0600) while the camera is\nopen and removed when it closes: it is what the voice service shows the model. With\n--presence-file one line, the near face's height as a share of the picture's, is kept\nfresh in that file while there is a face: no picture, only that number. With\n--recogniser (the pinned SFace model), --people and --who-socket, the eyes remember\na face when the voice service asks ({\"remember\":\"NAME\"} on the socket), forget it\n({\"forget\":\"NAME\"}), list the names ({\"list\":true}) and say whose face is at the\nlamp ({\"who\":true}). Only the prints of people who asked are kept, in --people\n(mode 0600); no picture. With --known-file, the name of the one known at the lamp is\nkept fresh in that file while they are there. With --leave-still-faces on, a face at a place\nwhere faces have come from for half an hour, every one small (under 0.14 of the height)\nand faint (scored under 0.8), is not a person: it is left out of what the body is told,\nthe bus and recognition (off unless given). With --full-look and --full-look-file the\ncamera runs at that size, the working frame is kept in --sight-file at 320 across as before, and {\"look_full\":ID} on\n--permit-socket asks for one still: taken once the head has settled\n(body/joint_states on the bus, at most 2 s), at most 1024 across and 64 KiB, or with\n{\"look_full\":ID,\"side\":PIXELS} at most that side across and 184 KiB, marked\nwith the ID in a JPEG comment, kept in --full-look-file for 15 s and removed (off unless given).\n";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct Usb {
@@ -74,14 +74,14 @@ fn opened_at(full_look: Option<(u32, u32)>, failures: u32) -> (u32, u32) {
         .unwrap_or(WORKING)
 }
 
-/// `WIDTHxHEIGHT`, each even, from 320 by 240 to 1280 by 960: the camera's
+/// `WIDTHxHEIGHT`, each even, from 320 by 240 to 3264 by 2448: the camera's
 /// bounds (`lamp_camera::MAX_WIDTH`, `MAX_HEIGHT`), so that a size it would
 /// refuse is refused here, at start, and not at every open.
 fn size_of(value: &str) -> Option<(u32, u32)> {
     let (width, height) = value.split_once('x')?;
     let (width, height) = (width.parse::<u32>().ok()?, height.parse::<u32>().ok()?);
-    ((320..=1_280).contains(&width)
-        && (240..=960).contains(&height)
+    ((320..=3_264).contains(&width)
+        && (240..=2_448).contains(&height)
         && width % 2 == 0
         && height % 2 == 0)
         .then_some((width, height))
@@ -153,7 +153,7 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
             }
             Some("--full-look") if full_look.is_none() => {
                 full_look = Some(value.to_str().and_then(size_of).ok_or(
-                    "--full-look is WIDTHxHEIGHT, for example 1280x960, from 320x240 to 1280x960",
+                    "--full-look is WIDTHxHEIGHT, for example 1280x960, from 320x240 to 3264x2448",
                 )?);
             }
             Some("--usb") if usb.is_none() => {
@@ -394,13 +394,17 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
 
     let mut kept = arguments.sight_file.clone().map(Kept::new);
     // A full look's still, in its own file.
-    let mut still_kept = arguments.full_look_file.clone().map(Kept::new);
+    // Up to the larger bound: an ask may name a side of its own (#941).
+    let mut still_kept = arguments
+        .full_look_file
+        .clone()
+        .map(|path| Kept::up_to(path, lamp_eyes::full_look::LARGE_MOST_BYTES));
     // A full look (#836): the one still asked for, when it was written, and
     // where the body says how its joints are. A camera that did not open at
     // the full size is opened at the working size the next time.
     let mut wanted: Option<lamp_eyes::full_look::Wanted> = None;
-    // The id of the ask that is wanted, written with its still.
-    let mut wanted_id = 0u64;
+    // The ask that is wanted: its id, written with its still, and its size.
+    let mut wanted_ask = lamp_eyes::full_look::Ask { id: 0, side: None };
     let mut still_at: Option<Instant> = None;
     // Opens in a row that failed, and when to try the full size again
     // after falling back to the working size.
@@ -542,11 +546,11 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
         }
         for datagram in permit.heard() {
             if arguments.full_look.is_some()
-                && let Some(id) = lamp_eyes::full_look::asked(&datagram)
+                && let Some(ask) = lamp_eyes::full_look::asked(&datagram)
             {
                 if port.is_some() {
                     wanted = Some(lamp_eyes::full_look::Wanted::new(lamp_ipc::monotonic_us()));
-                    wanted_id = id;
+                    wanted_ask = ask;
                     (head, joints_read_at) = (Head::Absent, None);
                 } else {
                     eprintln!("lamp-eyes: a full look asked for with the camera shut");
@@ -713,14 +717,11 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
             if asked.take(frames_all) && newest > 0 {
                 let made = Instant::now();
                 let waited_ms = asked.waited_us().unwrap_or(0) / 1_000;
-                match lamp_eyes::full_look::fit(
-                    &frame[..newest],
-                    lamp_eyes::kept::MOST_BYTES - lamp_eyes::full_look::TAG_BYTES,
-                ) {
+                match lamp_eyes::full_look::fit_for(&frame[..newest], wanted_ask) {
                     Ok((still, size)) => {
                         // The ask's id goes with the picture, so that a
                         // late still is never taken for a later ask.
-                        let still = lamp_eyes::full_look::tagged(&still, wanted_id);
+                        let still = lamp_eyes::full_look::tagged(&still, wanted_ask.id);
                         let written = still_kept.as_mut().map(|kept| kept.keep(&still));
                         eprintln!(
                             "lamp-eyes: a full look: {} by {}, {} bytes, the head waited for {waited_ms} ms, made in {} ms{}",
@@ -1080,8 +1081,8 @@ mod tests {
             "160x120",
             "8192x6144",
             "1281x960",
-            "1600x1200",
-            "1280x962",
+            "3266x2448",
+            "3264x2450",
             "big",
         ] {
             assert!(

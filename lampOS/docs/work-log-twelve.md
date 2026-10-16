@@ -183,3 +183,11 @@ Ready for lamp-voice: no
   gets and what it did, fix with a test; (2) what a reminder overdue by hours
   does, to decide with the first builder; (3) the day's red voice tests.
   (1) taken at 15:3x on `twelve/reminder-due`.
+- 16:1x: the journal is draft #1081 (`100ae8212`, ARM64 38875754147):
+  one line per change in what the consumer does with each due item, and
+  one when the due notice cannot be read. Strongest candidate so far, from
+  the code: a reminder turn cancelled or settled without proof (`Receipt`
+  dropped, `Abandon`) leaves the ledger entry unresolved, `known()` true,
+  so it is never offered or acknowledged again; also a reminder said with a
+  playback gap is never `completed()`. Asked the first builder for the
+  lamp's ledger and trace for ids 12 and 26.

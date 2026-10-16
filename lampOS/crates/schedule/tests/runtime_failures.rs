@@ -171,21 +171,28 @@ fn a_full_stderr_sink_cannot_hold_status_or_sigterm_shutdown() {
             .spawn()
             .unwrap(),
     );
+    // The socket file appears at `bind`, before `listen`, so wait for the
+    // service to answer rather than for the file (#965). Only the attempt that
+    // connected is timed.
     let startup = Instant::now() + Duration::from_secs(5);
-    while !config.socket.exists() {
+    let (status, request_elapsed) = loop {
+        let request_at = Instant::now();
+        match ask(&config.socket, &json!({"op":"status"})) {
+            Ok(status) => break (status, request_at.elapsed()),
+            Err(e)
+                if matches!(
+                    e.kind(),
+                    io::ErrorKind::NotFound | io::ErrorKind::ConnectionRefused
+                ) => {}
+            Err(e) => panic!("status failed: {e}"),
+        }
         assert!(
             child.0.try_wait().unwrap().is_none(),
-            "CLI exited before binding"
+            "CLI exited before listening"
         );
-        assert!(
-            Instant::now() < startup,
-            "CLI did not bind its fixture socket"
-        );
+        assert!(Instant::now() < startup, "CLI did not answer on its socket");
         thread::sleep(POLL);
-    }
-    let request_at = Instant::now();
-    let status = ask(&config.socket, &json!({"op":"status"})).unwrap();
-    let request_elapsed = request_at.elapsed();
+    };
     assert_eq!(status["ok"], true, "{status}");
     assert_eq!(status["items"], 0);
     assert!(

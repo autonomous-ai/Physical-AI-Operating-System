@@ -1564,3 +1564,176 @@ fn harness_is_set_to_start_at_boot_once_when_it_is_there() {
     let refused = lamp.install().unwrap_err();
     assert!(refused.contains("no user manager"), "{refused}");
 }
+
+/// A lamp root holding V1's config with this text, if any.
+fn v1_lamp(config: Option<&str>) -> tempfile::TempDir {
+    let dir = tempfile::tempdir().unwrap();
+    fs::create_dir_all(dir.path().join("root/config")).unwrap();
+    if let Some(text) = config {
+        fs::write(dir.path().join("root/config/config.json"), text).unwrap();
+    }
+    dir
+}
+
+const DEVICE_KEY: &str = "lamp_SECRET-device-key-0123456789";
+
+fn v1_config() -> String {
+    format!(r#"{{"llm_api_key":"{DEVICE_KEY}"}}"#)
+}
+
+fn mode_of(path: &Path) -> u32 {
+    use std::os::unix::fs::PermissionsExt;
+    fs::metadata(path).unwrap().permissions().mode() & 0o7777
+}
+
+/// `lamp-keeper prepare`'s call, with what it says.
+fn prepare(root: &Path) -> (Result<Vec<&'static str>, String>, Vec<String>) {
+    let mut said = Vec::new();
+    let result = install::provision_device_key(root, install::RECORDS, &mut |line: &str| {
+        said.push(line.to_owned())
+    });
+    (result, said)
+}
+
+#[test]
+fn the_device_key_is_provisioned_private_and_only_where_missing() {
+    let lamp = v1_lamp(Some(&v1_config()));
+    let root = lamp.path();
+    let credential = root.join("etc/lampOS/voice/credential");
+    fs::create_dir_all(credential.parent().unwrap()).unwrap();
+    fs::write(&credential, "the lamp's own").unwrap();
+    let (wrote, said) = prepare(root);
+    assert_eq!(wrote.unwrap(), [install::JEV_KEY_PATH]);
+    assert_eq!(fs::read_to_string(&credential).unwrap(), "the lamp's own");
+    let jev = root.join("etc/lampOS/policy/jev.key");
+    assert_eq!(fs::read_to_string(&jev).unwrap(), DEVICE_KEY);
+    assert_eq!(mode_of(&jev), 0o600);
+    // Recorded as install records what it wrote.
+    let state = Records::new(root.join("var/lib/lampos-update")).peek_state();
+    assert_eq!(
+        state.settings.get(install::JEV_KEY_PATH),
+        Some(&sha256_hex(DEVICE_KEY.as_bytes()))
+    );
+    assert!(!state.settings.contains_key(install::CREDENTIAL_PATH));
+    // Nothing left beside; run again, nothing written.
+    assert_eq!(fs::read_dir(jev.parent().unwrap()).unwrap().count(), 1);
+    assert!(prepare(root).0.unwrap().is_empty());
+    assert!(said.iter().all(|line| !line.contains(&DEVICE_KEY[..6])));
+}
+
+#[test]
+fn a_file_left_beside_by_a_run_cut_off_does_not_lend_its_mode_to_the_key() {
+    let lamp = v1_lamp(Some(&v1_config()));
+    let voice = lamp.path().join("etc/lampOS/voice");
+    fs::create_dir_all(&voice).unwrap();
+    let beside = voice.join(".credential.lamp-update");
+    fs::write(&beside, "half").unwrap();
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&beside, fs::Permissions::from_mode(0o644)).unwrap();
+    }
+    prepare(lamp.path()).0.unwrap();
+    assert_eq!(mode_of(&voice.join("credential")), 0o600);
+    assert!(!beside.exists());
+}
+
+#[test]
+fn without_a_usable_key_nothing_is_written_and_the_key_is_never_said() {
+    for config in [
+        None,
+        Some("not json"),
+        Some("{}"),
+        Some(r#"{"llm_api_key":""}"#),
+        Some("{\"llm_api_key\":\"two\\nlines\"}"),
+    ] {
+        let lamp = v1_lamp(config);
+        // Said and gone on, as install does: setup takes the user's key.
+        let (wrote, said) = prepare(lamp.path());
+        assert!(wrote.unwrap().is_empty(), "{config:?}");
+        assert_eq!(said.len(), 2, "{said:?}");
+        assert!(
+            said.iter().all(|line| line.starts_with("no key")),
+            "{said:?}"
+        );
+        assert!(!lamp.path().join("etc").exists(), "{config:?}");
+    }
+    // With both in place no config is needed, and none is read.
+    let lamp = v1_lamp(None);
+    for path in [install::CREDENTIAL_PATH, install::JEV_KEY_PATH] {
+        let at = lamp.path().join(path.trim_start_matches('/'));
+        fs::create_dir_all(at.parent().unwrap()).unwrap();
+        fs::write(at, "kept").unwrap();
+    }
+    assert!(prepare(lamp.path()).0.unwrap().is_empty());
+    // What is returned and said names paths only.
+    let lamp = v1_lamp(Some(&v1_config()));
+    let (wrote, said) = prepare(lamp.path());
+    let text = format!("{:?} {said:?}", wrote.unwrap());
+    assert!(
+        !text.contains(&DEVICE_KEY[..6]) && !text.contains(&DEVICE_KEY.len().to_string()),
+        "{text}"
+    );
+}
+
+/// The owner's decision on #806: the key is the user's and a reset wipes it.
+/// Prepare follows install's rule (#1102): a key written once, by install or
+/// by prepare, and now gone is never put back from V1's config, which may
+/// still hold the previous owner's.
+#[test]
+fn a_reset_then_prepare_does_not_restore_the_old_key() {
+    let cleared = |root: &Path| {
+        for path in [install::CREDENTIAL_PATH, install::JEV_KEY_PATH] {
+            fs::remove_file(root.join(path.trim_start_matches('/'))).unwrap();
+        }
+    };
+    let gone = |root: &Path| {
+        [install::CREDENTIAL_PATH, install::JEV_KEY_PATH]
+            .iter()
+            .all(|path| !root.join(path.trim_start_matches('/')).exists())
+    };
+    // Written by prepare, then reset: prepare again writes nothing.
+    let lamp = v1_lamp(Some(&v1_config()));
+    assert_eq!(prepare(lamp.path()).0.unwrap().len(), 2);
+    cleared(lamp.path());
+    let (wrote, said) = prepare(lamp.path());
+    assert!(wrote.unwrap().is_empty());
+    assert!(gone(lamp.path()));
+    assert!(
+        said.iter()
+            .any(|line| line.contains("V1's key is not put back")),
+        "{said:?}"
+    );
+
+    // Written by install, then reset: prepare writes nothing either.
+    let mut lamp = Lamp::new(190, &[]);
+    fs::create_dir_all(lamp.on("/root/config")).unwrap();
+    fs::write(lamp.on(install::V1_CONFIG), v1_config()).unwrap();
+    lamp.install().unwrap();
+    cleared(&lamp.root);
+    assert!(prepare(&lamp.root).0.unwrap().is_empty());
+    assert!(gone(&lamp.root));
+}
+
+/// Where prepare's record and install's rule meet: a key prepare wrote and a
+/// reset removed is not put back by the install that follows the migration.
+#[test]
+fn prepare_then_reset_then_install_does_not_restore_the_old_key() {
+    let mut lamp = Lamp::new(191, &[]);
+    fs::create_dir_all(lamp.on("/root/config")).unwrap();
+    fs::write(lamp.on(install::V1_CONFIG), v1_config()).unwrap();
+    assert_eq!(prepare(&lamp.root).0.unwrap().len(), 2);
+    for path in [install::CREDENTIAL_PATH, install::JEV_KEY_PATH] {
+        fs::remove_file(lamp.on(path)).unwrap();
+    }
+    lamp.install().unwrap();
+    for path in [install::CREDENTIAL_PATH, install::JEV_KEY_PATH] {
+        assert!(!lamp.on(path).exists(), "{path}");
+        assert!(
+            lamp.said
+                .iter()
+                .any(|line| line.contains(path) && line.contains("V1's key is not put back")),
+            "{:?}",
+            lamp.said
+        );
+    }
+}

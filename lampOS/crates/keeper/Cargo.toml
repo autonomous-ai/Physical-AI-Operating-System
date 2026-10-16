@@ -12,10 +12,19 @@ publish.workspace = true
 [[bin]]
 name = "lamp-keeper"
 path = "src/main.rs"
+required-features = ["prepare"]
+
+# The binary's `prepare` provisions the device key with lamp-update install's
+# own code. A part that only takes the library (the body, for the notify
+# protocol) turns default features off and so does not build lamp-update.
+[features]
+default = ["prepare"]
+prepare = ["dep:lamp-update"]
 
 [dependencies]
 lamp-bus = { path = "../bus" }
 lamp-msgs = { path = "../msgs" }
+lamp-update = { path = "../update", optional = true }
 serde.workspace = true
 serde_json.workspace = true
 

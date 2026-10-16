@@ -1859,6 +1859,7 @@ version = "0.1.0"
 dependencies = [
  "lamp-bus",
  "lamp-msgs",
+ "lamp-update",
  "serde",
  "serde_json",
 ]

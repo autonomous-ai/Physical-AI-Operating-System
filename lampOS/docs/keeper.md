@@ -258,6 +258,45 @@ Started that way (`AUTONOMOUS_SERVICE_NAME` set), `lamp-keeper serve`:
    setup's reset can run `/usr/local/bin/lamp-keeper stop lamp` by one path
    whatever the version.
 
+### Prepare: the device key before the old runtime stops (#701)
+
+The `lamp-os` package the updater installs is built in the parent
+repository (`scripts/release/lamp_os_package.py`), and its `bin/service` is
+that repository's adapter, which runs `bin/lamp-keeper serve` as a child
+without `AUTONOMOUS_SERVICE_NAME`; the adapter's own `cleanup` removes what
+it made (its units live under `/run`). The updater refuses an initial
+`lamp-os` migration without `SERVICE_PREFLIGHT=1` in the package and a
+`bin/service prepare`; neither is in the parent's package yet. What lampOS
+gives that prepare is one command, `lamp-keeper prepare`.
+
+`lamp-keeper prepare` runs while the old runtime still owns the lamp. It
+stops nothing and touches no hardware and no unit. It provisions the device
+key with `lamp-update install`'s own code (`install::provision_device_key`):
+V1's `llm_api_key` from `/root/config/config.json` into
+`/etc/lampOS/voice/credential` and `/etc/lampOS/policy/jev.key`, 0600 (set,
+not left to the umask or to a file left beside), written whole beside and
+renamed, root's as the updater runs it, and only where the file is missing:
+one already there is never replaced, and with both there the config is not
+read. It records what it wrote in lamp-update's records
+(`/var/lib/lampos-update/state.json`), as install does, and follows
+install's rule (#1102; the key is the user's and a reset wipes it, #806): a
+key written once, by install or by prepare, and now gone is not put back
+from V1's config, which may still hold the previous owner's; it says so and
+leaves the key to setup. A file missing and no usable key in V1's config:
+nothing written, it says so and exits 0, as install does, and setup takes
+the user's key. Main's updater runs `bin/service prepare` before every
+`lamp-os` update, so a refusal here would refuse every update, not only
+the migration. It prints the paths it wrote, never
+the key, not even its length. Checking the release (unit templates filled,
+programs present) is the adapter's, which renders the units.
+
+The key stays after a failed migration or a rollback: it is written outside
+the updater's data folder, so neither the updater's staging cleanup nor its
+snapshots remove it. A later `lamp-update install` finds it equal to the key
+and takes it as its own.
+
+Not shown: run by an updater, or on a lamp; only on a temporary root.
+
 ### Not set up for a home yet (#806)
 
 With `--setup-marker PATH` (off unless given; the third's setup uses
@@ -284,9 +323,11 @@ seen on lamp-52e6 on 2026-10-14; lamp-4ace has neither.
   (masked first, so that stopping one cannot start another), says each in
   its journal, and lists them in `health` as `legacy_stopped`. It masks
   because its unit is the updater's replacement for the old runtime; it
-  deletes nothing, and one that is not active is not touched. Unmasking
-  (`systemctl unmask`) is the updater's rollback's business, not the
-  keeper's.
+  deletes nothing, and one that is not active is not touched. The parent's
+  updater leaves the old runtime's mask state as it found it and unmasks
+  nothing, so a lamp brought up this way keeps these masks after a rollback
+  until someone runs `systemctl unmask`. Under the parent's package adapter
+  the keeper runs without `AUTONOMOUS_SERVICE_NAME` and masks nothing.
 - **The bus root.** Made by whichever part comes first, `/run/lampos-bus`
   was root's on lamp-52e6 (by the voice), and `lamp-health` and
   `lamp-expression`, run as `orangepi`, failed on it with "Permission

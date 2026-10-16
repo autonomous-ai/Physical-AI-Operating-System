@@ -1,8 +1,182 @@
 # Reviewer work log
 
-Reviewer merged #751, #765, #780, #790, #792, #797, #807, #808, #815, #818, #822, #827, #843, #848, #850, #852, #853, #855, #859, #861, #864, #865, #867, #872, #875, #877, #878, #885, #886, #888, #889, #891, #894, #895, #897, #899, #901, #902, #903, #904, #907, #909, #910, #912, #915, #916, #919, #922, #923, #924, #927, #931, #932, #942, #943, #944, #950 by rebase; manually closed #752, #753, #777, #803, #837, #846, #854, #860, #862, #879, #890 and #892. #854 was later reopened by First for its story handover regression. #703 remains open for its other work; #732 was closed by the first builder after #751, #765 and #793 were all merged. First builder merged #738, #778, #789, #791, #793, #794, #796, #798, #809, #810, #816, #817, #835, #839, #842, #851, #858, #881, #908, #917, #921, #928 and #929; devops merged #821, #824, #825 and #826 (the last into main). No lamp actions or production source edits by this reviewer. The reviewer/log branch records the review work under the builder commit/push exception in CLAUDE.md (61d1ea6fc).
+Reviewer merged #751, #765, #780, #790, #792, #797, #807, #808, #815, #818, #822, #827, #843, #848, #850, #852, #853, #855, #859, #861, #864, #865, #867, #872, #875, #877, #878, #885, #886, #888, #889, #891, #894, #895, #897, #899, #901, #902, #903, #904, #907, #909, #910, #912, #915, #916, #919, #922, #923, #924, #927, #931, #932, #942, #943, #944, #945, #950, #956 by rebase; manually closed #752, #753, #777, #803, #837, #846, #854, #860, #862, #879, #890 and #892. #854 was later reopened by First for its story handover regression. #703 remains open for its other work; #732 was closed by the first builder after #751, #765 and #793 were all merged. First builder merged #738, #778, #789, #791, #793, #794, #796, #798, #809, #810, #816, #817, #835, #839, #842, #851, #858, #870, #881, #908, #917, #921, #928 and #929; devops merged #821, #824, #825 and #826 (the last into main). No lamp actions or production source edits by this reviewer. The reviewer/log branch records the review work under the builder commit/push exception in CLAUDE.md (61d1ea6fc).
 
-Updated: 2026-10-16 09:24:50 +0700
+Updated: 2026-10-16 09:55:45 +0700
+
+## PR #947 — ff native qualified
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/947)
+
+Reviewer: ARM64 follow-up at 09:54: run 38841217693 is green with 5,272 distinct passes, 130 skipped, four doc tests and twelve process-harness cases. Its actual checkout `20e8dd83d` independently reconstructs to the complete `ff6e7a443` source tree, including all 39 PR files; all eleven Skills tests pass, including `every_skill_folder_passes_its_own_recorded_tests`. This now validates the folders with the integrated runtime. The prior first-builder handoff for showing the physical skills remains; the two missing paused recordings are still not passes.
+
+## PR #964 — first review
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/964)
+
+Reviewer: first review at 09:54 on `a8d3fce4a`: I have read the two-file diff and the root-cause report. Both changes are in test fixtures; production executable validation is unchanged. I am checking the executable identity assertions, the copy-process lifetime, #898, and the full serial Tasks gate, then qualifying ARM64 run 38842417628. The author's repeated-run results remain attributed evidence until independently checked. No finding yet.
+
+## PR #930 — 2a full gate four failures
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/930)
+
+Reviewer: follow-up at 09:52 on `2a26e1bb5`: workspace fmt and strict all-target Voice Clippy pass; the full serial Voice gate is 1,474 passed, 4 failed, 8 ignored. Original failures are `late_started_callback_cannot_restore_an_offer_after_owner_replacement` at `lampOS/crates/voice/src/coordinator/motor/tests.rs:1103` (missing file), and three privacy-freshness failures in `lampOS/crates/voice/src/coordinator/tests/pilot_faults.rs`: `a_short_xrun_reopen_inside_a_question_abandons_it_and_the_voice_goes_on` at line 1985, `a_stall_while_the_lamp_answers_cuts_the_reply_and_the_voice_goes_on` at line 1965, and `rapid_mute_and_reopen_never_overlaps_workers_or_carries_speech_across` at line 2396. These results and all 24 original products are preserved, without retries or additional pilot probes; they remain unwaived.
+
+ARM64 38840155315 passes 5,277 tests with 130 skipped. Its actual synthetic checkout is verified, and all 22 PR blobs match; the nine inherited build inputs are the merged Skills addition. The queued-input cleanup remains byte-identical to the corrected branch that passed the original nine-case proof. The source finding is cleared, but the local failures and existing first-builder physical acceptance remain outstanding.
+
+## PR #961 — bdd full gate four failures
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/961)
+
+Reviewer: at 09:52, the required gate on `bddaf251a` is complete but red: fmt and strict all-target Clippy pass; Memory is 205 passed/0 failed/5 ignored and Voice is 1,457/4/8 (total 1,662/4/13). All 47 tests in the changed files pass, all 332 existing assertions are preserved, and I found no defect in the fixture-deadline change. The original Voice failures are:
+
+- `same_owner_input_end_cancels_queued_gesture_before_inert_bus_write`: missing file at `lampOS/crates/voice/src/coordinator/motor/tests.rs:1193` (#906).
+- `a_microphone_closed_by_a_stall_reopens_under_a_new_epoch_and_the_voice_goes_on` and `a_reopen_while_the_lamp_answers_cuts_the_reply_and_the_voice_goes_on`: privacy freshness lost at `lampOS/crates/voice/src/coordinator/tests/pilot_faults.rs:1888` and `:1946` (#893).
+- `actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion`: AckConfirmed assertion at `lampOS/crates/voice/src/coordinator/tests/reminder_roundtrip.rs:338` (#935).
+
+All four original failures and 44 test/program products are preserved. No retries or additional pilot probes were run; the role's pass-alone condition has not been met, and #935 explicitly distinguishes its case from the older accepted reminder failure. Unchanged fixture source does not establish a cause or waive these results. ARM64 38839040530 passes 5,249/130 skipped and all changed tests, but excludes the two pilot cases. These failures prevent reviewer merge approval; please account for them under the Queue's rules. #948 remains open.
+
+## PR #857 — 496 resistance baseline p2
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/857)
+
+Reviewer: P2 — do not learn existing resistance as the arm's normal load at `lampOS/crates/body/src/body.rs:3321–3324`. `stand` and `stand_velocity` settle from commanded interpolation (lines 2846–2853), without proving the physical arm has settled freely. If a shoulder is already stationary 30 counts short with load 400 when this branch first runs, `carries=400` raises the stall threshold to 500. The same sustained resistance then never reaches `hold` in `Stall::step` (lines 1866–1892), so the commanded arm goal is not replaced by the held position at lines 3134–3135. Resistance beginning less than 75 steps before this capture can reach that path before the previous threshold makes a hold.
+
+The separate guards do not necessarily catch this case: with the documented arm-load limit 950, 30 counts is below the 160-count tracking limit, and a 40-degree sample is below the 62-degree temperature limit. Those guards remain present; this finding does not claim a measured thermal outcome. Validate or bound baseline acquisition so an already obstructed arm cannot normalize its resistance, and add a regression with resistance present during acquisition. The existing tests add the 400-load push after learning a lower baseline.
+
+Source finding checked at 09:52 on `49695de6b`; no force, motor or device probe. The ordinary Body gate passes 298/0/0, fmt and strict Clippy pass. ARM64 38839669690 passes 5,254/130 skipped with all four changed blobs exact; its inherited dependency inputs differ. The first-builder handoff remains.
+
+## PR #947 — ff five findings cleared first demo
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/947)
+
+Reviewer: for the first builder: at 09:50, all five source findings are corrected on `ff6e7a443`: pause/person limits are explicit, the demonstration uses a temporary duration-shortened copy, voice disabling is marked unimplemented, load errors go to the service journal, and warm light is deferred. I reran both unchanged recording sets with the preserved binary of the now-merged #950 runtime: 8 recorded cases pass; the 2 absent paused recordings remain missing, not passes. The runtime source matches that binary.
+
+The ARM64 run for this head (38841217693) is still running. The two skills request physical behavior, and this PR does not record a demonstration on an author's lamp; #941 also calls for showing the owner the skill before keeping it. Please judge that remaining acceptance. This review has not installed either skill or performed a lamp demonstration.
+
+## PR #937 — cdc gate review
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/937)
+
+Reviewer: follow-up at 09:50 on `cdc6ee1ba`: fmt, strict all-target Policy Clippy, and the full serial Policy gate pass (171 passed, 0 failed, 2 ignored), with no retries. The rebase preserves the reviewed progress/rules behavior and both acting flags. ARM64 run 38839937869 passes 5,256 tests with 130 skipped; all 171 Policy identities occur once, and the independently reconstructed native checkout tree equals the feature-head tree. No new source finding. The existing first-builder handoff for the spoken keep/forget acceptance remains; this host result does not claim that acceptance.
+
+## PR #884 — 5d task drain bound failure
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/884)
+
+Reviewer: gate failure at `lampOS/crates/tasks/tests/harness.rs:548`, checked at 09:50 on `5d0c2d43f`: `a_descendant_holding_pipes_is_killed_without_an_unbounded_drain` returns the expected `Uncertain(pipes_open)`, but fails the elapsed-time bound of two seconds. Its later heartbeat-stop and child-reap assertions therefore do not execute. This test file is unchanged by the PR. The search hit in closed #698 concerns a different, earlier preflight assertion and does not waive this failure. Please account for the bound failure or provide an applicable open Queue exception; the original result and executable are preserved, with no retry.
+
+ARM64 run 38837688447 passes 5,240 tests with 130 skipped, including this identity. I independently reconstructed its checkout tree and verified that it equals this PR head's tree. Local Schedule and Tasks failures remain open, and the existing first-builder handoff still applies.
+
+## PR #884 — 5d schedule listener failure
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/884)
+
+Reviewer: gate failure at `lampOS/crates/schedule/tests/runtime_failures.rs:187`, checked at 09:50 on `5d0c2d43f`: `a_full_stderr_sink_cannot_hold_status_or_sigterm_shutdown` fails on its first status connection with OS error 61, ConnectionRefused. The fixture waits for the socket pathname at lines 175–185; this failure occurs before its status-latency and shutdown checks. The file is unchanged by this PR, and the failure alone does not identify why the listener was unavailable. Please account for this failing gate or link an applicable open Queue exception; I found no exact-name exception and have not rerun it.
+
+The complete nine-crate gate retained 2,394 passed, 3 failed, 11 ignored; fmt and strict Clippy pass. The reminder AckConfirmed failure has its documented #739 exception after one original-binary isolation passed. The Schedule failure and the separate Tasks failure remain unwaived.
+
+## PR #954 — 719 full gate five failures
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/954)
+
+Reviewer: at 09:50, the ordinary gate on `719b1850f` is still red: fmt and strict all-target Clippy pass; full serial Voice is 1,446 passed, 5 failed, 8 ignored. All ten new say/coordinator cases pass, including the whole-line deadline case.
+
+Four `coordinator::tests::second_route` cases fail at `lampOS/crates/voice/src/coordinator/tests/second_route.rs:162` with stale privacy/capture-discontinuity errors: `a_question_before_geminis_first_ready_waits_for_it`, `a_question_goes_to_the_second_route_once_the_startup_hold_is_over`, `spoken_over_the_second_routes_answer_stops_as_gemini_does`, and `the_next_turn_goes_back_to_gemini_once_it_is_ready`. `reminders::consumer::tests::completed_playout_survives_both_real_store_reopens_then_acks_without_respeech` fails its AckConfirmed assertion at `lampOS/crates/voice/src/reminders/consumer/tests.rs:644`. Original binaries and logs are preserved; none of these failures has been retried or waived in this review.
+
+ARM64 run 38839609398 passes 5,261 tests with 130 skipped; its actual synthetic checkout and the changed say/coordinator code are verified. That native pass does not erase the local failures. The receipt-expiry P2 and complete-line size P3 also remain open; the whole-line deadline P2 is corrected. Please resolve the open source findings and account for the failing gate before approval.
+
+## PR #930 — queue fix proof b4 to 2a26
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/930)
+
+Reviewer: the queued-input P2 is fixed. Against `b4b30c572`, the original nine regression procedures now pass **9/9**, versus the preserved prior result of eight passes and one “provider input lost its owner” failure. All assertions are unchanged; the only fixture adaptation is the exact newly corrected coordinator branch. The current `2a26e1bb5` rebase retains that branch byte-for-byte. The ordinary, cut-in, ended/ongoing, Stop, completion and expiry controls remain covered. No lamp or real provider was used.
+
+The completed `b4b30c572` full gate had fmt/strict Clippy pass and **1,447 tests passed / 2 failed / 8 ignored**. Both original failures are retained: motor `pending_segment_privacy_revoke_wins_before_any_position_write` (`coordinator/motor/tests.rs:1056`, inhibit acknowledgement timeout plus missing file), and `same_owner_input_end_cancels_queued_gesture_before_inert_bus_write` (`:1193`, missing file). No waiver or retry is claimed for those results. All 24 original products and the corrected regression binary are preserved.
+
+I have inspected the rebase adaptations, including the new test End field and inherited full-look/wait-for-room changes. A fresh full gate on `2a26e1bb5` is now running; its native run 38840155315 will be qualified separately. First's physical “Sorry?” acceptance remains. Checked at 09:35.
+
+## PR #962 — queued input p2 f70d9dff7
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/962)
+
+Reviewer: P2 — discard the failed turn's queued work when dropping the active second worker (`lampOS/crates/voice/src/coordinator.rs:2914–2917`, head `f70d9dff7`). This new branch removes `reply` through `cancel_reply`, but leaves `provider_queue` and `speaker_pending` intact. If the worker exits between ticks after an input send returned WouldBlock, an unsent Audio/End remains. `apply_submission_gate` does nothing with no reply, and the next `second::flush` falls through to `flush_provider_input_with`, which returns “provider input lost its owner” at line 1786. The voice therefore still exits in precisely the recoverable worker-failure path this change intends to handle.
+
+Clear the cancelled turn's queued input and pending speaker work as the existing nothing-said/reminder cancellation paths do, and cover an active-worker exit with an unsent input still queued. This is an exact source/control-flow finding, not a claim of a new runtime reproduction; the same queue-lifetime omission was independently reproduced and fixed in #930. Checked at 09:34. The separate privacy-path handoff remains with First.
+
+## Issue #828 — merged 956
+
+[Issue](https://github.com/autonomous-ai/lampOS/issues/828)
+
+Reviewer: merged #956 at 09:31 by rebase: the opt-in second-route STT fix that retains the tail after a short Finalize response; #828 remains open for live interruption and stop-latency work.
+
+## Issue #828 — merged 945
+
+[Issue](https://github.com/autonomous-ai/lampOS/issues/828)
+
+Reviewer: merged #945 at 09:28 by rebase: the explicit STT timing command with queue-to-parsed-result boundaries documented; #828 remains open for live interruption and stop-latency work.
+
+## PR #956 — ready c1a59b06e
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/956)
+
+Reviewer: review complete at `c1a59b06e`. Fresh workspace fmt, strict all-target Voice Clippy and full serial Voice tests pass: **1,442 passed / 0 failed / 8 ignored**, no retry. All original executables and the main program are retained.
+
+Six independent checks run the unchanged actual STT worker with inert WebSocket peers: short final followed by its tail, the same audio in 30 frames, a complete-final control, ignored Finalize, the 15-second timeout and cancellation. All pass. Restoring only the old completion branch retains the complete-final pass but reproduces the truncated short result; that expected failure and both binaries are preserved. These are protocol/virtual-clock checks, not network or acoustic latency measurements.
+
+Native 38835876302 independently qualifies 5,201 unique passes / 130 skips, four doc tests and 12 process checks. Actual synthetic `ba0e28f14` reconstructs tree `cac293063`; STT is exact, with only the separately reviewed scenario-clock fixture inherited. The ordinary-route packet/record/sample comparison passes. Current integration is clean; the STT additions from just-merged #945 are only its reviewed first-word observer and test.
+
+No remaining finding. The configured second route is opt-in; the author's synthetic relay observations are distinguished from live interruption acceptance. Merging by rebase; #828 remains open for that wider work. Checked at 09:31. No lamp, credential or real provider was used in this review.
+
+## PR #954 — line length p3 719b1850f
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/954)
+
+Reviewer: P3 — enforce the complete line's byte limit before returning at `lampOS/crates/voice/src/say.rs:565–570`, head `719b1850f`. `read_line_within` currently returns as soon as its buffer contains a newline, before the `MOST_LINE_BYTES` check. For example, valid JSON padded with spaces to 4,096 bytes and a following newline is accepted as a 4,097-byte request; a final read can take the accepted line as far as 4,608 bytes. Check the newline-terminated slice against the limit before returning, and cover exact-limit/one-byte-over cases. This is a source-only finding, not an additional socket run. The one-second whole-line timer is corrected; the earlier expiry P2 remains because its request/poll/take/coordinator code is unchanged. Checked at 09:30; the current full Voice gate is running.
+
+## PR #962 — first review f70d9dff7
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/962)
+
+Reviewer: for the first builder: first review at 09:30 of `f70d9dff7`, including both the delayed-authority and optional-worker changes and #960's latest observations. This changes the privacy/input authority drain and how a dead second worker releases a turn, so the privacy-path disposition remains yours. I am checking retirement, queued input and cancellation boundaries, the real-controller test coverage, and the full touched Voice gate/native result. The documented within-tick worker-death limit remains; #960 also retains the separate mute-latch work. No lamp or real provider will be used.
+
+## PR #957 — first review ad0e7f447
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/957)
+
+Reviewer: first review at 09:30 of ready `ad0e7f447`. I have read the transport wait wrapper, all seven new boundary/cleanup cases and the stated #823 limits. The explicit test clock retains real child observation, the full five-second logical deadline, kill/reap and the original certification assertions; ordinary callers retain the host clock and the same check ordering. The fixed host watchdog is correctly distinguished from an end-to-end OS cleanup bound. No source finding so far. I am checking the complete identity/source preservation and both native attempts independently, then running the full Evaluator gate. The original-123 standalone serial target remains unproved; #823 stays open.
+
+## PR #945 — ready 4fac6abcd
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/945)
+
+Reviewer: the measurement-boundary P3 is fixed at `4fac6abcd`. The delta is documentation and comments only: queue-to-parsed-result timing, the single-message held prefix, and the separate synthetic relay observations are now explicit. The previously completed exact-code gate remains applicable: fmt, strict all-target Voice Clippy and 1,404 passed / 0 failed / 8 ignored, with original products preserved.
+
+Current native 38838992586 independently qualifies 5,251 unique passes / 130 skips, four doc tests and 12 process checks. Its actual synthetic `63fc646ed` reproduces tree `47560accf`; reviewed main/STT code is byte-exact. The differing document inherits the already-reviewed startup/queue fixes and scenario-clock explanation. Current integration is clean with main/STT still exact.
+
+The explicit manual command is the only probe entry. Existing ordinary-route packet/record/sample comparisons and STT final-result controls pass; this is not a claim of a live CLI or lamp measurement. No remaining finding; merging by rebase. #828 stays open for interruption latency. Checked at 09:28.
+
+## PR #918 — complete c6d84e6b5
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/918)
+
+Reviewer: all three reported P2s are fixed at `c6d84e6b5`; the original eligibility, named-call and actual-worker conversation controls now pass. Fresh workspace fmt and strict all-target Voice/Evaluator/Memory Clippy pass. Full serial results: Voice 1,479 passed / 1 failed / 8 ignored; Evaluator 498 / 0 / 0; Memory 205 / 0 / 5. All 64 original products and the complete first failure are retained.
+
+The one failure was `coordinator::motor::tests::native_head::native_head_six_explicit_actions_prepare_profile_then_new_requests`, at `coordinator/motor/tests/native_head.rs:172`, reporting an inhibited/rejected qualification worker. Queue #705 and #739 explicitly cover that native-head family. Its single permitted isolated execution from the original failed binary passed, 1/1; no other test was retried. This meets reviewer.md's documented exception, without calling the original full run green.
+
+Native 38838085088 independently qualifies 5,267 distinct passes / 130 skips, four doc tests and 12 process cases, including all 44 relevant Voice identities once. Actual synthetic `94329b8638` reconstructs tree `231f5bc4`; inherited full-look plumbing is accounted for and the reviewed attention/room logic is exact.
+
+Reviewer: for the first builder: no remaining source finding, but the actual room/addressing behavior remains your lamp acceptance. #829 stays partial and open. Checked at 09:27; no lamp or real model was used.
+
+## PR #955 — speech lifetime p2 6beb3cd36
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/955)
+
+Reviewer: P2 — clear the new speech-motion history at the existing producer lifetime fences (`lampOS/crates/expression/src/engine.rs:1395–1401`, head `6beb3cd36`). New turns and audio generations call `clear_transients` at lines 946 and 952–955, but that function never resets `SpeechMotion`. A higher-generation, unheld Listening update can therefore emit the previous generation's nod or sway with no new Speaking or PCM. Cancellation also returns before `SpeechMotion::step`; a later Listening turn can start the cancelled answer's settling motion.
+
+The actual compiled Engine, with inert stamped inputs and paired speaking-on/off catalogues, reproduces three failures: an old nod at +0.014 rad, an old roll at +0.0175 rad, and a cancelled answer's settle at +0.0075 rad in the next Listening turn. Each has an empty playout queue, no rejected input and no new speech. Fresh Listening and an observed held tick are two passing controls. These are logical-time offsets, not lamp observations. Reset the gesture history on new session/turn/generation and cancellation while preserving intentional settling after a normal finish; add these lifetime cases.
+
+The original full gate is otherwise green: workspace fmt, strict all-target Expression Clippy, and 238 tests passed with no failures or ignores; all 18 products are retained. Native 38835699107 qualifies 5,208 unique passes / 130 skips, plus four doc tests and 12 process cases, with all seven PR blobs exact. The five independent assertions remain recorded as two passes / three failures. Reviewer: for the first builder: your visible-motion changes and physical judgment remain pending separately. Checked at 09:27; no device or service was used.
 
 ## Issue #938 — merged 950
 

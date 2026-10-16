@@ -522,6 +522,15 @@ impl Engine {
         self.playout_since = None;
         self.interruption = None;
         self.late_schedule = false;
+        self.speech.forget();
+    }
+
+    /// An answer ending as it should at `now_us` owes its settle (#933).
+    fn owes_settle(&self, now_us: u64) -> bool {
+        self.catalogue
+            .speaking
+            .as_ref()
+            .is_some_and(|rules| self.speech.owes_settle(rules, now_us))
     }
 
     fn held(&self) -> bool {
@@ -1036,7 +1045,12 @@ impl Engine {
                 };
             }
             VoiceEvent::Cancelled | VoiceEvent::Finished if !repeated_terminal => {
+                // Only a finished answer is settled after, never a cancelled one.
+                let settle = voice.event == VoiceEvent::Finished && self.owes_settle(now_us);
                 self.clear_transients();
+                if settle {
+                    self.speech.settle_from(now_us);
+                }
                 self.retired_turn = true;
                 self.cancelled |= voice.event == VoiceEvent::Cancelled;
             }
@@ -1053,7 +1067,12 @@ impl Engine {
                         .as_ref()
                         .is_some_and(|old| matches!(old.state, Voice::Thinking | Voice::Speaking))
                 {
+                    // The answer ended as it should: its settle is still owed.
+                    let settle = self.owes_settle(now_us);
                     self.clear_transients();
+                    if settle {
+                        self.speech.settle_from(now_us);
+                    }
                     self.retired_turn = true;
                 }
             }

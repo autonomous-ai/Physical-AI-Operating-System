@@ -59,14 +59,19 @@ impl Lamp {
 
     /// What the voice and the other parts say every 100 ms.
     fn parts(&mut self, at: u64, state: Voice) {
+        self.parts_of(at, 1, state, VoiceEvent::State);
+    }
+
+    /// As [`Lamp::parts`], for turn `turn` and with `event`.
+    fn parts_of(&mut self, at: u64, turn: u64, state: Voice, event: VoiceEvent) {
         let timing = VoiceTiming {
             stamp: self.stamp(at),
             session_id: "voice-one".into(),
-            turn: 1,
-            request: 11,
+            turn,
+            request: turn * 10 + 1,
             state,
             accepting_input: true,
-            event: VoiceEvent::State,
+            event,
             first_audio_us: None,
         };
         self.send(
@@ -271,4 +276,84 @@ fn a_catalogue_without_speaking_plans_its_speech_as_before() {
         .collect();
     // The old clip's roll is at most 0.009 rad, scaled by the level.
     assert!(rolls.iter().all(|roll| roll.abs() <= 0.0091), "{rolls:?}");
+}
+
+/// Three seconds of the answer from 1 s, ticked; then `after` at 4 s, and
+/// the next second as turn 2 listening, or turn 1 at rest without
+/// `next_turn`: those ticks' outputs.
+fn fenced(speaking: bool, after: VoiceEvent, next_turn: bool) -> Vec<(u64, Output)> {
+    let mut lamp = Lamp::new(catalogue(speaking), Room::Quiet);
+    let mut at = 0;
+    while at < 4_000_000 {
+        let talking = at >= 1_000_000;
+        if at % 100_000 == 0 {
+            lamp.parts(
+                at,
+                if talking {
+                    Voice::Speaking
+                } else {
+                    Voice::Resting
+                },
+            );
+        }
+        if talking {
+            lamp.piece(at, level(at - 1_000_000));
+        }
+        lamp.engine.tick(at);
+        at += TICK;
+    }
+    // A terminal event ends turn 1 as Resting; with none, turn 2 simply
+    // begins over it.
+    if after != VoiceEvent::State {
+        lamp.parts_of(at, 1, Voice::Resting, after);
+    }
+    let mut outputs = Vec::new();
+    while at < 5_000_000 {
+        if at % 100_000 == 0 {
+            if next_turn {
+                lamp.parts_of(at, 2, Voice::Listening, VoiceEvent::State);
+            } else {
+                lamp.parts_of(at, 1, Voice::Resting, VoiceEvent::State);
+            }
+        }
+        outputs.push((at, lamp.engine.tick(at)));
+        at += TICK;
+    }
+    outputs
+}
+
+/// #955 review: what moved the head with one answer ends at the fences that
+/// end it. A new turn, or a cancelled answer, carries no nod, sway or settle
+/// into the next turn; only an answer that finished is settled after, and a
+/// new turn at once (someone speaking) cuts that settle short too.
+#[test]
+fn a_new_turn_or_a_cancelled_answer_carries_none_of_the_old_answers_motion() {
+    let speaking_names = [
+        "nodding on a stressed word",
+        "swaying between sentences",
+        "settling as it finishes",
+    ];
+    for after in [VoiceEvent::State, VoiceEvent::Cancelled] {
+        let with = fenced(true, after, true);
+        let without = fenced(false, after, true);
+        for ((at, output), (_, plain)) in with.iter().zip(&without) {
+            assert!(
+                speaking_names.iter().all(|name| !named(output, name)),
+                "{after:?} at {at}: {:?}",
+                output.state.behaviours
+            );
+            assert_eq!(
+                output.body.as_ref().map(|body| body.offsets),
+                plain.body.as_ref().map(|body| body.offsets),
+                "{after:?} at {at}"
+            );
+        }
+    }
+    // A finished one, with nobody speaking at once, is settled after.
+    let finished = fenced(true, VoiceEvent::Finished, false);
+    assert!(
+        finished
+            .iter()
+            .any(|(_, output)| named(output, "settling as it finishes"))
+    );
 }

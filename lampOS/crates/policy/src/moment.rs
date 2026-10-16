@@ -297,6 +297,12 @@ impl Moment {
         self.totals
     }
 
+    /// Whether a question is out or an ask waits: its asker waits, so the
+    /// loop looks again sooner.
+    pub fn busy(&self) -> bool {
+        self.asking.is_some() || !self.waiting.is_empty()
+    }
+
     /// A skill asks whether the lamp may start `news` or something
     /// `unprompted` now. Any other ask is passed over. Past [`MOST_WAITING`]
     /// the oldest is let go.
@@ -335,9 +341,10 @@ impl Moment {
                 Some(_) => took,
                 None => now.saturating_duration_since(sent),
             };
-            // Someone began to talk while the model was asked: the hard
-            // rule holds by how things are now.
-            let held = (answer.is_some() && room_now.talking).then_some(Hold::Talking);
+            // Someone began to talk while the model was asked, or while its
+            // asker went away: the hard rule holds by how things are now,
+            // never the fallback's `say_now` (Fourth on #958).
+            let held = room_now.talking.then_some(Hold::Talking);
             return Some(self.decide(context, answer, held, took, unix_ms));
         }
         while self
@@ -678,5 +685,68 @@ mod tests {
         );
         assert_eq!(ruled.line.failed, Some("timed_out"));
         assert_eq!(given_now(2).len(), 2);
+    }
+
+    /// Its thread ends at the first asking, as a model's client that failed
+    /// hard would.
+    struct Gone;
+    impl Decider for Gone {
+        fn ask(&mut self, _: &str, _: &[(String, Question)], _: Duration) -> Result<Asked, Failed> {
+            panic!("this test's asker is gone, on purpose");
+        }
+        fn name(&self) -> &str {
+            "gone"
+        }
+    }
+
+    /// Fourth on #958: an asker gone while someone talks is held by the hard
+    /// rule, as an answer is; the fallback's `say_now` is never taken then.
+    #[test]
+    fn an_asker_gone_while_someone_talks_is_held_by_the_hard_rule() {
+        let mut moment = Moment::start(Gone, Options::new(Duration::from_secs(3), None)).unwrap();
+        let quiet = Now {
+            room: Room::Quiet,
+            someone_here: Some(true),
+            quiet_s: 300,
+            talking: false,
+            spoke_up_last_hour: 0,
+        };
+        // With nobody talking, the fallback would say now.
+        assert_eq!(fallback(&context("unprompted")).choice, Choice::SayNow);
+        let t = Instant::now();
+        assert!(!moment.busy());
+        moment.asked(
+            &SkillAsk {
+                ask: 1,
+                skill: "stretch-break".into(),
+                act: "unprompted".into(),
+                person: None,
+                away_min: None,
+                there_s: None,
+            },
+            t,
+        );
+        assert!(moment.busy());
+        assert!(moment.turn(t, 1_000_000, quiet).is_none(), "out");
+        let talking = Now {
+            talking: true,
+            ..quiet
+        };
+        let held = (0..500)
+            .find_map(|_| {
+                std::thread::sleep(Duration::from_millis(2));
+                moment.turn(t + Duration::from_millis(100), 1_000_000, talking)
+            })
+            .expect("decided once the asker went");
+        assert_eq!(
+            (
+                held.decision.choice.as_str(),
+                held.decision.by.as_str(),
+                held.line.guard
+            ),
+            ("wait", crate::policy::RULE, Some(Hold::Talking))
+        );
+        assert_eq!(moment.totals().held_talking, 1);
+        assert!(!moment.busy());
     }
 }

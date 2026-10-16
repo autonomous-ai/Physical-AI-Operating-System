@@ -389,11 +389,14 @@ pub(crate) mod tests {
         // A state that is not a light there is, is no light.
         ring.publish_json(2, &light(true, "blue", 9)).unwrap();
         assert_eq!(lamp.shown(), None);
-        // The owner said so with a life of 20 ms, and then stopped.
-        ring.expires_after(Some(Duration::from_millis(20)));
+        // The owner said so with a life of half a second, and then stopped.
+        // The life is read on the wall clock from the publication on: long
+        // enough that a runner held up between the publication and the
+        // read still reads it in its life (#1121; 20 ms was not).
+        ring.expires_after(Some(Duration::from_millis(500)));
         ring.publish_json(3, &light(true, "blue", 1)).unwrap();
         assert_eq!(lamp.shown(), Some(light(true, "blue", 1)));
-        std::thread::sleep(Duration::from_millis(60));
+        std::thread::sleep(Duration::from_millis(540));
         assert_eq!(lamp.shown(), None);
         assert!(!lamp.there());
         std::fs::remove_dir_all(root).unwrap();

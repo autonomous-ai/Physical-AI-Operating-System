@@ -39,13 +39,19 @@ GAIN_CAP = 1.6
 REWORKED = {'curious': ('curious', 3.0, [1.0, 0.0, 1.0, 0.5, 0.6], (0.35, 0.5, 0.0)),
             'happy': ('happy_wiggle', 4.0, [1.0, 0.0, 1.0, 0.6, 1.0], (0.0, 0.0, 0.0)),
             'confused': ('confused', 3.0, [1.0, 0.0, 1.0, 0.5, 0.5], (0.5, 0.4, 0.0)),
-            'excited': ('excited', 3.0, [1.0, 0.0, 0.0, 1.0, 1.0], (0.0, 0.0, 0.0)),
+            'excited': ('excited', 2.0, [1.0, 0.0, 0.0, 1.0, 1.0], (0.0, 0.0, 0.0)),
             # Five dances, each led by its own joint and rhythm.
             'dance_chill': ('music_chill', 9.0, [0.25, 0.0, 1.0, 0.15, 0.12], (0.0, 0.0, 0.0)),  # base yaw sweeps
-            'dance_groove': ('music_groove', 8.0, [0.5, 0.0, 0.3, 1.0, 0.7], (0.0, 0.0, 0.0)),  # shoulder bounce
+            'dance_groove': ('music_groove', 8.0, [0.5, 0.0, 0.3, 0.6, 0.7], (0.0, 0.0, 0.0)),  # shoulder bounce
             'dance_hype': ('music_hype', 7.0, [1.0, 0.0, 1.0, 1.0, 1.0], (0.0, 0.0, 0.0)),  # everything, big
             'dance_waltz': ('music_waltz', 9.0, [0.4, 0.0, 0.7, 0.6, 1.0], (0.0, 0.0, 0.0)),  # a slow lean
             'dance_jazz': ('music_jazz', 9.0, [1.0, 0.0, 0.6, 0.25, 0.25], (0.6, 0.4, 0.0))}  # a head bob
+# Joints swung about the standing pose, not off to one side of it: the middle of the joint's swing is eased in
+# over the first CENTRE_S and out over the last, before the gains (a sweep from -58 to 143 becomes about +-143).
+CENTRED = {'dance_chill': [2], 'dance_groove': [3]}
+CENTRE_S = 0.6
+# Played more than once in a row: a person asked for excited to bounce twice (#995).
+REPEATS = {'excited': 2}
 
 def raw(joint, v):
     lo, hi = RANGE[joint]
@@ -88,6 +94,12 @@ for name, (rec, scale, seconds) in list(KEPT.items()) + list(NEW.items()):
         for o in off:
             o[0], o[2], o[1] = o[0] + to_pitch * o[1], o[2] + to_yaw * o[1], o[1] * roll_kept
         dt = (t[-1] - t[0]) / (len(t) - 1)
+        ease = max(1, int(round(CENTRE_S / dt)))
+        for i in CENTRED.get(name, []):
+            middle = (max(o[i] for o in off) + min(o[i] for o in off)) / 2
+            for k, o in enumerate(off):
+                share = min(1.0, k / ease, (len(off) - 1 - k) / ease)
+                o[i] -= middle * share
         gains = []
         for i in range(5):
             peak = max(abs(o[i]) for o in off)
@@ -108,6 +120,11 @@ for name, (rec, scale, seconds) in list(KEPT.items()) + list(NEW.items()):
             off[n - 1 - tail + k][i] -= off[-1][i] * share if k < tail else 0.0
     for i in range(5):
         off[-1][i] = 0.0
+    if REPEATS.get(name, 1) > 1:
+        once = off
+        off = once + [list(o) for _ in range(REPEATS[name] - 1) for o in once[1:]]
+        n = len(off)
+        t = [t[0] + k * (t[1] - t[0]) for k in range(n)]
     dt = (t[-1] - t[0]) / (n - 1)
     speed = [max(abs(off[k + 1][i] - off[k][i]) / dt for k in range(n - 1)) for i in range(5)]
     slow = max(1.0, max(s / f for s, f in zip(speed, FASTEST)))

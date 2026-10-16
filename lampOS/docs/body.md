@@ -794,10 +794,10 @@ lamp-4ace at 10:4x: `acknowledge`, `curious`, `happy`, `excited` and `caring` re
 | `surprised` | `shock` | 2.0 s | a recoil: head back 190, shoulder 332 |
 | `confused` | `confused` | 3.0 s | a puzzled dip and turn: head 190, base 142 (reworked) |
 | `sleepy` | `sleepy` | 9.2 s | a slow droop with a catch |
-| `excited` | `excited` | 3.0 s | a quick bounce up: shoulder 331, elbow 219, head 190 (reworked) |
+| `excited` | `excited` | 4.6 s | two quick bounces up: shoulder 331, elbow 219 (reworked) |
 | `scanning` | `scanning` | 9.1 s | a look round, roll 191, yaw 123: only when a person asks |
-| `dance_chill` | `music_chill` | 9.1 s | base sweeps, 143 either way (reworked) |
-| `dance_groove` | `music_groove` | 8.1 s | a shoulder bounce, 284 (reworked) |
+| `dance_chill` | `music_chill` | 9.1 s | base sweeps about the standing pose, 142 either way (reworked) |
+| `dance_groove` | `music_groove` | 8.1 s | a shoulder bounce about the standing pose, 85 back and 78 forward, elbow 158 (reworked) |
 | `dance_hype` | `music_hype` | 7.0 s | the whole lamp, fastest of the five (reworked) |
 | `dance_waltz` | `music_waltz` | 9.6 s | a slow lean on the elbow, 276 (reworked) |
 | `dance_jazz` | `music_jazz` | 9.1 s | a head bob, 191 (reworked) |
@@ -808,7 +808,9 @@ its reach and its speed allow (1.6 at most), times the clip's emphasis, so that 
 support it and nothing is slowed; the generator's `REWORKED` holds them. They carry no head roll: a head that
 does not tilt standing does not tilt in a gesture (above), and on lamp-06c1 `body/joint_states` showed `confused`
 and `headshake` command none of the 189 and 135 counts they ask, so a recording's roll is moved onto head pitch
-and base yaw. The other clips are as before, byte for byte.
+and base yaw. `dance_chill`'s base and `dance_groove`'s shoulder swing about the standing pose (the middle of
+the swing eased in and out over 0.6 s, `CENTRED`), and `excited` is its bounce twice (`REPEATS`), as the person
+asked after a second look. The other clips are as before, byte for byte.
 
 The voice service asks for one on the mood socket, `{"gesture":"nod"}`; a
 name that is not a clip is ignored. It asks at most once an answer, from the

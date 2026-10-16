@@ -1000,6 +1000,19 @@ With `LAMP_STAFF_NOTE=on` (the provider worker's `--staff-note`, after
   changes the note before it is sent: the staff's part takes the place of
   the one given (`staff_note_text`), since the newest note for a request is
   the one sent.
+- **A request that goes on from the one before** (its Start's `continues`
+  or `continues_cut_off`) keeps the words heard so far, and is matched again
+  the moment its input begins. "Hey Lamp, ask Codex, … to write a haiku":
+  the early end goes at the pause and "ask Codex" is written after it, too
+  late for that request. The rest of it, which the model answers as one
+  (`provider_worker::CUT_OFF_NOTE`), is told, beside the note that it is
+  the rest (`a_request_that_goes_on_from_one_cut_off_is_told_what_the_words_before_named`;
+  the reviewer on #1173). The one before was given up and took its note
+  with it, so a note given there is given again.
+- **A request begun over the lamp's own answer** (`over_the_lamp`) gets no
+  note: its words may be the lamp's read-back ("… to Codex. Shall I start
+  it?") with a "yes" said over it, and a note would invite a second start
+  instead of the confirm (`a_request_begun_over_the_lamp_gets_no_staff_note`).
 - **Before the answer:** the note goes in as the lamp's name note does
   (`crate::called`): `Session::try_note`, sent inside the request's activity,
   after its audio and just before its end. The model answers only after the
@@ -1029,6 +1042,12 @@ With `LAMP_STAFF_NOTE=on` (the provider worker's `--staff-note`, after
   (`the_description_says_the_staffs_note_names_who_only_with_it`). #903
   showed this description is where a change loses the hand-overs, so the
   change is one clause.
+- **The Live route only.** The second voice (`crate::second_provider`)
+  parses the same flags and so has the clause in its `start_agent_task`, but
+  it never sends the note. The clause says "may", so that is harmless.
+- **The switch:** `--staff-note` is taken after `--policy-holds-actions` and
+  also sets the tasks part's `Place::staff_note`, which the description reads
+  (`the_staff_note_is_read_after_the_policy_holds_and_reaches_the_tasks_part`).
 
 Without the switch nothing is matched or sent, a name in the words or not
 (`no_note_without_a_name_or_without_the_switch`); the matching is

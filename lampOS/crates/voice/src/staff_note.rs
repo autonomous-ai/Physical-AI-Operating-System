@@ -78,22 +78,42 @@ pub struct Heard {
     words: String,
     told: Option<String>,
     late: bool,
+    /// Begun over the lamp's own answer: its words may be the lamp's (a
+    /// read-back naming the staff, and a "yes" said over it), so nothing
+    /// is matched (the reviewer on #1173).
+    over: bool,
 }
 
 impl Heard {
-    /// A request's input began: what is heard from now is its.
-    pub fn began(&mut self, request: u64) {
+    /// A request's input began: what is heard from now is its. `over`: it
+    /// was begun over the lamp's own answer.
+    pub fn began(&mut self, request: u64, over: bool) {
         *self = Self {
             request: Some(request),
+            over,
+            ..Self::default()
+        };
+    }
+
+    /// A request that goes on from the one before began: the words heard
+    /// are its too, and the note the one before was given went with it
+    /// (a request given up takes its note with it), so it is told afresh
+    /// (the reviewer on #1173: "ask Codex," heard after an early end).
+    pub fn went_on(&mut self, request: u64, over: bool) {
+        let words = std::mem::take(&mut self.words);
+        *self = Self {
+            request: Some(request),
+            words,
+            over,
             ..Self::default()
         };
     }
 
     /// A piece of what the service heard. The request it belongs to and
-    /// all its words so far, unless its words came too late or no request
-    /// began.
+    /// all its words so far, unless its words came too late, it was begun
+    /// over the lamp, or no request began.
     pub fn piece(&mut self, text: &str) -> Option<(u64, &str)> {
-        let request = self.request.filter(|_| !self.late)?;
+        let request = self.request.filter(|_| !self.late && !self.over)?;
         self.words.push_str(text);
         Some((request, &self.words))
     }
@@ -154,7 +174,7 @@ mod tests {
     fn a_requests_words_add_up_until_they_come_too_late() {
         let mut heard = Heard::default();
         assert_eq!(heard.piece("ask"), None);
-        heard.began(7);
+        heard.began(7, false);
         assert_eq!(
             heard.piece(" Hey Lamp, ask Co"),
             Some((7, " Hey Lamp, ask Co"))
@@ -167,8 +187,17 @@ mod tests {
         assert_eq!(heard.told(), Some(note(&["Codex"]).as_str()));
         heard.too_late();
         assert_eq!(heard.piece(" a haiku"), None);
-        heard.began(8);
+        // The rest of it, after an early end: the words go on, told afresh.
+        heard.went_on(8, false);
         assert_eq!(heard.told(), None);
-        assert_eq!(heard.piece(" thanks"), Some((8, " thanks")));
+        assert_eq!(
+            heard.piece(" a haiku"),
+            Some((8, " Hey Lamp, ask Codex to write a haiku"))
+        );
+        heard.began(9, false);
+        assert_eq!(heard.piece(" thanks"), Some((9, " thanks")));
+        // Begun over the lamp's answer: nothing is matched.
+        heard.began(10, true);
+        assert_eq!(heard.piece(" yes, Codex"), None);
     }
 }

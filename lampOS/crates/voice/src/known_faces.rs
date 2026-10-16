@@ -24,10 +24,118 @@ pub const FORGET: &str = "forget_my_face";
 pub const NAMES_ENVIRONMENT: &str = "LAMP_NAMES";
 /// The provider worker's flag for it, right after the eyes' socket.
 pub const NAMES_FLAG: &str = "--names-checked";
-/// The person's own words of their last this many exchanges, with what is
-/// being heard, count for a name: the request and the two before it before
-/// the lamp's first words, the request and the one before it after them.
+/// The exchanges before the turn in hand that a name may have been said
+/// in, to be kept once the lamp has said it back and the person agreed
+/// ([`name_heard`]).
 pub const SAID_EXCHANGES: usize = 2;
+
+/// What a name is kept from (`LAMP_NAMES=checked`): the person's words of
+/// the turn in hand, and of the exchanges before it, oldest first, each
+/// with what the lamp said back.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Said {
+    pub this: String,
+    pub before: Vec<(String, String)>,
+}
+
+impl Said {
+    /// Only the turn in hand.
+    pub fn now(this: &str) -> Self {
+        Self {
+            this: this.to_owned(),
+            before: Vec::new(),
+        }
+    }
+}
+
+/// Words that agree to what the lamp said back: "Yes.", "That's right."
+const AGREE: &[&str] = &[
+    "yes", "yeah", "yep", "yup", "correct", "right", "exactly", "sure", "ok", "okay",
+];
+/// Words that take an agreement back, anywhere in the turn: "No, it's…",
+/// "Not quite."
+const DISAGREE: &[&str] = &[
+    "no", "nope", "not", "wrong", "don't", "dont", "isn't", "isnt", "nah",
+];
+
+fn lower_words(text: &str) -> Vec<String> {
+    text.replace('\u{2019}', "'")
+        .split(|c: char| !(c.is_alphanumeric() || c == '\''))
+        .map(|word| word.trim_matches('\''))
+        .filter(|word| !word.is_empty())
+        .map(str::to_lowercase)
+        .collect()
+}
+
+/// Whether the turn agrees to what the lamp said back: a word that agrees,
+/// and none that takes it back.
+fn agrees(said: &str) -> bool {
+    let words = lower_words(said);
+    words.iter().any(|word| AGREE.contains(&word.as_str()))
+        && !words.iter().any(|word| DISAGREE.contains(&word.as_str()))
+}
+
+/// How many letters the person said a name has: "three letters", "it's 4
+/// letters". The last count said, if any.
+fn letters_counted(said: &str) -> Option<usize> {
+    const NUMBERS: &[&str] = &[
+        "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven",
+        "twelve",
+    ];
+    let words = lower_words(said);
+    words
+        .windows(2)
+        .rev()
+        .filter(|pair| pair[1] == "letters" || pair[1] == "letter")
+        .find_map(|pair| {
+            NUMBERS
+                .iter()
+                .position(|number| *number == pair[0])
+                .map(|at| at + 1)
+                .or_else(|| pair[0].parse().ok())
+        })
+}
+
+/// Whether `name` may be kept from what the person said
+/// (`LAMP_NAMES=checked`): said or spelled in the turn in hand
+/// ([`said_by_them`]); or said in an exchange before it, said back by the
+/// lamp since, and agreed to in the turn in hand ("Shall I call you Jim?"
+/// "Yes."). Never one whose letters they counted otherwise, in either turn
+/// ("three letters", for seven taken).
+///
+/// Why, from lamp-4ace on 16 October at 16:46 (the first builder on
+/// #1057): a name was kept after "Sure." and a lone digit, from the turn
+/// before them; and seven letters were put together from four spelled
+/// letters, a first name said twice between them, and "three letters".
+pub fn name_heard(name: &str, said: &Said) -> bool {
+    let letters = name.chars().filter(|c| c.is_alphabetic()).count();
+    let counted_otherwise =
+        |turn: &str| letters_counted(turn).is_some_and(|counted| counted != letters);
+    if counted_otherwise(&said.this) {
+        return false;
+    }
+    if said_by_them(name, &said.this) {
+        return true;
+    }
+    agrees(&said.this)
+        && said.before.iter().enumerate().any(|(at, (person, _))| {
+            said_by_them(name, person)
+                && !counted_otherwise(person)
+                && said.before[at..]
+                    .iter()
+                    .any(|(_, lamp)| said_by_them(name, lamp))
+        })
+}
+
+/// Whether the lamp said `name` back in the exchange just before the turn
+/// in hand, and the person agreed to it now: what `replace` needs.
+fn agreed_to(name: &str, said: &Said) -> bool {
+    agrees(&said.this)
+        && said
+            .before
+            .last()
+            .is_some_and(|(_, lamp)| said_by_them(name, lamp))
+}
 
 /// The provider worker's argument for the names switch.
 pub fn names_arguments(value: Option<&str>) -> Vec<String> {
@@ -80,6 +188,13 @@ pub fn said_by_them(name: &str, said: &str) -> bool {
     if !run.is_empty() {
         spelled.push(run);
     }
+    // One letter said again and again ("It's Q. Q. Q.") is that letter,
+    // not a name spelled.
+    spelled.retain(|letters| {
+        let mut chars = letters.chars();
+        let first = chars.next();
+        letters.chars().count() < 2 || chars.any(|c| Some(c) != first)
+    });
     !name.is_empty()
         && name
             .iter()
@@ -249,6 +364,9 @@ pub const NAME_TOLD_NOTE: &str = "If they have just told you their own name, cal
 
 /// What the model is told when the name is not in what they said.
 const NOT_HEARD: &str = "You did not hear that name in what they said. Say the name back to them and ask them to spell it, then call this again with the name as they said or spelled it.";
+/// What the model is told when it would replace a name before the person
+/// agreed to the new one.
+const NOT_AGREED: &str = "They have not said yes to that name yet. Say the new name back and ask whether they want to be known by it instead. Only if they say yes, call this again with the new name and replace true.";
 /// Remembering looks for up to four seconds.
 pub const DEADLINE: Duration = Duration::from_secs(6);
 /// The known file counts while it is this fresh: the eyes renew it every
@@ -328,15 +446,15 @@ pub fn run(socket: &Path, call: &ToolCall, checked: bool) -> (Value, bool) {
     let said = if checked {
         crate::thread::THREAD
             .lock()
-            .map(|thread| thread.said_lately(SAID_EXCHANGES))
+            .map(|thread| thread.names_window(SAID_EXCHANGES))
             .unwrap_or_default()
     } else {
-        String::new()
+        Said::default()
     };
     run_with(socket, call, checked, &said)
 }
 
-fn run_with(socket: &Path, call: &ToolCall, checked: bool, said: &str) -> (Value, bool) {
+fn run_with(socket: &Path, call: &ToolCall, checked: bool, said: &Said) -> (Value, bool) {
     let Some(name) = call
         .args
         .get("name")
@@ -349,10 +467,16 @@ fn run_with(socket: &Path, call: &ToolCall, checked: bool, said: &str) -> (Value
             true,
         );
     };
-    if checked && call.name == REMEMBER && !said_by_them(name, said) {
+    if checked && call.name == REMEMBER && !name_heard(name, said) {
         return (json!({"error": NOT_HEARD}), true);
     }
     let replace = call.args.get("replace").and_then(Value::as_bool) == Some(true);
+    // A name replaces another only once the lamp said it back and they
+    // said yes (the first builder on #1057: a misheard name was kept while
+    // the person was still correcting it).
+    if checked && call.name == REMEMBER && replace && !agreed_to(name, said) {
+        return (json!({"error": NOT_AGREED}), true);
+    }
     let line = match call.name.as_str() {
         REMEMBER if checked => json!({"remember": name, "one_face": true, "replace": replace}),
         REMEMBER => json!({"remember": name}),
@@ -728,6 +852,91 @@ mod tests {
         );
     }
 
+    /// The first builder's three records of 16:46 on lamp-4ace (#1057 at
+    /// 02:42), with made-up words in the same shapes.
+    /// - D: kept after "Sure." and a lone digit, the turn before those a
+    ///   one-letter name corrected with that letter three times. Not in the
+    ///   turn in hand, nor said back and agreed to: refused, and the letter
+    ///   three times spells no name.
+    /// - E: "Hey, I'm Kesh Varo" while still correcting: said, so kept for a
+    ///   face with no name; replacing one, only once said back and agreed to
+    ///   ([`agreed_to`]), never on "No, Kess."
+    /// - F: four spelled letters, a first name said twice between them, and
+    ///   "three letters": no seven letters are spelled, and none counted;
+    ///   the first name itself, three letters as they said, is theirs.
+    #[test]
+    fn the_three_names_of_16_46_are_refused_or_read_back() {
+        let d = Said {
+            this: "7".into(),
+            before: vec![
+                ("No, it's Q. Q. Q.".into(), "Got it, Q.".into()),
+                ("Sure.".into(), "Great.".into()),
+            ],
+        };
+        for name in ["Qqq", "Qix", "Q"] {
+            assert!(!name_heard(name, &d), "{name}");
+        }
+        assert!(!said_by_them("Qqq", "Q. Q. Q."));
+        assert!(said_by_them("Q", "Q. Q. Q."));
+
+        let e = Said::now("Hey, I'm Kesh Varo.");
+        assert!(name_heard("Kesh", &e));
+        let still_correcting = Said {
+            this: "No, Kess. K, E, S, S.".into(),
+            before: vec![(
+                "Hey, I'm Kesh Varo.".into(),
+                "I know you as Qix. Shall I call you Kesh instead?".into(),
+            )],
+        };
+        assert!(!agreed_to("Kesh", &still_correcting));
+        let agreed = Said {
+            this: "Yes.".into(),
+            ..still_correcting.clone()
+        };
+        assert!(agreed_to("Kesh", &agreed));
+
+        let f = Said::now("R, Vok, I, Vok, N, A, three letters.");
+        for name in ["Rvokina", "Rinavok", "Vokrina"] {
+            assert!(!name_heard(name, &f), "{name}");
+        }
+        // The letters split by the word spell nothing; the word itself, three
+        // letters as they said, is theirs; a name they counted otherwise is
+        // refused, said or not.
+        assert!(!name_heard("Rina", &f));
+        assert!(name_heard("Vok", &f));
+        assert!(!name_heard(
+            "Vok",
+            &Said::now("R, Vok, I, Vok, N, A, four letters.")
+        ));
+        assert!(name_heard("Ina", &Said::now("I, N, A. Three letters.")));
+    }
+
+    /// A name said in an exchange before the turn in hand is kept once the
+    /// lamp said it back and they agreed; not on a yes to something else,
+    /// nor without the lamp saying it.
+    #[test]
+    fn a_name_said_before_is_kept_once_said_back_and_agreed_to() {
+        let said = |this: &str, lamp: &str| Said {
+            this: this.into(),
+            before: vec![("My name is Jim.".into(), lamp.into())],
+        };
+        assert!(name_heard(
+            "Jim",
+            &said("Yes.", "Shall I remember you, Jim?")
+        ));
+        assert!(name_heard("Jim", &said("Yeah, sure.", "Jim? J, I, M?")));
+        assert!(!name_heard(
+            "Jim",
+            &said("Yes.", "Shall I remember your face?")
+        ));
+        assert!(!name_heard(
+            "Jim",
+            &said("No, not yet.", "Shall I remember you, Jim?")
+        ));
+        assert!(!name_heard("Jim", &said("7", "Shall I remember you, Jim?")));
+        assert!(!name_heard("Jim", &Said::now("Yes.")));
+    }
+
     /// The eyes stand-in on a real socket: what each request sent, and the
     /// answer it gives to each.
     fn eyes(answers: Vec<Value>) -> (PathBuf, std::thread::JoinHandle<Vec<Value>>) {
@@ -780,19 +989,44 @@ mod tests {
             &socket,
             &call(json!({"name": "B"})),
             true,
-            "How do you spell my name? No, mi nombre es y la",
+            &Said::now("How do you spell my name? No, mi nombre es y la"),
         );
         assert!(answered && words["error"].as_str().unwrap().contains("spell"));
-        let (words, _) = run_with(&socket, &call(json!({"name": "Jim"})), true, "It's J I M.");
+        let (words, _) = run_with(
+            &socket,
+            &call(json!({"name": "Jim"})),
+            true,
+            &Said::now("It's J I M."),
+        );
         assert!(words["error"].as_str().unwrap().contains("as A"), "{words}");
+        // `replace` before they agreed goes nowhere.
         let (words, _) = run_with(
             &socket,
             &call(json!({"name": "Jim", "replace": true})),
             true,
-            "My name is Jim. Yes, call me Jim.",
+            &Said::now("My name is Jim."),
+        );
+        assert!(words["error"].as_str().unwrap().contains("yes"), "{words}");
+        let agreed = Said {
+            this: "Yes, call me Jim.".into(),
+            before: vec![(
+                "It's J I M.".into(),
+                "I know you as A. Shall I call you Jim instead?".into(),
+            )],
+        };
+        let (words, _) = run_with(
+            &socket,
+            &call(json!({"name": "Jim", "replace": true})),
+            true,
+            &agreed,
         );
         assert_eq!(words, json!({"ok": true, "remembered": "Jim"}));
-        let (words, _) = run_with(&socket, &call(json!({"name": "B"})), false, "");
+        let (words, _) = run_with(
+            &socket,
+            &call(json!({"name": "B"})),
+            false,
+            &Said::default(),
+        );
         assert_eq!(words, json!({"ok": true, "remembered": "B"}));
         assert_eq!(
             asked.join().unwrap(),

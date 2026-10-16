@@ -1,5 +1,30 @@
 # Tests work log
 
+## 2026-10-16 16:22:07 +0700 — early_end and the capacity test on logical clocks
+
+Ready for lamp-voice: no (#1088 and #1101 are drafts until their ARM64 runs are green)
+
+The tests builder's session moved from Codex to Claude Code at 15:05.
+
+**Where the realtime group stands.** In full run 38849189990, filtered with the group's filterset, the group was **173 tests, 256.6 s** (977 s on 15 Oct). The biggest parts were `early_end` 92.9 s, `pilot_faults` 29.7 s (before #972/#973), `endpoint_session` 28.1 s, capacity 24.0 s, `serve_session` 19.1 s and `capture_hold_worker` 18.2 s (#823, comment of 15:41).
+
+**#1088: `early_end` on one logical clock.** The coordinator and its peers run on `scenario_clock`. The real provider worker, Gemini session and scripted service run on a paused current-thread Tokio runtime that each step advances to the same instant, all on the test's thread. `provider_link.rs` reads the scenario clock under `cfg(test)`.
+- Time: 19 tests 93.17 s → 16.26 s on the Intel Mac, one at a time.
+- Behaviour: every summary line has the same counts as in real time, with times within 6 ms. One exception: in the cut-in case 94 blocks are played where real time gave 91 or 92; not asserted.
+- Load: six copies at once passed 24 of 24, with summaries byte for byte those of an unloaded run.
+- `early_end` leaves the realtime group. [Evidence](verification/early-end-clock-mac-20261016/README.md).
+
+**#1101: the capacity test on a paused clock**, rebuilt on twelve's #1035. The modeled speaker, the elapsed times and the service read Tokio's clock, and the test runs `start_paused`.
+- Time: 24.04 to 24.10 s → 2.83 to 3.75 s, and 5.6 to 7.1 s with six copies at once.
+- Behaviour: the `MEASURED` values are identical on every run.
+- It leaves the group. #868 is closed in its favour.
+
+**The gate on both:** fmt and strict Clippy clean, the workspace builds. The `lamp-voice` lib's timed tests (`coordinator::motor`, `ring_startup`, `optional_ring` and a few others) fail 24 to 31 at a time under this Mac's parallel load, on the base binary as well as the changed one. One at a time, all of them pass.
+
+**Disk:** the Mac was at 100%. The owner freed it. I now use one checkout (`/private/tmp/lampos-tests`) and one build folder (`/private/tmp/tests-target`).
+
+**Next:** `endpoint_session` (its four-second conversations drive a real endpoint child process), `capture_hold_worker` and `serve_session`. With #1088 and #1101 merged, the group's projected total is about 140 s.
+
 ## 2026-10-16 12:08:11 +0700 — Capacity published; supervision comparison retains its first failure
 
 Ready for lamp-voice: #963 yes, under independent reviewer qualification; #868 and #966 no.

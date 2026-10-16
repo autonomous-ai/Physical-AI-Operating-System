@@ -520,6 +520,10 @@ fn heard(
     moves: &lamp_body::moves::Loaded,
     sent: &mut lamp_body::moves::Sent,
 ) -> Heard {
+    // `recv` cuts a longer datagram to the buffer, which would then not parse.
+    if datagram.len() >= lamp_body::moves::MOST_DATAGRAM {
+        return Heard::Dropped("a datagram longer than 16 KiB, not read".into());
+    }
     if let Some(clip) = gesture_of(datagram, moves) {
         return Heard::Gesture(clip);
     }
@@ -717,7 +721,7 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
     let paused = std::cell::Cell::new(false);
     let mut unknown_said = Hush::default();
     // A skill's move sent whole, played as a gesture (docs/body.md).
-    let mut moves_sent = lamp_body::moves::Sent::default();
+    let mut moves_sent = lamp_body::moves::Sent::besides(&moves);
     let mut datagram = vec![0u8; lamp_body::moves::MOST_DATAGRAM];
     let news = || {
         paused.set(pause.as_mut().is_some_and(|pause| pause.paused()));
@@ -1721,6 +1725,12 @@ mod tests {
             panic!("an unknown gesture was taken");
         };
         assert!(why.contains("not a mood or a gesture"), "{why}");
+        // A datagram `recv` cut at the buffer is said as too long.
+        let long = format!("{sway:<0$}", lamp_body::moves::MOST_DATAGRAM);
+        assert_eq!(
+            heard(&long),
+            Heard::Dropped("a datagram longer than 16 KiB, not read".into())
+        );
     }
 
     /// A line asked again and again is said once in five seconds, then with

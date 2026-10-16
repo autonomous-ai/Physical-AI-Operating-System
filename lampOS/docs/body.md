@@ -1024,10 +1024,15 @@ another playing), the same journal line of why it was taken or dropped, the
 same smoothing and speed limits, and V1's anti-tip rule below as it begins.
 One it cannot play is dropped, and the journal says
 `dropped from the mood socket, a move this body cannot play: move "NAME": WHY`.
-It may have the name of a `--moves` file: the sent one plays, and the journal
-names both alike. The body keeps one sent move a name: the same move sent
-again plays what was kept, and a changed one (the skill edited) replaces it.
-Past 64 names, a move of a new name is dropped until the body restarts.
+One with the name of a `--moves` file's move is dropped, and the journal says
+`a --moves file's move has the name`, so one name never means two moves. A
+datagram of 16 KiB or more (`recv` cuts it there) is dropped as
+`a datagram longer than 16 KiB, not read`. The body keeps one sent move a
+name: the same move sent again plays what was kept, and a changed one (the
+skill edited) replaces it. Past 64 names, a move of a new name is dropped
+until the body restarts; past 64 replacements in a run (each replaced move
+stays in memory, as it may still be playing), a changed move is dropped the
+same way, and the kept ones still play.
 How the body weighs a move against Expression and the eyes is the body's
 arbitration (#940), not built yet.
 

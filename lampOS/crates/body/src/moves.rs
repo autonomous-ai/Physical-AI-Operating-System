@@ -76,13 +76,32 @@ pub struct Move {
     pub frames: Vec<[i16; 5]>,
 }
 
+/// At most this many times a run a sent move takes the place of one of the
+/// same name; past it, a changed move is refused until the body restarts.
+pub const MOST_REPLACED: usize = 64;
+
 /// Moves a skill sent whole on the mood socket, one a name: the same move
 /// sent again plays what was kept, and a changed one of the same name (a
-/// skill edited and reloaded) takes its place.
+/// skill edited and reloaded) takes its place, at most [`MOST_REPLACED`]
+/// times a run (a replaced move stays in memory, as it may still be
+/// playing). A name a `--moves` file holds is refused ([`Sent::besides`]).
 #[derive(Debug, Default)]
-pub struct Sent(Vec<&'static Clip>);
+pub struct Sent {
+    kept: Vec<&'static Clip>,
+    replaced: usize,
+    files: Vec<&'static str>,
+}
 
 impl Sent {
+    /// None sent yet, beside the moves read from `--moves`, whose names a
+    /// sent move may not take.
+    pub fn besides(files: &Loaded) -> Self {
+        Self {
+            files: files.moves.iter().map(|clip| clip.name).collect(),
+            ..Self::default()
+        }
+    }
+
     /// The clip of a `{"move":{...}}` datagram, or why the body cannot play
     /// it; `None` for a datagram that is not a move.
     pub fn take(&mut self, datagram: &[u8]) -> Option<Result<&'static Clip, String>> {
@@ -100,26 +119,41 @@ impl Sent {
         let sent: Move =
             serde_json::from_value(sent).map_err(|error| format!("not a move: {error}"))?;
         check(&sent).map_err(|why| format!("move {:?}: {why}", sent.name))?;
-        let same_name = self.0.iter().position(|clip| clip.name == sent.name);
-        if let Some(kept) = same_name.map(|at| self.0[at])
+        if self.files.contains(&sent.name.as_str()) {
+            return Err(format!(
+                "move {:?}: a --moves file's move has the name",
+                sent.name
+            ));
+        }
+        let same_name = self.kept.iter().position(|clip| clip.name == sent.name);
+        if let Some(kept) = same_name.map(|at| self.kept[at])
             && kept.step_ms == sent.step_ms
             && kept.frames == sent.frames
         {
             return Ok(kept);
         }
-        if same_name.is_none() && self.0.len() >= MOST_MOVES {
+        if same_name.is_none() && self.kept.len() >= MOST_MOVES {
             return Err(format!(
                 "move {:?}: {MOST_MOVES} moves of other names were sent already, none of a new name until the body restarts",
                 sent.name
             ));
         }
+        if same_name.is_some() && self.replaced >= MOST_REPLACED {
+            return Err(format!(
+                "move {:?}: sent moves were changed {MOST_REPLACED} times already, none changed again until the body restarts",
+                sent.name
+            ));
+        }
         // ponytail: a replaced move stays in memory (it may still be
-        // playing; at most 7 KB each); own the frames (`Arc`) if skills
-        // are ever edited thousands of times in one run.
+        // playing; at most 7 KB each, 64 a run); own the frames (`Arc`)
+        // if skills must be edited more than that in one run.
         let clip = keep(sent);
         match same_name {
-            Some(at) => self.0[at] = clip,
-            None => self.0.push(clip),
+            Some(at) => {
+                self.kept[at] = clip;
+                self.replaced += 1;
+            }
+            None => self.kept.push(clip),
         }
         Ok(clip)
     }
@@ -454,12 +488,12 @@ mod tests {
         // The same move again plays what was kept.
         let again = sent.take(datagram.as_bytes()).unwrap().unwrap();
         assert!(std::ptr::eq(first, again));
-        assert_eq!(sent.0.len(), 1);
+        assert_eq!(sent.kept.len(), 1);
         // Edited, the same name takes the new frames' place.
         let edited = datagram.replace("[40,0,0,0,0]", "[38,0,0,0,0]");
         let edited = sent.take(edited.as_bytes()).unwrap().unwrap();
         assert_eq!(edited.at(1_000_000), Some([38.0, 0.0, 0.0, 0.0, 0.0]));
-        assert_eq!(sent.0.len(), 1);
+        assert_eq!(sent.kept.len(), 1);
         // Past 64 names a new name is refused; an old one still plays.
         for n in 1..MOST_MOVES {
             let other = format!("{{\"move\":{}}}", good(&format!("m{n}")));
@@ -469,7 +503,36 @@ mod tests {
         let why = sent.take(new.as_bytes()).unwrap().unwrap_err();
         assert!(why.contains("64 moves of other names"), "{why}");
         assert!(sent.take(datagram.as_bytes()).unwrap().is_ok());
-        assert_eq!(sent.0.len(), MOST_MOVES);
+        assert_eq!(sent.kept.len(), MOST_MOVES);
+        // Changed again and again, a move is changed 64 times a run and then
+        // refused with why; what was kept last still plays.
+        let changed =
+            |n: i16| datagram.replace("[40,0,0,0,0]", &format!("[{},0,0,0,0]", 30 + n % 2));
+        let mut n = 0;
+        let why = loop {
+            match sent.take(changed(n).as_bytes()).unwrap() {
+                Ok(_) => n += 1,
+                Err(why) => break why,
+            }
+        };
+        assert!(why.contains("changed 64 times"), "{why}");
+        assert_eq!(sent.replaced, MOST_REPLACED);
+        assert!(sent.take(changed(n - 1).as_bytes()).unwrap().is_ok());
+        // A name a --moves file holds is refused with why.
+        const WIGGLE: Clip = Clip {
+            name: "wiggle",
+            step_ms: 100,
+            frames: &[[0; 5], [20, 0, 0, 0, 0], [0; 5]],
+        };
+        let files = Loaded {
+            moves: vec![&WIGGLE],
+            refused: Vec::new(),
+        };
+        let why = Sent::besides(&files)
+            .take(datagram.as_bytes())
+            .unwrap()
+            .unwrap_err();
+        assert!(why.contains("a --moves file's move has the name"), "{why}");
         let mut sent = Sent::default();
         // One the body cannot play is refused with why.
         let far = datagram.replace("[40,0,0,0,0]", "[40,0,151,0,0]");

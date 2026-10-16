@@ -1,4 +1,7 @@
 //! Production coordinator with synthetic owned children and real local IPC.
+//! The peers run in the test thread under the stepped scenario clock
+//! (`crate::scenario_clock`), as `second_route` does, so a busy host cannot
+//! starve the privacy peer past the 50 ms freshness bound (lampOS#975).
 //! No hardware, model connection or acoustic timing is involved.
 use super::*;
 use crate::{
@@ -8,7 +11,10 @@ use crate::{
     wire::{CaptureTiming, ReferenceTiming},
 };
 use lamp_audio::ownership::PlaybackCursor;
-use std::thread;
+use std::{cell::RefCell, rc::Rc};
+
+/// A host safety net only: scenario time bounds the run below.
+const WATCHDOG: Duration = Duration::from_secs(24);
 
 #[derive(Clone, Copy, Debug)]
 enum Case {
@@ -24,6 +30,7 @@ struct Peer {
     role: &'static str,
     channels: WorkerChannels,
     input: Option<std::process::ChildStdin>,
+    child_pid: u32,
     snapshot: Option<Snapshot>,
     stopped: bool,
 }
@@ -59,11 +66,12 @@ fn run_with_notice_policy(
     let directory = SessionDirectory::create().unwrap();
     let mut peers = Vec::new();
     let mut spawn = |role| {
-        let (worker, channels, input) = Worker::cooperative_fixture(&directory.path, role);
+        let (worker, channels, input) = Worker::cooperative_ready_fixture(&directory.path, role);
         peers.push(Peer {
             role,
             channels,
             input: Some(input),
+            child_pid: worker.fixture_pid(),
             snapshot: None,
             stopped: false,
         });
@@ -92,6 +100,9 @@ fn run_with_notice_policy(
         cut_keeps_name: false,
         paused: Box::new(|| false),
     };
+    // The clock starts once every child has crossed its startup barrier;
+    // the coordinator and the peers share it from here.
+    let clock_scope = crate::scenario_clock::Scope::enter(WATCHDOG).unwrap();
     let (mut owner, mut reply) = if matches!(case, Case::Idle | Case::OpenInput) {
         (Controller::new(new_boot().unwrap(), now()), None)
     } else {
@@ -130,14 +141,15 @@ fn run_with_notice_policy(
         .cloud
         .observe(ready_link(1, 1), monotonic_us())
         .unwrap();
-    let worker = thread::spawn(move || {
-        let mut evidence = Evidence {
-            peers,
-            played: Vec::new(),
-            provider_starts: 0,
-            provider_ends: 0,
-            capture_blocks: 0,
-        };
+    let shared = Rc::new(RefCell::new(Evidence {
+        peers,
+        played: Vec::new(),
+        provider_starts: 0,
+        provider_ends: 0,
+        capture_blocks: 0,
+    }));
+    {
+        let shared = shared.clone();
         let mut output = OutputSender::default();
         let mut queued = VecDeque::new();
         match case {
@@ -177,16 +189,24 @@ fn run_with_notice_policy(
             }
             Case::OpenInput => {}
         }
-        let started = Instant::now();
+        let started = crate::scenario_clock::instant();
         let mut guard_sent = false;
         let mut terminal_sent = false;
         let mut capture_started = false;
-        let mut next_capture = Instant::now();
-        let mut next_privacy = Instant::now();
+        let mut next_capture = started;
+        let mut next_privacy = started;
         let mut cursor = 0u64;
-        while evidence.peers.iter().any(|p| !p.stopped) {
+        let pump = move |phase| -> io::Result<()> {
+            // A real child's exit is not simulated: one deadline bounds the
+            // children a step stops, and shutdown brings its own budget.
+            let deadline = match phase {
+                crate::scenario_clock::Phase::Run => Instant::now() + Duration::from_millis(300),
+                crate::scenario_clock::Phase::Shutdown { deadline } => deadline,
+            };
+            let evidence = &mut *shared.borrow_mut();
+            let elapsed = crate::scenario_clock::instant() - started;
             assert!(
-                started.elapsed() < Duration::from_secs(4),
+                elapsed < Duration::from_secs(4),
                 "synthetic terminal test bounded cleanup"
             );
             for peer in &mut evidence.peers {
@@ -228,7 +248,11 @@ fn run_with_notice_policy(
                         }
                         Some(Control::Stop) => {
                             peer.stopped = true;
-                            peer.input.take();
+                            // The child exits once its input closes; logical
+                            // time does not pass in a shutdown step.
+                            if peer.input.take().is_some() {
+                                crate::scenario_clock::wait_child_exited(peer.child_pid, deadline)?;
+                            }
                             break;
                         }
                         Some(command) => panic!("unexpected test control {command:?}"),
@@ -239,7 +263,7 @@ fn run_with_notice_policy(
                     continue;
                 }
                 match peer.role {
-                    "privacy" if Instant::now() >= next_privacy => {
+                    "privacy" if crate::scenario_clock::instant() >= next_privacy => {
                         peer.channels
                             .control
                             .send(WorkerEvent::Privacy {
@@ -247,9 +271,11 @@ fn run_with_notice_policy(
                                 muted: false,
                             })
                             .unwrap();
-                        next_privacy = Instant::now() + Duration::from_millis(5);
+                        next_privacy = crate::scenario_clock::instant() + Duration::from_millis(5);
                     }
-                    "capture" if capture_started && Instant::now() >= next_capture => {
+                    "capture"
+                        if capture_started && crate::scenario_clock::instant() >= next_capture =>
+                    {
                         evidence.capture_blocks += 1;
                         let at = monotonic_us();
                         let probability =
@@ -288,7 +314,7 @@ fn run_with_notice_policy(
                                 },
                             })
                             .unwrap();
-                        next_capture = Instant::now() + Duration::from_millis(10);
+                        next_capture = crate::scenario_clock::instant() + Duration::from_millis(10);
                     }
                     "provider" => {
                         for _ in 0..8 {
@@ -391,10 +417,7 @@ fn run_with_notice_policy(
                 }
                 // An unchanged-source red run must finish with an explicit test
                 // fault rather than hang indefinitely after the service bug.
-                if !guard_sent
-                    && started.elapsed() >= Duration::from_millis(1500)
-                    && peer.role == "privacy"
-                {
+                if !guard_sent && elapsed >= Duration::from_millis(1500) && peer.role == "privacy" {
                     peer.channels
                         .control
                         .send(WorkerEvent::Fault {
@@ -404,10 +427,10 @@ fn run_with_notice_policy(
                     guard_sent = true;
                 }
             }
-            thread::sleep(Duration::from_millis(1));
-        }
-        evidence
-    });
+            Ok(())
+        };
+        clock_scope.set_pump(pump).unwrap();
+    }
     let mut trace = SessionState::default();
     if let Some(reply) = &reply {
         trace
@@ -429,7 +452,11 @@ fn run_with_notice_policy(
     let result = finish_active_run(
         &mut rig, &mut owner, &mut reply, &mut trace, &mut None, result,
     );
-    let evidence = worker.join().unwrap();
+    drop(clock_scope);
+    let evidence = Rc::try_unwrap(shared)
+        .ok()
+        .expect("the pump left with its scope")
+        .into_inner();
     let error = result.unwrap_err();
     assert!(
         error

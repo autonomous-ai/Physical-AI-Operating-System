@@ -151,6 +151,7 @@ must not leave a step silently undone)*.
 | `[[do]]` | at least one | The steps, in order. Within one table: body, then light, then say |
 | `do.body.look_at` | no | Only `"face"`. The largest face in view goes to the body's `gaze.sock` as the eyes send one (`{"face":{"x","y","size","turned":0}}`) |
 | `do.body.gesture` | no | One of the body's six gestures (`nod`, `headshake`, `greeting`, `laugh`, `shy`, `stretching`), sent to `mood.sock` as `{"gesture":NAME}` |
+| `do.body.mood` + `do.body.for` | no | A pose held: only `"reading"` (#1011: the head looks down at the desk and the arm leans forward). Sent to `mood.sock` as `{"mood":"reading","level":0}` when the step is made and again every second for `for` (more than 0, at most `2m`); the body lets it go 1.5 s after the last, and comes back. One without the other is refused |
 | `do.light` | no | A file in `lights/`, written as its name, or a table in place. A file `lights/NAME.toml` holds the same keys. `{ colour, level, for }` asks the actions part for `light_colour`. *Not carried out yet:* `level` (1 to 5) and `for`. `{ dim = N, until = "ends" }` asks for `light_dimmer` N times. *Not carried out yet:* `until` |
 | `do.say` | no | A note for the voice to say in its own words, through the voice's say service (#954). One a skill. The run's other steps are made, in their order, when the voice begins the say, so the look and the light come with the words, and none if it is never begun. A light changed is given back when the say ends. In a tool's run the note goes to the model in the call's answer instead |
 | `do.look` | no | `true`: the voice's full look (#836). Only in a skill with a `tool` and no trigger: the call's answer tells the model to say "Let me take a look.", and the voice takes the look it already takes when the lamp says so, its still in the model's next turn |
@@ -173,7 +174,7 @@ six gestures, nothing plays a sound yet, and `body.move` is refused. A
     [[expect]]
     at = "600s"                # optional: when, from the case's first message
     within = "1s"              # optional; without it, exactly
-    call = "body.gaze"         # body.gaze, body.gesture, light or say
+    call = "body.gaze"         # body.gaze, body.gesture, body.mood, light or say
     args = { look_at = "face" }
 
 A call matches when its name is the same and each argument named in `args`
@@ -182,6 +183,7 @@ runtime gives are:
 
 - `body.gaze`: `look_at`, `x`, `y`, `size`
 - `body.gesture`: `gesture`
+- `body.mood`: `mood`, `for_ms`
 - `light`: `colour`, `level`, `for`, or `dim`, `until`
 - `say`: `note`
 - `look`: none
@@ -227,9 +229,10 @@ As built on 2026-10-16 (#938, `crates/skills`, not yet run on a lamp):
 - **The ask.** The Policy's gate is not built yet (#939). With
   `LAMP_SKILLS_ASK=skip` it answers yes without asking; without it every
   run is answered no and nothing is done. `answered` says which.
-- **The steps.** `look_at` and `gesture` are datagrams to the body's
-  `gaze.sock` and `mood.sock` (default `/run/lampos-body/`), never waited
-  for. `light` is a `light_colour` call (or `light_dimmer` calls) to the
+- **The steps.** `look_at`, `gesture` and `mood` are datagrams to the
+  body's `gaze.sock` and `mood.sock` (default `/run/lampos-body/`), never
+  waited for. A `mood` is said again every second on a thread of its own
+  for its `for`, and the run lasts that long. `light` is a `light_colour` call (or `light_dimmer` calls) to the
   actions part's `call.sock` (default `/run/lampos-actions/call.sock`). Each
   call is waited for up to two seconds.
 - **`say`** goes to the voice's say service (#954, `LAMP_SAY=on` in the

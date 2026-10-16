@@ -164,6 +164,8 @@ struct Seen {
     lights: Vec<String>,
     /// What the voice was asked to say.
     asked: Option<String>,
+    /// What the body's mood socket was told, for a skill that holds a pose.
+    moods: Vec<String>,
 }
 
 /// A hello that greets at once, with the light and the say of Welcome back.
@@ -210,6 +212,9 @@ fn the_program_with(
     let mut events = bus.subscribe(SkillEvent::TOPIC, "test").unwrap();
     let gaze = UnixDatagram::bind(root.join("gaze.sock")).unwrap();
     gaze.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
+    let mood = UnixDatagram::bind(root.join("mood.sock")).unwrap();
+    mood.set_read_timeout(Some(Duration::from_millis(1_500)))
+        .unwrap();
     let actions = UnixListener::bind(root.join("actions.sock")).unwrap();
     let (called, lights) = mpsc::channel();
     let ring = bus.clone();
@@ -310,11 +315,19 @@ fn the_program_with(
         .recv(&mut buffer)
         .ok()
         .map(|length| String::from_utf8_lossy(&buffer[..length]).into_owned());
+    // A held pose is said again every second until its for ends.
+    let mut moods = Vec::new();
+    while skill.contains("mood =")
+        && let Ok(length) = mood.recv(&mut buffer)
+    {
+        moods.push(String::from_utf8_lossy(&buffer[..length]).into_owned());
+    }
     Seen {
         events: seen,
         looked,
         lights: lights.try_iter().collect(),
         asked: asked.try_recv().ok(),
+        moods,
     }
 }
 
@@ -810,6 +823,40 @@ light = { colour = "white", for = "1s" }
 look = true
 say = "Tutor: a hint or a question, never the answer."
 "#;
+
+#[test]
+fn a_reading_pose_is_held_on_the_mood_socket_for_its_for_and_then_let_go() {
+    let reading = AT_ONCE.replace(
+        "body = { look_at = \"face\" }",
+        "body = { mood = \"reading\", for = \"3s\" }",
+    );
+    let seen = the_program_with(
+        &reading,
+        true,
+        &[r#"{"event":"begun","at_us":5}"#, r#"{"outcome":"spoken"}"#],
+        3,
+        1,
+        4,
+    );
+    // Told at once when the say begins, then every second while it lasts:
+    // three in all for 3 s, and then nothing, so the body comes back.
+    assert_eq!(
+        seen.moods,
+        vec![r#"{"level":0,"mood":"reading"}"#; 3],
+        "{:?}",
+        seen.events
+    );
+    let dir = tempfile::tempdir().unwrap();
+    for (step, why) in [
+        ("body = { mood = \"dance\", for = \"3s\" }", "not one of"),
+        ("body = { mood = \"reading\" }", "goes with its for"),
+        ("body = { mood = \"reading\", for = \"3m\" }", "at most 2m"),
+    ] {
+        let toml = AT_ONCE.replace("body = { look_at = \"face\" }", step);
+        let error = load(&skill_with(&dir.path().join("bad"), "hello", &toml)).unwrap_err();
+        assert!(error.contains(why), "{step}: {error}");
+    }
+}
 
 #[test]
 fn a_tool_needs_no_trigger_and_a_look_needs_a_tool() {

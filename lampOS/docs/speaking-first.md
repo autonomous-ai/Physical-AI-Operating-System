@@ -99,6 +99,10 @@ giving the model one with everything said was switched off).
   opens with "let me look", "let me take a look" or "let me have a look"
   (`speak_up::asks_to_look`; not "let me see", which people say before any
   answer) is the lamp asking for its eyes: `look_asked` in the record.
+  Only in a turn someone spoke: in one the lamp wrote itself (its own look,
+  a hello, a "Sorry?", a reminder) the words ask nothing, so looks never
+  chain with nobody speaking (`coordinator::own_turn`, the worker's
+  `heard` rule).
 - When the lamp has finished saying so, the next turn is its own: a written
   request with `look` set. The provider worker puts the eyes' newest frame
   with the note (`--eyes-look PATH`, from `LAMP_EYES_LOOK_FILE`; a frame
@@ -153,8 +157,11 @@ giving the model one with everything said was switched off).
   `LAMP_LOOK_FULL=on`, only for the turn in hand, never for a reminder's
   or one the lamp wrote itself, and only for the session that made the
   call (no renewal while it is owed). A look dropped, tool's or words',
-  is recorded as `look_dropped` with `why`. Gemini Live only: the second
-  route sends no `LookAsked`.
+  is recorded as `look_dropped` with `why`, a tool's look the coordinator
+  turns down too. A turn cut off unsaid or asked again ("Sorry?") drops
+  its look before the eyes are asked, and so does a look owed when the
+  second route has taken over. Gemini Live only: the second route sends
+  no `LookAsked`.
   A full look that goes without its still says so in one journal line,
   "a full look went without its still: asked for ID, the file held ..., N
   ms old" (nothing, another ask's still, or a picture with no id; no

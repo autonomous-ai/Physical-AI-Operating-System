@@ -1,0 +1,7 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.42s
+────────────
+ Nextest run ID f50773d0-0c55-47f5-9aa3-50e9c5f03fa9 with nextest profile: default
+    Starting 1 test across 1 binary (295 tests and 23 binaries skipped)
+        PASS [   5.055s] (1/1) lamp-voice-eval physical::mac::audit_grant_tests::audit_transport_that_outlives_its_bound_is_killed_and_never_certified
+────────────
+     Summary [   5.056s] 1 test run: 1 passed, 295 skipped

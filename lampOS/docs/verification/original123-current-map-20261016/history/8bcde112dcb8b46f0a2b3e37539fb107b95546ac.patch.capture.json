@@ -1,0 +1,20 @@
+{
+  "started_from_date": "2026-10-16 08:34:17 +0700",
+  "finished_from_date": "2026-10-16 08:34:17 +0700",
+  "command": [
+    "git",
+    "show",
+    "--format=fuller",
+    "--no-ext-diff",
+    "8bcde112dcb8b46f0a2b3e37539fb107b95546ac",
+    "--",
+    "lampOS/crates/voice/src/coordinator/tests/pilot_faults.rs",
+    "lampOS/crates/voice/src/coordinator/tests/early_end.rs"
+  ],
+  "cwd": "/private/tmp/lampos-tests-transport-exit-clock",
+  "exit_code": 0,
+  "stdout": "history/8bcde112dcb8b46f0a2b3e37539fb107b95546ac.patch",
+  "stderr": "history/8bcde112dcb8b46f0a2b3e37539fb107b95546ac.patch.stderr",
+  "stdout_sha256": "be69790bd5522f93aa81999ea694f86ba24c4aa6ed2979bc97adabab760272a4",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

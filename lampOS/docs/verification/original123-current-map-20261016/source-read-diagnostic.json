@@ -1,0 +1,26 @@
+{
+  "recorded_from_date": "2026-10-16 08:36:57 +0700",
+  "source": "Exact errors from the tool transcript; no separately captured raw stderr file existed.",
+  "failed_reads": [
+    {
+      "command": [
+        "git",
+        "show",
+        "HEAD:lampOS/crates/voice/src/coordinator/tests.rs"
+      ],
+      "exit_code": 128,
+      "stderr": "fatal: path 'lampOS/crates/voice/src/coordinator/tests.rs' does not exist in 'HEAD'\n"
+    },
+    {
+      "command": [
+        "git",
+        "show",
+        "HEAD:lampOS/crates/voice/src/provider_worker/observation.rs"
+      ],
+      "exit_code": 128,
+      "stderr": "fatal: path 'lampOS/crates/voice/src/provider_worker/observation.rs' does not exist in 'HEAD'\n"
+    }
+  ],
+  "effect": "The supplementary source script stopped after its independent source reads. Existing 45 test-source snapshots and all tests were untouched. Corrected scope reads coordinator.rs and drops nonexistent prototype observation path; it does not assume the prototype is merged.",
+  "new_execution": false
+}

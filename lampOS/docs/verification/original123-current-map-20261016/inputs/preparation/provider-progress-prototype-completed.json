@@ -1,0 +1,238 @@
+{
+  "date_from_date": "2026-10-16 08:16:31 +0700",
+  "status": "complete-prototype-green",
+  "stages": [
+    {
+      "name": "rustc-version",
+      "command": [
+        "/Users/autonomous/.cargo/bin/rustc",
+        "--version",
+        "--verbose"
+      ],
+      "cwd": "/private/tmp/lampos-tests-provider-progress/lampOS",
+      "target": "/private/tmp/tests-823-slow-progress-target",
+      "started_from_date": "2026-10-16 08:09:46 +0700",
+      "finished_from_date": "2026-10-16 08:09:46 +0700",
+      "exit_code": 0,
+      "log_sha256": "4d8ef7a4d2fe91e2e73066fdff851a6b49773a97b60cf751f81045606a502281"
+    },
+    {
+      "name": "cargo-version",
+      "command": [
+        "/Users/autonomous/.cargo/bin/cargo",
+        "--version"
+      ],
+      "cwd": "/private/tmp/lampos-tests-provider-progress/lampOS",
+      "target": "/private/tmp/tests-823-slow-progress-target",
+      "started_from_date": "2026-10-16 08:09:46 +0700",
+      "finished_from_date": "2026-10-16 08:09:46 +0700",
+      "exit_code": 0,
+      "log_sha256": "b6ef6807dd96d18b833474ad68e7a23a29e562a29c67afa71a59fb9a73df0068"
+    },
+    {
+      "name": "nextest-version",
+      "command": [
+        "/Users/autonomous/.cargo/bin/cargo",
+        "nextest",
+        "--version"
+      ],
+      "cwd": "/private/tmp/lampos-tests-provider-progress/lampOS",
+      "target": "/private/tmp/tests-823-slow-progress-target",
+      "started_from_date": "2026-10-16 08:09:46 +0700",
+      "finished_from_date": "2026-10-16 08:09:46 +0700",
+      "exit_code": 0,
+      "log_sha256": "d95a1faf7f67d4d78e76bb53b1403e7dd60c6d1c73cb51aeb8d53903e9a0562f"
+    },
+    {
+      "name": "metadata-before",
+      "command": [
+        "/Users/autonomous/.cargo/bin/cargo",
+        "metadata",
+        "--locked",
+        "--offline",
+        "--format-version",
+        "1"
+      ],
+      "cwd": "/private/tmp/lampos-tests-provider-progress/lampOS",
+      "target": "/private/tmp/tests-823-slow-progress-target",
+      "started_from_date": "2026-10-16 08:09:46 +0700",
+      "finished_from_date": "2026-10-16 08:09:47 +0700",
+      "exit_code": 0,
+      "log_sha256": "49b617f630821fd70e775c0eccf9674d500528155d5de586e152636b159494b5"
+    },
+    {
+      "name": "fmt",
+      "command": [
+        "/Users/autonomous/.cargo/bin/cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "cwd": "/private/tmp/lampos-tests-provider-progress/lampOS",
+      "target": "/private/tmp/tests-823-slow-progress-target",
+      "started_from_date": "2026-10-16 08:09:47 +0700",
+      "finished_from_date": "2026-10-16 08:09:52 +0700",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "clippy",
+      "command": [
+        "/Users/autonomous/.cargo/bin/cargo",
+        "clippy",
+        "--locked",
+        "--offline",
+        "-p",
+        "lamp-voice",
+        "-p",
+        "lamp-memory",
+        "-p",
+        "lamp-voice-eval",
+        "-p",
+        "lamp-surround",
+        "-p",
+        "lamp-gemini",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "cwd": "/private/tmp/lampos-tests-provider-progress/lampOS",
+      "target": "/private/tmp/tests-823-slow-progress-target",
+      "started_from_date": "2026-10-16 08:09:52 +0700",
+      "finished_from_date": "2026-10-16 08:10:40 +0700",
+      "exit_code": 0,
+      "log_sha256": "a62a2f59a49287581f3f6bf15a0e7409ed486bd607e3f63f9ebdeaf0e424ef75"
+    },
+    {
+      "name": "list",
+      "command": [
+        "/Users/autonomous/.cargo/bin/cargo",
+        "nextest",
+        "list",
+        "--locked",
+        "--offline",
+        "-p",
+        "lamp-voice",
+        "-p",
+        "lamp-memory",
+        "-p",
+        "lamp-voice-eval",
+        "-p",
+        "lamp-surround",
+        "--message-format",
+        "json"
+      ],
+      "cwd": "/private/tmp/lampos-tests-provider-progress/lampOS",
+      "target": "/private/tmp/tests-823-slow-progress-target",
+      "started_from_date": "2026-10-16 08:10:40 +0700",
+      "finished_from_date": "2026-10-16 08:14:09 +0700",
+      "exit_code": 0,
+      "log_sha256": "0c5b7262310347b8c437b357cc3ffecf02379473ee372160ba93281786c338c3"
+    },
+    {
+      "name": "focused-list",
+      "command": [
+        "/Users/autonomous/.cargo/bin/cargo",
+        "nextest",
+        "list",
+        "--locked",
+        "--offline",
+        "-p",
+        "lamp-voice",
+        "-p",
+        "lamp-memory",
+        "-p",
+        "lamp-voice-eval",
+        "-p",
+        "lamp-surround",
+        "--message-format",
+        "json",
+        "-E",
+        "binary_id(lamp-voice) & (test(/^provider_worker::(tests::)?progress::/) | test(/^provider_worker::(tests::)?observation::/) | test(/^transport::probe::tests::/))"
+      ],
+      "cwd": "/private/tmp/lampos-tests-provider-progress/lampOS",
+      "target": "/private/tmp/tests-823-slow-progress-target",
+      "started_from_date": "2026-10-16 08:14:09 +0700",
+      "finished_from_date": "2026-10-16 08:14:10 +0700",
+      "exit_code": 0,
+      "log_sha256": "a405914e26afd205a29132f05caea98d524298d21487a8efa376e059fab4e61a"
+    },
+    {
+      "name": "focused",
+      "command": [
+        "/Users/autonomous/.cargo/bin/cargo",
+        "nextest",
+        "run",
+        "--locked",
+        "--offline",
+        "-p",
+        "lamp-voice",
+        "-p",
+        "lamp-memory",
+        "-p",
+        "lamp-voice-eval",
+        "-p",
+        "lamp-surround",
+        "--profile",
+        "default",
+        "--test-threads",
+        "1",
+        "--no-fail-fast",
+        "--retries",
+        "0",
+        "-E",
+        "binary_id(lamp-voice) & (test(/^provider_worker::(tests::)?progress::/) | test(/^provider_worker::(tests::)?observation::/) | test(/^transport::probe::tests::/))"
+      ],
+      "cwd": "/private/tmp/lampos-tests-provider-progress/lampOS",
+      "target": "/private/tmp/tests-823-slow-progress-target",
+      "started_from_date": "2026-10-16 08:15:54 +0700",
+      "finished_from_date": "2026-10-16 08:15:58 +0700",
+      "exit_code": 0,
+      "log_sha256": "a746c9de170655f8c82bef70d8492c841dcc5eec9c3522cb36db24b4722fd804"
+    },
+    {
+      "name": "workspace-build",
+      "command": [
+        "/Users/autonomous/.cargo/bin/cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "--workspace"
+      ],
+      "cwd": "/private/tmp/lampos-tests-provider-progress/lampOS",
+      "target": "/private/tmp/tests-823-slow-progress-target",
+      "started_from_date": "2026-10-16 08:15:58 +0700",
+      "finished_from_date": "2026-10-16 08:16:30 +0700",
+      "exit_code": 0,
+      "log_sha256": "5e96c193fbb01cf9afafd2f7578db70c36e740f0c9f2721b6f40756319c851d3"
+    },
+    {
+      "name": "metadata-after",
+      "command": [
+        "/Users/autonomous/.cargo/bin/cargo",
+        "metadata",
+        "--locked",
+        "--offline",
+        "--format-version",
+        "1"
+      ],
+      "cwd": "/private/tmp/lampos-tests-provider-progress/lampOS",
+      "target": "/private/tmp/tests-823-slow-progress-target",
+      "started_from_date": "2026-10-16 08:16:30 +0700",
+      "finished_from_date": "2026-10-16 08:16:30 +0700",
+      "exit_code": 0,
+      "log_sha256": "49b617f630821fd70e775c0eccf9674d500528155d5de586e152636b159494b5"
+    }
+  ],
+  "source_unchanged": true,
+  "source_differences": [],
+  "source_count": 6870,
+  "base_from_root": "8cafa989338fb30c3f38da0cdfd0e307f3752974",
+  "prototype_only": true,
+  "full_affected_suite": "Not run: root explicitly authorized focused prototype evidence only.",
+  "actual_base_and_native_arm64_validation": "Not run; required separately after prerequisite integration.",
+  "no_source_edits_or_retries": true,
+  "first_external_checker_stop_preserved": true
+}

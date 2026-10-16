@@ -1,0 +1,23 @@
+{
+  "checked_from_date": "2026-10-16 08:47:26 +0700",
+  "identity_count": 123,
+  "unique_identities": 123,
+  "binaries": 11,
+  "disjoint_stage_sum": 123,
+  "namespace_comparisons": 369,
+  "native_raw_results": 5321,
+  "native_originals_exact_once": 123,
+  "native_original_sum": "207.660",
+  "all_copy_bytes_exact": true,
+  "original_assertion_macro_lists_exact": 121,
+  "inherited_assertion_exception_count": 2,
+  "all_original_assertion_bytes_unchanged": false,
+  "new_test_execution": false,
+  "source_edits": false,
+  "targets_used": [],
+  "readme_sha256": "7b4d2332cfb5a3cac2268112de4ce2be359aaeaf71a261ea20d0f34cac49f598",
+  "map_sha256": "06462c8369ed194d6b10ed82ac88673f1a57e7daaf0a4b41630be0621a05ccc8",
+  "final_verified_from_date": "2026-10-16 08:48:25 +0700",
+  "current_source_files": 28,
+  "current_source_files_exact_to_69bae": true
+}

@@ -1,0 +1,151 @@
+{
+  "date_from_date": "2026-10-16 08:58:43 +0700",
+  "source_head": "ad0e7f447e7a67e4c00666207f537d2f260e498e",
+  "pull_request": 957,
+  "local_gate": {
+    "passed": 505,
+    "failed": 0,
+    "ignored": 0
+  },
+  "stage": "local-qualified/native-pending",
+  "normal_snapshot_file": "transport/20261016-085815-38836333333.json",
+  "normal_run": 38836333333,
+  "normal_status": "completed",
+  "normal_conclusion": "success",
+  "normal_limits": "Metadata success only in this supplement. Complete raw identity/source audit for Transport normal is not performed here.",
+  "full_snapshot_file": "transport/20261016-085815-38836332567.json",
+  "full_run": 38836332567,
+  "full_status": "completed",
+  "full_conclusion": "failure",
+  "full_attempt": 1,
+  "first_failed_shard": {
+    "shard": 3,
+    "job": 116766212679,
+    "failure": "Registry download: rustls-platform-verifier-android, curl 55 / OpenSSL SSL_ERROR_SYSCALL",
+    "test_step": "skipped",
+    "raw_test_execution_markers": 0,
+    "raw_bytes": 30140,
+    "raw_sha256": "347b11aeb905bdd67309d03e2c05677ef0095055db0ee79272310e5cc7f012a5"
+  },
+  "rerun": "No rerun in these first-attempt snapshots; none started by this audit.",
+  "published_first_failure": {
+    "commit": "fb0a020f977d54f3d4d96ea3e3ce743471c192e3",
+    "folder": "lampOS/docs/verification/transport-native-first-failure-20261016",
+    "byte_checks": [
+      {
+        "path": "lampOS/docs/verification/transport-native-first-failure-20261016/shard3-first-job.json",
+        "commit": "fb0a020f977d54f3d4d96ea3e3ce743471c192e3",
+        "bytes": 3349,
+        "sha256": "d80b6f3c06f97ec821860a0cc8a2092ed4773ea3768d5bf4178821c3fc7bb475",
+        "local_bytes_exact": true,
+        "command": [
+          "git",
+          "show",
+          "fb0a020f977d54f3d4d96ea3e3ce743471c192e3:lampOS/docs/verification/transport-native-first-failure-20261016/shard3-first-job.json"
+        ]
+      },
+      {
+        "path": "lampOS/docs/verification/transport-native-first-failure-20261016/shard3-first.log",
+        "commit": "fb0a020f977d54f3d4d96ea3e3ce743471c192e3",
+        "bytes": 30140,
+        "sha256": "347b11aeb905bdd67309d03e2c05677ef0095055db0ee79272310e5cc7f012a5",
+        "local_bytes_exact": true,
+        "command": [
+          "git",
+          "show",
+          "fb0a020f977d54f3d4d96ea3e3ce743471c192e3:lampOS/docs/verification/transport-native-first-failure-20261016/shard3-first.log"
+        ]
+      },
+      {
+        "path": "lampOS/docs/verification/transport-native-first-failure-20261016/shard3-first-log-capture.json",
+        "commit": "fb0a020f977d54f3d4d96ea3e3ce743471c192e3",
+        "bytes": 184,
+        "sha256": "a06a695b87cb5c29d31c0c7279f4ebb2c93635b055afafa39b64eff914ef8bf4",
+        "local_bytes_exact": true,
+        "command": [
+          "git",
+          "show",
+          "fb0a020f977d54f3d4d96ea3e3ce743471c192e3:lampOS/docs/verification/transport-native-first-failure-20261016/shard3-first-log-capture.json"
+        ]
+      }
+    ]
+  },
+  "qualification": "Full native qualification remains pending. This supplement credits no full-123 Transport result.",
+  "copies": [
+    {
+      "source": "/private/tmp/tests-823-transport-exit-publication.json",
+      "destination": "transport/tests-823-transport-exit-publication.json",
+      "bytes": 358,
+      "sha256": "051182025971ac74a9d8a7fc9dc894d0385185eb5be4577c0e56f51220db2156"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-first-publication.json",
+      "destination": "transport/tests-823-transport-native-first-publication.json",
+      "bytes": 195,
+      "sha256": "13c29a91acabcd19ff311cccd07510f4b8c3eebdcf4a2143bf57ede293170895"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-first/20261016-085815-38836333333.json",
+      "destination": "transport/20261016-085815-38836333333.json",
+      "bytes": 3181,
+      "sha256": "e03ada6818d893cf470504f473ae7e7823ef0bde2482cf8985e718abab351233"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-first/20261016-085815-38836332567.json",
+      "destination": "transport/20261016-085815-38836332567.json",
+      "bytes": 11713,
+      "sha256": "f4ef5036df22f370b8a3da511bffdc0daf3e41e96d7a1e6bae3000b8dbaa29fb"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-first/shard3-first-job.json",
+      "destination": "transport/shard3-first-job.json",
+      "bytes": 3349,
+      "sha256": "d80b6f3c06f97ec821860a0cc8a2092ed4773ea3768d5bf4178821c3fc7bb475"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-first/shard3-first.log",
+      "destination": "transport/shard3-first.log",
+      "bytes": 30140,
+      "sha256": "347b11aeb905bdd67309d03e2c05677ef0095055db0ee79272310e5cc7f012a5"
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-native-first/shard3-first-log-capture.json",
+      "destination": "transport/shard3-first-log-capture.json",
+      "bytes": 184,
+      "sha256": "a06a695b87cb5c29d31c0c7279f4ebb2c93635b055afafa39b64eff914ef8bf4"
+    }
+  ],
+  "full_job_conclusions": [
+    {
+      "name": "lampOS \u2014 build and test on Linux ARM64 (4/4)",
+      "job": 116766212430,
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "lampOS \u2014 build and test on Linux ARM64 (3/4)",
+      "job": 116766212679,
+      "status": "completed",
+      "conclusion": "failure"
+    },
+    {
+      "name": "lampOS \u2014 build and test on Linux ARM64 (2/4)",
+      "job": 116766212750,
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "lampOS \u2014 build and test on Linux ARM64 (1/4)",
+      "job": 116766212790,
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "report-full-run-failure",
+      "job": 116770756372,
+      "status": "completed",
+      "conclusion": "success"
+    }
+  ],
+  "status_note": "First full attempt is terminal failure; all other three shards have successful job metadata. Complete raw coverage/source audit is outside this supplement. Native full qualification remains pending."
+}

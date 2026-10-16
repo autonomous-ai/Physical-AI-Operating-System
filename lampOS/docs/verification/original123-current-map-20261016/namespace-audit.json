@@ -1,0 +1,2592 @@
+{
+  "date_from_date": "2026-10-16 08:41:41 +0700",
+  "identities": 123,
+  "versions": 3,
+  "all_369_module_qualified_definitions_exact": true,
+  "scope": "Source namespace and one-definition proof; not a new compiled inventory.",
+  "results": [
+    {
+      "binary": "lamp-actions::server",
+      "test": "the_light_is_offered_when_its_owner_appears_and_withdrawn_when_it_goes",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "the_light_is_offered_when_its_owner_appears_and_withdrawn_when_it_goes",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "the_light_is_offered_when_its_owner_appears_and_withdrawn_when_it_goes",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "the_light_is_offered_when_its_owner_appears_and_withdrawn_when_it_goes",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-health::program",
+      "test": "between_two_healths_five_seconds_apart_the_program_is_not_taken_for_gone",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "between_two_healths_five_seconds_apart_the_program_is_not_taken_for_gone",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "between_two_healths_five_seconds_apart_the_program_is_not_taken_for_gone",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "between_two_healths_five_seconds_apart_the_program_is_not_taken_for_gone",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-memory::health",
+      "test": "a_failed_legacy_write_stays_warn_through_reads_until_a_write_succeeds",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "a_failed_legacy_write_stays_warn_through_reads_until_a_write_succeeds",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "a_failed_legacy_write_stays_warn_through_reads_until_a_write_succeeds",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "a_failed_legacy_write_stays_warn_through_reads_until_a_write_succeeds",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-memory::health",
+      "test": "a_store_that_cannot_open_never_claims_readiness_and_any_delivered_report_is_warn",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "a_store_that_cannot_open_never_claims_readiness_and_any_delivered_report_is_warn",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "a_store_that_cannot_open_never_claims_readiness_and_any_delivered_report_is_warn",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "a_store_that_cannot_open_never_claims_readiness_and_any_delivered_report_is_warn",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-memory::health",
+      "test": "a_working_bus_that_fails_stays_failed_until_publication_really_recovers",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "a_working_bus_that_fails_stays_failed_until_publication_really_recovers",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "a_working_bus_that_fails_stays_failed_until_publication_really_recovers",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "a_working_bus_that_fails_stays_failed_until_publication_really_recovers",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-memory::health",
+      "test": "an_unusable_bus_does_not_prevent_serving_and_reports_recover_when_it_returns",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "an_unusable_bus_does_not_prevent_serving_and_reports_recover_when_it_returns",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "an_unusable_bus_does_not_prevent_serving_and_reports_recover_when_it_returns",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "an_unusable_bus_does_not_prevent_serving_and_reports_recover_when_it_returns",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-memory::health",
+      "test": "legacy_reports_retained_counts_and_stays_well_after_caller_refusals",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "legacy_reports_retained_counts_and_stays_well_after_caller_refusals",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "legacy_reports_retained_counts_and_stays_well_after_caller_refusals",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "legacy_reports_retained_counts_and_stays_well_after_caller_refusals",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-memory::health",
+      "test": "sqlite_reports_retained_counts_and_stays_well_after_caller_refusals",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "sqlite_reports_retained_counts_and_stays_well_after_caller_refusals",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "sqlite_reports_retained_counts_and_stays_well_after_caller_refusals",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "sqlite_reports_retained_counts_and_stays_well_after_caller_refusals",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-memory::health",
+      "test": "the_environment_alone_does_not_enable_reporting_or_create_bus_data",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "the_environment_alone_does_not_enable_reporting_or_create_bus_data",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "the_environment_alone_does_not_enable_reporting_or_create_bus_data",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "the_environment_alone_does_not_enable_reporting_or_create_bus_data",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-records::records",
+      "test": "real_reporter_reloads_switch_and_policy_and_requires_a_matching_receipt",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "real_reporter_reloads_switch_and_policy_and_requires_a_matching_receipt",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "real_reporter_reloads_switch_and_policy_and_requires_a_matching_receipt",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "real_reporter_reloads_switch_and_policy_and_requires_a_matching_receipt",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::early_end::a_lone_lamp_and_a_pause_and_the_question_go_as_one_request",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::early_end::a_lone_lamp_and_a_pause_and_the_question_go_as_one_request",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::early_end::a_lone_lamp_and_a_pause_and_the_question_go_as_one_request",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::early_end::a_lone_lamp_and_a_pause_and_the_question_go_as_one_request",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::early_end::a_name_note_told_with_a_request_ended_early_does_not_survive_it",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::early_end::a_name_note_told_with_a_request_ended_early_does_not_survive_it",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::early_end::a_name_note_told_with_a_request_ended_early_does_not_survive_it",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::early_end::a_name_note_told_with_a_request_ended_early_does_not_survive_it",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::early_end::an_answer_that_arrives_after_the_lamp_is_sure_begins_400_ms_sooner_than_without",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::early_end::an_answer_that_arrives_after_the_lamp_is_sure_begins_400_ms_sooner_than_without",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::early_end::an_answer_that_arrives_after_the_lamp_is_sure_begins_400_ms_sooner_than_without",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::early_end::an_answer_that_arrives_after_the_lamp_is_sure_begins_400_ms_sooner_than_without",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::early_end::an_answer_that_arrives_before_the_lamp_is_sure_begins_at_that_moment",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::early_end::an_answer_that_arrives_before_the_lamp_is_sure_begins_at_that_moment",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::early_end::an_answer_that_arrives_before_the_lamp_is_sure_begins_at_that_moment",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::early_end::an_answer_that_arrives_before_the_lamp_is_sure_begins_at_that_moment",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::early_end::an_answer_with_nothing_said_before_the_lamp_is_sure_is_never_played",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::early_end::an_answer_with_nothing_said_before_the_lamp_is_sure_is_never_played",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::early_end::an_answer_with_nothing_said_before_the_lamp_is_sure_is_never_played",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::early_end::an_answer_with_nothing_said_before_the_lamp_is_sure_is_never_played",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::early_end::lamp_stop_over_an_answer_stops_it_and_only_the_answer_to_the_whole_is_played",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::early_end::lamp_stop_over_an_answer_stops_it_and_only_the_answer_to_the_whole_is_played",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::early_end::lamp_stop_over_an_answer_stops_it_and_only_the_answer_to_the_whole_is_played",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::early_end::lamp_stop_over_an_answer_stops_it_and_only_the_answer_to_the_whole_is_played",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::early_end::quiet_to_the_end_the_answer_starts_when_the_lamp_is_sure_and_not_before",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::early_end::quiet_to_the_end_the_answer_starts_when_the_lamp_is_sure_and_not_before",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::early_end::quiet_to_the_end_the_answer_starts_when_the_lamp_is_sure_and_not_before",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::early_end::quiet_to_the_end_the_answer_starts_when_the_lamp_is_sure_and_not_before",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::early_end::speech_resumed_at_three_tenths_nothing_of_the_first_answer_is_played_and_one_turn_is_heard",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::early_end::speech_resumed_at_three_tenths_nothing_of_the_first_answer_is_played_and_one_turn_is_heard",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::early_end::speech_resumed_at_three_tenths_nothing_of_the_first_answer_is_played_and_one_turn_is_heard",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::early_end::speech_resumed_at_three_tenths_nothing_of_the_first_answer_is_played_and_one_turn_is_heard",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::early_end::speech_resumed_at_three_tenths_under_the_lamps_duplex_policy",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::early_end::speech_resumed_at_three_tenths_under_the_lamps_duplex_policy",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::early_end::speech_resumed_at_three_tenths_under_the_lamps_duplex_policy",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::early_end::speech_resumed_at_three_tenths_under_the_lamps_duplex_policy",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::early_end::the_link_dropping_in_between_fails_the_request_unheard_and_the_next_is_answered",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::early_end::the_link_dropping_in_between_fails_the_request_unheard_and_the_next_is_answered",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::early_end::the_link_dropping_in_between_fails_the_request_unheard_and_the_next_is_answered",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::early_end::the_link_dropping_in_between_fails_the_request_unheard_and_the_next_is_answered",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::early_end::without_the_option_every_message_and_record_is_what_it_was",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::early_end::without_the_option_every_message_and_record_is_what_it_was",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::early_end::without_the_option_every_message_and_record_is_what_it_was",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::early_end::without_the_option_every_message_and_record_is_what_it_was",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::endpoint_session::a_complete_verdict_ends_at_one_second_and_its_answer_plays",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::endpoint_session::a_complete_verdict_ends_at_one_second_and_its_answer_plays",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::endpoint_session::a_complete_verdict_ends_at_one_second_and_its_answer_plays",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::endpoint_session::a_complete_verdict_ends_at_one_second_and_its_answer_plays",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::endpoint_session::a_worker_failure_falls_back_through_recovery_and_then_resumes",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::endpoint_session::a_worker_failure_falls_back_through_recovery_and_then_resumes",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::endpoint_session::a_worker_failure_falls_back_through_recovery_and_then_resumes",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::endpoint_session::a_worker_failure_falls_back_through_recovery_and_then_resumes",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::endpoint_session::a_worker_still_loading_leaves_the_baseline_window",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::endpoint_session::a_worker_still_loading_leaves_the_baseline_window",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::endpoint_session::a_worker_still_loading_leaves_the_baseline_window",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::endpoint_session::a_worker_still_loading_leaves_the_baseline_window",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::endpoint_session::complete_verdict_ends_early_but_resumed_speech_keeps_the_turn",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::endpoint_session::complete_verdict_ends_early_but_resumed_speech_keeps_the_turn",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::endpoint_session::complete_verdict_ends_early_but_resumed_speech_keeps_the_turn",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::endpoint_session::complete_verdict_ends_early_but_resumed_speech_keeps_the_turn",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::endpoint_session::confirmed_endpoint_exit_keeps_the_restartable_mute",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::endpoint_session::confirmed_endpoint_exit_keeps_the_restartable_mute",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::endpoint_session::confirmed_endpoint_exit_keeps_the_restartable_mute",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::endpoint_session::confirmed_endpoint_exit_keeps_the_restartable_mute",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::endpoint_session::duplex_complete_verdict_ends_at_one_second_and_its_answer_plays",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::endpoint_session::duplex_complete_verdict_ends_at_one_second_and_its_answer_plays",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::endpoint_session::duplex_complete_verdict_ends_at_one_second_and_its_answer_plays",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::endpoint_session::duplex_complete_verdict_ends_at_one_second_and_its_answer_plays",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::endpoint_session::duplex_missing_model_session_ends_on_the_unchanged_silence_fallback",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::endpoint_session::duplex_missing_model_session_ends_on_the_unchanged_silence_fallback",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::endpoint_session::duplex_missing_model_session_ends_on_the_unchanged_silence_fallback",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::endpoint_session::duplex_missing_model_session_ends_on_the_unchanged_silence_fallback",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::endpoint_session::hung_worker_never_delays_capture_endpoint_or_session_end",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::endpoint_session::hung_worker_never_delays_capture_endpoint_or_session_end",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::endpoint_session::hung_worker_never_delays_capture_endpoint_or_session_end",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::endpoint_session::hung_worker_never_delays_capture_endpoint_or_session_end",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::endpoint_session::missing_model_session_ends_on_the_unchanged_silence_fallback",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::endpoint_session::missing_model_session_ends_on_the_unchanged_silence_fallback",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::endpoint_session::missing_model_session_ends_on_the_unchanged_silence_fallback",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::endpoint_session::missing_model_session_ends_on_the_unchanged_silence_fallback",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::endpoint_session::mute_then_reopen_never_overlaps_endpoint_workers",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::endpoint_session::mute_then_reopen_never_overlaps_endpoint_workers",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::endpoint_session::mute_then_reopen_never_overlaps_endpoint_workers",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::endpoint_session::mute_then_reopen_never_overlaps_endpoint_workers",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::endpoint_session::rapid_resumes_never_end_the_turn_early",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::endpoint_session::rapid_resumes_never_end_the_turn_early",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::endpoint_session::rapid_resumes_never_end_the_turn_early",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::endpoint_session::rapid_resumes_never_end_the_turn_early",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::endpoint_session::unconfirmed_endpoint_exit_fails_mute_cleanup_and_never_reopens_service",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::endpoint_session::unconfirmed_endpoint_exit_fails_mute_cleanup_and_never_reopens_service",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::endpoint_session::unconfirmed_endpoint_exit_fails_mute_cleanup_and_never_reopens_service",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::endpoint_session::unconfirmed_endpoint_exit_fails_mute_cleanup_and_never_reopens_service",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::endpoint_session::verdicts_after_the_result_timeout_fall_back_on_every_turn",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::endpoint_session::verdicts_after_the_result_timeout_fall_back_on_every_turn",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::endpoint_session::verdicts_after_the_result_timeout_fall_back_on_every_turn",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::endpoint_session::verdicts_after_the_result_timeout_fall_back_on_every_turn",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::a_paused_lamp_takes_no_question_and_says_why",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::pilot_faults::a_paused_lamp_takes_no_question_and_says_why",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::pilot_faults::a_paused_lamp_takes_no_question_and_says_why",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::pilot_faults::a_paused_lamp_takes_no_question_and_says_why",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::a_turn_under_way_when_paused_is_finished_and_the_next_is_not_taken",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::pilot_faults::a_turn_under_way_when_paused_is_finished_and_the_next_is_not_taken",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::pilot_faults::a_turn_under_way_when_paused_is_finished_and_the_next_is_not_taken",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::pilot_faults::a_turn_under_way_when_paused_is_finished_and_the_next_is_not_taken",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::camera_loss_during_an_answer_revokes_only_sight",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::pilot_faults::camera_loss_during_an_answer_revokes_only_sight",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::pilot_faults::camera_loss_during_an_answer_revokes_only_sight",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::pilot_faults::camera_loss_during_an_answer_revokes_only_sight",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::capture_fault_during_output_cancels_the_answer_and_ends_the_run",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::pilot_faults::capture_fault_during_output_cancels_the_answer_and_ends_the_run",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::pilot_faults::capture_fault_during_output_cancels_the_answer_and_ends_the_run",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::pilot_faults::capture_fault_during_output_cancels_the_answer_and_ends_the_run",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::capture_stall_during_a_question_ends_the_run_without_an_answer",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::pilot_faults::capture_stall_during_a_question_ends_the_run_without_an_answer",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::pilot_faults::capture_stall_during_a_question_ends_the_run_without_an_answer",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::pilot_faults::capture_stall_during_a_question_ends_the_run_without_an_answer",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::control_one_question_is_answered_once_then_mute_ends_the_run",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::pilot_faults::control_one_question_is_answered_once_then_mute_ends_the_run",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::pilot_faults::control_one_question_is_answered_once_then_mute_ends_the_run",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::pilot_faults::control_one_question_is_answered_once_then_mute_ends_the_run",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::control_progress_without_settlement_is_bounded_under_v1_baseline",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::pilot_faults::control_progress_without_settlement_is_bounded_under_v1_baseline",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::pilot_faults::control_progress_without_settlement_is_bounded_under_v1_baseline",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::pilot_faults::control_progress_without_settlement_is_bounded_under_v1_baseline",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::control_progress_without_settlement_is_bounded_under_vad_only",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::pilot_faults::control_progress_without_settlement_is_bounded_under_vad_only",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::pilot_faults::control_progress_without_settlement_is_bounded_under_vad_only",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::pilot_faults::control_progress_without_settlement_is_bounded_under_vad_only",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::distinct_rejects_an_item_that_returns_later",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::pilot_faults::distinct_rejects_an_item_that_returns_later",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::pilot_faults::distinct_rejects_an_item_that_returns_later",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::pilot_faults::distinct_rejects_an_item_that_returns_later",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::duplex_control_answers_once",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::pilot_faults::duplex_control_answers_once",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::pilot_faults::duplex_control_answers_once",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::pilot_faults::duplex_control_answers_once",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::duplex_stalled_speaker_is_bounded",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::pilot_faults::duplex_stalled_speaker_is_bounded",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::pilot_faults::duplex_stalled_speaker_is_bounded",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::pilot_faults::duplex_stalled_speaker_is_bounded",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::failure_notice_plays_once_keeps_the_failure_and_yields_to_the_next_owner",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::pilot_faults::failure_notice_plays_once_keeps_the_failure_and_yields_to_the_next_owner",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::pilot_faults::failure_notice_plays_once_keeps_the_failure_and_yields_to_the_next_owner",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::pilot_faults::failure_notice_plays_once_keeps_the_failure_and_yields_to_the_next_owner",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::failure_notice_yields_mid_play_to_a_new_owner_under_vad_only",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::pilot_faults::failure_notice_yields_mid_play_to_a_new_owner_under_vad_only",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::pilot_faults::failure_notice_yields_mid_play_to_a_new_owner_under_vad_only",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::pilot_faults::failure_notice_yields_mid_play_to_a_new_owner_under_vad_only",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::mute_while_answer_speech_is_queued_cuts_it_and_never_resumes",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::pilot_faults::mute_while_answer_speech_is_queued_cuts_it_and_never_resumes",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::pilot_faults::mute_while_answer_speech_is_queued_cuts_it_and_never_resumes",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::pilot_faults::mute_while_answer_speech_is_queued_cuts_it_and_never_resumes",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::mute_while_the_failure_notice_plays_cuts_it_and_keeps_the_failure",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::pilot_faults::mute_while_the_failure_notice_plays_cuts_it_and_keeps_the_failure",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::pilot_faults::mute_while_the_failure_notice_plays_cuts_it_and_keeps_the_failure",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::pilot_faults::mute_while_the_failure_notice_plays_cuts_it_and_keeps_the_failure",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::partial_write_then_stall_is_bounded_under_v1_baseline",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::pilot_faults::partial_write_then_stall_is_bounded_under_v1_baseline",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::pilot_faults::partial_write_then_stall_is_bounded_under_v1_baseline",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::pilot_faults::partial_write_then_stall_is_bounded_under_v1_baseline",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::partial_write_then_stall_is_bounded_under_vad_only",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::pilot_faults::partial_write_then_stall_is_bounded_under_vad_only",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::pilot_faults::partial_write_then_stall_is_bounded_under_vad_only",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::pilot_faults::partial_write_then_stall_is_bounded_under_vad_only",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::provider_failure_before_output_settles_failed_without_speech",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::pilot_faults::provider_failure_before_output_settles_failed_without_speech",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::pilot_faults::provider_failure_before_output_settles_failed_without_speech",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::pilot_faults::provider_failure_before_output_settles_failed_without_speech",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::provider_failure_during_output_never_becomes_a_completed_answer",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::pilot_faults::provider_failure_during_output_never_becomes_a_completed_answer",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::pilot_faults::provider_failure_during_output_never_becomes_a_completed_answer",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::pilot_faults::provider_failure_during_output_never_becomes_a_completed_answer",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::provider_process_lost_before_output_ends_the_run_without_speech",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::pilot_faults::provider_process_lost_before_output_ends_the_run_without_speech",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::pilot_faults::provider_process_lost_before_output_ends_the_run_without_speech",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::pilot_faults::provider_process_lost_before_output_ends_the_run_without_speech",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::provider_process_lost_during_output_stops_speech_and_fails_the_turn",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::pilot_faults::provider_process_lost_during_output_stops_speech_and_fails_the_turn",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::pilot_faults::provider_process_lost_during_output_stops_speech_and_fails_the_turn",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::pilot_faults::provider_process_lost_during_output_stops_speech_and_fails_the_turn",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::provider_worker_fault_during_output_fails_the_turn_and_ends_the_run",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::pilot_faults::provider_worker_fault_during_output_fails_the_turn_and_ends_the_run",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::pilot_faults::provider_worker_fault_during_output_fails_the_turn_and_ends_the_run",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::pilot_faults::provider_worker_fault_during_output_fails_the_turn_and_ends_the_run",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::rapid_mute_and_reopen_never_overlaps_workers_or_carries_speech_across",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::pilot_faults::rapid_mute_and_reopen_never_overlaps_workers_or_carries_speech_across",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::pilot_faults::rapid_mute_and_reopen_never_overlaps_workers_or_carries_speech_across",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::pilot_faults::rapid_mute_and_reopen_never_overlaps_workers_or_carries_speech_across",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::readiness_publishes_the_link_state_it_was_validated_against",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::pilot_faults::readiness_publishes_the_link_state_it_was_validated_against",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::pilot_faults::readiness_publishes_the_link_state_it_was_validated_against",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::pilot_faults::readiness_publishes_the_link_state_it_was_validated_against",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::resumed_the_lamp_answers_again",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::pilot_faults::resumed_the_lamp_answers_again",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::pilot_faults::resumed_the_lamp_answers_again",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::pilot_faults::resumed_the_lamp_answers_again",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::ring_fault_during_an_answer_keeps_the_conversation_and_cleans_up",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::pilot_faults::ring_fault_during_an_answer_keeps_the_conversation_and_cleans_up",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::pilot_faults::ring_fault_during_an_answer_keeps_the_conversation_and_cleans_up",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::pilot_faults::ring_fault_during_an_answer_keeps_the_conversation_and_cleans_up",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::ring_lost_without_blanking_keeps_the_answer_but_cleanup_fails_truthfully",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::pilot_faults::ring_lost_without_blanking_keeps_the_answer_but_cleanup_fails_truthfully",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::pilot_faults::ring_lost_without_blanking_keeps_the_answer_but_cleanup_fails_truthfully",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::pilot_faults::ring_lost_without_blanking_keeps_the_answer_but_cleanup_fails_truthfully",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::sigterm_while_answer_speech_is_pending_stops_cleanly",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::pilot_faults::sigterm_while_answer_speech_is_pending_stops_cleanly",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::pilot_faults::sigterm_while_answer_speech_is_pending_stops_cleanly",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::pilot_faults::sigterm_while_answer_speech_is_pending_stops_cleanly",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::sigterm_while_metadata_storage_is_stalled_stops_cleanly_and_reports_the_loss",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::pilot_faults::sigterm_while_metadata_storage_is_stalled_stops_cleanly_and_reports_the_loss",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::pilot_faults::sigterm_while_metadata_storage_is_stalled_stops_cleanly_and_reports_the_loss",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::pilot_faults::sigterm_while_metadata_storage_is_stalled_stops_cleanly_and_reports_the_loss",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::sigterm_while_the_failure_notice_plays_stops_cleanly",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::pilot_faults::sigterm_while_the_failure_notice_plays_stops_cleanly",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::pilot_faults::sigterm_while_the_failure_notice_plays_stops_cleanly",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::pilot_faults::sigterm_while_the_failure_notice_plays_stops_cleanly",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::speaker_progress_is_due_strictly_after_lease_plus_report_age",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::pilot_faults::speaker_progress_is_due_strictly_after_lease_plus_report_age",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::pilot_faults::speaker_progress_is_due_strictly_after_lease_plus_report_age",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::pilot_faults::speaker_progress_is_due_strictly_after_lease_plus_report_age",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::stalled_speaker_during_output_is_bounded_and_never_completes_the_answer",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::pilot_faults::stalled_speaker_during_output_is_bounded_and_never_completes_the_answer",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::pilot_faults::stalled_speaker_during_output_is_bounded_and_never_completes_the_answer",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::pilot_faults::stalled_speaker_during_output_is_bounded_and_never_completes_the_answer",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::stalled_speaker_under_vad_only_is_bounded_too",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::pilot_faults::stalled_speaker_under_vad_only_is_bounded_too",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::pilot_faults::stalled_speaker_under_vad_only_is_bounded_too",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::pilot_faults::stalled_speaker_under_vad_only_is_bounded_too",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::terminal_provider_link_during_output_settles_failed_and_ends_service",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "coordinator::tests::pilot_faults::terminal_provider_link_during_output_settles_failed_and_ends_service",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "coordinator::tests::pilot_faults::terminal_provider_link_during_output_settles_failed_and_ends_service",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "coordinator::tests::pilot_faults::terminal_provider_link_during_output_settles_failed_and_ends_service",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "provider_worker::tests::kept_start::with_no_first_answer_the_patience_ends_in_the_strict_timeout_and_no_end",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "provider_worker::tests::kept_start::with_no_first_answer_the_patience_ends_in_the_strict_timeout_and_no_end",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "provider_worker::tests::kept_start::with_no_first_answer_the_patience_ends_in_the_strict_timeout_and_no_end",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "provider_worker::tests::kept_start::with_no_first_answer_the_patience_ends_in_the_strict_timeout_and_no_end",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "provider_worker::tests::resumed_question_survives_a_silent_service_and_the_assumption_is_reported",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "provider_worker::tests::resumed_question_survives_a_silent_service_and_the_assumption_is_reported",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "provider_worker::tests::resumed_question_survives_a_silent_service_and_the_assumption_is_reported",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "provider_worker::tests::resumed_question_survives_a_silent_service_and_the_assumption_is_reported",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "provider_worker::tests::review_2026_10_14::review_a_name_heard_after_a_requests_sound_ended_does_not_let_out_its_answer",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "provider_worker::tests::review_2026_10_14::review_a_name_heard_after_a_requests_sound_ended_does_not_let_out_its_answer",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "provider_worker::tests::review_2026_10_14::review_a_name_heard_after_a_requests_sound_ended_does_not_let_out_its_answer",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "provider_worker::tests::review_2026_10_14::review_a_name_heard_after_a_requests_sound_ended_does_not_let_out_its_answer",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "provider_worker::tests::review_2026_10_14::review_sound_a_name_heard_as_a_request_began_lets_out_the_answer_the_rule_would_hold",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "provider_worker::tests::review_2026_10_14::review_sound_a_name_heard_as_a_request_began_lets_out_the_answer_the_rule_would_hold",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "provider_worker::tests::review_2026_10_14::review_sound_a_name_heard_as_a_request_began_lets_out_the_answer_the_rule_would_hold",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "provider_worker::tests::review_2026_10_14::review_sound_a_name_heard_as_a_request_began_lets_out_the_answer_the_rule_would_hold",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice-eval",
+      "test": "physical::mac::audit_grant_tests::audit_transport_that_outlives_its_bound_is_killed_and_never_certified",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "physical::mac::audit_grant_tests::audit_transport_that_outlives_its_bound_is_killed_and_never_certified",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "physical::mac::audit_grant_tests::audit_transport_that_outlives_its_bound_is_killed_and_never_certified",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "physical::mac::audit_grant_tests::audit_transport_that_outlives_its_bound_is_killed_and_never_certified",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice-eval::final_dispatch",
+      "test": "a_final_drain_that_exhausts_its_budget_requires_revalidation",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "a_final_drain_that_exhausts_its_budget_requires_revalidation",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "a_final_drain_that_exhausts_its_budget_requires_revalidation",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "a_final_drain_that_exhausts_its_budget_requires_revalidation",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice-eval::final_dispatch",
+      "test": "a_healthy_session_still_dispatches_once",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "a_healthy_session_still_dispatches_once",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "a_healthy_session_still_dispatches_once",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "a_healthy_session_still_dispatches_once",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice-eval::final_dispatch",
+      "test": "a_known_invalid_cue_withholds_dispatch_as_a_protocol_failure",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "a_known_invalid_cue_withholds_dispatch_as_a_protocol_failure",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "a_known_invalid_cue_withholds_dispatch_as_a_protocol_failure",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "a_known_invalid_cue_withholds_dispatch_as_a_protocol_failure",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice-eval::final_dispatch",
+      "test": "a_known_run_end_cue_withholds_dispatch",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "a_known_run_end_cue_withholds_dispatch",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "a_known_run_end_cue_withholds_dispatch",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "a_known_run_end_cue_withholds_dispatch",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice-eval::final_dispatch",
+      "test": "a_known_session_end_withholds_dispatch",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "a_known_session_end_withholds_dispatch",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "a_known_session_end_withholds_dispatch",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "a_known_session_end_withholds_dispatch",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice-eval::final_dispatch",
+      "test": "a_relay_framing_error_first_seen_in_the_final_drain_withholds",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "a_relay_framing_error_first_seen_in_the_final_drain_withholds",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "a_relay_framing_error_first_seen_in_the_final_drain_withholds",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "a_relay_framing_error_first_seen_in_the_final_drain_withholds",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice-eval::final_dispatch",
+      "test": "a_session_end_first_seen_in_the_final_drain_withholds_and_is_kept",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "a_session_end_first_seen_in_the_final_drain_withholds_and_is_kept",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "a_session_end_first_seen_in_the_final_drain_withholds_and_is_kept",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "a_session_end_first_seen_in_the_final_drain_withholds_and_is_kept",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice-eval::final_dispatch",
+      "test": "a_transport_closed_during_the_final_drain_withholds",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "a_transport_closed_during_the_final_drain_withholds",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "a_transport_closed_during_the_final_drain_withholds",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "a_transport_closed_during_the_final_drain_withholds",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice-eval::final_dispatch",
+      "test": "an_invalid_cue_first_seen_in_the_final_drain_withholds",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "an_invalid_cue_first_seen_in_the_final_drain_withholds",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "an_invalid_cue_first_seen_in_the_final_drain_withholds",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "an_invalid_cue_first_seen_in_the_final_drain_withholds",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice-eval::final_dispatch",
+      "test": "an_unobserved_event_in_the_final_drain_requires_revalidation",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "an_unobserved_event_in_the_final_drain_requires_revalidation",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "an_unobserved_event_in_the_final_drain_requires_revalidation",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "an_unobserved_event_in_the_final_drain_requires_revalidation",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice-eval::final_dispatch",
+      "test": "audit_physical_boundary_does_not_dispatch_during_post_exit_trace_relay",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "audit_physical_boundary_does_not_dispatch_during_post_exit_trace_relay",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "audit_physical_boundary_does_not_dispatch_during_post_exit_trace_relay",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "audit_physical_boundary_does_not_dispatch_during_post_exit_trace_relay",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice-eval::final_dispatch",
+      "test": "audit_physical_boundary_rejects_a_target_already_over_100ms_late",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "audit_physical_boundary_rejects_a_target_already_over_100ms_late",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "audit_physical_boundary_rejects_a_target_already_over_100ms_late",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "audit_physical_boundary_rejects_a_target_already_over_100ms_late",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice-eval::final_dispatch",
+      "test": "the_first_terminal_cause_wins_and_a_provider_failure_stays_provider_unavailable",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "the_first_terminal_cause_wins_and_a_provider_failure_stays_provider_unavailable",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "the_first_terminal_cause_wins_and_a_provider_failure_stays_provider_unavailable",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "the_first_terminal_cause_wins_and_a_provider_failure_stays_provider_unavailable",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice-eval::physical_loopback",
+      "test": "a_transport_that_closes_mid_trace_invalidates_the_attempt",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "a_transport_that_closes_mid_trace_invalidates_the_attempt",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "a_transport_that_closes_mid_trace_invalidates_the_attempt",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "a_transport_that_closes_mid_trace_invalidates_the_attempt",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice-eval::physical_loopback",
+      "test": "cue_triggered_acknowledgment_is_injected_during_playback_and_scored",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "cue_triggered_acknowledgment_is_injected_during_playback_and_scored",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "cue_triggered_acknowledgment_is_injected_during_playback_and_scored",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "cue_triggered_acknowledgment_is_injected_during_playback_and_scored",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice-eval::physical_loopback",
+      "test": "directed_followup_waits_for_whole_reply_completion_then_admits_a_new_turn",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "directed_followup_waits_for_whole_reply_completion_then_admits_a_new_turn",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "directed_followup_waits_for_whole_reply_completion_then_admits_a_new_turn",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "directed_followup_waits_for_whole_reply_completion_then_admits_a_new_turn",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice-eval::physical_loopback",
+      "test": "directed_interruption_during_second_occurrence_preserves_owner_and_yields",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "directed_interruption_during_second_occurrence_preserves_owner_and_yields",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "directed_interruption_during_second_occurrence_preserves_owner_and_yields",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "directed_interruption_during_second_occurrence_preserves_owner_and_yields",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice-eval::physical_loopback",
+      "test": "directed_missing_or_stale_retirement_never_falls_back_to_a_timer_or_final_trace",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "directed_missing_or_stale_retirement_never_falls_back_to_a_timer_or_final_trace",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "directed_missing_or_stale_retirement_never_falls_back_to_a_timer_or_final_trace",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "directed_missing_or_stale_retirement_never_falls_back_to_a_timer_or_final_trace",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice-eval::physical_loopback",
+      "test": "directed_mode_keeps_provider_fault_and_asset_restrictions",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "directed_mode_keeps_provider_fault_and_asset_restrictions",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "directed_mode_keeps_provider_fault_and_asset_restrictions",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "directed_mode_keeps_provider_fault_and_asset_restrictions",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice-eval::physical_loopback",
+      "test": "directed_natural_interruption_runs_during_reply_with_original_cancel_reason",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "directed_natural_interruption_runs_during_reply_with_original_cancel_reason",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "directed_natural_interruption_runs_during_reply_with_original_cancel_reason",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "directed_natural_interruption_runs_during_reply_with_original_cancel_reason",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice-eval::physical_loopback",
+      "test": "directed_two_occurrences_wait_for_true_completion_before_followup",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "directed_two_occurrences_wait_for_true_completion_before_followup",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "directed_two_occurrences_wait_for_true_completion_before_followup",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "directed_two_occurrences_wait_for_true_completion_before_followup",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice-eval::physical_loopback",
+      "test": "echo_only_window_passes_through_the_relay_without_extra_admissions",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "echo_only_window_passes_through_the_relay_without_extra_admissions",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "echo_only_window_passes_through_the_relay_without_extra_admissions",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "echo_only_window_passes_through_the_relay_without_extra_admissions",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice-eval::physical_loopback",
+      "test": "missing_or_stale_whole_completion_withholds_followup_after_valid_retirement",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "missing_or_stale_whole_completion_withholds_followup_after_valid_retirement",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "missing_or_stale_whole_completion_withholds_followup_after_valid_retirement",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "missing_or_stale_whole_completion_withholds_followup_after_valid_retirement",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice-eval::physical_loopback",
+      "test": "physical_next_turn_ready_follows_lamp_voice_readiness_cues",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "physical_next_turn_ready_follows_lamp_voice_readiness_cues",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "physical_next_turn_ready_follows_lamp_voice_readiness_cues",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "physical_next_turn_ready_follows_lamp_voice_readiness_cues",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice-eval::physical_loopback",
+      "test": "undelivered_stimuli_are_withheld_not_scored_as_silence",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "undelivered_stimuli_are_withheld_not_scored_as_silence",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "undelivered_stimuli_are_withheld_not_scored_as_silence",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "undelivered_stimuli_are_withheld_not_scored_as_silence",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice-eval::serve_relay",
+      "test": "a_closed_runner_transport_stops_the_runtime_through_the_same_path",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "a_closed_runner_transport_stops_the_runtime_through_the_same_path",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "a_closed_runner_transport_stops_the_runtime_through_the_same_path",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "a_closed_runner_transport_stops_the_runtime_through_the_same_path",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice-eval::serve_relay",
+      "test": "a_nonzero_runtime_exit_after_clean_metadata_is_a_relay_error",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "a_nonzero_runtime_exit_after_clean_metadata_is_a_relay_error",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "a_nonzero_runtime_exit_after_clean_metadata_is_a_relay_error",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "a_nonzero_runtime_exit_after_clean_metadata_is_a_relay_error",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice-eval::serve_relay",
+      "test": "a_runner_stop_is_one_sigterm_and_a_clean_reaped_end",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "a_runner_stop_is_one_sigterm_and_a_clean_reaped_end",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "a_runner_stop_is_one_sigterm_and_a_clean_reaped_end",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "a_runner_stop_is_one_sigterm_and_a_clean_reaped_end",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice-eval::serve_relay",
+      "test": "a_runtime_that_ignores_sigterm_is_force_killed_and_never_clean",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "a_runtime_that_ignores_sigterm_is_force_killed_and_never_clean",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "a_runtime_that_ignores_sigterm_is_force_killed_and_never_clean",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "a_runtime_that_ignores_sigterm_is_force_killed_and_never_clean",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice-eval::serve_relay",
+      "test": "the_hard_deadline_stops_the_runtime_and_is_an_error",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "the_hard_deadline_stops_the_runtime_and_is_an_error",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "the_hard_deadline_stops_the_runtime_and_is_an_error",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "the_hard_deadline_stops_the_runtime_and_is_an_error",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice-eval::serve_relay",
+      "test": "the_pilot_runtime_settings_reach_the_serve_child_exactly",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "the_pilot_runtime_settings_reach_the_serve_child_exactly",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "the_pilot_runtime_settings_reach_the_serve_child_exactly",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "the_pilot_runtime_settings_reach_the_serve_child_exactly",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice-eval::serve_session",
+      "test": "a_declared_capture_end_before_the_next_prompt_and_its_window_withholds_it",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "a_declared_capture_end_before_the_next_prompt_and_its_window_withholds_it",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "a_declared_capture_end_before_the_next_prompt_and_its_window_withholds_it",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "a_declared_capture_end_before_the_next_prompt_and_its_window_withholds_it",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice-eval::serve_session",
+      "test": "a_late_first_copy_or_failed_player_withholds_every_later_turn",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "a_late_first_copy_or_failed_player_withholds_every_later_turn",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "a_late_first_copy_or_failed_player_withholds_every_later_turn",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "a_late_first_copy_or_failed_player_withholds_every_later_turn",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice-eval::serve_session",
+      "test": "a_nonzero_runtime_exit_never_completes_a_serve_attempt",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "a_nonzero_runtime_exit_never_completes_a_serve_attempt",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "a_nonzero_runtime_exit_never_completes_a_serve_attempt",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "a_nonzero_runtime_exit_never_completes_a_serve_attempt",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice-eval::serve_session",
+      "test": "a_provider_outage_is_waited_out_by_event_and_a_terminal_link_ends_it",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "a_provider_outage_is_waited_out_by_event_and_a_terminal_link_ends_it",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "a_provider_outage_is_waited_out_by_event_and_a_terminal_link_ends_it",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "a_provider_outage_is_waited_out_by_event_and_a_terminal_link_ends_it",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice-eval::serve_session",
+      "test": "a_recorder_that_exits_zero_mid_conversation_withholds_the_rest_and_certifies_nothing",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "a_recorder_that_exits_zero_mid_conversation_withholds_the_rest_and_certifies_nothing",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "a_recorder_that_exits_zero_mid_conversation_withholds_the_rest_and_certifies_nothing",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "a_recorder_that_exits_zero_mid_conversation_withholds_the_rest_and_certifies_nothing",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice-eval::serve_session",
+      "test": "a_room_recording_that_ends_early_withholds_the_rest",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "a_room_recording_that_ends_early_withholds_the_rest",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "a_room_recording_that_ends_early_withholds_the_rest",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "a_room_recording_that_ends_early_withholds_the_rest",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice-eval::serve_session",
+      "test": "a_runtime_stop_mute_or_ignored_sigterm_is_retained_and_reaped",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "a_runtime_stop_mute_or_ignored_sigterm_is_retained_and_reaped",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "a_runtime_stop_mute_or_ignored_sigterm_is_retained_and_reaped",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "a_runtime_stop_mute_or_ignored_sigterm_is_retained_and_reaped",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice-eval::serve_session",
+      "test": "an_extra_candidate_during_the_wait_withholds_the_rest",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "an_extra_candidate_during_the_wait_withholds_the_rest",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "an_extra_candidate_during_the_wait_withholds_the_rest",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "an_extra_candidate_during_the_wait_withholds_the_rest",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice-eval::serve_session",
+      "test": "delayed_readiness_is_awaited_by_event_not_by_completion",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "delayed_readiness_is_awaited_by_event_not_by_completion",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "delayed_readiness_is_awaited_by_event_not_by_completion",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "delayed_readiness_is_awaited_by_event_not_by_completion",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice-eval::serve_session",
+      "test": "normal_eight_turn_conversation_in_one_serve_session",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "normal_eight_turn_conversation_in_one_serve_session",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "normal_eight_turn_conversation_in_one_serve_session",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "normal_eight_turn_conversation_in_one_serve_session",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice-eval::serve_session",
+      "test": "serve_readiness_comes_only_from_the_fresh_cue_never_from_stdout",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "serve_readiness_comes_only_from_the_fresh_cue_never_from_stdout",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "serve_readiness_comes_only_from_the_fresh_cue_never_from_stdout",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "serve_readiness_comes_only_from_the_fresh_cue_never_from_stdout",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice-eval::serve_session",
+      "test": "stale_duplicate_reordered_foreign_and_lost_cues_end_the_conversation",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "stale_duplicate_reordered_foreign_and_lost_cues_end_the_conversation",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "stale_duplicate_reordered_foreign_and_lost_cues_end_the_conversation",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "stale_duplicate_reordered_foreign_and_lost_cues_end_the_conversation",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice-eval::serve_session",
+      "test": "startup_cues_stay_fresh_through_a_slow_transport_and_a_slow_first_preparer",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "startup_cues_stay_fresh_through_a_slow_transport_and_a_slow_first_preparer",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "startup_cues_stay_fresh_through_a_slow_transport_and_a_slow_first_preparer",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "startup_cues_stay_fresh_through_a_slow_transport_and_a_slow_first_preparer",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice-eval::serve_session",
+      "test": "the_runner_forwards_pilot_runtime_settings_through_the_relay",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "the_runner_forwards_pilot_runtime_settings_through_the_relay",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "the_runner_forwards_pilot_runtime_settings_through_the_relay",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "the_runner_forwards_pilot_runtime_settings_through_the_relay",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice::capture_hold_worker",
+      "test": "a_microphone_busy_for_a_moment_at_start_is_opened_once_it_is_free",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "a_microphone_busy_for_a_moment_at_start_is_opened_once_it_is_free",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "a_microphone_busy_for_a_moment_at_start_is_opened_once_it_is_free",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "a_microphone_busy_for_a_moment_at_start_is_opened_once_it_is_free",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice::capture_hold_worker",
+      "test": "another_microphone_is_handed_on_at_once_and_its_early_sound_is_not_accounted_for",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "another_microphone_is_handed_on_at_once_and_its_early_sound_is_not_accounted_for",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "another_microphone_is_handed_on_at_once_and_its_early_sound_is_not_accounted_for",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "another_microphone_is_handed_on_at_once_and_its_early_sound_is_not_accounted_for",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice::capture_hold_worker",
+      "test": "mic1_frames_wait_four_blocks_with_their_own_times_and_a_stop_drops_what_is_held",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "mic1_frames_wait_four_blocks_with_their_own_times_and_a_stop_drops_what_is_held",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "mic1_frames_wait_four_blocks_with_their_own_times_and_a_stop_drops_what_is_held",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "mic1_frames_wait_four_blocks_with_their_own_times_and_a_stop_drops_what_is_held",
+          "exact": true
+        }
+      ]
+    },
+    {
+      "binary": "lamp-voice::capture_hold_worker",
+      "test": "mic1_muted_while_frames_are_held_hands_none_of_them_on",
+      "checks": [
+        {
+          "label": "original-8ddff",
+          "identity": "mic1_muted_while_frames_are_held_hands_none_of_them_on",
+          "exact": true
+        },
+        {
+          "label": "current-69bae",
+          "identity": "mic1_muted_while_frames_are_held_hands_none_of_them_on",
+          "exact": true
+        },
+        {
+          "label": "native-relay-917a",
+          "identity": "mic1_muted_while_frames_are_held_hands_none_of_them_on",
+          "exact": true
+        }
+      ]
+    }
+  ]
+}

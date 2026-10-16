@@ -1,0 +1,109 @@
+{
+  "date_from_date": "2026-10-16 08:11:31 +0700",
+  "head": "917a19c5c36bdecb965f404385df386c16b22af4",
+  "tested_normal_merge": "c8f8fb249b3e4165e0c9370110bf3f9dc5efe1b7",
+  "normal_merge_parents": [
+    "69bae3831449bc03d1f11e3ed0c55eccfa1e6f3d",
+    "917a19c5c36bdecb965f404385df386c16b22af4"
+  ],
+  "full_head_tree": "b4ee255cfda5cf78f22c327ef49d842911eaf89a",
+  "normal_merge_tree": "1f3b1b66048b88525dd791b74118178ae64251a3",
+  "source_files": [
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+      "bytes": 24315,
+      "sha256": "b9637518aaf8e0dffc587273ab0c5e19c6ff1d72337796c71a4d0832cb4f1327",
+      "git_blob_sha": "60aff5ba4c02a04b2f834853f2c94d56390ded8c",
+      "full_head_matches": true,
+      "normal_merge_matches": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+      "bytes": 27980,
+      "sha256": "b9cd63c46803efe08cdc32b9d308612b7a9b54b937b193b73f87624b1124c4db",
+      "git_blob_sha": "eeb3ee6e57b20648b73e8d120ddb14625bb83340",
+      "full_head_matches": true,
+      "normal_merge_matches": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_invocation_tests.rs",
+      "bytes": 4289,
+      "sha256": "89f89a010c4a240aa699fd37fb49e0a2c4f2ed8f65ce77332c5c9b575e3d12dc",
+      "git_blob_sha": "b1e41cccc159b893287f35fdde495142b62f807b",
+      "full_head_matches": true,
+      "normal_merge_matches": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/serve_relay.rs",
+      "bytes": 9396,
+      "sha256": "836a72136db9573ca12e8b4aeab77ff95e42010cf71fcd652da6318945ec7bf2",
+      "git_blob_sha": "9c3b33264152a6b500f24b0479d822c4163362af",
+      "full_head_matches": true,
+      "normal_merge_matches": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/common/serve_relay_clock.rs",
+      "bytes": 16129,
+      "sha256": "60f5ee58ee905b285ea54c5d6c1a2159964e97a2945a79654d283ca14d0ee9cb",
+      "git_blob_sha": "7b57594e58776f711abf728f33408ce0ed1e0c61",
+      "full_head_matches": true,
+      "normal_merge_matches": true
+    },
+    {
+      "path": "lampOS/docs/realtime-tests.md",
+      "bytes": 41562,
+      "sha256": "981533204642dea719671a55cc02d71f9a9a3462a43596a4dfbf05261f487105",
+      "git_blob_sha": "2d8adfbdcb3f41dc6a2acb3df19462f1585aa02e",
+      "full_head_matches": true,
+      "normal_merge_matches": true
+    },
+    {
+      "path": ".github/workflows/lampos-arm64.yml",
+      "bytes": 7440,
+      "sha256": "11cbcf5ced5022ca685b5c9e51f349c986259a5044575a20f39d3b8e869a045f",
+      "git_blob_sha": "01309b57005ff770d23ee3dbc378a3ccfa2cf014",
+      "full_head_matches": true,
+      "normal_merge_matches": true
+    },
+    {
+      "path": "lampOS/.config/nextest.toml",
+      "bytes": 6466,
+      "sha256": "33254521c34198ae2d4f988c4b7d04391c03da769ad91769e691171ae3b87367",
+      "git_blob_sha": "f83b3204b9c159d19c7bb90e003a28f05fd61268",
+      "full_head_matches": true,
+      "normal_merge_matches": true
+    }
+  ],
+  "published_infra_commit": "b65454e57bb30fb4a8dd57fe53528d2b3aecc5e2",
+  "published_infra_files_exact": [
+    {
+      "path": "lampOS/docs/verification/relay-native-first-shard-failure-20261016/README.md",
+      "bytes": 1178,
+      "sha256": "3e8b0cdfa084eef5c0b6e0198b32c453a95d98589b4eb1d68e67e8d30149ae4e",
+      "git_blob_sha": "6e950b9143093062645e64dc21ff910aa1f8c5ac"
+    },
+    {
+      "path": "lampOS/docs/verification/relay-native-first-shard-failure-20261016/SHA256SUMS",
+      "bytes": 249,
+      "sha256": "71e9f891ae62bf0c2341d649b6d717ba6a8f38d546e9950a326fa3493184a10f",
+      "git_blob_sha": "8439d97a20bd0adc3ad077cae0a8d7d4ef0df9f5"
+    },
+    {
+      "path": "lampOS/docs/verification/relay-native-first-shard-failure-20261016/run-during-first-attempt.json",
+      "bytes": 10261,
+      "sha256": "25bc3f659f9e0202595e771c9d33bb0371ca5cc89bc17c09ab4d285068efaff2",
+      "git_blob_sha": "fc23976f9e42d9821649cdc0d9d383514f7f0a8c"
+    },
+    {
+      "path": "lampOS/docs/verification/relay-native-first-shard-failure-20261016/shard3.log",
+      "bytes": 29901,
+      "sha256": "e67bafd7f0e1706d411f8c868dd7c0dbe71dcd68a2c7b204b97884146f13a5c6",
+      "git_blob_sha": "34e39bd5665ff841a716f16a7bf3bcbd09cf4e5e"
+    }
+  ],
+  "published_infra_shard3_sha256": "e67bafd7f0e1706d411f8c868dd7c0dbe71dcd68a2c7b204b97884146f13a5c6",
+  "gh_job_log_removing_exactly_two_tab_prefixes_matches_published_raw": true,
+  "full_run_shard3_payload_matches_published_raw": true,
+  "original123_inventory_sha256": "72d671f8b22246898f9142c0216c9fbced55e350e46b83ffec787c81496fb1fc",
+  "original123_inventory_path": "/private/tmp/lampos-tests-inventory/lampOS/docs/verification/realtime-inventory-20261015/inventory.json"
+}

@@ -1,0 +1,33 @@
+--- original-8ddff
++++ current-69bae
+@@ -9,7 +9,7 @@
+             ..Service::answering_after(150)
+         },
+     )
+-    .run();
++    .run_with_privacy_tolerance();
+     session.ok();
+     session.summary("Lamp, stop. over an answer", 380);
+     let seen = &session.seen;
+@@ -29,7 +29,20 @@
+     assert_eq!(heard[starts[1] + 1], Wire::Audio(276));
+     assert_eq!(heard[starts[2] + 1], Wire::Audio(346));
+     assert_eq!(*heard.last().unwrap(), Wire::End);
+-    assert_eq!(heard[heard.len() - 2], Wire::Audio(380 + 20));
++    // "stop." goes on from "Lamp," given up: the model is told so just
++    // before its end, and no other request is.
++    assert_eq!(
++        heard[heard.len() - 2],
++        Wire::Note(crate::provider_worker::CUT_OFF_NOTE.to_owned())
++    );
++    assert_eq!(
++        heard
++            .iter()
++            .filter(|what| matches!(what, Wire::Note(_)))
++            .count(),
++        1
++    );
++    assert_eq!(heard[heard.len() - 3], Wire::Audio(380 + 20));
+     // The first answer played until "Lamp," was heard over it, and not a
+     // block of it after: every one came before any block of a later turn,
+     // and was taken by the speaker within its permit's lease of the

@@ -1,0 +1,13 @@
+1fb07c6f57ee280a49de7b4ddd74008c2a32a20d 2026-10-16T00:40:31+07:00 lampOS: say the preferences step keeps rules with the memory's two switches, #822 being merged
+bbfa9646da36b6ae5d94ac835b52ecc6baf67869 2026-10-15T23:53:55+07:00 lampOS: keep where-you-sit's gate closed once any sign of a body is seen, the exemption only for a lamp with no body
+8225ed0b4d34296f59d8c006e403a566e9c9ac64 2026-10-15T23:12:58+07:00 lampOS: hold where-you-sit only on fresh word from the body, a stale or missing one counting as moving or a hand still on it
+8e253708e55e781ffbc4433e9c23aee00d9d354a 2026-10-15T22:44:19+07:00 lampOS: hold where-you-sit's framing only while the head is still and no hand is on the lamp
+e50856ebef6753faf2588822cfefaef7e5ace102 2026-10-15T22:05:25+07:00 lampOS: take a setup step's report only for the step being led, and let where-you-sit be only skipped, never done by a word
+2433f808dd7356ab799fd2abfc8de035e420a37e 2026-10-15T20:49:18+07:00 lampOS: let the lamp walk a new person through where to sit, their name and face, and a few preferences, behind LAMP_ONBOARDING
+cc1c06dcc70a33811b77f325de01b194e0424f13 2026-10-16T07:22:15+07:00 lampOS: Gemini's worker waits for room in its input queue only with a second route configured (--wait-for-room), so a lamp without one is unchanged
+cec03be9deeeb738710dbfd347dedf52d168617e 2026-10-16T07:09:20+07:00 lampOS: a cancellation's End waits for room in Gemini's input queue too, ahead of the next request, so a cancel in a short stall keeps the link
+a775dc196d0fec451fb199f18a207bf0355f61eb 2026-10-16T06:28:26+07:00 lampOS: Gemini's provider worker waits for room in the link's input queue, so a short write stall under a replay no longer ends the connection
+a32f9d5a4e997a93588613bd321c582e73e39901 2026-10-16T05:16:10+07:00 lampOS: the startup hold is derived from Gemini's audio age bound, so a line it gives Gemini is never too old to send
+48b1450bc467a2f9162e62c7103632cff60b214c 2026-10-16T05:07:19+07:00 lampOS: a held line given to Gemini at its first Ready goes two commands a tick, so it no longer overruns the link's input queue
+6f2fd4547b110882742eeffa10c0bbb8d498271e 2026-10-16T07:51:59+07:00 lampOS: the second route's coordinator tests step their peers on the scenario clock, so a busy host cannot age the privacy lease
+2090ccee6f49ef09cc997fcbec64b05f7235d15c 2026-10-16T08:21:01+07:00 lampOS: physical skills: V1's 29 moves judged on lamp-4ace and which become expressions, and which V2 behaviours become skills

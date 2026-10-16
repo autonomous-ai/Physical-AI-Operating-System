@@ -1,0 +1,38 @@
+{
+  "date_from_date": "2026-10-16 08:44:37 +0700",
+  "sources": [
+    {
+      "path": "lampOS/crates/actions/src/light.rs",
+      "command": [
+        "git",
+        "show",
+        "HEAD:lampOS/crates/actions/src/light.rs"
+      ],
+      "exit_code": 0,
+      "sha256": "b6643d8d3eb6f8625c66daf16e21003e6fc1e3c3c4fc638652d56874093ab6e2",
+      "bytes": 14755
+    },
+    {
+      "path": "lampOS/crates/actions/src/server.rs",
+      "command": [
+        "git",
+        "show",
+        "HEAD:lampOS/crates/actions/src/server.rs"
+      ],
+      "exit_code": 0,
+      "sha256": "cac917a6a7811f87ce2c16789851ba524a92640c9b0743e68422f6b34decc887",
+      "bytes": 9565
+    },
+    {
+      "path": "lampOS/crates/voice/src/service_privacy.rs",
+      "command": [
+        "git",
+        "show",
+        "HEAD:lampOS/crates/voice/src/service_privacy.rs"
+      ],
+      "exit_code": 0,
+      "sha256": "d5dfc04a5020242be4430f021044af27fffa8d7cca3d5eb7ff8136e3f52c2099",
+      "bytes": 23827
+    }
+  ]
+}

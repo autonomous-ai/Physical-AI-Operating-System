@@ -1,5 +1,17 @@
 # Tests work log
 
+## 2026-10-16 09:07:02 +0700 — Original 123 source map refreshed
+
+Ready for lamp-voice: no change; this is inventory evidence, not the final serial gate.
+
+[Latest inventory supplement](verification/original123-current-map-20261016/LATEST.md) preserves all 123 original identities across 11 binaries at `1fb07c6f57ee280a49de7b4ddd74008c2a32a20d`, alongside the unchanged dated 69bae map. Root independently verified all 174 files, the 173-entry supplemented checksum list, all 43 latest source captures against the immutable Git commit, exact identity membership and the disjoint stage counts. The map reports 67 merged clock routes, 12 partial reductions, six native-qualified unmerged Relay cases, one locally qualified Transport case, two prepared cases with failed broader gates, 31 remaining host migrations, three original pure cases and one original event-driven case. These categories total 123; they are not a timing forecast.
+
+Assertion text is exact to the initial inventory for 120 of 123 identities. The three inherited upstream differences are traced explicitly to #738, #789 and `cc1c06dc`'s provider-argument signature adaptation. All test definitions and source ignore flags remain present and unchanged. New helper tests never enlarge the denominator.
+
+The only complete native observation in this map is Relay `917a`: the 123 printed durations sum to 207.660 s across four shards and two infrastructure attempts. It is neither a measurement of latest 1fb nor the required standalone serial run. Relay #942 is ready and under reviewer validation. Transport #957's first normal run has 5,227 distinct passes; first full shards 1/2/4 have 4,091 distinct passes. Root retained the failed dependency-fetch log and restarted only unexecuted shard 3 at 09:04:55, from date; native qualification remains pending.
+
+The first delayed final-dispatch migration is in source review after its original local baseline passed in 1.272 s. Gemini actual task-join preparation is also in source review on 1fb, with 2,708 baseline identities and 18 proposed additions. Neither changed-source gate has run yet. Seventh has taken Memory failure #948; other retained failures and Eighth's #783 loaded qualification remain separate owner work. The original 123 under-120-second serial target remains open.
+
 ## 2026-10-16 08:47:17 +0700 — Transport-expiry PR starts native qualification
 
 Ready for lamp-voice: no, #957 at `ad0e7f447e7a67e4c00666207f537d2f260e498e`

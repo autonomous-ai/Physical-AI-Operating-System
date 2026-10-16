@@ -1,0 +1,36 @@
+{
+  "date_from_date": "2026-10-16 08:58:43 +0700",
+  "upstream_commit": "cc1c06dcc70a33811b77f325de01b194e0424f13",
+  "commit_source": "Local Git object and ancestry; no GitHub pull-request association is inferred.",
+  "binary": "lamp-voice",
+  "test": "coordinator::tests::early_end::without_the_option_every_message_and_record_is_what_it_was",
+  "path": "lampOS/crates/voice/src/coordinator/tests/early_end.rs",
+  "change": "Both compared provider_arguments calls gain the new wait_for_room argument set to false. One assert_eq macro is textually changed; the assertion count is unchanged.",
+  "changed_assertion_macros": [
+    {
+      "index": 5,
+      "before_sha256": "aa404e07c087fbbb80323ad17bf33722f24398eeaa27e64897dfe7f1ea7c94d0",
+      "latest_sha256": "0b7d2f97b92e85ad6a3bf2bed3c3e7105a81880c31c0bc546e7cd54f1e014f07"
+    }
+  ],
+  "whole_file_hunks": [
+    {
+      "before_start": 1522,
+      "before_end": 1524,
+      "after_start": 1522,
+      "after_end": 1531,
+      "before": "            provider_arguments(ProviderSource::Gemini(config), &on, lifetime, None).unwrap(),\n            provider_arguments(ProviderSource::Gemini(config), &options, lifetime, None).unwrap()\n",
+      "after": "            provider_arguments(ProviderSource::Gemini(config), &on, lifetime, None, false).unwrap(),\n            provider_arguments(\n                ProviderSource::Gemini(config),\n                &options,\n                lifetime,\n                None,\n                false\n            )\n            .unwrap()\n"
+    }
+  ],
+  "whole_file_inverse_restores_69bae_exact": true,
+  "source_edits_by_audit": 0,
+  "original_assertion_comparison": {
+    "original_macro_total": 626,
+    "latest_macro_total": 630,
+    "exact_original_macro_lists": 120,
+    "inherited_exception_count": 3,
+    "all123_original_assertion_bytes_unchanged": false
+  },
+  "earlier_exception_provenance": "../current-map.json and ../history/ retain exact #738 and #789 deltas."
+}

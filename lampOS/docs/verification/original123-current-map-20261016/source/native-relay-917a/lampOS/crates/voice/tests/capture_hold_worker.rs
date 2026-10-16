@@ -1,0 +1,666 @@
+//! The capture worker's own loop with the capture hold, over a scripted
+//! microphone: the controller's side of its channels and the speaker's side of
+//! its reference link are played here, in real time, through the same
+//! sockets and messages the lamp uses.
+//!
+//! The microphone is given the lamp's situation with `mic1`: the sound of a
+//! render block is in the microphone signal 30 ms after the speaker accepted
+//! it, which is two capture blocks before the capture-clocked reference
+//! gives that block to the canceller.
+//!
+//! This is the production loop, handshake and canceller. It is not a lamp:
+//! the microphone is scripted, the room is a delay and a gain, and the clock
+//! is this host's.
+#![cfg(target_os = "linux")]
+use lamp_audio::{
+    CAPTURE_SAMPLES, RENDER_SAMPLES,
+    duplex::Hearing,
+    testing::{CaptureControl, ScriptedCapture},
+};
+use lamp_ipc::monotonic_us;
+use lamp_turn_owner::{BootId, Controller, MonoTime, Permission, TurnOwner};
+use lamp_voice::{
+    audio_workers::capture_on,
+    options::{Microphone, NoiseSuppression, ReferenceClock, ReferenceRecovery},
+    process::{SessionDirectory, new_boot},
+    reference::{PRIME_FRAMES, hold},
+    transport::{ReferenceChannels, WorkerChannels},
+    wire::{
+        ClockPrimed, Control, MicrophoneFrame, ReferenceControl, RenderPayload, RenderReference,
+        WorkerEvent,
+    },
+};
+use std::{
+    panic::{AssertUnwindSafe, catch_unwind},
+    sync::Once,
+    thread::{JoinHandle, sleep},
+    time::{Duration, Instant},
+};
+
+const TICK: Duration = Duration::from_millis(10);
+/// The speaker's sound reaches the microphone this many ticks after the
+/// speaker accepted it; the reference ring gives it to the canceller after
+/// five.
+const ECHO_TICKS: usize = 3;
+
+fn now() -> MonoTime {
+    MonoTime::from_micros(monotonic_us())
+}
+
+fn level(power: f64) -> f64 {
+    10.0 * (power.max(1e-3) / 32_768f64.powi(2)).log10()
+}
+
+fn median(mut values: Vec<u64>) -> u64 {
+    values.sort_unstable();
+    values[values.len() / 2]
+}
+
+/// Noise under 2 kHz at 48 kHz, read at the speaker's rate and at the
+/// microphone's.
+struct Signal {
+    base: Vec<f32>,
+}
+
+impl Signal {
+    fn new(ticks: usize) -> Self {
+        let mut state = 0x2545_f491_4f6c_dd1d_u64;
+        let mut white = vec![0f32; (ticks + 8) * 480 + 24];
+        for sample in &mut white {
+            state = state
+                .wrapping_mul(6_364_136_223_846_793_005)
+                .wrapping_add(1_442_695_040_888_963_407);
+            *sample = (state >> 40) as f32 / (1u64 << 23) as f32 - 1.0;
+        }
+        let smooth = |input: &[f32]| -> Vec<f32> {
+            input
+                .windows(12)
+                .map(|window| window.iter().sum::<f32>() / 12.0)
+                .collect()
+        };
+        let mut base = smooth(&smooth(&white));
+        let rms = (base.iter().map(|s| f64::from(*s).powi(2)).sum::<f64>() / base.len() as f64)
+            .sqrt() as f32;
+        for sample in &mut base {
+            *sample *= 3_000.0 / rms;
+        }
+        Self { base }
+    }
+
+    /// What the speaker accepts in a tick.
+    fn render(&self, tick: usize) -> Vec<i16> {
+        (0..RENDER_SAMPLES)
+            .map(|i| self.base[tick * 480 + 2 * i] as i16)
+            .collect()
+    }
+
+    /// What the microphone holds in a tick: half of what the speaker
+    /// accepted [`ECHO_TICKS`] earlier.
+    fn microphone(&self, tick: usize) -> [i16; CAPTURE_SAMPLES] {
+        let mut block = [0; CAPTURE_SAMPLES];
+        if let Some(start) = (tick * 480).checked_sub(ECHO_TICKS * 480) {
+            for (j, sample) in block.iter_mut().enumerate() {
+                *sample = (0.5 * self.base[start + 3 * j]) as i16;
+            }
+        }
+        block
+    }
+}
+
+struct Heard {
+    sequence: u64,
+    read_at: u64,
+    processed_at: u64,
+    power: f64,
+    explained: Option<u8>,
+}
+
+struct Rig {
+    _directory: SessionDirectory,
+    controller: Controller,
+    parent: WorkerChannels,
+    speaker: ReferenceChannels,
+    device: CaptureControl,
+    worker: Option<JoinHandle<Result<(), String>>>,
+    owner: TurnOwner,
+    privacy: u64,
+    origin: Instant,
+    authority_at: Option<Instant>,
+    pushed_at: Vec<u64>,
+    /// Blocks the speaker has accepted, in the stream and in a hold-up.
+    references: u64,
+    frames: Vec<Heard>,
+    ready: bool,
+    prepared: bool,
+    started: bool,
+    stopped: bool,
+    /// The epoch of each start the worker reported, and its gaps.
+    epochs: Vec<u64>,
+    gaps: usize,
+}
+
+impl Rig {
+    /// Everything up to the speaker's start notice: the worker has been given
+    /// authority, the reference peer and the start request, has prepared the
+    /// microphone, and has taken the speaker's prime.
+    fn start(device_name: &'static str) -> Self {
+        Self::start_busy(device_name, 0)
+    }
+
+    /// The same, with the microphone's first `busy_opens` opens answered
+    /// "busy", as a voice that ran just before can leave it.
+    fn start_busy(device_name: &'static str, busy_opens: usize) -> Self {
+        Self::start_with(device_name, busy_opens, ReferenceRecovery::Off)
+    }
+
+    fn start_with(
+        device_name: &'static str,
+        busy_opens: usize,
+        recovery: ReferenceRecovery,
+    ) -> Self {
+        let directory = SessionDirectory::create().unwrap();
+        let (parent_boot, worker_boot, speaker_boot) = (
+            new_boot().unwrap(),
+            new_boot().unwrap(),
+            new_boot().unwrap(),
+        );
+        let mut parent =
+            WorkerChannels::bind(&directory.path, "capture", parent_boot, worker_boot, false)
+                .unwrap();
+        let mut channels =
+            WorkerChannels::bind(&directory.path, "capture", parent_boot, worker_boot, true)
+                .unwrap();
+        parent.connect(&directory.path, "capture", false).unwrap();
+        channels.connect(&directory.path, "capture", true).unwrap();
+        let speaker =
+            ReferenceChannels::bind(&directory.path, "speaker", speaker_boot, worker_boot).unwrap();
+        let device = CaptureControl::register(device_name);
+        for _ in 0..busy_opens {
+            device.fail_next("open", lamp_audio::device::errno::BUSY);
+        }
+        let path = directory.path.clone();
+        let worker = std::thread::spawn(move || {
+            capture_on::<ScriptedCapture>(
+                channels,
+                parent_boot,
+                worker_boot,
+                &path,
+                device_name,
+                None,
+                NoiseSuppression::Off,
+                ReferenceClock::Capture,
+                recovery,
+                lamp_audio::Reference::AsGiven,
+            )
+            .map_err(|error| error.to_string())
+        });
+        let mut controller = Controller::new(parent_boot, now());
+        controller
+            .set_microphone_permission(now(), Permission::Allowed)
+            .unwrap();
+        let mut rig = Self {
+            _directory: directory,
+            controller,
+            parent,
+            speaker,
+            device,
+            worker: Some(worker),
+            owner: owner(parent_boot),
+            privacy: 0,
+            origin: Instant::now(),
+            authority_at: None,
+            pushed_at: Vec::new(),
+            references: 0,
+            frames: Vec::new(),
+            ready: false,
+            prepared: false,
+            started: false,
+            stopped: false,
+            epochs: Vec::new(),
+            gaps: 0,
+        };
+        rig.service();
+        rig.parent
+            .control
+            .send(Control::ConnectReference { peer: speaker_boot })
+            .unwrap();
+        rig.parent.control.send(Control::StartCapture).unwrap();
+        let deadline = Instant::now() + Duration::from_secs(5);
+        loop {
+            assert!(
+                Instant::now() < deadline,
+                "no handshake: ready {} prepared {}",
+                rig.ready,
+                rig.prepared
+            );
+            rig.service();
+            if rig.speaker.connect_step().unwrap() {
+                while let Some(control) = rig.speaker.control.receive().unwrap() {
+                    match control {
+                        ReferenceControl::CapturePrepared { privacy_generation } => {
+                            rig.privacy = privacy_generation;
+                            let at = monotonic_us();
+                            let prime = ClockPrimed {
+                                playback_epoch: 1,
+                                privacy_generation,
+                                accepted_zero_frames: PRIME_FRAMES,
+                                accepted_at_us: at,
+                                queue_observed_at_us: at,
+                                queued_frames: PRIME_FRAMES,
+                                discarded: None,
+                            };
+                            rig.speaker
+                                .control
+                                .send(ReferenceControl::ClockPrimed { prime })
+                                .unwrap();
+                        }
+                        ReferenceControl::ReferencePrimed { prepared } => {
+                            assert_eq!(prepared.playback_epoch, 1);
+                            assert_eq!(prepared.privacy_generation, rig.privacy);
+                            let at = monotonic_us();
+                            rig.speaker
+                                .control
+                                .send(ReferenceControl::ClockStarted {
+                                    playback_epoch: 1,
+                                    start_requested_at_us: at,
+                                    started_at_us: at,
+                                })
+                                .unwrap();
+                            assert!(rig.ready && rig.prepared);
+                            rig.origin = Instant::now();
+                            return rig;
+                        }
+                        _ => panic!("the capture worker sent the speaker something else"),
+                    }
+                }
+            }
+            sleep(Duration::from_micros(500));
+        }
+    }
+
+    /// Renew authority as the coordinator does, and take whatever the worker
+    /// has sent.
+    fn service(&mut self) {
+        if self
+            .authority_at
+            .is_none_or(|at| at.elapsed() >= Duration::from_millis(40))
+        {
+            let snapshot = self.controller.snapshot(now()).unwrap();
+            self.parent
+                .control
+                .send(Control::Authority { snapshot })
+                .unwrap();
+            self.authority_at = Some(Instant::now());
+        }
+        while let Some(event) = self.parent.control.receive::<WorkerEvent>().unwrap() {
+            match event {
+                WorkerEvent::Ready => self.ready = true,
+                WorkerEvent::CapturePrepared { .. } => self.prepared = true,
+                WorkerEvent::CaptureStarted { epoch, .. } => {
+                    self.started = true;
+                    self.epochs.push(epoch);
+                }
+                WorkerEvent::CaptureGap { .. } => self.gaps += 1,
+                WorkerEvent::CaptureStopped => self.stopped = true,
+                WorkerEvent::ReferenceFault { fault } => {
+                    panic!(
+                        "reference fault {:?} after {} frames: at {} us, last render accepted at {} us, \
+                         {} capture blocks processed, {} microphone samples unread",
+                        fault.reason,
+                        self.frames.len(),
+                        fault.at_us,
+                        fault.timing.accepted_at_us,
+                        fault.timing.capture_blocks_processed,
+                        self.device.queued()
+                    )
+                }
+                WorkerEvent::Fault { code } => {
+                    panic!("worker fault {code} after {} frames", self.frames.len())
+                }
+                _ => {}
+            }
+        }
+        while let Some(frame) = self.parent.data.receive::<MicrophoneFrame>().unwrap() {
+            assert_eq!(frame.samples.len(), CAPTURE_SAMPLES);
+            assert_eq!(frame.privacy_generation, self.privacy);
+            self.frames.push(Heard {
+                sequence: frame.frame_sequence,
+                read_at: frame.read_completed_at_us,
+                processed_at: frame.timing.processing_completed_at_us,
+                power: frame
+                    .samples
+                    .iter()
+                    .map(|&s| f64::from(s).powi(2))
+                    .sum::<f64>()
+                    / CAPTURE_SAMPLES as f64,
+                explained: frame
+                    .echo
+                    .and_then(|evidence| evidence.echo)
+                    .map(|matched| matched.capture_explained),
+            });
+        }
+    }
+
+    /// The speaker accepts a block and the microphone holds a block, once
+    /// every 10 ms of this host's clock.
+    fn stream(&mut self, signal: &Signal, ticks: usize) {
+        let from = self.pushed_at.len();
+        for tick in from..from + ticks {
+            let due = self.origin + TICK * tick as u32;
+            while Instant::now() < due {
+                self.service();
+                sleep(Duration::from_micros(300));
+            }
+            self.accept(signal.render(tick));
+            self.device.push(&signal.microphone(tick));
+            self.pushed_at.push(monotonic_us());
+            self.service();
+        }
+    }
+
+    /// The speaker accepts one more block.
+    fn accept(&mut self, samples: Vec<i16>) {
+        let at = monotonic_us();
+        self.speaker
+            .data
+            .send(RenderReference {
+                playback_epoch: 1,
+                privacy_generation: self.privacy,
+                sequence: self.references + 1,
+                accepted_at_us: at,
+                queue_observed_at_us: at,
+                first_sample: PRIME_FRAMES as u64 + self.references * RENDER_SAMPLES as u64,
+                queued_frames: 960,
+                payload: RenderPayload::Speech {
+                    owner: self.owner,
+                    samples,
+                },
+            })
+            .unwrap();
+        self.references += 1;
+    }
+
+    /// No authority from the controller and nothing in the microphone for
+    /// `ms`, as a worker held up by the kernel finds it when it runs again:
+    /// its authority lapsed. The speaker goes on accepting a block every
+    /// tick through it, so reference reaches the worker while its
+    /// microphone is closed.
+    fn hold_up(&mut self, ms: u64) {
+        let until = Instant::now() + Duration::from_millis(ms);
+        while Instant::now() < until {
+            self.accept(vec![0; RENDER_SAMPLES]);
+            sleep(TICK);
+        }
+        self.origin += Duration::from_millis(ms);
+    }
+
+    /// Wait until the worker has read every block the microphone held and
+    /// handed on all it is going to.
+    fn settle(&mut self, hold: usize) {
+        let deadline = Instant::now() + Duration::from_millis(500);
+        while self.device.queued() > 0 || self.frames.len() + hold < self.pushed_at.len() {
+            assert!(
+                Instant::now() < deadline,
+                "{} frames of {} blocks, {} samples unread",
+                self.frames.len(),
+                self.pushed_at.len(),
+                self.device.queued()
+            );
+            self.service();
+            sleep(Duration::from_micros(500));
+        }
+    }
+
+    /// The worker has ended: nothing more arrives, and its loop returned
+    /// without a fault.
+    fn finish(mut self) -> Vec<Heard> {
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while !self.stopped {
+            assert!(Instant::now() < deadline, "the worker did not stop");
+            self.service();
+            sleep(Duration::from_micros(500));
+        }
+        let result = self.worker.take().unwrap().join().unwrap();
+        assert_eq!(result, Ok(()));
+        let before = self.frames.len();
+        for _ in 0..50 {
+            if let Some(frame) = self.parent.data.receive::<MicrophoneFrame>().unwrap() {
+                panic!("frame {} after the stop", frame.frame_sequence);
+            }
+            sleep(Duration::from_millis(1));
+        }
+        assert_eq!(self.frames.len(), before);
+        self.frames
+    }
+}
+
+/// One session run and thrown away before the first one that counts.
+///
+/// The worker ends a session when the microphone has more than 40 ms unread
+/// or a render packet is more than 40 ms old, as it should. The first time a
+/// process runs the canceller under emulation, its first blocks take longer
+/// than that, and the session ends on the first frame. What a session does
+/// once the process is running is what these tests are about, so up to three
+/// are spent first, until one runs through. How many it took is printed.
+fn warm_up() {
+    static WARM: Once = Once::new();
+    WARM.call_once(|| {
+        let signal = Signal::new(100);
+        for attempt in 1..=3 {
+            let ran = catch_unwind(AssertUnwindSafe(|| {
+                let mut rig = Rig::start("scripted warm-up");
+                rig.stream(&signal, 100);
+                rig.settle(0);
+                rig.parent.control.send(Control::Stop).unwrap();
+                rig.finish();
+            }));
+            if ran.is_ok() {
+                eprintln!("warm-up: session {attempt} ran through");
+                return;
+            }
+            eprintln!("warm-up: session {attempt} did not run through");
+        }
+    });
+}
+
+fn owner(boot: BootId) -> TurnOwner {
+    serde_json::from_value(serde_json::json!({
+        "boot": serde_json::to_value(boot).unwrap(),
+        "turn": 1,
+        "generation": 1,
+    }))
+    .unwrap()
+}
+
+/// Order, capture times and the wait of every frame handed on.
+fn check(frames: &[Heard], pushed_at: &[u64], hold: usize) -> (u64, u64) {
+    assert_eq!(frames.len() + hold, pushed_at.len());
+    for (index, frame) in frames.iter().enumerate() {
+        assert_eq!(frame.sequence, index as u64 + 1);
+        // Read after the microphone held the block, and never after it was
+        // processed: the time is the read's own.
+        assert!(frame.read_at >= pushed_at[index], "{index}");
+        assert!(frame.read_at <= frame.processed_at, "{index}");
+        if index > 0 {
+            assert!(frame.read_at > frames[index - 1].read_at, "{index}");
+        }
+    }
+    let read_after_push = median(
+        frames
+            .iter()
+            .zip(pushed_at)
+            .map(|(frame, pushed)| frame.read_at - pushed)
+            .collect(),
+    );
+    let waited = median(
+        frames
+            .iter()
+            .map(|frame| frame.processed_at - frame.read_at)
+            .collect(),
+    );
+    (read_after_push, waited)
+}
+
+/// Level of the microphone signal and of what was handed on over the last
+/// second, and how much of the microphone the render explained there.
+fn cancellation(frames: &[Heard], signal: &Signal) -> (f64, f64, Option<u8>) {
+    let last = &frames[frames.len() - 100..];
+    let after = last.iter().map(|frame| frame.power).sum::<f64>() / 100.0;
+    let before = last
+        .iter()
+        .map(|frame| {
+            signal
+                .microphone(frame.sequence as usize - 1)
+                .iter()
+                .map(|&s| f64::from(s).powi(2))
+                .sum::<f64>()
+                / CAPTURE_SAMPLES as f64
+        })
+        .sum::<f64>()
+        / 100.0;
+    let mut explained: Vec<u8> = last.iter().filter_map(|frame| frame.explained).collect();
+    explained.sort_unstable();
+    (
+        level(before),
+        level(after),
+        explained.get(explained.len() / 2).copied(),
+    )
+}
+
+#[test]
+fn mic1_frames_wait_four_blocks_with_their_own_times_and_a_stop_drops_what_is_held() {
+    warm_up();
+    let name = Microphone::Mic1.device();
+    let blocks = hold::blocks_for(name, ReferenceClock::Capture);
+    assert_eq!(blocks, 4);
+    let signal = Signal::new(400);
+    let mut rig = Rig::start(name);
+    rig.stream(&signal, 400);
+    rig.settle(blocks);
+    assert!(rig.started);
+    // Four blocks have been read and not handed on. Stop now.
+    assert_eq!(rig.frames.len() + 4, rig.pushed_at.len());
+    rig.parent.control.send(Control::Stop).unwrap();
+    let pushed_at = rig.pushed_at.clone();
+    let frames = rig.finish();
+    let (read_after_push, waited) = check(&frames, &pushed_at, blocks);
+    let (before, after, explained) = cancellation(&frames, &signal);
+    eprintln!(
+        "mic1, hold 4: {} frames of {} blocks; read {read_after_push} us after the block was there, \
+         handed on {waited} us after the read (medians); last second {before:.1} dBFS before, \
+         {after:.1} dBFS after, render explains {explained:?} percent",
+        frames.len(),
+        pushed_at.len()
+    );
+    // Each frame carries the time of its own read, which is when the
+    // microphone held it, and is handed on four blocks later.
+    assert!(read_after_push < 10_000, "{read_after_push}");
+    assert!((35_000..60_000).contains(&waited), "{waited}");
+    // The canceller had the render before the sound and accounts for it.
+    // The level alone does not show that: on this noise the canceller's
+    // suppression lowers the output as far with no hold.
+    assert!(
+        explained.is_some_and(|percent| percent > Hearing::EVALUATED.explained_percent),
+        "{explained:?}"
+    );
+}
+
+#[test]
+fn mic1_muted_while_frames_are_held_hands_none_of_them_on() {
+    warm_up();
+    let name = Microphone::Mic1.device();
+    let signal = Signal::new(100);
+    let mut rig = Rig::start(name);
+    rig.stream(&signal, 100);
+    rig.settle(4);
+    assert_eq!(rig.frames.len() + 4, rig.pushed_at.len());
+    rig.controller
+        .set_microphone_permission(now(), Permission::Denied)
+        .unwrap();
+    rig.authority_at = None;
+    let pushed_at = rig.pushed_at.clone();
+    let frames = rig.finish();
+    check(&frames, &pushed_at, 4);
+    assert_eq!(frames.last().map(|frame| frame.sequence), Some(96));
+}
+
+#[test]
+fn another_microphone_is_handed_on_at_once_and_its_early_sound_is_not_accounted_for() {
+    warm_up();
+    let name = Microphone::Mic2.device();
+    assert_eq!(hold::blocks_for(name, ReferenceClock::Capture), 0);
+    let signal = Signal::new(400);
+    let mut rig = Rig::start(name);
+    rig.stream(&signal, 400);
+    rig.settle(0);
+    assert_eq!(rig.frames.len(), rig.pushed_at.len());
+    rig.parent.control.send(Control::Stop).unwrap();
+    let pushed_at = rig.pushed_at.clone();
+    let frames = rig.finish();
+    let (read_after_push, waited) = check(&frames, &pushed_at, 0);
+    let (before, after, explained) = cancellation(&frames, &signal);
+    eprintln!(
+        "no hold: {} frames of {} blocks; read {read_after_push} us after the block was there, \
+         handed on {waited} us after the read (medians); last second {before:.1} dBFS before, \
+         {after:.1} dBFS after, render explains {explained:?} percent",
+        frames.len(),
+        pushed_at.len()
+    );
+    assert!(read_after_push < 10_000, "{read_after_push}");
+    assert!(waited < 10_000, "{waited}");
+    // The same sound two blocks ahead of its render: the canceller has
+    // nothing that accounts for it.
+    assert!(
+        explained.is_none_or(|percent| percent <= Hearing::EVALUATED.explained_percent),
+        "{explained:?}"
+    );
+}
+
+/// A microphone still busy for a moment when the worker starts (left so by
+/// the voice that ran before) is opened once it is free: the worker prepares
+/// it and the handshake completes, instead of the worker ending.
+#[test]
+fn a_microphone_busy_for_a_moment_at_start_is_opened_once_it_is_free() {
+    warm_up();
+    let signal = Signal::new(50);
+    let mut rig = Rig::start_busy("scripted busy at start", 3);
+    assert!(rig.ready && rig.prepared);
+    rig.stream(&signal, 50);
+    rig.parent.control.send(Control::Stop).unwrap();
+    rig.finish();
+}
+
+/// A worker held up again and again (#784): each stall lapses its authority
+/// and closes the microphone, and each time it opens again under a new
+/// epoch, while the speaker goes on accepting blocks through every gap. On
+/// lamp-4ace the second stall of one worker ended the voice; on lamp-52e6 the
+/// third did, when reference came in while the microphone was closed. Three
+/// stalls inside a minute are what bounded recovery may reseed for (three a
+/// minute); a fourth within the same minute spends past that budget, which
+/// is the policy's own limit, not a capture fault.
+#[test]
+fn stalls_in_a_row_each_reopen_the_microphone_while_the_reference_goes_on() {
+    warm_up();
+    let signal = Signal::new(400);
+    let mut rig = Rig::start_with("scripted stalls", 0, ReferenceRecovery::Bounded);
+    rig.stream(&signal, 50);
+    for stall in 1..=3 {
+        rig.hold_up(400);
+        rig.stream(&signal, 50);
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while rig.epochs.len() < stall + 1 {
+            assert!(
+                Instant::now() < deadline,
+                "stall {stall}: starts {:?}, gaps {}",
+                rig.epochs,
+                rig.gaps
+            );
+            rig.service();
+            sleep(Duration::from_micros(500));
+        }
+    }
+    assert_eq!(rig.epochs, [1, 2, 3, 4]);
+    assert_eq!(rig.gaps, 3);
+    rig.parent.control.send(Control::Stop).unwrap();
+    rig.finish();
+}

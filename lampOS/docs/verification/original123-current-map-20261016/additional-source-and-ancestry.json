@@ -1,0 +1,259 @@
+{
+  "date_from_date": "2026-10-16 08:36:57 +0700",
+  "current_head": "69bae3831449bc03d1f11e3ed0c55eccfa1e6f3d",
+  "native_head": "917a19c5c36bdecb965f404385df386c16b22af4",
+  "current_ref_still_exact": true,
+  "additional_source": [
+    {
+      "path": "lampOS/docs/realtime-tests.md",
+      "command": [
+        "git",
+        "show",
+        "HEAD:lampOS/docs/realtime-tests.md"
+      ],
+      "exit_code": 0,
+      "sha256": "379e5b356b4e69322609ce87f44ab61fd3632b969f09afcde56f7cc8f73c4f68",
+      "bytes": 39693,
+      "stderr": ""
+    },
+    {
+      "path": "lampOS/docs/voice-test-fixtures.md",
+      "command": [
+        "git",
+        "show",
+        "HEAD:lampOS/docs/voice-test-fixtures.md"
+      ],
+      "exit_code": 0,
+      "sha256": "04bf0a07ddbd0e9de139988b65c51aa23a11bb1b542176a8185a473d923a19d4",
+      "bytes": 18358,
+      "stderr": ""
+    },
+    {
+      "path": "lampOS/.config/nextest.toml",
+      "command": [
+        "git",
+        "show",
+        "HEAD:lampOS/.config/nextest.toml"
+      ],
+      "exit_code": 0,
+      "sha256": "33254521c34198ae2d4f988c4b7d04391c03da769ad91769e691171ae3b87367",
+      "bytes": 6466,
+      "stderr": ""
+    },
+    {
+      "path": "lampOS/crates/voice/src/audio_workers.rs",
+      "command": [
+        "git",
+        "show",
+        "HEAD:lampOS/crates/voice/src/audio_workers.rs"
+      ],
+      "exit_code": 0,
+      "sha256": "4882bf02cc9e2f648fcf61adda3c896b15f90c0055525e90d46577ba9a80746c",
+      "bytes": 64807,
+      "stderr": ""
+    },
+    {
+      "path": "lampOS/crates/voice/src/coordinator.rs",
+      "command": [
+        "git",
+        "show",
+        "HEAD:lampOS/crates/voice/src/coordinator.rs"
+      ],
+      "exit_code": 0,
+      "sha256": "9652599bc7d7e00e7483d4d445994bf20cbdc28a4f7afc12a89ea7307cc24164",
+      "bytes": 352853,
+      "stderr": ""
+    },
+    {
+      "path": "lampOS/crates/voice/src/scenario_clock.rs",
+      "command": [
+        "git",
+        "show",
+        "HEAD:lampOS/crates/voice/src/scenario_clock.rs"
+      ],
+      "exit_code": 0,
+      "sha256": "7eb0215c649311dd9303d3043c46d8c50af2d165ab677e6c1c37720a79fc7cef",
+      "bytes": 18539,
+      "stderr": ""
+    },
+    {
+      "path": "lampOS/crates/memory/tests/support/health_control.rs",
+      "command": [
+        "git",
+        "show",
+        "HEAD:lampOS/crates/memory/tests/support/health_control.rs"
+      ],
+      "exit_code": 0,
+      "sha256": "a06cb3e241ac901f5729eefe89abedf96cf5c8f7eb580bfcc715540ee67f97db",
+      "bytes": 19672,
+      "stderr": ""
+    },
+    {
+      "path": "lampOS/crates/records/tests/support/records_control.rs",
+      "command": [
+        "git",
+        "show",
+        "HEAD:lampOS/crates/records/tests/support/records_control.rs"
+      ],
+      "exit_code": 0,
+      "sha256": "b769a36f1cf542c436704cbf90ca1a50bf3b6ab371d907be95c5c1f0f67e8234",
+      "bytes": 8599,
+      "stderr": ""
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_fixture_driver.rs",
+      "command": [
+        "git",
+        "show",
+        "HEAD:lampOS/crates/voice-eval/src/physical/serve_fixture_driver.rs"
+      ],
+      "exit_code": 0,
+      "sha256": "3ba9b3405c82198e4c56e4baa3c982be74d8a2e0588766be11c34a2fa62e8014",
+      "bytes": 37054,
+      "stderr": ""
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_driver.rs",
+      "command": [
+        "git",
+        "show",
+        "HEAD:lampOS/crates/voice-eval/src/physical/fixture_driver.rs"
+      ],
+      "exit_code": 0,
+      "sha256": "3e4a99a9e5029b7c770b2420c4df70271c5702e30c6f97a3dcfc954fce1871d9",
+      "bytes": 29239,
+      "stderr": ""
+    }
+  ],
+  "initial_15_current_snapshots_match_explicit_69bae": true,
+  "ancestry": [
+    {
+      "label": "scenario_clock",
+      "ancestor": "e12a6cc832f03901caee5fa4c77cf1ecc0c82062",
+      "descendant": "69bae3831449bc03d1f11e3ed0c55eccfa1e6f3d",
+      "is_ancestor": true,
+      "command": [
+        "git",
+        "merge-base",
+        "--is-ancestor",
+        "e12a6cc832f03901caee5fa4c77cf1ecc0c82062",
+        "69bae3831449bc03d1f11e3ed0c55eccfa1e6f3d"
+      ],
+      "exit_code": 0
+    },
+    {
+      "label": "early_end_note",
+      "ancestor": "740e1e892f974faa89eac47c4ac7f27e75aca038",
+      "descendant": "69bae3831449bc03d1f11e3ed0c55eccfa1e6f3d",
+      "is_ancestor": true,
+      "command": [
+        "git",
+        "merge-base",
+        "--is-ancestor",
+        "740e1e892f974faa89eac47c4ac7f27e75aca038",
+        "69bae3831449bc03d1f11e3ed0c55eccfa1e6f3d"
+      ],
+      "exit_code": 0
+    },
+    {
+      "label": "memory_health",
+      "ancestor": "e7d0f673d0c4bde4a770b19783d6084a8d935ec3",
+      "descendant": "69bae3831449bc03d1f11e3ed0c55eccfa1e6f3d",
+      "is_ancestor": true,
+      "command": [
+        "git",
+        "merge-base",
+        "--is-ancestor",
+        "e7d0f673d0c4bde4a770b19783d6084a8d935ec3",
+        "69bae3831449bc03d1f11e3ed0c55eccfa1e6f3d"
+      ],
+      "exit_code": 0
+    },
+    {
+      "label": "serve14",
+      "ancestor": "6be20efd2b189cafe5aa40d21151d7640ab9f67d",
+      "descendant": "69bae3831449bc03d1f11e3ed0c55eccfa1e6f3d",
+      "is_ancestor": true,
+      "command": [
+        "git",
+        "merge-base",
+        "--is-ancestor",
+        "6be20efd2b189cafe5aa40d21151d7640ab9f67d",
+        "69bae3831449bc03d1f11e3ed0c55eccfa1e6f3d"
+      ],
+      "exit_code": 0
+    },
+    {
+      "label": "records",
+      "ancestor": "69bae3831449bc03d1f11e3ed0c55eccfa1e6f3d",
+      "descendant": "69bae3831449bc03d1f11e3ed0c55eccfa1e6f3d",
+      "is_ancestor": true,
+      "command": [
+        "git",
+        "merge-base",
+        "--is-ancestor",
+        "69bae3831449bc03d1f11e3ed0c55eccfa1e6f3d",
+        "69bae3831449bc03d1f11e3ed0c55eccfa1e6f3d"
+      ],
+      "exit_code": 0
+    },
+    {
+      "label": "relay_not_merged",
+      "ancestor": "917a19c5c36bdecb965f404385df386c16b22af4",
+      "descendant": "69bae3831449bc03d1f11e3ed0c55eccfa1e6f3d",
+      "is_ancestor": false,
+      "command": [
+        "git",
+        "merge-base",
+        "--is-ancestor",
+        "917a19c5c36bdecb965f404385df386c16b22af4",
+        "69bae3831449bc03d1f11e3ed0c55eccfa1e6f3d"
+      ],
+      "exit_code": 1
+    },
+    {
+      "label": "records_not_in_relay",
+      "ancestor": "69bae3831449bc03d1f11e3ed0c55eccfa1e6f3d",
+      "descendant": "917a19c5c36bdecb965f404385df386c16b22af4",
+      "is_ancestor": false,
+      "command": [
+        "git",
+        "merge-base",
+        "--is-ancestor",
+        "69bae3831449bc03d1f11e3ed0c55eccfa1e6f3d",
+        "917a19c5c36bdecb965f404385df386c16b22af4"
+      ],
+      "exit_code": 1
+    },
+    {
+      "label": "note_change_in_738",
+      "ancestor": "39eb930850482e78086073aaae19e71852e6e1a6",
+      "descendant": "740e1e892f974faa89eac47c4ac7f27e75aca038",
+      "is_ancestor": true,
+      "command": [
+        "git",
+        "merge-base",
+        "--is-ancestor",
+        "39eb930850482e78086073aaae19e71852e6e1a6",
+        "740e1e892f974faa89eac47c4ac7f27e75aca038"
+      ],
+      "exit_code": 0
+    },
+    {
+      "label": "stabilization_in_789",
+      "ancestor": "8bcde112dcb8b46f0a2b3e37539fb107b95546ac",
+      "descendant": "e12a6cc832f03901caee5fa4c77cf1ecc0c82062",
+      "is_ancestor": true,
+      "command": [
+        "git",
+        "merge-base",
+        "--is-ancestor",
+        "8bcde112dcb8b46f0a2b3e37539fb107b95546ac",
+        "e12a6cc832f03901caee5fa4c77cf1ecc0c82062"
+      ],
+      "exit_code": 0
+    }
+  ],
+  "common_ancestor": "e5aa43747ec1540893b4da4509d14288e7e70806",
+  "scope": "Read-only Git source/ancestry checks; no index, worktree, Cargo or test operation."
+}

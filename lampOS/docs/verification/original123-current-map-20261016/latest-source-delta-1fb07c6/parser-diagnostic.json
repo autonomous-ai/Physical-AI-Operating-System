@@ -1,0 +1,10 @@
+{
+  "date_from_date": "2026-10-16 08:58:43 +0700",
+  "phase": "Initial source-supplement manifest preflight",
+  "outcome": "Parser-only precondition error before any supplement file was created; no source or tests ran.",
+  "error": "AssertionError: /private/tmp/tests-823-original123-current-map-20261016/history/39eb930850482e78086073aaae19e71852e6e1a6.patch.stderr",
+  "cause": "The preflight mistakenly required each file to be nonempty as well as hash-exact. A successful captured stderr file is correctly empty.",
+  "correction": "Removed only the nonempty requirement and kept the SHA-256 equality check. All 119 old files then verified exactly.",
+  "raw_error_location": "Tool transcript; no separate raw stderr file was captured or invented.",
+  "other_discovery_diagnostic": "An earlier zsh glob for absent 957-prefixed files stopped with no-match before ls; later Python exact-prefix discovery located the Transport evidence. No source/test/network operation occurred."
+}

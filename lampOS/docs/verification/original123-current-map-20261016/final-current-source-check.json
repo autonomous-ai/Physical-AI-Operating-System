@@ -1,0 +1,148 @@
+{
+  "date_from_date": "2026-10-16 08:48:25 +0700",
+  "source": "69bae3831449bc03d1f11e3ed0c55eccfa1e6f3d",
+  "files": [
+    {
+      "path": "lampOS/.config/nextest.toml",
+      "sha256": "33254521c34198ae2d4f988c4b7d04391c03da769ad91769e691171ae3b87367",
+      "exact_to_69bae": true
+    },
+    {
+      "path": "lampOS/crates/actions/src/light.rs",
+      "sha256": "b6643d8d3eb6f8625c66daf16e21003e6fc1e3c3c4fc638652d56874093ab6e2",
+      "exact_to_69bae": true
+    },
+    {
+      "path": "lampOS/crates/actions/src/server.rs",
+      "sha256": "cac917a6a7811f87ce2c16789851ba524a92640c9b0743e68422f6b34decc887",
+      "exact_to_69bae": true
+    },
+    {
+      "path": "lampOS/crates/actions/tests/server.rs",
+      "sha256": "7806d5cdb8a2b55fd62edfb69f86e34d0f4c58633030fd5cd3e32403d72053e3",
+      "exact_to_69bae": true
+    },
+    {
+      "path": "lampOS/crates/health/tests/program.rs",
+      "sha256": "8c3a9b304642820f1c9e4e80ca8b1703b66fb08828e24d1fac9870a43101687c",
+      "exact_to_69bae": true
+    },
+    {
+      "path": "lampOS/crates/memory/tests/health.rs",
+      "sha256": "0d829067a29a9e5105326b1e0b50c09436e6aefe5091849a683be282910f9d91",
+      "exact_to_69bae": true
+    },
+    {
+      "path": "lampOS/crates/memory/tests/support/health_control.rs",
+      "sha256": "a06cb3e241ac901f5729eefe89abedf96cf5c8f7eb580bfcc715540ee67f97db",
+      "exact_to_69bae": true
+    },
+    {
+      "path": "lampOS/crates/records/tests/records.rs",
+      "sha256": "ed3504349c3a48400f2db666a5653588eee25cc602d664b95bea5962a20535f9",
+      "exact_to_69bae": true
+    },
+    {
+      "path": "lampOS/crates/records/tests/support/records_control.rs",
+      "sha256": "b769a36f1cf542c436704cbf90ca1a50bf3b6ab371d907be95c5c1f0f67e8234",
+      "exact_to_69bae": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/audio_workers.rs",
+      "sha256": "4882bf02cc9e2f648fcf61adda3c896b15f90c0055525e90d46577ba9a80746c",
+      "exact_to_69bae": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/coordinator/tests/early_end.rs",
+      "sha256": "2f2ab54050e660397e486f8151714a1316719f4439f0f5f93445c38d4a808ccf",
+      "exact_to_69bae": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/coordinator/tests/endpoint_session.rs",
+      "sha256": "2526813f55abae1fe44b61bd839b0eee06cd27e362729da2dd505bb283c334be",
+      "exact_to_69bae": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/coordinator/tests/pilot_faults.rs",
+      "sha256": "217a109eaa90202de370be4db825f2285bd1b6582a0011b17bb8f4e183071d8e",
+      "exact_to_69bae": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/coordinator.rs",
+      "sha256": "9652599bc7d7e00e7483d4d445994bf20cbdc28a4f7afc12a89ea7307cc24164",
+      "exact_to_69bae": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/provider_worker/tests/review_2026_10_14.rs",
+      "sha256": "cc87c5265f35ef13101ddf27a1ca0feca9dbd2bb24ee5814518c808ab4d1bc03",
+      "exact_to_69bae": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/provider_worker.rs",
+      "sha256": "1ea1327c0e8f3da76e621f362718e6bc11f4e6591a04edaa1d73750cb7d8871f",
+      "exact_to_69bae": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/scenario_clock.rs",
+      "sha256": "7eb0215c649311dd9303d3043c46d8c50af2d165ab677e6c1c37720a79fc7cef",
+      "exact_to_69bae": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/service_privacy.rs",
+      "sha256": "d5dfc04a5020242be4430f021044af27fffa8d7cca3d5eb7ff8136e3f52c2099",
+      "exact_to_69bae": true
+    },
+    {
+      "path": "lampOS/crates/voice/tests/capture_hold_worker.rs",
+      "sha256": "03937a74d3070dd0d0f9442998b2d60719f0d823a17d45a95ce363ed026657e0",
+      "exact_to_69bae": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_driver.rs",
+      "sha256": "3e4a99a9e5029b7c770b2420c4df70271c5702e30c6f97a3dcfc954fce1871d9",
+      "exact_to_69bae": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+      "sha256": "c14c40669ad423baf9c21672587bd6e97e47a64e102d6d22c2714e3e399d78e2",
+      "exact_to_69bae": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_fixture_driver.rs",
+      "sha256": "3ba9b3405c82198e4c56e4baa3c982be74d8a2e0588766be11c34a2fa62e8014",
+      "exact_to_69bae": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "sha256": "600ad54a33c7a98ba0abf9c6aadeca366cb319d121b3847f36211cc5b0a30a29",
+      "exact_to_69bae": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/physical_loopback.rs",
+      "sha256": "de31d80698e7188af40278c9e982eceed0c15a1ccf8fe42323365dca028d3d98",
+      "exact_to_69bae": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/serve_relay.rs",
+      "sha256": "53f5cc802a0101518da7214b63b77e052b3406fe1b5db3ce43d5c0c305145bf5",
+      "exact_to_69bae": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/serve_session.rs",
+      "sha256": "1850248165b8c7d5022ec06f3267b5de1a829fa375135cdda26aa3bfe539b905",
+      "exact_to_69bae": true
+    },
+    {
+      "path": "lampOS/docs/realtime-tests.md",
+      "sha256": "379e5b356b4e69322609ce87f44ab61fd3632b969f09afcde56f7cc8f73c4f68",
+      "exact_to_69bae": true
+    },
+    {
+      "path": "lampOS/docs/voice-test-fixtures.md",
+      "sha256": "04bf0a07ddbd0e9de139988b65c51aa23a11bb1b542176a8185a473d923a19d4",
+      "exact_to_69bae": true
+    }
+  ],
+  "all28_exact": true,
+  "scope": "Read-only git show immutable69bae recheck; no current dirty files or target operations."
+}

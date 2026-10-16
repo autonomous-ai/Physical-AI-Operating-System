@@ -1025,7 +1025,7 @@ functions:
 | `without_echo_evidence_duplex_decides_as_the_conservative_baseline_does` | Same masked blocks, candidates and rejections as `v1-baseline` |
 | `a_microphone_that_stops_arriving_does_not_hold_the_reply_back` | Dispatch resumes after 100 ms without a block |
 | `a_person_who_speaks_once_the_lamp_is_silent_is_an_ordinary_turn` | Six blocks and admitted, as ever |
-| `first_words_older_than_the_provider_takes_are_dropped_before_the_commit` | Paced in real time: first words 2.5 s before the commit are trimmed to 2.0 s; the onset and what followed are kept, in one run; the drop is recorded |
+| `first_words_older_than_the_provider_takes_are_dropped_before_the_commit` | Paced on the scenario clock, 40 ms a block: first words 2.5 s before the commit are trimmed to 2.0 s; the onset and what followed are kept, in one run; the drop is recorded |
 | `with_first_words_kept_a_yields_request_begins_at_the_words_said_under_the_lamp` | With `LAMP_FIRST_WORDS=kept`, the request begins 20 blocks before the first words said under the lamp's voice, through the same yield and commit; without it, 30 blocks before the onset |
 
 ## Verification

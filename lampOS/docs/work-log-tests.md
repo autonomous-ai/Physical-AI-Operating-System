@@ -1,5 +1,23 @@
 # Tests work log
 
+## 2026-10-17 04:23:58 +0700 — #1198, #1202 and #1205 merged; the first builder's emulator list done (#1207, #1211, #1213)
+
+Ready for lamp-voice: yes (#1207); #1203, #1211 and #1213 wait for their runs
+
+**Merged:** #1198 at 03:38 (#1196, the expression flake; the reviewer's P3 is in #1207's doc), #1202 at 04:17 (65 tests back on pull requests), #1205 at 04:04 (#1204).
+
+**#1204 / #1205:** the `lamp-bus` logging flake the first builder gave Tests at 03:03, which I missed until 03:38. The publisher sends to subscribers in name order, so `fast` gets each record before `slow`. The test drained `slow` once `fast` had the last record, so a worker held up between the two sends could deliver it during the drain. A scratch 100 µs pause failed it 20 of 20; with the fix (wait until the logger reports it published), 0 of 20.
+
+**#1202 review (three P3s, fixed in #1203):** I had written that `final_dispatch` runs on explicit clocks. 12 of its 13 tests use the system clock, and six keep short host-clock windows. Also corrected: one `endpoint_session` test is ignored, so 27 return to pull requests, not 28, qualified in 1,160 runs, not 1,200.
+
+**The first builder's 22:41 list (emulator false reds), all done:**
+1. **#1206 / #1207:** `hand_controls::a_tap_*` run on the stepped clock, and hand controls' poll reads the scenario clock under `cfg(test)`. Under qemu, the quiet-lamp tap failed 5 of 5 before and passed 5 of 5 after.
+2. **#1212 / #1213:** run one at a time under qemu, `native_head`, the motor supervisor tests and the ring-startup tests all pass now (load caused their earlier failures). Only the privacy gate test fails every time: qemu-user starts a child for a missing executable (exit 127), so `NotFound` can't hold. That part is now skipped with a printed reason, only there.
+3. **#1210 / #1211:** qemu-user has no `openat2`, so the 23 tests that open a records store print why and stop on ENOSYS.
+Both skips fail on CI (`CI` set) instead of skipping.
+
+**Mistakes:** a hash typed instead of copied (`41f7d5cd4` for `c1c44d9b0`) in an emulator export command, caught before any run; the memory rule now covers commands. A first emulator run of the fixed a_tap tree reused the base build, because both exports were touched before the base build; it was rerun with a fresh touch.
+
 ## 2026-10-17 03:20:45 +0700 — #1187 and #1190 merged; the expression flake fixed (#1198); 59 tests leave the group (#1202)
 
 Ready for lamp-voice: yes (#1198); #1202 waits for its run

@@ -857,10 +857,11 @@ waits, and Memory's slowest,
 `sqlite_reports_retained_counts_and_stays_well_after_caller_refusals`, 8.5 s
 over its many requests (0.035 s alone on ARM64). No test, assertion or
 bound changed. They left the group, in all three filtersets, on 2026-10-17,
-so pull requests run them again. The group keeps 38 tests:
-`capture_hold_worker` (5), `endpoint_session` (30) and three named single
-tests. In that run it was 28 tests and 47.9 s; `endpoint_session` has gained
-ten since, the fourth's `with_asker_first_*` among them.
+so pull requests run them again. The group kept 38 tests:
+`capture_hold_worker` (5), `endpoint_session` (30, one of them `#[ignore]`d,
+so 29 that run) and three named single tests. In that run it was 28 tests
+and 47.9 s; `endpoint_session` has gained ten since, the fourth's
+`with_asker_first_*` among them.
 
 ## The two head taps on the stepped clock (#1206)
 
@@ -893,23 +894,25 @@ passed 5 of 5 runs.
 
 ## endpoint_session on pull requests, but for two (#823)
 
-`coordinator::tests::endpoint_session` holds 30 tests now, nine of them
-the fourth's `with_asker_first_*`, added after it went into the group, so no
-pull request had run them. All but two run on pull requests again. The two
-stay in the group by name: `hung_worker_never_delays_capture_endpoint_or_session_end`
+`coordinator::tests::endpoint_session` holds 30 tests now. One is
+`#[ignore]`d (`real_worker_session_records_verdict_provenance` needs a built
+`lamp-turn-end`), and nine are the fourth's `with_asker_first_*`, added after
+the module went into the group, so no pull request had run them. Of the 29
+that run, 27 run on pull requests again. Two stay in the group by name: `hung_worker_never_delays_capture_endpoint_or_session_end`
 (6.4 s, the supervisor's 700 ms hang detection on the host clock, above)
 and `endpoint_fixture_reaps_on_panic_before_and_after_handoff` (3.1 s of
 real process reaping).
 
-The other 28 are stepped, or drive a real worker under the fixture's
+The other 27 are stepped, or drive a real worker under the fixture's
 100 ms ordering tolerance, which is there for host scheduling delay (the
 lamp's 50 ms privacy bound is unchanged). They were qualified the way a pull
 request runs them, each test in its own process, on the Intel Mac (16 cores)
-at `54be5904b`, release build: all 30 one at a time (25.9 s, the 28 16.4 s),
-then 300 runs (ten of each, shuffled) 16 at once and again 32 at once, then
-600 runs (twenty of each) mixed with the evaluator's 570 CPU-heavy runs, 48
-at once. All 1,200 `endpoint_session` runs passed, and all 570 of the
-evaluator's. The slowest under the mix,
+at `54be5904b`, release build: the 29 one at a time (25.9 s; the 27, 16.4
+s), then ten of each, shuffled, 16 at once and again 32 at once, then twenty
+of each mixed with the evaluator's 570 CPU-heavy runs, 48 at once. All 1,160
+runs of the 29 passed, and all 570 of the evaluator's. On ARM64, run
+38963119955 ran the 27 under the `pr` profile, and they passed. The slowest
+under the mix,
 `with_asker_first_quieter_talk_takes_no_turn_from_an_awaited_answer`, took
 6.4 s against 2.5 s alone. No test, assertion or bound changed. They left
 the group, in all three filtersets, on 2026-10-17. The group keeps 10

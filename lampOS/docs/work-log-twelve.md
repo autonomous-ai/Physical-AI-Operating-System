@@ -25,3 +25,23 @@ Ready for lamp-voice: no
   taken this role file onto `lamp-voice`, at the person's request; the work
   is on `twelve/920-light-stale-window`.
 - lamp-cb94: named by the person, not touched. #920 needs no lamp.
+
+## 2026-10-16 — #920, the light's bus test window
+
+Ready for lamp-voice: yes (#981)
+
+- Kind: off unless set. Test-only, inside `#[cfg(test)]` of `lamp-actions`
+  (`light::tests::through_the_bus_a_request_is_kept_and_a_stale_state_is_no_light`):
+  the ring's expiring state lives 500 ms, not 20 ms, and the stale read waits
+  600 ms. No code a lamp runs changes. Commit `103625ddf` on
+  `twelve/920-light-stale-window`.
+- Gate on macOS x86_64 (Intel i9), from `lampOS/`: `cargo fmt --all --check`
+  clean; clippy `-D warnings` clean for `lamp-actions` and `lamp-voice`;
+  `cargo test -p lamp-actions` 34 passed, 0 failed; `cargo build --workspace`
+  ok; `cargo test -p lamp-voice` 1234 passed, 40 failed, 8 ignored: the timed
+  process tests of #739/#893 on a loaded host (22 in
+  `coordinator::motor::tests`), one of them passes run alone; not run again.
+- ARM64 run 38847348555, green on `103625ddf`.
+- Not shown: the old test never failed here (20/20 with every core busy,
+  30/30 with 200 busy processes), so the failure was seen only on the ARM64
+  runner. No lamp: none was needed.

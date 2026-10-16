@@ -1,0 +1,2 @@
+# Schedule in shadow mode (enabled = false) shows a pending count: nothing.
+none = true

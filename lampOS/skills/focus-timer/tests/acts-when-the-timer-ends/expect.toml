@@ -1,0 +1,10 @@
+# A timer becomes due at one minute, with someone at the desk: a look and one nod, then nothing.
+[[expect]]
+at = "60s"
+within = "2s"
+call = "body.gaze"
+args = { look_at = "face" }
+
+[[expect]]
+call = "body.gesture"
+args = { gesture = "nod" }

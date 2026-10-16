@@ -1,0 +1,32 @@
+# Focus timer: when a timer the person asked the voice for runs out, a look
+# and one nod (the voice already says the time is up). The timer is the
+# voice's own (set_timer, docs/tools.md); schedule/due says only that
+# something is due, not which, so this answers any timer or reminder.
+# A dimmed light for the whole focus cannot be made: a skill's light lasts at
+# most 10m and is given back (docs/skills.md), so there is no light step.
+needs = ["eyes", "body"]
+
+[trigger]
+topic = "schedule/due"
+field = "pending"
+above = 0                 # a timer or reminder is due
+when = "appears"          # once, as it becomes due, not at every heartbeat
+cooldown = "2m"           # two timers ending together get one nod
+
+[[while]]                 # Schedule really serving it, not a shadow count
+topic = "schedule/due"
+field = "enabled"
+equals = true
+
+[[while]]                 # only with someone at the desk to see it
+topic = "humans/faces/tracked"
+present = true
+
+[ask]
+policy = "news"
+
+[[do]]
+body = { look_at = "face" }
+
+[[do]]
+body = { gesture = "nod" }

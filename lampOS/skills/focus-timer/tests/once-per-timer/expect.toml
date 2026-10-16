@@ -1,0 +1,10 @@
+# A timer due for four minutes (Schedule repeats it every second until it is answered): one look and one nod only.
+[[expect]]
+at = "60s"
+within = "2s"
+call = "body.gaze"
+args = { look_at = "face" }
+
+[[expect]]
+call = "body.gesture"
+args = { gesture = "nod" }

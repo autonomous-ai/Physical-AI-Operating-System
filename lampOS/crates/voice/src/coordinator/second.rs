@@ -209,6 +209,11 @@ impl Route {
         &mut self.worker
     }
 
+    /// `rig.provider` is the second route's worker.
+    pub(super) fn active(&self) -> bool {
+        self.second_active
+    }
+
     /// During the remaining startup: keep the standby's authority fresh and
     /// take its readiness before its packets age.
     pub(super) fn startup_tick(
@@ -355,6 +360,49 @@ impl Route {
             .replenish(0, &mut self.worker.channels.control)
             .map_err(Into::into)
     }
+}
+
+/// The second route's worker has exited: the route is dropped and the
+/// voice goes on with Gemini alone, instead of ending as for a mandatory
+/// worker (#960: on lamp-4ace a dead second worker ended the voice, and the
+/// restart came back muted). When it was the active route, Gemini's worker
+/// is put back first. True when it held the turn in hand, which the caller
+/// ends.
+///
+/// ponytail: checked once a tick, before anything else of the tick touches
+/// a worker; a worker that dies inside the same tick still fails it there.
+pub(super) fn dropped_if_gone(
+    rig: &mut Rig,
+    cloud: &mut CloudAvailability,
+    flow: &mut OutputReceiver,
+    trace: &mut SessionState,
+) -> Result<bool> {
+    let Rig {
+        provider, second, ..
+    } = rig;
+    let Some(route) = second.as_mut() else {
+        return Ok(false);
+    };
+    let worker = if route.second_active {
+        &mut *provider
+    } else {
+        &mut route.worker
+    };
+    let Some(status) = worker.try_exit()? else {
+        return Ok(false);
+    };
+    let active = route.second_active;
+    if active {
+        swap(provider, cloud, flow, route);
+    }
+    eprintln!("lamp-voice: the second voice route's worker exited ({status}); going on without it");
+    record(
+        trace,
+        json!({"kind":"voice_route_dropped","at_us":monotonic_us(),"route":"second",
+        "status":status.to_string(),"active":active}),
+    )?;
+    *second = None;
+    Ok(active)
 }
 
 fn swap(

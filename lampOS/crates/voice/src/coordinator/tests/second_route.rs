@@ -72,6 +72,10 @@ struct Script {
     /// Gemini's link is not Ready at startup: it is Ready at this capture
     /// frame (10 ms each), or never.
     live_late: Option<Option<u64>>,
+    /// The second route's worker exits on its first Start (#960).
+    second_dies: bool,
+    /// The standby's worker exits at this capture frame (#960).
+    standby_dies_at: Option<u64>,
     turn_taking: TurnTaking,
 }
 
@@ -85,6 +89,8 @@ impl Script {
             turns: 1,
             live_back_after: None,
             live_late: None,
+            second_dies: false,
+            standby_dies_at: None,
             turn_taking: TurnTaking::V1Baseline,
         }
     }
@@ -317,6 +323,17 @@ impl Peers {
                     link: ready_link(1, 1),
                 });
         }
+        if self
+            .script
+            .standby_dies_at
+            .is_some_and(|frame| self.frames >= frame)
+            && let Some(index) = self.index("second")
+            && !self.peers[index].stopped
+        {
+            let peer = &mut self.peers[index];
+            peer.stopped = true;
+            peer.input.take();
+        }
         for index in 0..self.peers.len() {
             self.tick_peer(index, deadline)?;
         }
@@ -514,6 +531,13 @@ impl Peers {
                 ProviderInput::Start {
                     request, session, ..
                 } => {
+                    if !live && self.script.second_dies {
+                        // Its process exits; nothing more of it is heard.
+                        let peer = &mut self.peers[index];
+                        peer.stopped = true;
+                        peer.input.take();
+                        return;
+                    }
                     if live {
                         self.live_requests.push(request);
                     }
@@ -1116,4 +1140,60 @@ fn the_live_worker_waits_for_room_only_with_a_second_route() {
     let mut stripped = with.clone();
     stripped.remove(keep + 1);
     assert_eq!(stripped, without);
+}
+
+/// (j) #960: the second route's worker exits while it holds the turn. The
+/// route is dropped and that turn ends, and the voice goes on: the next
+/// turn is Gemini's, and the run ends by its scripted mute, not by the
+/// worker's exit.
+#[test]
+fn a_second_worker_that_exits_is_dropped_and_the_voice_goes_on() {
+    let _one = super::pilot_faults::one_session();
+    let run = run(Script {
+        second_dies: true,
+        speak_again: Some(When::Settled(1)),
+        turns: 2,
+        ..Script::question(Live::Fail(Fault::QuotaExceeded))
+    });
+    run.assert_clean();
+    assert_eq!(
+        run.events("voice_route_switched")[0]["why"],
+        "live_turn_failed"
+    );
+    let dropped = run.events("voice_route_dropped");
+    assert_eq!(dropped.len(), 1, "{}", run.summary());
+    assert_eq!(dropped[0]["active"], true);
+    assert_eq!(run.finished(1)["outcome"], "second_route_failed");
+    assert!(run.played(1).is_empty());
+    let turn = run
+        .seen
+        .live
+        .iter()
+        .rev()
+        .find_map(|i| match i {
+            ProviderInput::Start { request, .. } => Some(*request),
+            _ => None,
+        })
+        .unwrap();
+    assert!(turn > 1);
+    whole_line(&run.seen.live, turn);
+    assert_eq!(run.played(turn), vec![LIVE; 48]);
+}
+
+/// (k) #960: the standby's worker exits while Gemini is well: it is
+/// dropped, and Gemini's answer is untouched.
+#[test]
+fn a_standby_that_exits_is_dropped_and_gemini_answers() {
+    let _one = super::pilot_faults::one_session();
+    let run = run(Script {
+        standby_dies_at: Some(5),
+        ..Script::question(Live::Answer(12))
+    });
+    run.assert_clean();
+    let dropped = run.events("voice_route_dropped");
+    assert_eq!(dropped.len(), 1, "{}", run.summary());
+    assert_eq!(dropped[0]["active"], false);
+    assert!(run.events("voice_route_switched").is_empty());
+    whole_line(&run.seen.live, 1);
+    assert_eq!(run.played(1), vec![LIVE; 48]);
 }

@@ -587,8 +587,13 @@ With the switch:
   `replace` true (`"replace":true`), and the eyes then forget "A" and keep
   "Jim" in its place (`People::remember_one`). `replace` is refused before
   the eyes are asked unless the lamp said the new name in its last answer
-  and the turn in hand agrees: a misheard name is never put in place of
-  one they have while they are still correcting it. The journal says "did not
+  and the turn in hand is a plain yes to it: yeses, the name itself and
+  words that stand beside a yes ("please", "that's fine", "call me …"),
+  and nothing else (`known_faces::plain_yes`). "Yes, but it's Kess.",
+  "Sure, why not Kess?" and a spelled correction are asked about again
+  (the reviewer on #1208). A misheard name is never put in place of one
+  they have while they are still correcting it. A name kept from an
+  earlier exchange needs the same plain yes. The journal says "did not
   remember a face: it is known by another name", without the name.
 - **A name told is a name kept** (the first builder, #705, 13:43). The
   lamp-4ace records showed no face asked to be kept on 15 October at all:
@@ -636,7 +641,8 @@ and the ask's two new lines (the eyes);
 `a_name_given_is_told_from_talk_that_only_mentions_a_name`,
 `the_three_names_of_16_46_are_refused_or_read_back`,
 `a_name_said_before_is_kept_once_said_back_and_agreed_to`,
-`a_yes_is_any_ordinary_one_and_any_no_takes_it_back` and
+`a_yes_is_any_ordinary_one_and_any_no_takes_it_back`,
+`a_yes_to_the_read_back_holds_nothing_but_the_yes_and_the_name` and
 `with_names_checked_only_a_name_they_said_reaches_the_eyes_and_one_face_keeps_one`
 (the voice, against a stand-in for the eyes on a real socket);
 `provider_worker::tests::names::with_names_checked_a_name_given_is_told_to_be_kept_and_plain_talk_is_not`

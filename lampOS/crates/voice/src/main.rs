@@ -599,7 +599,18 @@ fn run() -> Result<()> {
             }
             let mut channels = WorkerChannels::bind(Path::new(dir), role, parent, worker, true)?;
             channels.connect(Path::new(dir), role, true)?;
-            lamp_voice::ring_worker::run_continuous(channels, parent, ceiling, bus_root.as_deref(), eye, eye_strong, head_touch, light_requests)?;
+            lamp_voice::ring_worker::run_continuous(
+                channels,
+                parent,
+                lamp_voice::ring_worker::RingOptions {
+                    resting: ceiling,
+                    bus_root: bus_root.as_deref(),
+                    eye,
+                    eye_strong,
+                    head_touch,
+                    light_requests,
+                },
+            )?;
         }
         [command,role,dir,parent,worker] if command=="worker" => {
             let parent=parse_boot(parent)?;

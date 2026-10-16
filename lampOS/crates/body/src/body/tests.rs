@@ -6326,3 +6326,32 @@ fn the_hold_after_a_surprise_writes_the_arm_where_it_was_last_read() {
     let last = lamp.goals.last().unwrap();
     assert!(last.contains(&(3, 2_249)), "{last:?}");
 }
+
+/// The seventh's 03:33 probe on #1192: the elbow truly at 2049 reads 2289
+/// or 2349 (under `READ_JUMP`, steady) from the last steps before it is
+/// asked to stop. The exit, the one write that keeps torque on, never
+/// writes it: the run ends on `Window` and lets go.
+#[test]
+fn a_steady_wrong_elbow_reading_before_cancelled_is_not_written_at_the_exit() {
+    for (from, reading) in [(9_900, 2_289), (9_960, 2_289), (9_900, 2_349)] {
+        let (report, elbow, _) =
+            misread_4ace(vec![(Duration::from_millis(from), 2, reading, u8::MAX)]);
+        assert!(
+            elbow.iter().all(|goal| goal.abs_diff(2_049) <= 50),
+            "{from} {reading}: {elbow:?} {:?}",
+            report.stop
+        );
+        assert!(
+            matches!(
+                report.stop,
+                Stop::Window {
+                    joint: 3,
+                    goal,
+                    from: 2_049,
+                    ..
+                } if goal == reading
+            ),
+            "{from} {reading}: {report:?}"
+        );
+    }
+}

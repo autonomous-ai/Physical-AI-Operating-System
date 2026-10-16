@@ -6244,3 +6244,33 @@ fn an_elbow_read_far_off_in_the_last_step_is_not_written_back_at_the_exit() {
         "{report:?}"
     );
 }
+
+/// Head and base goals are checked at the wire too: one past 4095, in the
+/// sync write or by itself, is never written.
+#[test]
+fn a_head_goal_past_the_servos_range_never_reaches_the_wire() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(1));
+    lamp.may_take_hold = true;
+    {
+        let mut bus = Bus::new(&mut lamp, &mut clock, None);
+        bus.samples().unwrap();
+        bus.send_goals(HOME, None).unwrap();
+        assert!(bus.send_goals([2_000, 2_044, 37_639], None).is_err());
+        assert!(matches!(
+            bus.refused.take(),
+            Some(Stop::Window {
+                joint: 1,
+                goal: 37_639,
+                window: (0, 4_095),
+                from: 2_015,
+            })
+        ));
+        assert!(bus.write_goal(Joint::WristRoll, 4_096, false).is_err());
+        assert!(matches!(
+            bus.refused.take(),
+            Some(Stop::Window { joint: 4, .. })
+        ));
+    }
+    assert_eq!(lamp.goals, [vec![(5, 2_000), (4, 2_044), (1, 2_015)]]);
+    assert!(lamp.registers.is_empty(), "{:?}", lamp.registers);
+}

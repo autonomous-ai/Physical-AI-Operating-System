@@ -1389,18 +1389,23 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
     /// The goals of the head and base, and with them the arm's for a body
     /// that may stand. Every arm goal is checked first (`goal_refused`).
     fn send_goals(&mut self, goals: [u16; 3], arm: Option<[u16; 2]>) -> Result<(), String> {
+        if let Some(stop) = COMMANDED
+            .into_iter()
+            .zip(goals)
+            .chain(
+                arm.map(|arm| ARM.into_iter().zip(arm))
+                    .into_iter()
+                    .flatten(),
+            )
+            .find_map(|(joint, goal)| self.goal_refused(joint, goal))
+        {
+            return Err(self.refuse(stop));
+        }
         let Some(arm) = arm else {
             self.send(&goals_write(goals))?;
             self.wrote(goals, None);
             return Ok(());
         };
-        if let Some(stop) = ARM
-            .into_iter()
-            .zip(arm)
-            .find_map(|(joint, goal)| self.goal_refused(joint, goal))
-        {
-            return Err(self.refuse(stop));
-        }
         self.send(&all_goals_write(goals, arm))?;
         self.wrote(goals, Some(arm));
         Ok(())
@@ -1439,20 +1444,23 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
         }
     }
 
-    /// Whether `goal` may be written to `joint`, an arm joint (the others
-    /// are not checked): it must be inside the joint's window, and either
+    /// Whether `goal` may be written to `joint`. A head or base goal must be
+    /// 0..=4095: their goals are bounded where they are made, and the head
+    /// is sent home in one write at the end. An arm goal must be inside
+    /// its joint's window, and either
     /// within `ARM_GOAL_STEP` of the goal last written to it (before one,
     /// of where it was read), or between that goal and where it was last
     /// read, a reading within `ARM_GOAL_STEP` of the one before it: a hold
     /// where it is, as when it gives way to a hand, takes hold or stops
     /// pushing, never asks it past either. If not, the stop the run ends on.
     fn goal_refused(&self, joint: Joint, goal: u16) -> Option<Stop> {
-        let index = ARM.iter().position(|arm| *arm == joint)?;
-        let (low, high) = self.arm_windows[index];
+        let arm = ARM.iter().position(|arm| *arm == joint);
+        let (low, high) = arm.map_or((0, 4_095), |index| self.arm_windows[index]);
         let read = self.good[joint.index()];
         let from = self.goals[joint.index()].or(read);
         let allowed = (low..=high).contains(&goal)
-            && (from.is_none_or(|from| goal.abs_diff(from) <= ARM_GOAL_STEP)
+            && (arm.is_none()
+                || from.is_none_or(|from| goal.abs_diff(from) <= ARM_GOAL_STEP)
                 || read.is_some_and(|at| {
                     let from = from.unwrap_or(at);
                     self.steady[joint.index()] && (from.min(at)..=from.max(at)).contains(&goal)

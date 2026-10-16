@@ -145,8 +145,9 @@ Every goal of the shoulder and the elbow is checked in one place,
 the wire only through `Bus::send_goals` (every step, lowering a shoulder,
 every hold) and `Bus::write_goal`, one joint's goal by itself (taking hold of
 a joint found without torque, telling an overloaded one to stop pushing),
-and both ask it first. A joint taken hold of may also be given exactly where
-it was last read. It must be inside
+and both ask it first. Head and base goals are asked too, and only to be 0
+to 4,095: their goals are bounded where they are made, and the head is sent
+home in one write at the end. It must be inside
 its joint's window: the joint's way between `--folded-arm` and `--stand`,
 with 420 counts either side (the most a gesture, 360, and the lean, 60, add
 to it). On lamp-4ace that is shoulder 1,628 to 3,077 and elbow 1,627 to

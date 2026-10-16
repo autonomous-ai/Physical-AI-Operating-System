@@ -230,6 +230,23 @@ The switch stays on (it answers no noise), and short words are parked
 until the V2 MVP works end to end (the owner, 2026-10-15: "wide first.
 deep later"). Next time: with a person at the lamp, in view.
 
+## Said close: past the gate
+
+An utterance said close to the lamp skips the gate's count
+(`not_speech::scrap`): the room microphone rose 18 dB or more over its quiet
+during it (`room/sound`, sampled every 100 ms by the coordinator,
+`room_floor::Rise`; the same sign as `LAMP_ATTENTION=busy-near`). Everything
+after the gate still judges it: attention, the name, the Policy. Without the
+bus it is never close, and the gate is as before.
+
+Why: on lamp-4ace on 2026-10-16 from 17:13 the owner at the desk was dropped
+as a sound five times in two minutes (`not_speech`, 14 to 26 blocks counted).
+Their last blocks were loud: in two of them 42 and 49 blocks over -28 dBFS,
+one clipping. But the detector scored 15 and 20 of those loud blocks under
+0.5, and only 0 to 12 blocks were under the floor. **For whoever tunes the
+detector next:** it under-scores a loud voice at the desk; the counts above
+are from the word-free trace the first builder kept for 17:13 to 17:16.
+
 ## A room sound let through and answered (#800)
 
 On lamp-52e6 on 2026-10-15 at 13:03 (#775's verification, turn 6) a room

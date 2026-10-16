@@ -178,6 +178,22 @@ pub fn was_a_sound(speech_blocks: usize, took_over: bool, since_own_words_us: Op
         && since_own_words_us.is_none_or(|since| since >= AFTER_OWN_WORDS_US)
 }
 
+/// [`was_a_sound`], unless it was said close to the lamp: the room
+/// microphone rose [`crate::attention::NEAR_RISE_DB`] or more over its quiet
+/// during it (`busy-near`'s sign). On lamp-4ace on 2026-10-16 from 17:13
+/// the owner at the desk was dropped as a sound five times in two minutes:
+/// 14 to 26 blocks counted, loud enough (42 and 49 blocks over -28 dBFS in
+/// two of them) but scored under 0.5 by the detector in 15 and 20 of those
+/// loud blocks. Everything after the gate still judges the utterance.
+pub fn scrap(
+    speech_blocks: usize,
+    took_over: bool,
+    since_own_words_us: Option<u64>,
+    close: bool,
+) -> bool {
+    !close && was_a_sound(speech_blocks, took_over, since_own_words_us)
+}
+
 /// Whether an answer opens with the name of a function said aloud, not
 /// called: `not_for_me`, or the service's own way of writing a call
 /// (`print(default_api.not_for_me())`). On lamp-4ace on 2026-10-13, with
@@ -848,5 +864,17 @@ mod tests {
         assert!(!calls.keeps(1, " not_for"));
         assert!(calls.keeps(2, "_me{} is mine"));
         assert!(calls.keeps(2, " It is noon."));
+}
+
+    /// The owner's six turns at lamp-4ace's desk on 2026-10-16, 17:13 to
+    /// 17:16, by the blocks the gate counted: each passes the gate when it
+    /// was said close, and is a sound when it was not.
+    #[test]
+    fn a_short_utterance_said_close_passes_the_scrap_gate() {
+        for counted in [16, 19, 19, 17, 26, 14] {
+            assert!(scrap(counted, false, None, false), "{counted}");
+            assert!(!scrap(counted, false, None, true), "{counted}");
+        }
+        assert!(!scrap(SCRAP_BLOCKS, false, None, false));
     }
 }

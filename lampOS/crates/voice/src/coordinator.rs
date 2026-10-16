@@ -2887,6 +2887,8 @@ fn conversation_with_gate(
         .map(|lowest| crate::room_floor::from_environment(lowest, monotonic_us()));
     let mut floor_recorded: Option<(u8, Option<u8>)> = None;
     let mut near = crate::room_floor::Near::from_environment();
+    // Whether an utterance was said close to the lamp, for the scrap gate.
+    let mut rise = crate::room_floor::Rise::from_environment();
     // The last two seconds of blocks as the detector and the floor judged
     // them, for the record of an utterance thrown out as not speech:
     // twentieths of the detector's score, the level, and whether the floor
@@ -4097,6 +4099,7 @@ fn conversation_with_gate(
             )?;
             // How loud what the detector calls speech has been lately, for
             // the record of each utterance: its last eight seconds.
+            rise.sample(frame.read_completed_at_us);
             if probability.is_finite() && probability >= 0.5 {
                 speech_levels.push_back((frame.read_completed_at_us, heard_level));
                 last_speech_us = frame.read_completed_at_us;
@@ -4537,10 +4540,13 @@ fn conversation_with_gate(
                 }
                 AdmissionStep::End(audio)
                     if reply.as_ref().is_some_and(|current| {
-                        crate::not_speech::was_a_sound(
+                        crate::not_speech::scrap(
                             speech_levels.len(),
                             took_over_turn == Some(current.owner.turn()),
                             last_spoke_us.map(|at| monotonic_us().saturating_sub(at)),
+                            speech_levels
+                                .front()
+                                .is_some_and(|(began, _)| rise.close_since(*began)),
                         )
                     }) && !crate::not_speech::sent_anyway(short_sounds, room.busy()) =>
                 {

@@ -48,8 +48,8 @@ pub const TICK: Duration = Duration::from_millis(20);
 const EXCHANGE: Duration = Duration::from_millis(12);
 const POLL: Duration = Duration::from_millis(1);
 /// A mood older than this is rest: a silent sender is not a reason to hold
-/// a pose.
-const MOOD_STALE: Duration = Duration::from_millis(1_500);
+/// a pose. A skill that holds `Mood::Reading` says it again inside this.
+pub const MOOD_STALE: Duration = Duration::from_millis(1_500);
 /// The longest the head takes to ease home when asked to stop.
 const LEAVE: Duration = Duration::from_secs(3);
 /// How stiffly the commanded pose follows the wanted one, in radians a
@@ -3721,8 +3721,8 @@ fn run_on<P: PortIo, R: Runtime>(
                 *goal = (f32::from(*goal) + offset).round().clamp(0.0, 4_095.0) as u16;
             }
         }
-        // Speaking, standing up and doing nothing else with its arm, it
-        // leans toward the person, and back once it is not. While a hand
+        // Speaking or reading, standing up and doing nothing else with its
+        // arm, it leans forward, and back once it is not. While a hand
         // holds the arm and the lamp still wants to lean, the lean stays
         // exactly where it was, neither in nor out: the hold below lasts
         // while what is wanted of the arm does not change, and a lean
@@ -3730,7 +3730,7 @@ fn run_on<P: PortIo, R: Runtime>(
         // then lean into the hand again. While the wire is failing the lean
         // is kept as it stands, a held place too: nothing new, and nothing
         // dropped to be taken again once the wire answers (#1010 review, 23:39).
-        let leaning = mood == Mood::Speaking && upright && !gesturing;
+        let leaning = matches!(mood, Mood::Speaking | Mood::Reading) && upright && !gesturing;
         let rate = step / LEAN_SECONDS.max(1.5 * LEAN[1].abs() / limits.speed);
         // A hold on the arm is taken into the lean once the lean eases out
         // (the answer over, a gesture, folding), or once the lean is wanted
@@ -3857,7 +3857,12 @@ fn run_on<P: PortIo, R: Runtime>(
             }
             _ => [0.0; 3],
         };
-        let offsets = [
+        // Reading, the head looks down at the desk in front of the lamp as
+        // far as its bounds let it (stood up, as far as it may look up),
+        // and holds there: not lifted to a face, not nodded.
+        let head_pitch = if mood == Mood::Reading {
+            limits.pitch_up.max(limits.pitch_down)
+        } else {
             pitch
                 * if pitch < 0.0 {
                     limits.pitch_up
@@ -3865,7 +3870,10 @@ fn run_on<P: PortIo, R: Runtime>(
                     limits.pitch_down
                 }
                 + look[1]
-                + extra[0],
+                + extra[0]
+        };
+        let offsets = [
+            head_pitch,
             roll * roll_reach + extra[1],
             yaw * limits.yaw + look[0] + extra[2],
         ];

@@ -485,6 +485,22 @@ fn mood_of(datagram: &[u8]) -> Option<(lamp_body::gesture::Mood, u8)> {
     Some((message.mood, message.level))
 }
 
+/// What of the moods just heard counts, given whether a skill said
+/// `reading` within `MOOD_STALE`. The voice tells its own mood now and then
+/// (`resting` between turns): while a skill holds the lamp reading, none of
+/// that takes the pose from it, or the two would take turns at the head
+/// every step. Reading ends when the skill stops saying it.
+#[cfg_attr(not(any(target_os = "linux", test)), allow(dead_code))]
+fn while_reading(
+    latest: Option<(lamp_body::gesture::Mood, u8)>,
+    reading: bool,
+) -> Option<(lamp_body::gesture::Mood, u8)> {
+    match latest {
+        Some((mood, _)) if reading && mood != lamp_body::gesture::Mood::Reading => None,
+        other => other,
+    }
+}
+
 /// A gesture asked for by the voice service: `{"gesture":"nod"}` and nothing
 /// else in it, naming a clip this body has, its own or a move read from
 /// `--moves`.
@@ -723,6 +739,8 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
     // A skill's move sent whole, played as a gesture (docs/body.md).
     let mut moves_sent = lamp_body::moves::Sent::besides(&moves);
     let mut datagram = vec![0u8; lamp_body::moves::MOST_DATAGRAM];
+    // When a skill last said `reading` (`while_reading`).
+    let mut reading_at: Option<std::time::Instant> = None;
     let news = || {
         paused.set(pause.as_mut().is_some_and(|pause| pause.paused()));
         // Everything waiting, and only the newest of it counts.
@@ -746,7 +764,12 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
                 }
                 Err(_) => break,
             }
+            if latest.is_some_and(|(mood, _)| mood == lamp_body::gesture::Mood::Reading) {
+                reading_at = Some(std::time::Instant::now());
+            }
         }
+        let reading = reading_at.is_some_and(|at| at.elapsed() < lamp_body::body::MOOD_STALE);
+        let latest = while_reading(latest, reading);
         if paused.get() {
             return Some((lamp_body::gesture::Mood::Resting, 0));
         }
@@ -1760,6 +1783,23 @@ mod tests {
         assert_eq!(hush.0.len(), 1);
     }
 
+    /// While a skill says `reading`, the voice's moods do not take the
+    /// pose from it; once it stops, they count again.
+    #[test]
+    fn reading_holds_over_the_voice_until_it_goes_unsaid() {
+        assert_eq!(while_reading(Some((Mood::Resting, 0)), true), None);
+        assert_eq!(while_reading(Some((Mood::Listening, 90)), true), None);
+        assert_eq!(
+            while_reading(Some((Mood::Reading, 200)), true),
+            Some((Mood::Reading, 200))
+        );
+        assert_eq!(
+            while_reading(Some((Mood::Resting, 0)), false),
+            Some((Mood::Resting, 0))
+        );
+        assert_eq!(while_reading(None, true), None);
+    }
+
     #[test]
     fn a_mood_is_one_exact_json_object_and_anything_else_is_ignored() {
         assert_eq!(
@@ -1769,6 +1809,10 @@ mod tests {
         assert_eq!(
             mood_of(br#"{"mood":"resting","level":0}"#),
             Some((Mood::Resting, 0))
+        );
+        assert_eq!(
+            mood_of(br#"{"mood":"reading","level":200}"#),
+            Some((Mood::Reading, 200))
         );
         for ignored in [
             &br#"{"mood":"dancing","level":1}"#[..],

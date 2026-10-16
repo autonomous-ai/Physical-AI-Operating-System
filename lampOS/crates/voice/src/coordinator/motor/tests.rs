@@ -366,6 +366,29 @@ struct TestLink {
     mode: String,
     directory: PathBuf,
 }
+impl TestLink {
+    /// Holds the worker until the test writes `go`. On a stepped clock the
+    /// held child finishes each step without work and takes the next one
+    /// before looking again, so it never works at an instant it has already
+    /// finished, and a host pause while it is held costs no scenario time.
+    fn gate(&self) {
+        let go = self.directory.join("go");
+        if STEPPED.load(Ordering::SeqCst) {
+            let session = self.directory.parent().unwrap();
+            while !go.exists() {
+                let at_us = STEPPED_NOW_US.load(Ordering::SeqCst);
+                write_instant(&session.join(SCENARIO_DONE), at_us);
+                STEPPED_NOW_US.store(next_step(session, at_us), Ordering::SeqCst);
+            }
+            return;
+        }
+        let until = Instant::now() + Duration::from_secs(2);
+        while !go.exists() {
+            assert!(Instant::now() < until);
+            std::thread::park_timeout(Duration::from_millis(1));
+        }
+    }
+}
 impl Link for TestLink {
     fn control(
         &mut self,
@@ -402,19 +425,11 @@ impl Link for TestLink {
         }
         sent?;
         if matches!(e, Event::Stopped { .. }) && self.mode == "gated_exit_failure" {
-            let until = Instant::now() + Duration::from_secs(2);
-            while !self.directory.join("go").exists() {
-                assert!(Instant::now() < until);
-                std::thread::park_timeout(Duration::from_millis(1));
-            }
+            self.gate();
             std::process::exit(7);
         }
         if matches!(e, Event::Inspected { .. }) && self.mode == "gate_segment" {
-            let until = Instant::now() + Duration::from_secs(2);
-            while !self.directory.join("go").exists() {
-                assert!(Instant::now() < until);
-                std::thread::park_timeout(Duration::from_millis(1));
-            }
+            self.gate();
         }
         if matches!(e, Event::Ready { .. }) {
             match self.mode.as_str() {
@@ -423,11 +438,7 @@ impl Link for TestLink {
                     std::thread::park_timeout(Duration::from_secs(1));
                 },
                 "gate" => {
-                    let until = Instant::now() + Duration::from_secs(2);
-                    while !self.directory.join("go").exists() {
-                        assert!(Instant::now() < until);
-                        std::thread::park_timeout(Duration::from_millis(1));
-                    }
+                    self.gate();
                 }
                 _ => {}
             }
@@ -1253,7 +1264,17 @@ fn motor_flags_are_paired_explicit_and_not_accepted_by_fixture_mode() {
 }
 #[test]
 fn pending_segment_privacy_revoke_wins_before_any_position_write() {
-    let (dir, mut m, mut c) = fixture("gate_segment");
+    privacy_revoke_before_release(Duration::ZERO);
+}
+/// #949: the revocation's inhibit deadline started before the test released
+/// the gated worker, so host time spent releasing it counted against the
+/// production 20 ms. On one stepped clock a long host pause there costs none.
+#[test]
+fn privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released() {
+    privacy_revoke_before_release(Duration::from_millis(30));
+}
+fn privacy_revoke_before_release(host_pause: Duration) {
+    let (_scope, dir, mut m, mut c) = stepped_fixture("gate_segment");
     wait(&mut m, &mut c, OptionalMotor::is_ready);
     let e = evidence(&mut m, &mut c, 1);
     m.offer_inspection(e).unwrap();
@@ -1270,6 +1291,7 @@ fn pending_segment_privacy_revoke_wins_before_any_position_write() {
     c.set_camera_permission(time(), Permission::Denied).unwrap();
     m.publish(c.snapshot(time()).unwrap());
     assert!(m.pending.is_none());
+    std::thread::sleep(host_pause);
     fs::write(dir.path.join("motor/go"), b"release inert worker").unwrap();
     wait(&mut m, &mut c, OptionalMotor::reaped);
     assert!(

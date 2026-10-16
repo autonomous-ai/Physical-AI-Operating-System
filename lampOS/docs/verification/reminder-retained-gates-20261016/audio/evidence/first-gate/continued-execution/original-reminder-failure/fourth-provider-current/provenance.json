@@ -1,0 +1,38 @@
+{
+  "date_from_date": "2026-10-16 08:06:15 +0700",
+  "kind": "Fourth separate gate occurrence, as designated by root; not a retry of this Audio gate.",
+  "tree": "/private/tmp/lampos-tests-provider-observations-current",
+  "test_stage": {
+    "name": "tests",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-memory",
+      "-p",
+      "lamp-voice",
+      "-p",
+      "lamp-voice-eval",
+      "-p",
+      "lamp-surround",
+      "--no-fail-fast",
+      "--",
+      "--test-threads=1"
+    ],
+    "cwd": "/private/tmp/lampos-tests-provider-observations-current/lampOS",
+    "target": "/private/tmp/tests-823-rebase-target",
+    "started": "2026-10-16 07:44:22 +0700",
+    "finished": "2026-10-16 08:04:19 +0700",
+    "exit_code": 101,
+    "raw_sha256": "1681b36727c7b1fb8b5663190417118eccbd3f18c14f285e44ebc0c9c50f4487"
+  },
+  "full_raw_log_path": "/private/tmp/tests-823-provider-observations-current-gate/tests.log",
+  "full_raw_log_sha256": "1681b36727c7b1fb8b5663190417118eccbd3f18c14f285e44ebc0c9c50f4487",
+  "failure_block_sha256": "2caa445a02fa647bb1be8351cb8470d4ce1e8159eda7dd0303543047ad5c93b3",
+  "whole_failed_test_source_sha256": "f2259a3446933ba7193c95829e6ab092881b828be9d458c79cf6e3b1463bb684",
+  "source_byte_exact_to_audio_clean_e5aa": true,
+  "workspace_build_and_gate_totals": "Root-owned audit pending; no claim made here.",
+  "cause": "Unproved; actual resolution and per-hop timings unprinted."
+}

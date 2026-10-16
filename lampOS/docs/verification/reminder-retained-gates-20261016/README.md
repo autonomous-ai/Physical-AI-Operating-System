@@ -1,0 +1,12 @@
+# Two retained #935 gates for #823
+
+Packaged 2026-10-16 08:14:38 +0700, from shell date. Both preparations use merged base `e5aa43747ec1540893b4da4509d14288e7e70806`. This package retains two separate first full affected gates on macOS, including their failures. Neither preparation has a green full local qualification, and native Linux qualification remains pending. The package is evidence only; it does not request or record acceptance of an exception.
+
+- [Audio capture-clock gate](audio/README.md): 2,296 passed, one failed and 15 existing ignores. Its first focused command selected zero tests; the corrected selection's first execution passed all nine new tests.
+- [Provider Stop/body observation gate](provider/README.md): 2,407 passed, one failed and 13 existing ignores. All 20 new observations passed within its full gate.
+
+The totals belong to different package selections and inventories. They must not be added together or described as one execution. Both full gates retain the same original reminder test failure at the unchanged line-338 AckConfirmed assertion. [Exact source comparison](shared/reminder-source-comparison.json) and the [retained analysis](audio/evidence/first-gate/continued-execution/original-reminder-failure/triage.md) show what preceded the failure and which later assertions were not reached. The actual resolution and per-hop timing remain unprinted; recurrence does not establish a timing cause.
+
+All copied logs, source snapshots, metadata and integration proofs retain their original bytes. Historical `pending` or source-only statements remain in their dated raw records; the separate terminal audits are the current gate result. Audio's initial parser double-counted the single failure footer, and its separate terminal audit corrects that evidence interpretation while preserving the original parser output. No tests were retried or rerun to alter a result.
+
+`provenance.json` records every copied source and SHA256, the excluded diagnostic binary metadata, and package scope. `SHA256SUMS` covers every included file except itself. The two excluded Cargo dep-info files have exact textual hex copies retained in Audio's selection evidence. Scratch scripts, compiled binaries and external checksum indexes are excluded. No code change, Cargo command, Git mutation, GitHub write or device operation was performed to create this package. Root owns any later evidence publication.

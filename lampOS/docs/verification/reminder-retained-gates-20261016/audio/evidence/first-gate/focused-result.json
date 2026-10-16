@@ -1,0 +1,11 @@
+{
+  "date_from_date": "2026-10-16 07:38:46 +0700",
+  "summary": [
+    "Summary [   0.001s] 0 tests run: 0 passed, 70 skipped"
+  ],
+  "expected_identity_count": 9,
+  "actual_identity_count": 0,
+  "each_expected_identity_once": false,
+  "cases": [],
+  "failures": []
+}

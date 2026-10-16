@@ -1,0 +1,13 @@
+{
+  "name": "workspace-build",
+  "command": [
+    "/Users/autonomous/.cargo/bin/cargo",
+    "build",
+    "--locked",
+    "--offline",
+    "--workspace"
+  ],
+  "cwd": "/private/tmp/lampos-tests-capture-clock/lampOS",
+  "target": "/private/tmp/lampos-tests-capacity/lampOS/target",
+  "started_from_date": "2026-10-16 08:06:07 +0700"
+}

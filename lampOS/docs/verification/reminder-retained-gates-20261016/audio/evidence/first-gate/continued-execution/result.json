@@ -1,0 +1,35 @@
+{
+  "date_from_date": "2026-10-16 08:07:39 +0700",
+  "baseline_count": 2303,
+  "candidate_count": 2312,
+  "retained_originals": 2303,
+  "new_tests": 9,
+  "ignored": 15,
+  "ignore_flags_unchanged": true,
+  "focused_exit": 0,
+  "focused_summary": [
+    "Summary [   0.385s] 9 tests run: 9 passed, 70 skipped"
+  ],
+  "focused_each_expected_identity_once": true,
+  "full_exit": 100,
+  "full_summary": [
+    "Summary [1279.548s] 2297 tests run: 2296 passed, 1 failed, 15 skipped"
+  ],
+  "full_each_expected_identity_once": false,
+  "full_failures": [
+    {
+      "status": "FAIL",
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion"
+    },
+    {
+      "status": "FAIL",
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion"
+    }
+  ],
+  "workspace_build_exit": 0,
+  "no_retries": true,
+  "initial_zero_execution_attempt_preserved": true,
+  "native_validation": "Pending; this is x86_64 macOS."
+}

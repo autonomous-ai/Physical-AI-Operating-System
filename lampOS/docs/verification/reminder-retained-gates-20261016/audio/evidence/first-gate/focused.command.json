@@ -1,0 +1,24 @@
+{
+  "name": "focused",
+  "command": [
+    "/Users/autonomous/.cargo/bin/cargo",
+    "nextest",
+    "run",
+    "--locked",
+    "--offline",
+    "-p",
+    "lamp-audio",
+    "--profile",
+    "default",
+    "--test-threads",
+    "1",
+    "--no-fail-fast",
+    "--retries",
+    "0",
+    "-E",
+    "binary_id(lamp-audio) & test(/^capture::clock_tests::/)"
+  ],
+  "cwd": "/private/tmp/lampos-tests-capture-clock/lampOS",
+  "target": "/private/tmp/lampos-tests-capacity/lampOS/target",
+  "started_from_date": "2026-10-16 07:38:46 +0700"
+}

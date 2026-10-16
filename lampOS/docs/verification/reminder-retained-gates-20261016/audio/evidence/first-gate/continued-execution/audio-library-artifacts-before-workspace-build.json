@@ -1,0 +1,401 @@
+{
+  "date_from_date": "2026-10-16 07:54:34 +0700",
+  "purpose": "Read-only Audio library artifact snapshot before workspace build, after the candidate combined list and first focused execution; strings are observations, not a substitute for Cargo unit selection provenance.",
+  "rows": [
+    {
+      "path": "/private/tmp/lampos-tests-capacity/lampOS/target/debug/deps/liblamp_audio-0baf11328a95b25e.rlib",
+      "sha256": "fbfb711344dfa93ee583caccfb2494d3c2afa490a7a71d6f5bb5c42ea6af8518",
+      "bytes": 11269360,
+      "mtime_formatted_by_date": "2026-10-16 07:35:32 +0700",
+      "contains_with_clock_name": true,
+      "embeds_candidate_tree": true,
+      "embeds_relay_baseline_tree": false,
+      "fingerprint_path": "/private/tmp/lampos-tests-capacity/lampOS/target/debug/.fingerprint/lamp-audio-0baf11328a95b25e/lib-lamp_audio.json",
+      "fingerprint": {
+        "rustc": 142501075487969817,
+        "features": "[]",
+        "declared_features": "[]",
+        "target": 1121393565925585300,
+        "profile": 8267137484848052233,
+        "path": 11686190572780418555,
+        "deps": [
+          [
+            3615686350114134937,
+            "sonora",
+            false,
+            6687964472357150087
+          ],
+          [
+            3646101781514403606,
+            "rustix",
+            false,
+            15890394215152324398
+          ],
+          [
+            5330460842384404171,
+            "serde_json",
+            false,
+            12114098242535488692
+          ],
+          [
+            5574233983441653039,
+            "lamp_ipc",
+            false,
+            17520337946996639175
+          ],
+          [
+            6557439603276904804,
+            "serde",
+            false,
+            6621975328373762514
+          ],
+          [
+            9857275760291862238,
+            "sha2",
+            false,
+            12674955449368957087
+          ],
+          [
+            14515309963789851236,
+            "lamp_turn_owner",
+            false,
+            11866960466591675996
+          ],
+          [
+            16696992991567834322,
+            "hound",
+            false,
+            10191766789316841566
+          ]
+        ],
+        "local": [
+          {
+            "CheckDepInfo": {
+              "dep_info": "debug/.fingerprint/lamp-audio-0baf11328a95b25e/dep-lib-lamp_audio",
+              "checksum": false
+            }
+          }
+        ],
+        "rustflags": [],
+        "config": 8247474407144887393,
+        "compile_kind": 0
+      }
+    },
+    {
+      "path": "/private/tmp/lampos-tests-capacity/lampOS/target/debug/deps/liblamp_audio-266990cd9d92fef1.rlib",
+      "sha256": "77759466c5d852e96972ec276166d40a48a216395f25a285a6434f2441b1889c",
+      "bytes": 11486256,
+      "mtime_formatted_by_date": "2026-10-16 06:45:10 +0700",
+      "contains_with_clock_name": false,
+      "embeds_candidate_tree": false,
+      "embeds_relay_baseline_tree": false,
+      "fingerprint_path": "/private/tmp/lampos-tests-capacity/lampOS/target/debug/.fingerprint/lamp-audio-266990cd9d92fef1/lib-lamp_audio.json",
+      "fingerprint": {
+        "rustc": 142501075487969817,
+        "features": "[]",
+        "declared_features": "[]",
+        "target": 1121393565925585300,
+        "profile": 8267137484848052233,
+        "path": 11686190572780418555,
+        "deps": [
+          [
+            3615686350114134937,
+            "sonora",
+            false,
+            12149801404469514729
+          ],
+          [
+            3646101781514403606,
+            "rustix",
+            false,
+            13743695768393729317
+          ],
+          [
+            5330460842384404171,
+            "serde_json",
+            false,
+            9912823755522219384
+          ],
+          [
+            5574233983441653039,
+            "lamp_ipc",
+            false,
+            15984306983349432778
+          ],
+          [
+            6557439603276904804,
+            "serde",
+            false,
+            7302047980088143827
+          ],
+          [
+            9857275760291862238,
+            "sha2",
+            false,
+            12674955449368957087
+          ],
+          [
+            14515309963789851236,
+            "lamp_turn_owner",
+            false,
+            13513782711189703487
+          ],
+          [
+            16696992991567834322,
+            "hound",
+            false,
+            10191766789316841566
+          ]
+        ],
+        "local": [
+          {
+            "CheckDepInfo": {
+              "dep_info": "debug/.fingerprint/lamp-audio-266990cd9d92fef1/dep-lib-lamp_audio",
+              "checksum": false
+            }
+          }
+        ],
+        "rustflags": [],
+        "config": 8247474407144887393,
+        "compile_kind": 0
+      }
+    },
+    {
+      "path": "/private/tmp/lampos-tests-capacity/lampOS/target/debug/deps/liblamp_audio-5afb4bd78ca07c81.rlib",
+      "sha256": "65b909f6aded2230a1093a183dcb2fc31fec4e0668401a7400617213c6e67bcc",
+      "bytes": 11376384,
+      "mtime_formatted_by_date": "2026-10-16 06:16:23 +0700",
+      "contains_with_clock_name": false,
+      "embeds_candidate_tree": false,
+      "embeds_relay_baseline_tree": false,
+      "fingerprint_path": "/private/tmp/lampos-tests-capacity/lampOS/target/debug/.fingerprint/lamp-audio-5afb4bd78ca07c81/lib-lamp_audio.json",
+      "fingerprint": {
+        "rustc": 142501075487969817,
+        "features": "[]",
+        "declared_features": "[]",
+        "target": 1121393565925585300,
+        "profile": 8267137484848052233,
+        "path": 11686190572780418555,
+        "deps": [
+          [
+            3615686350114134937,
+            "sonora",
+            false,
+            12149801404469514729
+          ],
+          [
+            3646101781514403606,
+            "rustix",
+            false,
+            15890394215152324398
+          ],
+          [
+            5330460842384404171,
+            "serde_json",
+            false,
+            9912823755522219384
+          ],
+          [
+            5574233983441653039,
+            "lamp_ipc",
+            false,
+            632761766526660962
+          ],
+          [
+            6557439603276904804,
+            "serde",
+            false,
+            7302047980088143827
+          ],
+          [
+            9857275760291862238,
+            "sha2",
+            false,
+            12674955449368957087
+          ],
+          [
+            14515309963789851236,
+            "lamp_turn_owner",
+            false,
+            13513782711189703487
+          ],
+          [
+            16696992991567834322,
+            "hound",
+            false,
+            10191766789316841566
+          ]
+        ],
+        "local": [
+          {
+            "CheckDepInfo": {
+              "dep_info": "debug/.fingerprint/lamp-audio-5afb4bd78ca07c81/dep-lib-lamp_audio",
+              "checksum": false
+            }
+          }
+        ],
+        "rustflags": [],
+        "config": 8247474407144887393,
+        "compile_kind": 0
+      }
+    },
+    {
+      "path": "/private/tmp/lampos-tests-capacity/lampOS/target/debug/deps/liblamp_audio-63b413ba45a54c7e.rlib",
+      "sha256": "98fc99349bd1387df77d1a0bd310db90ba26cfbed3ddb5df0aeb45b39e65db2c",
+      "bytes": 11264032,
+      "mtime_formatted_by_date": "2026-10-16 07:34:15 +0700",
+      "contains_with_clock_name": false,
+      "embeds_candidate_tree": false,
+      "embeds_relay_baseline_tree": true,
+      "fingerprint_path": "/private/tmp/lampos-tests-capacity/lampOS/target/debug/.fingerprint/lamp-audio-63b413ba45a54c7e/lib-lamp_audio.json",
+      "fingerprint": {
+        "rustc": 142501075487969817,
+        "features": "[]",
+        "declared_features": "[]",
+        "target": 1121393565925585300,
+        "profile": 8267137484848052233,
+        "path": 11686190572780418555,
+        "deps": [
+          [
+            3615686350114134937,
+            "sonora",
+            false,
+            7340336332332073420
+          ],
+          [
+            3646101781514403606,
+            "rustix",
+            false,
+            14428823313418353217
+          ],
+          [
+            5330460842384404171,
+            "serde_json",
+            false,
+            10586129434936088374
+          ],
+          [
+            5574233983441653039,
+            "lamp_ipc",
+            false,
+            14350545554863287438
+          ],
+          [
+            6557439603276904804,
+            "serde",
+            false,
+            3101879719233231456
+          ],
+          [
+            9857275760291862238,
+            "sha2",
+            false,
+            10941534119136774795
+          ],
+          [
+            14515309963789851236,
+            "lamp_turn_owner",
+            false,
+            7061270273666894330
+          ],
+          [
+            16696992991567834322,
+            "hound",
+            false,
+            10191766789316841566
+          ]
+        ],
+        "local": [
+          {
+            "CheckDepInfo": {
+              "dep_info": "debug/.fingerprint/lamp-audio-63b413ba45a54c7e/dep-lib-lamp_audio",
+              "checksum": false
+            }
+          }
+        ],
+        "rustflags": [],
+        "config": 8247474407144887393,
+        "compile_kind": 0
+      }
+    },
+    {
+      "path": "/private/tmp/lampos-tests-capacity/lampOS/target/debug/deps/liblamp_audio-a3f78a38a0c218c1.rlib",
+      "sha256": "258949d50dc13650774f9b0cfa182dd12e42482418857d335d1734d7d6a7a023",
+      "bytes": 11259440,
+      "mtime_formatted_by_date": "2026-10-16 06:20:01 +0700",
+      "contains_with_clock_name": false,
+      "embeds_candidate_tree": false,
+      "embeds_relay_baseline_tree": false,
+      "fingerprint_path": "/private/tmp/lampos-tests-capacity/lampOS/target/debug/.fingerprint/lamp-audio-a3f78a38a0c218c1/lib-lamp_audio.json",
+      "fingerprint": {
+        "rustc": 142501075487969817,
+        "features": "[]",
+        "declared_features": "[]",
+        "target": 1121393565925585300,
+        "profile": 8267137484848052233,
+        "path": 11686190572780418555,
+        "deps": [
+          [
+            3615686350114134937,
+            "sonora",
+            false,
+            6687964472357150087
+          ],
+          [
+            3646101781514403606,
+            "rustix",
+            false,
+            15184164068891567136
+          ],
+          [
+            5330460842384404171,
+            "serde_json",
+            false,
+            12114098242535488692
+          ],
+          [
+            5574233983441653039,
+            "lamp_ipc",
+            false,
+            16703348364206234499
+          ],
+          [
+            6557439603276904804,
+            "serde",
+            false,
+            3001545655888313799
+          ],
+          [
+            9857275760291862238,
+            "sha2",
+            false,
+            12674955449368957087
+          ],
+          [
+            14515309963789851236,
+            "lamp_turn_owner",
+            false,
+            17870699201245593480
+          ],
+          [
+            16696992991567834322,
+            "hound",
+            false,
+            10191766789316841566
+          ]
+        ],
+        "local": [
+          {
+            "CheckDepInfo": {
+              "dep_info": "debug/.fingerprint/lamp-audio-a3f78a38a0c218c1/dep-lib-lamp_audio",
+              "checksum": false
+            }
+          }
+        ],
+        "rustflags": [],
+        "config": 8247474407144887393,
+        "compile_kind": 0
+      }
+    }
+  ]
+}

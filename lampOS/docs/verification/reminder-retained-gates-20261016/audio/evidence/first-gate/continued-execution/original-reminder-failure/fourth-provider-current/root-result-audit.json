@@ -1,0 +1,57 @@
+{
+  "date": "2026-10-16 08:07:11 +0700",
+  "base": "e5aa43747ec1540893b4da4509d14288e7e70806",
+  "compiled_and_executed_binary_paths": 83,
+  "compiled_and_executed_identities": 2421,
+  "all_identities_exact_once": true,
+  "all_ignore_flags_exact": true,
+  "counts": {
+    "ok": 2407,
+    "ignored": 13,
+    "FAILED": 1
+  },
+  "summary_totals_passed_failed_ignored_measured_filtered": [
+    2407,
+    1,
+    13,
+    0,
+    0
+  ],
+  "failed_identities": [
+    [
+      "lamp-voice",
+      "coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion"
+    ]
+  ],
+  "interleaved_results": [
+    {
+      "identity": [
+        "lamp-memory::bin/lamp-memory",
+        "factory_tests::the_selected_factory_gets_the_original_root_and_source_once_after_socket_bind"
+      ],
+      "line": 91,
+      "result_line": 93
+    },
+    {
+      "identity": [
+        "lamp-voice-eval",
+        "physical::fake_lamp::clock_tests::a_pure_clock_keeps_tick_boundaries_and_frozen_polls_distinct"
+      ],
+      "line": 2323,
+      "result_line": 2324
+    },
+    {
+      "identity": [
+        "lamp-voice-eval",
+        "physical::fake_lamp::clock_tests::completed_polls_prove_room_consumption_and_keep_cue_fault_timing"
+      ],
+      "line": 2325,
+      "result_line": 2326
+    }
+  ],
+  "all_frozen_source_hashes_exact": true,
+  "frozen_source_files": 873,
+  "test_log_sha256": "1681b36727c7b1fb8b5663190417118eccbd3f18c14f285e44ebc0c9c50f4487",
+  "list_log_sha256": "48d615cb99e9aa5c9940ea1fa5ebf2361afb4930044285532672bd544c24c375",
+  "reexecuted_tests": false
+}

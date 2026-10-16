@@ -1,0 +1,185 @@
+{
+  "date_from_date": "2026-10-16 07:25:16 +0700",
+  "base": "e5aa43747ec1540893b4da4509d14288e7e70806",
+  "branch": "tests/823-capture-clock",
+  "scope": [
+    "lampOS/crates/audio/src/capture.rs",
+    "lampOS/crates/audio/src/capture/clock_tests.rs",
+    "lampOS/docs/voice-test-fixtures.md"
+  ],
+  "source_count_before": 7226,
+  "changed_existing_paths": [
+    "lampOS/crates/audio/src/capture.rs",
+    "lampOS/docs/voice-test-fixtures.md"
+  ],
+  "new_paths": [
+    "lampOS/crates/audio/src/capture/clock_tests.rs"
+  ],
+  "unowned_files_byte_exact": 7224,
+  "all_unowned_exact": true,
+  "existing_capture_test_module_byte_exact": true,
+  "existing_capture_test_module_sha256": "3cddee71da883db541e4736a88d8b7f10ca11701f2cbffcc00fbc714bfe82322",
+  "existing_capture_test_count": 13,
+  "existing_capture_test_names": [
+    "partial_reads_preserve_sample_order_and_have_fixed_capacity",
+    "partial_deadline_is_not_extended_by_more_samples",
+    "negotiation_rejects_large_or_incompatible_audio_buffers",
+    "status_and_timestamp_failures_are_not_fabricated_audio",
+    "blocks_are_assembled_across_short_reads_in_order_from_sequence_one",
+    "an_xrun_closes_the_device_destroys_the_partial_block_and_restarts_as_a_new_epoch",
+    "after_a_stall_a_muted_authority_keeps_the_microphone_closed",
+    "a_device_that_vanishes_or_stops_running_is_a_discontinuity_never_silence",
+    "a_read_that_blocks_past_its_budget_is_a_discontinuity_not_late_audio",
+    "a_block_left_incomplete_for_a_buffer_length_is_dropped_not_finished_late",
+    "open_and_configuration_failures_leave_nothing_open",
+    "privacy_lineage_change_discards_an_incomplete_block",
+    "a_failed_discard_is_reported_and_the_handle_is_still_gone"
+  ],
+  "existing_capture_assertion_macros": 86,
+  "original_limits_exact": [
+    "const MAX_READ_US: u64 = 10_000;",
+    "const MIN_BUFFER_FRAMES: i64 = (CAPTURE_SAMPLES * 2) as i64;",
+    "const MAX_BUFFER_FRAMES: i64 = (CAPTURE_SAMPLES * 4) as i64;"
+  ],
+  "unchanged_host_helper": "fn now() -> MonoTime {\n    MonoTime::from_micros(monotonic_us())\n}",
+  "unchanged_linux_alias": "pub type Microphone = MicrophoneOn<crate::alsa_device::AlsaCapture>;",
+  "clock_sample_sites": [
+    {
+      "boundary": "construction",
+      "before": "let now = now();",
+      "after": "let now = clock();"
+    },
+    {
+      "boundary": "authority advance",
+      "before": "let now = now();",
+      "after": "let now = (self.clock)();"
+    },
+    {
+      "boundary": "open start",
+      "before": "let open_started_at_us = monotonic_us();",
+      "after": "let open_started_at_us = (self.clock)().as_micros();"
+    },
+    {
+      "boundary": "prepare completion",
+      "before": "prepared_at_us: monotonic_us(),",
+      "after": "prepared_at_us: (self.clock)().as_micros(),"
+    },
+    {
+      "boundary": "start call",
+      "before": "let capture_started_at_us = monotonic_us();",
+      "after": "let capture_started_at_us = (self.clock)().as_micros();"
+    },
+    {
+      "boundary": "start completion",
+      "before": "start_completed_at_us: monotonic_us(),",
+      "after": "start_completed_at_us: (self.clock)().as_micros(),"
+    },
+    {
+      "boundary": "read start",
+      "before": "let read_started_at_us = monotonic_us();",
+      "after": "let read_started_at_us = (self.clock)().as_micros();"
+    },
+    {
+      "boundary": "read completion",
+      "before": "let read_completed_at_us = monotonic_us();",
+      "after": "let read_completed_at_us = (self.clock)().as_micros();"
+    },
+    {
+      "boundary": "status completion",
+      "before": "let status_observed_at_us = monotonic_us();",
+      "after": "let status_observed_at_us = (self.clock)().as_micros();"
+    }
+  ],
+  "sample_site_count": 9,
+  "new_source_test_count": 9,
+  "new_cases": [
+    {
+      "binary": "lamp-audio",
+      "test": "capture::clock_tests::ordinary_constructor_and_explicit_host_clock_preserve_host_times_and_lifecycle",
+      "path": "lampOS/crates/audio/src/capture/clock_tests.rs",
+      "line": 188,
+      "ignored": false,
+      "identity_evidence": "source only; compiled listing pending"
+    },
+    {
+      "binary": "lamp-audio",
+      "test": "capture::clock_tests::explicit_clock_is_instance_local_and_does_not_relabel_the_driver_clock",
+      "path": "lampOS/crates/audio/src/capture/clock_tests.rs",
+      "line": 250,
+      "ignored": false,
+      "identity_evidence": "source only; compiled listing pending"
+    },
+    {
+      "binary": "lamp-audio",
+      "test": "capture::clock_tests::invalid_device_name_is_rejected_before_clock_or_device_access",
+      "path": "lampOS/crates/audio/src/capture/clock_tests.rs",
+      "line": 281,
+      "ignored": false,
+      "identity_evidence": "source only; compiled listing pending"
+    },
+    {
+      "binary": "lamp-audio",
+      "test": "capture::clock_tests::read_budget_accepts_exactly_ten_ms_and_refuses_one_more_without_late_audio",
+      "path": "lampOS/crates/audio/src/capture/clock_tests.rs",
+      "line": 295,
+      "ignored": false,
+      "identity_evidence": "source only; compiled listing pending"
+    },
+    {
+      "binary": "lamp-audio",
+      "test": "capture::clock_tests::authority_expiring_during_read_wins_over_budget_and_never_reaches_status",
+      "path": "lampOS/crates/audio/src/capture/clock_tests.rs",
+      "line": 323,
+      "ignored": false,
+      "identity_evidence": "source only; compiled listing pending"
+    },
+    {
+      "binary": "lamp-audio",
+      "test": "capture::clock_tests::authority_expiry_after_prepare_start_or_status_cannot_publish_completion",
+      "path": "lampOS/crates/audio/src/capture/clock_tests.rs",
+      "line": 345,
+      "ignored": false,
+      "identity_evidence": "source only; compiled listing pending"
+    },
+    {
+      "binary": "lamp-audio",
+      "test": "capture::clock_tests::partial_deadline_keeps_its_first_read_across_would_block",
+      "path": "lampOS/crates/audio/src/capture/clock_tests.rs",
+      "line": 381,
+      "ignored": false,
+      "identity_evidence": "source only; compiled listing pending"
+    },
+    {
+      "binary": "lamp-audio",
+      "test": "capture::clock_tests::clock_regression_latches_closed_even_after_the_clock_moves_forward",
+      "path": "lampOS/crates/audio/src/capture/clock_tests.rs",
+      "line": 420,
+      "ignored": false,
+      "identity_evidence": "source only; compiled listing pending"
+    },
+    {
+      "binary": "lamp-audio",
+      "test": "capture::clock_tests::device_error_precedes_read_budget_but_never_precedes_expired_authority",
+      "path": "lampOS/crates/audio/src/capture/clock_tests.rs",
+      "line": 442,
+      "ignored": false,
+      "identity_evidence": "source only; compiled listing pending"
+    }
+  ],
+  "full_inverse_files": [
+    {
+      "path": "lampOS/crates/audio/src/capture.rs",
+      "hunks": 19,
+      "restored_sha256": "2290f33855191de88041c7ec64b10b8d933effa7aa64d2940ebfc42ecc5a67f0"
+    },
+    {
+      "path": "lampOS/docs/voice-test-fixtures.md",
+      "hunks": 2,
+      "restored_sha256": "04bf0a07ddbd0e9de139988b65c51aa23a11bb1b542176a8185a473d923a19d4"
+    }
+  ],
+  "default_constructor": "Only delegates to with_clock(..., now); passes the unchanged host function, adding no clock sample. Default C is fn() -> MonoTime.",
+  "production_call_sites": "Every unowned tracked file is byte-exact, including audio_workers, capture_hold_worker and all original tests.",
+  "gates": "No Cargo, build, executable tests, network, commits/pushes or devices. Pinned rustfmt parse/format check and git diff --check passed.",
+  "native_limit": "Linux Microphone/ALSA and audio_workers/capture_hold_worker excluded on macOS; actual native full/realtime evidence still needed."
+}

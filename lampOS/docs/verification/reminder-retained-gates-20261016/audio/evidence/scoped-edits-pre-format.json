@@ -1,0 +1,98 @@
+[
+  {
+    "old": "//! process supervision must enforce a stall timeout. Host read times and ALSA's\n//! optional status clock are recorded separately. Neither is a measured acoustic\n",
+    "new": "//! process supervision must enforce a stall timeout. Boundary-clock read times\n//! (host time by default) and ALSA's optional status clock are recorded separately.\n//! Neither is a measured acoustic\n",
+    "count": 1
+  },
+  {
+    "old": "    /// Host time immediately before snd_pcm_start, not ADC acquisition.",
+    "new": "    /// Boundary-clock time before snd_pcm_start, not ADC acquisition.",
+    "count": 1
+  },
+  {
+    "old": "    /// First successful host read that contributed to this frame.",
+    "new": "    /// First successful boundary-clock read that contributed to this frame.",
+    "count": 1
+  },
+  {
+    "old": "    /// Host time when the post-read status observation completed.",
+    "new": "    /// Boundary-clock time when the post-read status observation completed.",
+    "count": 1
+  },
+  {
+    "old": "pub struct MicrophoneOn<D: CaptureDevice> {",
+    "new": "pub struct MicrophoneOn<D: CaptureDevice, C: Fn() -> MonoTime = fn() -> MonoTime> {",
+    "count": 1
+  },
+  {
+    "old": "    running: bool,\n}\n\nimpl<D: CaptureDevice> MicrophoneOn<D> {",
+    "new": "    running: bool,\n    clock: C,\n}\n\nimpl<D: CaptureDevice> MicrophoneOn<D> {",
+    "count": 1
+  },
+  {
+    "old": "    pub fn new(device: &str, boot: BootId, config: CaptureConfig) -> Result<Self> {\n        if device.is_empty()",
+    "new": "    pub fn new(device: &str, boot: BootId, config: CaptureConfig) -> Result<Self> {\n        Self::with_clock(device, boot, config, now)\n    }\n}\n\nimpl<D: CaptureDevice, C: Fn() -> MonoTime> MicrophoneOn<D, C> {\n    /// Validate against an explicitly owned clock; construction still opens nothing.\n    ///\n    /// The clock must promptly return the current admitted monotonic time without\n    /// advancing it, waiting, doing I/O or pumping work. All installed authority\n    /// must use this same domain. The caller owns monotonic updates and lifetime;\n    /// a regressed clock faults this boundary and never falls back to host time.\n    /// Driver status timestamps remain separate and are not converted or replaced.\n    /// This supplies no worker pacing, host watchdog or task completion evidence.\n    pub fn with_clock(\n        device: &str,\n        boot: BootId,\n        config: CaptureConfig,\n        clock: C,\n    ) -> Result<Self> {\n        if device.is_empty()",
+    "count": 1
+  },
+  {
+    "old": "        let now = now();",
+    "new": "        let now = clock();",
+    "count": 2
+  },
+  {
+    "old": "    fn advance(&mut self) -> Result<MonoTime> {\n        let now = clock();",
+    "new": "    fn advance(&mut self) -> Result<MonoTime> {\n        let now = (self.clock)();",
+    "count": 1
+  },
+  {
+    "old": "            running: false,\n        })",
+    "new": "            running: false,\n            clock,\n        })",
+    "count": 1
+  },
+  {
+    "old": "let open_started_at_us = monotonic_us();",
+    "new": "let open_started_at_us = (self.clock)().as_micros();",
+    "count": 1
+  },
+  {
+    "old": "prepared_at_us: monotonic_us(),",
+    "new": "prepared_at_us: (self.clock)().as_micros(),",
+    "count": 1
+  },
+  {
+    "old": "let capture_started_at_us = monotonic_us();",
+    "new": "let capture_started_at_us = (self.clock)().as_micros();",
+    "count": 1
+  },
+  {
+    "old": "start_completed_at_us: monotonic_us(),",
+    "new": "start_completed_at_us: (self.clock)().as_micros(),",
+    "count": 1
+  },
+  {
+    "old": "let read_started_at_us = monotonic_us();",
+    "new": "let read_started_at_us = (self.clock)().as_micros();",
+    "count": 1
+  },
+  {
+    "old": "let read_completed_at_us = monotonic_us();",
+    "new": "let read_completed_at_us = (self.clock)().as_micros();",
+    "count": 1
+  },
+  {
+    "old": "let status_observed_at_us = monotonic_us();",
+    "new": "let status_observed_at_us = (self.clock)().as_micros();",
+    "count": 1
+  },
+  {
+    "old": "impl<D: CaptureDevice> Drop for MicrophoneOn<D> {",
+    "new": "impl<D: CaptureDevice, C: Fn() -> MonoTime> Drop for MicrophoneOn<D, C> {",
+    "count": 1
+  },
+  {
+    "old": "",
+    "new": "\n#[cfg(test)]\nmod clock_tests;\n",
+    "count": 1,
+    "position": "eof"
+  }
+]

@@ -1,0 +1,64 @@
+{
+  "from_date": "2026-10-16 07:19:06 +0700",
+  "base": "8cafa989338fb30c3f38da0cdfd0e307f3752974",
+  "full_gate_passed": false,
+  "totals": {
+    "passed": 2252,
+    "failed": 1,
+    "ignored": 13,
+    "filtered_out": 0
+  },
+  "per_package": {
+    "lamp-memory": {
+      "passed": 205,
+      "failed": 0,
+      "ignored": 5,
+      "filtered_out": 0,
+      "compiled_identities": 210,
+      "binary_summaries": 17
+    },
+    "lamp-surround": {
+      "passed": 260,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0,
+      "compiled_identities": 260,
+      "binary_summaries": 19
+    },
+    "lamp-voice": {
+      "passed": 1410,
+      "failed": 1,
+      "ignored": 8,
+      "filtered_out": 0,
+      "compiled_identities": 1419,
+      "binary_summaries": 23
+    },
+    "lamp-voice-eval": {
+      "passed": 377,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0,
+      "compiled_identities": 377,
+      "binary_summaries": 24
+    }
+  },
+  "failed_identity": {
+    "binary_id": "lamp-voice",
+    "test": "coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion",
+    "line": 1150,
+    "ignored": false,
+    "status": "FAILED",
+    "result_line": 1150
+  },
+  "actual_resolution_unprinted": true,
+  "root_cause_proved": false,
+  "accepted_known_local_exception": false,
+  "ready": false,
+  "native_qualification": false,
+  "original123_target_proved": false,
+  "all_2266_identities_accounted_once": true,
+  "same_13_existing_ignored_flags": true,
+  "separate_post_failure_build_exit": 0,
+  "failed_tests_repeated": false,
+  "frozen_source_unchanged": true
+}

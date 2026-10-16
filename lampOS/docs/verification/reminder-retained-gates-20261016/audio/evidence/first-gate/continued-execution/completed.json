@@ -1,0 +1,93 @@
+{
+  "date_from_date": "2026-10-16 08:07:41 +0700",
+  "status": "complete-with-preserved-failures",
+  "stages": [
+    {
+      "name": "focused",
+      "command": [
+        "/Users/autonomous/.cargo/bin/cargo",
+        "nextest",
+        "run",
+        "--locked",
+        "--offline",
+        "-p",
+        "lamp-audio",
+        "-p",
+        "lamp-memory",
+        "-p",
+        "lamp-voice",
+        "-p",
+        "lamp-voice-eval",
+        "--profile",
+        "default",
+        "--test-threads",
+        "1",
+        "--no-fail-fast",
+        "--retries",
+        "0",
+        "-E",
+        "binary_id(lamp-audio) & test(/^capture::clock_tests::/)"
+      ],
+      "cwd": "/private/tmp/lampos-tests-capture-clock/lampOS",
+      "target": "/private/tmp/lampos-tests-capacity/lampOS/target",
+      "started_from_date": "2026-10-16 07:44:39 +0700",
+      "finished_from_date": "2026-10-16 07:44:41 +0700",
+      "exit_code": 0,
+      "log_sha256": "b12fa860799abad8c5cb261617c08fa5b7f1a15efe83ff1a85d93c66dd9e7015"
+    },
+    {
+      "name": "full-affected",
+      "command": [
+        "/Users/autonomous/.cargo/bin/cargo",
+        "nextest",
+        "run",
+        "--locked",
+        "--offline",
+        "-p",
+        "lamp-audio",
+        "-p",
+        "lamp-memory",
+        "-p",
+        "lamp-voice",
+        "-p",
+        "lamp-voice-eval",
+        "--profile",
+        "default",
+        "--test-threads",
+        "1",
+        "--no-fail-fast",
+        "--retries",
+        "0"
+      ],
+      "cwd": "/private/tmp/lampos-tests-capture-clock/lampOS",
+      "target": "/private/tmp/lampos-tests-capacity/lampOS/target",
+      "started_from_date": "2026-10-16 07:44:41 +0700",
+      "finished_from_date": "2026-10-16 08:06:07 +0700",
+      "exit_code": 100,
+      "log_sha256": "01993c8e0c818da9f0636a80d65d81bb9e43a4f8af4cb3069ecfa333bd2d7450"
+    },
+    {
+      "name": "workspace-build",
+      "command": [
+        "/Users/autonomous/.cargo/bin/cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "--workspace"
+      ],
+      "cwd": "/private/tmp/lampos-tests-capture-clock/lampOS",
+      "target": "/private/tmp/lampos-tests-capacity/lampOS/target",
+      "started_from_date": "2026-10-16 08:06:07 +0700",
+      "finished_from_date": "2026-10-16 08:07:39 +0700",
+      "exit_code": 0,
+      "log_sha256": "4b25cccb87eb05adb632dfbcf43911eb6d53e31313e1c86101767f87f7cfdeba"
+    }
+  ],
+  "source_file_count": 7227,
+  "source_unchanged": true,
+  "source_differences": [],
+  "audio_baseline_inputs_unchanged": true,
+  "audio_baseline_input_differences": [],
+  "no_retries": true,
+  "native_validation": "Pending; Unix cases ran on macOS, Linux capture_hold_worker/audio_workers/ALSA did not."
+}

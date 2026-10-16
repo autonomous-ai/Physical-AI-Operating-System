@@ -1,0 +1,8 @@
+{
+  "date_from_date": "2026-10-16 08:11:00 +0700",
+  "target": "/private/tmp/lampos-tests-capacity/lampOS/target",
+  "exec_session_id": 52182,
+  "initial_zero_execution_session_id": 62352,
+  "diagnostic_list_session_id": 3306,
+  "status": "Gate subprocess and all stage commands have returned; final terminal exec result verified by agent before this record. Target released to root; no further Cargo commands or artifact inspection planned."
+}

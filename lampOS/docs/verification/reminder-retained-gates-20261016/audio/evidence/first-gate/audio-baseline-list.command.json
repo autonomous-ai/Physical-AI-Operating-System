@@ -1,0 +1,17 @@
+{
+  "name": "audio-baseline-list",
+  "command": [
+    "/Users/autonomous/.cargo/bin/cargo",
+    "nextest",
+    "list",
+    "--locked",
+    "--offline",
+    "-p",
+    "lamp-audio",
+    "--message-format",
+    "json"
+  ],
+  "cwd": "/private/tmp/lampos-tests-serve-relay-current/lampOS",
+  "target": "/private/tmp/lampos-tests-capacity/lampOS/target",
+  "started_from_date": "2026-10-16 07:34:00 +0700"
+}

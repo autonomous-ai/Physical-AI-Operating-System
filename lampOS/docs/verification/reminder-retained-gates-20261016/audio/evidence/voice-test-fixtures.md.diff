@@ -1,0 +1,65 @@
+--- before/lampOS/docs/voice-test-fixtures.md
++++ after/lampOS/docs/voice-test-fixtures.md
+@@ -1,10 +1,10 @@
+ # Voice fixtures on a loaded development host
+ 
+ Task [#739](https://github.com/autonomous-ai/lampOS/issues/739) concerns host
+-tests, not a change to the lamp's timing policy. `scenario_clock` and the
+-fixture helpers are compiled only under `cfg(test)`. There is no runtime
+-flag, environment setting or wider production deadline. Ordinary builds
+-continue to use the existing monotonic clock.
++tests, not a change to the lamp's timing policy. The coordinator's
++`scenario_clock` and its fixture peers are compiled only under `cfg(test)`.
++There is no runtime flag, environment setting or wider production deadline.
++Ordinary builds continue to use the existing monotonic clock.
+ 
+ ## Stepped scenarios
+ 
+@@ -311,3 +311,47 @@
+ the two original cases without nextest `LEAK`, the crate/dependent gates and
+ a green exact-head native ARM64 run. No lamp or production-worker behavior
+ is measured by these fixtures.
++
++## Explicit microphone-boundary clock
++
++`lamp_audio::capture::MicrophoneOn::with_clock` takes an owned
++`Fn() -> MonoTime` source for the microphone boundary. The existing `new`
++constructor and the Linux `Microphone` alias retain the host monotonic
++clock. No production call site selects a fixture clock. This is an explicit
++library constructor, available to integration fixtures; it is not a runtime
++flag, a global override, or a worker clock controller.
++
++The getter must promptly read the current admitted time without advancing
++it, waiting, doing I/O or pumping work. Authority snapshots and boundary
++read timestamps must use that same domain. The caller owns the clock's
++lifetime and updates. Separate microphone instances can own independent
++sources. Ordinary construction still validates before sampling and opens
++nothing; installing permitted authority still opens nothing.
++
++Every original clock sample remains at its original operation boundary.
++The same source supplies construction and authority checks, open/prepare,
++start, read and status-observation timestamps. Device status timestamps
++remain separate, unchanged, and optional. Clock regression retains the
++original permanent boundary fault; it never switches to host time. The
++250 ms authority lease, strict read budget (more than 10 ms), partial-buffer
++expiry, privacy checks, error precedence, device calls and cleanup are
++unchanged. A controlled timestamp is not measured microphone acquisition
++or host latency, and a clock getter establishes no completed I/O or exit.
++
++New source tests cover ordinary/explicit-host parity, independent fixed
++clocks and driver timestamps, validation before clock access, the exact
++10 ms read boundary, authority expiry after actual scripted device calls,
++partial expiry across would-block, permanent clock regression, and device
++error/expiry/read-budget precedence. They use the same capture boundary
++and existing scripted device; only explicit fixture updates move time.
++The original tests and their assertions remain unchanged. This preparation
++adds no scenario migration or speedup claim.
++
++The capture worker loop, its pacing, the Linux capture-hold Rig, warm-up,
++transports and Provider fixtures remain on their existing paths. Clock
++admission, completed worker polls and owned thread exit are separate work.
++Scripted boundary tests can run on Unix development hosts, but macOS
++excludes the ALSA alias and Linux worker integration. Native Linux checks
++must compile those callers and exercise the existing capture-hold binary;
++its realtime-profile exclusion means an ordinary PR-profile pass alone
++does not provide that evidence.

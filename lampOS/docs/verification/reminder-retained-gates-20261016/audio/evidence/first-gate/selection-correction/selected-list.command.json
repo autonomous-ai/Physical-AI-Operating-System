@@ -1,0 +1,27 @@
+{
+  "command": [
+    "/Users/autonomous/.cargo/bin/cargo",
+    "nextest",
+    "list",
+    "--locked",
+    "--offline",
+    "-p",
+    "lamp-audio",
+    "-p",
+    "lamp-memory",
+    "-p",
+    "lamp-voice",
+    "-p",
+    "lamp-voice-eval",
+    "--profile",
+    "default",
+    "-E",
+    "binary_id(lamp-audio) & test(/^capture::clock_tests::/)",
+    "--message-format",
+    "json"
+  ],
+  "cwd": "/private/tmp/lampos-tests-capture-clock/lampOS",
+  "target": "/private/tmp/lampos-tests-capacity/lampOS/target",
+  "started_from_date": "2026-10-16 07:42:46 +0700",
+  "root_authorization": "Read-only/same-source nextest list with the exact four-package selection and intended filter, before any test execution."
+}

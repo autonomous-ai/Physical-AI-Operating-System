@@ -1,0 +1,84 @@
+{
+  "date_from_date": "2026-10-16 07:25:16 +0700",
+  "decision": "Reuse the standard Fn() -> MonoTime convention already used by Ring and fixture players. No new named clock trait or dependency. Default clock is the existing now function pointer.",
+  "candidates": [
+    {
+      "path": "lampOS/crates/gemini/src/testing.rs:32",
+      "reason": "Pure reads, but returns Instant and requires cfg(test)/fixture-clock plus an unrelated Gemini dependency; not the capture boundary MonoTime contract."
+    },
+    {
+      "path": "lampOS/crates/body/src/control.rs:41",
+      "reason": "Returns MonoTime, but importing this domain-specific trait would add a Body dependency to Audio; the compatible standard Fn contract already exists locally in adjacent fixtures."
+    },
+    {
+      "path": "lampOS/crates/camera/src/types.rs:292",
+      "reason": "Fallible mutable sample with camera-specific error; not the current infallible capture sampling signature."
+    },
+    {
+      "path": "lampOS/crates/controls/src/touch_calibrate.rs:95",
+      "reason": "Includes sleep and mutable reads; broader than a pure getter."
+    },
+    {
+      "path": "lampOS/crates/schedule/src/runtime.rs:38",
+      "reason": "Fallible multi-domain ClockSample; broader than this capture boundary."
+    },
+    {
+      "path": "lampOS/crates/mood/src/runtime.rs:66",
+      "reason": "Clock identity, wall-time fields and fallible sample; not the capture sampling signature."
+    }
+  ],
+  "reused_conventions": [
+    "lampOS/crates/ring/src/lib.rs:267-279",
+    "lampOS/crates/voice-eval/src/physical/fixture_players.rs:52-93"
+  ],
+  "source_inputs": [
+    {
+      "path": "lampOS/crates/audio/src/lib.rs",
+      "sha256": "da6455e5bab9ecb7efb853263e38dd1ed5ea027f9abd3d9890bf93302a15f34a"
+    },
+    {
+      "path": "lampOS/crates/audio/src/device.rs",
+      "sha256": "b5a508cf74a313ac5ae21ffdd7ed9291062761dca56041a096f755cb2eca2c4f"
+    },
+    {
+      "path": "lampOS/crates/camera/src/types.rs",
+      "sha256": "6c2c9c30384066049a114cdd8c28c1baabc8161e5560b947429d4fc396c7e8f0"
+    },
+    {
+      "path": "lampOS/crates/body/src/control.rs",
+      "sha256": "d5502205df3e703a831d013524c2babf6b5398f359130fee2a70c1d4d9efcd17"
+    },
+    {
+      "path": "lampOS/crates/controls/src/touch_calibrate.rs",
+      "sha256": "4822dc9a79aef417a03cddf8cea8b992815290ad98166cf35952d049c542f58d"
+    },
+    {
+      "path": "lampOS/crates/gemini/src/testing.rs",
+      "sha256": "ac34ac1c456b9e87557bec5aa9c6c4f1a5bc86fcbd09d9518bc13c98859081d3"
+    },
+    {
+      "path": "lampOS/crates/gemini/src/session.rs",
+      "sha256": "27f0d1b329d5407e2b85941a60fd747d12eed3fc7aa07accbf0ceda373ae6073"
+    },
+    {
+      "path": "lampOS/crates/gemini/Cargo.toml",
+      "sha256": "5b94eadddf2bdc8677d8e584a6cc3ffbdf38f79eba775a9dd141268b1c9a0816"
+    },
+    {
+      "path": "lampOS/crates/schedule/src/runtime.rs",
+      "sha256": "cbebc92e10268cfa7e99fc10d58520f0c3287f2ae44952864df1e4cf522f854b"
+    },
+    {
+      "path": "lampOS/crates/mood/src/runtime.rs",
+      "sha256": "bde8e1abef0446cb4149d6bc718cb04f76493e39810f477429fe2cc85a6ee3bb"
+    },
+    {
+      "path": "lampOS/crates/ring/src/lib.rs",
+      "sha256": "fa48395643b7ad79030b39056973eea6d5eb36ac22afeb875fa326f4d5d0d08f"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_players.rs",
+      "sha256": "2378acf5a32c53b013cc90b96d827bdb82307dbb054d7c94e30ede8752dc5dab"
+    }
+  ]
+}

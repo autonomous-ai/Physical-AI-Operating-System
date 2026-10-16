@@ -1,0 +1,10 @@
+{
+  "date_from_date": "2026-10-16 08:10:58 +0700",
+  "root_audit_sha256": "3bcf3f1f6ebddaae921cedc82c500b45cc341165ed15d04e1bfdecc7c3258069",
+  "completed_sha256": "0025d54e0a97850de10defa3d89e5ad2d601d9c8930bc6003c0aba9735b53fde",
+  "gates_sha256": "da72c921eb2af170d483254b4cb1ec27f4cc75cdb4c4a6d83b12fac2e804a0e2",
+  "source_sha256": "f2259a3446933ba7193c95829e6ab092881b828be9d458c79cf6e3b1463bb684",
+  "source_byte_exact_to_audio_clean_e5aa_and_historical_silent_service": true,
+  "cause": "Unproved; exact recurrence is not an accepted exception.",
+  "relation": "Separate Provider preparation full gate, not a retry of Audio."
+}

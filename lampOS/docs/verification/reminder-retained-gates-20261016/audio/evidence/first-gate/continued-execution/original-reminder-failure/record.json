@@ -1,0 +1,10 @@
+{
+  "date_from_date": "2026-10-16 07:57:41 +0700",
+  "binary": "lamp-voice",
+  "test": "coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion",
+  "raw_full_log_prefix_bytes_when_read": 118200,
+  "raw_full_log_prefix_sha256": "64b8e17e95b6cd0ebddfeacd6ff8a59ba65b7b91f81f492b5e1b62b7bb3f80a1",
+  "raw_block_sha256": "0016fa5f631c5e5885c0e7e022d976e34130688f413962a2ca386560e77cbd97",
+  "suite_still_running": true,
+  "no_retry": true
+}

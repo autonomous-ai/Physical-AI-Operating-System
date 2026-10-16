@@ -1,0 +1,436 @@
+{
+  "date_from_date": "2026-10-16 07:32:15 +0700",
+  "base": "e5aa43747ec1540893b4da4509d14288e7e70806",
+  "audio_baseline_tree": "/private/tmp/lampos-tests-serve-relay-current",
+  "method": "Static parse of every workspace manifest including normal/dev/build, target-specific and optional local edges. Every local edge path resolves to its named workspace crate. Compare full local dependency directories and workspace Cargo manifests, lock, toolchain, config against original clean-base hashes; no Cargo metadata or baseline compile yet.",
+  "all_workspace_package_count": 38,
+  "audio_full_forward_dependency_closure": [
+    "lamp-audio",
+    "lamp-ipc",
+    "lamp-turn-owner"
+  ],
+  "audio_closure_edges": [
+    {
+      "dependent": "lamp-audio",
+      "dependency": "lamp-turn-owner",
+      "kind": "normal",
+      "target": null,
+      "optional": false
+    },
+    {
+      "dependent": "lamp-audio",
+      "dependency": "lamp-ipc",
+      "kind": "normal",
+      "target": "cfg(unix)",
+      "optional": false
+    }
+  ],
+  "audio_does_not_depend_on_evaluator": true,
+  "audio_closure_has_no_untracked_files": true,
+  "input_count": 90,
+  "inputs_exact_to_clean_base": [
+    {
+      "path": "lampOS/.cargo/config.toml",
+      "sha256": "48a3e9ff36c92393a61c94924a7268fd9e732dc55afe239842fe7fdd2fa7db71"
+    },
+    {
+      "path": "lampOS/.config/nextest.toml",
+      "sha256": "33254521c34198ae2d4f988c4b7d04391c03da769ad91769e691171ae3b87367"
+    },
+    {
+      "path": "lampOS/Cargo.lock",
+      "sha256": "40d62fead16a6f138c4d7dbe400a2e4a9855ceece96d19b1e642136431aed4c5"
+    },
+    {
+      "path": "lampOS/Cargo.toml",
+      "sha256": "dafaa1133d09ab0137847973359e8d1c01e7dc306aa54e299ec1a6f611e24c2b"
+    },
+    {
+      "path": "lampOS/crates/actions/Cargo.toml",
+      "sha256": "c0c1cb5be866440582c92ece0e0f70122567643ed70cc93a5ee0adfd88f5d5a7"
+    },
+    {
+      "path": "lampOS/crates/air/Cargo.toml",
+      "sha256": "795020feb9e842ceddc67b334d5088850d7af3f185875d97932e433a4bcf48e8"
+    },
+    {
+      "path": "lampOS/crates/audio/Cargo.toml",
+      "sha256": "c99244615a63e8f3ed68cdae1f9f39da4a53dc8de618c40e4120ef49795802c3"
+    },
+    {
+      "path": "lampOS/crates/audio/src/alsa_device.rs",
+      "sha256": "57fabf55fd1e7a96fb104a1acb8ed66580c9285a84c5c49401e548c8bcb5eed1"
+    },
+    {
+      "path": "lampOS/crates/audio/src/capture.rs",
+      "sha256": "2290f33855191de88041c7ec64b10b8d933effa7aa64d2940ebfc42ecc5a67f0"
+    },
+    {
+      "path": "lampOS/crates/audio/src/device.rs",
+      "sha256": "b5a508cf74a313ac5ae21ffdd7ed9291062761dca56041a096f755cb2eca2c4f"
+    },
+    {
+      "path": "lampOS/crates/audio/src/drift.rs",
+      "sha256": "69ff952b1e6a3c195c3d057c1a9bee968280d3b83e1e3d9e849d846965d5db24"
+    },
+    {
+      "path": "lampOS/crates/audio/src/duplex.rs",
+      "sha256": "2877e0ae9f874fee985fe6d542a6e2cdc628a0c4c8d3f27f249cf8ab7278a281"
+    },
+    {
+      "path": "lampOS/crates/audio/src/evidence.rs",
+      "sha256": "7cdefc27c506c5c3bf91ee58fb9203874781ae49d11e15223bdf2912b707a586"
+    },
+    {
+      "path": "lampOS/crates/audio/src/lib.rs",
+      "sha256": "da6455e5bab9ecb7efb853263e38dd1ed5ea027f9abd3d9890bf93302a15f34a"
+    },
+    {
+      "path": "lampOS/crates/audio/src/main.rs",
+      "sha256": "aabe78c95e25f5594cb63874e7babd414195c299fe4919d87b08bbfc862d6749"
+    },
+    {
+      "path": "lampOS/crates/audio/src/notice.rs",
+      "sha256": "c4b9463a7221b31abca268d802a4e382560417adf96b0e92bee4b4bb6074fcc5"
+    },
+    {
+      "path": "lampOS/crates/audio/src/ownership.rs",
+      "sha256": "ad357ffda223ca2dc16804b6c1b2dfc464bed2f4574472f6074a2d0f49a24850"
+    },
+    {
+      "path": "lampOS/crates/audio/src/pcm.rs",
+      "sha256": "f7a9ab4dd521667fc852cb925cefafcb2542410d18d9744845bfc9c8ecbd8b66"
+    },
+    {
+      "path": "lampOS/crates/audio/src/playout.rs",
+      "sha256": "8a6a14d2b598c56d75976e46a7b89e5c08f9d171389f5d3cd16629e640c6d67f"
+    },
+    {
+      "path": "lampOS/crates/audio/src/qualification.rs",
+      "sha256": "610756849e6a8251ed7792720006cc99b9e3d551ccc2354ce34c3a234124324e"
+    },
+    {
+      "path": "lampOS/crates/audio/src/replay.rs",
+      "sha256": "63cda2b35c00a8469e6600e2cf310080dcfecb766c1b88551742c93a43bf22ae"
+    },
+    {
+      "path": "lampOS/crates/audio/src/steady.rs",
+      "sha256": "16dc27c55bca2fd07fad78f2ebe43578aa0ca1927789354592ac2c48f073797f"
+    },
+    {
+      "path": "lampOS/crates/audio/src/testing.rs",
+      "sha256": "5a7afff40e10b9b34a51558ebb543ca43160a35116ed2a73ee41daf456fba369"
+    },
+    {
+      "path": "lampOS/crates/audio/tests/cancelled_tail.rs",
+      "sha256": "4335c3dc9b6d62f3d65381b541e9d54deb0df36feb12484a840fd415e5bb1b0c"
+    },
+    {
+      "path": "lampOS/crates/audio/tests/capture_linux.rs",
+      "sha256": "90f1788a330d7947dca5c56d291d9fca0080274fbab758cdda7d97e861242d6e"
+    },
+    {
+      "path": "lampOS/crates/audio/tests/dsp.rs",
+      "sha256": "55ee775a89c6b1c06303da8100ea5062d27f9aaba1f29a9bf2e8a04a1900dce5"
+    },
+    {
+      "path": "lampOS/crates/audio/tests/evidence.rs",
+      "sha256": "04232590d4aeb60af9fc3559347749935cb08b9497f1c6f8907d2d2e9c92b3d7"
+    },
+    {
+      "path": "lampOS/crates/audio/tests/fixtures.rs",
+      "sha256": "b0c0b569f8a71ca3b3459d8ac8480ccdae33c00e3740b03e19084db0da090db7"
+    },
+    {
+      "path": "lampOS/crates/audio/tests/notice.rs",
+      "sha256": "75c15cc0d70a3876af9a2411ad6eb68f40ee9f86615e7f8d25b71986f8021e9f"
+    },
+    {
+      "path": "lampOS/crates/audio/tests/pcm_linux.rs",
+      "sha256": "abaca1047af90bc3558db297e3660ac9b045ff6fd04d1068ecd9869a5f93fbf8"
+    },
+    {
+      "path": "lampOS/crates/audio/tests/playout_continuity/main.rs",
+      "sha256": "4f97bbea705e0c2cbd18819245b49545c96e0f6d6aa71c28d37d27a2feda0756"
+    },
+    {
+      "path": "lampOS/crates/audio/tests/playout_continuity/replies.tsv",
+      "sha256": "21b1d50d0e068b450c5ea278d12fd8bf70698bd75a4cd4a382a4263e4edeb3a3"
+    },
+    {
+      "path": "lampOS/crates/audio/tests/playout_current_arrivals.rs",
+      "sha256": "e5cc86320615f758bfd6e4c0bd08f549671dc5bc5546d0607dfaf370ebe5981d"
+    },
+    {
+      "path": "lampOS/crates/audio/tests/queued_ownership.rs",
+      "sha256": "7b98be36c69ef56e15fe3f36fbe4a81d37c4f421278c8bbda288590e5449f0bc"
+    },
+    {
+      "path": "lampOS/crates/audio/tests/replay.rs",
+      "sha256": "1f466e0223c23f59e730f32b665da1ac0f9cdaee726e2146c2912cba210d2b81"
+    },
+    {
+      "path": "lampOS/crates/audio/tests/steady_reference.rs",
+      "sha256": "eaa658487e57865c1122c092dc0af7a27ee9624efacd5a75b4bca9ec9ca5d8be"
+    },
+    {
+      "path": "lampOS/crates/body/Cargo.toml",
+      "sha256": "86209f23de1c2860b6ac442ad282b58c41d9d676918793d1fb6a1f73fd83a40f"
+    },
+    {
+      "path": "lampOS/crates/bus/Cargo.toml",
+      "sha256": "96afd70eaaaf81e64f8c104f0a4d536d4c6dfc32f6e80cc2cc21c49aa5814f34"
+    },
+    {
+      "path": "lampOS/crates/camera/Cargo.toml",
+      "sha256": "fc40d4ec1d0531c4dc7abde83bda7aee98b79d88dfe789db390002f472db43b1"
+    },
+    {
+      "path": "lampOS/crates/controls/Cargo.toml",
+      "sha256": "e99a07bc0b7e2c3ec58a432f48ab0df2e7fff5a8388faa5840727caea5b3cfbe"
+    },
+    {
+      "path": "lampOS/crates/ears/Cargo.toml",
+      "sha256": "21464f5d603c7f0895d67cbb0a02247f26751c9d3e6cc80782ce0c52e74766c8"
+    },
+    {
+      "path": "lampOS/crates/environment/Cargo.toml",
+      "sha256": "d8ccf1efc3d22b827075dad2c24a8f92b1ccfe839bbd6b3f2920a6bd8c2bd52b"
+    },
+    {
+      "path": "lampOS/crates/expression/Cargo.toml",
+      "sha256": "193324a7221328291c9776d0f4a72ea8beca94f26eec34771d69c32b670f1738"
+    },
+    {
+      "path": "lampOS/crates/eyes/Cargo.toml",
+      "sha256": "b784116b5d87e552e25caaf7c8e41797ae7ce7252e9736e7c2465eb00c25d34f"
+    },
+    {
+      "path": "lampOS/crates/gemini/Cargo.toml",
+      "sha256": "5b94eadddf2bdc8677d8e584a6cc3ffbdf38f79eba775a9dd141268b1c9a0816"
+    },
+    {
+      "path": "lampOS/crates/health/Cargo.toml",
+      "sha256": "2e3ce14aeacb0bfe189499392baed7356738e9252279ad502f32ddd84f42a19d"
+    },
+    {
+      "path": "lampOS/crates/ipc/Cargo.toml",
+      "sha256": "8ed29f13645e83b50c48590d87420516f1cb91518a95bbb9aa58332fccbf6c63"
+    },
+    {
+      "path": "lampOS/crates/ipc/src/bin/lamp-ipc-probe.rs",
+      "sha256": "53b7a5554b3855bf4be1336d245ac98f344327029dde4f6a77714e5bf96834b3"
+    },
+    {
+      "path": "lampOS/crates/ipc/src/lib.rs",
+      "sha256": "f9789cc83665f00bd39aff1d8670af525de8403c8821f0f143c04a02e644f6bf"
+    },
+    {
+      "path": "lampOS/crates/ipc/src/log_relay.rs",
+      "sha256": "5b82014fcf5caafd8e4e03a34ad1d08493100f87750e105e35677c6764a864b8"
+    },
+    {
+      "path": "lampOS/crates/ipc/tests/probe.rs",
+      "sha256": "19aaf89b46d6605fac91e40dadedf0e30b7b3382fd177a641f5c9125fe481e28"
+    },
+    {
+      "path": "lampOS/crates/ipc/tests/relay_exit.rs",
+      "sha256": "e4ef2fddac9a867c7761f092c51fff02d7f7ec533c1818b6ce71f7b447bc48b9"
+    },
+    {
+      "path": "lampOS/crates/ipc/tests/relay_signals.rs",
+      "sha256": "6bc0a9c0ad634b3cda0db17b667f9d6c7ae309cbc29125433e21639f4c02aba3"
+    },
+    {
+      "path": "lampOS/crates/ipc/tests/sockets.rs",
+      "sha256": "2eec3c8866cd92b37538d995cbebf050189387e46222fd057db79aa0b3d9e3d0"
+    },
+    {
+      "path": "lampOS/crates/keeper/Cargo.toml",
+      "sha256": "3a886b97b4807a909ffaefae785306fecc172c3d326ba369febd463fd13505c7"
+    },
+    {
+      "path": "lampOS/crates/lean/Cargo.toml",
+      "sha256": "01a2d6191ac67e2f07fd6d67b4dfdc7796c6e80b186138d84b5cfe0ad91c21c6"
+    },
+    {
+      "path": "lampOS/crates/memory/Cargo.toml",
+      "sha256": "9c76d873ad6b870b46a3e3a7fad8cb3bf80ee0a31ca4b5ccaaa1d72dedac1875"
+    },
+    {
+      "path": "lampOS/crates/mood/Cargo.toml",
+      "sha256": "9d88e38545b097c01f8d49f1013004f7b94ab9f04b2739d87d86671268834528"
+    },
+    {
+      "path": "lampOS/crates/msgs/Cargo.toml",
+      "sha256": "4baec082004389cd0a6422e285fe7a8c42ba3bfb936fa531940dee4db5d6d925"
+    },
+    {
+      "path": "lampOS/crates/name/Cargo.toml",
+      "sha256": "686f7ae9cbfce80df2fbee01feb883ca8ec27fd9fbdf2f1a74fe2696f5915823"
+    },
+    {
+      "path": "lampOS/crates/observer/Cargo.toml",
+      "sha256": "5cd6a10993b4922534b8a9546a33444465eb5323e5a3c14a73f875027f21201b"
+    },
+    {
+      "path": "lampOS/crates/policy/Cargo.toml",
+      "sha256": "f4cbd5273e9ecfd75ab14cec9a4344479c7bad70d825f38b0dccf400401949f0"
+    },
+    {
+      "path": "lampOS/crates/records/Cargo.toml",
+      "sha256": "92f90b54a3690be6cd6843a9cabb20c300468a9e716c09e58f874c0cdc7bdcfc"
+    },
+    {
+      "path": "lampOS/crates/ring/Cargo.toml",
+      "sha256": "3e66786b7841a5d26c563f428e4705f9b09566b3af51df46e41bec02015c4e5d"
+    },
+    {
+      "path": "lampOS/crates/same-voice/Cargo.toml",
+      "sha256": "260f875ca3883b28a4e3fdffe0cab512d66159f75afc3d3efd31c48ca38c23b3"
+    },
+    {
+      "path": "lampOS/crates/schedule/Cargo.toml",
+      "sha256": "f0493403bd23ac6e86b27bdbc9232c77cc7b9fb293aa64a9ecc637267f72c9ac"
+    },
+    {
+      "path": "lampOS/crates/selftest/Cargo.toml",
+      "sha256": "e3478d6d137f4baad51c01ed91333075cf2a87fbbd33e0e72ad05caa8e21c059"
+    },
+    {
+      "path": "lampOS/crates/settings/Cargo.toml",
+      "sha256": "2a81f720c4a925b4b353575e48a187e6d71af8dde3677f3cfda7e534fb71241f"
+    },
+    {
+      "path": "lampOS/crates/setup/Cargo.toml",
+      "sha256": "b61ce47672646f04b86f05438720b5f7a441e70f4c7d757ebf70358b667c8382"
+    },
+    {
+      "path": "lampOS/crates/sound-fixtures/Cargo.toml",
+      "sha256": "b790403fada9e341620a67350d6c09844ff2e243ec44c8b549ef7b1f461fd28f"
+    },
+    {
+      "path": "lampOS/crates/surround/Cargo.toml",
+      "sha256": "df922e176c16c3166befe98c1914117a10bd3b8ae1a0bedfb30d758ba12e2f73"
+    },
+    {
+      "path": "lampOS/crates/tasks/Cargo.toml",
+      "sha256": "89add96a63cd28430343eadf685706115a37feacca31e2952bdc2dd13f2d418d"
+    },
+    {
+      "path": "lampOS/crates/turn-end-wire/Cargo.toml",
+      "sha256": "016a167dd65850584a9d12c565a3bb4a4ba0fb3fdf7d0cae6626d8e51175eb5a"
+    },
+    {
+      "path": "lampOS/crates/turn-end/Cargo.toml",
+      "sha256": "1858dd6044c777f6ee0e7df82b854ee65c68e4342698373bec5ac5ea18745ecc"
+    },
+    {
+      "path": "lampOS/crates/turn-owner/Cargo.toml",
+      "sha256": "ec4874833178228f469757f2a652bb9f16408cd2bcdfa0552e75c94e216d76d4"
+    },
+    {
+      "path": "lampOS/crates/turn-owner/src/controller.rs",
+      "sha256": "b8237eddfd8d17d9c38496aa5b48eac14277bc3ca124da9de8a889440e44788a"
+    },
+    {
+      "path": "lampOS/crates/turn-owner/src/guard.rs",
+      "sha256": "c6273b9e362c6a1ed5c9c33ac0f0a1ff0de96d337390b092dc427324df574985"
+    },
+    {
+      "path": "lampOS/crates/turn-owner/src/lib.rs",
+      "sha256": "5f375e273e59c81368b0874cffb188b45b8880b8484e0d56ed3c9d454780bb84"
+    },
+    {
+      "path": "lampOS/crates/turn-owner/src/observation.rs",
+      "sha256": "47a741dd872a3e2f8314597d9ece9d0f775797f007c6e6136955a77eccf1ac6e"
+    },
+    {
+      "path": "lampOS/crates/turn-owner/src/types.rs",
+      "sha256": "542f74cb2a13b10d7fab3aae02cdc898e14f285fb83e1fb89a77680d56cc8ed8"
+    },
+    {
+      "path": "lampOS/crates/turn-owner/tests/camera_authority.rs",
+      "sha256": "ad51609b44177100b620886ae50427cbff5df5f885b65ac8d861a77c8b9929ba"
+    },
+    {
+      "path": "lampOS/crates/turn-owner/tests/observations.rs",
+      "sha256": "3efd222eec2e0c70a35eedaca52c0580614e676ff89129c947ddb21414083537"
+    },
+    {
+      "path": "lampOS/crates/turn-owner/tests/ownership.rs",
+      "sha256": "45d5b228dbc74848ab3737df1c8a0455bdf4f389ba452e4ede28ba97d7c47249"
+    },
+    {
+      "path": "lampOS/crates/turn-owner/tests/zero_authority.rs",
+      "sha256": "24ccd453e1263625c1d79ed82a00e025d66d4a1ca94f7ae5721da8956477c076"
+    },
+    {
+      "path": "lampOS/crates/update/Cargo.toml",
+      "sha256": "7ec0d9484b453ef69f08df226c05acb2caabd8bf830893b18b9ce3cef493d3b3"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/Cargo.toml",
+      "sha256": "9854d29463c6671cc2ffcd83181d58e440a72f5be81df2e154d9bf2c1fee753d"
+    },
+    {
+      "path": "lampOS/crates/voice/Cargo.toml",
+      "sha256": "5da3e2d258a46b797bb25ec48ea538eba53f9b9d38dac1ff06abd8deb6597e72"
+    },
+    {
+      "path": "lampOS/docs/verification/gemini-capture-clock-20261016/review/reversed/crates/gemini/Cargo.toml",
+      "sha256": "00336dabd32df739b068669cd5a861590192ae85fd7af824db90429593c86838"
+    },
+    {
+      "path": "lampOS/rust-toolchain.toml",
+      "sha256": "fb0a56ca2fc09db10159f6983e9d747f4afeb64e1d6d941dc36a3c20bf3a5749"
+    },
+    {
+      "path": "lampOS/vendor/tough/Cargo.toml",
+      "sha256": "1980c850b72070031a2e6f639ad804a841ac5adb135a527bd50e7033effba5bb"
+    }
+  ],
+  "vme_baseline_tree": "/private/tmp/lampos-tests-scenario-moments-current",
+  "vme_full_baseline_count_including_surround": 2401,
+  "vme_selected_count": 2141,
+  "vme_selected_ignored": 13,
+  "vme_packages_selected": [
+    "lamp-memory",
+    "lamp-voice",
+    "lamp-voice-eval"
+  ],
+  "vme_baseline_input_count": 870,
+  "vme_baseline_sources_exact_to_original_capture_base": true,
+  "vme_baseline_command": {
+    "name": "baseline-list",
+    "command": [
+      "cargo",
+      "nextest",
+      "list",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-memory",
+      "-p",
+      "lamp-voice",
+      "-p",
+      "lamp-voice-eval",
+      "-p",
+      "lamp-surround",
+      "--message-format",
+      "json"
+    ],
+    "cwd": "/private/tmp/lampos-tests-scenario-moments-current/lampOS",
+    "target": "/private/tmp/tests-823-slow-progress-target",
+    "start_from_date": "2026-10-16 07:12:51 +0700",
+    "finish_from_date": "2026-10-16 07:16:44 +0700",
+    "exit_code": 0
+  },
+  "vme_raw_copies_sha256": {
+    "baseline-list.log": "3f7c4bcc4dfb7853d57c4b9cb2dfddc925356e4853895e499ebd19d8f96ea9e5",
+    "baseline-list.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "baseline-source.json": "afccf50c12903cc51b7d56a97a74c2067a5a046e82decf2c2194252bcfb15545",
+    "gates.json": "71b20fc209a81974428f06f4eb42800168d380569b8451b74bf199ad13468fde"
+  },
+  "remaining": "Compile Audio baseline once in the root-released target, then compare union of Audio and the selected pinned three-package compiled identities against this candidate. Native Linux remains pending."
+}

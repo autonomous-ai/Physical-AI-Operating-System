@@ -1,0 +1,24 @@
+{
+  "name": "clippy",
+  "command": [
+    "/Users/autonomous/.cargo/bin/cargo",
+    "clippy",
+    "--locked",
+    "--offline",
+    "-p",
+    "lamp-audio",
+    "-p",
+    "lamp-memory",
+    "-p",
+    "lamp-voice",
+    "-p",
+    "lamp-voice-eval",
+    "--all-targets",
+    "--",
+    "-D",
+    "warnings"
+  ],
+  "cwd": "/private/tmp/lampos-tests-capture-clock/lampOS",
+  "target": "/private/tmp/lampos-tests-capacity/lampOS/target",
+  "started_from_date": "2026-10-16 07:34:33 +0700"
+}

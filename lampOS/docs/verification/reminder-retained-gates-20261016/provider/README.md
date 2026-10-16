@@ -1,0 +1,11 @@
+# Provider Stop/body observation current gate
+
+Base e5aa43747ec1540893b4da4509d14288e7e70806, tree `/private/tmp/lampos-tests-provider-observations-current`. Root owns this preparation and independently audited the complete result. The gate covers Memory, Voice, VoiceEval and Surround. Its integration proof, original and composed worker sources, exact four final source paths, compiled baseline/list, and all raw stage logs are retained.
+
+Format and strict all-target Clippy passed. The compiled comparison retained 2,401 original identities and their 13 ignore flags and added the exact 20 reviewed new observation identities, for 2,421 total. The complete serial no-fail-fast Cargo test gate ran at 07:44:22–08:04:19 on 2026-10-16, +0700, returning exit 101: **2,407 passed / one failed / 13 existing ignores**. All 20 new observation tests passed.
+
+`gate/root-result-audit.json` proves all 2,421 compiled identities have exactly one result across 83 binary paths, including unchanged ignore flags. All 873 frozen source files remained exact; `packaging-source-audit.json` verified those inputs and the four integration files again during packaging without executing tests. The workspace build ran 08:04:19–08:05:46 and passed. `gate/gates.json` retains exact commands, dates, exits and raw hashes.
+
+The only failure is `lamp-voice::coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion`, at the line-338 AckConfirmed assertion. Its whole source is byte-exact to clean e5aa, the Audio gate and the retained historical silent-service source. This is a separate current gate recurrence, not a retry of Audio. Both the actual resolution value and hop timing are unprinted. Neither recurrence nor source equality proves cause or accepts an exception; this local gate remains red and native qualification is pending.
+
+The integration record's prior-gate and pending-current-gate fields are historical and copied unchanged. The terminal result is recorded separately in `gate/completed.json` and `gate/root-result-audit.json`. Previous summary snapshots included under Audio's failure analysis identify earlier retained recurrences; they do not replace the full raw current Provider log here.

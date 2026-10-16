@@ -1,0 +1,131 @@
+[
+  {
+    "name": "toolchain",
+    "command": [
+      "/Users/autonomous/.cargo/bin/rustc",
+      "--version",
+      "--verbose"
+    ],
+    "cwd": "/private/tmp/lampos-tests-capture-clock/lampOS",
+    "target": "/private/tmp/lampos-tests-capacity/lampOS/target",
+    "started_from_date": "2026-10-16 07:34:00 +0700",
+    "finished_from_date": "2026-10-16 07:34:00 +0700",
+    "exit_code": 0,
+    "log_sha256": "4d8ef7a4d2fe91e2e73066fdff851a6b49773a97b60cf751f81045606a502281"
+  },
+  {
+    "name": "audio-baseline-list",
+    "command": [
+      "/Users/autonomous/.cargo/bin/cargo",
+      "nextest",
+      "list",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-audio",
+      "--message-format",
+      "json"
+    ],
+    "cwd": "/private/tmp/lampos-tests-serve-relay-current/lampOS",
+    "target": "/private/tmp/lampos-tests-capacity/lampOS/target",
+    "started_from_date": "2026-10-16 07:34:00 +0700",
+    "finished_from_date": "2026-10-16 07:34:27 +0700",
+    "exit_code": 0,
+    "log_sha256": "78fb02aef44b41271405b37f91db07ff84304c0b2b7c622d25339bf737dc62da"
+  },
+  {
+    "name": "fmt",
+    "command": [
+      "/Users/autonomous/.cargo/bin/cargo",
+      "fmt",
+      "--all",
+      "--check"
+    ],
+    "cwd": "/private/tmp/lampos-tests-capture-clock/lampOS",
+    "target": "/private/tmp/lampos-tests-capacity/lampOS/target",
+    "started_from_date": "2026-10-16 07:34:27 +0700",
+    "finished_from_date": "2026-10-16 07:34:33 +0700",
+    "exit_code": 0,
+    "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "name": "clippy",
+    "command": [
+      "/Users/autonomous/.cargo/bin/cargo",
+      "clippy",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-audio",
+      "-p",
+      "lamp-memory",
+      "-p",
+      "lamp-voice",
+      "-p",
+      "lamp-voice-eval",
+      "--all-targets",
+      "--",
+      "-D",
+      "warnings"
+    ],
+    "cwd": "/private/tmp/lampos-tests-capture-clock/lampOS",
+    "target": "/private/tmp/lampos-tests-capacity/lampOS/target",
+    "started_from_date": "2026-10-16 07:34:33 +0700",
+    "finished_from_date": "2026-10-16 07:35:25 +0700",
+    "exit_code": 0,
+    "log_sha256": "8a9dc9f4a02ced81175e16422b8de768e6ac7aaa2b23e0f597d9fd66dea61666"
+  },
+  {
+    "name": "list",
+    "command": [
+      "/Users/autonomous/.cargo/bin/cargo",
+      "nextest",
+      "list",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-audio",
+      "-p",
+      "lamp-memory",
+      "-p",
+      "lamp-voice",
+      "-p",
+      "lamp-voice-eval",
+      "--message-format",
+      "json"
+    ],
+    "cwd": "/private/tmp/lampos-tests-capture-clock/lampOS",
+    "target": "/private/tmp/lampos-tests-capacity/lampOS/target",
+    "started_from_date": "2026-10-16 07:35:25 +0700",
+    "finished_from_date": "2026-10-16 07:38:46 +0700",
+    "exit_code": 0,
+    "log_sha256": "bb7db9c45691988356b1ad4d3985f80f9809f9871dd1f033219f2dff7726dc61"
+  },
+  {
+    "name": "focused",
+    "command": [
+      "/Users/autonomous/.cargo/bin/cargo",
+      "nextest",
+      "run",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-audio",
+      "--profile",
+      "default",
+      "--test-threads",
+      "1",
+      "--no-fail-fast",
+      "--retries",
+      "0",
+      "-E",
+      "binary_id(lamp-audio) & test(/^capture::clock_tests::/)"
+    ],
+    "cwd": "/private/tmp/lampos-tests-capture-clock/lampOS",
+    "target": "/private/tmp/lampos-tests-capacity/lampOS/target",
+    "started_from_date": "2026-10-16 07:38:46 +0700",
+    "finished_from_date": "2026-10-16 07:38:46 +0700",
+    "exit_code": 4,
+    "log_sha256": "693ffdfac4d4994db66b6f154ad8cf2440d0e7edb294b3c7288e0227dc6796d9"
+  }
+]

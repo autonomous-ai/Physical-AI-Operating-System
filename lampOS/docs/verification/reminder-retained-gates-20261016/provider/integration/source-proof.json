@@ -1,0 +1,21 @@
+{
+  "date": "2026-10-16 07:38:27 +0700",
+  "base": "e5aa43747ec1540893b4da4509d14288e7e70806",
+  "old_base": "e7d0f673d0c4bde4a770b19783d6084a8d935ec3",
+  "worker_patch_exact_to_reviewed_change": true,
+  "entire_worker_reverse_exact_to_current_base": true,
+  "current_original_inline_test_module_byte_exact": true,
+  "complete_current_document_restored_by_removing_exact_original_section": true,
+  "new_modules_exact_to_reviewed_corrected_source": true,
+  "files": {
+    "lampOS/crates/voice/src/provider_worker.rs": "56b82b75f50026cb9036ed9f88f937e9df218df7702968d0bbf7798106df1e90",
+    "lampOS/crates/voice/src/provider_worker/observation.rs": "8a370c2a4b85bd70890d51a34259524cdf5cb236d6a8210f16abb37f6b99ef5e",
+    "lampOS/crates/voice/src/provider_worker/tests/observation.rs": "25e230b6ccec6a5273f65a6d37f97f6efbbb4cada473c6b7bf0a3d742fbbc3f8",
+    "lampOS/docs/voice-test-fixtures.md": "86b1574e8ced3cad83191efcaa670f618589bfa35844df15481d2ea92c8617b3"
+  },
+  "worker_before_sha256": "9e2a59f6cfbe5e39a4baf96ccda72ea1ec90e95b1e0c9e9d999bd6916df18219",
+  "worker_after_sha256": "56b82b75f50026cb9036ed9f88f937e9df218df7702968d0bbf7798106df1e90",
+  "original_doc_sha256": "04bf0a07ddbd0e9de139988b65c51aa23a11bb1b542176a8185a473d923a19d4",
+  "prior_gate": "2263 passed / 1 failed / 13 ignored; exact existing privacy-reopen failure already on #893; no passing local result claimed",
+  "current_gate": "pending"
+}

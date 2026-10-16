@@ -1,0 +1,90 @@
+{
+  "date": "2026-10-16 07:44:22 +0700",
+  "before": 2401,
+  "after": 2421,
+  "ignored": 13,
+  "all_originals_and_ignored_flags_preserved": true,
+  "exact_same_20_additions_as_reviewed_prior_gate": true,
+  "added": [
+    [
+      "lamp-voice",
+      "provider_worker::observation::tests::attachment_refuses_an_unentered_body_or_another_boot"
+    ],
+    [
+      "lamp-voice",
+      "provider_worker::observation::tests::duplicate_stop_and_terminal_mutations_are_latched_faults"
+    ],
+    [
+      "lamp-voice",
+      "provider_worker::observation::tests::malformed_state_is_a_latched_fault_and_never_a_receipt"
+    ],
+    [
+      "lamp-voice",
+      "provider_worker::observation::tests::observation_failure_preserves_a_component_futures_actual_success"
+    ],
+    [
+      "lamp-voice",
+      "provider_worker::observation::tests::observation_failure_preserves_the_actual_result_and_error_object"
+    ],
+    [
+      "lamp-voice",
+      "provider_worker::observation::tests::polling_after_a_return_faults_observation_without_replacing_results"
+    ],
+    [
+      "lamp-voice",
+      "provider_worker::observation::tests::reattachment_faults_both_owners_without_replacing_the_first_writer"
+    ],
+    [
+      "lamp-voice",
+      "provider_worker::tests::observation::actual_generation_change_is_revocation_even_after_permission_reopens"
+    ],
+    [
+      "lamp-voice",
+      "provider_worker::tests::observation::actual_intake_stop_precedes_the_component_future_return"
+    ],
+    [
+      "lamp-voice",
+      "provider_worker::tests::observation::actual_permission_revocation_has_its_own_stop_cause"
+    ],
+    [
+      "lamp-voice",
+      "provider_worker::tests::observation::actual_task_panic_preserves_its_payload_without_a_successful_receipt"
+    ],
+    [
+      "lamp-voice",
+      "provider_worker::tests::observation::error_cleanup_clears_intake_without_recording_a_stop_cause"
+    ],
+    [
+      "lamp-voice",
+      "provider_worker::tests::observation::full_control_slice_leaves_the_real_stop_unhandled_until_the_next_drain"
+    ],
+    [
+      "lamp-voice",
+      "provider_worker::tests::observation::initial_denied_authority_is_not_a_revocation_stop"
+    ],
+    [
+      "lamp-voice",
+      "provider_worker::tests::observation::ordinary_intake_and_equal_boot_workers_do_not_share_observations"
+    ],
+    [
+      "lamp-voice",
+      "provider_worker::tests::observation::original_worker_error_is_returned_without_claiming_a_stop_command"
+    ],
+    [
+      "lamp-voice",
+      "provider_worker::tests::observation::original_worker_returns_after_actual_authority_revocation"
+    ],
+    [
+      "lamp-voice",
+      "provider_worker::tests::observation::queued_real_stop_is_not_handled_until_the_original_body_runs"
+    ],
+    [
+      "lamp-voice",
+      "provider_worker::tests::observation::requested_task_cancellation_is_joined_and_never_a_body_return"
+    ],
+    [
+      "lamp-voice",
+      "provider_worker::tests::observation::unpolled_real_worker_drop_never_claims_a_queued_stop_or_return"
+    ]
+  ]
+}

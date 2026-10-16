@@ -1,5 +1,19 @@
 # Tests work log
 
+## 2026-10-16 08:18:06 +0700 — Audio and Provider first gates retain the same reminder failure
+
+Ready for lamp-voice: no (new Audio, Provider and transport-expiry work); #942 still qualifies its full run
+
+[Separate retained gates](verification/reminder-retained-gates-20261016/README.md) contain Audio **2,296/1/15** and current Provider observations **2,407/1/13**. Both preserve every original compiled identity and ignore flag; all nine Audio additions and all twenty Provider additions pass. Fmt, strict affected-package Clippy and workspace build pass. Each full gate fails the exact original #935 AckConfirmed assertion at reminder_roundtrip.rs:338. Pending=false and one captured Ack request precede it; the actual resolution and hop timings remain unprinted. The cause and any exception remain unaccepted. No failure-specific retry.
+
+Audio's earlier focused command executed zero tests. The corrected selection uses the same four-package graph as the accepted list and passes all nine cases on their first execution. The original zero-selection and diagnostic artifact records remain. Its first terminal parser counted nextest's repeated failure footer twice; the independent exact-once audit corrects that count while retaining both raw records. Only the approved documentation wording changed after the gate; Rust bytes stayed frozen.
+
+Relay #942 normal **38831311751** is green with **5,204 unique passes**, including four new library cases and no original123 cases; the other six new helpers are excluded by the existing whole-binary profile filter. Full **38831310695** attempt1 passes **4,065** distinct tests on three shards, covering **83/123 originals** and **9/10 additions**. Its only failed shard executed zero tests after a serde registry SSL download failure. Only that unexecuted job was restarted at 08:08:42; earlier results and raw logs remain separate. Full coverage and ready status are pending.
+
+Provider progress's identity correction passes its first focused **56/56**, preserving the prior 2,318 compiled identities plus four distinct-boot regressions and all 13 ignores. Strict Clippy/fmt/build pass on its older prototype base; this is not actual-base/native qualification or an original-case migration. A separate transport-expiry original passes the clean current69bae baseline at **5.055 s**; its stepped-wait source is now under review with all original assertions retained.
+
+#948 Memory and #949 motor cleanup await their owners; prepared capacity/Moments source remains unpublished. #783 loaded qualification stays with Eighth. The fixed original123 standalone serial under-two-minute result remains unproved. No workflow, runner, setting or lamp change.
+
 ## 2026-10-16 07:52:53 +0700 — Records merged; Relay native started; current gate failures retained
 
 Ready for lamp-voice: no (new or rebased work); #931 merged

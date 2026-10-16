@@ -1,0 +1,40 @@
+{
+  "date_from_date": "2026-10-16 08:10:28 +0700",
+  "exec_session_id": 52182,
+  "exec_terminal_exit": 1,
+  "compiled_count": 2312,
+  "retained_originals": 2303,
+  "added": 9,
+  "original_ignored": 15,
+  "expected_executions": 2297,
+  "actual_executions": 2297,
+  "each_expected_nonignored_identity_exactly_once": true,
+  "all_existing_ignore_flags_retained": true,
+  "all_2297_ordinals_once_in_order": true,
+  "counts": {
+    "PASS": 2296,
+    "FAIL": 1
+  },
+  "existing_ignored_not_executed": 15,
+  "failed_identities": [
+    [
+      "lamp-voice",
+      "coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion"
+    ]
+  ],
+  "focused_new_cases_passed_once": 9,
+  "full_gate_new_cases_passed_once": 9,
+  "summary": "Summary [1279.548s] 2297 tests run: 2296 passed, 1 failed, 15 skipped",
+  "summary_line": 2337,
+  "failure_execution_line": 834,
+  "repeated_failure_summary_line": 2338,
+  "raw_first_result_retained": "full-affected-result.json and result.json preserve the initial parser output: 2298 rows and each_expected_identity_once=false. That parser counted the single FAIL row repeated after Summary. This separate audit uses execution rows before the unique Summary, proves all 2297 ordered ordinals and exact compiled nonignored identities, and retains the repeated footer separately. No test was run for this audit.",
+  "full_gate_status": "red",
+  "workspace_build_exit": 0,
+  "no_retries": true,
+  "source_count": 7227,
+  "source_hashes_exact": true,
+  "full_log_sha256": "01993c8e0c818da9f0636a80d65d81bb9e43a4f8af4cb3069ecfa333bd2d7450",
+  "focused_log_sha256": "b12fa860799abad8c5cb261617c08fa5b7f1a15efe83ff1a85d93c66dd9e7015",
+  "workspace_build_log_sha256": "4b25cccb87eb05adb632dfbcf43911eb6d53e31313e1c86101767f87f7cfdeba"
+}

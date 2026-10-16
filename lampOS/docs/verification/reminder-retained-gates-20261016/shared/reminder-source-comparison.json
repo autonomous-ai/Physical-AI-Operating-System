@@ -1,0 +1,77 @@
+{
+  "date_from_date": "2026-10-16 08:14:38 +0700",
+  "base": "e5aa43747ec1540893b4da4509d14288e7e70806",
+  "failed_identity": [
+    "lamp-voice",
+    "coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion"
+  ],
+  "assertion_path": "lampOS/crates/voice/src/coordinator/tests/reminder_roundtrip.rs",
+  "assertion_line": 338,
+  "whole_failed_source_sha256": "f2259a3446933ba7193c95829e6ab092881b828be9d458c79cf6e3b1463bb684",
+  "clean_e5aa_audio_provider_historical_silent_source_byte_exact": true,
+  "historical_silent_source_commit": "bfc122d4e",
+  "sources": [
+    {
+      "path": "lampOS/crates/audio/src/ownership.rs",
+      "sha256": "ad357ffda223ca2dc16804b6c1b2dfc464bed2f4574472f6074a2d0f49a24850",
+      "audio_preserved_copy_equals_current_audio_equals_current_provider_equals_clean_e5aa": true
+    },
+    {
+      "path": "lampOS/crates/schedule/src/client.rs",
+      "sha256": "680b813b43b878ed56a173e4e5efcd1b8c66afe5e337e116181207423606a48f",
+      "audio_preserved_copy_equals_current_audio_equals_current_provider_equals_clean_e5aa": true
+    },
+    {
+      "path": "lampOS/crates/schedule/src/delivery.rs",
+      "sha256": "bb8ea913f5246faf1f52d84aea0e6c543ae6e0d9fa153ae3c57fb1ce5c3436f0",
+      "audio_preserved_copy_equals_current_audio_equals_current_provider_equals_clean_e5aa": true
+    },
+    {
+      "path": "lampOS/crates/schedule/src/engine.rs",
+      "sha256": "9f8018e3fa5f9c17aa9c499e7c1c36184c348f7c95e13b65499c842f4a3be38a",
+      "audio_preserved_copy_equals_current_audio_equals_current_provider_equals_clean_e5aa": true
+    },
+    {
+      "path": "lampOS/crates/schedule/src/store.rs",
+      "sha256": "2b6a2334d4078197496ee15287dab4d8490891b137566a7c2b0f0900c2ed3fb1",
+      "audio_preserved_copy_equals_current_audio_equals_current_provider_equals_clean_e5aa": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/coordinator/tests/reminder_roundtrip.rs",
+      "sha256": "f2259a3446933ba7193c95829e6ab092881b828be9d458c79cf6e3b1463bb684",
+      "audio_preserved_copy_equals_current_audio_equals_current_provider_equals_clean_e5aa": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/lib.rs",
+      "sha256": "15c6f007e8352c79e3ef841d62df17b5683a0136859b820f780440e58cf4654f",
+      "audio_preserved_copy_equals_current_audio_equals_current_provider_equals_clean_e5aa": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/reminders/consumer/roundtrip_tests.rs",
+      "sha256": "ee7bef58757908cdbcf26201a91944f73d155082c4e38f5dafc7b2ba4cded840",
+      "audio_preserved_copy_equals_current_audio_equals_current_provider_equals_clean_e5aa": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/reminders/consumer.rs",
+      "sha256": "b7dded14b021b7eba40331ee3daba89cc64ab82f93675d84a63471a5f5d49a25",
+      "audio_preserved_copy_equals_current_audio_equals_current_provider_equals_clean_e5aa": true
+    }
+  ],
+  "passed_before_failure": [
+    "completed_two_generations returned after its assertions",
+    "pending() == false",
+    "exactly one captured Ack request"
+  ],
+  "unreached_after_failure": [
+    "offered_count remains unchanged at line 342",
+    "parent offer is None at line 343"
+  ],
+  "unprinted": [
+    "actual Resolution value",
+    "Get/persist/Ack hop durations",
+    "Ack exchange result",
+    "AckEvidence parsing result"
+  ],
+  "cause": "Unproved. Recurrence, module separation and source equality do not establish cause or qualify an exception.",
+  "read_only_checks_only": true
+}

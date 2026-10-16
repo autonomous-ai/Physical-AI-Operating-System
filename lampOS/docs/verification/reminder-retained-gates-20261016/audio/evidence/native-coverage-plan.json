@@ -1,0 +1,97 @@
+{
+  "date_from_date": "2026-10-16 07:38:40 +0700",
+  "base": "e5aa43747ec1540893b4da4509d14288e7e70806",
+  "source_inputs": [
+    {
+      "path": "lampOS/crates/audio/src/lib.rs",
+      "sha256": "da6455e5bab9ecb7efb853263e38dd1ed5ea027f9abd3d9890bf93302a15f34a"
+    },
+    {
+      "path": "lampOS/crates/audio/src/capture.rs",
+      "sha256": "4661ad6a4aa347bf2b0803a08ad2f163e2ac3f5f6a5def0062be6eed1b875449"
+    },
+    {
+      "path": "lampOS/crates/audio/src/capture/clock_tests.rs",
+      "sha256": "15d8c7a1c33f855e1e1b08e8b7d678e56ce1caaf6ee7edfd78867c673eb33578"
+    },
+    {
+      "path": "lampOS/crates/voice/src/lib.rs",
+      "sha256": "15c6f007e8352c79e3ef841d62df17b5683a0136859b820f780440e58cf4654f"
+    },
+    {
+      "path": "lampOS/crates/voice/src/audio_workers.rs",
+      "sha256": "4882bf02cc9e2f648fcf61adda3c896b15f90c0055525e90d46577ba9a80746c"
+    },
+    {
+      "path": "lampOS/crates/voice/tests/capture_hold_worker.rs",
+      "sha256": "03937a74d3070dd0d0f9442998b2d60719f0d823a17d45a95ce363ed026657e0"
+    },
+    {
+      "path": "lampOS/.config/nextest.toml",
+      "sha256": "33254521c34198ae2d4f988c4b7d04391c03da769ad91769e691171ae3b87367"
+    }
+  ],
+  "unix_boundary": "audio/src/lib.rs cfg(unix) exposes capture; all nine new boundary cases are runnable on this macOS host.",
+  "linux_only_sites": [
+    {
+      "path": "lampOS/crates/audio/src/capture.rs",
+      "line": 219,
+      "detail": "Linux ALSA Microphone alias preserves default Fn source."
+    },
+    {
+      "path": "lampOS/crates/voice/src/lib.rs",
+      "line": 72,
+      "detail": "audio_workers module gated to Linux."
+    },
+    {
+      "path": "lampOS/crates/voice/src/audio_workers.rs",
+      "line": 346,
+      "detail": "Unchanged MicrophoneOn::<D>::new call must compile under Linux."
+    },
+    {
+      "path": "lampOS/crates/voice/src/audio_workers.rs",
+      "line": 383,
+      "detail": "Unchanged &mut MicrophoneOn<D> parameter must compile under Linux."
+    },
+    {
+      "path": "lampOS/crates/voice/tests/capture_hold_worker.rs",
+      "line": 14,
+      "detail": "Entire capture_hold_worker integration binary is Linux-only."
+    }
+  ],
+  "original_four_in_inventory": [
+    {
+      "binary": "lamp-voice::capture_hold_worker",
+      "test": "mic1_frames_wait_four_blocks_with_their_own_times_and_a_stop_drops_what_is_held",
+      "line": 531,
+      "source_path": "lampOS/crates/voice/tests/capture_hold_worker.rs"
+    },
+    {
+      "binary": "lamp-voice::capture_hold_worker",
+      "test": "mic1_muted_while_frames_are_held_hands_none_of_them_on",
+      "line": 569,
+      "source_path": "lampOS/crates/voice/tests/capture_hold_worker.rs"
+    },
+    {
+      "binary": "lamp-voice::capture_hold_worker",
+      "test": "another_microphone_is_handed_on_at_once_and_its_early_sound_is_not_accounted_for",
+      "line": 588,
+      "source_path": "lampOS/crates/voice/tests/capture_hold_worker.rs"
+    },
+    {
+      "binary": "lamp-voice::capture_hold_worker",
+      "test": "a_microphone_busy_for_a_moment_at_start_is_opened_once_it_is_free",
+      "line": 623,
+      "source_path": "lampOS/crates/voice/tests/capture_hold_worker.rs"
+    }
+  ],
+  "later_stall_case_still_required": {
+    "binary": "lamp-voice::capture_hold_worker",
+    "test": "stalls_in_a_row_each_reopen_the_microphone_while_the_reference_goes_on",
+    "line": 642,
+    "source_path": "lampOS/crates/voice/tests/capture_hold_worker.rs"
+  },
+  "required_native_validation": "Native Linux full reverse-dependency compilation/list retention and execution of every applicable test, including all five capture_hold_worker cases with default or explicit realtime selection. The PR profile excludes this binary; a normal PR-profile pass alone does not qualify it.",
+  "scope": "Preparation only; no capture worker clock injection, Rig changes, warm-up changes, task ownership, pacing, or original scenario migration.",
+  "executed_native_checks": 0
+}

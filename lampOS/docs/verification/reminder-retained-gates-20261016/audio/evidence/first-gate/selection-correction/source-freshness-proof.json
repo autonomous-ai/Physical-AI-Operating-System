@@ -1,0 +1,483 @@
+{
+  "date_from_date": "2026-10-16 07:42:46 +0700",
+  "variants": {
+    "standalone_baseline": {
+      "listing_file": "audio-baseline-list.log",
+      "package_id": "path+file:///private/tmp/lampos-tests-serve-relay-current/lampOS/crates/audio#lamp-audio@0.1.0",
+      "library_count": 70,
+      "original_capture_cases": [
+        "capture::tests::a_block_left_incomplete_for_a_buffer_length_is_dropped_not_finished_late",
+        "capture::tests::a_device_that_vanishes_or_stops_running_is_a_discontinuity_never_silence",
+        "capture::tests::a_failed_discard_is_reported_and_the_handle_is_still_gone",
+        "capture::tests::a_read_that_blocks_past_its_budget_is_a_discontinuity_not_late_audio",
+        "capture::tests::after_a_stall_a_muted_authority_keeps_the_microphone_closed",
+        "capture::tests::an_xrun_closes_the_device_destroys_the_partial_block_and_restarts_as_a_new_epoch",
+        "capture::tests::blocks_are_assembled_across_short_reads_in_order_from_sequence_one",
+        "capture::tests::negotiation_rejects_large_or_incompatible_audio_buffers",
+        "capture::tests::open_and_configuration_failures_leave_nothing_open",
+        "capture::tests::partial_deadline_is_not_extended_by_more_samples",
+        "capture::tests::partial_reads_preserve_sample_order_and_have_fixed_capacity",
+        "capture::tests::privacy_lineage_change_discards_an_incomplete_block",
+        "capture::tests::status_and_timestamp_failures_are_not_fabricated_audio"
+      ],
+      "new_capture_cases": [],
+      "binary": {
+        "path": "/private/tmp/lampos-tests-capacity/lampOS/target/debug/deps/lamp_audio-2ed792e57ff50915",
+        "sha256": "d85ef8d3259d8203a5bd28aa5ab6b1ca2ffd41e05f9550239b7d860bb538766a",
+        "bytes": 2728840,
+        "mtime_epoch_ns_from_stat": 1792110855359965388,
+        "mtime_formatted_by_date": "2026-10-16 07:34:15 +0700"
+      },
+      "fingerprint": {
+        "rustc": 142501075487969817,
+        "features": "[]",
+        "declared_features": "[]",
+        "target": 1121393565925585300,
+        "profile": 6135764548216357441,
+        "path": 11686190572780418555,
+        "deps": [
+          [
+            3615686350114134937,
+            "sonora",
+            false,
+            7340336332332073420
+          ],
+          [
+            3646101781514403606,
+            "rustix",
+            false,
+            14428823313418353217
+          ],
+          [
+            5330460842384404171,
+            "serde_json",
+            false,
+            10586129434936088374
+          ],
+          [
+            5574233983441653039,
+            "lamp_ipc",
+            false,
+            14350545554863287438
+          ],
+          [
+            6557439603276904804,
+            "serde",
+            false,
+            3101879719233231456
+          ],
+          [
+            9857275760291862238,
+            "sha2",
+            false,
+            10941534119136774795
+          ],
+          [
+            14515309963789851236,
+            "lamp_turn_owner",
+            false,
+            7061270273666894330
+          ],
+          [
+            16696992991567834322,
+            "hound",
+            false,
+            10191766789316841566
+          ]
+        ],
+        "local": [
+          {
+            "CheckDepInfo": {
+              "dep_info": "debug/.fingerprint/lamp-audio-2ed792e57ff50915/dep-test-lib-lamp_audio",
+              "checksum": false
+            }
+          }
+        ],
+        "rustflags": [],
+        "config": 8247474407144887393,
+        "compile_kind": 0
+      },
+      "raw_inputs": [
+        {
+          "path": "/private/tmp/lampos-tests-capacity/lampOS/target/debug/deps/lamp_audio-2ed792e57ff50915.d",
+          "sha256": "91b573e98281bab2ca17fd59dab95700c825a4c60c68ef387c4928d8fcc680ca",
+          "bytes": 1281,
+          "mtime_epoch_ns_from_stat": 1792110852036730148,
+          "mtime_formatted_by_date": "2026-10-16 07:34:12 +0700",
+          "raw_copy": "raw/standalone_baseline/lamp_audio-2ed792e57ff50915.d"
+        },
+        {
+          "path": "/private/tmp/lampos-tests-capacity/lampOS/target/debug/.fingerprint/lamp-audio-2ed792e57ff50915/test-lib-lamp_audio.json",
+          "sha256": "807913b4cda6eaa17731f7793709199dfda80b73e05332d30b76e294e816a3be",
+          "bytes": 830,
+          "mtime_epoch_ns_from_stat": 1792110855394377460,
+          "mtime_formatted_by_date": "2026-10-16 07:34:15 +0700",
+          "raw_copy": "raw/standalone_baseline/test-lib-lamp_audio.json"
+        },
+        {
+          "path": "/private/tmp/lampos-tests-capacity/lampOS/target/debug/.fingerprint/lamp-audio-2ed792e57ff50915/test-lib-lamp_audio",
+          "sha256": "e33509454336c3a66e25edd0e3210b870d6124066241300c4aa647bea6172c50",
+          "bytes": 16,
+          "mtime_epoch_ns_from_stat": 1792110855394248384,
+          "mtime_formatted_by_date": "2026-10-16 07:34:15 +0700",
+          "raw_copy": "raw/standalone_baseline/test-lib-lamp_audio"
+        },
+        {
+          "path": "/private/tmp/lampos-tests-capacity/lampOS/target/debug/.fingerprint/lamp-audio-2ed792e57ff50915/dep-test-lib-lamp_audio",
+          "sha256": "033c8aac8831c18c4c53a4c1841a614688d9049816e7a792c471cfbef4f27801",
+          "bytes": 272,
+          "mtime_epoch_ns_from_stat": 1792110851765839872,
+          "mtime_formatted_by_date": "2026-10-16 07:34:11 +0700",
+          "raw_copy": "raw/standalone_baseline/dep-test-lib-lamp_audio"
+        },
+        {
+          "path": "/private/tmp/lampos-tests-capacity/lampOS/target/debug/.fingerprint/lamp-audio-2ed792e57ff50915/invoked.timestamp",
+          "sha256": "5a109e6643e8d3e88642e3f35e85d2a83e639d07523aa6e99166c48178e965c3",
+          "bytes": 48,
+          "mtime_epoch_ns_from_stat": 1792110851765839872,
+          "mtime_formatted_by_date": "2026-10-16 07:34:11 +0700",
+          "raw_copy": "raw/standalone_baseline/invoked.timestamp"
+        }
+      ],
+      "binary_embeds_candidate_tree_name": false,
+      "binary_embeds_baseline_tree_name": true
+    },
+    "combined_candidate": {
+      "listing_file": "list.log",
+      "package_id": "path+file:///private/tmp/lampos-tests-capture-clock/lampOS/crates/audio#lamp-audio@0.1.0",
+      "library_count": 79,
+      "original_capture_cases": [
+        "capture::tests::a_block_left_incomplete_for_a_buffer_length_is_dropped_not_finished_late",
+        "capture::tests::a_device_that_vanishes_or_stops_running_is_a_discontinuity_never_silence",
+        "capture::tests::a_failed_discard_is_reported_and_the_handle_is_still_gone",
+        "capture::tests::a_read_that_blocks_past_its_budget_is_a_discontinuity_not_late_audio",
+        "capture::tests::after_a_stall_a_muted_authority_keeps_the_microphone_closed",
+        "capture::tests::an_xrun_closes_the_device_destroys_the_partial_block_and_restarts_as_a_new_epoch",
+        "capture::tests::blocks_are_assembled_across_short_reads_in_order_from_sequence_one",
+        "capture::tests::negotiation_rejects_large_or_incompatible_audio_buffers",
+        "capture::tests::open_and_configuration_failures_leave_nothing_open",
+        "capture::tests::partial_deadline_is_not_extended_by_more_samples",
+        "capture::tests::partial_reads_preserve_sample_order_and_have_fixed_capacity",
+        "capture::tests::privacy_lineage_change_discards_an_incomplete_block",
+        "capture::tests::status_and_timestamp_failures_are_not_fabricated_audio"
+      ],
+      "new_capture_cases": [
+        "capture::clock_tests::authority_expiring_during_read_wins_over_budget_and_never_reaches_status",
+        "capture::clock_tests::authority_expiry_after_prepare_start_or_status_cannot_publish_completion",
+        "capture::clock_tests::clock_regression_latches_closed_even_after_the_clock_moves_forward",
+        "capture::clock_tests::device_error_precedes_read_budget_but_never_precedes_expired_authority",
+        "capture::clock_tests::explicit_clock_is_instance_local_and_does_not_relabel_the_driver_clock",
+        "capture::clock_tests::invalid_device_name_is_rejected_before_clock_or_device_access",
+        "capture::clock_tests::ordinary_constructor_and_explicit_host_clock_preserve_host_times_and_lifecycle",
+        "capture::clock_tests::partial_deadline_keeps_its_first_read_across_would_block",
+        "capture::clock_tests::read_budget_accepts_exactly_ten_ms_and_refuses_one_more_without_late_audio"
+      ],
+      "binary": {
+        "path": "/private/tmp/lampos-tests-capacity/lampOS/target/debug/deps/lamp_audio-de9790b0876674a4",
+        "sha256": "3023132c0d81ab2e52acf5e064bdad5c048fd59fc95e154bd8fa5284df3a6b51",
+        "bytes": 2974024,
+        "mtime_epoch_ns_from_stat": 1792111047500985881,
+        "mtime_formatted_by_date": "2026-10-16 07:37:27 +0700"
+      },
+      "fingerprint": {
+        "rustc": 142501075487969817,
+        "features": "[]",
+        "declared_features": "[]",
+        "target": 1121393565925585300,
+        "profile": 6135764548216357441,
+        "path": 11686190572780418555,
+        "deps": [
+          [
+            3615686350114134937,
+            "sonora",
+            false,
+            6687964472357150087
+          ],
+          [
+            3646101781514403606,
+            "rustix",
+            false,
+            15890394215152324398
+          ],
+          [
+            5330460842384404171,
+            "serde_json",
+            false,
+            12114098242535488692
+          ],
+          [
+            5574233983441653039,
+            "lamp_ipc",
+            false,
+            17520337946996639175
+          ],
+          [
+            6557439603276904804,
+            "serde",
+            false,
+            6621975328373762514
+          ],
+          [
+            9857275760291862238,
+            "sha2",
+            false,
+            12674955449368957087
+          ],
+          [
+            14515309963789851236,
+            "lamp_turn_owner",
+            false,
+            11866960466591675996
+          ],
+          [
+            16696992991567834322,
+            "hound",
+            false,
+            10191766789316841566
+          ]
+        ],
+        "local": [
+          {
+            "CheckDepInfo": {
+              "dep_info": "debug/.fingerprint/lamp-audio-de9790b0876674a4/dep-test-lib-lamp_audio",
+              "checksum": false
+            }
+          }
+        ],
+        "rustflags": [],
+        "config": 8247474407144887393,
+        "compile_kind": 0
+      },
+      "raw_inputs": [
+        {
+          "path": "/private/tmp/lampos-tests-capacity/lampOS/target/debug/deps/lamp_audio-de9790b0876674a4.d",
+          "sha256": "2f8b21714f0524058c14d0e29a9e3797db2b13f6a84ba420dbdad952174df38b",
+          "bytes": 1402,
+          "mtime_epoch_ns_from_stat": 1792111044126664789,
+          "mtime_formatted_by_date": "2026-10-16 07:37:24 +0700",
+          "raw_copy": "raw/combined_candidate/lamp_audio-de9790b0876674a4.d"
+        },
+        {
+          "path": "/private/tmp/lampos-tests-capacity/lampOS/target/debug/.fingerprint/lamp-audio-de9790b0876674a4/test-lib-lamp_audio.json",
+          "sha256": "f34a6ba352671af837e9d4da0da4b89edacb0c49997c70b0edde9ebb54e6100d",
+          "bytes": 831,
+          "mtime_epoch_ns_from_stat": 1792111047553789699,
+          "mtime_formatted_by_date": "2026-10-16 07:37:27 +0700",
+          "raw_copy": "raw/combined_candidate/test-lib-lamp_audio.json"
+        },
+        {
+          "path": "/private/tmp/lampos-tests-capacity/lampOS/target/debug/.fingerprint/lamp-audio-de9790b0876674a4/test-lib-lamp_audio",
+          "sha256": "37028b08179f63e43c90404ee767c651404743434e940afb3257b2b2e98557e2",
+          "bytes": 16,
+          "mtime_epoch_ns_from_stat": 1792111047553685203,
+          "mtime_formatted_by_date": "2026-10-16 07:37:27 +0700",
+          "raw_copy": "raw/combined_candidate/test-lib-lamp_audio"
+        },
+        {
+          "path": "/private/tmp/lampos-tests-capacity/lampOS/target/debug/.fingerprint/lamp-audio-de9790b0876674a4/dep-test-lib-lamp_audio",
+          "sha256": "dc70f22027652905e8992784ad3bdbace177652d95d37e131162988a65b7e95b",
+          "bytes": 304,
+          "mtime_epoch_ns_from_stat": 1792111043839931580,
+          "mtime_formatted_by_date": "2026-10-16 07:37:23 +0700",
+          "raw_copy": "raw/combined_candidate/dep-test-lib-lamp_audio"
+        },
+        {
+          "path": "/private/tmp/lampos-tests-capacity/lampOS/target/debug/.fingerprint/lamp-audio-de9790b0876674a4/invoked.timestamp",
+          "sha256": "5a109e6643e8d3e88642e3f35e85d2a83e639d07523aa6e99166c48178e965c3",
+          "bytes": 48,
+          "mtime_epoch_ns_from_stat": 1792111043839931580,
+          "mtime_formatted_by_date": "2026-10-16 07:37:23 +0700",
+          "raw_copy": "raw/combined_candidate/invoked.timestamp"
+        }
+      ],
+      "binary_embeds_candidate_tree_name": true,
+      "binary_embeds_baseline_tree_name": false
+    }
+  },
+  "current_source_inputs": [
+    {
+      "path": "/private/tmp/lampos-tests-capture-clock/lampOS/crates/audio/Cargo.toml",
+      "sha256": "c99244615a63e8f3ed68cdae1f9f39da4a53dc8de618c40e4120ef49795802c3",
+      "bytes": 520,
+      "mtime_epoch_ns_from_stat": 1792109683563020675,
+      "mtime_formatted_by_date": "2026-10-16 07:14:43 +0700"
+    },
+    {
+      "path": "/private/tmp/lampos-tests-capture-clock/lampOS/crates/audio/src/lib.rs",
+      "sha256": "da6455e5bab9ecb7efb853263e38dd1ed5ea027f9abd3d9890bf93302a15f34a",
+      "bytes": 7499,
+      "mtime_epoch_ns_from_stat": 1792109683567804210,
+      "mtime_formatted_by_date": "2026-10-16 07:14:43 +0700"
+    },
+    {
+      "path": "/private/tmp/lampos-tests-capture-clock/lampOS/crates/audio/src/capture.rs",
+      "sha256": "4661ad6a4aa347bf2b0803a08ad2f163e2ac3f5f6a5def0062be6eed1b875449",
+      "bytes": 43339,
+      "mtime_epoch_ns_from_stat": 1792110155368541160,
+      "mtime_formatted_by_date": "2026-10-16 07:22:35 +0700"
+    },
+    {
+      "path": "/private/tmp/lampos-tests-capture-clock/lampOS/crates/audio/src/capture/clock_tests.rs",
+      "sha256": "15d8c7a1c33f855e1e1b08e8b7d678e56ce1caaf6ee7edfd78867c673eb33578",
+      "bytes": 16342,
+      "mtime_epoch_ns_from_stat": 1792110085844311019,
+      "mtime_formatted_by_date": "2026-10-16 07:21:25 +0700"
+    }
+  ],
+  "direct_dependency_fingerprint_and_feature_comparison": [
+    {
+      "crate": "hound",
+      "before_fingerprint": 10191766789316841566,
+      "after_fingerprint": 10191766789316841566,
+      "before_path": "/private/tmp/lampos-tests-capacity/lampOS/target/debug/.fingerprint/hound-852ef5aaee5889d4/lib-hound.json",
+      "before_features": [],
+      "before_raw_sha256": "3e4bc40ba8b307a26eb363662d7b2c1eb866f36546f3abc74cdd68785fbd4b54",
+      "after_path": "/private/tmp/lampos-tests-capacity/lampOS/target/debug/.fingerprint/hound-852ef5aaee5889d4/lib-hound.json",
+      "after_features": [],
+      "after_raw_sha256": "3e4bc40ba8b307a26eb363662d7b2c1eb866f36546f3abc74cdd68785fbd4b54",
+      "features_changed": false
+    },
+    {
+      "crate": "lamp_ipc",
+      "before_fingerprint": 14350545554863287438,
+      "after_fingerprint": 17520337946996639175,
+      "before_path": "/private/tmp/lampos-tests-capacity/lampOS/target/debug/.fingerprint/lamp-ipc-39be07296a2c6c5f/lib-lamp_ipc.json",
+      "before_features": [],
+      "before_raw_sha256": "c88f466f9e58bbbd1ed842f9b81657e0234511720a4463878c849a7f2abca4c4",
+      "after_path": "/private/tmp/lampos-tests-capacity/lampOS/target/debug/.fingerprint/lamp-ipc-b0d91e9e8822d0b4/lib-lamp_ipc.json",
+      "after_features": [],
+      "after_raw_sha256": "f10c4892a83bc2599b9ae6d557a666cca9eb5080f07fe35691c2ae0866c1f4fd",
+      "features_changed": false
+    },
+    {
+      "crate": "lamp_turn_owner",
+      "before_fingerprint": 7061270273666894330,
+      "after_fingerprint": 11866960466591675996,
+      "before_path": "/private/tmp/lampos-tests-capacity/lampOS/target/debug/.fingerprint/lamp-turn-owner-f757cdbc9f633aeb/lib-lamp_turn_owner.json",
+      "before_features": [],
+      "before_raw_sha256": "0ae7f53c559893640f4f71d2dcb6a98b99f7317168922d77f22d1446a056423e",
+      "after_path": "/private/tmp/lampos-tests-capacity/lampOS/target/debug/.fingerprint/lamp-turn-owner-55e0bd6ddd873859/lib-lamp_turn_owner.json",
+      "after_features": [],
+      "after_raw_sha256": "15492a107b00e84019f08ca2ad12874c0b03aa909884e2dc7a3de1dc73712e80",
+      "features_changed": false
+    },
+    {
+      "crate": "rustix",
+      "before_fingerprint": 14428823313418353217,
+      "after_fingerprint": 15890394215152324398,
+      "before_path": "/private/tmp/lampos-tests-capacity/lampOS/target/debug/.fingerprint/rustix-c7c548f551cfa69a/lib-rustix.json",
+      "before_features": [
+        "alloc",
+        "default",
+        "event",
+        "fs",
+        "net",
+        "pipe",
+        "process",
+        "std",
+        "stdio",
+        "time"
+      ],
+      "before_raw_sha256": "e0c2d2ea935e46ae0a0e58f5feef83580801c26f297707d03e7e07739cd41494",
+      "after_path": "/private/tmp/lampos-tests-capacity/lampOS/target/debug/.fingerprint/rustix-2732ecd6567b6171/lib-rustix.json",
+      "after_features": [
+        "alloc",
+        "default",
+        "event",
+        "fs",
+        "net",
+        "pipe",
+        "process",
+        "std",
+        "stdio",
+        "thread",
+        "time"
+      ],
+      "after_raw_sha256": "cf5399ff791d5ff13622b03339a93ddc002e0d9fc2aa74c1cfa548b62539df57",
+      "features_changed": true
+    },
+    {
+      "crate": "serde",
+      "before_fingerprint": 3101879719233231456,
+      "after_fingerprint": 6621975328373762514,
+      "before_path": "/private/tmp/lampos-tests-capacity/lampOS/target/debug/.fingerprint/serde-ae3b203d01d0bbb3/lib-serde.json",
+      "before_features": [
+        "default",
+        "derive",
+        "serde_derive",
+        "std"
+      ],
+      "before_raw_sha256": "75f3821fffea189294c049a50810b36a6f4728a248a9b38ef1fb1611315ff340",
+      "after_path": "/private/tmp/lampos-tests-capacity/lampOS/target/debug/.fingerprint/serde-f8e01fa923b333fc/lib-serde.json",
+      "after_features": [
+        "alloc",
+        "default",
+        "derive",
+        "serde_derive",
+        "std"
+      ],
+      "after_raw_sha256": "5f18ad1854f1d4a32dfea88bcbbd06592f91a3d6ad3916e64e12af38ae85ca68",
+      "features_changed": true
+    },
+    {
+      "crate": "serde_json",
+      "before_fingerprint": 10586129434936088374,
+      "after_fingerprint": 12114098242535488692,
+      "before_path": "/private/tmp/lampos-tests-capacity/lampOS/target/debug/.fingerprint/serde_json-af99fd65a473637f/lib-serde_json.json",
+      "before_features": [
+        "default",
+        "std"
+      ],
+      "before_raw_sha256": "7ff718084ca8ef962a70404365b6a84efaf66f00e641c62ae8f7a60401bc7e21",
+      "after_path": "/private/tmp/lampos-tests-capacity/lampOS/target/debug/.fingerprint/serde_json-394f4bf20aa44e06/lib-serde_json.json",
+      "after_features": [
+        "default",
+        "std"
+      ],
+      "after_raw_sha256": "fa0c2fe032f81b5a5a144fcbd0f226c4914e341f30f4a65f8a247bfde78b9439",
+      "features_changed": false
+    },
+    {
+      "crate": "sha2",
+      "before_fingerprint": 10941534119136774795,
+      "after_fingerprint": 12674955449368957087,
+      "before_path": "/private/tmp/lampos-tests-capacity/lampOS/target/debug/.fingerprint/sha2-6c95c6378e09e72d/lib-sha2.json",
+      "before_features": [
+        "default",
+        "std"
+      ],
+      "before_raw_sha256": "1d7fe652aa98255c3cf64051fcd6cccab10ac2f33b69d5472512bf515adfa930",
+      "after_path": "/private/tmp/lampos-tests-capacity/lampOS/target/debug/.fingerprint/sha2-8ec15635434c8cf4/lib-sha2.json",
+      "after_features": [
+        "default",
+        "std"
+      ],
+      "after_raw_sha256": "8a12a19ef967dc285670444618f20dbc4018e298905e1cee9e7019480fa0d8fd",
+      "features_changed": false
+    },
+    {
+      "crate": "sonora",
+      "before_fingerprint": 7340336332332073420,
+      "after_fingerprint": 6687964472357150087,
+      "before_path": "/private/tmp/lampos-tests-capacity/lampOS/target/debug/.fingerprint/sonora-866b13abcdb14bdd/lib-sonora.json",
+      "before_features": [],
+      "before_raw_sha256": "df628c2b8b39cee4dd0b29971f5b237b41d82ca8208089e985e0559fc2fb1a8e",
+      "after_path": "/private/tmp/lampos-tests-capacity/lampOS/target/debug/.fingerprint/sonora-8e6f14b3e2e69a7d/lib-sonora.json",
+      "after_features": [],
+      "after_raw_sha256": "7bd2d303dfbf2e550cd5a5fe75a9c97d20c929709651627a168787131c69eaf7",
+      "features_changed": false
+    }
+  ],
+  "observed": [
+    "Audio has no declared features. Capture is cfg(unix); the new module is cfg(test). Both library listings retain the thirteen old capture cases.",
+    "The standalone clean baseline has 70 library tests (162 total Audio tests). The combined candidate has 79 library tests, including all nine additions.",
+    "Standalone and combined selections have different dependency fingerprints; direct serde adds alloc and rustix adds thread in the combined graph.",
+    "Both Audio fingerprint records have the same rustc, target, profile, source path hash, config and compile kind; depfiles use relative crates/audio paths.",
+    "The standalone baseline artifact was built after the candidate source edits already existed. Its depfile does not name clock_tests.rs; the combined artifact depfile does.",
+    "The failed focused attempt reported 70 skipped library tests and executed zero; it did not rebuild Audio and does not establish any test failure."
+  ],
+  "cause_inference": "The standalone graph reused the cached baseline variant in the shared target. Cargo relative source paths/freshness can regard that later baseline artifact as fresh against earlier candidate source mtimes. The counts, depfiles and artifact contents support this inference; no Cargo freshness trace from the failed attempt was captured, so the exact internal freshness decision is not claimed as proven.",
+  "no_source_or_timestamp_changes": true,
+  "no_target_cleanup": true,
+  "binaries_executed_by_inspection": 0
+}

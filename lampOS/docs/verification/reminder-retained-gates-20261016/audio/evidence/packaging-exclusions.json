@@ -1,0 +1,18 @@
+{
+  "date_from_date": "2026-10-16 08:04:33 +0700",
+  "reason": "Compiled binaries are not included anywhere in the evidence; these two Cargo dep-info metadata files were read-only diagnostic copies outside the repository. If a durable package is later requested, keep their exact textual hex copies and hashes, not the binary dep-info files. Scratch Python scripts live outside this evidence directory and must not be committed.",
+  "files": [
+    {
+      "external_binary_metadata": "first-gate/selection-correction/raw/combined_candidate/dep-test-lib-lamp_audio",
+      "sha256": "dc70f22027652905e8992784ad3bdbace177652d95d37e131162988a65b7e95b",
+      "textual_hex_copy": "first-gate/selection-correction/raw/combined_candidate/dep-test-lib-lamp_audio.hex.txt",
+      "exclude_binary_metadata_from_repository_package": true
+    },
+    {
+      "external_binary_metadata": "first-gate/selection-correction/raw/standalone_baseline/dep-test-lib-lamp_audio",
+      "sha256": "033c8aac8831c18c4c53a4c1841a614688d9049816e7a792c471cfbef4f27801",
+      "textual_hex_copy": "first-gate/selection-correction/raw/standalone_baseline/dep-test-lib-lamp_audio.hex.txt",
+      "exclude_binary_metadata_from_repository_package": true
+    }
+  ]
+}

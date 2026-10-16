@@ -1,0 +1,113 @@
+[
+  {
+    "name": "fmt",
+    "command": [
+      "cargo",
+      "fmt",
+      "--all",
+      "--",
+      "--check"
+    ],
+    "cwd": "/private/tmp/lampos-tests-provider-observations-current/lampOS",
+    "target": "/private/tmp/tests-823-rebase-target",
+    "started": "2026-10-16 07:39:15 +0700",
+    "finished": "2026-10-16 07:39:20 +0700",
+    "exit_code": 0,
+    "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "name": "clippy",
+    "command": [
+      "cargo",
+      "clippy",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-memory",
+      "-p",
+      "lamp-voice",
+      "-p",
+      "lamp-voice-eval",
+      "-p",
+      "lamp-surround",
+      "--all-targets",
+      "--",
+      "-D",
+      "warnings"
+    ],
+    "cwd": "/private/tmp/lampos-tests-provider-observations-current/lampOS",
+    "target": "/private/tmp/tests-823-rebase-target",
+    "started": "2026-10-16 07:39:20 +0700",
+    "finished": "2026-10-16 07:40:24 +0700",
+    "exit_code": 0,
+    "raw_sha256": "d0a9245df126427bba9b50a1527de98b4cfbb693c003ab77b2d34e0d6f7fdba1"
+  },
+  {
+    "name": "list",
+    "command": [
+      "cargo",
+      "nextest",
+      "list",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-memory",
+      "-p",
+      "lamp-voice",
+      "-p",
+      "lamp-voice-eval",
+      "-p",
+      "lamp-surround",
+      "--message-format",
+      "json"
+    ],
+    "cwd": "/private/tmp/lampos-tests-provider-observations-current/lampOS",
+    "target": "/private/tmp/tests-823-rebase-target",
+    "started": "2026-10-16 07:40:24 +0700",
+    "finished": "2026-10-16 07:44:22 +0700",
+    "exit_code": 0,
+    "raw_sha256": "48d615cb99e9aa5c9940ea1fa5ebf2361afb4930044285532672bd544c24c375"
+  },
+  {
+    "name": "tests",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-memory",
+      "-p",
+      "lamp-voice",
+      "-p",
+      "lamp-voice-eval",
+      "-p",
+      "lamp-surround",
+      "--no-fail-fast",
+      "--",
+      "--test-threads=1"
+    ],
+    "cwd": "/private/tmp/lampos-tests-provider-observations-current/lampOS",
+    "target": "/private/tmp/tests-823-rebase-target",
+    "started": "2026-10-16 07:44:22 +0700",
+    "finished": "2026-10-16 08:04:19 +0700",
+    "exit_code": 101,
+    "raw_sha256": "1681b36727c7b1fb8b5663190417118eccbd3f18c14f285e44ebc0c9c50f4487"
+  },
+  {
+    "name": "build",
+    "command": [
+      "cargo",
+      "build",
+      "--locked",
+      "--offline",
+      "--workspace"
+    ],
+    "cwd": "/private/tmp/lampos-tests-provider-observations-current/lampOS",
+    "target": "/private/tmp/tests-823-rebase-target",
+    "started": "2026-10-16 08:04:19 +0700",
+    "finished": "2026-10-16 08:05:46 +0700",
+    "exit_code": 0,
+    "raw_sha256": "46015aaa4a55a99e559128e63ef0a7ea95553f7eb5bf040cc63f4e1d58fe342e"
+  }
+]

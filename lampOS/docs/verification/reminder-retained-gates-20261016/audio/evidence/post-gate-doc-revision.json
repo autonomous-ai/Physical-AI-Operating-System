@@ -1,0 +1,16 @@
+{
+  "date_from_date": "2026-10-16 08:10:59 +0700",
+  "root_authorization": "After first-gate completion, correct only the documentation phrase to PR-profile exclusion; retain both hashes and exact one-line diff, verify actual nextest profile, and do not rerun tests for wording alone.",
+  "path": "lampOS/docs/voice-test-fixtures.md",
+  "first_gate_sha256": "0e4d90db1d249610dad41c59ba67074d3f1546a95936baeb403481ac5a9304dc",
+  "publication_sha256": "8f2a48e3b9fc1f1ecebc8ca742b40a771d4063d7c8e5f862dd5085f3d9be740b",
+  "change": {
+    "before": "its realtime-profile exclusion",
+    "after": "its PR-profile exclusion"
+  },
+  "actual_profile_sha256": "33254521c34198ae2d4f988c4b7d04391c03da769ad91769e691171ae3b87367",
+  "actual_pr_profile_excludes_capture_hold_worker": true,
+  "actual_realtime_profile_selects_capture_hold_worker": true,
+  "rust_sources_unchanged_since_gate": true,
+  "test_rerun": "None; this is the root-approved wording-only correction after the immutable first gate."
+}

@@ -1,0 +1,22 @@
+{
+  "started_from_date": "2026-10-16 07:27:52 +0700",
+  "finished_from_date": "2026-10-16 07:27:52 +0700",
+  "command": [
+    "/Users/autonomous/.rustup/toolchains/1.96.0-x86_64-apple-darwin/bin/rustfmt",
+    "--edition",
+    "2024",
+    "--config",
+    "skip_children=true",
+    "lampOS/crates/audio/src/capture.rs",
+    "lampOS/crates/audio/src/capture/clock_tests.rs"
+  ],
+  "exit_code": 0,
+  "git_diff_check_exit": 0,
+  "files_before_and_after_exact": {
+    "lampOS/crates/audio/src/capture.rs": "4661ad6a4aa347bf2b0803a08ad2f163e2ac3f5f6a5def0062be6eed1b875449",
+    "lampOS/crates/audio/src/capture/clock_tests.rs": "15d8c7a1c33f855e1e1b08e8b7d678e56ce1caaf6ee7edfd78867c673eb33578",
+    "lampOS/docs/voice-test-fixtures.md": "0e4d90db1d249610dad41c59ba67074d3f1546a95936baeb403481ac5a9304dc"
+  },
+  "markdown": "Only scoped manual paragraph wrapping in the owned Markdown doc; Rust formatter applies only to the two Rust sources.",
+  "cargo_commands": 0
+}

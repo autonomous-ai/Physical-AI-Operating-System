@@ -1,0 +1,9 @@
+--- first-gate/lampOS/docs/voice-test-fixtures.md
++++ publication/lampOS/docs/voice-test-fixtures.md
+@@ -353,5 +353,5 @@
+ Scripted boundary tests can run on Unix development hosts, but macOS
+ excludes the ALSA alias and Linux worker integration. Native Linux checks
+ must compile those callers and exercise the existing capture-hold binary;
+-its realtime-profile exclusion means an ordinary PR-profile pass alone
++its PR-profile exclusion means an ordinary PR-profile pass alone
+ does not provide that evidence.

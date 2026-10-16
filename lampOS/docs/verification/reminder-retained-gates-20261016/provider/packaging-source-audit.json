@@ -1,0 +1,16 @@
+{
+  "date_from_date": "2026-10-16 08:14:38 +0700",
+  "frozen_source_files": 873,
+  "all_873_current_inputs_still_exact": true,
+  "integration_sources_exact": {
+    "lampOS/crates/voice/src/provider_worker.rs": "56b82b75f50026cb9036ed9f88f937e9df218df7702968d0bbf7798106df1e90",
+    "lampOS/crates/voice/src/provider_worker/observation.rs": "8a370c2a4b85bd70890d51a34259524cdf5cb236d6a8210f16abb37f6b99ef5e",
+    "lampOS/crates/voice/src/provider_worker/tests/observation.rs": "25e230b6ccec6a5273f65a6d37f97f6efbbb4cada473c6b7bf0a3d742fbbc3f8",
+    "lampOS/docs/voice-test-fixtures.md": "86b1574e8ced3cad83191efcaa670f618589bfa35844df15481d2ea92c8617b3"
+  },
+  "root_result_audit_sha256": "3bcf3f1f6ebddaae921cedc82c500b45cc341165ed15d04e1bfdecc7c3258069",
+  "test_log_sha256": "1681b36727c7b1fb8b5663190417118eccbd3f18c14f285e44ebc0c9c50f4487",
+  "list_log_sha256": "48d615cb99e9aa5c9940ea1fa5ebf2361afb4930044285532672bd544c24c375",
+  "all_counts_and_exact_once_claims_from_retained_root_audit": true,
+  "executable_checks_run_during_packaging": 0
+}

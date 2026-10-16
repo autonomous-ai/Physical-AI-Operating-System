@@ -1,0 +1,20 @@
+{
+  "date_from_date": "2026-10-16 07:44:39 +0700",
+  "base": "e5aa43747ec1540893b4da4509d14288e7e70806",
+  "source_before_count": 7227,
+  "source_before_exact": true,
+  "selected_nine_proof_sha256": "f005d035592ab5ea7720bf30abb93225960c029c9b0b320c35e308edcb1997ae",
+  "candidate_binary_sha256": "3023132c0d81ab2e52acf5e064bdad5c048fd59fc95e154bd8fa5284df3a6b51",
+  "root_authorization": "Root approved the exact four-package focused command proven by the diagnostic listing, then the once-only full affected serial no-fail-fast suite and workspace build. Keep source frozen and retain original zero-execution attempt; no additional retries. Only the approved doc phrase may change after completion.",
+  "prior_attempt": "The first standalone focused command selected zero tests and returned exit 4. No test body ran. Its raw record is preserved; the historical stopped-new-focused-test-failure label is an overbroad runner classification, not a failed test result.",
+  "correction": "Focused command now uses the same four-package selection as the accepted compiled inventory; no source, timestamp, or cache cleanup change.",
+  "target": "/private/tmp/lampos-tests-capacity/lampOS/target",
+  "environment": {
+    "RUSTUP_TOOLCHAIN": "1.96.0",
+    "CARGO_TARGET_DIR": "/private/tmp/lampos-tests-capacity/lampOS/target",
+    "CARGO_BUILD_JOBS": "2",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_TERM_COLOR": "never",
+    "RUST_BACKTRACE": "1"
+  }
+}

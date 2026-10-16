@@ -1,0 +1,192 @@
+{
+  "date_from_date": "2026-10-16 08:10:59 +0700",
+  "existing_files": [
+    {
+      "path": "lampOS/crates/audio/src/capture.rs",
+      "before_sha256": "2290f33855191de88041c7ec64b10b8d933effa7aa64d2940ebfc42ecc5a67f0",
+      "after_sha256": "4661ad6a4aa347bf2b0803a08ad2f163e2ac3f5f6a5def0062be6eed1b875449",
+      "hunks": [
+        {
+          "before_start": 17,
+          "before_end": 20,
+          "after_start": 17,
+          "after_end": 21,
+          "before": "//! process supervision must enforce a stall timeout. Host read times and ALSA's\n//! optional status clock are recorded separately. Neither is a measured acoustic\n//! acquisition timestamp. A 10 ms read budget is checked after the call returns.\n",
+          "after": "//! process supervision must enforce a stall timeout. Boundary-clock read times\n//! (host time by default) and ALSA's optional status clock are recorded separately.\n//! Neither is a measured acoustic acquisition timestamp. A 10 ms read budget is\n//! checked after the call returns.\n"
+        },
+        {
+          "before_start": 176,
+          "before_end": 177,
+          "after_start": 177,
+          "after_end": 178,
+          "before": "    /// Host time immediately before snd_pcm_start, not ADC acquisition.\n",
+          "after": "    /// Boundary-clock time before snd_pcm_start, not ADC acquisition.\n"
+        },
+        {
+          "before_start": 192,
+          "before_end": 193,
+          "after_start": 193,
+          "after_end": 194,
+          "before": "    /// First successful host read that contributed to this frame.\n",
+          "after": "    /// First successful boundary-clock read that contributed to this frame.\n"
+        },
+        {
+          "before_start": 199,
+          "before_end": 200,
+          "after_start": 200,
+          "after_end": 201,
+          "before": "    /// Host time when the post-read status observation completed.\n",
+          "after": "    /// Boundary-clock time when the post-read status observation completed.\n"
+        },
+        {
+          "before_start": 219,
+          "before_end": 220,
+          "after_start": 220,
+          "after_end": 221,
+          "before": "pub struct MicrophoneOn<D: CaptureDevice> {\n",
+          "after": "pub struct MicrophoneOn<D: CaptureDevice, C: Fn() -> MonoTime = fn() -> MonoTime> {\n"
+        },
+        {
+          "before_start": 233,
+          "before_end": 233,
+          "after_start": 234,
+          "after_end": 235,
+          "before": "",
+          "after": "    clock: C,\n"
+        },
+        {
+          "before_start": 238,
+          "before_end": 238,
+          "after_start": 240,
+          "after_end": 254,
+          "before": "",
+          "after": "        Self::with_clock(device, boot, config, now)\n    }\n}\n\nimpl<D: CaptureDevice, C: Fn() -> MonoTime> MicrophoneOn<D, C> {\n    /// Validate against an explicitly owned clock; construction still opens nothing.\n    ///\n    /// The clock must promptly return the current admitted monotonic time without\n    /// advancing it, waiting, doing I/O or pumping work. All installed authority\n    /// must use this same domain. The caller owns monotonic updates and lifetime;\n    /// a regressed clock faults this boundary and never falls back to host time.\n    /// Driver status timestamps remain separate and are not converted or replaced.\n    /// This supplies no worker pacing, host watchdog or task completion evidence.\n    pub fn with_clock(device: &str, boot: BootId, config: CaptureConfig, clock: C) -> Result<Self> {\n"
+        },
+        {
+          "before_start": 248,
+          "before_end": 249,
+          "after_start": 264,
+          "after_end": 265,
+          "before": "        let now = now();\n",
+          "after": "        let now = clock();\n"
+        },
+        {
+          "before_start": 263,
+          "before_end": 263,
+          "after_start": 279,
+          "after_end": 280,
+          "before": "",
+          "after": "            clock,\n"
+        },
+        {
+          "before_start": 323,
+          "before_end": 324,
+          "after_start": 340,
+          "after_end": 341,
+          "before": "        let open_started_at_us = monotonic_us();\n",
+          "after": "        let open_started_at_us = (self.clock)().as_micros();\n"
+        },
+        {
+          "before_start": 356,
+          "before_end": 357,
+          "after_start": 373,
+          "after_end": 374,
+          "before": "            prepared_at_us: monotonic_us(),\n",
+          "after": "            prepared_at_us: (self.clock)().as_micros(),\n"
+        },
+        {
+          "before_start": 378,
+          "before_end": 379,
+          "after_start": 395,
+          "after_end": 396,
+          "before": "        let capture_started_at_us = monotonic_us();\n",
+          "after": "        let capture_started_at_us = (self.clock)().as_micros();\n"
+        },
+        {
+          "before_start": 400,
+          "before_end": 401,
+          "after_start": 417,
+          "after_end": 418,
+          "before": "            start_completed_at_us: monotonic_us(),\n",
+          "after": "            start_completed_at_us: (self.clock)().as_micros(),\n"
+        },
+        {
+          "before_start": 415,
+          "before_end": 416,
+          "after_start": 432,
+          "after_end": 433,
+          "before": "        let read_started_at_us = monotonic_us();\n",
+          "after": "        let read_started_at_us = (self.clock)().as_micros();\n"
+        },
+        {
+          "before_start": 417,
+          "before_end": 418,
+          "after_start": 434,
+          "after_end": 435,
+          "before": "        let read_completed_at_us = monotonic_us();\n",
+          "after": "        let read_completed_at_us = (self.clock)().as_micros();\n"
+        },
+        {
+          "before_start": 455,
+          "before_end": 456,
+          "after_start": 472,
+          "after_end": 473,
+          "before": "        let status_observed_at_us = monotonic_us();\n",
+          "after": "        let status_observed_at_us = (self.clock)().as_micros();\n"
+        },
+        {
+          "before_start": 559,
+          "before_end": 560,
+          "after_start": 576,
+          "after_end": 577,
+          "before": "        let now = now();\n",
+          "after": "        let now = (self.clock)();\n"
+        },
+        {
+          "before_start": 632,
+          "before_end": 633,
+          "after_start": 649,
+          "after_end": 650,
+          "before": "impl<D: CaptureDevice> Drop for MicrophoneOn<D> {\n",
+          "after": "impl<D: CaptureDevice, C: Fn() -> MonoTime> Drop for MicrophoneOn<D, C> {\n"
+        },
+        {
+          "before_start": 1159,
+          "before_end": 1159,
+          "after_start": 1176,
+          "after_end": 1179,
+          "before": "",
+          "after": "\n#[cfg(test)]\nmod clock_tests;\n"
+        }
+      ],
+      "reverse_restores_exact_bytes": true
+    },
+    {
+      "path": "lampOS/docs/voice-test-fixtures.md",
+      "before_sha256": "04bf0a07ddbd0e9de139988b65c51aa23a11bb1b542176a8185a473d923a19d4",
+      "after_sha256": "8f2a48e3b9fc1f1ecebc8ca742b40a771d4063d7c8e5f862dd5085f3d9be740b",
+      "hunks": [
+        {
+          "before_start": 3,
+          "before_end": 7,
+          "after_start": 3,
+          "after_end": 7,
+          "before": "tests, not a change to the lamp's timing policy. `scenario_clock` and the\nfixture helpers are compiled only under `cfg(test)`. There is no runtime\nflag, environment setting or wider production deadline. Ordinary builds\ncontinue to use the existing monotonic clock.\n",
+          "after": "tests, not a change to the lamp's timing policy. The coordinator's\n`scenario_clock` and its fixture peers are compiled only under `cfg(test)`.\nThere is no runtime flag, environment setting or wider production deadline.\nOrdinary builds continue to use the existing monotonic clock.\n"
+        },
+        {
+          "before_start": 313,
+          "before_end": 313,
+          "after_start": 313,
+          "after_end": 357,
+          "before": "",
+          "after": "\n## Explicit microphone-boundary clock\n\n`lamp_audio::capture::MicrophoneOn::with_clock` takes an owned\n`Fn() -> MonoTime` source for the microphone boundary. The existing `new`\nconstructor and the Linux `Microphone` alias retain the host monotonic\nclock. No production call site selects a fixture clock. This is an explicit\nlibrary constructor, available to integration fixtures; it is not a runtime\nflag, a global override, or a worker clock controller.\n\nThe getter must promptly read the current admitted time without advancing\nit, waiting, doing I/O or pumping work. Authority snapshots and boundary\nread timestamps must use that same domain. The caller owns the clock's\nlifetime and updates. Separate microphone instances can own independent\nsources. Ordinary construction still validates before sampling and opens\nnothing; installing permitted authority still opens nothing.\n\nEvery original clock sample remains at its original operation boundary.\nThe same source supplies construction and authority checks, open/prepare,\nstart, read and status-observation timestamps. Device status timestamps\nremain separate, unchanged, and optional. Clock regression retains the\noriginal permanent boundary fault; it never switches to host time. The\n250 ms authority lease, strict read budget (more than 10 ms), partial-buffer\nexpiry, privacy checks, error precedence, device calls and cleanup are\nunchanged. A controlled timestamp is not measured microphone acquisition\nor host latency, and a clock getter establishes no completed I/O or exit.\n\nNew source tests cover ordinary/explicit-host parity, independent fixed\nclocks and driver timestamps, validation before clock access, the exact\n10 ms read boundary, authority expiry after actual scripted device calls,\npartial expiry across would-block, permanent clock regression, and device\nerror/expiry/read-budget precedence. They use the same capture boundary\nand existing scripted device; only explicit fixture updates move time.\nThe original tests and their assertions remain unchanged. This preparation\nadds no scenario migration or speedup claim.\n\nThe capture worker loop, its pacing, the Linux capture-hold Rig, warm-up,\ntransports and Provider fixtures remain on their existing paths. Clock\nadmission, completed worker polls and owned thread exit are separate work.\nScripted boundary tests can run on Unix development hosts, but macOS\nexcludes the ALSA alias and Linux worker integration. Native Linux checks\nmust compile those callers and exercise the existing capture-hold binary;\nits PR-profile exclusion means an ordinary PR-profile pass alone\ndoes not provide that evidence.\n"
+        }
+      ],
+      "reverse_restores_exact_bytes": true
+    }
+  ],
+  "remove_new_paths": [
+    "lampOS/crates/audio/src/capture/clock_tests.rs"
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "name": "fmt",
+  "command": [
+    "/Users/autonomous/.cargo/bin/cargo",
+    "fmt",
+    "--all",
+    "--check"
+  ],
+  "cwd": "/private/tmp/lampos-tests-capture-clock/lampOS",
+  "target": "/private/tmp/lampos-tests-capacity/lampOS/target",
+  "started_from_date": "2026-10-16 07:34:27 +0700"
+}

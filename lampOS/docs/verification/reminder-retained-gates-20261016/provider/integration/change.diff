@@ -1,0 +1,151 @@
+diff --git a/lampOS/crates/voice/src/provider_worker.rs b/lampOS/crates/voice/src/provider_worker.rs
+index 7b378ca85..0578445ea 100644
+--- a/lampOS/crates/voice/src/provider_worker.rs
++++ b/lampOS/crates/voice/src/provider_worker.rs
+@@ -30,6 +30,9 @@ use std::{
+ 
+ mod reminder_policy;
+ 
++#[cfg(test)]
++pub(crate) mod observation;
++
+ type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
+ const MAX_QUEUED_OUTPUT: usize = 512;
+ /// Above this backlog no further provider event is taken. The transport then
+@@ -893,12 +896,31 @@ async fn serve<C: Connect>(
+ }
+ 
+ async fn serve_with_visual<C: Connect>(
++    channels: WorkerChannels,
++    boot: BootId,
++    provider: Supervisor<C>,
++    options: Options,
++    visual: Option<ContextDelivery>,
++    sight: Option<crate::sight::Sight>,
++) -> Result<()> {
++    #[cfg(test)]
++    {
++        serve_with_visual_inner(channels, boot, provider, options, visual, sight, None).await
++    }
++    #[cfg(not(test))]
++    {
++        serve_with_visual_inner(channels, boot, provider, options, visual, sight).await
++    }
++}
++
++async fn serve_with_visual_inner<C: Connect>(
+     mut channels: WorkerChannels,
+     boot: BootId,
+     mut provider: Supervisor<C>,
+     options: Options,
+     mut visual: Option<ContextDelivery>,
+     mut sight: Option<crate::sight::Sight>,
++    #[cfg(test)] observation: Option<observation::IntakeWriter>,
+ ) -> Result<()> {
+     channels.control.send(WorkerEvent::Ready)?;
+     let coordinated = options.reporting == Reporting::Coordinated;
+@@ -907,6 +929,10 @@ async fn serve_with_visual<C: Connect>(
+     let mut link_status = PendingLink::default();
+     let mut upstream_ended = false;
+     let mut intake = ProviderIntake::new(boot, monotonic_us());
++    #[cfg(test)]
++    if let Some(observation) = observation {
++        intake.observation.attach(observation, boot);
++    }
+     intake.handoff.tolerate_outage = typed;
+     intake.handoff.reminders.enabled = options.tools.schedule_speak;
+     let mut ticker = tokio::time::interval(Duration::from_millis(2));
+@@ -2357,6 +2383,8 @@ struct ProviderIntake {
+     /// Snapshots skipped because they had expired while this worker was held
+     /// up, since the last one it could take.
+     skipped_expired: u32,
++    #[cfg(test)]
++    observation: observation::IntakeSlot,
+ }
+ impl ProviderIntake {
+     fn new(boot: BootId, now_us: u64) -> Self {
+@@ -2369,6 +2397,8 @@ impl ProviderIntake {
+             retained: None,
+             stopped: false,
+             skipped_expired: 0,
++            #[cfg(test)]
++            observation: observation::IntakeSlot::default(),
+         }
+     }
+ 
+@@ -2424,6 +2454,8 @@ impl ProviderIntake {
+             match command {
+                 Control::Stop => {
+                     self.stop();
++                    #[cfg(test)]
++                    self.observation.stop(observation::StopCause::ExplicitStop);
+                     return Ok(ControlDrain::Stopped);
+                 }
+                 Control::Authority { snapshot } => {
+@@ -2459,6 +2491,9 @@ impl ProviderIntake {
+                             || snapshot.microphone_permission() != Permission::Allowed)
+                     {
+                         self.stop();
++                        #[cfg(test)]
++                        self.observation
++                            .stop(observation::StopCause::AuthorityRevoked);
+                         return Ok(ControlDrain::Stopped);
+                     }
+                     self.saw_allowed |= snapshot.microphone_permission() == Permission::Allowed;
+@@ -3146,6 +3181,7 @@ fn push_text(
+ 
+ #[cfg(test)]
+ mod tests {
++    mod observation;
+     mod reminders;
+ 
+     use super::*;
+diff --git a/lampOS/docs/voice-test-fixtures.md b/lampOS/docs/voice-test-fixtures.md
+index ec95b47db..d98059126 100644
+--- a/lampOS/docs/voice-test-fixtures.md
++++ b/lampOS/docs/voice-test-fixtures.md
+@@ -175,6 +175,44 @@ one request with audio blocks 76 through 290, one early end, no abandoned
+ request and 48 speaker chunks. These tests do not measure the lamp's 50 ms
+ privacy response.
+ 
++## Provider body observations
++
++The explicit test-only `provider_worker::observation::coordinated` factory
++binds an owned observation before the original provider body is first polled.
++Ordinary constructors stay unattached. Both entrypoints use the same original
++body, raw clocks, 2 ms Skip interval, control/input/output budgets and channels.
++No existing real-provider scenario selects this observation yet.
++
++The intake records an explicit Stop or authority revocation only after its
++original handler has stopped intake. A generic error that clears intake is
++neither cause. A sent or accepted datagram is not a handled command: the new
++real-channel cases cover a queued Stop before polling, the original full
++16-command control slice, actual permission/generation changes, and error
++cleanup. Initial denied authority is not relabeled as revocation.
++
++A separate wrapper records the original body future's actual successful or
++failed return and preserves its Result object. Never-polled Drop and Drop after
++entry remain separate from a return; neither identifies cancellation or panic.
++The actual task owner must await its JoinHandle and keep its real result.
++Component tests distinguish handler receipt from future return, join a
++requested cancellation, and verify an unchanged panic payload. Held connection
++attempts expose their own future-Drop receipt; that receipt is not a private
++task join. New asynchronous waits share one immutable 10-second host deadline
++per test, on an unpaused runtime. Failure cleanup requests cancellation without
++claiming that request as a join.
++
++Each worker identity retains its Arc allocation, and each snapshot reads one
++bounded atomic state. No observation reads a clock, waits, performs I/O or pumps
++work. Invalid publication latches an observation failure without changing the
++real worker Result. There is no growing counter, event log or retry. An earlier
++snapshot is historical evidence, not a lease on later health.
++
++These receipts establish neither a completed bounded worker poll nor downstream
++Actor/service progress. They do not establish Actor, runtime, thread or child
++exit. Successful IPC, handled Stop, body return, task join and actual child reap
++remain distinct boundaries. Clock admission, controlled scheduling and the
++original early-end scenario migration remain separate work.
++
+ ## Actual processes and cleanup
+ 
+ Child startup, exit observation and the shared shutdown watchdog keep real

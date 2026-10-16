@@ -1,0 +1,55 @@
+{
+  "date_from_date": "2026-10-16 07:39:41 +0700",
+  "binary_read_only": true,
+  "binaries_executed": 0,
+  "rows": [
+    {
+      "source": "audio-baseline-list.log",
+      "suite": {
+        "package-name": "lamp-audio",
+        "binary-id": "lamp-audio",
+        "binary-name": "lamp_audio",
+        "package-id": "path+file:///private/tmp/lampos-tests-serve-relay-current/lampOS/crates/audio#lamp-audio@0.1.0",
+        "kind": "lib",
+        "binary-path": "/private/tmp/lampos-tests-capacity/lampOS/target/debug/deps/lamp_audio-2ed792e57ff50915",
+        "build-platform": "target",
+        "cwd": "/private/tmp/lampos-tests-serve-relay-current/lampOS/crates/audio",
+        "status": "listed",
+        "testcases": null
+      },
+      "library_count": 70,
+      "clock_tests": [],
+      "binary_sha256_now": "d85ef8d3259d8203a5bd28aa5ab6b1ca2ffd41e05f9550239b7d860bb538766a",
+      "new_name_bytes_now": false
+    },
+    {
+      "source": "list.log",
+      "suite": {
+        "package-name": "lamp-audio",
+        "binary-id": "lamp-audio",
+        "binary-name": "lamp_audio",
+        "package-id": "path+file:///private/tmp/lampos-tests-capture-clock/lampOS/crates/audio#lamp-audio@0.1.0",
+        "kind": "lib",
+        "binary-path": "/private/tmp/lampos-tests-capacity/lampOS/target/debug/deps/lamp_audio-de9790b0876674a4",
+        "build-platform": "target",
+        "cwd": "/private/tmp/lampos-tests-capture-clock/lampOS/crates/audio",
+        "status": "listed",
+        "testcases": null
+      },
+      "library_count": 79,
+      "clock_tests": [
+        "capture::clock_tests::authority_expiring_during_read_wins_over_budget_and_never_reaches_status",
+        "capture::clock_tests::authority_expiry_after_prepare_start_or_status_cannot_publish_completion",
+        "capture::clock_tests::clock_regression_latches_closed_even_after_the_clock_moves_forward",
+        "capture::clock_tests::device_error_precedes_read_budget_but_never_precedes_expired_authority",
+        "capture::clock_tests::explicit_clock_is_instance_local_and_does_not_relabel_the_driver_clock",
+        "capture::clock_tests::invalid_device_name_is_rejected_before_clock_or_device_access",
+        "capture::clock_tests::ordinary_constructor_and_explicit_host_clock_preserve_host_times_and_lifecycle",
+        "capture::clock_tests::partial_deadline_keeps_its_first_read_across_would_block",
+        "capture::clock_tests::read_budget_accepts_exactly_ten_ms_and_refuses_one_more_without_late_audio"
+      ],
+      "binary_sha256_now": "3023132c0d81ab2e52acf5e064bdad5c048fd59fc95e154bd8fa5284df3a6b51",
+      "new_name_bytes_now": true
+    }
+  ]
+}

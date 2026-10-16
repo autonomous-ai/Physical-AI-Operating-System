@@ -1,0 +1,102 @@
+diff --git a/lampOS/crates/voice/src/provider_worker.rs b/lampOS/crates/voice/src/provider_worker.rs
+index 7b378ca85..0578445ea 100644
+--- a/lampOS/crates/voice/src/provider_worker.rs
++++ b/lampOS/crates/voice/src/provider_worker.rs
+@@ -30,6 +30,9 @@ use std::{
+ 
+ mod reminder_policy;
+ 
++#[cfg(test)]
++pub(crate) mod observation;
++
+ type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
+ const MAX_QUEUED_OUTPUT: usize = 512;
+ /// Above this backlog no further provider event is taken. The transport then
+@@ -893,12 +896,31 @@ async fn serve<C: Connect>(
+ }
+ 
+ async fn serve_with_visual<C: Connect>(
++    channels: WorkerChannels,
++    boot: BootId,
++    provider: Supervisor<C>,
++    options: Options,
++    visual: Option<ContextDelivery>,
++    sight: Option<crate::sight::Sight>,
++) -> Result<()> {
++    #[cfg(test)]
++    {
++        serve_with_visual_inner(channels, boot, provider, options, visual, sight, None).await
++    }
++    #[cfg(not(test))]
++    {
++        serve_with_visual_inner(channels, boot, provider, options, visual, sight).await
++    }
++}
++
++async fn serve_with_visual_inner<C: Connect>(
+     mut channels: WorkerChannels,
+     boot: BootId,
+     mut provider: Supervisor<C>,
+     options: Options,
+     mut visual: Option<ContextDelivery>,
+     mut sight: Option<crate::sight::Sight>,
++    #[cfg(test)] observation: Option<observation::IntakeWriter>,
+ ) -> Result<()> {
+     channels.control.send(WorkerEvent::Ready)?;
+     let coordinated = options.reporting == Reporting::Coordinated;
+@@ -907,6 +929,10 @@ async fn serve_with_visual<C: Connect>(
+     let mut link_status = PendingLink::default();
+     let mut upstream_ended = false;
+     let mut intake = ProviderIntake::new(boot, monotonic_us());
++    #[cfg(test)]
++    if let Some(observation) = observation {
++        intake.observation.attach(observation, boot);
++    }
+     intake.handoff.tolerate_outage = typed;
+     intake.handoff.reminders.enabled = options.tools.schedule_speak;
+     let mut ticker = tokio::time::interval(Duration::from_millis(2));
+@@ -2357,6 +2383,8 @@ struct ProviderIntake {
+     /// Snapshots skipped because they had expired while this worker was held
+     /// up, since the last one it could take.
+     skipped_expired: u32,
++    #[cfg(test)]
++    observation: observation::IntakeSlot,
+ }
+ impl ProviderIntake {
+     fn new(boot: BootId, now_us: u64) -> Self {
+@@ -2369,6 +2397,8 @@ impl ProviderIntake {
+             retained: None,
+             stopped: false,
+             skipped_expired: 0,
++            #[cfg(test)]
++            observation: observation::IntakeSlot::default(),
+         }
+     }
+ 
+@@ -2424,6 +2454,8 @@ impl ProviderIntake {
+             match command {
+                 Control::Stop => {
+                     self.stop();
++                    #[cfg(test)]
++                    self.observation.stop(observation::StopCause::ExplicitStop);
+                     return Ok(ControlDrain::Stopped);
+                 }
+                 Control::Authority { snapshot } => {
+@@ -2459,6 +2491,9 @@ impl ProviderIntake {
+                             || snapshot.microphone_permission() != Permission::Allowed)
+                     {
+                         self.stop();
++                        #[cfg(test)]
++                        self.observation
++                            .stop(observation::StopCause::AuthorityRevoked);
+                         return Ok(ControlDrain::Stopped);
+                     }
+                     self.saw_allowed |= snapshot.microphone_permission() == Permission::Allowed;
+@@ -3146,6 +3181,7 @@ fn push_text(
+ 
+ #[cfg(test)]
+ mod tests {
++    mod observation;
+     mod reminders;
+ 
+     use super::*;

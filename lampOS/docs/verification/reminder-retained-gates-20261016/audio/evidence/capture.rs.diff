@@ -1,0 +1,177 @@
+--- before/lampOS/crates/audio/src/capture.rs
++++ after/lampOS/crates/audio/src/capture.rs
+@@ -15,9 +15,10 @@
+ //! assembler. Requested buffers contain 2..=4 ten-millisecond blocks; accepted
+ //! periods are 1..=160 frames and buffers 320..=640 frames, capped by the request.
+ //! ALSA opening, configuration and kernel calls have no userspace hard deadline;
+-//! process supervision must enforce a stall timeout. Host read times and ALSA's
+-//! optional status clock are recorded separately. Neither is a measured acoustic
+-//! acquisition timestamp. A 10 ms read budget is checked after the call returns.
++//! process supervision must enforce a stall timeout. Boundary-clock read times
++//! (host time by default) and ALSA's optional status clock are recorded separately.
++//! Neither is a measured acoustic acquisition timestamp. A 10 ms read budget is
++//! checked after the call returns.
+ //!
+ //! Revocation, expiry and capture faults close the handle and erase local partial
+ //! audio. A caller must purge its own queued frames and reset AEC on discontinuity,
+@@ -174,7 +175,7 @@
+     pub format: CaptureFormat,
+     pub open_started_at_us: u64,
+     pub prepared_at_us: u64,
+-    /// Host time immediately before snd_pcm_start, not ADC acquisition.
++    /// Boundary-clock time before snd_pcm_start, not ADC acquisition.
+     pub capture_started_at_us: u64,
+     pub microphone_generation: u64,
+     /// Completion of start, not proof of retained audio or listening readiness.
+@@ -190,14 +191,14 @@
+ 
+ #[derive(Clone, Copy, Debug, Serialize)]
+ pub struct ReadTiming {
+-    /// First successful host read that contributed to this frame.
++    /// First successful boundary-clock read that contributed to this frame.
+     pub first_read_started_at_us: u64,
+     pub last_read_started_at_us: u64,
+     pub read_completed_at_us: u64,
+     pub successful_reads: u16,
+     /// Driver-reported status clock, not sample acquisition time.
+     pub alsa_status_monotonic_us: Option<u64>,
+-    /// Host time when the post-read status observation completed.
++    /// Boundary-clock time when the post-read status observation completed.
+     pub status_observed_at_us: u64,
+     pub available_frames: i64,
+     pub delayed_frames: i64,
+@@ -217,7 +218,7 @@
+ #[cfg(target_os = "linux")]
+ pub type Microphone = MicrophoneOn<crate::alsa_device::AlsaCapture>;
+ 
+-pub struct MicrophoneOn<D: CaptureDevice> {
++pub struct MicrophoneOn<D: CaptureDevice, C: Fn() -> MonoTime = fn() -> MonoTime> {
+     device: String,
+     config: CaptureConfig,
+     guard: BoundaryGuard,
+@@ -231,11 +232,26 @@
+     reset_required: Option<Discontinuity>,
+     prepared: Option<PrepareReport>,
+     running: bool,
++    clock: C,
+ }
+ 
+ impl<D: CaptureDevice> MicrophoneOn<D> {
+     /// Validate only; no device handle is opened and no microphone samples are read.
+     pub fn new(device: &str, boot: BootId, config: CaptureConfig) -> Result<Self> {
++        Self::with_clock(device, boot, config, now)
++    }
++}
++
++impl<D: CaptureDevice, C: Fn() -> MonoTime> MicrophoneOn<D, C> {
++    /// Validate against an explicitly owned clock; construction still opens nothing.
++    ///
++    /// The clock must promptly return the current admitted monotonic time without
++    /// advancing it, waiting, doing I/O or pumping work. All installed authority
++    /// must use this same domain. The caller owns monotonic updates and lifetime;
++    /// a regressed clock faults this boundary and never falls back to host time.
++    /// Driver status timestamps remain separate and are not converted or replaced.
++    /// This supplies no worker pacing, host watchdog or task completion evidence.
++    pub fn with_clock(device: &str, boot: BootId, config: CaptureConfig, clock: C) -> Result<Self> {
+         if device.is_empty()
+             || device.len() > 128
+             || device
+@@ -246,7 +262,7 @@
+                 "an explicit ALSA alias of 1..=128 non-control bytes is required",
+             )));
+         }
+-        let now = now();
++        let now = clock();
+         Ok(Self {
+             device: device.into(),
+             config,
+@@ -261,6 +277,7 @@
+             reset_required: None,
+             prepared: None,
+             running: false,
++            clock,
+         })
+     }
+ 
+@@ -321,7 +338,7 @@
+                 CaptureError::new(ErrorKind::Discontinuity(Discontinuity::CounterExhausted)),
+             )
+         })?;
+-        let open_started_at_us = monotonic_us();
++        let open_started_at_us = (self.clock)().as_micros();
+         self.pcm = match D::open(&self.device) {
+             Ok(pcm) => Some(pcm),
+             Err(error) => return Err(self.device_failed(error)),
+@@ -354,7 +371,7 @@
+             epoch,
+             format,
+             open_started_at_us,
+-            prepared_at_us: monotonic_us(),
++            prepared_at_us: (self.clock)().as_micros(),
+             microphone_generation: self
+                 .guard
+                 .state()
+@@ -376,7 +393,7 @@
+         let prepared = self
+             .prepared
+             .ok_or_else(|| CaptureError::new(ErrorKind::Closed))?;
+-        let capture_started_at_us = monotonic_us();
++        let capture_started_at_us = (self.clock)().as_micros();
+         if let Err(error) = self
+             .pcm
+             .as_mut()
+@@ -398,7 +415,7 @@
+                 .state()
+                 .expect("permission checked")
+                 .microphone_generation(),
+-            start_completed_at_us: monotonic_us(),
++            start_completed_at_us: (self.clock)().as_micros(),
+         })
+     }
+ 
+@@ -413,9 +430,9 @@
+         let Some(pcm) = self.pcm.as_mut() else {
+             return Err(CaptureError::new(ErrorKind::Closed));
+         };
+-        let read_started_at_us = monotonic_us();
++        let read_started_at_us = (self.clock)().as_micros();
+         let result = pcm.read(self.partial.remaining_mut());
+-        let read_completed_at_us = monotonic_us();
++        let read_completed_at_us = (self.clock)().as_micros();
+         // A lease can expire during a syscall. Never return that audio.
+         self.require_permission()?;
+         let frames = match result {
+@@ -453,7 +470,7 @@
+         if let Some(reason) = state_discontinuity(status.state) {
+             return Err(self.discontinued(reason));
+         }
+-        let status_observed_at_us = monotonic_us();
++        let status_observed_at_us = (self.clock)().as_micros();
+         self.maintain()?;
+         let sequence = self
+             .sequence
+@@ -557,7 +574,7 @@
+     }
+ 
+     fn advance(&mut self) -> Result<MonoTime> {
+-        let now = now();
++        let now = (self.clock)();
+         if now < self.last_now {
+             self.guard.invalidate();
+             return Err(self.discontinued(Discontinuity::ClockRegression));
+@@ -630,7 +647,7 @@
+     }
+ }
+ 
+-impl<D: CaptureDevice> Drop for MicrophoneOn<D> {
++impl<D: CaptureDevice, C: Fn() -> MonoTime> Drop for MicrophoneOn<D, C> {
+     fn drop(&mut self) {
+         // Explicit revoke/control_lost returns discard errors. Destructor cleanup
+         // cannot report them; the handle still closes when the device is dropped.
+@@ -1157,3 +1174,6 @@
+         );
+     }
+ }
++
++#[cfg(test)]
++mod clock_tests;

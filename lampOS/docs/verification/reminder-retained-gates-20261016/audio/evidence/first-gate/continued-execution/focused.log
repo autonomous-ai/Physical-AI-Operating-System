@@ -1,0 +1,15 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.22s
+────────────
+ Nextest run ID d50f47ab-bb10-46df-a7b7-a50f64067bb6 with nextest profile: default
+    Starting 9 tests across 1 binary (70 tests and 77 binaries skipped)
+        PASS [   0.036s] (1/9) lamp-audio capture::clock_tests::authority_expiring_during_read_wins_over_budget_and_never_reaches_status
+        PASS [   0.038s] (2/9) lamp-audio capture::clock_tests::authority_expiry_after_prepare_start_or_status_cannot_publish_completion
+        PASS [   0.036s] (3/9) lamp-audio capture::clock_tests::clock_regression_latches_closed_even_after_the_clock_moves_forward
+        PASS [   0.035s] (4/9) lamp-audio capture::clock_tests::device_error_precedes_read_budget_but_never_precedes_expired_authority
+        PASS [   0.035s] (5/9) lamp-audio capture::clock_tests::explicit_clock_is_instance_local_and_does_not_relabel_the_driver_clock
+        PASS [   0.035s] (6/9) lamp-audio capture::clock_tests::invalid_device_name_is_rejected_before_clock_or_device_access
+        PASS [   0.036s] (7/9) lamp-audio capture::clock_tests::ordinary_constructor_and_explicit_host_clock_preserve_host_times_and_lifecycle
+        PASS [   0.036s] (8/9) lamp-audio capture::clock_tests::partial_deadline_keeps_its_first_read_across_would_block
+        PASS [   0.035s] (9/9) lamp-audio capture::clock_tests::read_budget_accepts_exactly_ten_ms_and_refuses_one_more_without_late_audio
+────────────
+     Summary [   0.385s] 9 tests run: 9 passed, 70 skipped

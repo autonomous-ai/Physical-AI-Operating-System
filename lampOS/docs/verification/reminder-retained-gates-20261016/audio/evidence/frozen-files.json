@@ -1,0 +1,22 @@
+{
+  "frozen_at_from_date": "2026-10-16 07:25:16 +0700",
+  "base": "e5aa43747ec1540893b4da4509d14288e7e70806",
+  "branch": "tests/823-capture-clock",
+  "paths": [
+    {
+      "path": "lampOS/crates/audio/src/capture.rs",
+      "sha256": "4661ad6a4aa347bf2b0803a08ad2f163e2ac3f5f6a5def0062be6eed1b875449",
+      "bytes": 43339
+    },
+    {
+      "path": "lampOS/crates/audio/src/capture/clock_tests.rs",
+      "sha256": "15d8c7a1c33f855e1e1b08e8b7d678e56ce1caaf6ee7edfd78867c673eb33578",
+      "bytes": 16342
+    },
+    {
+      "path": "lampOS/docs/voice-test-fixtures.md",
+      "sha256": "0e4d90db1d249610dad41c59ba67074d3f1546a95936baeb403481ac5a9304dc",
+      "bytes": 21007
+    }
+  ]
+}

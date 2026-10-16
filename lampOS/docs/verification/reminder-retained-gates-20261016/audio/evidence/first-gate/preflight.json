@@ -1,0 +1,64 @@
+{
+  "date_from_date": "2026-10-16 07:34:00 +0700",
+  "base": "e5aa43747ec1540893b4da4509d14288e7e70806",
+  "source_snapshot_sha256": "e61a82e8591c99227ded11cafd582022b25ce1616143c2815f80dc4ef9bb1801",
+  "source_before_count": 7227,
+  "source_before_exact": true,
+  "owned_frozen_manifest_sha256": "d6ed306ae7aeb84b3d24fdae590bdbbf8df44e636006afdcaa2961678d7397e9",
+  "inverse_proof_sha256": "162671d2ed1e0dfef9f7338bef19bbf36eef2134a7d1fcaa0969135e86cd7004",
+  "baseline_input_proof_sha256": "fb3c91352bb2f7d891e2753a2e3fc0cb2fe8cd1730c19bb8338624dfebacb39f",
+  "vme_selected_identities_sha256": "ae60f7a76c8ac5a62b769b488518663e1f5c5ca32f341a99b37b766b53ccfb2d",
+  "vme_selected_count": 2141,
+  "vme_selected_ignored": 13,
+  "expected_additions": [
+    [
+      "lamp-audio",
+      "capture::clock_tests::authority_expiring_during_read_wins_over_budget_and_never_reaches_status"
+    ],
+    [
+      "lamp-audio",
+      "capture::clock_tests::authority_expiry_after_prepare_start_or_status_cannot_publish_completion"
+    ],
+    [
+      "lamp-audio",
+      "capture::clock_tests::clock_regression_latches_closed_even_after_the_clock_moves_forward"
+    ],
+    [
+      "lamp-audio",
+      "capture::clock_tests::device_error_precedes_read_budget_but_never_precedes_expired_authority"
+    ],
+    [
+      "lamp-audio",
+      "capture::clock_tests::explicit_clock_is_instance_local_and_does_not_relabel_the_driver_clock"
+    ],
+    [
+      "lamp-audio",
+      "capture::clock_tests::invalid_device_name_is_rejected_before_clock_or_device_access"
+    ],
+    [
+      "lamp-audio",
+      "capture::clock_tests::ordinary_constructor_and_explicit_host_clock_preserve_host_times_and_lifecycle"
+    ],
+    [
+      "lamp-audio",
+      "capture::clock_tests::partial_deadline_keeps_its_first_read_across_would_block"
+    ],
+    [
+      "lamp-audio",
+      "capture::clock_tests::read_budget_accepts_exactly_ten_ms_and_refuses_one_more_without_late_audio"
+    ]
+  ],
+  "root_authorization": "Root reported full review of all three owned paths and nine cases, released this existing capacity target after Provider binary inspection/session90916 terminal, and authorized first baseline/format/clippy/list/focused/full/build gate after final hashes and inverse proof. No source changes, automatic retries, GitHub, commits, or pushes are authorized.",
+  "target": "/private/tmp/lampos-tests-capacity/lampOS/target",
+  "target_status": "Explicitly released by root, reserved solely for this first gate; no new target.",
+  "environment": {
+    "PATH": "/private/tmp/pipeline-788-tools:/Users/autonomous/.cargo/bin:/usr/local/Cellar/node/25.3.0/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-x64/vendor/x86_64-apple-darwin/codex-path:/usr/local/Cellar/node/25.3.0/bin:/Users/autonomous/.grok/bin:/Users/autonomous/.local/bin:/Users/autonomous/.local/bin:/Users/autonomous/.npm-global/bin:/usr/local/bin:/Users/autonomous/.codeium/windsurf/bin:/Users/autonomous/.nvm/versions/node/v20.9.0/bin:/Users/d/opt/anaconda3/bin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/pkg/env/global/bin:/Library/Apple/usr/bin:/usr/local/go/bin:/Users/autonomous/.codex/tmp/arg0/codex-arg0ahO1Nn:/usr/local/Cellar/node/25.3.0/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-x64/vendor/x86_64-apple-darwin/codex-path:/Users/autonomous/.harness/runtime/grid-0.3.59-darwin-x64/bin:/usr/local/Cellar/node/25.3.0/bin:/Users/autonomous/.grok/bin:/Users/autonomous/.local/bin:/Users/autonomous/.npm-global/bin:/Users/autonomous/.codeium/windsurf/bin:/Users/autonomous/.nvm/versions/node/v20.9.0/bin:/Users/d/opt/anaconda3/bin:/Users/autonomous/.harness/runtime/grid-0.3.55-darwin-x64/bin",
+    "RUSTUP_TOOLCHAIN": "1.96.0",
+    "CARGO_TARGET_DIR": "/private/tmp/lampos-tests-capacity/lampOS/target",
+    "CARGO_BUILD_JOBS": "2",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_TERM_COLOR": "never",
+    "RUST_BACKTRACE": "1"
+  },
+  "native_limit": "This gate is x86_64 macOS. Unix MicrophoneOn boundary cases are present; Linux capture_hold_worker and ALSA/audio_workers remain pending explicit native full coverage."
+}

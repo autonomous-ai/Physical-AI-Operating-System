@@ -1,0 +1,84 @@
+{
+  "date_from_date": "2026-10-16 11:37:56 +0700",
+  "head": "db7201d0bc4c1d368b14ac203f04a3a99e3d845f",
+  "jobs": [
+    {
+      "kind": "normal",
+      "run": 38849194888,
+      "job": 116806414896,
+      "passes": 5360,
+      "actual_checkout": "50de8ca4b070ab1d070d69ecfc458d0b0870395d",
+      "first_attempt_success": true,
+      "raw_log_sha256": "b1dd1cfb7bb38ebf44645c863af6639068bebe82d6077c7b9162ae9a1a3e0e92"
+    },
+    {
+      "kind": "full",
+      "run": 38849189990,
+      "job": 116806405928,
+      "passes": 1355,
+      "actual_checkout": "db7201d0bc4c1d368b14ac203f04a3a99e3d845f",
+      "first_attempt_success": true,
+      "raw_log_sha256": "2b096fe66cb33d94b1d59444762151d1681536a5321b723a924275fb221335be"
+    },
+    {
+      "kind": "full",
+      "run": 38849189990,
+      "job": 116806405934,
+      "passes": 1416,
+      "actual_checkout": "db7201d0bc4c1d368b14ac203f04a3a99e3d845f",
+      "first_attempt_success": true,
+      "raw_log_sha256": "b2cfc79ca6879fb31c84b718984324be27154a1458630897b300d0a9e7140eb4"
+    },
+    {
+      "kind": "full",
+      "run": 38849189990,
+      "job": 116806405555,
+      "passes": 1303,
+      "actual_checkout": "db7201d0bc4c1d368b14ac203f04a3a99e3d845f",
+      "first_attempt_success": true,
+      "raw_log_sha256": "8f05dc6ccaa5e0ade2535266706fdd42d48502a936de3240ca7e289ea22310f1"
+    },
+    {
+      "kind": "full",
+      "run": 38849189990,
+      "job": 116806405950,
+      "passes": 1442,
+      "actual_checkout": "db7201d0bc4c1d368b14ac203f04a3a99e3d845f",
+      "first_attempt_success": true,
+      "raw_log_sha256": "532d9b50a70185ed773cb6c870d34e3ab137e66476bcc698b4dfbf80fdcee354"
+    }
+  ],
+  "full_unique_passes": 5516,
+  "normal_unique_passes": 5360,
+  "full_evaluator_exact": 521,
+  "normal_evaluator_exact": 463,
+  "original123_each_once": true,
+  "added_six_each_once": true,
+  "normal_excludes_original123_and_added_six": true,
+  "all1094_current_inputs_exact": true,
+  "all56_owned_blobs_equal_actual_normal_merge": true,
+  "normal_upstream_delta_paths": [
+    "lampOS/crates/voice/src/attention.rs",
+    "lampOS/crates/voice/src/coordinator.rs",
+    "lampOS/crates/voice/src/coordinator/second.rs",
+    "lampOS/crates/voice/src/coordinator/tests/second_route.rs",
+    "lampOS/crates/voice/src/lib.rs",
+    "lampOS/crates/voice/src/provider_worker.rs",
+    "lampOS/crates/voice/src/provider_worker/tests/reminders.rs",
+    "lampOS/crates/voice/src/room_told.rs",
+    "lampOS/crates/voice/src/second_provider/worker.rs",
+    "lampOS/crates/voice/tests/review_2026_10_14.rs",
+    "lampOS/docs/second-voice.md",
+    "lampOS/docs/tasks.md"
+  ],
+  "current_head_canonical_tree": "fb26a6fe50a70f7ef2906dab422e8ec52466afaf",
+  "normal_canonical_tree": "8ee3a47b132b9942dfc502f0ffaa67b0566b16f7",
+  "original123_reported_duration_sum_seconds": "196.159",
+  "selected_original_seconds": "0.055",
+  "limitations": "Reported123 durations sum across four concurrent serial shards; not standalone serial wall time or a matched timing pair. Normal includes12 upstream paths; no complete dependency equality claim. No source/test/run mutation or retry by this audit.",
+  "package": {
+    "files": 142,
+    "manifest_sha256": "281bb3ed3002e83de106e8b59d6d2630f41890e5444b5d08db9d2e5bd1fdc234",
+    "all_files_regular_utf8_and_hashes_verified": true
+  }
+}

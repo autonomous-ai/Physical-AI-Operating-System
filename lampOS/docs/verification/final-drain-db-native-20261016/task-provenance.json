@@ -1,0 +1,11 @@
+{
+  "date_from_date": "2026-10-16 11:25:25 +0700",
+  "normal_run": 38849194888,
+  "full_run": 38849189990,
+  "head": "db7201d0bc4c1d368b14ac203f04a3a99e3d845f",
+  "normal_terminal_from_root_snapshot": true,
+  "full_unfinished_at_preparation": true,
+  "watcher_owner": "root session47926",
+  "no_duplicate_status_polling": true,
+  "capture_policy": "Capture only terminal run logs; source and expected-membership preparation can proceed independently."
+}

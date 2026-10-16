@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "/private/tmp/tests-823-audit-final-drain-fixed-native-normal.py", line 68, in <module>
+    assert hc['sha']==HEAD and [p['sha']for p in hc['parents']]==[BASE] and hc['tree']['sha']==ht['sha']
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError

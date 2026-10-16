@@ -1,0 +1,95 @@
+{
+  "date_from_date": "2026-10-16 11:27:12 +0700",
+  "copies": [
+    {
+      "source": "/private/tmp/tests-823-final-drain-fixed-upstream/gate/source-freeze.json",
+      "path": "inputs/local-gate/source-freeze.json",
+      "bytes": 289697,
+      "sha256": "9696810def41b0df66829736dcec9cf736d64b529e1bc4c5f6500d246f71b99e"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-fixed-upstream/gate/base-list.log",
+      "path": "inputs/local-gate/base-list.log",
+      "bytes": 94490,
+      "sha256": "982b07674e05ae31ba96187bfd02e2098b69d792c769661a2dabb83e825f8558"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-fixed-upstream/gate/list.log",
+      "path": "inputs/local-gate/list.log",
+      "bytes": 95023,
+      "sha256": "63f04fa6728f97a84bed6d94c862b160552bf5ca8c445a15b19c13320de24605"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-fixed-upstream/gate/identity-proof.json",
+      "path": "inputs/local-gate/identity-proof.json",
+      "bytes": 3686,
+      "sha256": "b83a90614cce1f1799e6e382d2fc96d7c5850058e44f3492e5af719fe0b5bbaf"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-fixed-upstream/gate/completed.json",
+      "path": "inputs/local-gate/completed.json",
+      "bytes": 377,
+      "sha256": "65d6105b7518d1ba90a00dcd68b59427521f32fe7c771172394b04babb6f5b1a"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-fixed-upstream/gate/gates.json",
+      "path": "inputs/local-gate/gates.json",
+      "bytes": 3603,
+      "sha256": "1083e2c53aeed4bc5d52e7fc7c3c8fd980111ecbd72e93b53db65ae14ca28923"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-fixed-upstream/gate/metadata.log",
+      "path": "inputs/local-gate/metadata.log",
+      "bytes": 169540,
+      "sha256": "03628514a8d836bafc5cb4e0d0744eb3801ec97539b85414509059a2abfc3ece"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-fixed-upstream-independent/source-audit.json",
+      "path": "inputs/local-independent/source-audit.json",
+      "bytes": 18304,
+      "sha256": "6a011cad69552894323161ff893f42b6f29fe451c26d1c78e9ccef9373f284e4"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-fixed-upstream-independent/result-audit.json",
+      "path": "inputs/local-independent/result-audit.json",
+      "bytes": 133049,
+      "sha256": "89b7643d6d447f7725f3c5d52ddc543b952875bc7077c8ce99f7b0a0e6090a8f"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-fixed-upstream-independent/metadata-audit.json",
+      "path": "inputs/local-independent/metadata-audit.json",
+      "bytes": 24006,
+      "sha256": "6253a8880c4e465b72d81c114148cb5bb8d68a05bd81ec780b336657e09b8682"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-fixed-upstream-independent/original-thirteen-proof.json",
+      "path": "inputs/local-independent/original-thirteen-proof.json",
+      "bytes": 5365,
+      "sha256": "834ab0bb069c437310b293893415ca5968544e53c14d5690c55bc561f102c47f"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-fixed-upstream-independent/source-inverse.json",
+      "path": "inputs/local-independent/source-inverse.json",
+      "bytes": 5181,
+      "sha256": "d19ea168a12fedf714492d0ffb11cddf5eef58181e304c5cb350c94e86a2aab6"
+    },
+    {
+      "source": "/private/tmp/lampos-tests-inventory/lampOS/docs/verification/realtime-inventory-20261015/inventory.json",
+      "path": "inputs/original123-inventory.json",
+      "bytes": 416179,
+      "sha256": "72d671f8b22246898f9142c0216c9fbced55e350e46b83ffec787c81496fb1fc"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/919-root-independent-full-audit.json",
+      "path": "inputs/canonical123-prior-native-audit.json",
+      "bytes": 22203,
+      "sha256": "784eceef60e444baa9b5d061bb51eb5bd03131ade950f34a0e23ed3abf41d8e1"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-native-audit/prepared-original123-source-proof.json",
+      "path": "inputs/prior-c5-original123-source-proof.json",
+      "bytes": 307549,
+      "sha256": "bda55ef52aa071b53cbb84d376cc310bb9d56977f84685bb13dc73b188bc085b"
+    }
+  ]
+}

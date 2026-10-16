@@ -1,0 +1,19 @@
+{
+  "date_from_date": "2026-10-16 11:07:13 +0700",
+  "base": "f5a20ba28f3227ab06979b6e662883aede96b046",
+  "head": "db7201d0bc4c1d368b14ac203f04a3a99e3d845f",
+  "counts": [
+    521,
+    0,
+    0
+  ],
+  "compiled": 521,
+  "tests_exit": 0,
+  "build_exit": 0,
+  "source_frozen": {
+    "base": 1085,
+    "candidate": 1094
+  },
+  "source_exact": true,
+  "all_checks_passed": true
+}

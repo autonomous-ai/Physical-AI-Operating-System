@@ -1,0 +1,56 @@
+[
+  {
+    "path": "/private/tmp/tests-823-prepare-final-drain-fixed-native.py",
+    "bytes": 10289,
+    "sha256": "0448afaefcf37c662d05fdad499ea4a1ebabcafa0cc6c599f28f2507e25ac2f9",
+    "included_in_package": false
+  },
+  {
+    "path": "/private/tmp/tests-823-capture-final-drain-fixed-native-normal.py",
+    "bytes": 1755,
+    "sha256": "21fb23c114d8b4e2c63c6243f4ff87297c14d662a9238e31937fc594324e78b9",
+    "included_in_package": false
+  },
+  {
+    "path": "/private/tmp/tests-823-capture-final-drain-fixed-native-source.py",
+    "bytes": 1939,
+    "sha256": "9cf22fe96c2bb41006ff9b0a2b6df67d421e35f975ded9853bd3331b168fb874",
+    "included_in_package": false
+  },
+  {
+    "path": "/private/tmp/tests-823-capture-final-drain-fixed-native-canonical-trees.py",
+    "bytes": 1575,
+    "sha256": "7aa6084e2006cf0666447ee5e34714d80c53b4e3390548a94e44a572fd1a43df",
+    "included_in_package": false
+  },
+  {
+    "path": "/private/tmp/tests-823-capture-final-drain-fixed-native-full.py",
+    "bytes": 2093,
+    "sha256": "cdc9b86e18b6c30e37ed9358b1bb6957123a0919e670af8559da5d7be175047a",
+    "included_in_package": false
+  },
+  {
+    "path": "/private/tmp/tests-823-audit-final-drain-fixed-native-normal.py",
+    "bytes": 10488,
+    "sha256": "4224ee1e7f065787ff482c26ef2d6a8321a5b17adf91e00c4ef60c42dbea5d87",
+    "included_in_package": false
+  },
+  {
+    "path": "/private/tmp/tests-823-audit-final-drain-fixed-native-normal-corrected.py",
+    "bytes": 10677,
+    "sha256": "c45e46c4751fd6497ab0dd6ef14b43222500469704e83790d29bf47ceeb1a7c6",
+    "included_in_package": false
+  },
+  {
+    "path": "/private/tmp/tests-823-audit-final-drain-fixed-native-full.py",
+    "bytes": 11522,
+    "sha256": "3361ee255c911f1b831e182490dc69ae78a797ad64512675e25c8687dd8d2ec5",
+    "included_in_package": false
+  },
+  {
+    "path": "/private/tmp/tests-823-package-final-drain-fixed-native.py",
+    "bytes": 15548,
+    "sha256": "af1c2fae2573315105a389eae59023cec9e5a645047b9a231a20189159b02a85",
+    "included_in_package": false
+  }
+]

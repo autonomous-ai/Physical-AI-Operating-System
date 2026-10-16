@@ -1,0 +1,14 @@
+{
+  "command": [
+    "gh",
+    "api",
+    "repos/autonomous-ai/lampOS/git/trees/8ee3a47b132b9942dfc502f0ffaa67b0566b16f7?recursive=1"
+  ],
+  "started_from_date": "2026-10-16 11:31:05 +0700",
+  "finished_from_date": "2026-10-16 11:31:07 +0700",
+  "exit_code": 0,
+  "stdout": "normal/raw/normal-merge-canonical-tree-api.json",
+  "stderr": "normal/raw/normal-merge-canonical-tree-api.json.stderr",
+  "stdout_sha256": "cae4adf1cd875f23c2666f035da118fd02dd675459fcee6152b5d79e065a5a46",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

@@ -1,0 +1,150 @@
+name: lampOS on ARM64
+
+# Builds and tests lampOS natively on Linux ARM64 for every pull request into
+# lamp-voice and every push to lamp-voice, on Ubuntu 22.04 (glibc 2.35), so the binaries also run on the
+# lamps' Debian 12 (glibc 2.36). Not in a container: tests that take a
+# permission away must not run as root. The binaries are kept
+# as an artifact for a week, with their SHA-256, so the first builder can put
+# a builder's work on a lamp without building it again. See
+# lampOS/docs/joining.md.
+#
+# The tests are split across four runners (cargo-nextest partitions), each
+# still running one test at a time, as on a lamp's few cores: one serial run
+# took about 20 of the job's 30 minutes. Doc tests, the two tests with their
+# own harness and the binaries' artifact come from the first runner only.
+#
+# The realtime group (tests that wait on the real clock, 977 s of the 1,191 s
+# of test time on 2026-10-15; nextest group `realtime` in
+# lampOS/.config/nextest.toml) runs only in the full run: every night, started
+# from main by .github/workflows/lampos-nightly.yml as a manual run of this
+# workflow on lamp-voice with `full`. A failed full run opens an issue. See
+# lampOS/docs/realtime-tests.md.
+#
+#            | runners | profile   | tests at once | realtime
+# pull req.  | 1       | `pr`      | one per core  | skipped
+# lamp-voice | 1       | `pr`      | one per core  | skipped (binaries for updates.md)
+# full       | 4       | `default` | one           | run
+#
+# Without the realtime group the tests take about 4 minutes of test time,
+# mostly quick unit tests, so one runner runs them as many at once as it has
+# cores. Each runner compiles every test binary again (about 5 of its 10
+# minutes on 2026-10-15), so more runners would only cost more. The full run
+# keeps four, one test at a time, for the realtime tests.
+
+# Not on every push to every builder's branch: with nine builders and four
+# runners a run, that queued eleven runs behind eight on 2026-10-15, lamp-voice's
+# own among them. A builder's work is run when its pull request is opened or
+# pushed to, or by hand (Actions, "Run workflow", on its branch).
+on:
+  push:
+    branches: ['lamp-voice']
+    paths: ['lampOS/**', '.github/workflows/lampos-arm64.yml']
+  pull_request:
+    branches: ['lamp-voice']
+    paths: ['lampOS/**', '.github/workflows/lampos-arm64.yml']
+  workflow_dispatch:
+    inputs:
+      full:
+        description: 'Full run: every test including the realtime group, four runners, one test at a time (the nightly run)'
+        type: boolean
+        default: false
+
+concurrency:
+  # A full run has its own group, so a merge never cancels the nightly run.
+  group: lampos-arm64-${{ inputs.full && 'full-' || '' }}${{ github.event.pull_request.number || github.ref }}
+  # A newer push to a pull request makes the running one moot: it is cancelled.
+  # lamp-voice's own running runs are never cancelled.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/lamp-voice' }}
+
+jobs:
+  arm64:
+    name: lampOS — build and test on Linux ARM64 (${{ matrix.shard }}/${{ strategy.job-total }})
+    runs-on: ubuntu-22.04-arm
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        # Four for a full run (every test, one at a time), otherwise one.
+        shard: ${{ fromJSON(inputs.full && '[1, 2, 3, 4]' || '[1]') }}
+    steps:
+      - name: system packages
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            ca-certificates curl git build-essential pkg-config clang libclang-dev libasound2-dev procps file
+      - uses: actions/checkout@v4
+      - name: Rust 1.96.0
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain 1.96.0 -c clippy -c rustfmt
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            lampOS/target
+          key: lampos-arm64-u2204-${{ hashFiles('lampOS/Cargo.lock') }}
+          restore-keys: lampos-arm64-u2204-
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
+      - name: build (release, the lamps' binaries)
+        working-directory: lampOS
+        run: cargo build --locked --release --workspace --bins --examples
+      - name: test (full run, every test one at a time; otherwise without the realtime group, in parallel)
+        working-directory: lampOS
+        # The two tests with their own harness (harness = false) cannot be listed by nextest; the first runner runs them below.
+        # Profile `pr` skips the realtime group (lampOS/.config/nextest.toml); the -E below is intersected with it.
+        # A full run uses `default`: every test, one at a time.
+        run: >-
+          echo "cores: $(nproc)" &&
+          cargo nextest run --locked --release --workspace
+          --profile ${{ inputs.full && 'default' || 'pr' }}
+          --no-tests=pass -j ${{ inputs.full && '1' || 'num-cpus' }}
+          --partition hash:${{ matrix.shard }}/${{ strategy.job-total }}
+          -E 'not (binary_id(lamp-ipc::relay_signals) | binary_id(lamp-turn-end-wire::process))'
+      - name: doc tests and the own-harness tests (nextest runs neither)
+        if: matrix.shard == 1
+        working-directory: lampOS
+        run: |
+          cargo test --locked --release --workspace --doc -- --test-threads=1
+          cargo test --locked --release -p lamp-ipc --test relay_signals
+          cargo test --locked --release -p lamp-turn-end-wire --test process
+      - name: SHA-256 of each binary
+        if: matrix.shard == 1
+        working-directory: lampOS/target/release
+        run: |
+          mkdir -p ../../arm64-out
+          for f in lamp-* examples/schedule_check examples/replay_cost; do
+            [ -f "$f" ] && [ -x "$f" ] && case "$f" in *.d) ;; *) cp "$f" ../../arm64-out/ ;; esac
+          done
+          cd ../../arm64-out && sha256sum * | tee SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        if: matrix.shard == 1
+        with:
+          # A pull request runs on its merge with lamp-voice; the name is its own head commit.
+          name: lampos-arm64-${{ github.event.pull_request.head.sha || github.sha }}
+          path: lampOS/arm64-out/
+          retention-days: 7
+
+  # A full run that fails opens an issue (or comments on the open one), so a
+  # realtime test broken by a merge is not left unseen: no other run has it.
+  report-full-run-failure:
+    needs: arm64
+    if: failure() && inputs.full
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TITLE: 'lampOS: the full ARM64 run failed'
+      BODY: >-
+        The full ARM64 run (realtime tests included) failed on ${{ github.ref_name }} at
+        ${{ github.sha }}: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}.
+        Pull requests and merges skip the realtime group (lampOS/docs/realtime-tests.md),
+        so the change that broke it may have passed its own run.
+    steps:
+      - run: |
+          n=$(gh issue list --state open --search "\"$TITLE\" in:title" --json number -q '.[0].number')
+          if [ -n "$n" ]; then gh issue comment "$n" --body "$BODY"; else gh issue create --title "$TITLE" --body "$BODY"; fi

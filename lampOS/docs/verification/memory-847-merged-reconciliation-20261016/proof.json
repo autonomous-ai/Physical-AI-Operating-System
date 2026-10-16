@@ -1,0 +1,13 @@
+{
+  "date_from_date": "2026-10-16 11:29:20 +0700",
+  "reported_failing_head": "1ba9fd74e203926fd17da5f82875ce3dfe52762a",
+  "merge": "2c0f1310dc25ecff7d1db664ff39f61ddc9f5548",
+  "current_origin": "5631427dc936b4367c5c106974a6611510f661a0",
+  "path": "lampOS/crates/memory/tests/binary.rs",
+  "old_sha256": "0a4629a0547ed7d8e0f8920d7bba773f1fca6732eca09e6154610cb8ee0546e5",
+  "fixed_and_current_sha256": "3270da514121f1b3363fbcdd78fc631231b021cf9542901c813dfb2f9f50b54b",
+  "reported_head_has_no_log_completion_barrier": true,
+  "both_kills_now_require_four_complete_records_and_status_terminal_occurrence": true,
+  "original_exact_4_4_assertion_preserved": true,
+  "no_new_test_run": true
+}

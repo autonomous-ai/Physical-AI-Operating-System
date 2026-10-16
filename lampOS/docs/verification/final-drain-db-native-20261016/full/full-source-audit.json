@@ -1,0 +1,45 @@
+{
+  "date_from_date": "2026-10-16 11:33:54 +0700",
+  "run": 38849189990,
+  "attempt": 1,
+  "head": "db7201d0bc4c1d368b14ac203f04a3a99e3d845f",
+  "checkouts": [
+    {
+      "shard": 3,
+      "job": 116806405555,
+      "head": "db7201d0bc4c1d368b14ac203f04a3a99e3d845f",
+      "line": 223,
+      "job_log_line": 223
+    },
+    {
+      "shard": 1,
+      "job": 116806405928,
+      "head": "db7201d0bc4c1d368b14ac203f04a3a99e3d845f",
+      "line": 2710,
+      "job_log_line": 246
+    },
+    {
+      "shard": 2,
+      "job": 116806405934,
+      "head": "db7201d0bc4c1d368b14ac203f04a3a99e3d845f",
+      "line": 5579,
+      "job_log_line": 223
+    },
+    {
+      "shard": 4,
+      "job": 116806405950,
+      "head": "db7201d0bc4c1d368b14ac203f04a3a99e3d845f",
+      "line": 8174,
+      "job_log_line": 246
+    }
+  ],
+  "all_four_exact_head": true,
+  "local_and_github_canonical_tree": "fb26a6fe50a70f7ef2906dab422e8ec52466afaf",
+  "frozen_input_count": 1094,
+  "all_frozen_blobs_match": true,
+  "owned_publication_files": 56,
+  "all_owned_blobs_match": true,
+  "source_proof": "../prepared-source-proof.json",
+  "head_commit_raw": "../normal/raw/head-commit-api.json",
+  "canonical_tree_raw": "../normal/raw/normal-head-canonical-tree-api.json"
+}

@@ -1,0 +1,14 @@
+{
+  "command": [
+    "gh",
+    "api",
+    "repos/autonomous-ai/lampOS/git/commits/50de8ca4b070ab1d070d69ecfc458d0b0870395d"
+  ],
+  "started_from_date": "2026-10-16 11:28:04 +0700",
+  "finished_from_date": "2026-10-16 11:28:05 +0700",
+  "exit_code": 0,
+  "stdout": "normal/raw/normal-merge-commit-api.json",
+  "stderr": "normal/raw/normal-merge-commit-api.json.stderr",
+  "stdout_sha256": "f7e0cef43cd271474443aae08a61c434dac0059ff6c740cc0eae97778882ee77",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

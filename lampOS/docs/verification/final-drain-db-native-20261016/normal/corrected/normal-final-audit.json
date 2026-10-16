@@ -1,0 +1,224 @@
+{
+  "date_from_date": "2026-10-16 11:31:42 +0700",
+  "run": 38849194888,
+  "attempt": 1,
+  "conclusion": "success",
+  "head": "db7201d0bc4c1d368b14ac203f04a3a99e3d845f",
+  "checkout": "50de8ca4b070ab1d070d69ecfc458d0b0870395d",
+  "upstream_parent": "ede9ce8ef81f67f5b8cea5b42a0660fbbafcf3d5",
+  "arm_job": {
+    "id": 116806414896,
+    "run_id": 38849194888,
+    "workflow_name": "lampOS on ARM64",
+    "head_branch": "tests/823-final-drain-clock",
+    "run_url": "https://api.github.com/repos/autonomous-ai/lampOS/actions/runs/38849194888",
+    "run_attempt": 1,
+    "node_id": "CR_kwDOSxRYh88AAAAbMjRyMA",
+    "head_sha": "db7201d0bc4c1d368b14ac203f04a3a99e3d845f",
+    "url": "https://api.github.com/repos/autonomous-ai/lampOS/actions/jobs/116806414896",
+    "html_url": "https://github.com/autonomous-ai/lampOS/actions/runs/38849194888/job/116806414896",
+    "status": "completed",
+    "conclusion": "success",
+    "created_at": "2026-10-16T04:10:02Z",
+    "started_at": "2026-10-16T04:10:07Z",
+    "completed_at": "2026-10-16T04:22:43Z",
+    "name": "lampOS \u2014 build and test on Linux ARM64 (1/1)",
+    "steps": [
+      {
+        "name": "Set up job",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 1,
+        "started_at": "2026-10-16T04:10:08Z",
+        "completed_at": "2026-10-16T04:10:09Z"
+      },
+      {
+        "name": "system packages",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 2,
+        "started_at": "2026-10-16T04:10:09Z",
+        "completed_at": "2026-10-16T04:10:28Z"
+      },
+      {
+        "name": "Run actions/checkout@v4",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 3,
+        "started_at": "2026-10-16T04:10:28Z",
+        "completed_at": "2026-10-16T04:10:33Z"
+      },
+      {
+        "name": "Rust 1.96.0",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 4,
+        "started_at": "2026-10-16T04:10:33Z",
+        "completed_at": "2026-10-16T04:10:39Z"
+      },
+      {
+        "name": "Run actions/cache@v4",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 5,
+        "started_at": "2026-10-16T04:10:39Z",
+        "completed_at": "2026-10-16T04:11:31Z"
+      },
+      {
+        "name": "Run taiki-e/install-action@v2",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 6,
+        "started_at": "2026-10-16T04:11:31Z",
+        "completed_at": "2026-10-16T04:11:32Z"
+      },
+      {
+        "name": "build (release, the lamps' binaries)",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 7,
+        "started_at": "2026-10-16T04:11:32Z",
+        "completed_at": "2026-10-16T04:14:25Z"
+      },
+      {
+        "name": "test (full run, every test one at a time; otherwise without the realtime group, in parallel)",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 8,
+        "started_at": "2026-10-16T04:14:25Z",
+        "completed_at": "2026-10-16T04:22:21Z"
+      },
+      {
+        "name": "doc tests and the own-harness tests (nextest runs neither)",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 9,
+        "started_at": "2026-10-16T04:22:21Z",
+        "completed_at": "2026-10-16T04:22:34Z"
+      },
+      {
+        "name": "SHA-256 of each binary",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 10,
+        "started_at": "2026-10-16T04:22:34Z",
+        "completed_at": "2026-10-16T04:22:35Z"
+      },
+      {
+        "name": "Run actions/upload-artifact@v4",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 11,
+        "started_at": "2026-10-16T04:22:35Z",
+        "completed_at": "2026-10-16T04:22:40Z"
+      },
+      {
+        "name": "Post Run actions/cache@v4",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 21,
+        "started_at": "2026-10-16T04:22:40Z",
+        "completed_at": "2026-10-16T04:22:40Z"
+      },
+      {
+        "name": "Post Run actions/checkout@v4",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 22,
+        "started_at": "2026-10-16T04:22:40Z",
+        "completed_at": "2026-10-16T04:22:40Z"
+      },
+      {
+        "name": "Complete job",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 23,
+        "started_at": "2026-10-16T04:22:40Z",
+        "completed_at": "2026-10-16T04:22:40Z"
+      }
+    ],
+    "check_run_url": "https://api.github.com/repos/autonomous-ai/lampOS/check-runs/116806414896",
+    "labels": [
+      "ubuntu-22.04-arm"
+    ],
+    "runner_id": 1000058427,
+    "runner_name": "GitHub Actions 1000058427",
+    "runner_group_id": 0,
+    "runner_group_name": "GitHub Actions"
+  },
+  "report_job": {
+    "id": 116809827759,
+    "run_id": 38849194888,
+    "workflow_name": "lampOS on ARM64",
+    "head_branch": "tests/823-final-drain-clock",
+    "run_url": "https://api.github.com/repos/autonomous-ai/lampOS/actions/runs/38849194888",
+    "run_attempt": 1,
+    "node_id": "CR_kwDOSxRYh88AAAAbMmiFrw",
+    "head_sha": "db7201d0bc4c1d368b14ac203f04a3a99e3d845f",
+    "url": "https://api.github.com/repos/autonomous-ai/lampOS/actions/jobs/116809827759",
+    "html_url": "https://github.com/autonomous-ai/lampOS/actions/runs/38849194888/job/116809827759",
+    "status": "completed",
+    "conclusion": "skipped",
+    "created_at": "2026-10-16T04:22:44Z",
+    "started_at": "2026-10-16T04:22:44Z",
+    "completed_at": "2026-10-16T04:22:43Z",
+    "name": "report-full-run-failure",
+    "steps": [],
+    "check_run_url": "https://api.github.com/repos/autonomous-ai/lampOS/check-runs/116809827759",
+    "labels": [
+      "ubuntu-latest"
+    ],
+    "runner_id": null,
+    "runner_name": null,
+    "runner_group_id": null,
+    "runner_group_name": null
+  },
+  "unique_nextest_passes": 5360,
+  "failed": 0,
+  "leaked": 0,
+  "duplicates": 0,
+  "header_binaries": 280,
+  "printed_result_binaries": 254,
+  "all_ordinals_exact": true,
+  "starts": [
+    {
+      "line": 550,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-16T04:20:50.2573257Z     Starting 5360 tests across 280 binaries (130 tests and 8 binaries skipped, including 93 tests and 6 binaries via profile.pr.default-filter)"
+    }
+  ],
+  "summaries": [
+    {
+      "line": 5912,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-16T04:22:21.2974143Z      Summary [  91.040s] 5360 tests run: 5360 passed, 130 skipped"
+    }
+  ],
+  "profiles": [
+    {
+      "line": 549,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-16T04:20:50.2572517Z  Nextest run ID 524b0c6c-3823-44c4-9de7-c496bbd0f70b with nextest profile: pr"
+    }
+  ],
+  "checkouts": [
+    {
+      "line": 262,
+      "head": "50de8ca4b070ab1d070d69ecfc458d0b0870395d"
+    }
+  ],
+  "exact_evaluator_membership": 463,
+  "new6_covered": 0,
+  "original123_covered": 0,
+  "doc_tests_passed": 4,
+  "relay_signals_success": true,
+  "own_process_tests_passed": 12,
+  "raw_log_sha256": "bbc4e8d4b93b2305f20ba4785639bb62c374488c886e5b7b094e5d78746d292c",
+  "job_api_log_sha256": "b1dd1cfb7bb38ebf44645c863af6639068bebe82d6077c7b9162ae9a1a3e0e92",
+  "gh_log_stripping_exact_two_tab_prefix_fields_equals_job_api": true,
+  "failure_retry_unknown_markers": [],
+  "slow_markers": [],
+  "all56_owned_files_exact": true,
+  "evaluator_subtree_exact": true,
+  "upstream_changes": 12,
+  "changed_frozen_inputs": 10,
+  "no_full_aggregate_claim": true,
+  "no_mutations_or_retries": true
+}

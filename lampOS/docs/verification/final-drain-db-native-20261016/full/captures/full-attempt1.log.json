@@ -1,0 +1,20 @@
+{
+  "command": [
+    "gh",
+    "run",
+    "view",
+    "38849189990",
+    "-R",
+    "autonomous-ai/lampOS",
+    "--attempt",
+    "1",
+    "--log"
+  ],
+  "started_from_date": "2026-10-16 11:31:14 +0700",
+  "finished_from_date": "2026-10-16 11:31:24 +0700",
+  "exit_code": 0,
+  "stdout": "full/raw/full-attempt1.log",
+  "stderr": "full/raw/full-attempt1.log.stderr",
+  "stdout_sha256": "19c59287f37fb9547a4292fce4c811837115f1ae7d49dde061a09695eedd85b9",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

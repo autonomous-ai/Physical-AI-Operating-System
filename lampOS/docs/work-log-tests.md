@@ -1,5 +1,17 @@
 # Tests work log
 
+## 2026-10-16 11:39:22 +0700 — Current final-drain native qualification complete
+
+Ready for lamp-voice: yes (#963, db7201d0)
+
+[Complete first-attempt native evidence](verification/final-drain-db-native-20261016/README.md) and [root's independent raw-row/source audit](verification/final-drain-db-native-root-20261016/proof.json): normal run **38849194888** passed **5,360** distinct tests, with exactly 463 expected Evaluator identities; full run **38849189990** passed **5,516** across four exact-db checkouts. Full contains **all 123 canonical originals, all 521 Evaluator identities and all six additions exactly once**. Both runs separately passed four doc cases, the IPC relay harness and all twelve process-harness cases. No job restart, failed-test retry, ignored-test change or missing identity. All 1,094 frozen inputs and 56 owned files match. Normal's synthetic merge adds twelve upstream paths, including ten Voice inputs, so its dependency context is explicitly distinct.
+
+The full run reports **196.159 s summed case durations across concurrent shards** and **0.055 s** for the selected original. Neither is a standalone serial measurement or paired speedup. [All 123 observed durations and the top twenty](verification/final-drain-db-native-20261016/full/original123-top20.md) show the remaining priority: capacity (24.033 s), then EarlyEnd scenarios (up to 10.760 s), with endpoint/capture/Provider waits following. #823's under-120-second original-123 serial target stays open. Previous c2 failures and c5 qualification remain preserved and separately scoped.
+
+#966's requested direct ordinary/retained comparison passed once in 0.062 s after fmt, strict five-package Clippy and exact compiled 2,726+1 identities / 15 unchanged ignores. Its first full 2,712-case gate continues; the previous source/native qualifications and original failed Motor gate remain intact. Capacity's fresh first local pair is 24.108→2.074 s with the same 500 packets, 20-second answer and 4-second hold; its full gate continues. No native capacity speedup or whole-group claim. The next supervised Actor fixture composition is being prepared externally while those gates run.
+
+#847 is closed as covered by merged #839: [source reconciliation](verification/memory-847-merged-reconciliation-20261016/proof.json) proves the reported failing head lacked the complete-log barrier and the current upstream Memory binary file is byte-for-byte that merged fix. Both kills wait for four complete records including the terminal status; the exact (4,4), privacy and restart assertions remain. No new test was run for reconciliation. #783's sweep remains closed.
+
 ## 2026-10-16 11:27:10 +0700 — Current final-drain and first Actor gates retained
 
 Ready for lamp-voice: no (full native final-drain qualification and TaskJoins comparison pending)

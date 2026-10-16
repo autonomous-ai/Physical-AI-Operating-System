@@ -1,0 +1,11 @@
+{
+  "command": [
+    "python3",
+    "/private/tmp/tests-823-audit-final-drain-fixed-native-normal.py"
+  ],
+  "started_from_date": "2026-10-16 11:30:13 +0700",
+  "finished_from_date": "2026-10-16 11:30:14 +0700",
+  "exit_code": 1,
+  "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "stderr_sha256": "e4abfd454111162d62f7457be058f24c027a9417cf6a9fbf78d46b5b65e82e1c"
+}

@@ -1,0 +1,12 @@
+lampOS/crates/voice/src/attention.rs
+lampOS/crates/voice/src/coordinator.rs
+lampOS/crates/voice/src/coordinator/second.rs
+lampOS/crates/voice/src/coordinator/tests/second_route.rs
+lampOS/crates/voice/src/lib.rs
+lampOS/crates/voice/src/provider_worker.rs
+lampOS/crates/voice/src/provider_worker/tests/reminders.rs
+lampOS/crates/voice/src/room_told.rs
+lampOS/crates/voice/src/second_provider/worker.rs
+lampOS/crates/voice/tests/review_2026_10_14.rs
+lampOS/docs/second-voice.md
+lampOS/docs/tasks.md

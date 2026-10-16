@@ -1,0 +1,1 @@
+{"date_from_date": "2026-10-16 11:33:55 +0700", "full": 5516, "eval": 521, "original123": 123, "new6": 6, "original123_concurrent_case_sum_seconds": "196.159", "selected_original_seconds": "0.055", "shards": {"3": 1303, "1": 1355, "2": 1416, "4": 1442}, "docs": 4, "process": 12, "relay": "ok", "head": "db7201d0bc4c1d368b14ac203f04a3a99e3d845f"}

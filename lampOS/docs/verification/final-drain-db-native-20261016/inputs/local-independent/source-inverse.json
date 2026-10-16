@@ -1,0 +1,131 @@
+{
+  "date_from_date": "2026-10-16 11:06:27 +0700",
+  "base": "f5a20ba28f3227ab06979b6e662883aede96b046",
+  "head": "db7201d0bc4c1d368b14ac203f04a3a99e3d845f",
+  "exact_same_owned_diff_as_c2": true,
+  "files": [
+    {
+      "path": "lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "before_sha256": "600ad54a33c7a98ba0abf9c6aadeca366cb319d121b3847f36211cc5b0a30a29",
+      "after_sha256": "aca9379bbb7c993267251c1103a88f91d06ad8468e7f3cc936efb0d44797227c",
+      "changes": [
+        {
+          "original_start": 5,
+          "original_end": 5,
+          "candidate_start": 5,
+          "candidate_end": 7,
+          "original_lines": [],
+          "candidate_lines": [
+            "#[path = \"common/final_drain_clock.rs\"]\n",
+            "mod final_drain_clock;\n"
+          ]
+        },
+        {
+          "original_start": 133,
+          "original_end": 133,
+          "candidate_start": 135,
+          "candidate_end": 143,
+          "original_lines": [],
+          "candidate_lines": [
+            "        PhysicalBackend::new(\n",
+            "            self.config(script),\n",
+            "            &self.assets,\n",
+            "            Box::new(Recording(self.starts.clone())),\n",
+            "        )\n",
+            "    }\n",
+            "\n",
+            "    fn config(&self, script: String) -> PhysicalConfig {\n"
+          ]
+        },
+        {
+          "original_start": 135,
+          "original_end": 136,
+          "candidate_start": 145,
+          "candidate_end": 146,
+          "original_lines": [
+            "        let config = PhysicalConfig {\n"
+          ],
+          "candidate_lines": [
+            "        PhysicalConfig {\n"
+          ]
+        },
+        {
+          "original_start": 150,
+          "original_end": 156,
+          "candidate_start": 160,
+          "candidate_end": 161,
+          "original_lines": [
+            "        };\n",
+            "        PhysicalBackend::new(\n",
+            "            config,\n",
+            "            &self.assets,\n",
+            "            Box::new(Recording(self.starts.clone())),\n",
+            "        )\n"
+          ],
+          "candidate_lines": [
+            "        }\n"
+          ]
+        },
+        {
+          "original_start": 273,
+          "original_end": 274,
+          "candidate_start": 278,
+          "candidate_end": 280,
+          "original_lines": [
+            "    let mut backend = rig.backend(\n"
+          ],
+          "candidate_lines": [
+            "    let mut backend = final_drain_clock::backend(\n",
+            "        &rig,\n"
+          ]
+        }
+      ],
+      "whole_inverse_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+      "operation": "remove newly introduced helper file",
+      "after_sha256": "fcc6988f7837440550a090ea6e2b04c9b9f569f3f7589558234780477880148e",
+      "whole_inverse_exact": true
+    },
+    {
+      "path": "lampOS/docs/voice-test-fixtures.md",
+      "before_sha256": "8ae2d7745236ce42fe60ac91c8b814f68c19bfdc75b96e282dfc73ff0d81b1f8",
+      "after_sha256": "e6793bfdc94e95cf29393061638c6c0a418e109016a7c87c699c5b9df3bde98a",
+      "changes": [
+        {
+          "original_start": 335,
+          "original_end": 335,
+          "candidate_start": 335,
+          "candidate_end": 357,
+          "original_lines": [],
+          "candidate_lines": [
+            "\n",
+            "## Delayed final-dispatch line fixture\n",
+            "\n",
+            "The original final-drain session-end case explicitly selects a test-local\n",
+            "driver for its real shell and stdout pipe. The first `cat` must have returned\n",
+            "and its complete line must be queued by the actual backend reader before\n",
+            "logical time advances. At the original 300 ms delay, a private FIFO releases\n",
+            "the unchanged later bytes. The second `cat` completion marker and the reader's\n",
+            "second complete-frame count are both required before advancing farther.\n",
+            "\n",
+            "The driver never consumes a backend line. The original 800 ms dispatch target\n",
+            "and final drain still discover the terminal line, withhold playback and retain\n",
+            "the RunEnd for the runner. Clock reads are pure. Ordinary helper calls keep\n",
+            "their host sleeps; this first migration does not control the closed-transport\n",
+            "case, whose real reader/channel closure needs separate evidence.\n",
+            "\n",
+            "Control writes are nonblocking. One immutable ten-second host watchdog bounds\n",
+            "the driver's progress checks; it does not interrupt blocking filesystem or OS\n",
+            "cleanup calls. Dropping the driver attempts an abort token and closes its FIFO.\n",
+            "The backend retains ownership of stdin close, actual exit and its existing\n",
+            "two-second kill/wait fallback, including abandonment before the child opens the\n",
+            "FIFO. Neither a completion marker nor an empty queue certifies child reaping.\n"
+          ]
+        }
+      ],
+      "whole_inverse_exact": true
+    }
+  ]
+}

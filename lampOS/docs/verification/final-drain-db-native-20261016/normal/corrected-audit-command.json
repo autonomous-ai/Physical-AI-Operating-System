@@ -1,0 +1,12 @@
+{
+  "command": [
+    "python3",
+    "/private/tmp/tests-823-audit-final-drain-fixed-native-normal-corrected.py"
+  ],
+  "started_from_date": "2026-10-16 11:31:41 +0700",
+  "finished_from_date": "2026-10-16 11:31:42 +0700",
+  "exit_code": 0,
+  "stdout_sha256": "f696aae2e8ce2bc8bf61f91abed906ac95efec6206c345a2c153c4f300e85bb6",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "correction": "Use canonical tree SHAs from Git commit objects; verify recursive entries equal the initial commit-ref tree response. No source, tests, runs or original evidence changed."
+}

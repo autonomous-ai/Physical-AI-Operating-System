@@ -1,0 +1,1270 @@
+diff --git a/lampOS/crates/voice/src/attention.rs b/lampOS/crates/voice/src/attention.rs
+index 6a97bb8d2..127dc8757 100644
+--- a/lampOS/crates/voice/src/attention.rs
++++ b/lampOS/crates/voice/src/attention.rs
+@@ -75,9 +75,11 @@ fn keeps_name(value: Option<&str>) -> bool {
+     value == Some("on")
+ }
+ 
+-/// The newest request the lamp began itself, in writing: a hello, a look.
+-/// Nothing was said to it, so nothing can have been said to someone else.
+-pub static OWN_REQUEST: AtomicU64 = AtomicU64::new(0);
++worker_global! {
++    /// The newest request the lamp began itself, in writing: a hello, a look.
++    /// Nothing was said to it, so nothing can have been said to someone else.
++    pub fn own_request() -> AtomicU64 = AtomicU64::new(0);
++}
+ 
+ /// The provider worker's argument for the switch in the environment.
+ pub fn arguments_from_environment() -> Vec<String> {
+@@ -603,7 +605,7 @@ impl Attention {
+             self.session = session;
+             self.begun = 0;
+         }
+-        if OWN_REQUEST.load(Ordering::Acquire) != request {
++        if own_request().load(Ordering::Acquire) != request {
+             self.begun = self.begun.saturating_add(1);
+         }
+         self.request = request;
+@@ -687,7 +689,7 @@ impl Attention {
+     /// The request in hand as `crate::addressed` judges it, once it began.
+     /// None for a turn the lamp wrote itself: nobody spoke in it.
+     pub fn in_hand(&self) -> Option<crate::addressed::Request> {
+-        if OWN_REQUEST.load(Ordering::Acquire) == self.request {
++        if own_request().load(Ordering::Acquire) == self.request {
+             return None;
+         }
+         self.began_us.map(|began_us| crate::addressed::Request {
+@@ -730,7 +732,7 @@ impl Attention {
+         if request != self.request || self.verdict.is_some() {
+             return None;
+         }
+-        let own = OWN_REQUEST.load(Ordering::Acquire) == request;
++        let own = own_request().load(Ordering::Acquire) == request;
+         self.judged_own = own;
+         let fresh = self.begun <= FRESH_REQUESTS;
+         // In a conversation held in English, a turn heard mostly in another
+@@ -1018,10 +1020,10 @@ mod tests {
+             })
+         );
+         // The lamp's own turn: nobody spoke in it.
+-        OWN_REQUEST.store(4_242, Ordering::Release);
++        own_request().store(4_242, Ordering::Release);
+         attention.began_at(4_242, 2, 13_000_000);
+         assert_eq!(attention.in_hand(), None);
+-        OWN_REQUEST.store(0, Ordering::Release);
++        own_request().store(0, Ordering::Release);
+     }
+ 
+     #[test]
+@@ -1570,12 +1572,12 @@ mod tests {
+         // A turn the lamp began itself is played whatever was heard.
+         attention.began(9, 8);
+         attention.heard("so did you send the report");
+-        OWN_REQUEST.store(9, Ordering::Release);
++        own_request().store(9, Ordering::Release);
+         assert!(matches!(
+             attention.first_output(9, Room::Busy, false),
+             Some(Verdict::Play("the lamp began this turn itself"))
+         ));
+-        OWN_REQUEST.store(0, Ordering::Release);
++        own_request().store(0, Ordering::Release);
+     }
+ 
+     #[test]
+diff --git a/lampOS/crates/voice/src/coordinator.rs b/lampOS/crates/voice/src/coordinator.rs
+index 5f08fb0a0..1f1b814fd 100644
+--- a/lampOS/crates/voice/src/coordinator.rs
++++ b/lampOS/crates/voice/src/coordinator.rs
+@@ -478,6 +478,14 @@ fn unasked_session(cloud: &CloudAvailability, paused: bool) -> Option<u64> {
+     cloud.ready_session().filter(|_| !paused)
+ }
+ 
++/// Whether a worker's failure ends the voice. Only the second route's is
++/// optional, in whichever slot it is (`rig.provider` while it is the active
++/// route): one that exited is dropped by `second::dropped_if_gone` (#960).
++/// Gemini's worker stays mandatory when it waits in `Route::worker`.
++fn mandatory(worker: &Worker) -> bool {
++    worker.role != "second"
++}
++
+ impl Rig {
+     /// A hand cancellation has already reached the speaker. Deliver revocation
+     /// to every remaining child even if one local channel has gone away.
+@@ -488,11 +496,15 @@ impl Rig {
+                 .channels
+                 .control
+                 .send(Control::Authority { snapshot })
++                && mandatory(worker)
+             {
+                 failure.get_or_insert(error);
+             }
+         }
+-        if let Some(Err(error)) = self.second.as_mut().map(|route| route.publish(snapshot)) {
++        if let Some(route) = &mut self.second
++            && let Err(error) = route.publish(snapshot)
++            && mandatory(route.worker_mut())
++        {
+             failure.get_or_insert(error);
+         }
+         if let Some(motor) = &mut self.motor {
+@@ -520,13 +532,20 @@ impl Rig {
+             &mut self.privacy,
+             &mut self.provider,
+         ] {
+-            worker
++            if let Err(error) = worker
+                 .channels
+                 .control
+-                .send(Control::Authority { snapshot })?;
++                .send(Control::Authority { snapshot })
++                && mandatory(worker)
++            {
++                return Err(error);
++            }
+         }
+-        if let Some(route) = &mut self.second {
+-            route.publish(snapshot)?;
++        if let Some(route) = &mut self.second
++            && let Err(error) = route.publish(snapshot)
++            && mandatory(route.worker_mut())
++        {
++            return Err(error);
+         }
+         self.ring.publish(snapshot);
+         if let Some(camera) = self.camera.as_mut()
+@@ -552,7 +571,9 @@ impl Rig {
+         .into_iter()
+         .chain(self.second.as_mut().map(second::Route::worker_mut))
+         {
+-            worker.check_running()?;
++            if mandatory(worker) {
++                worker.check_running()?;
++            }
+         }
+         self.ring.check_running();
+         Ok(())
+@@ -2969,6 +2990,26 @@ fn conversation_with_gate(
+         #[cfg(test)]
+         crate::scenario_clock::step(crate::scenario_clock::Phase::Run)?;
+         let loop_start = Instant::now();
++        // A second route whose worker exited is dropped before anything
++        // else of this tick touches it, and a turn it held ends (#960).
++        if second::dropped_if_gone(rig, &mut cloud, &mut output_flow, trace)? {
++            // As a turn the provider interrupted: its unsent input and
++            // unwritten speech go with it, and the rest of a line still
++            // being said is drained, never taken for a new request.
++            let input_active = reply
++                .as_ref()
++                .is_some_and(|current| !current.local_input_ended);
++            cancel_reply(owner, reply, trace, "second_route_failed")?;
++            provider_queue.clear();
++            speaker_pending = None;
++            if input_active {
++                admission.discard_stream_until_end(monotonic_us())?;
++                submission_draining = true;
++            }
++            snapshot = owner.snapshot(now())?;
++            rig.publish(snapshot)?;
++            last_publish = monotonic_us();
++        }
+         if let Some(current) = reply.as_ref() {
+             let turn = current.owner.turn();
+             highest_known_turn = Some(highest_known_turn.map_or(turn, |old| old.max(turn)));
+@@ -4570,7 +4611,14 @@ fn conversation_with_gate(
+             last_publish = monotonic_us();
+         }
+         if provider_control_empty {
+-            second::flush(rig, &cloud, reply, &mut provider_queue)?;
++            second::flush(
++                rig,
++                &mut cloud,
++                &mut output_flow,
++                reply,
++                &mut provider_queue,
++                trace,
++            )?;
+         }
+         outage.note_delivery(reply);
+         select_failure_notice_in(notices, reply, &speaker_pending, &mut outage, trace)?;
+diff --git a/lampOS/crates/voice/src/coordinator/second.rs b/lampOS/crates/voice/src/coordinator/second.rs
+index 6a78f392b..8fcadb640 100644
+--- a/lampOS/crates/voice/src/coordinator/second.rs
++++ b/lampOS/crates/voice/src/coordinator/second.rs
+@@ -357,6 +357,49 @@ impl Route {
+     }
+ }
+ 
++/// The second route's worker has exited: the route is dropped and the
++/// voice goes on with Gemini alone, instead of ending as for a mandatory
++/// worker (#960: on lamp-4ace a dead second worker ended the voice, and the
++/// restart came back muted). When it was the active route, Gemini's worker
++/// is put back first. True when it held the turn in hand, which the caller
++/// ends.
++///
++/// ponytail: checked once a tick, before anything else of the tick touches
++/// a worker; a worker that dies inside the same tick still fails it there.
++pub(super) fn dropped_if_gone(
++    rig: &mut Rig,
++    cloud: &mut CloudAvailability,
++    flow: &mut OutputReceiver,
++    trace: &mut SessionState,
++) -> Result<bool> {
++    let Rig {
++        provider, second, ..
++    } = rig;
++    let Some(route) = second.as_mut() else {
++        return Ok(false);
++    };
++    let worker = if route.second_active {
++        &mut *provider
++    } else {
++        &mut route.worker
++    };
++    let Some(status) = worker.try_exit()? else {
++        return Ok(false);
++    };
++    let active = route.second_active;
++    if active {
++        swap(provider, cloud, flow, route);
++    }
++    eprintln!("lamp-voice: the second voice route's worker exited ({status}); going on without it");
++    record(
++        trace,
++        json!({"kind":"voice_route_dropped","at_us":monotonic_us(),"route":"second",
++        "status":status.to_string(),"active":active}),
++    )?;
++    *second = None;
++    Ok(active)
++}
++
+ fn swap(
+     provider: &mut Worker,
+     cloud: &mut CloudAvailability,
+@@ -610,20 +653,49 @@ pub(super) fn takes_failed_turn(
+ /// and what was queued since joins it in order.
+ pub(super) fn flush(
+     rig: &mut Rig,
+-    cloud: &CloudAvailability,
++    cloud: &mut CloudAvailability,
++    flow: &mut OutputReceiver,
+     reply: &mut Option<Reply>,
+     queue: &mut VecDeque<ProviderInput>,
+-) -> io::Result<()> {
++    trace: &mut SessionState,
++) -> Result<()> {
+     let Rig {
+         provider, second, ..
+     } = rig;
+-    let channel = &mut provider.channels.data;
+     let Some(route) = second.as_mut() else {
+-        return flush_provider_input(cloud, reply, queue, channel);
++        return Ok(flush_provider_input(
++            cloud,
++            reply,
++            queue,
++            &mut provider.channels.data,
++        )?);
+     };
+     // A replay goes with the request it was for (a cancellation in this
+     // tick may have ended it).
+     route.upkeep(reply.as_ref());
++    // A turn begun while the second route answers goes to Gemini once its
++    // link is Ready again, before anything of it is sent: between turns is
++    // not the only way back, as a busy room may never leave one (#960,
++    // lamp-4ace 09:03-09:06, every turn on the second route, Gemini up).
++    if route.second_active
++        && route.cloud.available()
++        && route.replay.is_empty()
++        && let Some(current) = reply.as_mut().filter(|current| {
++            !current.cloud.start_submitted
++                && current.cloud.outcome.is_none()
++                && current.reminder.is_none()
++        })
++    {
++        swap(provider, cloud, flow, route);
++        route.stand_in = false;
++        rebind(cloud, current, queue)?;
++        record(
++            trace,
++            json!({"kind":"voice_route_switched","at_us":monotonic_us(),"to":"live",
++            "why":"live_link_ready","turn":current.owner.turn(),"replayed_commands":0}),
++        )?;
++    }
++    let channel = &mut provider.channels.data;
+     if route.holds(reply.as_ref()) {
+         route.replay.extend(queue.drain(..));
+         return Ok(());
+@@ -639,19 +711,24 @@ pub(super) fn flush(
+     let keep = !route.second_active;
+     let mut paced = (keep && replaying).then_some(LIVE_REPLAY_PER_TICK);
+     let line = &mut route.line;
+-    flush_provider_input_with(cloud, reply, source, |command| {
+-        if let Some(left) = paced.as_mut() {
+-            if *left == 0 {
+-                return Err(io::ErrorKind::WouldBlock.into());
++    Ok(flush_provider_input_with(
++        cloud,
++        reply,
++        source,
++        |command| {
++            if let Some(left) = paced.as_mut() {
++                if *left == 0 {
++                    return Err(io::ErrorKind::WouldBlock.into());
++                }
++                *left -= 1;
+             }
+-            *left -= 1;
+-        }
+-        channel.send(command)?;
+-        if keep {
+-            line.keep(command);
+-        }
+-        Ok(())
+-    })
++            channel.send(command)?;
++            if keep {
++                line.keep(command);
++            }
++            Ok(())
++        },
++    )?)
+ }
+ 
+ #[cfg(test)]
+@@ -924,7 +1001,15 @@ mod tests {
+         }
+ 
+         fn flush(&mut self, reply: &mut Option<Reply>, queue: &mut VecDeque<ProviderInput>) {
+-            flush(&mut self.rig, &self.cloud, reply, queue).unwrap();
++            flush(
++                &mut self.rig,
++                &mut self.cloud,
++                &mut self.flow,
++                reply,
++                queue,
++                &mut self.trace,
++            )
++            .unwrap();
+         }
+     }
+ 
+diff --git a/lampOS/crates/voice/src/coordinator/tests/second_route.rs b/lampOS/crates/voice/src/coordinator/tests/second_route.rs
+index 892de357d..68349eb7a 100644
+--- a/lampOS/crates/voice/src/coordinator/tests/second_route.rs
++++ b/lampOS/crates/voice/src/coordinator/tests/second_route.rs
+@@ -72,6 +72,19 @@ struct Script {
+     /// Gemini's link is not Ready at startup: it is Ready at this capture
+     /// frame (10 ms each), or never.
+     live_late: Option<Option<u64>>,
++    /// The second route's worker exits as this many of its inputs arrive
++    /// (1: on its Start) (#960).
++    second_dies: Option<usize>,
++    /// The standby's worker exits at this capture frame (#960).
++    standby_dies_at: Option<u64>,
++    /// Privacy reports muted a second after the second route's worker
++    /// exited, instead of after `turns`.
++    mute_after_second_dies: bool,
++    /// The Live link is Ready again, with a new session, at this capture
++    /// frame, whatever turn is in hand.
++    live_back_at_frame: Option<u64>,
++    /// The Live worker exits at this capture frame, with no report.
++    live_dies_at: Option<u64>,
+     turn_taking: TurnTaking,
+ }
+ 
+@@ -85,6 +98,11 @@ impl Script {
+             turns: 1,
+             live_back_after: None,
+             live_late: None,
++            second_dies: None,
++            standby_dies_at: None,
++            mute_after_second_dies: false,
++            live_back_at_frame: None,
++            live_dies_at: None,
+             turn_taking: TurnTaking::V1Baseline,
+         }
+     }
+@@ -262,6 +280,8 @@ struct Peers {
+     link_dropped: bool,
+     link_back: bool,
+     live_ready_sent: bool,
++    /// The capture frame at which the second route's worker exited.
++    second_died_at: Option<u64>,
+ }
+ 
+ impl Peers {
+@@ -287,11 +307,25 @@ impl Peers {
+                 self.speech_offset = Some(self.frames);
+             }
+         }
+-        if self.settled >= self.script.turns {
++        // A voice still serving a second after its second route died can
++        // be muted then, which ends the run cleanly.
++        if self.settled >= self.script.turns
++            || (self.script.mute_after_second_dies
++                && self
++                    .second_died_at
++                    .is_some_and(|frame| self.frames >= frame + 100))
++        {
+             self.muted.store(true, Ordering::SeqCst);
+         }
+-        if let Some(after) = self.script.live_back_after
+-            && self.settled >= after
++        let live_back_due = self
++            .script
++            .live_back_after
++            .is_some_and(|after| self.settled >= after)
++            || self
++                .script
++                .live_back_at_frame
++                .is_some_and(|frame| self.frames >= frame);
++        if live_back_due
+             && self.link_dropped
+             && !self.link_back
+             && let Some(index) = self.index("provider")
+@@ -317,6 +351,28 @@ impl Peers {
+                     link: ready_link(1, 1),
+                 });
+         }
++        if self
++            .script
++            .live_dies_at
++            .is_some_and(|frame| self.frames >= frame)
++            && let Some(index) = self.index("provider")
++            && !self.peers[index].stopped
++        {
++            let peer = &mut self.peers[index];
++            peer.stopped = true;
++            peer.input.take();
++        }
++        if self
++            .script
++            .standby_dies_at
++            .is_some_and(|frame| self.frames >= frame)
++            && let Some(index) = self.index("second")
++            && !self.peers[index].stopped
++        {
++            let peer = &mut self.peers[index];
++            peer.stopped = true;
++            peer.input.take();
++        }
+         for index in 0..self.peers.len() {
+             self.tick_peer(index, deadline)?;
+         }
+@@ -501,6 +557,19 @@ impl Peers {
+             let Ok(Some(input)) = self.peers[index].channels.data.receive::<ProviderInput>() else {
+                 break;
+             };
++            if !live
++                && self
++                    .script
++                    .second_dies
++                    .is_some_and(|after| self.seen.lock().unwrap().second.len() + 1 >= after)
++            {
++                // Its process exits; it reads and says nothing more.
++                self.second_died_at.get_or_insert(self.frames);
++                let peer = &mut self.peers[index];
++                peer.stopped = true;
++                peer.input.take();
++                return;
++            }
+             {
+                 let mut seen = self.seen.lock().unwrap();
+                 let log = if live {
+@@ -762,6 +831,7 @@ fn run(script: Script) -> Run {
+         link_dropped: false,
+         link_back: false,
+         live_ready_sent: false,
++        second_died_at: None,
+     };
+     let started = crate::scenario_clock::instant();
+     let mut reported = false;
+@@ -1117,3 +1187,148 @@ fn the_live_worker_waits_for_room_only_with_a_second_route() {
+     stripped.remove(keep + 1);
+     assert_eq!(stripped, without);
+ }
++
++/// (j) #960: the second route's worker exits while it holds the turn. The
++/// route is dropped and that turn ends, and the voice goes on: the next
++/// turn is Gemini's, and the run ends by its scripted mute, not by the
++/// worker's exit.
++#[test]
++fn a_second_worker_that_exits_is_dropped_and_the_voice_goes_on() {
++    let _one = super::pilot_faults::one_session();
++    let run = run(Script {
++        second_dies: Some(1),
++        speak_again: Some(When::Settled(1)),
++        turns: 2,
++        ..Script::question(Live::Fail(Fault::QuotaExceeded))
++    });
++    run.assert_clean();
++    assert_eq!(
++        run.events("voice_route_switched")[0]["why"],
++        "live_turn_failed"
++    );
++    let dropped = run.events("voice_route_dropped");
++    assert_eq!(dropped.len(), 1, "{}", run.summary());
++    assert_eq!(dropped[0]["active"], true);
++    assert_eq!(run.finished(1)["outcome"], "second_route_failed");
++    assert!(run.played(1).is_empty());
++    let turn = run
++        .seen
++        .live
++        .iter()
++        .rev()
++        .find_map(|i| match i {
++            ProviderInput::Start { request, .. } => Some(*request),
++            _ => None,
++        })
++        .unwrap();
++    assert!(turn > 1);
++    whole_line(&run.seen.live, turn);
++    assert_eq!(run.played(turn), vec![LIVE; 48]);
++}
++
++/// (k) #960: the standby's worker exits while Gemini is well: it is
++/// dropped, and Gemini's answer is untouched.
++#[test]
++fn a_standby_that_exits_is_dropped_and_gemini_answers() {
++    let _one = super::pilot_faults::one_session();
++    let run = run(Script {
++        standby_dies_at: Some(5),
++        ..Script::question(Live::Answer(12))
++    });
++    run.assert_clean();
++    let dropped = run.events("voice_route_dropped");
++    assert_eq!(dropped.len(), 1, "{}", run.summary());
++    assert_eq!(dropped[0]["active"], false);
++    assert!(run.events("voice_route_switched").is_empty());
++    whole_line(&run.seen.live, 1);
++    assert_eq!(run.played(1), vec![LIVE; 48]);
++}
++
++/// (l) #960, the reviewer's P2: the active second worker exits mid-line
++/// while the question is still being said, with input queued for it that
++/// it never took. That input goes with the turn, and the voice goes on.
++#[test]
++fn a_second_worker_that_exits_mid_line_leaves_no_queued_input_behind() {
++    let _one = super::pilot_faults::one_session();
++    let run = run(Script {
++        second_dies: Some(40),
++        mute_after_second_dies: true,
++        ..Script::question(Live::DropLink)
++    });
++    run.assert_clean();
++    let dropped = run.events("voice_route_dropped");
++    assert_eq!(dropped.len(), 1, "{}", run.summary());
++    assert_eq!(dropped[0]["active"], true);
++    assert_eq!(run.finished(1)["outcome"], "second_route_failed");
++    assert!(run.played(1).is_empty());
++}
++
++/// (m) #960, lamp-4ace 09:03-09:06: on the second route in a busy room the
++/// lamp is never between turns. Gemini's link is Ready again while the
++/// second route still answers, and someone speaks over it: that new turn
++/// is Gemini's, not the second route's.
++#[test]
++fn a_turn_begun_while_the_second_route_answers_goes_to_gemini_once_ready() {
++    let _one = super::pilot_faults::one_session();
++    let run = run(Script {
++        second_packets: 60,
++        speak_again: Some(When::Accepted(8)),
++        turns: 2,
++        live_back_at_frame: Some(85),
++        turn_taking: TurnTaking::VadOnly,
++        ..Script::question(Live::DropLink)
++    });
++    run.assert_clean();
++    let switches = run.events("voice_route_switched");
++    let whys: Vec<_> = switches
++        .iter()
++        .map(|e| e["why"].as_str().unwrap().to_owned())
++        .collect();
++    assert_eq!(
++        whys,
++        ["live_link_changed", "live_link_ready"],
++        "{switches:?}"
++    );
++    let (turn, session) = run
++        .seen
++        .live
++        .iter()
++        .rev()
++        .find_map(|i| match i {
++            ProviderInput::Start {
++                request, session, ..
++            } => Some((*request, *session)),
++            _ => None,
++        })
++        .unwrap();
++    assert!(turn > 1);
++    assert_eq!(session, 2);
++    assert_eq!(switches[1]["turn"], turn);
++    whole_line(&run.seen.live, turn);
++    assert!(!run.seen.second.iter().any(|i| request_of(i) == turn));
++    assert!(run.played(1).iter().all(|&v| v == SECOND));
++    assert_eq!(run.played(turn), vec![LIVE; 48]);
++}
++
++/// (n) The reviewer's P2 on #962: Gemini's worker, waiting while the second
++/// route is active, exits with no report. It is still a mandatory worker:
++/// the voice ends on it (and is restarted), rather than staying on the
++/// second route for good.
++#[test]
++fn geminis_worker_exiting_while_the_second_route_is_active_still_ends_the_voice() {
++    let _one = super::pilot_faults::one_session();
++    let run = run(Script {
++        live_dies_at: Some(60),
++        ..Script::question(Live::DropLink)
++    });
++    assert_eq!(
++        run.events("voice_route_switched")[0]["why"],
++        "live_link_changed"
++    );
++    let error = run.result.as_ref().unwrap_err().to_string();
++    assert!(
++        error.contains("provider worker exited"),
++        "{}",
++        run.summary()
++    );
++}
+diff --git a/lampOS/crates/voice/src/lib.rs b/lampOS/crates/voice/src/lib.rs
+index 5dc796831..a64bf79d6 100644
+--- a/lampOS/crates/voice/src/lib.rs
++++ b/lampOS/crates/voice/src/lib.rs
+@@ -3,6 +3,35 @@
+ //! Speech activity is an observation, not evidence of who is being addressed.
+ //! The initial harness requires an explicitly opened, finite directed session;
+ //! this does not qualify open-desk addressee recognition or background restraint.
++/// A process-wide value the provider worker keeps, read through `$name()`.
++///
++/// In the service it is one static: the provider worker is one process.
++/// Under test it is one per test thread (#882): many workers run in one
++/// test process, each numbering its requests from 1, and one shared value
++/// let one test's worker change what another test's worker reads. Each
++/// worker test runs on its own thread (`#[tokio::test]` is current-thread)
++/// and the worker reads and writes these only on its task.
++// ponytail: keyed by thread, not by worker; a test that drives a worker
++// from a multi-thread runtime needs the value passed to the worker instead.
++macro_rules! worker_global {
++    ($(#[$meta:meta])* $vis:vis fn $name:ident() -> $ty:ty = $init:expr;) => {
++        $(#[$meta])*
++        #[cfg(not(test))]
++        $vis fn $name() -> &'static $ty {
++            static VALUE: $ty = $init;
++            &VALUE
++        }
++        $(#[$meta])*
++        #[cfg(test)]
++        $vis fn $name() -> &'static $ty {
++            thread_local! {
++                static VALUE: &'static $ty = Box::leak(Box::new($init));
++            }
++            VALUE.with(|value| *value)
++        }
++    };
++}
++
+ pub mod activity;
+ pub mod addressed;
+ pub mod admission;
+diff --git a/lampOS/crates/voice/src/provider_worker.rs b/lampOS/crates/voice/src/provider_worker.rs
+index 1c97ebd89..bb0709291 100644
+--- a/lampOS/crates/voice/src/provider_worker.rs
++++ b/lampOS/crates/voice/src/provider_worker.rs
+@@ -68,8 +68,10 @@ const BARRIER: BarrierPolicy = BarrierPolicy::Require;
+ /// (see `thread::GOING_ON_FOR`).
+ const RENEW_AFTER_UNANSWERED: u32 = 8;
+ const RENEW_AT_MOST_EVERY: Duration = Duration::from_secs(900);
+-/// Requests the service has left unanswered since it last answered one.
+-static UNANSWERED: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
++worker_global! {
++    /// Requests the service has left unanswered since it last answered one.
++    fn unanswered_requests() -> std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
++}
+ /// Where the eyes keep their newest frame, when the lamp may take a look.
+ static LOOK_FILE: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLock::new();
+ /// A look is a full look (`--eyes-look-full`): its still may be older.
+@@ -701,7 +703,7 @@ pub(crate) struct Options {
+ }
+ /// How the room is and whether the lamp is in a conversation, now.
+ fn attention_now() -> (crate::room_told::Room, bool) {
+-    let room = crate::room_told::ROOM
++    let room = crate::room_told::room()
+         .lock()
+         .map_or(crate::room_told::Room::Unknown, |mut room| {
+             room.at(monotonic_us())
+@@ -1126,7 +1128,7 @@ async fn serve_with_visual<C: Connect>(
+     let mut noted: Option<(u64, String)> = None;
+     // When the name was last heard plainly enough to count as a call.
+     let mut sure_name_us: Option<u64> = None;
+-    UNANSWERED.store(0, std::sync::atomic::Ordering::Relaxed);
++    unanswered_requests().store(0, std::sync::atomic::Ordering::Relaxed);
+     loop {
+         // Control is polled first and never waits for the provider: stop,
+         // privacy and retirement are serviced every tick whether a connection
+@@ -1155,7 +1157,7 @@ async fn serve_with_visual<C: Connect>(
+                 }
+                 // A session that has answered nothing for a long run of
+                 // requests is replaced the next time nothing is owed on it.
+-                if UNANSWERED.load(std::sync::atomic::Ordering::Relaxed) >= RENEW_AFTER_UNANSWERED
++                if unanswered_requests().load(std::sync::atomic::Ordering::Relaxed) >= RENEW_AFTER_UNANSWERED
+                     && renewed_at.elapsed() >= RENEW_AT_MOST_EVERY
+                     && provider.renew_when_idle()
+                 {
+@@ -1163,10 +1165,10 @@ async fn serve_with_visual<C: Connect>(
+                         "lamp-voice provider: {RENEW_AFTER_UNANSWERED} requests in a row went unanswered; renewing the session when it is idle"
+                     );
+                     renewed_at = Instant::now();
+-                    UNANSWERED.store(0, std::sync::atomic::Ordering::Relaxed);
++                    unanswered_requests().store(0, std::sync::atomic::Ordering::Relaxed);
+                 }
+                 if let Some(out) = room_out.as_mut()
+-                    && let Ok(mut room) = crate::room_told::ROOM.lock()
++                    && let Ok(mut room) = crate::room_told::room().lock()
+                 {
+                     let now = monotonic_us();
+                     out.tell(room.at(now), now);
+@@ -1215,7 +1217,7 @@ async fn serve_with_visual<C: Connect>(
+                     {
+                         called.told(request);
+                         let busy = busy_needs_face
+-                            && crate::room_told::ROOM.lock().is_ok_and(|mut room| {
++                            && crate::room_told::room().lock().is_ok_and(|mut room| {
+                                 room.at(monotonic_us()) == crate::room_told::Room::Busy
+                             });
+                         // A plain hearing of the name stands for a face.
+@@ -1264,7 +1266,7 @@ async fn serve_with_visual<C: Connect>(
+                 // going on: the thread's note says that.
+                 if room_facts
+                     && let Some(live) = provider.live_session()
+-                    && let Ok(mut room) = crate::room_told::ROOM.lock()
++                    && let Ok(mut room) = crate::room_told::room().lock()
+                 {
+                     let now = monotonic_us();
+                     let going_on = || {
+@@ -1347,7 +1349,7 @@ async fn serve_with_visual<C: Connect>(
+                         air_told.seen(stuffy, air.and_then(|air| air.co2_ppm), monotonic_us());
+                     }
+                     let now = monotonic_us();
+-                    let busy = crate::room_told::ROOM
++                    let busy = crate::room_told::room()
+                         .lock()
+                         .is_ok_and(|mut room| room.at(now) == crate::room_told::Room::Busy);
+                     if !busy
+@@ -1677,7 +1679,7 @@ async fn serve_with_visual<C: Connect>(
+                         // known here with the rule for whom it answers, which
+                         // follows the turn; without it, not.
+                         let request = lineage.request.get();
+-                        let turn = (crate::attention::OWN_REQUEST
++                        let turn = (crate::attention::own_request()
+                             .load(std::sync::atomic::Ordering::Acquire)
+                             != request)
+                             .then(|| Turn {
+@@ -2118,7 +2120,7 @@ impl ToolDesk {
+         // A request the lamp wrote itself was not heard from anyone:
+         // a yes to a task cannot come in one.
+         let heard =
+-            crate::attention::OWN_REQUEST.load(std::sync::atomic::Ordering::Acquire) != request;
++            crate::attention::own_request().load(std::sync::atomic::Ordering::Acquire) != request;
+         let asked = self.asked.clone();
+         let session = lineage.session;
+         let work = call.clone();
+@@ -2433,7 +2435,7 @@ fn forward_origin(
+             lineage,
+             waiting_for_barrier,
+         } => {
+-            if heard_input && let Ok(mut room) = crate::room_told::ROOM.lock() {
++            if heard_input && let Ok(mut room) = crate::room_told::room().lock() {
+                 room.heard(lineage.request.get(), monotonic_us());
+             }
+             push(ProviderOutput::Started {
+@@ -2443,8 +2445,8 @@ fn forward_origin(
+             })
+         }
+         Event::Audio { lineage, pcm, .. } => {
+-            UNANSWERED.store(0, std::sync::atomic::Ordering::Relaxed);
+-            if let Ok(mut room) = crate::room_told::ROOM.lock() {
++            unanswered_requests().store(0, std::sync::atomic::Ordering::Relaxed);
++            if let Ok(mut room) = crate::room_told::room().lock() {
+                 room.spoke(lineage.request.get(), monotonic_us());
+             }
+             let provider_event_at_us = monotonic_us();
+@@ -2503,11 +2505,11 @@ fn forward_origin(
+             // A reminder attempt has no heard input at all. It must neither
+             // change the room nor renew the session as unanswered speech.
+             let said = heard_input
+-                && crate::room_told::ROOM.lock().map_or(true, |mut room| {
++                && crate::room_told::room().lock().map_or(true, |mut room| {
+                     room.unanswered(lineage.request.get(), monotonic_us())
+                 });
+             if said {
+-                UNANSWERED.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
++                unanswered_requests().fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                 eprintln!(
+                     "lamp-voice provider: request {} got no answer in {} ms; closed as unanswered, connection kept",
+                     lineage.request.get(),
+@@ -3230,7 +3232,7 @@ impl InputHandoff {
+                 // Reminder data is not a memory instruction, nor something
+                 // to remember automatically merely because it was spoken.
+                 crate::remember::keep_out(request.get());
+-                crate::attention::OWN_REQUEST
++                crate::attention::own_request()
+                     .store(request.get(), std::sync::atomic::Ordering::Release);
+                 if let Err(refusal) = input.written(expected, request, &note, None) {
+                     return self.refused_start(request, refusal);
+@@ -3312,7 +3314,7 @@ impl InputHandoff {
+                 if let Err(error) = input.audio(request, sequence, captured, &samples) {
+                     return self.refused(request, error, input);
+                 }
+-                if let Ok(mut room) = crate::room_told::ROOM.lock() {
++                if let Ok(mut room) = crate::room_told::room().lock() {
+                     room.hearing(now_us);
+                 }
+             }
+@@ -3321,7 +3323,7 @@ impl InputHandoff {
+                 if let Err(error) = input.end(request) {
+                     return self.refused(request, error, input);
+                 }
+-                if let Ok(mut room) = crate::room_told::ROOM.lock() {
++                if let Ok(mut room) = crate::room_told::room().lock() {
+                     if sound {
+                         room.ended_as_sound(request.get(), now_us);
+                     } else {
+@@ -3376,7 +3378,7 @@ impl InputHandoff {
+                     text.as_str()
+                 };
+                 // The lamp's own turn: nothing was said to anyone else.
+-                crate::attention::OWN_REQUEST
++                crate::attention::own_request()
+                     .store(request.get(), std::sync::atomic::Ordering::Release);
+                 if let Err(refusal) = input.written(expected, request, text, picture.as_deref()) {
+                     return self.refused_start(request, refusal);
+diff --git a/lampOS/crates/voice/src/provider_worker/tests/reminders.rs b/lampOS/crates/voice/src/provider_worker/tests/reminders.rs
+index 7ee4d03b6..5aa897d74 100644
+--- a/lampOS/crates/voice/src/provider_worker/tests/reminders.rs
++++ b/lampOS/crates/voice/src/provider_worker/tests/reminders.rs
+@@ -4,7 +4,7 @@ use std::os::unix::net::UnixListener;
+ 
+ fn observed_room() -> (Room, bool) {
+     (
+-        crate::room_told::ROOM.lock().unwrap().at(monotonic_us()),
++        crate::room_told::room().lock().unwrap().at(monotonic_us()),
+         false,
+     )
+ }
+@@ -458,11 +458,11 @@ impl RestoreRoom {
+     fn in_room(room: Room) -> Self {
+         let now = monotonic_us();
+         let observed = Self::observed(room, now);
+-        let old = std::mem::replace(&mut *crate::room_told::ROOM.lock().unwrap(), observed);
++        let old = std::mem::replace(&mut *crate::room_told::room().lock().unwrap(), observed);
+         Self {
+             old: Some(old),
+-            unanswered: UNANSWERED.load(std::sync::atomic::Ordering::Relaxed),
+-            own_request: crate::attention::OWN_REQUEST.load(std::sync::atomic::Ordering::Acquire),
++            unanswered: unanswered_requests().load(std::sync::atomic::Ordering::Relaxed),
++            own_request: crate::attention::own_request().load(std::sync::atomic::Ordering::Acquire),
+             settled_at_us: now.checked_add(6_000_000).unwrap(),
+         }
+     }
+@@ -490,19 +490,20 @@ impl RestoreRoom {
+     }
+ 
+     fn set_room(&mut self, room: Room) {
+-        *crate::room_told::ROOM.lock().unwrap() = Self::observed(room, monotonic_us());
++        *crate::room_told::room().lock().unwrap() = Self::observed(room, monotonic_us());
+     }
+ }
+ 
+ impl Drop for RestoreRoom {
+     fn drop(&mut self) {
+-        UNANSWERED.store(self.unanswered, std::sync::atomic::Ordering::Relaxed);
+-        crate::attention::OWN_REQUEST.store(self.own_request, std::sync::atomic::Ordering::Release);
++        unanswered_requests().store(self.unanswered, std::sync::atomic::Ordering::Relaxed);
++        crate::attention::own_request()
++            .store(self.own_request, std::sync::atomic::Ordering::Release);
+         if let Some(old) = self.old.take() {
+-            *crate::room_told::ROOM
++            *crate::room_told::room()
+                 .lock()
+                 .unwrap_or_else(|poisoned| poisoned.into_inner()) = old;
+-            crate::room_told::ROOM.clear_poison();
++            crate::room_told::room().clear_poison();
+         }
+     }
+ }
+@@ -527,7 +528,7 @@ async fn unanswered_reminders_and_sounds_are_not_talk_but_speech_and_actual_audi
+         },
+     );
+     let mut dial = rig.ready().await;
+-    let unanswered = UNANSWERED.load(std::sync::atomic::Ordering::Relaxed);
++    let unanswered = unanswered_requests().load(std::sync::atomic::Ordering::Relaxed);
+     for _ in 0..2 {
+         let request = rig.reminder(&dial, "Tea");
+         assert!(
+@@ -539,11 +540,11 @@ async fn unanswered_reminders_and_sounds_are_not_talk_but_speech_and_actual_audi
+             matches!(rig.output().await, ProviderOutput::TurnComplete { request: got, idle: true } if got == request)
+         );
+         assert_eq!(
+-            UNANSWERED.load(std::sync::atomic::Ordering::Relaxed),
++            unanswered_requests().load(std::sync::atomic::Ordering::Relaxed),
+             unanswered
+         );
+         {
+-            let mut observed = crate::room_told::ROOM.lock().unwrap();
++            let mut observed = crate::room_told::room().lock().unwrap();
+             let now = monotonic_us();
+             assert_eq!(
+                 observed.at(now),
+@@ -585,22 +586,22 @@ async fn unanswered_reminders_and_sounds_are_not_talk_but_speech_and_actual_audi
+         );
+         if sound {
+             assert_eq!(
+-                UNANSWERED.load(std::sync::atomic::Ordering::Relaxed),
++                unanswered_requests().load(std::sync::atomic::Ordering::Relaxed),
+                 unanswered
+             );
+             assert_eq!(
+-                crate::room_told::ROOM.lock().unwrap().at(monotonic_us()),
++                crate::room_told::room().lock().unwrap().at(monotonic_us()),
+                 Room::Quiet
+             );
+         }
+         rig.end_local_reminder();
+     }
+     assert_eq!(
+-        UNANSWERED.load(std::sync::atomic::Ordering::Relaxed),
++        unanswered_requests().load(std::sync::atomic::Ordering::Relaxed),
+         unanswered + 2
+     );
+     assert_eq!(
+-        crate::room_told::ROOM.lock().unwrap().at(monotonic_us()),
++        crate::room_told::room().lock().unwrap().at(monotonic_us()),
+         Room::Busy
+     );
+     let request = rig.reminder(&dial, "Tea");
+@@ -612,9 +613,12 @@ async fn unanswered_reminders_and_sounds_are_not_talk_but_speech_and_actual_audi
+     assert!(
+         matches!(rig.output().await, ProviderOutput::Audio { request: got, .. } if got == request)
+     );
+-    assert_eq!(UNANSWERED.load(std::sync::atomic::Ordering::Relaxed), 0);
+     assert_eq!(
+-        crate::room_told::ROOM
++        unanswered_requests().load(std::sync::atomic::Ordering::Relaxed),
++        0
++    );
++    assert_eq!(
++        crate::room_told::room()
+             .lock()
+             .unwrap()
+             .due(u64::MAX, monotonic_us()),
+diff --git a/lampOS/crates/voice/src/room_told.rs b/lampOS/crates/voice/src/room_told.rs
+index cfeb17fab..85244ca7d 100644
+--- a/lampOS/crates/voice/src/room_told.rs
++++ b/lampOS/crates/voice/src/room_told.rs
+@@ -98,8 +98,10 @@ pub struct RoomTold {
+     told: Option<(u64, Room)>,
+ }
+ 
+-/// This process's one room. The provider worker is one process.
+-pub static ROOM: Mutex<RoomTold> = Mutex::new(RoomTold::new());
++worker_global! {
++    /// This process's one room. The provider worker is one process.
++    pub fn room() -> Mutex<RoomTold> = Mutex::new(RoomTold::new());
++}
+ 
+ impl RoomTold {
+     pub const fn new() -> Self {
+diff --git a/lampOS/crates/voice/src/second_provider/worker.rs b/lampOS/crates/voice/src/second_provider/worker.rs
+index 17818e8f3..afb4b8ad4 100644
+--- a/lampOS/crates/voice/src/second_provider/worker.rs
++++ b/lampOS/crates/voice/src/second_provider/worker.rs
+@@ -26,6 +26,9 @@ use std::{
+ 
+ /// The coordinator renews authority at least this often.
+ const CONTROL_LEASE_US: u64 = 250_000;
++/// The longest a backlog left by a stall may hold the fresh authority back
++/// before the controller counts as gone, as the Live worker (#784).
++const STALLED_CONTROL_US: u64 = 1_500_000;
+ /// Control messages taken in one tick before input and output wait.
+ const CONTROL_SLICE: usize = 16;
+ /// Input commands taken in one tick, as the Live provider worker does.
+@@ -43,6 +46,9 @@ struct Gate {
+     last_control_us: u64,
+     highest_seen: u64,
+     retired_through: u64,
++    /// Authority snapshots that lapsed in the queue while this worker was
++    /// held up, since the last one installed.
++    skipped_expired: u32,
+ }
+ 
+ enum Drain {
+@@ -59,6 +65,7 @@ impl Gate {
+             last_control_us: now_us,
+             highest_seen: 0,
+             retired_through: 0,
++            skipped_expired: 0,
+         }
+     }
+ 
+@@ -66,10 +73,27 @@ impl Gate {
+     /// earlier request, no owner retires all seen, and an old owner coming
+     /// back is a fault. The engine drops the retired requests' work.
+     fn install(&mut self, now_us: u64, state: Snapshot, engine: &mut Engine) -> io::Result<()> {
+-        self.fresh(now_us)?;
+-        self.guard
+-            .install(MonoTime::from_micros(now_us), state)
+-            .map_err(io::Error::other)?;
++        match self.guard.install(MonoTime::from_micros(now_us), state) {
++            Ok(()) => {}
++            // Queued while this worker was held up (on lamp-4ace by the
++            // kernel re-tuning its SD/MMC hosts, #784; it ended the voice
++            // there on 2026-10-16, #960): it lapsed in the queue. Fresher
++            // ones follow it; the heartbeat in `drain` ends the route if
++            // none comes.
++            Err(lamp_turn_owner::Error::ExpiredState) => {
++                self.skipped_expired = self.skipped_expired.saturating_add(1);
++                return Ok(());
++            }
++            Err(error) => return Err(io::Error::other(error)),
++        }
++        if self.skipped_expired > 0 {
++            eprintln!(
++                "lamp-voice second: held up {} ms; {} lapsed authority snapshots skipped, going on",
++                now_us.saturating_sub(self.last_control_us) / 1_000,
++                self.skipped_expired
++            );
++            self.skipped_expired = 0;
++        }
+         self.last_control_us = now_us;
+         if let Some(owner) = state.owner() {
+             if owner.turn() <= self.retired_through || owner.turn() < self.highest_seen {
+@@ -86,11 +110,9 @@ impl Gate {
+         Ok(())
+     }
+ 
+-    /// As the fixture's `fresh`, less its finite-run clock rules.
++    /// As the fixture's `fresh`, less its finite-run clock rules: judged
++    /// once the control queue is empty, so on the newest authority sent.
+     fn fresh(&self, now_us: u64) -> io::Result<()> {
+-        if now_us.saturating_sub(self.last_control_us) >= CONTROL_LEASE_US {
+-            return Err(invalid("second route controller heartbeat expired"));
+-        }
+         if let Some(state) = self.guard.state()
+             && (now_us >= state.expires_at().as_micros()
+                 || (state.owner().is_some()
+@@ -170,6 +192,7 @@ impl Gate {
+     }
+ 
+     fn drain(&mut self, control: &mut Channel, engine: &mut Engine) -> io::Result<Drain> {
++        let mut drained = Drain::Deferred;
+         for _ in 0..CONTROL_SLICE {
+             match control.receive()? {
+                 Some(Control::Stop) => return Ok(Drain::Stopped),
+@@ -180,10 +203,22 @@ impl Gate {
+                 Some(Control::StartCapture | Control::ConnectReference { .. }) => {
+                     return Err(invalid("invalid second route provider control"));
+                 }
+-                None => return Ok(Drain::Empty),
++                None => {
++                    drained = Drain::Empty;
++                    break;
++                }
+             }
+         }
+-        Ok(Drain::Deferred)
++        // While a backlog left by a stall is still being read, the fresh
++        // authority may be further down it: the heartbeat is judged once
++        // the queue is empty, or after the longest stall a gap may be.
++        let silent = monotonic_us().saturating_sub(self.last_control_us);
++        if silent > STALLED_CONTROL_US
++            || (matches!(drained, Drain::Empty) && silent >= CONTROL_LEASE_US)
++        {
++            return Err(invalid("second route controller heartbeat expired"));
++        }
++        Ok(drained)
+     }
+ }
+ 
+@@ -473,12 +508,12 @@ pub async fn run(
+     'tick: loop {
+         // The turn tasks run while this waits.
+         ticker.tick().await;
+-        gate.fresh(monotonic_us())?;
+         match gate.drain(&mut channels.control, &mut engine)? {
+             Drain::Stopped => return Ok(()),
+             Drain::Deferred => continue,
+             Drain::Empty => {}
+         }
++        gate.fresh(monotonic_us())?;
+         // As many inputs a tick as the Live worker takes: a line replayed
+         // to this route arrives faster than it was spoken, and a packet
+         // left waiting past its age bound is refused.
+@@ -555,6 +590,51 @@ mod tests {
+         }
+     }
+ 
++    /// #960, lamp-4ace 08:47:27: the worker was held up (#784's SD/MMC
++    /// stalls) while finishing a turn, and the authority queued meanwhile
++    /// had lapsed when it was read. That ended the route and the voice.
++    /// Lapsed snapshots are skipped and the next fresh one is taken.
++    #[tokio::test]
++    async fn authority_that_lapsed_in_the_queue_during_a_stall_is_skipped() {
++        let boot = BootId::new([7; 16]).unwrap();
++        let start_us = 10_000;
++        let at = |us| MonoTime::from_micros(us);
++        let mut owner = Controller::new(boot, at(start_us));
++        owner
++            .set_microphone_permission(at(start_us), Permission::Allowed)
++            .unwrap();
++        let renew = |owner: &mut Controller, now_us: u64| {
++            let until = at(now_us + 100_000);
++            owner
++                .set_capture(at(now_us), CaptureState::RetainingUntil(until))
++                .unwrap();
++            owner
++                .set_admission(at(now_us), AdmissionState::OpenUntil(until))
++                .unwrap();
++            owner.snapshot(at(now_us)).unwrap()
++        };
++        let mut engine = Engine::new(
++            Arc::new(Silent),
++            Told::default,
++            Arc::new(|_, _, _, _| Box::pin(async { serde_json::Value::Null })),
++        );
++        let mut gate = Gate::new(boot, start_us);
++        let first = renew(&mut owner, start_us);
++        gate.install(start_us, first, &mut engine).unwrap();
++        owner.admit(at(start_us), AdmittedInput::NewTurn).unwrap();
++        // Sent every few ms while the worker was held up for 300 ms.
++        let queued: Vec<_> = (1..=60)
++            .map(|step| renew(&mut owner, start_us + step * 5_000))
++            .collect();
++        let read_us = start_us + 300_000;
++        for snapshot in queued {
++            gate.install(read_us, snapshot, &mut engine).unwrap();
++        }
++        assert_eq!(gate.last_control_us, read_us);
++        assert_eq!(gate.skipped_expired, 0);
++        gate.fresh(read_us).unwrap();
++    }
++
+     #[tokio::test]
+     async fn a_new_owner_retires_the_old_turn_and_its_late_input() {
+         let now_us = 10_000;
+diff --git a/lampOS/crates/voice/tests/review_2026_10_14.rs b/lampOS/crates/voice/tests/review_2026_10_14.rs
+index 75a27b0b8..be26d822a 100644
+--- a/lampOS/crates/voice/tests/review_2026_10_14.rs
++++ b/lampOS/crates/voice/tests/review_2026_10_14.rs
+@@ -62,9 +62,9 @@ fn review_a_plain_hearing_just_before_a_request_is_not_lost_to_a_fainter_one_aft
+ /// second look is what makes it happen in a busy room.
+ #[test]
+ fn review_the_lamps_own_second_look_does_not_use_up_a_new_sessions_held_requests() {
+-    use lamp_voice::attention::OWN_REQUEST;
++    use lamp_voice::attention::own_request;
+     use std::sync::atomic::Ordering;
+-    // Request numbers of this test alone: `OWN_REQUEST` is one for the
++    // Request numbers of this test alone: `own_request()` is one for the
+     // whole process.
+     let (line, look, talk) = (1_001, 1_002, 1_003);
+     let mut attention = Attention::default();
+@@ -72,13 +72,13 @@ fn review_the_lamps_own_second_look_does_not_use_up_a_new_sessions_held_requests
+     attention.began_at(line, 50, 100 * SECOND + 200_000);
+     attention.heard("Hey Liam, the meeting moved.");
+     // Nothing comes of it: no output, so nothing to decide.
+-    OWN_REQUEST.store(look, Ordering::Release);
++    own_request().store(look, Ordering::Release);
+     attention.began_at(look, 50, 105 * SECOND);
+     // Nothing comes of the second look either.
+     attention.began_at(talk, 50, 110 * SECOND);
+     attention.heard("How was your weekend?");
+     let verdict = attention.first_output(talk, Room::Busy, false);
+-    OWN_REQUEST.store(0, Ordering::Release);
++    own_request().store(0, Ordering::Release);
+     assert!(
+         matches!(verdict, Some(Verdict::Hold(_))),
+         "the session's second heard request in a busy room was not held: {verdict:?}"
+diff --git a/lampOS/docs/second-voice.md b/lampOS/docs/second-voice.md
+index d7afbd7ad..2d12eb423 100644
+--- a/lampOS/docs/second-voice.md
++++ b/lampOS/docs/second-voice.md
+@@ -259,8 +259,9 @@ When the coordinator switches (below):
+   before the first answer when the route has not answered in the last 120 s
+   (`ANNOUNCEMENT`, `ANNOUNCE_AFTER`), because the voice cannot be Gemini's.
+   It is not kept in the thread.
+-- **Back to Gemini:** silently, at the next idle moment with Gemini Ready.
+-  Nothing is said about it.
++- **Back to Gemini:** silently, at the next idle moment with Gemini Ready,
++  or at the start of the next turn if the room never goes quiet. Nothing
++  is said about it.
+ 
+ ## Same character, memory, thread and tools
+ 
+@@ -391,6 +392,13 @@ and its authority kept fresh during the rest of startup.
+   while Gemini is not Ready and has not ended; back to Gemini, silently, on
+   the first idle tick its link is Ready again or has ended (so Gemini's end
+   still ends the service).
++- **A new turn on the second route** goes to Gemini when Gemini's link is
++  Ready, before anything of it is sent (`second::flush`): its queued
++  commands are rebound to Gemini's session, recorded as
++  `voice_route_switched` to `live`, `live_link_ready`, with the turn.
++  Between turns is not the only way back: on lamp-4ace (2026-10-16
++  09:03–09:06, #960) a busy room left no idle tick, and every turn went
++  to the second route with Gemini up.
+ - **At startup**, before Gemini's first Ready of this voice process, the
+   second route only stands in (that swap and the swap back are not
+   recorded): a request admitted on it is held, nothing of it sent, for up
+@@ -458,15 +466,35 @@ and its authority kept fresh during the rest of startup.
+ - Trace: `voice_route_switched` (`to`, `why`, `turn`, `replayed_commands`,
+   and the failure's `stage` and `reason`); `voice_route_held` (`turn`,
+   `held_ms`, `to`: `live` or `second`) when a startup hold ends; the standby's startup link
+-  record carries `"route":"second"`; an Ended of the standby, `"standby":true`.
++  record carries `"route":"second"`; an Ended of the standby, `"standby":true`;
++  `voice_route_dropped` (`status`, `active`) when its worker exited.
++- **Held up, the second worker goes on** (#960): authority that lapsed in
++  its queue while it was held up (lamp-4ace's SD/MMC stalls, #784) is
++  skipped, as the Live worker does, and the controller's heartbeat is
++  judged once the queue is empty (or after 1.5 s of backlog). Before, a
++  stall while finishing a turn ended it with "second route privacy or
++  input lease expired", and the voice with it (lamp-4ace, 2026-10-16
++  08:47).
++- **A second worker that exits is dropped** (#960): checked once a tick
++  before anything else of the tick touches it (`second::dropped_if_gone`).
++  Standing by, the route goes and Gemini goes on. Active, Gemini's worker
++  is put back first and the turn the route held ends
++  (`second_route_failed`) as a turn the provider interrupted does: its
++  unsent input and unwritten speech go, and the rest of a line still
++  being said is drained rather than taken for a new request; the next
++  turn is Gemini's. The 50 ms health check and the authority sends leave
++  the second worker to this, in whichever slot it is; Gemini's worker,
++  waiting while the second route is active, stays mandatory, so its exit
++  still ends the voice (`coordinator::mandatory`). Recorded as
++  `voice_route_dropped` (`status`, `active`). An authority that cannot
++  reach it is not an error either. A worker that dies inside the very
++  tick that touches it still ends the voice, as before.
+ 
+ ## Not done
+ 
+ - **Gemini Terminal** (a wrong key or configuration) still ends the voice
+   service as before. The second route covers Unavailable and failed turns
+   only.
+-- **The standby is a voice worker:** if it exits or its channel fails, the
+-  runtime cycle ends as for the Gemini worker, not as an optional part.
+ - A link change in the very first tick of a line, before the line is
+   marked `movable`, abandons the line as before.
+ - **Onboarding writing `second.json`:** waits on the owner's choice of how a
+diff --git a/lampOS/docs/tasks.md b/lampOS/docs/tasks.md
+index 0a2c62e97..6e26d702a 100644
+--- a/lampOS/docs/tasks.md
++++ b/lampOS/docs/tasks.md
+@@ -481,7 +481,7 @@ of two functions:
+   say the task back in one short sentence and ask whether to start it.
+ - `confirm_agent_task()`: the voice, not the model, decides whether it may.
+   Only when a task is waiting, in a request after the one that prepared it,
+-  which the lamp heard rather than wrote itself (`OWN_REQUEST`), within two
++  which the lamp heard rather than wrote itself (`attention::own_request()`), within two
+   minutes of preparing it. Then `status` again and `confirm` on the voice
+   socket with that store's guard and session. The model is told it has
+   started and that the answer will be on that computer.

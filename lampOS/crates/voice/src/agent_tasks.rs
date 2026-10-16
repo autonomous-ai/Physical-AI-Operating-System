@@ -771,6 +771,23 @@ pub fn run(
     run_for(place, &staff_now(place), call, request, heard, deadline)
 }
 
+/// What the model is told when the tasks part is not on this lamp at all
+/// (#811: a home lamp without Harness, whose tasks unit is skipped): a few
+/// light words it can say, not a fault.
+pub const NOT_SET_UP: &str =
+    "I can't hand work on to another computer yet: that isn't set up on this lamp.";
+
+/// What the model is told when the tasks part did not answer: with no socket
+/// at all the part was never started (no fault); a socket that does not
+/// answer is a part not running ([`crate::tools::unavailable`]).
+fn unreached(place: &Place) -> Value {
+    if place.directory.join("request.sock").exists() {
+        crate::tools::unavailable()
+    } else {
+        json!({"error": NOT_SET_UP})
+    }
+}
+
 /// [`run`] with the staff as known.
 fn run_for(
     place: &Place,
@@ -816,10 +833,10 @@ fn run_for(
                     "lamp-voice provider: request {request}: no answer to the status before preparing, {} ms in",
                     started.elapsed().as_millis()
                 );
-                return (crate::tools::unavailable(), false);
+                return (unreached(place), false);
             };
             let Some(guard) = guard(&status, format!("voice-{request}-prepare-{}", nonce())) else {
-                return (crate::tools::unavailable(), false);
+                return (unreached(place), false);
             };
             let prepared = ask_until_sure(
                 &place.directory.join("request.sock"),
@@ -832,7 +849,7 @@ fn run_for(
                         answer.get("id").and_then(Value::as_u64),
                         answer.get("prepared_digest").and_then(Value::as_str),
                     ) else {
-                        return (crate::tools::unavailable(), false);
+                        return (unreached(place), false);
                     };
                     if let Ok(mut pending) = PENDING.lock() {
                         *pending = Some(Pending {
@@ -875,7 +892,7 @@ fn run_for(
                         "lamp-voice provider: request {request}: no answer to the preparation, {} ms in",
                         started.elapsed().as_millis()
                     );
-                    (crate::tools::unavailable(), false)
+                    (unreached(place), false)
                 }
             }
         }
@@ -898,7 +915,7 @@ fn run_for(
                 &json!({"op":"status"}),
                 left(),
             ) else {
-                return (crate::tools::unavailable(), false);
+                return (unreached(place), false);
             };
             let (Some(guard), Some(session)) = (
                 guard(&status, format!("voice-{request}-confirm-{}", nonce())),
@@ -907,7 +924,7 @@ fn run_for(
                     .and_then(|summary| summary.get("session_id"))
                     .and_then(Value::as_str),
             ) else {
-                return (crate::tools::unavailable(), false);
+                return (unreached(place), false);
             };
             let confirmed = ask_until_sure(
                 &place.directory.join("voice.sock"),
@@ -930,7 +947,7 @@ fn run_for(
                     )
                 }
                 Some(_) => (json!({"error": "It could not be started just now."}), true),
-                None => (crate::tools::unavailable(), false),
+                None => (unreached(place), false),
             }
         }
         CHECK => {
@@ -974,7 +991,7 @@ fn check(
     let mut after = 0;
     loop {
         let Some(page) = ask(&socket, &json!({"op":"list","after_id":after}), left()) else {
-            return (crate::tools::unavailable(), false);
+            return (unreached(place), false);
         };
         store = page["store_id"].as_str().unwrap_or_default().to_owned();
         for item in page["items"].as_array().into_iter().flatten() {
@@ -1003,7 +1020,7 @@ fn check(
         return (json!({"none": true, "next": next}), true);
     };
     let Some(task) = ask(&socket, &json!({"op":"get_task","id":id}), left()) else {
-        return (crate::tools::unavailable(), false);
+        return (unreached(place), false);
     };
     let who = crate::task_news::who(&task);
     let (asked, _) = crate::task_news::quoted(
@@ -1025,7 +1042,7 @@ fn check(
         &json!({"op":"get_observation","id":id,"observation_id":observation_id}),
         left(),
     ) else {
-        return (crate::tools::unavailable(), false);
+        return (unreached(place), false);
     };
     let data = &observation["data"];
     let state = data["state"].as_str().unwrap_or("unknown");
@@ -1149,6 +1166,39 @@ mod tests {
         sync::mpsc,
     };
 
+    /// #811: on a lamp whose tasks part is not there (no Harness), every
+    /// task call is told in light words that work can't be handed on yet,
+    /// not that a part of the lamp failed.
+    #[test]
+    fn with_no_tasks_part_on_the_lamp_the_model_is_told_it_is_not_set_up() {
+        // A folder with no tasks socket in it.
+        let directory =
+            std::env::temp_dir().join(format!("agent-not-set-up-{}", std::process::id()));
+        let _ = std::fs::create_dir_all(&directory);
+        let place = Place {
+            directory: directory.clone(),
+            target: "office".into(),
+            who: false,
+            lead_in: false,
+            asked: false,
+        };
+        // Starting and checking ask the tasks part; a confirm with nothing
+        // prepared never gets that far.
+        for (name, args) in [
+            (START, json!({"task":"Write hello.txt"})),
+            (CHECK, json!({})),
+        ] {
+            let call = ToolCall {
+                id: "c".into(),
+                name: name.into(),
+                args,
+            };
+            let (told, _) = run(&place, &call, 3, true, Duration::from_millis(200));
+            assert_eq!(told["error"], NOT_SET_UP, "{name}");
+            assert_ne!(told, crate::tools::unavailable());
+        }
+        let _ = std::fs::remove_dir_all(&directory);
+    }
     #[test]
     fn a_yes_counts_only_when_heard_after_the_task_and_soon() {
         let at = Instant::now();

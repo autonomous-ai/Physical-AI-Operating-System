@@ -12,10 +12,16 @@
 //! The line itself stays here, in memory, and is handed over on the
 //! request socket (`get_progress`) only when the lamp is about to say it.
 use crate::{
-    engine::{WATCH_EARLY_FOR_MS, WATCH_EARLY_MS, WATCH_LATER_MS, Watched},
+    engine::{Settled, WATCH_EARLY_FOR_MS, WATCH_EARLY_MS, WATCH_LATER_MS, Watched},
     harness::Listed,
 };
-use lamp_msgs::{AgentState, Sign, TaskProgress, TaskStatus};
+use lamp_msgs::{AgentState, Sign, TaskProgress, TaskSettled, TaskStatus};
+
+/// How long a task whose agent settled stays on `tasks/status` after the
+/// watch let it go (#1021): long enough for a skill that triggers on it to
+/// see it, as each value is published at once; short enough that `settled`
+/// says what has just happened. Authored.
+pub const SETTLED_FOR_MS: u64 = 120_000;
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -295,6 +301,8 @@ pub struct Tracker {
     /// published as unread (#793 review, 2026-10-15).
     watched: BTreeSet<u64>,
     reads: Reads,
+    /// Tasks let go because their agent settled, for [`SETTLED_FOR_MS`].
+    settled: Vec<TaskSettled>,
     /// A value worth publishing has not been taken yet.
     fresh: bool,
 }
@@ -313,7 +321,53 @@ impl Tracker {
             asked_for: BTreeSet::new(),
             watched: BTreeSet::new(),
             reads: Reads::default(),
+            settled: Vec::new(),
             fresh: true,
+        }
+    }
+
+    /// The tasks found settled lately ([`crate::engine::Engine::settled_within`]),
+    /// at `now_unix_ms`: each with its settled state and when, kept as first
+    /// said so that a value changes only when one comes or goes. A value is
+    /// published when the list changes. A task still watched, or a state
+    /// this version does not take for settled, is left out.
+    pub fn settled(&mut self, found: &[Settled], now_unix_ms: u64) {
+        let mut now: Vec<TaskSettled> = found
+            .iter()
+            .filter(|settled| !self.watched.contains(&settled.task_id))
+            .filter_map(|settled| {
+                let state = agent_state(&settled.state);
+                matches!(
+                    state,
+                    AgentState::Idle
+                        | AgentState::NeedsInput
+                        | AgentState::Stopped
+                        | AgentState::Failed
+                )
+                .then(|| {
+                    let kept = self
+                        .settled
+                        .iter()
+                        .find(|kept| kept.task == settled.task_id && kept.state == state);
+                    TaskSettled {
+                        task: settled.task_id,
+                        engine: settled.engine.clone(),
+                        state,
+                        settled: true,
+                        at_unix_ms: kept.map_or_else(
+                            || now_unix_ms.saturating_sub(settled.ago_ms),
+                            |kept| kept.at_unix_ms,
+                        ),
+                    }
+                })
+            })
+            .collect();
+        now.sort_by_key(|settled| settled.task);
+        now.dedup_by_key(|settled| settled.task);
+        now.truncate(lamp_msgs::TASK_STATUS_MOST_TASKS);
+        if now != self.settled {
+            self.settled = now;
+            self.fresh = true;
         }
     }
 
@@ -547,6 +601,7 @@ impl Tracker {
                 .filter(|task| !self.tasks.contains_key(task))
                 .copied()
                 .collect(),
+            settled: self.settled.clone(),
         })
     }
 
@@ -765,6 +820,68 @@ mod tests {
     /// published as nothing at all, so `tasks: []` could mean work going
     /// on. It is `unread` until a read of it comes back, and a failed read
     /// keeps it so.
+    /// #1021: a task let go because its agent settled is published apart,
+    /// with its settled state, while the engine still finds it settled, and
+    /// leaves when it does not; a value only when the list changes.
+    #[test]
+    fn a_task_let_go_because_it_settled_is_published_apart_while_it_is_recent() {
+        let store = "0123456789abcdef0123456789abcdef".to_owned();
+        let mut tracker = Tracker::started(1_000);
+        let _ = tracker.take(&store);
+        let found = |task_id: u64, state: &str, ago_ms: u64| Settled {
+            task_id,
+            engine: "codex".into(),
+            state: state.into(),
+            ago_ms,
+        };
+        tracker.settled(&[found(7, "idle", 2_000)], 1_000_000);
+        let status = tracker.take(&store).unwrap();
+        status.check().unwrap();
+        assert_eq!(
+            status.settled,
+            [TaskSettled {
+                task: 7,
+                engine: "codex".into(),
+                state: AgentState::Idle,
+                settled: true,
+                at_unix_ms: 998_000,
+            }]
+        );
+        // The same again, later: nothing new to publish, and its moment kept.
+        tracker.settled(&[found(7, "idle", 3_000)], 1_001_000);
+        assert!(tracker.take(&store).is_none());
+        // Another, which asks; one still watched, and a state that is not
+        // settled, are left out.
+        tracker.watching(&[watched(9, "office", "a9", Some(1))]);
+        let _ = tracker.take(&store);
+        tracker.settled(
+            &[
+                found(7, "idle", 4_000),
+                found(8, "needs-input", 10),
+                found(9, "failed", 10),
+                found(10, "working", 10),
+            ],
+            1_002_000,
+        );
+        let status = tracker.take(&store).unwrap();
+        status.check().unwrap();
+        let said: Vec<(u64, AgentState, u64)> = status
+            .settled
+            .iter()
+            .map(|settled| (settled.task, settled.state, settled.at_unix_ms))
+            .collect();
+        assert_eq!(
+            said,
+            [
+                (7, AgentState::Idle, 998_000),
+                (8, AgentState::NeedsInput, 1_001_990)
+            ]
+        );
+        // Out of the engine's window: gone, and published so.
+        tracker.settled(&[], 1_200_000);
+        assert!(tracker.take(&store).unwrap().settled.is_empty());
+    }
+
     #[test]
     fn a_watched_task_not_yet_read_is_published_as_unread() {
         let store = "0".repeat(32);

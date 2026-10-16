@@ -1223,9 +1223,21 @@ identity run it, and `serde_json` reads it.
   | `new_share` | At the latest change, the share of the line's distinct words that were not in the line before, 0 to 1 |
   | `signs` | Signs in the line at its latest change that were not in the line before |
   | `signs_seen` | Every sign seen since reading began |
+  | `settled` | Tasks the watch let go because their agent settled, for two minutes after (`progress::SETTLED_FOR_MS`), in order, each with `task`, `engine`, `state` (`idle` for finished, `needs_input`, `stopped` or `failed`), `settled: true` and `at_unix_ms`, when the tasks part found it so; left out when none (#1021) |
 
   No word of the agent's, the task's text or the asks is in it: a test reads
   every message and looks for them.
+
+  **Settled (#1021).** The watch stops as soon as its own look finds the
+  agent settled (finished with an answer, stopped to ask, stopped or
+  failed), and the task leaves `tasks` at once, so its last `ps` state may
+  still be `working` and `idle` is often never published (Jarvis, for Task
+  news). Such a task is said in `settled` instead, by its first settled
+  look (`Engine::settled_within`, by this boot's clock), for two minutes:
+  long enough for a skill that triggers on it (Task news, per task, on
+  `settled = true`), short enough to say what has just happened. The list
+  is looked at each turn of the service, so a value is published when a
+  task joins it and when it leaves. A task let go for age just leaves.
 - **Signs**, cheap and without a model (`progress::SIGNS`): phrases matched
   as whole words, regardless of case, `#` for any number. A phrase with one
   of `not`, `no`, `never`, `cannot`, `can't`, `don't`, `doesn't`, `didn't`,

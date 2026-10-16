@@ -664,6 +664,19 @@ pub struct Watched {
     pub accepted_ago_ms: Option<u64>,
 }
 
+/// A task whose agent settled ([`Engine::settled_within`]), as its first
+/// settled observation found it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Settled {
+    pub task_id: u64,
+    /// Who had it, as the task's target names it (`claude`, `codex`).
+    pub engine: String,
+    /// As Harness wrote it: `idle`, `needs-input`, `stopped` or `failed`.
+    pub state: String,
+    /// How long ago it was found settled, by this boot's clock.
+    pub ago_ms: u64,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ObservationJob {
     pub task_id: u64,
@@ -1406,6 +1419,37 @@ impl<P: Persistence> Engine<P> {
         task.updated = at;
         self.save(next)?;
         Ok(true)
+    }
+
+    /// Every task whose agent was found settled less than `within_ms` ago
+    /// in this boot (#1021): finished with an answer, stopped to ask,
+    /// stopped or failed, by its first settled observation. The watch lets
+    /// such a task go at once; this is what is said of it after. Reads
+    /// nothing and changes nothing.
+    pub fn settled_within(&self, now: &Clock, within_ms: u64) -> Vec<Settled> {
+        self.state
+            .tasks
+            .iter()
+            .filter_map(|task| {
+                let first = task.observations.iter().find(|seen| settled(&seen.data))?;
+                if first.observed.boot_id != now.boot_id {
+                    return None;
+                }
+                let ago_ms = now.monotonic_ms.checked_sub(first.observed.monotonic_ms)?;
+                if ago_ms >= within_ms {
+                    return None;
+                }
+                Some(Settled {
+                    task_id: task.id,
+                    engine: serde_json::to_value(task.launch.target.engine)
+                        .ok()?
+                        .as_str()?
+                        .to_owned(),
+                    state: first.data.state.clone(),
+                    ago_ms,
+                })
+            })
+            .collect()
     }
 
     /// Every task the watch looks at now ([`Watched`]), whether or not a
@@ -3055,6 +3099,28 @@ mod tests {
             task(&engine).observations[0].data.answer,
             "Lumi, Sunny and Archie."
         );
+        // Let go, and said settled for a while after, by this boot's clock
+        // (#1021); never by another boot's.
+        assert!(engine.watched(&clock(done + 1_000)).is_empty());
+        assert_eq!(
+            engine.settled_within(&clock(done + 1_000), 120_000),
+            [Settled {
+                task_id: id,
+                engine: "codex".into(),
+                state: "idle".into(),
+                ago_ms: 1_000,
+            }]
+        );
+        assert!(
+            engine
+                .settled_within(&clock(done + 120_000), 120_000)
+                .is_empty()
+        );
+        let elsewhere = Clock {
+            boot_id: "another-boot".into(),
+            monotonic_ms: done + 1_000,
+        };
+        assert!(engine.settled_within(&elsewhere, 120_000).is_empty());
         assert!(!engine.watch(&clock(done + WATCH_AT_MOST_MS / 2)).unwrap());
         // The watch's reads are stored as such and reopen.
         assert!(stored(&memory).tasks[0].read.as_ref().unwrap().watch);

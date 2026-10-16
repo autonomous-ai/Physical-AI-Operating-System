@@ -702,7 +702,8 @@ used only to say it.
   answer would keep under 120 characters: three long answers go as two,
   about 210 characters of each, then one. A task waiting for the person,
   one that stopped, a hand-over that failed and progress are told on their
-  own. The record's `task_news` says `at_pause`, `since_turn_ms`, how long
+  own, and so is all news while it waits for a skill (`LAMP_TASK_NEWS=skill`):
+  the skill tells each task in its own run (#1042). The record's `task_news` says `at_pause`, `since_turn_ms`, how long
   after the last turn it was told, and `also`, the news told with it. The note gives the model the task's words
   and up to 1,200 characters of the answer, and asks for one or two natural
   sentences starting like "Oh, Claude Code just finished…" ("earlier" after

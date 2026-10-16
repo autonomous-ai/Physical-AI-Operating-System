@@ -6648,8 +6648,10 @@ fn conversation_with_gate(
             && let Some(provider_session) = unasked_session(&cloud, paused)
             && let Some(ticket) = news_for_skill(news, says.as_mut(), news_by_skill, &mut news_held)
             // With the switch, tasks that finished together are told in
-            // one turn (the reviewer on #1161).
-            && let Some(told) = if news_at_pause {
+            // one turn (the reviewer on #1161). Not while news waits for a
+            // skill: the skill tells each task in its own run (#1042), and a
+            // later run's ask would find its news told already.
+            && let Some(told) = if news_at_pause && !news_by_skill {
                 news.tell_together()
             } else {
                 news.tell()

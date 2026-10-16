@@ -415,6 +415,7 @@ pub(crate) mod tests {
     /// 127, so no wait can see `NotFound`. A real kernel never does, so CI
     /// never skips, and fails if it would (#1212).
     fn a_missing_executable_starts_here(executable: &Path) -> bool {
+        use std::io::Write;
         let Ok(mut child) = std::process::Command::new(executable).spawn() else {
             return false;
         };
@@ -423,7 +424,11 @@ pub(crate) mod tests {
             std::env::var_os("CI").is_none(),
             "a missing executable started a child on CI"
         );
-        eprintln!(
+        // Straight to stderr, beside the test's name: libtest captures
+        // `eprintln!` and shows it only for a failing test (the reviewer on
+        // #1211).
+        let _ = writeln!(
+            std::io::stderr(),
             "skipped the NotFound part: a missing executable starts a child here, \
              as under user-mode emulation"
         );

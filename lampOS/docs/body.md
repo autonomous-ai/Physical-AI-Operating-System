@@ -643,9 +643,16 @@ and eased out as it ends. On by default; there is no flag.
   as what is wanted of it does not change. While the lamp still wants to
   lean, the lean stays exactly where it was, neither in nor out, so the
   hold lasts and the lamp does not lean into the hand again. Once the lean
-  is no longer wanted (the answer over, a gesture, folding) it eases out,
-  and that change lets the hold go as any change of what is wanted does
-  (`an_arm_held_while_it_speaks_is_not_leaned_into_again`).
+  is no longer wanted (the answer over, a gesture, folding) the hold is let
+  go and the lean eases out from where the hand held the arm, not from the
+  lean it was asked: no goal moves more than the lean's own step, and none
+  goes past the held place toward the hand, whether the hand has gone or is
+  still there (`an_arm_held_while_it_speaks_is_not_leaned_into_again`,
+  `a_lean_eases_out_from_where_a_hand_held_it`,
+  `a_lean_eases_out_from_a_hand_still_there_after_the_answer`). Before
+  #1010's 15:49 review the hold was let go only once the easing goal was 20
+  counts from the held one, and the goal then jumped back into the
+  half-eased lean, 40 counts into the hand in one step.
 
 With Expression on, a turn of the base that it asks while the lamp speaks,
 a sway between sentences, is taken as any other turn it asks: within 70

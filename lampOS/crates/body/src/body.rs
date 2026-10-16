@@ -2909,6 +2909,10 @@ fn run_until_stopped(
     let mut slumped = false;
     // How far into its lean a speaking lamp is, 0 to 1 (`LEAN`).
     let mut lean = 0.0f32;
+    // Where a hand held the shoulder and the elbow when the lean began to
+    // ease out, and on which side of that the hand is: the eased goal is
+    // kept from passing it toward the hand.
+    let mut lean_kept: [Option<(u16, bool)>; 2] = [None; 2];
     let mut started = bus.runtime.now();
     // The step the schedule counts from: it starts again after a rest.
     let mut first_step = 0u64;
@@ -3340,10 +3344,46 @@ fn run_until_stopped(
             let rate = step / LEAN_SECONDS.max(1.5 * LEAN[1].abs() / limits.speed);
             lean = (lean + if leaning { rate } else { -rate }).clamp(0.0, 1.0);
         }
+        // Easing out from a hand on the arm, the lean starts from where the
+        // hand holds it, not from the lean it was asked: the hold is let go
+        // there and then, and the goal never goes past that place toward the
+        // hand. Let go when the hold reached the end of the answer, the goal
+        // jumped from the held place back into the half-eased lean and the
+        // arm pushed into the hand again (#1010 review, 15:49).
         if lean > 0.0 && standing.is_some() && !slumped && !arm_rests {
             let share = smooth(lean);
-            for (goal, by) in arm_goals.iter_mut().zip(LEAN) {
+            for (index, (goal, by)) in arm_goals.iter_mut().zip(LEAN).enumerate() {
                 *goal = (f32::from(*goal) + by * share).round().clamp(0.0, 4_095.0) as u16;
+                let stall = &mut stalls[3 + index];
+                if !leaning
+                    && !blind
+                    && let Some((was, at)) = stall.hold.take()
+                {
+                    lean_kept[index] = Some((at, was > at));
+                }
+                if let Some((at, above)) = lean_kept[index] {
+                    if above == (*goal > at) || *goal == at {
+                        *goal = at;
+                    } else {
+                        // Eased back past the held place: away from the hand.
+                        lean_kept[index] = None;
+                    }
+                }
+            }
+        } else {
+            // Eased out with the hand's side still short of standing: held
+            // there as any joint that gave way is, until something else is
+            // wanted of it.
+            for (index, kept) in lean_kept.iter_mut().enumerate() {
+                if let Some((at, _)) = kept.take()
+                    && lean <= 0.0
+                    && standing.is_some()
+                    && !slumped
+                    && !arm_rests
+                {
+                    stalls[3 + index].hold = Some((arm_goals[index], at));
+                    stalls[3 + index].held = 0;
+                }
             }
         }
         let mut face = None;

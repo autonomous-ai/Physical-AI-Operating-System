@@ -2365,6 +2365,48 @@ fn an_arm_held_while_it_speaks_is_not_leaned_into_again() {
     assert_eq!(after.arm_goals, [2_650, 2_600], "{after:?}");
 }
 
+/// An elbow held against the lean when the answer ends: the lean eases out
+/// from where the hand holds it. After the answer no arm goal moves more
+/// than the lean's own step, and none goes past the held place toward the
+/// lean, whether the hand lets go first or stays on past the answer.
+fn eased_out_from_a_hand(hand_until: Duration) {
+    let ms = Duration::from_millis;
+    let (report, seen) = speaking_run_with([0.0; 3], ms(0), ms(0), vec![], |lamp, limits| {
+        lamp.hand = Some((ms(6_500), hand_until, 2, 2_600.0));
+        lamp.strains = vec![(ms(6_500), hand_until, 2, 400)];
+        limits.give_way = Some(GiveWay::Return);
+    });
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    let stalled = seen.iter().position(|step| step.1.stalls[4] == 1).unwrap();
+    let held = seen[stalled].1.arm_goals;
+    // From the answer's end until the lamp folds again at 18 s.
+    let after: Vec<_> = seen
+        .iter()
+        .filter(|step| step.0 >= ms(12_000) && step.0 < ms(16_000))
+        .collect();
+    for pair in after.windows(2) {
+        let (was, is) = (pair[0].1.arm_goals, pair[1].1.arm_goals);
+        for index in 0..2 {
+            // About 1.2 counts a step at `--speed` 120, rounded.
+            assert!(is[index].abs_diff(was[index]) <= 2, "{pair:?}");
+            // `LEAN` is down for both: past the held place is below it.
+            assert!(is[index] >= held[index], "{pair:?} held {held:?}");
+        }
+    }
+    let last = seen.iter().rfind(|step| step.0 < ms(15_900)).unwrap().1;
+    assert_eq!(last.arm_goals, [2_650, 2_600], "{last:?}");
+}
+
+#[test]
+fn a_lean_eases_out_from_where_a_hand_held_it() {
+    eased_out_from_a_hand(Duration::from_millis(11_000));
+}
+
+#[test]
+fn a_lean_eases_out_from_a_hand_still_there_after_the_answer() {
+    eased_out_from_a_hand(Duration::from_millis(15_000));
+}
+
 /// Without `rest_glance`, a lamp at rest writes exactly what it writes
 /// when nothing is asked of it.
 #[test]

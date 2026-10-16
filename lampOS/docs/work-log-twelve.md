@@ -60,5 +60,7 @@ Ready for lamp-voice: no
 
 - Ten, which opened #920, closed it at 11:2x (its person: problems go to the
   first builder first, not into issues). At twelve's person's request twelve
-  released it: `status:taken` and `builder:twelve` removed, #981 closed. The
-  fix stays on `twelve/920-light-stale-window` (`103625ddf`) if it is wanted.
+  released it: `status:taken` and `builder:twelve` removed, #981 closed, and
+  the branch `twelve/920-light-stale-window` deleted at its person's request
+  (the fix was commit `103625ddf`, one test in `crates/actions/src/light.rs`:
+  a 500 ms life and a 600 ms wait in place of 20 ms and 60 ms).

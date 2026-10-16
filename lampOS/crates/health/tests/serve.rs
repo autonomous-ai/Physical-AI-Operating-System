@@ -61,6 +61,7 @@ fn well() -> Reading {
         clock_synced: None,
         unread: Vec::new(),
         judged: Vec::new(),
+        cpu_caps: Vec::new(),
     }
 }
 

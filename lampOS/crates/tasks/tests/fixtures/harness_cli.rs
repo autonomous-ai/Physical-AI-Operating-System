@@ -8,7 +8,7 @@ use std::{
     path::PathBuf,
     process::{Command, Stdio},
     thread,
-    time::{Duration, Instant},
+    time::Duration,
 };
 
 fn private_write(path: PathBuf, bytes: &[u8]) -> io::Result<()> {
@@ -26,18 +26,22 @@ pub fn main() -> io::Result<()> {
         PathBuf::from(env::var_os("HOME").ok_or_else(|| io::Error::other("fixture HOME missing"))?);
     let args: Vec<String> = env::args().skip(1).collect();
     if args.first().is_some_and(|arg| arg == "__hold") {
+        // The kernel drops this lock only when this process exits, after any
+        // system call it was in. A heartbeat file cannot prove that: kill()
+        // returns before SIGKILL takes effect, and an in-flight write lands.
+        let lock = fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .mode(0o600)
+            .open(home.join("descendant.lock"))?;
+        lock.lock()?;
         private_write(
             home.join("descendant.pid"),
             std::process::id().to_string().as_bytes(),
         )?;
-        let began = Instant::now();
-        while began.elapsed() < Duration::from_secs(5) {
-            private_write(
-                home.join("heartbeat"),
-                began.elapsed().as_nanos().to_string().as_bytes(),
-            )?;
-            thread::sleep(Duration::from_millis(10));
-        }
+        thread::sleep(Duration::from_secs(5));
+        private_write(home.join("descendant.finished"), b"")?;
         return Ok(());
     }
     let plan: Value = serde_json::from_slice(&fs::read(home.join("plan.json"))?)?;
@@ -85,8 +89,9 @@ pub fn main() -> io::Result<()> {
             .stdout(output())
             .stderr(output())
             .spawn()?;
-        let until = Instant::now() + Duration::from_secs(1);
-        while !home.join("descendant.pid").exists() && Instant::now() < until {
+        // Exit only once the descendant holds its lock. The caller's own
+        // deadline bounds this wait if the descendant never gets there.
+        while !home.join("descendant.pid").exists() {
             thread::sleep(Duration::from_millis(1));
         }
     }

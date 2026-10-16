@@ -31,6 +31,8 @@
 //! request whose answer the lamp's own rule held is not talk, busy ends
 //! three minutes after the last talk, whatever one person says meanwhile,
 //! and a room not yet known is quiet after five minutes with no talk.
+//! Two things left unanswered as talk since the lamp last spoke end a
+//! conversation with it ([`RoomTold::talked_past_the_lamp`]).
 //! On lamp-4ace on 16 October at 02:30, one person alone, right after a
 //! two-person scene had left the room busy, had five requests held in a
 //! row; each counted as more talk, so the five quiet minutes never came
@@ -69,6 +71,12 @@ const QUIET_ENDS_RUN: usize = 2;
 /// With [`RoomTold::count_only_talk`], busy ends this long after the last
 /// thing left unanswered that counts as talk.
 const BUSY_ENDS_AFTER_US: u64 = 180_000_000;
+/// With [`RoomTold::count_only_talk`], this many things said and left
+/// unanswered since the lamp last spoke, and a conversation with it is no
+/// longer going on: the people have gone on talking to each other
+/// ([`RoomTold::talked_past_the_lamp`]). One is a person saying "okay" or
+/// thinking aloud between their questions.
+pub const TALK_ENDS_CONVERSATION: usize = 2;
 /// The room is told only when nothing has been heard or said for this
 /// long: a fact written into a request would be taken for part of it, and
 /// one offered while an answer is owed is dropped. Longer than the four
@@ -111,6 +119,12 @@ pub struct RoomTold {
     talk_only: bool,
     held: Option<u64>,
     last_talk_us: Option<u64>,
+    /// How many things said were left unanswered as talk since the lamp
+    /// last spoke, and the latest request counted or answered, so that a
+    /// request is counted once however its end is learned, and never once
+    /// the lamp has spoken after it.
+    talk_since_spoke: usize,
+    talk_counted: u64,
     /// When watching began.
     watching_since_us: Option<u64>,
     room: Room,
@@ -134,6 +148,8 @@ impl RoomTold {
             talk_only: false,
             held: None,
             last_talk_us: None,
+            talk_since_spoke: 0,
+            talk_counted: 0,
             watching_since_us: None,
             room: Room::Unknown,
             told: None,
@@ -206,8 +222,24 @@ impl RoomTold {
             self.sound = None;
         }
         self.unanswered.clear();
+        self.talk_since_spoke = 0;
+        self.talk_counted = self.talk_counted.max(request);
         self.quiet_since_us = Some(now_us);
         self.last_sound_us = now_us;
+    }
+
+    /// Whether people have gone on talking to each other since the lamp
+    /// last spoke, with [`Self::count_only_talk`] (#829):
+    /// [`TALK_ENDS_CONVERSATION`] things said since then and left
+    /// unanswered as talk, not as sounds or held by the lamp's own rule. A
+    /// conversation with the lamp is then no longer going on, however
+    /// lately it spoke. On lamp-4ace on 16 October at 06:07, Daniel asked
+    /// the lamp for euros and was answered; Samantha and he each said a
+    /// line to each other that it left alone; then his "Did you get my
+    /// message about the budget?", to her, was answered ("I don't recall
+    /// that message") as the conversation going on.
+    pub fn talked_past_the_lamp(&self) -> bool {
+        self.talk_only && self.talk_since_spoke >= TALK_ENDS_CONVERSATION
     }
 
     /// `request` ended with the lamp saying nothing. Whether it counts as
@@ -223,6 +255,10 @@ impl RoomTold {
         if self.held == Some(request) {
             self.held = None;
             return false;
+        }
+        if request > self.talk_counted {
+            self.talk_counted = request;
+            self.talk_since_spoke = self.talk_since_spoke.saturating_add(1);
         }
         if self.unanswered.len() == BUSY_RUN {
             self.unanswered.pop_front();
@@ -439,6 +475,67 @@ mod tests {
             room.unanswered(request, (at + 6) * S);
         }
         assert_eq!(room.at(252 * S), Room::Busy);
+    }
+
+    /// #829, the first builder at 06:15: the scene of 06:07 on lamp-4ace,
+    /// line by line. Two lines between people that the lamp left alone, and
+    /// the conversation with it is over, whoever speaks next; one is not.
+    /// Sounds, held requests and lines older than the lamp's answer are not
+    /// talk past it, a line is counted once however its end is learned, and
+    /// the lamp speaking again begins the count afresh.
+    #[test]
+    fn with_the_switch_two_lines_left_alone_after_the_lamp_spoke_end_its_conversation() {
+        let scene = |talk_only: bool| {
+            let mut room = RoomTold::new();
+            room.count_only_talk(talk_only);
+            // "Hey Lamp, how much is one hundred dollars in euros?", answered.
+            said(&mut room, 5, 20);
+            room.spoke(5, 26 * S);
+            assert!(!room.talked_past_the_lamp());
+            // "Anyway, if we drop the trip we save almost half.", left alone:
+            // counted when the next line begins, and again when the model's
+            // silence closes it, once.
+            said(&mut room, 6, 33);
+            let one = room.talked_past_the_lamp();
+            said(&mut room, 7, 38);
+            room.unanswered(6, 39 * S);
+            let still_one = room.talked_past_the_lamp();
+            // "True, but the client wants to meet in person.", left alone.
+            room.unanswered(7, 45 * S);
+            // "Did you get my message about the budget?" begins.
+            room.heard(8, 47 * S);
+            (one, still_one, room.talked_past_the_lamp())
+        };
+        assert_eq!(scene(true), (false, false, true));
+        assert_eq!(scene(false), (false, false, false));
+
+        let mut room = RoomTold::new();
+        room.count_only_talk(true);
+        said(&mut room, 1, 0);
+        room.spoke(1, 3 * S);
+        // A sound and a request the rule held are not talk past the lamp.
+        said(&mut room, 2, 5);
+        room.ended_as_sound(2, 7 * S);
+        room.unanswered(2, 11 * S);
+        said(&mut room, 3, 12);
+        room.held(3);
+        room.unanswered(3, 18 * S);
+        assert!(!room.talked_past_the_lamp());
+        // A line left alone, then the lamp answers the next: afresh.
+        said(&mut room, 4, 20);
+        room.unanswered(4, 26 * S);
+        said(&mut room, 5, 27);
+        room.spoke(5, 30 * S);
+        // A line from before that answer, closed only now, is not counted.
+        room.unanswered(4, 31 * S);
+        said(&mut room, 6, 32);
+        room.unanswered(6, 38 * S);
+        assert!(!room.talked_past_the_lamp());
+        said(&mut room, 7, 40);
+        room.unanswered(7, 46 * S);
+        assert!(room.talked_past_the_lamp());
+        room.spoke(8, 50 * S);
+        assert!(!room.talked_past_the_lamp());
     }
 
     /// #829, the first builder at 05:46: after the voice started, one person

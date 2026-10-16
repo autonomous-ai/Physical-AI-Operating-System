@@ -22,7 +22,7 @@ they disagree with this file, they are right.
 | `body/joint_states`, `body/hand` | Where each joint is; a hand pushing the lamp | Not moving against a hand |
 | `light/state` | The light the person asked for | |
 | `mood/state` | The lamp's mood | |
-| `lamp/pause` | The lamp is paused: do nothing | Every skill honours it (the runtime does) |
+| `lamp/pause` | The lamp is paused: do nothing. Said only when it is paused or resumed, so after a restart there is no value | Not usable in a `[[while]]` yet: with no value the condition fails and the skill never acts. The pause waits for the Policy's gate (#939) |
 | `policy/decisions` | What the Policy decided about speaking first | |
 
 ## Actions (services)

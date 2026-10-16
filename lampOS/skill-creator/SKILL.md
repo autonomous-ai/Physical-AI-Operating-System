@@ -67,8 +67,12 @@ do this here?
 - **Silence and stillness are valid.** When in doubt, do less.
 - **Never pretend to sense what it cannot.** Say what the lamp actually
   noticed.
-- **A person wins.** A person speaking or touching the lamp always comes
-  first; the runtime enforces it, so never fight it from a skill.
+- **A person wins.** A person speaking or touching the lamp comes first.
+  The runtime does not enforce it yet: the Policy's gate (#939) will be the
+  one gate for the pause and a person speaking. Until then a skill keeps out
+  of a conversation only with its own `[[while]]` on `voice/state`, and
+  **nothing keeps it quiet while the lamp is paused**: say so to the owner
+  before installing.
 - **Numbers live in `skill.toml`**, never in the prose of a `say`: the runtime
   applies durations and cooldowns, the model never compares numbers.
 
@@ -110,12 +114,22 @@ Ask the owner before touching their lamp, and say what will move or light up.
 
 ## 6. Show them before keeping it
 
-The owner keeps a skill only after seeing it. With the skill installed, play
-the case in which it must act once on the lamp, as fast as the runtime allows
-a person to watch it (`lamp-bus replay tests/<case>/<topic>.jsonl --speed 60`:
-the lamp's parts see the trigger, and the skill acts for real, in the room).
-Say first what is about to happen. Then ask "Keep it?": keep it, change it, or
-take it out ([installing.md](references/installing.md)). A skill they did not
+The owner keeps a skill only after seeing it. The live runtime times
+`for`, `gap` and `cooldown` by when messages arrive, so a recording replayed
+fast does not set off a 50-minute skill; the tests (recorded time) are the
+proof it is right, and the showing is only for the owner to see it:
+
+1. Install a copy named `<name>-demo` whose durations are cut to seconds
+   (`for = "3s"`, `gap` and `absent_for` the same, `cooldown = "1m"`), beside
+   the real one, which waits for its real durations.
+2. Say what is about to happen, then publish what its trigger needs for a
+   few seconds by hand, as the eyes or the air part would (a face list every
+   second with `lamp-bus pub humans/faces/tracked latest '...' --type
+   lamp_msgs/Faces`; an `air/state` with the CO2 high). It acts once, in the
+   room.
+3. Take the demo copy out at once ([installing.md](references/installing.md)).
+
+Then ask "Keep it?": keep it, change it, or take it out. A skill they did not
 keep is removed.
 
 ## 7. Tell them, and listen

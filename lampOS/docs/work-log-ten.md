@@ -177,3 +177,22 @@ Ready for lamp-voice: nothing open
   written; waits for the seventh's skill tools (`check_my_work`) and the
   full look's resolution option, then its `skill.toml`.
 - #812 left: the servos' small move (the fifth, no answer).
+
+## 2026-10-16, 11:00 to 12:05
+
+- #812's servo move (the fifth: mine to write, on their terms): #983, the
+  self-test's `head_move`. Pitch 40 counts up and down, roll 20 each way,
+  through `expression/body` at rest, standing, untouched and quiet; base
+  and arm only read; never at first boot. The fifth's review (P1: a lifting
+  goal is written 40 ahead, so the joint is judged where it was asked to
+  go; P2: every other asker heard, folding ends it; P3: bus tests Linux
+  only) taken in `a74eec82f`; a one-count goal read back through radians
+  as 0.99999 was mended with it. ARM64 green, ready; waits on a run on
+  lamp-4ace standing at rest and the fifth's second look.
+- Desk tutor (#941): #1002, on top of the seventh's #984. `skills/desk-tutor`
+  loads with `tool = "check_my_work"`, one step (white light 2 min, given
+  back; the full look; the tutoring rules as its `say`); a call on
+  `call.sock` answers at once on a laptop. Waits on #984, then #987's
+  sharper still and #940's lean.
+- Working rule changed by my person at 11:1x: no new issues for problems
+  found; they go to the first builder first. #880 and #920, mine, closed.

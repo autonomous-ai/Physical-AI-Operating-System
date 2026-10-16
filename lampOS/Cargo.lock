@@ -1975,6 +1975,7 @@ version = "0.1.0"
 dependencies = [
  "lamp-bus",
  "lamp-msgs",
+ "lamp-voice-processes",
  "rustix",
  "serde",
  "serde_json",
@@ -2199,6 +2200,7 @@ dependencies = [
  "lamp-schedule",
  "lamp-turn-end-wire",
  "lamp-turn-owner",
+ "lamp-voice-processes",
  "reqwest",
  "rtrb",
  "rustix",
@@ -2234,6 +2236,10 @@ dependencies = [
  "sha2",
  "signal-hook",
 ]
+
+[[package]]
+name = "lamp-voice-processes"
+version = "0.1.0"
 
 [[package]]
 name = "lazy_static"

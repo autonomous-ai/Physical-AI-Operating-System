@@ -14,6 +14,59 @@ use std::{io, path::Path, time::Instant};
 pub const STALE_AFTER_SECONDS: u64 = 2 * 60 * 60;
 const SCHEMA_VERSION: u32 = 1;
 const NAME: &str = "records";
+/// How the guard begins a refusal for a worker role the voice's list does
+/// not have, followed by the role in backticks (#1071).
+pub const UNKNOWN_WORKER: &str = "unknown voice worker";
+/// Cleanups in a row refused for an unknown voice worker before the
+/// diagnostic names it: one can be a worker caught as it starts, two is the
+/// voice running a role the guard does not know.
+pub const NAMED_AFTER: u32 = 2;
+
+/// A word the guard may repeat from a process's arguments: lower-case
+/// letters, digits and dashes, at most 32 of them, as the voice's roles are.
+pub fn plain_word(word: &str) -> bool {
+    (1..=32).contains(&word.len())
+        && word
+            .bytes()
+            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
+}
+
+/// The unknown worker role a root of this cleanup was refused for, if any.
+pub fn unknown_worker(report: &RunReport) -> Option<&str> {
+    let marker = format!("{UNKNOWN_WORKER} `");
+    report
+        .roots
+        .iter()
+        .filter_map(|root| root.error.as_deref())
+        .find_map(|error| {
+            let (_, rest) = error.split_once(&marker)?;
+            let (word, _) = rest.split_once('`')?;
+            plain_word(word).then_some(word)
+        })
+}
+
+/// Counts the cleanups in a row, each told apart by its time, that were
+/// refused for an unknown voice worker. The reporter keeps one; a cleanup
+/// that was not refused for that sets it back to none.
+#[derive(Debug, Default)]
+pub struct RefusedInARow {
+    last_at: Option<u64>,
+    count: u32,
+}
+
+impl RefusedInARow {
+    pub fn observe(&mut self, report: &RunReport) -> u32 {
+        if self.last_at != Some(report.at_unix_s) {
+            self.last_at = Some(report.at_unix_s);
+            self.count = if unknown_worker(report).is_some() {
+                self.count.saturating_add(1)
+            } else {
+                0
+            };
+        }
+        self.count
+    }
+}
 
 #[derive(Default)]
 struct Counts {
@@ -55,6 +108,18 @@ fn free_percent(disk: &Disk) -> String {
 /// identity/time and a reported top-level failure are still errors. Disk values
 /// are explicitly from the cleanup, with the report's age alongside them.
 pub fn diagnostic(report: Option<&RunReport>, now_unix_s: u64) -> Diagnostic {
+    diagnostic_after(report, now_unix_s, 0)
+}
+
+/// [`diagnostic`], told how many cleanups in a row were refused for an
+/// unknown voice worker ([`RefusedInARow`]). From [`NAMED_AFTER`] on, a
+/// failed cleanup says which worker: `records refused: unknown voice worker
+/// `X``, the one detail of a refusal it repeats, and only a plain word.
+pub fn diagnostic_after(
+    report: Option<&RunReport>,
+    now_unix_s: u64,
+    refused_in_a_row: u32,
+) -> Diagnostic {
     let Some(report) = report else {
         return Diagnostic::new(Level::Error, NAME, "no cleanup report is available")
             .with("report_age_s", "unknown")
@@ -166,10 +231,15 @@ pub fn diagnostic(report: Option<&RunReport>, now_unix_s: u64) -> Diagnostic {
         level = Level::Stale;
         message = "the cleanup result is over two hours old";
     }
+    let named = (refused_in_a_row >= NAMED_AFTER && level == Level::Error)
+        .then(|| unknown_worker(report))
+        .flatten()
+        .map(|worker| format!("records refused: {UNKNOWN_WORKER} `{worker}`"));
+    let message = named.unwrap_or_else(|| message.to_owned());
     let message = if stale && level.rank() > Level::Stale.rank() {
         format!("{message}; the result is over two hours old")
     } else {
-        message.to_owned()
+        message
     };
     let disk_percent = if !report.enabled || counts.unknown_disk || age.is_none() {
         "unknown".to_owned()
@@ -291,6 +361,57 @@ mod tests {
             .find(|pair| pair.key == key)
             .unwrap()
             .value
+    }
+
+    /// #1071: a cleanup the guard refused for a worker it does not know is
+    /// named after two in a row, and only then; one that was not refused
+    /// for it starts the count again.
+    #[test]
+    fn two_cleanups_in_a_row_refused_for_an_unknown_worker_name_it() {
+        let refused = |at| {
+            let mut run = report();
+            run.at_unix_s = at;
+            run.roots[0].removed.clear();
+            run.roots[0].removed_bytes = 0;
+            run.roots[0].error =
+                Some("process 4242 protection is incomplete: unknown voice worker `second`".into());
+            run
+        };
+        let mut row = RefusedInARow::default();
+        let first = refused(10_000);
+        assert_eq!(row.observe(&first), 1);
+        // The same result read again, once a second, is still one cleanup.
+        assert_eq!(row.observe(&first), 1);
+        let once = diagnostic_after(Some(&first), 10_001, 1);
+        assert_eq!(once.level, Level::Error);
+        assert_eq!(
+            once.message,
+            "the last cleanup failed for one or more roots"
+        );
+        let second = refused(13_600);
+        assert_eq!(row.observe(&second), 2);
+        let named = diagnostic_after(Some(&second), 13_601, 2);
+        assert_eq!(named.level, Level::Error);
+        assert_eq!(
+            named.message,
+            "records refused: unknown voice worker `second`"
+        );
+        // A cleanup that was not refused for it: none in a row.
+        let mut fine = report();
+        fine.at_unix_s = 17_200;
+        assert_eq!(row.observe(&fine), 0);
+        assert_eq!(diagnostic_after(Some(&fine), 17_201, 0).level, Level::Ok);
+        // Another refusal, or an unplain word, is never named.
+        let mut other = refused(20_800);
+        other.roots[0].error = Some("unknown voice worker command".into());
+        assert_eq!(row.observe(&other), 0);
+        let mut odd = refused(24_400);
+        odd.roots[0].error = Some("unknown voice worker `Two Words`".into());
+        assert_eq!(unknown_worker(&odd), None);
+        assert_eq!(
+            diagnostic_after(Some(&odd), 24_401, 5).message,
+            "the last cleanup failed for one or more roots"
+        );
     }
 
     #[test]

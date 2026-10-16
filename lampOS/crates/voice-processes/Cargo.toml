@@ -1,0 +1,13 @@
+[package]
+name = "lamp-voice-processes"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+# The voice's processes, named once: the voice starts only these, and the
+# records guard knows exactly these (#1071). No dependencies.
+[dependencies]
+
+[lints]
+workspace = true

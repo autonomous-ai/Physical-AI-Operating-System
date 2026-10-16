@@ -137,10 +137,11 @@ impl Worker {
             let resources = RingResources::create(directory)?;
             let path = resources.directory.clone();
             let boot = new_boot()?;
-            let channels = WorkerChannels::bind(&path, "ring", parent, boot, false)?;
+            let role = lamp_voice_processes::WorkerRole::Ring.as_str();
+            let channels = WorkerChannels::bind(&path, role, parent, boot, false)?;
             let child = Command::new(executable)
-                .arg("worker")
-                .arg("ring")
+                .arg(lamp_voice_processes::Command::Worker.as_str())
+                .arg(role)
                 .arg(&path)
                 .arg(boot_text(parent))
                 .arg(boot_text(boot))

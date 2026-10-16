@@ -75,6 +75,18 @@ pub struct Worker {
     ring_resources: Option<RingResources>,
 }
 
+/// The voice starts a worker only in a role on its list, the one the records
+/// guard reads too (#1071): a role missing there fails here, on the
+/// builder's machine, never first as a refused cleanup on a lamp.
+pub fn listed(role: &str) -> io::Result<lamp_voice_processes::WorkerRole> {
+    lamp_voice_processes::WorkerRole::parse(role).ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("worker role `{role}` is not on the voice's list (lamp-voice-processes)"),
+        )
+    })
+}
+
 impl Worker {
     #[cfg(test)]
     pub(crate) fn sleeping_fixture(directory: &Path, role: &str) -> (Self, WorkerChannels) {
@@ -231,9 +243,10 @@ impl Worker {
         extra: &[&str],
         mut on_wait: impl FnMut() -> io::Result<()>,
     ) -> io::Result<Self> {
+        listed(role)?;
         let channels = WorkerChannels::bind(directory, role, parent, boot, false)?;
         let child = Command::new(executable)
-            .arg("worker")
+            .arg(lamp_voice_processes::Command::Worker.as_str())
             .arg(role)
             .arg(directory)
             .arg(boot_text(parent))

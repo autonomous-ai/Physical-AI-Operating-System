@@ -35,6 +35,7 @@ pub fn live_sessions(
 #[cfg(any(target_os = "linux", test))]
 mod implementation {
     use crate::{ProcessObservations, ProcessSkipReason};
+    use lamp_voice_processes::{Command as VoiceCommand, HELPERS, WorkerRole};
     use rustix::fs::{Dir, Mode, OFlags, openat, readlinkat_raw};
     use std::{
         collections::{BTreeMap, BTreeSet},
@@ -56,8 +57,8 @@ mod implementation {
     const MAX_PROCESS_BYTES: usize = 65_536;
     const MAX_FDS: usize = 65_536;
     /// Programs the voice starts inside its own group as helpers, which
-    /// write no session folder of their own.
-    const VOICE_HELPERS: [&str; 1] = ["lamp-turn-end"];
+    /// write no session folder of their own: the voice's own list.
+    const VOICE_HELPERS: [&str; 1] = HELPERS;
     const MAX_LINK_BYTES: usize = 4096;
     const MAX_SHOW_BYTES: usize = 65_536;
     const TOTAL_BUDGET: Duration = Duration::from_secs(10);
@@ -65,6 +66,16 @@ mod implementation {
 
     fn refused(message: &'static str) -> io::Error {
         io::Error::other(message)
+    }
+
+    /// A worker role not on the voice's list, named when it is a plain word,
+    /// so the journal and lamp-health say which (#1071). Anything else from
+    /// a process's arguments is not repeated.
+    fn unknown_worker(word: Option<&str>) -> io::Error {
+        match word.filter(|word| crate::report::plain_word(word)) {
+            Some(word) => io::Error::other(format!("{} `{word}`", crate::report::UNKNOWN_WORKER)),
+            None => refused("unknown voice worker command"),
+        }
     }
 
     fn check_deadline(deadline: Instant) -> io::Result<()> {
@@ -595,43 +606,38 @@ mod implementation {
             .get(1)
             .and_then(|word| word.to_str())
             .ok_or_else(|| refused("voice process command is ambiguous"))?;
+        // The voice's own list (lamp-voice-processes, #1071): a command or a
+        // worker role the voice can start is one this guard knows.
+        let command =
+            VoiceCommand::parse(command).ok_or_else(|| refused("unknown voice process command"))?;
         let output = match command {
-            "serve" => Some(3),
-            "directed" => Some(4),
-            "directed-fixture" => Some(5),
-            "camera-inspect" => Some(4),
-            "provider-check" => None,
+            VoiceCommand::Serve => Some(3),
+            VoiceCommand::Directed => Some(4),
+            VoiceCommand::DirectedFixture => Some(5),
+            VoiceCommand::CameraInspect => Some(4),
+            VoiceCommand::ProviderCheck => None,
             // The reminders' consumer the voice starts beside itself when
             // LAMP_SCHEDULE_TOOLS is on: no output argument, its open files
             // still protected below. On lamp-4ace from 2026-10-15 02:05 to
             // 20:00 it refused every check.
-            "schedule-consumer" if arguments.len() == 2 => None,
-            // The voice's workers. `second` is the second voice's provider
-            // worker, started with the second configuration: on lamp-4ace
-            // from 2026-10-15 14:01 it refused every hourly check until it was
-            // known here. Like the provider it writes no session output, and
-            // its open files are still protected below.
-            "worker" => {
-                let role = arguments.get(2).and_then(|word| word.to_str());
-                if arguments.len() < 6
-                    || !matches!(
-                        role,
-                        Some(
-                            "capture"
-                                | "speaker"
-                                | "provider"
-                                | "second"
-                                | "camera"
-                                | "ring"
-                                | "privacy"
-                                | "probe"
-                        )
-                    )
-                {
+            VoiceCommand::ScheduleConsumer if arguments.len() == 2 => None,
+            VoiceCommand::ScheduleConsumer => {
+                return Err(refused("unknown voice process command"));
+            }
+            // The voice's workers, by its own list: `second` (the second
+            // voice's worker) was missing from a copy kept here before, and
+            // refused every hourly check on lamp-4ace from 2026-10-15 14:01.
+            VoiceCommand::Worker => {
+                let word = arguments.get(2).and_then(|word| word.to_str());
+                let role = word.and_then(WorkerRole::parse);
+                if arguments.len() < 6 {
                     return Err(refused("unknown voice worker command"));
                 }
+                let Some(role) = role else {
+                    return Err(unknown_worker(word));
+                };
                 let mut paths = Vec::new();
-                if matches!(role, Some("capture" | "speaker")) {
+                if matches!(role, WorkerRole::Capture | WorkerRole::Speaker) {
                     for (index, value) in arguments.iter().enumerate().skip(6) {
                         if value == "--diagnostics" {
                             let value = arguments
@@ -647,7 +653,6 @@ mod implementation {
                 }
                 return Ok(paths);
             }
-            _ => return Err(refused("unknown voice process command")),
         };
         output
             .map(|index| {
@@ -1500,6 +1505,38 @@ mod implementation {
                 ])
                 .is_err()
             );
+        }
+
+        /// #1071: the guard knows every role and command on the voice's own
+        /// list, so a role added there is known here without a second copy.
+        #[test]
+        fn every_voice_command_and_worker_role_on_the_voices_list_is_known() {
+            let worker = |role: &str| {
+                [BINARY, "worker", role, "/run/dir", "parent", "worker"]
+                    .map(OsString::from)
+                    .to_vec()
+            };
+            for role in WorkerRole::ALL {
+                assert!(voice_paths(&worker(role.as_str())).is_ok(), "{role:?}");
+            }
+            for command in VoiceCommand::ALL {
+                let argv = match command {
+                    VoiceCommand::Worker => worker("probe"),
+                    VoiceCommand::ScheduleConsumer => {
+                        vec![OsString::from(BINARY), OsString::from(command.as_str())]
+                    }
+                    _ => [BINARY, command.as_str(), "a", "b", "c", "d"]
+                        .map(OsString::from)
+                        .to_vec(),
+                };
+                assert!(voice_paths(&argv).is_ok(), "{command:?}");
+            }
+            // A role not on the list is refused, and named when it is a
+            // plain word; anything else is not repeated.
+            let error = voice_paths(&worker("third")).unwrap_err().to_string();
+            assert_eq!(error, "unknown voice worker `third`");
+            let error = voice_paths(&worker("Third/../x")).unwrap_err().to_string();
+            assert_eq!(error, "unknown voice worker command");
         }
 
         #[test]

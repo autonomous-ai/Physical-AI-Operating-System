@@ -1,0 +1,9 @@
+{
+ "called": [
+  "the model called dance with {\"long\":true,\"style\":\"upbeat\"}"
+ ],
+ "done": "after the say: spoken from 844 ms after the call, the turn over 1697 ms later; light warm: done; dim: done, dim: done; gesture dance_groove: told the body; the clip before seen begun 2072 ms after it was sent, the next timed from then; gesture dance_groove: told the body; light given back to on warm at 1: it already was",
+ "speech_end_to_command_ms": 210,
+ "speech_end_to_motion_ms": 129,
+ "max_excursion_rad": 0.25
+}

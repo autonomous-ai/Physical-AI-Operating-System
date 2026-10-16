@@ -1,5 +1,17 @@
 # Tests work log
 
+## 2026-10-16 17:20:44 +0700 — #1109 ready; flaky tests from today's red runs
+
+Ready for lamp-voice: yes (#1109; with #1088, #1101 and #1104); no (#1113 and #1122, waiting for their ARM64 runs)
+
+**#1109** is ready. Pull-request run 38883681639 and full run 38883689547 passed on its head. In the full run the three settled-worker sessions took 0.337–0.349 s each (4.38 s before), and `endpoint_session` 16.0 s (28.1 s). The reviewer took #1088 and #1109 at 17:18.
+
+**Flaky tests.** I read the 40 newest failed ARM64 runs and counted failures by test. A test that failed on a branch that does not touch its crate is a flaky candidate.
+- `lamp-update` `fetch::tests::a_name_lookup_that_hangs…` failed five runs, two of them `lamp-voice` merges. The cause: the lookup's thread sent its answer before it was counted out. **#1112** is the issue and **#1113** the test-only fix; with a scratch 2 ms delay the old test fails 20 of 20, and the fixed one passes. Nine's **#1118** counts the lookup out before the answer is sent. Nine found it also matters in the product: a redirect's lookup could be refused. Nine reviewed #1113 with no finding; the two go together.
+- `lamp-tasks::harness` `a_live_descendant…`: an in-flight `open(O_TRUNC)` after the group kill. Seventh's **#1110** fixed it first (merged 17:09). My #1117 and #1116 are closed as duplicates. Lesson: search pull requests by test name, and the Queue's notes, before taking a flaky test.
+- `lamp-actions` `light::tests::through_the_bus…`: a 20 ms state life read on the wall clock. **#1121** is the issue and **#1122** the fix: a 500 ms life and a 540 ms wait. With a scratch 30 ms stall the old test fails as on ARM64; the fixed one passes.
+- `lamp-body` `bus_out` `a_hand_that_waited…` was already fixed (`c626a37bb`). `inert_child_stop_timing…` and the `native_head` tests are in the realtime group (#1006) and the eighth's (#739). The rest failed only on their own branches.
+
 ## 2026-10-16 16:55:06 +0700 — the group measured at 141.9 s; three pull requests ready, a fourth open
 
 Ready for lamp-voice: yes (#1088, #1101, #1104); no (#1109, waiting for its ARM64 runs)

@@ -85,6 +85,12 @@ pub const BEGIN_WITHIN: Duration = Duration::from_secs(3);
 /// on 2026-10-16, 9 of 10 backup turns waited past 1.5 s.
 pub const CUE_AFTER: Duration = Duration::from_millis(1_500);
 pub const BEGIN_WITHIN_AFTER_CUE: Duration = Duration::from_millis(4_500);
+/// A look's first round may take this long: a picture is slower to read
+/// than words (lamp-52e6 on 2026-10-16, one of two real looks past 3 s; the
+/// first builder, 21:25). Past it, after "Let me look.", the lamp says
+/// [`COULD_NOT_LOOK`] rather than nothing.
+pub const LOOK_BEGIN_WITHIN: Duration = Duration::from_secs(5);
+pub const COULD_NOT_LOOK: &str = "I couldn't get a good look.";
 /// The sounds, said by this route's own voice, so at the reply's level.
 pub const CUE_WORDS: [&str; 3] = ["Hmm.", "Mm.", "Hm."];
 /// A sound is at most 0.6 s, its last 30 ms faded out.
@@ -454,10 +460,9 @@ impl Engine {
                     text
                 };
                 let shared = self.shared.clone();
-                let task =
-                    tokio::spawn(
-                        async move { answer(&shared, request, text, false, picture).await },
-                    );
+                let task = tokio::spawn(async move {
+                    answer(&shared, request, text, false, look, picture).await
+                });
                 self.turn = Some(Turn {
                     request,
                     audio: None,
@@ -668,7 +673,7 @@ async fn spoken(
             .await;
         return;
     }
-    answer(&shared, request, text, true, None).await;
+    answer(&shared, request, text, true, false, None).await;
 }
 
 /// How an answer stopped short.
@@ -701,13 +706,14 @@ async fn cue(shared: &Shared, request: u64, clip: Vec<i16>) -> Result<(), Stop> 
 }
 
 /// Chat, speech and the turn's last events, for the person's `said`, with
-/// the picture of a look. The picture goes in this request only, never into
-/// the thread or a later turn's history.
+/// the picture of a look (`looking`). The picture goes in this request only,
+/// never into the thread or a later turn's history.
 async fn answer(
     shared: &Shared,
     request: u64,
     said: String,
     heard: bool,
+    looking: bool,
     picture: Option<Vec<u8>>,
 ) {
     // Started now, with the chat request, so it is ready first.
@@ -763,6 +769,8 @@ async fn answer(
                         BEGIN_WITHIN_AFTER_CUE
                     } else if cues.is_some() {
                         CUE_AFTER
+                    } else if looking {
+                        LOOK_BEGIN_WITHIN
                     } else {
                         BEGIN_WITHIN
                     };
@@ -789,6 +797,14 @@ async fn answer(
                     }
                     match next {
                         Ok(next) => next,
+                        Err(_) if looking => {
+                            eprintln!(
+                                "lamp-voice second: request {request} look round had not begun in {} ms; the lamp says it could not look",
+                                began.elapsed().as_millis()
+                            );
+                            queue.push(COULD_NOT_LOOK.to_owned()).await?;
+                            return Ok(());
+                        }
                         Err(_) => {
                             eprintln!(
                                 "lamp-voice second: request {request} chat round {round} had not begun in {} ms; the turn ends unanswered",

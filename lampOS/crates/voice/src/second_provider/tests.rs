@@ -1031,3 +1031,44 @@ async fn a_short_sound_not_heard_as_a_short_word_is_held_when_sounds_are_checked
         assert_eq!(asked, 1, "{checked} {marked} {heard}");
     }
 }
+
+/// The first builder, 21:25: a look's first round may take 5 s, not 3 s;
+/// past it the lamp says it could not look rather than nothing.
+#[tokio::test(start_paused = true)]
+async fn a_look_waits_five_seconds_and_then_says_it_could_not_look() {
+    async fn said(first_event_after: Duration) -> (Vec<String>, Duration) {
+        let script = Arc::new(Script {
+            chats: Mutex::new([vec![text("A blue mug."), Ok(ChatEvent::Done)]].into()),
+            first_event_after: Some(first_event_after),
+            ..Script::default()
+        });
+        let (engine, _, _) = scripted(script);
+        let mut engine = engine.looking(Arc::new(|| Ok(vec![0xFF, 0xD8, 0xFF])));
+        engine.submit(ProviderInput::Written {
+            request: 1,
+            session: 1,
+            privacy_generation: 1,
+            text: crate::speak_up::LOOK_FULL_NOTE.into(),
+            look: true,
+        });
+        let begun = tokio::time::Instant::now();
+        let mut said = Vec::new();
+        loop {
+            match engine.next().await {
+                ProviderOutput::Transcript {
+                    request: Some(_),
+                    text,
+                    ..
+                } => said.push(text),
+                ProviderOutput::TurnComplete { .. } => return (said, begun.elapsed()),
+                ProviderOutput::TurnFailed { .. } => panic!("failed"),
+                _ => {}
+            }
+        }
+    }
+    let (slow, _) = said(Duration::from_secs(4)).await;
+    assert_eq!(slow, ["A blue mug."]);
+    let (never, after) = said(Duration::from_secs(60)).await;
+    assert_eq!(never, [COULD_NOT_LOOK]);
+    assert!(after >= LOOK_BEGIN_WITHIN, "{after:?}");
+}

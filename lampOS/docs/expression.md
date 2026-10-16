@@ -244,15 +244,15 @@ voice does not; nods keep their gap and differ; a pause sways the next
 sentence to the other side, eased, and a short breath does not; a long
 answer settles and a short one does not; held or cut in on, nothing moves;
 poses outside the limits are refused). `crates/expression/tests/speaking_engine.rs`
-also checks the fences: a new turn, or a cancelled answer, carries none of
-the old answer's motion, the offsets equal to a catalogue without speaking,
-and a finished answer is settled after.
 runs an eight-second answer with stressed words every 1.1 s and a half-second
 pause every 3 s through the engine, in a quiet and a busy room. It expects
 5 to 8 nods, the head rolled both ways by more than 0.015 rad, over 0.02 rad
 of pitch range, the settle, and what speaking adds never stepping more than
 0.007 rad of pitch or 0.003 of roll in a 20 ms tick. Without `speaking`, the
-same answer plans none of it.
+same answer plans none of it. It also checks the fences: a new turn, or a
+cancelled answer, carries none of the old answer's motion (the offsets equal
+a catalogue without speaking on every tick), and a finished answer is
+settled after.
 
 Not shown: how it looks on a lamp, and the body's own smoothing and speed
 limits on these offsets.

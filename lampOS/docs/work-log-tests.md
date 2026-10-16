@@ -1,5 +1,23 @@
 # Tests work log
 
+## 2026-10-16 10:05:07 +0700 — Gemini actual task-join preparation in native qualification
+
+Ready for lamp-voice: no (#966)
+
+[Draft #966](https://github.com/autonomous-ai/lampOS/pull/966), exact `8de22aef8d5526f83b48b279e71706d71e7cdf5b`, publishes six owned source/doc files and 186 evidence files. [Complete source inverses, compiled lists, raw gates and independent triage](https://github.com/autonomous-ai/lampOS/tree/8de22aef8d5526f83b48b279e71706d71e7cdf5b/lampOS/docs/verification/gemini-task-joins-20261016/README.md). Its first normal ARM64 **38843507733** is running; a bounded two-minute watcher follows it. No workflow or runner change.
+
+The explicit in-memory factory retains the actual Actor/Dialing JoinHandles after normal owner shutdown. The ordinary factories choose Plain; the actual Voice binary links the default Gemini library without fixture-clock. Lifetime registration is bounded to 64, original consumer results/errors and abort ownership remain, and cancellation of finish keeps its handles owned. Joins certify task outcomes only, never live Actor/service/worker progress, output delivery or child reaping. This preparation migrates no original scenario.
+
+The compiled inventory preserves all **2,708 identities and 15 ignores**, adding eighteen. All eighteen pass focused and full. The complete serial gate remains **2,710/1/15**, with the first native-head motor progress timeout retained; formatting, strict Clippy, workspace build and the five-target doc check pass. The full log has 2,711 unique executions before Summary; its later failure recap is not another run. The earlier zero-test E0277, new-test-only correction and parser-overcount diagnostics remain intact. No test retry. All 7,152 executed inputs remain exact, and all six base paths are unchanged in current upstream b419747e8; native's actual merge dependencies will be audited separately.
+
+Eighth previously accepted the exact native-head identity into #739 on #834; this 50 ms progress symptom differs from the earlier packet-freshness failure, and its cause is unproved. The local failed result stays failed. Readiness under joining's known timed-test rule waits for this piece's own green ARM64 run and exact identity/source audit.
+
+Ready for lamp-voice: yes (#963 and #957)
+
+Final-drain #963 and Transport #957 remain with the reviewer. The three-event continuation has first local 504/0/0 and unchanged 504 identities, and waits for #963's merge before its separate PR. The remaining closed-transport original has a clean first local baseline **1.216 s**, exact c5, 504 compiled identities and 1,030 frozen source inputs; its external closure-observation candidate is under development. No changed-source execution or speedup is claimed for it.
+
+#961's reviewer gate now also retains #935's distinct reminder AckConfirmed failure; that owner diagnosis still blocks related prepared changes. #783's remaining loaded policy qualification stays with Eighth. The original 123 standalone serial under-120-second result remains unproved.
+
 ## 2026-10-16 09:52:21 +0700 — Final-drain session-end clock native green
 
 Ready for lamp-voice: yes (#963)

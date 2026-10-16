@@ -302,6 +302,11 @@ impl InputAdmission {
             _ => None,
         })
     }
+    /// Whether the candidate in hand has ended: its sound is over, and it
+    /// waits only for its decision (#1123).
+    pub fn pending_ended(&self) -> bool {
+        matches!(&self.phase, Phase::Pending(pending) if pending.ended)
+    }
     /// Let a prospective candidate go because the caller is keeping the turn
     /// it has. Unlike [`Self::suppress_prospective`] this consults no
     /// authority: nothing is admitted and nothing accepted is touched, so

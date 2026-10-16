@@ -107,6 +107,90 @@ lamp's voice stops it and nothing starts a new turn. The service records
 seconds; a story can be stopped once they have passed. The cost is that the
 person who asked cannot stop it in those four seconds either.
 
+**A short sound does not cut off an answer still to come
+(`LAMP_WAIT_KEEPS_ANSWER=on`, #1123; off unless set).** On lamp-52e6 on
+2026-10-16 (the sixth, 16:5x), short sounds with no words, 0.6 to 1.4 s
+long, admitted 1.4 to 2.6 s after a question, ended 4 of 10 waiting answers
+as `user_interrupted` on the backup voice, whose answers begin later. The
+owner's session on lamp-4ace had dozens. A new sound took the turn as soon
+as it began, before anything of it was known, and no words of it can be
+had before then: the model hears them only once it takes the turn, which
+is what ends the old answer. With the switch, in any room, while an answer
+to someone is awaited and none of it has sounded (the person's input
+ended, no provider audio, nothing playing), a new sound waits instead of
+taking the turn at once (`while_answer_waits` in
+`crates/voice/src/coordinator.rs`):
+- it stays a pending candidate, its audio kept from its start (the mask is
+  given the memory for it, `PlaybackMask::keep_waited_sound`: a candidate
+  holds its 30 blocks of pre-roll and up to 1.2 s more, and with the usual
+  128 blocks the oldest were gone and it was rejected,
+  `retained_history_unavailable`, losing what was said; the reviewer and
+  the first builder on #1130);
+- 1 s after its trigger (`WAIT_KEEPS_FOR_US`), or 100 ms before its own
+  decision deadline if that is sooner (`WAIT_DECIDES_BEFORE_US`), it is
+  decided: let go if it has been quiet for 300 ms (`WAIT_QUIET_BLOCKS`),
+  and otherwise it takes the turn as before, from its start;
+- one that has ended before then is let go at once;
+- once it has begun to wait it keeps these rules when the answer's audio
+  arrives, for a cough is no less a cough then; but once the answer sounds
+  (its audio waiting for the speaker or playing, as the duplex mask hears
+  it), the mask scores a person's speech 0.0 until it has matched the
+  lamp's sound, so the sound's pause from then on is the mask's silence.
+  It is judged by its pause as it stood when the answer began to sound:
+  ended or quiet for 300 ms, it is let go and the answer plays; still
+  going, it is decided at once by the duplex rules for speech over the
+  lamp, as without the switch, and stays decided (the first builder's
+  re-check on #1130). So a cough still going when the answer begins can
+  cut it, as before; one that had stopped cannot.
+
+Nothing waits, and a new sound is decided as before, when its block comes
+with no echo evidence (the mask keeps such a block only among its last 80
+reads and 0.6 s, so a waited sound could not be held); when the turn is the
+lamp's own (a hello, a look, a reminder, news, the head's "hm?": no input,
+and a short "hi" or "not now" may answer it); when the answer has been
+awaited more than 3 s since the person stopped (`WAIT_KEEPS_WITHIN_US`:
+it may not come, and a "hello?" to a silent lamp must be heard; the backup
+voice gives up a turn that has not begun in 3 s); when the lamp's name was
+heard from the sound's start on (`name/rising` or `name/heard`: "Lamp, …
+stop" is someone talking to it); and for a sound that begins within 1 s
+after one was let go (`AFTER_LET_GO_US`: two in a row are more likely talk).
+
+What it lets go, measured on the product's mask and hold
+(`what_the_wait_lets_go_and_takes_by_length`): a sound of 0.75 s or less
+(it has ended, or gone quiet for 300 ms, by its decision). From 0.8 s it
+takes the turn. So of the sixth's 0.6 to 1.4 s sounds, the 0.8 s and longer
+ones still cut the answer. What it costs:
+- a real follow-up of 0.75 s or less ("No.", "Wait.") said while the
+  answer is still to come is let go, and the lamp answers what was asked
+  first; said again once the answer plays, it cuts in as before;
+- a follow-up with a pause across its 1 s mark (0.7 s, 0.4 s of quiet,
+  0.6 s; or 0.6 s, 0.5 s, 0.5 s) loses its first piece: the piece after the
+  pause is taken at once, without it (`a_follow_up_with_a_pause_loses_only_its_first_piece`);
+- a real new question in the gap is taken 1 s after its trigger, not at
+  once.
+
+Let go, the answer goes on; the record says `input_let_go_answer_waits`
+with why (`quiet` or `ended`), and `answer_waits` once for each sound that
+waited. Both voices are covered, as the backup voice takes its turns from
+the same place (`coordinator/second.rs`). On the product's duplex hold a
+candidate may wait 1.2 s for its decision, which is where the 1 s comes
+from; on the standard one (200 ms) the wait ends 100 ms before the
+deadline, so a sound is taken 100 ms later than before and never let go.
+Tests, in `coordinator/tests/turn_taking.rs`, on the product's duplex mask
+hearing each block with echo evidence, a full pre-roll, its hold, the real
+admission and detector: the lengths above;
+`while_an_answer_waits_a_short_sound_is_let_go_and_the_answer_goes_on`
+(and taken at once with the switch off, on the same path);
+`while_an_answer_waits_a_sound_that_goes_on_takes_the_turn_from_its_start`;
+`a_waited_sound_needs_the_memory_the_wait_gives_the_mask`;
+`once_the_answer_sounds_a_waited_sound_is_judged_by_its_pause_then` (the
+answer really playing, its echo not yet matched);
+`a_sound_heard_without_echo_evidence_does_not_wait`;
+`a_sound_with_the_lamps_name_in_it_takes_the_turn`;
+`the_wait_is_only_for_an_answer_to_someone_awaited_a_short_while`;
+`the_wait_is_on_only_with_on`. The loop's own call is not driven by a
+test (#1087).
+
 ## What is and is not shown
 
 - `body_link::tests`: when a room counts as busy, and that an answer or

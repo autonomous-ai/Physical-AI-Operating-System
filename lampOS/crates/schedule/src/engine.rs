@@ -315,7 +315,8 @@ impl<P: Persistence> Engine<P> {
     }
 
     /// One bounded scan. Pending occurrences never become future again after a
-    /// clock correction. A repeat advances only when its exact delivery is acked.
+    /// clock correction. A repeat advances only when its exact delivery is acked,
+    /// then to its next occurrence still ahead: after time off it is said once.
     pub fn tick(&mut self, now: &ClockSample) -> Result<bool, Error> {
         self.observe(now)?;
         let mut next = self.state.clone();
@@ -345,11 +346,24 @@ impl<P: Persistence> Engine<P> {
         Ok(changed)
     }
 
+    /// The occurrence a pending repeat stands for: after time off its newest
+    /// missed one, so it is said once and late by that one's lateness, not by
+    /// the oldest's (#811). The ack steps over the rest (`time::next_ahead`).
+    /// The stored deadline stays as it is: its last receipt names it.
+    fn shown(item: &Item, now: &ClockSample) -> Deadline {
+        if item.snooze.is_some() || item.pending.is_none() {
+            return item.effective().clone();
+        }
+        time::newest_due(&item.deadline, now).unwrap_or_else(|_| item.deadline.clone())
+    }
+
     fn late(&self, item: &Item, now: &ClockSample) -> (bool, Option<u64>) {
         let Some(pending) = &item.pending else {
             return (false, None);
         };
-        let late_by = time::remaining_ms(item.effective(), now)
+        let shown = Self::shown(item, now);
+        let stepped = shown != *item.effective();
+        let late_by = time::remaining_ms(&shown, now)
             .ok()
             .flatten()
             .map(|remaining| {
@@ -359,7 +373,13 @@ impl<P: Persistence> Engine<P> {
                     0
                 }
             })
-            .map(|ms| ms.max(pending.overdue_at_detection_ms));
+            .map(|ms| {
+                if stepped {
+                    ms
+                } else {
+                    ms.max(pending.overdue_at_detection_ms)
+                }
+            });
         (
             pending.recovered_late
                 || late_by.unwrap_or(pending.overdue_at_detection_ms) > LATE_AFTER_MS,
@@ -374,7 +394,7 @@ impl<P: Persistence> Engine<P> {
             "id": item.id, "delivery": item.delivery, "text": item.text,
             "request_id": item.request_id,
             "state": if item.pending.is_some() { "pending" } else if remaining.is_none() { "waiting_for_clock" } else { "scheduled" },
-            "due_unix_ms": item.effective().unix_ms, "local": item.effective().local,
+            "due_unix_ms": Self::shown(item, now).unix_ms, "local": Self::shown(item, now).local,
             "original_due_unix_ms": item.deadline.unix_ms,
             "repeat": item.deadline.repeat, "snoozed": item.snooze.is_some(),
             "remaining_ms": remaining.map(|r| r.max(0)), "late": late, "late_by_ms": late_by_ms
@@ -416,7 +436,9 @@ impl<P: Persistence> Engine<P> {
                     .items
                     .iter()
                     .filter(|i| i.pending.is_some())
-                    .min_by_key(|i| (i.effective().unix_ms, i.id))
+                    // By the occurrence each stands for: after time off, a
+                    // repeat's newest missed one, not its stored deadline.
+                    .min_by_key(|i| (Self::shown(i, now).unix_ms, i.id))
             })
             .flatten()
             .map(|item| {
@@ -424,7 +446,7 @@ impl<P: Persistence> Engine<P> {
                 ScheduleNotice {
                     id: item.id,
                     delivery: item.delivery,
-                    due_unix_ms: item.effective().unix_ms,
+                    due_unix_ms: Self::shown(item, now).unix_ms,
                     late_by_ms,
                     late,
                 }
@@ -573,7 +595,7 @@ impl<P: Persistence> Engine<P> {
             Request::Ack { id, delivery, .. } => {
                 let index = find_pending(&next, *id, *delivery)?;
                 let item = &mut next.items[index];
-                match time::advance(&item.deadline).map_err(bad_time)? {
+                match time::next_ahead(&item.deadline, now).map_err(bad_time)? {
                     Some(deadline) => {
                         item.delivery = item
                             .delivery

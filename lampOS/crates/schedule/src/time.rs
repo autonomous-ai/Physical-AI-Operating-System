@@ -298,8 +298,50 @@ pub fn resolve(when: &When, now: &ClockSample, default_zone: &str) -> Result<Dea
     }
 }
 
-/// Advance exactly one requested calendar occurrence. Delivery time is not an
-/// argument: a restart must not silently discard undelivered occurrences.
+/// Most occurrences one catch-up steps over: about eleven years of a daily.
+const MOST_STEPS: usize = 4096;
+
+/// After time off, the newest occurrence of a repeat that has passed, so only
+/// that one is delivered, marked late (#811, the first builder's 13:21: a
+/// person who was away does not hear 'late' N times). A one-off, an untrusted
+/// wall clock, or an occurrence not yet passed is `previous` as it is.
+pub fn newest_due(previous: &Deadline, now: &ClockSample) -> Result<Deadline, TimeError> {
+    let mut newest = previous.clone();
+    if previous.repeat.is_none() || !now.wall_trusted {
+        return Ok(newest);
+    }
+    for _ in 0..MOST_STEPS {
+        match advance(&newest)? {
+            Some(next) if next.unix_ms <= now.unix_ms => newest = next,
+            _ => break,
+        }
+    }
+    Ok(newest)
+}
+
+/// The occurrence after an acknowledged one that is still ahead: any that
+/// passed while it waited are stepped over, not delivered after it. With an
+/// untrusted wall clock, exactly the next one.
+pub fn next_ahead(previous: &Deadline, now: &ClockSample) -> Result<Option<Deadline>, TimeError> {
+    let Some(mut next) = advance(previous)? else {
+        return Ok(None);
+    };
+    if now.wall_trusted {
+        for _ in 0..MOST_STEPS {
+            if next.unix_ms > now.unix_ms {
+                break;
+            }
+            match advance(&next)? {
+                Some(after) => next = after,
+                None => break,
+            }
+        }
+    }
+    Ok(Some(next))
+}
+
+/// Advance exactly one requested calendar occurrence. Catching up after time
+/// off is [`newest_due`]'s and [`next_ahead`]'s, which know the time now.
 pub fn advance(previous: &Deadline) -> Result<Option<Deadline>, TimeError> {
     previous.check()?;
     let Some(repeat) = &previous.repeat else {

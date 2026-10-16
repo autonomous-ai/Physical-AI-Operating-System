@@ -246,13 +246,19 @@ the lamp was offline.
 Snooze applies only to the current pending `(id, delivery)`. It increments the
 delivery token, clears pending, and adds a new elapsed deadline. The original
 recurrence anchor remains unchanged. Acknowledging the snoozed occurrence
-advances from that original anchor. If the following recurrence is already
-past, it becomes pending on the next scan. Missed days are not dropped or
-automatically marked delivered. The final Voice policy must pace a backlog;
-Schedule has no permission to burst speech into the room.
+advances from that original anchor, to its next occurrence still ahead.
 
-Acknowledging a one-off removes it. Acknowledging a repeat advances exactly one
-requested occurrence and increments its delivery token. Cancellation removes
+**After time off, a repeat is said once** (#811, the first builder's decision
+of 2026-10-16 13:21: a person who was away does not hear "late" N times).
+A pending repeat whose later occurrences have also passed is shown as its
+newest missed one: `due_unix_ms` and `late_by_ms` are that occurrence's, and
+it is marked late. Its acknowledgement advances to the next occurrence still
+ahead, so the ones missed in between are stepped over, not delivered. The
+stored deadline is not rewritten by a scan (its receipt names it); only an
+acknowledgement moves it. With an untrusted wall clock nothing is stepped.
+
+Acknowledging a one-off removes it. Acknowledging a repeat advances to its
+next occurrence still ahead and increments its delivery token. Cancellation removes
 the whole item, including its recurrence. There is no separate “delete just
 one recurrence,” edit, pause, resume, monthly, yearly, or interval operation.
 

@@ -1084,12 +1084,9 @@ fn nothing_yet(error: &io::Error) -> bool {
 /// it.
 const ARM_WINDOW_MARGIN: u16 = 420;
 /// The most an arm goal moves from the last one written in a step: a rise
-/// moves it a few counts, a gesture 21 (`GESTURE_STEP`).
+/// moves it a few counts, a gesture 21 (`GESTURE_STEP`), an arm let go by a
+/// hand goes back down at this.
 const ARM_GOAL_STEP: u16 = 50;
-/// A goal that moves farther than that in a step must be within this of
-/// where the joint was last read: an arm let go by a hand goes back to its
-/// resting goal in one step, from up to this far.
-const ARM_GOAL_REACH: u16 = 250;
 
 /// The most a position may move from the last good reading of its joint,
 /// per step (`TICK`) since that reading, unless it is this near the goal
@@ -1127,9 +1124,11 @@ struct Bus<'a, P, R> {
     arm_windows: [(u16, u16); 2],
     /// An arm goal refused before it was written: the run ends on it.
     refused: Option<Stop>,
-    /// Each joint's last good position and when it was read, the goal last
+    /// Each joint's last good position and when it was read, whether that
+    /// was within `ARM_GOAL_STEP` of the good one before it, the goal last
     /// written to it, its bad reads in all and in a row (`samples`).
     good: [Option<(u16, Duration)>; 5],
+    steady: [bool; 5],
     goals: [Option<u16>; 5],
     bad_reads: [u16; 5],
     bad_in_row: [u8; 5],
@@ -1143,6 +1142,7 @@ impl<'a, P: PortIo, R: Runtime> Bus<'a, P, R> {
             arm_windows: arm_windows(standing),
             refused: None,
             good: [None; 5],
+            steady: [true; 5],
             goals: [None; 5],
             bad_reads: [0; 5],
             bad_in_row: [0; 5],
@@ -1270,6 +1270,8 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
                     off(good) && self.goals[index].is_none_or(off)
                 });
             if !bad {
+                self.steady[index] =
+                    self.good[index].is_none_or(|(good, _)| read.abs_diff(good) <= ARM_GOAL_STEP);
                 self.good[index] = Some((read, now));
                 self.bad_in_row[index] = 0;
                 continue;
@@ -1387,7 +1389,7 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
         if let Some(stop) = ARM
             .into_iter()
             .zip(arm)
-            .find_map(|(joint, goal)| self.goal_refused(joint, goal, false))
+            .find_map(|(joint, goal)| self.goal_refused(joint, goal))
         {
             return Err(self.refuse(stop));
         }
@@ -1397,17 +1399,9 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
     }
 
     /// One joint's goal by itself, checked as `send_goals` checks, written
-    /// and acknowledged (with `patiently`, as `write_patiently`). With
-    /// `taking_hold`, for a joint found without torque, its goal may also be
-    /// exactly where it was last read.
-    fn write_goal(
-        &mut self,
-        joint: Joint,
-        goal: u16,
-        patiently: bool,
-        taking_hold: bool,
-    ) -> Result<(), String> {
-        if let Some(stop) = self.goal_refused(joint, goal, taking_hold) {
+    /// and acknowledged (with `patiently`, as `write_patiently`).
+    fn write_goal(&mut self, joint: Joint, goal: u16, patiently: bool) -> Result<(), String> {
+        if let Some(stop) = self.goal_refused(joint, goal) {
             return Err(self.refuse(stop));
         }
         let packet = goal_write(joint, goal);
@@ -1440,18 +1434,21 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
     /// Whether `goal` may be written to `joint`, an arm joint (the others
     /// are not checked): it must be inside the joint's window, and either
     /// within `ARM_GOAL_STEP` of the goal last written to it (before one,
-    /// of where it was read) or within `ARM_GOAL_REACH` of where it was last
-    /// read; with `taking_hold`, or exactly where it was last read. If not,
-    /// the stop the run ends on.
-    fn goal_refused(&self, joint: Joint, goal: u16, taking_hold: bool) -> Option<Stop> {
+    /// of where it was read), or between that goal and where it was last
+    /// read, a reading within `ARM_GOAL_STEP` of the one before it: a hold
+    /// where it is, as when it gives way to a hand, takes hold or stops
+    /// pushing, never asks it past either. If not, the stop the run ends on.
+    fn goal_refused(&self, joint: Joint, goal: u16) -> Option<Stop> {
         let index = ARM.iter().position(|arm| *arm == joint)?;
         let (low, high) = self.arm_windows[index];
         let read = self.good[joint.index()].map(|(at, _)| at);
         let from = self.goals[joint.index()].or(read);
         let allowed = (low..=high).contains(&goal)
             && (from.is_none_or(|from| goal.abs_diff(from) <= ARM_GOAL_STEP)
-                || read.is_some_and(|at| goal.abs_diff(at) <= ARM_GOAL_REACH)
-                || taking_hold && read == Some(goal));
+                || read.is_some_and(|at| {
+                    let from = from.unwrap_or(at);
+                    self.steady[joint.index()] && (from.min(at)..=from.max(at)).contains(&goal)
+                }));
         (!allowed).then(|| Stop::Window {
             joint: joint.id(),
             goal,
@@ -1974,7 +1971,7 @@ fn take_hold<P: PortIo, R: Runtime>(
         let at = found[joint.index()].position;
         // A flag is read and judged with the rest afterwards.
         if outcome.is_ok() {
-            outcome = bus.write_goal(*joint, at, true, true);
+            outcome = bus.write_goal(*joint, at, true);
         }
         if outcome.is_ok() {
             report.torque_writes = report.torque_writes.saturating_add(1);
@@ -2008,7 +2005,7 @@ fn take_hold<P: PortIo, R: Runtime>(
         // Nothing keeps pushing a joint that went somewhere.
         for (joint, _) in &moved {
             let at = now[joint.index()].position;
-            let _ = bus.write_goal(*joint, at, false, true);
+            let _ = bus.write_goal(*joint, at, false);
         }
         return Err(Stop::Refused {
             why: format!("{joint} moved {by} counts when its torque came on"),
@@ -2720,7 +2717,7 @@ fn run_on<P: PortIo, R: Runtime>(
             for (stop_pushing, torques, waits) in attempts {
                 let mut outcome = Ok(());
                 if stop_pushing {
-                    outcome = bus.write_goal(joint, at, false, false);
+                    outcome = bus.write_goal(joint, at, false);
                     arm_written[index] = at;
                 }
                 for value in torques {
@@ -3727,8 +3724,17 @@ fn run_on<P: PortIo, R: Runtime>(
                         _ => arm_goals[index],
                     };
                     if arm_rests && stalls[3 + index].held >= EASE_STEPS {
-                        stalls[3 + index].hold = None;
-                        arm_goals[index] = wanted;
+                        // Back down `ARM_GOAL_STEP` a step at most, held
+                        // until it is there.
+                        let from = arm_goals[index];
+                        arm_goals[index] = if from < wanted {
+                            from.saturating_add(ARM_GOAL_STEP).min(wanted)
+                        } else {
+                            from.saturating_sub(ARM_GOAL_STEP).max(wanted)
+                        };
+                        if arm_goals[index] == wanted {
+                            stalls[3 + index].hold = None;
+                        }
                     } else if let Some(at) = stalls[3 + index].holding(wanted) {
                         arm_goals[index] = at;
                     }

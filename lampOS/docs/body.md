@@ -151,9 +151,12 @@ its joint's window: the joint's way between `--folded-arm` and `--stand`,
 with 420 counts either side (the most a gesture, 360, and the lean, 60, add
 to it). On lamp-4ace that is shoulder 1,628 to 3,077 and elbow 1,627 to
 3,022. It must also be within 50 counts of the arm goal last written (a rise
-moves it a few counts a step, a gesture 21), or within 250 of where the
-joint was last read (an arm let go by a hand goes back to its resting goal
-in one step). A goal that is neither is not written. The run ends on
+moves it a few counts a step, a gesture 21, and an arm let go by a hand
+goes back down to its resting goal at 50 a step), or lie between that goal
+and where the joint was last read, if that reading was within 50 of the one
+before it: a hold where it is, as when it gives way to a hand, is taken hold
+of or stops pushing, never asks it past either. A goal that is neither is
+not written. The run ends on
 `Stop::Window` and lets go as any surprise does, after the hold, which
 writes the arm where it was last read and is checked the same way. The end
 report names the joint, the goal, the window and the goal it came from:

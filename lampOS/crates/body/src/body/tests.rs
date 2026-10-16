@@ -6150,3 +6150,36 @@ fn an_arm_joint_taken_hold_of_outside_its_window_is_not_given_that_goal() {
         "{report:?}"
     );
 }
+
+/// An arm goal moves at most `ARM_GOAL_STEP` a step from the last one
+/// written, however near the arm reads: 240 counts from a goal and a
+/// reading both at 2047 is refused, and a hold may only lie between the
+/// last goal and where the arm steadily reads.
+#[test]
+fn an_arm_goal_is_never_more_than_a_step_from_the_last_unless_it_holds_where_the_arm_is() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(1));
+    lamp.servos[2].status = 0;
+    {
+        let mut bus = Bus::new(&mut lamp, &mut clock, Some(lamp_4ace_standing()));
+        bus.samples().unwrap();
+        bus.send_goals(HOME, Some([2_050, 2_047])).unwrap();
+        assert!(bus.send_goals(HOME, Some([2_050, 2_287])).is_err());
+        assert!(matches!(
+            bus.refused.take(),
+            Some(Stop::Window {
+                joint: 3,
+                goal: 2_287,
+                from: 2_047,
+                ..
+            })
+        ));
+    }
+    let elbow: Vec<u16> = lamp
+        .goals
+        .iter()
+        .flatten()
+        .filter(|(id, _)| *id == Joint::ElbowPitch.id())
+        .map(|(_, goal)| *goal)
+        .collect();
+    assert_eq!(elbow, [2_047]);
+}

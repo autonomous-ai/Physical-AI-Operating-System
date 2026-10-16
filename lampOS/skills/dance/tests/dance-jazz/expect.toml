@@ -1,0 +1,20 @@
+# "Do a jazz dance": the jazz clip.
+[[call_tool]]
+name = "dance"
+at = "0s"
+args = { style = "jazz", long = false }
+
+[[expect]]
+call = "say"
+
+[[expect]]
+call = "light"
+args = { colour = "warm" }
+
+[[expect]]
+call = "light"
+args = { dim = 2 }
+
+[[expect]]
+call = "body.gesture"
+args = { gesture = "dance_jazz" }

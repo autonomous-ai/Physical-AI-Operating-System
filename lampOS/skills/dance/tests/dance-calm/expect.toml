@@ -1,0 +1,20 @@
+# "Show me a slow dance": calm picks chill or waltz.
+[[call_tool]]
+name = "dance"
+at = "0s"
+args = { style = "calm" }
+
+[[expect]]
+call = "say"
+
+[[expect]]
+call = "light"
+args = { colour = "warm" }
+
+[[expect]]
+call = "light"
+args = { dim = 2 }
+
+[[expect]]
+call = "body.gesture"
+args = { gesture = ["dance_chill", "dance_waltz"] }

@@ -2,8 +2,14 @@
 //! loader's refusals, and the program on a real bus with the body's and the
 //! actions part's sockets stood in for.
 use lamp_bus::Bus;
-use lamp_msgs::{Faces, Light, LightRequest, Priority, SkillEvent, SkillStage};
-use lamp_skills::{Admission, Call, Engine, load, load_all, read_recordings, run_tests};
+use lamp_msgs::{
+    Faces, Hand, JointState, Light, LightRequest, Priority, SkillEvent, SkillStage, Speech,
+    VoiceState,
+};
+use lamp_skills::{
+    Admission, BODY_STEP_US, CLIP_GAP_US, Call, Engine, clip_us, load, load_all, read_recordings,
+    run_tests, tools_file,
+};
 use std::{
     fs,
     io::{BufRead, BufReader, Write},
@@ -1508,18 +1514,42 @@ fn a_tools_call_runs_only_while_its_conditions_hold_on_values_that_last() {
     let s = 1_000_000;
     let resting = br#"{"state":"resting"}"#;
     // Never seen.
-    assert!(engine.tool("check_my_work", 0).is_err());
+    assert!(
+        engine
+            .tool("check_my_work", &serde_json::Value::Null, 0)
+            .is_err()
+    );
     engine.observe("voice/state", 0, resting, None);
     // Not yet for its 30 s, then it has.
-    assert!(engine.tool("check_my_work", 10 * s).is_err());
-    assert!(engine.tool("check_my_work", 31 * s).is_ok());
+    assert!(
+        engine
+            .tool("check_my_work", &serde_json::Value::Null, 10 * s)
+            .is_err()
+    );
+    assert!(
+        engine
+            .tool("check_my_work", &serde_json::Value::Null, 31 * s)
+            .is_ok()
+    );
     // False.
     engine.observe("voice/state", 40 * s, br#"{"state":"speaking"}"#, None);
-    assert!(engine.tool("check_my_work", 41 * s).is_err());
+    assert!(
+        engine
+            .tool("check_my_work", &serde_json::Value::Null, 41 * s)
+            .is_err()
+    );
     // A value lasting 60 s: held 30 s within it, then expired.
     engine.observe("voice/state", 100 * s, resting, Some(60_000));
-    assert!(engine.tool("check_my_work", 131 * s).is_ok());
-    assert!(engine.tool("check_my_work", 161 * s).is_err());
+    assert!(
+        engine
+            .tool("check_my_work", &serde_json::Value::Null, 131 * s)
+            .is_ok()
+    );
+    assert!(
+        engine
+            .tool("check_my_work", &serde_json::Value::Null, 161 * s)
+            .is_err()
+    );
 }
 
 #[test]
@@ -2204,4 +2234,911 @@ fn sway(name: &str, peak: i16) -> String {
     }
     frames.push([0; 5]);
     serde_json::json!({ "name": name, "step_ms": 50, "frames": frames }).to_string()
+}
+
+/// Dance's shape (#999): a tool with a choice and a flag, its clip after the
+/// model's line.
+const JIG: &str = r#"
+needs = ["voice", "body", "light"]
+tool = "jig"
+[choice]
+name = "style"
+about = "The mood."
+one_of = ["calm", "jazz"]
+[flag]
+name = "long"
+about = "Twice."
+[[do]]
+say = "Say you will."
+[[do]]
+after = "say"
+light = { colour = "warm" }
+[[do]]
+body = { gesture = { calm = ["dance_chill", "dance_waltz"], jazz = ["dance_jazz"] }, again_if = "long" }
+"#;
+
+#[test]
+fn a_tools_choice_and_flag_are_told_to_the_model_and_checked_on_a_call() {
+    let dir = tempfile::tempdir().unwrap();
+    let skill = load(&skill_with(dir.path(), "jig", JIG)).unwrap();
+    assert_eq!(
+        tools_file(std::slice::from_ref(&skill)),
+        serde_json::json!({"tools": [{
+            "name": "jig",
+            "description": "A test.",
+            "parameters": {"type": "object", "properties": {
+                "style": {"type": "string", "enum": ["calm", "jazz"], "description": "The mood."},
+                "long": {"type": "boolean", "description": "Twice."},
+            }},
+        }]})
+    );
+    let mut engine = Engine::new(vec![skill], false);
+    let mut gestures = |args: serde_json::Value| -> Vec<String> {
+        engine
+            .tool("jig", &args, 7)
+            .unwrap()
+            .calls
+            .into_iter()
+            .filter_map(|call| match call {
+                Call::Gesture(name) => Some(name),
+                _ => None,
+            })
+            .collect()
+    };
+    assert_eq!(
+        gestures(serde_json::json!({"style": "jazz"})),
+        ["dance_jazz"]
+    );
+    assert_eq!(
+        gestures(serde_json::json!({"style": "jazz", "long": true})),
+        ["dance_jazz", "dance_jazz"]
+    );
+    assert!(
+        ["dance_chill", "dance_waltz"]
+            .contains(&gestures(serde_json::json!({"style": "calm"}))[0].as_str())
+    );
+    // None given: any of the three.
+    assert_eq!(gestures(serde_json::Value::Null).len(), 1);
+    let calls = engine.tool("jig", &serde_json::json!({}), 7).unwrap().calls;
+    assert_eq!(calls[0], Call::Say("Say you will.".into()));
+    assert_eq!(calls[1], Call::AfterSay);
+    for (args, why) in [
+        (serde_json::json!({"style": "hype"}), "one of"),
+        (serde_json::json!({"long": "yes"}), "true or false"),
+        (serde_json::json!({"tempo": 3}), "not an argument"),
+        (serde_json::json!([1]), "an object"),
+    ] {
+        let error = engine.tool("jig", &args, 7).unwrap_err();
+        assert!(error.contains(why), "{args}: {error}");
+    }
+}
+
+#[test]
+fn the_loader_refuses_a_clip_it_does_not_have_and_arguments_it_cannot_use() {
+    let dir = tempfile::tempdir().unwrap();
+    for (from, to, why) in [
+        (
+            "\"dance_jazz\"]",
+            "\"moonwalk\"]",
+            "not one of the body's clips",
+        ),
+        (
+            "\"dance_jazz\"]",
+            "\"idle\"]",
+            "not one of the body's clips",
+        ),
+        (", jazz = [\"dance_jazz\"]", "", "for each of"),
+        (
+            "again_if = \"long\"",
+            "again_if = \"twice\"",
+            "names the skill's flag",
+        ),
+        ("after = \"say\"", "after = \"look\"", "only \"say\""),
+        ("name = \"long\"", "name = \"style\"", "different names"),
+        (
+            "one_of = [\"calm\", \"jazz\"]",
+            "one_of = []",
+            "one_of is 1 to 16",
+        ),
+        (
+            "tool = \"jig\"",
+            "[trigger]\ntopic = \"humans/faces/tracked\"\n[ask]\npolicy = \"x\"",
+            "argument of the skill's tool",
+        ),
+    ] {
+        assert!(JIG.contains(from), "{from}");
+        let toml = JIG.replace(from, to);
+        let error = load(&skill_with(
+            &dir.path().join(why.replace([' ', '"', '\''], "_")),
+            "jig",
+            &toml,
+        ))
+        .unwrap_err();
+        assert!(error.contains(why), "{to}: {error}");
+    }
+    // Every V1 dance, and the six gestures, are the body's.
+    for clip in [
+        "dance_chill",
+        "dance_groove",
+        "dance_hype",
+        "dance_waltz",
+        "dance_jazz",
+        "nod",
+        "stretching",
+    ] {
+        assert!(lamp_skills::gesture_known(clip), "{clip}");
+    }
+}
+
+/// The clip a short test plays: the body's nod, about 3 s.
+const NODS: &str = r#"
+tool = "nods"
+[flag]
+name = "long"
+about = "Twice."
+[[do]]
+say = "Say you will."
+[[do]]
+after = "say"
+light = { colour = "warm" }
+[[do]]
+body = { gesture = "nod", again_if = "long" }
+"#;
+
+/// The body's rule for a gesture on its mood socket
+/// (`crates/body/src/body.rs`, `run_body`): at each step it reads what came
+/// since the step before, once, takes a gesture only while none plays or
+/// waits, and lets a clip go at the first step that reaches its length,
+/// after that step's read. A gesture that comes while one plays is dropped.
+/// With `late_us`, a gesture taken waits that long before it begins, as on
+/// a lamp still rising (#1080).
+#[derive(Default)]
+struct StandInBody {
+    late_us: u64,
+    /// When a gesture taken begins, and its length.
+    waiting: Option<(u64, u64)>,
+    /// Since when the clip plays, and its length.
+    playing: Option<(u64, u64)>,
+}
+
+impl StandInBody {
+    /// One step at `now_us`, with the gesture read in it: whether it was
+    /// taken, and whether a clip began.
+    fn step(&mut self, now_us: u64, gesture: Option<&str>) -> (Option<bool>, bool) {
+        let taken = gesture.map(|name| {
+            let free = self.playing.is_none() && self.waiting.is_none();
+            if free {
+                self.waiting = Some((now_us + self.late_us, clip_us(name).unwrap()));
+            }
+            free
+        });
+        let mut began = false;
+        if let Some((due, length)) = self.waiting
+            && now_us >= due
+        {
+            self.waiting = None;
+            self.playing = Some((now_us, length));
+            began = true;
+        }
+        if let Some((since, length)) = self.playing
+            && now_us - since >= length
+        {
+            self.playing = None;
+        }
+        (taken, began)
+    }
+
+    /// Steps every `BODY_STEP_US` on `mood`, as the body does, until the
+    /// socket is gone, each gesture beginning `late` after it is taken:
+    /// each clip begun, and when, on `played`; each gesture dropped on
+    /// `dropped`. Says `body/joint_states` on `bus` every 100 ms, its
+    /// `commanded` off the rest pose while a clip plays.
+    fn run(
+        mood: UnixDatagram,
+        bus: &Bus,
+        late: Duration,
+        played: mpsc::Sender<(Instant, String)>,
+        dropped: mpsc::Sender<(Instant, String)>,
+    ) {
+        mood.set_nonblocking(true).unwrap();
+        let mut joints = bus
+            .publisher_declared(JointState::TOPIC, &JointState::declaration(), "body")
+            .unwrap();
+        std::thread::spawn(move || {
+            let mut body = Self {
+                late_us: u64::try_from(late.as_micros()).unwrap(),
+                ..Self::default()
+            };
+            let began = Instant::now();
+            let mut next = began;
+            let mut buffer = [0u8; 512];
+            let mut steps = 0u64;
+            let mut asked_text = String::new();
+            loop {
+                let mut asked = None;
+                loop {
+                    match mood.recv(&mut buffer) {
+                        Ok(length) => {
+                            asked = Some(String::from_utf8_lossy(&buffer[..length]).into_owned());
+                        }
+                        Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => break,
+                        Err(_) => return,
+                    }
+                }
+                let now = Instant::now();
+                let name = asked.as_deref().map(|text| {
+                    serde_json::from_str::<serde_json::Value>(text).unwrap()["gesture"]
+                        .as_str()
+                        .unwrap()
+                        .to_owned()
+                });
+                let now_us = u64::try_from((now - began).as_micros()).unwrap();
+                let (taken, begun) = body.step(now_us, name.as_deref());
+                match (taken, asked) {
+                    (Some(true), Some(text)) => asked_text = text,
+                    (Some(false), Some(text)) => {
+                        let _ = dropped.send((now, text));
+                    }
+                    _ => {}
+                }
+                if begun && played.send((now, asked_text.clone())).is_err() {
+                    return;
+                }
+                if steps.is_multiple_of(5) {
+                    let off = if body.playing.is_some() { 0.1 } else { 0.0 };
+                    let state = JointState {
+                        name: ["base_yaw", "shoulder", "elbow", "head_roll", "head_pitch"]
+                            .map(str::to_owned)
+                            .to_vec(),
+                        position: vec![off; 5],
+                        velocity: Vec::new(),
+                        effort: Vec::new(),
+                        commanded: vec![off; 5],
+                    };
+                    let _ = joints.publish_json(now_us, &state);
+                }
+                steps += 1;
+                next += Duration::from_micros(BODY_STEP_US);
+                std::thread::sleep(next.saturating_duration_since(Instant::now()));
+            }
+        });
+    }
+}
+
+#[test]
+fn the_body_drops_a_clip_sent_at_the_first_ones_length_and_takes_one_sent_a_few_steps_later() {
+    // A long dance sends a second clip after the first (#999). In time of
+    // the body's own steps, at every phase of them against the sends.
+    for name in [
+        "nod",
+        "dance_chill",
+        "dance_waltz",
+        "dance_groove",
+        "dance_hype",
+        "dance_jazz",
+    ] {
+        let length = clip_us(name).unwrap();
+        for phase_us in (0..BODY_STEP_US).step_by(1_000) {
+            let taken = |second_us: u64| -> Vec<bool> {
+                let mut body = StandInBody::default();
+                let sends = [0, second_us];
+                let mut sent = 0;
+                let mut taken = Vec::new();
+                let mut now_us = phase_us;
+                while now_us < 3 * length {
+                    let mut asked = None;
+                    while sent < sends.len() && sends[sent] <= now_us {
+                        asked = Some(name);
+                        sent += 1;
+                    }
+                    taken.extend(body.step(now_us, asked).0);
+                    now_us += BODY_STEP_US;
+                }
+                taken
+            };
+            // The clip's length after the first, as it was sent before: dropped.
+            assert_eq!(taken(length), [true, false], "{name} at {phase_us}");
+            // Sooner, while it plays: dropped too.
+            assert_eq!(taken(length - BODY_STEP_US), [true, false]);
+            // The program's: taken.
+            assert_eq!(
+                taken(length + CLIP_GAP_US),
+                [true, true],
+                "{name} at {phase_us}"
+            );
+        }
+    }
+}
+
+/// How the model's line ends in [`the_dance`].
+#[derive(Clone, Copy, PartialEq)]
+enum Line {
+    /// Spoken from 200 to 700 ms after the call, then `resting`.
+    Said,
+    /// Spoken for 30 ms, then thinking for 1.5 s while it plays, then
+    /// `resting`.
+    Thinking,
+    /// Spoken from 200 to 700 ms, and cut: the person spoke over it, so
+    /// the voice listens.
+    Cut,
+}
+
+/// What the program did with one call of `nods` with `long`, against a
+/// stand-in body that drops a gesture sent while one plays and begins each
+/// `late` after it takes it: with `push`, a hand pushes the body 1 s into
+/// the first nod. When the voice stopped, each gesture the body began and
+/// when, the actions part's calls, and the run's done event. No gesture is
+/// dropped.
+fn the_dance(
+    push: bool,
+    ending: Line,
+) -> (Instant, Vec<(Instant, String)>, Vec<String>, SkillEvent) {
+    the_dance_late(push, ending, Duration::ZERO)
+}
+
+fn the_dance_late(
+    push: bool,
+    ending: Line,
+    late: Duration,
+) -> (Instant, Vec<(Instant, String)>, Vec<String>, SkillEvent) {
+    // Short: a socket's whole path has to fit in 103 bytes.
+    let dir = tempfile::Builder::new()
+        .prefix("dn")
+        .tempdir_in("/tmp")
+        .unwrap();
+    let root = dir.path();
+    fs::create_dir(root.join("skills")).unwrap();
+    skill_with(&root.join("skills"), "nods", NODS);
+    let bus = Bus::new(root.join("bus")).unwrap();
+    let mut events = bus.subscribe(SkillEvent::TOPIC, "test").unwrap();
+    let actions = UnixListener::bind(root.join("actions.sock")).unwrap();
+    let (called, lights) = mpsc::channel();
+    let ring = bus.clone();
+    std::thread::spawn(move || {
+        let mut shown = ring
+            .publisher_declared("light/state", &Light::declaration(), "ring")
+            .unwrap();
+        let mut light = Light::new(true, "blue", 3).unwrap();
+        for stream in actions.incoming().flatten() {
+            let mut line = String::new();
+            BufReader::new(&stream).read_line(&mut line).unwrap();
+            let call: serde_json::Value = serde_json::from_str(&line).unwrap();
+            if call["name"] == "light_colour" {
+                light.colour = call["args"]["colour"].as_str().unwrap().into();
+            }
+            shown.publish_json(1, &light).unwrap();
+            (&stream)
+                .write_all(b"{\"ok\":true,\"result\":{}}\n")
+                .unwrap();
+            let _ = called.send(line);
+        }
+    });
+    let mood = UnixDatagram::bind(root.join("mood.sock")).unwrap();
+    let (moved, gestures) = mpsc::channel();
+    let (lost, dropped) = mpsc::channel();
+    StandInBody::run(mood, &bus, late, moved, lost);
+    let tools = root.join("tools");
+    let _running = Running(
+        Command::new(env!("CARGO_BIN_EXE_lamp-skills"))
+            .args([
+                "--dir".as_ref(),
+                root.join("skills").as_os_str(),
+                "--bus-root".as_ref(),
+                root.join("bus").as_os_str(),
+                "--actions-socket".as_ref(),
+                root.join("actions.sock").as_os_str(),
+                "--mood-socket".as_ref(),
+                root.join("mood.sock").as_os_str(),
+                "--tools-dir".as_ref(),
+                tools.as_os_str(),
+            ])
+            .spawn()
+            .unwrap(),
+    );
+    let deadline = Instant::now() + Duration::from_secs(20);
+    while !tools.join("tools.json").exists() {
+        assert!(Instant::now() < deadline, "no tools file");
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    let mut voice = bus
+        .publisher_declared(VoiceState::TOPIC, &VoiceState::declaration(), "voice")
+        .unwrap();
+    let mut hand = bus
+        .publisher_declared(Hand::TOPIC, &Hand::declaration(), "body")
+        .unwrap();
+    hand.publish_json(1, &serde_json::json!({"pushed": false, "since_us": 0}))
+        .unwrap();
+    voice
+        .publish_json(1, &serde_json::json!({"state": "thinking"}))
+        .unwrap();
+    bus.publisher_declared("light/state", &Light::declaration(), "ring")
+        .unwrap()
+        .publish_json(1, &Light::new(true, "blue", 3).unwrap())
+        .unwrap();
+    let stream = std::os::unix::net::UnixStream::connect(tools.join("call.sock")).unwrap();
+    writeln!(
+        &stream,
+        r#"{{"op":"call","name":"nods","args":{{"long":true}}}}"#
+    )
+    .unwrap();
+    let mut line = String::new();
+    BufReader::new(&stream).read_line(&mut line).unwrap();
+    assert!(line.contains("Say you will."), "{line}");
+    std::thread::sleep(Duration::from_millis(200));
+    voice
+        .publish_json(1, &serde_json::json!({"state": "speaking"}))
+        .unwrap();
+    if ending == Line::Thinking {
+        // As lamp-06c1 did on 2026-10-16: speaking for a moment, then
+        // thinking while the line still plays.
+        std::thread::sleep(Duration::from_millis(30));
+        voice
+            .publish_json(1, &serde_json::json!({"state": "thinking"}))
+            .unwrap();
+        std::thread::sleep(Duration::from_millis(1_500));
+    } else {
+        std::thread::sleep(Duration::from_millis(500));
+    }
+    // Nothing moves or lights while the lamp speaks its line.
+    assert!(gestures.try_recv().is_err());
+    assert!(lights.try_recv().is_err());
+    // A line said to its end leaves the voice resting (lamp-06c1's asks 8,
+    // 14 and 16); one spoken over, listening.
+    let after = if ending == Line::Cut {
+        "listening"
+    } else {
+        "resting"
+    };
+    voice
+        .publish_json(1, &serde_json::json!({ "state": after }))
+        .unwrap();
+    let stopped = Instant::now();
+    if push {
+        std::thread::sleep(Duration::from_millis(1_000));
+        hand.publish_json(1, &serde_json::json!({"pushed": true, "since_us": 5}))
+            .unwrap();
+    }
+    let done = loop {
+        assert!(Instant::now() < deadline, "the run never ended");
+        if let Some(message) = events.recv(Duration::from_millis(100)).unwrap() {
+            let event: SkillEvent = message.parse().unwrap();
+            if event.stage == SkillStage::Done {
+                break event;
+            }
+        }
+    };
+    // The body steps on a little after the run: a gesture it dropped is
+    // seen.
+    std::thread::sleep(Duration::from_millis(3 * BODY_STEP_US / 1_000));
+    let dropped: Vec<_> = dropped.try_iter().collect();
+    assert!(dropped.is_empty(), "dropped {dropped:?}; {}", done.why);
+    (
+        stopped,
+        gestures.try_iter().collect(),
+        lights.try_iter().collect(),
+        done,
+    )
+}
+
+#[test]
+fn a_dance_waits_for_the_line_plays_twice_and_gives_the_light_back_at_its_end() {
+    let (stopped, gestures, lights, done) = the_dance(false, Line::Said);
+    let nod = Duration::from_micros(clip_us("nod").unwrap());
+    // Both taken by a body that drops a gesture sent while one plays.
+    assert_eq!(gestures.len(), 2, "{gestures:?}; {}", done.why);
+    assert!(
+        gestures
+            .iter()
+            .all(|(_, text)| text == r#"{"gesture":"nod"}"#)
+    );
+    // The first within 300 ms of the line's end (#999's target); the second
+    // when the first has played and the body can take it.
+    let first = gestures[0].0 - stopped;
+    assert!(first < Duration::from_millis(300), "{first:?}");
+    let between = gestures[1].0 - gestures[0].0;
+    let gap = Duration::from_micros(CLIP_GAP_US);
+    assert!(
+        between > nod && between < nod + gap + Duration::from_millis(300),
+        "{between:?}"
+    );
+    assert!(lights[0].contains("warm"), "{lights:?}");
+    assert!(lights.last().unwrap().contains("blue"), "{lights:?}");
+    assert!(
+        done.why.contains("light given back to on blue at 3"),
+        "{}",
+        done.why
+    );
+}
+
+#[test]
+fn a_clip_the_body_begins_late_is_followed_from_when_it_began() {
+    // A lamp still rising at the line's end begins the first clip 1 s after
+    // it was sent (the reviewer, 01:56). Timed from the send, the second
+    // would come while the first plays and be dropped (`the_dance_late`
+    // fails on a drop); timed from `body/joint_states`, both play.
+    let late = Duration::from_secs(1);
+    let (stopped, gestures, _, done) = the_dance_late(false, Line::Said, late);
+    let nod = Duration::from_micros(clip_us("nod").unwrap());
+    assert_eq!(gestures.len(), 2, "{gestures:?}; {}", done.why);
+    let first = gestures[0].0 - stopped;
+    assert!(
+        first >= late && first < late + Duration::from_millis(300),
+        "{first:?}"
+    );
+    let between = gestures[1].0 - gestures[0].0;
+    assert!(
+        between > nod && between < nod + late + Duration::from_millis(500),
+        "{between:?}; {}",
+        done.why
+    );
+}
+
+#[test]
+fn a_hand_on_the_body_ends_the_dance_and_the_clip_is_not_sent_again() {
+    let (_, gestures, lights, done) = the_dance(true, Line::Said);
+    assert_eq!(gestures.len(), 1, "{gestures:?}; {}", done.why);
+    assert!(
+        done.why
+            .contains("gesture nod: not sent, the body was pushed"),
+        "{}",
+        done.why
+    );
+    assert!(lights.last().unwrap().contains("blue"), "{lights:?}");
+}
+
+#[test]
+fn thinking_after_a_moment_of_speaking_is_still_the_line() {
+    // Nothing moves in the 1.5 s of thinking (checked in `the_dance`); the
+    // clip comes when the turn ends.
+    let (stopped, gestures, _, done) = the_dance(false, Line::Thinking);
+    let first = gestures[0].0 - stopped;
+    assert!(
+        first < Duration::from_millis(300),
+        "{first:?}; {}",
+        done.why
+    );
+}
+
+#[test]
+fn a_line_the_person_spoke_over_is_not_followed_by_the_dance() {
+    // The voice went from speaking to listening: the lamp stops and
+    // listens. No clip, no glow, and so no light to give back.
+    let (_, gestures, lights, done) = the_dance(false, Line::Cut);
+    assert!(gestures.is_empty(), "{gestures:?}; {}", done.why);
+    assert!(lights.is_empty(), "{lights:?}; {}", done.why);
+    assert!(
+        done.why.contains(
+            "the line was cut (the voice went from speaking to listening): nothing after it is made"
+        ),
+        "{}",
+        done.why
+    );
+}
+
+/// Dance's `[again]` (#999), on a tool with a short clip.
+const AGAIN: &str = r#"
+tool = "jig"
+[again]
+within = "45s"
+if_heard = ["Dance", "again", "one more"]
+told = "You just danced."
+[[do]]
+body = { gesture = "acknowledge" }
+"#;
+
+/// The same tool without `[again]`.
+const NO_AGAIN: &str = r#"
+tool = "jig"
+[[do]]
+body = { gesture = "acknowledge" }
+"#;
+
+#[test]
+fn the_loader_refuses_an_again_it_cannot_use() {
+    let dir = tempfile::tempdir().unwrap();
+    for (from, to, why) in [
+        (
+            "tool = \"jig\"",
+            "[trigger]\ntopic = \"humans/faces/tracked\"\n[ask]\npolicy = \"x\"",
+            "a skill with one",
+        ),
+        ("within = \"45s\"", "within = \"soon\"", "not a duration"),
+        (
+            "if_heard = [\"Dance\", \"again\", \"one more\"]",
+            "if_heard = []",
+            "at least one word",
+        ),
+        ("\"one more\"", "\" \"", "none of them empty"),
+        ("told = \"You just danced.\"", "told = \"\"", "told is"),
+        ("told = ", "said = ", "unknown field"),
+    ] {
+        assert!(AGAIN.contains(from), "{from}");
+        let error = load(&skill_with(
+            &dir.path().join(why.replace([' ', '"', '\''], "_")),
+            "jig",
+            &AGAIN.replace(from, to),
+        ))
+        .unwrap_err();
+        assert!(error.contains(why), "{to}: {error}");
+    }
+    // Without told, a general one.
+    let skill = load(&skill_with(
+        &dir.path().join("plain"),
+        "jig",
+        &AGAIN.replace("told = \"You just danced.\"\n", ""),
+    ))
+    .unwrap();
+    let mut engine = Engine::new(vec![skill], false);
+    assert!(engine.tool("jig", &serde_json::Value::Null, 0).is_ok());
+    let why = engine.tool("jig", &serde_json::Value::Null, 1).unwrap_err();
+    assert!(why.contains("you just did this"), "{why}");
+    // Dance's own: 45 s.
+    let dance = load(&skills_root().join("dance")).unwrap();
+    let mut engine = Engine::new(vec![dance], false);
+    assert_eq!(engine.topics(), ["voice/heard"]);
+    let mut dance = |at_us: u64| engine.tool("dance", &serde_json::Value::Null, at_us);
+    assert!(dance(0).is_ok());
+    let why = dance(28_000_000).unwrap_err();
+    assert!(why.starts_with("You just danced."), "{why}");
+    assert!(dance(44_999_999).is_err());
+    assert!(dance(45_000_000).is_ok());
+    // Its entries are whole words: "guidance" asks for nothing, "dancing"
+    // does (Seventh, #1012).
+    let heard = |text: &str| serde_json::json!({"text": text, "finished": true}).to_string();
+    let null = serde_json::Value::Null;
+    engine.observe(
+        "voice/heard",
+        46_000_000,
+        heard("Can you give me some guidance?").as_bytes(),
+        None,
+    );
+    assert!(engine.tool("dance", &null, 47_000_000).is_err());
+    engine.observe(
+        "voice/heard",
+        48_000_000,
+        heard("I'm against that.").as_bytes(),
+        None,
+    );
+    assert!(engine.tool("dance", &null, 49_000_000).is_err());
+    engine.observe(
+        "voice/heard",
+        50_000_000,
+        heard("Keep dancing!").as_bytes(),
+        None,
+    );
+    assert!(engine.tool("dance", &null, 51_000_000).is_ok());
+    // What counts began after the last run began (the reviewer, 01:56):
+    // the ask's own words, finished after its call, unlock nothing.
+    let piece = |text: &str, finished: bool| {
+        serde_json::json!({"text": text, "finished": finished}).to_string()
+    };
+    const S: u64 = 1_000_000;
+    let hear = |engine: &mut Engine, at_us: u64, text: &str, finished: bool| {
+        engine.observe("voice/heard", at_us, piece(text, finished).as_bytes(), None);
+    };
+    // After the while: "Lamp, dance", the call, " for me." 300 ms on, and a
+    // call 15 s on with nothing new heard: refused.
+    hear(&mut engine, 100 * S, "Lamp, dance", false);
+    assert!(engine.tool("dance", &null, 100 * S + 100_000).is_ok());
+    hear(&mut engine, 100 * S + 400_000, " for me.", true);
+    assert!(engine.tool("dance", &null, 115 * S + 100_000).is_err());
+    // "Lamp, show me a dance", never finished, the call, then "¿Qué?" 15 s
+    // later, joined to it: refused.
+    hear(&mut engine, 200 * S, "Lamp, show me a", false);
+    hear(&mut engine, 200 * S + 300_000, " dance", false);
+    assert!(engine.tool("dance", &null, 200 * S + 500_000).is_ok());
+    hear(&mut engine, 215 * S, " ¿Qué?", true);
+    assert!(engine.tool("dance", &null, 216 * S).is_err());
+    // A fresh "dance again" after the run: it runs.
+    hear(&mut engine, 220 * S, "Dance again", false);
+    hear(&mut engine, 220 * S + 300_000, "!", true);
+    assert!(engine.tool("dance", &null, 221 * S).is_ok());
+}
+
+#[test]
+fn within_its_while_a_tool_runs_again_only_when_what_was_heard_asks_for_it() {
+    let dir = tempfile::tempdir().unwrap();
+    let skill = load(&skill_with(dir.path(), "jig", AGAIN)).unwrap();
+    let mut engine = Engine::new(vec![skill], false);
+    assert_eq!(engine.topics(), ["voice/heard"]);
+    const S: u64 = 1_000_000;
+    let call = |engine: &mut Engine, at_us: u64| {
+        engine
+            .tool("jig", &serde_json::Value::Null, at_us)
+            .map(|run| run.calls)
+    };
+    let hear = |engine: &mut Engine, at_us: u64, text: &str, finished: bool| {
+        let speech = serde_json::json!({"text": text, "finished": finished});
+        assert!(
+            engine
+                .observe("voice/heard", at_us, speech.to_string().as_bytes(), None)
+                .is_empty()
+        );
+    };
+    // Heard before the first run: it counts for none after it.
+    hear(&mut engine, S, "dance", true);
+    assert_eq!(
+        call(&mut engine, 2 * S).unwrap(),
+        [Call::Gesture("acknowledge".into())]
+    );
+    // Nothing heard since: refused, with the model's words.
+    assert_eq!(call(&mut engine, 3 * S).unwrap_err(), "You just danced.");
+    // A noise heard as a question: refused.
+    hear(&mut engine, 20 * S, "¿Qué?", true);
+    assert_eq!(call(&mut engine, 30 * S).unwrap_err(), "You just danced.");
+    // Words still coming count, in any case.
+    hear(&mut engine, 31 * S, "DANCE AGA", false);
+    assert!(call(&mut engine, 32 * S).is_ok());
+    // That ran: the while begins again from it, and what was heard before
+    // it no longer counts, nor does its end, heard after it: it began
+    // before the run.
+    assert!(call(&mut engine, 33 * S).is_err());
+    hear(&mut engine, 34 * S, "IN!", true);
+    assert!(call(&mut engine, 35 * S).is_err());
+    hear(&mut engine, 40 * S, "One more!", true);
+    assert!(call(&mut engine, 41 * S).is_ok());
+    // The newest heard is what counts: "again", then a noise.
+    hear(&mut engine, 42 * S, "again", true);
+    hear(&mut engine, 43 * S, "hm", false);
+    assert!(call(&mut engine, 44 * S).is_err());
+    // After the while, anything: 45 s from when the last run began.
+    assert!(call(&mut engine, 86 * S - 1).is_err());
+    assert!(call(&mut engine, 86 * S).is_ok());
+    // After the while, a run. Then a request heard in pieces, joined as
+    // the voice joins them: "Lamp, do it again," and then " please.", the
+    // last piece finishing it.
+    assert!(call(&mut engine, 200 * S).is_ok());
+    hear(&mut engine, 201 * S, "Lamp, do it again,", false);
+    hear(&mut engine, 201 * S + 300_000, " please.", true);
+    assert!(call(&mut engine, 202 * S).is_ok());
+    // "one" and then " more": the phrase across two pieces.
+    hear(&mut engine, 203 * S, "Can I have one", false);
+    hear(&mut engine, 203 * S + 400_000, " more?", true);
+    assert!(call(&mut engine, 204 * S).is_ok());
+    // A piece after a finished one begins another: "again" said, then a
+    // noise, is the noise.
+    hear(&mut engine, 205 * S, "again", true);
+    hear(&mut engine, 206 * S, "¿Qué?", true);
+    assert!(call(&mut engine, 207 * S).is_err());
+    // A piece left unfinished for more than 20 s is not joined to the next.
+    hear(&mut engine, 208 * S, "Do it again", false);
+    assert!(call(&mut engine, 210 * S).is_ok());
+    hear(&mut engine, 211 * S, "one", false);
+    hear(&mut engine, 232 * S, " more", true);
+    assert!(call(&mut engine, 233 * S).is_err());
+    // Whole words: "dance" is not in "guidance", nor "again" in "against".
+    hear(&mut engine, 234 * S, "Can you give me some guidance?", true);
+    assert!(call(&mut engine, 235 * S).is_err());
+    hear(&mut engine, 236 * S, "I'm against that.", true);
+    assert!(call(&mut engine, 237 * S).is_err());
+    hear(&mut engine, 238 * S, "Dance, again!", true);
+    assert!(call(&mut engine, 239 * S).is_ok());
+    // A tool without [again] does not listen to what was heard.
+    let plain = load(&skill_with(&dir.path().join("plain"), "jig", NO_AGAIN)).unwrap();
+    let mut engine = Engine::new(vec![plain], false);
+    assert!(engine.topics().is_empty());
+    assert!(call(&mut engine, 0).is_ok());
+    assert!(call(&mut engine, 1).is_ok());
+}
+
+/// `[again]` in the program, with a while short enough to wait out.
+const AGAIN_SHORT: &str = r#"
+tool = "jig"
+still = "I'm still dancing."
+[again]
+within = "6s"
+if_heard = ["dance", "again", "one more"]
+told = "You just danced."
+[[do]]
+body = { gesture = "acknowledge" }
+"#;
+
+#[test]
+fn the_program_dances_again_on_dance_again_but_not_on_a_noise() {
+    // Short: a socket's whole path has to fit in 103 bytes.
+    let dir = tempfile::Builder::new()
+        .prefix("ag")
+        .tempdir_in("/tmp")
+        .unwrap();
+    let root = dir.path();
+    fs::create_dir(root.join("skills")).unwrap();
+    skill_with(&root.join("skills"), "jig", AGAIN_SHORT);
+    let bus = Bus::new(root.join("bus")).unwrap();
+    let mut events = bus.subscribe(SkillEvent::TOPIC, "test").unwrap();
+    let mood = UnixDatagram::bind(root.join("mood.sock")).unwrap();
+    let (moved, gestures) = mpsc::channel();
+    std::thread::spawn(move || {
+        let mut buffer = [0u8; 512];
+        while let Ok(length) = mood.recv(&mut buffer) {
+            let _ = moved.send(String::from_utf8_lossy(&buffer[..length]).into_owned());
+        }
+    });
+    let tools = root.join("tools");
+    let _running = Running(
+        Command::new(env!("CARGO_BIN_EXE_lamp-skills"))
+            .args([
+                "--dir".as_ref(),
+                root.join("skills").as_os_str(),
+                "--bus-root".as_ref(),
+                root.join("bus").as_os_str(),
+                "--mood-socket".as_ref(),
+                root.join("mood.sock").as_os_str(),
+                "--tools-dir".as_ref(),
+                tools.as_os_str(),
+            ])
+            .spawn()
+            .unwrap(),
+    );
+    let deadline = Instant::now() + Duration::from_secs(30);
+    while !tools.join("tools.json").exists()
+        || bus.subscribers(Speech::TOPICS[0]).unwrap().is_empty()
+    {
+        assert!(Instant::now() < deadline, "not loaded");
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    let mut heard = bus
+        .publisher_declared(Speech::TOPICS[0], &Speech::declaration(), "voice")
+        .unwrap();
+    let mut hear = |text: &str, finished: bool| {
+        heard
+            .publish_json(1, &serde_json::json!({"text": text, "finished": finished}))
+            .unwrap();
+    };
+    let call = || {
+        let stream = std::os::unix::net::UnixStream::connect(tools.join("call.sock")).unwrap();
+        writeln!(&stream, r#"{{"op":"call","name":"jig","args":{{}}}}"#).unwrap();
+        let mut line = String::new();
+        BufReader::new(&stream).read_line(&mut line).unwrap();
+        serde_json::from_str::<serde_json::Value>(&line).unwrap()
+    };
+    let gesture = || gestures.recv_timeout(Duration::from_secs(5)).unwrap();
+    let mut done = || {
+        loop {
+            assert!(Instant::now() < deadline, "the run never ended");
+            if let Some(message) = events.recv(Duration::from_millis(100)).unwrap()
+                && message.parse::<SkillEvent>().unwrap().stage == SkillStage::Done
+            {
+                break;
+            }
+        }
+    };
+    // The dance.
+    let answer = call();
+    assert_eq!(answer["ok"], true, "{answer}");
+    assert_eq!(gesture(), r#"{"gesture":"acknowledge"}"#);
+    done();
+    // A noise heard as "¿Qué?", and the model calls again: refused with the
+    // model's words, and nothing moves.
+    hear("¿Qué?", true);
+    let answer = call();
+    assert_eq!(answer["ok"], false, "{answer}");
+    assert_eq!(answer["error"], "You just danced.");
+    assert!(gestures.recv_timeout(Duration::from_millis(300)).is_err());
+    // "Dance again!", still coming: it dances.
+    hear("Dance again!", false);
+    let again = Instant::now();
+    let answer = call();
+    assert_eq!(answer["ok"], true, "{answer}");
+    assert_eq!(gesture(), r#"{"gesture":"acknowledge"}"#);
+    // "One more!" 1 s into it, while it plays: refused with the model's
+    // words, nothing more moves, and it is no run.
+    let clip = Duration::from_micros(clip_us("acknowledge").unwrap());
+    assert!(clip > Duration::from_millis(1_500), "{clip:?}");
+    std::thread::sleep((again + Duration::from_secs(1)).saturating_duration_since(Instant::now()));
+    hear("One more!", true);
+    let answer = call();
+    assert_eq!(answer["ok"], false, "{answer}");
+    assert_eq!(answer["error"], "I'm still dancing.");
+    done();
+    assert!(gestures.recv_timeout(Duration::from_millis(300)).is_err());
+    // A noise after it: the while is still the dance's, from `again`, not
+    // from the call refused 1 s later.
+    hear("¿Qué?", true);
+    // After the while, with only the noise heard since: it dances.
+    std::thread::sleep(
+        (again + Duration::from_millis(6_300)).saturating_duration_since(Instant::now()),
+    );
+    let answer = call();
+    assert_eq!(answer["ok"], true, "{answer}");
+    assert_eq!(gesture(), r#"{"gesture":"acknowledge"}"#);
 }

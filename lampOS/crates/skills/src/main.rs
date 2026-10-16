@@ -3,9 +3,15 @@
 //! triggers name, and runs their steps through the body's sockets, the
 //! actions part and the voice's say service.
 use lamp_bus::{Bus, Declaration, Kind, Publisher, Subscriber};
-use lamp_msgs::{Decision, Light, LightRequest, SkillEvent, SkillStage};
+use lamp_msgs::{
+    Decision, Hand, JointState, Light, LightRequest, Pause, SkillEvent, SkillStage, Speech, Voice,
+    VoiceState,
+};
 use lamp_skills::glow::{GLOW_EVERY, Glow, Glows, REQUESTS_ENVIRONMENT};
-use lamp_skills::{Admission, Call, Engine, duration_us, load_all, run_tests, told, tools_file};
+use lamp_skills::{
+    Admission, CLIP_GAP_US, Call, Engine, clip_us, duration_us, load_all, run_tests, told,
+    tools_file,
+};
 use serde_json::json;
 use std::{
     collections::{HashMap, HashSet},
@@ -41,6 +47,15 @@ const MOOD_EVERY: Duration = Duration::from_secs(1);
 /// How long an ask waits for the Policy: its own 2 s from the receipt
 /// (#958), and a little for the bus each way.
 const ASK_WAIT: Duration = Duration::from_millis(2_500);
+/// The longest a tool's run waits for the voice to begin the model's line,
+/// for steps after the say.
+const SPEAK_BEGIN: Duration = Duration::from_secs(5);
+/// The longest a tool's line is waited for once the voice has stopped
+/// speaking but not ended its turn (`thinking`).
+const LINE_LONGEST: Duration = Duration::from_secs(4);
+/// How often the voice's state, the hand and the pause are read while a run
+/// waits on them.
+const POLL: Duration = Duration::from_millis(20);
 
 #[derive(Clone)]
 struct Sockets {
@@ -170,17 +185,30 @@ fn publish(out: &mut Publisher, mut event: SkillEvent) {
     }
 }
 
-/// The light shown now, if the ring's owner has said.
 /// The light shown now, if the ring's owner has said within 3 s (as the
 /// actions part counts it).
 fn light_now(bus: &Bus) -> Option<Light> {
-    let message = bus.latest(Light::TOPICS[1]).ok()??;
+    said_lately(bus, Light::TOPICS[1])
+}
+
+/// The newest value of `topic`, if it was said within 3 s.
+fn said_lately<T: serde::de::DeserializeOwned>(bus: &Bus, topic: &str) -> Option<T> {
+    let message = bus.latest(topic).ok()??;
     let now_ms = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
         .map_or(0, |since| since.as_millis() as u64);
     (now_ms.saturating_sub(message.header.at_unix_ms) <= 3_000)
         .then(|| message.parse().ok())
         .flatten()
+}
+
+/// The newest message on `topic`, if it was said within the last second.
+fn said_lately_message(bus: &Bus, topic: &str) -> Option<lamp_bus::Message> {
+    let message = bus.latest(topic).ok()??;
+    let now_ms = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .map_or(0, |since| since.as_millis() as u64);
+    (now_ms.saturating_sub(message.header.at_unix_ms) <= 1_000).then_some(message)
 }
 
 /// How the program serves, beyond its sockets.
@@ -256,8 +284,11 @@ fn serve(
         ));
     }
     // Runs waiting for the Policy's answer, by the ask's number.
-    let mut waiting: HashMap<u64, (lamp_skills::Run, Instant)> = HashMap::new();
-    let mut last_ask = 0;
+    let mut asking = Asking {
+        gate,
+        waiting: HashMap::new(),
+        last: 0,
+    };
     let runner = Runner {
         sockets: sockets.clone(),
         finished,
@@ -294,8 +325,15 @@ fn serve(
             busy.remove(&event.skill);
             publish(&mut out, event);
         }
-        if let Some((_, answers)) = &mut gate {
-            answer_asks(answers, &mut waiting, &engine, &mut busy, &mut out, &runner);
+        if let Some((_, answers)) = &mut asking.gate {
+            answer_asks(
+                answers,
+                &mut asking.waiting,
+                &engine,
+                &mut busy,
+                &mut out,
+                &runner,
+            );
         }
         if looked.is_none_or(|at| at.elapsed() >= RELOAD_EVERY) {
             looked = Some(Instant::now());
@@ -331,56 +369,114 @@ fn serve(
         }
         if subscribers.is_empty() {
             if let Ok(call) = asks.recv_timeout(Duration::from_millis(250)) {
-                tool_call(call, &engine, &mut busy, &mut out, &runner);
+                tool_call(call, &mut engine, &mut busy, &mut out, &runner);
             }
             continue;
         }
         let count = subscribers.len() as u64;
-        for subscriber in &mut subscribers {
+        for index in 0..subscribers.len() {
             while let Ok(call) = asks.try_recv() {
-                tool_call(call, &engine, &mut busy, &mut out, &runner);
+                // What was heard before the call, read first: `[again]`
+                // asks whether it asked for the call.
+                for subscriber in subscribers
+                    .iter_mut()
+                    .filter(|subscriber| subscriber.topic() == Speech::TOPICS[0])
+                {
+                    while let Some(message) = receive(subscriber, Duration::ZERO) {
+                        observe(
+                            &message,
+                            &mut engine,
+                            &mut busy,
+                            &mut out,
+                            &runner,
+                            &mut asking,
+                        );
+                    }
+                }
+                tool_call(call, &mut engine, &mut busy, &mut out, &runner);
             }
-            if let Some((_, answers)) = &mut gate {
-                answer_asks(answers, &mut waiting, &engine, &mut busy, &mut out, &runner);
+            if let Some((_, answers)) = &mut asking.gate {
+                answer_asks(
+                    answers,
+                    &mut asking.waiting,
+                    &engine,
+                    &mut busy,
+                    &mut out,
+                    &runner,
+                );
             }
             // While the Policy is asked, look for its answer every 5 ms.
-            let wait = if waiting.is_empty() {
+            let wait = if asking.waiting.is_empty() {
                 Duration::from_millis(250 / count).max(Duration::from_millis(10))
             } else {
                 Duration::from_millis(5)
             };
-            let message = match subscriber.recv(wait) {
-                Ok(Some(message)) => message,
-                Ok(None) => continue,
-                Err(error) => {
-                    eprintln!("lamp-skills: {} not received: {error}", subscriber.topic());
-                    continue;
-                }
-            };
-            let runs = engine.observe(
-                &message.header.topic,
-                lamp_ipc::monotonic_us(),
-                &message.payload,
-                message.header.expires_ms,
-            );
-            for mut run in runs {
-                for event in std::mem::take(&mut run.events) {
-                    publish(&mut out, event);
-                }
-                if let (Some(question), Some((asks, _))) = (run.ask.take(), &mut gate) {
-                    ask_policy_for(
-                        question,
-                        run,
-                        asks,
-                        &bus,
-                        &mut last_ask,
-                        &mut waiting,
-                        &mut out,
-                    );
-                } else if !run.calls.is_empty() {
-                    let _ = start(run.skill, run.calls, &mut busy, &mut out, &runner);
-                }
+            if let Some(message) = receive(&mut subscribers[index], wait) {
+                observe(
+                    &message,
+                    &mut engine,
+                    &mut busy,
+                    &mut out,
+                    &runner,
+                    &mut asking,
+                );
             }
+        }
+    }
+}
+
+/// The Policy's gate, when it is asked: where the asks go and its answers
+/// come from, the runs waiting for an answer by the ask's number, and the
+/// last ask's number.
+struct Asking {
+    gate: Option<(Publisher, Subscriber)>,
+    waiting: HashMap<u64, (lamp_skills::Run, Instant)>,
+    last: u64,
+}
+
+/// The next message of one subscriber, within `wait`.
+fn receive(subscriber: &mut Subscriber, wait: Duration) -> Option<lamp_bus::Message> {
+    match subscriber.recv(wait) {
+        Ok(message) => message,
+        Err(error) => {
+            eprintln!("lamp-skills: {} not received: {error}", subscriber.topic());
+            None
+        }
+    }
+}
+
+/// One message to the skills, and the runs it starts, or asks the Policy
+/// for.
+fn observe(
+    message: &lamp_bus::Message,
+    engine: &mut Engine,
+    busy: &mut HashSet<String>,
+    out: &mut Publisher,
+    runner: &Runner,
+    asking: &mut Asking,
+) {
+    let runs = engine.observe(
+        &message.header.topic,
+        lamp_ipc::monotonic_us(),
+        &message.payload,
+        message.header.expires_ms,
+    );
+    for mut run in runs {
+        for event in std::mem::take(&mut run.events) {
+            publish(out, event);
+        }
+        if let (Some(question), Some((asks, _))) = (run.ask.take(), &mut asking.gate) {
+            ask_policy_for(
+                question,
+                run,
+                asks,
+                &runner.bus,
+                &mut asking.last,
+                &mut asking.waiting,
+                out,
+            );
+        } else if !run.calls.is_empty() {
+            let _ = start(run.skill, run.calls, busy, out, runner);
         }
     }
 }
@@ -558,16 +654,22 @@ fn answer_asks(
     }
 }
 
-/// A call of a skill's tool from the voice, and where its answer goes.
-type ToolAsk = (String, mpsc::Sender<serde_json::Value>, Admission);
+/// A call of a skill's tool from the voice, its arguments, and where its
+/// answer goes.
+type ToolAsk = (
+    String,
+    serde_json::Value,
+    mpsc::Sender<serde_json::Value>,
+    Admission,
+);
 
 /// The model called a skill's tool: its steps run, and the voice is told
 /// what the model is to say: at once, or, with a look, once the body and
 /// the light are made (#1146). The say is the model's and the look the
 /// voice's, asked in the answer; the body and the light are made here.
 fn tool_call(
-    (name, reply, admission): ToolAsk,
-    engine: &Engine,
+    (name, args, reply, admission): ToolAsk,
+    engine: &mut Engine,
     busy: &mut HashSet<String>,
     out: &mut Publisher,
     runner: &Runner,
@@ -577,9 +679,21 @@ fn tool_call(
             let _ = reply.send(json!({ "error": why }));
         }
     };
-    let run = match engine.tool(&name, lamp_ipc::monotonic_us()) {
+    // A run with no pose to hold, under way: refused before it is a run,
+    // so nothing moves, the line is not said again, and `[again]`'s while
+    // still runs from the run under way (#999: "again!" mid-dance).
+    if let Some((skill, still)) = engine.refused_under_way(&name)
+        && busy.contains(skill)
+    {
+        eprintln!("lamp-skills: {name} with {args} not run: its run is under way");
+        return refuse(still);
+    }
+    let run = match engine.tool(&name, &args, lamp_ipc::monotonic_us()) {
         Ok(run) => run,
-        Err(why) => return refuse(&why),
+        Err(why) => {
+            eprintln!("lamp-skills: {name} with {args} not run: {why}");
+            return refuse(&why);
+        }
     };
     let made: Vec<Call> = run
         .calls
@@ -587,12 +701,14 @@ fn tool_call(
         .filter(|call| !matches!(call, Call::Look | Call::Say(_) | Call::SayFrom(_)))
         .cloned()
         .collect();
+    // Nothing but the wait for the say is nothing to make.
+    let nothing = made.iter().all(|call| *call == Call::AfterSay);
     // A run under way is left as it is: a call again meanwhile is told
     // again what to do next (a student who asks a minute later gets a new
     // look), and nothing more is made; the light already on is given back
     // when its `for` ends. A call that is nothing but made steps has
     // nothing to tell, and is refused.
-    let under_way = !made.is_empty() && busy.contains(&run.skill);
+    let under_way = !nothing && busy.contains(&run.skill);
     if under_way && made.len() == run.calls.len() {
         return refuse("I'm still doing that.");
     }
@@ -619,7 +735,7 @@ fn tool_call(
             make(call, &runner.sockets, &runner.bus);
         }
     }
-    if made.is_empty() || under_way {
+    if nothing || under_way {
         publish(
             out,
             SkillEvent {
@@ -668,7 +784,8 @@ fn write_tools(dir: &Path, engine: &Engine) {
 }
 
 /// Listens on `dir/call.sock` as the actions part does: one line in
-/// (`{"op":"call","name":...}`), one line out, the main loop answering.
+/// (`{"op":"call","name":...,"args":{...}}`), one line out, the main loop
+/// answering.
 fn listen(dir: &Path, asks: mpsc::Sender<ToolAsk>) -> io::Result<()> {
     std::fs::create_dir_all(dir)?;
     let socket = dir.join("call.sock");
@@ -688,8 +805,13 @@ fn listen(dir: &Path, asks: mpsc::Sender<ToolAsk>) -> io::Result<()> {
                     .then(|| call["name"].as_str())
                     .flatten()
                     .filter(|name| {
-                        asks.send(((*name).to_owned(), reply, admission.clone()))
-                            .is_ok()
+                        asks.send((
+                            (*name).to_owned(),
+                            call["args"].clone(),
+                            reply,
+                            admission.clone(),
+                        ))
+                        .is_ok()
                     })
                     .and_then(|_| match told.recv_timeout(TOOL_TIMEOUT) {
                         Ok(result) => Some(result),
@@ -723,11 +845,56 @@ struct Changed {
     lasting_us: u64,
 }
 
+/// What the body was told in this run: until when its last clip plays, and
+/// why no more are sent, once the body was pushed or the lamp paused.
+#[derive(Default)]
+struct Played {
+    /// The run's last clip sent.
+    last: Option<Sent>,
+    stopped: Option<String>,
+}
+
+/// A clip sent to the body, for the next to wait on: when it was sent, how
+/// long the next waits from when it began (its length and `CLIP_GAP_US`),
+/// and the body's `commanded` pose and its message's number just before.
+struct Sent {
+    at: Instant,
+    rest: Duration,
+    pose: Option<(u64, Vec<f64>)>,
+}
+
+impl Sent {
+    /// When the next may be sent, the clip taken to begin as it was sent.
+    fn until(&self) -> Instant {
+        self.at + self.rest
+    }
+}
+
+/// How long after a clip is sent the body may begin it: a gesture asked of
+/// a lamp still rising waits up to 3 s for the rise (`crates/body/src/body.rs`,
+/// `GESTURE_WAIT`), and `body/joint_states` comes every 100 ms.
+const BEGIN_WITHIN: Duration = Duration::from_millis(3_200);
+/// How far a commanded joint moves before the clip is taken to have begun:
+/// about 3 of the servo's 4,096 steps a turn.
+const BEGIN_RAD: f64 = 0.005;
+
+/// The body's `commanded` pose now, and its message's number, if the body
+/// said it within the last second.
+fn commanded_now(bus: &Bus) -> Option<(u64, Vec<f64>)> {
+    let message = said_lately_message(bus, JointState::TOPIC)?;
+    let seq = message.header.seq;
+    let state = message.parse::<JointState>().ok()?;
+    (!state.commanded.is_empty()).then_some((seq, state.commanded))
+}
+
 /// Runs one skill's calls and says how each went. With a say, the others
 /// are made when the voice begins it, so the look and the light come with
-/// the words, and none if it is never begun. A light changed is given back
-/// when the say ends, or after its `for`. With `glows`, the light is asked
-/// of the ring instead, and given back the same way ([`Glow`]).
+/// the words, and none if it is never begun. Those after `Call::AfterSay`
+/// are made when the say ends: the skill's own, or in a tool's run, the
+/// line the model says. A light changed is given back when the say ends,
+/// after its `for`, or when the last clip ends, whichever is last. With
+/// `glows`, the light is asked of the ring instead, and given back the same
+/// way ([`Glow`]).
 fn perform(
     skill: &str,
     calls: &[Call],
@@ -749,13 +916,21 @@ fn perform(
                 .into(),
         );
     }
-    let others: Vec<&Call> = calls
-        .iter()
-        .filter(|call| {
-            !matches!(call, Call::Say(_) | Call::SayFrom(_) | Call::Sound { .. })
-                && (glow.is_some() || before.is_some() || !is_light(call))
-        })
-        .collect();
+    let (first, after) = match calls.iter().position(|call| *call == Call::AfterSay) {
+        Some(at) => (&calls[..at], &calls[at + 1..]),
+        None => (calls, &[][..]),
+    };
+    let keep = |calls: &[Call]| -> Vec<Call> {
+        calls
+            .iter()
+            .filter(|call| {
+                !matches!(call, Call::Say(_) | Call::SayFrom(_) | Call::Sound { .. })
+                    && (glow.is_some() || before.is_some() || !is_light(call))
+            })
+            .cloned()
+            .collect()
+    };
+    let (first, after) = (keep(first), keep(after));
     // What the voice is asked to say: a note in its own words, or words it
     // keeps itself (#939); or to play the skill's own sound (#938), which
     // it plays at once or refuses at once, with why.
@@ -769,43 +944,76 @@ fn perform(
         _ => None,
     });
     let mut changed = Changed::default();
-    let mut act = |said: &mut Vec<String>| {
-        for call in &others {
-            match call {
-                Call::Light { lasting, .. } => {
-                    changed.coloured = true;
-                    changed.lasting_us = changed.lasting_us.max(
-                        lasting
-                            .as_deref()
-                            .and_then(|text| duration_us(text).ok())
-                            .unwrap_or(0),
-                    );
-                }
-                Call::Dim { steps, .. } => changed.dimmed += steps,
-                // The run lasts while the pose is held.
-                Call::Mood { lasting_us, .. } => {
-                    changed.lasting_us = changed.lasting_us.max(*lasting_us);
-                }
-                _ => {}
-            }
-            said.push(match &mut glow {
-                Some(glow) if is_light(call) => glow.ask(call),
-                _ => make(call, sockets, bus),
-            });
-        }
-        let _ = made.send(());
-    };
+    let mut played = Played::default();
     match asking {
         Some((what, asking)) => {
             let mut begun = Vec::new();
-            let outcome = say(&sockets.say, what, skill, asking, || act(&mut begun));
+            let mut was_begun = false;
+            let outcome = say(&sockets.say, what, skill, asking, || {
+                was_begun = true;
+                act(
+                    &first,
+                    sockets,
+                    bus,
+                    &mut changed,
+                    &mut played,
+                    &mut glow,
+                    &mut begun,
+                );
+                let _ = made.send(());
+            });
             said.extend(begun);
             said.push(outcome);
+            // Nothing after a say never begun, as nothing with it.
+            if was_begun {
+                act(
+                    &after,
+                    sockets,
+                    bus,
+                    &mut changed,
+                    &mut played,
+                    &mut glow,
+                    &mut said,
+                );
+            }
         }
         None => {
-            act(&mut said);
+            act(
+                &first,
+                sockets,
+                bus,
+                &mut changed,
+                &mut played,
+                &mut glow,
+                &mut said,
+            );
+            let _ = made.send(());
+            if !after.is_empty() {
+                let (how, cut) = spoken(bus);
+                said.push(how);
+                if cut {
+                    // They spoke over the line: the lamp stops and listens.
+                    said.push(
+                        "the line was cut (the voice went from speaking to listening): nothing after it is made"
+                            .into(),
+                    );
+                } else {
+                    act(
+                        &after,
+                        sockets,
+                        bus,
+                        &mut changed,
+                        &mut played,
+                        &mut glow,
+                        &mut said,
+                    );
+                }
+            }
             std::thread::sleep(Duration::from_micros(changed.lasting_us));
         }
+    }
+    if let Some(last) = &played.last {
+        std::thread::sleep(last.until().saturating_duration_since(Instant::now()));
     }
     match glow {
         Some(glow) => said.extend(glow.give_back()),
@@ -818,6 +1026,184 @@ fn perform(
         }
     }
     said.join("; ")
+}
+
+/// Makes `calls` in order. A clip after another waits for that one to end,
+/// and is not sent, nor any after it, if meanwhile the body was pushed or
+/// the lamp paused: the body's own stops hold for the whole run.
+fn act(
+    calls: &[Call],
+    sockets: &Sockets,
+    bus: &Bus,
+    changed: &mut Changed,
+    played: &mut Played,
+    glow: &mut Option<Glow>,
+    said: &mut Vec<String>,
+) {
+    for call in calls {
+        match call {
+            Call::Light { lasting, .. } => {
+                changed.coloured = true;
+                changed.lasting_us = changed.lasting_us.max(
+                    lasting
+                        .as_deref()
+                        .and_then(|text| duration_us(text).ok())
+                        .unwrap_or(0),
+                );
+            }
+            Call::Dim { steps, .. } => changed.dimmed += steps,
+            // The run lasts while the pose is held.
+            Call::Mood { lasting_us, .. } => {
+                changed.lasting_us = changed.lasting_us.max(*lasting_us);
+            }
+            Call::Gesture(_) | Call::Move(_) => {
+                let (what, length_us) = match call {
+                    Call::Gesture(name) => (format!("gesture {name}"), clip_us(name)),
+                    Call::Move(clip) => (
+                        format!("move {}", clip.name),
+                        Some(
+                            (clip.frames.len().saturating_sub(1) as u64)
+                                * u64::from(clip.step_ms)
+                                * 1_000,
+                        ),
+                    ),
+                    _ => unreachable!(),
+                };
+                if let Some(last) = played.last.take()
+                    && played.stopped.is_none()
+                {
+                    played.stopped = held_back(&last, bus);
+                }
+                if let Some(why) = &played.stopped {
+                    said.push(format!("{what}: not sent, {why}"));
+                    continue;
+                }
+                // The next clip waits for this one's length and a few of
+                // the body's steps more, from when the body began it, until
+                // the body can take it.
+                played.last = length_us.map(|us| Sent {
+                    at: Instant::now(),
+                    rest: Duration::from_micros(us + CLIP_GAP_US),
+                    pose: commanded_now(bus),
+                });
+            }
+            _ => {}
+        }
+        said.push(match glow {
+            Some(glow) if matches!(call, Call::Light { .. } | Call::Dim { .. }) => glow.ask(call),
+            _ => make(call, sockets, bus),
+        });
+    }
+}
+
+/// Waits while the clip `sent` plays, until its length and `CLIP_GAP_US`
+/// after the body began it: when `body/joint_states` first shows its
+/// `commanded` pose leave the one before the send, within `BEGIN_WITHIN`,
+/// as a lamp rising at the line's end begins it late. Without that, from
+/// when it was sent. A folded lamp the body stands up for the clip (#1080)
+/// moves as it rises, so its clip is timed from the rise's start: as from
+/// the send. Why the next is not sent, if the body was pushed or the lamp
+/// paused meanwhile.
+fn held_back(sent: &Sent, bus: &Bus) -> Option<String> {
+    let mut until = sent.until();
+    let mut began = false;
+    loop {
+        if !began
+            && sent.at.elapsed() <= BEGIN_WITHIN
+            && let (Some((seq, pose)), Some((seq_now, now))) = (&sent.pose, commanded_now(bus))
+            && seq_now != *seq
+            && now.len() == pose.len()
+            && now
+                .iter()
+                .zip(pose)
+                .any(|(now, was)| (now - was).abs() > BEGIN_RAD)
+        {
+            began = true;
+            until = until.max(Instant::now() + sent.rest);
+        }
+        if bus
+            .latest(Hand::TOPIC)
+            .ok()
+            .flatten()
+            .and_then(|message| message.parse::<Hand>().ok())
+            .is_some_and(|hand| hand.pushed)
+        {
+            return Some("the body was pushed".into());
+        }
+        if bus
+            .latest(Pause::TOPIC)
+            .ok()
+            .flatten()
+            .and_then(|message| message.parse::<Pause>().ok())
+            .is_some_and(|pause| pause.paused)
+        {
+            return Some("the lamp was paused".into());
+        }
+        let left = until.saturating_duration_since(Instant::now());
+        if left.is_zero() {
+            return None;
+        }
+        std::thread::sleep(left.min(POLL));
+    }
+}
+
+/// Waits for the model's line after a tool's call: for the voice to begin
+/// speaking, at most SPEAK_BEGIN, and then for its turn to end: `resting` or
+/// `listening`. `thinking` after `speaking` is still the turn, since the
+/// sound plays on (lamp-06c1, 2026-10-16: `speaking` for 20 ms, then
+/// `thinking` for 15 s, through a line of about 2 s). So the wait ends at
+/// the latest LINE_LONGEST after the speaking began, unless the voice is
+/// speaking then. At most SAY_TIMEOUT in all. What it waited for, in words,
+/// and whether the line was cut: a line said to its end leaves the voice
+/// `resting`, one the person spoke over leaves it `listening`.
+fn spoken(bus: &Bus) -> (String, bool) {
+    let state = || said_lately::<VoiceState>(bus, VoiceState::TOPIC).map(|now| now.state);
+    let asked = Instant::now();
+    loop {
+        match state() {
+            Some(Voice::Speaking) => break,
+            None => {
+                return (
+                    "after the say: the voice's state is not known, so at once".into(),
+                    false,
+                );
+            }
+            Some(_) if asked.elapsed() >= SPEAK_BEGIN => {
+                return (
+                    format!(
+                        "after the say: the voice did not begin within {} s",
+                        SPEAK_BEGIN.as_secs()
+                    ),
+                    false,
+                );
+            }
+            Some(_) => std::thread::sleep(POLL),
+        }
+    }
+    let begun = Instant::now();
+    let cut = loop {
+        let now = state();
+        let over = match now {
+            Some(Voice::Speaking) => false,
+            Some(Voice::Thinking) => begun.elapsed() >= LINE_LONGEST,
+            _ => true,
+        };
+        if over {
+            break now == Some(Voice::Listening);
+        }
+        if begun.elapsed() >= SAY_TIMEOUT {
+            return ("after the say: the voice was still speaking".into(), false);
+        }
+        std::thread::sleep(POLL);
+    };
+    (
+        format!(
+            "after the say: spoken from {} ms after the call, the turn over {} ms later",
+            (begun - asked).as_millis(),
+            begun.elapsed().as_millis()
+        ),
+        cut,
+    )
 }
 
 /// The light as it was before the run, from the light shown now: off, or
@@ -997,6 +1383,7 @@ fn make(call: &Call, sockets: &Sockets, bus: &Bus) -> String {
         Call::Say(_) | Call::SayFrom(_) => "say: made by its own step".into(),
         Call::Sound { .. } => "sound: made by its own step".into(),
         Call::Look => "look: the voice's, asked in the call's answer".into(),
+        Call::AfterSay => "after the say".into(),
     }
 }
 

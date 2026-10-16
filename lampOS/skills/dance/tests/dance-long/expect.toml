@@ -1,0 +1,24 @@
+# "Give me a long upbeat dance": groove or hype, played twice.
+[[call_tool]]
+name = "dance"
+at = "0s"
+args = { style = "upbeat", long = true }
+
+[[expect]]
+call = "say"
+
+[[expect]]
+call = "light"
+args = { colour = "warm" }
+
+[[expect]]
+call = "light"
+args = { dim = 2 }
+
+[[expect]]
+call = "body.gesture"
+args = { gesture = ["dance_groove", "dance_hype"] }
+
+[[expect]]
+call = "body.gesture"
+args = { gesture = ["dance_groove", "dance_hype"] }

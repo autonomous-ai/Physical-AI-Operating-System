@@ -6,20 +6,76 @@
 //! the program's own clock when a message arrives, a message's `at_us` when
 //! a recording is replayed.
 use lamp_bus::Header;
-use lamp_msgs::{Faces, Light, SkillEvent, SkillStage};
+use lamp_msgs::{Faces, Light, SkillEvent, SkillStage, Speech};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use std::{
-    collections::HashMap,
+    collections::{BTreeMap, HashMap},
     fs,
     path::{Path, PathBuf},
 };
 
 pub mod glow;
 
-/// What the body plays by name on its mood socket (`crates/body/src/clips/data.rs`;
-/// `idle` is its own).
-pub const GESTURES: [&str; 6] = ["nod", "headshake", "greeting", "laugh", "shy", "stretching"];
+/// Whether the body plays `name` on its mood socket: one of the clips in its
+/// own table (`lamp_body::clips::ALL`), but `idle`, which is the body's own.
+pub fn gesture_known(name: &str) -> bool {
+    name != "idle" && lamp_body::clips::named(name).is_some()
+}
+
+/// How long the body's clip `name` plays, if it is one.
+pub fn clip_us(name: &str) -> Option<u64> {
+    lamp_body::clips::named(name).map(lamp_body::clips::Clip::duration_us)
+}
+
+/// The body's step: `lamp_body::body::TICK`, which is built for Linux alone.
+pub const BODY_STEP_US: u64 = 20_000;
+
+/// How long after a clip's length the next clip is sent, so that the body
+/// takes it (#999). The body reads a gesture once, at a step, and takes it
+/// only while none plays; it lets a clip go at the first step that reaches
+/// the clip's length, after that step's read (`crates/body/src/body.rs`:
+/// the gesture taken, then `playing = None`). So a clip sent at `t` begins
+/// by `t` + 1 step, is let go by its length + 1 more, and the next is taken
+/// from the step after that: 2 steps with every step on time. 5 steps
+/// (100 ms) leave 3 for steps run late on a loaded lamp, and the lamp is
+/// still for a tenth of a second between two clips.
+pub const CLIP_GAP_US: u64 = 5 * BODY_STEP_US;
+// A few of the body's steps, and at least 60 ms (the reviewer on #1012).
+const _: () = assert!(CLIP_GAP_US >= 3 * BODY_STEP_US && CLIP_GAP_US >= 60_000);
+
+/// What the voice keeps of what a person said (`crates/voice/src/thread.rs`):
+/// the most bytes, and how long a piece not finished waits for more.
+const HEARD_BYTES: usize = 300;
+const HEARD_WITHIN_US: u64 = 20_000_000;
+
+/// Adds `text` to `to` as the voice's thread does: control characters and
+/// whitespace as one space, and nothing past `most` bytes.
+fn add_heard(to: &mut String, text: &str, most: usize) {
+    for c in text.chars() {
+        let c = if c.is_control() || c.is_whitespace() {
+            ' '
+        } else {
+            c
+        };
+        if to.len() + c.len_utf8() > most || (c == ' ' && to.ends_with(' ')) {
+            continue;
+        }
+        to.push(c);
+    }
+}
+
+/// The whole words of `text`, lowercase: what is between characters that
+/// are not letters or digits.
+fn words(text: &str) -> Vec<String> {
+    text.to_lowercase()
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|word| !word.is_empty())
+        .map(str::to_owned)
+        .collect()
+}
+/// The most values a tool's choice may have.
+const MOST_CHOICES: usize = 16;
 /// The pose a skill may hold on the body's mood socket (#1011): `reading`
 /// looks down at the desk and leans forward while it is said again, at
 /// least every 1.5 s. The voice's own moods are not a skill's.
@@ -44,9 +100,60 @@ struct SkillFile {
     ask: Option<AskFile>,
     /// A function the model may call, which runs the steps.
     tool: Option<String>,
+    /// The tool's one argument the model picks from named values.
+    choice: Option<ChoiceFile>,
+    /// The tool's one argument that is yes or no.
+    flag: Option<FlagFile>,
+    /// When the tool runs again soon after it ran.
+    again: Option<AgainFile>,
+    /// What the model is told of a call while the tool's run, which holds
+    /// no pose, is under way.
+    still: Option<String>,
     #[serde(rename = "do")]
     steps: Vec<StepFile>,
 }
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ChoiceFile {
+    name: String,
+    about: String,
+    one_of: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FlagFile {
+    name: String,
+    about: String,
+}
+
+/// `[again]`: within `within` of the tool's last run, a call runs only if
+/// what was heard since asks for it.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AgainFile {
+    within: String,
+    if_heard: Vec<String>,
+    /// What the model is told when a call is refused.
+    told: Option<String>,
+}
+
+/// `[again]` as loaded: each entry as its whole words, lowercase.
+#[derive(Clone, Debug, PartialEq)]
+struct Again {
+    within_us: u64,
+    if_heard: Vec<Vec<String>>,
+    told: String,
+}
+
+/// What the model is told of a call while the run is under way, when the
+/// skill does not say.
+const STILL_TOLD: &str = "I'm still doing that.";
+
+/// What the model is told of a call `[again]` refused, when the skill does
+/// not say.
+const AGAIN_TOLD: &str = "Not done: you just did this. Do it again only if they ask for it again.";
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -107,6 +214,8 @@ struct StepFile {
     /// A file in `sounds/`, by its name without `.wav`.
     sound: Option<String>,
     look: Option<bool>,
+    /// `"say"`: this step and every one after it wait for the say to end.
+    after: Option<String>,
 }
 
 /// What a `say` asks of the voice: a note it phrases, or what it keeps.
@@ -137,13 +246,23 @@ fn say_step(say: toml::Value) -> Result<Call, String> {
 #[serde(deny_unknown_fields)]
 struct BodyFile {
     look_at: Option<String>,
-    gesture: Option<String>,
+    gesture: Option<GestureFile>,
+    /// The flag's name: the gesture is played twice when the call sets it.
+    again_if: Option<String>,
     /// A file in `moves/`.
     #[serde(rename = "move")]
     clip: Option<String>,
     mood: Option<String>,
     #[serde(rename = "for")]
     lasting: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum GestureFile {
+    One(String),
+    /// For each value of the choice, the clips one is picked from.
+    ByChoice(BTreeMap<String, Vec<String>>),
 }
 
 #[derive(Deserialize)]
@@ -178,7 +297,24 @@ pub struct Skill {
     /// The function the model may call to run the steps, described to it
     /// with the skill's description.
     pub tool: Option<String>,
-    steps: Vec<Call>,
+    choice: Option<ChoiceFile>,
+    flag: Option<FlagFile>,
+    again: Option<Again>,
+    still: String,
+    steps: Vec<Step>,
+}
+
+/// A step as loaded, made into calls when the skill runs.
+#[derive(Clone, Debug, PartialEq)]
+enum Step {
+    Call(Call),
+    /// One clip, picked from those listed for the call's choice, or from all
+    /// of them when the call gives none; twice when `again` and the call sets
+    /// the flag. A gesture written as one name is listed under "".
+    Gesture {
+        by: Vec<(String, Vec<String>)>,
+        again: bool,
+    },
 }
 
 /// What a message must show for a trigger or a condition to hold.
@@ -290,6 +426,9 @@ pub enum Call {
     /// A short sound of the skill's own, `sounds/NAME.wav` (checked at load,
     /// [`check_sound`]), played by the voice through its say service.
     Sound { name: String, path: PathBuf },
+    /// The calls after this wait for the say to end: the skill's own say, or
+    /// in a skill its tool starts, the line the model says after the call.
+    AfterSay,
 }
 
 /// Where the words of a [`Call::SayFrom`] are kept, in the voice.
@@ -364,6 +503,7 @@ impl Call {
             Self::SayFrom(source) => ("say", json!({ "from": source.name() })),
             Self::Look => ("look", json!({})),
             Self::Sound { name, .. } => ("sound", json!({ "sound": name })),
+            Self::AfterSay => ("after_say", json!({})),
         }
     }
 }
@@ -549,6 +689,88 @@ pub fn load(dir: &Path) -> Result<Skill, String> {
             return Err("a skill with a tool has a description of at most 1,024 bytes".into());
         }
     }
+    let argument = |name: &str, about: &str| -> Result<(), String> {
+        if file.tool.is_none() {
+            return Err("a choice or a flag is an argument of the skill's tool".into());
+        }
+        let mut letters = name.bytes();
+        if !letters
+            .next()
+            .is_some_and(|first| first.is_ascii_lowercase())
+            || name.len() > 32
+            || !letters
+                .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
+        {
+            return Err(format!(
+                "argument {name:?}: a lowercase letter, then at most 31 lowercase letters, digits and _"
+            ));
+        }
+        if about.trim().is_empty() || about.len() > 256 {
+            return Err(format!(
+                "argument {name:?}: its about is what it means, in at most 256 bytes"
+            ));
+        }
+        Ok(())
+    };
+    if let Some(choice) = &file.choice {
+        argument(&choice.name, &choice.about)?;
+        let mut values = choice.one_of.clone();
+        values.sort();
+        values.dedup();
+        if choice.one_of.is_empty()
+            || choice.one_of.len() > MOST_CHOICES
+            || values.len() != choice.one_of.len()
+            || !values.iter().all(|value| plain_name(value))
+        {
+            return Err(format!(
+                "choice {:?}: one_of is 1 to {MOST_CHOICES} different plain names",
+                choice.name
+            ));
+        }
+    }
+    if let Some(flag) = &file.flag {
+        argument(&flag.name, &flag.about)?;
+        if file
+            .choice
+            .as_ref()
+            .is_some_and(|choice| choice.name == flag.name)
+        {
+            return Err("the choice and the flag have different names".into());
+        }
+    }
+    let again = match file.again {
+        None => None,
+        Some(_) if file.tool.is_none() => {
+            return Err("[again] is about the skill's tool: a skill with one".into());
+        }
+        Some(again) => {
+            let within_us = duration_us(&again.within).map_err(|why| format!("[again]: {why}"))?;
+            let if_heard: Vec<Vec<String>> =
+                again.if_heard.iter().map(|entry| words(entry)).collect();
+            if if_heard.is_empty() || if_heard.iter().any(Vec::is_empty) {
+                return Err("[again]: if_heard lists at least one word, none of them empty".into());
+            }
+            let told = again.told.unwrap_or_else(|| AGAIN_TOLD.into());
+            if told.trim().is_empty() || told.len() > 256 {
+                return Err("[again]: told is what the model is told, in at most 256 bytes".into());
+            }
+            Some(Again {
+                within_us,
+                if_heard,
+                told,
+            })
+        }
+    };
+    let still = match file.still {
+        None => STILL_TOLD.to_owned(),
+        Some(_) if file.tool.is_none() => {
+            return Err("still is about the skill's tool: a skill with one".into());
+        }
+        Some(still) if still.trim().is_empty() || still.len() > 256 => {
+            return Err("still is what the model is told, in at most 256 bytes".into());
+        }
+        Some(still) => still,
+    };
     let mut conditions = Vec::new();
     for condition in file.conditions {
         let test = match (condition.present, condition.not_equals) {
@@ -596,6 +818,8 @@ pub fn load(dir: &Path) -> Result<Skill, String> {
         });
     }
     let mut steps = Vec::new();
+    let mut said = false;
+    let mut after_say = false;
     for step in file.steps {
         if step.body.is_none()
             && step.light.is_none()
@@ -605,9 +829,31 @@ pub fn load(dir: &Path) -> Result<Skill, String> {
         {
             return Err("a [[do]] step names body, light, say, sound or look".into());
         }
+        match step.after.as_deref() {
+            None => {}
+            Some("say") if after_say => {}
+            // The skill's say in an earlier step, or the model's line.
+            Some("say") if (said || file.tool.is_some()) && step.say.is_none() => {
+                after_say = true;
+                steps.push(Step::Call(Call::AfterSay));
+            }
+            Some("say") => {
+                return Err(
+                    "after = \"say\" follows a say: one in an earlier step, or the model's line \
+                     in a skill with a tool"
+                        .into(),
+                );
+            }
+            Some(other) => return Err(format!("after = {other:?}: only \"say\"")),
+        }
+        if after_say && step.say.is_some() {
+            return Err("a say after the say ends".into());
+        }
         match step.look {
             None => {}
-            Some(true) if file.tool.is_some() && triggers.is_empty() => steps.push(Call::Look),
+            Some(true) if file.tool.is_some() && triggers.is_empty() => {
+                steps.push(Step::Call(Call::Look))
+            }
             Some(_) => {
                 return Err(
                     "look = true, in a skill started by its tool alone: the model takes the look"
@@ -618,17 +864,49 @@ pub fn load(dir: &Path) -> Result<Skill, String> {
         if let Some(body) = step.body {
             match body.look_at.as_deref() {
                 None => {}
-                Some("face") => steps.push(Call::Gaze { face: None }),
+                Some("face") => steps.push(Step::Call(Call::Gaze { face: None })),
                 Some(other) => return Err(format!("look_at = {other:?}: only \"face\"")),
             }
-            if let Some(gesture) = body.gesture {
-                if !GESTURES.contains(&gesture.as_str()) {
-                    return Err(format!("gesture {gesture:?} is not one of {GESTURES:?}"));
+            let again = match (&body.again_if, &file.flag) {
+                (None, _) => false,
+                (Some(name), Some(flag)) if *name == flag.name && body.gesture.is_some() => true,
+                (Some(name), _) => {
+                    return Err(format!(
+                        "again_if = {name:?} names the skill's flag, beside a gesture"
+                    ));
                 }
-                steps.push(Call::Gesture(gesture));
+            };
+            if let Some(gesture) = body.gesture {
+                let by = match gesture {
+                    GestureFile::One(name) => vec![(String::new(), vec![name])],
+                    GestureFile::ByChoice(by) => {
+                        let Some(choice) = &file.choice else {
+                            return Err("a gesture by choice needs a [choice]".into());
+                        };
+                        let mut values = choice.one_of.clone();
+                        values.sort();
+                        if by.keys().cloned().collect::<Vec<_>>() != values
+                            || by.values().any(Vec::is_empty)
+                        {
+                            return Err(format!(
+                                "a gesture by choice lists clips for each of {:?}, and only those",
+                                choice.one_of
+                            ));
+                        }
+                        by.into_iter().collect()
+                    }
+                };
+                for name in by.iter().flat_map(|(_, names)| names) {
+                    if !gesture_known(name) {
+                        return Err(format!(
+                            "gesture {name:?} is not one of the body's clips (lamp_body::clips::ALL)"
+                        ));
+                    }
+                }
+                steps.push(Step::Gesture { by, again });
             }
             if let Some(clip) = body.clip {
-                steps.push(Call::Move(move_file(dir, &clip)?));
+                steps.push(Step::Call(Call::Move(move_file(dir, &clip)?)));
             }
             match (body.mood, body.lasting) {
                 (None, None) => {}
@@ -640,7 +918,7 @@ pub fn load(dir: &Path) -> Result<Skill, String> {
                     if lasting_us == 0 || lasting_us > MOOD_AT_MOST_US {
                         return Err("a mood's for is more than 0 and at most 2m".into());
                     }
-                    steps.push(Call::Mood { mood, lasting_us });
+                    steps.push(Step::Call(Call::Mood { mood, lasting_us }));
                 }
                 _ => return Err("a body mood goes with its for, and a for with a mood".into()),
             }
@@ -658,7 +936,9 @@ pub fn load(dir: &Path) -> Result<Skill, String> {
                 }
                 LightStep::Inline(file) => (file, "a light step".into()),
             };
-            steps.push(light_call(file).map_err(|why| format!("{place}: {why}"))?);
+            steps.push(Step::Call(
+                light_call(file).map_err(|why| format!("{place}: {why}"))?,
+            ));
         }
         if let Some(say) = step.say {
             let call = say_step(say)?;
@@ -670,7 +950,8 @@ pub fn load(dir: &Path) -> Result<Skill, String> {
                         .into(),
                 );
             }
-            steps.push(call);
+            said = true;
+            steps.push(Step::Call(call));
         }
         if let Some(name) = step.sound {
             // A tool is called while the voice answers: a sound would always
@@ -688,12 +969,17 @@ pub fn load(dir: &Path) -> Result<Skill, String> {
             let path = std::path::absolute(dir.join(&place))
                 .map_err(|error| format!("{place}: {error}"))?;
             check_sound(&path).map_err(|why| format!("{place}: {why}"))?;
-            steps.push(Call::Sound { name, path });
+            steps.push(Step::Call(Call::Sound { name, path }));
         }
     }
     if steps
         .iter()
-        .filter(|step| matches!(step, Call::Say(_) | Call::SayFrom(_) | Call::Sound { .. }))
+        .filter(|step| {
+            matches!(
+                step,
+                Step::Call(Call::Say(_) | Call::SayFrom(_) | Call::Sound { .. })
+            )
+        })
         .count()
         > 1
     {
@@ -710,6 +996,10 @@ pub fn load(dir: &Path) -> Result<Skill, String> {
         conditions,
         policy,
         tool: file.tool,
+        choice: file.choice,
+        flag: file.flag,
+        again,
+        still,
         steps,
     })
 }
@@ -841,6 +1131,11 @@ pub struct Engine {
     latest: HashMap<String, (Value, u64, Option<u64>)>,
     /// Since when each skill's condition has held, by skill and condition.
     holding: HashMap<(String, usize), u64>,
+    /// When each skill's tool last ran, by skill.
+    tool_ran: HashMap<String, u64>,
+    /// The newest thing heard on `voice/heard`, its pieces joined as the
+    /// voice joins them. An event topic: the bus keeps no latest of it.
+    heard: Heard,
     skip_ask: bool,
     ask_policy: bool,
 }
@@ -863,6 +1158,8 @@ impl Engine {
             watches: HashMap::new(),
             latest: HashMap::new(),
             holding: HashMap::new(),
+            tool_ran: HashMap::new(),
+            heard: Heard::default(),
             skip_ask,
             ask_policy: false,
         }
@@ -896,8 +1193,26 @@ impl Engine {
         &self.skills
     }
 
-    /// Every topic a trigger or a condition names, and the faces a look at
-    /// a face reads, once each.
+    /// The skill whose tool `name` is and what the model is told of a call
+    /// while its run is under way, if such a call is refused: a run with no
+    /// pose to hold again and no look to take again has nothing to do again
+    /// (a dance plays on). Refused before [`Engine::tool`], it is no run:
+    /// `[again]`'s while does not begin again from it.
+    pub fn refused_under_way(&self, name: &str) -> Option<(&str, &str)> {
+        self.skills
+            .iter()
+            .find(|skill| skill.tool.as_deref() == Some(name))
+            .filter(|skill| {
+                !skill
+                    .steps
+                    .iter()
+                    .any(|step| matches!(step, Step::Call(Call::Mood { .. } | Call::Look)))
+            })
+            .map(|skill| (skill.name.as_str(), skill.still.as_str()))
+    }
+
+    /// Every topic a trigger or a condition names, the faces a look at a
+    /// face reads, and what was heard if a skill has `[again]`, once each.
     pub fn topics(&self) -> Vec<String> {
         let mut topics: Vec<String> = self
             .skills
@@ -906,13 +1221,14 @@ impl Engine {
                 let looks = skill
                     .steps
                     .iter()
-                    .any(|step| matches!(step, Call::Gaze { .. }));
+                    .any(|step| matches!(step, Step::Call(Call::Gaze { .. })));
                 skill
                     .triggers
                     .iter()
                     .map(|trigger| trigger.topic.clone())
                     .chain(skill.conditions.iter().map(|test| test.topic.clone()))
                     .chain(looks.then(|| Faces::TOPIC.to_owned()))
+                    .chain(skill.again.is_some().then(|| Speech::TOPICS[0].to_owned()))
             })
             .collect();
         topics.sort();
@@ -979,7 +1295,7 @@ impl Engine {
                 .is_some_and(|value| trigger.test.holds(value))
         });
         (triggered && Self::conditions_hold(&self.latest, &self.holding, skill, now_us))
-            .then(|| calls(&self.latest, skill, now_us))
+            .then(|| calls(&self.latest, skill, now_us, &Value::Null))
     }
 
     /// A message on `topic`, at `now_us`. A payload that is not JSON is
@@ -994,6 +1310,13 @@ impl Engine {
         let Ok(value) = serde_json::from_slice::<Value>(payload) else {
             return Vec::new();
         };
+        // Words still coming count too: the model may call before the end.
+        if topic == Speech::TOPICS[0]
+            && let Some(text) = value["text"].as_str()
+        {
+            self.heard
+                .piece(text, value["finished"].as_bool().unwrap_or(true), now_us);
+        }
         let lifespan_us = expires_ms
             .or((topic == Faces::TOPIC).then_some(FACE_LIFESPAN_MS))
             .map(|ms| ms * 1_000);
@@ -1108,7 +1431,7 @@ impl Engine {
                     runs.push(Run {
                         skill: skill.name.clone(),
                         events,
-                        calls: calls(&self.latest, skill, now_us),
+                        calls: calls(&self.latest, skill, now_us, &Value::Null),
                         ask: Some(ask),
                     });
                     continue;
@@ -1141,7 +1464,7 @@ impl Engine {
                 runs.push(Run {
                     skill: skill.name.clone(),
                     events,
-                    calls: calls(&self.latest, skill, now_us),
+                    calls: calls(&self.latest, skill, now_us, &Value::Null),
                     ask: None,
                 });
             }
@@ -1149,31 +1472,87 @@ impl Engine {
         runs
     }
 
-    /// The model called `name`: the first skill whose tool it is runs its
-    /// steps. A person asked, so the Policy is not asked.
-    /// Its `[[while]]` conditions must hold as for a trigger: on a value
-    /// that still lasts, for their `for`. `Err` says why not, in words the
-    /// lamp can say.
-    pub fn tool(&self, name: &str, now_us: u64) -> Result<Run, String> {
+    /// The model called `name` with `args`: the first skill whose tool it is
+    /// runs its steps. A person asked, so the Policy is not asked.
+    /// The arguments must be the tool's (`Null`: none given), and its
+    /// `[[while]]` conditions must hold as for a trigger: on a value that
+    /// still lasts, for their `for`. `Err` says why not, in words the lamp
+    /// can say, or, for arguments that are not the tool's, which are.
+    /// `[again]` refuses it within its `within` of the tool's last run, from
+    /// when that run began, with none of its entries among the whole words
+    /// of the newest thing heard (its pieces joined, as the voice joins
+    /// them) if it began after that run began; the model reads its `told`.
+    pub fn tool(&mut self, name: &str, args: &Value, now_us: u64) -> Result<Run, String> {
         let skill = self
             .skills
             .iter()
             .find(|skill| skill.tool.as_deref() == Some(name))
             .ok_or("No skill of mine does that just now.")?;
+        arguments(skill, args)?;
         if !Self::conditions_hold(&self.latest, &self.holding, skill, now_us) {
             return Err("I can't do that just now.".into());
         }
+        let ran = self.tool_ran.get(&skill.name).copied();
+        if let (Some(again), Some(ran)) = (&skill.again, ran)
+            && now_us.saturating_sub(ran) < again.within_us
+        {
+            let asked = self.heard.began_us.is_some_and(|began_us| began_us > ran) && {
+                let heard = words(&self.heard.text);
+                again.if_heard.iter().any(|entry| {
+                    heard
+                        .windows(entry.len())
+                        .any(|run| run == entry.as_slice())
+                })
+            };
+            if !asked {
+                return Err(again.told.clone());
+            }
+        }
+        self.tool_ran.insert(skill.name.clone(), now_us);
         Ok(Run {
             skill: skill.name.clone(),
             events: vec![event(
                 &skill.name,
                 SkillStage::Triggered,
-                format!("the model called {name}"),
+                format!("the model called {name} with {args}"),
                 None,
             )],
-            calls: calls(&self.latest, skill, now_us),
+            calls: calls(&self.latest, skill, now_us, args),
             ask: None,
         })
+    }
+}
+
+/// What was heard of the newest thing said, joined from its pieces on
+/// `voice/heard` as `crates/voice/src/thread.rs` joins them.
+#[derive(Debug, Default)]
+struct Heard {
+    text: String,
+    /// When its first piece came: the utterance counts for `[again]` only
+    /// if it began after the last run began, so the ask's own words (and a
+    /// noise joined to them) never unlock the next call.
+    began_us: Option<u64>,
+    /// When its newest piece came.
+    at_us: Option<u64>,
+    /// Its newest piece was the last: the next begins another.
+    finished: bool,
+}
+
+impl Heard {
+    /// A piece: added to what was heard, which begins again after a piece
+    /// that finished it, or after one that waited more than 20 s for more.
+    fn piece(&mut self, text: &str, finished: bool, now_us: u64) {
+        let stale = self
+            .at_us
+            .is_some_and(|at| now_us.saturating_sub(at) > HEARD_WITHIN_US);
+        if self.finished || stale || self.began_us.is_none() {
+            self.text.clear();
+            self.finished = false;
+            self.began_us = Some(now_us);
+        }
+        add_heard(&mut self.text, text, HEARD_BYTES);
+        self.at_us = Some(now_us);
+        self.finished = finished;
     }
 }
 
@@ -1207,12 +1586,48 @@ impl Admission {
     }
 }
 
+/// Whether `args` are what the skill's tool takes: its choice, one of its
+/// values, and its flag, true or false, each optional; nothing else.
+fn arguments(skill: &Skill, args: &Value) -> Result<(), String> {
+    let given = match args {
+        Value::Null => return Ok(()),
+        Value::Object(given) => given,
+        _ => return Err("the arguments are an object".into()),
+    };
+    for (key, value) in given {
+        match (&skill.choice, &skill.flag) {
+            (Some(choice), _) if *key == choice.name => {
+                if !value
+                    .as_str()
+                    .is_some_and(|value| choice.one_of.iter().any(|one| one == value))
+                {
+                    return Err(format!("{key} is one of {:?}", choice.one_of));
+                }
+            }
+            (_, Some(flag)) if *key == flag.name => {
+                if !value.is_boolean() {
+                    return Err(format!("{key} is true or false"));
+                }
+            }
+            _ => return Err(format!("{key} is not an argument of this tool")),
+        }
+    }
+    Ok(())
+}
+
+/// One of `count`, picked from the time: the same time picks the same, so a
+/// replay is the same each time.
+fn pick(now_us: u64, count: usize) -> usize {
+    ((now_us.wrapping_mul(0x9E37_79B9_7F4A_7C15) >> 32) % count as u64) as usize
+}
+
 /// A skill's steps as calls now. The face to look at: the largest in the
 /// newest list of faces that still lasts. With none, the other steps go on.
 fn calls(
     latest: &HashMap<String, (Value, u64, Option<u64>)>,
     skill: &Skill,
     now_us: u64,
+    args: &Value,
 ) -> Vec<Call> {
     let face = Engine::fresh(latest, Faces::TOPIC, now_us).and_then(|faces| {
         serde_json::from_value::<Faces>(faces.clone())
@@ -1228,12 +1643,32 @@ fn calls(
                 )
             })
     });
+    let chosen = skill
+        .choice
+        .as_ref()
+        .and_then(|choice| args[&choice.name].as_str());
+    let twice = skill
+        .flag
+        .as_ref()
+        .is_some_and(|flag| args[&flag.name] == true);
     skill
         .steps
         .iter()
-        .filter_map(|step| match step {
-            Call::Gaze { .. } => face.map(|face| Call::Gaze { face: Some(face) }),
-            other => Some(other.clone()),
+        .flat_map(|step| match step {
+            Step::Call(Call::Gaze { .. }) => face
+                .map(|face| Call::Gaze { face: Some(face) })
+                .into_iter()
+                .collect(),
+            Step::Call(other) => vec![other.clone()],
+            Step::Gesture { by, again } => {
+                let names: Vec<&String> =
+                    match by.iter().find(|(value, _)| Some(value.as_str()) == chosen) {
+                        Some((_, names)) => names.iter().collect(),
+                        None => by.iter().flat_map(|(_, names)| names).collect(),
+                    };
+                let name = names[pick(now_us, names.len())].clone();
+                vec![Call::Gesture(name); if *again && twice { 2 } else { 1 }]
+            }
         })
         .collect()
 }
@@ -1247,7 +1682,24 @@ pub fn tools_file(skills: &[Skill]) -> Value {
         if let Some(name) = &skill.tool
             && !tools.iter().any(|tool| tool["name"] == *name)
         {
-            tools.push(json!({"name": name, "description": skill.description}));
+            let mut tool = json!({"name": name, "description": skill.description});
+            let mut properties = serde_json::Map::new();
+            if let Some(choice) = &skill.choice {
+                properties.insert(
+                    choice.name.clone(),
+                    json!({"type": "string", "enum": choice.one_of, "description": choice.about}),
+                );
+            }
+            if let Some(flag) = &skill.flag {
+                properties.insert(
+                    flag.name.clone(),
+                    json!({"type": "boolean", "description": flag.about}),
+                );
+            }
+            if !properties.is_empty() {
+                tool["parameters"] = json!({"type": "object", "properties": properties});
+            }
+            tools.push(tool);
         }
     }
     json!({ "tools": tools })
@@ -1364,12 +1816,15 @@ pub struct Made {
 }
 
 /// A call of a skill's tool in a case, as the model makes it: `at` from
-/// the recording's first message.
+/// the recording's first message, with the arguments the model gives.
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ToolCall {
     pub name: String,
     pub at: String,
+    /// The tool's arguments, its `[choice]` and its `[flag]`; none without.
+    #[serde(default)]
+    pub args: toml::Table,
 }
 
 /// The calls the skill in `dir` makes for one recording, with the ask skipped.
@@ -1379,10 +1834,11 @@ pub fn replay(dir: &Path, recording: &Path) -> Result<Vec<Made>, String> {
 
 /// The same, with the model calling the skill's tool at the times of
 /// `tools`: each after the messages recorded at or before it. A call is
-/// made as the program would make it, its conditions checked on what has
-/// been replayed; one refused makes nothing. Each call is a fresh run: what
-/// the program does with a call while the last run is still under way
-/// (#1036, #1051) is not replayed.
+/// made as the program would make it, its arguments and its conditions
+/// checked on what has been replayed; one refused makes nothing. Each call
+/// is a fresh run: what the program does with a call while the last run is
+/// still under way (#1036, #1051) is not replayed. The marker that the
+/// calls after it wait for the say is not a call made.
 pub fn replay_with(dir: &Path, recording: &Path, tools: &[ToolCall]) -> Result<Vec<Made>, String> {
     let skill = load(dir)?;
     // A name the skill's tool is not would make nothing and pass as a
@@ -1400,38 +1856,50 @@ pub fn replay_with(dir: &Path, recording: &Path, tools: &[ToolCall]) -> Result<V
     let mut engine = Engine::new(vec![skill], true);
     let messages = read_recordings(recording)?;
     let first_us = messages.first().map_or(0, |message| message.header.at_us);
-    let mut calls: Vec<(u64, &str)> = tools
+    let mut calls: Vec<(u64, &str, Value)> = tools
         .iter()
-        .map(|tool| Ok((duration_us(&tool.at)?, tool.name.as_str())))
+        .map(|tool| {
+            let args = if tool.args.is_empty() {
+                Value::Null
+            } else {
+                serde_json::to_value(&tool.args).map_err(|error| error.to_string())?
+            };
+            Ok((duration_us(&tool.at)?, tool.name.as_str(), args))
+        })
         .collect::<Result<_, String>>()?;
-    calls.sort_by_key(|(at, _)| *at);
+    calls.sort_by_key(|(at, _, _)| *at);
     let mut calls = calls.into_iter().peekable();
     let mut made = Vec::new();
-    let mut call_tools = |engine: &Engine, made: &mut Vec<Made>, until_us: Option<u64>| {
-        while let Some((at, name)) =
-            calls.next_if(|(at, _)| until_us.is_none_or(|until| *at < until))
+    let keep = |made: &mut Vec<Made>, calls: Vec<Call>, at_us: u64| {
+        made.extend(
+            calls
+                .into_iter()
+                .filter(|call| *call != Call::AfterSay)
+                .map(|call| Made { at_us, call }),
+        );
+    };
+    let mut call_tools = |engine: &mut Engine, made: &mut Vec<Made>, until_us: Option<u64>| {
+        while let Some((at, name, args)) =
+            calls.next_if(|(at, _, _)| until_us.is_none_or(|until| *at < until))
         {
-            if let Ok(run) = engine.tool(name, first_us + at) {
-                made.extend(run.calls.into_iter().map(|call| Made { at_us: at, call }));
+            if let Ok(run) = engine.tool(name, &args, first_us + at) {
+                keep(made, run.calls, at);
             }
         }
     };
     for message in messages {
         let at_us = message.header.at_us;
-        call_tools(&engine, &mut made, Some(at_us - first_us));
+        call_tools(&mut engine, &mut made, Some(at_us - first_us));
         for run in engine.observe(
             &message.header.topic,
             at_us,
             &message.payload,
             message.header.expires_ms,
         ) {
-            made.extend(run.calls.into_iter().map(|call| Made {
-                at_us: at_us - first_us,
-                call,
-            }));
+            keep(&mut made, run.calls, at_us - first_us);
         }
     }
-    call_tools(&engine, &mut made, None);
+    call_tools(&mut engine, &mut made, None);
     Ok(made)
 }
 
@@ -1467,11 +1935,16 @@ fn matches(expected: &ExpectedCall, made: &Made) -> Result<bool, String> {
     for (key, wanted) in &expected.args {
         let wanted = serde_json::to_value(wanted).map_err(|error| error.to_string())?;
         let got = &args[key];
-        let same = match (got.as_f64(), wanted.as_f64()) {
+        let same = |wanted: &Value| match (got.as_f64(), wanted.as_f64()) {
             (Some(got), Some(wanted)) => got == wanted,
-            _ => *got == wanted,
+            _ => got == wanted,
         };
-        if !same {
+        // A list: any one of its values.
+        let any = match &wanted {
+            Value::Array(values) => values.iter().any(same),
+            one => same(one),
+        };
+        if !any {
             return Ok(false);
         }
     }
@@ -1529,7 +2002,7 @@ pub fn run_tests(dir: &Path) -> Result<(usize, usize), String> {
             )));
         }
         for (index, (expected, made)) in expect.expect.iter().zip(&made).enumerate() {
-            if !matches(expected, made).map_err(&wrong)? {
+            if !matches(expected, made).map_err(wrong)? {
                 return Err(wrong(format!(
                     "call {} is not {:?} {:?}: {names:?}",
                     index + 1,
@@ -1572,8 +2045,11 @@ mod tests {
             )
             .unwrap();
             let loaded = load(&skill).unwrap();
-            assert_eq!(loaded.steps, [Call::SayFrom(source)]);
-            assert_eq!(loaded.steps[0].named(), ("say", json!({ "from": from })));
+            assert_eq!(loaded.steps, [Step::Call(Call::SayFrom(source))]);
+            let Step::Call(call) = &loaded.steps[0] else {
+                panic!("{:?}", loaded.steps)
+            };
+            assert_eq!(call.named(), ("say", json!({ "from": from })));
             assert_eq!((source.name(), source.priority()), (from, priority));
         }
     }

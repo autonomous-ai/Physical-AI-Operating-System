@@ -95,8 +95,10 @@ treated as no answer.
 keeps the same two things one folder down, and the voice reads and calls
 them the same way, at the same session open and within the same deadline:
 
-    <dir>/skills/tools.json   each skill's tool, described with its SKILL.md description
-    <dir>/skills/call.sock    {"op":"call","name":"check_my_work","args":{}} -> {"ok":true,"result":{"next":"..."}}
+    <dir>/skills/tools.json   each skill's tool, described with its SKILL.md description,
+                              with the parameters of its choice and flag, if it has them
+    <dir>/skills/call.sock    {"op":"call","name":"dance","args":{"style":"calm"}} -> {"ok":true,"result":{"next":"..."}}
+                              arguments that are not the tool's -> {"ok":false,"error":"..."}
 
 They come after the executive's and within the same 32. A name the voice
 or the executive already has, or a Schedule name, is left out of the

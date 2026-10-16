@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Run the lamp full hardware test with a python that has lgpio + spidev + scservo_sdk.
+#   lamp-0c89 bench: system python3 has them, runs as orangepi
+#   HAL lamps:       only /opt/hal/.venv has them (root-only), so run it under sudo
+# All arguments go to lamp_fulltest.py (see --help).
+DIR="$(cd "$(dirname "$0")" && pwd)"
+if python3 -c "import lgpio, spidev, scservo_sdk" 2>/dev/null; then
+    exec python3 "$DIR/lamp_fulltest.py" "$@"
+fi
+exec sudo /opt/hal/.venv/bin/python "$DIR/lamp_fulltest.py" "$@"

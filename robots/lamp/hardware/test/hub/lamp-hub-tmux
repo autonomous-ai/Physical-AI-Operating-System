@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# lamp-hub-tmux - (re)build the hub's tmux session "lamprun", shown on the HDMI LCD:
+#
+#   +----------------------+----------------------+
+#   | runs (button / Mac)  | MPR121 stats per     |
+#   |  @role main, active  | colour + lamp board  |
+#   |                      |  @role mpr121-stats  |
+#   +----------------------+----------------------+
+#
+# Every pane is a plain shell with its command typed in, so Ctrl-C stops only the command and
+# the pane, its output and history stay (Up + Enter reruns). Phantom watches run on the lamps
+# themselves (lamp-remote-test --watch-fetch collects them).
+#   lamp-hub-tmux            # build it if missing
+#   lamp-hub-tmux --restart  # kill every tmux session of this user and build it fresh
+set -u
+S=lamprun
+mkdir -p "$HOME/hwtest/fleet"
+
+if [ "${1:-}" = --restart ]; then
+    tmux kill-server 2>/dev/null
+    sleep 0.5
+elif tmux has-session -t "$S" 2>/dev/null; then
+    exit 0
+fi
+
+tmux new-session -d -s "$S" -c "$HOME" -x 160 -y 45
+# kmscon/Termius draw 24-bit colour; without this tmux downsamples the camera preview to 256 colours
+tmux set-option -as terminal-features ",xterm-256color:RGB"
+tmux set-option -g history-limit 20000
+MAIN="$(tmux display-message -p -t "$S" '#{pane_id}')"
+tmux set-option -p -t "$MAIN" @role main
+SP="$(tmux split-window -h -d -l 50% -c "$HOME" -P -F '#{pane_id}' -t "$MAIN")"
+tmux set-option -p -t "$SP" @role mpr121-stats
+tmux select-pane -t "$MAIN"
+sleep 0.5                                  # let the shells start before typing into them
+tmux send-keys -t "$SP" "lamp-mpr121-stats --follow" Enter
+tmux send-keys -t "$MAIN" "clear; echo 'lamp hub ready - button: 1 click test, 2 full test, 3 MPR121 calibration'" Enter

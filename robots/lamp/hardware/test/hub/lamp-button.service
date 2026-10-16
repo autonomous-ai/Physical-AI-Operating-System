@@ -1,0 +1,14 @@
+[Unit]
+Description=Lamp test push button on header pin 40 (1 click = test, 2 = full test / yes)
+After=lamp-dash.service network.target
+
+[Service]
+User=orangepi
+# lgpio creates its notify pipe in the working directory - / is not writable for orangepi
+WorkingDirectory=/home/orangepi
+ExecStart=/usr/local/bin/lamp-button --pin 40
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

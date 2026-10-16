@@ -1,0 +1,145 @@
+#!/usr/bin/env python3
+"""lamp-mpr121-stats - MPR121 calibration statistics per lamp colour (3D-print material).
+
+Reads every calibration report (<lamp>-mpr121-*.json) and phantom watch
+(<lamp>-watch-*.json) under ~/hwtest/fleet/ and uses the latest of each per lamp.
+The colour comes from the report, else from ~/hwtest/fleet/mpr121-tune.csv.
+
+  lamp-mpr121-stats            # print once
+  lamp-mpr121-stats --follow   # refresh every 10 s (the hub's tmux "lamprun" stats pane)
+
+Per colour:
+  lamps   lamps calibrated            cal    calibration PASS / total
+  watch   phantom watch PASS / run    phan   phantom touches in all watches
+  noise   idle noise, mean of each lamp's average pad (max pad in brackets)
+  touch   mean touch threshold        best   mean real-touch delta (finger strength)
+  margin  mean of each lamp's weakest pad: best - touch (low = touches may be missed)
+"""
+import argparse
+import csv
+import glob
+import json
+import os
+import statistics
+import time
+
+ROOT = os.path.expanduser("~/hwtest/fleet")
+COLORS = ["gray-charcoal", "green-matcha", "white-cloud", "sand-dune"]
+MAX_REAL = 200          # deltas above this are chip-reset transients, not touches
+
+
+def latest(pattern):
+    out = {}
+    for path in sorted(glob.glob(os.path.join(ROOT, "*", pattern)), key=os.path.getmtime):
+        try:
+            data = json.load(open(path))
+        except (OSError, ValueError):
+            continue
+        name = data.get("name") or os.path.basename(path).split("-mpr121-")[0].split("-watch-")[0]
+        data["_mtime"] = os.path.getmtime(path)
+        out[name] = data
+    return out
+
+
+def csv_colors():
+    colors = {}
+    try:
+        for row in csv.DictReader(open(os.path.join(ROOT, "mpr121-tune.csv"))):
+            if row.get("color"):
+                colors[row["lamp"]] = row["color"]
+    except OSError:
+        pass
+    return colors
+
+
+def mean(values):
+    values = [v for v in values if v is not None]
+    return statistics.fmean(values) if values else None
+
+
+def fmt(v, digits=1):
+    return "-" if v is None else f"{v:.{digits}f}"
+
+
+WATCH_DEFAULT_S = 1800
+
+
+def board(cal, watch):
+    """One line per lamp from the tune CSV (newest first): calibration + watch status."""
+    rows = {}
+    try:
+        for row in csv.DictReader(open(os.path.join(ROOT, "mpr121-tune.csv"))):
+            rows[row["lamp"]] = row                       # last row per lamp wins
+    except OSError:
+        pass
+    out = [f"{'lamp':<10} {'colour':<6} {'time':>5} {'cal':<5} watch"]
+    for name, row in sorted(rows.items(), key=lambda kv: kv[1]["time"], reverse=True)[:24]:
+        w = watch.get(name)
+        started = row.get("watch", "")
+        t = time.mktime(time.strptime(row["time"], "%Y-%m-%d %H:%M")) if row.get("time") else 0
+        if w and w.get("_mtime", 0) >= t:
+            ws = f"{w['result']} {len(w.get('events', []))}ph {w.get('seconds', 0) // 60}m"
+        elif started == "started":
+            end = t + WATCH_DEFAULT_S
+            ws = (f"watching ~{time.strftime('%H:%M', time.localtime(end))}" if time.time() < end
+                  else "ended: off=PASS red=FAIL")
+        elif w:
+            ws = f"{w['result']} {len(w.get('events', []))}ph"
+        else:
+            ws = "-"
+        color = (row.get("color") or "?").split("-")[0][:6]
+        out.append(f"{name:<10} {color:<6} {row['time'][11:16]:>5} {row['result'][:5]:<5} {ws}")
+    return out
+
+
+def render():
+    cal, watch, colors = latest("*-mpr121-*.json"), latest("*-watch-*.json"), csv_colors()
+    groups = {}
+    for name, rep in cal.items():
+        color = rep.get("color") or colors.get(name) or "unknown"
+        groups.setdefault(color, []).append(name)
+    lines = [f"MPR121 by colour   {time.strftime('%H:%M:%S')}   ({len(cal)} lamps)", ""]
+    # fits a half-width LCD pane (~60 columns)
+    head = f"{'colour':<13} {'n':>2} {'cal':>5} {'watch':>5} {'phan':>4} {'noise':>6} {'touch':>5} {'best':>5} {'marg':>5}"
+    lines += [head, "-" * len(head)]
+    order = [c for c in COLORS if c in groups] + sorted(c for c in groups if c not in COLORS)
+    for color in order:
+        names = groups[color]
+        reps = [cal[n] for n in names]
+        cal_pass = sum(r.get("result") == "PASS" for r in reps)
+        ws = [watch[n] for n in names if n in watch]
+        w_pass = sum(w.get("result") == "PASS" for w in ws)
+        phantoms = sum(len(w.get("events", [])) for w in ws)
+        noise_avg = mean([mean(r["noise"]) for r in reps if r.get("noise")])
+        noise_max = mean([max(r["noise"]) for r in reps if r.get("noise")])
+        touch = mean([mean(r["touch"]) for r in reps if r.get("touch")])
+        bests = [[b for b in r["best"] if 0 < b < MAX_REAL] for r in reps if r.get("best")]
+        best = mean([mean(b) for b in bests if b])
+        margins = []
+        for r in reps:
+            if r.get("best") and r.get("touch"):
+                m = [b - t for b, t in zip(r["best"], r["touch"]) if 0 < b < MAX_REAL]
+                if m:
+                    margins.append(min(m))
+        noise = f"{fmt(noise_avg)}/{fmt(noise_max, 0)}"
+        lines.append(f"{color[:13]:<13} {len(names):>2} {cal_pass:>2}/{len(reps):<2} {w_pass:>2}/{len(ws):<2} {phantoms:>4} "
+                     f"{noise:>6} {fmt(touch):>5} {fmt(best):>5} {fmt(mean(margins)):>5}")
+    lines += ["noise mean/max idle, best touch strength,", "marg weakest pad best-touch", ""]
+    lines += board(cal, watch)
+    return "\n".join(lines)
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--follow", action="store_true", help="refresh every 10 s")
+    args = ap.parse_args()
+    if not args.follow:
+        print(render())
+        return
+    while True:
+        print("\033[H\033[2J" + render(), flush=True)
+        time.sleep(10)
+
+
+if __name__ == "__main__":
+    main()

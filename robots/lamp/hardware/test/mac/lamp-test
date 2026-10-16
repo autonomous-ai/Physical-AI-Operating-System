@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+# lamp-test - test a lamp from this Mac through the test hub (opidev1).
+#
+# Runs lamp-remote-test on the hub over the ethernet cable (Mac en6 192.168.1.233 ->
+# opidev1 end0 192.168.1.10), then copies each markdown report to ~/lamp-reports/
+# as lamp-xxxx-YYYYMMDD-HHMMSS.md.
+#
+#   lamp-test                  # auto-find a lamp-* hotspot and test it
+#   lamp-test 'lamp-0c*'       # wildcard
+#   lamp-test --all            # every lamp in range
+#   lamp-test --scan           # list hotspots only
+#   lamp-test -- --skip servo  # args after -- go to the test
+#   lamp-test dash             # the hub's LCD view (tmux "lamprun", read-only; Ctrl-b d to leave)
+#   lamp-test fetch            # only collect reports (e.g. from runs started with the hub's button)
+#   lamp-test tune ['lamp-0c*'] # MPR121 factory calibration, in the hub's tmux "lamprun" (button works too)
+#   lamp-test stats [--follow] # MPR121 statistics per lamp colour (noise, thresholds, phantoms)
+#   lamp-test hal-bundle [repo] # build web + copy HAL from the lampOS checkout to the hub (~/hwtest/hal-bundle);
+#                                 tune then pushes it to each lamp that does not run it yet
+# All other arguments are passed to lamp-remote-test (see: lamp-test --help).
+
+HUB="${LAMP_HUB:-orangepi@192.168.1.10}"
+DEST="${LAMP_REPORTS:-$HOME/lamp-reports}"
+SSH=(ssh -o ConnectTimeout=8 -o LogLevel=ERROR -o StrictHostKeyChecking=accept-new)
+
+if [ "${1:-}" = stats ]; then                    # MPR121 calibration statistics per lamp colour
+    exec "${SSH[@]}" -t "$HUB" "lamp-mpr121-stats ${2:-}"
+fi
+
+if [ "${1:-}" = dash ]; then                     # live view of whatever the hub is running
+    exec "${SSH[@]}" -t "$HUB" "tmux attach -r -t lamprun || tail -n 300 -F ~/hwtest/fleet/live.log"
+fi
+
+if [ "${1:-}" = hal-bundle ]; then
+    # default: the lampOS checkout this script lives in (robots/lamp/hardware/test/mac/), else $LAMPOS_REPO
+    here="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
+    REPO="${2:-${LAMPOS_REPO:-$(cd "$here/../../../../.." 2>/dev/null && pwd)}}"
+    [ -d "$REPO/hal" ] && [ -d "$REPO/system/web" ] || { echo "not a lampOS checkout: $REPO"; exit 1; }
+    echo "== building web ($REPO/system/web)"
+    ( cd "$REPO/system/web" && { [ -d node_modules ] || npm ci --no-audit --no-fund; } && npm run build >/dev/null ) \
+        || { echo "web build failed"; exit 1; }
+    dirty="$(git -C "$REPO" status --porcelain -- hal system/web/src | grep -q . && echo -dirty)"
+    id="$(git -C "$REPO" rev-parse --abbrev-ref HEAD)@$(git -C "$REPO" rev-parse --short HEAD)$dirty $(date +%Y%m%d-%H%M)"
+    echo "== bundle $id -> $HUB:~/hwtest/hal-bundle"
+    export LC_ALL=C COPYFILE_DISABLE=1
+    "${SSH[@]}" "$HUB" 'rm -rf ~/hwtest/hal-bundle.new && mkdir -p ~/hwtest/hal-bundle.new/web' || exit 1
+    tar -C "$REPO" --exclude 'hal/.venv*' --exclude '__pycache__' --exclude 'hal/.pytest_cache' \
+        --exclude 'hal/.env' --exclude '.DS_Store' -czf - hal |
+        "${SSH[@]}" "$HUB" 'tar -C ~/hwtest/hal-bundle.new -xzf - 2>/dev/null' || exit 1
+    tar -C "$REPO/system/web/dist" -czf - . | "${SSH[@]}" "$HUB" 'tar -C ~/hwtest/hal-bundle.new/web -xzf - 2>/dev/null' || exit 1
+    "${SSH[@]}" "$HUB" "echo $(printf '%q' "$id") > ~/hwtest/hal-bundle.new/BUNDLE_ID &&
+        rm -rf ~/hwtest/hal-bundle && mv ~/hwtest/hal-bundle.new ~/hwtest/hal-bundle &&
+        echo \"hub has bundle: \$(cat ~/hwtest/hal-bundle/BUNDLE_ID) (HAL \$(cat ~/hwtest/hal-bundle/hal/VERSION_HAL))\""
+    exit $?
+fi
+
+rc=0
+if [ "${1:-}" = tune ]; then
+    shift
+    args=""; for a in "$@"; do args+=" $(printf '%q' "$a")"; done
+    # runs in the hub's tmux (plain shell + typed command), so Ctrl-C / a dropped cable keeps the
+    # session and its output; the run itself survives the SSH session, so no wlan0 check is needed
+    cmd="env -u SSH_CONNECTION lamp-remote-test --tune$args"
+    "${SSH[@]}" -t "$HUB" "lamp-hub-tmux
+        P=\$(tmux list-panes -t lamprun -F '#{pane_id} #{@role}' | awk '\$2==\"main\" {print \$1}')
+        tmux send-keys -t \$P $(printf '%q' "$cmd") Enter; tmux select-pane -t \$P; tmux attach -t lamprun"
+    rc=$?
+elif [ "${1:-}" != fetch ]; then
+    # quote for the hub's shell so wildcards like lamp-0c* reach lamp-remote-test intact
+    args=""; for a in "$@"; do args+=" $(printf '%q' "$a")"; done
+    "${SSH[@]}" -t "$HUB" "lamp-remote-test$args"
+    rc=$?
+fi
+
+files="$("${SSH[@]}" "$HUB" 'ls hwtest/fleet/outbox/*.md hwtest/fleet/outbox/*.jpg hwtest/fleet/outbox/*.wav hwtest/fleet/outbox/*.json 2>/dev/null')"
+if [ -n "$files" ]; then
+    mkdir -p "$DEST"
+    if scp -q -o LogLevel=ERROR -o StrictHostKeyChecking=accept-new "$HUB:hwtest/fleet/outbox/*" "$DEST/"; then
+        "${SSH[@]}" "$HUB" "rm -f $(echo $files)"
+        echo "reports saved:"
+        for f in $files; do echo "  $DEST/$(basename "$f")"; done
+    else
+        echo "WARN: could not copy reports from $HUB:hwtest/fleet/outbox/ (left there)"
+    fi
+fi
+exit $rc

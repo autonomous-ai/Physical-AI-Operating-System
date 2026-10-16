@@ -10,28 +10,35 @@
 //! ([`lamp_msgs::Claim::holds_at`]), so a skill renews what it keeps.
 //!
 //! The person comes first. When they ask for their own light
-//! (`light/command`), every request below a person's that holds gives way,
-//! and stays given way while its asker renews it; its next claim, after
-//! that one has lapsed or been given back, is heard again.
+//! (`light/command`), every request below a person's whose claim began
+//! before then gives way, and stays given way while its asker renews it
+//! without a gap; the asker's next claim, after that one has lapsed or been
+//! given back, is heard again. A claim given way still has its asker's one
+//! place among the [`MOST_SOURCES`], so whatever is held can always be
+//! given way: there is no second list that could fill up.
 use lamp_msgs::{Light, LightRequest, Priority};
 
-/// At most this many askers are kept at once; another is passed over
-/// until one's request lapses.
+/// At most this many askers are kept at once, given way or not; another is
+/// passed over until one's claim lapses or is given back.
 pub const MOST_SOURCES: usize = 16;
 
 struct Held {
     request: LightRequest,
     /// The order it was taken in, so the newest of equal priority wins.
     order: u64,
+    /// When, on the ring's clock, this claim began: kept while it is
+    /// renewed without a gap.
+    since_us: u64,
+    /// Sent before the person's light that was read in the same look, so
+    /// given way as if it had come first.
+    before_person: bool,
 }
 
 pub struct Requests {
     clock_id: String,
     held: Vec<Held>,
-    /// Askers the person's own light overruled, and when their claim
-    /// would lapse: a renewal before then is the same claim, still
-    /// overruled.
-    overruled: Vec<(String, u64)>,
+    /// When the person last asked for their own light, on the ring's clock.
+    person_at_us: Option<u64>,
     taken: u64,
 }
 
@@ -41,46 +48,42 @@ impl Requests {
         Self {
             clock_id: clock_id.into(),
             held: Vec::new(),
-            overruled: Vec::new(),
+            person_at_us: None,
             taken: 0,
         }
     }
 
     /// Take a request read at `now_us` on the ring's clock. With
-    /// `before_person`, the person asked for their own light after it was
-    /// sent, so it is overruled as it would have been had it come first.
+    /// `before_person`, it was sent before the person's light read in the
+    /// same look, so it gives way as it would have had it come first.
     /// Whether it is now held: a request that is not a light there is, from
-    /// another clock, overruled, or past [`MOST_SOURCES`] is not, nor is
-    /// one that gives the light back.
+    /// another clock, or past [`MOST_SOURCES`] is not, nor is one that
+    /// gives the light back. A request held may still be given way.
     pub fn take(&mut self, request: LightRequest, now_us: u64, before_person: bool) -> bool {
         if request.check().is_err() || request.claim.clock_id != self.clock_id {
             return false;
         }
-        let source = request.claim.source.clone();
-        let holds = request.claim.holds_at(&self.clock_id, now_us);
-        self.held.retain(|held| held.request.claim.source != source);
-        if let Some(at) = self
-            .overruled
+        let clock_id = &self.clock_id;
+        let at = self
+            .held
             .iter()
-            .position(|(overruled, _)| *overruled == source)
-        {
-            let until = self.overruled[at].1;
-            if holds && now_us < until {
-                // The same claim, renewed: still the person's turn.
-                self.overruled[at].1 = until.max(request.claim.until_us);
-                return false;
-            }
-            self.overruled.swap_remove(at);
+            .position(|held| held.request.claim.source == request.claim.source);
+        // Renewed before its claim lapsed: the same claim, from when it began.
+        let renewed = at
+            .map(|at| &self.held[at])
+            .filter(|held| held.request.claim.holds_at(clock_id, now_us));
+        let (since_us, was_before) = renewed.map_or((now_us, before_person), |held| {
+            (held.since_us, held.before_person)
+        });
+        if let Some(at) = at {
+            self.held.swap_remove(at);
         }
-        if !holds {
+        if !request.claim.holds_at(&self.clock_id, now_us) {
             return false;
         }
-        if before_person && request.claim.priority < Priority::Person {
-            self.overrule(source, request.claim.until_us);
-            return false;
-        }
+        let clock_id = &self.clock_id;
         self.held
-            .retain(|held| held.request.claim.holds_at(&self.clock_id, now_us));
+            .retain(|held| held.request.claim.holds_at(clock_id, now_us));
         if self.held.len() >= MOST_SOURCES {
             return false;
         }
@@ -88,47 +91,30 @@ impl Requests {
         self.held.push(Held {
             request,
             order: self.taken,
+            since_us,
+            before_person: was_before,
         });
         true
     }
 
     /// The person asked for their own light at `now_us`: every request
-    /// below a person's that holds gives way.
+    /// below a person's whose claim began before gives way.
     pub fn person_asked(&mut self, now_us: u64) {
-        let clock_id = &self.clock_id;
-        self.overruled.retain(|(_, until)| now_us < *until);
-        let mut given_way = Vec::new();
-        self.held.retain(|held| {
-            let claim = &held.request.claim;
-            if !claim.holds_at(clock_id, now_us) {
-                return false;
-            }
-            if claim.priority < Priority::Person {
-                given_way.push((claim.source.clone(), claim.until_us));
-                return false;
-            }
-            true
-        });
-        for (source, until) in given_way {
-            self.overrule(source, until);
-        }
+        self.person_at_us = Some(now_us);
     }
 
-    fn overrule(&mut self, source: String, until_us: u64) {
-        if let Some(kept) = self.overruled.iter_mut().find(|(at, _)| *at == source) {
-            kept.1 = kept.1.max(until_us);
-        } else if self.overruled.len() < MOST_SOURCES {
-            self.overruled.push((source, until_us));
-        }
-        // Past that, too many to remember: its renewals are heard as new
-        // claims.
+    fn given_way(&self, held: &Held) -> bool {
+        held.request.claim.priority < Priority::Person
+            && (held.before_person || self.person_at_us.is_some_and(|at| held.since_us < at))
     }
 
-    /// The request shown at `now_us`, if one holds.
+    /// The request shown at `now_us`, if one holds and has not given way.
     pub fn shown(&self, now_us: u64) -> Option<&LightRequest> {
         self.held
             .iter()
-            .filter(|held| held.request.claim.holds_at(&self.clock_id, now_us))
+            .filter(|held| {
+                held.request.claim.holds_at(&self.clock_id, now_us) && !self.given_way(held)
+            })
             .max_by_key(|held| (held.request.claim.priority, held.order))
             .map(|held| &held.request)
     }
@@ -243,61 +229,79 @@ mod tests {
     #[test]
     fn the_persons_light_overrules_lower_requests_while_they_are_renewed() {
         let mut requests = Requests::new(BOOT);
-        requests.take(
-            request("skill:a", Priority::Skill, 10 * S, "blue"),
-            0,
-            false,
-        );
+        let blue = |until_us| request("skill:a", Priority::Skill, until_us, "blue");
+        requests.take(blue(10 * S), 0, false);
         requests.take(request("hand", Priority::Person, 3 * S, "white"), 0, false);
         requests.person_asked(S);
         // A person's own request is not overruled by their light.
         assert_eq!(colour(&requests, S), Some("white"));
         assert_eq!(colour(&requests, 3 * S), None, "the skill gave way");
-        // Renewed before its claim lapsed: the same claim, still overruled.
-        assert!(!requests.take(
-            request("skill:a", Priority::Skill, 14 * S, "blue"),
-            5 * S,
-            false
-        ));
-        assert!(!requests.take(
-            request("skill:a", Priority::Skill, 18 * S, "blue"),
-            13 * S,
-            false
-        ));
+        // Renewed before its claim lapsed: the same claim, held and still
+        // given way.
+        assert!(requests.take(blue(14 * S), 5 * S, false));
+        assert!(requests.take(blue(18 * S), 13 * S, false));
         assert_eq!(colour(&requests, 13 * S), None);
         // A new claim after that one lapsed is heard again.
-        assert!(requests.take(
-            request("skill:a", Priority::Skill, 25 * S, "blue"),
-            19 * S,
-            false
-        ));
+        assert!(requests.take(blue(25 * S), 19 * S, false));
         assert_eq!(colour(&requests, 19 * S), Some("blue"));
         // So is one after the asker gave its light back.
         requests.person_asked(20 * S);
-        requests.take(
-            request("skill:a", Priority::Skill, 0, "blue"),
-            21 * S,
-            false,
-        );
-        assert!(requests.take(
-            request("skill:a", Priority::Skill, 30 * S, "blue"),
-            21 * S,
-            false
-        ));
+        assert_eq!(colour(&requests, 20 * S), None);
+        assert!(!requests.take(blue(0), 21 * S, false));
+        assert!(requests.take(blue(30 * S), 21 * S, false));
         assert_eq!(colour(&requests, 22 * S), Some("blue"));
     }
 
     #[test]
     fn a_request_sent_before_the_persons_light_is_overruled_as_if_it_had_come_first() {
         let mut requests = Requests::new(BOOT);
-        assert!(!requests.take(request("skill:a", Priority::Skill, 10 * S, "blue"), 0, true));
+        requests.person_asked(0);
+        assert!(requests.take(request("skill:a", Priority::Skill, 10 * S, "blue"), 0, true));
         assert_eq!(colour(&requests, 0), None);
-        assert!(!requests.take(
+        // Its renewal is the same claim, still given way.
+        requests.take(
             request("skill:a", Priority::Skill, 12 * S, "blue"),
             S,
-            false
-        ));
+            false,
+        );
+        assert_eq!(colour(&requests, S), None);
         assert!(requests.take(request("hand", Priority::Person, 3 * S, "white"), 0, true));
         assert_eq!(colour(&requests, S), Some("white"));
+    }
+
+    /// The reviewer on #993 (11:35): sixteen skills, the person's light, a
+    /// seventeenth skill, the person's light again. A claim given way keeps
+    /// its place, so the seventeenth is not held and cannot show over the
+    /// person's light; it is heard only as a new claim once a place is free.
+    #[test]
+    fn whatever_is_held_can_always_be_given_way_however_many_ask() {
+        let mut requests = Requests::new(BOOT);
+        let skill =
+            |n: usize, until_us| request(&format!("skill:{n}"), Priority::Skill, until_us, "blue");
+        for n in 0..MOST_SOURCES {
+            assert!(requests.take(skill(n, 10 * S), 0, false));
+        }
+        requests.person_asked(S);
+        assert_eq!(colour(&requests, S), None);
+        // The sixteen renew and keep their places, given way.
+        for n in 0..MOST_SOURCES {
+            assert!(requests.take(skill(n, 12 * S), 2 * S, false));
+        }
+        let seventeenth = |until_us| request("skill:17", Priority::Skill, until_us, "red");
+        assert!(
+            !requests.take(seventeenth(12 * S), 2 * S, false),
+            "no place"
+        );
+        requests.person_asked(3 * S);
+        assert!(!requests.take(seventeenth(14 * S), 4 * S, false));
+        assert_eq!(colour(&requests, 4 * S), None, "the person's light");
+        // The sixteen let go: the seventeenth's next request is a claim
+        // begun after the person's light, and is shown.
+        assert!(requests.take(seventeenth(20 * S), 12 * S, false));
+        assert_eq!(colour(&requests, 12 * S), Some("red"));
+        // And a later person's light gives it way in its turn.
+        requests.person_asked(13 * S);
+        assert!(requests.take(seventeenth(24 * S), 14 * S, false));
+        assert_eq!(colour(&requests, 14 * S), None);
     }
 }

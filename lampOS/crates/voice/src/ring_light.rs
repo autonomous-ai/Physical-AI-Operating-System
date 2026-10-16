@@ -173,7 +173,10 @@ impl RingLight {
         let mut requested_changed = false;
         if now_us.saturating_sub(self.looked_at_us) >= LOOK_EVERY_US {
             self.looked_at_us = now_us;
-            let asked_before_ms = self.asked_at_ms;
+            // The newest wall-clock stamp of a person's light read in this
+            // look, if one was: a light read is the person asking, whatever
+            // its stamp says after the clock was set back.
+            let mut person_in_look: Option<u64> = None;
             for _ in 0..MOST_AT_ONCE {
                 let Ok(Some(message)) = self.asked.recv(Duration::ZERO) else {
                     break;
@@ -190,10 +193,12 @@ impl RingLight {
                     }
                     self.now = asked;
                     self.asked_at_ms = self.asked_at_ms.max(message.header.at_unix_ms);
+                    let at = message.header.at_unix_ms;
+                    person_in_look = Some(person_in_look.map_or(at, |newest| newest.max(at)));
                 }
             }
             if let Some((asked, requests)) = &mut self.requests {
-                if self.asked_at_ms > asked_before_ms {
+                if person_in_look.is_some() {
                     requests.person_asked(now_us);
                 }
                 for _ in 0..MOST_AT_ONCE {
@@ -206,9 +211,12 @@ impl RingLight {
                     if message.expired {
                         continue;
                     }
-                    // Sent at or before the person's newest light, as a test
-                    // is: a tie goes to the person.
-                    let before_person = message.header.at_unix_ms <= self.asked_at_ms;
+                    // Sent at or before a person's light read in this same
+                    // look: a tie goes to the person. Wall clocks order only
+                    // what one look reads, so a clock set back cannot hold a
+                    // later request off; across looks, reading order is.
+                    let before_person =
+                        person_in_look.is_some_and(|at| message.header.at_unix_ms <= at);
                     requests.take(request, now_us, before_person);
                 }
             }
@@ -719,5 +727,78 @@ mod tests {
             std::thread::sleep(Duration::from_millis(2));
         }
         assert_eq!(ring.face(), &light(true, "white", 5));
+    }
+
+    /// The ring's own socket on `topic`, for a datagram made by hand.
+    fn ring_socket(root: &Path, topic: &str) -> std::path::PathBuf {
+        std::fs::read_dir(root.join(topic).join("subs"))
+            .unwrap()
+            .flatten()
+            .map(|entry| entry.path())
+            .find(|path| {
+                path.file_name()
+                    .is_some_and(|name| name.to_string_lossy().starts_with("ring."))
+            })
+            .unwrap()
+    }
+
+    /// A person's light from `actions`, stamped `at_unix_ms` by its wall
+    /// clock whatever the time is.
+    fn person_at(root: &Path, seq: u64, at_unix_ms: u64, colour: &str) {
+        let mut bytes = serde_json::to_vec(&serde_json::json!({
+            "topic": Light::TOPICS[0], "kind": "latest", "enc": "json", "type": Light::TYPE,
+            "source": "actions", "boot": "0123456789abcdef", "seq": seq,
+            "at_us": seq, "at_unix_ms": at_unix_ms
+        }))
+        .unwrap();
+        bytes.push(b'\n');
+        bytes.extend(serde_json::to_vec(&light(true, colour, 2)).unwrap());
+        std::os::unix::net::UnixDatagram::unbound()
+            .unwrap()
+            .send_to(&bytes, ring_socket(root, Light::TOPICS[0]))
+            .unwrap();
+    }
+
+    /// The reviewer on #993 (11:35): the wall clock set back. A person's
+    /// light stamped earlier than one before it is still the person asking,
+    /// and a request sent after it in a later look is not held off by the
+    /// older, later-stamped light.
+    #[test]
+    fn a_clock_set_back_neither_hides_the_persons_light_nor_holds_a_glow_off() {
+        let root = Root::new("light-request-clock");
+        let (mut ring, _) = RingLight::on(&root.0).unwrap();
+        ring.take_requests(&root.0, "boot-test").unwrap();
+        let bus = Bus::new(&root.0).unwrap();
+        let mut glows = bus
+            .publisher_declared(LightRequest::TOPIC, &LightRequest::declaration(), "skills")
+            .unwrap();
+        let mut at = 0u64;
+        ring.tick(at);
+        let now_ms = unix_ms();
+        // Before the clock went back: a light stamped an hour ahead.
+        person_at(&root.0, 1, now_ms + 3_600_000, "blue");
+        assert_eq!(taken(&mut ring, &mut at), Lit::of(true, "blue", 2));
+        // A glow asked after it, in a later look, with today's earlier stamp.
+        let glow = |at: u64| {
+            request(
+                "skill:focus",
+                lamp_msgs::Priority::Skill,
+                at + 5_000_000,
+                "purple",
+            )
+        };
+        glows.publish_json(1, &glow(at)).unwrap();
+        assert_eq!(taken(&mut ring, &mut at), Lit::of(true, "purple", 4));
+        // The clock is back: the person's next light is stamped earlier
+        // than the first, and still ends the glow.
+        person_at(&root.0, 2, now_ms, "white");
+        assert_eq!(taken(&mut ring, &mut at), Lit::of(true, "white", 2));
+        glows.publish_json(2, &glow(at)).unwrap();
+        for _ in 0..5 {
+            at += LOOK_EVERY_US;
+            assert_eq!(ring.tick(at), None);
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        assert_eq!(ring.face(), &light(true, "white", 2));
     }
 }

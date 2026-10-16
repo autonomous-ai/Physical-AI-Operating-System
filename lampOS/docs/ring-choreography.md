@@ -273,10 +273,16 @@ that takes the light (`src/ring_light.rs`). Started with
   the person's light again once none does, with no one giving it back. An
   asker gives the light back early by asking with a time already passed.
   A claim holds 30 s at most, so a skill renews what it keeps. A
-  `light/command` ends every request below `person` that holds, and it
-  stays ended while its asker renews it; the asker's next claim, after
-  that one lapsed or was given back, is heard again. At most 16 askers
-  are kept and 8 requests read a look. A self-test's colour still comes
+  `light/command` read gives way every request below `person` whose claim
+  began before it, and it stays given way while its asker renews it
+  without a gap; the asker's next claim, after that one lapsed or was
+  given back, is heard again. A light read is the person asking whatever
+  its stamp: wall-clock stamps only order a request and a person's light
+  read in the same look, so a clock set back neither hides the person's
+  light nor holds a later request off. At most 16 askers are kept, a
+  request given way keeping its asker's place, so whatever is held can
+  always be given way; a request refused for want of a place is not held,
+  and its asker's next one is a new claim. 8 requests are read a look. A self-test's colour still comes
   first. `light/state` goes on saying the person's light; `light/drawn`
   says the request's while it is drawn. A boot clock that cannot be read
   is said once and the ring takes the person's light alone.

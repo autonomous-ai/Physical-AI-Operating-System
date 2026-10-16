@@ -261,9 +261,20 @@ So parent and child share one stepped clock: in ten of the eleven tests, includi
 waits until the child has written the same instant to `scenario-done`. The
 child sees the file, reads its time from it (`FixtureClock`, for its motor
 core and worker), and in place of `worker::run`'s sleep waits for the next
-step after each poll. A finished child writes `u64::MAX`, and a child that has
-exited ends the parent's wait. Time therefore moves only in 2 ms steps that
-both processes have finished, and no host pause reaches a deadline.
+step after each poll. A finished child writes `u64::MAX`, and the parent's
+step then waits until that child has exited, so the child's host exit time
+reaches no teardown deadline. A child that has exited ends the parent's wait.
+Time therefore moves only in 2 ms steps that both processes have finished, and
+no host pause reaches a deadline.
+
+A child held at its `go` gate (`TestLink::gate`) still finishes each step:
+it writes the instant to `scenario-done`, waits for the next one, and only then
+looks for `go` again, so it never works at an instant it has already finished.
+The privacy-revoke fixture runs this way (#949), with two causal regressions:
+a 30 ms host pause before its release, and a child that takes 300 ms to exit
+after finishing. On the host clock the first failed 10 of 10 runs with
+`motor inhibit acknowledgement timed out`. Without the exit wait the second
+failed 10 of 10 with an unconfirmed privacy release.
 
 The parent's Supervisor measures its deadlines on the same clock:
 `Supervisor<C: Clock = SystemClock>` in `crates/body/src/runtime/supervisor.rs`,

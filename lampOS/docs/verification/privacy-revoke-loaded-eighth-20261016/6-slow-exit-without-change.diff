@@ -1,0 +1,11 @@
+--- a/lampOS/crates/voice/src/coordinator/motor/tests.rs (af97a4a4c)
++++ b/lampOS/crates/voice/src/coordinator/motor/tests.rs (without.bin)
+@@ -84,7 +84,7 @@
+     let until = Instant::now() + SCENARIO_WATCHDOG;
+     loop {
+         let done = read_instant(&session.join(SCENARIO_DONE));
+-        if done.is_some_and(|done| done >= at_us && done != SCENARIO_FINISHED) {
++        if done.is_some_and(|done| done >= at_us) {
+             return Ok(());
+         }
+         if pid.get().is_none() {

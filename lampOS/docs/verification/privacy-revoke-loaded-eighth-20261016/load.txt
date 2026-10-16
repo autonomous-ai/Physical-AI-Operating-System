@@ -1,0 +1,8 @@
+load-start: 11:17:31 up 43 days, 12 min,  4 users,  load average: 3.44, 3.03, 3.88
+load-end: 11:17:40 up 43 days, 12 min,  4 users,  load average: 7.33, 3.87, 4.14
+pause-load-start: 11:18:01 up 43 days, 13 min,  4 users,  load average: 5.39, 3.66, 4.07
+pause-load-end: 11:18:05 up 43 days, 13 min,  4 users,  load average: 7.60, 4.14, 4.22
+diag-load-start: 11:23:44 up 43 days, 19 min,  4 users,  load average: 13.04, 8.33, 5.87
+diag-load-end: 11:24:36 up 43 days, 19 min,  4 users,  load average: 24.27, 12.22, 7.33
+final-load-start: 11:26:47 up 43 days, 22 min,  4 users,  load average: 3.97, 8.34, 6.52
+final-load-end: 11:27:12 up 43 days, 22 min,  4 users,  load average: 12.61, 10.06, 7.14

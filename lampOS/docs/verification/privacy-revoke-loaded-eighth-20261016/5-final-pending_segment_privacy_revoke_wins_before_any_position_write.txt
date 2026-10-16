@@ -1,0 +1,2800 @@
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r1-1
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r1-2
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.04s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r1-3
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.04s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r1-4
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r1-5
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.04s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r1-6
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.04s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r1-7
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.04s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r1-8
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.04s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r1-9
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r1-10
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r2-1
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r2-2
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r2-3
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.04s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r2-4
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.04s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r2-5
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r2-6
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r2-7
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r2-8
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.04s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r2-9
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.04s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r2-10
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r3-1
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r3-2
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r3-3
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.04s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r3-4
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r3-5
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r3-6
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r3-7
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.04s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r3-8
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r3-9
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r3-10
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r4-1
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r4-2
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r4-3
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r4-4
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r4-5
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r4-6
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r4-7
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r4-8
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.04s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r4-9
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r4-10
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r5-1
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r5-2
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r5-3
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.04s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r5-4
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r5-5
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r5-6
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r5-7
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r5-8
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r5-9
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r5-10
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r6-1
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.04s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r6-2
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r6-3
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r6-4
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.04s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r6-5
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.04s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r6-6
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.04s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r6-7
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.04s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r6-8
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r6-9
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r6-10
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r7-1
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r7-2
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r7-3
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r7-4
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r7-5
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.04s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r7-6
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r7-7
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r7-8
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r7-9
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r7-10
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r8-1
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r8-2
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r8-3
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r8-4
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r8-5
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r8-6
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r8-7
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r8-8
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r8-9
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r8-10
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.04s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r9-1
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r9-2
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r9-3
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r9-4
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r9-5
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r9-6
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r9-7
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r9-8
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.04s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r9-9
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r9-10
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r10-1
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r10-2
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r10-3
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r10-4
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r10-5
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r10-6
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r10-7
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r10-8
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r10-9
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r10-10
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r11-1
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r11-2
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r11-3
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r11-4
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.04s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r11-5
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r11-6
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r11-7
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r11-8
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.04s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r11-9
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r11-10
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r12-1
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r12-2
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r12-3
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r12-4
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r12-5
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r12-6
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r12-7
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r12-8
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r12-9
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.08s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r12-10
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r13-1
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r13-2
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r13-3
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.04s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r13-4
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r13-5
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r13-6
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r13-7
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r13-8
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r13-9
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r13-10
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r14-1
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r14-2
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r14-3
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r14-4
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r14-5
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r14-6
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r14-7
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r14-8
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r14-9
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r14-10
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r15-1
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r15-2
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r15-3
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r15-4
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r15-5
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r15-6
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r15-7
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r15-8
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r15-9
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r15-10
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r16-1
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r16-2
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r16-3
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r16-4
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r16-5
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r16-6
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r16-7
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r16-8
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r16-9
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r16-10
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r17-1
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r17-2
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.08s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r17-3
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r17-4
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r17-5
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r17-6
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r17-7
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r17-8
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r17-9
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r17-10
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r18-1
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r18-2
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r18-3
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r18-4
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.08s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r18-5
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r18-6
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r18-7
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.10s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r18-8
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r18-9
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r18-10
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r19-1
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r19-2
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r19-3
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r19-4
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r19-5
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.08s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r19-6
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r19-7
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r19-8
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.09s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r19-9
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.08s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r19-10
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r20-1
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r20-2
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r20-3
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r20-4
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r20-5
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r20-6
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r20-7
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r20-8
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r20-9
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r20-10
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r21-1
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r21-2
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r21-3
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r21-4
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r21-5
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.08s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r21-6
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r21-7
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r21-8
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r21-9
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r21-10
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r22-1
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.08s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r22-2
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r22-3
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.09s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r22-4
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r22-5
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r22-6
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r22-7
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r22-8
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r22-9
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r22-10
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r23-1
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r23-2
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r23-3
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r23-4
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r23-5
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r23-6
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r23-7
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r23-8
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r23-9
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r23-10
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r24-1
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r24-2
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.08s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r24-3
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.08s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r24-4
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r24-5
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r24-6
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r24-7
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r24-8
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r24-9
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r24-10
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r25-1
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r25-2
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r25-3
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.10s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r25-4
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.08s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r25-5
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.08s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r25-6
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.08s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r25-7
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.08s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r25-8
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.04s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r25-9
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r25-10
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r26-1
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r26-2
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r26-3
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r26-4
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r26-5
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r26-6
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r26-7
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.08s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r26-8
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r26-9
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r26-10
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r27-1
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r27-2
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r27-3
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r27-4
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.04s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r27-5
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r27-6
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r27-7
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r27-8
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r27-9
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r27-10
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r28-1
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r28-2
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r28-3
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r28-4
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r28-5
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.04s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r28-6
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r28-7
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r28-8
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r28-9
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r28-10
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r29-1
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r29-2
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r29-3
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.12s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r29-4
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.04s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r29-5
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r29-6
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r29-7
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r29-8
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.12s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r29-9
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r29-10
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r30-1
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r30-2
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r30-3
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r30-4
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r30-5
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r30-6
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r30-7
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r30-8
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r30-9
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r30-10
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r31-1
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r31-2
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r31-3
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.08s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r31-4
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.08s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r31-5
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r31-6
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r31-7
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r31-8
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r31-9
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r31-10
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r32-1
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r32-2
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r32-3
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r32-4
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r32-5
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r32-6
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r32-7
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r32-8
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r32-9
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r32-10
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r33-1
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r33-2
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r33-3
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r33-4
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r33-5
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r33-6
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r33-7
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r33-8
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r33-9
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r33-10
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r34-1
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r34-2
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r34-3
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r34-4
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r34-5
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r34-6
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r34-7
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r34-8
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r34-9
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r34-10
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r35-1
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r35-2
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r35-3
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r35-4
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r35-5
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r35-6
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r35-7
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r35-8
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r35-9
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r35-10
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r36-1
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r36-2
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r36-3
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r36-4
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r36-5
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r36-6
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r36-7
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r36-8
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r36-9
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r36-10
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r37-1
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.08s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r37-2
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r37-3
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r37-4
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r37-5
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.08s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r37-6
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.09s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r37-7
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r37-8
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r37-9
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r37-10
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r38-1
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.04s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r38-2
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.08s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r38-3
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r38-4
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.08s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r38-5
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r38-6
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r38-7
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r38-8
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r38-9
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.09s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r38-10
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r39-1
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r39-2
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r39-3
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r39-4
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r39-5
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r39-6
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r39-7
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r39-8
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.08s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r39-9
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r39-10
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r40-1
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r40-2
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r40-3
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r40-4
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r40-5
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r40-6
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r40-7
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r40-8
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.07s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r40-9
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.05s
+
+=== pending_segment_privacy_revoke_wins_before_any_position_write/r40-10
+
+running 1 test
+test coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1180 filtered out; finished in 0.06s
+

@@ -1,0 +1,14 @@
+diff --git a/lampOS/crates/voice/src/coordinator/motor/tests.rs b/lampOS/crates/voice/src/coordinator/motor/tests.rs
+index cbe66e10d..69e871c09 100644
+--- a/lampOS/crates/voice/src/coordinator/motor/tests.rs
++++ b/lampOS/crates/voice/src/coordinator/motor/tests.rs
+@@ -1051,6 +1051,9 @@ fn pending_segment_privacy_revoke_wins_before_any_position_write() {
+     c.set_camera_permission(time(), Permission::Denied).unwrap();
+     m.publish(c.snapshot(time()).unwrap());
+     assert!(m.pending.is_none());
++    if let Ok(ms) = std::env::var("EXP949_PAUSE_MS") {
++        std::thread::sleep(Duration::from_millis(ms.parse().unwrap()));
++    }
+     fs::write(dir.path.join("motor/go"), b"release inert worker").unwrap();
+     wait(&mut m, &mut c, OptionalMotor::reaped);
+     assert!(

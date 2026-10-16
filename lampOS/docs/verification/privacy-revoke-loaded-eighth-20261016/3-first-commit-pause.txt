@@ -1,0 +1,2812 @@
+=== pause/r1-1
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r1-2
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.07s
+
+=== pause/r1-3
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r1-4
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.07s
+
+=== pause/r1-5
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.07s
+
+=== pause/r1-6
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.07s
+
+=== pause/r1-7
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r1-8
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.07s
+
+=== pause/r1-9
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.07s
+
+=== pause/r1-10
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.07s
+
+=== pause/r2-1
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.07s
+
+=== pause/r2-2
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.07s
+
+=== pause/r2-3
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r2-4
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.07s
+
+=== pause/r2-5
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r2-6
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r2-7
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.07s
+
+=== pause/r2-8
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r2-9
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r2-10
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r3-1
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.11s
+
+=== pause/r3-2
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r3-3
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.10s
+
+=== pause/r3-4
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r3-5
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.11s
+
+=== pause/r3-6
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r3-7
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r3-8
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r3-9
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.11s
+
+=== pause/r3-10
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.10s
+
+=== pause/r4-1
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r4-2
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r4-3
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.07s
+
+=== pause/r4-4
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r4-5
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r4-6
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r4-7
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r4-8
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r4-9
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r4-10
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r5-1
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r5-2
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r5-3
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r5-4
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r5-5
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.10s
+
+=== pause/r5-6
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r5-7
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r5-8
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r5-9
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r5-10
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r6-1
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r6-2
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r6-3
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r6-4
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r6-5
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r6-6
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r6-7
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r6-8
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r6-9
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.10s
+
+=== pause/r6-10
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r7-1
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r7-2
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r7-3
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.07s
+
+=== pause/r7-4
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r7-5
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r7-6
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r7-7
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r7-8
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r7-9
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r7-10
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r8-1
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.10s
+
+=== pause/r8-2
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.10s
+
+=== pause/r8-3
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.10s
+
+=== pause/r8-4
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r8-5
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r8-6
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r8-7
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.07s
+
+=== pause/r8-8
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r8-9
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r8-10
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.10s
+
+=== pause/r9-1
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.07s
+
+=== pause/r9-2
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.07s
+
+=== pause/r9-3
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r9-4
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r9-5
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.07s
+
+=== pause/r9-6
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.07s
+
+=== pause/r9-7
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r9-8
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r9-9
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r9-10
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r10-1
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r10-2
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r10-3
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.07s
+
+=== pause/r10-4
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r10-5
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r10-6
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r10-7
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.07s
+
+=== pause/r10-8
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r10-9
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r10-10
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r11-1
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r11-2
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r11-3
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r11-4
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r11-5
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r11-6
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r11-7
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r11-8
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.10s
+
+=== pause/r11-9
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r11-10
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r12-1
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r12-2
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r12-3
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r12-4
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r12-5
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.10s
+
+=== pause/r12-6
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r12-7
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r12-8
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r12-9
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r12-10
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r13-1
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r13-2
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r13-3
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.10s
+
+=== pause/r13-4
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.10s
+
+=== pause/r13-5
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.11s
+
+=== pause/r13-6
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r13-7
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.10s
+
+=== pause/r13-8
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.10s
+
+=== pause/r13-9
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.10s
+
+=== pause/r13-10
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r14-1
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r14-2
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r14-3
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.11s
+
+=== pause/r14-4
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r14-5
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r14-6
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r14-7
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r14-8
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r14-9
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.10s
+
+=== pause/r14-10
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r15-1
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r15-2
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r15-3
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r15-4
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r15-5
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.10s
+
+=== pause/r15-6
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.11s
+
+=== pause/r15-7
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r15-8
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r15-9
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r15-10
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r16-1
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r16-2
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.10s
+
+=== pause/r16-3
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r16-4
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r16-5
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r16-6
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r16-7
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r16-8
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r16-9
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r16-10
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r17-1
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.10s
+
+=== pause/r17-2
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r17-3
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r17-4
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r17-5
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r17-6
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r17-7
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r17-8
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r17-9
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r17-10
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r18-1
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r18-2
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.07s
+
+=== pause/r18-3
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.10s
+
+=== pause/r18-4
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.11s
+
+=== pause/r18-5
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r18-6
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r18-7
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r18-8
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r18-9
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r18-10
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.07s
+
+=== pause/r19-1
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r19-2
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r19-3
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r19-4
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r19-5
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r19-6
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r19-7
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r19-8
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r19-9
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.11s
+
+=== pause/r19-10
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.10s
+
+=== pause/r20-1
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r20-2
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r20-3
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.10s
+
+=== pause/r20-4
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.10s
+
+=== pause/r20-5
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.10s
+
+=== pause/r20-6
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r20-7
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r20-8
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.10s
+
+=== pause/r20-9
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r20-10
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r21-1
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r21-2
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r21-3
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r21-4
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r21-5
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r21-6
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.07s
+
+=== pause/r21-7
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r21-8
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r21-9
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.10s
+
+=== pause/r21-10
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.10s
+
+=== pause/r22-1
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r22-2
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r22-3
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r22-4
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r22-5
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.10s
+
+=== pause/r22-6
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r22-7
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r22-8
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r22-9
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r22-10
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r23-1
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r23-2
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r23-3
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r23-4
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r23-5
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r23-6
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r23-7
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r23-8
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... FAILED
+
+failures:
+
+---- coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released stdout ----
+
+thread 'coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released' (3512277) panicked at crates/voice/src/coordinator/motor/tests.rs:1284:5:
+Err(Custom { kind: Other, error: "motor cleanup unconfirmed: Some(\"motor inhibited: ControlLost\"); None" }); supervisor=Some("motor inhibited: ControlLost"); child_finish=Ok("ControlLost")
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.12s
+
+=== pause/r23-9
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r23-10
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r24-1
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r24-2
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r24-3
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r24-4
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r24-5
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r24-6
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r24-7
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r24-8
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r24-9
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r24-10
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r25-1
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.10s
+
+=== pause/r25-2
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.07s
+
+=== pause/r25-3
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r25-4
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.10s
+
+=== pause/r25-5
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.10s
+
+=== pause/r25-6
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r25-7
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.07s
+
+=== pause/r25-8
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r25-9
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r25-10
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r26-1
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r26-2
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r26-3
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.10s
+
+=== pause/r26-4
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.10s
+
+=== pause/r26-5
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.10s
+
+=== pause/r26-6
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r26-7
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r26-8
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r26-9
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r26-10
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r27-1
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r27-2
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r27-3
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r27-4
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r27-5
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r27-6
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.07s
+
+=== pause/r27-7
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r27-8
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r27-9
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r27-10
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r28-1
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.11s
+
+=== pause/r28-2
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r28-3
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r28-4
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r28-5
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.10s
+
+=== pause/r28-6
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.10s
+
+=== pause/r28-7
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r28-8
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.10s
+
+=== pause/r28-9
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.10s
+
+=== pause/r28-10
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.10s
+
+=== pause/r29-1
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.12s
+
+=== pause/r29-2
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.12s
+
+=== pause/r29-3
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.12s
+
+=== pause/r29-4
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.11s
+
+=== pause/r29-5
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.12s
+
+=== pause/r29-6
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.10s
+
+=== pause/r29-7
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.11s
+
+=== pause/r29-8
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.10s
+
+=== pause/r29-9
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.11s
+
+=== pause/r29-10
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.12s
+
+=== pause/r30-1
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r30-2
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r30-3
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r30-4
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r30-5
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r30-6
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r30-7
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r30-8
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r30-9
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r30-10
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r31-1
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r31-2
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r31-3
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r31-4
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.10s
+
+=== pause/r31-5
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r31-6
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r31-7
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r31-8
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r31-9
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r31-10
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r32-1
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.07s
+
+=== pause/r32-2
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r32-3
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r32-4
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r32-5
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r32-6
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r32-7
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r32-8
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.07s
+
+=== pause/r32-9
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r32-10
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r33-1
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r33-2
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r33-3
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.10s
+
+=== pause/r33-4
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r33-5
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r33-6
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r33-7
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r33-8
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.11s
+
+=== pause/r33-9
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r33-10
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.15s
+
+=== pause/r34-1
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.07s
+
+=== pause/r34-2
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r34-3
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r34-4
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r34-5
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.14s
+
+=== pause/r34-6
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r34-7
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r34-8
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r34-9
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r34-10
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r35-1
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r35-2
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r35-3
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r35-4
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r35-5
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r35-6
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r35-7
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r35-8
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r35-9
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.10s
+
+=== pause/r35-10
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r36-1
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r36-2
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r36-3
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r36-4
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.10s
+
+=== pause/r36-5
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r36-6
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r36-7
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r36-8
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r36-9
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r36-10
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r37-1
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r37-2
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r37-3
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r37-4
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.10s
+
+=== pause/r37-5
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.10s
+
+=== pause/r37-6
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r37-7
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r37-8
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r37-9
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r37-10
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r38-1
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r38-2
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r38-3
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r38-4
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r38-5
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r38-6
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r38-7
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r38-8
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.07s
+
+=== pause/r38-9
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.12s
+
+=== pause/r38-10
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r39-1
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.07s
+
+=== pause/r39-2
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r39-3
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r39-4
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.07s
+
+=== pause/r39-5
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r39-6
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.07s
+
+=== pause/r39-7
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r39-8
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.07s
+
+=== pause/r39-9
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r39-10
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r40-1
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.11s
+
+=== pause/r40-2
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r40-3
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r40-4
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r40-5
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+
+=== pause/r40-6
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.14s
+
+=== pause/r40-7
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.14s
+
+=== pause/r40-8
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.12s
+
+=== pause/r40-9
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.08s
+
+=== pause/r40-10
+
+running 1 test
+test coordinator::motor::tests::privacy_revoke_survives_a_host_pause_before_the_gated_worker_is_released ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1179 filtered out; finished in 0.09s
+

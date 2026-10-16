@@ -1,0 +1,11 @@
+{
+  "from_date": "2026-10-16 07:28:06 +0700",
+  "metadata_sha256": "12eaa56f7281c706286ac7ffcf0bdaded287d837484edb3ba0ccab2add58de32",
+  "evaluator_package_id": "path+file:///private/tmp/lampos-tests-serve-relay-current/lampOS/crates/voice-eval#lamp-voice-eval@0.1.0",
+  "actual_transitive_workspace_reverse_dependents": [],
+  "affected_packages": [
+    "lamp-voice-eval"
+  ],
+  "all_dependency_kinds_included": true,
+  "metadata_preflight_exit": 0
+}

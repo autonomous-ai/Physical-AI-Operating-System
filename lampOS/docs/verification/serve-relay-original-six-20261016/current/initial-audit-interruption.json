@@ -1,0 +1,11 @@
+{
+  "date_from_date": "2026-10-16 05:59:43 +0700",
+  "command": [
+    "python3",
+    "/private/tmp/tests-823-integrate-serve-relay-all-cases.py"
+  ],
+  "exit_code": 1,
+  "reason": "The trailing pure-recorder/SlowTransport span audit searched for pub fn recorder, but the existing function is pub fn room_recorder. All six candidate source files had already been applied and all nonowned tracked hashes checked.",
+  "correction": "Use the actual existing room_recorder function name in the scratch audit only; no source edit and no test binary execution or rerun.",
+  "original_orchestration_sha256": "14cbab85953de290a66046348705d9b92039f34e8b48d0d5155779137ea98ccd"
+}

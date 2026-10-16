@@ -1,0 +1,43 @@
+{
+  "date_from_date": "2026-10-16 05:58:45 +0700",
+  "base_sha256": "53f5cc802a0101518da7214b63b77e052b3406fe1b5db3ce43d5c0c305145bf5",
+  "final_sha256": "836a72136db9573ca12e8b4aeab77ff95e42010cf71fcd652da6318945ec7bf2",
+  "complete_original_tail_exact": true,
+  "tail_sha256": "8040e3cbda58f22296ef057df328d8c3017fde6afc162954852ec675daff4ce2",
+  "six_test_bodies_exact": true,
+  "all_37_assertions_retained": true,
+  "cases": [
+    {
+      "name": "a_runner_stop_is_one_sigterm_and_a_clean_reaped_end",
+      "body_sha256": "24f30b59c030653b85c2bbcf8cfff09843fa764276bdec36979b1f70d40c8601",
+      "assertion_count": 11
+    },
+    {
+      "name": "a_closed_runner_transport_stops_the_runtime_through_the_same_path",
+      "body_sha256": "4af2fbd73fcd008a69162e0debbd12612d7da13dbc83f030e900ccd8e293edea",
+      "assertion_count": 4
+    },
+    {
+      "name": "the_hard_deadline_stops_the_runtime_and_is_an_error",
+      "body_sha256": "baa93d280ee49b3b137250d7121bd2814300a37850af9df7dab767a4009643df",
+      "assertion_count": 4
+    },
+    {
+      "name": "a_runtime_that_ignores_sigterm_is_force_killed_and_never_clean",
+      "body_sha256": "8b7c24fd64496c741935767b93d5405fddebf3c0b58809f020ca2672b9c593a4",
+      "assertion_count": 7
+    },
+    {
+      "name": "the_pilot_runtime_settings_reach_the_serve_child_exactly",
+      "body_sha256": "0640ae1b9c99c0141188428206b152c08e8625d00e3aa617fc0ecf345a6e674e",
+      "assertion_count": 6
+    },
+    {
+      "name": "a_nonzero_runtime_exit_after_clean_metadata_is_a_relay_error",
+      "body_sha256": "84c0bb43468122577f548bbe81f22a5be54569b18dbc3e0869b2b8b2182d7858",
+      "assertion_count": 5
+    }
+  ],
+  "whole_file_strict_inverse_exact": true,
+  "duration_and_fault_settings_unchanged": true
+}

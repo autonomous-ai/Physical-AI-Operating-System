@@ -1,0 +1,61 @@
+{
+  "date": "2026-10-16 04:13:48 +0700",
+  "totals": [
+    432,
+    0,
+    0
+  ],
+  "summary_count": 25,
+  "all_original_6_compiled_ids_match": [
+    "a_closed_runner_transport_stops_the_runtime_through_the_same_path",
+    "a_nonzero_runtime_exit_after_clean_metadata_is_a_relay_error",
+    "a_runner_stop_is_one_sigterm_and_a_clean_reaped_end",
+    "a_runtime_that_ignores_sigterm_is_force_killed_and_never_clean",
+    "the_hard_deadline_stops_the_runtime_and_is_an_error",
+    "the_pilot_runtime_settings_reach_the_serve_child_exactly"
+  ],
+  "all_prior_422_compiled_ids_retained": true,
+  "ten_new_ids": [
+    [
+      "lamp-voice-eval",
+      "physical::fake_lamp::invocation_tests::a_written_invocation_without_a_successful_flush_has_no_receipt"
+    ],
+    [
+      "lamp-voice-eval",
+      "physical::fake_lamp::invocation_tests::invalid_invocation_prefixes_fail_before_any_clock_or_hook"
+    ],
+    [
+      "lamp-voice-eval",
+      "physical::fake_lamp::invocation_tests::invocation_and_direct_paths_keep_the_same_parser_and_mode_errors"
+    ],
+    [
+      "lamp-voice-eval",
+      "physical::fake_lamp::invocation_tests::only_the_leading_control_pair_is_removed_from_the_parser_view"
+    ],
+    [
+      "lamp-voice-eval::serve_relay",
+      "serve_relay_clock::tests::an_expired_host_boundary_fails_before_another_step_or_clock_advance"
+    ],
+    [
+      "lamp-voice-eval::serve_relay",
+      "serve_relay_clock::tests::polls_preserve_two_milliseconds_and_stop_at_each_original_boundary"
+    ],
+    [
+      "lamp-voice-eval::serve_relay",
+      "serve_relay_clock::tests::real_runner_eof_holds_time_until_the_relay_reports_its_signal"
+    ],
+    [
+      "lamp-voice-eval::serve_relay",
+      "serve_relay_clock::tests::runtime_completion_never_advances_time_or_claims_relay_exit"
+    ],
+    [
+      "lamp-voice-eval::serve_relay",
+      "serve_relay_clock::tests::the_real_stop_keeps_the_full_delay_and_original_bytes_once"
+    ],
+    [
+      "lamp-voice-eval::serve_relay",
+      "serve_relay_clock::tests::unwinding_releases_the_real_runner_reader_and_control_socket"
+    ]
+  ],
+  "source_unchanged": true
+}

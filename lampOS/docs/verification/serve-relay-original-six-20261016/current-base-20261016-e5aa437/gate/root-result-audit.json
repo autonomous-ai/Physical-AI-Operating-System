@@ -1,0 +1,42 @@
+{
+  "date": "2026-10-16 07:41:20 +0700",
+  "base": "e5aa43747ec1540893b4da4509d14288e7e70806",
+  "compiled_and_executed_binary_paths": 24,
+  "compiled_and_executed_identities": 508,
+  "all_identities_exact_once": true,
+  "all_ignore_flags_exact": true,
+  "counts": {
+    "ok": 508
+  },
+  "summary_totals_passed_failed_ignored_measured_filtered": [
+    508,
+    0,
+    0,
+    0,
+    0
+  ],
+  "failed_identities": [],
+  "interleaved_results": [
+    {
+      "identity": [
+        "lamp-voice-eval",
+        "physical::fake_lamp::clock_tests::a_pure_clock_keeps_tick_boundaries_and_frozen_polls_distinct"
+      ],
+      "line": 15,
+      "result_line": 16
+    },
+    {
+      "identity": [
+        "lamp-voice-eval",
+        "physical::fake_lamp::clock_tests::completed_polls_prove_room_consumption_and_keep_cue_fault_timing"
+      ],
+      "line": 17,
+      "result_line": 18
+    }
+  ],
+  "all_frozen_source_hashes_exact": true,
+  "frozen_source_files": 953,
+  "test_log_sha256": "d91f2f6f3ac5413b280fda09fa8af5266dfff260a061f7d49564a85350a84eb1",
+  "list_log_sha256": "7531d5b001f8bd92aa34023d287fcdaf5baa09cfa2dc123a393967a18d4b752a",
+  "reexecuted_tests": false
+}

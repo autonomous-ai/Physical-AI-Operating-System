@@ -1,0 +1,765 @@
+--- a/lampOS/crates/voice-eval/src/physical/fake_lamp.rs
++++ b/lampOS/crates/voice-eval/src/physical/fake_lamp.rs
+@@ -107,13 +107,49 @@
+     arguments: &[String],
+     now: impl Fn() -> MonoTime,
+     before_poll: impl FnMut() -> Result<ServePollTargets>,
++    completed_poll: impl FnMut(ServePollProgress) -> Result<()>,
++) -> Result<i32> {
++    run_serve_with_argument_views(arguments, arguments, now, before_poll, completed_poll)
++}
++
++/// Preserve the actual controlled command's received argv, including its
++/// control pair. Only the validated suffix is parsed as fake-runtime options;
++/// the existing stdout record reports the original received vector once.
++pub(super) fn run_serve_with_controlled_invocation(
++    received: &[String],
++    now: impl Fn() -> MonoTime,
++    before_poll: impl FnMut() -> Result<ServePollTargets>,
++    completed_poll: impl FnMut(ServePollProgress) -> Result<()>,
++) -> Result<i32> {
++    let arguments = controlled_serve_arguments(received)?;
++    run_serve_with_argument_views(arguments, received, now, before_poll, completed_poll)
++}
++
++fn controlled_serve_arguments(received: &[String]) -> Result<&[String]> {
++    match received {
++        [flag, path, arguments @ ..]
++            if flag == "--fixture-control" && Path::new(path).is_absolute() =>
++        {
++            Ok(arguments)
++        }
++        _ => Err(invalid(
++            "a controlled serve invocation requires leading --fixture-control SOCKET",
++        )),
++    }
++}
++
++fn run_serve_with_argument_views(
++    arguments: &[String],
++    received: &[String],
++    now: impl Fn() -> MonoTime,
++    before_poll: impl FnMut() -> Result<ServePollTargets>,
+     mut completed_poll: impl FnMut(ServePollProgress) -> Result<()>,
+ ) -> Result<i32> {
+     let parsed = parse_arguments(arguments)?;
+     if !parsed.is_serve() {
+         return Err(invalid("a controlled serve fake supports only serve runs"));
+     }
+-    let argv_frames = emit_serve_argv(&mut std::io::stdout().lock(), arguments)?;
++    let argv_frames = emit_serve_argv(&mut std::io::stdout().lock(), received)?;
+     fake_serve::run_with_controlled_clock(parsed.into_serve()?, now, before_poll, |mut progress| {
+         progress.stdout_lines = progress
+             .stdout_lines
+@@ -628,3 +664,7 @@
+ #[cfg(test)]
+ #[path = "slow_transport_clock_tests.rs"]
+ mod slow_transport_clock_tests;
++
++#[cfg(test)]
++#[path = "serve_invocation_tests.rs"]
++mod invocation_tests;
+--- a/lampOS/crates/voice-eval/src/physical/fixture_commands.rs
++++ b/lampOS/crates/voice-eval/src/physical/fixture_commands.rs
+@@ -57,10 +57,10 @@
+ /// fake serve arguments. This role waits for real signal observation when the
+ /// parent requires it; a terminal receipt follows the engine's final output.
+ pub fn serve_runtime(arguments: Vec<String>) -> Result<i32> {
+-    let (path, arguments) = controlled_arguments(arguments)?;
++    let (path, _) = controlled_arguments(arguments.clone())?;
+     let participant = RefCell::new(Participant::connect(&path, Role::ServeRuntime)?);
+     let clock = participant.borrow().clock();
+-    fake_lamp::run_serve_with_controlled_clock(
++    fake_lamp::run_serve_with_controlled_invocation(
+         &arguments,
+         || clock.now(),
+         || {
+--- a/lampOS/crates/voice-eval/src/physical/serve_invocation_tests.rs
++++ b/lampOS/crates/voice-eval/src/physical/serve_invocation_tests.rs
+@@ -0,0 +1,124 @@
++//! The explicit command reports its actual received vector, without rewriting
++//! the suffix parsed by the existing fake runtime or inventing another line.
++use super::*;
++use std::io;
++
++#[test]
++fn only_the_leading_control_pair_is_removed_from_the_parser_view() {
++    let received = [
++        "--fixture-control",
++        "/private/a control socket.sock",
++        "--fake-plan",
++        "a plan; kept literally.json",
++        "--fake-scenario",
++        "serve-conversation",
++        "serve",
++        "/private/provider.json",
++        "/private/work with spaces",
++        "--cue-socket",
++        "/private/cue.sock",
++    ]
++    .map(str::to_owned);
++    let original = received.clone();
++    let parsed = controlled_serve_arguments(&received).unwrap();
++    assert_eq!(parsed, &received[2..]);
++    assert!(std::ptr::eq(parsed.as_ptr(), received[2..].as_ptr()));
++    assert_eq!(received, original);
++
++    let mut output = Vec::new();
++    assert_eq!(emit_serve_argv(&mut output, &received).unwrap(), 1);
++    assert_eq!(output.iter().filter(|byte| **byte == b'\n').count(), 1);
++    let value: Value = serde_json::from_slice(&output).unwrap();
++    assert_eq!(value, json!({"kind":"fake_lamp_argv","argv":received}));
++    assert_eq!(received, original);
++}
++
++#[test]
++fn invalid_invocation_prefixes_fail_before_any_clock_or_hook() {
++    for arguments in [
++        vec![],
++        vec!["--fixture-control"],
++        vec!["--fixture-control", "relative.sock", "serve"],
++        vec!["--other", "/private/control.sock", "serve"],
++        vec!["serve", "--fixture-control", "/private/control.sock"],
++    ] {
++        let arguments: Vec<_> = arguments.into_iter().map(str::to_owned).collect();
++        let error = run_serve_with_controlled_invocation(
++            &arguments,
++            || panic!("invalid prefix sampled the clock"),
++            || panic!("invalid prefix entered a poll"),
++            |_| panic!("invalid prefix completed a poll"),
++        )
++        .unwrap_err();
++        assert!(error.to_string().contains("leading --fixture-control"));
++    }
++}
++
++#[test]
++fn invocation_and_direct_paths_keep_the_same_parser_and_mode_errors() {
++    for arguments in [
++        vec!["--fake-seed", "invalid", "serve"],
++        vec!["--fake-unknown", "value", "serve"],
++        vec!["--fake-room"],
++        vec!["directed"],
++        vec!["directed-fixture"],
++    ] {
++        let arguments: Vec<_> = arguments.into_iter().map(str::to_owned).collect();
++        let expected = run_serve_with_controlled_clock(
++            &arguments,
++            || panic!("invalid direct arguments sampled the clock"),
++            || panic!("invalid direct arguments entered a poll"),
++            |_| panic!("invalid direct arguments completed a poll"),
++        )
++        .unwrap_err();
++        let mut received = vec!["--fixture-control".into(), "/private/control.sock".into()];
++        received.extend(arguments);
++        let error = run_serve_with_controlled_invocation(
++            &received,
++            || panic!("invalid invocation sampled the clock"),
++            || panic!("invalid invocation entered a poll"),
++            |_| panic!("invalid invocation completed a poll"),
++        )
++        .unwrap_err();
++        assert_eq!(error.to_string(), expected.to_string());
++    }
++}
++
++struct FlushFailure {
++    bytes: Vec<u8>,
++    flushes: usize,
++}
++
++impl Write for FlushFailure {
++    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
++        self.bytes.extend_from_slice(bytes);
++        Ok(bytes.len())
++    }
++
++    fn flush(&mut self) -> io::Result<()> {
++        self.flushes += 1;
++        Err(io::Error::other("invocation flush failed"))
++    }
++}
++
++#[test]
++fn a_written_invocation_without_a_successful_flush_has_no_receipt() {
++    let received = ["--fixture-control", "/private/socket\nname", "serve"].map(str::to_owned);
++    let mut output = FlushFailure {
++        bytes: Vec::new(),
++        flushes: 0,
++    };
++    assert_eq!(
++        emit_serve_argv(&mut output, &received)
++            .unwrap_err()
++            .to_string(),
++        "invocation flush failed"
++    );
++    assert_eq!(output.flushes, 1);
++    assert_eq!(
++        output.bytes.iter().filter(|byte| **byte == b'\n').count(),
++        1
++    );
++    let value: Value = serde_json::from_slice(&output.bytes).unwrap();
++    assert_eq!(value["argv"], json!(received));
++}
+--- a/lampOS/crates/voice-eval/tests/serve_relay.rs
++++ b/lampOS/crates/voice-eval/tests/serve_relay.rs
+@@ -3,22 +3,14 @@
+ //! runtime that ignores SIGTERM. Each keeps its stop cause, signal, exit,
+ //! forced kill and confirmed reap separately. No hardware; no audio.
+ mod common;
++#[path = "common/serve_relay_clock.rs"]
++mod serve_relay_clock;
+ 
+ use lamp_voice_eval::physical::{
+     protocol::{ServeEnd, SessionLine},
+     session::{self, SessionOptions},
+ };
+-use std::{
+-    fs,
+-    io::Write,
+-    os::unix::net::UnixStream,
+-    sync::{
+-        Arc,
+-        atomic::{AtomicBool, Ordering},
+-    },
+-    thread,
+-    time::Duration,
+-};
++use std::{fs, time::Duration};
+ 
+ const BIN: &str = env!("CARGO_BIN_EXE_lamp-voice-eval");
+ 
+@@ -75,36 +67,7 @@
+ 
+ /// Run the relay in-process with a runner transport driven by `runner`.
+ fn relay(options: &SessionOptions, runner: Runner) -> (i32, Vec<SessionLine>) {
+-    let (runner_end, relay_end) = UnixStream::pair().unwrap();
+-    let done = Arc::new(AtomicBool::new(false));
+-    let finished = Arc::clone(&done);
+-    let control = thread::spawn(move || {
+-        let mut stream = runner_end;
+-        let hold = |stream: UnixStream| {
+-            while !finished.load(Ordering::SeqCst) {
+-                thread::sleep(Duration::from_millis(20));
+-            }
+-            drop(stream);
+-        };
+-        match runner {
+-            Runner::StopAfter(after) => {
+-                thread::sleep(after);
+-                stream
+-                    .write_all(b"{\"type\":\"stop\",\"reason\":\"test\"}\n")
+-                    .unwrap();
+-                hold(stream);
+-            }
+-            Runner::CloseAfter(after) => {
+-                thread::sleep(after);
+-                drop(stream);
+-            }
+-            Runner::Silent => hold(stream),
+-        }
+-    });
+-    let mut out = Vec::new();
+-    let code = session::run(options, relay_end, &mut out).unwrap();
+-    done.store(true, Ordering::SeqCst);
+-    control.join().unwrap();
++    let (code, out) = serve_relay_clock::run(options, runner).unwrap();
+     let lines = String::from_utf8(out)
+         .unwrap()
+         .lines()
+--- a/lampOS/crates/voice-eval/tests/common/serve_relay_clock.rs
++++ b/lampOS/crates/voice-eval/tests/common/serve_relay_clock.rs
+@@ -0,0 +1,457 @@
++//! A current-thread coordinator for the six relay fixtures. Session owns the
++//! real child, readers, SIGTERM, kill, reap, metadata and output. This helper
++//! owns only its real runner writer and the explicitly controlled fake peer.
++use super::{BIN, Runner};
++use lamp_turn_owner::MonoTime;
++use lamp_voice_eval::{
++    Result, invalid,
++    physical::{
++        fixture_control::{ParentListener, ParentPeer, Progress, Role, Step},
++        session::{self, RelayPollProgress, RelayPollTargets, SessionMode, SessionOptions},
++    },
++};
++use std::{
++    cell::{Cell, RefCell},
++    io::{self, Write},
++    os::unix::net::UnixStream,
++    path::Path,
++    thread,
++    time::{Duration, Instant},
++};
++
++const EPOCH_US: u64 = 1_000_000;
++const POLL_US: u64 = 2_000;
++const HOST_GUARD: Duration = Duration::from_secs(30);
++const STOP_LINE: &[u8] = b"{\"type\":\"stop\",\"reason\":\"test\"}\n";
++
++#[derive(Clone, Copy)]
++enum Action {
++    Stop,
++    Close,
++}
++
++struct Control {
++    listener: ParentListener,
++    runtime: Option<ParentPeer>,
++    runner: Option<UnixStream>,
++    action: Option<(u64, Action)>,
++    hard_due_us: u64,
++    runtime_round: u64,
++    runtime_at: Option<u64>,
++    runtime_ended: bool,
++    stdout_frames: u64,
++    runner_frames: u64,
++    relay_poll: u64,
++    signal_sent_us: Option<u64>,
++    observe_signal: bool,
++    pending_stop_until: Option<Instant>,
++    stop_until: Option<Instant>,
++    terminal_until: Option<Instant>,
++    relay_ended: bool,
++}
++
++impl Control {
++    fn new(
++        listener: ParentListener,
++        writer: UnixStream,
++        runner: Runner,
++        hard_due_us: u64,
++    ) -> Result<Self> {
++        writer.set_write_timeout(Some(HOST_GUARD))?;
++        let action = match runner {
++            Runner::StopAfter(after) => Some((after, Action::Stop)),
++            Runner::CloseAfter(after) => Some((after, Action::Close)),
++            Runner::Silent => None,
++        }
++        .map(|(after, action)| {
++            let micros = u64::try_from(after.as_micros())?;
++            if Duration::from_micros(micros) != after {
++                return Err(invalid("relay runner delay must retain exact microseconds"));
++            }
++            let due = EPOCH_US
++                .checked_add(micros)
++                .ok_or_else(|| invalid("relay runner delay overflow"))?;
++            Ok((due, action))
++        })
++        .transpose()?;
++        Ok(Self {
++            listener,
++            runtime: None,
++            runner: Some(writer),
++            action,
++            hard_due_us,
++            runtime_round: 0,
++            runtime_at: None,
++            runtime_ended: false,
++            stdout_frames: 0,
++            runner_frames: 0,
++            relay_poll: 0,
++            signal_sent_us: None,
++            observe_signal: false,
++            pending_stop_until: None,
++            stop_until: None,
++            terminal_until: None,
++            relay_ended: false,
++        })
++    }
++
++    fn host_until(&self) -> Result<Instant> {
++        let now = Instant::now();
++        let mut until = now + HOST_GUARD;
++        for boundary in [
++            self.pending_stop_until,
++            self.stop_until,
++            self.terminal_until,
++        ]
++        .into_iter()
++        .flatten()
++        {
++            until = until.min(boundary);
++        }
++        if until <= now {
++            return Err(io::Error::new(
++                io::ErrorKind::TimedOut,
++                "serve relay fixture exceeded its held host completion bound",
++            )
++            .into());
++        }
++        Ok(until)
++    }
++
++    fn fire_runner(&mut self, at_us: u64) -> Result<()> {
++        let Some((due, action)) = self.action else {
++            return Ok(());
++        };
++        if at_us < due {
++            return Ok(());
++        }
++        match action {
++            Action::Stop => {
++                self.runner
++                    .as_mut()
++                    .ok_or_else(|| invalid("runner writer closed before its Stop"))?
++                    .write_all(STOP_LINE)?;
++                self.runner_frames += 1;
++            }
++            Action::Close => drop(self.runner.take()),
++        }
++        self.action = None;
++        self.pending_stop_until = Some(Instant::now() + HOST_GUARD);
++        Ok(())
++    }
++
++    fn before(&mut self, at_us: u64) -> Result<RelayPollTargets> {
++        let until = self.host_until()?;
++        if self.relay_ended {
++            return Err(invalid("serve relay polled after its terminal receipt"));
++        }
++        self.fire_runner(at_us)?;
++        if self.runtime.is_none() {
++            self.runtime = Some(self.listener.accept_until(Role::ServeRuntime, until)?);
++        }
++        if !self.runtime_ended && (self.runtime_at != Some(at_us) || self.observe_signal) {
++            let round = self
++                .runtime_round
++                .checked_add(1)
++                .ok_or_else(|| invalid("serve relay fixture round overflow"))?;
++            let progress = self
++                .runtime
++                .as_mut()
++                .expect("runtime accepted")
++                .step_until(
++                    Step {
++                        round,
++                        at_us,
++                        stdout_target: 0,
++                        runner_input_target: 0,
++                        wait_for_sigterm: self.observe_signal,
++                    },
++                    until,
++                )?;
++            let Progress::ServeRuntime {
++                stdout_frames,
++                observed_signal,
++                logical_end,
++                ..
++            } = progress
++            else {
++                return Err(invalid("serve relay received another runtime role"));
++            };
++            if self.observe_signal && observed_signal != signal_hook::consts::SIGTERM as usize {
++                return Err(invalid("serve runtime did not observe the actual SIGTERM"));
++            }
++            self.runtime_round = round;
++            self.runtime_at = Some(at_us);
++            self.stdout_frames = stdout_frames;
++            self.runtime_ended = logical_end;
++            self.observe_signal = false;
++            if logical_end {
++                // This is a final-output receipt, never an OS-exit receipt.
++                self.terminal_until = Some(until);
++            }
++        }
++        Ok(RelayPollTargets {
++            stdout_frames: self.stdout_frames,
++            runner_inputs: self.runner_frames,
++        })
++    }
++
++    fn completed(&mut self, clock: &Cell<u64>, poll: RelayPollProgress) -> Result<()> {
++        if self.relay_ended || self.relay_poll.checked_add(1) != Some(poll.poll_seq) {
++            return Err(invalid("serve relay completion sequence changed"));
++        }
++        if poll.stdout_frames < self.stdout_frames || poll.runner_inputs < self.runner_frames {
++            return Err(invalid(
++                "serve relay completed before consuming announced frames",
++            ));
++        }
++        self.relay_poll = poll.poll_seq;
++        self.host_until()?;
++        if poll.terminal {
++            // Session already observed Child::try_wait or performed its real
++            // grace-expiry kill/wait. Its final drains and metadata still run.
++            self.relay_ended = true;
++            return Ok(());
++        }
++        let at_us = clock.get();
++        if poll.stop_signal_sent_us != self.signal_sent_us {
++            if self.signal_sent_us.is_some() || poll.stop_signal_sent_us != Some(at_us) {
++                return Err(invalid("serve relay changed its real stop signal receipt"));
++            }
++            self.signal_sent_us = poll.stop_signal_sent_us;
++            self.pending_stop_until = None;
++            self.stop_until =
++                Some(Instant::now() + Duration::from_micros(session::SERVE_STOP_GRACE_US));
++            self.observe_signal = true;
++            return Ok(());
++        }
++        if self.pending_stop_until.is_some() || self.runtime_ended {
++            // EOF enqueue and OS exit are independently scheduled real work.
++            // Keep both clocks fixed and reuse the parked runtime's receipt.
++            thread::yield_now();
++            return Ok(());
++        }
++        let mut next = at_us
++            .checked_add(POLL_US)
++            .ok_or_else(|| invalid("serve relay fixture time overflow"))?;
++        for due in [
++            self.action.map(|(due, _)| due),
++            Some(self.hard_due_us),
++            self.signal_sent_us
++                .and_then(|at| at.checked_add(session::SERVE_STOP_GRACE_US)),
++        ]
++        .into_iter()
++        .flatten()
++        {
++            if due > at_us {
++                next = next.min(due);
++            }
++        }
++        clock.set(next);
++        Ok(())
++    }
++}
++
++impl Drop for Control {
++    fn drop(&mut self) {
++        // The session's own Cleanup owns kill/reap. Closing these endpoints
++        // releases a parked participant and the existing runner reader on
++        // success, propagated error, or panic. This helper creates no threads.
++        drop(self.runtime.take());
++        drop(self.runner.take());
++    }
++}
++
++pub(super) fn run(options: &SessionOptions, runner: Runner) -> Result<(i32, Vec<u8>)> {
++    if options.runtime != Path::new(BIN)
++        || options.runtime_prefix.first().map(String::as_str) != Some("fake-lamp-voice")
++        || !matches!(options.mode, SessionMode::Serve { .. })
++    {
++        return Err(invalid(
++            "relay clock requires the original local serve fake",
++        ));
++    }
++    let parent = options
++        .work
++        .parent()
++        .filter(|path| path.is_absolute())
++        .ok_or_else(|| invalid("relay clock needs an absolute private work parent"))?;
++    let control_path = parent.join("serve-relay-clock.sock");
++    let listener = ParentListener::bind(&control_path)?;
++    let mut controlled = options.clone();
++    controlled.runtime_prefix = vec![
++        "fake-clock-serve-runtime".into(),
++        "--fixture-control".into(),
++        control_path.display().to_string(),
++    ];
++    controlled
++        .runtime_prefix
++        .extend_from_slice(&options.runtime_prefix[1..]);
++    let (writer, input) = UnixStream::pair()?;
++    let hard_due_us =
++        EPOCH_US + (u64::from(options.seconds) + u64::from(options.allowance_seconds)) * 1_000_000;
++    let clock = Cell::new(EPOCH_US);
++    let control = RefCell::new(Control::new(listener, writer, runner, hard_due_us)?);
++    let mut out = Vec::new();
++    let result = session::run_with_controlled_clock(
++        &controlled,
++        input,
++        &mut out,
++        || MonoTime::from_micros(clock.get()),
++        || control.borrow_mut().before(clock.get()),
++        |poll| control.borrow_mut().completed(&clock, poll),
++    );
++    let ended = control.borrow().relay_ended;
++    drop(control);
++    let code = result?;
++    if !ended {
++        return Err(invalid("serve relay returned without actual terminal work"));
++    }
++    Ok((code, out))
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++    use std::{io::Read, panic::AssertUnwindSafe};
++
++    fn fixture(runner: Runner) -> (crate::common::Private, Control, UnixStream) {
++        let dir = crate::common::Private::new("relay-clock-boundary");
++        let listener = ParentListener::bind(&dir.join("control.sock")).unwrap();
++        let (writer, reader) = UnixStream::pair().unwrap();
++        reader.set_nonblocking(true).unwrap();
++        let control = Control::new(listener, writer, runner, EPOCH_US + 65_000_000).unwrap();
++        (dir, control, reader)
++    }
++
++    fn poll(sequence: u64) -> RelayPollProgress {
++        RelayPollProgress {
++            poll_seq: sequence,
++            ..Default::default()
++        }
++    }
++
++    #[test]
++    fn the_real_stop_keeps_the_full_delay_and_original_bytes_once() {
++        let (_dir, mut control, mut reader) = fixture(Runner::StopAfter(Duration::from_secs(3)));
++        let due = EPOCH_US + 3_000_000;
++        let mut bytes = [0; 128];
++        for at in [EPOCH_US, due - 1, due - 1] {
++            control.fire_runner(at).unwrap();
++            assert_eq!(
++                reader.read(&mut bytes).unwrap_err().kind(),
++                io::ErrorKind::WouldBlock
++            );
++            assert_eq!(control.runner_frames, 0);
++        }
++        control.fire_runner(due).unwrap();
++        let count = reader.read(&mut bytes).unwrap();
++        assert_eq!(&bytes[..count], STOP_LINE);
++        assert_eq!(control.runner_frames, 1);
++        control.fire_runner(due + POLL_US).unwrap();
++        assert_eq!(
++            reader.read(&mut bytes).unwrap_err().kind(),
++            io::ErrorKind::WouldBlock
++        );
++        assert_eq!(control.runner_frames, 1);
++    }
++
++    #[test]
++    fn real_runner_eof_holds_time_until_the_relay_reports_its_signal() {
++        let (_dir, mut control, mut reader) = fixture(Runner::CloseAfter(Duration::from_secs(3)));
++        let due = EPOCH_US + 3_000_000;
++        control.fire_runner(due).unwrap();
++        assert_eq!(reader.read(&mut [0; 1]).unwrap(), 0);
++        assert_eq!(control.runner_frames, 0);
++        let clock = Cell::new(due);
++        control.completed(&clock, poll(1)).unwrap();
++        assert_eq!(clock.get(), due);
++        assert!(!control.observe_signal);
++        control
++            .completed(
++                &clock,
++                RelayPollProgress {
++                    stop_signal_sent_us: Some(due),
++                    ..poll(2)
++                },
++            )
++            .unwrap();
++        assert_eq!(clock.get(), due);
++        assert!(control.observe_signal);
++        assert!(control.pending_stop_until.is_none());
++    }
++
++    #[test]
++    fn runtime_completion_never_advances_time_or_claims_relay_exit() {
++        let (_dir, mut control, _reader) = fixture(Runner::Silent);
++        let clock = Cell::new(EPOCH_US);
++        control.runtime_ended = true;
++        control.terminal_until = Some(Instant::now() + HOST_GUARD);
++        control.completed(&clock, poll(1)).unwrap();
++        assert_eq!(clock.get(), EPOCH_US);
++        assert!(!control.relay_ended);
++        control
++            .completed(
++                &clock,
++                RelayPollProgress {
++                    terminal: true,
++                    ..poll(2)
++                },
++            )
++            .unwrap();
++        assert_eq!(clock.get(), EPOCH_US);
++        assert!(control.relay_ended);
++    }
++
++    #[test]
++    fn an_expired_host_boundary_fails_before_another_step_or_clock_advance() {
++        let (_dir, mut control, _reader) = fixture(Runner::Silent);
++        control.terminal_until = Some(Instant::now());
++        let error = control.before(EPOCH_US).unwrap_err();
++        assert_eq!(
++            error.downcast_ref::<io::Error>().unwrap().kind(),
++            io::ErrorKind::TimedOut
++        );
++        assert!(control.runtime.is_none());
++        assert_eq!(control.runtime_round, 0);
++    }
++
++    #[test]
++    fn polls_preserve_two_milliseconds_and_stop_at_each_original_boundary() {
++        let (_dir, mut control, _reader) = fixture(Runner::Silent);
++        let clock = Cell::new(EPOCH_US);
++        control.completed(&clock, poll(1)).unwrap();
++        assert_eq!(clock.get(), EPOCH_US + 2_000);
++
++        control.hard_due_us = EPOCH_US + 6_000_000;
++        clock.set(control.hard_due_us - 1);
++        control.completed(&clock, poll(2)).unwrap();
++        assert_eq!(clock.get(), EPOCH_US + 6_000_000);
++
++        control.signal_sent_us = Some(EPOCH_US + 3_000_000);
++        clock.set(EPOCH_US + 13_000_000 - 1);
++        control
++            .completed(
++                &clock,
++                RelayPollProgress {
++                    stop_signal_sent_us: control.signal_sent_us,
++                    ..poll(3)
++                },
++            )
++            .unwrap();
++        assert_eq!(session::SERVE_STOP_GRACE_US, 10_000_000);
++        assert_eq!(clock.get(), EPOCH_US + 13_000_000);
++    }
++
++    #[test]
++    fn unwinding_releases_the_real_runner_reader_and_control_socket() {
++        let (dir, control, mut reader) = fixture(Runner::Silent);
++        let result = std::panic::catch_unwind(AssertUnwindSafe(move || {
++            let _control = control;
++            panic!("exercise owned endpoint cleanup");
++        }));
++        assert!(result.is_err());
++        assert_eq!(reader.read(&mut [0; 1]).unwrap(), 0);
++        assert!(!dir.join("control.sock").exists());
++    }
++}
+--- a/lampOS/docs/realtime-tests.md
++++ b/lampOS/docs/realtime-tests.md
+@@ -525,3 +525,33 @@
+ direct `serve_relay` tests retain their existing path. Clock-controlled results
+ check ordering and the full configured windows; they do not measure hardware
+ latency or establish a result for the complete original 123-test inventory.
++
++## Serve relay test coordinator
++
++The six `serve_relay` cases use an explicit helper clock while retaining their
++original test bodies, runner delays, fault settings and assertions. The relay
++and its coordinator run on the test thread; the existing session body still
++owns the real child, reader threads, Unix sockets, SIGTERM, process-group kill,
++reap, metadata checks and final output. The helper replaces its runner sleep
++with the full logical three-second boundary and advances the runtime and relay
++only after completed polls, using the original two-millisecond interval.
++
++A real Stop write is counted only after success. Closing the runner produces
++actual EOF; the helper holds time until the relay's real stop-signal receipt.
++The runtime then observes the actual signal through its existing handler.
++Final runtime progress freezes time until the relay observes actual child
++exit. The one-second run plus five-second allowance and the full ten-second
++ignored-signal grace remain unchanged. Host control, cleanup and late-output
++bounds remain active; a held post-stop boundary is checked against a ten-second
++host budget before and after polls. The existing reader-enqueue barrier can
++still wait up to thirty seconds before returning a failing poll; this is not a
++strict ten-second abort deadline. No progress receipt substitutes for a process
++status.
++
++The explicit controlled serve command reports its complete received argv,
++including its leading control pair, exactly once through the existing flushed
++JSON stdout record. Only the validated suffix is parsed as runtime arguments.
++Ordinary fake commands and the direct controlled library API retain their
++existing argument reporting. The original serve suffix and child-versus-spawn
++argv assertion remain unchanged. This implementation needs fresh paired and
++native qualification before a speedup can be claimed.

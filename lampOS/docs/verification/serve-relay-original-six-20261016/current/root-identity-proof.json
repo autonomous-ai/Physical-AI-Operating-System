@@ -1,0 +1,49 @@
+{
+  "date": "2026-10-16 06:04:36 +0700",
+  "before_count": 498,
+  "after_count": 508,
+  "all_original_identities_and_ignored_flags_preserved": true,
+  "new": [
+    [
+      "lamp-voice-eval",
+      "physical::fake_lamp::invocation_tests::a_written_invocation_without_a_successful_flush_has_no_receipt"
+    ],
+    [
+      "lamp-voice-eval",
+      "physical::fake_lamp::invocation_tests::invalid_invocation_prefixes_fail_before_any_clock_or_hook"
+    ],
+    [
+      "lamp-voice-eval",
+      "physical::fake_lamp::invocation_tests::invocation_and_direct_paths_keep_the_same_parser_and_mode_errors"
+    ],
+    [
+      "lamp-voice-eval",
+      "physical::fake_lamp::invocation_tests::only_the_leading_control_pair_is_removed_from_the_parser_view"
+    ],
+    [
+      "lamp-voice-eval::serve_relay",
+      "serve_relay_clock::tests::an_expired_host_boundary_fails_before_another_step_or_clock_advance"
+    ],
+    [
+      "lamp-voice-eval::serve_relay",
+      "serve_relay_clock::tests::polls_preserve_two_milliseconds_and_stop_at_each_original_boundary"
+    ],
+    [
+      "lamp-voice-eval::serve_relay",
+      "serve_relay_clock::tests::real_runner_eof_holds_time_until_the_relay_reports_its_signal"
+    ],
+    [
+      "lamp-voice-eval::serve_relay",
+      "serve_relay_clock::tests::runtime_completion_never_advances_time_or_claims_relay_exit"
+    ],
+    [
+      "lamp-voice-eval::serve_relay",
+      "serve_relay_clock::tests::the_real_stop_keeps_the_full_delay_and_original_bytes_once"
+    ],
+    [
+      "lamp-voice-eval::serve_relay",
+      "serve_relay_clock::tests::unwinding_releases_the_real_runner_reader_and_control_socket"
+    ]
+  ],
+  "compiled_matches_source_expected": true
+}

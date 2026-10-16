@@ -1,0 +1,109 @@
+{
+  "date_from_date": "2026-10-16 05:59:44 +0700",
+  "base": "8af53fd459795029f6277679ded49bf7826def73",
+  "branch": "tests/823-serve-relay-all-cases",
+  "source_frozen": true,
+  "scope": [
+    "lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+    "lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+    "lampOS/crates/voice-eval/src/physical/serve_invocation_tests.rs",
+    "lampOS/crates/voice-eval/tests/serve_relay.rs",
+    "lampOS/crates/voice-eval/tests/common/serve_relay_clock.rs",
+    "lampOS/docs/realtime-tests.md"
+  ],
+  "source_files": 5,
+  "doc_files": 1,
+  "existing_modified": 4,
+  "new_rust_files": 2,
+  "source_file_sha256": {
+    "lampOS/crates/voice-eval/src/physical/fake_lamp.rs": "b9637518aaf8e0dffc587273ab0c5e19c6ff1d72337796c71a4d0832cb4f1327",
+    "lampOS/crates/voice-eval/src/physical/fixture_commands.rs": "b9cd63c46803efe08cdc32b9d308612b7a9b54b937b193b73f87624b1124c4db",
+    "lampOS/crates/voice-eval/src/physical/serve_invocation_tests.rs": "89f89a010c4a240aa699fd37fb49e0a2c4f2ed8f65ce77332c5c9b575e3d12dc",
+    "lampOS/crates/voice-eval/tests/serve_relay.rs": "836a72136db9573ca12e8b4aeab77ff95e42010cf71fcd652da6318945ec7bf2",
+    "lampOS/crates/voice-eval/tests/common/serve_relay_clock.rs": "60f5ee58ee905b285ea54c5d6c1a2159964e97a2945a79654d283ca14d0ee9cb",
+    "lampOS/docs/realtime-tests.md": "e7b9bc1d977eadae3c11e79f60517af4089a607bc052de5a7af29aad63a5c2a4"
+  },
+  "source_hashes_before": {
+    "lampOS/crates/voice-eval/src/physical/fake_lamp.rs": "7707b987700293a31096338ccd4364e34aa70bce59bca2dd3c1cdaef15c0c9a1",
+    "lampOS/crates/voice-eval/src/physical/fixture_commands.rs": "df424358eb99ab6982ef8cd3ea3d7484f55bf3c033aabcf29ca0b07c0df5ab0a",
+    "lampOS/crates/voice-eval/src/physical/serve_invocation_tests.rs": null,
+    "lampOS/crates/voice-eval/tests/serve_relay.rs": "53f5cc802a0101518da7214b63b77e052b3406fe1b5db3ce43d5c0c305145bf5",
+    "lampOS/crates/voice-eval/tests/common/serve_relay_clock.rs": null,
+    "lampOS/docs/realtime-tests.md": "ba461e398f74366f6eee76616e8569a932f591556ab811582952b187089b3f0d"
+  },
+  "exact_delta_reversal": [
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+      "new_file": false,
+      "base_sha256": "7707b987700293a31096338ccd4364e34aa70bce59bca2dd3c1cdaef15c0c9a1",
+      "final_sha256": "b9637518aaf8e0dffc587273ab0c5e19c6ff1d72337796c71a4d0832cb4f1327",
+      "exact_forward_and_inverse": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+      "new_file": false,
+      "base_sha256": "df424358eb99ab6982ef8cd3ea3d7484f55bf3c033aabcf29ca0b07c0df5ab0a",
+      "final_sha256": "b9cd63c46803efe08cdc32b9d308612b7a9b54b937b193b73f87624b1124c4db",
+      "exact_forward_and_inverse": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_invocation_tests.rs",
+      "new_file": true,
+      "base_sha256": null,
+      "final_sha256": "89f89a010c4a240aa699fd37fb49e0a2c4f2ed8f65ce77332c5c9b575e3d12dc",
+      "exact_forward_and_inverse": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/serve_relay.rs",
+      "new_file": false,
+      "base_sha256": "53f5cc802a0101518da7214b63b77e052b3406fe1b5db3ce43d5c0c305145bf5",
+      "final_sha256": "836a72136db9573ca12e8b4aeab77ff95e42010cf71fcd652da6318945ec7bf2",
+      "exact_forward_and_inverse": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/common/serve_relay_clock.rs",
+      "new_file": true,
+      "base_sha256": null,
+      "final_sha256": "60f5ee58ee905b285ea54c5d6c1a2159964e97a2945a79654d283ca14d0ee9cb",
+      "exact_forward_and_inverse": true
+    },
+    {
+      "path": "lampOS/docs/realtime-tests.md",
+      "new_file": false,
+      "base_sha256": "ba461e398f74366f6eee76616e8569a932f591556ab811582952b187089b3f0d",
+      "final_sha256": "e7b9bc1d977eadae3c11e79f60517af4089a607bc052de5a7af29aad63a5c2a4",
+      "exact_forward_and_inverse": true
+    }
+  ],
+  "participant_only_patch_sha256": "5c6c74d14027c669d6c51ff026dec2b086beeb32fa6cca257c61e075a2667b1e",
+  "all_nonowned_tracked_bytes_and_modes_exact": true,
+  "protected_tracked_entries": 6899,
+  "base_tracked_entries": 6903,
+  "all_original_498_test_bodies_byte_exact": true,
+  "six_original_bodies_and_37_assertions_exact": true,
+  "whole_original_serve_relay_restored_by_strict_inverse": true,
+  "live_shared_controlled_body_restores_original_fake_lamp": true,
+  "all_recorder_slow_transport_code_and_tests_retained": true,
+  "all_base_document_bytes_retained_as_prefix": true,
+  "channel_closed_peer_tests_name_retained_exact": true,
+  "baseline_compiled_count": 498,
+  "expected_after_count_source_only": 508,
+  "qualified_prior_base": "e057db620acb2bd61bac1ae7f157d87cdf635a18",
+  "qualified_prior_result": [
+    432,
+    0,
+    0
+  ],
+  "qualified_prior_all_70_source_hashes_match": true,
+  "qualified_prior_source_unchanged_by_integration": true,
+  "fresh_compiled_or_execution_result": null,
+  "limits": [
+    "No Cargo, build, test binary, Git mutation, network or device action.",
+    "The older 432-case gate is source provenance, not qualification of this new 508-case integration.",
+    "Actual exit/reap remains owned by the unchanged session, never derived from logical receipts.",
+    "The 10-second post-signal success budget remains distinct from the existing 30-second reader barrier; no strict 10-second abort claim.",
+    "Root owns fresh gate, any paired timing, native qualification and later integration after actual Serve merge."
+  ],
+  "rustfmt_exit_code": 0,
+  "formatter_changed_no_source": true
+}

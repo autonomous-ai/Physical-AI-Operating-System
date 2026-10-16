@@ -1,0 +1,4479 @@
+{
+  "audited_from_date": "2026-10-16 07:37:00 +0700",
+  "base": "e5aa43747ec1540893b4da4509d14288e7e70806",
+  "full_local_gate_passed": true,
+  "frozen_input_count": 953,
+  "frozen_source_unchanged": true,
+  "no_failed_test_repeated": true,
+  "no_source_fixes": true,
+  "baseline_not_recompiled": true,
+  "actual_reverse_dependents": [],
+  "gate_failures": [],
+  "unstarted_stages": [],
+  "native_qualification": false,
+  "original123_serial_target_proved": false,
+  "new_paired_timing_measurement": false,
+  "compiled_originals_retained": 498,
+  "compiled_exact_additions": 10,
+  "compiled_after_count": 508,
+  "every_compiled_identity_has_exactly_one_result": true,
+  "totals": {
+    "passed": 508,
+    "failed": 0,
+    "ignored": 0,
+    "filtered_out": 0
+  },
+  "per_package": {
+    "lamp-voice-eval": {
+      "passed": 508,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0
+    }
+  },
+  "test_failures": [],
+  "cases": [
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "evaluate::completion_evidence_tests::synthetic_events_cannot_bypass_outcome_gap_consistency",
+      "line": 5,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 5
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "events::tests::candidate_and_ring_vocabulary_maps_with_turns_and_ids",
+      "line": 6,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 6
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "events::tests::completion_cues_require_all_terminal_fields_and_original_generation",
+      "line": 7,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 7
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "events::tests::coordinator_vocabulary_maps_without_guessing",
+      "line": 8,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 8
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "events::tests::cues_require_schema_one_and_consistent_times",
+      "line": 9,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 9
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "events::tests::directed_cues_preserve_owner_epochs_and_cancel_reason",
+      "line": 10,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 10
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "events::tests::fake_serialization_round_trips_through_the_trace_parser",
+      "line": 11,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 11
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "events::tests::proposed_readiness_cues_parse_strictly_and_carry_no_owner",
+      "line": 12,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 12
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "events::tests::readiness_records_map_from_the_trace",
+      "line": 13,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 13
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fake_lamp::clock_tests::a_failed_poll_hook_stops_before_another_tick_or_final_trace",
+      "line": 14,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 14
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fake_lamp::clock_tests::a_pure_clock_keeps_tick_boundaries_and_frozen_polls_distinct",
+      "line": 15,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 16
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fake_lamp::clock_tests::completed_polls_prove_room_consumption_and_keep_cue_fault_timing",
+      "line": 17,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 18
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fake_lamp::clock_tests::controlled_serve_is_refused_before_clock_hooks_or_output",
+      "line": 19,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 19
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fake_lamp::invocation_tests::a_written_invocation_without_a_successful_flush_has_no_receipt",
+      "line": 20,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 20
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fake_lamp::invocation_tests::invalid_invocation_prefixes_fail_before_any_clock_or_hook",
+      "line": 21,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 21
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fake_lamp::invocation_tests::invocation_and_direct_paths_keep_the_same_parser_and_mode_errors",
+      "line": 22,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 22
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fake_lamp::invocation_tests::only_the_leading_control_pair_is_removed_from_the_parser_view",
+      "line": 23,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 23
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fake_lamp::recorder_clock_tests::an_explicit_wait_failure_keeps_the_written_receipt_and_cannot_return_success",
+      "line": 24,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 24
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fake_lamp::recorder_clock_tests::declaration_and_fresh_post_write_sample_stay_distinct_in_nanoseconds",
+      "line": 25,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 25
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fake_lamp::recorder_clock_tests::directory_failure_keeps_the_declaration_before_io_and_never_waits",
+      "line": 26,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 26
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fake_lamp::recorder_clock_tests::first_matching_argument_and_missing_optional_value_keep_original_meaning",
+      "line": 27,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 27
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fake_lamp::recorder_clock_tests::no_declaration_adds_no_clock_sample_and_keeps_the_default_failure_code",
+      "line": 28,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 28
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fake_lamp::recorder_clock_tests::one_wait_keeps_the_full_minimum_duration_and_configured_return_code",
+      "line": 29,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 29
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fake_lamp::recorder_clock_tests::ordinary_entrypoint_keeps_system_time_real_ready_file_and_no_recording",
+      "line": 30,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 30
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fake_lamp::recorder_clock_tests::original_argument_failures_precede_files_clock_samples_and_waits",
+      "line": 31,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 31
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fake_lamp::recorder_clock_tests::zero_declared_delay_keeps_its_optional_sample_without_shortening_the_wait",
+      "line": 32,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 32
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fake_lamp::slow_transport_clock_tests::a_consuming_wait_error_is_returned_unchanged_before_exec",
+      "line": 33,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 33
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fake_lamp::slow_transport_clock_tests::malformed_arguments_fail_before_the_wait_in_both_entrypoints",
+      "line": 34,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 34
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fake_lamp::slow_transport_clock_tests::malformed_delay_keeps_the_original_parse_error_before_waiting",
+      "line": 35,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 35
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fake_lamp::slow_transport_clock_tests::real_exec_failure_keeps_the_original_io_error_after_the_wait",
+      "line": 36,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 36
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fake_lamp::slow_transport_clock_tests::real_exec_replaces_the_owned_child_and_keeps_argv_and_queued_input",
+      "line": 37,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 37
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fake_lamp::slow_transport_clock_tests::zero_and_full_u64_millisecond_delays_reach_one_wait_without_truncation",
+      "line": 38,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 38
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fake_serve::clock_tests::cycle_reads_the_supplied_instant_without_advancing_it",
+      "line": 39,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 39
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fake_serve::clock_tests::initial_cycle_keeps_distinct_metadata_and_runtime_clock_samples",
+      "line": 40,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 40
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fake_serve::clock_tests::restarted_cycle_resamples_time_and_keeps_a_fresh_runtime_identity",
+      "line": 41,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 41
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fake_serve::clock_tests::retained_startup_ready_still_saturates_at_zero",
+      "line": 42,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 42
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fake_serve::progress_tests::completed_polls_keep_the_original_sample_and_cumulative_real_progress",
+      "line": 43,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 43
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fake_serve::progress_tests::completion_errors_propagate_once_and_poll_sequence_overflow_is_refused",
+      "line": 44,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 44
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fake_serve::progress_tests::room_counter_overflow_never_wraps_or_claims_injection",
+      "line": 45,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 45
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fake_serve::progress_tests::room_progress_distinguishes_decoding_injection_and_muted_consumption",
+      "line": 46,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 46
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fake_serve::progress_tests::signal_barrier_never_fabricates_an_observation_or_accepts_another_signal",
+      "line": 47,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 47
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fake_serve::progress_tests::signal_barrier_waits_for_the_shared_atomic_under_a_host_deadline",
+      "line": 48,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 48
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fake_serve::progress_tests::stdout_counter_overflow_fails_before_emitting_an_unannounced_line",
+      "line": 49,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 49
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fake_serve::progress_tests::stdout_counts_only_complete_lines_after_successful_flush",
+      "line": 50,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 50
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_commands::recorder_tests::a_lost_parent_returns_a_control_error_without_completing_the_wait",
+      "line": 51,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 51
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_commands::recorder_tests::declared_capture_end_does_not_shorten_the_twenty_three_second_wait",
+      "line": 52,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 52
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_commands::recorder_tests::explicit_timing_checks_both_nanosecond_boundaries_without_wrapping",
+      "line": 53,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 53
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_commands::recorder_tests::first_matching_values_and_missing_optional_values_keep_original_meaning",
+      "line": 54,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 54
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_commands::recorder_tests::invalid_shared_arguments_or_output_creation_never_acknowledge_ready",
+      "line": 55,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 55
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_commands::recorder_tests::recorder_command_requires_the_explicit_leading_control_pair",
+      "line": 56,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 56
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_commands::recorder_tests::recorder_first_step_precedes_real_ready_write_and_the_entire_original_wait",
+      "line": 57,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 57
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_commands::recorder_tests::time_arithmetic_overflows_fail_before_the_shared_body_creates_files",
+      "line": 58,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 58
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_commands::recorder_tests::zero_and_limited_durations_keep_real_ready_and_configured_return_codes",
+      "line": 59,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 59
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_commands::serve_tests::all_fake_entrypoints_share_original_option_errors",
+      "line": 60,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 60
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_commands::serve_tests::argv_receipt_requires_the_original_complete_json_line_to_flush",
+      "line": 61,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 61
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_commands::serve_tests::controlled_runtime_modes_are_rejected_before_clock_reads_or_hooks",
+      "line": 62,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 62
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_commands::serve_tests::serve_relay_accepts_only_its_local_explicit_serve_command",
+      "line": 63,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 63
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_commands::serve_tests::serve_relay_mapping_keeps_signal_receipt_separate_from_inputs_and_end",
+      "line": 64,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 64
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_commands::serve_tests::serve_runtime_mapping_retains_consumption_injection_cycle_and_signal",
+      "line": 65,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 65
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_commands::slow_transport_tests::a_lost_control_peer_prevents_the_real_command_from_reaching_exec",
+      "line": 66,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 66
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_commands::slow_transport_tests::a_lost_parent_cancels_the_wait_without_completing_its_deadline",
+      "line": 67,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 67
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_commands::slow_transport_tests::a_zero_delay_completes_at_its_first_step_without_a_synthetic_exec_receipt",
+      "line": 68,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 68
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_commands::slow_transport_tests::duration_and_domain_overflows_are_rejected_before_any_wait_ack",
+      "line": 69,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 69
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_commands::slow_transport_tests::only_the_same_controlled_evaluator_relay_and_socket_are_accepted_without_rewriting",
+      "line": 70,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 70
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_commands::slow_transport_tests::real_exec_occurs_after_the_full_delay_and_preserves_the_same_pipe_pid_and_argv",
+      "line": 71,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 71
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_commands::slow_transport_tests::terminal_delay_ack_still_returns_the_real_exec_error_when_replacement_fails",
+      "line": 72,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 72
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_commands::slow_transport_tests::the_explicit_handler_requires_a_leading_absolute_control_pair",
+      "line": 73,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 73
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_commands::slow_transport_tests::the_wait_keeps_all_four_hundred_milliseconds_and_distinct_same_time_rounds",
+      "line": 74,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 74
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_commands::tests::failed_writes_and_flushes_do_not_publish_completed_frames",
+      "line": 75,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 75
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_commands::tests::final_output_must_end_on_a_complete_frame",
+      "line": 76,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 76
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_commands::tests::frame_counters_refuse_to_wrap",
+      "line": 77,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 77
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_commands::tests::frames_count_after_flush_across_short_writes_and_partial_lines",
+      "line": 78,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 78
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_commands::tests::only_the_leading_control_pair_is_removed_from_runtime_arguments",
+      "line": 79,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 79
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_commands::tests::relay_accepts_only_finite_controlled_fake_runtime_configuration",
+      "line": 80,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 80
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_commands::tests::relay_terminal_progress_keeps_the_last_real_poll_and_final_output_count",
+      "line": 81,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 81
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::channel_closed_peer_tests::a_closed_peer_with_a_partial_final_frame_is_still_truncated",
+      "line": 82,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 82
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::channel_closed_peer_tests::a_closed_writer_reports_the_write_failure_without_setting_socket_timeouts",
+      "line": 83,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 83
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::channel_closed_peer_tests::a_final_ack_is_read_after_the_participant_has_actually_closed",
+      "line": 84,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 84
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::channel_closed_peer_tests::a_queued_hello_is_read_after_the_peer_closed_before_channel_creation",
+      "line": 85,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 85
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::channel_closed_peer_tests::an_expired_deadline_leaves_a_buffered_final_frame_intact",
+      "line": 86,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 86
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::channel_closed_peer_tests::an_expired_write_budget_emits_no_frame_bytes",
+      "line": 87,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 87
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::channel_closed_peer_tests::poll_hangup_allows_remaining_bytes_and_then_real_eof",
+      "line": 88,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 88
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::channel_closed_peer_tests::poll_timeouts_preserve_small_budgets_and_cap_darwins_millisecond_range",
+      "line": 89,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 89
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::channel_closed_peer_tests::raw_reader_timeout_configuration_is_local_even_after_peer_close",
+      "line": 90,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 90
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::channel_closed_peer_tests::raw_reader_without_a_frame_still_has_a_host_watchdog",
+      "line": 91,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 91
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::recorder_tests::a_missing_recorder_ack_expires_and_closes_instead_of_claiming_exit",
+      "line": 92,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 92
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::recorder_tests::first_recorder_ack_requires_ready_and_the_held_post_write_start",
+      "line": 93,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 93
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::recorder_tests::listener_accepts_recorder_once_without_consuming_another_roles_slot",
+      "line": 94,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 94
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::recorder_tests::overflowing_recorder_steps_never_update_the_participant_clock",
+      "line": 95,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 95
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::recorder_tests::recorder_and_other_participants_reject_each_others_outer_steps",
+      "line": 96,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 96
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::recorder_tests::recorder_ready_start_and_due_never_change_after_the_first_write",
+      "line": 97,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 97
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::recorder_tests::recorder_requires_zero_input_and_signal_targets_and_representable_nanoseconds",
+      "line": 98,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 98
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::recorder_tests::recorder_role_is_isolated_in_hello_and_nested_progress",
+      "line": 99,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 99
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::recorder_tests::recorder_rounds_polls_and_time_cannot_skip_repeat_regress_or_wrap",
+      "line": 100,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 100
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::recorder_tests::recorder_terminal_is_required_exactly_at_or_after_its_due_time",
+      "line": 101,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 101
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::recorder_tests::recorder_wire_has_no_status_or_extra_step_fields",
+      "line": 102,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 102
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::recorder_tests::same_time_recorder_rounds_do_not_advance_pure_clock_reads",
+      "line": 103,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 103
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::serve_tests::a_signal_target_requires_the_reported_sigterm_observation",
+      "line": 104,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 104
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::serve_tests::a_successful_send_receipt_is_not_an_exit_claim_and_never_changes",
+      "line": 105,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 105
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::serve_tests::an_expired_accept_budget_does_not_consume_a_queued_hello_or_reset_itself",
+      "line": 106,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 106
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::serve_tests::finite_frames_keep_their_wire_bytes_and_missing_signal_targets_default_to_false",
+      "line": 107,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 107
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::serve_tests::forged_serve_progress_closes_the_endpoint_without_retrying",
+      "line": 108,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 108
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::serve_tests::muted_consumption_is_valid_but_injection_cannot_exceed_consumption",
+      "line": 109,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 109
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::serve_tests::observed_signals_cannot_be_cleared_but_signal_numbers_are_not_counters",
+      "line": 110,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 110
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::serve_tests::only_serve_runtime_steps_can_request_the_signal_barrier",
+      "line": 111,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 111
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::serve_tests::relay_input_targets_and_all_output_counters_are_preserved_for_serve",
+      "line": 112,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 112
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::serve_tests::runtime_counters_never_regress_and_only_a_new_cycle_can_reset_runtime_time",
+      "line": 113,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 113
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::serve_tests::same_instant_serve_rounds_preserve_pure_time_and_terminal_ack_still_requires_exit_tracking",
+      "line": 114,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 114
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::serve_tests::serve_participants_reject_wrong_outer_step_roles_before_starting",
+      "line": 115,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 115
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::serve_tests::serve_relay_receipts_cross_the_wire_without_changing_same_instant_time",
+      "line": 116,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 116
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::serve_tests::serve_roles_are_distinct_in_hello_and_nested_progress",
+      "line": 117,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 117
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::serve_tests::serve_rounds_and_completed_poll_sequences_remain_exact",
+      "line": 118,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 118
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::serve_tests::the_listener_tracks_four_roles_independently_and_rejects_duplicates",
+      "line": 119,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 119
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::slow_transport_tests::a_transport_listener_slot_never_substitutes_for_a_fresh_relay_hello",
+      "line": 120,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 120
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::slow_transport_tests::an_invalid_transport_domain_step_never_changes_the_pure_clock",
+      "line": 121,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 121
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::slow_transport_tests::first_transport_wait_starts_at_the_current_held_step",
+      "line": 122,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 122
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::slow_transport_tests::missing_transport_progress_has_a_bounded_failure_without_an_exec_claim",
+      "line": 123,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 123
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::slow_transport_tests::repeated_transport_rounds_leave_clock_reads_pure_until_the_next_step",
+      "line": 124,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 124
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::slow_transport_tests::terminal_transport_progress_is_required_if_and_only_if_the_full_delay_elapsed",
+      "line": 125,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 125
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::slow_transport_tests::transport_and_other_roles_reject_each_others_outer_steps",
+      "line": 126,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 126
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::slow_transport_tests::transport_frames_add_only_the_role_and_fixed_wait_boundary",
+      "line": 127,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 127
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::slow_transport_tests::transport_rejects_input_signal_and_unrepresentable_domain_targets",
+      "line": 128,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 128
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::slow_transport_tests::transport_role_is_isolated_from_every_existing_hello_and_progress",
+      "line": 129,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 129
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::slow_transport_tests::transport_round_poll_and_time_validation_remain_exact",
+      "line": 130,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 130
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::slow_transport_tests::transport_start_and_due_stay_fixed_in_both_directions",
+      "line": 131,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 131
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::tests::a_frame_at_the_total_bound_is_accepted_and_one_byte_more_is_rejected",
+      "line": 132,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 132
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::tests::a_later_caller_deadline_cannot_extend_the_endpoint_watchdog",
+      "line": 133,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 133
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::tests::a_missing_ack_fails_under_the_host_watchdog_and_closes_the_peer",
+      "line": 134,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 134
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::tests::a_missing_first_step_cannot_leave_a_participant_waiting_forever",
+      "line": 135,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 135
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::tests::a_partial_frame_at_eof_is_not_a_complete_message",
+      "line": 136,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 136
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::tests::a_participant_does_not_start_until_the_first_step_arrives",
+      "line": 137,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 137
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::tests::a_peer_that_stops_reading_cannot_block_a_write_forever",
+      "line": 138,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 138
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::tests::a_wrong_role_step_does_not_reach_the_participant_engine",
+      "line": 139,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 139
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::tests::acknowledgement_must_match_role_round_time_and_complete_progress",
+      "line": 140,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 140
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::tests::an_expired_caller_deadline_closes_the_peer_without_sending_a_step",
+      "line": 141,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 141
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::tests::buffered_complete_frames_are_kept_distinct_and_unknown_fields_are_rejected",
+      "line": 142,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 142
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::tests::duplicate_skipped_and_regressing_rounds_or_time_are_rejected",
+      "line": 143,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 143
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::tests::hello_must_match_the_requested_role_and_version",
+      "line": 144,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 144
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::tests::invalid_followup_steps_close_the_participant_without_changing_its_clock",
+      "line": 145,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 145
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::tests::invalid_utf8_and_missing_fields_are_protocol_errors",
+      "line": 146,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 146
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::tests::outgoing_frames_cannot_cross_the_same_bound",
+      "line": 147,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 147
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::tests::poll_sequence_overflow_cannot_wrap_to_an_initial_acknowledgement",
+      "line": 148,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 148
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::tests::progress_counters_cannot_regress_or_claim_unconsumed_relay_targets",
+      "line": 149,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 149
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::tests::repeated_clock_reads_and_new_rounds_at_the_same_time_never_advance_time",
+      "line": 150,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 150
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::tests::terminal_acknowledgement_is_distinct_from_a_continuing_poll",
+      "line": 151,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 151
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_control::tests::watchdogs_must_be_positive_and_an_expired_deadline_is_not_replaced",
+      "line": 152,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 152
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_driver::tests::clock_reads_are_pure_and_only_successful_room_sends_are_expected",
+      "line": 153,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 153
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_driver::tests::configuration_changes_only_explicit_fake_launchers_and_control_arguments",
+      "line": 154,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 154
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_driver::tests::frame_budget_and_missing_enqueue_fail_instead_of_skipping_output",
+      "line": 155,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 155
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_driver::tests::nonlocal_runtime_serve_and_recorder_configurations_are_refused_unchanged",
+      "line": 156,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 156
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::fixture_driver::tests::startup_preserves_the_setup_ping_boundary_and_exit_rounds_freeze_time",
+      "line": 157,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 157
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::framing::tests::a_line_at_the_bound_passes_and_one_byte_more_is_rejected_whole",
+      "line": 158,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 158
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::framing::tests::end_of_input_inside_a_line_is_explicit",
+      "line": 159,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 159
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::framing::tests::failures_have_explicit_text",
+      "line": 160,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 160
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::framing::tests::hashing_covers_every_byte_even_after_an_early_stop",
+      "line": 161,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 161
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::framing::tests::lines_split_across_reads_are_reassembled_exactly",
+      "line": 162,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 162
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::framing::tests::multibyte_characters_are_never_split_or_lossily_replaced",
+      "line": 163,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 163
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::framing::tests::oversized_input_is_counted_but_never_retained",
+      "line": 164,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 164
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::framing::tests::the_total_bound_counts_raw_bytes_even_inside_an_endless_line",
+      "line": 165,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 165
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::audit_grant_tests::a_held_startup_cue_that_expired_before_the_live_map_is_refused",
+      "line": 166,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 166
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::audit_grant_tests::audit_failed_outer_transport_cannot_certify_nominal_runtime_end",
+      "line": 167,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 167
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::audit_grant_tests::audit_grant_deschedule_after_send_must_not_panic_or_lose_tracking",
+      "line": 168,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 168
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::audit_grant_tests::audit_grant_within_deadline_control",
+      "line": 169,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 169
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::audit_grant_tests::audit_nonzero_runtime_exit_must_invalidate_attempt",
+      "line": 170,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 170
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::audit_grant_tests::audit_reaped_successful_transport_certifies_nominal_runtime_end",
+      "line": 171,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 171
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::audit_grant_tests::audit_serve_stdout_readiness_cannot_mint_an_original_cue",
+      "line": 172,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 172
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::audit_grant_tests::audit_startup_unmapped_expired_readiness_cannot_be_accepted",
+      "line": 173,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 173
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::audit_grant_tests::audit_successful_runtime_exit_control",
+      "line": 174,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 174
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::audit_grant_tests::audit_transport_that_outlives_its_bound_is_killed_and_never_certified",
+      "line": 175,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 175
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::audit_grant_tests::fast_startup_cues_before_the_first_live_pong_are_published_in_order_with_original_times",
+      "line": 176,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 176
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::audit_grant_tests::held_batch_resamples_after_parse_and_refuses_a_later_expired_cue",
+      "line": 177,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 177
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::audit_grant_tests::r2_a_grant_never_outlives_the_recordings_latest_covered_start",
+      "line": 178,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 178
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::audit_grant_tests::r2_an_actual_first_copy_after_the_covered_start_is_retained_as_a_violation",
+      "line": 179,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 179
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::audit_grant_tests::the_original_expiry_refuses_at_equality",
+      "line": 180,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 180
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::backend_clock_tests::an_unrepresentable_player_timestamp_is_rejected_before_delivery",
+      "line": 181,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 181
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::backend_clock_tests::backend_reads_only_the_supplied_clock_and_the_default_stays_on_host_time",
+      "line": 182,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 182
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::backend_clock_tests::immediate_player_keeps_datagrams_and_reports_in_the_selected_clock_domain",
+      "line": 183,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 183
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::backend_clock_tests::ping_receipts_and_each_cue_decision_take_their_own_clock_sample",
+      "line": 184,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 184
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::backend_clock_tests::post_end_drain_and_transport_reap_finish_with_a_frozen_clock",
+      "line": 185,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 185
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::backend_progress_tests::a_frame_that_cannot_be_enqueued_never_advances_progress",
+      "line": 186,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 186
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::backend_progress_tests::a_read_error_uses_the_reserved_slot_after_the_last_allowed_record",
+      "line": 187,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 187
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::backend_progress_tests::complete_malformed_frames_count_but_partial_eof_does_not",
+      "line": 188,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 188
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::backend_progress_tests::more_than_the_default_queue_is_enqueued_before_any_backend_consumption",
+      "line": 189,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 189
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::backend_progress_tests::overflow_keeps_a_terminal_error_slot_and_closes_the_real_transport",
+      "line": 190,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 190
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::backend_progress_tests::the_exact_fixture_limit_preserves_every_record_without_an_overflow_error",
+      "line": 191,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 191
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::backend_progress_tests::the_maximum_final_trace_and_session_end_are_enqueued_before_consumption",
+      "line": 192,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 192
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::cue_tests::a_grant_sent_after_its_expiry_keeps_a_negative_margin_without_overflow",
+      "line": 193,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 193
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::cue_tests::a_prompt_is_covered_only_through_its_speech_and_observation_window",
+      "line": 194,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 194
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::cue_tests::cue_order_rejects_missing_duplicate_relabelled_and_out_of_order_owners",
+      "line": 195,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 195
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::cue_tests::cue_receipt_at_expiry_or_before_send_is_not_fresh",
+      "line": 196,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 196
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::cue_tests::each_occurrence_is_matched_and_only_whole_completion_is_terminal",
+      "line": 197,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 197
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::cue_tests::fresh_delayed_child_observation_keeps_its_earlier_event_time",
+      "line": 198,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 198
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::cue_tests::legacy_missing_occurrence_live_cue_is_withheld",
+      "line": 199,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 199
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::cue_tests::readiness_cues_are_unowned_but_still_sequenced",
+      "line": 200,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 200
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::cue_tests::retired_audio_can_be_cancelled_without_reviving_playback",
+      "line": 201,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 201
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::prepared_player_clock_tests::a_shared_pure_clock_keeps_original_grants_and_real_datagram_delivery",
+      "line": 202,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 202
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::prepared_player_clock_tests::cancellation_after_ready_still_withholds_the_first_copy",
+      "line": 203,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 203
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::prepared_player_clock_tests::closed_and_malformed_inputs_still_withhold_delivery",
+      "line": 204,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 204
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::prepared_player_clock_tests::original_grant_validation_still_refuses_invalid_identity_shape_and_horizon",
+      "line": 205,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 205
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::prepared_player_clock_tests::the_fresh_first_copy_sample_decides_the_original_expiry_boundary",
+      "line": 206,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 206
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::prepared_player_clock_tests::unrepresentable_clock_samples_fail_at_each_stage_before_delivery",
+      "line": 207,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 207
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::prepared_player_progress_tests::a_fixture_ready_pump_receives_the_original_host_deadline",
+      "line": 208,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 208
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::prepared_player_progress_tests::a_report_boundary_cannot_replace_observing_an_owned_thread_exit",
+      "line": 209,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 209
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::prepared_player_progress_tests::actual_failed_room_send_does_not_increment_the_delivery_counter",
+      "line": 210,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 210
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::prepared_player_progress_tests::closed_malformed_and_cancelled_inputs_preserve_the_original_decisions",
+      "line": 211,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 211
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::prepared_player_progress_tests::closing_control_wakes_resource_grant_and_delayed_copy_workers",
+      "line": 212,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 212
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::prepared_player_progress_tests::grant_wait_uses_the_original_logical_duration_and_no_synthetic_input",
+      "line": 213,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 213
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::prepared_player_progress_tests::last_controller_clone_drop_wakes_threads_even_if_the_player_factory_survives",
+      "line": 214,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 214
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::prepared_player_progress_tests::late_copy_keeps_the_original_delay_expiry_and_cancel_check_order",
+      "line": 215,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 215
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::prepared_player_progress_tests::prepare_failure_closes_the_real_ready_channel_and_keeps_its_report",
+      "line": 216,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 216
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::prepared_player_progress_tests::real_ready_grant_consumption_and_room_delivery_finish_at_one_parent_instant",
+      "line": 217,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 217
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::prepared_player_progress_tests::slow_prepare_starts_its_full_delay_only_when_the_room_really_exists",
+      "line": 218,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 218
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::recorder_backend_tests::a_failed_fixture_stays_nonblocking_and_finish_reuses_the_latched_error",
+      "line": 219,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 219
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::recorder_backend_tests::a_finish_hook_without_actual_exit_cannot_certify_the_recorder",
+      "line": 220,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 220
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::recorder_backend_tests::actual_zero_exit_is_retained_and_only_existing_coverage_logic_marks_it_early",
+      "line": 221,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 221
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::recorder_backend_tests::both_normal_and_preparation_pumps_wait_for_actual_recorder_exit",
+      "line": 222,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 222
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::recorder_backend_tests::grant_control_failure_closes_once_and_repeated_notifications_queue_one_error",
+      "line": 223,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 223
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::recorder_backend_tests::recorder_configuration_requires_its_separate_explicit_capability",
+      "line": 224,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 224
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::recorder_backend_tests::recorder_settling_does_not_reorder_player_failure_evidence",
+      "line": 225,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 225
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::recorder_backend_tests::startup_control_failure_closes_its_driver_before_any_session_is_started",
+      "line": 226,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 226
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::recorder_backend_tests::startup_reads_the_real_receipt_and_shares_the_original_fifteen_second_bound",
+      "line": 227,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 227
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::recorder_backend_tests::terminal_ack_alone_hits_the_host_bound_closes_peers_and_reaps_the_real_child",
+      "line": 228,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 228
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::recorder_backend_tests::terminal_recorder_drain_keeps_prior_declared_coverage_reason_and_real_status",
+      "line": 229,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 229
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::relay_reader_tests::a_never_terminated_line_still_ends_at_the_session_byte_bound",
+      "line": 230,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 230
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::relay_reader_tests::oversized_non_utf8_and_cut_off_lines_are_protocol_errors",
+      "line": 231,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 231
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::mac::relay_reader_tests::reading_stops_with_an_error_above_the_session_byte_bound",
+      "line": 232,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 232
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::serve_fixture_driver::recorder_tests::expired_recorder_startup_watchdog_closes_the_listener_without_advancing_time",
+      "line": 233,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 233
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::serve_fixture_driver::recorder_tests::players_cannot_finish_before_the_recorder_exits_even_without_pending_players",
+      "line": 234,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 234
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::serve_fixture_driver::recorder_tests::recorder_configuration_preserves_every_argument_and_placeholder",
+      "line": 235,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 235
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::serve_fixture_driver::recorder_tests::recorder_drains_after_relay_completion_without_stepping_the_runtime_again",
+      "line": 236,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 236
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::serve_fixture_driver::recorder_tests::recorder_due_before_or_on_a_poll_preserves_the_pending_runtime_deadline",
+      "line": 237,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 237
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::serve_fixture_driver::recorder_tests::recorder_due_before_or_on_bootstrap_holds_registration_until_exit_notification",
+      "line": 238,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 238
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::serve_fixture_driver::recorder_tests::recorder_starts_at_the_held_epoch_and_clock_reads_do_not_poll_it",
+      "line": 239,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 239
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::serve_fixture_driver::recorder_tests::terminal_recorder_ack_cannot_authorize_a_clock_advance",
+      "line": 240,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 240
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::serve_fixture_driver::recorder_tests::wrapper_other_runtime_and_invalid_recorder_options_fail_without_mutating_config",
+      "line": 241,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 241
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::serve_fixture_driver::slow_transport_tests::a_wrapper_disconnect_before_its_first_ack_cannot_start_the_relay",
+      "line": 242,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 242
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::serve_fixture_driver::slow_transport_tests::advancing_without_the_separate_recorder_exit_notification_fails_closed",
+      "line": 243,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 243
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::serve_fixture_driver::slow_transport_tests::an_already_expired_first_call_never_registers_or_advances_the_wrapper",
+      "line": 244,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 244
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::serve_fixture_driver::slow_transport_tests::an_expired_retained_startup_budget_cannot_be_renewed_by_the_next_call",
+      "line": 245,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 245
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::serve_fixture_driver::slow_transport_tests::delay_completion_followed_by_the_wrong_role_fails_at_the_held_due_time",
+      "line": 246,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 246
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::serve_fixture_driver::slow_transport_tests::direct_configuration_and_bootstrap_keep_their_original_path",
+      "line": 247,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 247
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::serve_fixture_driver::slow_transport_tests::explicit_close_releases_a_parked_wrapper_and_prevents_further_startup",
+      "line": 248,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 248
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::serve_fixture_driver::slow_transport_tests::explicit_wrapper_preserves_the_full_delay_and_every_forwarded_argument",
+      "line": 249,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 249
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::serve_fixture_driver::slow_transport_tests::four_hundred_ms_wait_uses_two_ms_rounds_and_retains_both_setup_inputs",
+      "line": 250,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 250
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::serve_fixture_driver::slow_transport_tests::later_caller_deadlines_cannot_extend_the_cumulative_startup_budget",
+      "line": 251,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 251
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::serve_fixture_driver::slow_transport_tests::malformed_or_unbounded_wrappers_fail_before_mutating_configuration",
+      "line": 252,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 252
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::serve_fixture_driver::slow_transport_tests::recorder_due_before_or_on_delay_completion_holds_time_until_exit_notification",
+      "line": 253,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 253
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::serve_fixture_driver::slow_transport_tests::terminal_delay_without_a_fresh_relay_hello_cannot_start_or_advance",
+      "line": 254,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 254
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::serve_fixture_driver::slow_transport_tests::zero_and_sub_poll_delays_register_a_fresh_relay_before_bootstrap_time",
+      "line": 255,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 255
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::serve_fixture_driver::tests::configuration_keeps_every_fake_argument_and_selects_only_explicit_commands",
+      "line": 256,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 256
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::serve_fixture_driver::tests::positive_pure_epoch_preserves_retained_history_and_setup_ping_order",
+      "line": 257,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 257
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::serve_fixture_driver::tests::shell_transports_real_runtimes_and_malformed_prefixes_cannot_opt_in",
+      "line": 258,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 258
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::session::clock_tests::successful_stop_samples_the_clock_again_after_sending_the_signal",
+      "line": 259,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 259
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::session::relay_progress_tests::completed_polls_follow_receipts_and_deadline_checks_before_final_output",
+      "line": 260,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 260
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::session::relay_progress_tests::enqueue_wait_has_a_host_deadline_even_without_logical_clock_reads",
+      "line": 261,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 261
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::session::relay_progress_tests::failed_enqueue_never_announces_a_frame",
+      "line": 262,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 262
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::session::relay_progress_tests::invalid_complete_frames_count_but_truncated_eof_does_not",
+      "line": 263,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 263
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::session::relay_progress_tests::partial_bytes_do_not_satisfy_the_complete_frame_barrier",
+      "line": 264,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 264
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::session::relay_progress_tests::targets_cannot_wait_for_more_than_the_bounded_queue_can_hold",
+      "line": 265,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 265
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::session::runtime_flag_tests::microphone_flag_is_typed_forwarded_and_rejects_duplicates",
+      "line": 266,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 266
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::session::runtime_flag_tests::omitted_runtime_flags_leave_every_child_argv_unchanged",
+      "line": 267,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 267
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::session::runtime_flag_tests::the_endpoint_trial_reaches_serve_after_the_pilot_settings",
+      "line": 268,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 268
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::session::runtime_flag_tests::the_pilot_settings_reach_serve_and_directed_exactly",
+      "line": 269,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 269
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::session::runtime_flag_tests::values_and_combinations_lamp_voice_refuses_are_refused_before_any_child",
+      "line": 270,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 270
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::session::serve_metadata_tests::a_segment_without_a_valid_header_is_rejected",
+      "line": 271,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 271
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::session::serve_metadata_tests::gapped_overwritten_or_unacknowledged_history_is_missing_evidence",
+      "line": 272,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 272
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::session::serve_metadata_tests::rotated_segments_relay_in_generation_order_without_headers",
+      "line": 273,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 273
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "physical::session::serve_relay_progress_tests::successful_signal_receipt_survives_repeated_stop_and_exact_grace_kill",
+      "line": 274,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 274
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "playback::tests::legacy_single_occurrence_is_readable_but_multiple_missing_ids_are_ambiguous",
+      "line": 275,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 275
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "playback::tests::overlap_is_half_open_and_empty_occurrences_prove_no_overlap",
+      "line": 276,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 276
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "playback::tests::stale_retirement_cannot_close_the_next_occurrence",
+      "line": 277,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 277
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "runner::occurrence_tests::a_backend_revalidation_with_harmless_events_dispatches_once",
+      "line": 278,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 278
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "runner::occurrence_tests::a_cancelled_turn_also_finishes_the_wait",
+      "line": 279,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 279
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "runner::occurrence_tests::a_correction_after_new_input_or_a_second_owner_is_withheld",
+      "line": 280,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 280
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "runner::occurrence_tests::a_correction_binds_to_the_turn_admitted_since_the_previous_step",
+      "line": 281,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 281
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "runner::occurrence_tests::a_correction_due_after_output_started_is_withheld",
+      "line": 282,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 282
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "runner::occurrence_tests::a_dispatch_that_never_settles_is_withheld_after_its_bound",
+      "line": 283,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 283
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "runner::occurrence_tests::a_failure_already_delivered_at_playback_time_withholds_the_stimulus",
+      "line": 284,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 284
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "runner::occurrence_tests::a_failure_during_the_trigger_delay_withholds_the_stimulus",
+      "line": 285,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 285
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "runner::occurrence_tests::a_failure_latches_for_the_rest_of_the_attempt",
+      "line": 286,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 286
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "runner::occurrence_tests::a_link_outage_is_waited_out_by_event",
+      "line": 287,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 287
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "runner::occurrence_tests::a_provider_failure_is_never_a_completion_trigger_and_is_reported",
+      "line": 288,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 288
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "runner::occurrence_tests::a_retirement_taken_by_the_backend_drain_is_precondition_lost",
+      "line": 289,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 289
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "runner::occurrence_tests::a_stream_without_readiness_evidence_never_waits_on_it",
+      "line": 290,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 290
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "runner::occurrence_tests::a_terminal_link_during_the_wait_is_provider_unavailable",
+      "line": 291,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 291
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "runner::occurrence_tests::a_turn_finished_twice_is_an_owner_fault",
+      "line": 292,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 292
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "runner::occurrence_tests::an_extra_admitted_turn_during_the_wait_is_not_waited_out",
+      "line": 293,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 293
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "runner::occurrence_tests::an_extra_candidate_during_the_wait_withholds_the_next_turn",
+      "line": 294,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 294
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "runner::occurrence_tests::audit_a_completion_trigger_starts_inside_the_reopen_window",
+      "line": 295,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 295
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "runner::occurrence_tests::availability_never_withdrawn_is_ready_at_the_finish_not_before_admission",
+      "line": 296,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 296
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "runner::occurrence_tests::availability_withdrawn_before_dispatch_withholds",
+      "line": 297,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 297
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "runner::occurrence_tests::completion_is_not_readiness_the_late_reopen_is_awaited_by_event",
+      "line": 298,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 298
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "runner::occurrence_tests::input_between_readiness_and_dispatch_is_rechecked_at_dispatch",
+      "line": 299,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 299
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "runner::occurrence_tests::lost_runner_evidence_withholds_the_next_step_at_once",
+      "line": 300,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 300
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "runner::occurrence_tests::main_015_failure_before_the_first_planned_start_injects_nothing",
+      "line": 301,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 301
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "runner::occurrence_tests::second_occurrence_is_speaking_but_first_retirement_is_not_completion",
+      "line": 302,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 302
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "stats::tests::nearest_rank_matches_the_definition",
+      "line": 303,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 303
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "stimulus::tests::conflicting_extension_definitions_are_rejected",
+      "line": 304,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 304
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "stimulus::tests::measured_mix_refines_only_within_each_clip_window",
+      "line": 305,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 305
+    },
+    {
+      "binary_id": "lamp-voice-eval",
+      "test": "stimulus::tests::merged_catalog_keeps_desk_definitions_and_adds_new_scenes",
+      "line": 306,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 306
+    },
+    {
+      "binary_id": "lamp-voice-eval::acceptance_boundaries",
+      "test": "delayed_human_response_has_no_synthetic_timing_claim",
+      "line": 319,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 319
+    },
+    {
+      "binary_id": "lamp-voice-eval::acceptance_boundaries",
+      "test": "human_import_with_explicit_turn_attribution_remains_separate_and_usable",
+      "line": 320,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 320
+    },
+    {
+      "binary_id": "lamp-voice-eval::acceptance_boundaries",
+      "test": "prompt_window_does_not_prove_an_echo_was_a_human_interruption",
+      "line": 321,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 321
+    },
+    {
+      "binary_id": "lamp-voice-eval::acceptance_boundaries",
+      "test": "unanswered_human_prompt_cannot_pass_a_silence_test",
+      "line": 322,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 322
+    },
+    {
+      "binary_id": "lamp-voice-eval::acceptance_boundaries",
+      "test": "unfinished_background_admission_is_unknown_without_timestamp_overflow",
+      "line": 323,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 323
+    },
+    {
+      "binary_id": "lamp-voice-eval::answer_review",
+      "test": "complete_positive_review_is_separate_from_unreviewed_or_partial_review",
+      "line": 330,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 330
+    },
+    {
+      "binary_id": "lamp-voice-eval::answer_review",
+      "test": "confirmed_duplicate_and_split_answers_are_not_successful_completion",
+      "line": 331,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 331
+    },
+    {
+      "binary_id": "lamp-voice-eval::answer_review",
+      "test": "evaluator_duplicate_attributed_replies_preserve_transport_and_fail_completion_rate",
+      "line": 332,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 332
+    },
+    {
+      "binary_id": "lamp-voice-eval::answer_review",
+      "test": "evaluator_retains_validated_review_and_transport_as_separate_facts",
+      "line": 333,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 333
+    },
+    {
+      "binary_id": "lamp-voice-eval::answer_review",
+      "test": "failed_answers_stay_in_the_denominator_and_existing_exclusions_stay_explicit",
+      "line": 334,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 334
+    },
+    {
+      "binary_id": "lamp-voice-eval::answer_review",
+      "test": "gap_accounting_and_review_failures_are_independent",
+      "line": 335,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 335
+    },
+    {
+      "binary_id": "lamp-voice-eval::answer_review",
+      "test": "legacy_review_findings_still_exclude_completion_without_new_review_field",
+      "line": 336,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 336
+    },
+    {
+      "binary_id": "lamp-voice-eval::answer_review",
+      "test": "positive_review_cannot_repair_missing_truncated_or_late_transport",
+      "line": 337,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 337
+    },
+    {
+      "binary_id": "lamp-voice-eval::answer_review",
+      "test": "readable_report_does_not_describe_unreviewed_playback_as_semantic_success",
+      "line": 338,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 338
+    },
+    {
+      "binary_id": "lamp-voice-eval::answer_review",
+      "test": "reviewed_irrelevant_or_incomplete_answer_keeps_transport_but_not_completion_credit",
+      "line": 339,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 339
+    },
+    {
+      "binary_id": "lamp-voice-eval::answer_review",
+      "test": "separate_source_groups_preserve_reviewed_answer_denominators",
+      "line": 340,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 340
+    },
+    {
+      "binary_id": "lamp-voice-eval::answer_review",
+      "test": "source_specific_headings_do_not_call_humans_loudspeakers",
+      "line": 341,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 341
+    },
+    {
+      "binary_id": "lamp-voice-eval::answer_review",
+      "test": "unlistened_or_mismatched_recording_review_cannot_disqualify_playback",
+      "line": 342,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 342
+    },
+    {
+      "binary_id": "lamp-voice-eval::answer_review",
+      "test": "unrelated_ring_fault_and_unconfirmed_or_other_step_findings_do_not_change_answer_credit",
+      "line": 343,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 343
+    },
+    {
+      "binary_id": "lamp-voice-eval::audit_final_dispatch",
+      "test": "final_dispatch_must_not_start_after_cue_protocol_failure",
+      "line": 350,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 350
+    },
+    {
+      "binary_id": "lamp-voice-eval::audit_final_dispatch",
+      "test": "final_dispatch_must_not_start_after_session_end",
+      "line": 351,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 351
+    },
+    {
+      "binary_id": "lamp-voice-eval::audit_importer",
+      "test": "a_receipt_changed_after_import_fails_review_time_verification",
+      "line": 358,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 358
+    },
+    {
+      "binary_id": "lamp-voice-eval::audit_importer",
+      "test": "a_valid_receipt_and_its_wav_are_verified_as_room_evidence",
+      "line": 359,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 359
+    },
+    {
+      "binary_id": "lamp-voice-eval::audit_importer",
+      "test": "a_wav_in_another_format_or_length_is_refused",
+      "line": 360,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 360
+    },
+    {
+      "binary_id": "lamp-voice-eval::audit_importer",
+      "test": "an_imported_trace_with_a_receipt_is_annotated_and_scored_only_after_listening",
+      "line": 361,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 361
+    },
+    {
+      "binary_id": "lamp-voice-eval::audit_importer",
+      "test": "an_invalid_receipt_keeps_the_attempt_with_unmeasured_acoustics",
+      "line": 362,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 362
+    },
+    {
+      "binary_id": "lamp-voice-eval::audit_importer",
+      "test": "audit_malformed_frame_count_is_invalid_evidence_not_a_panic",
+      "line": 363,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 363
+    },
+    {
+      "binary_id": "lamp-voice-eval::audit_importer",
+      "test": "audit_missing_receipt_is_retained_as_unmeasured_evidence",
+      "line": 364,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 364
+    },
+    {
+      "binary_id": "lamp-voice-eval::audit_importer",
+      "test": "audit_original_receipt_must_bind_the_wav_reverified_for_scoring",
+      "line": 365,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 365
+    },
+    {
+      "binary_id": "lamp-voice-eval::audit_importer",
+      "test": "inconsistent_or_unsafe_receipts_are_refused",
+      "line": 366,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 366
+    },
+    {
+      "binary_id": "lamp-voice-eval::audit_importer",
+      "test": "roots_real_invalid_receipt_is_retained_and_refused",
+      "line": 367,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 367
+    },
+    {
+      "binary_id": "lamp-voice-eval::audit_importer",
+      "test": "samples_that_differ_from_the_received_pcm_are_refused",
+      "line": 368,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 368
+    },
+    {
+      "binary_id": "lamp-voice-eval::audit_runner_dispatch",
+      "test": "final_drain_must_recheck_speaking_precondition_before_injection",
+      "line": 375,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 375
+    },
+    {
+      "binary_id": "lamp-voice-eval::audit_runner_dispatch",
+      "test": "final_drain_must_recheck_trigger_lateness_before_injection",
+      "line": 376,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 376
+    },
+    {
+      "binary_id": "lamp-voice-eval::canary_plan",
+      "test": "custom_catalog_profiles_and_deadline_do_not_change_canary_inputs",
+      "line": 383,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 383
+    },
+    {
+      "binary_id": "lamp-voice-eval::canary_plan",
+      "test": "every_result_identifies_the_embedded_canonical_plan_and_catalog",
+      "line": 384,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 384
+    },
+    {
+      "binary_id": "lamp-voice-eval::canary_plan",
+      "test": "subset_plan_does_not_need_the_named_canary_scenarios",
+      "line": 385,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 385
+    },
+    {
+      "binary_id": "lamp-voice-eval::evaluator",
+      "test": "a_trace_with_run_start_but_no_run_end_is_not_scored",
+      "line": 392,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 392
+    },
+    {
+      "binary_id": "lamp-voice-eval::evaluator",
+      "test": "a_trace_without_run_records_is_unscored_not_passed",
+      "line": 393,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 393
+    },
+    {
+      "binary_id": "lamp-voice-eval::evaluator",
+      "test": "acoustic_latency_requires_a_listened_annotation_of_the_same_recording",
+      "line": 394,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 394
+    },
+    {
+      "binary_id": "lamp-voice-eval::evaluator",
+      "test": "annotation_files_reject_negative_or_nonfinite_times",
+      "line": 395,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 395
+    },
+    {
+      "binary_id": "lamp-voice-eval::evaluator",
+      "test": "imported_h4_trace_is_a_false_interruption_by_unattributed_input",
+      "line": 396,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 396
+    },
+    {
+      "binary_id": "lamp-voice-eval::evaluator",
+      "test": "imported_zejfwxq7_like_chain_counts_every_cancelled_answer",
+      "line": 397,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 397
+    },
+    {
+      "binary_id": "lamp-voice-eval::evaluator",
+      "test": "imports_must_declare_every_stimulus_and_undeclared_steps_are_unscored",
+      "line": 398,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 398
+    },
+    {
+      "binary_id": "lamp-voice-eval::evaluator",
+      "test": "legacy_retirement_before_revocation_does_not_prove_whole_answer_complete",
+      "line": 399,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 399
+    },
+    {
+      "binary_id": "lamp-voice-eval::evaluator",
+      "test": "loudspeaker_and_direct_human_attempts_are_reported_separately",
+      "line": 400,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 400
+    },
+    {
+      "binary_id": "lamp-voice-eval::evaluator",
+      "test": "provider_mismatch_and_unknown_turns_are_rejected_on_import",
+      "line": 401,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 401
+    },
+    {
+      "binary_id": "lamp-voice-eval::evaluator",
+      "test": "rates_exclude_invalid_attempts_and_unscored_opportunities",
+      "line": 402,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 402
+    },
+    {
+      "binary_id": "lamp-voice-eval::evaluator",
+      "test": "reviewer_judgments_fail_and_negative_intervals_stay_unscored",
+      "line": 403,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 403
+    },
+    {
+      "binary_id": "lamp-voice-eval::evaluator",
+      "test": "the_evaluator_detects_every_injected_failure_and_passes_clean_controls",
+      "line": 404,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 404
+    },
+    {
+      "binary_id": "lamp-voice-eval::evaluator",
+      "test": "the_shipped_plan_is_valid_and_mutations_are_rejected",
+      "line": 405,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 405
+    },
+    {
+      "binary_id": "lamp-voice-eval::fake_runtime",
+      "test": "a_lost_overlap_precondition_withholds_the_stimulus",
+      "line": 412,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 412
+    },
+    {
+      "binary_id": "lamp-voice-eval::fake_runtime",
+      "test": "a_missing_trigger_is_recorded_not_replaced_by_a_fixed_delay",
+      "line": 413,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 413
+    },
+    {
+      "binary_id": "lamp-voice-eval::fake_runtime",
+      "test": "a_session_that_ends_after_a_disconnect_is_scored_as_no_recovery",
+      "line": 414,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 414
+    },
+    {
+      "binary_id": "lamp-voice-eval::fake_runtime",
+      "test": "a_stale_trigger_withholds_the_stimulus_instead_of_playing_it_late",
+      "line": 415,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 415
+    },
+    {
+      "binary_id": "lamp-voice-eval::fake_runtime",
+      "test": "acknowledgments_and_asides_falsely_interrupt_the_current_policy",
+      "line": 416,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 416
+    },
+    {
+      "binary_id": "lamp-voice-eval::fake_runtime",
+      "test": "an_admission_during_a_noise_only_scene_fails_that_silence_step",
+      "line": 417,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 417
+    },
+    {
+      "binary_id": "lamp-voice-eval::fake_runtime",
+      "test": "an_unfinished_question_with_a_long_pause_splits_and_its_resumption_yields",
+      "line": 418,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 418
+    },
+    {
+      "binary_id": "lamp-voice-eval::fake_runtime",
+      "test": "background_talk_that_revokes_the_request_is_a_false_interruption_not_a_split",
+      "line": 419,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 419
+    },
+    {
+      "binary_id": "lamp-voice-eval::fake_runtime",
+      "test": "echo_leak_profile_reproduces_the_h4_false_admission",
+      "line": 420,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 420
+    },
+    {
+      "binary_id": "lamp-voice-eval::fake_runtime",
+      "test": "echo_loop_profile_reproduces_a_self_sustaining_admission_chain",
+      "line": 421,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 421
+    },
+    {
+      "binary_id": "lamp-voice-eval::fake_runtime",
+      "test": "fixed_reply_second_turn_is_unsupported_not_failed",
+      "line": 422,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 422
+    },
+    {
+      "binary_id": "lamp-voice-eval::fake_runtime",
+      "test": "follow_ups_are_triggered_by_the_end_of_each_answer",
+      "line": 423,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 423
+    },
+    {
+      "binary_id": "lamp-voice-eval::fake_runtime",
+      "test": "hesitation_longer_than_the_endpoint_splits_the_turn",
+      "line": 424,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 424
+    },
+    {
+      "binary_id": "lamp-voice-eval::fake_runtime",
+      "test": "multiple_generations_of_one_turn_still_wait_for_completion_and_keep_overlap",
+      "line": 425,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 425
+    },
+    {
+      "binary_id": "lamp-voice-eval::fake_runtime",
+      "test": "provider_faults_are_reported_honestly",
+      "line": 426,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 426
+    },
+    {
+      "binary_id": "lamp-voice-eval::fake_runtime",
+      "test": "quick_chat_is_one_complete_answer_with_simulated_latency_only",
+      "line": 427,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 427
+    },
+    {
+      "binary_id": "lamp-voice-eval::fake_runtime",
+      "test": "repeated_interruptions_each_yield_on_their_own_trigger",
+      "line": 428,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 428
+    },
+    {
+      "binary_id": "lamp-voice-eval::fake_runtime",
+      "test": "retained_v1_plan_bytes_still_parse_with_occurrence_retirement_triggers",
+      "line": 429,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 429
+    },
+    {
+      "binary_id": "lamp-voice-eval::fake_runtime",
+      "test": "same_seed_reproduces_identical_events",
+      "line": 430,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 430
+    },
+    {
+      "binary_id": "lamp-voice-eval::fake_runtime",
+      "test": "signal_mode_uses_lamp_voice_vad_on_the_exact_cached_mix",
+      "line": 431,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 431
+    },
+    {
+      "binary_id": "lamp-voice-eval::fake_runtime",
+      "test": "topic_change_yields_as_planned_and_measures_software_yield",
+      "line": 432,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 432
+    },
+    {
+      "binary_id": "lamp-voice-eval::fake_runtime",
+      "test": "unaddressed_speech_gets_admitted_and_answered_without_an_addressee_gate",
+      "line": 433,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 433
+    },
+    {
+      "binary_id": "lamp-voice-eval::fake_runtime",
+      "test": "voice_and_ring_state_stay_consistent_through_cancellation_and_breaks_are_detected",
+      "line": 434,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 434
+    },
+    {
+      "binary_id": "lamp-voice-eval::final_dispatch",
+      "test": "a_final_drain_that_exhausts_its_budget_requires_revalidation",
+      "line": 441,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 441
+    },
+    {
+      "binary_id": "lamp-voice-eval::final_dispatch",
+      "test": "a_healthy_session_still_dispatches_once",
+      "line": 442,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 442
+    },
+    {
+      "binary_id": "lamp-voice-eval::final_dispatch",
+      "test": "a_known_invalid_cue_withholds_dispatch_as_a_protocol_failure",
+      "line": 443,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 443
+    },
+    {
+      "binary_id": "lamp-voice-eval::final_dispatch",
+      "test": "a_known_run_end_cue_withholds_dispatch",
+      "line": 444,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 444
+    },
+    {
+      "binary_id": "lamp-voice-eval::final_dispatch",
+      "test": "a_known_session_end_withholds_dispatch",
+      "line": 445,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 445
+    },
+    {
+      "binary_id": "lamp-voice-eval::final_dispatch",
+      "test": "a_relay_framing_error_first_seen_in_the_final_drain_withholds",
+      "line": 446,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 446
+    },
+    {
+      "binary_id": "lamp-voice-eval::final_dispatch",
+      "test": "a_session_end_first_seen_in_the_final_drain_withholds_and_is_kept",
+      "line": 447,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 447
+    },
+    {
+      "binary_id": "lamp-voice-eval::final_dispatch",
+      "test": "a_transport_closed_during_the_final_drain_withholds",
+      "line": 448,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 448
+    },
+    {
+      "binary_id": "lamp-voice-eval::final_dispatch",
+      "test": "an_invalid_cue_first_seen_in_the_final_drain_withholds",
+      "line": 449,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 449
+    },
+    {
+      "binary_id": "lamp-voice-eval::final_dispatch",
+      "test": "an_unobserved_event_in_the_final_drain_requires_revalidation",
+      "line": 450,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 450
+    },
+    {
+      "binary_id": "lamp-voice-eval::final_dispatch",
+      "test": "audit_physical_boundary_does_not_dispatch_during_post_exit_trace_relay",
+      "line": 451,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 451
+    },
+    {
+      "binary_id": "lamp-voice-eval::final_dispatch",
+      "test": "audit_physical_boundary_rejects_a_target_already_over_100ms_late",
+      "line": 452,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 452
+    },
+    {
+      "binary_id": "lamp-voice-eval::final_dispatch",
+      "test": "the_first_terminal_cause_wins_and_a_provider_failure_stays_provider_unavailable",
+      "line": 453,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 453
+    },
+    {
+      "binary_id": "lamp-voice-eval::next_turn_ready",
+      "test": "next_turn_ready_validates_only_after_a_step_that_expects_a_turn",
+      "line": 460,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 460
+    },
+    {
+      "binary_id": "lamp-voice-eval::next_turn_ready",
+      "test": "the_fake_runtime_reports_readiness_and_follow_ups_start_on_it",
+      "line": 461,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 461
+    },
+    {
+      "binary_id": "lamp-voice-eval::physical_loopback",
+      "test": "a_transport_that_closes_mid_trace_invalidates_the_attempt",
+      "line": 468,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 468
+    },
+    {
+      "binary_id": "lamp-voice-eval::physical_loopback",
+      "test": "cue_triggered_acknowledgment_is_injected_during_playback_and_scored",
+      "line": 469,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 469
+    },
+    {
+      "binary_id": "lamp-voice-eval::physical_loopback",
+      "test": "directed_followup_waits_for_whole_reply_completion_then_admits_a_new_turn",
+      "line": 470,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 470
+    },
+    {
+      "binary_id": "lamp-voice-eval::physical_loopback",
+      "test": "directed_interruption_during_second_occurrence_preserves_owner_and_yields",
+      "line": 471,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 471
+    },
+    {
+      "binary_id": "lamp-voice-eval::physical_loopback",
+      "test": "directed_missing_or_stale_retirement_never_falls_back_to_a_timer_or_final_trace",
+      "line": 472,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 472
+    },
+    {
+      "binary_id": "lamp-voice-eval::physical_loopback",
+      "test": "directed_mode_keeps_provider_fault_and_asset_restrictions",
+      "line": 473,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 473
+    },
+    {
+      "binary_id": "lamp-voice-eval::physical_loopback",
+      "test": "directed_natural_interruption_runs_during_reply_with_original_cancel_reason",
+      "line": 474,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 474
+    },
+    {
+      "binary_id": "lamp-voice-eval::physical_loopback",
+      "test": "directed_two_occurrences_wait_for_true_completion_before_followup",
+      "line": 475,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 475
+    },
+    {
+      "binary_id": "lamp-voice-eval::physical_loopback",
+      "test": "echo_only_window_passes_through_the_relay_without_extra_admissions",
+      "line": 476,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 476
+    },
+    {
+      "binary_id": "lamp-voice-eval::physical_loopback",
+      "test": "missing_or_stale_whole_completion_withholds_followup_after_valid_retirement",
+      "line": 477,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 477
+    },
+    {
+      "binary_id": "lamp-voice-eval::physical_loopback",
+      "test": "physical_next_turn_ready_follows_lamp_voice_readiness_cues",
+      "line": 478,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 478
+    },
+    {
+      "binary_id": "lamp-voice-eval::physical_loopback",
+      "test": "undelivered_stimuli_are_withheld_not_scored_as_silence",
+      "line": 479,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 479
+    },
+    {
+      "binary_id": "lamp-voice-eval::playback_occurrences",
+      "test": "cancellation_between_generations_is_not_whole_turn_completion",
+      "line": 486,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 486
+    },
+    {
+      "binary_id": "lamp-voice-eval::playback_occurrences",
+      "test": "cancellation_during_second_generation_is_not_a_complete_answer",
+      "line": 487,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 487
+    },
+    {
+      "binary_id": "lamp-voice-eval::playback_occurrences",
+      "test": "completion_missing_gap_count_is_retained_invalid_not_normalized_to_success",
+      "line": 488,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 488
+    },
+    {
+      "binary_id": "lamp-voice-eval::playback_occurrences",
+      "test": "completion_relabelled_to_another_generation_or_with_contradictory_gaps_is_invalid",
+      "line": 489,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 489
+    },
+    {
+      "binary_id": "lamp-voice-eval::playback_occurrences",
+      "test": "every_occurrence_is_used_for_ring_state_and_latency_uses_the_first_word",
+      "line": 490,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 490
+    },
+    {
+      "binary_id": "lamp-voice-eval::playback_occurrences",
+      "test": "historical_terminal_without_generation_is_readable",
+      "line": 491,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 491
+    },
+    {
+      "binary_id": "lamp-voice-eval::playback_occurrences",
+      "test": "missing_second_identity_duplicate_retirement_and_early_completion_cannot_pass",
+      "line": 492,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 492
+    },
+    {
+      "binary_id": "lamp-voice-eval::playback_occurrences",
+      "test": "recognized_lifecycle_records_cannot_disappear_when_identity_or_time_is_missing",
+      "line": 493,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 493
+    },
+    {
+      "binary_id": "lamp-voice-eval::playback_occurrences",
+      "test": "stale_first_retirement_during_second_is_invalid_and_does_not_shorten_exposure",
+      "line": 494,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 494
+    },
+    {
+      "binary_id": "lamp-voice-eval::playback_occurrences",
+      "test": "two_complete_occurrences_sum_exposure_without_counting_the_gap",
+      "line": 495,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 495
+    },
+    {
+      "binary_id": "lamp-voice-eval::provider_failed",
+      "test": "a_failure_after_a_partial_answer_keeps_its_audio_evidence_and_fails",
+      "line": 502,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 502
+    },
+    {
+      "binary_id": "lamp-voice-eval::provider_failed",
+      "test": "a_failure_before_audio_is_a_failed_answer_not_a_silent_missing_terminal",
+      "line": 503,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 503
+    },
+    {
+      "binary_id": "lamp-voice-eval::provider_failed",
+      "test": "a_failure_while_audio_is_still_playing_is_inconsistent_evidence",
+      "line": 504,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 504
+    },
+    {
+      "binary_id": "lamp-voice-eval::provider_failed",
+      "test": "a_late_failed_answer_keeps_both_causes_and_the_provider_evidence",
+      "line": 505,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 505
+    },
+    {
+      "binary_id": "lamp-voice-eval::provider_failed",
+      "test": "provider_session_and_outcome_survive_trace_parsing_bounded",
+      "line": 506,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 506
+    },
+    {
+      "binary_id": "lamp-voice-eval::provider_failed",
+      "test": "the_drain_endpoint_is_recorded_but_never_a_normal_endpoint",
+      "line": 507,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 507
+    },
+    {
+      "binary_id": "lamp-voice-eval::provider_failed",
+      "test": "the_failed_terminal_cue_is_readable_with_or_without_gaps",
+      "line": 508,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 508
+    },
+    {
+      "binary_id": "lamp-voice-eval::recording_evidence",
+      "test": "actual_wav_hash_format_frames_and_duration_are_verified",
+      "line": 515,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 515
+    },
+    {
+      "binary_id": "lamp-voice-eval::recording_evidence",
+      "test": "annotation_parser_rejects_negative_values_without_using_software_hints",
+      "line": 516,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 516
+    },
+    {
+      "binary_id": "lamp-voice-eval::recording_evidence",
+      "test": "duration_rate_and_channel_bounds_are_enforced",
+      "line": 517,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 517
+    },
+    {
+      "binary_id": "lamp-voice-eval::recording_evidence",
+      "test": "empty_and_over_byte_limit_files_fail_before_sample_allocation",
+      "line": 518,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 518
+    },
+    {
+      "binary_id": "lamp-voice-eval::recording_evidence",
+      "test": "failed_or_timed_out_recorder_cannot_reuse_valid_metadata",
+      "line": 519,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 519
+    },
+    {
+      "binary_id": "lamp-voice-eval::recording_evidence",
+      "test": "incomplete_sample_frame_and_nonfinite_float_are_rejected",
+      "line": 520,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 520
+    },
+    {
+      "binary_id": "lamp-voice-eval::recording_evidence",
+      "test": "interruption_times_and_uncertainties_are_checked_too",
+      "line": 521,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 521
+    },
+    {
+      "binary_id": "lamp-voice-eval::recording_evidence",
+      "test": "matching_metadata_and_annotation_strings_cannot_mint_acoustic_evidence",
+      "line": 522,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 522
+    },
+    {
+      "binary_id": "lamp-voice-eval::recording_evidence",
+      "test": "missing_or_corrupt_metadata_retains_the_attempt_and_reason",
+      "line": 523,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 523
+    },
+    {
+      "binary_id": "lamp-voice-eval::recording_evidence",
+      "test": "observer_float_and_extensible_multichannel_pcm_are_supported",
+      "line": 524,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 524
+    },
+    {
+      "binary_id": "lamp-voice-eval::recording_evidence",
+      "test": "observer_frame_format_and_error_claims_must_match_actual_bytes",
+      "line": 525,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 525
+    },
+    {
+      "binary_id": "lamp-voice-eval::recording_evidence",
+      "test": "removing_wav_after_import_invalidates_report_regeneration",
+      "line": 526,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 526
+    },
+    {
+      "binary_id": "lamp-voice-eval::recording_evidence",
+      "test": "reversed_intervals_do_not_erase_independent_content_review",
+      "line": 527,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 527
+    },
+    {
+      "binary_id": "lamp-voice-eval::recording_evidence",
+      "test": "same_length_replacement_after_import_is_not_the_reviewed_recording",
+      "line": 528,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 528
+    },
+    {
+      "binary_id": "lamp-voice-eval::recording_evidence",
+      "test": "symlink_and_nonregular_paths_cannot_be_recordings",
+      "line": 529,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 529
+    },
+    {
+      "binary_id": "lamp-voice-eval::recording_evidence",
+      "test": "truncated_riff_and_payload_are_rejected_even_with_their_new_hash",
+      "line": 530,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 530
+    },
+    {
+      "binary_id": "lamp-voice-eval::recording_evidence",
+      "test": "unrepresentable_path_is_an_invalid_receipt_not_a_serialization_panic",
+      "line": 531,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 531
+    },
+    {
+      "binary_id": "lamp-voice-eval::recording_evidence",
+      "test": "valid_metadata_without_its_recording_is_retained_as_invalid_evidence",
+      "line": 532,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 532
+    },
+    {
+      "binary_id": "lamp-voice-eval::recording_evidence",
+      "test": "wrong_run_and_outside_recording_boundaries_are_unscored",
+      "line": 533,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 533
+    },
+    {
+      "binary_id": "lamp-voice-eval::recording_import",
+      "test": "a_receipt_changed_after_import_fails_review_time_verification",
+      "line": 540,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 540
+    },
+    {
+      "binary_id": "lamp-voice-eval::recording_import",
+      "test": "a_valid_receipt_and_its_wav_are_verified_as_room_evidence",
+      "line": 541,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 541
+    },
+    {
+      "binary_id": "lamp-voice-eval::recording_import",
+      "test": "a_wav_in_another_format_or_length_is_refused",
+      "line": 542,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 542
+    },
+    {
+      "binary_id": "lamp-voice-eval::recording_import",
+      "test": "an_absurd_receipt_frame_count_is_invalid_evidence_not_a_panic",
+      "line": 543,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 543
+    },
+    {
+      "binary_id": "lamp-voice-eval::recording_import",
+      "test": "an_imported_trace_with_a_receipt_is_annotated_and_scored_only_after_listening",
+      "line": 544,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 544
+    },
+    {
+      "binary_id": "lamp-voice-eval::recording_import",
+      "test": "an_invalid_receipt_keeps_the_attempt_with_unmeasured_acoustics",
+      "line": 545,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 545
+    },
+    {
+      "binary_id": "lamp-voice-eval::recording_import",
+      "test": "inconsistent_or_unsafe_receipts_are_refused",
+      "line": 546,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 546
+    },
+    {
+      "binary_id": "lamp-voice-eval::recording_import",
+      "test": "review_rebinds_the_wav_to_the_receipt_not_to_cached_claims",
+      "line": 547,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 547
+    },
+    {
+      "binary_id": "lamp-voice-eval::recording_import",
+      "test": "roots_real_invalid_receipt_is_retained_and_refused",
+      "line": 548,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 548
+    },
+    {
+      "binary_id": "lamp-voice-eval::recording_import",
+      "test": "samples_that_differ_from_the_received_pcm_are_refused",
+      "line": 549,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 549
+    },
+    {
+      "binary_id": "lamp-voice-eval::relay_clock",
+      "test": "hard_deadline_and_stop_grace_expire_at_their_original_boundaries",
+      "line": 556,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 556
+    },
+    {
+      "binary_id": "lamp-voice-eval::relay_clock",
+      "test": "receipt_and_exit_timestamps_use_only_the_explicit_clock",
+      "line": 557,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 557
+    },
+    {
+      "binary_id": "lamp-voice-eval::relay_hardening",
+      "test": "a_clean_session_reports_no_relay_failure",
+      "line": 564,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 564
+    },
+    {
+      "binary_id": "lamp-voice-eval::relay_hardening",
+      "test": "a_closed_runner_transport_stops_the_runtime_and_its_workers",
+      "line": 565,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 565
+    },
+    {
+      "binary_id": "lamp-voice-eval::relay_hardening",
+      "test": "a_cut_off_final_trace_record_is_reported_and_the_digest_covers_the_whole_file",
+      "line": 566,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 566
+    },
+    {
+      "binary_id": "lamp-voice-eval::relay_hardening",
+      "test": "an_early_relay_error_after_the_runtime_exited_still_stops_its_workers",
+      "line": 567,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 567
+    },
+    {
+      "binary_id": "lamp-voice-eval::relay_hardening",
+      "test": "oversized_and_non_utf8_stdout_lines_are_explicit_failures",
+      "line": 568,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 568
+    },
+    {
+      "binary_id": "lamp-voice-eval::relay_hardening",
+      "test": "oversized_or_non_utf8_trace_records_stop_the_trace_explicitly",
+      "line": 569,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 569
+    },
+    {
+      "binary_id": "lamp-voice-eval::relay_hardening",
+      "test": "workers_left_after_a_normal_exit_are_stopped_and_reported",
+      "line": 570,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 570
+    },
+    {
+      "binary_id": "lamp-voice-eval::report_validity",
+      "test": "a_cancellation_with_no_successor_admission_stays_a_runtime_failure",
+      "line": 577,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 577
+    },
+    {
+      "binary_id": "lamp-voice-eval::report_validity",
+      "test": "a_correction_admitted_after_output_started_is_not_a_tested_supersession",
+      "line": 578,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 578
+    },
+    {
+      "binary_id": "lamp-voice-eval::report_validity",
+      "test": "a_foreign_boot_or_stale_generation_admission_is_not_the_cause",
+      "line": 579,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 579
+    },
+    {
+      "binary_id": "lamp-voice-eval::report_validity",
+      "test": "a_late_successor_admission_does_not_explain_the_cancellation",
+      "line": 580,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 580
+    },
+    {
+      "binary_id": "lamp-voice-eval::report_validity",
+      "test": "a_listened_annotation_cannot_certify_a_recording_whose_recorder_exited_early",
+      "line": 581,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 581
+    },
+    {
+      "binary_id": "lamp-voice-eval::report_validity",
+      "test": "a_valid_wav_from_a_recorder_that_ended_mid_session_certifies_nothing",
+      "line": 582,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 582
+    },
+    {
+      "binary_id": "lamp-voice-eval::report_validity",
+      "test": "a_verified_or_absent_room_recording_keeps_its_own_state",
+      "line": 583,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 583
+    },
+    {
+      "binary_id": "lamp-voice-eval::report_validity",
+      "test": "an_earlier_turn_cannot_have_caused_a_later_turns_cancellation",
+      "line": 584,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 584
+    },
+    {
+      "binary_id": "lamp-voice-eval::report_validity",
+      "test": "only_the_bound_before_output_correction_supersedes_a_pending_reply",
+      "line": 585,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 585
+    },
+    {
+      "binary_id": "lamp-voice-eval::report_validity",
+      "test": "reevaluating_a_retained_run_preserves_the_original_failed_report",
+      "line": 586,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 586
+    },
+    {
+      "binary_id": "lamp-voice-eval::report_validity",
+      "test": "the_4ace_conversation_scores_its_planned_yield_and_correction",
+      "line": 587,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 587
+    },
+    {
+      "binary_id": "lamp-voice-eval::report_validity",
+      "test": "the_endpoint_boundary_states_the_runtimes_observed_silence_wait",
+      "line": 588,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 588
+    },
+    {
+      "binary_id": "lamp-voice-eval::report_validity",
+      "test": "the_fixture_keeps_the_runs_exact_interruption_order",
+      "line": 589,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 589
+    },
+    {
+      "binary_id": "lamp-voice-eval::report_validity",
+      "test": "the_invalid_room_terminal_report_is_retained_and_surfaced",
+      "line": 590,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 590
+    },
+    {
+      "binary_id": "lamp-voice-eval::serve_plan",
+      "test": "a_config_policy_lamp_voice_would_refuse_is_refused_on_the_mac",
+      "line": 597,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 597
+    },
+    {
+      "binary_id": "lamp-voice-eval::serve_plan",
+      "test": "a_correction_must_follow_a_request_and_conversations_stop_at_twenty_turns",
+      "line": 598,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 598
+    },
+    {
+      "binary_id": "lamp-voice-eval::serve_plan",
+      "test": "the_default_plan_hash_is_unchanged",
+      "line": 599,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 599
+    },
+    {
+      "binary_id": "lamp-voice-eval::serve_plan",
+      "test": "the_endpoint_trial_config_adds_only_the_endpoint_flag",
+      "line": 600,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 600
+    },
+    {
+      "binary_id": "lamp-voice-eval::serve_plan",
+      "test": "the_sample_pilot_config_forwards_the_installed_pilot_settings",
+      "line": 601,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 601
+    },
+    {
+      "binary_id": "lamp-voice-eval::serve_plan",
+      "test": "the_serve_example_is_eight_cached_context_linked_turns",
+      "line": 602,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 602
+    },
+    {
+      "binary_id": "lamp-voice-eval::serve_relay",
+      "test": "a_closed_runner_transport_stops_the_runtime_through_the_same_path",
+      "line": 609,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 609
+    },
+    {
+      "binary_id": "lamp-voice-eval::serve_relay",
+      "test": "a_nonzero_runtime_exit_after_clean_metadata_is_a_relay_error",
+      "line": 610,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 610
+    },
+    {
+      "binary_id": "lamp-voice-eval::serve_relay",
+      "test": "a_runner_stop_is_one_sigterm_and_a_clean_reaped_end",
+      "line": 611,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 611
+    },
+    {
+      "binary_id": "lamp-voice-eval::serve_relay",
+      "test": "a_runtime_that_ignores_sigterm_is_force_killed_and_never_clean",
+      "line": 612,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 612
+    },
+    {
+      "binary_id": "lamp-voice-eval::serve_relay",
+      "test": "serve_relay_clock::tests::an_expired_host_boundary_fails_before_another_step_or_clock_advance",
+      "line": 613,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 613
+    },
+    {
+      "binary_id": "lamp-voice-eval::serve_relay",
+      "test": "serve_relay_clock::tests::polls_preserve_two_milliseconds_and_stop_at_each_original_boundary",
+      "line": 614,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 614
+    },
+    {
+      "binary_id": "lamp-voice-eval::serve_relay",
+      "test": "serve_relay_clock::tests::real_runner_eof_holds_time_until_the_relay_reports_its_signal",
+      "line": 615,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 615
+    },
+    {
+      "binary_id": "lamp-voice-eval::serve_relay",
+      "test": "serve_relay_clock::tests::runtime_completion_never_advances_time_or_claims_relay_exit",
+      "line": 616,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 616
+    },
+    {
+      "binary_id": "lamp-voice-eval::serve_relay",
+      "test": "serve_relay_clock::tests::the_real_stop_keeps_the_full_delay_and_original_bytes_once",
+      "line": 617,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 617
+    },
+    {
+      "binary_id": "lamp-voice-eval::serve_relay",
+      "test": "serve_relay_clock::tests::unwinding_releases_the_real_runner_reader_and_control_socket",
+      "line": 618,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 618
+    },
+    {
+      "binary_id": "lamp-voice-eval::serve_relay",
+      "test": "the_hard_deadline_stops_the_runtime_and_is_an_error",
+      "line": 619,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 619
+    },
+    {
+      "binary_id": "lamp-voice-eval::serve_relay",
+      "test": "the_pilot_runtime_settings_reach_the_serve_child_exactly",
+      "line": 620,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 620
+    },
+    {
+      "binary_id": "lamp-voice-eval::serve_session",
+      "test": "a_declared_capture_end_before_the_next_prompt_and_its_window_withholds_it",
+      "line": 627,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 627
+    },
+    {
+      "binary_id": "lamp-voice-eval::serve_session",
+      "test": "a_late_first_copy_or_failed_player_withholds_every_later_turn",
+      "line": 628,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 628
+    },
+    {
+      "binary_id": "lamp-voice-eval::serve_session",
+      "test": "a_nonzero_runtime_exit_never_completes_a_serve_attempt",
+      "line": 629,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 629
+    },
+    {
+      "binary_id": "lamp-voice-eval::serve_session",
+      "test": "a_provider_outage_is_waited_out_by_event_and_a_terminal_link_ends_it",
+      "line": 630,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 630
+    },
+    {
+      "binary_id": "lamp-voice-eval::serve_session",
+      "test": "a_recorder_that_exits_zero_mid_conversation_withholds_the_rest_and_certifies_nothing",
+      "line": 631,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 631
+    },
+    {
+      "binary_id": "lamp-voice-eval::serve_session",
+      "test": "a_room_recording_that_ends_early_withholds_the_rest",
+      "line": 632,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 632
+    },
+    {
+      "binary_id": "lamp-voice-eval::serve_session",
+      "test": "a_runtime_stop_mute_or_ignored_sigterm_is_retained_and_reaped",
+      "line": 633,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 633
+    },
+    {
+      "binary_id": "lamp-voice-eval::serve_session",
+      "test": "an_extra_candidate_during_the_wait_withholds_the_rest",
+      "line": 634,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 634
+    },
+    {
+      "binary_id": "lamp-voice-eval::serve_session",
+      "test": "delayed_readiness_is_awaited_by_event_not_by_completion",
+      "line": 635,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 635
+    },
+    {
+      "binary_id": "lamp-voice-eval::serve_session",
+      "test": "normal_eight_turn_conversation_in_one_serve_session",
+      "line": 636,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 636
+    },
+    {
+      "binary_id": "lamp-voice-eval::serve_session",
+      "test": "serve_readiness_comes_only_from_the_fresh_cue_never_from_stdout",
+      "line": 637,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 637
+    },
+    {
+      "binary_id": "lamp-voice-eval::serve_session",
+      "test": "stale_duplicate_reordered_foreign_and_lost_cues_end_the_conversation",
+      "line": 638,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 638
+    },
+    {
+      "binary_id": "lamp-voice-eval::serve_session",
+      "test": "startup_cues_stay_fresh_through_a_slow_transport_and_a_slow_first_preparer",
+      "line": 639,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 639
+    },
+    {
+      "binary_id": "lamp-voice-eval::serve_session",
+      "test": "the_runner_forwards_pilot_runtime_settings_through_the_relay",
+      "line": 640,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 640
+    },
+    {
+      "binary_id": "lamp-voice-eval::target_audio",
+      "test": "a_changed_pcm_byte_leaves_only_that_stream_unverified",
+      "line": 647,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 647
+    },
+    {
+      "binary_id": "lamp-voice-eval::target_audio",
+      "test": "a_replaced_marker_or_a_duplicate_identity_fails",
+      "line": 648,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 648
+    },
+    {
+      "binary_id": "lamp-voice-eval::target_audio",
+      "test": "an_absurd_marker_frame_count_is_unverified_not_a_panic",
+      "line": 649,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 649
+    },
+    {
+      "binary_id": "lamp-voice-eval::target_audio",
+      "test": "an_uncertified_or_missing_receipt_is_unverified_not_adapted",
+      "line": 650,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 650
+    },
+    {
+      "binary_id": "lamp-voice-eval::target_audio",
+      "test": "pcm_changed_after_verification_is_refused_on_read",
+      "line": 651,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 651
+    },
+    {
+      "binary_id": "lamp-voice-eval::target_audio",
+      "test": "real_render_and_capture_streams_verify_with_contiguous_spans",
+      "line": 652,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 652
+    }
+  ],
+  "binary_summaries": [
+    {
+      "kind": "tests",
+      "binary_id": "lamp-voice-eval",
+      "package": "lamp-voice-eval",
+      "line": 2,
+      "summary_line": 308,
+      "status": "ok",
+      "passed": 300,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0
+    },
+    {
+      "kind": "tests",
+      "binary_id": "lamp-voice-eval::bin/lamp-voice-eval",
+      "package": "lamp-voice-eval",
+      "line": 310,
+      "summary_line": 314,
+      "status": "ok",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0
+    },
+    {
+      "kind": "tests",
+      "binary_id": "lamp-voice-eval::acceptance_boundaries",
+      "package": "lamp-voice-eval",
+      "line": 316,
+      "summary_line": 325,
+      "status": "ok",
+      "passed": 5,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0
+    },
+    {
+      "kind": "tests",
+      "binary_id": "lamp-voice-eval::answer_review",
+      "package": "lamp-voice-eval",
+      "line": 327,
+      "summary_line": 345,
+      "status": "ok",
+      "passed": 14,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0
+    },
+    {
+      "kind": "tests",
+      "binary_id": "lamp-voice-eval::audit_final_dispatch",
+      "package": "lamp-voice-eval",
+      "line": 347,
+      "summary_line": 353,
+      "status": "ok",
+      "passed": 2,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0
+    },
+    {
+      "kind": "tests",
+      "binary_id": "lamp-voice-eval::audit_importer",
+      "package": "lamp-voice-eval",
+      "line": 355,
+      "summary_line": 370,
+      "status": "ok",
+      "passed": 11,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0
+    },
+    {
+      "kind": "tests",
+      "binary_id": "lamp-voice-eval::audit_runner_dispatch",
+      "package": "lamp-voice-eval",
+      "line": 372,
+      "summary_line": 378,
+      "status": "ok",
+      "passed": 2,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0
+    },
+    {
+      "kind": "tests",
+      "binary_id": "lamp-voice-eval::canary_plan",
+      "package": "lamp-voice-eval",
+      "line": 380,
+      "summary_line": 387,
+      "status": "ok",
+      "passed": 3,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0
+    },
+    {
+      "kind": "tests",
+      "binary_id": "lamp-voice-eval::evaluator",
+      "package": "lamp-voice-eval",
+      "line": 389,
+      "summary_line": 407,
+      "status": "ok",
+      "passed": 14,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0
+    },
+    {
+      "kind": "tests",
+      "binary_id": "lamp-voice-eval::fake_runtime",
+      "package": "lamp-voice-eval",
+      "line": 409,
+      "summary_line": 436,
+      "status": "ok",
+      "passed": 23,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0
+    },
+    {
+      "kind": "tests",
+      "binary_id": "lamp-voice-eval::final_dispatch",
+      "package": "lamp-voice-eval",
+      "line": 438,
+      "summary_line": 455,
+      "status": "ok",
+      "passed": 13,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0
+    },
+    {
+      "kind": "tests",
+      "binary_id": "lamp-voice-eval::next_turn_ready",
+      "package": "lamp-voice-eval",
+      "line": 457,
+      "summary_line": 463,
+      "status": "ok",
+      "passed": 2,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0
+    },
+    {
+      "kind": "tests",
+      "binary_id": "lamp-voice-eval::physical_loopback",
+      "package": "lamp-voice-eval",
+      "line": 465,
+      "summary_line": 481,
+      "status": "ok",
+      "passed": 12,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0
+    },
+    {
+      "kind": "tests",
+      "binary_id": "lamp-voice-eval::playback_occurrences",
+      "package": "lamp-voice-eval",
+      "line": 483,
+      "summary_line": 497,
+      "status": "ok",
+      "passed": 10,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0
+    },
+    {
+      "kind": "tests",
+      "binary_id": "lamp-voice-eval::provider_failed",
+      "package": "lamp-voice-eval",
+      "line": 499,
+      "summary_line": 510,
+      "status": "ok",
+      "passed": 7,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0
+    },
+    {
+      "kind": "tests",
+      "binary_id": "lamp-voice-eval::recording_evidence",
+      "package": "lamp-voice-eval",
+      "line": 512,
+      "summary_line": 535,
+      "status": "ok",
+      "passed": 19,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0
+    },
+    {
+      "kind": "tests",
+      "binary_id": "lamp-voice-eval::recording_import",
+      "package": "lamp-voice-eval",
+      "line": 537,
+      "summary_line": 551,
+      "status": "ok",
+      "passed": 10,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0
+    },
+    {
+      "kind": "tests",
+      "binary_id": "lamp-voice-eval::relay_clock",
+      "package": "lamp-voice-eval",
+      "line": 553,
+      "summary_line": 559,
+      "status": "ok",
+      "passed": 2,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0
+    },
+    {
+      "kind": "tests",
+      "binary_id": "lamp-voice-eval::relay_hardening",
+      "package": "lamp-voice-eval",
+      "line": 561,
+      "summary_line": 572,
+      "status": "ok",
+      "passed": 7,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0
+    },
+    {
+      "kind": "tests",
+      "binary_id": "lamp-voice-eval::report_validity",
+      "package": "lamp-voice-eval",
+      "line": 574,
+      "summary_line": 592,
+      "status": "ok",
+      "passed": 14,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0
+    },
+    {
+      "kind": "tests",
+      "binary_id": "lamp-voice-eval::serve_plan",
+      "package": "lamp-voice-eval",
+      "line": 594,
+      "summary_line": 604,
+      "status": "ok",
+      "passed": 6,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0
+    },
+    {
+      "kind": "tests",
+      "binary_id": "lamp-voice-eval::serve_relay",
+      "package": "lamp-voice-eval",
+      "line": 606,
+      "summary_line": 622,
+      "status": "ok",
+      "passed": 12,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0
+    },
+    {
+      "kind": "tests",
+      "binary_id": "lamp-voice-eval::serve_session",
+      "package": "lamp-voice-eval",
+      "line": 624,
+      "summary_line": 642,
+      "status": "ok",
+      "passed": 14,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0
+    },
+    {
+      "kind": "tests",
+      "binary_id": "lamp-voice-eval::target_audio",
+      "package": "lamp-voice-eval",
+      "line": 644,
+      "summary_line": 654,
+      "status": "ok",
+      "passed": 6,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0
+    }
+  ],
+  "doc_summaries": [
+    {
+      "kind": "doc",
+      "package": "lamp-voice-eval",
+      "line": 656,
+      "summary_line": 660,
+      "status": "ok",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0
+    }
+  ],
+  "original_six_results": [
+    {
+      "binary_id": "lamp-voice-eval::serve_relay",
+      "test": "a_closed_runner_transport_stops_the_runtime_through_the_same_path",
+      "line": 609,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 609
+    },
+    {
+      "binary_id": "lamp-voice-eval::serve_relay",
+      "test": "a_nonzero_runtime_exit_after_clean_metadata_is_a_relay_error",
+      "line": 610,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 610
+    },
+    {
+      "binary_id": "lamp-voice-eval::serve_relay",
+      "test": "a_runner_stop_is_one_sigterm_and_a_clean_reaped_end",
+      "line": 611,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 611
+    },
+    {
+      "binary_id": "lamp-voice-eval::serve_relay",
+      "test": "a_runtime_that_ignores_sigterm_is_force_killed_and_never_clean",
+      "line": 612,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 612
+    },
+    {
+      "binary_id": "lamp-voice-eval::serve_relay",
+      "test": "the_hard_deadline_stops_the_runtime_and_is_an_error",
+      "line": 619,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 619
+    },
+    {
+      "binary_id": "lamp-voice-eval::serve_relay",
+      "test": "the_pilot_runtime_settings_reach_the_serve_child_exactly",
+      "line": 620,
+      "status": "ok",
+      "ignored": false,
+      "result_line": 620
+    }
+  ]
+}

@@ -57,10 +57,10 @@ pub fn runtime(arguments: Vec<String>) -> Result<i32> {
 /// fake serve arguments. This role waits for real signal observation when the
 /// parent requires it; a terminal receipt follows the engine's final output.
 pub fn serve_runtime(arguments: Vec<String>) -> Result<i32> {
-    let (path, arguments) = controlled_arguments(arguments)?;
+    let (path, _) = controlled_arguments(arguments.clone())?;
     let participant = RefCell::new(Participant::connect(&path, Role::ServeRuntime)?);
     let clock = participant.borrow().clock();
-    fake_lamp::run_serve_with_controlled_clock(
+    fake_lamp::run_serve_with_controlled_invocation(
         &arguments,
         || clock.now(),
         || {

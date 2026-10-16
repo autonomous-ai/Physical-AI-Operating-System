@@ -1,0 +1,148 @@
+{
+  "from_date": "2026-10-16 07:24:10 +0700",
+  "base": "e5aa43747ec1540893b4da4509d14288e7e70806",
+  "all_six_inverse_operations_verified": true,
+  "working_source_written": false,
+  "paths": [
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+      "reverse": "Reverse only the exact qualified delta hunks derived from 8af to the old candidate",
+      "hunks": [
+        {
+          "kind": "insert",
+          "old_lines": [
+            110,
+            109
+          ],
+          "new_lines": [
+            110,
+            145
+          ],
+          "original_bytes_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "qualified_bytes_sha256": "5e8cfdd81da8a3883afe06dad3a095a098f563f874ae0500b9a3d704698e42b0"
+        },
+        {
+          "kind": "replace",
+          "old_lines": [
+            116,
+            116
+          ],
+          "new_lines": [
+            152,
+            152
+          ],
+          "original_bytes_sha256": "f5c19cdb4df832d5da67d3635ae6fa3c49602845f7f497203e0d762e7082d6eb",
+          "qualified_bytes_sha256": "19bd249de91d7afb88e00527184f8bcb285facd062b9419236fcf43cbcd1a1cb"
+        },
+        {
+          "kind": "insert",
+          "old_lines": [
+            631,
+            630
+          ],
+          "new_lines": [
+            667,
+            670
+          ],
+          "original_bytes_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "qualified_bytes_sha256": "daf371731d439f067ec40130618e3005059d4dbbbd70ee8b251025b6b0f4845c"
+        }
+      ],
+      "restored_sha256": "7707b987700293a31096338ccd4364e34aa70bce59bca2dd3c1cdaef15c0c9a1"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+      "reverse": "Reverse only the exact qualified delta hunks derived from 8af to the old candidate",
+      "hunks": [
+        {
+          "kind": "replace",
+          "old_lines": [
+            60,
+            60
+          ],
+          "new_lines": [
+            60,
+            60
+          ],
+          "original_bytes_sha256": "a22fd05b39f3c57922171cbc6fc0073d78d309e5f83e6d7d65607e3bebec1648",
+          "qualified_bytes_sha256": "ca114e80a5e32311932286753f6ecbfe90b9c966b82f7bb978a86bf88e6faf8f"
+        },
+        {
+          "kind": "replace",
+          "old_lines": [
+            63,
+            63
+          ],
+          "new_lines": [
+            63,
+            63
+          ],
+          "original_bytes_sha256": "e0b1a4fbb24e1781a178f426dae97a50adc53e3ec58c6694ec1ead742f4c3711",
+          "qualified_bytes_sha256": "a2b21a107ba1ce08045c9464294157ec17296c63d420bc2a9d256009aec13c61"
+        }
+      ],
+      "restored_sha256": "df424358eb99ab6982ef8cd3ea3d7484f55bf3c033aabcf29ca0b07c0df5ab0a"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_invocation_tests.rs",
+      "reverse": "Remove exactly this newly introduced qualified file; absent in the committed base",
+      "candidate_sha256": "89f89a010c4a240aa699fd37fb49e0a2c4f2ed8f65ce77332c5c9b575e3d12dc"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/serve_relay.rs",
+      "reverse": "Reverse only the exact qualified delta hunks derived from 8af to the old candidate",
+      "hunks": [
+        {
+          "kind": "insert",
+          "old_lines": [
+            6,
+            5
+          ],
+          "new_lines": [
+            6,
+            7
+          ],
+          "original_bytes_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "qualified_bytes_sha256": "0ab8a8aca5bab22a772aab335f36c89a83c43398c4feba090ca6c188a2d0b9db"
+        },
+        {
+          "kind": "replace",
+          "old_lines": [
+            11,
+            21
+          ],
+          "new_lines": [
+            13,
+            13
+          ],
+          "original_bytes_sha256": "c5115b91cf4d3fcf743fc9129a4ed95dd12ee55cd569ed4a19afa39f35e1be89",
+          "qualified_bytes_sha256": "b7749d98b15ae98cb49b1f1cb6fcf53d2f5bdfea897d92a03a766610be08866b"
+        },
+        {
+          "kind": "replace",
+          "old_lines": [
+            78,
+            107
+          ],
+          "new_lines": [
+            70,
+            70
+          ],
+          "original_bytes_sha256": "dee8780073e8831846d35d9a254398d4c45d099f308418336edd7a1c58e37077",
+          "qualified_bytes_sha256": "ea3ef309640b5bee3ea9e53a8d58b4771d751fddf186c48ddea720ecb6d6a4e2"
+        }
+      ],
+      "restored_sha256": "53f5cc802a0101518da7214b63b77e052b3406fe1b5db3ce43d5c0c305145bf5"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/common/serve_relay_clock.rs",
+      "reverse": "Remove exactly this newly introduced qualified file; absent in the committed base",
+      "candidate_sha256": "60f5ee58ee905b285ea54c5d6c1a2159964e97a2945a79654d283ca14d0ee9cb"
+    },
+    {
+      "path": "lampOS/docs/realtime-tests.md",
+      "reverse": "Remove exactly the original 30-line relay appendix",
+      "restored_sha256": "379e5b356b4e69322609ce87f44ab61fd3632b969f09afcde56f7cc8f73c4f68"
+    }
+  ]
+}

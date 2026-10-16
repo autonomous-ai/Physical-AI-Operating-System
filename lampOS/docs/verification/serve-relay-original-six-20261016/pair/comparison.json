@@ -1,0 +1,49 @@
+{
+  "recorded_from_date": "2026-10-16 06:13:17 +0700",
+  "original_six": [
+    {
+      "binary": "lamp-voice-eval::serve_relay",
+      "test": "a_closed_runner_transport_stops_the_runtime_through_the_same_path",
+      "before_seconds": 3.118,
+      "after_seconds": 0.932
+    },
+    {
+      "binary": "lamp-voice-eval::serve_relay",
+      "test": "a_nonzero_runtime_exit_after_clean_metadata_is_a_relay_error",
+      "before_seconds": 3.066,
+      "after_seconds": 0.191
+    },
+    {
+      "binary": "lamp-voice-eval::serve_relay",
+      "test": "a_runner_stop_is_one_sigterm_and_a_clean_reaped_end",
+      "before_seconds": 3.09,
+      "after_seconds": 0.171
+    },
+    {
+      "binary": "lamp-voice-eval::serve_relay",
+      "test": "a_runtime_that_ignores_sigterm_is_force_killed_and_never_clean",
+      "before_seconds": 13.06,
+      "after_seconds": 0.571
+    },
+    {
+      "binary": "lamp-voice-eval::serve_relay",
+      "test": "the_hard_deadline_stops_the_runtime_and_is_an_error",
+      "before_seconds": 6.08,
+      "after_seconds": 0.306
+    },
+    {
+      "binary": "lamp-voice-eval::serve_relay",
+      "test": "the_pilot_runtime_settings_reach_the_serve_child_exactly",
+      "before_seconds": 3.064,
+      "after_seconds": 0.188
+    }
+  ],
+  "before_nextest_phase_seconds": 31.48,
+  "after_nextest_phase_seconds": 2.367,
+  "before_sum_seconds": 31.478,
+  "after_sum_seconds": 2.359,
+  "source_unchanged": true,
+  "retries": 0,
+  "selection": "The baseline binary had exactly six cases. The migrated binary has added helper tests, so an explicit exact-name nextest filter selects the same original six. All other command options match. New helpers already passed the full508 gate.",
+  "limit": "Shared Mac debug observations; host load is not controlled or equal. No native/device/combined123 claim."
+}

@@ -1,0 +1,20 @@
+{
+  "argv": [
+    "/Users/autonomous/.rustup/toolchains/1.96.0-x86_64-apple-darwin/bin/rustfmt",
+    "--check",
+    "--edition",
+    "2024",
+    "--config",
+    "skip_children=true",
+    "lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+    "lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+    "lampOS/crates/voice-eval/src/physical/serve_invocation_tests.rs",
+    "lampOS/crates/voice-eval/tests/serve_relay.rs",
+    "lampOS/crates/voice-eval/tests/common/serve_relay_clock.rs"
+  ],
+  "cwd": "/private/tmp/lampos-tests-serve-relay-all-cases",
+  "start_from_date": "2026-10-16 05:59:44 +0700",
+  "finish_from_date": "2026-10-16 05:59:44 +0700",
+  "exit_code": 0,
+  "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

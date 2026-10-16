@@ -296,10 +296,10 @@ reads itself:
   `led-boot`, `led-shutdown`): the voice refuses to start beside them
   (keeper.md).
 - **Setup's settings**, `/etc/lampOS/setup/serve.json` and
-  `/etc/lampOS/setup/reset-plan.json` (docs/setup.md, "On a lamp"). Not yet
-  written by `install` (asked on #811: the credential's path and the
-  product's stores). Until they are there, `lamp-setup.service` does not
-  start (its conditions), so a blank lamp does not enter setup.
+  `/etc/lampOS/setup/reset-plan.json` (docs/setup.md, "On a lamp"). Written
+  by `install --setup on` (below); without it they are not, and
+  `lamp-setup.service` does not start (its conditions), so a lamp does not
+  enter setup.
 
 ## Setup at first boot, without the keeper
 
@@ -319,7 +319,7 @@ Setup and its reset start the same binary, `/opt/lampOS/setup/current/lamp-setup
 ## The install command
 
 ```text
-lamp-update install --channel-url URL [--channel NAME] [--key-file PATH]
+lamp-update install --channel-url URL [--channel NAME] [--key-file PATH] [--setup on|off]
 ```
 
 As root, on a lamp with the base image (`crates/update/src/install.rs`):
@@ -345,7 +345,14 @@ As root, on a lamp with the base image (`crates/update/src/install.rs`):
    `state.json`, so a newer build's default reaches a lamp that never
    changed it. A setting changed on the lamp since, or there before any
    install (lamp-4ace's own pins), is the lamp's: it is kept, and said
-   (`kept /etc/lampOS/controls/controls-pins.json: …`). Rerunning install is
+   (`kept /etc/lampOS/controls/controls-pins.json: …`). With `--setup on`
+   (off unless set), setup's two settings are among them, exactly the setup
+   crate's `fixtures/serve-own-page.json` (setup's own page on port 80, the
+   credential at `/etc/lampOS/voice/credential`) and
+   `fixtures/reset-plan-product.json` (the reset stops `lampos.target`;
+   there is no keeper). With them and no marker the lamp starts setup at
+   boot, so a lamp set up by hand, whose updater is upgraded by rerunning
+   install, is never given them by default. Rerunning install is
    how the updater upgrades itself, so this holds at every run (the
    reviewer on #815). What it is about to write is recorded in
    `state.json` (`settings_writing`) before the first write, and what it

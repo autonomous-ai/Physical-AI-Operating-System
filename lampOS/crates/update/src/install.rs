@@ -145,6 +145,21 @@ pub const SETTINGS: &[(&str, &str)] = &[
     ),
 ];
 
+/// Setup's two settings (docs/setup.md, "On a lamp"), written only with
+/// `install --setup on`: with them and no marker, `lamp-setup.service` starts
+/// the hotspot at boot. Off unless set, so rerunning install to upgrade the
+/// updater on a lamp set up by hand never puts it into setup (#811).
+pub const SETUP_SETTINGS: &[(&str, &str)] = &[
+    (
+        "/etc/lampOS/setup/serve.json",
+        include_str!("../../setup/fixtures/serve-own-page.json"),
+    ),
+    (
+        "/etc/lampOS/setup/reset-plan.json",
+        include_str!("../../setup/fixtures/reset-plan-product.json"),
+    ),
+];
+
 /// `/etc/tmpfiles.d/lampos.conf`: the bus root and the locks.
 pub const TMPFILES: &str = include_str!("../../../deploy/product/lampos.conf");
 pub const TMPFILES_PATH: &str = "/etc/tmpfiles.d/lampos.conf";
@@ -321,6 +336,8 @@ pub struct Install {
     pub key: [u8; 32],
     /// Where lamp-update keeps its records: `/var/lib/lampos-update/`.
     pub records: String,
+    /// `--setup on`: also write setup's settings ([`SETUP_SETTINGS`]).
+    pub setup: bool,
 }
 
 impl Install {
@@ -425,9 +442,13 @@ pub fn install(
     for (path, bytes) in &for_systemd {
         put(config, path, bytes, 0o644, &mut changed)?;
     }
+    let mut defaults = SETTINGS.to_vec();
+    if config.setup {
+        defaults.extend_from_slice(SETUP_SETTINGS);
+    }
     settings(
         config,
-        SETTINGS,
+        &defaults,
         &mut state,
         &mut changed,
         say,

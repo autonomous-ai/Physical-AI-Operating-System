@@ -168,6 +168,7 @@ impl Lamp {
             channel_url: CHANNEL.into(),
             key: key.public_key().as_ref().try_into().unwrap(),
             records: "/var/lib/lampos-update/".into(),
+            setup: false,
         };
         let host = FakeHost {
             root: root.clone(),
@@ -526,6 +527,49 @@ fn a_setting_changed_on_the_lamp_is_kept_when_install_runs_again() {
             .any(|line| line.starts_with(&format!("kept {PINS}"))),
         "{:?}",
         lamp.said
+    );
+}
+
+/// #811: `--setup on` writes setup's two settings, exactly the setup crate's
+/// own-page and product reset files, so `lamp-setup.service` starts on a
+/// blank lamp with no file by hand. Without it, none is written. A serve
+/// file changed on the lamp is kept as any setting is.
+#[test]
+fn setup_settings_are_written_only_with_setup_on_and_kept_once_changed() {
+    let serve = "/etc/lampOS/setup/serve.json";
+    let reset = "/etc/lampOS/setup/reset-plan.json";
+    let mut off = Lamp::new(188, &[]);
+    off.install().unwrap();
+    assert!(!off.on(serve).exists() && !off.on(reset).exists());
+
+    let mut lamp = Lamp::new(188, &[]);
+    lamp.config.setup = true;
+    lamp.install().unwrap();
+    assert_eq!(
+        fs::read_to_string(lamp.on(serve)).unwrap(),
+        include_str!("../../setup/fixtures/serve-own-page.json")
+    );
+    let plan: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(lamp.on(reset)).unwrap()).unwrap();
+    assert_eq!(
+        plan["stop"],
+        serde_json::json!(["/usr/bin/systemctl", "stop", "lampos.target"])
+    );
+    let before = tree(&lamp.root);
+    assert_eq!(lamp.install().unwrap().changed, Vec::<String>::new());
+    assert_eq!(tree(&lamp.root), before);
+
+    let ours = fs::read_to_string(lamp.on(serve))
+        .unwrap()
+        .replace("\"VN\"", "\"SG\"");
+    fs::write(lamp.on(serve), &ours).unwrap();
+    lamp.said.clear();
+    assert_eq!(lamp.install().unwrap().changed, Vec::<String>::new());
+    assert_eq!(fs::read_to_string(lamp.on(serve)).unwrap(), ours);
+    assert!(
+        lamp.said
+            .iter()
+            .any(|line| line.starts_with(&format!("kept {serve}")))
     );
 }
 

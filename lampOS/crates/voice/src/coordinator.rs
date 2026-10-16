@@ -6593,15 +6593,26 @@ fn conversation_with_gate(
             && snapshot.listening_ready(now())
             && let Some(provider_session) = unasked_session(&cloud, paused)
             && let Some(ticket) = news_for_skill(news, says.as_mut(), news_by_skill, &mut news_held)
-            && let Some(told) = news.tell()
+            // With the switch, tasks that finished together are told in
+            // one turn (the reviewer on #1161).
+            && let Some(told) = if news_at_pause {
+                news.tell_together()
+            } else {
+                news.tell()
+            }
         {
             eprintln!(
-                "lamp-voice: telling news from the work handed over ({})",
-                told.key
+                "lamp-voice: telling news from the work handed over ({}{})",
+                told.key,
+                if told.also.is_empty() {
+                    String::new()
+                } else {
+                    format!(", with {}", told.also.join(", "))
+                }
             );
             record(
                 trace,
-                json!({"kind":"task_news","at_us":clock,"key":told.key,"provider_session":provider_session,
+                json!({"kind":"task_news","at_us":clock,"key":told.key,"also":told.also,"provider_session":provider_session,
                     "at_pause":news_at_pause,"since_turn_ms":clock.saturating_sub(last_turn_us) / 1_000}),
             )?;
             snapshot = commit_written_turn(

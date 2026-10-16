@@ -158,6 +158,34 @@ fn transport_preserves_original_sequence_age_and_boot() {
     );
 }
 
+/// A packet stamped after the receiver's last clock read and before the
+/// dequeue is accepted: `receive` reads its clock only after a packet is read.
+#[test]
+fn receive_reads_its_clock_after_the_dequeue() {
+    struct Counted(std::cell::Cell<u32>, MonoTime);
+    impl lamp_body::control::Clock for Counted {
+        fn now(&self) -> MonoTime {
+            self.0.set(self.0.get() + 1);
+            self.1
+        }
+    }
+    let parent = BootId::new([1; 16]).unwrap();
+    let worker = BootId::new([2; 16]).unwrap();
+    let (mut p, mut w) = Channels::pair(parent, worker).unwrap();
+    // The receiver's last read was T = 1; the packet is stamped T + 1.
+    let clock = Counted(std::cell::Cell::new(0), MonoTime::from_micros(2));
+    assert!(w.control.receive::<Control>(&clock).unwrap().is_none());
+    assert_eq!(clock.0.get(), 0, "an empty queue reads no clock");
+    p.control
+        .send(&Control::Stop {}, MonoTime::from_micros(2))
+        .unwrap();
+    assert!(matches!(
+        w.control.receive::<Control>(&clock).unwrap(),
+        Some(Control::Stop {})
+    ));
+    assert_eq!(clock.0.get(), 1);
+}
+
 #[test]
 fn oversized_serialization_does_not_consume_the_next_channel_sequence() {
     let parent = BootId::new([1; 16]).unwrap();

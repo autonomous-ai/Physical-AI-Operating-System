@@ -16,6 +16,20 @@ as after a power cut. Every word's CRC is checked; a bad one is no value.
 0xFFFF (and 0x7FFF for the signed humidity and temperature) means the
 sensor does not know the value yet, and it is left out.
 
+A sensor that does not answer, or answers its name but gives no reading
+(a half-seated plug, a CRC fault), is looked for three times, five seconds
+apart, then once every ten minutes (`src/watch.rs`); only a good reading
+counts it as back. Each look is an I2C transaction, and the kernel logs
+every one nobody acknowledges ("ACK not received"): on lamp-cb94, which
+has no sensor, a look every 200 ms made about 300 kernel lines a minute,
+and the journal kept only about 90 minutes. The journal hears of it twice,
+the first miss and when the sensor counts as absent, and the health report
+says so steadily with the last error. A sensor that stops answering is
+looked for again 5 s later, then the same way; one plugged back in is found
+within ten minutes, or at once after `systemctl restart lamp-air`. A bus
+that cannot be opened (no `/dev/i2c-0`, or no permission) makes no
+transaction, so it is looked at again every five seconds.
+
 The temperature and humidity are those inside the base, warmed by the
 lamp itself (33 °C on 2026-10-14 in a cooler office): they are not the
 room's, and nothing should speak of them as if they were.
@@ -25,7 +39,7 @@ room's, and nothing should speak of them as if they were.
 | Topic | Type | Kind | What |
 |---|---|---|---|
 | `air/state` | `AirState` | latest, every 5 s | PM1, PM2.5, PM4, PM10 (ug/m3), humidity (%), temperature (°C), CO2 (ppm), and `feel`: fresh (under 800 ppm), fine (to 1,200), stuffy (to 2,000), very stuffy, or unknown |
-| `diagnostics` | `Diagnostic` | every second | `air`: ok, or a warning with why the sensor does not answer; the feel, CO2 and PM2.5 |
+| `diagnostics` | `Diagnostic` | every second | `air`: ok, or a warning with why the sensor does not answer (`no air sensor answers on I2C bus 0; looked for again every 10 min` once it counts as absent); the feel, CO2 and PM2.5 |
 
 The bands follow carbon dioxide because that is what a person at the desk
 feels as a stuffy room; they are round figures, not a standard.

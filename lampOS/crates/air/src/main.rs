@@ -72,9 +72,9 @@ fn parse(given: &[String]) -> Result<Option<Arguments>, String> {
 #[cfg(target_os = "linux")]
 mod serve {
     use super::{Arguments, log};
-    use lamp_air::{DATA_READY, PRODUCT, READ_VALUES, START, command, reading, text, words};
-    use lamp_bus::{Bus, Publisher};
-    use lamp_msgs::{AirState, Diagnostic, Level};
+    use lamp_air::{DATA_READY, PRODUCT, READ_VALUES, START, command, reading, text, watch, words};
+    use lamp_bus::Publisher;
+    use lamp_msgs::{AirState, Diagnostic};
     use rustix::{
         fd::OwnedFd,
         fs::{Mode, OFlags, open},
@@ -91,7 +91,6 @@ mod serve {
     /// The sensor answers a command after this long (the datasheet's
     /// execution times are 20 ms for reading values and names).
     const ANSWER: Duration = Duration::from_millis(25);
-    const EVERY: Duration = Duration::from_secs(5);
 
     /// One I2C adapter with the sensor's address set.
     pub struct Sensor(OwnedFd);
@@ -162,104 +161,98 @@ mod serve {
         Ok(())
     }
 
-    pub fn run(arguments: &Arguments) -> io::Result<()> {
-        let started = Instant::now();
-        let at_us = || started.elapsed().as_micros() as u64;
-        let bus = match &arguments.bus {
-            Some(root) => Bus::new(root)?,
-            None => Bus::from_environment()?,
-        };
-        let mut state: Publisher =
-            bus.publisher_declared(AirState::TOPIC, &AirState::declaration(), "air")?;
-        let mut health: Publisher =
-            bus.publisher_declared(Diagnostic::TOPIC, &Diagnostic::declaration(), "air")?;
-        let mut sensor: Option<Sensor> = None;
-        let mut why: Option<String> = None;
-        let mut not_ready = 0u32;
-        let mut last: Option<AirState> = None;
-        let mut reported = Instant::now() - Duration::from_secs(1);
-        let mut read_at = Instant::now() - EVERY;
-        log(&format!("started i2c_bus={}", arguments.bus_number));
-        loop {
-            if sensor.is_none() {
-                match Sensor::open(arguments.bus_number)
-                    .map_err(|e| e.to_string())
-                    .and_then(|s| s.name().map(|n| (s, n)))
-                {
-                    Ok((opened, name)) => {
-                        log(&format!("the sensor answers: {name}"));
-                        why = None;
-                        sensor = Some(opened);
-                    }
-                    Err(error) => {
-                        let line = format!("the sensor does not answer: {error}");
-                        if why.as_deref() != Some(line.as_str()) {
-                            log(&line);
-                        }
-                        why = Some(line);
-                    }
-                }
-            }
-            if read_at.elapsed() >= EVERY {
-                read_at = Instant::now();
-                if let Some(s) = &sensor {
-                    match s.ready() {
-                        Ok(true) => match s.read() {
-                            Ok(air) => {
-                                not_ready = 0;
-                                why = None;
-                                let _ = state.publish_json(at_us(), &air);
-                                if last.is_none_or(|l| l.feel != air.feel) {
-                                    log(&format!(
-                                        "the air feels {:?}: co2 {:?} ppm, pm2.5 {:?}",
-                                        air.feel, air.co2_ppm, air.pm2_5
-                                    ));
-                                }
-                                last = Some(air);
-                            }
-                            Err(e) => why = Some(format!("a reading failed: {e}")),
-                        },
-                        Ok(false) => {
-                            not_ready += 1;
-                            // Not measuring (after a power cut): start it, once in a while.
-                            if not_ready % 6 == 3 {
-                                log("no new reading for 15 s: starting the sensor's measurement");
-                                if let Err(e) = s.start() {
-                                    why = Some(e);
-                                }
-                            }
-                        }
-                        Err(e) => {
-                            why = Some(format!("the sensor stopped answering: {e}"));
-                            sensor = None;
-                        }
-                    }
-                }
-            }
-            if reported.elapsed() >= Duration::from_millis(950) {
-                reported = Instant::now();
-                let (level, message) = match &why {
-                    Some(w) => (Level::Warn, w.clone()),
-                    None => (Level::Ok, String::new()),
-                };
-                let mut report = Diagnostic::new(level, "air", &message);
-                if let Some(air) = &last {
-                    report = report
-                        .with("feel", format!("{:?}", air.feel).to_lowercase())
-                        .with(
-                            "co2_ppm",
-                            air.co2_ppm.map_or("unknown".into(), |v| v.to_string()),
-                        )
-                        .with(
-                            "pm2_5",
-                            air.pm2_5.map_or("unknown".into(), |v| format!("{v:.1}")),
-                        );
-                }
-                let _ = health.publish_json(at_us(), &report);
-                let _ = state.alive();
-            }
-            sleep(Duration::from_millis(200));
+    /// The sensor on its bus, once found.
+    struct I2c {
+        bus: u32,
+        sensor: Option<Sensor>,
+    }
+
+    impl I2c {
+        fn found(&self) -> Result<&Sensor, String> {
+            self.sensor.as_ref().ok_or_else(|| "not found".into())
         }
+    }
+
+    impl watch::Sensor for I2c {
+        fn find(&mut self) -> Result<String, watch::Missing> {
+            // Opening the bus and setting the address make no transaction.
+            let sensor =
+                Sensor::open(self.bus).map_err(|e| watch::Missing::NoBus(e.to_string()))?;
+            let name = sensor.name().map_err(watch::Missing::NoAnswer)?;
+            self.sensor = Some(sensor);
+            Ok(name)
+        }
+        fn ready(&mut self) -> Result<bool, String> {
+            self.found()?.ready()
+        }
+        fn read(&mut self) -> Result<AirState, String> {
+            self.found()?.read()
+        }
+        fn start(&mut self) -> Result<(), String> {
+            self.found()?.start()
+        }
+        fn lose(&mut self) {
+            self.sensor = None;
+        }
+    }
+
+    struct Wall(Instant);
+
+    impl watch::Clock for Wall {
+        fn now(&mut self) -> Duration {
+            self.0.elapsed()
+        }
+        fn sleep(&mut self, duration: Duration) {
+            sleep(duration);
+        }
+    }
+
+    /// `air/state`, `diagnostics` and the journal.
+    struct Bus {
+        started: Instant,
+        state: Publisher,
+        health: Publisher,
+    }
+
+    impl watch::Say for Bus {
+        fn air(&mut self, air: &AirState) {
+            let _ = self
+                .state
+                .publish_json(self.started.elapsed().as_micros() as u64, air);
+        }
+        fn health(&mut self, report: &Diagnostic) {
+            let _ = self
+                .health
+                .publish_json(self.started.elapsed().as_micros() as u64, report);
+            let _ = self.state.alive();
+        }
+        fn log(&mut self, line: &str) {
+            log(line);
+        }
+    }
+
+    pub fn run(arguments: &Arguments) -> io::Result<()> {
+        let bus = match &arguments.bus {
+            Some(root) => lamp_bus::Bus::new(root)?,
+            None => lamp_bus::Bus::from_environment()?,
+        };
+        let mut say = Bus {
+            started: Instant::now(),
+            state: bus.publisher_declared(AirState::TOPIC, &AirState::declaration(), "air")?,
+            health: bus.publisher_declared(Diagnostic::TOPIC, &Diagnostic::declaration(), "air")?,
+        };
+        log(&format!("started i2c_bus={}", arguments.bus_number));
+        watch::run(
+            &mut I2c {
+                bus: arguments.bus_number,
+                sensor: None,
+            },
+            &mut Wall(Instant::now()),
+            &mut say,
+            arguments.bus_number,
+            Duration::MAX,
+        );
+        Ok(())
     }
 }
 

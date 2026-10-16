@@ -468,6 +468,7 @@ pub struct BusOut {
     /// with a function's name, whose words are none of the lamp's.
     said_in: Option<u64>,
     unsaid: Option<u64>,
+    calls: crate::not_speech::CallsLeftOut,
 }
 
 impl BusOut {
@@ -505,6 +506,7 @@ impl BusOut {
             heard_in: None,
             said_in: None,
             unsaid: None,
+            calls: crate::not_speech::CallsLeftOut::new(),
         })
     }
 
@@ -603,7 +605,7 @@ impl BusOut {
             self.unsaid = Some(request);
             return;
         }
-        if crate::not_speech::bare_call(text) {
+        if !self.calls.keeps(request, text) {
             return;
         }
         self.said_in = Some(request);
@@ -993,6 +995,36 @@ mod tests {
         );
         assert!(heard.recv(Duration::from_millis(30)).unwrap().is_none());
         assert!(said.recv(Duration::from_millis(30)).unwrap().is_none());
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    /// A function call written as words is never on `voice/said`: an answer
+    /// opening with a name has none of its words published, a later call
+    /// is left out in however many pieces it came, and the next answer
+    /// publishes again (lamp-4ace, 2026-10-16 17:12; Second on #1139).
+    #[test]
+    fn a_function_call_written_as_words_is_never_published_as_said() {
+        let (bus, root) = bus("calls");
+        let mut out = BusOut::on(&bus).unwrap();
+        let mut said = bus
+            .subscribe_typed("voice/said", "s", Speech::TYPE)
+            .unwrap();
+        std::thread::sleep(Duration::from_millis(250));
+        out.said(1, "not_for_me", false, 1);
+        out.said(1, " Sure.", true, 2);
+        out.said(2, "Yes?", false, 3);
+        out.said(2, " not_for", false, 4);
+        out.said(2, "_me{}", false, 5);
+        out.said(2, " Noon.", true, 6);
+        let mut texts = Vec::new();
+        while let Some(message) = said.recv(Duration::from_millis(100)).unwrap() {
+            let speech: Speech = message.parse().unwrap();
+            texts.push((speech.request, speech.text));
+        }
+        assert_eq!(
+            texts,
+            [(Some(2), "Yes?".to_owned()), (Some(2), " Noon.".to_owned())]
+        );
         std::fs::remove_dir_all(root).unwrap();
     }
 

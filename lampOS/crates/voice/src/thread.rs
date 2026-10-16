@@ -104,6 +104,7 @@ pub struct Thread {
     changed: bool,
     /// The answer that opened with a function's name, if the newest did.
     unsaid: Option<u64>,
+    calls: crate::not_speech::CallsLeftOut,
     /// Who is at the lamp now, as the worker counts it; whose a new
     /// exchange is.
     whose: Option<String>,
@@ -186,6 +187,7 @@ impl Thread {
             heard_done: false,
             changed: false,
             unsaid: None,
+            calls: crate::not_speech::CallsLeftOut::new(),
             whose: None,
             opened_for: None,
             note: None,
@@ -417,8 +419,9 @@ impl Thread {
             self.unsaid = Some(request);
             return;
         }
-        // A whole call later in an answer is left out, the rest kept.
-        if crate::not_speech::bare_call(text) {
+        // A whole call later in an answer is left out, in however many
+        // pieces it came, the rest kept.
+        if !self.calls.keeps(request, text) {
             return;
         }
         if opening {

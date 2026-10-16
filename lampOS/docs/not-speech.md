@@ -403,9 +403,13 @@ A call written as words is kept nowhere, on either route
 
 - `voice/said` (`bus_out::BusOut::said`, the one place both its senders go
   through): an answer that opens with a function's name publishes none of
-  its words, and a piece that is a whole call is left out wherever it comes.
-- The thread: the same, a whole call later in an answer left out and the
-  rest kept.
+  its words, and a call later in the answer is left out wherever it comes,
+  even split across pieces (" not_for" then "_me{}"): a piece that is, or
+  with the ones held before it makes, a call so far is held back and never
+  published (`not_speech::CallsLeftOut`). A call split inside its first
+  word (" not" then "_for_me{}") still leaves its tail in.
+- The thread: the same, a call later in an answer left out and the rest
+  kept.
 - The backup voice: a reply that is `not_for_me…` written as words ends the
   turn in silence, as the call does, with no announcement; any other call
   written as words is left out unsaid, and not run.

@@ -209,17 +209,75 @@ pub fn names_a_function(opening: &str) -> bool {
 /// `not_for_me{}`. Ordinary words with an underscore inside a sentence are
 /// not one.
 pub fn bare_call(piece: &str) -> bool {
-    let piece = piece.trim().trim_end_matches('.');
-    if !names_a_function(piece) {
-        return false;
+    call_arguments(piece.trim().trim_end_matches('.')).is_some_and(|rest| {
+        rest.is_empty()
+            || (rest.starts_with('{') && rest.ends_with('}'))
+            || (rest.starts_with('(') && rest.ends_with(')'))
+    })
+}
+
+/// Whether `text` is a call so far: whole, or a name with its arguments
+/// begun and not yet closed (`set_timer{"min`).
+fn a_call_so_far(text: &str) -> bool {
+    bare_call(text)
+        || call_arguments(text.trim()).is_some_and(|rest| {
+            let open = |a: char, b: char| {
+                rest.starts_with(a) && rest.matches(a).count() > rest.matches(b).count()
+            };
+            open('{', '}') || open('(', ')')
+        })
+}
+
+/// What follows a function's name at the start of `text`.
+fn call_arguments(text: &str) -> Option<&str> {
+    if !names_a_function(text) {
+        return None;
     }
-    let name_end = piece
+    let name_end = text
         .find(|c: char| !(c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_' || c == '.'))
-        .unwrap_or(piece.len());
-    let rest = piece[name_end..].trim();
-    rest.is_empty()
-        || (rest.starts_with('{') && rest.ends_with('}'))
-        || (rest.starts_with('(') && rest.ends_with(')'))
+        .unwrap_or(text.len());
+    Some(text[name_end..].trim())
+}
+
+/// The pieces of one answer, with a function call written as words left
+/// out whatever pieces it came in (" not_for" then "_me{}"): a piece that
+/// is, or with the ones held before it makes, a call so far is held back,
+/// and what is held is never said, as it is code.
+// ponytail: a call split inside its first word (" not" then "_for_me{}")
+// still leaves its tail in; holding every lower-case word would need an
+// end-of-answer flush in each user.
+#[derive(Debug, Default)]
+pub struct CallsLeftOut {
+    request: Option<u64>,
+    held: String,
+}
+
+impl CallsLeftOut {
+    pub const fn new() -> Self {
+        Self {
+            request: None,
+            held: String::new(),
+        }
+    }
+
+    /// Whether `piece` of answer `request` is words to keep.
+    pub fn keeps(&mut self, request: u64, piece: &str) -> bool {
+        if self.request != Some(request) {
+            self.request = Some(request);
+            self.held.clear();
+        }
+        let joined = format!("{}{piece}", self.held);
+        if a_call_so_far(&joined) {
+            self.held = joined;
+            return false;
+        }
+        self.held.clear();
+        if a_call_so_far(piece) {
+            self.held = piece.to_owned();
+            return false;
+        }
+        true
+    }
 }
 
 /// Where the coordinator reads whether, in a conversation, a turn heard in
@@ -768,5 +826,27 @@ mod tests {
         ] {
             assert!(!bare_call(words), "{words}");
         }
+    }
+
+    /// A call is left out whatever pieces it came in; the words around it
+    /// are kept, and a new answer starts with nothing held.
+    #[test]
+    fn a_call_split_across_pieces_is_left_out_whole() {
+        let mut calls = CallsLeftOut::default();
+        let kept: Vec<_> = [
+            "Yes?",
+            " not_for",
+            "_me{}",
+            " Sure.",
+            " set_timer{",
+            "\"minutes\": 5}",
+        ]
+        .into_iter()
+        .filter(|piece| calls.keeps(1, piece))
+        .collect();
+        assert_eq!(kept, ["Yes?", " Sure."]);
+        assert!(!calls.keeps(1, " not_for"));
+        assert!(calls.keeps(2, "_me{} is mine"));
+        assert!(calls.keeps(2, " It is noon."));
     }
 }

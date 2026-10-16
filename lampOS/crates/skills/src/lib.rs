@@ -24,6 +24,8 @@ pub const GESTURES: [&str; 6] = ["nod", "headshake", "greeting", "laugh", "shy",
 pub const MOODS: [&str; 1] = ["reading"];
 /// How long a skill may hold a pose.
 pub const MOOD_AT_MOST_US: u64 = 120_000_000;
+/// The longest a held-back chance may wait for its conditions.
+const MOST_WAIT_US: u64 = 3_600_000_000;
 /// How long a face message counts when its header names no lifespan: the
 /// eyes' two seconds. A value on another topic counts until it is replaced.
 const FACE_LIFESPAN_MS: u64 = 2_000;
@@ -62,6 +64,9 @@ struct TriggerFile {
     gap: Option<String>,
     rearm: Option<String>,
     cooldown: Option<String>,
+    /// A chance held back by a `[[while]]` condition waits this long, while
+    /// the trigger still holds, for the conditions to hold.
+    wait: Option<String>,
 }
 
 /// A `[[while]]` condition.
@@ -222,6 +227,11 @@ pub struct Trigger {
     /// Once each time it holds; again only after it stopped.
     pub rearm: bool,
     pub cooldown_us: u64,
+    /// How long a chance held back by a `[[while]]` condition is kept, while
+    /// the trigger still holds, and taken the moment the conditions hold:
+    /// someone talking when the moment comes, and the lamp acts once the
+    /// talk ends. 0: a chance held back is spent.
+    pub wait_us: u64,
 }
 
 /// One call a step makes, as the program sends it and a test expects it.
@@ -418,6 +428,16 @@ fn trigger(file: TriggerFile) -> Result<Trigger, String> {
         Some("leaves" | "ends") => true,
         Some(other) => return Err(format!("rearm = {other:?}: \"leaves\" or \"ends\"")),
     };
+    let wait_us = optional(&file.wait)?;
+    if wait_us > MOST_WAIT_US {
+        return Err("wait is at most 1h".into());
+    }
+    if wait_us > 0 && !(rearm || when == When::Appears) {
+        return Err(
+            "wait goes with rearm or when = \"appears\": without them every message is a chance"
+                .into(),
+        );
+    }
     let mut test = test(&file.topic, file.field, file.equals, file.above, file.below)?;
     match (file.near, &mut test) {
         (None, _) => {}
@@ -438,6 +458,7 @@ fn trigger(file: TriggerFile) -> Result<Trigger, String> {
         gap_us: optional(&file.gap)?,
         rearm,
         cooldown_us: optional(&file.cooldown)?,
+        wait_us,
     })
 }
 
@@ -695,6 +716,9 @@ struct Watch {
     away_us: u64,
     /// This time it holds has had its chance.
     spent: bool,
+    /// Since when this time's chance has waited for the trigger's
+    /// `[[while]]` conditions (`wait`).
+    waiting_us: Option<u64>,
     ran_us: Option<u64>,
 }
 
@@ -921,6 +945,7 @@ impl Engine {
                     watch.since_us = Some(now_us);
                     watch.away_us = now_us - watch.last_held_us.unwrap_or(started);
                     watch.spent = false;
+                    watch.waiting_us = None;
                 }
                 watch.last_held_us = Some(now_us);
                 let held_us = now_us - watch.since_us.unwrap_or(now_us);
@@ -938,10 +963,20 @@ impl Engine {
                     || watch
                         .ran_us
                         .is_some_and(|ran| now_us - ran < trigger.cooldown_us)
-                    || !Self::conditions_hold(&self.latest, &self.holding, skill, now_us)
                 {
                     continue;
                 }
+                if !Self::conditions_hold(&self.latest, &self.holding, skill, now_us) {
+                    // Held back by a condition (someone talking): with a
+                    // `wait`, the chance is kept while the trigger holds,
+                    // and taken at its next message once they hold.
+                    let waited = now_us - *watch.waiting_us.get_or_insert(now_us);
+                    if waited < trigger.wait_us {
+                        watch.spent = false;
+                    }
+                    continue;
+                }
+                watch.waiting_us = None;
                 let held = match trigger.when {
                     When::Appears => format!(
                         "it appeared on {topic} after {} s without",

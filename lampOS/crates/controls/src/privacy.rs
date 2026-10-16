@@ -6,7 +6,12 @@ use crate::{
 };
 use lamp_msgs::{ClockStamp, ControlFault, PRIVACY_SWITCH_TTL_US, PrivacySwitch};
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeSet, ffi::OsStr};
+use std::{
+    collections::BTreeSet,
+    ffi::OsStr,
+    io,
+    time::{Duration, Instant},
+};
 
 pub const ENV: &str = "LAMP_PRIVACY_CONTROLS";
 pub const POLL_US: u64 = 5_000;
@@ -107,29 +112,102 @@ impl Lines for MissingLine {
     }
 }
 
+/// A requested line's level.
+pub trait Level {
+    fn high(&mut self) -> io::Result<bool>;
+}
+
+/// How often a line that cannot be had is asked for again.
+pub const REOPEN_EVERY: Duration = Duration::from_secs(1);
+
+/// The selected line, asked for again at most every [`REOPEN_EVERY`] while
+/// it cannot be had: one another process still holds when Controls starts
+/// (the voice's direct path, on a lamp moving to this route), or one this
+/// user may not open. Until it is had the switch is unknown, never an
+/// implicit HIGH. Each new reason it cannot be had is said once, and so is
+/// the moment it is taken, so a lamp's log says why the voice waits.
+pub struct Reopening<O, L> {
+    open: O,
+    line: Option<L>,
+    tried: Option<Instant>,
+    every: Duration,
+    said: Option<String>,
+    name: String,
+}
+
+impl<O: FnMut() -> io::Result<L>, L: Level> Reopening<O, L> {
+    pub fn new(name: impl Into<String>, every: Duration, open: O) -> Self {
+        Self {
+            open,
+            line: None,
+            tried: None,
+            every,
+            said: None,
+            name: name.into(),
+        }
+    }
+
+    fn say(&mut self, why: String) {
+        if self.said.as_deref() != Some(why.as_str()) {
+            eprintln!(
+                "lamp-controls: privacy {} cannot be taken, asked again each {} ms: {why}",
+                self.name,
+                self.every.as_millis()
+            );
+            self.said = Some(why);
+        }
+    }
+}
+
+impl<O: FnMut() -> io::Result<L>, L: Level> Lines for Reopening<O, L> {
+    fn high(&mut self, _: u32) -> io::Result<bool> {
+        if self.line.is_none() && self.tried.is_none_or(|at| at.elapsed() >= self.every) {
+            self.tried = Some(Instant::now());
+            match (self.open)() {
+                Ok(line) => {
+                    eprintln!("lamp-controls: privacy {} taken", self.name);
+                    self.line = Some(line);
+                    self.said = None;
+                }
+                Err(error) => self.say(error.to_string()),
+            }
+        }
+        let Some(line) = &mut self.line else {
+            return Err(io::Error::other("selected privacy line is unavailable"));
+        };
+        // A line that stops answering is let go and asked for again.
+        line.high().inspect_err(|error| {
+            self.line = None;
+            self.say(error.to_string());
+        })
+    }
+}
+
 #[cfg(target_os = "linux")]
 pub fn open(pins: &Pins, clock: &str, session: &str) -> Result<Box<dyn Reader>, String> {
     pins.check()?;
-    let request = gpiocdev::Request::builder()
-        .on_chip(&pins.chip)
-        .with_consumer("lampOS-controls-privacy")
-        .with_line(pins.line)
-        .as_input()
-        .with_bias(gpiocdev::line::Bias::PullUp)
-        .request();
-    struct PrivacyLine(gpiocdev::Request);
-    impl Lines for PrivacyLine {
-        fn high(&mut self, line: u32) -> std::io::Result<bool> {
+    struct PrivacyLine(gpiocdev::Request, u32);
+    impl Level for PrivacyLine {
+        fn high(&mut self) -> io::Result<bool> {
             self.0
-                .value(line)
+                .value(self.1)
                 .map(|v| v == gpiocdev::line::Value::Active)
-                .map_err(std::io::Error::other)
+                .map_err(io::Error::other)
         }
     }
-    Ok(match request {
-        Ok(request) => Box::new(LineReader::new(PrivacyLine(request), clock, session)),
-        Err(_) => Box::new(LineReader::new(MissingLine, clock, session)),
-    })
+    let (chip, line) = (pins.chip.clone(), pins.line);
+    let lines = Reopening::new(format!("line {chip} {line}"), REOPEN_EVERY, move || {
+        gpiocdev::Request::builder()
+            .on_chip(&chip)
+            .with_consumer("lampOS-controls-privacy")
+            .with_line(line)
+            .as_input()
+            .with_bias(gpiocdev::line::Bias::PullUp)
+            .request()
+            .map(|request| PrivacyLine(request, line))
+            .map_err(io::Error::other)
+    });
+    Ok(Box::new(LineReader::new(lines, clock, session)))
 }
 
 #[cfg(not(target_os = "linux"))]
@@ -307,5 +385,80 @@ impl Source {
         let received = now();
         let _ = self.monitor.observe(received, sample.clone());
         Some((received, sample))
+    }
+}
+
+#[cfg(test)]
+mod reopening_tests {
+    use super::*;
+    use std::{cell::Cell, rc::Rc};
+
+    struct Fixed(io::Result<bool>);
+    impl Level for Fixed {
+        fn high(&mut self) -> io::Result<bool> {
+            match &self.0 {
+                Ok(high) => Ok(*high),
+                Err(error) => Err(io::Error::new(error.kind(), error.to_string())),
+            }
+        }
+    }
+
+    /// The voice's old direct path still holds the line when Controls
+    /// starts (lamp-4ace, 2026-10-16 10:01): it is unknown, asked again
+    /// at most each interval, and read as soon as it is free.
+    #[test]
+    fn a_line_held_at_start_is_asked_again_and_read_once_free() {
+        let tries = Rc::new(Cell::new(0));
+        let free = Rc::new(Cell::new(false));
+        let (counting, freed) = (Rc::clone(&tries), Rc::clone(&free));
+        let mut lines = Reopening::new("line test 9", Duration::from_millis(20), move || {
+            counting.set(counting.get() + 1);
+            if freed.get() {
+                Ok(Fixed(Ok(true)))
+            } else {
+                Err(io::Error::from_raw_os_error(16))
+            }
+        });
+        for _ in 0..5 {
+            assert!(lines.high(9).is_err());
+        }
+        assert_eq!(tries.get(), 1, "not asked again within the interval");
+        free.set(true);
+        std::thread::sleep(Duration::from_millis(25));
+        assert!(lines.high(9).unwrap());
+        assert_eq!(tries.get(), 2);
+        assert!(lines.high(9).unwrap());
+        assert_eq!(tries.get(), 2, "kept once taken");
+    }
+
+    #[test]
+    fn a_line_that_stops_answering_is_let_go_and_asked_for_again() {
+        let tries = Rc::new(Cell::new(0));
+        let counting = Rc::clone(&tries);
+        let mut lines = Reopening::new("line test 9", Duration::from_millis(1), move || {
+            counting.set(counting.get() + 1);
+            Ok(Fixed(if counting.get() == 1 {
+                Err(io::Error::other("gone"))
+            } else {
+                Ok(false)
+            }))
+        });
+        assert!(lines.high(9).is_err());
+        std::thread::sleep(Duration::from_millis(2));
+        assert!(!lines.high(9).unwrap());
+        assert_eq!(tries.get(), 2);
+    }
+
+    #[test]
+    fn until_the_line_is_had_each_acquisition_is_unknown_with_a_fault() {
+        let lines = Reopening::new("line test 9", Duration::from_secs(60), || {
+            Err::<Fixed, _>(io::Error::from_raw_os_error(13))
+        });
+        let mut reader = LineReader::new(lines, "boot", "session");
+        let sample = reader.read(1).unwrap();
+        assert_eq!(
+            (sample.muted, sample.fault),
+            (None, Some(ControlFault::Missing))
+        );
     }
 }

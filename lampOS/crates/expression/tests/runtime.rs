@@ -539,6 +539,8 @@ mod sleep_name {
             let mut timing = voice(self.now_us);
             timing.stamp.sequence = self.now_us + 1;
             timing.state = self.state;
+            // No envelope published below is older than this.
+            let publishing = runtime::unix_ms();
             // Loosest limit first, strictest last (#912): the room (2 s),
             // the voice and the faces (500 ms), the joints (300 ms).
             self.room
@@ -573,6 +575,11 @@ mod sleep_name {
                 .unwrap();
             // The wall clock just after publishing, as `populate` gives it.
             let wall = runtime::unix_ms();
+            // The service places each bus input at `now` less its wall age.
+            // A host stall of more than a tick while publishing would place
+            // this step's room before the last one's, refused as out of
+            // order (#1196). Like a lamp's, this clock then keeps up with the wall.
+            self.now_us += (wall.saturating_sub(publishing) * 1_000).saturating_sub(TICK_US);
             let output = self.service.step(|| self.now_us, wall);
             assert_eq!(self.service.counts.refused, 0);
             assert_eq!(self.service.counts.input_errors, 0);

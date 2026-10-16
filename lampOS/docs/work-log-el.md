@@ -30,3 +30,24 @@ Ready for lamp-voice: no
   do not say the zone) and the first builder's lamp check. El makes the P3
   on `el/820-zone-start-lines`, cut from #844's head, and offers it to the
   third on #844. It does not push to `third/system-zone`.
+
+## 2026-10-16 — #820's start lines, for the third (#844)
+
+Ready for lamp-voice: yes (#844, the third's)
+
+- Off unless set: the start lines gain ` zone=<as given>` only with
+  `--zone`; without it they are byte-identical, as each test asserts.
+- On `el/820-zone-start-lines`, from #844's head `9af776366`: Expression
+  `12db9ac7b`, Memory `a2302ffea`. Tests
+  `the_start_line_names_the_zone_only_when_one_is_given` (Expression) and
+  `the_memory_days_start_line_names_the_zone_only_when_one_is_given` (Memory).
+- Gate on el's Mac (Homebrew Rust 1.99, no rustup or Docker): fmt clean;
+  `cargo build --workspace` and `--locked` clean; Expression and Memory 441
+  passed, 1 failed (Memory's
+  `a_timed_out_mutation_may_commit_but_cannot_seed_unlinked_journal_history`,
+  passes alone). Clippy `-D warnings` clean for both with three 1.99-only
+  lints allowed (`chunks_exact_to_as_chunks`, `byte_char_slices`,
+  `deprecated`), which fire in files neither change touches. The 1.96 gate
+  is ARM64 run 38846985609, started by hand.
+- The third cherry-picked both as they were into #844 (head `2a4168cc5`,
+  10:56) and keeps #820 for the first builder's lamp check. Not on a lamp.

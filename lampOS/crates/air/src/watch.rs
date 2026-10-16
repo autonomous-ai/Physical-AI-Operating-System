@@ -5,8 +5,10 @@
 //! one nobody acknowledges ("ACK not received"). A lamp without the sensor
 //! (lamp-cb94) was looked at five times a second, about 300 kernel lines a
 //! minute, so its journal kept only about 90 minutes. Now a sensor that does
-//! not answer is looked for [`QUICK_LOOKS`] times at the reading pace, then
-//! once every [`LOOK_EVERY`], and the log says so once.
+//! not answer, or answers its name but gives no reading, is looked for
+//! [`QUICK_LOOKS`] times at the reading pace, then once every [`LOOK_EVERY`],
+//! and the journal hears of it twice. A bus that cannot be opened makes no
+//! transaction, so it is looked at again at the reading pace.
 use lamp_msgs::{AirState, Diagnostic, Level};
 use std::time::Duration;
 
@@ -23,10 +25,20 @@ pub const TICK: Duration = Duration::from_millis(200);
 /// The health report's pace.
 const REPORT_EVERY: Duration = Duration::from_millis(950);
 
+/// Why a look found no sensor.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Missing {
+    /// The bus could not be opened: no transaction was made, so the kernel
+    /// logged nothing.
+    NoBus(String),
+    /// Nobody acknowledged, or the answer was wrong: a transaction made.
+    NoAnswer(String),
+}
+
 /// The sensor, as the loop uses it.
 pub trait Sensor {
-    /// Opens the adapter and asks the sensor's name.
-    fn find(&mut self) -> Result<String, String>;
+    /// Opens the bus and asks the sensor's name.
+    fn find(&mut self) -> Result<String, Missing>;
     fn ready(&mut self) -> Result<bool, String>;
     fn read(&mut self) -> Result<AirState, String>;
     /// Starts its measurement, as after a power cut.
@@ -70,6 +82,31 @@ pub fn report(why: Option<&str>, last: Option<&AirState>) -> Diagnostic {
     report
 }
 
+/// A look or a reading that gave no reading, the `misses`th in a row: when
+/// to look next, what the report says, and whether the journal hears it
+/// (the first in a row, and when the sensor counts as absent).
+fn missed(
+    misses: &mut u32,
+    now: Duration,
+    what: &str,
+    error: &str,
+    bus_number: u32,
+) -> (Duration, String, bool) {
+    *misses += 1;
+    if *misses < QUICK_LOOKS {
+        (now + EVERY, format!("{what}: {error}"), *misses == 1)
+    } else {
+        (
+            now + LOOK_EVERY,
+            format!(
+                "no air sensor answers on I2C bus {bus_number} ({error}); looked for again every {} min",
+                LOOK_EVERY.as_secs() / 60
+            ),
+            *misses == QUICK_LOOKS,
+        )
+    }
+}
+
 /// Reads the sensor on I2C bus `bus_number` until `until` on `clock`.
 pub fn run(
     sensor: &mut impl Sensor,
@@ -79,10 +116,14 @@ pub fn run(
     until: Duration,
 ) {
     let mut found = false;
-    // Looks in a row that found nothing, and when the next is due.
+    // Looks and readings in a row that gave no reading, counted out only by a
+    // good reading, so a sensor that answers its name and then fails backs
+    // off as one that never answers (eighth and the reviewer on #1163).
     let mut misses = 0u32;
     let mut look_at = Duration::ZERO;
     let mut read_at = Duration::ZERO;
+    // Whether the journal has heard the sensor answer since it last did not.
+    let mut answered = false;
     let mut reported_at: Option<Duration> = None;
     let mut why: Option<String> = None;
     let mut not_ready = 0u32;
@@ -95,34 +136,44 @@ pub fn run(
         if !found && now >= look_at {
             match sensor.find() {
                 Ok(name) => {
-                    say.log(&format!("the sensor answers: {name}"));
+                    if !answered {
+                        say.log(&format!("the sensor answers: {name}"));
+                        answered = true;
+                    }
                     found = true;
-                    misses = 0;
-                    why = None;
-                    read_at = now;
+                    // Found again after a failed reading: the reading pace
+                    // holds. Found the first time: read at once.
+                    read_at = read_at.max(now);
                 }
-                Err(error) => {
-                    misses += 1;
-                    let line = if misses < QUICK_LOOKS {
-                        look_at = now + EVERY;
-                        format!("the sensor does not answer: {error}")
-                    } else {
-                        look_at = now + LOOK_EVERY;
-                        format!(
-                            "no air sensor answers on I2C bus {bus_number}; looked for again every {} min",
-                            LOOK_EVERY.as_secs() / 60
-                        )
-                    };
-                    // Each line once: the first miss, and the moment it counts
-                    // as absent, with the last error.
-                    if misses == 1 || misses == QUICK_LOOKS {
-                        say.log(&if misses == QUICK_LOOKS {
-                            format!("{line} (last: {error})")
-                        } else {
-                            line.clone()
-                        });
+                Err(Missing::NoBus(error)) => {
+                    // No transaction, nothing for the kernel to log: looked at
+                    // again at the reading pace, so a bus that comes up later
+                    // is used at once.
+                    let line = format!(
+                        "I2C bus {bus_number} cannot be opened ({error}); looked at again every {} s",
+                        EVERY.as_secs()
+                    );
+                    if why.as_deref() != Some(line.as_str()) {
+                        say.log(&line);
                     }
                     why = Some(line);
+                    answered = false;
+                    look_at = now + EVERY;
+                }
+                Err(Missing::NoAnswer(error)) => {
+                    let (at, line, tell) = missed(
+                        &mut misses,
+                        now,
+                        "the sensor does not answer",
+                        &error,
+                        bus_number,
+                    );
+                    if tell {
+                        say.log(&line);
+                    }
+                    why = Some(line);
+                    answered = false;
+                    look_at = at;
                 }
             }
         }
@@ -131,6 +182,7 @@ pub fn run(
             match sensor.ready() {
                 Ok(true) => match sensor.read() {
                     Ok(air) => {
+                        misses = 0;
                         not_ready = 0;
                         why = None;
                         say.air(&air);
@@ -155,13 +207,20 @@ pub fn run(
                     }
                 }
                 Err(error) => {
-                    let line = format!("the sensor stopped answering: {error}");
-                    say.log(&line);
-                    why = Some(line);
                     sensor.lose();
                     found = false;
-                    // Looked for again at once, then as a sensor never found.
-                    look_at = now;
+                    let (at, line, tell) = missed(
+                        &mut misses,
+                        now,
+                        "the sensor stopped answering",
+                        &error,
+                        bus_number,
+                    );
+                    if tell {
+                        say.log(&line);
+                    }
+                    why = Some(line);
+                    look_at = at;
                 }
             }
         }
@@ -192,26 +251,27 @@ mod tests {
         }
     }
 
-    /// An I2C bus that acknowledges nothing unless the sensor is up: from
-    /// `answers_from`, if ever, until `stops_at`. Each transaction is
-    /// counted, and each one nobody acknowledged, as the kernel logs those.
+    const NAK: &str = "Remote I/O error (os error 121)";
+
+    /// An I2C bus and the sensor on it. The bus can be opened from
+    /// `bus_from`; the sensor acknowledges from `answers_from`, if ever,
+    /// until `stops_at`; with `reads_fail` it answers its name and fails
+    /// every reading (a half-seated plug); it has a new reading from
+    /// `measuring_from`. Every transaction is counted, each one nobody
+    /// acknowledged (the kernel logs those), and each start.
+    #[derive(Default)]
     struct Bus {
         time: Time,
+        bus_from: Duration,
         answers_from: Option<Duration>,
         stops_at: Option<Duration>,
+        reads_fail: bool,
+        measuring_from: Duration,
         transactions: u32,
         not_acknowledged: u32,
+        starts: u32,
     }
     impl Bus {
-        fn new(time: &Time, answers_from: Option<u64>, stops_at: Option<u64>) -> Self {
-            Self {
-                time: Rc::clone(time),
-                answers_from: answers_from.map(Duration::from_secs),
-                stops_at: stops_at.map(Duration::from_secs),
-                transactions: 0,
-                not_acknowledged: 0,
-            }
-        }
         fn answers(&mut self) -> Result<(), String> {
             self.transactions += 1;
             let now = self.time.get();
@@ -221,16 +281,27 @@ mod tests {
                 Ok(())
             } else {
                 self.not_acknowledged += 1;
-                Err("Remote I/O error (os error 121)".into())
+                Err(NAK.into())
             }
         }
     }
     impl Sensor for Bus {
-        fn find(&mut self) -> Result<String, String> {
-            self.answers().map(|()| "SEN63C".into())
+        fn find(&mut self) -> Result<String, Missing> {
+            if self.time.get() < self.bus_from {
+                return Err(Missing::NoBus(
+                    "No such file or directory (os error 2)".into(),
+                ));
+            }
+            self.answers()
+                .map(|()| "SEN63C".into())
+                .map_err(Missing::NoAnswer)
         }
         fn ready(&mut self) -> Result<bool, String> {
-            self.answers().map(|()| true)
+            self.answers()?;
+            if self.reads_fail {
+                return Err("word 0 fails its CRC".into());
+            }
+            Ok(self.time.get() >= self.measuring_from)
         }
         fn read(&mut self) -> Result<AirState, String> {
             self.answers().map(|()| AirState {
@@ -245,6 +316,7 @@ mod tests {
             })
         }
         fn start(&mut self) -> Result<(), String> {
+            self.starts += 1;
             self.answers()
         }
         fn lose(&mut self) {}
@@ -268,10 +340,18 @@ mod tests {
         }
     }
 
-    /// The loop for `seconds` on a stepped clock against `bus`.
-    fn run_for(seconds: u64, answers_from: Option<u64>, stops_at: Option<u64>) -> (Bus, Said) {
+    fn at(seconds: u64) -> Duration {
+        Duration::from_secs(seconds)
+    }
+
+    /// The loop for `seconds` on a stepped clock, the bus as `set` makes it.
+    fn run_for(seconds: u64, set: impl FnOnce(&mut Bus)) -> (Bus, Said) {
         let time: Time = Rc::default();
-        let mut bus = Bus::new(&time, answers_from, stops_at);
+        let mut bus = Bus {
+            time: Rc::clone(&time),
+            ..Bus::default()
+        };
+        set(&mut bus);
         let mut said = Said {
             time: Rc::clone(&time),
             airs: 0,
@@ -283,48 +363,68 @@ mod tests {
             &mut Stepped(Rc::clone(&time)),
             &mut said,
             0,
-            Duration::from_secs(seconds),
+            at(seconds),
         );
         (bus, said)
     }
 
     /// Twelve on lamp-cb94: no sensor on the bus. An hour of it is a handful
     /// of transactions, not the 18,000 a look every 200 ms made, and the
-    /// journal hears of it twice; the health report still comes each second.
+    /// journal hears of it twice; the health report still comes each second,
+    /// with the error in it.
     #[test]
     fn a_sensor_that_never_answers_is_looked_for_three_times_then_every_ten_minutes() {
-        let (bus, said) = run_for(3_600, None, None);
+        let (bus, said) = run_for(3_600, |_| {});
         // At 0, 5 and 10 s, then 610, 1210, 1810, 2410 and 3010 s.
         assert_eq!((bus.transactions, bus.not_acknowledged), (8, 8));
         assert_eq!(said.airs, 0);
+        let absent =
+            format!("no air sensor answers on I2C bus 0 ({NAK}); looked for again every 10 min");
         assert_eq!(
             said.lines,
-            [
-                "the sensor does not answer: Remote I/O error (os error 121)",
-                "no air sensor answers on I2C bus 0; looked for again every 10 min (last: Remote I/O error (os error 121))",
-            ]
+            [format!("the sensor does not answer: {NAK}"), absent.clone()]
         );
         assert!(
             (3_500..=3_700).contains(&said.reports.len()),
             "{}",
             said.reports.len()
         );
-        let (at, last) = said.reports.last().unwrap();
-        assert!(*at > Duration::from_secs(3_598));
+        let (when, last) = said.reports.last().unwrap();
+        assert!(*when > at(3_598));
         assert_eq!(
             (last.level, last.message.as_str()),
-            (
-                Level::Warn,
-                "no air sensor answers on I2C bus 0; looked for again every 10 min"
-            )
+            (Level::Warn, absent.as_str())
         );
+    }
+
+    /// Eighth and the reviewer on #1163: a sensor that answers its name and
+    /// fails every reading was found again and failed again every tick,
+    /// 600 journal lines a minute. It backs off as a missing one does.
+    #[test]
+    fn a_sensor_that_answers_its_name_but_never_reads_backs_off_too() {
+        let (bus, said) = run_for(3_600, |bus| {
+            bus.answers_from = Some(Duration::ZERO);
+            bus.reads_fail = true;
+        });
+        // A name and a failed reading at 0, 5 and 10 s, then every 10 min.
+        assert_eq!(bus.transactions, 16, "8 looks, each a find and a ready");
+        assert_eq!(
+            said.lines,
+            [
+                "the sensor answers: SEN63C".to_owned(),
+                "the sensor stopped answering: word 0 fails its CRC".to_owned(),
+                "no air sensor answers on I2C bus 0 (word 0 fails its CRC); looked for again every 10 min"
+                    .to_owned(),
+            ]
+        );
+        assert_eq!(said.airs, 0);
     }
 
     /// A sensor plugged in, or woken, later is found at the next look and
     /// read every five seconds from then on.
     #[test]
     fn a_sensor_that_answers_later_is_read_from_the_next_look() {
-        let (bus, said) = run_for(1_900, Some(1_200), None);
+        let (bus, said) = run_for(1_900, |bus| bus.answers_from = Some(at(1_200)));
         // Missed at 0, 5, 10 and 610 s, found at 1210 s.
         assert_eq!(bus.not_acknowledged, 4);
         assert!(
@@ -343,20 +443,23 @@ mod tests {
         );
     }
 
-    /// A sensor that stops answering is looked for again at once, then as
+    /// A sensor that stops answering is looked for again 5 s later, then as
     /// one never found: no flood after it goes either.
     #[test]
-    fn a_sensor_that_stops_answering_is_looked_for_at_once_then_backs_off() {
-        let (bus, said) = run_for(3_600, Some(0), Some(60));
-        // Its failed ready at 60 s, looks at 60, 65 and 70 s, then 670,
-        // 1270, 1870, 2470 and 3070 s.
-        assert_eq!(bus.not_acknowledged, 9);
-        assert!(
+    fn a_sensor_that_stops_answering_is_looked_for_again_then_backs_off() {
+        let (bus, said) = run_for(3_600, |bus| {
+            bus.answers_from = Some(Duration::ZERO);
+            bus.stops_at = Some(at(60));
+        });
+        // Its failed ready at 60 s, looks at 65 and 70 s, then 670, 1270,
+        // 1870, 2470 and 3070 s.
+        assert_eq!(bus.not_acknowledged, 8);
+        assert_eq!(
             said.lines
                 .iter()
-                .any(|line| line.starts_with("the sensor stopped answering")),
-            "{:?}",
-            said.lines
+                .filter(|line| line.starts_with("the sensor stopped answering"))
+                .count(),
+            1
         );
         assert_eq!(
             said.lines
@@ -365,6 +468,52 @@ mod tests {
                 .count(),
             1
         );
+    }
+
+    /// The reviewer on #1163: a bus that cannot be opened makes no
+    /// transaction, so it is looked at every 5 s, and used as soon as it is
+    /// there; the report and the journal say why, once.
+    #[test]
+    fn a_bus_that_cannot_be_opened_is_looked_at_every_five_seconds_and_used_once_there() {
+        let (bus, said) = run_for(60, |bus| {
+            bus.bus_from = at(20);
+            bus.answers_from = Some(Duration::ZERO);
+        });
+        assert_eq!(bus.not_acknowledged, 0);
+        let missing = "I2C bus 0 cannot be opened (No such file or directory (os error 2)); looked at again every 5 s";
+        assert_eq!(
+            said.lines[..2],
+            [missing.to_owned(), "the sensor answers: SEN63C".to_owned()]
+        );
+        assert!(
+            said.reports
+                .iter()
+                .any(|(when, report)| *when < at(20) && report.message == missing)
+        );
+        // Found at 20 s: read at 20, 25, ..., 55 s.
+        assert_eq!(said.airs, 8);
+    }
+
+    /// The reviewer on #1163: a sensor that is not measuring, as after a
+    /// power cut, is started on the third reading with nothing new (15 s),
+    /// and again every 30 s until it measures.
+    #[test]
+    fn a_sensor_with_nothing_new_is_started_after_fifteen_seconds() {
+        let (bus, said) = run_for(60, |bus| {
+            bus.answers_from = Some(Duration::ZERO);
+            bus.measuring_from = at(50);
+        });
+        // Not ready at 0, 5, ..., 45 s: the 3rd (10 s) and the 9th (40 s).
+        assert_eq!(bus.starts, 2);
+        assert_eq!(
+            said.lines
+                .iter()
+                .filter(|line| line.starts_with("no new reading for 15 s"))
+                .count(),
+            2
+        );
+        // Measuring from 50 s: read at 50 and 55 s.
+        assert_eq!(said.airs, 2);
     }
 
     #[test]

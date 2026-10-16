@@ -174,9 +174,11 @@ mod serve {
     }
 
     impl watch::Sensor for I2c {
-        fn find(&mut self) -> Result<String, String> {
-            let sensor = Sensor::open(self.bus).map_err(|e| e.to_string())?;
-            let name = sensor.name()?;
+        fn find(&mut self) -> Result<String, watch::Missing> {
+            // Opening the bus and setting the address make no transaction.
+            let sensor =
+                Sensor::open(self.bus).map_err(|e| watch::Missing::NoBus(e.to_string()))?;
+            let name = sensor.name().map_err(watch::Missing::NoAnswer)?;
             self.sensor = Some(sensor);
             Ok(name)
         }

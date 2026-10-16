@@ -13,17 +13,22 @@ Commands used: product name (0xD014), data ready (0x0202), read measured
 values (0x0471, seven words, each with Sensirion's CRC-8), and start
 measurement (0x0021), sent only when no new reading has come for 15 s,
 as after a power cut. Every word's CRC is checked; a bad one is no value.
-
-A sensor that does not answer is looked for three times, five seconds
-apart, then once every ten minutes (`src/watch.rs`). Each look is an I2C
-transaction, and the kernel logs every one nobody acknowledges ("ACK not
-received"): on lamp-cb94, which has no sensor, a look every 200 ms made
-about 300 kernel lines a minute, and the journal kept only about 90
-minutes. The journal hears of it twice: the first miss, and when the
-sensor counts as absent. A sensor that stops answering is looked for again
-at once, then the same way.
 0xFFFF (and 0x7FFF for the signed humidity and temperature) means the
 sensor does not know the value yet, and it is left out.
+
+A sensor that does not answer, or answers its name but gives no reading
+(a half-seated plug, a CRC fault), is looked for three times, five seconds
+apart, then once every ten minutes (`src/watch.rs`); only a good reading
+counts it as back. Each look is an I2C transaction, and the kernel logs
+every one nobody acknowledges ("ACK not received"): on lamp-cb94, which
+has no sensor, a look every 200 ms made about 300 kernel lines a minute,
+and the journal kept only about 90 minutes. The journal hears of it twice,
+the first miss and when the sensor counts as absent, and the health report
+says so steadily with the last error. A sensor that stops answering is
+looked for again 5 s later, then the same way; one plugged back in is found
+within ten minutes, or at once after `systemctl restart lamp-air`. A bus
+that cannot be opened (no `/dev/i2c-0`, or no permission) makes no
+transaction, so it is looked at again every five seconds.
 
 The temperature and humidity are those inside the base, warmed by the
 lamp itself (33 °C on 2026-10-14 in a cooler office): they are not the

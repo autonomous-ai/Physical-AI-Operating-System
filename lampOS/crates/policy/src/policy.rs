@@ -110,6 +110,9 @@ pub struct Totals {
     pub unreadable: u64,
     /// Skills' asks taken (`--gate`, #939).
     pub skill_asks: u64,
+    /// Decisions whose second judgement (`--attention-next`, #1040) came to
+    /// another choice.
+    pub attention_next_differs: u64,
 }
 
 /// One line the policy says about itself.
@@ -641,6 +644,11 @@ struct Line<'a> {
     /// What it answered to each question. Empty if it did not.
     answers: &'a BTreeMap<String, f32>,
     judgement: Judgement,
+    /// The second judgement, in shadow (`--attention-next`, #1040): never
+    /// published, never acted on. Left out without the switch, and when
+    /// the rule decided.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    next: Option<Judgement>,
     /// Who decided: the model as its service names it, or the rule.
     by: &'a str,
     /// How long the asking took, and how long the utterance had waited
@@ -756,6 +764,8 @@ struct Policy<'a> {
     /// Whether the attention decisions are shadow: always, unless
     /// `--act attention` ([`Options::act_attention`], #800).
     attention_shadow: bool,
+    /// The second attention judgement, in shadow ([`Beside::attention_next`]).
+    attention_next: bool,
     /// The hello question, only with `--hello` (`run_with_questions`).
     hello: Option<Hello>,
     /// Skills' asks of an act not judged here yet, to be answered `wait`.
@@ -902,15 +912,22 @@ impl Policy<'_> {
             eligible: _,
         } = waiting;
         let connection = answer.as_ref().ok().and_then(|asked| asked.connection);
+        // The second judgement, in shadow, only from a model's answers.
+        let mut next = None;
         let (judgement, answers, by, failed, usage) = match answer {
             Ok(asked) => match Answers::of(&asked.answers) {
-                Ok(answers) => (
-                    attention::combine(&answers, &context),
-                    answers.by_name(),
-                    asked.model,
-                    None,
-                    asked.usage,
-                ),
+                Ok(answers) => {
+                    if self.attention_next {
+                        next = Some(attention::combine_next(&answers, &context));
+                    }
+                    (
+                        attention::combine(&answers, &context),
+                        answers.by_name(),
+                        asked.model,
+                        None,
+                        asked.usage,
+                    )
+                }
                 // A judge that returned without all it was asked.
                 Err(question) => (
                     attention::fallback(&context),
@@ -935,6 +952,9 @@ impl Policy<'_> {
         }
         self.totals.decided += 1;
         self.totals.by_rule += u64::from(judgement.from_rule);
+        if next.is_some_and(|next| next.choice != judgement.choice) {
+            self.totals.attention_next_differs += 1;
+        }
         match &failed {
             Some(failed) => {
                 if self.model.wrong(1) {
@@ -987,6 +1007,7 @@ impl Policy<'_> {
             asked: &self.judge_name,
             answers: &answers,
             judgement,
+            next,
             by: &by,
             took_ms,
             waited_ms,
@@ -1291,6 +1312,12 @@ impl Policy<'_> {
             .with("decided", self.totals.decided)
             .with("by_rule", self.totals.by_rule)
             .with("shadow", self.attention_shadow);
+        // Only with `--attention-next`.
+        let report = if self.attention_next {
+            report.with("attention_next_differs", self.totals.attention_next_differs)
+        } else {
+            report
+        };
         // Whether anything on the lamp listens for its name, as found this
         // second; left out when nothing does, so the report is as it was.
         let report = if self.name_listening {
@@ -1485,7 +1512,7 @@ pub fn run_with_questions<D: Decider + Send + 'static>(
         Beside {
             progress,
             hello,
-            pictures: None,
+            ..Beside::default()
         },
     )
 }
@@ -1500,6 +1527,11 @@ pub struct Beside {
     pub progress: Option<Progress>,
     pub hello: Option<Hello>,
     pub pictures: Option<Pictures>,
+    /// The second attention judgement proposed on #1040
+    /// ([`attention::combine_next`], `--attention-next`): written on each
+    /// decision's line as `next` and counted, never published and never
+    /// acted on.
+    pub attention_next: bool,
 }
 
 /// [`run`], with whatever [`Beside`] gives. With nothing, it is [`run`].
@@ -1548,6 +1580,7 @@ fn run_inner<D: Decider + Send + 'static>(
         progress,
         hello,
         pictures,
+        attention_next,
     } = beside;
     let mut heard = Ear::new(bus, HEARD, Speech::TYPE)?;
     let mut said = Ear::new(bus, SAID, Speech::TYPE)?;
@@ -1616,6 +1649,7 @@ fn run_inner<D: Decider + Send + 'static>(
         judge_log,
         progress,
         attention_shadow: SHADOW && !options.act_attention,
+        attention_next,
         hello,
         not_judged: Vec::new(),
         pictures,

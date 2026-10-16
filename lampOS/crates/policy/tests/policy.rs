@@ -6,7 +6,7 @@ use lamp_msgs::{Decision, Diagnostic, Level, NameHeard, Speech, Voice, VoiceStat
 use lamp_policy::{
     attention::{self, Context, Room},
     decide::{Answer, Asked, Connection, Decider, Failed, Question, Usage},
-    policy::{self, Note, Options, Totals},
+    policy::{self, Beside, Note, Options, Totals},
 };
 use serde_json::{Value, json};
 use std::{
@@ -140,12 +140,34 @@ impl Rig {
         Self::with_pause(name, script, None, pause, |_| {})
     }
 
+    /// With the second attention judgement on (`--attention-next`, #1040).
+    fn next<F>(name: &str, script: F) -> Self
+    where
+        F: FnMut(&Value) -> Result<Asked, Failed> + Send + 'static,
+    {
+        Self::started(name, script, None, PAUSE, |_| {}, true)
+    }
+
     fn with_pause<F>(
         name: &str,
         script: F,
         lease: Option<Duration>,
         pause: Duration,
         before: impl FnOnce(&Self),
+    ) -> Self
+    where
+        F: FnMut(&Value) -> Result<Asked, Failed> + Send + 'static,
+    {
+        Self::started(name, script, lease, pause, before, false)
+    }
+
+    fn started<F>(
+        name: &str,
+        script: F,
+        lease: Option<Duration>,
+        pause: Duration,
+        before: impl FnOnce(&Self),
+        attention_next: bool,
     ) -> Self
     where
         F: FnMut(&Value) -> Result<Asked, Failed> + Send + 'static,
@@ -205,9 +227,20 @@ impl Rig {
             readied: Arc::clone(&rig.readied),
         };
         rig.running = Some(thread::spawn(move || {
-            policy::run(&bus, stand_in, &options, &stop, &mut |note| {
-                let _ = said_so.send(note);
-            })
+            let beside = Beside {
+                attention_next,
+                ..Beside::default()
+            };
+            policy::run_beside(
+                &bus,
+                stand_in,
+                &options,
+                &stop,
+                &mut |note| {
+                    let _ = said_so.send(note);
+                },
+                beside,
+            )
         }));
         // The policy has subscribed once its three sockets are there.
         let started = Instant::now();
@@ -980,6 +1013,74 @@ fn what_the_lamp_last_said_is_in_the_context_as_it_was_when_the_utterance_began(
     assert_eq!(last["context"]["lamp_last_said"], "...");
     assert_eq!(last["in_conversation"], false);
     rig.stop();
+}
+
+/// #1040, in shadow: with `--attention-next` each decision's line carries a
+/// second judgement, raised in conversation by `follows_lamp` above 0.55
+/// (3 for each unit), and the diagnostics count the decisions where the two
+/// choices differ. What is published is today's judgement. Without the
+/// switch the line has no `next`.
+#[test]
+fn with_attention_next_a_second_judgement_is_written_beside_and_nothing_published_changes() {
+    let follows = attention::questions()
+        .iter()
+        .position(|(name, _)| name == "follows_lamp")
+        .unwrap();
+    let mut seven = SEVEN;
+    seven[follows] = 1.0;
+    let logit = |p: f64| (p / (1.0 - p)).ln();
+    for on in [true, false] {
+        let name = if on { "next-on" } else { "next-off" };
+        let mut rig = if on {
+            Rig::next(name, move |_| Ok(asked(seven)))
+        } else {
+            Rig::new(name, move |_| Ok(asked(seven)))
+        };
+        // The lamp says something; a reply to it, in conversation.
+        rig.voice(Voice::Speaking);
+        rig.say("It will rain tomorrow.", 5);
+        thread::sleep(ms(150));
+        rig.voice(Voice::Listening);
+        thread::sleep(ms(200));
+        rig.hear_as("I should bring an umbrella then.", true, None);
+        let decision = rig.decision();
+        let line = &rig.log(1)[0];
+        assert_eq!(line["in_conversation"], true);
+        let today = line["judgement"]["probability"].as_f64().unwrap();
+        assert!((f64::from(decision.probability) - today).abs() < 1e-6);
+        assert_eq!(decision.choice, "look_up");
+        if !on {
+            assert!(line.get("next").is_none(), "{line}");
+            rig.stop();
+            continue;
+        }
+        // 3 × (1.0 − 0.55) on the sum: from look_up to answer.
+        let next = &line["next"];
+        let raised = logit(next["probability"].as_f64().unwrap()) - logit(today);
+        assert!((raised - 1.35).abs() < 1e-3, "{raised}");
+        assert_eq!(next["choice"], "answer");
+        assert_eq!(next["from_rule"], false);
+        // Counted in the diagnostics, once.
+        let mut reports = rig
+            .bus
+            .subscribe_typed(Diagnostic::TOPIC, "test_next", Diagnostic::TYPE)
+            .unwrap();
+        let started = Instant::now();
+        loop {
+            let left = WAIT.saturating_sub(started.elapsed());
+            let message = reports.recv(left).unwrap().expect("a report");
+            let report: Diagnostic = message.parse().unwrap();
+            if let Some(fact) = report
+                .values
+                .iter()
+                .find(|fact| fact.key == "attention_next_differs")
+            {
+                assert_eq!(fact.value, "1");
+                break;
+            }
+        }
+        rig.stop();
+    }
 }
 
 #[test]

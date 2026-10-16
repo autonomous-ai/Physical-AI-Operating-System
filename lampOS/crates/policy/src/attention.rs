@@ -379,6 +379,14 @@ impl Answers {
         Ok(Self(seven))
     }
 
+    /// The answer to the question of this name; 0 for a name not asked.
+    pub fn of_name(&self, name: &str) -> f32 {
+        ASKED
+            .iter()
+            .position(|(asked, _, _)| *asked == name)
+            .map_or(0.0, |index| self.0[index])
+    }
+
     /// Each answer by its question's name.
     pub fn by_name(&self) -> BTreeMap<String, f32> {
         ASKED
@@ -435,6 +443,46 @@ pub struct Judgement {
 /// One probability from the seven answers, the room and the conversation:
 /// a weighted sum put through the logistic curve.
 pub fn combine(answers: &Answers, context: &Context) -> Judgement {
+    judged(sum(answers, context))
+}
+
+/// From this `follows_lamp` answer up, [`combine_next`] adds
+/// [`NEXT_FOLLOWS_WEIGHT`] for each unit above it, in conversation.
+pub const NEXT_FOLLOWS_FROM: f32 = 0.55;
+pub const NEXT_FOLLOWS_WEIGHT: f64 = 3.0;
+
+/// The second judgement proposed on #1040, in shadow (`lamp-policy
+/// --attention-next`): [`combine`]'s sum and, in conversation only,
+/// [`NEXT_FOLLOWS_WEIGHT`] times how far `follows_lamp` is above
+/// [`NEXT_FOLLOWS_FROM`]. One-sided, so it is never below [`combine`]'s,
+/// and out of conversation it is the same: the fitted weights count a reply
+/// to the lamp against answering (`follows_lamp` −0.136, in conversation
+/// −0.206), though the answer tells such replies apart. From the first
+/// builder's 79 hand-read `stay_quiet` turns in conversation on lamp-4ace on
+/// 2026-10-16: a logistic fit of their labels on `follows_lamp` alone, each
+/// left out in turn, gave +3.02 centred at 0.55, and with it 13 of the 33
+/// said to the lamp leave `stay_quiet` and none of the 46 not.
+pub fn combine_next(answers: &Answers, context: &Context) -> Judgement {
+    let mut sum = sum(answers, context);
+    if context.in_conversation() {
+        let above = (answers.of_name("follows_lamp") - NEXT_FOLLOWS_FROM).max(0.0);
+        sum += NEXT_FOLLOWS_WEIGHT * f64::from(above);
+    }
+    judged(sum)
+}
+
+/// The probability a sum comes to, and its choice.
+fn judged(sum: f64) -> Judgement {
+    let probability = (1.0 / (1.0 + (-sum).exp())) as f32;
+    Judgement {
+        probability,
+        choice: Choice::at(probability),
+        from_rule: false,
+    }
+}
+
+/// [`combine`]'s weighted sum, before the logistic curve.
+fn sum(answers: &Answers, context: &Context) -> f64 {
     // With something listening for the name, the weights that were
     // fitted with that sign; with nothing listening, the ones without.
     let listening = context.name_heard.is_some();
@@ -461,12 +509,7 @@ pub fn combine(answers: &Answers, context: &Context) -> Judgement {
     if context.was_called() {
         sum += WITH_NAME.4;
     }
-    let probability = (1.0 / (1.0 + (-sum).exp())) as f32;
-    Judgement {
-        probability,
-        choice: Choice::at(probability),
-        from_rule: false,
-    }
+    sum
 }
 
 /// The judgement when no model answers: the rule the fitted weights were
@@ -733,6 +776,52 @@ mod tests {
             ..busy.clone()
         };
         assert!((logit(combine(&seven, &talking)) - plain + 0.206).abs() < 1e-4);
+    }
+
+    /// #1040, in shadow: in conversation, `follows_lamp` above 0.55 adds
+    /// three for each unit above it; below it, and out of conversation,
+    /// the judgement is today's, so it is never lower.
+    #[test]
+    fn the_next_judgement_raises_a_reply_to_the_lamp_in_conversation_only() {
+        let logit = |judged: Judgement| {
+            let p = f64::from(judged.probability);
+            (p / (1.0 - p)).ln()
+        };
+        let names: Vec<&str> = ASKED.iter().map(|(name, _, _)| *name).collect();
+        let follows = names
+            .iter()
+            .position(|name| *name == "follows_lamp")
+            .unwrap();
+        let with = |yes: f32| {
+            let mut seven = [0.07, 0.06, 0.28, 0.73, 0.06, 0.05, 0.09];
+            seven[follows] = yes;
+            answers(seven)
+        };
+        assert_eq!(with(0.82).of_name("follows_lamp"), 0.82);
+        assert_eq!(with(0.82).of_name("nothing_asked"), 0.0);
+        let mut talking = heard("And tomorrow?");
+        talking.room = Room::Busy;
+        talking.lamp_last_said = Some("It will rain tomorrow.".into());
+        talking.seconds_since_lamp_spoke = Some(2.0);
+        assert!(talking.in_conversation());
+        let raised =
+            logit(combine_next(&with(0.82), &talking)) - logit(combine(&with(0.82), &talking));
+        assert!((raised - 3.0 * 0.27).abs() < 1e-4, "{raised}");
+        // At or below 0.55, and out of conversation, nothing changes.
+        for yes in [0.55, 0.3, 0.0] {
+            assert_eq!(
+                combine_next(&with(yes), &talking),
+                combine(&with(yes), &talking)
+            );
+        }
+        let mut alone = talking.clone();
+        alone.lamp_last_said = None;
+        alone.seconds_since_lamp_spoke = None;
+        assert!(!alone.in_conversation());
+        assert_eq!(
+            combine_next(&with(0.95), &alone),
+            combine(&with(0.95), &alone)
+        );
     }
 
     #[test]

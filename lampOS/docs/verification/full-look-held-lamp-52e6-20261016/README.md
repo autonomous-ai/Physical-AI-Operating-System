@@ -1,6 +1,6 @@
 # A full look at things held up by a person, lamp-52e6, 2026-10-16
 
-lamp-52e6 was lent by the fifth builder from 07:44 to 08:01 +07. `lamp-voice` and `lamp-eyes` were built on the development Mac from `1a515c39f` with `cargo zigbuild --release --target aarch64-unknown-linux-gnu.2.36`. The head `523e32b52` differs from that build only by a comment. Voice SHA-256 `5a055c6a3fb899181d0db8e7c5fd286949eb00a659b87003824ef1b931140e2d`, eyes SHA-256 `ddbe583c9948cde166ad541760051f317853a57675cb622a2f05ce03cfe06200`.
+lamp-52e6 was lent by the fifth builder from 07:44 to 08:01 and from 08:22 to 08:26 +07. `lamp-voice` and `lamp-eyes` were built on the development Mac from `1a515c39f` with `cargo zigbuild --release --target aarch64-unknown-linux-gnu.2.36`. The head `523e32b52` differs from that build only by a comment. Voice SHA-256 `5a055c6a3fb899181d0db8e7c5fd286949eb00a659b87003824ef1b931140e2d`, eyes SHA-256 `ddbe583c9948cde166ad541760051f317853a57675cb622a2f05ce03cfe06200`.
 
 Each part ran from lamp-52e6's own unit with one drop-in:
 - voice: `LAMP_LOOK_FULL=on`, `LAMP_EYES_FULL_LOOK_FILE=/run/lampos-eyes/look.jpg`, and a copy of `provider.json` that names `lampOS/deploy/character/lamp.txt`. lamp-52e6's own instruction file says the lamp cannot see.
@@ -29,10 +29,20 @@ The person confirmed that every answer given from a still named what they were h
 - With no still (round 8), the lamp said it could not make the thing out rather than guess.
 - Every still fitted 64 KiB at 1024 by 768.
 
-**Not shown**
-- The head turning toward the person. `lamp-body` was down for the whole run. It stopped at 07:55:48, refusing restart with "base_yaw already carries load 212" after a servo cooled from 65 °C. So there were no joint states, and every still was taken at once ("the head waited for 0 ms").
-- Question → first word was not measured per request.
+**Not shown in this run.** The head turning toward the person: `lamp-body` was down for the whole run. It stopped at 07:55:48 and refused restart with "base_yaw already carries load 212". So there were no joint states, and every still was taken at once ("the head waited for 0 ms").
+
+**Second run, 08:22–08:26: the head turns first.** `lamp-body` was back on the fifth's unit (`04e02caf`, PR #952). Same build, same drop-ins, same question from the MacBook. The person sat well to one side of the lamp. Three rounds, three looks asked, three stills taken; the person saw the head turn to them.
+
+| Round | Head waited | Ask → still | What the lamp said |
+|---|---|---|---|
+| 1 | not logged | 953 ms | "Let me look." (the answer came after the round's window) |
+| 2 | 836 ms | 1,011 ms | "a small, dark cone-shaped tool with an orange band on it" |
+| 3 | 366 ms | 1,009 ms | "a light pink wireless computer mouse" |
+
+With the head turning, ask → still is about 1 s, because the settle wait (366–836 ms) comes before the frame.
+
+**Not shown:** question → first word, per request.
 
 **Privacy.** No picture left the lamp. `/run/lampos-eyes/look.jpg` was deleted at the end, and no copy was made. The answers above are the lamp's own words; the person is not named.
 
-**Restored** at 08:01. The drop-ins, the provider copy and the character copy were removed, and voice and eyes were restarted on their recorded units. `lamp-body` was not touched.
+**Restored** at 08:01, and again at 08:26 after the second run (the fifth's body drop-in left as it was). The drop-ins, the provider copy and the character copy were removed, and voice and eyes were restarted on their recorded units. `lamp-body` was not touched.

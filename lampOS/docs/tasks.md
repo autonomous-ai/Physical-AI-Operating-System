@@ -472,7 +472,13 @@ the lamp listed ten machines, the lamp itself among them ("current").
 
 `crates/voice/src/agent_tasks.rs`, off unless the voice's unit sets
 `LAMP_TASKS_DIR` (the directory holding `request.sock` and `voice.sock`;
-`LAMP_TASKS_TARGET` names the alias, `office` unless set). The model is told
+`LAMP_TASKS_TARGET` names the alias, `office` unless set). On a home lamp
+without Harness the tasks part is not started (its unit's
+`ConditionPathExists`, #811), so there is no `request.sock`: a call that
+would ask it is answered in light words the model can say, "I can't hand
+work on to another computer yet: that isn't set up on this lamp."
+(`agent_tasks::NOT_SET_UP`), not as a part that failed. A socket that is
+there but does not answer is still told as one not running. The model is told
 of two functions:
 
 - `start_agent_task(task)`: for computer work the person asks to have done

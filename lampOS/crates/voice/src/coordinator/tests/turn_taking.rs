@@ -1050,6 +1050,7 @@ fn service_socket(
         &mut 0,
         budget,
         &mut h.trace,
+        &mut None,
     )
     .unwrap()
 }
@@ -1083,7 +1084,8 @@ fn independent_speaker_socket_second_drain_catches_first_write_after_empty_check
             &mut snapshot,
             &mut 0,
             &mut budget,
-            &mut h.trace
+            &mut h.trace,
+            &mut None,
         )
         .unwrap()
     );
@@ -1167,7 +1169,8 @@ fn speaker_control_budget_exhaustion_defers_pending_candidate_and_fault_keeps_pr
             &mut snapshot,
             &mut 0,
             &mut budget,
-            &mut h.trace
+            &mut h.trace,
+            &mut None,
         )
         .unwrap_err()
         .to_string()

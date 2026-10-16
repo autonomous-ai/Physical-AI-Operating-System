@@ -119,12 +119,15 @@ impl ReceiptHistory {
             // and a capture gap revoke the speaker themselves, so the queued
             // audio it then drops is theirs: on 16 Oct at 12:20 a head tap
             // during a story ended the voice and it came back muted.
+            // An answer cut as the speaker's authority lapsed (#1178) is
+            // revoked by that cut too.
             expected_discard: matches!(
                 reason,
                 "user_interrupted"
                     | "provider_interrupted"
                     | "deadline_cancelled"
                     | "service_stopped"
+                    | "speaker_lapsed"
             ) || LOCAL_CANCELS.contains(&reason),
         });
         entry.terminal = true;

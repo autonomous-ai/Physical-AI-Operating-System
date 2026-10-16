@@ -59,6 +59,9 @@ fn busy_at_start(error: &lamp_audio::capture::CaptureError, since: &mut Option<I
 /// How long a microphone closed by a stall may stay closed before the
 /// worker gives up: the coordinator's own bound on a capture gap (#784).
 const REOPEN_US: u64 = 1_500_000;
+/// The longest the speaker stays up on a lapsed authority (#1178): the
+/// same bound, after which the voice has ended anyway (the reviewer on #1214).
+const LAPSE_MOST_US: u64 = REOPEN_US;
 /// A tick that comes this long after the last was held up.
 const HELD_UP: Duration = Duration::from_millis(50);
 /// What a held-up capture worker may read in one tick: snapshots come no
@@ -1066,8 +1069,10 @@ fn speaker_loop(
     let mut speech = SpeechPlayback::default();
     let mut last_sequence = 0;
     let mut flush_count = speaker.flush_count();
+    // Since when the authority has been lapsed, the speaker silent (#1178).
+    let mut lapsed_since: Option<u64> = None;
     channels.control.send(WorkerEvent::Ready)?;
-    loop {
+    'tick: loop {
         let tick = Instant::now();
         for index in 0..=MAX_CONTROL {
             let Some(control) = channels.control.receive::<Control>()? else {
@@ -1156,7 +1161,52 @@ fn speaker_loop(
                 }
             }
         }
-        speaker.maintain()?;
+        // #1178: held up past its lease (on lamp-4ace at midnight, the log
+        // sync loading the eMMC; a turn's lease is 100 ms) with nothing
+        // fresher queued, the authority has lapsed. That costs a gap, never
+        // the voice, as the provider workers skip a lapsed snapshot: the
+        // device stops, its reset is reported as after any discard, and
+        // nothing is written or primed until a fresh authority is installed
+        // above; then the clock is primed again, as after any reset.
+        if speaker.authority_lapsed() {
+            lapse(
+                channels,
+                speaker,
+                &mut output,
+                &mut flush_count,
+                &mut speech,
+                &mut pending,
+                recording,
+                &mut lapsed_since,
+            )?;
+            finish_tick(tick);
+            continue;
+        }
+        if let Some(since) = lapsed_since.take() {
+            eprintln!(
+                "lamp-voice speaker: a fresh authority after {} ms silent; going on",
+                monotonic_us().saturating_sub(since) / 1_000
+            );
+        }
+        // It may lapse during the tick too; the device has then stopped.
+        match speaker.maintain() {
+            Ok(()) => {}
+            Err(error) if lapsed(error.as_ref()) => {
+                lapse(
+                    channels,
+                    speaker,
+                    &mut output,
+                    &mut flush_count,
+                    &mut speech,
+                    &mut pending,
+                    recording,
+                    &mut lapsed_since,
+                )?;
+                finish_tick(tick);
+                continue 'tick;
+            }
+            Err(error) => return Err(error),
+        }
         if report_discard(channels, speaker, &mut output, &mut flush_count, recording)? {
             report_speech_reset(channels, &mut speech)?;
         }
@@ -1203,7 +1253,35 @@ fn speaker_loop(
                     output.privacy = Some(privacy_generation);
                 }
                 ReferenceControl::ReferencePrimed { prepared } => {
-                    let token = speaker.zero_authority()?;
+                    // The capture side's answer to a prime the speaker reset
+                    // before it came (a lapse during the handshake, #1178):
+                    // that epoch is gone, and its late answer starts nothing.
+                    // Taken, it ended the worker (`InvalidStart`; Ten on #1214).
+                    if prepared.playback_epoch < speaker.queued_range().epoch {
+                        eprintln!(
+                            "lamp-voice speaker: a late prime of epoch {} from before a reset is dropped",
+                            prepared.playback_epoch
+                        );
+                        continue;
+                    }
+                    let token = match speaker.zero_authority() {
+                        Ok(token) => token,
+                        Err(error) if lapsed(error.as_ref()) => {
+                            lapse(
+                                channels,
+                                speaker,
+                                &mut output,
+                                &mut flush_count,
+                                &mut speech,
+                                &mut pending,
+                                recording,
+                                &mut lapsed_since,
+                            )?;
+                            finish_tick(tick);
+                            continue 'tick;
+                        }
+                        Err(error) => return Err(error),
+                    };
                     let playback_epoch = output
                         .prime_barrier
                         .acknowledge(
@@ -1216,7 +1294,24 @@ fn speaker_loop(
                     // A host bound on the method call, not exact DAC start.
                     // Failed/expired starts return before any success receipt.
                     let start_requested_at_us = monotonic_us();
-                    let started_at_us = speaker.start_clock(token)?;
+                    let started_at_us = match speaker.start_clock(token) {
+                        Ok(at) => at,
+                        Err(error) if lapsed(error.as_ref()) => {
+                            lapse(
+                                channels,
+                                speaker,
+                                &mut output,
+                                &mut flush_count,
+                                &mut speech,
+                                &mut pending,
+                                recording,
+                                &mut lapsed_since,
+                            )?;
+                            finish_tick(tick);
+                            continue 'tick;
+                        }
+                        Err(error) => return Err(error),
+                    };
                     output.primed_at = None;
                     link.control.send(ReferenceControl::ClockStarted {
                         playback_epoch,
@@ -1240,7 +1335,24 @@ fn speaker_loop(
                 .into());
         }
         if output.privacy.is_some() && !speaker.clock_started() {
-            output.prime(speaker, link, recording)?;
+            match output.prime(speaker, link, recording) {
+                Ok(()) => {}
+                Err(error) if lapsed(error.as_ref()) => {
+                    lapse(
+                        channels,
+                        speaker,
+                        &mut output,
+                        &mut flush_count,
+                        &mut speech,
+                        &mut pending,
+                        recording,
+                        &mut lapsed_since,
+                    )?;
+                    finish_tick(tick);
+                    continue 'tick;
+                }
+                Err(error) => return Err(error),
+            }
         }
         if !speaker.clock_started() {
             finish_tick(tick);
@@ -1390,6 +1502,7 @@ fn speaker_loop(
                             turn: partial.chunk.permit.owner().turn(),
                             sequence: partial.chunk.chunk_sequence,
                             reason: error.to_string(),
+                            lapsed: lapsed(error.as_ref()),
                         })?;
                         pending = None;
                     }
@@ -1403,8 +1516,27 @@ fn speaker_loop(
                 && !wrote_speech
                 && (pending.is_none() || speaker.is_retiring_tail())
             {
-                let token = speaker.zero_authority()?;
-                let written = speaker.try_write_silence(token, RENDER_SAMPLES)?;
+                let written = match speaker
+                    .zero_authority()
+                    .and_then(|token| speaker.try_write_silence(token, RENDER_SAMPLES))
+                {
+                    Ok(written) => written,
+                    Err(error) if lapsed(error.as_ref()) => {
+                        lapse(
+                            channels,
+                            speaker,
+                            &mut output,
+                            &mut flush_count,
+                            &mut speech,
+                            &mut pending,
+                            recording,
+                            &mut lapsed_since,
+                        )?;
+                        finish_tick(tick);
+                        continue 'tick;
+                    }
+                    Err(error) => return Err(error),
+                };
                 if written.frames > 0 {
                     if let Some(recording) = recording {
                         let meta = recording.render(written, None, None);
@@ -1556,6 +1688,67 @@ fn report_fault(
         });
     }
 }
+/// Whether an error is the speaker's authority lapsing (#1178).
+fn lapsed(error: &(dyn std::error::Error + Send + Sync + 'static)) -> bool {
+    error.downcast_ref::<InteractionError>() == Some(&InteractionError::ExpiredState)
+}
+
+/// The speaker's authority lapsed (#1178): once a lapse, stop the device
+/// unless a check already has, report the reset as after any discard, and
+/// say so. Nothing is written until a fresh authority is installed.
+///
+/// What it was saying is lost, and the coordinator is told so in the forms
+/// it takes as a cut answer, never as a failed voice (the reviewer on
+/// #1214): queued speech is dropped by its own ownership check, which names
+/// its owner and the lapse (`PlaybackDiscarded`, `ExpiredState`), and the
+/// chunk not yet written in full is refused as lapsed (`PlaybackRejected`),
+/// so it is never written under its old permit after the fresh authority.
+#[allow(clippy::too_many_arguments)]
+fn lapse(
+    channels: &mut WorkerChannels,
+    speaker: &mut Speaker,
+    output: &mut ReferenceOutput,
+    flush_count: &mut u64,
+    speech: &mut SpeechPlayback,
+    pending: &mut Option<PendingChunk>,
+    recording: &mut Option<Recording>,
+    lapsed_since: &mut Option<u64>,
+) -> Result<()> {
+    if let Some(since) = *lapsed_since {
+        // Past the capture worker's own bound the voice has ended anyway,
+        // and a speaker whose coordinator is gone (its datagrams give no
+        // end) must not keep the device until systemd stops it.
+        if monotonic_us().saturating_sub(since) >= LAPSE_MOST_US {
+            return Err(InteractionError::ExpiredState.into());
+        }
+        return Ok(());
+    }
+    *lapsed_since = Some(monotonic_us());
+    match speaker.maintain() {
+        Ok(()) => {}
+        Err(error) if lapsed(error.as_ref()) => {}
+        Err(error) => return Err(error),
+    }
+    if speaker.flush_count() == *flush_count {
+        speaker.stop()?;
+    }
+    if report_discard(channels, speaker, output, flush_count, recording)? {
+        report_speech_reset(channels, speech)?;
+    }
+    if let Some(partial) = pending.take() {
+        channels.control.send(WorkerEvent::PlaybackRejected {
+            turn: partial.chunk.permit.owner().turn(),
+            sequence: partial.chunk.chunk_sequence,
+            reason: InteractionError::ExpiredState.to_string(),
+            lapsed: true,
+        })?;
+    }
+    eprintln!(
+        "lamp-voice speaker: its authority lapsed while it was held up; silent until a fresh one"
+    );
+    Ok(())
+}
+
 fn rejected_old_state(error: InteractionError) -> bool {
     matches!(
         error,

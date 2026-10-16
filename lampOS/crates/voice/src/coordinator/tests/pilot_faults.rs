@@ -1104,6 +1104,7 @@ impl Peers {
                 turn: owner.turn(),
                 sequence: chunk.chunk_sequence,
                 reason: "fixture guard refused the permit".into(),
+                lapsed: false,
             });
             return;
         }

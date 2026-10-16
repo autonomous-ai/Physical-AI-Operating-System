@@ -1688,6 +1688,7 @@ fn service_speaker_control(
     last_publish: &mut u64,
     remaining: &mut usize,
     trace: &mut SessionState,
+    lapsed: &mut Option<TurnOwner>,
 ) -> Result<bool> {
     while *remaining > 0 {
         let Some(event) = io.next_speaker_event()? else {
@@ -1861,24 +1862,44 @@ fn service_speaker_control(
                 turn,
                 sequence,
                 reason,
+                lapsed: refused_on_lapse,
             } => {
                 playback_mask.rejected(sequence, monotonic_us())?;
                 trace.receipts.rejected(sequence);
                 record(
                     trace,
-                    json!({"kind":"speaker_rejected","turn":turn,"sequence":sequence,"reason":reason,"at_us":monotonic_us()}),
+                    json!({"kind":"speaker_rejected","turn":turn,"sequence":sequence,"reason":reason,"lapsed":refused_on_lapse,"at_us":monotonic_us()}),
                 )?;
-                if reply.as_ref().is_some_and(|r| r.owner.turn() == turn) {
-                    return Err(io::Error::other("current reply rejected at speaker").into());
+                if let Some(current) = reply.as_ref().filter(|r| r.owner.turn() == turn) {
+                    if !refused_on_lapse {
+                        return Err(io::Error::other("current reply rejected at speaker").into());
+                    }
+                    // #1178: refused as the speaker's authority lapsed while
+                    // it was held up. The chunk is settled, and the answer is
+                    // cut by the caller, never the voice (the reviewer on #1214).
+                    if speaker_pending
+                        .as_ref()
+                        .is_some_and(|pending| pending.sequence == sequence)
+                    {
+                        *speaker_pending = None;
+                    }
+                    *lapsed = Some(current.owner);
                 }
             }
             event @ WorkerEvent::PlaybackDiscarded {
                 owner: old,
+                reason,
                 observed_at_us,
                 ..
             } => {
                 playback_mask.discarded(old, observed_at_us, monotonic_us())?;
+                let current = reply.as_ref().is_some_and(|r| r.owner == old);
                 handle_playback_discard(owner, reply, trace, event)?;
+                // #1178: the current answer's speech dropped as the
+                // speaker's authority lapsed: cut by the caller.
+                if current && reason == PlaybackDiscardReason::ExpiredState {
+                    *lapsed = Some(old);
+                }
             }
             WorkerEvent::ReferenceFault { fault } => {
                 record(
@@ -3450,6 +3471,9 @@ fn conversation_with_gate(
     let mut provider_queue = VecDeque::with_capacity(provider_queue_bound);
     let mut submission_draining = false;
     let mut speaker_pending: Option<PendingSpeaker> = None;
+    // The answer whose speech the speaker dropped as its authority lapsed
+    // (#1178), to be cut right after the speaker's reports are read.
+    let mut speaker_lapsed: Option<TurnOwner> = None;
     let mut speaker_sequence = 0u64;
     let mut hand_cancelled_through: Option<u64> = None;
     let mut snapshot = owner.snapshot(now())?;
@@ -3880,7 +3904,22 @@ fn conversation_with_gate(
             &mut last_publish,
             &mut speaker_control_budget,
             trace,
+            &mut speaker_lapsed,
         )?;
+        if let Some(lapsed) = speaker_lapsed.take()
+            && cut_after_speaker_lapse(
+                lapsed,
+                owner,
+                reply,
+                &mut provider_queue,
+                &mut speaker_pending,
+                trace,
+            )?
+        {
+            snapshot = owner.snapshot(now())?;
+            rig.publish(snapshot)?;
+            last_publish = monotonic_us();
+        }
         // Return through input/cancellation and speaker dispatch after at most
         // two cloud packets, even when more PCM is immediately available.
         // Render reference still goes directly between the audio workers.
@@ -4722,8 +4761,23 @@ fn conversation_with_gate(
                         &mut last_publish,
                         &mut speaker_control_budget,
                         trace,
+                        &mut speaker_lapsed,
                     )? {
                         continue;
+                    }
+                    if let Some(lapsed) = speaker_lapsed.take()
+                        && cut_after_speaker_lapse(
+                            lapsed,
+                            owner,
+                            reply,
+                            &mut provider_queue,
+                            &mut speaker_pending,
+                            trace,
+                        )?
+                    {
+                        snapshot = owner.snapshot(now())?;
+                        rig.publish(snapshot)?;
+                        last_publish = monotonic_us();
                     }
                     // In a room busy with other people's talk, what the
                     // lamp has just been asked is not dropped for the next
@@ -8573,7 +8627,11 @@ fn handle_playback_discard(
     if queued_frames == 0 || queued_frames > lamp_audio::ownership::MAX_QUEUED_FRAMES {
         return Err(io::Error::other("invalid playback discard frame count").into());
     }
-    let expected = reason == PlaybackDiscardReason::StaleOwner
+    // #1178: the speaker's authority lapsed while it was held up, and what
+    // it had queued is gone. That costs the answer (cut by the caller if it
+    // is the current one), never the voice (the reviewer on #1214).
+    let lapsed = reason == PlaybackDiscardReason::ExpiredState;
+    let expected = (reason == PlaybackDiscardReason::StaleOwner || lapsed)
         && !other_owners
         && reply
             .as_ref()
@@ -8584,9 +8642,9 @@ fn handle_playback_discard(
         json!({"kind":"playback_discarded","owner":affected,"turn":affected.turn(),
             "reason":reason,"queued_frames":queued_frames,"other_owners":other_owners,
             "observed_at_us":observed_at_us,"at_us":monotonic_us(),
-            "expected_cancellation":expected}),
+            "expected_cancellation":expected,"lapsed":lapsed}),
     )?;
-    if expected {
+    if expected || lapsed {
         return Ok(());
     }
     // The physical writer already stopped. Revoke any remaining output and end
@@ -8597,6 +8655,34 @@ fn handle_playback_discard(
         affected.turn()
     ))
     .into())
+}
+
+/// Why a reply is cut when the speaker's authority lapsed (#1178).
+const SPEAKER_LAPSED: &str = "speaker_lapsed";
+
+/// #1178: the speaker's authority lapsed while it was held up, and what
+/// `lapsed`'s answer had queued or waiting is gone. If it is still the
+/// current answer it is cut, as a reminder's lapsed lease cuts one: what is
+/// queued from the provider for it is dropped, and the voice goes on (the
+/// reviewer on #1214). Whether it was cut; the caller publishes.
+fn cut_after_speaker_lapse<T>(
+    lapsed: TurnOwner,
+    owner: &mut Controller,
+    reply: &mut Option<Reply>,
+    provider_queue: &mut VecDeque<T>,
+    speaker_pending: &mut Option<PendingSpeaker>,
+    trace: &mut SessionState,
+) -> Result<bool> {
+    if reply.as_ref().is_none_or(|current| current.owner != lapsed) {
+        return Ok(false);
+    }
+    eprintln!(
+        "lamp-voice: the speaker's authority lapsed while it was held up; its answer is cut, the voice goes on"
+    );
+    cancel_reply(owner, reply, trace, SPEAKER_LAPSED)?;
+    provider_queue.clear();
+    *speaker_pending = None;
+    Ok(true)
 }
 
 fn handle_playback_gap(
@@ -8674,6 +8760,7 @@ mod tests {
     mod second_route;
     mod service;
     mod service_mute;
+    mod speaker_lapse;
     mod speaker_tone;
     mod startup_cues;
     mod termination;

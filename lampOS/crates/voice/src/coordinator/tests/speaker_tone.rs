@@ -110,6 +110,7 @@ fn the_tone_plays_whole_through_the_speaker_path_and_its_turn_settles_with_no_pr
             &mut last_publish,
             &mut 16,
             &mut trace,
+            &mut None,
         )
         .unwrap();
         last = Some(chunk);
@@ -151,6 +152,7 @@ fn the_tone_plays_whole_through_the_speaker_path_and_its_turn_settles_with_no_pr
         &mut last_publish,
         &mut 16,
         &mut trace,
+        &mut None,
     )
     .unwrap();
     let current = reply.as_ref().unwrap();
@@ -407,6 +409,7 @@ fn play(
             &mut last_publish,
             &mut 16,
             &mut trace,
+            &mut None,
         )
         .unwrap();
         played += 240;
@@ -435,6 +438,7 @@ fn play(
             &mut last_publish,
             &mut 16,
             &mut trace,
+            &mut None,
         )
         .unwrap();
     }

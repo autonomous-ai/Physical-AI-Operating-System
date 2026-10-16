@@ -188,6 +188,9 @@ pub enum WorkerEvent {
         turn: u64,
         sequence: u64,
         reason: String,
+        /// Refused because the speaker's authority lapsed while it was
+        /// held up (#1178): the answer is cut, not the voice.
+        lapsed: bool,
     },
     PlaybackDiscarded {
         owner: TurnOwner,

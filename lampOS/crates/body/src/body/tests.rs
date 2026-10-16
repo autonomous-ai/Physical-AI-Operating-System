@@ -6608,3 +6608,61 @@ fn a_fault_while_lowering_the_shoulder_stands_whatever_its_hold() {
         "{report:?}"
     );
 }
+
+/// The seventh's 04:03 probe on #1192: the elbow, truly at 2049 with its
+/// goal register there, reads 2117 from the very first read. Its first goal
+/// is that reading; the next step asks it back to the register, 68 counts
+/// at once, and is refused. That ends the run at that step on `Window`,
+/// not tried again as a failed write.
+#[test]
+fn an_arm_goal_refused_in_a_step_ends_the_run_at_that_step() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(10));
+    lamp.overload_clears = 1;
+    for (servo, at) in lamp
+        .servos
+        .iter_mut()
+        .zip([2_028.0, 2_054.0, 2_049.0, 2_047.0, 1_948.0])
+    {
+        servo.position = at;
+        servo.goal = at as u16;
+        servo.status = 0;
+    }
+    // Wrong for the whole run: more reads than one entry gives.
+    lamp.misreads = vec![(Duration::ZERO, 2, 2_117, u8::MAX); 4];
+    let limits = Limits {
+        wake: true,
+        rest_glance: true,
+        look_at_name: true,
+        ..gesture_limits()
+    };
+    let report = run_alive(
+        &mut lamp,
+        &mut clock,
+        limits,
+        Some([1_950, 2_043, 2_015]),
+        Some(lamp_4ace_standing().idling(true)),
+        None,
+        || Some((Mood::Resting, 0)),
+        Asked::default,
+        |_| {},
+    );
+    let elbow: Vec<u16> = lamp
+        .goals
+        .iter()
+        .flatten()
+        .filter(|(id, _)| *id == 3)
+        .map(|(_, goal)| *goal)
+        .collect();
+    assert_eq!(elbow, [2_117], "{report:?}");
+    assert_eq!(
+        report.stop,
+        Stop::Window {
+            joint: 3,
+            goal: 2_049,
+            window: (1_627, 3_022),
+            from: 2_117,
+        },
+        "{report:?}"
+    );
+    assert_eq!(report.missed_reads, 0, "{report:?}");
+}

@@ -214,6 +214,9 @@ struct Reply {
     need: StartNeed,
     notice: NoticeDelivery,
     reminder: Option<crate::reminders::Receipt>,
+    /// A say asked of the voice ([`crate::say`], #939), answered when the
+    /// turn ends.
+    say: Option<crate::say::Ticket>,
     /// How loud the block last handed to the speaker is, for the ring's face.
     voice_level: u8,
 }
@@ -240,6 +243,27 @@ impl Reply {
         {
             reminder.completed();
         }
+    }
+
+    /// A say this turn was ([`crate::say`]) is answered as it ends:
+    /// `spoken` on the proof a reminder's acknowledgement takes, otherwise
+    /// `dropped` with what became of the turn.
+    fn answer_say(&mut self, speaker_pending: &Option<PendingSpeaker>, snapshot: Snapshot) {
+        let Some(say) = self.say.take() else {
+            return;
+        };
+        let spoken = self.settled(speaker_pending)
+            && snapshot.owner().is_none()
+            && snapshot.microphone_permission() == Permission::Allowed
+            && matches!(self.cloud.outcome, Some(RequestOutcome::Complete))
+            && self.had_audio
+            && self.playback_gaps == 0
+            && self.notice.origin() == SpeechOrigin::Provider;
+        say.answer(if spoken {
+            crate::say::Outcome::Spoken
+        } else {
+            crate::say::Outcome::Dropped(self.delivery_outcome().to_owned())
+        });
     }
 
     fn append_provider_audio(&mut self, samples: Vec<i16>, received_at_us: u64) {
@@ -2710,6 +2734,13 @@ fn conversation_with_gate(
     } else {
         None
     };
+    // What other parts ask the voice to say, skills first (#939,
+    // `LAMP_SAY=on`).
+    let mut says = if lifetime.continuous() {
+        crate::say::Says::from_environment()
+    } else {
+        None
+    };
     // The level under which sound is not speech, which may follow the room;
     // the speech blocks of the turn in hand and of the moment before it,
     // until it is known whether they were for the lamp; and the turn they
@@ -4453,6 +4484,7 @@ fn conversation_with_gate(
             rig.publish(snapshot)?;
             last_publish = monotonic_us();
             current.complete_reminder(&speaker_pending, snapshot);
+            current.answer_say(&speaker_pending, snapshot);
             record(
                 trace,
                 json!({"kind":"turn_finished","turn":turn,"generation":current.owner.generation(),"at_us":monotonic_us(),"outcome":current.delivery_outcome(),"playback_gaps":current.playback_gaps,
@@ -4820,6 +4852,63 @@ fn conversation_with_gate(
             )?;
             last_reminder_turn = reply.as_ref().map(|current| current.owner.turn());
             last_publish = monotonic_us();
+        }
+        // What another part asked the voice to say (#939): after a due
+        // reminder, before the hello and the news, through a reminder's
+        // gates and a quiet since the last turn that its priority sets.
+        if let Some(says) = says.as_mut() {
+            says.poll(clock);
+        }
+        let say_now_us = if says.is_some() {
+            monotonic_us()
+        } else {
+            clock
+        };
+        if let Some(says) = says.as_mut()
+            && let Some(quiet) = says.quiet_needed_us()
+            && clock.saturating_sub(last_turn_us) >= quiet
+            && reply.is_none()
+            && provider_queue.is_empty()
+            && speaker_pending.is_none()
+            && admission.idle_for_reminder()
+            && !submission_draining
+            && snapshot.listening_ready(MonoTime::from_micros(say_now_us))
+            && reminder_quiet(
+                say_now_us,
+                reminder_cycle_started_us,
+                last_speech_us,
+                last_capture,
+            )
+            && playback_mask.available(say_now_us)
+            && let Some(provider_session) = unasked_session(&cloud, paused)
+            && let Some((turn, priority, ticket)) = says.take()
+        {
+            eprintln!(
+                "lamp-voice: saying what the skill {} asked (priority {priority})",
+                ticket.skill()
+            );
+            record(
+                trace,
+                json!({"kind":"skill_says","at_us":say_now_us,"skill":ticket.skill(),"priority":priority,"provider_session":provider_session}),
+            )?;
+            snapshot = commit_written_turn(
+                owner,
+                reply,
+                &mut provider_queue,
+                &turn,
+                false,
+                "skill_says",
+                provider_session,
+                rig.playout_start,
+                trace,
+                |state| rig.publish(state),
+            )?;
+            last_publish = monotonic_us();
+            // Begun: the asker may move the body and the light with it.
+            ticket.begun(monotonic_us());
+            if let Some(current) = reply.as_mut() {
+                current.say = Some(ticket);
+            }
         }
         // The self-test's tone, when asked for and the lamp is at rest; a
         // request it cannot take now is answered with why.
@@ -5461,6 +5550,7 @@ fn commit_written_turn(
         playback_gaps: 0,
         notice: NoticeDelivery::default(),
         reminder: None,
+        say: None,
         last_provider_audio_at_us: None,
         start: playout_start.gate(),
         need: StartNeed::default(),
@@ -5556,6 +5646,7 @@ fn commit_admitted_input(
         playback_gaps: 0,
         notice: NoticeDelivery::default(),
         reminder: None,
+        say: None,
         last_provider_audio_at_us: None,
         start: playout_start.gate(),
         need: StartNeed::default(),
@@ -5653,6 +5744,7 @@ fn continue_after_early_end(
         playback_gaps: 0,
         notice: NoticeDelivery::default(),
         reminder: None,
+        say: None,
         last_provider_audio_at_us: None,
         start: playout_start.gate(),
         need: StartNeed::default(),
@@ -6084,6 +6176,10 @@ fn record_cancelled_reply(
     reason: &str,
     cancelled_at_us: u64,
 ) -> Result<()> {
+    let mut current = current;
+    if let Some(say) = current.say.take() {
+        say.answer(crate::say::Outcome::Dropped(reason.to_owned()));
+    }
     finish_duplex_yield(trace, cancelled_at_us, reason, None, None)?;
     trace
         .receipts
@@ -6273,6 +6369,7 @@ mod tests {
     mod provider_terminal;
     mod reminder_roundtrip;
     mod reminders;
+    mod say;
     mod second_route;
     mod service;
     mod service_mute;
@@ -6778,6 +6875,7 @@ mod tests {
                 playback_gaps: 0,
                 notice: NoticeDelivery::default(),
                 reminder: None,
+                say: None,
                 last_provider_audio_at_us: None,
                 start: StartGate::new(0),
                 need: StartNeed::default(),
@@ -7558,6 +7656,7 @@ mod tests {
             playback_gaps: 0,
             notice: NoticeDelivery::default(),
             reminder: None,
+            say: None,
             last_provider_audio_at_us: None,
             start: StartGate::new(0),
             need: StartNeed::default(),
@@ -7785,6 +7884,7 @@ mod tests {
             playback_gaps: 0,
             notice: NoticeDelivery::default(),
             reminder: None,
+            say: None,
             last_provider_audio_at_us: None,
             start: StartGate::new(0),
             need: StartNeed::default(),

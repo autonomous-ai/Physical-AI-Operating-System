@@ -332,6 +332,7 @@ pub(super) fn commit_tone_turn(
         playback_gaps: 0,
         notice: NoticeDelivery::tone(speaker_check::tone()),
         reminder: None,
+        say: None,
         last_provider_audio_at_us: None,
         start: playout_start.gate(),
         need: StartNeed::default(),

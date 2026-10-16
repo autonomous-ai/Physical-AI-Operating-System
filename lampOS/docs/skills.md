@@ -124,7 +124,8 @@ Its own process, its own owner, like every part
 1. **A say service in the voice**: `say {skill, note or text, priority,
    expires}`. The voice speaks it as a written turn through the gates it
    already has (pause, a person speaking, a conversation under way). The
-   hello, reminders and task news move onto it.
+   hello, reminders and task news move onto it. Built behind `LAMP_SAY=on`
+   ([speaking-first.md](speaking-first.md#asked-by-another-part-the-say-service-939)).
 2. **Arbitration at the parts that own the body, the light and the
    speaker**: every request carries its source, a priority and a lease that
    lapses unless renewed (Expression's leases already work this way). The

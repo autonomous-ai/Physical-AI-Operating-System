@@ -202,7 +202,84 @@ to the first thing a session hears has not been measured, and written
 lines in place of speech cannot measure it, since an uncalled written line
 is left alone with or without it.
 
+## Asked by another part: the say service (#939)
+
+Off unless `LAMP_SAY=on`. Another part of the lamp, `lamp-skills` first
+([skills.md](skills.md)), asks the voice to say something unprompted, and
+is told what became of it (`crates/voice/src/say.rs`). The hello, task
+news and reminders are to move onto it.
+
+**The socket** is `LAMP_SAY_SOCKET`, `/run/lampos-say/say.sock` if unset,
+in a directory of its own: the voice runs as root and its own runtime
+directory is closed to others. With `LAMP_SAY_GROUP` (a group's name, as in
+`/etc/group`) the directory is 0750 and the socket 0660, both that
+group's; without it both are the voice's user's alone (0700, 0600). A
+socket left by a voice that has gone is taken over; one that still answers
+is not. One JSON line in:
+
+    {"skill": "reminders", "note": "Remind them, in one short line, to call the bank.", "priority": 8, "expires_in_ms": 120000}
+
+- `skill`: 1 to 64 of `a-z`, `0-9`, `-` and `_`. Logged and traced only.
+- Exactly one of `note`, an instruction the model phrases (as the hello's
+  and the news'), and `text`, words to say as they are: the model is told
+  "Say exactly these words, in your own voice, and nothing else:" before
+  them. At most 900 bytes, no control characters.
+- `priority`, 0 to 9, 5 if left out: higher first, the oldest first among
+  equals.
+- `expires_in_ms`, 1 ms to an hour: not begun by then, it is `expired`.
+
+When the voice begins the turn, one line, so that the body and the light
+can move with the words (the first builder on #939):
+`{"event":"begun","at_us":…}`, the moment on the shared monotonic clock
+(`lamp_ipc::monotonic_us`) in microseconds; the first sound follows when
+the model's comes, about a second later. A say that is never begun has no
+such line. Then one line, once the outcome is known; the connection stays
+open until then:
+- `{"outcome":"spoken"}`: the turn completed with the model's audio played
+  whole, the proof a reminder's acknowledgement takes (complete, with
+  audio, no playback gaps, no owner left, the microphone allowed).
+- `{"outcome":"dropped","why":"…"}`: begun and not spoken: the reason the
+  turn was cancelled (`user_interrupted`, …), or what became of it
+  (`no_audio_answer`, `provider_failed`,
+  `audio_written_with_playback_gaps_unscored`). Never tried again here: the
+  asker decides.
+- `{"outcome":"expired"}`.
+- `{"outcome":"refused","why":"…"}`: a request that is not one (the reason
+  names the field and never repeats what was asked), no line within 1 s, 16
+  already waiting, or the voice going.
+
+**When it is said.** After a due reminder and before the hello and the
+news, through a reminder's gates: no reply owed or queued, the speaker
+free, nobody's utterance pending, the microphone's capture fresh and a
+second since the last speech, the playback mask free, a ready session and
+the keeper's pause off; and a quiet since the last turn of 15 s (as the
+news), or 1 s from priority 8 up (as a reminder). It is a written turn like
+the others (`skill_says` in the record, with the skill and the priority;
+never the words), the lamp's own turn to the attention rule and the
+Policy's hold. The Policy is not asked here: whoever asks the voice to
+speak has asked the Policy's gate first ([skills.md](skills.md)).
+
+**Most likely wrong:** a say of priority 8 or more in the second after a
+conversation's last turn: a reminder takes that second today, and a skill
+may not need it.
+
 ## Tests
+
+`say::tests`: a request read and checked, each refusal naming its field
+and never repeating what was asked; the highest priority first, then the
+oldest, the urgent needing a second's quiet and the rest fifteen; those
+not begun in time told `expired`; a ticket dropped unanswered told
+`dropped`; the answers one line each; the group found by its name; and
+through a real socket, an ask handed to the voice and its answer written
+back, begun first and spoken after, a bad one refused at once, the socket
+the voice user's alone, a
+second voice unable to take a socket still answered, the socket gone with
+the voice. `coordinator::tests::say`: through the real written turn and
+speaker control, two generations accepted and retired and the provider's
+completion `spoken` (not before the turn settles); a turn cut short by a
+person `dropped` as `user_interrupted`; one the model left silent `dropped`
+as `no_audio_answer`. The gates in the voice's loop are a reminder's, with
+no test of their own here: they are to be seen on lamp-4ace.
 
 `speak_up::tests`: one hello to someone back after five minutes and none
 while they stay an hour, looking away now and then; none for someone there

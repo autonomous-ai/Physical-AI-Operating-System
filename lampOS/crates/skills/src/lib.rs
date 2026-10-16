@@ -568,17 +568,23 @@ impl Engine {
         &self.skills
     }
 
-    /// Every topic a trigger or a condition names, once each.
+    /// Every topic a trigger or a condition names, and the faces a look at
+    /// a face reads, once each.
     pub fn topics(&self) -> Vec<String> {
         let mut topics: Vec<String> = self
             .skills
             .iter()
             .flat_map(|skill| {
+                let looks = skill
+                    .steps
+                    .iter()
+                    .any(|step| matches!(step, Call::Gaze { .. }));
                 skill
                     .triggers
                     .iter()
                     .map(|trigger| trigger.topic.clone())
                     .chain(skill.conditions.iter().map(|test| test.topic.clone()))
+                    .chain(looks.then(|| Faces::TOPIC.to_owned()))
             })
             .collect();
         topics.sort();

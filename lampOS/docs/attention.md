@@ -975,7 +975,15 @@ not held (the first builder, 05:57), nor is any other call:
   on 33 said to it, 0.29 on 46 not, the first builder's reading; at 0.6 or
   more, 17 of the 33 and 6 of the 46, against 19 and 14 at 0.5). A timer
   nobody asked for is a smaller harm than one asked for and not set, and
-  it can be cancelled by asking. A cancel is not let through:
+  it can be cancelled by asking. That 11:20 turn itself scored
+  `follows_lamp` 0.35, so it is still held at 0.6: this lets through 17 of
+  the 33 turns said to the lamp, not that one, and catching it on
+  `follows_lamp` alone would take 0.35, which lets through 28 of the 33 but
+  also 17 of the 46 not said to it (the reviewer on #1054). Only in
+  conversation: the lamp's sound must have gone out within 20 s before the
+  turn (`policy_holds::IN_CONVERSATION_US`, the Policy's own "in
+  conversation"); all 79 rows were in conversation, and out of it a high
+  `follows_lamp` is not measured (the reviewer on #1054). A cancel is not let through:
   `cancel_reminder` stays held as in any `stay_quiet`, since a wrong one
   is silent, nothing puts the reminder back, and the person finds out only
   when it does not come. At 0.6 about one turn in eight not said to the

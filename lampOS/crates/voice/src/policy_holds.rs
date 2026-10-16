@@ -56,7 +56,14 @@
 //!   be cancelled by asking. Not so `cancel_reminder`, which stays held: a
 //!   wrong cancel is silent, nothing puts the reminder back, and the person
 //!   finds out only when it does not come (Fourth on #1054). Until the
-//!   weights are fitted again (#1040).
+//!   weights are fitted again (#1040). The 11:20 turn itself scored
+//!   `follows_lamp` 0.35, so at 0.6 it is still held: this lets through 17
+//!   of the 33 turns said to the lamp, not that one; 0.35 would let through
+//!   28 of the 33 and 17 of the 46 not said to it (the reviewer on #1054).
+//!   And only in conversation: the lamp's sound went out within
+//!   [`IN_CONVERSATION_US`] before the turn, as the Policy counts it, since
+//!   all 79 rows were in conversation and a turn follows no line of the
+//!   lamp's when it has said none lately (the reviewer on #1054).
 //!
 //! Nothing of what was heard is read here: the decision's choice and its
 //! `follows_lamp` answer only.
@@ -78,6 +85,13 @@ pub const NAME_FROM: f32 = 0.9;
 /// 2026-10-16: 17 of the 33 said to the lamp and 6 of the 46 not are this
 /// high (0.5: 19 and 14; 0.7: 14 and 1).
 pub const FOLLOWS_FROM: f32 = 0.6;
+/// A `stay_quiet` is a reply to the lamp only if the lamp's sound went out
+/// within this before the turn: the Policy's own "in conversation"
+/// (`lamp_policy::attention::IN_CONVERSATION_SECONDS`, 20 s). All of the
+/// first builder's 79 rows were in conversation; out of it a high
+/// `follows_lamp` is not measured, and follows no line of the lamp's (the
+/// reviewer on #1054).
+pub const IN_CONVERSATION_US: u64 = 20_000_000;
 /// What the model is told of an action held.
 pub const HELD: &str = "Not done: it was not clear that was said to you. Say nothing at all.";
 /// Turns whose decisions are kept: some minutes' worth.

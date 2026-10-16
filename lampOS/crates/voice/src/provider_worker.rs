@@ -1227,6 +1227,9 @@ async fn serve_with_visual<C: Connect>(
     });
     desk.name_signal = options.name_signal;
     let mut attention = crate::attention::Attention::default();
+    // When the lamp's sound was last handed on: a turn follows the lamp's
+    // last line only if it spoke lately (#1054).
+    let mut lamp_spoke_us: Option<u64> = None;
     attention.check_sounds(sounds_checked);
     attention.ask_again_when_unclear(options.attention.is_some() && options.ask_unclear);
     attention.ignore_name_in_passing(options.name_in_passing_ignored);
@@ -1691,6 +1694,7 @@ async fn serve_with_visual<C: Connect>(
                         // a cancellation dropped before it went.
                         if let Some(Outbound::Output(ProviderOutput::Audio { request, .. })) = queue.front() {
                             attention.spoke(*request, monotonic_us());
+                            lamp_spoke_us = Some(monotonic_us());
                         }
                         queue.pop_front();
                     } else { break; }
@@ -1926,6 +1930,10 @@ async fn serve_with_visual<C: Connect>(
                                         && turn.name_score >= crate::policy_holds::NAME_FROM
                                 }),
                                 after_unanswered: attention.follows_an_unanswered_line(request),
+                                lamp_spoke_lately: lamp_spoke_us.is_some_and(|at| {
+                                    monotonic_us().saturating_sub(at)
+                                        <= crate::policy_holds::IN_CONVERSATION_US
+                                }),
                             });
                         desk.called(&provider, lineage, call, held, turn)
                     }
@@ -2079,6 +2087,10 @@ struct Turn {
     /// It follows a line someone said that the lamp left unanswered, not
     /// the lamp's own last words (#1054).
     after_unanswered: bool,
+    /// The lamp's sound went out within
+    /// [`crate::policy_holds::IN_CONVERSATION_US`] before it: without that
+    /// it follows no line of the lamp's (the reviewer on #1054).
+    lamp_spoke_lately: bool,
 }
 /// One of the lamp's actions kept for the turn's decision.
 struct Parked {
@@ -2489,9 +2501,12 @@ impl ToolDesk {
                 // A turn after someone else's line, left unanswered, follows
                 // that line, not the lamp's, whatever the model answered
                 // (#1054, the quiet-room case on #1090).
+                // Nor does one when the lamp has not spoken lately: out of
+                // conversation it follows no line of the lamp's (the reviewer
+                // on #1054).
                 .map(|verdict| match verdict {
                     crate::policy_holds::Verdict::StayQuietFollowing
-                        if parked.turn.after_unanswered =>
+                        if parked.turn.after_unanswered || !parked.turn.lamp_spoke_lately =>
                     {
                         crate::policy_holds::Verdict::StayQuiet
                     }

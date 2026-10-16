@@ -1,24 +1,26 @@
 ---
 name: stuffy-air
-description: While the air at the desk is stuffy, the lamp dims a shade (and, once it can, droops a little); it never speaks about it unasked.
+description: When the air at the desk has been stuffy for ten minutes, the lamp droops sleepily once and dims its light a shade until the air clears; never at night, never while someone talks to it, and it never speaks about it unasked.
 ---
 
 # Stuffy air
 
-**Not to be installed yet:** the lamp gives your light back as soon as its
-run ends, and cannot yet hold the dim while the air stays stuffy (`until`,
-#940), so it would only blink a shade darker.
+When the carbon dioxide at the desk has been above 1,200 ppm for ten
+minutes, the lamp droops once, slowly and sleepily, and dims its own light a
+shade. The light comes back up when the air is under 1,200 ppm again, or
+when the air sensor has said nothing for fifteen minutes. It never says a
+word about it on its own.
 
-When the air has been stuffy for about ten minutes and someone is at the
-desk, the lamp dims its light a shade for as long as the air stays stuffy,
-and comes back up when it clears. It never says a word about it on its own.
-Once the lamp can play moves of its own, it will also droop a little while
-the air is stuffy and stand up again when it clears.
+It does this once a stuffy spell. A short dip in between does not count: it
+does it again only after the air has stayed under 1,000 ppm for ten
+minutes. It keeps still at night (22:00 to 08:00, the lamp's local time)
+and while someone is talking to it: if the moment comes during a talk, it
+waits, and does it once the talk ends, within ten minutes.
 
 If someone talks to the lamp or asks about the air, it may say "it's getting
 stuffy in here, maybe open a window?" That comes from the voice's own air
 facts, not from this skill.
 
-If asked about it: "When the air gets stuffy I dim a little, so you might
-open a window. I won't nag you about it. If you'd rather I didn't, say so and
-it can be taken out."
+If asked about it: "When the air gets stuffy I get a little sleepy and dim a
+shade, so you might open a window. I won't nag you about it. If you'd rather
+I didn't, say so and it can be taken out."

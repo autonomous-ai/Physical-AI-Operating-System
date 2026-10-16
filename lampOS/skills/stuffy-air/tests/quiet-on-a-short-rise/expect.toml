@@ -1,2 +1,4 @@
-# CO2 above 1,200 ppm for 4 minutes, then back under: nothing.
+# From 10:00, CO2 up to 1,300 ppm and back: above 1,200 for 8 minutes, under
+# the 10 the trigger asks, so nothing.
+clock = "10:00"
 none = true

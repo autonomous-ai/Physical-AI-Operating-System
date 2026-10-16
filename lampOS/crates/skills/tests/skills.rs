@@ -491,10 +491,43 @@ fn the_program_on(
     wanted: usize,
     lighting: Ring,
 ) -> Seen {
-    the_program_timed(skill, skip, answers, level, faces, wanted, lighting, false)
+    the_program_timed(
+        skill,
+        skip,
+        answers,
+        level,
+        faces,
+        wanted,
+        (lighting, None),
+        false,
+    )
 }
 
-/// The same, with `on_the_host` on the lamp's own clock, not a test's.
+/// The same, and then, with `then`, nobody in view 300 ms after the faces:
+/// before it, the light as someone else set it, if one is given.
+fn the_program_then(
+    skill: &str,
+    skip: bool,
+    answers: &'static [&'static str],
+    level: u8,
+    faces: usize,
+    wanted: usize,
+    then: Option<Option<Light>>,
+) -> Seen {
+    the_program_timed(
+        skill,
+        skip,
+        answers,
+        level,
+        faces,
+        wanted,
+        (Ring::Off, then),
+        false,
+    )
+}
+
+/// The program, lighting as `lighting` says and then as `then` says, with
+/// `on_the_host` on the lamp's own clock, not a test's.
 #[allow(clippy::too_many_arguments)]
 fn the_program_timed(
     skill: &str,
@@ -503,7 +536,7 @@ fn the_program_timed(
     level: u8,
     faces: usize,
     wanted: usize,
-    lighting: Ring,
+    (lighting, then): (Ring, Option<Option<Light>>),
     on_the_host: bool,
 ) -> Seen {
     // Short: a socket's whole path has to fit in 103 bytes.
@@ -630,6 +663,17 @@ fn the_program_timed(
         )
         .unwrap();
         std::thread::sleep(Duration::from_millis(50));
+    }
+    if let Some(changed) = then {
+        std::thread::sleep(Duration::from_millis(300));
+        if let Some(light) = changed {
+            bus.publisher_declared("light/state", &Light::declaration(), "ring")
+                .unwrap()
+                .publish_json(1, &light)
+                .unwrap();
+        }
+        eyes.publish_json(1, &serde_json::json!({ "faces": [] }))
+            .unwrap();
     }
     // A held pose is said when the say begins and then every second of its
     // `for`: a second on at a time, each pose waited for, until a second
@@ -828,10 +872,11 @@ fn with_the_switch_and_nothing_to_take_it_the_light_is_left_and_the_run_says_why
 }
 
 #[test]
-fn a_dim_until_it_ends_stays_until_the_says_outcome_and_is_then_given_back() {
+fn a_dim_until_it_ends_stays_past_the_says_outcome_until_the_trigger_ends() {
     let until = DIMS.replace("{ dim = 1 }", "{ dim = 1, until = \"ends\" }");
     // The words take a while: two lines between the beginning and the end.
-    let seen = the_program_with(
+    // Nobody is in view before they end: the dim is given back after both.
+    let seen = the_program_then(
         &until,
         true,
         &[
@@ -843,6 +888,7 @@ fn a_dim_until_it_ends_stays_until_the_says_outcome_and_is_then_given_back() {
         3,
         1,
         4,
+        Some(None),
     );
     assert_eq!(seen.lights.len(), 2, "{:?}", seen.lights);
     assert!(seen.lights[0].contains("light_dimmer"), "{:?}", seen.lights);
@@ -855,7 +901,9 @@ fn a_dim_until_it_ends_stays_until_the_says_outcome_and_is_then_given_back() {
     assert!(seen.lit_at[0] < outcome && outcome < seen.lit_at[1]);
     let done = &seen.events[3].why;
     assert!(
-        done.contains("say: spoken; light given back to on blue at 3: done"),
+        done.contains(
+            "say: spoken; held until its trigger ended; light given back to on blue at 3: done"
+        ),
         "{done}"
     );
 }
@@ -1502,7 +1550,7 @@ fn a_reading_pose_is_held_on_the_mood_socket_for_its_for_and_then_let_go() {
         3,
         1,
         4,
-        Ring::Off,
+        (Ring::Off, None),
         true,
     );
     // Told at once when the say begins, then every second while it lasts:
@@ -3418,4 +3466,236 @@ fn the_program_dances_again_on_dance_again_but_not_on_a_noise() {
     let answer = call();
     assert_eq!(answer["ok"], true, "{answer}");
     assert_eq!(gesture(), r#"{"gesture":"acknowledge"}"#);
+}
+
+/// A dim held while someone is in view, given back when they go (#1021).
+const DIM_WHILE: &str = r#"
+[trigger]
+topic = "humans/faces/tracked"
+rearm = "leaves"
+[ask]
+policy = "nudge"
+[[do]]
+light = { dim = 1, until = "ends" }
+"#;
+
+#[test]
+fn a_dim_until_it_ends_is_held_and_given_back_when_the_trigger_ends() {
+    let seen = the_program_then(DIM_WHILE, true, &[], 3, 1, 4, Some(None));
+    let done = &seen.events[3];
+    assert_eq!(done.stage, SkillStage::Done, "{:?}", seen.events);
+    assert!(
+        done.why.contains("held until its trigger ended")
+            && done.why.contains("light given back to on blue at 3"),
+        "{}",
+        done.why
+    );
+    assert_eq!(seen.lights.len(), 2, "{:?}", seen.lights);
+    assert!(seen.lights[0].contains("light_dimmer"), "{:?}", seen.lights);
+    assert!(
+        seen.lights[1].contains("light_brighter"),
+        "{:?}",
+        seen.lights
+    );
+}
+
+/// With the ring asked (#1132), a dim held until its trigger ends is asked
+/// of the ring, kept while it holds, and given back the same way.
+#[test]
+fn a_dim_until_it_ends_asked_of_the_ring_is_given_back_when_the_trigger_ends() {
+    let seen = the_program_timed(
+        DIM_WHILE,
+        true,
+        &[],
+        3,
+        1,
+        4,
+        (Ring::Asked, Some(None)),
+        false,
+    );
+    assert!(seen.lights.is_empty(), "{:?}", seen.lights);
+    let done = &seen.events[3].why;
+    assert!(done.contains("held until its trigger ended"), "{done}");
+    assert!(seen.requests.len() >= 2, "{:?}", seen.requests);
+    let (asked, back) = (&seen.requests[0], seen.requests.last().unwrap());
+    assert_eq!(asked.light, Light::new(true, "blue", 2).unwrap());
+    assert!(
+        !back.claim.holds_at("boot-test", lamp_ipc::monotonic_us()),
+        "{back:?}"
+    );
+}
+
+#[test]
+fn a_light_someone_changed_while_it_was_held_is_left_as_it_is() {
+    let theirs = Light::new(true, "red", 5).unwrap();
+    let seen = the_program_then(DIM_WHILE, true, &[], 3, 1, 4, Some(Some(theirs)));
+    let done = &seen.events[3];
+    assert!(
+        done.why
+            .contains("changed meanwhile or not known, so left as it is"),
+        "{}",
+        done.why
+    );
+    assert_eq!(seen.lights.len(), 1, "{:?}", seen.lights);
+}
+
+/// Stuffy air's trigger and quiet hours, as #1021 asks, with no condition.
+const STUFFY: &str = r#"
+[trigger]
+topic = "air/state"
+field = "co2_ppm"
+above = 1200
+for = "10m"
+gap = "1m"
+rearm = { below = 1000, for = "10m" }
+[quiet]
+from = "22:00"
+to = "08:00"
+[ask]
+policy = "nudge"
+[[do]]
+body = { gesture = "sleepy" }
+light = { dim = 1, until = "ends" }
+"#;
+
+/// CO2 each minute from `from` up to `to` minutes, as (minute, ppm).
+fn co2(from: u64, to: u64, ppm: u32) -> Vec<(u64, u32)> {
+    (from..to).map(|minute| (minute, ppm)).collect()
+}
+
+/// The minute of each run of `skill` and its calls, the engine told it is
+/// `clock` (minutes since local midnight) at the first message, if given.
+fn stuffy_runs(skill: &Path, air: &[(u64, u32)], clock: Option<u64>) -> Vec<(u64, Vec<Call>)> {
+    let mut engine = Engine::new(vec![load(skill).unwrap()], true);
+    if let Some(clock) = clock {
+        engine.clock(0, 0, clock * 60_000);
+    }
+    let mut runs = Vec::new();
+    for (minute, ppm) in air {
+        let payload = format!(r#"{{"co2_ppm":{ppm}}}"#);
+        for run in engine.observe("air/state", minute * 60_000_000, payload.as_bytes(), None) {
+            runs.push((*minute, run.calls));
+        }
+    }
+    runs
+}
+
+#[test]
+fn a_rearm_line_waits_for_the_field_to_stay_past_it_for_a_while() {
+    let dir = tempfile::tempdir().unwrap();
+    let skill = skill_with(dir.path(), "stuffy", STUFFY);
+    let droop = vec![
+        Call::Gesture("sleepy".into()),
+        Call::Dim {
+            steps: 1,
+            until_ends: true,
+        },
+    ];
+    // A spell, 9 minutes under 1,000, a spell: once, as the line was not
+    // held for 10 minutes. The end of the spell that ran gives back what it
+    // held; the spell that did not has nothing to give back.
+    let mut air = co2(0, 30, 1300);
+    air.extend(co2(30, 39, 900));
+    air.extend(co2(39, 70, 1300));
+    air.extend(co2(70, 80, 900));
+    let runs = stuffy_runs(&skill, &air, Some(600));
+    assert_eq!(runs, [(10, droop.clone()), (30, vec![Call::Ends])]);
+    // Ten minutes under 1,000: the next spell has its own.
+    let mut air = co2(0, 30, 1300);
+    air.extend(co2(30, 41, 900));
+    air.extend(co2(41, 70, 1300));
+    air.extend(co2(70, 72, 900));
+    let runs = stuffy_runs(&skill, &air, Some(600));
+    let minutes: Vec<u64> = runs.iter().map(|run| run.0).collect();
+    assert_eq!(minutes, [10, 30, 51, 70], "{runs:?}");
+    assert_eq!(runs[2].1, droop);
+}
+
+#[test]
+fn quiet_hours_keep_a_skill_still_and_so_does_a_time_of_day_not_known() {
+    let dir = tempfile::tempdir().unwrap();
+    let skill = skill_with(dir.path(), "stuffy", STUFFY);
+    let air = co2(0, 30, 1300);
+    // From 21:55, the tenth minute is 22:05: nothing, and nothing to end.
+    let mut ending = air.clone();
+    ending.extend(co2(30, 35, 800));
+    assert!(stuffy_runs(&skill, &ending, Some(21 * 60 + 55)).is_empty());
+    // From 07:55, 08:05 is past the night.
+    assert_eq!(stuffy_runs(&skill, &air, Some(7 * 60 + 55)).len(), 1);
+    // Past midnight, from 01:00: nothing.
+    assert!(stuffy_runs(&skill, &air, Some(60)).is_empty());
+    // The time of day not known: never.
+    assert!(stuffy_runs(&skill, &air, None).is_empty());
+    // A skill without quiet hours needs no clock.
+    let always = skill_with(
+        dir.path(),
+        "always",
+        &STUFFY.replace("[quiet]\nfrom = \"22:00\"\nto = \"08:00\"\n", ""),
+    );
+    assert_eq!(stuffy_runs(&always, &air, None).len(), 1);
+}
+
+#[test]
+fn the_loader_refuses_a_rearm_line_quiet_hours_or_an_end_it_cannot_use() {
+    let dir = tempfile::tempdir().unwrap();
+    let triggered = STUFFY.split("[[do]]").next().unwrap();
+    for (from, to, why) in [
+        (
+            "rearm = { below = 1000, for = \"10m\" }",
+            "rearm = { below = 1000, above = 1300 }",
+            "one line",
+        ),
+        (
+            "rearm = { below = 1000, for = \"10m\" }",
+            "rearm = \"never\"",
+            "\"leaves\", \"ends\" or",
+        ),
+        ("from = \"22:00\"", "from = \"10pm\"", "not a time of day"),
+        ("to = \"08:00\"", "to = \"24:00\"", "not a time of day"),
+        ("to = \"08:00\"", "to = \"22:00\"", "different times"),
+        (triggered, "tool = \"droop\"\n", "the end of a trigger"),
+    ] {
+        assert!(STUFFY.contains(from), "{from}");
+        let skill = skill_with(
+            &dir.path().join(why.replace([' ', '"', ','], "_")),
+            "stuffy",
+            &STUFFY.replace(from, to),
+        );
+        let error = load(&skill).unwrap_err();
+        assert!(error.contains(why), "{to}: {error}");
+    }
+    // A rearm line needs a trigger with a field.
+    let skill = skill_with(
+        &dir.path().join("faces"),
+        "faces",
+        &DIM_WHILE.replace("rearm = \"leaves\"", "rearm = { below = 1 }"),
+    );
+    assert!(load(&skill).unwrap_err().contains("one line"));
+}
+
+const MINUTE: u64 = 60_000_000;
+
+#[test]
+fn a_held_run_ends_when_its_trigger_value_expires_or_its_topic_goes_silent() {
+    let dir = tempfile::tempdir().unwrap();
+    let skill = skill_with(dir.path(), "stuffy", STUFFY);
+    let high = br#"{"co2_ppm":1300}"#;
+    for (expires_ms, ends_after) in [(Some(120_000), 2), (None, 15)] {
+        let mut engine = Engine::new(vec![load(&skill).unwrap()], true);
+        engine.clock(0, 0, 600 * 60_000);
+        let mut ran = 0;
+        for minute in 0..30 {
+            ran += engine
+                .observe("air/state", minute * MINUTE, high, expires_ms)
+                .len();
+        }
+        assert_eq!(ran, 1);
+        // The last reading at minute 29: still held a minute before its end.
+        assert!(engine.tick((29 + ends_after - 1) * MINUTE).is_empty());
+        let ended = engine.tick((29 + ends_after) * MINUTE);
+        assert_eq!(ended.len(), 1, "{expires_ms:?}");
+        assert_eq!(ended[0].calls, [Call::Ends]);
+        // Once.
+        assert!(engine.tick((29 + ends_after + 5) * MINUTE).is_empty());
+    }
 }

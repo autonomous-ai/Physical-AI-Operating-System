@@ -9,11 +9,12 @@ use lamp_msgs::{
 };
 use lamp_skills::glow::{GLOW_EVERY, Glow, Glows, REQUESTS_ENVIRONMENT};
 use lamp_skills::{
-    Admission, CLIP_GAP_US, Call, Engine, clip_us, clock, duration_us, load_all, run_tests, told,
-    tools_file,
+    Admission, CLIP_GAP_US, Call, Engine, Run, clip_us, clock, duration_us, load_all, run_tests,
+    told, tools_file,
 };
 use serde_json::json;
 use std::{
+    cell::RefCell,
     collections::{HashMap, HashSet},
     io::{self, BufRead, BufReader, Read, Write},
     os::unix::{
@@ -29,6 +30,7 @@ use std::{
 const USAGE: &str = "usage: lamp-skills [--dir DIR] [--bus-root DIR] [--gaze-socket PATH] \
                      [--mood-socket PATH] [--actions-socket PATH] [--say-socket PATH] \
                      [--tools-dir DIR] [--boot-id ID] [--clock-control PATH]\n       \
+                     [--utc-offset-minutes N]\n       \
                      lamp-skills test SKILL_DIR...";
 /// How often the folder is looked at for a change.
 const RELOAD_EVERY: Duration = Duration::from_secs(2);
@@ -78,6 +80,7 @@ fn main() -> ExitCode {
     let mut tools = None;
     let mut boot_id = None;
     let mut clock_control = None;
+    let mut offset = None;
     let mut sockets = Sockets {
         gaze: "/run/lampos-body/gaze.sock".into(),
         mood: "/run/lampos-body/mood.sock".into(),
@@ -90,6 +93,18 @@ fn main() -> ExitCode {
             eprintln!("{USAGE}");
             return ExitCode::from(2);
         };
+        if flag == "--utc-offset-minutes" {
+            // The lamp's local time east of UTC, as the Policy and
+            // Expression take it: a skill's quiet hours need it.
+            match value.parse::<i32>() {
+                Ok(minutes) if (-720..=840).contains(&minutes) => offset = Some(minutes),
+                _ => {
+                    eprintln!("--utc-offset-minutes is a whole number from -720 to 840");
+                    return ExitCode::from(2);
+                }
+            }
+            continue;
+        }
         let value = PathBuf::from(value);
         match flag.as_str() {
             "--dir" => dir = value,
@@ -114,6 +129,7 @@ fn main() -> ExitCode {
         light_requests: std::env::var(REQUESTS_ENVIRONMENT).is_ok_and(|value| value == "on"),
         boot_id,
         clock_control,
+        utc_offset_minutes: offset,
     };
     match serve(&dir, root, &sockets, &options) {
         Ok(()) => ExitCode::SUCCESS,
@@ -232,6 +248,8 @@ struct Options {
     /// `--clock-control`: a test's socket to skip the program's clock
     /// ([`clock_control`]).
     clock_control: Option<PathBuf>,
+    /// `--utc-offset-minutes`: the lamp's local time, for quiet hours.
+    utc_offset_minutes: Option<i32>,
 }
 
 /// A skip of the clock asked on `--clock-control`, and where to say it is
@@ -389,6 +407,8 @@ fn serve(
         finished,
         bus: bus.clone(),
         glows,
+        ends: RefCell::new(HashMap::new()),
+        utc_offset_minutes: options.utc_offset_minutes,
     };
     let (ask, asks) = mpsc::channel::<ToolAsk>();
     if let Some(tools) = tools {
@@ -539,6 +559,10 @@ fn serve(
                 );
             }
         }
+        // A held run whose trigger topic went silent ends.
+        for run in engine.tick(clock::now_us()) {
+            handle(run, &mut busy, &mut out, &runner);
+        }
     }
 }
 
@@ -574,9 +598,13 @@ fn observe(
 ) {
     // Received now, on the program's clock: the publisher's own stamps are
     // on its clock, not this one.
+    let now_us = clock::now_us();
+    if let Some(offset) = runner.utc_offset_minutes {
+        engine.clock(offset, now_us, unix_ms());
+    }
     let runs = engine.observe(
         &message.header.topic,
-        clock::now_us(),
+        now_us,
         &message.payload,
         message.header.expires_ms,
     );
@@ -594,9 +622,26 @@ fn observe(
                 &mut asking.waiting,
                 out,
             );
-        } else if !run.calls.is_empty() {
-            let _ = start(run.skill, run.calls, busy, out, runner);
+        } else {
+            handle(run, busy, out, runner);
         }
+    }
+}
+
+/// A run the engine made: its events published, and its calls started, or
+/// its held run told that its trigger ended.
+fn handle(run: Run, busy: &mut HashSet<String>, out: &mut Publisher, runner: &Runner) {
+    for event in run.events {
+        publish(out, event);
+    }
+    if run.calls == [Call::Ends] {
+        // Its run, waiting, gives back what it held. Dropping the sender
+        // ends the wait as well.
+        if let Some(end) = runner.ends.borrow_mut().remove(&run.skill) {
+            let _ = end.send(());
+        }
+    } else if !run.calls.is_empty() {
+        let _ = start(run.skill, run.calls, busy, out, runner);
     }
 }
 
@@ -607,6 +652,17 @@ struct Runner {
     bus: Bus,
     /// With `LAMP_LIGHT_REQUESTS=on`, how a skill's light is asked of the ring.
     glows: Option<Glows>,
+    /// By skill, the run that holds something until its trigger ends.
+    ends: RefCell<HashMap<String, mpsc::Sender<()>>>,
+    /// The lamp's local time east of UTC, for quiet hours.
+    utc_offset_minutes: Option<i32>,
+}
+
+/// Milliseconds since the Unix epoch, by the wall clock.
+fn unix_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .map_or(0, |since| since.as_millis() as u64)
 }
 
 /// Starts one run of `skill`, unless its last is still under way.
@@ -643,8 +699,33 @@ fn start(
         runner.glows.clone(),
     );
     let before = light_now(&bus);
+    // A run that holds something until its trigger ends waits for the end.
+    let end = calls
+        .iter()
+        .any(|call| {
+            matches!(
+                call,
+                Call::Dim {
+                    until_ends: true,
+                    ..
+                }
+            )
+        })
+        .then(|| {
+            let (end, ended) = mpsc::channel();
+            runner.ends.borrow_mut().insert(skill.clone(), end);
+            ended
+        });
     std::thread::spawn(move || {
-        let why = perform(&skill, &calls, &sockets, &bus, before, glows.as_ref(), made);
+        let why = perform(
+            &skill,
+            &calls,
+            &sockets,
+            &bus,
+            before,
+            glows.as_ref(),
+            (made, end),
+        );
         let _ = finished.send(SkillEvent {
             skill,
             stage: SkillStage::Done,
@@ -1028,7 +1109,9 @@ fn perform(
     bus: &Bus,
     before: Option<Light>,
     glows: Option<&Glows>,
-    made: mpsc::Sender<()>,
+    // Told once the body and the light are made, and, for a dim held until
+    // its trigger ends, told that end.
+    (made, end): (mpsc::Sender<()>, Option<mpsc::Receiver<()>>),
 ) -> String {
     let is_light = |call: &Call| matches!(call, Call::Light { .. } | Call::Dim { .. });
     let mut said = Vec::new();
@@ -1141,13 +1224,41 @@ fn perform(
     if let Some(last) = &played.last {
         clock::sleep(last.until().saturating_duration_since(clock::now()));
     }
+    // A dim held until its trigger ends waits for that end, however long,
+    // the ring's request renewed meanwhile when it is asked of the ring.
+    let held = end.filter(|_| changed.dimmed > 0 && (glow.is_some() || before.is_some()));
+    let held_until_ends = held.is_some();
+    if let Some(end) = held {
+        let _ = end.recv();
+        said.push("held until its trigger ended".into());
+    }
     match glow {
         Some(glow) => said.extend(glow.give_back()),
         None => {
             if let Some(before) = before
                 && (changed.coloured || changed.dimmed > 0)
             {
-                said.push(give_back(&before, light_now(bus), sockets));
+                // Held until its trigger ended: given back only if the
+                // light is still as this run left it.
+                // After a long hold, the newest light said, however old.
+                let now = if held_until_ends {
+                    bus.latest(Light::TOPICS[1])
+                        .ok()
+                        .flatten()
+                        .and_then(|message| message.parse::<Light>().ok())
+                } else {
+                    light_now(bus)
+                };
+                let left = |now: &Light| {
+                    now.on
+                        && now.colour == before.colour
+                        && now.level == before.level.saturating_sub(changed.dimmed).max(1)
+                };
+                if held_until_ends && !now.as_ref().is_some_and(left) {
+                    said.push("light: changed meanwhile or not known, so left as it is".into());
+                } else {
+                    said.push(give_back(&before, now, sockets));
+                }
             }
         }
     }
@@ -1483,8 +1594,8 @@ fn make(call: &Call, sockets: &Sockets, bus: &Bus) -> String {
             }
             said
         }
-        // Held until the run ends, `until = "ends"` or not: `perform` gives
-        // it back then.
+        // Given back by `perform`: when the run ends, or with
+        // `until = "ends"` when its trigger stops holding.
         Call::Dim { steps, .. } => (0..*steps)
             .map(|_| actions("dim", "light_dimmer", json!({})))
             .collect::<Vec<_>>()
@@ -1511,6 +1622,7 @@ fn make(call: &Call, sockets: &Sockets, bus: &Bus) -> String {
         Call::Sound { .. } => "sound: made by its own step".into(),
         Call::Look => "look: the voice's, asked in the call's answer".into(),
         Call::AfterSay => "after the say".into(),
+        Call::Ends => "its trigger ended".into(),
     }
 }
 

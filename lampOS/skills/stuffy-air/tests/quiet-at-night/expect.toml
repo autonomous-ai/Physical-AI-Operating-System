@@ -1,0 +1,4 @@
+# The same spell as once-a-spell, from 23:00: within the quiet hours, so
+# nothing.
+clock = "23:00"
+none = true

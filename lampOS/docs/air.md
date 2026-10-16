@@ -65,9 +65,9 @@ it reads `air/state` every five seconds; once the air has felt stuffy (or
 very stuffy) for ten minutes, the model is told so beside the next thing a
 person says to the lamp, in a room that is not busy, with leave to suggest
 a window once if it fits; not again for three hours. A reading older than
-30 s counts as no reading. Still to build: the quiet droop and dimmer eye
-before anything is said (Expression, with the eye, #712, and the idle
-layer, #714).
+30 s counts as no reading. The quiet droop and the light a shade dimmer
+are the Stuffy air skill (`skills/stuffy-air`, #1021, `docs/skills.md`),
+off unless installed and not yet run on a lamp.
 
 ## Not shown
 

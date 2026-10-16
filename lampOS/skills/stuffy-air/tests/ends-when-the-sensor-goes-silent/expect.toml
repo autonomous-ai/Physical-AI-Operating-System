@@ -1,0 +1,22 @@
+# From 10:00, CO2 up to 1,400 ppm and held there, and the sensor says nothing
+# after minute 59.5 (its readings name no expiry). It droops and dims at 31.5;
+# the dim ends 15 minutes after the last reading (74.5), at the next message
+# of any topic in the replay (a `voice/state` each minute from 60).
+clock = "10:00"
+
+[[expect]]
+at = "1890s"
+within = "30s"
+call = "body.gesture"
+args = { gesture = "sleepy" }
+
+[[expect]]
+at = "1890s"
+within = "30s"
+call = "light"
+args = { dim = 1, until = "ends" }
+
+[[expect]]
+at = "4470s"
+within = "30s"
+call = "ends"

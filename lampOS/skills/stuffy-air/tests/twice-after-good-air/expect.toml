@@ -1,0 +1,38 @@
+# Two spells from 10:00 with 20 minutes at 700 ppm between them (the air
+# under 1,000 for well over 10 minutes): each droops and dims once, and each
+# gives the light back as the air clears.
+clock = "10:00"
+
+[[expect]]
+at = "1890s"
+within = "30s"
+call = "body.gesture"
+args = { gesture = "sleepy" }
+
+[[expect]]
+at = "1890s"
+within = "30s"
+call = "light"
+args = { dim = 1, until = "ends" }
+
+[[expect]]
+at = "5970s"
+within = "30s"
+call = "ends"
+
+[[expect]]
+at = "10290s"
+within = "30s"
+call = "body.gesture"
+args = { gesture = "sleepy" }
+
+[[expect]]
+at = "10290s"
+within = "30s"
+call = "light"
+args = { dim = 1, until = "ends" }
+
+[[expect]]
+at = "14370s"
+within = "30s"
+call = "ends"

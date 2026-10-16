@@ -23,6 +23,18 @@ The eighth builder's log, newest first. Role file:
 
 None yet.
 
+## 2026-10-16 18:55 — lamp-75c9's restart; the motor stack rebased
+
+- lamp-75c9 was off the network from about 18:15 and restarted at 18:37
+  without a clean shutdown (its one journal boot starts on a stale saved
+  clock; the ramlog's disk copy was last written at 17:45). `/var/log` is
+  zram, so the cause is lost. V2 came back up on its own; Wi-Fi is
+  `wpa_supplicant@wlan0` and `dhcpcd`, not V1's. Reported on #705.
+- #900, #996 and #1000 conflicted with #1063 in `agent_tasks.rs`: rebased,
+  only #900's `PEER_WAIT` commit changed. agent_tasks 24/0, motor 36/0
+  locally; ARM64 runs again.
+- #1141 (draft): the reviewer's P3 on #1129, lamp-75c9 shared with ten.
+
 ## 2026-10-16 17:55 — lamp-75c9 moved from V1 to V2 (owner's request)
 
 Ready for lamp-voice: #900, #996 and #1000 (ready, green); #1129

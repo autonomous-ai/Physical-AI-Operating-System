@@ -209,7 +209,7 @@ fn reminder_text_is_quoted_data_and_lateness_is_preserved_with_no_picture() {
                 privacy_generation: generation(&handoff),
                 text: text.into(),
                 late: true,
-                late_by_ms: Some(1234),
+                late_by_ms: Some(7 * 60_000 + 20_000),
             },
             NOW,
             &sink,
@@ -219,7 +219,10 @@ fn reminder_text_is_quoted_data_and_lateness_is_preserved_with_no_picture() {
     let note = &notes[0].2;
     let data: serde_json::Value =
         serde_json::from_str(note.split_once("Reminder data: ").unwrap().1).unwrap();
-    assert_eq!(data, json!({"text":text,"late":false}));
+    assert_eq!(
+        data,
+        json!({"text":text,"late":true,"late_by":"about 7 minutes"})
+    );
     assert!(note.len() < 2200);
     assert!(!handoff.submitted.unwrap().open);
 }

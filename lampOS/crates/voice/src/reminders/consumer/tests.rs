@@ -1270,6 +1270,9 @@ fn the_journal_says_what_became_of_each_due_item_once_per_change() {
     )
     .unwrap();
     for _ in 0..3 {
+        // Past the pacing after a settlement, so each tick reaches `held()`
+        // (the reviewer on #1081: without this the check could not fail).
+        held.next_offer_us = 0;
         let now = lamp_ipc::monotonic_us();
         let report = due(&engine.lock().unwrap(), now);
         held.tick(&socket.path(), Some(&report), now).unwrap();

@@ -82,15 +82,14 @@ const ON_TIME_MS: u64 = 3 * 60_000;
 
 /// The words for a delay of `ms`, rounded as a person would say it.
 fn delay(ms: u64) -> String {
-    let minutes = (ms + 30_000) / 60_000;
-    let hours = (ms + 1_800_000) / 3_600_000;
-    let days = (ms + 43_200_000) / 86_400_000;
-    let (count, unit) = if minutes < 90 {
-        (minutes, "minute")
-    } else if hours < 36 {
-        (hours, "hour")
+    // The unit from the delay itself, then one rounding in it, so 89.9
+    // minutes is not "about 1 hour" (the reviewer on #1081).
+    let (count, unit) = if ms < 90 * 60_000 {
+        ((ms + 30_000) / 60_000, "minute")
+    } else if ms < 36 * 3_600_000 {
+        ((ms + 1_800_000) / 3_600_000, "hour")
     } else {
-        (days, "day")
+        ((ms + 43_200_000) / 86_400_000, "day")
     };
     format!("about {count} {unit}{}", if count == 1 { "" } else { "s" })
 }
@@ -184,6 +183,11 @@ mod tests {
             data(&note("stretch", true, Some(3 * 86_400_000)))["late_by"],
             "about 3 days"
         );
+        // The unit follows the delay, then one rounding: no jump at 89.5
+        // minutes or 35.5 hours (the reviewer on #1081).
+        assert_eq!(delay(89 * 60_000 + 40_000), "about 90 minutes");
+        assert_eq!(delay(90 * 60_000), "about 2 hours");
+        assert_eq!(delay(35 * 3_600_000 + 2_400_000), "about 36 hours");
         // Late with no delay known (recovered after time off): late, unnamed.
         assert_eq!(
             data(&note("Tea", true, None)),

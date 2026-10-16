@@ -615,14 +615,19 @@ owner revocation. These are host targets and bounds, not measured acoustic stops
 
 The child journals (stderr, so the voice's journal) one line,
 `lamp-voice schedule-consumer: ...`, each time what it does with a due item
-changes, and never one per tick: `due, offered to the voice (attempt N)`,
+changes, and never one per tick. At start it says `started`, then
+`due reminders available` at its first good read. Per item:
+`due, offered to the voice (attempt N[, late])` (each attempt is its own
+line, so a reminder deferred while people talk is said once per retry),
+`said, waiting to be acknowledged` (a completion kept from before),
 `withdrawn: <why>` or `not offered: <why>`, `said; its completion is kept, to
 be acknowledged`, `not said: given back before any of it played, to be
 offered again`, `held: an attempt may have been heard and was never proven
 said, so it is not offered again`, and `resolved (<resolution>), not
 offered`. When the due notice itself cannot be read or trusted it says
 `due reminders unavailable: <why>` once, and `due reminders available` once
-it can again. It remembers the last line of 64 items. The parent says
+it can again. It remembers the last line of 64 items; past that, the item
+written longest ago is forgotten first. The parent says
 `lamp-voice: Schedule consumer failed (<why>); due reminders wait for a
 restart` when the child is lost.
 

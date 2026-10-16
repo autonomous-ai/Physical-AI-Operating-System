@@ -99,13 +99,97 @@ pub fn parse(output: &str) -> Vec<Network> {
     list
 }
 
-/// `iw dev <interface> scan` on the lamp.
+/// How long a page's scan may take before it is given up.
+pub const SCAN_LIMIT: std::time::Duration = std::time::Duration::from_secs(10);
+
+/// `iw dev <interface> scan` on the lamp, given up after [`SCAN_LIMIT`].
 pub fn scan(interface: &str) -> std::io::Result<Vec<Network>> {
-    let output = std::process::Command::new("iw")
-        .args(["dev", interface, "scan"])
-        .output()?;
-    if !output.status.success() {
+    scan_within(interface, SCAN_LIMIT)
+}
+
+/// `iw dev <interface> scan`, given up and killed after `limit`: a stuck
+/// `iw` holds neither the hotspot nor the one scan at a time for long
+/// (the fifth on #1045). Its output is read as it comes, so a long list
+/// never fills the pipe and stalls it.
+pub fn scan_within(interface: &str, limit: std::time::Duration) -> std::io::Result<Vec<Network>> {
+    run_within(
+        std::process::Command::new("iw").args(["dev", interface, "scan"]),
+        limit,
+    )
+    .map(|text| parse(&text))
+}
+
+/// Run a command for its standard output, killed after `limit`.
+fn run_within(
+    command: &mut std::process::Command,
+    limit: std::time::Duration,
+) -> std::io::Result<String> {
+    use std::io::Read;
+    let mut child = command
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::null())
+        .spawn()?;
+    let mut stdout = child.stdout.take().expect("piped");
+    let reader = std::thread::spawn(move || {
+        let mut text = Vec::new();
+        let _ = stdout.read_to_end(&mut text);
+        text
+    });
+    let until = std::time::Instant::now() + limit;
+    let status = loop {
+        if let Some(status) = child.try_wait()? {
+            break status;
+        }
+        if std::time::Instant::now() >= until {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::TimedOut,
+                format!("iw scan took longer than {} ms", limit.as_millis()),
+            ));
+        }
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    };
+    let text = reader.join().unwrap_or_default();
+    if !status.success() {
         return Err(std::io::Error::other("iw scan failed"));
     }
-    Ok(parse(&String::from_utf8_lossy(&output.stdout)))
+    Ok(String::from_utf8_lossy(&text).into_owned())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{Duration, Instant};
+
+    #[test]
+    fn a_command_that_hangs_is_killed_at_its_limit() {
+        let started = Instant::now();
+        let error = run_within(
+            std::process::Command::new("sleep").arg("30"),
+            Duration::from_millis(200),
+        )
+        .unwrap_err();
+        assert_eq!(error.kind(), std::io::ErrorKind::TimedOut);
+        assert!(started.elapsed() < Duration::from_secs(5));
+    }
+
+    #[test]
+    fn a_long_output_is_read_whole_without_stalling_the_command() {
+        // 256 KiB, more than a pipe holds.
+        let text = run_within(
+            std::process::Command::new("sh").args(["-c", "head -c 262144 /dev/zero | tr '\\0' x"]),
+            Duration::from_secs(10),
+        )
+        .unwrap();
+        assert_eq!(text.len(), 262_144);
+        assert!(
+            run_within(
+                &mut std::process::Command::new("false"),
+                Duration::from_secs(5)
+            )
+            .is_err()
+        );
+    }
 }

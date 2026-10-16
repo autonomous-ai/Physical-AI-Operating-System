@@ -47,10 +47,19 @@ pub fn list_networks(shared: &Shared) -> std::io::Result<Vec<Network>> {
         return Ok(list.clone());
     }
     match (shared.scan)() {
-        Ok(list) => {
+        Ok(list) if !list.is_empty() => {
             *kept = Some((std::time::Instant::now(), list.clone()));
             *shared.last_good.lock().unwrap() = Some(list.clone());
             Ok(list)
+        }
+        // Some radios as the hotspot answer with no networks rather than a
+        // refusal (the fifth on #1045): a list seen before still answers.
+        Ok(empty) => {
+            let good = shared.last_good.lock().unwrap().clone();
+            if good.is_none() {
+                *kept = Some((std::time::Instant::now(), empty.clone()));
+            }
+            Ok(good.unwrap_or(empty))
         }
         Err(error) => shared.last_good.lock().unwrap().clone().ok_or(error),
     }
@@ -66,10 +75,12 @@ pub fn warm(shared: &Shared, tries: usize, every: std::time::Duration) -> bool {
         }
         let mut kept = shared.scanned.lock().unwrap();
         // An ask already had a list scanned as the hotspot.
-        if kept.is_some() {
+        if kept.as_ref().is_some_and(|(_, list)| !list.is_empty()) {
             return true;
         }
-        if let Ok(list) = (shared.scan)() {
+        if let Ok(list) = (shared.scan)()
+            && !list.is_empty()
+        {
             *kept = Some((std::time::Instant::now(), list.clone()));
             *shared.last_good.lock().unwrap() = Some(list);
             return true;

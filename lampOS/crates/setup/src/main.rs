@@ -289,11 +289,21 @@ fn serve(
     // One look at the networks while the radio is still a station: as the
     // hotspot it may refuse to scan (V1 lists networks in station mode only).
     // A radio that is down fails at once; the page then waits on its own scans.
-    let before_hotspot = lamp_setup::scan::scan(&config.interface).ok();
-    eprintln!(
-        "lamp-setup: {} networks seen before the hotspot",
-        before_hotspot.as_ref().map_or(0, Vec::len)
-    );
+    // At most 4 s: a stuck `iw` must not hold the hotspot back.
+    let looked = std::time::Instant::now();
+    let before_hotspot = lamp_setup::scan::scan_within(&config.interface, Duration::from_secs(4));
+    match &before_hotspot {
+        Ok(list) => eprintln!(
+            "lamp-setup: {} networks seen before the hotspot, in {} ms",
+            list.len(),
+            looked.elapsed().as_millis()
+        ),
+        Err(error) => eprintln!(
+            "lamp-setup: no networks seen before the hotspot ({} ms): {error}",
+            looked.elapsed().as_millis()
+        ),
+    }
+    let before_hotspot = before_hotspot.ok().filter(|list| !list.is_empty());
     // The hotspot first: on a fresh image it is what names the lamp.
     let status = lamp_setup::serve::start(
         &config,

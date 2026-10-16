@@ -415,8 +415,9 @@ As root, on a lamp with the base image (`crates/update/src/install.rs`):
    written, leaves the debt, and the next run pays it though it writes
    nothing (the reviewer on #815, 19:17 and 19:32).
 9. **Harness at boot** (#811, the first builder's recipe, 01:56), once
-   Harness is on the lamp at `/usr/local/bin/harness` (its own installer
-   puts it there; without it, install says so and goes on). Unless an
+   Harness is on the lamp at `/usr/local/bin/harness` (its own installer,
+   run as `lampos`, puts it in `~/.local/bin`, then a link is made there; see
+   "What was not shown"; without it, install says so and goes on). Unless an
    earlier install recorded it done (`/var/lib/lampos-update/harness-at-boot`,
    written only after `harness service install` succeeded; the CLI's own
    files are no proof, since it writes its unit before registering it and

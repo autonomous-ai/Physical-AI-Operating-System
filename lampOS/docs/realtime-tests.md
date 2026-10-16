@@ -756,3 +756,22 @@ time: its assertions need the worker supervisor's 700 ms hang detection
 module stays in the group as a whole, for it and the module's other
 real-process tests.
 
+## Two barrier waits on a paused clock (#823)
+
+`provider_worker::tests::resumed_question_survives_a_silent_service_and_the_assumption_is_reported`
+waited out the session's barrier quiet (`AssumeAfterQuiet`, at least 1.9 s)
+twice, and `provider_worker::tests::kept_start::with_no_first_answer_the_patience_ends_in_the_strict_timeout_and_no_end`
+waited out the kept start's 2.5 s patience and then the strict wait, in
+real time: 8.6 s for the two. Both are Tokio timers in the provider worker's
+session, so the two tests now run on `#[tokio::test(start_paused = true)]`,
+and their own elapsed checks (`waited`, `kept_since`, the hung-worker
+bound) read `tokio::time::Instant`. The rig's `pump` and `kept_start`'s
+`heard` measure their durations on Tokio's clock too, which is the host's
+on an ordinary runtime, so every other test using them is unchanged. The
+rig's heartbeats and leases stay on the host clock, which barely moves
+while a paused test runs. Assertions and bounds are unchanged. On the Intel
+Mac the two took 8.56 to 8.62 s before and 0.58 to 0.62 s after, passing
+10 of 10 alone and 18 of 18 with six copies at once; all 148 of
+`provider_worker`'s tests passed with the change. They left the
+group, in all three filtersets, on 2026-10-16.
+

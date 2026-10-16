@@ -6064,9 +6064,11 @@ mod tests {
                 snapshot: self.snapshot,
             })
         }
+        /// Heartbeats for `duration` of Tokio's time, which is the host's
+        /// unless the test's runtime is paused.
         async fn pump(&mut self, duration: Duration) {
-            let until = Instant::now() + duration;
-            while Instant::now() < until {
+            let until = tokio::time::Instant::now() + duration;
+            while tokio::time::Instant::now() < until {
                 self.publish();
                 tokio::time::sleep(Duration::from_millis(5)).await;
             }
@@ -9691,7 +9693,9 @@ mod tests {
         );
     }
 
-    #[tokio::test]
+    /// On a paused clock (#823): the barrier's quiet passes only once every
+    /// task is idle, and the wait for it is read on Tokio's time.
+    #[tokio::test(start_paused = true)]
     async fn resumed_question_survives_a_silent_service_and_the_assumption_is_reported() {
         // The person continues after the endpointer cut the question. The
         // service says nothing about the cut-off request for the whole bound.
@@ -9703,7 +9707,7 @@ mod tests {
             );
             let mut dial = rig.ready().await;
             let cut = rig.speak(&mut dial, false, true).await;
-            let resumed_at = Instant::now();
+            let resumed_at = tokio::time::Instant::now();
             let resumed = rig.speak(&mut dial, true, false).await;
             // Its opening is already with the service, in order and whole.
             let owner = rig.snapshot.owner().unwrap();
@@ -9841,18 +9845,18 @@ mod tests {
                     .unwrap();
             }
             /// What the scripted service receives until it has received
-            /// nothing for `quiet`: "start", "end", or the first sample of
-            /// an audio block.
+            /// nothing for `quiet` of Tokio's time: "start", "end", or the
+            /// first sample of an audio block.
             async fn heard(&mut self, dial: &mut Dial, quiet: Duration) -> Vec<String> {
                 let mut all = Vec::new();
-                let mut last = Instant::now();
+                let mut last = tokio::time::Instant::now();
                 while last.elapsed() < quiet {
                     self.publish();
                     let Some(message) = dial.service.try_receive(Duration::from_millis(5)).await
                     else {
                         continue;
                     };
-                    last = Instant::now();
+                    last = tokio::time::Instant::now();
                     let input = &message["realtimeInput"];
                     all.push(if input.get("activityStart").is_some() {
                         "start".to_owned()
@@ -10244,7 +10248,9 @@ mod tests {
             }
         }
 
-        #[tokio::test]
+        /// On a paused clock (#823): the patience and the strict wait pass
+        /// only once every task is idle, and are read on Tokio's time.
+        #[tokio::test(start_paused = true)]
         async fn with_no_first_answer_the_patience_ends_in_the_strict_timeout_and_no_end() {
             let mut rig = LiveRig::start_kept();
             let mut dial = rig.ready().await;
@@ -10255,7 +10261,7 @@ mod tests {
             assert!(rig.heard(&mut dial, QUIET).await.is_empty());
             // Nothing from the service at all. After the patience the start
             // and the kept question are written anyway.
-            let kept_since = Instant::now();
+            let kept_since = tokio::time::Instant::now();
             let mut expected = vec!["start".to_owned()];
             expected.extend(blocks(1..21, 0));
             let mut wire = Vec::new();
@@ -10267,7 +10273,7 @@ mod tests {
             assert!(kept_since.elapsed() >= KEPT_START_PATIENCE - Duration::from_millis(400));
             // And then the strict wait, which nothing satisfies.
             let (result, _) = {
-                let started = Instant::now();
+                let started = tokio::time::Instant::now();
                 while !rig.worker.is_finished() {
                     assert!(started.elapsed() < Duration::from_secs(4), "worker hung");
                     let _ = rig.heartbeat();

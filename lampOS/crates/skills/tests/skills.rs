@@ -1136,6 +1136,17 @@ call = "say"
     )
     .unwrap();
     assert_eq!(run_tests(&plain).unwrap(), (1, 0));
+    // A name that is not the skill's tool fails the case, not passes it.
+    fs::write(
+        only.join("expect.toml"),
+        "none = true\n[[call_tool]]\nname = \"check_my_wrok\"\nat = \"1s\"\n",
+    )
+    .unwrap();
+    let why = run_tests(&plain).unwrap_err();
+    assert!(
+        why.contains("this skill's tool is \"check_my_work\""),
+        "{why}"
+    );
 }
 
 #[test]

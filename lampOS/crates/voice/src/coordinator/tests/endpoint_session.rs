@@ -139,11 +139,13 @@ impl Seen {
     }
 }
 
-/// How the emulated provider answers each request after its end.
+/// How the emulated provider answers each request after its end; with
+/// `only_first`, it answers the first request and no later one.
 #[derive(Clone, Copy)]
 struct ProviderReply {
     after_end: Duration,
     packets: usize,
+    only_first: bool,
 }
 
 // The threaded and stepped modes share exactly the same peer state machines.
@@ -166,10 +168,16 @@ fn drain_control(channels: &mut WorkerChannels, generation: &mut u64) -> io::Res
     Ok(true)
 }
 
+/// With `echo`, each block carries the canceller's evidence as lamp-4ace's
+/// capture worker gives it: no render before the first answer is written,
+/// and from then on the lamp's own voice, or speech over it. Speech at
+/// ±1,000 or more is plainly over the lamp; quieter talk is under its voice,
+/// which explains the microphone.
 fn capture_peer(
     mut channels: WorkerChannels,
     script: Script,
     levels: Option<Levels>,
+    echo: bool,
     seen: Arc<Mutex<Seen>>,
 ) -> PeerStep {
     let mut generation = 0;
@@ -235,7 +243,16 @@ fn capture_peer(
                 frame_sequence: sequence,
                 read_completed_at_us: at,
                 probability,
-                echo: None,
+                echo: echo.then(|| {
+                    use super::duplex::{OVER, OWN, evidence};
+                    if seen.lock().unwrap().chunks.is_empty() {
+                        evidence(lamp_audio::evidence::QUIET_BLOCKS_CEILING, None)
+                    } else if probability >= 0.5 && level >= 1_000 {
+                        evidence(0, OVER)
+                    } else {
+                        evidence(0, OWN)
+                    }
+                }),
                 reference: Default::default(),
                 samples: (0..160)
                     .map(|i| if i % 2 == 0 { level } else { -level })
@@ -312,7 +329,7 @@ mod capture_timeline {
                 .unwrap();
             channels.control.send(Control::StartCapture).unwrap();
             let seen = Arc::new(Mutex::new(Seen::default()));
-            let mut step = capture_peer(peer, |_| QUIET, None, seen.clone());
+            let mut step = capture_peer(peer, |_| QUIET, None, false, seen.clone());
             assert!(step().unwrap());
             assert!(matches!(
                 channels.control.receive::<WorkerEvent>().unwrap(),
@@ -583,7 +600,9 @@ fn provider_peer(
                     if let Some(entry) = seen.requests.iter_mut().find(|r| r.request == request) {
                         entry.ended_at = Some(scenario_clock::instant());
                     }
-                    if let Some(reply) = reply {
+                    if let Some(reply) = reply
+                        && !(reply.only_first && seen.requests.len() > 1)
+                    {
                         due.push_back((scenario_clock::instant() + reply.after_end, request));
                     }
                 }
@@ -634,8 +653,10 @@ fn provider_peer(
 }
 
 /// Records every chunk and acknowledges it as ALSA would, so the v1-baseline
-/// mask sees genuine write evidence.
-fn speaker_peer(mut channels: WorkerChannels, seen: Arc<Mutex<Seen>>) -> PeerStep {
+/// mask sees genuine write evidence. With `retires`, each chunk is drained
+/// as it is accepted and an answer's last one retires it, so the lamp falls
+/// silent when its answer is written; without, it plays to the end.
+fn speaker_peer(mut channels: WorkerChannels, seen: Arc<Mutex<Seen>>, retires: bool) -> PeerStep {
     let mut generation = 0;
     let mut frame = 1_000u64;
     Box::new(move || {
@@ -668,6 +689,23 @@ fn speaker_peer(mut channels: WorkerChannels, seen: Arc<Mutex<Seen>>) -> PeerSte
                 observed_at_us: at,
             })?;
             frame += frames as u64;
+            if retires {
+                let last = PlaybackCursor { epoch: 1, frame };
+                channels.control.send(WorkerEvent::SpeechDrained {
+                    owner,
+                    sequence: chunk.chunk_sequence,
+                    last_sample: last,
+                    observed_at_us: at,
+                })?;
+                if chunk.end_of_speech {
+                    channels.control.send(WorkerEvent::SpeechRetired {
+                        owner,
+                        sequence: chunk.chunk_sequence,
+                        final_sample: last,
+                        observed_at_us: at,
+                    })?;
+                }
+            }
         }
         Ok(true)
     })
@@ -867,6 +905,10 @@ struct Lamp {
     cut_keeps_name: bool,
     asker_first: crate::asker_first::Mode,
     levels: Option<Levels>,
+    /// The speaker retires each answer once it is written.
+    retires: bool,
+    /// The microphone's blocks carry echo evidence ([`capture_peer`]).
+    echo: bool,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -898,10 +940,16 @@ fn run_policy_with_peers(
     let stop = Arc::new(AtomicBool::new(false));
     let seen = Arc::new(Mutex::new(Seen::default()));
     let steps = [
-        capture_peer(capture_peer_channels, script, lamp.levels, seen.clone()),
+        capture_peer(
+            capture_peer_channels,
+            script,
+            lamp.levels,
+            lamp.echo,
+            seen.clone(),
+        ),
         privacy_peer(privacy_peer_channels, seen.clone(), mute_at),
         provider_peer(provider_peer_channels, seen.clone(), reply),
-        speaker_peer(speaker_peer_channels, seen.clone()),
+        speaker_peer(speaker_peer_channels, seen.clone(), lamp.retires),
     ];
     let peers: Vec<_> = if let Some(scope) = scope.as_mut() {
         let mut steps = steps.map(|step| (true, step));
@@ -1633,6 +1681,7 @@ fn rapid_resumes_never_end_the_turn_early() {
     let reply = ProviderReply {
         after_end: Duration::from_millis(200),
         packets: 2,
+        only_first: false,
     };
     let session = run_scenario_with(
         5,
@@ -1659,6 +1708,7 @@ fn a_complete_verdict_ends_at_one_second_and_its_answer_plays() {
     let reply = ProviderReply {
         after_end: Duration::from_millis(300),
         packets: 3,
+        only_first: false,
     };
     let session = run_scenario_with(
         5,
@@ -1809,6 +1859,7 @@ fn duplex_complete_verdict_ends_at_one_second_and_its_answer_plays() {
     let reply = ProviderReply {
         after_end: Duration::from_millis(300),
         packets: 3,
+        only_first: false,
     };
     let session = run_scenario_policy(
         TurnTaking::Duplex,
@@ -2358,4 +2409,162 @@ fn with_asker_first_the_rule_ends_after_its_time_though_no_answer_played() {
     let late = asker_then(Mode::On, late_line, late_and_soft);
     assert_eq!(late.seen.requests.len(), 2, "{:?}", late.seen.requests);
     assert!(late.events("asker_first").is_empty());
+}
+
+/// The asker's turn begun as the lamp's answer ends, as `asker_then` runs
+/// it but with that answer played and retired: the first request is
+/// answered 0.1 s after its end, and no later one.
+fn asker_after_answer(mode: crate::asker_first::Mode, script: Script, levels: Levels) -> Session {
+    let session = run_policy_with_peers(
+        TurnTaking::Duplex,
+        8,
+        script,
+        EndpointRig::double(delayed(0.95, Duration::from_millis(60))),
+        Some(ProviderReply {
+            after_end: Duration::from_millis(100),
+            packets: 5,
+            only_first: true,
+        }),
+        None,
+        PeerMode::Stepped,
+        Lamp {
+            end_silence_blocks: Some(60),
+            asker_first: mode,
+            levels: Some(levels),
+            retires: true,
+            ..Lamp::default()
+        },
+    );
+    session.result.as_ref().unwrap();
+    session
+}
+
+/// The reviewer on #1092: the asker's level is their own speech, not the
+/// lamp's echo. The lamp answers the first request (its last sound at block
+/// 202, the room heard again from 212), and the next request opens on 0.2 s
+/// of its echo at ±6,000 before the asker's own ±800. Only the blocks over
+/// 0.3 s after the lamp's sound are the asker's level, so the line at ±700
+/// while that answer is awaited, 1.2 dB under them, takes the turn. With
+/// the echo counted the asker would be at ±6,000, and the line kept out.
+#[test]
+fn with_asker_first_the_lamps_echo_is_not_the_askers_level() {
+    use crate::asker_first::Mode;
+    let _one = one_session();
+    fn script(block: u64) -> f32 {
+        if (50..150).contains(&block) || (213..245).contains(&block) || (450..550).contains(&block)
+        {
+            SPEECH
+        } else {
+            QUIET
+        }
+    }
+    fn levels(block: u64) -> i16 {
+        match block {
+            50..150 => 2_000,
+            213..233 => 6_000,
+            233..245 => 800,
+            450..550 => 700,
+            _ => 20,
+        }
+    }
+    let session = asker_after_answer(Mode::On, script, levels);
+    assert_eq!(
+        session.events("speech_final_sample_retired").len(),
+        1,
+        "the first answer is played and retired"
+    );
+    let ends = session.events("local_endpoint");
+    assert_eq!(ends.len(), 3, "{ends:?}");
+    // On the face's scale ±800 is 118 and ±6,000 is 249.
+    assert_eq!(ends[1]["asker_level"], 118, "{ends:?}");
+    assert_eq!(
+        session.seen.requests.len(),
+        3,
+        "{:?}",
+        session.seen.requests
+    );
+    assert!(session.events("asker_first").is_empty());
+}
+
+/// The answer begins while the rule waits on a line from across the room.
+/// That is the line's last chance: well
+/// under the asker, it is let go and the answer plays on. It was admitted a
+/// block into the answer and replaced it, as "¿Qué?" replaced the answer at
+/// 14:21. A line at ±300 begins 0.4 s after the asker's turn ended, and the
+/// answer begins 0.2 s into it; with echo evidence, as lamp-4ace's
+/// microphone gives it, the rest of the line is under the lamp's voice.
+#[test]
+fn with_asker_first_a_line_the_answer_begins_over_is_let_go_and_the_answer_plays() {
+    use crate::asker_first::Mode;
+    let _one = one_session();
+    fn script(block: u64) -> f32 {
+        if (50..150).contains(&block) || (228..328).contains(&block) {
+            SPEECH
+        } else {
+            QUIET
+        }
+    }
+    fn levels(block: u64) -> i16 {
+        match block {
+            50..150 => 2_000,
+            228..328 => 300,
+            _ => 20,
+        }
+    }
+    let run = |mode| {
+        let session = run_policy_with_peers(
+            TurnTaking::Duplex,
+            6,
+            script,
+            EndpointRig::double(delayed(0.95, Duration::from_millis(60))),
+            Some(ProviderReply {
+                after_end: Duration::from_millis(600),
+                packets: 5,
+                only_first: true,
+            }),
+            None,
+            PeerMode::Stepped,
+            Lamp {
+                end_silence_blocks: Some(60),
+                asker_first: mode,
+                levels: Some(levels),
+                echo: true,
+                ..Lamp::default()
+            },
+        );
+        session.result.as_ref().unwrap();
+        session
+    };
+    let session = run(Mode::On);
+    assert_eq!(
+        session.seen.requests.len(),
+        1,
+        "{:?}",
+        session.seen.requests
+    );
+    let said = session.events("asker_first");
+    assert_eq!(said.len(), 1, "{said:?}");
+    assert_eq!(
+        (said[0]["acted"].as_bool(), said[0]["judged"].as_str()),
+        (Some(true), Some("as_its_answer_began")),
+        "{said:?}"
+    );
+    // The answer began before the line was let go, and was not cut.
+    let began = session.events("speaker_first_write")[0]["at_us"].as_u64();
+    assert!(began <= said[0]["at_us"].as_u64(), "{began:?} {said:?}");
+    let finished = session.events("turn_finished");
+    assert!(
+        finished
+            .iter()
+            .all(|row| row["outcome"] != "user_interrupted"),
+        "{finished:?}"
+    );
+    // Without the rule the line takes the turn before the answer comes.
+    let without = run(Mode::Off);
+    assert_eq!(
+        without.seen.requests.len(),
+        2,
+        "{:?}",
+        without.seen.requests
+    );
 }

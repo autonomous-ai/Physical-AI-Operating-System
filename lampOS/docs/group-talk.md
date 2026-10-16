@@ -218,15 +218,19 @@ with whoever asked, and leaves the talk across the room alone.
   block's read history (600 ms, `turn_taking::HISTORY_US`) is 0.1 s off,
   or the utterance has ended. Nothing of it is thrown away, so if it then
   takes the turn, because the lamp's name came or louder speech did, it
-  begins at its start. In duplex that is about 0.3 s after it began: a
+  begins at its start. In duplex that is about 0.26 s after it began
+  (0.21 s after its trigger, the six blocks that begin a turn): a
   name announced later than that (the name part announces it 78 to
   639 ms after it begins, `name.md`) comes too late. Still well under the
   asker at its last chance, it takes no turn and the lamp keeps the
   answer: the candidate is let go as for the floor hold. One still
-  waiting when the answer begins to play is judged as anything said over
-  the lamp's voice. The service records `asker_first` once for the turn,
-  with both levels and `acted`, and the journal says by how many
-  decibels. In any room, busy or not.
+  waiting when the answer begins to play has had its last chance then:
+  well under the asker, it is let go and the answer plays; otherwise it
+  is judged as anything said over the lamp's voice. Left to the duplex
+  rule, a line from across the room was admitted a block into the answer
+  and replaced it, as "¿Qué?" replaced the answer at 14:21. The service
+  records `asker_first` once for the turn, with both levels and `acted`,
+  and the journal says by how many decibels. In any room, busy or not.
 - **Why it ends after 5 s:** an answer held back by the rule for whom it
   answers never plays, and someone who took their question back ("never
   mind") must be heard again; the floor hold stops at 1.8 s for the same
@@ -237,7 +241,10 @@ with whoever asked, and leaves the talk across the room alone.
   for 0.3 s (`LINE_PAUSE_US`), past the 5 s too, so it never takes the
   turn halfway through: a line across the room begun at 4.7 s was kept
   at its start and taken mid-line at 5 s, 0.29 s into it (the reviewer
-  on #1092).
+  on #1092). It is kept for at most 2 s past the 5 s (`LINE_MOST_US`):
+  steady talk across the room that never paused for 0.3 s kept the rule
+  on with no end (the first builder on #1092), so it ends 7 s after the
+  asker at the latest, though the line goes on.
 - **What still takes the turn:** the asker, or anyone about as loud; and
   the lamp's name heard beginning after the asker's speech ended
   (`name/rising` on the bus, from the name part), however quiet.
@@ -258,7 +265,7 @@ with whoever asked, and leaves the talk across the room alone.
   a follow-up.
 - **Latency:** speech at the asker's level is admitted when it would be
   without the rule. Only speech whose upper tenth is under the margin
-  waits, about 0.2 s after it begins (its last chance), before it is
+  waits, until about 0.26 s after it begins (its last chance), before it is
   admitted or dropped.
 - **The 6 dB is not yet measured** on the voice's microphone. It is a
   start from the room microphone's rises in [ears.md](ears.md): 19.5 to
@@ -269,10 +276,8 @@ with whoever asked, and leaves the talk across the room alone.
   each turn's `asker_level` and each request's `speech_level`. Recorded
   only, it never waits: the candidate is taken at once and followed, and
   the record is written where `on` would have decided, on the same own
-  blocks (`judged`: `at_its_last_chance`). A candidate still waiting when
-  the answer begins is judged by the duplex rule as anything said over
-  the lamp, and what the rule would have done is recorded with `acted`
-  false (`judged`: `as_its_answer_began`).
+  blocks (`judged`: `at_its_last_chance`). Under `on`, one judged as the
+  answer begins says so (`judged`: `as_its_answer_began`).
 
 ## What is and is not shown
 
@@ -282,7 +287,8 @@ with whoever asked, and leaves the talk across the room alone.
   The hold and the kept answer themselves are a few lines each in the
   service's main loop and have no test of their own.
 - `asker_first::tests`: the margin, judging on the new speech's own
-  blocks, the wait and the last chance, the 5 s, the asker's own turn's
+  blocks, the wait and the last chance, the 5 s, a kept line and its 2 s
+  bound, the asker's own turn's
   level, the name, a new request beginning afresh, and the switch's
   values. In the service's own loop with an answer awaited
   (`coordinator::tests::endpoint_session`):
@@ -316,9 +322,20 @@ with whoever asked, and leaves the talk across the room alone.
   - `with_asker_first_a_loud_burst_just_before_does_not_let_soft_speech_in`:
     four blocks at the asker's level, then soft speech 60 ms later, takes
     no turn: speech is judged on its own blocks.
-  Not shown by a test: the 0.3 s after the lamp's sound left out of the
-  asker's level, nor the record of a candidate the answer began over.
-  The name's part is shown by the rule's own test only.
+  - `with_asker_first_the_lamps_echo_is_not_the_askers_level`: the lamp
+    answers and falls silent, and the next request opens on 0.2 s of its
+    echo at ±6,000 before the asker's own ±800. The asker's level is 118,
+    the ±800, and a line at ±700 while that answer is awaited takes the
+    turn. With the echo counted it was kept out.
+  - `with_asker_first_a_line_the_answer_begins_over_is_let_go_and_the_answer_plays`:
+    a line at ±300 the answer begins 0.2 s into, with echo evidence as
+    lamp-4ace's microphone gives it. It is let go, recorded as
+    `as_its_answer_began` with `acted` true, and the answer is not cut;
+    without the rule it takes the turn before the answer comes. Recording
+    only, as this pull request first did, it was admitted a block into
+    the answer.
+  Both fail with their change taken out. The name's part is shown by the
+  rule's own test only.
 - A staged busy room on lamp-4ace (`hold.sh`: three lines between two
   played voices, a question to the lamp by name, and the other voice
   starting a third of a second after the question; twice over). With the

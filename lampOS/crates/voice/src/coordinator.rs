@@ -4854,9 +4854,12 @@ fn conversation_with_gate(
                                     .judge(turn, own_start_us, at_us, last_chance),
                             ))
                         });
-                    // The answer began while the rule waited on this one:
-                    // the duplex rule judges it now, and what the asker rule
-                    // would have done is still recorded.
+                    // The answer began while the rule waited on this one: it
+                    // is this line's last chance. Well under the asker, it is
+                    // let go, as it would have been, so the answer plays:
+                    // left to the duplex rule, it was admitted a block into
+                    // the answer and replaced it. Otherwise the duplex rule
+                    // judges it from now.
                     if judged.is_none()
                         && asker_waited.is_some_and(|(id, _, _)| id == candidate.id)
                         && let Some((_, turn, start)) = asker_waited.take()
@@ -4864,15 +4867,21 @@ fn conversation_with_gate(
                         && let crate::asker_first::Judgement::Keep(kept) =
                             rule.judge(turn, start, at_us, true)
                     {
+                        if let Some(rejection) = admission.release_prospective(monotonic_us())? {
+                            record_input_rejection(trace, rejection)?;
+                        }
+                        detector.clear_prospective();
+                        rule.kept_line(at_us);
                         record_asker_first(
                             rule,
                             trace,
                             turn,
                             at_us,
                             kept,
-                            false,
+                            true,
                             "as_its_answer_began",
                         )?;
+                        continue;
                     }
                     match judged {
                         // Neither let go nor admitted: on a later block.

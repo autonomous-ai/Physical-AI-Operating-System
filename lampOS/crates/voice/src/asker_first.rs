@@ -32,11 +32,15 @@
 //!   it begins at its start. On the reviewer's probe on #1092 an asker's follow-up
 //!   that opened softly ("um, and…") lost 0.4 s of its start, and the asker
 //!   just after someone across the room lost 0.22 s, because a judgement
-//!   at 60 ms over the last half second cleared them.
+//!   at 60 ms over the last half second cleared them. Speech still waiting
+//!   when the answer begins to play has its last chance then: kept, it is
+//!   let go and the answer plays (left to the duplex rule, it was admitted
+//!   a block into the answer and replaced it).
 //! - **It ends** [`KEEPS_FOR_US`] after the asker stopped, played or not:
 //!   an answer held back never plays, and a person who took their question
 //!   back ("never mind") is heard again then. A line it kept is kept until
-//!   it pauses ([`LINE_PAUSE_US`]), so it never takes the turn halfway.
+//!   it pauses ([`LINE_PAUSE_US`]), so it never takes the turn halfway,
+//!   for at most [`LINE_MOST_US`] past the 5 s.
 //! - **Off, record or on** ([`Mode`]): `record` judges and writes the same
 //!   record but never keeps the turn, so the margin can be set from the
 //!   lamp's own levels before the rule acts (the first builder at 21:35).
@@ -71,6 +75,13 @@ pub const KEEPS_FOR_US: u64 = 5_000_000;
 /// across the room begun 4.7 s after the asker was kept at its start, and
 /// its next candidate took the turn at 5 s, 0.29 s into it.
 pub const LINE_PAUSE_US: u64 = 300_000;
+
+/// A kept line keeps the rule at most this long past [`KEEPS_FOR_US`], and
+/// then it ends though the line goes on: steady talk across the room that
+/// never pauses for 0.3 s would otherwise keep it with no end (the first
+/// builder on #1092). A line begun near the 5 s has 2 s more to end; the
+/// rule never holds past 7 s after the asker stopped.
+pub const LINE_MOST_US: u64 = 2_000_000;
 
 /// Fewer speech blocks than this say nothing of a level: as many as begin
 /// an utterance.
@@ -248,10 +259,12 @@ impl AskerFirst {
         let Some(asker) = self.asker.filter(|asker| asker.turn == turn) else {
             return Judgement::Take;
         };
+        let since_us = now_us.saturating_sub(asker.ended_at_us);
         let in_line = self
             .line_us
-            .is_some_and(|last| now_us.saturating_sub(last) <= LINE_PAUSE_US);
-        if self.named || (now_us.saturating_sub(asker.ended_at_us) > KEEPS_FOR_US && !in_line) {
+            .is_some_and(|last| now_us.saturating_sub(last) <= LINE_PAUSE_US)
+            && since_us <= KEEPS_FOR_US + LINE_MOST_US;
+        if self.named || (since_us > KEEPS_FOR_US && !in_line) {
             return Judgement::Take;
         }
         let levels: Vec<u8> = self
@@ -497,6 +510,34 @@ mod tests {
         let after = begin + 1_000;
         let now = speech(&mut rule, after, 20, 54);
         assert_eq!(rule.judge(9, after * MS, now, true), Judgement::Take);
+    }
+
+    /// The first builder on #1092: a kept line that never pauses keeps the
+    /// rule 2 s past its time, and no longer.
+    #[test]
+    fn a_kept_line_that_never_pauses_keeps_the_rule_at_most_two_seconds_more() {
+        let mut rule = AskerFirst::default();
+        asked(&mut rule, 9, 178, 1_000);
+        let begin = 1_000 + 4_700;
+        let now = speech(&mut rule, begin, 20, 54);
+        assert!(matches!(
+            rule.judge(9, begin * MS, now, true),
+            Judgement::Keep(_)
+        ));
+        rule.kept_line(now);
+        // Talk across the room goes on with no pause until 8 s after the
+        // asker: still kept at 6.9 s, heard again past 7 s.
+        let at_6_9 = speech(&mut rule, begin + 200, 200, 54);
+        assert_eq!(at_6_9, (1_000 + 6_900) * MS);
+        assert!(matches!(
+            rule.judge(9, (1_000 + 6_700) * MS, at_6_9, true),
+            Judgement::Keep(_)
+        ));
+        let at_7_1 = speech(&mut rule, 1_000 + 6_900, 20, 54);
+        assert_eq!(
+            rule.judge(9, (1_000 + 6_900) * MS, at_7_1, true),
+            Judgement::Take
+        );
     }
 
     #[test]

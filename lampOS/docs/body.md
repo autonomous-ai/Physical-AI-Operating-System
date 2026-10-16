@@ -641,6 +641,19 @@ no goal moving more than 3 counts in a step; and a base that met
 resistance as the turn was asked stayed where it gave way for the two
 seconds after.
 
+**On lamp-52e6, 2026-10-16, 11:48**, body `92634401` (this and the reading
+pose below, built from `fifth/reading-pose`), with its unit's flags
+unchanged, and the lamp made to answer "Lamp, can you tell me a short
+story?" from a Mac beside it. Its body journal, every half second:
+speaking from 11:48:28.1 to 11:48:35.2, the arm's goals went from 2,657
+and 2,602 to 2,645 and 2,586 at 0.5 s, 2,612 and 2,542 at 1.5 s, and held
+there; the joints read 2,609 and 2,537 by 5.5 s (the shoulder 14 to 18
+counts short of its goal for the first four seconds), at loads of 24 to
+84. No retreat, stall or slump. The base did not sway: Expression on that
+lamp still asks its sway of the head's roll (`sway_roll`), which this
+lamp's reach of one count does not take. A Mac camera beside the lamp saw
+it from the side; nobody has yet judged from the front how the lean reads.
+
 ## What Expression may add
 
 On lamp-4ace since 2026-10-14, 10:05, switched on. What it did there is

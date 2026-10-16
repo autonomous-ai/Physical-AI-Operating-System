@@ -12,6 +12,7 @@ use crate::wifi::{self, Host, Joined};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::{
+    fmt,
     fs::{self, OpenOptions},
     io::{self, Write},
     os::unix::fs::OpenOptionsExt,
@@ -167,7 +168,7 @@ impl Status {
 /// V1's `SetupRequest`. V1's page also sends channel, voice and MQTT fields;
 /// they are accepted and ignored. `llm_api_key` is the user's voice key, as
 /// in V1 (#806); `name` and `timezone` are V2's own.
-#[derive(Clone, Debug, Default, Deserialize)]
+#[derive(Clone, Default, Deserialize)]
 pub struct SetupRequest {
     #[serde(default)]
     pub ssid: String,
@@ -186,7 +187,7 @@ pub struct SetupRequest {
 }
 
 /// A request that passed every check, ready to act on.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Accepted {
     pub ssid: String,
     pub password: String,
@@ -195,6 +196,36 @@ pub struct Accepted {
     pub credential: Option<String>,
     pub name: Option<String>,
     pub timezone: Option<String>,
+}
+
+/// Shown in place of a secret, so a debug line never logs the Wi-Fi password
+/// or the user's key (Nine on #1120).
+const HIDDEN: &str = "<hidden>";
+
+impl fmt::Debug for SetupRequest {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SetupRequest")
+            .field("ssid", &self.ssid)
+            .field("password", &HIDDEN)
+            .field("llm_api_key", &HIDDEN)
+            .field("llm_base_url", &self.llm_base_url)
+            .field("device_id", &self.device_id)
+            .field("name", &self.name)
+            .field("timezone", &self.timezone)
+            .finish()
+    }
+}
+
+impl fmt::Debug for Accepted {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Accepted")
+            .field("ssid", &self.ssid)
+            .field("password", &HIDDEN)
+            .field("credential", &self.credential.as_ref().map(|_| HIDDEN))
+            .field("name", &self.name)
+            .field("timezone", &self.timezone)
+            .finish()
+    }
 }
 
 /// Check a request before anything is touched; the message is for the page.
@@ -215,6 +246,13 @@ pub fn check(request: &SetupRequest, config: &Config) -> Result<Accepted, String
     let credential = request.llm_api_key.trim();
     if credential.len() > 512 || !credential.bytes().all(|b| b.is_ascii_graphic()) {
         return Err("the voice's key has a character it cannot have, or is too long".into());
+    }
+    // No key keeps the one there, so a lamp without one (new, or after a
+    // reset wiped it) would finish setup with Wi-Fi and no voice, which V1
+    // refused (`validate:"required"`). Either file missing needs the key, so
+    // the voice and the Policy are set up together (the reviewer on #1120).
+    if credential.is_empty() && !(config.credential.is_file() && config.policy_key.is_file()) {
+        return Err("the lamp needs its voice key".into());
     }
     let name = request.name.trim();
     if name.chars().count() > 64 || name.chars().any(char::is_control) {
@@ -285,6 +323,13 @@ pub fn leftover_temporaries(config: &Config) -> Vec<PathBuf> {
 
 /// Write a private file durably: temporary file, sync, rename, directory sync.
 pub fn write_private(path: &Path, bytes: &[u8]) -> io::Result<()> {
+    let temporary = stage_private(path, bytes)?;
+    put_in_place(&temporary, path)
+}
+
+/// The first half of `write_private`: `bytes` in a new private temporary
+/// file beside `path`, synced. Returns the temporary file.
+fn stage_private(path: &Path, bytes: &[u8]) -> io::Result<PathBuf> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
@@ -295,9 +340,19 @@ pub fn write_private(path: &Path, bytes: &[u8]) -> io::Result<()> {
         .create_new(true)
         .mode(0o600)
         .open(&temporary)?;
-    file.write_all(bytes)?;
-    file.sync_all()?;
-    fs::rename(&temporary, path)?;
+    if let Err(why) = file.write_all(bytes).and_then(|()| file.sync_all()) {
+        let _ = fs::remove_file(&temporary);
+        return Err(why);
+    }
+    Ok(temporary)
+}
+
+/// The second half: the temporary file renamed over `path`, its folder synced.
+fn put_in_place(temporary: &Path, path: &Path) -> io::Result<()> {
+    if let Err(why) = fs::rename(temporary, path) {
+        let _ = fs::remove_file(temporary);
+        return Err(why);
+    }
     if let Some(parent) = path.parent() {
         fs::File::open(parent)?.sync_all()?;
     }
@@ -309,8 +364,21 @@ pub struct Files<'a>(pub &'a Config);
 
 impl Save for Files<'_> {
     fn credential(&mut self, key: &str) -> io::Result<()> {
-        write_private(&self.0.credential, key.as_bytes())?;
-        write_private(&self.0.policy_key, key.as_bytes())
+        // Both written before either is renamed, so the voice and the Policy
+        // keep one key unless a rename itself fails (Nine on #1120).
+        let voice = stage_private(&self.0.credential, key.as_bytes())?;
+        let policy = match stage_private(&self.0.policy_key, key.as_bytes()) {
+            Ok(policy) => policy,
+            Err(why) => {
+                let _ = fs::remove_file(&voice);
+                return Err(why);
+            }
+        };
+        if let Err(why) = put_in_place(&policy, &self.0.policy_key) {
+            let _ = fs::remove_file(&voice);
+            return Err(why);
+        }
+        put_in_place(&voice, &self.0.credential)
     }
     fn name(&mut self, name: &str) -> io::Result<()> {
         write_private(&self.0.name, format!("{name}\n").as_bytes())
@@ -416,25 +484,29 @@ pub fn run(
     let failure = match joined {
         Joined::Failed { reason } => Some(reason.detail().to_owned()),
         Joined::Connected => {
-            let saved = match &accepted.credential {
-                Some(key) => save.credential(key),
-                None => Ok(()),
-            }
-            .and_then(|()| match &accepted.name {
+            // The key last, just before the marker, so a name or zone that
+            // cannot be saved leaves the key there as it was (the reviewer on
+            // #1120).
+            let saved = match &accepted.name {
                 Some(name) => save.name(name),
                 None => Ok(()),
-            })
+            }
             .and_then(|()| match &accepted.timezone {
                 Some(zone) => save.timezone(zone),
+                None => Ok(()),
+            })
+            .and_then(|()| match &accepted.credential {
+                Some(key) => save.credential(key),
                 None => Ok(()),
             })
             .and_then(|()| save.marker());
             match saved {
                 Ok(()) => None,
                 Err(_) => {
-                    // Joined but not saved: nothing of it kept, the previous
-                    // Wi-Fi file back, and the hotspot, so the person can try
-                    // again.
+                    // Joined but not finished: no marker, the previous Wi-Fi
+                    // file back, and the hotspot, so the person can try again.
+                    // What was saved before the failure stays; the next run
+                    // writes it again.
                     let _ = host.write_conf(previous.as_deref());
                     let _ = host.hotspot();
                     Some("the lamp joined the Wi-Fi but could not save its settings".into())

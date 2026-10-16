@@ -98,9 +98,22 @@ fn a_request_is_checked_before_anything_is_touched() {
             timezone: Some("Asia/Ho_Chi_Minh".into()),
         }
     );
-    // The key is the user's (the owner, #806, 16:13). Without one, the key
-    // already there stays, as on a lamp that ran V1.
-    let without = check(&request(json!({"ssid": "Cafe", "password": ""})), &config).unwrap();
+    // The key is the user's (the owner, #806, 16:13). Without one, a lamp
+    // that has none, or only half of it, is refused: it would have Wi-Fi and
+    // no voice (the reviewer on #1120).
+    let bare = request(json!({"ssid": "Cafe", "password": ""}));
+    assert_eq!(
+        check(&bare, &config).unwrap_err(),
+        "the lamp needs its voice key"
+    );
+    fs::write(&config.credential, b"AIza-old").unwrap();
+    assert!(
+        check(&bare, &config).is_err(),
+        "the Policy's half is missing"
+    );
+    // With both, the key already there stays, as on a lamp that ran V1.
+    fs::write(&config.policy_key, b"AIza-old").unwrap();
+    let without = check(&bare, &config).unwrap();
     assert_eq!(
         (without.credential, without.name, without.timezone),
         (None, None, None)
@@ -274,9 +287,9 @@ fn a_joined_lamp_saves_the_settings_then_the_marker_and_says_it_is_set_up() {
     assert_eq!(
         saved.calls,
         [
-            "credential=AIza-key_1",
             "name=Lan",
             "timezone=Asia/Ho_Chi_Minh",
+            "credential=AIza-key_1",
             "marker="
         ]
     );
@@ -316,7 +329,26 @@ fn settings_that_cannot_be_saved_leave_no_marker_and_bring_the_hotspot_back() {
     assert_eq!(status.phase, Phase::Failed);
     assert!(!status.set_up_completed);
     assert!(!saved.calls.iter().any(|call| call.starts_with("marker")));
+    // The key is saved last, so the one there stays as it was.
+    assert!(
+        !saved
+            .calls
+            .iter()
+            .any(|call| call.starts_with("credential"))
+    );
     assert_eq!(lamp.calls(), ["station", "hotspot"]);
+}
+
+/// Nine on #1120: a debug line never shows the Wi-Fi password or the key.
+#[test]
+fn neither_the_password_nor_the_key_is_ever_debug_printed() {
+    let shown = format!("{:?} {:?}", request(good()), accepted());
+    assert!(!shown.contains("password1"), "{shown}");
+    assert!(!shown.contains("AIza-key_1"), "{shown}");
+    assert!(
+        shown.contains("Home") && shown.contains("<hidden>"),
+        "{shown}"
+    );
 }
 
 /// `start` on `lamp`, its commands and its name read logged with the
@@ -509,6 +541,21 @@ fn the_files_are_private_and_the_zone_is_linked_as_v1_does() {
         fs::read_link(&config.localtime).unwrap(),
         config.zoneinfo.join("America/New_York")
     );
+}
+
+/// Nine on #1120: when the Policy's key cannot be written, the voice's is
+/// not changed either, so both keep one key, and no temporary file is left.
+#[test]
+fn a_key_the_policy_cannot_take_leaves_the_voices_as_it_was() {
+    let root = Root::new();
+    let mut config = root.config(false);
+    fs::write(&config.credential, b"AIza-old").unwrap();
+    // A file where the Policy's folder should be.
+    fs::write(root.0.join("etc/policy"), b"").unwrap();
+    config.policy_key = root.0.join("etc/policy/jev.key");
+    assert!(Files(&config).credential("AIza-new").is_err());
+    assert_eq!(fs::read(&config.credential).unwrap(), b"AIza-old");
+    assert!(!config.credential.with_extension("lamp-setup-tmp").exists());
 }
 
 static SCANS: AtomicU64 = AtomicU64::new(0);

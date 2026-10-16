@@ -114,3 +114,28 @@ Ready for lamp-voice: no
   #985 gate at 11:42), deterministic from its cause, one pull request,
   (3) then ask on #705 with what was found in the day's other red voice
   tests. (2) has no issue; taken at 12:2x on `twelve/reply-buffer-capacity`.
+
+## 2026-10-16 — the reply buffer capacity test
+
+Ready for lamp-voice: yes (#1035)
+
+- Kind: off unless set. Test-only: `provider_worker.rs` reads
+  `scenario_clock::monotonic_us` under `cfg(test)`, `lamp_ipc` otherwise.
+  Commit `9f5cb82b3` on `twelve/reply-buffer-capacity`.
+- Cause, the fixture: the rig runs coordinator, worker and scripted service
+  on one thread; decoding the largest messages held a coordinator tick back
+  101–144 ms, past the rig's 100 ms leases, so the turn was lost, the worker
+  retired the answer it was receiving, then BarrierTimeout (or ReadTimeout)
+  and ConnectionReset at the heartbeat. Gaps of 60–99 ms in every run.
+- Fix: `speaking_speed` enters a scenario scope, one 2 ms step per tick;
+  playback, the hold and the service pacing stay on the host clock. Doc:
+  `docs/voice-test-fixtures.md`.
+- Shown, Intel Mac, 24 CPU-bound processes: base 0/10 (all
+  BarrierTimeout), change 10/10. Alone, idle: base 2/8 failed. Evidence
+  `docs/verification/reply-buffer-capacity-mac-20261016/`.
+- Gate: fmt clean; clippy `-p lamp-voice` clean; `cargo test -p lamp-voice`
+  1,292 passed, 40 failed (motor, ring startup, optional ring, one duplex,
+  one `reminder_roundtrip` that #1009 mends), 10 ignored; workspace build
+  ok. ARM64 run 38858870677 green, started by hand (the pull request event
+  started none), so on the branch, not the merge.
+- Not shown: the reviewer's exact ReadTimeout run; no lamp.

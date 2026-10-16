@@ -53,6 +53,10 @@ pub const CPU_WARN_C: i64 = 95;
 /// The clock held below its maximum this long is an error: a board that
 /// keeps slowing the lamp down, not one that touched its limit once.
 pub const THROTTLED_ERROR_AFTER: std::time::Duration = std::time::Duration::from_secs(60);
+/// A heat warning, once given, holds until the hottest processor zone is
+/// this far below [`CPU_WARN_C`], so a zone at the line does not flip the
+/// lamp's health on every reading (the reviewer on #1105).
+pub const CPU_WARN_CLEARS_BELOW_C: i64 = 3;
 /// How many of the busiest processes a heat finding names.
 pub const BUSIEST: usize = 3;
 const MOST_PROCESSES: usize = 4_096;
@@ -214,6 +218,12 @@ pub struct Reading {
     /// ticks with their count, for [`Watch`].
     pub processes: Vec<(u32, String, u64)>,
     pub cpu_ticks: Option<(u64, u32)>,
+    /// A cpufreq cooling device (`class/thermal/cooling_device*`, `type`
+    /// beginning `cpufreq`) is at work: its `cur_state` is above 0.
+    pub cpufreq_cooling: bool,
+    /// The heat warning was given and the zone has not yet cooled past
+    /// [`CPU_WARN_CLEARS_BELOW_C`], by [`Watch`].
+    pub hot_held: bool,
 }
 
 /// What one reading cannot know: since when the processors have been held
@@ -221,6 +231,7 @@ pub struct Reading {
 /// board reader keeps one ([`crate::serve::board_reader`]).
 #[derive(Debug, Default)]
 pub struct Watch {
+    hot: bool,
     throttled_since: Option<std::time::Instant>,
     last: Option<((u64, u32), std::collections::HashMap<u32, u64>)>,
 }
@@ -228,6 +239,12 @@ pub struct Watch {
 impl Watch {
     /// Fill in `reading`'s [`Reading::throttled_for`] and [`Reading::busiest`].
     pub fn observe(&mut self, reading: &mut Reading, now: std::time::Instant) {
+        let hottest = reading.hottest_cpu().map(|zone| zone.milli_c);
+        self.hot = hottest.is_some_and(|milli_c| {
+            milli_c >= CPU_WARN_C * 1_000
+                || (self.hot && milli_c >= (CPU_WARN_C - CPU_WARN_CLEARS_BELOW_C) * 1_000)
+        });
+        reading.hot_held = self.hot;
         if reading.throttled().is_some() {
             let since = *self.throttled_since.get_or_insert(now);
             reading.throttled_for = Some(now.saturating_duration_since(since));
@@ -371,7 +388,19 @@ impl Reading {
     }
 
     /// The processor group held furthest below what it can do, if any is.
+    /// Only when the board says it is cooling: a cpufreq cooling device at
+    /// work, or the hottest processor zone at or past its first passive trip.
+    /// A cap below the hardware's with nothing hot (boost speeds left out, or
+    /// an image's own cap) is not heat (the reviewer on #1105).
     pub fn throttled(&self) -> Option<&CpuCap> {
+        let past_trip = self.hottest_cpu().is_some_and(|zone| {
+            zone.passive_milli_c
+                .first()
+                .is_some_and(|first| zone.milli_c >= *first)
+        });
+        if !self.cpufreq_cooling && !past_trip {
+            return None;
+        }
         self.cpu_caps
             .iter()
             .filter(|cap| cap.throttled())
@@ -409,7 +438,7 @@ impl Reading {
                 hot.map(|hot| format!(", {hot}")).unwrap_or_default()
             ));
         }
-        let zone = zone.filter(|zone| zone.milli_c >= CPU_WARN_C * 1_000)?;
+        let zone = zone.filter(|zone| zone.milli_c >= CPU_WARN_C * 1_000 || self.hot_held)?;
         warn(match next_trip(zone) {
             Some(trip) if trip > zone.milli_c => format!(
                 "the processors are hot: {} °C at {}, {} below the board's trip at {}{busiest}",
@@ -814,6 +843,8 @@ pub fn read(places: &Places) -> Reading {
         unread,
         judged: places.judged.clone(),
         cpu_caps: cpu_caps(&places.sys),
+        cpufreq_cooling: cpufreq_cooling(&places.sys),
+        hot_held: false,
         throttled_for: None,
         busiest: Vec::new(),
         processes: processes(&places.proc),
@@ -865,6 +896,29 @@ fn processes(proc: &Path) -> Vec<(u32, String, u64)> {
         })
         .take(MOST_PROCESSES)
         .collect()
+}
+
+/// Whether any cpufreq cooling device is at work.
+fn cpufreq_cooling(sys: &Path) -> bool {
+    let Ok(entries) = fs::read_dir(sys.join("class/thermal")) else {
+        return false;
+    };
+    entries
+        .flatten()
+        .filter(|entry| {
+            entry
+                .file_name()
+                .to_string_lossy()
+                .starts_with("cooling_device")
+        })
+        .take(MOST_ZONES)
+        .any(|entry| {
+            text(&entry.path().join("type")).is_ok_and(|kind| kind.trim().starts_with("cpufreq"))
+                && text(&entry.path().join("cur_state"))
+                    .ok()
+                    .and_then(|state| state.trim().parse::<u64>().ok())
+                    .is_some_and(|state| state > 0)
+        })
 }
 
 /// Each `policyN` under `devices/system/cpu/cpufreq` with both numbers, by

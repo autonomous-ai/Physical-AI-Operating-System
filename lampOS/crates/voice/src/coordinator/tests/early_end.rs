@@ -739,6 +739,7 @@ impl Setup {
             endpoint: None,
             call_wait_blocks: None,
             cut_keeps_name: self.cut_keeps_name,
+            asker_first: crate::asker_first::Mode::Off,
             paused: Box::new(|| false),
         };
         // The worker says it is ready before anything else. Until then only

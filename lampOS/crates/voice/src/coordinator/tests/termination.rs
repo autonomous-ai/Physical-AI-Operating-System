@@ -271,6 +271,7 @@ fn isolated_signal_child() {
         endpoint: None,
         call_wait_blocks: None,
         cut_keeps_name: false,
+        asker_first: crate::asker_first::Mode::Off,
         paused: Box::new(|| false),
     };
     let mut reply = Some(current);
@@ -486,6 +487,7 @@ fn service_signal_child(
         endpoint: None,
         call_wait_blocks: None,
         cut_keeps_name: false,
+        asker_first: crate::asker_first::Mode::Off,
         paused: Box::new(|| false),
     };
     let mut reply = Some(current);

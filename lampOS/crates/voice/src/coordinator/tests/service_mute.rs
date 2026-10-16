@@ -30,6 +30,7 @@ fn cleanup_failure_cannot_leave_a_restartable_physical_mute() {
         endpoint: None,
         call_wait_blocks: None,
         cut_keeps_name: false,
+        asker_first: crate::asker_first::Mode::Off,
         paused: Box::new(|| false),
     };
     let (mut controller, current, _) = active_reply();
@@ -172,6 +173,7 @@ fn active_mute(trace: &mut SessionState, invalid: bool) -> Result<()> {
         endpoint: None,
         call_wait_blocks: None,
         cut_keeps_name: false,
+        asker_first: crate::asker_first::Mode::Off,
         paused: Box::new(|| false),
     };
     let (mut controller, current, permit) = active_reply();

@@ -636,6 +636,7 @@ mod tests {
             endpoint: None,
             call_wait_blocks: None,
             cut_keeps_name: false,
+            asker_first: crate::asker_first::Mode::Off,
             paused: Box::new(|| false),
         };
         let boot = new_boot().unwrap();

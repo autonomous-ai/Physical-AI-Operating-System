@@ -22,7 +22,9 @@ use lamp_turn_owner::TurnOwner;
 use std::{collections::VecDeque, io};
 
 pub const TAIL_US: u64 = 100_000;
-const HISTORY_US: u64 = 600_000;
+/// How long a block's read is kept for a retained prefix's decision: one
+/// decided later is refused (`RetainedHistoryLoss::Expired`).
+pub(crate) const HISTORY_US: u64 = 600_000;
 const MAX_INTERVALS: usize = 16;
 const MAX_READS: usize = 80;
 /// Blocks whose hearing is remembered: longer than any candidate is held.

@@ -65,6 +65,18 @@ pub fn finish_all(longest: Duration) {
     wait_for(ended, longest);
 }
 
+/// [`finish_all`] when it goes, so a panic that unwinds out of `main` still
+/// gives the recorders their moment: the `"loop"` line of a pass that
+/// panicked is written while the stack unwinds (the reviewer on #1179).
+/// `let stalls_end = Finishing(..)` before the work, dropped after it.
+pub struct Finishing(pub Duration);
+
+impl Drop for Finishing {
+    fn drop(&mut self) {
+        finish_all(self.0);
+    }
+}
+
 fn wait_for(recorders: Vec<JoinHandle<()>>, longest: Duration) {
     let until = Instant::now() + longest;
     while recorders.iter().any(|recorder| !recorder.is_finished()) && Instant::now() < until {
@@ -728,6 +740,25 @@ mod tests {
                 at + 1
             );
         }
+    }
+
+    #[test]
+    fn a_pass_that_panics_is_written_as_the_loops_end_while_the_stack_unwinds() {
+        let dir = folder("panic");
+        let set = Set::default();
+        let (counters, system) = (set.clone(), set.clone());
+        let unwound = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _end = Finishing(Duration::from_secs(5));
+            let mut stalls = Stalls::from_value("speaker", Some("on"), &dir, counters, system);
+            let _pass = stalls.begin();
+            set.hold(80);
+            panic!("a pass that panics");
+        }));
+        assert!(unwound.is_err());
+        let written = lines(&dir.join("stalls-speaker.log"));
+        assert_eq!(written.len(), 1, "{written:?}");
+        assert_eq!(written[0]["end"], "loop");
+        assert_eq!(written[0]["ms"], 80.0);
     }
 
     #[test]

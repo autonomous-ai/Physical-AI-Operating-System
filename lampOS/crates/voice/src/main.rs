@@ -9,13 +9,14 @@ fn main() {
         && lamp_voice::log_relay::install()
             .map_err(|error| eprintln!("lamp-voice: log lines go straight to the journal: {error}"))
             .is_ok();
+    // The stall recorders (#1178) finish their lines once every device is
+    // closed: after `run`, or while a panic unwinds out of it.
+    let stalls_end = lamp_voice::stalls::Finishing(std::time::Duration::from_millis(300));
     let result = run();
     if let Err(error) = &result {
         eprintln!("lamp-voice: {error}");
     }
-    // Every device is closed by now: the stall recorders (#1178) may finish
-    // their lines, then the log relay its own.
-    lamp_voice::stalls::finish_all(std::time::Duration::from_millis(300));
+    drop(stalls_end);
     if relayed {
         lamp_voice::log_relay::finish(std::time::Duration::from_millis(500));
     }

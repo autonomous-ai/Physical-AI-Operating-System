@@ -280,7 +280,9 @@ writes it, so recording never lengthens the stall it measures. A file past
 newest lines are always there. A loop's end never waits for its recorder,
 so its own cleanup (closing the microphone, blanking the ring) comes first;
 `main` gives the recorders up to 300 ms at its very end, after every device
-is closed, before `log_relay::finish`.
+is closed, before `log_relay::finish`, and the same while a panic unwinds
+out of it (`stalls::Finishing`), so a pass that panicked is still written as
+the loop's end.
 
 How to read it: major faults say memory (the voice's own pages read back
 from the eMMC); involuntary switches with none say the CPU was taken;

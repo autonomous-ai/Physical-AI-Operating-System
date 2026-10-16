@@ -4,7 +4,7 @@ use std::os::unix::net::UnixListener;
 
 fn observed_room() -> (Room, bool) {
     (
-        crate::room_told::ROOM.lock().unwrap().at(monotonic_us()),
+        crate::room_told::room().lock().unwrap().at(monotonic_us()),
         false,
     )
 }
@@ -458,11 +458,11 @@ impl RestoreRoom {
     fn in_room(room: Room) -> Self {
         let now = monotonic_us();
         let observed = Self::observed(room, now);
-        let old = std::mem::replace(&mut *crate::room_told::ROOM.lock().unwrap(), observed);
+        let old = std::mem::replace(&mut *crate::room_told::room().lock().unwrap(), observed);
         Self {
             old: Some(old),
-            unanswered: UNANSWERED.load(std::sync::atomic::Ordering::Relaxed),
-            own_request: crate::attention::OWN_REQUEST.load(std::sync::atomic::Ordering::Acquire),
+            unanswered: unanswered_requests().load(std::sync::atomic::Ordering::Relaxed),
+            own_request: crate::attention::own_request().load(std::sync::atomic::Ordering::Acquire),
             settled_at_us: now.checked_add(6_000_000).unwrap(),
         }
     }
@@ -490,19 +490,20 @@ impl RestoreRoom {
     }
 
     fn set_room(&mut self, room: Room) {
-        *crate::room_told::ROOM.lock().unwrap() = Self::observed(room, monotonic_us());
+        *crate::room_told::room().lock().unwrap() = Self::observed(room, monotonic_us());
     }
 }
 
 impl Drop for RestoreRoom {
     fn drop(&mut self) {
-        UNANSWERED.store(self.unanswered, std::sync::atomic::Ordering::Relaxed);
-        crate::attention::OWN_REQUEST.store(self.own_request, std::sync::atomic::Ordering::Release);
+        unanswered_requests().store(self.unanswered, std::sync::atomic::Ordering::Relaxed);
+        crate::attention::own_request()
+            .store(self.own_request, std::sync::atomic::Ordering::Release);
         if let Some(old) = self.old.take() {
-            *crate::room_told::ROOM
+            *crate::room_told::room()
                 .lock()
                 .unwrap_or_else(|poisoned| poisoned.into_inner()) = old;
-            crate::room_told::ROOM.clear_poison();
+            crate::room_told::room().clear_poison();
         }
     }
 }
@@ -527,7 +528,7 @@ async fn unanswered_reminders_and_sounds_are_not_talk_but_speech_and_actual_audi
         },
     );
     let mut dial = rig.ready().await;
-    let unanswered = UNANSWERED.load(std::sync::atomic::Ordering::Relaxed);
+    let unanswered = unanswered_requests().load(std::sync::atomic::Ordering::Relaxed);
     for _ in 0..2 {
         let request = rig.reminder(&dial, "Tea");
         assert!(
@@ -539,11 +540,11 @@ async fn unanswered_reminders_and_sounds_are_not_talk_but_speech_and_actual_audi
             matches!(rig.output().await, ProviderOutput::TurnComplete { request: got, idle: true } if got == request)
         );
         assert_eq!(
-            UNANSWERED.load(std::sync::atomic::Ordering::Relaxed),
+            unanswered_requests().load(std::sync::atomic::Ordering::Relaxed),
             unanswered
         );
         {
-            let mut observed = crate::room_told::ROOM.lock().unwrap();
+            let mut observed = crate::room_told::room().lock().unwrap();
             let now = monotonic_us();
             assert_eq!(
                 observed.at(now),
@@ -585,22 +586,22 @@ async fn unanswered_reminders_and_sounds_are_not_talk_but_speech_and_actual_audi
         );
         if sound {
             assert_eq!(
-                UNANSWERED.load(std::sync::atomic::Ordering::Relaxed),
+                unanswered_requests().load(std::sync::atomic::Ordering::Relaxed),
                 unanswered
             );
             assert_eq!(
-                crate::room_told::ROOM.lock().unwrap().at(monotonic_us()),
+                crate::room_told::room().lock().unwrap().at(monotonic_us()),
                 Room::Quiet
             );
         }
         rig.end_local_reminder();
     }
     assert_eq!(
-        UNANSWERED.load(std::sync::atomic::Ordering::Relaxed),
+        unanswered_requests().load(std::sync::atomic::Ordering::Relaxed),
         unanswered + 2
     );
     assert_eq!(
-        crate::room_told::ROOM.lock().unwrap().at(monotonic_us()),
+        crate::room_told::room().lock().unwrap().at(monotonic_us()),
         Room::Busy
     );
     let request = rig.reminder(&dial, "Tea");
@@ -612,9 +613,12 @@ async fn unanswered_reminders_and_sounds_are_not_talk_but_speech_and_actual_audi
     assert!(
         matches!(rig.output().await, ProviderOutput::Audio { request: got, .. } if got == request)
     );
-    assert_eq!(UNANSWERED.load(std::sync::atomic::Ordering::Relaxed), 0);
     assert_eq!(
-        crate::room_told::ROOM
+        unanswered_requests().load(std::sync::atomic::Ordering::Relaxed),
+        0
+    );
+    assert_eq!(
+        crate::room_told::room()
             .lock()
             .unwrap()
             .due(u64::MAX, monotonic_us()),

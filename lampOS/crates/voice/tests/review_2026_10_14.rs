@@ -62,9 +62,9 @@ fn review_a_plain_hearing_just_before_a_request_is_not_lost_to_a_fainter_one_aft
 /// second look is what makes it happen in a busy room.
 #[test]
 fn review_the_lamps_own_second_look_does_not_use_up_a_new_sessions_held_requests() {
-    use lamp_voice::attention::OWN_REQUEST;
+    use lamp_voice::attention::own_request;
     use std::sync::atomic::Ordering;
-    // Request numbers of this test alone: `OWN_REQUEST` is one for the
+    // Request numbers of this test alone: `own_request()` is one for the
     // whole process.
     let (line, look, talk) = (1_001, 1_002, 1_003);
     let mut attention = Attention::default();
@@ -72,13 +72,13 @@ fn review_the_lamps_own_second_look_does_not_use_up_a_new_sessions_held_requests
     attention.began_at(line, 50, 100 * SECOND + 200_000);
     attention.heard("Hey Liam, the meeting moved.");
     // Nothing comes of it: no output, so nothing to decide.
-    OWN_REQUEST.store(look, Ordering::Release);
+    own_request().store(look, Ordering::Release);
     attention.began_at(look, 50, 105 * SECOND);
     // Nothing comes of the second look either.
     attention.began_at(talk, 50, 110 * SECOND);
     attention.heard("How was your weekend?");
     let verdict = attention.first_output(talk, Room::Busy, false);
-    OWN_REQUEST.store(0, Ordering::Release);
+    own_request().store(0, Ordering::Release);
     assert!(
         matches!(verdict, Some(Verdict::Hold(_))),
         "the session's second heard request in a busy room was not held: {verdict:?}"

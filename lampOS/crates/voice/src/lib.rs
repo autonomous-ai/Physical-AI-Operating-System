@@ -3,6 +3,35 @@
 //! Speech activity is an observation, not evidence of who is being addressed.
 //! The initial harness requires an explicitly opened, finite directed session;
 //! this does not qualify open-desk addressee recognition or background restraint.
+/// A process-wide value the provider worker keeps, read through `$name()`.
+///
+/// In the service it is one static: the provider worker is one process.
+/// Under test it is one per test thread (#882): many workers run in one
+/// test process, each numbering its requests from 1, and one shared value
+/// let one test's worker change what another test's worker reads. Each
+/// worker test runs on its own thread (`#[tokio::test]` is current-thread)
+/// and the worker reads and writes these only on its task.
+// ponytail: keyed by thread, not by worker; a test that drives a worker
+// from a multi-thread runtime needs the value passed to the worker instead.
+macro_rules! worker_global {
+    ($(#[$meta:meta])* $vis:vis fn $name:ident() -> $ty:ty = $init:expr;) => {
+        $(#[$meta])*
+        #[cfg(not(test))]
+        $vis fn $name() -> &'static $ty {
+            static VALUE: $ty = $init;
+            &VALUE
+        }
+        $(#[$meta])*
+        #[cfg(test)]
+        $vis fn $name() -> &'static $ty {
+            thread_local! {
+                static VALUE: &'static $ty = Box::leak(Box::new($init));
+            }
+            VALUE.with(|value| *value)
+        }
+    };
+}
+
 pub mod activity;
 pub mod addressed;
 pub mod admission;

@@ -98,8 +98,10 @@ pub struct RoomTold {
     told: Option<(u64, Room)>,
 }
 
-/// This process's one room. The provider worker is one process.
-pub static ROOM: Mutex<RoomTold> = Mutex::new(RoomTold::new());
+worker_global! {
+    /// This process's one room. The provider worker is one process.
+    pub fn room() -> Mutex<RoomTold> = Mutex::new(RoomTold::new());
+}
 
 impl RoomTold {
     pub const fn new() -> Self {

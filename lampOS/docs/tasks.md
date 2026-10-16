@@ -315,7 +315,7 @@ rather than voicing a question it does not have.
 | CLI | One worker, one job/result slot; preflight/read 10 s each, new 60 s |
 | CLI capture | 64 KiB stdout, 16 KiB stderr; individual poll waits capped at 10 ms |
 | Progress (`--progress`) | One `ps` per machine per watch period, 10 s each; 256 KiB stdout; 256 harnesses a reply; a progress line cut to 2 KiB; memory only, at most 16 tasks |
-| Push (`--push-wait`) | One `wait` held per machine with watched tasks, on at most 64 agents, 600 s each (killed at 630 s), beside the CLI worker; the next on a machine no sooner than 3 s after one came back with an end, 30 s after one failed; 64 KiB stdout |
+| Push (`--push-wait`) | One `wait` held per machine with watched tasks, on at most 64 agents, 600 s each (killed at 630 s), beside the CLI worker; the next on a machine no sooner than 3 s after one came back with an end (30 s after the third in a row on the same agents), 30 s after one failed; 64 KiB stdout |
 | Private persistence | 8 MiB snapshot, 32 MiB database, 40 MiB journal; 4,096-byte pages |
 | SQLite | DELETE journal, FULL sync, fullfsync requested, 2 MiB cache, 50 ms busy wait, no mmap/WAL |
 | Diagnostics | Once a second, with early readiness changes; owner stale after 1,500 ms |
@@ -638,8 +638,15 @@ used only to say it.
   not waited on again; its follow-up stays on the watch's 2-minute looks,
   since `wait` on an idle agent comes back at once. When the set of watched
   agents on a machine changes, its `wait` is cancelled and started on the
-  new set. A failed `wait` is tried again after 30 s, and the watch's own
-  looks go on meanwhile as the backstop. One line in the journal for each
+  new set; each `wait` is numbered, so a cancelled one that answers late is
+  never taken for the one that replaced it. A failed `wait` is tried again
+  after 30 s, and the watch's own looks go on meanwhile as the backstop. If
+  Harness keeps saying an agent ended while `show` still finds it at work,
+  the third such return in a row on the same agents waits 30 s instead of
+  3 s before the next `wait`. **No unit sets `--push-wait` yet**
+  (`deploy/product/lamp-tasks.service` and `deploy/lamp-4ace/` run `serve
+  --enable --watch …`), so a deployed lamp still misses the 20 s bound until
+  one does, after a run on a lamp. One line in the journal for each
   `wait` that comes back or fails. Not yet shown on a lamp: whether `wait
   --machine` needs Harness's daemon running on the lamp, as `new --machine`
   did in Ten's run on lamp-75c9, and what the held process costs there.

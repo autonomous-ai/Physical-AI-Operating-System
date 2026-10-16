@@ -314,7 +314,7 @@ The voice service names a mood and a voice level; the body decides the rest.
 when that is set, on every change of mood and otherwise every 40 ms:
 
 ```json
-{"mood":"resting|listening|thinking|speaking","level":0}
+{"mood":"resting|listening|thinking|speaking|reading","level":0}
 ```
 
 `level` is the voice in play on the scale of the ring's face (see
@@ -868,6 +868,66 @@ counts short of its goal for the first four seconds), at loads of 24 to
 lamp still asks its sway of the head's roll (`sway_roll`), which this
 lamp's reach of one count does not take. A Mac camera beside the lamp saw
 it from the side; nobody has yet judged from the front how the lean reads.
+
+## Reading: a look down at the desk
+
+For #933 and the Desk tutor skill (#941). A skill that wants the lamp to
+read a page in front of it sends `{"mood":"reading","level":0}` to the
+mood socket, and says it again at least once every 1.5 s
+(`MOOD_STALE`) for as long as the lamp reads. The body then:
+
+- **Looks down.** The head's pitch goes as far down as its bounds let it,
+  which stood up is as far as it may look up (`--reach`'s first figure: 150
+  counts, about 13 degrees, on lamp-52e6), from the pose it stands in. No
+  more: the bounds, `--pitch-window` beside the base and the pitch floor
+  are all as before, and the pose is followed at `--speed`. The eyes do not
+  lift it to a face and Expression does not nod it while it reads; the
+  base's turn is as in any other mood.
+- **Leans forward** as it does while it speaks (`LEAN`, above), with the
+  same conditions.
+- **Holds** it, and comes back to the voice's mood once the skill stops
+  saying `reading`: the pose is followed back at the same speed.
+- **Stands up for it** if it is folded, as for any mood but rest.
+
+While a skill says `reading`, the voice's own moods on the same socket
+(`resting` between turns, sent every 40 ms) do not take the pose from it,
+or the two would take turns at the head every step; once it is unsaid for
+1.5 s they count again. A paused lamp rests as before, reading or not.
+
+Against simulated servos
+(`a_reading_lamp_looks_down_at_the_desk_holds_it_and_comes_back`): stood
+up at 1,900, the head's goal went down to 2,048 to 2,050 and stayed there
+for the six seconds of reading, under an asked Expression lift of 40
+counts; the arm leaned by `LEAN`; afterwards both were back where the lamp
+listened, no goal moving more than 3 counts in a step.
+
+**On lamp-52e6, 2026-10-16, 11:51**, body `92634401`, unit flags
+unchanged, `reading` sent every half second for 14 s by a small script on
+the lamp while the voice went on sending its own moods. The head's goal
+went from 1,670 (lifted to a face) to 1,919 in 2.5 s and the joint read
+1,919, three counts short of the stood pose's 1,772 plus 150; the arm
+leaned to 2,612 and 2,542 and read 2,610 and 2,536, loads at most 48. The
+mood stayed `reading` throughout, and went to rest 0.6 s after the script
+stopped. The base, which the eyes had turned 380 counts toward a face,
+came back toward straight ahead at about 60 counts a second while it read:
+reading is not attending, so the eyes let the face go.
+
+What the camera saw, measured on the lamp and never copied off it: the
+eyes' frame (`/run/lampos-eyes/sight.jpg`, 320 by 240, not the full look's
+1,280 by 960) in four bands from top to bottom, mean brightness and a
+crude texture (mean difference between neighbouring pixels):
+
+| | top | | | bottom |
+|---|---|---|---|---|
+| before, head lifted to a face | 146, 2.8 | 169, 7.4 | 79, 13.2 | 61, 14.1 |
+| reading, 6 s | 151, 8.0 | 74, 13.3 | 78, 12.4 | 145, 9.2 |
+| reading, 11 s | 166, 7.9 | 81, 13.4 | 73, 11.5 | 131, 8.0 |
+| 8 s after | 174, 3.5 | 130, 14.6 | 70, 14.7 | 84, 8.8 |
+
+So the view moved down: a bright surface, the desk, filled the bottom
+quarter while it read. Whether a page there is readable at 1,280 by 960
+needs a person at the lamp to look at a full look taken in this pose;
+frames do not leave the lamp, so there is no photograph here.
 
 ## What Expression may add
 

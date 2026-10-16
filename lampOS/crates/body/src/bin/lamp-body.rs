@@ -485,19 +485,29 @@ fn mood_of(datagram: &[u8]) -> Option<(lamp_body::gesture::Mood, u8)> {
     Some((message.mood, message.level))
 }
 
-/// What of the moods just heard counts, given whether a skill said
-/// `reading` within `MOOD_STALE`. The voice tells its own mood now and then
+/// Which of the moods heard in one step counts, in the order they came,
+/// given whether a skill said `reading` within `MOOD_STALE` before them.
+/// Otherwise the newest. The voice tells its own mood every 40 ms
 /// (`resting` between turns): while a skill holds the lamp reading, none of
-/// that takes the pose from it, or the two would take turns at the head
-/// every step. Reading ends when the skill stops saying it.
+/// that takes the pose from it, or the two would take turns at the head.
+/// A `reading` heard in this step counts whatever came after it in the same
+/// step, so that the hold is renewed by every one the skill sends; with
+/// only the newest kept, a `resting` landing after it dropped the lamp to
+/// rest (lamp-52e6, 2026-10-16, 14:30, twice in ten seconds at one a
+/// second). Reading ends when the skill stops saying it.
 #[cfg_attr(not(any(target_os = "linux", test)), allow(dead_code))]
-fn while_reading(
-    latest: Option<(lamp_body::gesture::Mood, u8)>,
+fn of_this_step(
+    heard: &[(lamp_body::gesture::Mood, u8)],
     reading: bool,
 ) -> Option<(lamp_body::gesture::Mood, u8)> {
-    match latest {
-        Some((mood, _)) if reading && mood != lamp_body::gesture::Mood::Reading => None,
-        other => other,
+    let said = heard
+        .iter()
+        .rev()
+        .find(|(mood, _)| *mood == lamp_body::gesture::Mood::Reading);
+    match (said, heard.last()) {
+        (Some(said), _) => Some(*said),
+        (None, Some(_)) if reading => None,
+        (None, newest) => newest.copied(),
     }
 }
 
@@ -739,19 +749,19 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
     // A skill's move sent whole, played as a gesture (docs/body.md).
     let mut moves_sent = lamp_body::moves::Sent::besides(&moves);
     let mut datagram = vec![0u8; lamp_body::moves::MOST_DATAGRAM];
-    // When a skill last said `reading` (`while_reading`).
+    // When a skill last said `reading` (`of_this_step`).
     let mut reading_at: Option<std::time::Instant> = None;
     let news = || {
         paused.set(pause.as_mut().is_some_and(|pause| pause.paused()));
-        // Everything waiting, and only the newest of it counts.
-        let mut latest = None;
+        // Everything waiting; which of it counts is `of_this_step`'s.
+        let mut moods_heard = Vec::new();
         for _ in 0..32 {
             match moods.recv(&mut datagram) {
                 Ok(length) => {
                     let sent = &datagram[..length];
                     match heard(sent, &moves, &mut moves_sent) {
                         Heard::Gesture(clip) => gesture_asked.set(Some(clip)),
-                        Heard::Mood(mood, level) => latest = Some((mood, level)),
+                        Heard::Mood(mood, level) => moods_heard.push((mood, level)),
                         // An unknown gesture, most often: said, as the
                         // body says what it does with every gesture.
                         Heard::Dropped(why) => {
@@ -764,12 +774,12 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
                 }
                 Err(_) => break,
             }
-            if latest.is_some_and(|(mood, _)| mood == lamp_body::gesture::Mood::Reading) {
-                reading_at = Some(std::time::Instant::now());
-            }
         }
         let reading = reading_at.is_some_and(|at| at.elapsed() < lamp_body::body::MOOD_STALE);
-        let latest = while_reading(latest, reading);
+        let latest = of_this_step(&moods_heard, reading);
+        if latest.is_some_and(|(mood, _)| mood == lamp_body::gesture::Mood::Reading) {
+            reading_at = Some(std::time::Instant::now());
+        }
         if paused.get() {
             return Some((lamp_body::gesture::Mood::Resting, 0));
         }
@@ -1784,20 +1794,29 @@ mod tests {
     }
 
     /// While a skill says `reading`, the voice's moods do not take the
-    /// pose from it; once it stops, they count again.
+    /// pose from it, even when one comes after it in the same step; once it
+    /// stops, they count again.
     #[test]
     fn reading_holds_over_the_voice_until_it_goes_unsaid() {
-        assert_eq!(while_reading(Some((Mood::Resting, 0)), true), None);
-        assert_eq!(while_reading(Some((Mood::Listening, 90)), true), None);
+        let reading = (Mood::Reading, 200);
+        let resting = (Mood::Resting, 0);
+        // Both in one step, the voice's last: reading, renewed.
+        assert_eq!(of_this_step(&[reading, resting], true), Some(reading));
+        assert_eq!(of_this_step(&[reading, resting], false), Some(reading));
         assert_eq!(
-            while_reading(Some((Mood::Reading, 200)), true),
-            Some((Mood::Reading, 200))
+            of_this_step(&[resting, reading, (Mood::Listening, 90)], true),
+            Some(reading)
         );
+        // Only the voice, while reading is fresh: nothing new.
+        assert_eq!(of_this_step(&[resting], true), None);
+        assert_eq!(of_this_step(&[(Mood::Listening, 90)], true), None);
+        assert_eq!(of_this_step(&[], true), None);
+        // Reading unsaid: the newest of the voice's.
         assert_eq!(
-            while_reading(Some((Mood::Resting, 0)), false),
-            Some((Mood::Resting, 0))
+            of_this_step(&[resting, (Mood::Listening, 90)], false),
+            Some((Mood::Listening, 90))
         );
-        assert_eq!(while_reading(None, true), None);
+        assert_eq!(of_this_step(&[], false), None);
     }
 
     #[test]

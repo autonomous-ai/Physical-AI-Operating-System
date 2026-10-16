@@ -893,6 +893,16 @@ While a skill says `reading`, the voice's own moods on the same socket
 (`resting` between turns, sent every 40 ms) do not take the pose from it,
 or the two would take turns at the head every step; once it is unsaid for
 1.5 s they count again. A paused lamp rests as before, reading or not.
+Of the moods that reach the body within one step, a `reading` counts
+even when the voice's `resting` came after it, so every `reading` a skill
+sends renews the hold (`of_this_step` in `src/bin/lamp-body.rs`). Before
+that, on lamp-52e6 at 14:30 with `reading` every second, the lamp fell to
+rest twice in ten seconds when the two met in one step. After it, body `93a64bd1` at
+14:36 to 14:40, `reading` every second for 20 to 30 s, four runs: with
+the voice idle, twice with a Mac asking the lamp for a story (the voice
+held both answers back, a busy room), and once with a second sender
+saying `speaking` every 40 ms as well: `reading` without a break each
+time, ending 1.5 s after the last one.
 
 Against simulated servos
 (`a_reading_lamp_looks_down_at_the_desk_holds_it_and_comes_back`): stood

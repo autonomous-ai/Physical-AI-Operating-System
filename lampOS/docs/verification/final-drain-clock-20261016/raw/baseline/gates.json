@@ -1,0 +1,45 @@
+[
+  {
+    "name": "list",
+    "command": [
+      "cargo",
+      "nextest",
+      "list",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-voice-eval",
+      "--message-format",
+      "json"
+    ],
+    "started": "2026-10-16 08:50:11 +0700",
+    "finished": "2026-10-16 08:51:50 +0700",
+    "exit_code": 0,
+    "raw_sha256": "32b008ef2f57ea9d1854d916e412ebb10d0e4fa6ba4f08f8c69250abe5383f47"
+  },
+  {
+    "name": "original-case",
+    "command": [
+      "cargo",
+      "nextest",
+      "run",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-voice-eval",
+      "--profile",
+      "default",
+      "--test-threads",
+      "1",
+      "--no-fail-fast",
+      "--retries",
+      "0",
+      "-E",
+      "binary_id(lamp-voice-eval::final_dispatch) & test(=a_session_end_first_seen_in_the_final_drain_withholds_and_is_kept)"
+    ],
+    "started": "2026-10-16 08:51:50 +0700",
+    "finished": "2026-10-16 08:51:52 +0700",
+    "exit_code": 0,
+    "raw_sha256": "80f5bfe5e6558f61a7116e3b98cacdffbc8faffc4b71b0c602f31532f9e8be0a"
+  }
+]

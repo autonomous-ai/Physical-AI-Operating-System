@@ -1,0 +1,16 @@
+{
+  "date_from_date": "2026-10-16 09:10:58 +0700",
+  "base": "1fb07c6f57ee280a49de7b4ddd74008c2a32a20d",
+  "baseline_record_sha256": "26bce2f46178f9aacba7fc2fda00b4b87d4433aadae9abd1954128038f3028c1",
+  "baseline_gate_input_count": 1021,
+  "unchanged_count": 1020,
+  "changed_owned_source": [
+    {
+      "path": "lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "baseline": "600ad54a33c7a98ba0abf9c6aadeca366cb319d121b3847f36211cc5b0a30a29",
+      "current": "aca9379bbb7c993267251c1103a88f91d06ad8468e7f3cc936efb0d44797227c"
+    }
+  ],
+  "new_owned_test_module_absent_from_baseline": true,
+  "note": "Baseline gate source inventory does not include the prose doc; its exact clean69bae prefix and append-only inverse are recorded separately."
+}

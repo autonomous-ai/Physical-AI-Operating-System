@@ -1,0 +1,32 @@
+{
+  "date_from_date": "2026-10-16 09:16:45 +0700",
+  "base": "1fb07c6f57ee280a49de7b4ddd74008c2a32a20d",
+  "terminal_exec_session_id": 37353,
+  "root_reported_terminal_exit": 0,
+  "full_counts": {
+    "passed": 504,
+    "failed": 0,
+    "ignored": 0
+  },
+  "full_identity_result_proved_independently": true,
+  "all_completed_stage_commands_and_log_hashes_verified": true,
+  "format_strict_clippy_full_test_workspace_build_exit_zero": true,
+  "source_inputs_rehashed": 1023,
+  "all_gate_source_hashes_still_exact": true,
+  "reviewed_three_source_hashes_exact": {
+    "lampOS/crates/voice-eval/tests/final_dispatch.rs": "aca9379bbb7c993267251c1103a88f91d06ad8468e7f3cc936efb0d44797227c",
+    "lampOS/crates/voice-eval/tests/common/final_drain_clock.rs": "fcc6988f7837440550a090ea6e2b04c9b9f569f3f7589558234780477880148e",
+    "lampOS/docs/voice-test-fixtures.md": "bd618f4471d5ec69dad490abc9e4747a91fdb21ef9fb1033a1e9d8f20e332940"
+  },
+  "baseline_existing_source_and_doc_match_explicit1fb_commit": true,
+  "original_family": {
+    "compiled_before": 13,
+    "compiled_after_originals": 13,
+    "new_helpers": 6
+  },
+  "reverse_dependents_on_lamp_voice_eval": [],
+  "selected_case_also_ran_once_in_separate_timing_gate": true,
+  "native_arm64": "Pending PR qualification",
+  "audit_gate_executions": 0,
+  "host_at_audit": "Darwin 25.6.0 x86_64"
+}

@@ -1,0 +1,23 @@
+{
+  "date_from_date": "2026-10-16 09:12:24 +0700",
+  "decision": "No remaining source blocker for first executable gate on the frozen six-case variant",
+  "source_qualified_only": true,
+  "executable_gate_status": "Not run by reviewer",
+  "fixed_findings": [
+    "Late positive filesystem observation cannot authorize logical advancement after expired host deadline",
+    "Marker/enqueue conjunction now has direct negative predicate tests"
+  ],
+  "retained_limitations": [
+    "No dedicated pre-initial-marker panic regression in six-case variant",
+    "Native Linux ARM64 qualification pending",
+    "No end-to-end host bound for filesystem/spawn/kill/wait",
+    "Closed-transport case unchanged and not migrated"
+  ],
+  "expected_compiled_originals": 498,
+  "expected_additions": 6,
+  "expected_compiled_total": 504,
+  "original_family_identities": 13,
+  "all_original_assertions_preserved": true,
+  "baseline_unowned_gate_inputs_exact": 1020,
+  "frozen_source_record": "final-source-freeze.json"
+}

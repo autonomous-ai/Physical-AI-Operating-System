@@ -1,0 +1,324 @@
+{
+  "date_from_date": "2026-10-16 09:18:14 +0700",
+  "base": "1fb07c6f57ee280a49de7b4ddd74008c2a32a20d",
+  "branch": "tests/823-final-drain-clock",
+  "owned_source_paths": {
+    "lampOS/crates/voice-eval/tests/final_dispatch.rs": "aca9379bbb7c993267251c1103a88f91d06ad8468e7f3cc936efb0d44797227c",
+    "lampOS/crates/voice-eval/tests/common/final_drain_clock.rs": "fcc6988f7837440550a090ea6e2b04c9b9f569f3f7589558234780477880148e",
+    "lampOS/docs/voice-test-fixtures.md": "bd618f4471d5ec69dad490abc9e4747a91fdb21ef9fb1033a1e9d8f20e332940"
+  },
+  "copied_files": [
+    {
+      "source": "/private/tmp/tests-823-final-drain-evidence/baseline/gates.json",
+      "package_path": "raw/baseline/gates.json",
+      "bytes": 1047,
+      "sha256": "1bc56e6d51f3d8813d5897c90abe259de1ed715a7c415b1cefcc44e6937f1234"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-evidence/baseline/list.log",
+      "package_path": "raw/baseline/list.log",
+      "bytes": 92785,
+      "sha256": "32b008ef2f57ea9d1854d916e412ebb10d0e4fa6ba4f08f8c69250abe5383f47"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-evidence/baseline/original-case.log",
+      "package_path": "raw/baseline/original-case.log",
+      "bytes": 488,
+      "sha256": "80f5bfe5e6558f61a7116e3b98cacdffbc8faffc4b71b0c602f31532f9e8be0a"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-evidence/baseline/source.json",
+      "package_path": "raw/baseline/source.json",
+      "bytes": 131243,
+      "sha256": "26bce2f46178f9aacba7fc2fda00b4b87d4433aadae9abd1954128038f3028c1"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-evidence/first-gate/build.exit",
+      "package_path": "raw/first-gate/build.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-evidence/first-gate/build.log",
+      "package_path": "raw/first-gate/build.log",
+      "bytes": 3974,
+      "sha256": "7e7d9f643ebb51f5cb358aa2890ba0f3e081c9ed501707ba82a6bd3f02f93bd6"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-evidence/first-gate/clippy.exit",
+      "package_path": "raw/first-gate/clippy.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-evidence/first-gate/clippy.log",
+      "package_path": "raw/first-gate/clippy.log",
+      "bytes": 1889,
+      "sha256": "1870f3726def04ac585248ea9f3e0a635104fe9a9aa8216569a9ac22e6a648d2"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-evidence/first-gate/completed.json",
+      "package_path": "raw/first-gate/completed.json",
+      "bytes": 274,
+      "sha256": "865c5721247cdb051c6dcbc2ec315fa97375a391a7852d817a8f9d247b9d3fbd"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-evidence/first-gate/fmt.exit",
+      "package_path": "raw/first-gate/fmt.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-evidence/first-gate/fmt.log",
+      "package_path": "raw/first-gate/fmt.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-evidence/first-gate/gates.json",
+      "package_path": "raw/first-gate/gates.json",
+      "bytes": 3822,
+      "sha256": "d9cae151dde72939985d16b1214a11ae1ae0438415be6480457d6115c4f4b63a"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-evidence/first-gate/identity-proof.json",
+      "package_path": "raw/first-gate/identity-proof.json",
+      "bytes": 1130,
+      "sha256": "9047e74296c630804c3ab367e16622ed8bdc007ab9dbf37a4cf9d617a8999a5c"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-evidence/first-gate/list.exit",
+      "package_path": "raw/first-gate/list.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-evidence/first-gate/list.log",
+      "package_path": "raw/first-gate/list.log",
+      "bytes": 92024,
+      "sha256": "e43a8e204cb5d2d1e55fca6aa60c0589be88eed274d28d7d3098b20652dbdff3"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-evidence/first-gate/metadata.exit",
+      "package_path": "raw/first-gate/metadata.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-evidence/first-gate/metadata.log",
+      "package_path": "raw/first-gate/metadata.log",
+      "bytes": 165053,
+      "sha256": "a6621ece2127e3e13253c22980e459a17b14f059a85b51a351c384c4a01036ae"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-evidence/first-gate/original-case.exit",
+      "package_path": "raw/first-gate/original-case.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-evidence/first-gate/original-case.log",
+      "package_path": "raw/first-gate/original-case.log",
+      "bytes": 488,
+      "sha256": "221f5d3f5a7844ea623cd7581a0752396c9f5d16e12a150aeb220d9c3c1e116d"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-evidence/first-gate/source.json",
+      "package_path": "raw/first-gate/source.json",
+      "bytes": 131487,
+      "sha256": "412f11ff830b62ee5d50119fea35201f66b55a1127c1b724ba73a7eb9fecc925"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-evidence/first-gate/tests.exit",
+      "package_path": "raw/first-gate/tests.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-evidence/first-gate/tests.log",
+      "package_path": "raw/first-gate/tests.log",
+      "bytes": 55259,
+      "sha256": "04fc2b165dee7bd15e932d47bce13a37f227c00382569b1f8dc7a8f6e7ae944b"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-source-review-20261016/baseline-gate-input-audit.json",
+      "package_path": "review/baseline-gate-input-audit.json",
+      "bytes": 754,
+      "sha256": "b0bf9c39d0ad013abdb3ae590d84fc3d0d4d90a6f7b0469077a2306e1fc70cf6"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-source-review-20261016/baseline-source/lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "package_path": "review/baseline-source/lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "bytes": 17804,
+      "sha256": "600ad54a33c7a98ba0abf9c6aadeca366cb319d121b3847f36211cc5b0a30a29"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-source-review-20261016/baseline-source/lampOS/docs/voice-test-fixtures.md",
+      "package_path": "review/baseline-source/lampOS/docs/voice-test-fixtures.md",
+      "bytes": 18358,
+      "sha256": "04bf0a07ddbd0e9de139988b65c51aa23a11bb1b542176a8185a473d923a19d4"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-source-review-20261016/final-reviewed-source/lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+      "package_path": "review/final-reviewed-source/lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+      "bytes": 13432,
+      "sha256": "fcc6988f7837440550a090ea6e2b04c9b9f569f3f7589558234780477880148e"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-source-review-20261016/final-reviewed-source/lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "package_path": "review/final-reviewed-source/lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "bytes": 17959,
+      "sha256": "aca9379bbb7c993267251c1103a88f91d06ad8468e7f3cc936efb0d44797227c"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-source-review-20261016/final-reviewed-source/lampOS/docs/voice-test-fixtures.md",
+      "package_path": "review/final-reviewed-source/lampOS/docs/voice-test-fixtures.md",
+      "bytes": 19699,
+      "sha256": "bd618f4471d5ec69dad490abc9e4747a91fdb21ef9fb1033a1e9d8f20e332940"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-source-review-20261016/final-source-freeze.json",
+      "package_path": "review/final-source-freeze.json",
+      "bytes": 1904,
+      "sha256": "73f9ef4ffe6e4363eb212d04605b8df2e5ebe100fa04815195d848a8765f5b11"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-source-review-20261016/first-reviewed-delta.diff",
+      "package_path": "review/first-reviewed-delta.diff",
+      "bytes": 14830,
+      "sha256": "efcca827ee2255230c350136454830c71c1ef4fb7f80b8035b25fd1edc094824"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-source-review-20261016/first-reviewed-source/lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+      "package_path": "review/first-reviewed-source/lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+      "bytes": 10916,
+      "sha256": "effec55d65e691a0445a961d7f2331db4578c776e107a7a487c0340ab410c1c1"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-source-review-20261016/first-reviewed-source/lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "package_path": "review/first-reviewed-source/lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "bytes": 17959,
+      "sha256": "aca9379bbb7c993267251c1103a88f91d06ad8468e7f3cc936efb0d44797227c"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-source-review-20261016/first-reviewed-source/lampOS/docs/voice-test-fixtures.md",
+      "package_path": "review/first-reviewed-source/lampOS/docs/voice-test-fixtures.md",
+      "bytes": 19699,
+      "sha256": "bd618f4471d5ec69dad490abc9e4747a91fdb21ef9fb1033a1e9d8f20e332940"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-source-review-20261016/original-tests-proof.json",
+      "package_path": "review/original-tests-proof.json",
+      "bytes": 5064,
+      "sha256": "b7400fa9da4aff98dc002628cb3ec82e7c05e83b7cf6bb32d4110d11a209b996"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-source-review-20261016/reversed-source/lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "package_path": "review/reversed-source/lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "bytes": 17804,
+      "sha256": "600ad54a33c7a98ba0abf9c6aadeca366cb319d121b3847f36211cc5b0a30a29"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-source-review-20261016/reversed-source/lampOS/docs/voice-test-fixtures.md",
+      "package_path": "review/reversed-source/lampOS/docs/voice-test-fixtures.md",
+      "bytes": 18358,
+      "sha256": "04bf0a07ddbd0e9de139988b65c51aa23a11bb1b542176a8185a473d923a19d4"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-source-review-20261016/review-correction.diff",
+      "package_path": "review/review-correction.diff",
+      "bytes": 4549,
+      "sha256": "09a05ab8b4bcf877dcef99c2da13a79c03468ce8163b20bc51e05a75c57a7e34"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-source-review-20261016/review-result.json",
+      "package_path": "review/review-result.json",
+      "bytes": 1002,
+      "sha256": "b00d3764af92ad5ba2ddf13105ce808a4981323b4e32e959041ee16ba0eac8eb"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-source-review-20261016/review.md",
+      "package_path": "review/review.md",
+      "bytes": 9035,
+      "sha256": "ae85e942900808321b7eb1711c924d7fa439a536c0d17d20726b2e55e546881d"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-source-review-20261016/source-freeze.json",
+      "package_path": "review/source-freeze.json",
+      "bytes": 810,
+      "sha256": "16d4c415e18a5cf76ee68d7ab642ee33b0b934e5f0729d95a9f131aac14c254a"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-source-review-20261016/source-inverse.json",
+      "package_path": "review/source-inverse.json",
+      "bytes": 3614,
+      "sha256": "d649f699b556b97f0bf3f9a1b2f54bc488ae50ef4d348db835daae2e95511ff5"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-publication-audit/identity-execution-proof.json",
+      "package_path": "audit/identity-execution-proof.json",
+      "bytes": 117330,
+      "sha256": "1ea59ea5cedf0481b8f527247512b104f248271df01666355b88e0dfebc6471b"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-publication-audit/original-case-timing.json",
+      "package_path": "audit/original-case-timing.json",
+      "bytes": 2868,
+      "sha256": "2bdd03aa5e08c4387a95d76ea1bc428b6bcbfab363db56966a3fb3db3ebf00ea"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-publication-audit/per-binary-timing.json",
+      "package_path": "audit/per-binary-timing.json",
+      "bytes": 10735,
+      "sha256": "86465bb792b7f9bea419228646be03a54fbc7fb4158a0e78a85407b6f8fa47c4"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-publication-audit/per-binary-timing.md",
+      "package_path": "audit/per-binary-timing.md",
+      "bytes": 1911,
+      "sha256": "cbc9a5b8d9ec6b05cbb15acf0e0400c1d2fae00157f464a0f0f4555bca9119e9"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-publication-audit/terminal-source-gate-audit.json",
+      "package_path": "audit/terminal-source-gate-audit.json",
+      "bytes": 1345,
+      "sha256": "3f864e1c90364d93459da8bbac5b7b56c8deff044f11dfeb9f5dc6db521aa670"
+    },
+    {
+      "source": "/private/tmp/lampos-tests-final-drain-clock/lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "package_path": "source/final/lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "bytes": 17959,
+      "sha256": "aca9379bbb7c993267251c1103a88f91d06ad8468e7f3cc936efb0d44797227c"
+    },
+    {
+      "source": "/private/tmp/lampos-tests-final-drain-clock/lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+      "package_path": "source/final/lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+      "bytes": 13432,
+      "sha256": "fcc6988f7837440550a090ea6e2b04c9b9f569f3f7589558234780477880148e"
+    },
+    {
+      "source": "/private/tmp/lampos-tests-final-drain-clock/lampOS/docs/voice-test-fixtures.md",
+      "package_path": "source/final/lampOS/docs/voice-test-fixtures.md",
+      "bytes": 19699,
+      "sha256": "bd618f4471d5ec69dad490abc9e4747a91fdb21ef9fb1033a1e9d8f20e332940"
+    }
+  ],
+  "no_python_or_compiled_artifacts": true,
+  "raw_copies_byte_exact": true,
+  "native_qualification": "pending",
+  "source_gate": {
+    "date": "2026-10-16 09:16:38 +0700",
+    "base": "1fb07c6f57ee280a49de7b4ddd74008c2a32a20d",
+    "counts": [
+      504,
+      0,
+      0
+    ],
+    "pair_exit": 0,
+    "tests_exit": 0,
+    "build_exit": 0,
+    "frozen_files": 1023,
+    "source_unchanged": true,
+    "all_checks_passed": true
+  }
+}

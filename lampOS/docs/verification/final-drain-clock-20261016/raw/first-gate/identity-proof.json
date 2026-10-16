@@ -1,0 +1,35 @@
+{
+  "date": "2026-10-16 09:12:21 +0700",
+  "base": "1fb07c6f57ee280a49de7b4ddd74008c2a32a20d",
+  "before": 498,
+  "after": 504,
+  "all_originals_preserved": true,
+  "ignored": 0,
+  "additions": [
+    [
+      "lamp-voice-eval::final_dispatch",
+      "final_drain_clock::tests::a_complete_real_line_is_released_only_at_the_full_logical_boundary"
+    ],
+    [
+      "lamp-voice-eval::final_dispatch",
+      "final_drain_clock::tests::a_marker_or_an_enqueue_alone_never_completes_the_observation"
+    ],
+    [
+      "lamp-voice-eval::final_dispatch",
+      "final_drain_clock::tests::abandoning_the_initial_hold_stops_and_reaps_the_actual_shell"
+    ],
+    [
+      "lamp-voice-eval::final_dispatch",
+      "final_drain_clock::tests::an_expired_watchdog_cannot_release_data_or_advance_the_clock"
+    ],
+    [
+      "lamp-voice-eval::final_dispatch",
+      "final_drain_clock::tests::the_released_shell_exits_and_is_reaped_after_actual_stdin_eof"
+    ],
+    [
+      "lamp-voice-eval::final_dispatch",
+      "final_drain_clock::tests::unexpected_marker_bytes_or_extra_frames_fail_the_observation"
+    ]
+  ],
+  "reverse_dependents": []
+}

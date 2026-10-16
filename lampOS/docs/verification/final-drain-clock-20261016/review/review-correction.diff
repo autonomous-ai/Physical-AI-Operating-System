@@ -1,0 +1,125 @@
+--- first/lampOS/crates/voice-eval/tests/common/final_drain_clock.rs
++++ final/lampOS/crates/voice-eval/tests/common/final_drain_clock.rs
+@@ -127,17 +127,30 @@
+         count: u64,
+     ) -> io::Result<()> {
+         loop {
+-            self.check_host()?;
+-            let written = marker(path, expected)?;
+-            let actual = enqueued.load(Ordering::Acquire);
+-            if actual > count {
+-                return Err(invalid("unexpected delayed-line relay frame count"));
+-            }
+-            if written && actual == count {
++            if self.written_and_enqueued_once(path, expected, enqueued, count)? {
+                 return Ok(());
+             }
+             thread::sleep(Duration::from_millis(1));
+         }
++    }
++
++    fn written_and_enqueued_once(
++        &self,
++        path: &Path,
++        expected: &[u8],
++        enqueued: &AtomicU64,
++        count: u64,
++    ) -> io::Result<bool> {
++        self.check_host()?;
++        let written = marker(path, expected)?;
++        let actual = enqueued.load(Ordering::Acquire);
++        // A filesystem read may return after the watchdog. A late positive
++        // observation must not authorize another logical advance.
++        self.check_host()?;
++        if actual > count {
++            return Err(invalid("unexpected delayed-line relay frame count"));
++        }
++        Ok(written && actual == count)
+     }
+ }
+ 
+@@ -162,6 +175,7 @@
+         }
+         let release_us = ORIGIN_US + DELAY_US;
+         if !self.released && until_us >= release_us {
++            self.check_host()?;
+             self.state.now.set(release_us);
+             self.control.write_all(b"release\n")?;
+             self.state.released_at.set(Some(release_us));
+@@ -170,6 +184,7 @@
+             self.written_and_enqueued(&self.later_marker, LATER, enqueued_frames, 2)?;
+             self.released = true;
+         }
++        self.check_host()?;
+         self.state.now.set(until_us);
+         Ok(())
+     }
+@@ -223,8 +238,16 @@
+     }
+ 
+     fn wait_until(deadline: Instant, mut observed: impl FnMut() -> bool) {
+-        while !observed() {
++        loop {
+             assert!(Instant::now() < deadline, "real child progress missing");
++            let ready = observed();
++            assert!(
++                Instant::now() < deadline,
++                "real child progress was too late"
++            );
++            if ready {
++                return;
++            }
+             thread::sleep(Duration::from_millis(1));
+         }
+     }
+@@ -321,4 +344,49 @@
+         assert!(driver.state.released_at.get().is_none());
+         assert!(!rig.dir.join("later-written").exists());
+     }
+-}
++
++    #[test]
++    fn a_marker_or_an_enqueue_alone_never_completes_the_observation() {
++        let rig = Rig::new("disp-clock-both");
++        let (driver, _) = Driver::prepare(&rig, &[start_line()], &lines(&[session_end()]));
++        let enqueued = AtomicU64::new(1);
++        let ready = || {
++            driver
++                .written_and_enqueued_once(&driver.initial_marker, INITIAL, &enqueued, 1)
++                .unwrap()
++        };
++        assert!(!ready());
++        enqueued.store(0, Ordering::Release);
++        fs::write(&driver.initial_marker, INITIAL).unwrap();
++        assert!(!ready());
++        enqueued.store(1, Ordering::Release);
++        fs::write(&driver.initial_marker, b"now-writ").unwrap();
++        assert!(!ready());
++        fs::write(&driver.initial_marker, INITIAL).unwrap();
++        assert!(ready());
++        assert_eq!(driver.state.now.get(), ORIGIN_US);
++        assert!(driver.state.released_at.get().is_none());
++    }
++
++    #[test]
++    fn unexpected_marker_bytes_or_extra_frames_fail_the_observation() {
++        let rig = Rig::new("disp-clock-invalid");
++        let (driver, _) = Driver::prepare(&rig, &[start_line()], &lines(&[session_end()]));
++        fs::write(&driver.initial_marker, b"not-the-marker\n").unwrap();
++        let enqueued = AtomicU64::new(1);
++        assert!(
++            driver
++                .written_and_enqueued_once(&driver.initial_marker, INITIAL, &enqueued, 1)
++                .is_err()
++        );
++        fs::write(&driver.initial_marker, INITIAL).unwrap();
++        enqueued.store(2, Ordering::Release);
++        assert!(
++            driver
++                .written_and_enqueued_once(&driver.initial_marker, INITIAL, &enqueued, 1)
++                .is_err()
++        );
++        assert_eq!(driver.state.now.get(), ORIGIN_US);
++        assert!(driver.state.released_at.get().is_none());
++    }
++}

@@ -4,7 +4,7 @@
 //! actions part and the voice's say service.
 use lamp_bus::{Bus, Publisher, Subscriber};
 use lamp_msgs::{Light, SkillEvent, SkillStage};
-use lamp_skills::{Call, Engine, duration_us, load_all, run_tests, told, tools_file};
+use lamp_skills::{Admission, Call, Engine, duration_us, load_all, run_tests, told, tools_file};
 use serde_json::json;
 use std::{
     collections::HashSet,
@@ -327,31 +327,45 @@ fn start(
 }
 
 /// A call of a skill's tool from the voice, and where its answer goes.
-type ToolAsk = (String, mpsc::Sender<serde_json::Value>);
+type ToolAsk = (String, mpsc::Sender<serde_json::Value>, Admission);
 
 /// The model called a skill's tool: its steps run, and the voice is told
 /// at once what the model is to say. The look and the say are the model's;
 /// the body and the light are made here.
 fn tool_call(
-    (name, reply): ToolAsk,
+    (name, reply, admission): ToolAsk,
     engine: &Engine,
     busy: &mut HashSet<String>,
     out: &mut Publisher,
     runner: &Runner,
 ) {
-    let Some(run) = engine.tool(&name, lamp_ipc::monotonic_us()) else {
-        let _ = reply.send(json!({"error": "No skill of mine does that just now."}));
-        return;
+    let refuse = |why: &str| {
+        if admission.commit() {
+            let _ = reply.send(json!({ "error": why }));
+        }
     };
+    let run = match engine.tool(&name, lamp_ipc::monotonic_us()) {
+        Ok(run) => run,
+        Err(why) => return refuse(&why),
+    };
+    let made: Vec<Call> = run
+        .calls
+        .iter()
+        .filter(|call| !matches!(call, Call::Look | Call::Say(_)))
+        .cloned()
+        .collect();
+    // Told only what will be done: a run under way refuses this one whole.
+    if !made.is_empty() && busy.contains(&run.skill) {
+        return refuse("I'm still doing that.");
+    }
+    // The caller told it timed out: nothing is done.
+    if !admission.commit() {
+        return;
+    }
     let _ = reply.send(told(&run.calls));
     for event in run.events {
         publish(out, event);
     }
-    let made: Vec<Call> = run
-        .calls
-        .into_iter()
-        .filter(|call| !matches!(call, Call::Look | Call::Say(_)))
-        .collect();
     if made.is_empty() {
         publish(
             out,
@@ -404,11 +418,21 @@ fn listen(dir: &Path, asks: mpsc::Sender<ToolAsk>) -> io::Result<()> {
                 BufReader::new((&stream).take(8_192)).read_line(&mut line)?;
                 let call: serde_json::Value = serde_json::from_str(&line).unwrap_or_default();
                 let (reply, told) = mpsc::channel();
+                let admission = Admission::default();
                 let result = (call["op"] == "call")
                     .then(|| call["name"].as_str())
                     .flatten()
-                    .filter(|name| asks.send(((*name).to_owned(), reply)).is_ok())
-                    .and_then(|_| told.recv_timeout(TOOL_TIMEOUT).ok());
+                    .filter(|name| {
+                        asks.send(((*name).to_owned(), reply, admission.clone()))
+                            .is_ok()
+                    })
+                    .and_then(|_| match told.recv_timeout(TOOL_TIMEOUT) {
+                        Ok(result) => Some(result),
+                        // Late: given up, unless the loop committed first,
+                        // whose answer is then being sent.
+                        Err(_) if admission.cancel() => None,
+                        Err(_) => told.recv_timeout(TOOL_TIMEOUT).ok(),
+                    });
                 let line = match result {
                     Some(result) => match result.get("error") {
                         Some(error) => json!({"ok": false, "error": error}),

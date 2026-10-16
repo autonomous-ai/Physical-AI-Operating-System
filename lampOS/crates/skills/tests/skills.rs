@@ -3,7 +3,7 @@
 //! actions part's sockets stood in for.
 use lamp_bus::Bus;
 use lamp_msgs::{Faces, Light, SkillEvent, SkillStage};
-use lamp_skills::{Call, Engine, load, load_all, read_recordings, run_tests};
+use lamp_skills::{Admission, Call, Engine, load, load_all, read_recordings, run_tests};
 use std::{
     fs,
     io::{BufRead, BufReader, Write},
@@ -834,6 +834,46 @@ fn a_tool_needs_no_trigger_and_a_look_needs_a_tool() {
 }
 
 #[test]
+fn a_tools_call_runs_only_while_its_conditions_hold_on_values_that_last() {
+    let dir = tempfile::tempdir().unwrap();
+    let toml = TUTOR.replace(
+        "[[do]]",
+        "[[while]]\ntopic = \"voice/state\"\nfield = \"state\"\nequals = \"resting\"\nfor = \"30s\"\n[[do]]",
+    );
+    let mut engine = Engine::new(
+        vec![load(&skill_with(dir.path(), "tutor", &toml)).unwrap()],
+        false,
+    );
+    let s = 1_000_000;
+    let resting = br#"{"state":"resting"}"#;
+    // Never seen.
+    assert!(engine.tool("check_my_work", 0).is_err());
+    engine.observe("voice/state", 0, resting, None);
+    // Not yet for its 30 s, then it has.
+    assert!(engine.tool("check_my_work", 10 * s).is_err());
+    assert!(engine.tool("check_my_work", 31 * s).is_ok());
+    // False.
+    engine.observe("voice/state", 40 * s, br#"{"state":"speaking"}"#, None);
+    assert!(engine.tool("check_my_work", 41 * s).is_err());
+    // A value lasting 60 s: held 30 s within it, then expired.
+    engine.observe("voice/state", 100 * s, resting, Some(60_000));
+    assert!(engine.tool("check_my_work", 131 * s).is_ok());
+    assert!(engine.tool("check_my_work", 161 * s).is_err());
+}
+
+#[test]
+fn an_expired_queued_call_is_never_committed() {
+    // The caller gave up while the call waited in the queue: the loop
+    // cannot commit it after, and a committed call cannot be given up.
+    let late = Admission::default();
+    assert!(late.cancel());
+    assert!(!late.commit());
+    let taken = Admission::default();
+    assert!(taken.commit());
+    assert!(!taken.cancel());
+}
+
+#[test]
 fn a_declared_tool_is_in_the_tools_file_and_a_call_runs_the_skills_steps() {
     // Short: a socket's whole path has to fit in 103 bytes.
     let dir = tempfile::Builder::new()
@@ -844,16 +884,26 @@ fn a_declared_tool_is_in_the_tools_file_and_a_call_runs_the_skills_steps() {
     fs::create_dir(root.join("skills")).unwrap();
     let bus = Bus::new(root.join("bus")).unwrap();
     let mut events = bus.subscribe(SkillEvent::TOPIC, "test").unwrap();
-    bus.publisher_declared("light/state", &Light::declaration(), "ring")
-        .unwrap()
-        .publish_json(1, &Light::new(true, "blue", 3).unwrap())
+    let mut ring = bus
+        .publisher_declared("light/state", &Light::declaration(), "ring")
         .unwrap();
     let actions = UnixListener::bind(root.join("actions.sock")).unwrap();
     let (called, lights) = mpsc::channel();
+    // The actions part, saying the colour it shows as the real one does.
+    let shown = bus.clone();
     std::thread::spawn(move || {
+        let mut shown = shown
+            .publisher_declared("light/state", &Light::declaration(), "ring")
+            .unwrap();
         for stream in actions.incoming().flatten() {
             let mut line = String::new();
             BufReader::new(&stream).read_line(&mut line).unwrap();
+            let call: serde_json::Value = serde_json::from_str(&line).unwrap();
+            if let Some(colour) = call["args"]["colour"].as_str() {
+                shown
+                    .publish_json(1, &Light::new(true, colour, 3).unwrap())
+                    .unwrap();
+            }
             (&stream)
                 .write_all(b"{\"ok\":true,\"result\":{}}\n")
                 .unwrap();
@@ -904,6 +954,9 @@ fn a_declared_tool_is_in_the_tools_file_and_a_call_runs_the_skills_steps() {
         BufReader::new(&stream).read_line(&mut line).unwrap();
         serde_json::from_str::<serde_json::Value>(&line).unwrap()
     };
+    // The light as shown just before the call, fresh.
+    ring.publish_json(1, &Light::new(true, "blue", 3).unwrap())
+        .unwrap();
     let asked = Instant::now();
     let answer = call("check_my_work");
     assert!(
@@ -918,6 +971,10 @@ fn a_declared_tool_is_in_the_tools_file_and_a_call_runs_the_skills_steps() {
         "{next}"
     );
     assert!(next.ends_with("never the answer."), "{next}");
+    // Again while the page is still lit: refused, not told to look.
+    let again = call("check_my_work");
+    assert_eq!(again["ok"], false, "{again}");
+    assert_eq!(again["error"], "I'm still doing that.");
     assert_eq!(call("nobody_has_this")["ok"], false);
     let mut seen = Vec::new();
     while !seen

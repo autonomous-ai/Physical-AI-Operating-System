@@ -860,12 +860,31 @@ impl Engine {
 
     /// The model called `name`: the first skill whose tool it is runs its
     /// steps. A person asked, so the Policy is not asked.
-    pub fn tool(&self, name: &str, now_us: u64) -> Option<Run> {
+    /// Its `[[while]]` conditions must hold as for a trigger: on a value
+    /// that still lasts, for their `for`. `Err` says why not, in words the
+    /// lamp can say.
+    pub fn tool(&self, name: &str, now_us: u64) -> Result<Run, String> {
         let skill = self
             .skills
             .iter()
-            .find(|skill| skill.tool.as_deref() == Some(name))?;
-        Some(Run {
+            .find(|skill| skill.tool.as_deref() == Some(name))
+            .ok_or("No skill of mine does that just now.")?;
+        let holds = skill
+            .conditions
+            .iter()
+            .enumerate()
+            .all(|(index, condition)| {
+                Self::condition_holds(
+                    &self.latest,
+                    condition,
+                    self.holding.get(&(skill.name.clone(), index)),
+                    now_us,
+                )
+            });
+        if !holds {
+            return Err("I can't do that just now.".into());
+        }
+        Ok(Run {
             skill: skill.name.clone(),
             events: vec![event(
                 &skill.name,
@@ -875,6 +894,36 @@ impl Engine {
             )],
             calls: calls(&self.latest, skill, now_us),
         })
+    }
+}
+
+/// One tool call's admission, shared by the socket that waits for it and
+/// the loop that runs it: whichever comes first, the run committed or the
+/// caller told it timed out, wins, and the other then cannot happen.
+#[derive(Clone, Default)]
+pub struct Admission(std::sync::Arc<std::sync::atomic::AtomicU8>);
+
+impl Admission {
+    const PENDING: u8 = 0;
+    const COMMITTED: u8 = 1;
+    const CANCELLED: u8 = 2;
+
+    fn settle(&self, to: u8) -> bool {
+        use std::sync::atomic::Ordering;
+        self.0
+            .compare_exchange(Self::PENDING, to, Ordering::AcqRel, Ordering::Acquire)
+            .is_ok()
+    }
+
+    /// The loop is about to answer and run it: false if the caller gave up.
+    pub fn commit(&self) -> bool {
+        self.settle(Self::COMMITTED)
+    }
+
+    /// The caller gives up: false if the loop committed first, whose answer
+    /// is then on its way.
+    pub fn cancel(&self) -> bool {
+        self.settle(Self::CANCELLED)
     }
 }
 

@@ -317,6 +317,13 @@ the still to the model's next turn; with `say`, the note. A name two
 skills give is the first's, by folder. Without `--tools-dir`, or with no
 skill that has a tool, nothing changes.
 
+A call is refused, in words the lamp can say, and nothing is done, when the
+skill's `[[while]]` conditions do not hold as a trigger would need them
+(on a value that still lasts, for their `for`), and when its last run is
+still under way. A call the listener gave up on after a second, waiting
+for the program's loop, is never run afterwards: whichever comes first,
+the run or the giving up, settles it.
+
 Not done: a tool takes no arguments, and a function in `run.py` is not
 run. The look happens only on a voice with its look on (`LAMP_EYES_LOOK_FILE`,
 with `LAMP_LOOK_FULL=on` for the full one), and only if the model's answer

@@ -223,17 +223,22 @@ with whoever asked, and leaves the talk across the room alone.
   name announced later than that (the name part announces it 78 to
   639 ms after it begins, `name.md`) comes too late. Still well under the
   asker at its last chance, it takes no turn and the lamp keeps the
-  answer: the candidate is let go as for the floor hold. One still
-  waiting when the answer begins to play goes on being judged on its own
-  blocks until its last chance, the rule hearing over the answer only
-  those the render does not explain, as the duplex rule hears a person
-  over the lamp (`Hearing::heard(…).person()`). The lamp's own voice let
-  through by the canceller is as loud as a person on a fifth of its blocks
-  on lamp-4ace (`duplex-listening.md`), and judged on it a line from
-  across the room took the turn from the answer (the reviewer on #1197).
-  At its last chance, well under the asker then, it is let go and the
-  answer plays; otherwise it is judged as anything said over the lamp's
-  voice. Left to the duplex
+  answer: the candidate is let go as for the floor hold. While the rule
+  waits on a line and the answer has not begun, **the answer's first block
+  waits for the line's judgement**, no later than its last chance, so the
+  line is judged in the clear. Over the reply's first 0.2 to 0.45 s on
+  lamp-4ace the evidence can't tell a person from the lamp
+  (`Hearing::fresh_blocks`), and the lamp's own voice let through by the
+  canceller is as loud as a person on a fifth of its blocks
+  (`duplex-listening.md`). Judged over the answer's start, the asker's own
+  follow-up after a soft "um" was let go on that alone, and a line from
+  across the room took the turn on the lamp's voice (the reviewer on
+  #1197). Well under the asker at its last chance, the line is let go and
+  the answer plays; otherwise it is judged as anything said over the
+  lamp's voice. Should the hold's bound run out before the line is judged,
+  the rule hears over the answer only the blocks the render does not
+  explain, as the duplex rule hears a person over the lamp
+  (`Hearing::heard(…).person()`); that guard is not shown by a test. Left to the duplex
   rule, a line from across the room was admitted a block into the answer
   and replaced it, as "¿Qué?" replaced the answer at 14:21. Judged at the
   answer's first block, the asker's own follow-up opening with a soft
@@ -277,7 +282,10 @@ with whoever asked, and leaves the talk across the room alone.
   small glance toward them when the rule keeps the turn, once a turn, is
   a follow-up.
 - **Latency:** speech at the asker's level is admitted when it would be
-  without the rule. Only speech whose upper tenth is under the margin
+  without the rule. When a quiet line waits as the answer arrives, the
+  answer's first block waits too, until that line's last chance: about
+  0.26 s from the line's start at most, and the trace says
+  `asker_first_answer_held`. Only speech whose upper tenth is under the margin
   waits, until about 0.26 s after it begins (its last chance), before it is
   admitted or dropped.
 - **The 6 dB is not yet measured** on the voice's microphone. It is a
@@ -289,8 +297,9 @@ with whoever asked, and leaves the talk across the room alone.
   each turn's `asker_level` and each request's `speech_level`. Recorded
   only, it never waits: the candidate is taken at once and followed, and
   the record is written where `on` would have decided, on the same own
-  blocks (`judged`: `at_its_last_chance`). Under `on`, one the answer
-  began over says so (`judged`: `after_its_answer_began`).
+  blocks (`judged`: `at_its_last_chance`). Under `on`, one judged after
+  the hold's bound let the answer begin says so (`judged`:
+  `after_its_answer_began`).
 
 ## What is and is not shown
 
@@ -341,22 +350,22 @@ with whoever asked, and leaves the talk across the room alone.
     the ±800, and a line at ±700 while that answer is awaited takes the
     turn. With the echo counted it was kept out.
   - `with_asker_first_a_line_the_answer_begins_over_is_let_go_and_the_answer_plays`:
-    a line at ±300 the answer begins 0.2 s into, with echo evidence as
-    lamp-4ace's microphone gives it. It is let go at its last chance,
-    recorded as `after_its_answer_began` with `acted` true, and the answer
-    is not cut; without the rule it takes the turn before the answer
-    comes. Recording only, as #1092 did, it was admitted a block into the
-    answer.
+    a line at ±300 the answer arrives 0.2 s into, with echo evidence as
+    lamp-4ace's microphone gives it. The answer's first block waits for the
+    line (`asker_first_answer_held`, under 0.3 s); the line is let go at
+    its last chance, recorded with `acted` true, and the answer plays
+    uncut. Without the rule it takes the turn before the answer comes.
+    Recording only, as #1092 did, it was admitted a block into the answer.
   - `with_asker_first_the_askers_soft_start_over_the_answers_start_takes_the_turn`:
     the asker's follow-up opening with 0.2 s at ±300, then their own
     ±2,000, the answer beginning during the soft part: taken, with `on`,
     `record` and off alike, and nothing recorded (the reviewer's probe on
     #1197, where it was let go on its soft start).
-  - `with_asker_first_the_lamps_own_voice_over_a_line_is_not_its_level`:
-    the same line at ±300, the microphone at ±1,201 from the answer's
-    first block with the render explaining it (the lamp's voice 4.4 dB
-    under the asker): let go at its last chance, and the answer is not cut.
-    Counting the leak, it took the turn.
+  - `with_asker_first_the_answer_waits_for_a_line_judged_in_the_clear`:
+    the same soft start, with the evidence unmatched for the answer's first
+    0.3 s, as on lamp-4ace. The answer waits, the line is judged in the
+    clear, and the asker takes the turn with `on`, `record` and off alike
+    (the reviewer's 04:50 P2; judged over the unmatched blocks it was let go).
   Each fails with its change taken out. The name's part is shown by the
   rule's own test only.
 - A staged busy room on lamp-4ace (`hold.sh`: three lines between two

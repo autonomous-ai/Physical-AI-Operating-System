@@ -169,13 +169,15 @@ fn drain_control(channels: &mut WorkerChannels, generation: &mut u64) -> io::Res
 }
 
 /// Whether a speech block, by its index and amplitude, holds a person over
-/// the lamp's voice, which the render then does not explain.
-type Over = fn(u64, i16) -> bool;
+/// the lamp's voice, which the render then does not explain (`Some(true)`),
+/// is the lamp's own voice (`Some(false)`), or cannot be told yet, the lamp's
+/// sound not yet matched in this reply (`None`).
+type Over = fn(u64, i16) -> Option<bool>;
 
 /// Speech at ±1,000 or more is plainly over the lamp; quieter talk is under
 /// its voice, which explains the microphone.
-fn over_at_1000(_block: u64, level: i16) -> bool {
-    level >= 1_000
+fn over_at_1000(_block: u64, level: i16) -> Option<bool> {
+    Some(level >= 1_000)
 }
 
 /// With `echo`, each block carries the canceller's evidence as lamp-4ace's
@@ -256,10 +258,14 @@ fn capture_peer(
                     use super::duplex::{OVER, OWN, evidence};
                     if seen.lock().unwrap().chunks.is_empty() {
                         evidence(lamp_audio::evidence::QUIET_BLOCKS_CEILING, None)
-                    } else if probability >= 0.5 && over(sequence, level) {
-                        evidence(0, OVER)
-                    } else {
+                    } else if probability < 0.5 {
                         evidence(0, OWN)
+                    } else {
+                        match over(sequence, level) {
+                            Some(true) => evidence(0, OVER),
+                            Some(false) => evidence(0, OWN),
+                            None => evidence(0, None),
+                        }
                     }
                 }),
                 reference: Default::default(),
@@ -2534,12 +2540,13 @@ fn answer_begins_over_with(
     session
 }
 
-/// The answer begins while the rule waits on a line from across the room.
-/// The line is still judged on its own blocks until its last chance: well
-/// under the asker then, it is let go and the answer plays on. Left to the
-/// duplex rule, it was admitted a block into the answer and replaced it, as
-/// "¿Qué?" replaced the answer at 14:21. A line at ±300 begins 0.4 s after
-/// the asker's turn ended, and the answer begins 0.2 s into it.
+/// The answer arrives while the rule waits on a line from across the room.
+/// Its first block waits for the line's judgement, the line is judged on
+/// its own blocks until its last chance, well under the asker then it is
+/// let go, and the answer plays. Left to the duplex rule, it was admitted a
+/// block into the answer and replaced it, as "¿Qué?" replaced the answer at
+/// 14:21. A line at ±300 begins 0.4 s after the asker's turn ended, and the
+/// answer arrives 0.2 s into it.
 #[test]
 fn with_asker_first_a_line_the_answer_begins_over_is_let_go_and_the_answer_plays() {
     use crate::asker_first::Mode;
@@ -2569,12 +2576,22 @@ fn with_asker_first_a_line_the_answer_begins_over_is_let_go_and_the_answer_plays
     assert_eq!(said.len(), 1, "{said:?}");
     assert_eq!(
         (said[0]["acted"].as_bool(), said[0]["judged"].as_str()),
-        (Some(true), Some("after_its_answer_began")),
+        (Some(true), Some("at_its_last_chance")),
         "{said:?}"
     );
-    // The answer began before the line was let go, and was not cut.
-    let began = session.events("speaker_first_write")[0]["at_us"].as_u64();
-    assert!(began <= said[0]["at_us"].as_u64(), "{began:?} {said:?}");
+    // The answer's first block waited for the line's judgement, no more than
+    // 0.3 s, then played and was not cut.
+    let held = session.events("asker_first_answer_held");
+    assert_eq!(held.len(), 1, "{held:?}");
+    let began = session.events("speaker_first_write")[0]["at_us"]
+        .as_u64()
+        .unwrap();
+    let let_go = said[0]["at_us"].as_u64().unwrap();
+    let arrived = session.events("provider_first_audio")[0]["at_us"]
+        .as_u64()
+        .unwrap();
+    assert!(began >= let_go, "{began} {let_go}");
+    assert!(began - arrived <= 300_000, "held {} us", began - arrived);
     let finished = session.events("turn_finished");
     assert!(
         finished
@@ -2592,20 +2609,19 @@ fn with_asker_first_a_line_the_answer_begins_over_is_let_go_and_the_answer_plays
     );
 }
 
-/// The reviewer's P2 on #1197 at 04:12: over the answer, the lamp's own
-/// voice let through by the canceller is not the line's. A line at ±300
-/// that the answer begins over, and from the answer's first block the
-/// microphone at ±1,201, which the render explains: the lamp's voice 4.4 dB
-/// under the asker, as loud as a person on lamp-4ace on 18% of its blocks.
-/// Judged on the leak too, the line took the turn and cut the answer.
-/// Judged on its own speech, it is let go at its last chance, and the
-/// answer plays.
+/// The reviewer's P2 on #1197 at 04:50: over the reply's first 0.2 to
+/// 0.45 s on lamp-4ace the lamp's own sound has not been matched, and the
+/// evidence cannot tell a person from it. The asker's follow-up after a
+/// soft "um", the answer arriving during it, is not judged over the answer
+/// then: the answer's first block waits for the line's judgement, the
+/// line is judged in the clear, and the asker takes the turn. Judged over
+/// the answer's unmatched blocks, it was let go on its soft start.
 #[test]
-fn with_asker_first_the_lamps_own_voice_over_a_line_is_not_its_level() {
+fn with_asker_first_the_answer_waits_for_a_line_judged_in_the_clear() {
     use crate::asker_first::Mode;
     let _one = one_session();
     fn script(block: u64) -> f32 {
-        if (50..150).contains(&block) || (228..328).contains(&block) {
+        if (50..150).contains(&block) || (235..335).contains(&block) {
             SPEECH
         } else {
             QUIET
@@ -2614,32 +2630,30 @@ fn with_asker_first_the_lamps_own_voice_over_a_line_is_not_its_level() {
     fn levels(block: u64) -> i16 {
         match block {
             50..150 => 2_000,
-            228..248 => 300,
-            248..328 => 1_201,
+            235..255 => 300,
+            255..335 => 2_000,
             _ => 20,
         }
     }
-    let session = answer_begins_over_with(Mode::On, script, levels, |_, _| false);
-    assert_eq!(
-        session.seen.requests.len(),
-        1,
-        "{:?}",
-        session.seen.requests
-    );
-    let said = session.events("asker_first");
-    assert_eq!(said.len(), 1, "{said:?}");
-    assert_eq!(
-        (said[0]["acted"].as_bool(), said[0]["judged"].as_str()),
-        (Some(true), Some("after_its_answer_began")),
-        "{said:?}"
-    );
-    let finished = session.events("turn_finished");
-    assert!(
-        finished
-            .iter()
-            .all(|row| row["outcome"] != "user_interrupted"),
-        "{finished:?}"
-    );
+    // Not matched for the answer's first 0.3 s (its first write at 248 if
+    // it is not held), then as before.
+    fn unmatched_first(block: u64, level: i16) -> Option<bool> {
+        (block >= 278).then_some(level >= 1_000)
+    }
+    for mode in [Mode::On, Mode::Record, Mode::Off] {
+        let session = answer_begins_over_with(mode, script, levels, unmatched_first);
+        assert_eq!(
+            session.seen.requests.len(),
+            2,
+            "{mode:?}: {:?}",
+            session.seen.requests
+        );
+        assert!(
+            session.events("asker_first").is_empty(),
+            "{mode:?}: {:?}",
+            session.events("asker_first")
+        );
+    }
 }
 
 /// The reviewer's probe on #1197: the asker goes on 0.47 s after their

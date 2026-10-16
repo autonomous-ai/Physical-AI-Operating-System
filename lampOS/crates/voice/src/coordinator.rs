@@ -3292,7 +3292,10 @@ fn conversation_with_gate(
     // The candidate the rule last kept waiting, as `(id, turn, own start)`:
     // if the answer begins while it waits, what the rule would have done is
     // still recorded (the reviewer on #1092).
-    let mut asker_waited: Option<(crate::admission::CandidateId, u64, u64)> = None;
+    // The line the asker rule waits on: its candidate, the turn whose
+    // answer is awaited, where its own speech began and its last chance.
+    let mut asker_waited: Option<(crate::admission::CandidateId, u64, u64, u64)> = None;
+    let mut asker_held_for: Option<crate::admission::CandidateId> = None;
     // Recorded only: a candidate taken at once, followed as `on` would
     // follow it, `(turn, own start, last chance)`, until `on` would have
     // decided it, so that `record` gives `on`'s judgement (the reviewer on
@@ -4858,7 +4861,7 @@ fn conversation_with_gate(
                     // it: the asker going on after a soft "um" still takes
                     // the turn (the reviewer on #1197). Judged at the
                     // answer's first block, it was let go on its soft start.
-                    let waited = asker_waited.is_some_and(|(id, _, _)| id == candidate.id);
+                    let waited = asker_waited.is_some_and(|(id, ..)| id == candidate.id);
                     if !waited {
                         asker_waited = None;
                     }
@@ -4889,7 +4892,8 @@ fn conversation_with_gate(
                         Some((turn, crate::asker_first::Judgement::Wait))
                             if asker_mode == crate::asker_first::Mode::On =>
                         {
-                            asker_waited = Some((candidate.id, turn, own_start_us));
+                            asker_waited =
+                                Some((candidate.id, turn, own_start_us, last_chance_at_us));
                             continue;
                         }
                         // Recorded only, it never waits: it is taken now,
@@ -5521,15 +5525,46 @@ fn conversation_with_gate(
         select_failure_notice_in(notices, reply, &speaker_pending, &mut outage, trace)?;
         let prior_speaker_sequence = speaker_sequence;
         settle_duplex_yield_before_dispatch(&playback_mask, reply, monotonic_us(), trace)?;
-        let notice_attempt = dispatch_speaker_chunk(
-            owner,
-            reply,
-            &mut rig.speaker.channels.data,
-            &mut speaker_pending,
-            &mut speaker_sequence,
-            &mut snapshot,
-            &mut playback_mask,
-        )?;
+        // While the asker rule waits on a line and the answer has not begun,
+        // the answer's first block waits for the line's judgement, no later
+        // than its last chance (about 0.26 s after it began): the line is
+        // judged in the clear. Over the reply's first 0.2 to 0.45 s the
+        // evidence cannot tell a person from the lamp, and the asker's own
+        // follow-up after a soft "um" was let go on its soft start alone
+        // (the reviewer on #1197).
+        let hold_for_line = asker_waited
+            .filter(|(.., last_chance_at_us)| monotonic_us() < *last_chance_at_us + BLOCK_US)
+            .filter(|_| {
+                reply.as_ref().is_some_and(|current| {
+                    current.playback.is_none() && current.notice.origin() == SpeechOrigin::Provider
+                })
+            });
+        if let Some((id, turn, ..)) = hold_for_line
+            && asker_held_for != Some(id)
+            && reply
+                .as_ref()
+                .is_some_and(|current| current.cloud.started && current.has_speaker_chunk())
+        {
+            asker_held_for = Some(id);
+            record(
+                trace,
+                json!({"kind":"asker_first_answer_held","turn":turn,"candidate":id,"at_us":monotonic_us(),
+                    "boundary":"the answer's first block waits for the line the asker rule waits on, until its last chance"}),
+            )?;
+        }
+        let notice_attempt = if hold_for_line.is_some() {
+            None
+        } else {
+            dispatch_speaker_chunk(
+                owner,
+                reply,
+                &mut rig.speaker.channels.data,
+                &mut speaker_pending,
+                &mut speaker_sequence,
+                &mut snapshot,
+                &mut playback_mask,
+            )?
+        };
         if let Some((notice_owner, evidence)) = notice_attempt {
             // Named for what plays: a failure notice, the self-test's tone or
             // the head tap's "hm?".

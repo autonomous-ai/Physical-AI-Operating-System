@@ -12,7 +12,7 @@
 //! state and the same answers the same judgement: what the log holds can
 //! be judged again later, with other numbers.
 use crate::decide::{Answer, Question};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
 
@@ -131,7 +131,7 @@ const WITH_NAME: ([f64; 7], f64, f64, f64, f64) = (
 pub const NAME_HEARD_FROM: f32 = 0.9;
 
 /// What the room sounds like, as far as anyone has judged.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Room {
     /// Nobody else has been talking.
@@ -152,8 +152,9 @@ impl Room {
     }
 }
 
-/// What was known when something was heard.
-#[derive(Clone, Debug, PartialEq, Serialize)]
+/// What was known when something was heard. Read back from the decisions
+/// log by [`crate::replay`].
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Context {
     /// What the recogniser wrote for what was said.
     pub heard: String,
@@ -171,7 +172,7 @@ pub struct Context {
     /// was not heard. Not there at all when nothing on the lamp is
     /// listening for the name: not heard and not known are two things.
     /// The model is not shown it.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name_heard: Option<f32>,
 }
 
@@ -195,6 +196,24 @@ impl Context {
             .is_some_and(|seconds| seconds <= IN_CONVERSATION_SECONDS);
         self.lamp_is_speaking || (said_words && lately)
     }
+}
+
+/// Whether `heard` names the lamp in words: one of the ways people call it
+/// or the recogniser has been seen to write its name, as a whole word or
+/// words, in any case. For counting named requests apart (#871); it decides
+/// nothing.
+pub fn names_the_lamp(heard: &str) -> bool {
+    let words: Vec<String> = heard
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|word| !word.is_empty())
+        .map(str::to_lowercase)
+        .collect();
+    CALLED_WITH.iter().chain(WRITTEN_AS.iter()).any(|form| {
+        let form: Vec<String> = form.split_whitespace().map(str::to_lowercase).collect();
+        words
+            .windows(form.len())
+            .any(|window| window == form.as_slice())
+    })
 }
 
 /// The end of `said`: at most the last [`MOST_SAID_BYTES`] of it, begun at
@@ -261,6 +280,73 @@ pub fn state_text(context: &Context) -> String {
         json!(WRITTEN_AS),
         json!(context.room.told()),
     )
+}
+
+/// [`state_text`] with a picture (#871): the same text, with `picture`
+/// last, holding `key`, the string the service replaces with the picture.
+pub fn state_text_with_picture(context: &Context, key: &str) -> String {
+    let mut text = state_text(context);
+    text.pop();
+    text.push_str(",\"picture\":");
+    text.push_str(&json!(key).to_string());
+    text.push('}');
+    text
+}
+
+/// What is asked about a picture (#871), each its own simple question,
+/// beside the seven: signs for the policy, none of which decides alone.
+/// Whether anyone is in it comes first: on lamp-4ace on 2026-10-16 at 02:28,
+/// with nobody at the desk, "two people talking" was answered 0.62 to 0.69,
+/// so the questions that take a person for granted are read only given one
+/// (the first builder on #871).
+const PICTURE_ASKED: [(&str, &str); 6] = [
+    (
+        "picture_person",
+        "Is there at least one person in state.picture?",
+    ),
+    (
+        "picture_faces_lamp",
+        "Is a person in state.picture looking toward the camera?",
+    ),
+    (
+        "picture_absorbed",
+        "Is the person nearest the camera in state.picture absorbed in something else: typing, reading, on a phone call, or wearing headphones?",
+    ),
+    (
+        "picture_talking_to_another",
+        "Are two or more people in state.picture, facing each other, or one talking to another?",
+    ),
+    (
+        "picture_asks_with_a_look",
+        "Is a person in state.picture waving at the camera, or looking at it as if asking something?",
+    ),
+    (
+        "picture_away",
+        "Is nobody at the desk in state.picture, or is the person there asleep?",
+    ),
+];
+
+/// How each picture question begins.
+const PICTURE_OPENING: &str =
+    "state.picture is what the lamp's own camera sees now, from the desk. ";
+
+/// The seven questions and the picture's six (#871), in that order.
+pub fn questions_with_picture() -> Vec<(String, Question)> {
+    let mut asked = questions();
+    asked.extend(PICTURE_ASKED.iter().map(|(name, rest)| {
+        (
+            (*name).to_owned(),
+            Question::Noul {
+                instructions: format!("{PICTURE_OPENING}{rest}"),
+            },
+        )
+    }));
+    asked
+}
+
+/// The names of the picture's questions.
+pub fn picture_questions() -> impl Iterator<Item = &'static str> {
+    PICTURE_ASKED.iter().map(|(name, _)| *name)
 }
 
 /// The seven questions, in the order they are asked in.

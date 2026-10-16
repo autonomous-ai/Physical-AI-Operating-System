@@ -525,10 +525,16 @@ impl Hello {
         self.wait(arrival, now, true);
     }
 
-    /// Whether a question is out or an arrival waits: the voice is waiting,
-    /// so the loop looks again sooner.
+    /// Whether a question is out or an arrival waits, here or in the moment
+    /// question: the voice or a skill is waiting, so the loop looks again
+    /// sooner (Fourth on #958).
     pub fn busy(&self) -> bool {
-        self.asking.is_some() || !self.waiting.is_empty()
+        self.asking.is_some()
+            || !self.waiting.is_empty()
+            || self
+                .moment
+                .as_ref()
+                .is_some_and(crate::moment::Moment::busy)
     }
 
     /// A hello is due: it waits to be decided. One that fails its check is
@@ -972,6 +978,31 @@ mod tests {
         fn name(&self) -> &str {
             "never"
         }
+    }
+
+    /// Fourth on #958: a skill's ask out with the moment question alone
+    /// keeps the loop looking as often as an arrival does.
+    #[test]
+    fn a_skills_ask_alone_keeps_the_loop_looking_often() {
+        let moment = crate::moment::Moment::start(
+            Never,
+            crate::moment::Options::new(Duration::from_secs(1), None),
+        )
+        .unwrap();
+        let mut hello = Hello::start(Never, Options::new(Duration::from_secs(1), None))
+            .unwrap()
+            .with_moment(moment);
+        assert!(!hello.busy());
+        let ask = lamp_msgs::SkillAsk {
+            ask: 1,
+            skill: "stretch-break".into(),
+            act: "unprompted".into(),
+            person: None,
+            away_min: None,
+            there_s: None,
+        };
+        assert!(hello.asked_moment(&ask, Instant::now()));
+        assert!(hello.busy());
     }
 
     /// As for the progress question (#751 review, 15:26): `resting` after

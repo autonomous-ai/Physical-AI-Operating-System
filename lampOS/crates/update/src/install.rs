@@ -101,6 +101,10 @@ pub const PRODUCT: &[(&str, &str)] = &[
         include_str!("../../../deploy/product/lamp-tasks.service"),
     ),
     (
+        "lamp-skills.service",
+        include_str!("../../../deploy/product/lamp-skills.service"),
+    ),
+    (
         "lamp-records.service",
         include_str!("../../../deploy/product/lamp-records.service"),
     ),
@@ -143,6 +147,35 @@ pub const SETTINGS: &[(&str, &str)] = &[
         "/etc/lampOS/controls/controls-pins.json",
         include_str!("../../../deploy/product/settings/controls-pins.json"),
     ),
+    // The first skill (#811): Welcome back, the hello on arrival. Its tests
+    // stay in the repository; `lamp-skills` reloads the folder by itself.
+    (
+        "/var/lib/lampOS/skills/welcome-back/skill.toml",
+        include_str!("../../../skills/welcome-back/skill.toml"),
+    ),
+    (
+        "/var/lib/lampOS/skills/welcome-back/SKILL.md",
+        include_str!("../../../skills/welcome-back/SKILL.md"),
+    ),
+    (
+        "/var/lib/lampOS/skills/welcome-back/lights/warm_glow.toml",
+        include_str!("../../../skills/welcome-back/lights/warm_glow.toml"),
+    ),
+];
+
+/// Setup's two settings (docs/setup.md, "On a lamp"), written only with
+/// `install --setup on`: with them and no marker, `lamp-setup.service` starts
+/// the hotspot at boot. Off unless set, so rerunning install to upgrade the
+/// updater on a lamp set up by hand never puts it into setup (#811).
+pub const SETUP_SETTINGS: &[(&str, &str)] = &[
+    (
+        "/etc/lampOS/setup/serve.json",
+        include_str!("../../setup/fixtures/serve-own-page.json"),
+    ),
+    (
+        "/etc/lampOS/setup/reset-plan.json",
+        include_str!("../../setup/fixtures/reset-plan-product.json"),
+    ),
 ];
 
 /// `/etc/tmpfiles.d/lampos.conf`: the bus root and the locks.
@@ -159,6 +192,10 @@ pub const PROVIDER: &str = include_str!("../../../deploy/product/settings/voice-
 /// The lamp's device key, as `provider.json` names it. The customer never
 /// types or sees it: on a lamp made with V1's image it is V1's `llm_api_key`.
 pub const CREDENTIAL_PATH: &str = "/etc/lampOS/voice/credential";
+/// The Policy's judge key: the same device key, for V1's route to Jev
+/// (`deploy/product/lamp-policy.service`; the first builder on #811, 13:09:
+/// provision it like the voice's).
+pub const JEV_KEY_PATH: &str = "/etc/lampOS/policy/jev.key";
 pub const V1_CONFIG: &str = "/root/config/config.json";
 pub const UNITS: &str = "/etc/systemd/system/";
 
@@ -331,6 +368,8 @@ pub struct Install {
     pub key: [u8; 32],
     /// Where lamp-update keeps its records: `/var/lib/lampos-update/`.
     pub records: String,
+    /// `--setup on`: also write setup's settings ([`SETUP_SETTINGS`]).
+    pub setup: bool,
 }
 
 impl Install {
@@ -435,9 +474,13 @@ pub fn install(
     for (path, bytes) in &for_systemd {
         put(config, path, bytes, 0o644, &mut changed)?;
     }
+    let mut defaults = SETTINGS.to_vec();
+    if config.setup {
+        defaults.extend_from_slice(SETUP_SETTINGS);
+    }
     settings(
         config,
-        SETTINGS,
+        &defaults,
         &mut state,
         &mut changed,
         say,
@@ -451,11 +494,19 @@ pub fn install(
     let key = device_key(config);
     let mut private: Vec<(&str, &str)> = vec![(PROVIDER_PATH, PROVIDER)];
     match &key {
-        Some(key) => private.push((CREDENTIAL_PATH, key)),
-        None if !config.on(CREDENTIAL_PATH).exists() => say(&format!(
-            "no device key: the voice cannot reach its service until {CREDENTIAL_PATH} holds the lamp's key (none in {V1_CONFIG})"
-        )),
-        None => {}
+        Some(key) => {
+            private.push((CREDENTIAL_PATH, key));
+            private.push((JEV_KEY_PATH, key));
+        }
+        None => {
+            for (path, part) in [(CREDENTIAL_PATH, "the voice"), (JEV_KEY_PATH, "the Policy")] {
+                if !config.on(path).exists() {
+                    say(&format!(
+                        "no device key: {part} cannot reach its service until {path} holds the lamp's key (none in {V1_CONFIG})"
+                    ));
+                }
+            }
+        }
     }
     let wrote = changed.len();
     settings_with_mode(
@@ -467,13 +518,15 @@ pub fn install(
         say,
         &mut |state| save(&records, state),
     )?;
-    if changed[wrote..]
-        .iter()
-        .any(|line| line == &format!("wrote {CREDENTIAL_PATH}"))
-    {
-        say(&format!(
-            "the voice's device key was taken from {V1_CONFIG} into {CREDENTIAL_PATH}"
-        ));
+    for path in [CREDENTIAL_PATH, JEV_KEY_PATH] {
+        if changed[wrote..]
+            .iter()
+            .any(|line| line == &format!("wrote {path}"))
+        {
+            say(&format!(
+                "the device key was taken from {V1_CONFIG} into {path}"
+            ));
+        }
     }
     // Made 0755 here on a blank lamp. One made closed before (lamp-4ace's is
     // root's alone) is not opened: credentials may be below it. Said instead.

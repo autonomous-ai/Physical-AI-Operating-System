@@ -636,9 +636,7 @@ microphone read interval`. With the socket buffer cut to 40 KiB,
 `a_stall_while_the_lamp_answers_cuts_the_reply_and_the_voice_goes_on` failed
 that way before the change and passed after it.
 
-Still separate: the cross-cycle
-`rapid_mute_and_reopen_never_overlaps_workers_or_carries_speech_across` stays
-Threaded, `provider_terminal`'s same cause is #975 (PR #982), and the
+Still separate: `provider_terminal`'s same cause is #975 (PR #982), and the
 original-123 realtime-group denominator above stays frozen.
 
 ## Pilot SIGTERM raised on the stepping thread (#739)
@@ -654,3 +652,19 @@ handler before `raise` returns. The production `Termination` path, every
 assertion and every bound are unchanged. The three `sigterm_while_*` pilot
 cases then passed 40/40 under 20 `yes` workers and 20/20 under SIGSTOP 80 ms
 every 300 ms.
+
+## Pilot faults all on the stepped fixture (#973)
+
+#972 moved the six capture stalls above. #973 moves the last threaded
+scenario, `rapid_mute_and_reopen_never_overlaps_workers_or_carries_speech_across`,
+so every `coordinator::tests::pilot_faults` scenario runs on the scenario
+clock, and the threaded fixture, unused after, is gone. A loaded host cannot
+starve a peer past the 50 ms privacy or 100 ms capture lease, because logical
+time advances only after every peer has run. Production bounds, stall
+lengths and assertions are unchanged.
+
+A run's `started_us`/`finished_us` (first child spawned, every child
+reaped) are taken on the host clock: they are real process events, and
+`rapid_mute…` compares them across runs, whose logical times are their own.
+Its cross-cycle privacy wait was already a separate mock thread. The
+SIGTERM raised on the stepping thread is the section above (#739).

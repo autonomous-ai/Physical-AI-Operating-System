@@ -26,12 +26,12 @@ use std::{
         Arc, Mutex,
         atomic::{AtomicBool, Ordering},
     },
-    thread,
 };
 
 /// The peers keep production freshness bounds (50 ms privacy, 100 ms
-/// capture leases). Threaded scenarios poll every millisecond; explicitly
-/// stepped scenarios advance only after every peer has run.
+/// capture leases). Every scenario is stepped: logical time advances only
+/// after every peer has run, so a loaded host cannot starve a peer past a
+/// lease (#973).
 /// Serialize sessions because SIGTERM is process-wide.
 static ONE_SESSION: Mutex<()> = Mutex::new(());
 
@@ -110,7 +110,8 @@ enum Act {
     /// The speaker accepts half of its next chunk, then stalls as
     /// `StallSpeakerInstalling`.
     StallSpeakerPartial,
-    /// Real SIGTERM to this process, under an installed `Termination`.
+    /// Real SIGTERM, raised on the coordinator's thread, under an installed
+    /// `Termination`.
     Sigterm,
     /// Speech starts on capture: a new user turn begins now.
     Speak,
@@ -141,19 +142,8 @@ enum SpeakerMode {
     Partial,
 }
 
-/// Single-cycle policy scenarios use synchronous steps and scoped time without
-/// changing production freshness limits or the real process cleanup deadline.
-/// Cross-cycle privacy waits keep peer threads. A stalled metadata writer can
-/// remain a real blocked thread while its independent policy peers are stepped.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Fixture {
-    Threaded,
-    Stepped,
-}
-
 #[derive(Clone, Debug)]
 struct Script {
-    fixture: Fixture,
     /// Capture frames scored as speech, by 1-based frame index. Later
     /// turns start with `Act::Speak`.
     speech: std::ops::Range<u64>,
@@ -176,11 +166,11 @@ struct Script {
 
 impl Script {
     /// One user question, then the given answer, then a mute once the
-    /// coordinator has settled the turn. Every caller chooses its clock;
-    /// no fixture silently changes between host and scenario time.
-    fn question(fixture: Fixture, answer: Answer) -> Self {
+    /// coordinator has settled the turn, on the scenario clock: synchronous
+    /// steps and scoped time, with production freshness limits and the real
+    /// process cleanup deadline. Cross-cycle privacy waits stay outside it.
+    fn question(answer: Answer) -> Self {
         Self {
-            fixture,
             speech: 20..80,
             answers: vec![answer],
             actions: vec![(When::Settled(1), Act::Mute)],
@@ -274,10 +264,9 @@ struct Seen {
     sigterm_sent_at: Option<Instant>,
 }
 
-/// Packet, privacy and policy timestamps use the selected fixture clock.
+/// Packet, privacy and policy timestamps use the scenario clock.
 /// `elapsed`, watchdogs and child exit observations always use real host time.
 struct Run {
-    fixture: Fixture,
     result: Result<()>,
     trace: Vec<Value>,
     seen: Seen,
@@ -289,8 +278,8 @@ struct Run {
     cleanup_fails: bool,
     /// The controller of this runtime cycle.
     boot: BootId,
-    /// Before the first child was spawned, and after every child was reaped.
-    /// Stepped runs use scenario time after startup, never elapsed host time.
+    /// Before the first child was spawned, and after every child was reaped,
+    /// on the host clock: real process events, compared across runs.
     started_us: u64,
     finished_us: u64,
     /// Actual host time after every real child exit/reap check.
@@ -368,12 +357,7 @@ impl Run {
             }
         }
         format!(
-            "fixture {:?}, packet and policy clock {}, real conversation and cleanup {:?}\nresult {:?}\nkinds {kinds:?}\npeer privacy gap {} us, refused writes {}, end-to-speaker revocation {:?} us\ncapture send-attempt gap {} us, oldest source age at send attempt {} us (producer; consumption age unmeasured)\nframes {} starts {:?} ends {:?} chunks {} accepted {} fired {:?} stopped {:?} abandoned {:?}",
-            self.fixture,
-            match self.fixture {
-                Fixture::Threaded => "host",
-                Fixture::Stepped => "logical",
-            },
+            "packet and policy clock logical, real conversation and cleanup {:?}\nresult {:?}\nkinds {kinds:?}\npeer privacy gap {} us, refused writes {}, end-to-speaker revocation {:?} us\ncapture send-attempt gap {} us, oldest source age at send attempt {} us (producer; consumption age unmeasured)\nframes {} starts {:?} ends {:?} chunks {} accepted {} fired {:?} stopped {:?} abandoned {:?}",
             self.elapsed,
             self.result.as_ref().map_err(|e| e.to_string()),
             self.seen.privacy_gap_us,
@@ -451,7 +435,7 @@ impl Run {
                 );
             }
         }
-        // The policy bound, in the selected fixture clock: once the
+        // The policy bound, in the scenario clock: once the
         // coordinator ended a turn, an installing speaker must have authority
         // without that owner within one channel packet age (100 ms). It is
         // required, not merely checked when present. Exempt only a speaker
@@ -652,11 +636,6 @@ impl Peers {
         match act {
             Act::Mute => self.muted.store(true, Ordering::SeqCst),
             Act::ExpirePrivacyThenMute => {
-                if self.script.fixture != Fixture::Stepped {
-                    return Err(io::Error::other(
-                        "privacy expiry fault requires stepped peers",
-                    ));
-                }
                 self.fresh_mute_pending = true;
             }
             Act::CaptureFault => {
@@ -1331,15 +1310,6 @@ impl PrivacyPeer {
         self.next = crate::scenario_clock::instant() + Duration::from_millis(5);
         Ok(())
     }
-
-    fn run(mut self, finished: Arc<AtomicBool>) {
-        self.next = Instant::now();
-        while !finished.load(Ordering::SeqCst) {
-            self.tick(None).unwrap();
-            thread::sleep(Duration::from_millis(1));
-        }
-        self.peer.close_input(None).unwrap();
-    }
 }
 
 fn run(script: Script) -> Run {
@@ -1350,9 +1320,11 @@ fn run(script: Script) -> Run {
 /// cycles. The returned run holds only this cycle's events.
 fn run_in(script: Script, trace: &mut SessionState) -> Run {
     let first_event = trace.iter().count();
-    let started_us = monotonic_us();
+    // Spawn and reap are real process events: on the host clock even in a
+    // stepped run, whose logical time is its own and not comparable across
+    // runs (scenario_clock.rs).
+    let started_us = lamp_ipc::monotonic_us();
     let cleanup_fails = script.cleanup_fails;
-    let fixture = script.fixture;
     let notices = if script.notices {
         FailureNotices::synthetic()
     } else {
@@ -1366,10 +1338,7 @@ fn run_in(script: Script, trace: &mut SessionState) -> Run {
     let directory = SessionDirectory::create().unwrap();
     let mut peers = Vec::new();
     let mut spawn = |role| {
-        let (worker, channels, input) = match fixture {
-            Fixture::Threaded => Worker::cooperative_fixture(&directory.path, role),
-            Fixture::Stepped => Worker::cooperative_ready_fixture(&directory.path, role),
-        };
+        let (worker, channels, input) = Worker::cooperative_ready_fixture(&directory.path, role);
         peers.push(Peer {
             role,
             channels,
@@ -1425,8 +1394,7 @@ fn run_in(script: Script, trace: &mut SessionState) -> Run {
     // The clock starts only after every real child has crossed its startup
     // barrier. All coordinator and peer timestamps below share this scope;
     // the real watchdog still bounds both the conversation and its cleanup.
-    let mut clock_scope = (fixture == Fixture::Stepped)
-        .then(|| crate::scenario_clock::Scope::enter(SCENARIO_LIMIT).unwrap());
+    let clock_scope = crate::scenario_clock::Scope::enter(SCENARIO_LIMIT).unwrap();
     let mut owner = Controller::new(new_boot().unwrap(), now());
     let boot = owner.snapshot(now()).unwrap().boot();
     let mut startup = StartupEvents::default();
@@ -1435,7 +1403,6 @@ fn run_in(script: Script, trace: &mut SessionState) -> Run {
         .observe(ready_link(1, 1), monotonic_us())
         .unwrap();
     let seen = Arc::new(Mutex::new(Seen::default()));
-    let finished = Arc::new(AtomicBool::new(false));
     let muted = Arc::new(AtomicBool::new(false));
     let privacy_at = peers.iter().position(|p| p.role == "privacy").unwrap();
     let privacy = PrivacyPeer {
@@ -1476,10 +1443,10 @@ fn run_in(script: Script, trace: &mut SessionState) -> Run {
         ended: 0,
         settled_after: None,
     };
-    let threads = if let Some(scope) = clock_scope.as_mut() {
+    {
         let mut privacy = privacy;
         let mut state = state;
-        scope
+        clock_scope
             .set_pump(move |phase| {
                 // Real child exit cannot be simulated. One deadline bounds
                 // all children this step stops, and shutdown supplies its
@@ -1502,47 +1469,7 @@ fn run_in(script: Script, trace: &mut SessionState) -> Run {
                 Ok(())
             })
             .unwrap();
-        None
-    } else {
-        // Cross-cycle mute/reopen retains its independent privacy thread and
-        // crosses the production service's host-clock privacy waits.
-        let privacy = thread::spawn({
-            let finished = finished.clone();
-            move || privacy.run(finished)
-        });
-        let worker = thread::spawn({
-            let finished = finished.clone();
-            move || {
-                let mut state = state;
-                // Speaker and camera schedules begin with the peer thread.
-                // Capture starts only on the coordinator's StartCapture.
-                state.guard = BoundaryGuard::new(boot, now());
-                state.next_camera = Instant::now();
-                state.next_write = Instant::now();
-                let started = Instant::now();
-                let mut limit_reported = false;
-                // Endpoints stay open until the supervisor has finished, as
-                // worker sockets do until the process is reaped.
-                while !finished.load(Ordering::SeqCst) {
-                    if started.elapsed() > SCENARIO_LIMIT && !limit_reported {
-                        limit_reported = true;
-                        if let Some(capture) = state.peers.iter_mut().find(|p| p.role == "capture")
-                        {
-                            let _ = capture.channels.control.send(WorkerEvent::Fault {
-                                code: "pilot fault scenario limit".into(),
-                            });
-                        }
-                    }
-                    state.tick(None).unwrap();
-                    thread::sleep(Duration::from_millis(1));
-                }
-                for peer in &mut state.peers {
-                    peer.close_input(None).unwrap();
-                }
-            }
-        });
-        Some((worker, privacy))
-    };
+    }
     let mut reply = None;
     let started = Instant::now();
     let result = conversation(
@@ -1571,17 +1498,11 @@ fn run_in(script: Script, trace: &mut SessionState) -> Run {
         exits.push(("camera", matches!(camera.worker.try_exit(), Ok(Some(_)))));
     }
     let reaped_at = Instant::now();
-    let finished_us = monotonic_us();
-    finished.store(true, Ordering::SeqCst);
-    if let Some((worker, privacy)) = threads {
-        worker.join().unwrap();
-        privacy.join().unwrap();
-    }
+    let finished_us = lamp_ipc::monotonic_us();
     drop(clock_scope);
     assert!(reply.is_none(), "an answer outlived its run");
     let seen = std::mem::take(&mut *seen.lock().unwrap());
     Run {
-        fixture,
         result,
         trace: trace.iter().skip(first_event).cloned().collect(),
         boot,
@@ -1718,7 +1639,7 @@ mod capture_schedule_tests {
 #[test]
 fn control_one_question_is_answered_once_then_mute_ends_the_run() {
     let _one = one_session();
-    let run = run(Script::question(Fixture::Stepped, Answer::Complete(12)));
+    let run = run(Script::question(Answer::Complete(12)));
     run.assert_invariants();
     assert!(is_mute(&run.result), "{:?}", run.result);
     assert_eq!(run.seen.starts.len(), 1);
@@ -1743,7 +1664,7 @@ fn control_one_question_is_answered_once_then_mute_ends_the_run() {
 #[test]
 fn readiness_publishes_the_link_state_it_was_validated_against() {
     let _one = one_session();
-    let run = run(Script::question(Fixture::Stepped, Answer::Complete(12)));
+    let run = run(Script::question(Answer::Complete(12)));
     run.assert_invariants();
     let current = run.events("provider_link_current");
     assert_eq!(current.len(), 1);
@@ -1778,7 +1699,7 @@ fn first(run: &Run) -> u64 {
 #[test]
 fn provider_failure_before_output_settles_failed_without_speech() {
     let _one = one_session();
-    let run = run(Script::question(Fixture::Stepped, Answer::FailBeforeOutput));
+    let run = run(Script::question(Answer::FailBeforeOutput));
     run.assert_invariants();
     assert!(is_mute(&run.result), "{:?}", run.result);
     assert_eq!(run.outcomes()[&first(&run)], ["provider_failed"]);
@@ -1789,10 +1710,7 @@ fn provider_failure_before_output_settles_failed_without_speech() {
 #[test]
 fn provider_failure_during_output_never_becomes_a_completed_answer() {
     let _one = one_session();
-    let run = run(Script::question(
-        Fixture::Stepped,
-        Answer::FailDuringOutput(12),
-    ));
+    let run = run(Script::question(Answer::FailDuringOutput(12)));
     run.assert_invariants();
     assert!(is_mute(&run.result), "{:?}", run.result);
     let turn = first(&run);
@@ -1806,7 +1724,7 @@ fn provider_process_lost_before_output_ends_the_run_without_speech() {
     let _one = one_session();
     let run = run(Script {
         answers: vec![],
-        ..Script::question(Fixture::Stepped, Answer::FailBeforeOutput)
+        ..Script::question(Answer::FailBeforeOutput)
     }
     .then(When::InputEnded(1), Act::ProviderGone));
     run.assert_invariants();
@@ -1822,8 +1740,7 @@ fn provider_process_lost_before_output_ends_the_run_without_speech() {
 #[test]
 fn provider_process_lost_during_output_stops_speech_and_fails_the_turn() {
     let _one = one_session();
-    let run = run(Script::question(Fixture::Stepped, Answer::Hold(40))
-        .then(When::Accepted(3), Act::ProviderGone));
+    let run = run(Script::question(Answer::Hold(40)).then(When::Accepted(3), Act::ProviderGone));
     run.assert_invariants();
     assert!(
         run.result.is_err() && !is_mute(&run.result),
@@ -1848,8 +1765,7 @@ fn provider_process_lost_during_output_stops_speech_and_fails_the_turn() {
 #[test]
 fn capture_fault_during_output_cancels_the_answer_and_ends_the_run() {
     let _one = one_session();
-    let run = run(Script::question(Fixture::Stepped, Answer::Hold(40))
-        .then(When::Accepted(3), Act::CaptureFault));
+    let run = run(Script::question(Answer::Hold(40)).then(When::Accepted(3), Act::CaptureFault));
     run.assert_invariants();
     assert!(
         run.result.is_err() && !is_mute(&run.result),
@@ -1867,7 +1783,7 @@ fn a_half_second_capture_stall_is_a_gap_and_the_voice_goes_on() {
     let _one = one_session();
     let run = run(Script {
         speech: 80..140,
-        ..Script::question(Fixture::Stepped, Answer::Complete(12))
+        ..Script::question(Answer::Complete(12))
     }
     .then(When::Block(30), Act::CaptureStall));
     run.assert_invariants();
@@ -1893,7 +1809,7 @@ fn a_microphone_closed_by_a_stall_reopens_under_a_new_epoch_and_the_voice_goes_o
     let _one = one_session();
     let run = run(Script {
         speech: 80..140,
-        ..Script::question(Fixture::Stepped, Answer::Complete(12))
+        ..Script::question(Answer::Complete(12))
     }
     .then(When::Block(30), Act::CaptureReopen));
     run.assert_invariants();
@@ -1928,7 +1844,7 @@ fn a_stall_inside_a_question_abandons_it_and_the_voice_goes_on() {
             (When::Block(60), Act::CaptureReopen),
             (When::Block(250), Act::Mute),
         ],
-        ..Script::question(Fixture::Stepped, Answer::Complete(12))
+        ..Script::question(Answer::Complete(12))
     });
     run.assert_invariants();
     assert!(is_mute(&run.result), "{:?}", run.result);
@@ -1952,7 +1868,7 @@ fn a_reopen_while_the_lamp_answers_cuts_the_reply_and_the_voice_goes_on() {
             (When::Accepted(3), Act::CaptureReopen),
             (When::Block(400), Act::Mute),
         ],
-        ..Script::question(Fixture::Stepped, Answer::Hold(40))
+        ..Script::question(Answer::Hold(40))
     });
     run.assert_invariants();
     assert!(is_mute(&run.result), "{:?}", run.result);
@@ -1971,7 +1887,7 @@ fn a_stall_while_the_lamp_answers_cuts_the_reply_and_the_voice_goes_on() {
             (When::Accepted(3), Act::CaptureStall),
             (When::Block(400), Act::Mute),
         ],
-        ..Script::question(Fixture::Stepped, Answer::Hold(40))
+        ..Script::question(Answer::Hold(40))
     });
     run.assert_invariants();
     assert!(is_mute(&run.result), "{:?}", run.result);
@@ -1991,7 +1907,7 @@ fn a_short_xrun_reopen_inside_a_question_abandons_it_and_the_voice_goes_on() {
             (When::Block(60), Act::CaptureXRun),
             (When::Block(250), Act::Mute),
         ],
-        ..Script::question(Fixture::Stepped, Answer::Complete(12))
+        ..Script::question(Answer::Complete(12))
     });
     run.assert_invariants();
     assert!(is_mute(&run.result), "{:?}", run.result);
@@ -2006,7 +1922,7 @@ fn capture_stall_during_a_question_ends_the_run_without_an_answer() {
     let _one = one_session();
     let run = run(Script {
         speech: 20..400,
-        ..Script::question(Fixture::Stepped, Answer::Complete(12))
+        ..Script::question(Answer::Complete(12))
     }
     .then(When::Block(60), Act::CaptureSilent));
     run.assert_invariants();
@@ -2027,7 +1943,7 @@ fn mute_while_answer_speech_is_queued_cuts_it_and_never_resumes() {
     let _one = one_session();
     let run = run(Script {
         actions: vec![(When::Accepted(3), Act::Mute)],
-        ..Script::question(Fixture::Stepped, Answer::Complete(40))
+        ..Script::question(Answer::Complete(40))
     });
     run.assert_invariants();
     assert!(is_mute(&run.result), "{:?}", run.result);
@@ -2043,7 +1959,7 @@ fn sigterm_while_answer_speech_is_pending_stops_cleanly() {
     let run = run(Script {
         actions: vec![(When::Accepted(3), Act::Sigterm)],
         signals: true,
-        ..Script::question(Fixture::Stepped, Answer::Hold(40))
+        ..Script::question(Answer::Hold(40))
     });
     run.assert_invariants();
     assert!(run.result.is_ok(), "{:?}", run.result);
@@ -2061,7 +1977,7 @@ fn failure_notice_plays_once_keeps_the_failure_and_yields_to_the_next_owner() {
             (When::Settled(2), Act::Mute),
         ],
         notices: true,
-        ..Script::question(Fixture::Stepped, Answer::FailBeforeOutput)
+        ..Script::question(Answer::FailBeforeOutput)
     });
     run.assert_invariants();
     assert!(is_mute(&run.result), "{:?}", run.result);
@@ -2086,8 +2002,8 @@ fn failure_notice_plays_once_keeps_the_failure_and_yields_to_the_next_owner() {
 #[test]
 fn stalled_speaker_during_output_is_bounded_and_never_completes_the_answer() {
     let _one = one_session();
-    let run = run(Script::question(Fixture::Stepped, Answer::Complete(40))
-        .then(When::Accepted(3), Act::StallSpeaker));
+    let run =
+        run(Script::question(Answer::Complete(40)).then(When::Accepted(3), Act::StallSpeaker));
     run.assert_invariants();
     let turn = first(&run);
     assert_eq!(run.outcomes()[&turn], ["runtime_failed"]);
@@ -2115,7 +2031,7 @@ fn stalled_speaker_under_vad_only_is_bounded_too() {
     let _one = one_session();
     let run = run(Script {
         turn_taking: TurnTaking::VadOnly,
-        ..Script::question(Fixture::Stepped, Answer::Complete(40))
+        ..Script::question(Answer::Complete(40))
     }
     .then(When::Accepted(3), Act::StallSpeaker));
     run.assert_invariants();
@@ -2142,7 +2058,7 @@ fn failure_notice_yields_mid_play_to_a_new_owner_under_vad_only() {
         ],
         notices: true,
         turn_taking: TurnTaking::VadOnly,
-        ..Script::question(Fixture::Stepped, Answer::FailBeforeOutput)
+        ..Script::question(Answer::FailBeforeOutput)
     });
     run.assert_invariants();
     assert_eq!(run.seen.starts.len(), 2, "the next owner was not served");
@@ -2183,8 +2099,7 @@ fn failure_notice_yields_mid_play_to_a_new_owner_under_vad_only() {
 #[test]
 fn provider_worker_fault_during_output_fails_the_turn_and_ends_the_run() {
     let _one = one_session();
-    let run = run(Script::question(Fixture::Stepped, Answer::Hold(40))
-        .then(When::Accepted(3), Act::ProviderFault));
+    let run = run(Script::question(Answer::Hold(40)).then(When::Accepted(3), Act::ProviderFault));
     run.assert_invariants();
     assert!(
         run.result.is_err() && !is_mute(&run.result),
@@ -2197,8 +2112,8 @@ fn provider_worker_fault_during_output_fails_the_turn_and_ends_the_run() {
 #[test]
 fn terminal_provider_link_during_output_settles_failed_and_ends_service() {
     let _one = one_session();
-    let run = run(Script::question(Fixture::Stepped, Answer::Hold(40))
-        .then(When::Accepted(3), Act::ProviderTerminal));
+    let run =
+        run(Script::question(Answer::Hold(40)).then(When::Accepted(3), Act::ProviderTerminal));
     run.assert_invariants();
     let error = run.result.as_ref().unwrap_err().to_string();
     assert!(
@@ -2215,7 +2130,7 @@ fn mute_while_the_failure_notice_plays_cuts_it_and_keeps_the_failure() {
     let run = run(Script {
         actions: vec![(When::NoticeAccepted(3), Act::Mute)],
         notices: true,
-        ..Script::question(Fixture::Stepped, Answer::FailBeforeOutput)
+        ..Script::question(Answer::FailBeforeOutput)
     });
     run.assert_invariants();
     assert!(is_mute(&run.result), "{:?}", run.result);
@@ -2239,7 +2154,7 @@ fn sigterm_while_the_failure_notice_plays_stops_cleanly() {
         actions: vec![(When::NoticeAccepted(3), Act::Sigterm)],
         notices: true,
         signals: true,
-        ..Script::question(Fixture::Stepped, Answer::FailBeforeOutput)
+        ..Script::question(Answer::FailBeforeOutput)
     });
     run.assert_invariants();
     assert!(run.result.is_ok(), "{:?}", run.result);
@@ -2254,7 +2169,7 @@ fn ring_fault_during_an_answer_keeps_the_conversation_and_cleans_up() {
     let _one = one_session();
     let run = run(Script {
         ring: true,
-        ..Script::question(Fixture::Stepped, Answer::Complete(12))
+        ..Script::question(Answer::Complete(12))
     }
     .then(When::Accepted(3), Act::RingFault));
     run.assert_invariants();
@@ -2275,7 +2190,7 @@ fn expired_accepted_privacy_rejects_a_fresh_queued_mute_in_stepped_run() {
     let _one = one_session();
     let run = run(Script {
         actions: vec![(When::Accepted(1), Act::ExpirePrivacyThenMute)],
-        ..Script::question(Fixture::Stepped, Answer::Hold(12))
+        ..Script::question(Answer::Hold(12))
     });
     run.assert_invariants();
     let (before, after) = run.seen.privacy_expiry_jump.expect("privacy lease expired");
@@ -2307,7 +2222,7 @@ fn ring_lost_without_blanking_keeps_the_answer_but_cleanup_fails_truthfully() {
     let run = run(Script {
         ring: true,
         cleanup_fails: true,
-        ..Script::question(Fixture::Stepped, Answer::Complete(12))
+        ..Script::question(Answer::Complete(12))
     }
     .then(When::Accepted(3), Act::RingGone));
     run.assert_invariants();
@@ -2325,7 +2240,7 @@ fn camera_loss_during_an_answer_revokes_only_sight() {
     let _one = one_session();
     let run = run(Script {
         camera: true,
-        ..Script::question(Fixture::Stepped, Answer::Complete(12))
+        ..Script::question(Answer::Complete(12))
     }
     .then(When::Accepted(3), Act::CameraSilent));
     run.assert_invariants();
@@ -2380,7 +2295,7 @@ fn rapid_mute_and_reopen_never_overlaps_workers_or_carries_speech_across() {
             let mut run = run_in(
                 Script {
                     actions: vec![(When::Accepted(3), Act::Mute)],
-                    ..Script::question(Fixture::Threaded, Answer::Complete(40))
+                    ..Script::question(Answer::Complete(40))
                 },
                 trace,
             );
@@ -2552,7 +2467,7 @@ fn sigterm_while_metadata_storage_is_stalled_stops_cleanly_and_reports_the_loss(
         Script {
             actions: vec![(When::Accepted(10), Act::Sigterm)],
             signals: true,
-            ..Script::question(Fixture::Stepped, Answer::Hold(40))
+            ..Script::question(Answer::Hold(40))
         },
         &mut metadata.trace,
     );
@@ -2624,8 +2539,9 @@ fn stall_end(run: &Run, act: Act) -> (String, u64) {
 #[test]
 fn partial_write_then_stall_is_bounded_under_v1_baseline() {
     let _one = one_session();
-    let run = run(Script::question(Fixture::Stepped, Answer::Complete(40))
-        .then(When::Accepted(3), Act::StallSpeakerPartial));
+    let run =
+        run(Script::question(Answer::Complete(40))
+            .then(When::Accepted(3), Act::StallSpeakerPartial));
     run.assert_invariants();
     assert_eq!(run.outcomes()[&first(&run)], ["runtime_failed"]);
     let (error, after_ms) = stall_end(&run, Act::StallSpeakerPartial);
@@ -2639,7 +2555,7 @@ fn partial_write_then_stall_is_bounded_under_vad_only() {
     let _one = one_session();
     let run = run(Script {
         turn_taking: TurnTaking::VadOnly,
-        ..Script::question(Fixture::Stepped, Answer::Complete(40))
+        ..Script::question(Answer::Complete(40))
     }
     .then(When::Accepted(3), Act::StallSpeakerPartial));
     run.assert_invariants();
@@ -2653,8 +2569,9 @@ fn partial_write_then_stall_is_bounded_under_vad_only() {
 #[test]
 fn control_progress_without_settlement_is_bounded_under_v1_baseline() {
     let _one = one_session();
-    let run = run(Script::question(Fixture::Stepped, Answer::Complete(40))
-        .then(When::Accepted(3), Act::StallSpeakerInstalling));
+    let run =
+        run(Script::question(Answer::Complete(40))
+            .then(When::Accepted(3), Act::StallSpeakerInstalling));
     // The installing speaker must have seen the turn revoked.
     run.assert_invariants();
     assert_eq!(run.outcomes()[&first(&run)], ["runtime_failed"]);
@@ -2670,7 +2587,7 @@ fn control_progress_without_settlement_is_bounded_under_vad_only() {
     let _one = one_session();
     let run = run(Script {
         turn_taking: TurnTaking::VadOnly,
-        ..Script::question(Fixture::Stepped, Answer::Complete(40))
+        ..Script::question(Answer::Complete(40))
     }
     .then(When::Accepted(3), Act::StallSpeakerInstalling));
     run.assert_invariants();
@@ -2687,7 +2604,7 @@ fn duplex_control_answers_once() {
     let _one = one_session();
     let run = run(Script {
         turn_taking: TurnTaking::Duplex,
-        ..Script::question(Fixture::Stepped, Answer::Complete(12))
+        ..Script::question(Answer::Complete(12))
     });
     run.assert_invariants();
     assert!(is_mute(&run.result), "{:?}", run.result);
@@ -2705,7 +2622,7 @@ fn duplex_stalled_speaker_is_bounded() {
     let _one = one_session();
     let run = run(Script {
         turn_taking: TurnTaking::Duplex,
-        ..Script::question(Fixture::Stepped, Answer::Complete(40))
+        ..Script::question(Answer::Complete(40))
     }
     .then(When::Accepted(3), Act::StallSpeakerInstalling));
     run.assert_invariants();
@@ -2723,7 +2640,7 @@ fn paused_question() -> Script {
     Script {
         paused: true,
         actions: vec![(When::Block(160), Act::Mute)],
-        ..Script::question(Fixture::Stepped, Answer::Complete(12))
+        ..Script::question(Answer::Complete(12))
     }
 }
 
@@ -2753,7 +2670,7 @@ fn a_turn_under_way_when_paused_is_finished_and_the_next_is_not_taken() {
             (When::Settled(1), Act::Speak),
             (When::Block(500), Act::Mute),
         ],
-        ..Script::question(Fixture::Stepped, Answer::Complete(12))
+        ..Script::question(Answer::Complete(12))
     };
     let run = run(script);
     run.assert_invariants();
@@ -2780,7 +2697,7 @@ fn resumed_the_lamp_answers_again() {
             (When::Block(130), Act::Speak),
             (When::Settled(1), Act::Mute),
         ],
-        ..Script::question(Fixture::Stepped, Answer::Complete(12))
+        ..Script::question(Answer::Complete(12))
     };
     let run = run(script);
     run.assert_invariants();

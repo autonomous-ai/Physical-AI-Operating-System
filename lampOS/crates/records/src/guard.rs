@@ -606,6 +606,11 @@ mod implementation {
             // still protected below. On lamp-4ace from 2026-10-15 02:05 to
             // 20:00 it refused every check.
             "schedule-consumer" if arguments.len() == 2 => None,
+            // The voice's workers. `second` is the second voice's provider
+            // worker, started with the second configuration: on lamp-4ace
+            // from 2026-10-15 14:01 it refused every hourly check until it was
+            // known here. Like the provider it writes no session output, and
+            // its open files are still protected below.
             "worker" => {
                 let role = arguments.get(2).and_then(|word| word.to_str());
                 if arguments.len() < 6
@@ -615,6 +620,7 @@ mod implementation {
                             "capture"
                                 | "speaker"
                                 | "provider"
+                                | "second"
                                 | "camera"
                                 | "ring"
                                 | "privacy"
@@ -1529,6 +1535,63 @@ mod implementation {
             assert_eq!(
                 check().unwrap(),
                 BTreeSet::from([CURRENT.to_owned(), OLD.to_owned()])
+            );
+        }
+
+        #[test]
+        fn the_second_voices_worker_is_known_and_its_files_still_checked() {
+            let tree = Tree::new();
+            let root = tree.directory("sessions");
+            serve(
+                &tree,
+                123,
+                &root.join(CURRENT),
+                "/system.slice/lamp-voice.service",
+            );
+            // As lamp-4ace starts it: role, directory, parent, worker,
+            // provider config, then the second config and flags.
+            let second = process(
+                &tree,
+                124,
+                &[
+                    OsStr::new(BINARY),
+                    OsStr::new("worker"),
+                    OsStr::new("second"),
+                    OsStr::new("/tmp/lampOS-run"),
+                    OsStr::new("2be051b82715b0fb40edf50e473f28de"),
+                    OsStr::new("7cc9b7fad8492f6ac74e4f4bb2fc95e2"),
+                    OsStr::new("/etc/lampOS/voice/provider.json"),
+                    OsStr::new("/etc/lampOS/voice/second.json"),
+                    OsStr::new("--tools"),
+                ],
+                "/system.slice/lamp-voice.service",
+            );
+            let check = || {
+                scan_processes(
+                    &tree.0.join("proc"),
+                    &snapshot(&root),
+                    &root,
+                    Instant::now() + TOTAL_BUDGET,
+                    &mut ProcessObservations::default(),
+                )
+            };
+            assert_eq!(check().unwrap(), BTreeSet::from([CURRENT.to_owned()]));
+            // A session file it holds open is still protected.
+            let old = tree.directory(&format!("sessions/{OLD}/metadata"));
+            fs::write(old.join("events-0.jsonl"), b"{}\n").unwrap();
+            symlink(old.join("events-0.jsonl"), second.join("fd/3")).unwrap();
+            assert_eq!(
+                check().unwrap(),
+                BTreeSet::from([CURRENT.to_owned(), OLD.to_owned()])
+            );
+            // Cut short, it is still refused.
+            assert!(
+                voice_paths(&[
+                    OsString::from(BINARY),
+                    OsString::from("worker"),
+                    OsString::from("second")
+                ])
+                .is_err()
             );
         }
 

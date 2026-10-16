@@ -32,8 +32,9 @@ Its earlier work: Expression (4, 18), the button and touch pad (7), starting, se
 
 - Change the crates above, and the documents that belong to them, in the
   same commit.
-- Propose work as `third-P<n>` in its log and as an issue labelled
-  `proposal` and `builder:third`.
+- Propose work as `third-P<n>` in its log and as a comment on the issue it
+  belongs to, or on the Queue issue (#705) when none fits, as joining.md's
+  `fifth-P8` says; it opens no issues and makes no labels.
 - Add and remove `status:` labels on, and comment on, its own issues.
 
 ## It may not

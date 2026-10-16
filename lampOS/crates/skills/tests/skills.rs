@@ -131,6 +131,29 @@ fn the_loader_refuses_what_it_cannot_do() {
             "[[do]]\nsay = \"And again.\"\n[ask]",
             "one say a skill",
         ),
+        // Words the voice keeps (#939): only what it keeps, only `from`,
+        // and still one say a skill.
+        (
+            "say = \"They are back at their desk. Greet them in one short line, by name if you know it.\"",
+            "say = { from = \"calendar\" }",
+            "say.from is \"schedule\" or \"tasks\", not \"calendar\"",
+        ),
+        (
+            "say = \"They are back at their desk. Greet them in one short line, by name if you know it.\"",
+            "say = { from = \"schedule\", note = \"x\" }",
+            "a say table has from and nothing else",
+        ),
+        // A say that is neither, told in plain words (Fourth on #1033).
+        (
+            "say = \"They are back at their desk. Greet them in one short line, by name if you know it.\"",
+            "say = 5",
+            "say is a note in words, or { from = \"schedule\" } or { from = \"tasks\" }",
+        ),
+        (
+            "[ask]",
+            "[[do]]\nsay = { from = \"tasks\" }\n[ask]",
+            "one say a skill",
+        ),
     ] {
         let skill = welcome_back_with(&dir.path().join(why.replace(' ', "_")), from, to);
         let error = load(&skill).unwrap_err();
@@ -527,6 +550,43 @@ fn the_program_looks_and_lights_with_the_words_and_gives_the_light_back() {
     );
 }
 
+/// A skill whose words the voice keeps (#939, (c)): the reminder due.
+const FROM_SCHEDULE: &str = r#"
+[trigger]
+topic = "humans/faces/tracked"
+when = "appears"
+[ask]
+policy = "hello"
+[[do]]
+light = { colour = "warm" }
+say = { from = "schedule" }
+"#;
+
+/// #939, (c): `say = { from = "schedule" }` asks the voice for what it
+/// keeps, at a reminder's priority, with no words of the skill's own; the
+/// light comes with its `begun` and is given back, as for a note.
+#[test]
+fn a_say_from_the_voices_own_asks_for_it_by_source_and_moves_with_it() {
+    let seen = the_program_with(
+        FROM_SCHEDULE,
+        true,
+        &[r#"{"event":"begun","at_us":5}"#, r#"{"outcome":"spoken"}"#],
+        3,
+        1,
+        4,
+    );
+    assert_eq!(
+        seen.asked.as_deref(),
+        Some(
+            "{\"expires_in_ms\":30000,\"from\":\"schedule\",\"priority\":8,\"skill\":\"hello\"}\n"
+        )
+    );
+    let done = &seen.events[3].why;
+    assert!(done.contains("light warm: done"), "{done}");
+    assert!(done.contains("say: spoken"), "{done}");
+    assert!(done.contains("light given back to on blue at 3"), "{done}");
+}
+
 #[test]
 fn a_say_never_begun_moves_nothing_and_changes_no_light() {
     let seen = the_program(true, &[r#"{"outcome":"expired"}"#]);
@@ -669,6 +729,68 @@ fn present_for_a_while_through_short_dropouts_once_a_sitting_and_only_while_rest
     broken.push((1001, Faces::TOPIC, NOBODY));
     broken.sort_by_key(|message| message.0);
     assert!(runs_at(&skill, &broken).is_empty());
+}
+
+/// #1021's rule for every skill, Stretch break's case: someone talking
+/// when the moment comes, and the lamp acts once the talk ends, within the
+/// same sitting and its `wait`, instead of spending its chance.
+#[test]
+fn a_chance_held_back_by_a_talk_waits_for_its_end_within_the_wait() {
+    let dir = tempfile::tempdir().unwrap();
+    let waiting = STRETCH.replace("cooldown = \"90m\"", "cooldown = \"90m\"\nwait = \"10m\"");
+    let skill = skill_with(dir.path(), "stretch-break", &waiting);
+    let mut messages = vec![(0, "voice/state", r#"{"state":"resting"}"#)];
+    messages.extend(sitting(0, 4000, &[]));
+    // Talking from before the fiftieth minute to 3,100 s: it stretches at
+    // the first face after the talk, once.
+    let mut talking = messages.clone();
+    talking.push((2950, "voice/state", r#"{"state":"speaking"}"#));
+    talking.push((3100, "voice/state", r#"{"state":"resting"}"#));
+    talking.sort_by_key(|message| message.0);
+    let runs = runs_at(&skill, &talking);
+    assert_eq!(runs.iter().map(|run| run.0).collect::<Vec<_>>(), [3120]);
+    // A talk that outlasts the wait (from 3,000 s, ten minutes, to 3,600 s):
+    // the chance is spent, as without one.
+    let mut long = messages.clone();
+    long.push((2950, "voice/state", r#"{"state":"speaking"}"#));
+    long.push((3700, "voice/state", r#"{"state":"resting"}"#));
+    long.sort_by_key(|message| message.0);
+    assert!(
+        runs_at(&skill, &long).is_empty(),
+        "{:?}",
+        runs_at(&skill, &long)
+    );
+    // They leave during the talk, longer than the gap: the sitting and its
+    // chance are over, and the next sitting has 50 minutes of its own.
+    let mut gone: Vec<_> = talking
+        .iter()
+        .copied()
+        .filter(|message| !(message.1 == Faces::TOPIC && (3000..3300).contains(&message.0)))
+        .collect();
+    gone.push((3001, Faces::TOPIC, NOBODY));
+    gone.sort_by_key(|message| message.0);
+    assert!(
+        runs_at(&skill, &gone).is_empty(),
+        "{:?}",
+        runs_at(&skill, &gone)
+    );
+    // Without `wait`, as before: the chance is spent.
+    let plain = skill_with(&dir.path().join("plain"), "stretch-break", STRETCH);
+    assert!(runs_at(&plain, &talking).is_empty());
+    // `wait` needs a chance to keep, and is bounded.
+    for (toml, why) in [
+        (
+            waiting.replace("rearm = \"leaves\"\n", ""),
+            "wait goes with rearm",
+        ),
+        (
+            waiting.replace("wait = \"10m\"", "wait = \"2h\""),
+            "at most 1h",
+        ),
+    ] {
+        let error = load(&skill_with(&dir.path().join("bad"), "stretch-break", &toml)).unwrap_err();
+        assert!(error.contains(why), "{error}");
+    }
 }
 
 #[test]
@@ -959,6 +1081,15 @@ fn a_tool_needs_no_trigger_and_a_look_needs_a_tool() {
                 "tool = \"check_my_work\"\n[trigger]\ntopic = \"humans/faces/tracked\"\n[ask]\npolicy = \"nudge\"",
             ),
             "started by its tool alone",
+        ),
+        // What the voice keeps is never said from the model's call: a tool's
+        // run would drop it without a word (Fourth on #1033).
+        (
+            TUTOR.replace(
+                "say = \"Tutor: a hint or a question, never the answer.\"",
+                "say = { from = \"schedule\" }",
+            ),
+            "say.from, in a skill with a tool",
         ),
     ] {
         let error = load(&skill_with(&dir.path().join("bad"), "tutor", &toml)).unwrap_err();

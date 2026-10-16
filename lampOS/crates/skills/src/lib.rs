@@ -24,6 +24,8 @@ pub const GESTURES: [&str; 6] = ["nod", "headshake", "greeting", "laugh", "shy",
 pub const MOODS: [&str; 1] = ["reading"];
 /// How long a skill may hold a pose.
 pub const MOOD_AT_MOST_US: u64 = 120_000_000;
+/// The longest a held-back chance may wait for its conditions.
+const MOST_WAIT_US: u64 = 3_600_000_000;
 /// How long a face message counts when its header names no lifespan: the
 /// eyes' two seconds. A value on another topic counts until it is replaced.
 const FACE_LIFESPAN_MS: u64 = 2_000;
@@ -62,6 +64,9 @@ struct TriggerFile {
     gap: Option<String>,
     rearm: Option<String>,
     cooldown: Option<String>,
+    /// A chance held back by a `[[while]]` condition waits this long, while
+    /// the trigger still holds, for the conditions to hold.
+    wait: Option<String>,
 }
 
 /// A `[[while]]` condition.
@@ -90,8 +95,35 @@ struct AskFile {
 struct StepFile {
     body: Option<BodyFile>,
     light: Option<LightStep>,
-    say: Option<String>,
+    /// A note in words, or `{ from = "schedule" | "tasks" }` for words the
+    /// voice keeps itself (#939): read by hand ([`say_step`]), so that a
+    /// wrong one is told in plain words.
+    say: Option<toml::Value>,
     look: Option<bool>,
+}
+
+/// What a `say` asks of the voice: a note it phrases, or what it keeps.
+fn say_step(say: toml::Value) -> Result<Call, String> {
+    const WHAT: &str = "say is a note in words, or { from = \"schedule\" } or { from = \"tasks\" }";
+    match say {
+        toml::Value::String(note) if note.trim().is_empty() => Err(WHAT.into()),
+        toml::Value::String(note) => Ok(Call::Say(note)),
+        toml::Value::Table(table) => {
+            let mut keys = table.keys();
+            if keys.next().map(String::as_str) != Some("from") || keys.next().is_some() {
+                return Err(format!("{WHAT}: a say table has from and nothing else"));
+            }
+            match table["from"].as_str() {
+                Some("schedule") => Ok(Call::SayFrom(Source::Schedule)),
+                Some("tasks") => Ok(Call::SayFrom(Source::Tasks)),
+                Some(other) => Err(format!(
+                    "say.from is \"schedule\" or \"tasks\", not {other:?}"
+                )),
+                None => Err(format!("{WHAT}: from is a word")),
+            }
+        }
+        _ => Err(WHAT.into()),
+    }
 }
 
 #[derive(Deserialize)]
@@ -195,6 +227,11 @@ pub struct Trigger {
     /// Once each time it holds; again only after it stopped.
     pub rearm: bool,
     pub cooldown_us: u64,
+    /// How long a chance held back by a `[[while]]` condition is kept, while
+    /// the trigger still holds, and taken the moment the conditions hold:
+    /// someone talking when the moment comes, and the lamp acts once the
+    /// talk ends. 0: a chance held back is spent.
+    pub wait_us: u64,
 }
 
 /// One call a step makes, as the program sends it and a test expects it.
@@ -221,9 +258,42 @@ pub enum Call {
     Dim { steps: u8, until_ends: bool },
     /// A note for the voice to say in its own words.
     Say(String),
+    /// Words the voice keeps itself and says when asked (#939, (c)): the
+    /// reminder due, or the news of work handed over. The voice keeps the
+    /// words and their delivery (a reminder's acknowledgement, news told
+    /// once); the skill says when, and moves with them.
+    SayFrom(Source),
     /// The voice's full look (#836), which it takes when the lamp says it
     /// will look. Only in a skill its tool starts.
     Look,
+}
+
+/// Where the words of a [`Call::SayFrom`] are kept, in the voice.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Source {
+    /// The reminder Schedule has due (`schedule/due`).
+    Schedule,
+    /// The news of work handed to an agent (`tasks/status`).
+    Tasks,
+}
+
+impl Source {
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Schedule => "schedule",
+            Self::Tasks => "tasks",
+        }
+    }
+
+    /// The say service's priority: a reminder at its time, after a second
+    /// of quiet (8, as the voice's own reminders); news in a pause, after
+    /// 15 s of quiet (5, as the voice's own news).
+    pub fn priority(self) -> u8 {
+        match self {
+            Self::Schedule => 8,
+            Self::Tasks => 5,
+        }
+    }
 }
 
 impl Call {
@@ -266,6 +336,7 @@ impl Call {
                 ("light", args)
             }
             Self::Say(note) => ("say", json!({ "note": note })),
+            Self::SayFrom(source) => ("say", json!({ "from": source.name() })),
             Self::Look => ("look", json!({})),
         }
     }
@@ -357,6 +428,16 @@ fn trigger(file: TriggerFile) -> Result<Trigger, String> {
         Some("leaves" | "ends") => true,
         Some(other) => return Err(format!("rearm = {other:?}: \"leaves\" or \"ends\"")),
     };
+    let wait_us = optional(&file.wait)?;
+    if wait_us > MOST_WAIT_US {
+        return Err("wait is at most 1h".into());
+    }
+    if wait_us > 0 && !(rearm || when == When::Appears) {
+        return Err(
+            "wait goes with rearm or when = \"appears\": without them every message is a chance"
+                .into(),
+        );
+    }
     let mut test = test(&file.topic, file.field, file.equals, file.above, file.below)?;
     match (file.near, &mut test) {
         (None, _) => {}
@@ -377,6 +458,7 @@ fn trigger(file: TriggerFile) -> Result<Trigger, String> {
         gap_us: optional(&file.gap)?,
         rearm,
         cooldown_us: optional(&file.cooldown)?,
+        wait_us,
     })
 }
 
@@ -526,15 +608,21 @@ pub fn load(dir: &Path) -> Result<Skill, String> {
             steps.push(light_call(file).map_err(|why| format!("{place}: {why}"))?);
         }
         if let Some(say) = step.say {
-            if say.trim().is_empty() {
-                return Err("say is a note in words".into());
+            let call = say_step(say)?;
+            // A tool's run tells the model what to say, and what the voice
+            // keeps is not the model's to say (Fourth on #1033).
+            if matches!(call, Call::SayFrom(_)) && file.tool.is_some() {
+                return Err(
+                    "say.from, in a skill with a tool: what the voice keeps is said when a trigger starts the skill, never from the model's call"
+                        .into(),
+                );
             }
-            steps.push(Call::Say(say));
+            steps.push(call);
         }
     }
     if steps
         .iter()
-        .filter(|step| matches!(step, Call::Say(_)))
+        .filter(|step| matches!(step, Call::Say(_) | Call::SayFrom(_)))
         .count()
         > 1
     {
@@ -628,6 +716,9 @@ struct Watch {
     away_us: u64,
     /// This time it holds has had its chance.
     spent: bool,
+    /// Since when this time's chance has waited for the trigger's
+    /// `[[while]]` conditions (`wait`).
+    waiting_us: Option<u64>,
     ran_us: Option<u64>,
 }
 
@@ -854,6 +945,7 @@ impl Engine {
                     watch.since_us = Some(now_us);
                     watch.away_us = now_us - watch.last_held_us.unwrap_or(started);
                     watch.spent = false;
+                    watch.waiting_us = None;
                 }
                 watch.last_held_us = Some(now_us);
                 let held_us = now_us - watch.since_us.unwrap_or(now_us);
@@ -871,10 +963,20 @@ impl Engine {
                     || watch
                         .ran_us
                         .is_some_and(|ran| now_us - ran < trigger.cooldown_us)
-                    || !Self::conditions_hold(&self.latest, &self.holding, skill, now_us)
                 {
                     continue;
                 }
+                if !Self::conditions_hold(&self.latest, &self.holding, skill, now_us) {
+                    // Held back by a condition (someone talking): with a
+                    // `wait`, the chance is kept while the trigger holds,
+                    // and taken at its next message once they hold.
+                    let waited = now_us - *watch.waiting_us.get_or_insert(now_us);
+                    if waited < trigger.wait_us {
+                        watch.spent = false;
+                    }
+                    continue;
+                }
+                watch.waiting_us = None;
                 let held = match trigger.when {
                     When::Appears => format!(
                         "it appeared on {topic} after {} s without",
@@ -1282,4 +1384,40 @@ pub fn run_tests(dir: &Path) -> Result<(usize, usize), String> {
         passed += 1;
     }
     Ok((passed, unrecorded))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// #939, (c): `say = { from = ... }` is a say of what the voice keeps,
+    /// by where, at that kind's priority.
+    #[test]
+    fn a_say_from_names_where_the_voice_keeps_the_words() {
+        let dir = tempfile::tempdir().unwrap();
+        for (from, source, priority) in [
+            ("schedule", Source::Schedule, 8),
+            ("tasks", Source::Tasks, 5),
+        ] {
+            let skill = dir.path().join(from);
+            std::fs::create_dir_all(&skill).unwrap();
+            std::fs::write(
+                skill.join("SKILL.md"),
+                format!("---\nname: {from}\ndescription: A test.\n---\n"),
+            )
+            .unwrap();
+            std::fs::write(
+                skill.join("skill.toml"),
+                format!(
+                    "[trigger]\ntopic = \"schedule/due\"\nfield = \"pending\"\nabove = 0.5\n\
+                     [ask]\npolicy = \"moment\"\n[[do]]\nsay = {{ from = \"{from}\" }}\n"
+                ),
+            )
+            .unwrap();
+            let loaded = load(&skill).unwrap();
+            assert_eq!(loaded.steps, [Call::SayFrom(source)]);
+            assert_eq!(loaded.steps[0].named(), ("say", json!({ "from": from })));
+            assert_eq!((source.name(), source.priority()), (from, priority));
+        }
+    }
 }

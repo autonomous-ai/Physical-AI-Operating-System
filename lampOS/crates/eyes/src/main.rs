@@ -710,8 +710,15 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
                     .ok()
                     .flatten()
                     .filter(|message| !message.expired)
-                    .and_then(|message| message.parse::<lamp_msgs::JointState>().ok())
-                    .map_or(Head::Absent, |joints| lamp_eyes::full_look::head(&joints));
+                    .and_then(|message| {
+                        let joints = message.parse::<lamp_msgs::JointState>().ok()?;
+                        Some(lamp_eyes::full_look::head_of(
+                            &joints,
+                            message.header.at_unix_ms,
+                            lamp_eyes::full_look::unix_ms(),
+                        ))
+                    })
+                    .unwrap_or(Head::Absent);
             }
             asked.body(head, now_us, frames_all);
             if asked.take(frames_all) && newest > 0 {

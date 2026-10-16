@@ -146,6 +146,7 @@ must not leave a step silently undone)*.
 | `trigger.absent_for` | no | `appears` only: at least this long before, it did not hold. At the program's start nothing has been away: someone there at the first message is not greeted |
 | `trigger.rearm` | no | `leaves` or `ends`, which mean the same: once each time it holds, and again only after it stopped. Without it, `present` runs at every message once `for` has passed, as often as `cooldown` lets it |
 | `trigger.cooldown` | no | Not again within this long of the last run. A run the Policy refused does not count |
+| `trigger.wait` | no | With `rearm` or `when = "appears"`, at most `1h`: a chance held back by a `[[while]]` condition (someone talking) is kept while the trigger still holds, for at most this long, and taken at the trigger's first message after every condition holds again: the lamp acts once the talk ends, within the same sitting, instead of giving up its turn (#1021). It began waiting when the chance came; the trigger stopping (past its `gap`) ends it. Without it, a chance held back by a condition is spent. A chance held back by `absent_for` or the cooldown is spent either way |
 | `[[while]]` | no | Conditions that must also hold, all of them, on the newest value of each topic while that value lasts: a `topic` with `field` and one of `equals`, `above` or `below`, or `humans/faces/tracked` with `present = true`; with `for`, it has also held that long, by the messages of its topic since this program started. It begins again after a value that expired, and when a reload changes the condition |
 | `[ask] policy` | yes, with a trigger | The Policy's question asked before anything is done *(chosen: required, since every trigger is something the lamp starts itself)*. A tool's call is not asked about: a person asked for it |
 | `[[do]]` | at least one | The steps, in order. Within one table: body, then light, then say |
@@ -153,7 +154,7 @@ must not leave a step silently undone)*.
 | `do.body.gesture` | no | One of the body's six gestures (`nod`, `headshake`, `greeting`, `laugh`, `shy`, `stretching`), sent to `mood.sock` as `{"gesture":NAME}` |
 | `do.body.mood` + `do.body.for` | no | A pose held: only `"reading"` (#1011: the head looks down at the desk and the arm leans forward). Sent to `mood.sock` as `{"mood":"reading","level":0}` when the step is made and again every second for `for` (more than 0, at most `2m`); the body lets it go 1.5 s after the last, and comes back. One without the other is refused |
 | `do.light` | no | A file in `lights/`, written as its name, or a table in place. A file `lights/NAME.toml` holds the same keys. `{ colour, level, for }` asks the actions part for `light_colour`, then steps the light to `level` (1 to 5) with `light_brighter` or `light_dimmer` calls, counted from the level `light/state` shows; with that level not known it is left and the run says so. `for` holds the light in a run with no say. `{ dim = N, until = "ends" }` asks for `light_dimmer` N times. A light is held until the run ends (the say ends, or the run's longest `for`) and is then given back; `until = "ends"` says so of a dim |
-| `do.say` | no | A note for the voice to say in its own words, through the voice's say service (#954). One a skill. The run's other steps are made, in their order, when the voice begins the say, so the look and the light come with the words, and none if it is never begun. A light changed is given back when the say ends. In a tool's run the note goes to the model in the call's answer instead |
+| `do.say` | no | A note for the voice to say in its own words, through the voice's say service (#954). One a skill. The run's other steps are made, in their order, when the voice begins the say, so the look and the light come with the words, and none if it is never begun. A light changed is given back when the say ends. In a tool's run the note goes to the model in the call's answer instead. Or `{ from = "schedule" }` or `{ from = "tasks" }`: words the voice keeps itself and says when asked, the reminder due or the news of work handed over (#939, (c), the first builder's 12:32). The voice keeps the words and their delivery (a reminder's acknowledgement, news told once); the skill says when, and moves and lights with them as with a note. Sent to the say service as `from` in place of `note`, at priority 8 for `schedule` and 5 for `tasks`. Any other `from`, another key beside it, or a `from` in a skill with a `tool` refuses the skill: what the voice keeps is said when a trigger starts the skill, never from the model's call (Fourth on #1033) |
 | `do.look` | no | `true`: the voice's full look (#836). Only in a skill with a `tool` and no trigger: the call's answer tells the model to say "Let me take a look.", and the voice takes the look it already takes when the lamp says so, its still in the model's next turn |
 
 A duration is a whole number and one of `ms`, `s`, `m` or `h` (`"5m"`).
@@ -185,7 +186,7 @@ runtime gives are:
 - `body.gesture`: `gesture`
 - `body.mood`: `mood`, `for_ms`
 - `light`: `colour`, `level`, `for`, or `dim`, `until`
-- `say`: `note`
+- `say`: `note`, or `from` for what the voice keeps (`say = { from = … }`)
 - `look`: none
 
 A case is replayed in the program, not on a bus. Every message of every file
@@ -268,7 +269,7 @@ As built on 2026-10-16 (#938, `crates/skills`, not yet run on a lamp):
 - **`say`** goes to the voice's say service (#954, `LAMP_SAY=on` in the
   voice; `--say-socket`, default `/run/lampos-say/say.sock`), built against
   its interface as #939 agreed it, before #954 is merged: one line
-  `{"skill","note","priority":5,"expires_in_ms":30000}`, then a `begun`
+  `{"skill","note","priority":5,"expires_in_ms":30000}` (or `"from"` and its priority in place of `"note"`), then a `begun`
   line when the voice starts the turn, then one outcome (`spoken`,
   `dropped`, `expired` or `refused`). A run waits for it in a thread of its
   own, one a skill at a time: a trigger while its run is under way is told
@@ -286,7 +287,10 @@ As built on 2026-10-16 (#938, `crates/skills`, not yet run on a lamp):
   `light warm: done`, `say: spoken`, `light given back to on blue at 3:
   done`, or why not.
 
-Off unless installed: `deploy/units/lamp-skills.service` is the template.
+`lamp-update install` puts it on a home lamp (#811): the product unit
+`deploy/product/lamp-skills.service`, Welcome back in `/var/lib/lampOS/skills`,
+and the product voice with the say service on and its own hello off.
+`deploy/units/lamp-skills.service` stays the template for a lamp set up by hand.
 lamp-4ace's folder carries `lamp-skills.service`, and its voice unit has the
 voice's own hello (`LAMP_SPEAK_FIRST`) off and the say service on, so only
 one greets. Elsewhere the voice's hello (`speak_up.rs`, Arrival) still
@@ -322,7 +326,11 @@ What is not done, and why:
    speaker**: every request carries its source, a priority and a lease that
    lapses unless renewed (Expression's leases already work this way). The
    order: a person (their voice, their hand) over safety, over the
-   conversation, over skills, over idle life.
+   conversation, over skills, over idle life. The light's is built behind
+   `LAMP_LIGHT_REQUESTS=on`: a skill asks on `light/request` and never
+   touches the person's light, which comes back by itself when the claim
+   lapses ([ring-choreography.md](ring-choreography.md#the-lamps-own-light)).
+   The body's is next.
 3. **The eyes publish `camera/image`** (a file and when it was taken), so a
    skill can look.
 4. **The body plays move files** from a skill, within its own speed and

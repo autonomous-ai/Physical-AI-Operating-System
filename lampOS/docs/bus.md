@@ -329,7 +329,7 @@ so, the crate does not do it yet.**
 | Three patterns, not one: topics for streams, services for ask-and-answer, actions for long work with progress, one result and an acknowledged cancel | Topics on the bus. A service stays a direct ask-and-answer on its own socket (the executive's is one, [tools.md](tools.md)), and publishes each call as an event so that it can be watched. A task handed to an agent takes the shape of an action: an id made by the asker, accepted or refused, progress, one result, cancel acknowledged, its status latched | Topics only |
 | Recordings store each message's type and when it was sent and received | `record` and `replay` exist; the type name is to be stored with each topic | Yes: a recording holds each topic's declaration and each message's type and send time, and `replay` declares the topic again. The time a message was received is not stored |
 | People (ROS4HRI, REP-155): a permanent id for a person, passing ids for a face or a voice present now, lists of who is here, and engagement as five levels | The same shape for what the eyes and the voice know of people (`humans/...`). Engagement is what "is this said to me?" needs ([attention.md](attention.md)) | No |
-| Several requesters, one actuator: priorities and time limits at the actuator's owner | For the ring, the servos and the speaker: the owner arbitrates, and a request that is not renewed lapses | No |
+| Several requesters, one actuator: priorities and time limits at the actuator's owner | For the ring, the servos and the speaker: the owner arbitrates, and a request that is not renewed lapses | The ring's light, with `LAMP_LIGHT_REQUESTS=on` (#940); not the servos or the speaker yet |
 
 Not taken: negotiation of delivery settings between each pair of ends,
 a binary encoding with generated code, renaming topics at start-up,
@@ -356,6 +356,7 @@ of each, and its kind and period as a declaration, are in
 | `room/state` | Quiet or busy | latched | Voice, later the situation | When it changes, and once a second |
 | `light/command`, `light/state` | The light asked for, and the light shown | latched | The executive; the ring's owner | When it changes, and once a second |
 | `light/test`, `light/drawn` | A self-test's colour, shown for 2 s at most; the light the ring actually drew | latched | The self-test; the ring's owner | Asked once a colour; drawn when it changes, and once a second |
+| `light/request` | A light asked for that lapses, with its asker, priority and time (#940) | event | Skills and other parts | Asked, and asked again to keep it, at most 30 s ahead |
 | `diagnostics` | Each part's health: ok, warning, error or stale | stream | Every part | Once a second |
 | `policy/decisions` | What the policy decided, with the probability and each judgement behind it, and whether it is only watching ([policy.md](policy.md)) | stream | The policy | With each thing heard |
 
@@ -412,6 +413,7 @@ that owns it:
 | `light/state` | the voice's ring worker ([ring-choreography.md](ring-choreography.md), "The lamp's own light") | the actions program |
 | `light/test` | the self-test (#812) | the voice's ring worker |
 | `light/drawn` | the voice's ring worker, from its own write receipts ([ring-choreography.md](ring-choreography.md), "The lamp's own light") | the self-test |
+| `light/request` | nothing yet; skills are to ([skills.md](skills.md)) | the voice's ring worker, with `LAMP_LIGHT_REQUESTS=on` |
 | `diagnostics` | every part that says how it is: the voice, the eyes, the body, the policy, and the board through the health program | the health program |
 | `lamp/health`, `board/state` | the health program ([health.md](health.md)) | `lamp-health`, the command |
 

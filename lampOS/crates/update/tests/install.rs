@@ -168,6 +168,7 @@ impl Lamp {
             channel_url: CHANNEL.into(),
             key: key.public_key().as_ref().try_into().unwrap(),
             records: "/var/lib/lampos-update/".into(),
+            setup: false,
         };
         let host = FakeHost {
             root: root.clone(),
@@ -488,7 +489,7 @@ fn every_part_of_the_lamp_waits_for_setups_marker_itself() {
             );
         }
     }
-    assert_eq!(gated.len(), 16, "{gated:?}");
+    assert_eq!(gated.len(), 17, "{gated:?}");
     for outside in ["lamp-update.service", "lamp-records.timer"] {
         assert!(!gated.contains(&outside), "{outside}");
     }
@@ -563,6 +564,28 @@ fn the_voice_gets_its_service_and_the_lamps_device_key_from_v1s_config() {
             .iter()
             .any(|line| line.contains("device key was taken"))
     );
+    // The Policy's judge key is the same device key, as private (#811, 2).
+    assert_eq!(
+        fs::read_to_string(lamp.on(install::JEV_KEY_PATH)).unwrap(),
+        KEY
+    );
+    assert_eq!(private(&lamp, install::JEV_KEY_PATH), 0o600);
+    let policy = section(
+        install::PRODUCT
+            .iter()
+            .find(|(name, _)| *name == "lamp-policy.service")
+            .unwrap()
+            .1,
+        "Service",
+    );
+    let exec = policy
+        .iter()
+        .find(|line| line.starts_with("ExecStart="))
+        .unwrap();
+    assert!(
+        exec.contains("--endpoint https://campaign-api.autonomous.ai/api/v1/ai/v1/jev/decisions")
+    );
+    assert!(policy.contains(&"LoadCredential=jev.key:/etc/lampOS/policy/jev.key"));
     assert!(
         lamp.said.iter().all(|line| !line.contains(KEY)),
         "{:?}",
@@ -582,6 +605,10 @@ fn the_voice_gets_its_service_and_the_lamps_device_key_from_v1s_config() {
     lamp.install().unwrap();
     assert_eq!(
         fs::read_to_string(lamp.on(install::CREDENTIAL_PATH)).unwrap(),
+        "rotated-key-42"
+    );
+    assert_eq!(
+        fs::read_to_string(lamp.on(install::JEV_KEY_PATH)).unwrap(),
         "rotated-key-42"
     );
     assert_eq!(private(&lamp, install::CREDENTIAL_PATH), 0o600);
@@ -606,12 +633,49 @@ fn the_voice_gets_its_service_and_the_lamps_device_key_from_v1s_config() {
     let mut bare = Lamp::new(188, &[]);
     bare.install().unwrap();
     assert!(!bare.on(install::CREDENTIAL_PATH).exists());
+    assert!(!bare.on(install::JEV_KEY_PATH).exists());
     assert!(bare.on(install::PROVIDER_PATH).exists());
     assert!(
         bare.said
             .iter()
             .any(|line| line.starts_with("no device key"))
     );
+}
+
+/// #811, from lamp-06c1: a home lamp gets `lamp-skills` and its first skill,
+/// Welcome back, and the voice speaks it through its say service with its
+/// own hello off, so the lamp greets once.
+#[test]
+fn a_blank_lamp_gets_lamp_skills_with_welcome_back_and_greets_once() {
+    let mut lamp = Lamp::new(188, &[]);
+    lamp.install().unwrap();
+    assert!(lamp.on("/opt/lampOS/skills/current/lamp-skills").exists());
+    for file in ["skill.toml", "SKILL.md", "lights/warm_glow.toml"] {
+        let on_lamp = fs::read(lamp.on(&format!("/var/lib/lampOS/skills/welcome-back/{file}")));
+        let ours = fs::read(format!(
+            "{}/../../skills/welcome-back/{file}",
+            env!("CARGO_MANIFEST_DIR")
+        ));
+        assert_eq!(on_lamp.unwrap(), ours.unwrap(), "{file}");
+    }
+    assert!(
+        lamp.host
+            .calls
+            .iter()
+            .any(|call| call.contains("lamp-skills.service"))
+    );
+    let voice = fs::read_to_string(lamp.on("/etc/systemd/system/lamp-voice.service")).unwrap();
+    let service = section(&voice, "Service");
+    assert!(service.contains(&"Environment=LAMP_SAY=on"));
+    assert!(service.contains(&format!("Environment=LAMP_SAY_GROUP={}", install::USER).as_str()));
+    assert!(
+        !service
+            .iter()
+            .any(|line| line.starts_with("Environment=LAMP_SPEAK_FIRST="))
+    );
+    let skills = fs::read_to_string(lamp.on("/etc/systemd/system/lamp-skills.service")).unwrap();
+    assert!(skills.contains("--say-socket /run/lampos-say/say.sock"));
+    assert!(skills.contains("--dir /var/lib/lampOS/skills"));
 }
 
 const PINS: &str = "/etc/lampOS/controls/controls-pins.json";
@@ -645,6 +709,85 @@ fn a_setting_changed_on_the_lamp_is_kept_when_install_runs_again() {
         "{:?}",
         lamp.said
     );
+}
+
+/// #811: `--setup on` writes setup's two settings, exactly the setup crate's
+/// own-page and product reset files, so `lamp-setup.service` starts on a
+/// blank lamp with no file by hand. Without it, none is written. A serve
+/// file changed on the lamp is kept as any setting is.
+#[test]
+fn setup_settings_are_written_only_with_setup_on_and_kept_once_changed() {
+    let serve = "/etc/lampOS/setup/serve.json";
+    let reset = "/etc/lampOS/setup/reset-plan.json";
+    let mut off = Lamp::new(188, &[]);
+    off.install().unwrap();
+    assert!(!off.on(serve).exists() && !off.on(reset).exists());
+
+    let mut lamp = Lamp::new(188, &[]);
+    lamp.config.setup = true;
+    lamp.install().unwrap();
+    assert_eq!(
+        fs::read_to_string(lamp.on(serve)).unwrap(),
+        include_str!("../../setup/fixtures/serve-own-page.json")
+    );
+    let plan: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(lamp.on(reset)).unwrap()).unwrap();
+    assert_eq!(
+        plan["stop"],
+        serde_json::json!(["/usr/bin/systemctl", "stop", "lampos.target"])
+    );
+    let before = tree(&lamp.root);
+    assert_eq!(lamp.install().unwrap().changed, Vec::<String>::new());
+    assert_eq!(tree(&lamp.root), before);
+
+    let ours = fs::read_to_string(lamp.on(serve))
+        .unwrap()
+        .replace("\"VN\"", "\"SG\"");
+    fs::write(lamp.on(serve), &ours).unwrap();
+    lamp.said.clear();
+    assert_eq!(lamp.install().unwrap().changed, Vec::<String>::new());
+    assert_eq!(fs::read_to_string(lamp.on(serve)).unwrap(), ours);
+    assert!(
+        lamp.said
+            .iter()
+            .any(|line| line.starts_with(&format!("kept {serve}")))
+    );
+}
+
+/// #811, found on lamp-06c1: the lock folders are what the body and the eyes
+/// accept (each 0700 and the parts' own, under a parent nobody else may
+/// write), and the voice's sessions folder, which its unit names and nothing
+/// else makes, is there.
+#[test]
+fn tmpfiles_make_lock_folders_the_parts_accept_and_the_voices_sessions_folder() {
+    let lines: Vec<Vec<&str>> = install::TMPFILES
+        .lines()
+        .filter(|line| line.starts_with("d "))
+        .map(|line| line.split_whitespace().collect())
+        .collect();
+    let line = |path: &str| {
+        lines
+            .iter()
+            .find(|fields| fields[1] == path)
+            .unwrap_or_else(|| panic!("no tmpfiles line for {path}"))
+            .clone()
+    };
+    let parent = line("/run/lampos-locks");
+    assert_eq!(u32::from_str_radix(parent[2], 8).unwrap() & 0o022, 0);
+    assert_eq!(parent[3], "root");
+    for lock in ["/run/lampos-locks/motor", "/run/lampos-locks/camera"] {
+        assert_eq!(line(lock)[2..4], ["0700", install::USER]);
+    }
+    assert_eq!(
+        line("/var/lib/lampOS/voice/sessions")[2..4],
+        ["0700", "root"]
+    );
+    let voice = install::PRODUCT
+        .iter()
+        .find(|(name, _)| *name == "lamp-voice.service")
+        .unwrap()
+        .1;
+    assert!(voice.contains("/var/lib/lampOS/voice/sessions/${INVOCATION_ID}"));
 }
 
 /// A newer build's default reaches a setting nobody changed; a setting

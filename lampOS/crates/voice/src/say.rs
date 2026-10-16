@@ -19,6 +19,16 @@
 //!   begun is `dropped`, never tried again here: the asker decides.
 //! - **The Policy is not asked here.** Whoever asks the voice to speak has
 //!   asked the Policy's gate first (`docs/skills.md`).
+//! - **What the voice keeps** (#939, (c), the first builder's 12:32): in
+//!   place of `note` or `text`, `from` asks for words the voice keeps
+//!   itself, `schedule` (the reminder due) or `tasks` (the news of work
+//!   handed over). Such an ask is never taken as a say of its own
+//!   ([`Says::take`] passes it by): it waits for its source's turn, which
+//!   takes it with [`Says::take_from`] and says it as it always did, with
+//!   the ask's ticket, so that the skill moves with the words and is told
+//!   `spoken` on the same proof. With `LAMP_SCHEDULE_SPEAK=skill` or
+//!   `LAMP_TASK_NEWS=skill`, the source waits for such an ask, at most
+//!   [`SKILL_WAITS_US`], and then says it itself.
 //!
 //! Nothing of what is said is logged: the skill's name, the priority and
 //! the outcome only.
@@ -58,6 +68,16 @@ pub const MOST_WORDS_BYTES: usize = 900;
 pub const MOST_WAITING: usize = 16;
 /// The longest an ask may wait to be begun.
 pub const LONGEST_EXPIRY_MS: u64 = 3_600_000;
+/// How long a reminder or news due waits for a skill to ask for it before
+/// the voice says it itself: a reminder never waits on `lamp-skills` being
+/// up. Authored, not measured.
+pub const SKILL_WAITS_US: u64 = 10_000_000;
+/// The longest a `from` ask waits, whatever its `expires_in_ms`: it is for
+/// the reminder or the news due as the skill asked, and the voice says that
+/// one itself after [`SKILL_WAITS_US`]. An ask still waiting later is
+/// `expired`, never taken for the next one due (Fourth on #1038). Twice the
+/// wait, for news, which the voice reads every 10 s.
+pub const FROM_LIVES_US: u64 = 2 * SKILL_WAITS_US;
 /// The priority when none is given, from 0 to 9.
 pub const NORMAL_PRIORITY: u8 = 5;
 /// From this priority up, a say needs only [`URGENT_QUIET_US`] after the
@@ -125,20 +145,42 @@ impl Outcome {
     }
 }
 
-/// What to say: an instruction the model phrases, or words to say as they
-/// are.
+/// What to say: an instruction the model phrases, words to say as they
+/// are, or words the voice keeps itself.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Words {
     Note(String),
     Text(String),
+    From(Source),
 }
 
 impl Words {
-    /// The written turn the model is given.
-    pub fn turn(&self) -> String {
+    /// The written turn the model is given; none for what the voice keeps,
+    /// whose turn its source makes.
+    pub fn turn(&self) -> Option<String> {
         match self {
-            Self::Note(note) => note.clone(),
-            Self::Text(text) => format!("{AS_WRITTEN} {text}"),
+            Self::Note(note) => Some(note.clone()),
+            Self::Text(text) => Some(format!("{AS_WRITTEN} {text}")),
+            Self::From(_) => None,
+        }
+    }
+}
+
+/// Where the words of a `from` ask are kept, in the voice.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Source {
+    /// The reminder Schedule has due ([`crate::reminders`]).
+    Schedule,
+    /// The news of work handed over ([`crate::task_news`]).
+    Tasks,
+}
+
+impl Source {
+    fn named(name: &str) -> Option<Self> {
+        match name {
+            "schedule" => Some(Self::Schedule),
+            "tasks" => Some(Self::Tasks),
+            _ => None,
         }
     }
 }
@@ -161,6 +203,8 @@ struct Wire {
     #[serde(default)]
     text: Option<String>,
     #[serde(default)]
+    from: Option<String>,
+    #[serde(default)]
     priority: Option<u8>,
     expires_in_ms: u64,
 }
@@ -179,13 +223,18 @@ pub fn parse(line: &str) -> Result<Request, String> {
     {
         return Err("skill is 1 to 64 of a-z, 0-9, - and _".into());
     }
-    let words = match (wire.note, wire.text) {
-        (Some(note), None) => Words::Note(note),
-        (None, Some(text)) => Words::Text(text),
-        _ => return Err("exactly one of note and text".into()),
+    let words = match (wire.note, wire.text, wire.from) {
+        (Some(note), None, None) => Words::Note(note),
+        (None, Some(text), None) => Words::Text(text),
+        (None, None, Some(from)) => {
+            Words::From(Source::named(&from).ok_or_else(|| "from is schedule or tasks".to_owned())?)
+        }
+        _ => return Err("exactly one of note, text and from".into()),
     };
-    let (Words::Note(said) | Words::Text(said)) = &words;
-    if said.trim().is_empty() || said.len() > MOST_WORDS_BYTES || said.chars().any(char::is_control)
+    if let Words::Note(said) | Words::Text(said) = &words
+        && (said.trim().is_empty()
+            || said.len() > MOST_WORDS_BYTES
+            || said.chars().any(char::is_control))
     {
         return Err(format!(
             "note or text is 1 to {MOST_WORDS_BYTES} bytes, with no control characters"
@@ -339,6 +388,37 @@ impl Says {
         })
     }
 
+    /// For a test of the voice's turn: a say service nobody has asked.
+    #[cfg(test)]
+    pub(crate) fn idle_for_test() -> Self {
+        Self::by_hand().0
+    }
+
+    /// For a test of the voice's turn: one `from` ask for what `source`
+    /// keeps, waiting until `expires_at_us`, and where its answer goes.
+    #[cfg(test)]
+    pub(crate) fn asking_for_test(
+        source: Source,
+        skill: &str,
+        expires_at_us: u64,
+    ) -> (Self, mpsc::Receiver<Answer>) {
+        let (mut says, ask) = Self::by_hand();
+        let (answer, answered) = mpsc::channel();
+        ask.send(Asked {
+            request: Request {
+                skill: skill.into(),
+                words: Words::From(source),
+                priority: NORMAL_PRIORITY,
+                expires_in_ms: 60_000,
+            },
+            answer,
+            expires_at_us,
+        })
+        .unwrap();
+        says.poll(0);
+        (says, answered)
+    }
+
     /// For a test: asks are put in by hand.
     #[cfg(test)]
     fn by_hand() -> (Self, mpsc::Sender<Asked>) {
@@ -359,10 +439,21 @@ impl Says {
     pub fn poll(&mut self, now_us: u64) {
         while let Ok(asked) = self.incoming.try_recv() {
             self.order += 1;
+            // A `from` ask lives at most `FROM_LIVES_US` from when its line
+            // was read.
+            let expires_at_us = match asked.request.words {
+                Words::From(_) => asked.expires_at_us.min(
+                    asked
+                        .expires_at_us
+                        .saturating_sub(asked.request.expires_in_ms.saturating_mul(1_000))
+                        .saturating_add(FROM_LIVES_US),
+                ),
+                _ => asked.expires_at_us,
+            };
             self.waiting.push(Waiting {
                 request: asked.request,
                 answer: asked.answer,
-                expires_at_us: asked.expires_at_us,
+                expires_at_us,
                 order: self.order,
             });
         }
@@ -379,14 +470,22 @@ impl Says {
         });
     }
 
+    /// The next of those `of` takes: highest priority, then oldest.
+    fn next_of(&self, of: impl Fn(&Words) -> bool) -> Option<usize> {
+        (0..self.waiting.len())
+            .filter(|&index| of(&self.waiting[index].request.words))
+            .max_by(|&a, &b| {
+                let (a, b) = (&self.waiting[a], &self.waiting[b]);
+                a.request
+                    .priority
+                    .cmp(&b.request.priority)
+                    .then(b.order.cmp(&a.order))
+            })
+    }
+
+    /// The next say of its own: a `from` ask waits for its source.
     fn next_index(&self) -> Option<usize> {
-        (0..self.waiting.len()).max_by(|&a, &b| {
-            let (a, b) = (&self.waiting[a], &self.waiting[b]);
-            a.request
-                .priority
-                .cmp(&b.request.priority)
-                .then(b.order.cmp(&a.order))
-        })
+        self.next_of(|words| !matches!(words, Words::From(_)))
     }
 
     /// The quiet the next say needs since the last turn, if one waits.
@@ -408,13 +507,35 @@ impl Says {
         self.expire(now_us);
         let waiting = self.waiting.remove(self.next_index()?);
         Some((
-            waiting.request.words.turn(),
+            waiting.request.words.turn()?,
             waiting.request.priority,
             Ticket {
                 skill: waiting.request.skill,
                 answer: Some(waiting.answer),
             },
         ))
+    }
+
+    /// Whether an ask for what `source` keeps waits, not yet expired.
+    #[cfg(test)]
+    pub fn asks_for(&self, source: Source, now_us: u64) -> bool {
+        self.waiting.iter().any(|waiting| {
+            waiting.request.words == Words::From(source) && now_us < waiting.expires_at_us
+        })
+    }
+
+    /// Take the next ask for what `source` keeps, as its source begins to
+    /// say it at `now_us`: its ticket. Those whose time ran out are answered
+    /// `expired` first.
+    pub fn take_from(&mut self, source: Source, now_us: u64) -> Option<Ticket> {
+        self.expire(now_us);
+        let waiting = self
+            .waiting
+            .remove(self.next_of(|words| *words == Words::From(source))?);
+        Some(Ticket {
+            skill: waiting.request.skill,
+            answer: Some(waiting.answer),
+        })
     }
 
     /// How many wait.
@@ -635,7 +756,10 @@ mod tests {
         let text =
             parse(r#"{"skill":"task-news","text":"The tests pass.","expires_in_ms":1}"#).unwrap();
         assert_eq!(text.priority, NORMAL_PRIORITY);
-        assert_eq!(text.words.turn(), format!("{AS_WRITTEN} The tests pass."));
+        assert_eq!(
+            text.words.turn(),
+            Some(format!("{AS_WRITTEN} The tests pass."))
+        );
         let long = "a".repeat(MOST_WORDS_BYTES + 1);
         for (line, field) in [
             ("not json", "not a say request"),
@@ -722,6 +846,93 @@ mod tests {
             None
         );
         assert_eq!(says.quiet_needed_us(), None);
+    }
+
+    /// #939, (c): `from` asks for what the voice keeps. Read as exactly one
+    /// of note, text and from; never taken as a say of its own; taken by
+    /// its source, the highest priority then the oldest; expired as any.
+    #[test]
+    fn an_ask_for_what_the_voice_keeps_waits_for_its_own_source() {
+        assert_eq!(
+            parse(r#"{"skill":"task-news","from":"tasks","expires_in_ms":30000}"#).unwrap(),
+            Request {
+                skill: "task-news".into(),
+                words: Words::From(Source::Tasks),
+                priority: NORMAL_PRIORITY,
+                expires_in_ms: 30_000,
+            }
+        );
+        assert_eq!(
+            parse(r#"{"skill":"reminders","from":"schedule","priority":8,"expires_in_ms":30000}"#)
+                .unwrap()
+                .words,
+            Words::From(Source::Schedule)
+        );
+        for (line, why) in [
+            (
+                r#"{"skill":"x","from":"calendar","expires_in_ms":5}"#,
+                "from is schedule or tasks",
+            ),
+            (
+                r#"{"skill":"x","from":"tasks","note":"n","expires_in_ms":5}"#,
+                "exactly one of note, text and from",
+            ),
+        ] {
+            assert_eq!(parse(line).unwrap_err(), why, "{line}");
+        }
+        assert_eq!(Words::From(Source::Tasks).turn(), None);
+        let (mut says, ask) = Says::by_hand();
+        let from = |skill: &str, source: Source, priority: u8, expires_at_us: u64| {
+            let (mut one, answered) = asked(skill, priority, expires_at_us);
+            one.request.words = Words::From(source);
+            (one, answered)
+        };
+        let (reminder, reminder_answer) = from("reminders", Source::Schedule, 8, 61_000_000);
+        let (news, _) = from("task-news", Source::Tasks, 5, 61_000_000);
+        let (soon, soon_answer) = from("reminders", Source::Schedule, 8, 1_500_000);
+        let (note, _) = asked("stretch", 3, 61_000_000);
+        for one in [reminder, news, soon, note] {
+            ask.send(one).unwrap();
+        }
+        says.poll(1_000_000);
+        assert_eq!(says.waiting(), 4);
+        // A say of its own passes them by, its quiet too.
+        assert_eq!(says.quiet_needed_us(), Some(QUIET_US));
+        assert_eq!(says.take(1_000_000).unwrap().2.skill(), "stretch");
+        assert!(says.take(1_000_000).is_none());
+        assert!(says.asks_for(Source::Schedule, 1_000_000));
+        assert!(says.asks_for(Source::Tasks, 1_000_000));
+        // Taken by its source, the older of two at 8 first, and answered.
+        let ticket = says.take_from(Source::Schedule, 1_000_000).unwrap();
+        ticket.answer(Outcome::Spoken);
+        assert_eq!(
+            reminder_answer.try_recv(),
+            Ok(Answer::Done(Outcome::Spoken))
+        );
+        // One whose time ran out is expired, not taken.
+        assert!(says.take_from(Source::Schedule, 2_000_000).is_none());
+        assert_eq!(soon_answer.try_recv(), Ok(Answer::Done(Outcome::Expired)));
+        assert!(!says.asks_for(Source::Schedule, 2_000_000));
+        assert_eq!(
+            says.take_from(Source::Tasks, 2_000_000).unwrap().skill(),
+            "task-news"
+        );
+        assert_eq!(says.waiting(), 0);
+        // A `from` ask lives at most `FROM_LIVES_US` from when it was read,
+        // whatever it asked for, so it is never taken for a later reminder
+        // (Fourth on #1038); a note keeps its own time.
+        let (mut says, ask) = Says::by_hand();
+        let (mut late, late_answer) = asked("reminders", 8, 3_600_000_000);
+        late.request.words = Words::From(Source::Schedule);
+        late.request.expires_in_ms = 3_600_000;
+        let (note, _) = asked("stretch", 3, 3_600_000_000);
+        ask.send(late).unwrap();
+        ask.send(note).unwrap();
+        says.poll(0);
+        assert!(says.asks_for(Source::Schedule, FROM_LIVES_US - 1));
+        assert!(says.take_from(Source::Schedule, FROM_LIVES_US).is_none());
+        assert_eq!(late_answer.try_recv(), Ok(Answer::Done(Outcome::Expired)));
+        assert_eq!(says.waiting(), 1, "the note waits on");
     }
 
     /// The reviewer on #954: a say is never begun after its time, however
@@ -936,7 +1147,7 @@ mod tests {
             exchange(&path, "{\"skill\":\"x\",\"expires_in_ms\":5}\n"),
             format!(
                 "{}\n",
-                Outcome::Refused("exactly one of note and text".into()).line()
+                Outcome::Refused("exactly one of note, text and from".into()).line()
             )
         );
         let client = {

@@ -59,7 +59,11 @@ Environment=LAMP_CLOCK=on
 Environment=LAMP_KERNEL_CLOCK=on
 Environment=LAMP_SESSION_FACT=on
 Environment=LAMP_ROOM_FACTS=on
-Environment=LAMP_SPEAK_FIRST=on
+# The hello on arrival is the Welcome back skill's (lamp-skills.service, #811), spoken through the
+# say service below; with the voice's own hello on as well the lamp would greet twice.
+# Environment=LAMP_SPEAK_FIRST=on
+Environment=LAMP_SAY=on
+Environment=LAMP_SAY_GROUP=lampos
 Environment=LAMP_ACTIONS_DIR=/run/lampos-actions
 Environment=LAMP_TASKS_DIR=/run/lampos-tasks
 Environment=LAMP_SCHEDULE_TOOLS=on

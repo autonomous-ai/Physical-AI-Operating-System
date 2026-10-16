@@ -41,6 +41,16 @@ use std::{
 
 /// Where the coordinator reads the file of what was told.
 pub const TOLD_ENVIRONMENT: &str = "LAMP_TASKS_TOLD";
+/// `skill`: news of work finished, stopped or asking waits for a skill's
+/// `from: tasks` ask, at most [`crate::say::SKILL_WAITS_US`], and is then
+/// told with its ticket, or by the voice itself (#939, (c)). Progress is
+/// the Policy's to time already, and is told as it was.
+pub const BY_SKILL_ENVIRONMENT: &str = "LAMP_TASK_NEWS";
+
+/// Whether news waits for a skill ([`BY_SKILL_ENVIRONMENT`]).
+pub fn by_skill() -> bool {
+    std::env::var(BY_SKILL_ENVIRONMENT).as_deref() == Ok("skill")
+}
 pub const DEFAULT_TOLD: &str = "/var/lib/lampOS/voice/tasks-told";
 /// How often the tasks part is read.
 const READ_EVERY: Duration = Duration::from_secs(10);

@@ -180,20 +180,34 @@ the ask, or a side outside 320 to 4096, asks nothing):
 
 1. The head is the body's. It already turns to the face the eyes see
    (`--gaze-socket`) and to a call (`--look-at-name on`); nothing new is
-   asked of it. The still waits for it to stop: `body/joint_states` on the
-   bus, read twenty times a second, with `base_yaw`, `head_pitch` and
-   `head_roll` each turning slower than 25 counts a second (two counts in
-   the 80 ms over which the body works out a joint's speed) and staying
-   within 6 counts (0.0092 rad) of where it was when it stopped, for 0.3 s.
-   Where a joint was asked to be is not looked at. The first build also
-   wanted each within 6 counts of its goal and its goal unchanged, and on
-   lamp-4ace every still waited the whole 2 s (2,000 to 2,125 ms, #842): a
-   head at rest stands short of its goal under its own weight (`head_roll`
-   at 2,051 against 2,044, 7 counts, in
-   `verification/rest-glance-lamp-4ace-20261014/journal.txt`) and the body
-   nudges its resting goals by up to 7 counts. A head following a slow move
-   at 50 counts a second is turning; one moved more slowly than 25 drifts
-   past 6 counts and is waited for again. A head that moves again before the
+   asked of it. The still waits only while the head moves, as
+   `body/joint_states` on the bus says (read twenty times a second):
+   `base_yaw`, `head_pitch` or `head_roll` turning faster than 25 counts a
+   second (two counts in the 80 ms over which the body works out a joint's
+   speed), or asked to a place more than 64 counts from where it stands,
+   with a reading older than 160 ms (two of the body's 80 ms periods)
+   taken as moving. A head that has not moved since the ask and was not
+   asked to is taken at once, with no fixed wait: the build before waited
+   for 0.3 s of stillness on every look with a body (366 and 836 ms on
+   lamp-52e6 with a turn, `verification/full-look-held-lamp-52e6-20261016`),
+   and the first build also wanted each joint within 6 counts of its goal,
+   so on lamp-4ace every still waited the whole 2 s (2,000 to 2,125 ms,
+   #842). A head at rest stands short of its goal under its own weight
+   (`head_roll` 7 counts on lamp-4ace,
+   `verification/rest-glance-lamp-4ace-20261014/journal.txt`; `head_pitch`
+   up to 36 counts on lamp-52e6,
+   `verification/look-at-name-lamp-52e6-20261014`), and the body nudges its
+   resting goals by up to 7 counts, all inside 64. Once the head has moved
+   since the ask, a slow reading may be a pause inside the move (52e6 at
+   18.88 s: base_yaw at -263 counts a second, then -25 and 0, then +225),
+   so the still waits for 0.3 s with each head joint within 6 counts
+   (0.0092 rad) of where it stopped, as it does when the body does not say
+   how fast the joints turn. Replaying that 52e6 file (an ask every 10 ms,
+   joints read at the ask and every 50 ms, a frame every 33 ms), a still
+   taken while the head turned: 15 of 522 asks with the head turning at the
+   ask (15 before), 174 of 531 with it moving within 300 ms (82 before), 0
+   of 3,070 with it still (73 before), and ask to still 17 ms at rest (349
+   before). A head that moves again before the
    frame comes is waited for again. It waits at most 2 s in all. With no
    joint states on the bus (no body, `LAMP_BUS` off on either side) it does
    not wait; a paused body's joints do not turn.

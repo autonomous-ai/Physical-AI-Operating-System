@@ -92,6 +92,7 @@ differs. Folders are what the unit makes or names.
 | records | `lamp-records check` (a timer, hourly) | root | `/run/lamp-records/` | `/etc/lampOS/records.json` (it does nothing without it) | `last.json` |
 | update | `lamp-update serve` | root | `/var/lib/lampos-update/` (0700) | `/etc/lampOS/update/key.pub` | none |
 | keeper | `lamp-keeper serve` | root | its service data folder | none | `lampos.target.d/keeper.conf`; the bus root |
+| skills | `lamp-skills` | lampos (product unit, #811) | none | the skill folders, `/var/lib/lampOS/skills/` (Welcome back from install) | its tools, `/run/lampos-actions/skills/` |
 | surround | `lamp-surround serve` | `@SURROUND_USER@` | not read for this page | `/etc/lampos/surround.json` (lower case, unlike every other part) | not read |
 
 The bus root, `/run/lampos-bus`, is made by the keeper (root, the parts'
@@ -180,7 +181,9 @@ lacks: the voice's `LAMP_TASKS_DIR`, `LAMP_SCHEDULE_TOOLS`,
 `LAMP_SCHEDULE_TOOLS`; health's `--expect policy`. By joining.md's rule
 ("The switch is for that first minute, not for life") a switch on for
 lamp-4ace becomes the product's default, so the product takes lamp-4ace's
-set. Expression's catalogue differs too (`expression-alive-name-speech` on
+set, but for `LAMP_SPEAK_FIRST`: the product's hello is the Welcome back
+skill (`lamp-skills`, #811), spoken through the voice's say service, so the
+voice's own hello is off, as lamp-4ace now has it too. Expression's catalogue differs too (`expression-alive-name-speech` on
 lamp-4ace, `expression-alive` on lamp-52e6): the product takes lamp-4ace's.
 
 **Neither: the person's.** The time zone: `--utc-offset-minutes 420` in
@@ -230,9 +233,14 @@ What steps 2 and 3 build, unless an answer on #811 changes it.
 - **The zone**, `/etc/lampOS/zone.env`: `LAMP_ZONE` (schedule) and
   `LAMP_UTC_OFFSET_MINUTES` (memory, Expression), written by the install
   from the system's zone and again by setup.
-- **Locks and the bus**, `/etc/tmpfiles.d/lampos.conf`: `/run/lampos-bus`
-  as the keeper makes it, and `/run/lampos-locks/{motor,camera}` in place
-  of lamp-4ace's lock folders under the board user's home.
+- **Locks, the bus and the voice's state**, `/etc/tmpfiles.d/lampos.conf`:
+  `/run/lampos-bus` as the keeper makes it, and `/run/lampos-locks/{motor,camera}`
+  (each 0700 and `lampos`'s, under a root 0755 parent, as the body and the
+  eyes require) in place of lamp-4ace's lock folders under the board user's
+  home; and `/var/lib/lampOS/voice/sessions` (root, 0700), which the voice's
+  unit names and nothing else makes. Both were found on lamp-06c1 on
+  2026-10-16: with the locks 0775 the body never opened the servo port, and
+  without the sessions folder the voice could not start.
 - **The body's unit id** is the host name (`--unit-id %H`), and no unit
   says `ConditionHost=`.
 - **The clock** (#811): a lamp has no battery clock, so after a boot its
@@ -308,10 +316,10 @@ reads itself:
   `led-boot`, `led-shutdown`): the voice refuses to start beside them
   (keeper.md).
 - **Setup's settings**, `/etc/lampOS/setup/serve.json` and
-  `/etc/lampOS/setup/reset-plan.json` (docs/setup.md, "On a lamp"). Not yet
-  written by `install` (asked on #811: the credential's path and the
-  product's stores). Until they are there, `lamp-setup.service` does not
-  start (its conditions), so a blank lamp does not enter setup.
+  `/etc/lampOS/setup/reset-plan.json` (docs/setup.md, "On a lamp"). Written
+  by `install --setup on` (below); without it they are not, and
+  `lamp-setup.service` does not start (its conditions), so a lamp does not
+  enter setup.
 
 ## Setup at first boot, without the keeper
 
@@ -331,7 +339,7 @@ Setup and its reset start the same binary, `/opt/lampOS/setup/current/lamp-setup
 ## The install command
 
 ```text
-lamp-update install --channel-url URL [--channel NAME] [--key-file PATH]
+lamp-update install --channel-url URL [--channel NAME] [--key-file PATH] [--setup on|off]
 ```
 
 As root, on a lamp with the base image (`crates/update/src/install.rs`):
@@ -352,12 +360,21 @@ As root, on a lamp with the base image (`crates/update/src/install.rs`):
    it.
 5. Writes each product unit and `lampos.conf`, each only if it is not
    already exactly that. The product settings (Expression's catalogue, the
-   controls' two files) are written only where one is missing or is still
+   controls' two files, and the first skill, Welcome back, in
+   `/var/lib/lampOS/skills/welcome-back/`: its `skill.toml`, `SKILL.md` and
+   light, not its tests) are written only where one is missing or is still
    exactly what an install wrote before, by the SHA-256 kept for it in
    `state.json`, so a newer build's default reaches a lamp that never
    changed it. A setting changed on the lamp since, or there before any
    install (lamp-4ace's own pins), is the lamp's: it is kept, and said
-   (`kept /etc/lampOS/controls/controls-pins.json: …`). Rerunning install is
+   (`kept /etc/lampOS/controls/controls-pins.json: …`). With `--setup on`
+   (off unless set), setup's two settings are among them, exactly the setup
+   crate's `fixtures/serve-own-page.json` (setup's own page on port 80; it
+   asks for no voice key, the lamp's own device key being install's to
+   write, #806) and `fixtures/reset-plan-product.json` (the reset stops
+   `lampos.target`, there being no keeper, and keeps the device key). With them and no marker the lamp starts setup at
+   boot, so a lamp set up by hand, whose updater is upgraded by rerunning
+   install, is never given them by default. Rerunning install is
    how the updater upgrades itself, so this holds at every run (the
    reviewer on #815). What it is about to write is recorded in
    `state.json` (`settings_writing`) before the first write, and what it
@@ -379,6 +396,10 @@ As root, on a lamp with the base image (`crates/update/src/install.rs`):
    the factory or changed on the lamp is kept, and said. The key is never
    said; with none in V1's config, install says the voice cannot reach its
    service until the factory writes it. The customer never types a key.
+   The same device key is the Policy's judge key, `/etc/lampOS/policy/jev.key`
+   (root's, 0600, handed in by systemd; kept up to date the same way), and
+   the product Policy asks Jev through V1's route, the campaign-api proxy, as
+   V1's Jev client does (#811 point 2).
    It never writes `/etc/lampOS/body/lamp.env`, and says that the body waits
    for it.
 7. Records the build and the folders it made in
@@ -450,3 +471,8 @@ program was built from; the binaries are the channel's newest build.
   unit texts (lamp-4ace's names `/opt/lampOS/records/`, the crate's
   `/opt/lampOS/bin/`), while `deploy/units/README.md` says it has no unit on
   any lamp.
+- `lamp-skills` (#811, from lamp-06c1): installed with Welcome back and the
+  voice's say service (`LAMP_SAY=on`, its socket in the group `lampos`), the
+  voice's own hello (`LAMP_SPEAK_FIRST`) off so the lamp greets once, and
+  `LAMP_SKILLS_ASK=skip` until the Policy's gate (#939). Only in tests: no
+  lamp has run the product unit yet.

@@ -286,16 +286,23 @@ fn a_plan_never_wipes_software_system_or_shallow_paths() {
 /// Every store of the person's that a part keeps, as lamp-4ace's units set
 /// it or as the part's own default has it. A part that adds a store adds it
 /// here and to the plan.
-const PERSON_STORES: [&str; 15] = [
+const PERSON_STORES: [&str; 21] = [
     // lamp-4ace's units.
     "/var/lib/lampos-memory",
     "/var/lib/lampos-eyes/people.json",
     "/var/lib/lampos-tasks/store",
     "/var/lib/lampos-tasks/targets.json",
-    // Harness's sign-in under the tasks part's HOME (the fifth on #1016):
-    // the previous owner's pairing never stays. Only that, not the folder,
-    // so the Harness service `install` set up at boot is kept (Nine, #934).
-    "/var/lib/lampos-tasks/.harness",
+    // The person's parts of Harness under the tasks part's HOME (the fifth
+    // on #1016): the sign-in, the pairings and what they left. Not
+    // `.harness` whole, which is Harness itself, the CLI and its own Node
+    // (Nine on #1016, 16:0x, from a real install on lamp-75c9).
+    "/var/lib/lampos-tasks/.harness/auth",
+    "/var/lib/lampos-tasks/.harness/connections",
+    "/var/lib/lampos-tasks/.harness/computer-id",
+    "/var/lib/lampos-tasks/.harness/cli/data",
+    "/var/lib/lampos-tasks/.harness/agent-messages",
+    "/var/lib/lampos-tasks/.harness/hook-routes",
+    "/var/lib/lampos-tasks/.harness/logs",
     "/var/lib/lampos-schedule/store",
     "/var/lib/lampos-policy",
     "/var/lib/lampOS/voice/sessions",
@@ -334,6 +341,53 @@ fn the_example_plan_wipes_every_store_of_the_person() {
                 .any(|wiped| Path::new(kept).starts_with(wiped)),
             "{kept} is wiped"
         );
+    }
+}
+
+/// Harness's real layout under the tasks part's home (Nine on #1016, from
+/// installing it on lamp-75c9): the product plan's Harness paths, run by
+/// the real wipe, take the previous owner's sign-in, pairings and logs and
+/// leave Harness itself (its CLI, its own Node, its wrapper) able to run.
+#[test]
+fn a_reset_takes_harness_sign_in_and_pairings_and_keeps_harness_itself() {
+    let plan: Plan =
+        serde_json::from_str(include_str!("../fixtures/reset-plan-product.json")).unwrap();
+    let root = Root::new();
+    let harness = root.path(".harness");
+    let files = [
+        // Harness itself.
+        ("cli/cli.js", true),
+        ("runtime/node-v22/bin/node", true),
+        ("bin/harness", true),
+        // The person's.
+        ("auth/session.json", false),
+        ("connections/office-mac.json", false),
+        ("computer-id", false),
+        ("cli/data/autonomous-device-connections.json", false),
+        ("agent-messages/1.json", false),
+        ("hook-routes/claude.json", false),
+        ("logs/harnessd.log", false),
+    ];
+    for (file, _) in files {
+        let path = harness.join(file);
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(&path, b"x").unwrap();
+    }
+    let home = Path::new("/var/lib/lampos-tasks/.harness");
+    let mut wiped_here = 0;
+    for path in &plan.wipe {
+        if let Ok(part) = path.strip_prefix(home) {
+            reset::wipe(&harness.join(part)).unwrap();
+            wiped_here += 1;
+        }
+    }
+    assert_eq!(wiped_here, 7);
+    assert!(
+        !plan.wipe.iter().any(|path| path == home),
+        "not .harness whole"
+    );
+    for (file, kept) in files {
+        assert_eq!(harness.join(file).exists(), kept, "{file}");
     }
 }
 

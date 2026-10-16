@@ -236,3 +236,22 @@ Ready for lamp-voice: yes (#1081)
   stacked on #1081, to rebase after #1081 merges. #1095 peer review done, no
   finding on `9a08bf282`.
 - The person paused twelve at 16:5x: no loop, no new task until they ask.
+
+## 2026-10-16 — evening: #1081 merged, #1103 ready, lamp-cb94 on V2, reviews
+
+Ready for lamp-voice: yes (#1103)
+
+- #1081 merged by the reviewer at 21:23 (`a19468dd6`, after its P2 and P3s).
+- #1103 rebased onto `lamp-voice` (force-with-lease on its own branch, for
+  the conflict), one commit `5d0479854`; the overdue gate runs before the
+  say service's `for_skill`. Reminder tests 87/0; ARM64 38923473743 green.
+  Kind: changes every lamp's default where reminders are spoken.
+- lamp-cb94 (owner file #1127, merged): V1 stopped and kept
+  (`~/twelve-backup-20261016/`), build 1314 installed by `lamp-update
+  install` from a test-signed local channel (key `299144c6f1c0112b`),
+  turn-end model and ONNX Runtime placed. The voice cannot speak: the proxy
+  refuses the lamp's device key with `quota_exceeded`. `lamp-air` stopped
+  and disabled there: no air sensor, it flooded the kernel log.
+- Peer reviews: #1126 (Fourth) no P1/P2, one P3.
+- Not shown on a lamp: #1103's wait for someone, and a timer across a
+  restart said once; both wait on a key with quota for lamp-cb94.

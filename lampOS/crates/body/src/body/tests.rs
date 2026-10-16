@@ -2245,20 +2245,22 @@ fn expression_is_held_to_its_own_reach_and_the_joints_and_does_not_stir_a_restin
     }
 }
 
-/// A lamp that stands at once, listens, speaks from six seconds to twelve
-/// and listens again, asked by Expression for `offsets` from `from` until
+/// A lamp that stands at once, listens, is in `mood` from six seconds to
+/// twelve and listens again, asked by Expression for `offsets` from `from` until
 /// `until`; `strains` as `Lamp::strains`. Each step: when, and the glimpse.
 fn speaking_run(
+    mood: Mood,
     offsets: [f32; 3],
     from: Duration,
     until: Duration,
     strains: Vec<(Duration, Duration, usize, u16)>,
 ) -> (BodyReport, Vec<(Duration, Glimpse)>) {
-    speaking_run_with(offsets, from, until, strains, |_, _| {})
+    speaking_run_with(mood, offsets, from, until, strains, |_, _| {})
 }
 
 /// The same, with the lamp and its limits changed first.
 fn speaking_run_with(
+    mood: Mood,
     offsets: [f32; 3],
     from: Duration,
     until: Duration,
@@ -2291,7 +2293,7 @@ fn speaking_run_with(
         move || {
             let at = mood_at.get().as_millis();
             Some(if (6_000..12_000).contains(&at) {
-                (Mood::Speaking, 60)
+                (mood, 60)
             } else {
                 (Mood::Listening, 60)
             })
@@ -2316,7 +2318,13 @@ fn speaking_run_with(
 #[test]
 fn a_speaking_lamp_leans_in_and_back_and_its_base_sways_for_expression() {
     let ms = Duration::from_millis;
-    let (report, seen) = speaking_run([0.0, 0.0, 52.0], ms(8_000), ms(9_500), vec![]);
+    let (report, seen) = speaking_run(
+        Mood::Speaking,
+        [0.0, 0.0, 52.0],
+        ms(8_000),
+        ms(9_500),
+        vec![],
+    );
     assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
     assert!(report.retreats.is_empty(), "{:?}", report.retreats);
     let at = |when: Duration| seen.iter().rfind(|step| step.0 < when).unwrap().1;
@@ -2361,6 +2369,7 @@ fn a_speaking_lamp_leans_in_and_back_and_its_base_sways_for_expression() {
 fn a_base_that_meets_a_hand_is_not_swayed_on_by_expression() {
     let ms = Duration::from_millis;
     let (report, seen) = speaking_run(
+        Mood::Speaking,
         [0.0, 0.0, 52.0],
         ms(8_000),
         ms(10_500),
@@ -2385,13 +2394,20 @@ fn a_base_that_meets_a_hand_is_not_swayed_on_by_expression() {
 #[test]
 fn an_arm_held_while_it_speaks_is_not_leaned_into_again() {
     let ms = Duration::from_millis;
-    let (report, seen) = speaking_run_with([0.0; 3], ms(0), ms(0), vec![], |lamp, limits| {
-        // From half a second into the answer, a hand keeps the elbow
-        // where it stands, and pushes back as hard as the arm does.
-        lamp.hand = Some((ms(6_500), ms(11_000), 2, 2_600.0));
-        lamp.strains = vec![(ms(6_500), ms(11_000), 2, 400)];
-        limits.give_way = Some(GiveWay::Return);
-    });
+    let (report, seen) = speaking_run_with(
+        Mood::Speaking,
+        [0.0; 3],
+        ms(0),
+        ms(0),
+        vec![],
+        |lamp, limits| {
+            // From half a second into the answer, a hand keeps the elbow
+            // where it stands, and pushes back as hard as the arm does.
+            lamp.hand = Some((ms(6_500), ms(11_000), 2, 2_600.0));
+            lamp.strains = vec![(ms(6_500), ms(11_000), 2, 400)];
+            limits.give_way = Some(GiveWay::Return);
+        },
+    );
     assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
     assert_eq!(report.stalls[4], 1, "it stopped pushing once: {report:?}");
     let stalled = seen.iter().position(|step| step.1.stalls[4] == 1).unwrap();
@@ -2674,6 +2690,58 @@ fn a_hand_on_the_elbow_does_not_take_the_fold_past_its_pose() {
         seen.iter().all(|step| step.1.arm_goals[1] >= 2_047),
         "went past the fold"
     );
+}
+
+/// Reading, a standing lamp looks down at the desk as far as its head may
+/// look down stood up, leans its arm forward, holds that, and comes back
+/// once it is not reading; what Expression asks of the head's pitch does
+/// not bob it meanwhile.
+#[test]
+fn a_reading_lamp_looks_down_at_the_desk_holds_it_and_comes_back() {
+    let ms = Duration::from_millis;
+    let (report, seen) = speaking_run(
+        Mood::Reading,
+        [-40.0, 0.0, 0.0],
+        ms(9_000),
+        ms(10_000),
+        vec![],
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert!(report.retreats.is_empty(), "{:?}", report.retreats);
+    let at = |when: Duration| seen.iter().rfind(|step| step.0 < when).unwrap().1;
+    let listening = at(ms(6_000));
+    // Stood up at 1,900, the head may look down 150 counts, its upward
+    // reach: 2,050, reached (a joint that has arrived rests a count or
+    // two short) and held to the end of reading.
+    for when in [8_500, 9_500, 11_900] {
+        let reading = at(ms(when));
+        assert!(
+            (2_048..=2_050).contains(&reading.goals[0]),
+            "at {when}: {reading:?}"
+        );
+        for (index, lean) in LEAN.iter().enumerate() {
+            let by = f32::from(reading.arm_goals[index]) - f32::from(listening.arm_goals[index]);
+            assert!((by - lean).abs() <= 1.0, "at {when}: {reading:?}");
+        }
+    }
+    let back = at(ms(15_900));
+    assert!(back.goals[0].abs_diff(listening.goals[0]) <= 6, "{back:?}");
+    assert_eq!(back.arm_goals, listening.arm_goals);
+    // Never farther down than that, nor faster than the pose follows.
+    assert!(seen.iter().all(|step| step.1.goals[0] <= 2_050));
+    for pair in seen
+        .windows(2)
+        .filter(|pair| pair[0].0 >= ms(6_000) && pair[1].0 < ms(16_000))
+    {
+        let (was, is) = (pair[0].1, pair[1].1);
+        assert!(is.goals[0].abs_diff(was.goals[0]) <= 3, "{pair:?}");
+        for index in 0..2 {
+            assert!(
+                is.arm_goals[index].abs_diff(was.arm_goals[index]) <= 3,
+                "{pair:?}"
+            );
+        }
+    }
 }
 
 /// Without `rest_glance`, a lamp at rest writes exactly what it writes

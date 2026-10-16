@@ -108,6 +108,7 @@ fn mood_word(mood: Mood) -> &'static str {
         Mood::Listening => "listening",
         Mood::Thinking => "thinking",
         Mood::Speaking => "speaking",
+        Mood::Reading => "reading",
     }
 }
 

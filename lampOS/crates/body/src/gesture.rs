@@ -21,6 +21,10 @@ pub enum Mood {
     Thinking,
     /// It is speaking: back on the person, with small nods on its own voice.
     Speaking,
+    /// A skill has it read what is on the desk in front of it: the head
+    /// looks down and the arm comes forward a little, held for as long as
+    /// the skill says so. The body sets the head's dip itself, in counts.
+    Reading,
 }
 
 /// A wanted offset from home, each axis as a share of its reach, -1 to 1.
@@ -126,7 +130,7 @@ impl Gestures {
         // Listening and the thinking that follows it share one side.
         let side = if self.exchanges % 2 == 1 { 1.0 } else { -1.0 };
         match mood {
-            Mood::Resting => Pose::default(),
+            Mood::Resting | Mood::Reading => Pose::default(),
             Mood::Listening => Pose {
                 pitch: LISTENING_PITCH,
                 roll: LISTENING_ROLL * side,

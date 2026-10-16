@@ -373,8 +373,21 @@ The writer's cooperative tick is 2 ms. Each tick shares a budget of 16 priority
 control packets, retains at most one data frame and uses its original request
 time. Data expires after 100 ms. An older heartbeat cannot suppress a newer
 privacy revocation. A newer expired authority packet fails closed; it is not
-silently ignored in favor of older allowed state. Malformed/unknown control
-fields, mismatched lineage and feedback backpressure are faults.
+silently ignored in favor of older allowed state: the ring is blanked at once
+(`GuardedRing::lapse`, reported as authority lost, expired), and no frame or
+rest is painted under the older lease until an authority newer than the late
+one installs. Malformed/unknown control fields, mismatched lineage and
+feedback backpressure are faults.
+
+A lapse is not the end of the ring (#1178, lamp-4ace at 00:00:06 on 17 Oct:
+the voice's loop held up past the 250 ms lease while the lamp's midnight log
+jobs ran, and the worker's exit ended the voice). An installed authority that
+runs out with no renewal leaves the ring's own guard to blank the cue and
+refuse every frame and rest under it, and the worker waits, dark, for a fresh
+one; a newer one that came past its time does the same, as above. Each is one
+line in the journal when it begins (`dark until a fresh one`) and one when it
+ends (`it goes on`, with how long). Only no authority at all within 250 ms of
+the start still ends the worker (`ring authority never came`).
 
 The software qualification target is at most 50 ms from policy request to
 write completion, with no microphone/speaker work waiting for SPI. A slow

@@ -406,6 +406,23 @@ impl<S: FrameSink> GuardedRing<S> {
             })
     }
 
+    /// Blank now because a successor to the installed authority came past its
+    /// time (#1178): the owner paints nothing until a fresher one installs.
+    /// Not a fault, so that one can install.
+    pub fn lapse(&mut self) -> Result<BlankReceipt, Error> {
+        self.ensure_live()?;
+        self.blank(BlankReason::AuthorityLost(
+            lamp_turn_owner::Error::ExpiredState,
+        ))
+        .map_err(|failure| {
+            self.latch_fault();
+            Error {
+                cause: Failure::Write(failure),
+                cleanup_error: None,
+            }
+        })
+    }
+
     /// Explicit bounded-count cleanup. Drop intentionally performs no I/O.
     pub fn shutdown(&mut self) -> Result<Option<BlankReceipt>, Error> {
         if self.stopped {

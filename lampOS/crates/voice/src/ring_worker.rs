@@ -221,17 +221,38 @@ fn check_runtime(started: u64, at: u64, continuous: bool) -> io::Result<()> {
     Ok(())
 }
 
-fn check_authority(started: u64, at: u64, expires_at: Option<u64>) -> io::Result<()> {
-    if expires_at.map_or_else(
-        || at.saturating_sub(started) >= INITIAL_AUTHORITY_US,
-        |expires| at >= expires,
-    ) {
-        return Err(io::Error::new(
+/// No authority within [`INITIAL_AUTHORITY_US`] of the start ends the ring.
+/// An installed one that ran out with no renewal does not (#1178): whether
+/// it has, as `Ok(true)`. The ring's own guard blanks a cue whose lease ran
+/// out and refuses every frame and rest under it, so the ring is dark until
+/// a fresh one comes; a voice whose loop was held up a moment goes on.
+fn check_authority(started: u64, at: u64, expires_at: Option<u64>) -> io::Result<bool> {
+    match expires_at {
+        Some(expires) => Ok(at >= expires),
+        None if at.saturating_sub(started) >= INITIAL_AUTHORITY_US => Err(io::Error::new(
             io::ErrorKind::TimedOut,
-            "ring authority heartbeat expired",
-        ));
+            "ring authority never came",
+        )),
+        None => Ok(false),
     }
-    Ok(())
+}
+
+/// The ring held dark while its loop is alive (#1178), and since when, for
+/// the journal: its authority ran out with no renewal, or a newer one came
+/// past its time. That newer one may have revoked what the older lease
+/// allows, so nothing is painted until one newer than it installs.
+#[derive(Default)]
+struct Lapse {
+    ran_out_us: Option<u64>,
+    /// The revision of the newest successor that came too late, and when.
+    late: Option<(u64, u64)>,
+}
+
+impl Lapse {
+    /// Whether frames and rest are held back for a successor that came late.
+    fn dark(&self) -> bool {
+        self.late.is_some()
+    }
 }
 
 fn report_start_failure(link: &mut impl RingLink, error: io::Error) -> io::Result<()> {
@@ -345,6 +366,7 @@ fn controls(
     ring: &mut GuardedRing<impl FrameSink>,
     guard: &mut BoundaryGuard,
     remaining: &mut usize,
+    lapse: &mut Lapse,
 ) -> io::Result<bool> {
     while *remaining > 0 {
         let Some(command) = link.receive_control()? else {
@@ -377,13 +399,44 @@ fn controls(
                     {
                         continue;
                     }
-                    // A newer expired state may revoke privacy or ownership.
-                    // Never keep displaying under an older allowed lease when
-                    // its successor cannot be installed. Cleanup blanks it.
+                    // A newer state that came past its time (the voice's loop
+                    // held up a moment, #1178) may revoke privacy or
+                    // ownership. Never keep displaying under the older allowed
+                    // lease: blank now, and paint nothing until one newer than
+                    // it installs. The ring goes on.
+                    Err(AuthorityError::ExpiredState) => {
+                        let receipt = ring.lapse().map_err(io::Error::other)?;
+                        blanked(link, receipt)?;
+                        let at = monotonic_us();
+                        let since = match lapse.late {
+                            Some((_, since)) => since,
+                            None => {
+                                eprintln!(
+                                    "lamp-voice ring: a newer authority came {} ms past its time; dark until a fresh one",
+                                    at.saturating_sub(snapshot.expires_at().as_micros()) / 1_000
+                                );
+                                at
+                            }
+                        };
+                        let newest = lapse.late.map_or(snapshot.revision(), |(late, _)| {
+                            late.max(snapshot.revision())
+                        });
+                        lapse.late = Some((newest, since));
+                        continue;
+                    }
                     Err(error) => return Err(io::Error::other(error)),
                 }
                 if let Some(receipt) = ring.install_authority(snapshot).map_err(io::Error::other)? {
                     blanked(link, receipt)?;
+                }
+                if let Some((late, since)) = lapse.late
+                    && snapshot.revision() > late
+                {
+                    eprintln!(
+                        "lamp-voice ring: a fresh authority {} ms after one came late; it goes on",
+                        monotonic_us().saturating_sub(since) / 1_000
+                    );
+                    lapse.late = None;
                 }
             }
             Control::StartCapture
@@ -427,6 +480,7 @@ fn service(
     let mut rested_at = 0u64;
     // From zero, so a late startup black write in GuardedRing::new is said too.
     let mut late_said = 0;
+    let mut lapse = Lapse::default();
     loop {
         // A late SPI write (the SD/MMC host re-tuning holds the bus) is a
         // late frame, said once each; only a run of them ends the ring (#911).
@@ -439,7 +493,7 @@ fn service(
         }
         let tick = monotonic_us();
         let mut budget = CONTROL_BUDGET;
-        if controls(link, ring, &mut guard, &mut budget)? {
+        if controls(link, ring, &mut guard, &mut budget, &mut lapse)? {
             return Ok(());
         }
         if let Some(receipt) = ring.tick().map_err(io::Error::other)? {
@@ -447,11 +501,27 @@ fn service(
         }
         let at = monotonic_us();
         check_runtime(started, at, continuous)?;
-        check_authority(
+        let ran_out = check_authority(
             started,
             at,
             guard.state().map(|state| state.expires_at().as_micros()),
         )?;
+        match (ran_out, lapse.ran_out_us) {
+            (true, None) => {
+                eprintln!(
+                    "lamp-voice ring: its authority ran out with no renewal; dark until a fresh one"
+                );
+                lapse.ran_out_us = Some(at);
+            }
+            (false, Some(since)) => {
+                eprintln!(
+                    "lamp-voice ring: a fresh authority {} ms after the last ran out; it goes on",
+                    at.saturating_sub(since) / 1_000
+                );
+                lapse.ran_out_us = None;
+            }
+            _ => {}
+        }
         // The head is optional input: read after revocation and expiry, and
         // only a bounded few at a time (#849 review).
         if let Some(head) = head.as_mut() {
@@ -463,7 +533,7 @@ fn service(
         }
         // One shared budget, including controls that arrived during the data
         // receive. A pending frame cannot create another fresh budget or lease.
-        if controls(link, ring, &mut guard, &mut budget)? {
+        if controls(link, ring, &mut guard, &mut budget, &mut lapse)? {
             return Ok(());
         }
         if let Some(frame) = pending {
@@ -504,6 +574,9 @@ fn service(
                         reject(link, frame, RingRejection::StaleOwner)?;
                     } else if RingPhase::from_snapshot(state) != Some(frame.phase) {
                         reject(link, frame, RingRejection::PhaseMismatch)?;
+                    } else if lapse.dark() {
+                        // A newer authority came late: nothing under the older.
+                        reject(link, frame, RingRejection::ExpiredState)?;
                     } else if let Err(reason) = guard.check(now(), frame.permit, OutputKind::Light)
                     {
                         reject(link, frame, reason.into())?;
@@ -554,6 +627,7 @@ fn service(
         if let Some(ceiling) = resting
             && pending.is_none()
             && budget > 0
+            && !lapse.dark()
             && at.saturating_sub(rested_at) >= RESTING_INTERVAL_US
         {
             rested_at = at;
@@ -667,9 +741,12 @@ mod lifetime_tests {
         assert!(check_runtime(2, 1, true).is_err());
         let late = 700_000_000;
         assert!(check_runtime(1, late, true).is_ok());
-        assert!(check_authority(1, late, Some(late + 100_000)).is_ok());
-        assert!(check_authority(1, late, Some(late)).is_err());
+        assert!(!check_authority(1, late, Some(late + 100_000)).unwrap());
+        // An installed authority that ran out holds the ring dark, and never
+        // ends it (#1178); none at all past the start's allowance does.
+        assert!(check_authority(1, late, Some(late)).unwrap());
         assert!(check_authority(1, late, None).is_err());
         assert!(check_authority(1, INITIAL_AUTHORITY_US + 1, None).is_err());
+        assert!(!check_authority(1, INITIAL_AUTHORITY_US, None).unwrap());
     }
 }

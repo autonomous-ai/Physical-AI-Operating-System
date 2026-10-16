@@ -10,6 +10,7 @@
 //! - [`mic`]: a second of the voice microphone, and its level.
 //! - [`hand`]: touch by hand, at the factory.
 //! - [`speaker`]: the echo the voice's canceller removed from the lamp's own speech.
+//! - [`head`]: the head's small move, at rest, through `expression/body`.
 //! - [`report`]: where a run is kept, and what a person reads.
 //! - [`quiet`]: a passive run waits for the voice to be out of a turn.
 
@@ -20,6 +21,7 @@ use lamp_msgs::{Occasion, PartResult, SelfTest, Verdict};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 pub mod hand;
+pub mod head;
 pub mod kernel;
 pub mod listen;
 pub mod mic;

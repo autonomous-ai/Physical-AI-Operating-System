@@ -155,3 +155,21 @@ Ready for lamp-voice: no (draft #896)
   passed, 1 ignored; `systemd-analyze verify` clean on the three.
 - Asked on #811: setup's settings (third), the keeper on a product lamp
   (fifth), Harness at boot as a system unit for `lampos` (first builder).
+
+## 2026-10-16 — merges, the build mend, the mute guard (#960), the offline face (#830)
+
+Ready for lamp-voice: #974 yes (ARM64 green); #978 when its ARM64 run is green
+
+- Merged into `lamp-voice` in the 10:33 round and before: #884 (#830
+  offline), #896 (#811 setup units), #934 (#811 Harness at boot). #811 stays
+  open until a first boot on a wiped lamp.
+- #884's offline turns and #954's `Reply.say` merged side by side and broke
+  the build at `8da7d7ee1`. My mend #977 was the same tree as the second's
+  #976 (`f5a20ba28`); closed as superseded.
+- #974 (`nine/mute-guard`, `071f79c11`): a requested stop releases the
+  restart guard even if cleanup faults, writing the latch as it was. ARM64
+  run 38845579433 green. Point 2 (what a lamp restored muted shows and says)
+  asked on #960.
+- #978 (`nine/offline-face`, `a87fd0b47`): `lamp-expression --offline-face`
+  draws listening as not ready while `lamp/online` says offline. Expression
+  tests and workspace build clean; ARM64 run 38847656338.

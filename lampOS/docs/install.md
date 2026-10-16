@@ -352,10 +352,10 @@ As root, on a lamp with the base image (`crates/update/src/install.rs`):
    install (lamp-4ace's own pins), is the lamp's: it is kept, and said
    (`kept /etc/lampOS/controls/controls-pins.json: …`). With `--setup on`
    (off unless set), setup's two settings are among them, exactly the setup
-   crate's `fixtures/serve-own-page.json` (setup's own page on port 80, the
-   credential at `/etc/lampOS/voice/credential`) and
-   `fixtures/reset-plan-product.json` (the reset stops `lampos.target`;
-   there is no keeper). With them and no marker the lamp starts setup at
+   crate's `fixtures/serve-own-page.json` (setup's own page on port 80; it
+   asks for no voice key, the lamp's own device key being install's to
+   write, #806) and `fixtures/reset-plan-product.json` (the reset stops
+   `lampos.target`, there being no keeper, and keeps the device key). With them and no marker the lamp starts setup at
    boot, so a lamp set up by hand, whose updater is upgraded by rerunning
    install, is never given them by default. Rerunning install is
    how the updater upgrades itself, so this holds at every run (the

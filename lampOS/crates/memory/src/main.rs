@@ -25,6 +25,27 @@ mod tests {
     }
 
     #[test]
+    fn the_memory_days_start_line_names_the_zone_only_when_one_is_given() {
+        let start = |extra: &[&str]| {
+            let mut args = vec!["--dir", "/m", "--socket", "/s", "--memory-days"];
+            args.extend_from_slice(extra);
+            days_start_line(&arguments(&args).unwrap().unwrap())
+        };
+        assert_eq!(
+            start(&["--zone", "system"]),
+            "started memory_days=true zone=system; the model adapter is not configured"
+        );
+        assert_eq!(
+            start(&["--utc-offset-minutes", "420"]),
+            "started memory_days=true; the model adapter is not configured"
+        );
+        assert_eq!(
+            start(&[]),
+            "started memory_days=true; the model adapter is not configured"
+        );
+    }
+
+    #[test]
     fn the_two_paths_are_required_and_the_days_and_the_offset_have_defaults() {
         assert_eq!(
             arguments(&[

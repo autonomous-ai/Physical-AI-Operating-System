@@ -582,22 +582,29 @@ impl Thread {
         })
     }
 
-    /// What the person said in the last `exchanges` exchanges and since the
-    /// last answer, oldest first, as the service wrote it: whether a name
-    /// was said ([`crate::known_faces::said_by_them`]). A note the lamp
-    /// was given in writing is not anyone's words.
-    pub fn said_lately(&self, exchanges: usize) -> String {
-        let mut said: Vec<&str> = self
+    /// What a name is kept from ([`crate::known_faces::name_heard`]): the
+    /// person's words of the turn in hand, which is what is being heard or,
+    /// once the lamp has begun to answer, the newest exchange; and the
+    /// `exchanges` before it, oldest first, each with what the lamp said
+    /// back. A note the lamp was given in writing is not anyone's words.
+    pub fn names_window(&self, exchanges: usize) -> crate::known_faces::Said {
+        let spoken: Vec<&Exchange> = self
             .exchanges
             .iter()
-            .rev()
             .filter(|exchange| exchange.written.is_none())
-            .take(exchanges)
-            .map(|exchange| exchange.person.as_str())
             .collect();
-        said.reverse();
-        said.push(&self.heard);
-        said.join(" ")
+        let (this, earlier) = match spoken.split_last() {
+            Some((last, rest)) if self.heard.trim().is_empty() => (last.person.clone(), rest),
+            _ => (self.heard.clone(), &spoken[..]),
+        };
+        let from = earlier.len().saturating_sub(exchanges);
+        crate::known_faces::Said {
+            this,
+            before: earlier[from..]
+                .iter()
+                .map(|exchange| (exchange.person.clone(), exchange.lamp.clone()))
+                .collect(),
+        }
     }
 
     /// The person's exchanges ([`Self::opening`]) of the last `within`,
@@ -1521,6 +1528,36 @@ mod tests {
     /// The exchanges a route gives a model as messages: the person's only,
     /// the newest few, and none once forgotten (first builder's reviewer on
     /// #778: A, forget, B, A).
+    /// What a name is kept from (`LAMP_NAMES=checked`, #1057): the turn in
+    /// hand is what is being heard, or, once the lamp has begun to answer
+    /// it, the newest exchange; the exchanges before it come with what the
+    /// lamp said back.
+    #[test]
+    fn a_names_window_is_the_turn_in_hand_and_the_exchanges_before_it() {
+        let now = Instant::now();
+        let mut thread = Thread::new();
+        for (i, (said, lamp)) in [("Hello.", "Hi!"), ("My name is A.", "Shall I call you A?")]
+            .iter()
+            .enumerate()
+        {
+            thread.person(said, true, now);
+            thread.lamp(i as u64 + 1, lamp, now);
+        }
+        thread.person("Yes.", true, now);
+        let before = vec![
+            ("Hello.".to_owned(), "Hi!".to_owned()),
+            ("My name is A.".to_owned(), "Shall I call you A?".to_owned()),
+        ];
+        let window = |before: &[(String, String)]| crate::known_faces::Said {
+            this: "Yes.".into(),
+            before: before.to_vec(),
+        };
+        assert_eq!(thread.names_window(2), window(&before));
+        thread.lamp(3, "Okay, A.", now);
+        assert_eq!(thread.names_window(2), window(&before));
+        assert_eq!(thread.names_window(1), window(&before[1..]));
+    }
+
     #[test]
     fn recent_exchanges_are_the_persons_own_and_none_after_a_forgetting() {
         let now = Instant::now();

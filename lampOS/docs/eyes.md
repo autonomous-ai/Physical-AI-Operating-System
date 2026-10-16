@@ -543,17 +543,33 @@ Without the switch:
 With the switch:
 - **Only a name they said.** `remember_my_face` is refused, before the
   eyes are asked, unless the name is in the person's own words, as the
-  service wrote them (`Thread::said_lately`): what is being heard and their
-  last two exchanges. That is the request and the two before it when the
-  call comes before the lamp's first words, and the request and the one
-  before it once the lamp has begun to answer, the request then being an
-  exchange of its own. Each of the name's words must be among theirs, or
-  its letters spelled one by one ("J-I-M"), the run being the name's word
-  itself. A word with an apostrophe is kept whole, so "It's cold" spells
-  no "S". Accents count for nothing ("Jose" is "José", Vietnamese's
-  marks too), and "double N" is two N. The model is told to say the name back and ask them to spell it
-  (`known_faces::said_by_them`). A "yes" alone never passes, so a name the
-  model made up is asked for again.
+  service wrote them (`Thread::names_window`, `known_faces::name_heard`):
+  - in the turn in hand: what is being heard, or, once the lamp has begun
+    to answer, the newest exchange;
+  - or in one of the two exchanges before it, if the lamp has said it
+    back since and the turn in hand agrees ("Shall I call you Jim?"
+    "Yes."): a word that agrees ("yes", "yeah", "right", "sure", …) and
+    none that takes it back ("no", "not", …).
+
+  Each of the name's words must be among theirs, or its letters spelled
+  one by one ("J-I-M"), the run being the name's word itself. One letter
+  said again and again ("It's Q. Q. Q.") spells only that letter. A word
+  with an apostrophe is kept whole, so "It's cold" spells no "S". Accents
+  count for nothing ("Jose" is "José", Vietnamese's marks too), and
+  "double N" is two N. A name whose letters they counted otherwise, in
+  the turn it came from or the turn in hand ("three letters", seven
+  taken), is refused. The model is told to say the name back and ask them
+  to spell it (`known_faces::said_by_them`). A "yes" alone never passes,
+  so a name the model made up is asked for again.
+
+  Why the turn in hand, from lamp-4ace on 16 October at 16:46 (the first
+  builder on #1057, the records described without the words): a
+  three-letter name was kept after "Sure." and a lone digit, the turn
+  before those a one-letter name corrected with that letter three times.
+  Another was kept from "Hey, I'm …" heard wrong while the person was
+  still correcting it. And seven letters were put together from four
+  spelled letters, an ordinary first name said twice between them, and
+  "three letters".
 - **One name for one face.** The voice asks the eyes
   `{"remember":"Jim","one_face":true}`. Prints already someone's under
   another name are refused with `{"error":"known_as","known_as":"A"}`
@@ -562,7 +578,10 @@ With the switch:
   the model is told to say the new name back and ask whether they want to
   be known by it instead. Only once they say yes does it call again with
   `replace` true (`"replace":true`), and the eyes then forget "A" and keep
-  "Jim" in its place (`People::remember_one`). The journal says "did not
+  "Jim" in its place (`People::remember_one`). `replace` is refused before
+  the eyes are asked unless the lamp said the new name in its last answer
+  and the turn in hand agrees: a misheard name is never put in place of
+  one they have while they are still correcting it. The journal says "did not
   remember a face: it is known by another name", without the name.
 - **A name told is a name kept** (the first builder, #705, 13:43). The
   lamp-4ace records showed no face asked to be kept on 15 October at all:
@@ -600,7 +619,9 @@ Tests: `who::tests::one_face_keeps_one_name_and_another_is_taken_only_in_its_pla
 `a_face_known_by_two_names_is_refused_with_both_and_replaced_for_both`
 and the ask's two new lines (the eyes);
 `known_faces::tests::a_name_counts_only_when_the_person_said_it_or_spelled_it`,
-`a_name_given_is_told_from_talk_that_only_mentions_a_name` and
+`a_name_given_is_told_from_talk_that_only_mentions_a_name`,
+`the_three_names_of_16_46_are_refused_or_read_back`,
+`a_name_said_before_is_kept_once_said_back_and_agreed_to` and
 `with_names_checked_only_a_name_they_said_reaches_the_eyes_and_one_face_keeps_one`
 (the voice, against a stand-in for the eyes on a real socket);
 `provider_worker::tests::names::with_names_checked_a_name_given_is_told_to_be_kept_and_plain_talk_is_not`

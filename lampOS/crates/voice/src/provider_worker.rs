@@ -1925,6 +1925,7 @@ async fn serve_with_visual<C: Connect>(
                                     turn.request == request
                                         && turn.name_score >= crate::policy_holds::NAME_FROM
                                 }),
+                                after_unanswered: attention.follows_an_unanswered_line(request),
                             });
                         desk.called(&provider, lineage, call, held, turn)
                     }
@@ -2075,6 +2076,9 @@ fn look_owed(until: Option<Instant>) -> bool {
 struct Turn {
     /// The lamp's name was heard in it ([`crate::policy_holds::NAME_FROM`]).
     name_heard: bool,
+    /// It follows a line someone said that the lamp left unanswered, not
+    /// the lamp's own last words (#1054).
+    after_unanswered: bool,
 }
 /// One of the lamp's actions kept for the turn's decision.
 struct Parked {
@@ -2481,7 +2485,18 @@ impl ToolDesk {
             let verdict = self
                 .verdicts
                 .as_ref()
-                .and_then(|verdicts| verdicts.verdict(request));
+                .and_then(|verdicts| verdicts.verdict(request))
+                // A turn after someone else's line, left unanswered, follows
+                // that line, not the lamp's, whatever the model answered
+                // (#1054, the quiet-room case on #1090).
+                .map(|verdict| match verdict {
+                    crate::policy_holds::Verdict::StayQuietFollowing
+                        if parked.turn.after_unanswered =>
+                    {
+                        crate::policy_holds::Verdict::StayQuiet
+                    }
+                    verdict => verdict,
+                });
             let waited = Duration::from_micros(now.saturating_sub(parked.called_us));
             let schedule = matches!(
                 crate::tools::route(&self.settings, &parked.call.name),

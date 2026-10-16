@@ -735,6 +735,11 @@ pub struct Attention {
     /// the lamp left unanswered ([`AFTER_QUESTION`]); counted only in a busy
     /// room. With `spoken_to` only.
     after_question: bool,
+    /// The request in hand follows, within [`ANOTHER_REPLY_US`], a line
+    /// with words that someone said and the lamp did not answer: it follows
+    /// that line, not the lamp's own last words (#1054). Whatever the
+    /// switch.
+    after_unanswered: bool,
 }
 
 /// The most text kept for one request.
@@ -804,9 +809,24 @@ impl Attention {
                 .is_some_and(|end| end.saturating_add(ANOTHER_REPLY_US) >= now_us)
             && self.heard.trim_end().ends_with('?')
             && !matches!(self.verdict, Some(Verdict::Play(_)));
+        // The line before, someone's, with words, ended just now and was
+        // left unanswered: this one follows it, not the lamp's own last
+        // words. In the first builder's two-person round on #829 (15:39),
+        // "Yes, give me five minutes." after "Are you coming to the meeting
+        // at two?" set a timer as a reply to the lamp's story (#1054).
+        let own = own_request().load(Ordering::Acquire);
+        let after_unanswered = own != request
+            && own != self.request
+            && self
+                .ended_us
+                .or(self.began_us)
+                .is_some_and(|end| end.saturating_add(ANOTHER_REPLY_US) >= now_us)
+            && self.heard.chars().any(char::is_alphanumeric)
+            && !matches!(self.verdict, Some(Verdict::Play(_)));
         self.began(request, session);
         self.after_another = after_another;
         self.after_question = after_question;
+        self.after_unanswered = after_unanswered;
         self.began_us = Some(now_us);
         self.named = self
             .named_us
@@ -829,6 +849,7 @@ impl Attention {
         let tapped = session == self.session && self.began_us.is_some() && self.tapped;
         let after_another = self.after_another;
         let after_question = self.after_question;
+        let after_unanswered = self.after_unanswered;
         let before = (session == self.session && self.began_us.is_some()).then(|| {
             (
                 self.named,
@@ -851,6 +872,7 @@ impl Attention {
             self.began_us = began_us;
             self.after_another = after_another;
             self.after_question = after_question;
+            self.after_unanswered = after_unanswered;
         }
         self.tapped |= tapped;
     }
@@ -990,6 +1012,12 @@ impl Attention {
 
     /// The request in hand as `crate::addressed` judges it, once it began.
     /// None for a turn the lamp wrote itself: nobody spoke in it.
+    /// Whether `request` follows a line with words that someone said and
+    /// the lamp did not answer, within [`ANOTHER_REPLY_US`] (#1054).
+    pub fn follows_an_unanswered_line(&self, request: u64) -> bool {
+        self.request == request && self.after_unanswered
+    }
+
     pub fn in_hand(&self) -> Option<crate::addressed::Request> {
         if own_request().load(Ordering::Acquire) == self.request {
             return None;
@@ -1981,6 +2009,42 @@ mod tests {
             attention.first_output(3, Room::Quiet, false),
             Some(Verdict::Hold(NOT_SPOKEN_TO))
         );
+    }
+
+    /// #1054: a request after a line with words that someone said and the
+    /// lamp left unanswered follows that line, not the lamp; after a line
+    /// the lamp answered, 11 s on, or a sound with no words, it does not.
+    /// Whatever the switch.
+    #[test]
+    fn a_request_after_a_line_the_lamp_left_unanswered_follows_that_line() {
+        const S: u64 = 1_000_000;
+        const ASKED: &str = "Are you coming to the meeting at two?";
+        let follows = |asked: &str, answered: bool, gap_s: u64| {
+            let mut attention = Attention::default();
+            attention.began_at(41, 7, 100 * S);
+            attention.heard(asked);
+            if answered {
+                assert!(matches!(
+                    attention.first_output_busy(41, Room::Quiet, true, false, None),
+                    Some(Verdict::Play(_))
+                ));
+            }
+            attention.ended(41, 103 * S);
+            attention.began_at(42, 7, (103 + gap_s) * S);
+            attention.heard("Yes, give me five minutes.");
+            (
+                attention.follows_an_unanswered_line(42),
+                attention.follows_an_unanswered_line(41),
+            )
+        };
+        assert_eq!(follows(ASKED, false, 1), (true, false));
+        assert_eq!(follows(ASKED, true, 1), (false, false));
+        assert_eq!(follows(ASKED, false, 11), (false, false));
+        assert_eq!(follows("", false, 1), (false, false));
+        // The first request of all follows nothing.
+        let mut attention = Attention::default();
+        attention.began_at(1, 7, S);
+        assert!(!attention.follows_an_unanswered_line(1));
     }
 
     /// #829, the first builder at 15:40, the two-person round on lamp-4ace:

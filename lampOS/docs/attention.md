@@ -976,8 +976,20 @@ not held (the first builder, 05:57), nor is any other call:
   nobody asked for is a smaller harm than one asked for and not set. The
   journal says why it ran: `the turn follows the lamp's last line, and the
   schedule is not held from it`. Until the weights are fitted again
-  (#1040). Tests: `policy_holds::tests::a_stay_quiet_that_follows_the_lamp_is_told_apart_by_its_follows_lamp`,
-  `provider_worker::tests::policy_holds::a_timer_in_a_turn_that_follows_the_lamp_is_set_though_the_policy_said_stay_quiet`.
+  (#1040). Only a turn that follows the lamp's own words is let through
+  this way: one after a line with words that someone said and the lamp
+  left unanswered, within 10 s (`Attention::follows_an_unanswered_line`),
+  follows that line, and is held as any `stay_quiet`, whatever
+  `follows_lamp` says. In the first builder's two-person round on #829
+  (15:39), "Yes, give me five minutes." after "Are you coming to the
+  meeting at two?" set a timer as a reply to the lamp's story; #1090 holds
+  that scene when the question names Daniel or the room is busy, and this
+  the quiet room's unnamed question. It is known only with the voice's own
+  rule for whom it answers (`--attention`), which follows each line.
+  Tests: `policy_holds::tests::a_stay_quiet_that_follows_the_lamp_is_told_apart_by_its_follows_lamp`,
+  `provider_worker::tests::policy_holds::a_timer_in_a_turn_that_follows_the_lamp_is_set_though_the_policy_said_stay_quiet`,
+  `provider_worker::tests::policy_holds::a_timer_in_a_turn_after_a_line_the_lamp_left_unanswered_is_held`,
+  `attention::tests::a_request_after_a_line_the_lamp_left_unanswered_follows_that_line`.
 - **The turn's decision** is an attention decision the Policy publishes
   for real (`policy/decisions`, `about` `attention`, `shadow` false:
   `lamp-policy --act attention`) about the turn **by its number**

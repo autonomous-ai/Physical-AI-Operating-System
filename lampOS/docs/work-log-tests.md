@@ -1,5 +1,20 @@
 # Tests work log
 
+## 2026-10-16 18:17:52 +0700 — two flaky-test fixes merged; #1131 for #1128
+
+Ready for lamp-voice: yes (#1088, #1101, #1104, #1109); no (#1131, a draft on top of #1104)
+
+**Merged by the reviewer at 18:17:** #1113 (the `lamp-update` lookup test, #1112) and #1122 (the `lamp-actions` light test, #1121), with no finding. I closed both issues with what was delivered. Nine's #1118, the product side of #1112, is on `lamp-voice` too.
+
+**#1131 (#1128, outside the group):** `LiveRig::tick` steps the scenario clock with Tokio's. `logical_clock()` sits with the rig. On the Mac:
+- the Policy-holds module: 15.46 s → 1.69 s;
+- `production_policy_never_commits…`: about 2.1 s → 0.15 s;
+- `kept_start::a_stop_while…`: 2.0 s → 0.16 s.
+
+Same assertions, passing under load. `a_stop_or_a_mute…` follows #1088, because its Coordinated rounds need `provider_link` on the scenario clock. The capacity-paced interruption test follows #1101.
+
+**Second's report on #823 (18:04):** `a_question_in_four_pieces…` failed 1 of 3 alone on an M2 Max, because nominal block times met catch-up writes. #1088 fixes it; answered on #823 and #1088.
+
 ## 2026-10-16 17:20:44 +0700 — #1109 ready; flaky tests from today's red runs
 
 Ready for lamp-voice: yes (#1109; with #1088, #1101 and #1104); no (#1113 and #1122, waiting for their ARM64 runs)

@@ -590,15 +590,16 @@ fn run() -> Result<()> {
                 _ => return Err(io::Error::other("unknown worker role").into()),
             }
         }
-        // worker second DIR PARENT WORKER PROVIDER_CONFIG SECOND_CONFIG [--wait-cue] [the provider worker's flags but --keep-link]
+        // worker second DIR PARENT WORKER PROVIDER_CONFIG SECOND_CONFIG [--wait-cue] [--down-line] [the provider worker's flags but --keep-link]
         [command, role, dir, parent, worker, provider_config, second_config, flags @ ..] if command == "worker" && role == "second" => {
             let (wait_cue, flags) = lamp_voice::second_provider::worker::take_wait_cue(flags);
+            let (down_line, flags) = lamp_voice::second_provider::worker::take_down_line(flags);
             let (_, _, files, _) = lamp_voice::second_provider::worker::parse_flags(Path::new(dir), flags)?;
             let parent = parse_boot(parent)?;
             let worker = parse_boot(worker)?;
             let mut channels = WorkerChannels::bind(Path::new(dir), role, parent, worker, true)?;
             channels.connect(Path::new(dir), role, true)?;
-            lamp_voice::second_provider::worker::serve(channels, parent, Path::new(provider_config), Path::new(second_config), files, wait_cue)?;
+            lamp_voice::second_provider::worker::serve(channels, parent, Path::new(provider_config), Path::new(second_config), files, wait_cue, down_line)?;
         }
         // worker ring DIR PARENT WORKER --continuous [--resting CEILING] [--bus-root DIR] [--eye] [--head-touch] [--light-requests]
         #[cfg(target_os = "linux")]

@@ -93,6 +93,12 @@ pub const LOOK_BEGIN_WITHIN: Duration = Duration::from_secs(5);
 /// What the lamp says when a look's first round has not begun within
 /// [`LOOK_BEGIN_WITHIN`]: after "Let me look.", silence reads as broken.
 pub const COULD_NOT_LOOK: &str = "I couldn't get a good look.";
+/// With `LAMP_SECOND_DOWN_LINE=on`: what the lamp says when a turn's first
+/// round has not begun within its bound, rather than nothing, at most once
+/// in [`DOWN_LINE_EVERY`] (the first builder, 2026-10-17 02:48: the relay's
+/// chat stopped answering at 02:29 and the backup voice went silent).
+pub const DOWN_LINE: &str = "I can't think right now; give me a minute.";
+pub const DOWN_LINE_EVERY: Duration = Duration::from_secs(60);
 /// The sounds, said by this route's own voice, so at the reply's level.
 pub const CUE_WORDS: [&str; 3] = ["Hmm.", "Mm.", "Hm."];
 /// A sound is at most 0.6 s, its last 30 ms faded out.
@@ -168,6 +174,8 @@ struct Shared {
     heed: Option<Heed>,
     /// The sounds made while a first round is awaited, when switched on.
     cues: Option<Arc<Cues>>,
+    /// [`DOWN_LINE`], when switched on.
+    down: Option<Arc<DownLine>>,
     /// The words last heard, with their request: a request that goes on
     /// from one given up after an early end begins with them.
     heard_last: Mutex<Option<(u64, String)>>,
@@ -239,6 +247,55 @@ impl Cues {
         }
         let index = (self.last.fetch_add(1, Ordering::Relaxed) as usize + 1) % clips.len();
         clips.get(index).cloned()
+    }
+}
+
+/// [`DOWN_LINE`], rendered by [`Services::speak`] while the relay answers and
+/// kept in memory, so it can be said when the chat no longer does.
+#[derive(Default)]
+struct DownLine {
+    clip: Mutex<Option<Vec<i16>>>,
+    rendering: AtomicBool,
+    said_at: Mutex<Option<tokio::time::Instant>>,
+}
+
+impl DownLine {
+    fn render(self: &Arc<Self>, services: &Arc<dyn Services>) {
+        if self.rendering.swap(true, Ordering::AcqRel) {
+            return;
+        }
+        let line = self.clone();
+        let services = services.clone();
+        tokio::spawn(async move {
+            let mut clip = Vec::new();
+            let mut speech = services.speak(DOWN_LINE.to_owned());
+            while let Some(packet) = speech.next().await {
+                match packet {
+                    Ok(packet) => clip.extend(packet),
+                    Err(_) => {
+                        clip.clear();
+                        break;
+                    }
+                }
+            }
+            match line.clip.lock() {
+                Ok(mut kept) if !clip.is_empty() => *kept = Some(clip),
+                // Not said (speech failed): tried again at the next turn.
+                _ => line.rendering.store(false, Ordering::Release),
+            }
+        });
+    }
+
+    /// The line, if rendered and not said in the last [`DOWN_LINE_EVERY`].
+    fn take(&self) -> Option<Vec<i16>> {
+        let clip = self.clip.lock().ok()?.clone()?;
+        let mut said_at = self.said_at.lock().ok()?;
+        let now = tokio::time::Instant::now();
+        if said_at.is_some_and(|at| now.duration_since(at) < DOWN_LINE_EVERY) {
+            return None;
+        }
+        *said_at = Some(now);
+        Some(clip)
     }
 }
 
@@ -322,6 +379,7 @@ impl Engine {
                 out,
                 heed: None,
                 cues: None,
+                down: None,
                 heard_last: Mutex::new(None),
                 stop_untold: Mutex::new(None),
             }),
@@ -358,6 +416,19 @@ impl Engine {
             debug_assert!(shared.is_some(), "the wait sound is set before any turn");
             if let Some(shared) = shared {
                 shared.cues = Some(Arc::default());
+            }
+        }
+        self
+    }
+
+    /// A turn whose first round has not begun within its bound says
+    /// [`DOWN_LINE`] (`LAMP_SECOND_DOWN_LINE=on`). Before any turn only.
+    pub fn saying_when_down(mut self, on: bool) -> Self {
+        if on {
+            let shared = Arc::get_mut(&mut self.shared);
+            debug_assert!(shared.is_some(), "the down line is set before any turn");
+            if let Some(shared) = shared {
+                shared.down = Some(Arc::default());
             }
         }
         self
@@ -845,6 +916,9 @@ async fn answer(
     if heard && let Some(cues) = &shared.cues {
         cues.render(&shared.services);
     }
+    if let Some(down) = &shared.down {
+        down.render(&shared.services);
+    }
     // The picture of a look goes in round 1 only: a later round after a
     // tool is asked with the words alone (the reviewer on #1075).
     let mut seeing = picture.is_some();
@@ -916,6 +990,14 @@ async fn answer(
                                 "lamp-voice second: request {request} chat round {round} had not begun in {} ms; the turn ends unanswered",
                                 began.elapsed().as_millis()
                             );
+                            // Not nothing, when switched on: the line, as
+                            // audio only, so it is no answer in the thread.
+                            if let Some(clip) = shared.down.as_ref().and_then(|down| down.take()) {
+                                eprintln!(
+                                    "lamp-voice second: request {request} said it can't think right now"
+                                );
+                                cue(shared, request, clip).await?;
+                            }
                             return Err(Stop::Silent);
                         }
                     }

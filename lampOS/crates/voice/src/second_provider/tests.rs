@@ -1385,3 +1385,33 @@ async fn a_stop_goes_with_a_request_going_on_and_never_past_two_minutes() {
     assert_eq!(asked[3].last(), Some(&Message::user("Tell me another")));
     assert!(!asked[3].contains(&stopped), "{:?}", asked[3]);
 }
+
+/// The first builder, 2026-10-17 02:48: with the down line on, a turn whose
+/// chat never began says "I can't think right now; give me a minute." as
+/// audio only, not as words, at most once a minute; with it off, nothing.
+#[tokio::test(start_paused = true)]
+async fn a_chat_that_never_begins_says_the_down_line_at_most_once_a_minute() {
+    async fn turns(on: bool) -> Vec<Vec<String>> {
+        let script = Arc::new(Script {
+            chats: Mutex::new([vec![], vec![], vec![]].into()),
+            hold_chat: true,
+            ..Script::default()
+        });
+        let (engine, _, _) = scripted(script);
+        let mut engine = engine.saying_when_down(on);
+        let mut heard = Vec::new();
+        for (request, wait) in [(1, 0), (2, 1), (3, 61)] {
+            tokio::time::sleep(Duration::from_secs(wait)).await;
+            engine.submit(written(request, "What time is it?"));
+            heard.push(sent(&mut engine).await);
+        }
+        heard
+    }
+    let line = format!("audio:{}", DOWN_LINE.len());
+    let on = turns(true).await;
+    assert!(on[0].contains(&line), "{on:?}");
+    assert!(!on[0].iter().any(|event| event == "said"), "{on:?}");
+    assert_eq!(on[1], ["complete"]);
+    assert!(on[2].contains(&line), "{on:?}");
+    assert!(turns(false).await.iter().all(|turn| turn == &["complete"]));
+}

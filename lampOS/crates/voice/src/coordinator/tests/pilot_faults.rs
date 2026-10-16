@@ -930,6 +930,12 @@ impl Peers {
                         },
                     });
                     if sent.is_err() {
+                        // A full socket (the catch-up after a stall can fill
+                        // it) loses no block: the device still holds it, and
+                        // it goes next step with its own acquisition time, so
+                        // the sequence the coordinator sees has no hole.
+                        self.capture.as_mut().unwrap().next_sequence = frame;
+                        self.seen.lock().unwrap().capture_frames = frame - 1;
                         break;
                     }
                 }

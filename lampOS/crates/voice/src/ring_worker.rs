@@ -61,6 +61,8 @@ pub struct Senses {
     /// The strong eye ([`Face::eye_strong`]), only with `eye`.
     pub eye_strong: bool,
     pub sight: Option<RingSight>,
+    /// A hand kept on the head, for its countdown ([`crate::ring_head`]).
+    pub head: Option<crate::ring_head::RingHead>,
 }
 
 /// Startup Ready is emitted only after the sink accepted its initial black frame.
@@ -115,7 +117,8 @@ pub fn run(mut link: WorkerChannels, controller_boot: BootId) -> io::Result<()> 
 /// what the ring shows is said on it ([`crate::ring_light`]); a bus that
 /// cannot be used is said once and the ring runs without. With `eye`, the
 /// face is the eye ([`crate::ring_face`]), and looks where the eyes on the
-/// same bus see a person ([`crate::ring_sight`]).
+/// same bus see a person ([`crate::ring_sight`]). With `head_touch`, a hand
+/// kept on the head dims it, a countdown to sleep ([`crate::ring_head`]).
 #[cfg(target_os = "linux")]
 pub fn run_continuous(
     mut link: WorkerChannels,
@@ -124,6 +127,7 @@ pub fn run_continuous(
     bus_root: Option<&std::path::Path>,
     eye: bool,
     eye_strong: bool,
+    head_touch: bool,
 ) -> io::Result<()> {
     let light = bus_root.and_then(|root| match RingLight::on(root) {
         Ok(light) => Some(light),
@@ -141,11 +145,22 @@ pub fn run_continuous(
                 None
             }
         });
+    let head =
+        bus_root.filter(|_| head_touch).and_then(|root| {
+            match crate::ring_head::RingHead::on(root) {
+                Ok(head) => Some(head),
+                Err(error) => {
+                    eprintln!("lamp-voice ring: the head's hand cannot be read: {error}");
+                    None
+                }
+            }
+        });
     let senses = Senses {
         light,
         eye,
         eye_strong,
         sight,
+        head,
     };
     let resting = match resting.map(ChannelCeiling::new).transpose() {
         Ok(resting) => resting,
@@ -190,6 +205,25 @@ fn report_start_failure(link: &mut impl RingLink, error: io::Error) -> io::Resul
         code: bounded(&format!("ring startup: {error}")),
     });
     Err(error)
+}
+
+/// As [`run_with_sink_resting`], with the senses an all-day ring takes from
+/// the bus, for host tests of the same loop the device's worker runs.
+pub fn run_with_sink_senses(
+    mut link: impl RingLink,
+    controller_boot: BootId,
+    sink: impl FrameSink,
+    resting: Option<u16>,
+    senses: Senses,
+) -> io::Result<()> {
+    let resting = match resting.map(ChannelCeiling::new).transpose() {
+        Ok(resting) => resting,
+        Err(error) => return report_start_failure(&mut link, io::Error::other(error)),
+    };
+    match GuardedRing::new(sink, controller_boot) {
+        Ok(ring) => run_guarded(link, controller_boot, ring, false, resting, senses),
+        Err(error) => report_start_failure(&mut link, io::Error::other(error)),
+    }
 }
 
 fn run_guarded(
@@ -348,6 +382,7 @@ fn service(
         eye,
         eye_strong,
         mut sight,
+        mut head,
     } = senses;
     let mut light = light.map(|(light, begins)| {
         face.light(begins);
@@ -383,6 +418,12 @@ fn service(
             at,
             guard.state().map(|state| state.expires_at().as_micros()),
         )?;
+        // The head is optional input: read after revocation and expiry, and
+        // only a bounded few at a time (#849 review).
+        if let Some(head) = head.as_mut() {
+            face.hand(head.tick(at));
+            face.tapped(head.tapped_until());
+        }
         if budget > 0 && pending.is_none() {
             pending = link.receive_frame()?;
         }

@@ -163,6 +163,51 @@ impl Receiver {
         Ok(())
     }
 
+    /// A hand kept three seconds on the head asks for sleep (#711): the same
+    /// one-way mute, with the reason `sleep`. Call only with a head hold that
+    /// `TouchReceiver` accepted, and persist it as any newly accepted mute.
+    /// The lamp is awake or asleep as it was when that hand arrived: a
+    /// contact begun before the last mute change or clear asks nothing, so a
+    /// hand that woke it cannot send it back. A muted lamp keeps its mute and
+    /// its reason: sleep never takes over a person's privacy mute.
+    pub fn request_sleep(&mut self, now_us: u64, began_us: u64, at_us: u64) -> io::Result<bool> {
+        self.clock(now_us)?;
+        if began_us <= self.record.through_us || at_us > now_us || !self.record.request_sleep(at_us)
+        {
+            return Ok(false);
+        }
+        self.fence_clear(now_us)?;
+        Ok(true)
+    }
+
+    /// A tap on the head wakes a lamp put to sleep (#711): an explicit local
+    /// clear, as a fresh hold is, but only of a mute whose reason is `sleep`;
+    /// a person's privacy mute stays until their hold. Call only with a head
+    /// tap that `TouchReceiver` accepted. As for a hold, the tap must begin
+    /// after this owner's clear fence and the sleep, and have been released
+    /// within the event lifetime. It only makes the clear pending: the
+    /// quiescent owner prepares, saves and commits it as for a hold. Without
+    /// `with_hold_clear`, nothing clears.
+    pub fn request_wake(
+        &mut self,
+        now_us: u64,
+        began_us: u64,
+        released_us: u64,
+    ) -> io::Result<bool> {
+        self.clock(now_us)?;
+        let eligible = self.record.asleep()
+            && began_us <= released_us
+            && released_us <= now_us
+            && now_us - released_us < CONTROL_EVENT_TTL_US
+            && self
+                .clear_after_us
+                .is_some_and(|fence| began_us > fence.max(self.record.through_us));
+        if eligible {
+            self.pending_clear_release_us = Some(released_us);
+        }
+        Ok(eligible)
+    }
+
     /// Must only be invoked for a separate explicit user request. This does
     /// not inspect or clear physical privacy and cannot return a capture permit.
     /// This explicit disk transaction belongs outside the urgent event loop.

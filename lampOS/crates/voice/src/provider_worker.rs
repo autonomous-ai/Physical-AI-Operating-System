@@ -92,6 +92,8 @@ static NAME_NOTE_BUSY_FACE: std::sync::atomic::AtomicBool =
 /// Whether the rule for whom the lamp answers is in its busy form
 /// (`crate::attention::BUSY_FLAG`).
 static ATTENTION_BUSY: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// Whether a tap on the lamp's head counts as a call (`--head-touch`, #711).
+static HEAD_TOUCH: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 /// Whether a name heard close to the lamp counts as a call
 /// (`crate::attention::NEAR_FLAG`).
 static ATTENTION_NEAR: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
@@ -145,6 +147,8 @@ pub struct Files {
     /// Whether, in a busy room, that waits for someone turned to the lamp
     /// (`--name-note-busy-face`).
     pub name_note_busy_face: bool,
+    /// Whether a tap on the lamp's head counts as a call (`--head-touch`).
+    pub head_touch: bool,
     /// The lamp's bus, if how the room is gets published on it
     /// (`--bus-root`).
     pub bus_root: Option<std::path::PathBuf>,
@@ -216,6 +220,7 @@ pub fn parse_flags(dir: &std::path::Path, flags: &[String]) -> io::Result<Parsed
     let (addressed, flags) = crate::addressed::take(flags);
     let (name_signal, flags) = crate::attention::take_name(flags);
     let (name_note, name_note_busy_face, flags) = crate::called::take(flags);
+    let (head_touch, flags) = crate::attention::take_head_touch(flags);
     let (bus_root, flags) = crate::bus_out::take_root(flags)?;
     let (first_output, flags) = crate::first_output::take(flags)?;
     let (sounds_checked, flags) = crate::not_speech::take_checked(flags);
@@ -239,6 +244,7 @@ pub fn parse_flags(dir: &std::path::Path, flags: &[String]) -> io::Result<Parsed
         name_signal,
         name_note,
         name_note_busy_face,
+        head_touch,
         bus_root,
         first_output,
         sounds_checked,
@@ -822,6 +828,7 @@ pub async fn run_with_continuation(
     ROOM_FACTS.store(files.room_facts, std::sync::atomic::Ordering::Relaxed);
     AIR_FACTS.store(files.air_facts, std::sync::atomic::Ordering::Relaxed);
     NAME_NOTE.store(files.name_note, std::sync::atomic::Ordering::Relaxed);
+    HEAD_TOUCH.store(files.head_touch, std::sync::atomic::Ordering::Relaxed);
     NAME_NOTE_BUSY_FACE.store(
         files.name_note_busy_face,
         std::sync::atomic::Ordering::Relaxed,
@@ -1036,6 +1043,21 @@ async fn serve_with_visual<C: Connect>(
             })
             .ok()
     });
+    // A tap on the lamp's head, from `--touch` Controls, counts as a call
+    // for the next few seconds (#711). With no bus it counts for nothing.
+    let mut taps_in = HEAD_TOUCH
+        .load(std::sync::atomic::Ordering::Relaxed)
+        .then(|| BUS_ROOT.get())
+        .flatten()
+        .and_then(|root| {
+            crate::bus_out::TapsIn::on(root)
+                .inspect_err(|why| {
+                    eprintln!(
+                        "lamp-voice provider: the head's taps cannot be taken from the bus: {why}"
+                    );
+                })
+                .ok()
+        });
     // And, if that is switched on, the model is told so while the person
     // is still speaking.
     let name_note = NAME_NOTE.load(std::sync::atomic::Ordering::Relaxed);
@@ -1177,6 +1199,11 @@ async fn serve_with_visual<C: Connect>(
                     if score >= crate::attention::SURE_SCORE {
                         sure_name_us = Some(began);
                     }
+                }
+                if let Some(taps) = taps_in.as_mut()
+                    && let Some(tapped) = taps.newest(monotonic_us())
+                {
+                    attention.head_tapped(tapped);
                 }
                 // Heard plainly as this request began: the model is told,
                 // beside what it is hearing, once.

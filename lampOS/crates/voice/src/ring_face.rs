@@ -186,6 +186,17 @@ const NOTICE_US: f32 = 300_000.0;
 /// that blinks never come as a clock's would.
 const BLINK_US: u64 = 150_000;
 const BLINK_LOW: f32 = 0.25;
+/// The countdown of a hand kept on the head (#711): from the stroke at one
+/// second to sleep at three, as Controls counts them, the face dims to this
+/// share of itself, slowly enough to be seen as a countdown.
+const COUNTDOWN_FROM_US: f32 = 1_000_000.0;
+const COUNTDOWN_TO_US: f32 = 3_000_000.0;
+const COUNTDOWN_LOW: f32 = 0.15;
+/// After a tap's listening face at rest (#711), the face settles back to its
+/// own light this slowly: most of the way in about half a second, so that it
+/// eases and does not snap (First, #711).
+const SETTLE_EASE_US: f32 = 170_000.0;
+const SETTLE_US: u64 = 600_000;
 const BLINK_EVERY_US: (u64, u64) = (7_000_000, 9_000_000);
 
 /// One face. It keeps what is on the ring now, so that a change of mood, or
@@ -219,6 +230,10 @@ pub struct Face {
     /// When the next blink at rest begins, and how many there have been.
     next_blink_us: Option<u64>,
     blinks: u64,
+    /// How long a hand has been kept on the head ([`Face::hand`]).
+    held_us: Option<u64>,
+    /// Until when a tap on the head is listened for at rest ([`Face::tapped`]).
+    tapped_until_us: Option<u64>,
 }
 
 impl Default for Face {
@@ -244,7 +259,25 @@ impl Face {
             gaze: [0.0; 2],
             next_blink_us: None,
             blinks: 0,
+            held_us: None,
+            tapped_until_us: None,
         }
+    }
+
+    /// How long a hand has been kept on the head, as Controls counts it, or
+    /// `None` (#711, [`crate::ring_head`]): from one second to three the face
+    /// dims, a countdown to sleep; a hand let go before then lets it brighten
+    /// again, eased like any other change.
+    pub fn hand(&mut self, held_us: Option<u64>) {
+        self.held_us = held_us;
+    }
+
+    /// A tap on the head of a lamp at rest (#711): until `until_us` the
+    /// resting face is the listening face, the one a call gets while the
+    /// lamp waits for the rest, then it settles back to its own light over
+    /// about half a second. A turn's own faces are unchanged.
+    pub fn tapped(&mut self, until_us: Option<u64>) {
+        self.tapped_until_us = until_us;
     }
 
     /// Switch the eye on or off ([`Face::eye`]'s field says what it does).
@@ -321,6 +354,17 @@ impl Face {
             LEVEL_FALL_US
         };
         self.level += (wanted_level - self.level) * follow(step_us, pace);
+        // At rest after a tap on the head (#711): the listening face for the
+        // window, then a slow settle back to rest.
+        let since_tap_window = self
+            .tapped_until_us
+            .filter(|_| mood == Mood::Resting)
+            .map(|until| now_us.checked_sub(until));
+        let mood = match since_tap_window {
+            Some(None) => Mood::Listening,
+            _ => mood,
+        };
+        let settling = matches!(since_tap_window, Some(Some(since)) if since < SETTLE_US);
         // Thinking that ends in rest, with nothing said: it was not for the
         // lamp, or it had no answer. The face closes for a moment, as eyes
         // do, before it rests again.
@@ -380,9 +424,14 @@ impl Face {
             }
         }
         let brighten = 1.0 + NOTICE_GAIN * notice;
-        let open = open * blink;
+        // A hand kept on the head (#711): the countdown to sleep dims it.
+        let countdown = self.held_us.map_or(0.0, |held| {
+            ((held as f32 - COUNTDOWN_FROM_US) / (COUNTDOWN_TO_US - COUNTDOWN_FROM_US))
+                .clamp(0.0, 1.0)
+        });
+        let open = open * blink * (1.0 - (1.0 - COUNTDOWN_LOW) * countdown);
         let seconds = (now_us % 3_600_000_000) as f32 / 1_000_000.0;
-        let ease = follow(step_us, EASE_US);
+        let ease = follow(step_us, if settling { SETTLE_EASE_US } else { EASE_US });
         let mut frame = [Rgb::BLACK; PIXEL_COUNT];
         for (pixel, (shown, out)) in self.shown.iter_mut().zip(&mut frame).enumerate() {
             let angle = TAU * pixel as f32 / PIXEL_COUNT as f32;
@@ -529,6 +578,80 @@ mod tests {
         (0..frames)
             .map(|frame| face.render(mood, level, from_us + frame * 20_000, 48))
             .collect()
+    }
+
+    /// #711: a hand kept on the head dims the face from one second to three,
+    /// a countdown to sleep, and letting go brightens it again. Two faces with
+    /// the same light, one with the hand, are compared frame by frame.
+    #[test]
+    fn a_hand_kept_on_the_head_dims_the_face_from_one_second_to_three() {
+        let at = |seconds: f32| 4_000_000_000 + (seconds * 1e6) as u64;
+        let mut lit = Face::new();
+        lit.light(Lit::of(true, "warm", 5).unwrap());
+        let mut held = lit.clone();
+        let mut ratio = |hand: Option<u64>, from: f32| {
+            held.hand(hand);
+            let plain = play(&mut lit, Mood::Resting, 0, at(from), 50);
+            let dimmed = play(&mut held, Mood::Resting, 0, at(from), 50);
+            brightness(dimmed.last().unwrap()) as f32 / brightness(plain.last().unwrap()) as f32
+        };
+        // Under a second it is only a touch: nothing changes.
+        assert!((ratio(Some(800_000), 0.0) - 1.0).abs() < 0.02);
+        // Half way, about half way down; at three seconds, the low glow.
+        let half = ratio(Some(2_000_000), 1.0);
+        assert!((0.5..0.65).contains(&half), "{half}");
+        let low = ratio(Some(3_000_000), 2.0);
+        assert!((0.10..0.22).contains(&low), "{low}");
+        assert!(low > 0.0, "never dark: the face still shows it hears");
+        // Let go: back to the light.
+        assert!((ratio(None, 3.0) - 1.0).abs() < 0.02);
+    }
+
+    /// #711: a tap on the head of a lamp at rest shows the listening face
+    /// for the window, then settles back to rest over about half a second,
+    /// never snapping. A turn's own faces are unchanged.
+    #[test]
+    fn a_tap_at_rest_listens_for_its_window_and_settles_back_slowly() {
+        let at = |seconds: f32| 4_000_000_000 + (seconds * 1e6) as u64;
+        let apart = |a: &[Rgb; PIXEL_COUNT], b: &[Rgb; PIXEL_COUNT]| -> u32 {
+            a.iter()
+                .zip(b)
+                .map(|(a, b)| {
+                    u32::from(a.red.abs_diff(b.red))
+                        + u32::from(a.green.abs_diff(b.green))
+                        + u32::from(a.blue.abs_diff(b.blue))
+                })
+                .sum()
+        };
+        let mut resting = Face::new();
+        resting.light(Lit::of(true, "warm", 5).unwrap());
+        let (mut tapped, mut listening) = (resting.clone(), resting.clone());
+        for face in [&mut resting, &mut tapped, &mut listening] {
+            play(face, Mood::Resting, 0, at(0.0), 50);
+        }
+        // The window: the resting face is the listening face.
+        tapped.tapped(Some(at(3.0)));
+        let during = play(&mut tapped, Mood::Resting, 0, at(1.0), 100);
+        let heard = play(&mut listening, Mood::Listening, 0, at(1.0), 100);
+        let rest = play(&mut resting, Mood::Resting, 0, at(1.0), 100);
+        assert_eq!(during.last(), heard.last());
+        let wide = apart(heard.last().unwrap(), rest.last().unwrap());
+        assert!(wide > 0, "the listening face is not the resting one");
+        // A turn's face is its own, tapped or not.
+        let mut turn = tapped.clone();
+        let mut plain = listening.clone();
+        assert_eq!(
+            play(&mut turn, Mood::Speaking, 100, at(3.0) - 100_000, 3),
+            play(&mut plain, Mood::Speaking, 100, at(3.0) - 100_000, 3)
+        );
+        // After it: back to rest, slowly. A tenth of a second in, well short
+        // of rest; by 0.6 s, there.
+        let after = play(&mut tapped, Mood::Resting, 0, at(3.0), 30);
+        let rest = play(&mut resting, Mood::Resting, 0, at(3.0), 30);
+        let left = |frame: usize| apart(&after[frame], &rest[frame]) as f32 / wide as f32;
+        assert!(left(5) > 0.45, "{}", left(5));
+        assert!(left(29) < 0.06, "{}", left(29));
+        assert!((1..30).all(|frame| left(frame) <= left(frame - 1) + 0.01));
     }
 
     #[test]

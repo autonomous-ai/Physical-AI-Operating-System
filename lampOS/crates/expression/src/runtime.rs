@@ -4,8 +4,8 @@ use lamp_bus::{Bus, Message, Publisher, Subscriber};
 use lamp_msgs::{
     ClockStamp, Concentration, ControlGesture, Diagnostic, ExpressionBody, ExpressionLight,
     ExpressionState, Faces, JointState, Level, Light, NameHeard, PersonActivity, RoomState,
-    ScheduleDue, Speech, SuddenSound, VoicePlayout, VoiceProgress, VoiceSound, VoiceState,
-    VoiceTiming,
+    ScheduleDue, Speech, SuddenSound, TouchEvent, TouchState, VoiceMute, VoicePlayout,
+    VoiceProgress, VoiceSound, VoiceState, VoiceTiming,
 };
 use std::{
     fs::{self, File, OpenOptions},
@@ -40,6 +40,13 @@ pub const INPUTS: [(&str, &str); 17] = [
     (SuddenSound::TOPIC, SuddenSound::TYPE),
     (ControlGesture::TOPIC, ControlGesture::TYPE),
     (ScheduleDue::TOPIC, ScheduleDue::TYPE),
+];
+/// The head's topics (#711), and the voice's mute that says when the head
+/// put it to sleep, read only with `serve --head-touch`.
+pub const HEAD_INPUTS: [(&str, &str); 3] = [
+    (TouchEvent::TOPIC, TouchEvent::TYPE),
+    (TouchState::TOPIC, TouchState::TYPE),
+    (VoiceMute::TOPIC, VoiceMute::TYPE),
 ];
 /// How often the live service tells the planner the local time of day.
 pub const DAYTIME_EVERY_US: u64 = 60_000_000;
@@ -104,6 +111,7 @@ pub fn input_from_message(
     let topic = message.header.topic.as_str();
     let expected = INPUTS
         .iter()
+        .chain(&HEAD_INPUTS)
         .find(|(name, _)| *name == topic)
         .ok_or_else(|| invalid(format!("unsupported expression input {topic}")))?
         .1;
@@ -123,6 +131,8 @@ pub fn input_from_message(
     let limit_ms = match topic {
         JointState::TOPIC => 500,
         Faces::TOPIC => 2_000,
+        // Said every second and kept three (#711).
+        VoiceMute::TOPIC => 3_000,
         "light/command" => 10_000,
         _ => 2_000,
     };
@@ -191,7 +201,19 @@ pub fn input_from_message(
             stamp,
             value: message.parse()?,
         },
-        _ => unreachable!("INPUTS and this match list the same topics"),
+        TouchEvent::TOPIC => Input::HeadTouch {
+            stamp,
+            value: message.parse()?,
+        },
+        TouchState::TOPIC => Input::HeadHand {
+            stamp,
+            value: message.parse()?,
+        },
+        VoiceMute::TOPIC => Input::VoiceMute {
+            stamp,
+            value: message.parse()?,
+        },
+        _ => unreachable!("INPUTS, HEAD_INPUTS and this match list the same topics"),
     })
 }
 
@@ -363,6 +385,18 @@ impl Service {
             counts: Counts::default(),
             _lock: lock,
         })
+    }
+
+    /// Also read the head's requests and state from `--touch` Controls
+    /// (#711): a hand kept on the head leans the lamp into it, a hold puts it
+    /// to sleep and a tap wakes it. Where the voice says its mute
+    /// (`voice/mute`), sleep follows the voice instead. Off unless asked for.
+    pub fn with_head_touch(mut self, bus: &Bus) -> io::Result<Self> {
+        for (topic, kind) in HEAD_INPUTS {
+            self.inputs
+                .push(bus.subscribe_typed(topic, "expression", kind)?);
+        }
+        Ok(self)
     }
 
     /// Tell the planner the local time of day, from the wall clock this many

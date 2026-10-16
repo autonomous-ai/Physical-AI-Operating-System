@@ -31,7 +31,10 @@ and does not expose a restartable physical- or software-mute token.
 With the independent `--controls-mute ABS_PRIVATE_RECORD` experiment, the
 software latch is restored before any worker, including the metadata writer.
 A restored software mute waits with no GPIO/audio/provider workers until a
-fresh explicit local hold has been durably accepted as clear. If software mute
+fresh explicit local hold has been durably accepted as clear. A mute whose
+reason is `sleep` (a hand held on the head, `LAMP_HEAD_TOUCH=on`, #711) is
+also cleared by a fresh head tap, through the same durable clear; a mute
+without that reason never is ([controls.md](controls.md)). If software mute
 arrives while the GPIO worker is already waiting, that worker continues to
 refresh its observations while the software gate inhibits reopening. Clearing
 software mute never replaces the physical checks above; a closed slide stays

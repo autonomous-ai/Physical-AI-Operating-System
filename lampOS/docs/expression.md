@@ -194,6 +194,11 @@ with a 2.7 s stretch. Asleep, no clip begins and the voice's posture gives
 way to the sleeping pose. It reads two more topics, `controls/gesture` and
 `schedule/due`, and a local time of day the service makes itself from
 `--utc-offset-minutes`, which `serve` requires of a catalogue with sleep.
+With `serve --head-touch` it also reads the head's `controls/touch` and
+`controls/touch_state` from `--touch` Controls: a hand kept on the head is
+leaned into, a three-second hold puts it to sleep, a tap wakes it
+([alive.md](alive.md), "The head"; #711). With it, where the voice says
+`voice/mute`, sleep follows the voice's mute with the reason `sleep`.
 
 ## Optional recent playout level
 
@@ -290,6 +295,8 @@ legacy observation age; it does not convert transcripts into audio timing.
 | `controls/gesture` / `ControlGesture` | Controls: with an `alive` part, an enabled tap or stroke wakes a sleeping lamp ([alive.md](alive.md)); a long press does not |
 | `schedule/due` / `ScheduleDue` | Schedule: with an `alive` part, a notice newly due wakes a sleeping lamp, once for each delivery |
 | The local time of day (not a topic) | `serve --utc-offset-minutes N` itself, at start and every minute; `import --utc-offset-minutes N` from a recording's wall clock. Only sleep reads it |
+| `controls/touch`, `controls/touch_state` | Only with `serve --head-touch`: the head's Stroke, Hold and Tap, and whether that hand is still there (#711) |
+| `voice/mute` / `VoiceMute` | Only with `serve --head-touch`: asleep while the voice's mute says `sleep`, awake when it opens; kept 3 s ([alive.md](alive.md), "The head"; #711) |
 | `light/command` | Actions: the user's lasting on/color/level setting. No light request is emitted before a valid setting is known |
 
 The existing `voice/state` does not carry the private BodyLink's pre-audio

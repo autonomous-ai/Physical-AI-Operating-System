@@ -358,6 +358,38 @@ pub enum Verdict {
 pub const NAME_BEFORE_US: u64 = 1_500_000;
 const NAMED: &str = "its name was heard in the room's sound";
 
+/// A tap on the lamp's head (#711, `docs/creature.md` "Touch") counts as a
+/// call for a request that begins no longer than this after it: the tap
+/// asks the lamp to listen, and the person may take a breath first. It is
+/// the one window the lamp shows it listens for, the ring's listening face
+/// ([`crate::ring_head::TAP_LISTENS_US`] is this) and Expression's look-up:
+/// as long as a call waits for the rest on lamp-4ace (#891, First on #711).
+/// A request that begins inside it keeps it however long it goes on.
+pub const TAPPED_BEFORE_US: u64 = 2_000_000;
+const TAPPED: &str = "someone tapped its head to talk to it";
+
+/// The provider worker's flag for taking the head's taps (#711), given
+/// with `LAMP_HEAD_TOUCH=on`. The worker reads them from the bus, so they
+/// count only when it has one (`LAMP_BUS=on`), as the name heard does.
+pub const HEAD_TOUCH_FLAG: &str = "--head-touch";
+
+/// The provider worker's arguments for the head's taps.
+pub fn head_touch_arguments_from_environment() -> Vec<String> {
+    if crate::hand_controls::head_touch_from_environment() {
+        vec![HEAD_TOUCH_FLAG.to_owned()]
+    } else {
+        Vec::new()
+    }
+}
+
+/// Take a leading `--head-touch` off a worker's flags.
+pub fn take_head_touch(flags: &[String]) -> (bool, &[String]) {
+    match flags {
+        [flag, rest @ ..] if flag == HEAD_TOUCH_FLAG => (true, rest),
+        _ => (false, flags),
+    }
+}
+
 /// The rule. `fresh`: the request is one of its session's first
 /// [`FRESH_REQUESTS`]. `heard`: the text of what was heard since the
 /// request began, empty when none has arrived. `named`: the lamp's name
@@ -481,6 +513,10 @@ pub struct Attention {
     /// such a hearing counts for the request in hand.
     named_sure_us: Option<u64>,
     named_sure: bool,
+    /// When the lamp's head was last tapped, and whether that counts for the
+    /// request in hand ([`TAPPED_BEFORE_US`]).
+    tapped_us: Option<u64>,
+    tapped: bool,
     /// The surest the name was heard for the request in hand, and
     /// whether a voice close to the lamp was heard in it.
     best_score: f32,
@@ -521,6 +557,9 @@ impl Attention {
         self.named_sure = self
             .named_sure_us
             .is_some_and(|named| named.saturating_add(NAME_BEFORE_US) >= now_us);
+        self.tapped = self.tapped_us.is_some_and(|tapped| {
+            tapped <= now_us && tapped.saturating_add(TAPPED_BEFORE_US) >= now_us
+        });
     }
 
     /// A request began on `session` at `now_us` that continues the one in
@@ -530,6 +569,7 @@ impl Attention {
     /// was close, and whether it was said to the lamp from close to it. Its window begins where the first part's did.
     /// Anything else is as for [`Self::began_at`].
     pub fn continued_at(&mut self, request: u64, session: u64, now_us: u64) {
+        let tapped = session == self.session && self.began_us.is_some() && self.tapped;
         let before = (session == self.session && self.began_us.is_some()).then(|| {
             (
                 self.named,
@@ -551,6 +591,7 @@ impl Attention {
             self.addressed |= addressed;
             self.began_us = began_us;
         }
+        self.tapped |= tapped;
     }
 
     /// The sound of `request` stopped being sent at `at_us`: the person
@@ -588,6 +629,16 @@ impl Attention {
         }
     }
 
+    /// The lamp's head was tapped at `at_us`: a call for a request that
+    /// begins within [`TAPPED_BEFORE_US`], and for the one in hand if its
+    /// sound has not ended.
+    pub fn head_tapped(&mut self, at_us: u64) {
+        self.tapped_us = Some(self.tapped_us.map_or(at_us, |before| before.max(at_us)));
+        if self.began_us.is_some() && self.ended_us.is_none_or(|ended| at_us <= ended) {
+            self.tapped = true;
+        }
+    }
+
     /// A request began on `session`.
     pub fn began(&mut self, request: u64, session: u64) {
         if session != self.session {
@@ -604,6 +655,7 @@ impl Attention {
         self.ended_us = None;
         self.named = false;
         self.named_sure = false;
+        self.tapped = false;
         self.best_score = 0.0;
         self.near = false;
         self.addressed = false;
@@ -712,6 +764,13 @@ impl Attention {
             } else {
                 Verdict::Hold(SOUND_HELD)
             };
+            self.verdict = Some(verdict);
+            return Some(verdict);
+        }
+        // A tap on its head (#711) is a call for what is said, not a sound:
+        // a short sound after a tap is still judged as a sound, above.
+        if self.tapped && !own {
+            let verdict = Verdict::Play(TAPPED);
             self.verdict = Some(verdict);
             return Some(verdict);
         }
@@ -860,6 +919,85 @@ mod tests {
         assert!(attention.sound_in_hand());
         attention.began_at(8, 1, 80_000_000);
         assert!(!attention.sound_in_hand());
+    }
+
+    #[test]
+    fn the_head_touch_flag_is_taken_only_first() {
+        let flags = |list: &[&str]| list.iter().map(|flag| flag.to_string()).collect::<Vec<_>>();
+        let given = flags(&[HEAD_TOUCH_FLAG, "--bus-root", "/run/lampos-bus"]);
+        let (on, rest) = take_head_touch(&given);
+        assert!(on);
+        assert_eq!(rest, &given[1..]);
+        let without = flags(&["--bus-root", "/run/lampos-bus"]);
+        assert_eq!(take_head_touch(&without), (false, &without[..]));
+    }
+
+    /// #711: a head tap asks the lamp to listen. A request that begins
+    /// within two seconds of it, the window the lamp shows it listens for,
+    /// is a call in any room, even in the strict busy form with nobody seen
+    /// turned to the lamp; later ones are not.
+    #[test]
+    fn a_head_tap_is_a_call_for_the_two_seconds_the_lamp_shows_it_listens() {
+        let decide = |tapped_at: Option<u64>, began_at: u64| {
+            let mut attention = Attention::default();
+            for request in 1..=2 {
+                attention.began_at(request, 1, request * 1_000_000);
+            }
+            if let Some(at) = tapped_at {
+                attention.head_tapped(at);
+            }
+            attention.began_at(3, 1, began_at);
+            attention
+                .first_output_busy(3, Room::Busy, false, true, None)
+                .unwrap()
+        };
+        let tap = 10_000_000;
+        assert_eq!(decide(Some(tap), tap + 500_000), Verdict::Play(TAPPED));
+        assert_eq!(
+            decide(Some(tap), tap + TAPPED_BEFORE_US),
+            Verdict::Play(TAPPED)
+        );
+        assert!(matches!(
+            decide(Some(tap), tap + TAPPED_BEFORE_US + 1),
+            Verdict::Hold(_)
+        ));
+        assert!(matches!(decide(None, tap + 500_000), Verdict::Hold(_)));
+        // After the window, a fresh utterance is not called: the face and
+        // the look-up have long settled.
+        assert!(matches!(
+            decide(Some(tap), tap + 3_000_000),
+            Verdict::Hold(_)
+        ));
+        // One that began inside it is, though it goes on past it and its
+        // first output comes later.
+        let mut attention = Attention::default();
+        for request in 1..=2 {
+            attention.began_at(request, 1, request * 1_000_000);
+        }
+        attention.head_tapped(tap);
+        attention.began_at(3, 1, tap + 1_900_000);
+        attention.ended(3, tap + 4_000_000);
+        assert_eq!(
+            attention.first_output_busy(3, Room::Busy, false, true, None),
+            Some(Verdict::Play(TAPPED))
+        );
+        // A tap after the request began counts while its sound goes on.
+        let mut attention = Attention::default();
+        attention.began_at(1, 1, tap);
+        attention.head_tapped(tap + 1_000_000);
+        assert_eq!(
+            attention.first_output_busy(1, Room::Busy, false, true, None),
+            Some(Verdict::Play(TAPPED))
+        );
+        // Not once it has ended, and a new request forgets the old one.
+        let mut attention = Attention::default();
+        attention.began_at(1, 1, tap);
+        attention.ended(1, tap + 2_000_000);
+        attention.head_tapped(tap + 3_000_000);
+        assert!(matches!(
+            attention.first_output_busy(1, Room::Busy, false, true, None),
+            Some(Verdict::Hold(_))
+        ));
     }
 
     #[test]

@@ -45,7 +45,12 @@ pub(super) fn supervise(
             {
                 let (reason, observed_at_us) =
                     if let Some(mute) = error.downcast_ref::<SoftwareMute>() {
-                        ("software_muted", mute.observed_at_us)
+                        let reason = if mute.asleep {
+                            "head_sleep"
+                        } else {
+                            "software_muted"
+                        };
+                        (reason, mute.observed_at_us)
                     } else {
                         (
                             "physical_muted",
@@ -73,7 +78,9 @@ mod tests {
 
     #[test]
     fn verified_mutes_repeat_the_privacy_wait_and_record_their_actual_source() {
-        for software in [false, true] {
+        // Physical, software, and software because the head put it to
+        // sleep (#711).
+        for (software, asleep) in [(false, false), (true, false), (true, true)] {
             let mut trace = SessionState::default();
             let waits = Cell::new(0);
             let active = Cell::new(0);
@@ -90,7 +97,10 @@ mod tests {
                     active.set(active.get() + 1);
                     if active.get() == 1 {
                         let mute: Box<dyn std::error::Error + Send + Sync> = if software {
-                            Box::new(SoftwareMute { observed_at_us: 71 })
+                            Box::new(SoftwareMute {
+                                observed_at_us: 71,
+                                asleep,
+                            })
                         } else {
                             Box::new(PhysicalMute { observed_at_us: 71 })
                         };
@@ -109,10 +119,10 @@ mod tests {
             assert_eq!(muted.len(), 1);
             assert_eq!(
                 muted[0]["reason"],
-                if software {
-                    "software_muted"
-                } else {
-                    "physical_muted"
+                match (software, asleep) {
+                    (true, true) => "head_sleep",
+                    (true, false) => "software_muted",
+                    _ => "physical_muted",
                 }
             );
             assert_eq!(muted[0]["observed_at_us"], 71);
@@ -137,7 +147,10 @@ mod tests {
             |_, _| {
                 active.set(active.get() + 1);
                 crate::service_privacy::finish(
-                    Err(Box::new(SoftwareMute { observed_at_us: 73 })),
+                    Err(Box::new(SoftwareMute {
+                        observed_at_us: 73,
+                        asleep: false,
+                    })),
                     Err(io::Error::other("synthetic cleanup failure")),
                 )
             },

@@ -64,11 +64,18 @@ pub(super) enum SpeechOrigin {
     FailureNotice,
     /// The self-test's tone (`crate::speaker_check`): local PCM, no answer.
     SelfTest,
+    /// The head tap's "hm?" (`crate::head_cue`, #711): local PCM, no answer.
+    HeadCue,
 }
 impl SpeechOrigin {
     /// Played from a recording held here, not from the provider.
     pub(super) fn local(self) -> bool {
         self != Self::Provider
+    }
+    /// A turn that is only a short sound of the lamp's own, and none for the
+    /// face, the head, the room or the voice's state.
+    pub(super) fn unshown(self) -> bool {
+        matches!(self, Self::SelfTest | Self::HeadCue)
     }
     /// The trace's name for what plays.
     pub(super) fn trace_name(self) -> &'static str {
@@ -76,6 +83,7 @@ impl SpeechOrigin {
             Self::Provider => "speaker",
             Self::FailureNotice => "failure_notice",
             Self::SelfTest => "selftest_tone",
+            Self::HeadCue => "head_tap_cue",
         }
     }
 }
@@ -88,7 +96,7 @@ pub(super) enum NoticeDelivery {
     Unselected,
     Skipped(Missing),
     Selected {
-        /// `FailureNotice` or `SelfTest`.
+        /// `FailureNotice`, `SelfTest` or `HeadCue`.
         origin: SpeechOrigin,
         recording: Arc<Recording>,
         cursor: usize,
@@ -109,8 +117,13 @@ impl NoticeDelivery {
     }
     /// The self-test's tone, ready to play from its first sample.
     pub(super) fn tone(samples: Vec<i16>) -> Self {
+        Self::sound(SpeechOrigin::SelfTest, samples)
+    }
+    /// A short sound of the lamp's own, made here, ready to play from its
+    /// first sample.
+    pub(super) fn sound(origin: SpeechOrigin, samples: Vec<i16>) -> Self {
         Self::Selected {
-            origin: SpeechOrigin::SelfTest,
+            origin,
             recording: Arc::new(Recording {
                 info: None,
                 samples: samples.into_boxed_slice(),

@@ -4,15 +4,16 @@ use crate::{Catalogue, Error, LEASE_US, Trigger};
 use lamp_msgs::{
     BodyOffsets, ClockStamp, Concentration, ControlGesture, ExpressionBody, ExpressionFace,
     ExpressionGaze, ExpressionLease, ExpressionLight, ExpressionState, Faces, JointState, Light,
-    NameHeard, PersonActivity, Room, RoomState, ScheduleDue, Speech, SuddenSound, Voice,
-    VoiceEvent, VoicePlayout, VoiceProgress, VoiceSound, VoiceState, VoiceTiming,
+    NameHeard, PersonActivity, Room, RoomState, ScheduleDue, Speech, SuddenSound, TouchEvent,
+    TouchState, Voice, VoiceEvent, VoiceMute, VoicePlayout, VoiceProgress, VoiceSound, VoiceState,
+    VoiceTiming,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeSet, VecDeque};
 
 pub const MAX_PLAYOUT_FRAMES: usize = 128;
 pub const MAX_VOICE_SESSIONS: usize = 32;
-const STREAMS: usize = 18;
+const STREAMS: usize = 21;
 const CONTEXT_BYTES: usize = 16 * 1024;
 
 /// Arrival time is supplied separately to ingest. Stamps retain the source
@@ -80,6 +81,26 @@ pub enum Input {
         stamp: ClockStamp,
         minute: u16,
     },
+    /// The head's requests from `--touch` Controls (`controls/touch`, #711):
+    /// a hand kept there leans the lamp into it, a hold puts it to sleep, a
+    /// tap wakes it. Only with `serve --head-touch`.
+    HeadTouch {
+        stamp: ClockStamp,
+        value: TouchEvent,
+    },
+    /// The head's state (`controls/touch_state`): whether that hand is still
+    /// there.
+    HeadHand {
+        stamp: ClockStamp,
+        value: TouchState,
+    },
+    /// The voice's mute and why (`voice/mute`, #711): while it says the lamp
+    /// was put to sleep, it sleeps, and it wakes when the voice opens again.
+    /// Only with `serve --head-touch`.
+    VoiceMute {
+        stamp: ClockStamp,
+        value: VoiceMute,
+    },
 }
 
 /// The name `Input::DayTime` goes by where a topic is asked for.
@@ -105,7 +126,10 @@ impl Input {
             | Self::Sudden { stamp, .. }
             | Self::Touch { stamp, .. }
             | Self::Due { stamp, .. }
-            | Self::DayTime { stamp, .. } => stamp,
+            | Self::DayTime { stamp, .. }
+            | Self::HeadTouch { stamp, .. }
+            | Self::HeadHand { stamp, .. }
+            | Self::VoiceMute { stamp, .. } => stamp,
         }
     }
 
@@ -129,6 +153,9 @@ impl Input {
             Self::Touch { .. } => ControlGesture::TOPIC,
             Self::Due { .. } => ScheduleDue::TOPIC,
             Self::DayTime { .. } => DAYTIME_TOPIC,
+            Self::HeadTouch { .. } => TouchEvent::TOPIC,
+            Self::HeadHand { .. } => TouchState::TOPIC,
+            Self::VoiceMute { .. } => VoiceMute::TOPIC,
         }
     }
 
@@ -152,6 +179,9 @@ impl Input {
             Self::Touch { .. } => 15,
             Self::Due { .. } => 16,
             Self::DayTime { .. } => 17,
+            Self::HeadTouch { .. } => 18,
+            Self::HeadHand { .. } => 19,
+            Self::VoiceMute { .. } => 20,
         }
     }
 
@@ -210,6 +240,9 @@ impl Input {
             Self::Name { value, .. } => value.check()?,
             Self::Sudden { value, .. } => value.check()?,
             Self::Touch { value, .. } => value.check()?,
+            Self::HeadTouch { value, .. } => value.check()?,
+            Self::HeadHand { value, .. } => value.check()?,
+            Self::VoiceMute { value, .. } => value.check()?,
             Self::Due { value, .. } => value.check()?,
             Self::DayTime { minute, .. } => {
                 if *minute >= 1_440 {
@@ -737,6 +770,21 @@ impl Engine {
             Input::Due { value, .. } => {
                 if let Some(life) = &mut self.life {
                     life.due(&value);
+                }
+            }
+            Input::HeadTouch { stamp, value } => {
+                if let Some(life) = &mut self.life {
+                    life.head_touch(stamp.at_us, &value);
+                }
+            }
+            Input::HeadHand { stamp, value } => {
+                if let Some(life) = &mut self.life {
+                    life.head_hand(stamp.at_us, &value);
+                }
+            }
+            Input::VoiceMute { stamp, value } => {
+                if let Some(life) = &mut self.life {
+                    life.voice_mute(stamp.at_us, &value);
                 }
             }
             Input::DayTime { stamp, minute } => {

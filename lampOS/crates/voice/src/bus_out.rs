@@ -285,6 +285,75 @@ impl NameIn {
     }
 }
 
+/// The lamp's head tapped, from `--touch` Controls (`controls/touch`, #711),
+/// for the rule that decides whether an answer is played
+/// (`crate::attention`): a tap asks the lamp to listen.
+pub struct TapsIn {
+    touches: lamp_bus::Subscriber,
+    looked_at_us: Option<u64>,
+    /// The newest tap taken: its Controls session and event sequence.
+    taken: Option<(String, u64)>,
+}
+
+/// A tap let go longer ago than this, by the time it is read, is not taken.
+const TAP_FRESH_US: u64 = 2_000_000;
+
+impl TapsIn {
+    pub fn on(root: &Path) -> io::Result<Self> {
+        Ok(Self {
+            touches: Bus::new(root)?.subscribe_typed(
+                lamp_msgs::TouchEvent::TOPIC,
+                SOURCE,
+                lamp_msgs::TouchEvent::TYPE,
+            )?,
+            looked_at_us: None,
+            taken: None,
+        })
+    }
+
+    /// When the newest head tap since the last look was let go, by
+    /// Controls' clock, which is this machine's monotonic clock. Never waits,
+    /// and looks at the bus at most every 20 ms however often it is called.
+    pub fn newest(&mut self, now_us: u64) -> Option<u64> {
+        if self
+            .looked_at_us
+            .is_some_and(|at| now_us.saturating_sub(at) < NAME_LOOK_EVERY_US)
+        {
+            return None;
+        }
+        self.looked_at_us = Some(now_us);
+        let mut newest = None;
+        for _ in 0..8 {
+            let Ok(Some(message)) = self.touches.recv(std::time::Duration::ZERO) else {
+                break;
+            };
+            if let Some(released) = self.tap(&message, now_us) {
+                newest = Some(newest.map_or(released, |before: u64| before.max(released)));
+            }
+        }
+        newest
+    }
+
+    fn tap(&mut self, message: &lamp_bus::Message, now_us: u64) -> Option<u64> {
+        let event = message.parse::<lamp_msgs::TouchEvent>().ok()?;
+        let released = event.released_us?;
+        let identity = (event.session_id.clone(), event.stamp.sequence);
+        let fresh = !message.expired
+            && message.header.source == "controls"
+            && event.check().is_ok()
+            && event.enabled
+            && event.source == lamp_msgs::TouchSource::Head
+            && event.gesture == lamp_msgs::TouchGesture::Tap
+            && released <= now_us
+            && now_us - released < TAP_FRESH_US
+            && self.taken.as_ref() != Some(&identity);
+        fresh.then(|| {
+            self.taken = Some(identity);
+            released
+        })
+    }
+}
+
 /// Whether the eyes see someone turned to the lamp now
 /// (`humans/faces/tracked`, `docs/eyes.md`): true when a face in their
 /// newest look is, false when that look saw nobody turned to it, nothing
@@ -651,6 +720,57 @@ mod tests {
         assert_eq!(names.newest(now + NAME_LOOK_EVERY_US - 1), None);
         assert_eq!(names.newest_scored(20_000_000), Some((19_900_000, 0.99)));
         assert_eq!(names.newest(21_000_000), None);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn a_head_tap_is_taken_from_the_bus_once_while_fresh_and_nothing_else_is() {
+        // #711: only Controls' head Tap asks the lamp to listen.
+        use lamp_msgs::{TouchEvent, TouchGesture, TouchIntent};
+        let (bus, root) = bus("taps");
+        let mut taps = TapsIn::on(&root).unwrap();
+        assert_eq!(taps.newest(5_000_000), None);
+        let mut says = bus
+            .publisher_declared(TouchEvent::TOPIC, &TouchEvent::declaration(), "controls")
+            .unwrap();
+        let now = lamp_ipc::monotonic_us();
+        let (_, touches) = crate::hand_controls::test_head_touch("boot", now - 400_000);
+        let touch = touches[0].clone();
+        let mut tap = touch.clone();
+        tap.gesture = TouchGesture::Tap;
+        (tap.when_speaking, tap.when_quiet) = (TouchIntent::Attend, TouchIntent::Attend);
+        tap.when_asleep = Some(TouchIntent::Wake);
+        tap.released_us = Some(tap.began_us + 200_000);
+        tap.observed_us = tap.began_us + 350_000;
+        tap.stamp.at_us = tap.observed_us;
+        tap.stamp.sequence += 1;
+        (tap.active_mask, tap.active_names) = (0, Vec::new());
+        tap.check().unwrap();
+        // A touch alone is not a tap; the tap is taken, dated by its release.
+        says.publish_json(1, &touch).unwrap();
+        says.publish_json(2, &tap).unwrap();
+        let since = std::time::Instant::now();
+        let mut look = now;
+        let tapped = loop {
+            look += NAME_LOOK_EVERY_US;
+            if let Some(tapped) = taps.newest(look) {
+                break tapped;
+            }
+            assert!(since.elapsed() < WAIT * 4);
+            std::thread::sleep(Duration::from_millis(2));
+        };
+        assert_eq!(tapped, tap.released_us.unwrap());
+        // The same tap again is not taken twice.
+        says.publish_json(3, &tap).unwrap();
+        std::thread::sleep(Duration::from_millis(50));
+        assert_eq!(taps.newest(look + NAME_LOOK_EVERY_US), None);
+        // A tap read more than two seconds after it was let go is not taken.
+        let mut old = tap.clone();
+        old.stamp.sequence += 1;
+        says.publish_json(4, &old).unwrap();
+        std::thread::sleep(Duration::from_millis(50));
+        let late = tap.released_us.unwrap() + TAP_FRESH_US;
+        assert_eq!(taps.newest(late.max(look + 2 * NAME_LOOK_EVERY_US)), None);
         std::fs::remove_dir_all(root).unwrap();
     }
 

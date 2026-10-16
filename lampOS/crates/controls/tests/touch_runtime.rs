@@ -111,6 +111,9 @@ fn wiring() -> TouchPinsConfig {
         reset: Some(pin("reset", 100)),
         every_ms: 10,
         base: Some(base()),
+        head_qualify_ms: None,
+        head_tap_min_ms: None,
+        head_gap_ms: None,
     }
 }
 
@@ -575,4 +578,48 @@ fn a_second_touch_owner_cannot_publish_into_the_same_bus_root() {
         CLOCK,
     );
     assert!(result.is_err());
+}
+
+/// #711: the body's `body/hand` is a push only while fresh and from the body;
+/// anything else, or nothing, is not, so a stopped body never silences the head.
+#[test]
+fn the_bodys_hand_counts_only_fresh_and_from_the_body() {
+    use lamp_controls::touch_runtime::pushed_now;
+    use lamp_msgs::Hand;
+    let root = Root::new();
+    let bus = Bus::new(&root.0).unwrap();
+    let now_unix_ms = || {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as u64
+    };
+    assert!(!pushed_now(None, now_unix_ms()));
+    let mut body = bus
+        .publisher_declared(Hand::TOPIC, &Hand::declaration(), "body")
+        .unwrap();
+    body.expires_after(Some(Duration::from_secs(1)));
+    let said = |pushed| Hand {
+        pushed,
+        since_us: u64::from(pushed) * 5_000_000,
+    };
+    body.publish_json(1, &said(true)).unwrap();
+    let latest = bus.latest(Hand::TOPIC).unwrap();
+    assert!(pushed_now(latest.as_ref(), now_unix_ms()));
+    // Past its second it says nothing.
+    assert!(!pushed_now(latest.as_ref(), now_unix_ms() + 5_000));
+    body.publish_json(2, &said(false)).unwrap();
+    assert!(!pushed_now(
+        bus.latest(Hand::TOPIC).unwrap().as_ref(),
+        now_unix_ms()
+    ));
+    drop(body);
+    let mut other = bus
+        .publisher_declared(Hand::TOPIC, &Hand::declaration(), "test")
+        .unwrap();
+    other.publish_json(3, &said(true)).unwrap();
+    assert!(!pushed_now(
+        bus.latest(Hand::TOPIC).unwrap().as_ref(),
+        now_unix_ms()
+    ));
 }

@@ -28,6 +28,13 @@ pub struct TouchPinsConfig {
     pub reset: Option<Pin>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub base: Option<mpr121::Config>,
+    /// The head's timing (#711); absent values keep their defaults.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub head_qualify_ms: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub head_tap_min_ms: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub head_gap_ms: Option<u64>,
 }
 
 impl TouchPinsConfig {
@@ -112,6 +119,9 @@ impl TouchPinsConfig {
             reset: self.reset.as_ref().map(|pin| pin.name.clone()),
             head_pads: self.head_pads.iter().map(|pin| pin.name.clone()).collect(),
             strip_pads: self.base.as_ref().map(|base| base.pads.clone()),
+            head_qualify_ms: self.head_qualify_ms,
+            head_tap_min_ms: self.head_tap_min_ms,
+            head_gap_ms: self.head_gap_ms,
         };
         touch.check().map_err(|e| e.to_string())?;
         Ok(touch)

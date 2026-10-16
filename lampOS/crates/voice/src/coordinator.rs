@@ -1980,6 +1980,7 @@ fn provider_arguments(
     arguments.extend(crate::addressed::arguments_from_environment());
     arguments.extend(crate::attention::name_arguments_from_environment());
     arguments.extend(crate::called::arguments_from_environment());
+    arguments.extend(crate::attention::head_touch_arguments_from_environment());
     arguments.extend(crate::bus_out::worker_arguments_from_environment());
     arguments.extend(crate::first_output::arguments_from_environment());
     arguments.extend(crate::not_speech::arguments_from_environment());
@@ -2093,9 +2094,13 @@ fn spawn_rig(
     // And whether its face is the eye (`LAMP_RING_EYE=on`, task 34), which
     // needs that bus to see where people are.
     let ring_eye = crate::ring_sight::arguments_from_environment();
+    // And whether a hand kept on the head dims it, a countdown to sleep
+    // (`LAMP_HEAD_TOUCH=on`, #711), which reads Controls on that bus.
+    let ring_head = crate::ring_head::arguments_from_environment();
     if lifetime.continuous() {
         ring_arguments.extend(ring_bus.iter().map(String::as_str));
         ring_arguments.extend(ring_eye.iter().map(String::as_str));
+        ring_arguments.extend(ring_head.iter().map(String::as_str));
     }
     let mut ring = if options.ring_channel_ceiling.is_some() {
         OptionalRing::spawn(&executable, directory, boot, &ring_arguments, || {
@@ -2267,10 +2272,12 @@ fn run_inner(
     termination.check()?;
     if let Some(controls) = controls.as_mut() {
         controls.fence_clear()?;
-        if controls.poll()?.muted {
+        let observation = controls.poll()?;
+        if observation.muted {
             controls.persist_muted()?;
             return Err(Box::new(SoftwareMute {
                 observed_at_us: monotonic_us(),
+                asleep: observation.asleep,
             }));
         }
         controls.arm_active()?;
@@ -2694,6 +2701,16 @@ fn conversation_with_gate(
     // another: neither a word after its own nor one that cut in is a sound.
     let mut last_spoke_us: Option<u64> = None;
     let mut spoke_in_turn: Option<u64> = None;
+    // The head tap's "hm?" (#711): its sound, made once for the cycle when
+    // the head is read, and when it last played, so it plays at most once
+    // in 30 s.
+    let head_cue = if controls.as_ref().is_some_and(HandControls::head_touch) {
+        let level = crate::head_cue::level_from_environment().map_err(io::Error::other)?;
+        Some(crate::head_cue::hum(level))
+    } else {
+        None
+    };
+    let mut last_hum_us: Option<u64> = None;
     let mut took_over_turn: Option<u64> = None;
     // The turn whose speech last ended as something said, not a sound, and
     // when: someone was there then.
@@ -3029,9 +3046,22 @@ fn conversation_with_gate(
             && !gap_cancelled;
         let cut_question = !admission.idle_for_reminder();
         let muted = observation.as_ref().is_some_and(|seen| seen.muted);
+        // Muted because a hand held on the head put it to sleep (#711).
+        let asleep = observation.as_ref().is_some_and(|seen| seen.asleep);
         let stop = observation.as_ref().is_some_and(|seen| seen.stop);
+        // A head touch (#711) stops the lamp while it says its answer, as
+        // the button does; while it is quiet it asks nothing.
+        let head_touch_at_us = observation.as_ref().and_then(|seen| seen.head_touch_at_us);
+        // A tap on the head (#711): when it came and when its hand arrived.
+        let head_tap = observation
+            .as_ref()
+            .and_then(|seen| seen.head_tap_at_us.zip(seen.head_tap_began_us));
+        let speaking = reply
+            .as_ref()
+            .is_some_and(|current| current.had_audio || current.playback.is_some());
+        let head_stop = speaking && head_touch_at_us.is_some();
         {
-            if stop || muted || gap_cut {
+            if stop || muted || gap_cut || head_stop {
                 let observed_at_us = monotonic_us();
                 let cancellation = hand::cancel(
                     owner,
@@ -3046,7 +3076,7 @@ fn conversation_with_gate(
                     monotonic_us,
                 )?;
                 snapshot = cancellation.snapshot;
-                if gap_cut && !stop && !muted {
+                if gap_cut && !stop && !head_stop && !muted {
                     // Admission keeps nothing of it: its capture lineage
                     // ends with the gap. After the gap, what is still said
                     // of it is dropped until a pause, not a new question.
@@ -3076,17 +3106,22 @@ fn conversation_with_gate(
                 floor_held_for = None;
                 asked_in_busy_room = None;
                 busy_answer_since = None;
-                let reason = if muted {
+                let reason = if asleep {
+                    "head_sleep"
+                } else if muted {
                     "software_muted"
                 } else if stop {
                     "hand_stop"
+                } else if head_stop {
+                    "head_stop"
                 } else {
                     "capture_gap"
                 };
                 record(
                     trace,
                     json!({"kind":"hand_control_cancel", "reason":reason,
-                    "at_us":observed_at_us, "acquired_at_us":observation.as_ref().map(|seen| seen.acquired_at_us),
+                    "at_us":observed_at_us,
+                    "acquired_at_us":observation.as_ref().and_then(|seen| seen.acquired_at_us.or(seen.head_touch_at_us)),
                     "speaker_told_at_us":cancellation.speaker_told_at_us,
                     "observation_to_speaker_dispatch_us":cancellation.speaker_told_at_us.saturating_sub(observed_at_us),
                     "boundary":"coordinator observation to local speaker control send; excludes bus delivery and acoustic stop"}),
@@ -3101,8 +3136,18 @@ fn conversation_with_gate(
                 }
                 publish?;
                 if muted {
-                    return Err(Box::new(SoftwareMute { observed_at_us }));
+                    return Err(Box::new(SoftwareMute {
+                        observed_at_us,
+                        asleep,
+                    }));
                 }
+            } else if let Some(acquired_at_us) = head_touch_at_us {
+                record(
+                    trace,
+                    json!({"kind":"head_touch_noticed", "acquired_at_us":acquired_at_us,
+                    "at_us":observation.as_ref().and_then(|seen| seen.observed_at_us),
+                    "why":"quiet: a head touch asks nothing"}),
+                )?;
             }
         }
         if let Some(observation) = observation {
@@ -4442,9 +4487,16 @@ fn conversation_with_gate(
             &mut playback_mask,
         )?;
         if let Some((notice_owner, evidence)) = notice_attempt {
+            // Named for what plays: a failure notice, the self-test's tone or
+            // the head tap's "hm?".
+            let origin = reply
+                .as_ref()
+                .map_or(SpeechOrigin::FailureNotice, |current| {
+                    current.notice.origin()
+                });
             record(
                 trace,
-                json!({"kind":"failure_notice_attempted","at_us":monotonic_us(),
+                json!({"kind":format!("{}_attempted",origin.trace_name()),"at_us":monotonic_us(),
                 "owner":notice_owner,"turn":notice_owner.turn(),"notice":evidence,
                 "boundary":"reserved before speaker transport; not audible delivery"}),
             )?;
@@ -4494,7 +4546,7 @@ fn conversation_with_gate(
             // is told what the lamp's own ears heard, once.
             let said_nothing = current.delivery_outcome() == "no_audio_answer"
                 && matches!(current.cloud.outcome, Some(RequestOutcome::Complete));
-            let tone_finished = current.notice.origin() == SpeechOrigin::SelfTest;
+            let tone_finished = current.notice.origin().unshown();
             if let Some(tone) = speaker_tone.as_mut() {
                 tone.finished(current);
             }
@@ -4541,7 +4593,13 @@ fn conversation_with_gate(
         // else of the lamp changes (`speaker_tone`).
         let tone_now = reply
             .as_ref()
-            .is_some_and(|current| current.notice.origin() == SpeechOrigin::SelfTest);
+            .is_some_and(|current| current.notice.origin().unshown());
+        // The head tap's "hm?" (#711) is no turn for the head, the room or
+        // the voice's state either, but the ring shows it: the listening face,
+        // with the hum, which the ring keeps at rest for the tap's window.
+        let cue_now = reply
+            .as_ref()
+            .is_some_and(|current| current.notice.origin() == SpeechOrigin::HeadCue);
         if let Some(tone) = speaker_tone.as_mut() {
             tone.tick(reply.as_ref(), monotonic_us());
         }
@@ -4556,7 +4614,8 @@ fn conversation_with_gate(
         if let Some(choreography) = choreography.as_mut() {
             choreography.set_level(voice_level);
             choreography.set_attending(attending);
-            choreography.set_unshown(tone_now);
+            choreography.set_listening(cue_now);
+            choreography.set_unshown(tone_now && !cue_now);
         }
         if let Some(current) = reply
             .as_ref()
@@ -4964,6 +5023,57 @@ fn conversation_with_gate(
                     trace,
                     |state| rig.publish(state),
                 )?;
+                last_publish = monotonic_us();
+            }
+        }
+        // A tap on the head of a quiet lamp (#711): a soft "hm?" of its own,
+        // as its own turn, rarely; the tap is a call either way.
+        if let (Some(sound), Some((acquired_at_us, began_us))) = (head_cue.as_ref(), head_tap) {
+            let at_us = monotonic_us();
+            let state = crate::head_cue::Now {
+                at_us,
+                began_us,
+                allowed: snapshot.microphone_permission() == Permission::Allowed,
+                quiet: reply.is_none()
+                    && provider_queue.is_empty()
+                    && speaker_pending.is_none()
+                    && !admission.owns_stream()
+                    && admission.idle_for_reminder()
+                    && !submission_draining
+                    && !paused
+                    && playback_mask.available(at_us),
+                listening_ready: snapshot.listening_ready(MonoTime::from_micros(at_us)),
+                reply_owed: look_wanted.is_some(),
+                last_said_us: last_spoke_us,
+                last_hum_us,
+            };
+            let decided = crate::head_cue::may_hum(&state);
+            record(
+                trace,
+                json!({"kind":"head_tap_cue","acquired_at_us":acquired_at_us,"began_us":began_us,
+                    "at_us":at_us,"plays":decided.is_ok(),"why":decided.err(),
+                    "boundary":"Controls' tap acquisition to this decision; the first sample is head_tap_cue_first_write"}),
+            )?;
+            if decided.is_ok() {
+                // The listening face from the pass that admits it: never a
+                // frame of thinking first.
+                if let Some(choreography) = choreography.as_mut() {
+                    choreography.set_unshown(false);
+                    choreography.set_listening(true);
+                }
+                let (now_state, _) = speaker_tone::commit_sound_turn(
+                    owner,
+                    reply,
+                    NoticeDelivery::sound(SpeechOrigin::HeadCue, sound.clone()),
+                    "head_tap_cue",
+                    "a tap on the head: nothing heard, nothing sent to the provider",
+                    0,
+                    rig.playout_start,
+                    trace,
+                    |state| rig.publish(state),
+                )?;
+                snapshot = now_state;
+                last_hum_us = Some(at_us);
                 last_publish = monotonic_us();
             }
         }

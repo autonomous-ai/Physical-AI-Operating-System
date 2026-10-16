@@ -36,6 +36,7 @@ fn options(stop: bool, mute: Option<&Path>) -> ControlsOptions {
         stop,
         mute_record: mute.map(Path::to_path_buf),
         bus_root: None,
+        head_touch: false,
     }
 }
 
@@ -49,9 +50,15 @@ fn from_record(
     at_us: u64,
 ) -> (HandControls, SyncSender<Queued>) {
     let (sender, input) = mpsc::sync_channel(QUEUE_CAPACITY);
-    let owner =
-        HandControls::from_parts(options, record, input, Arc::new(Shared::default()), at_us)
-            .unwrap();
+    let owner = HandControls::from_parts(
+        options,
+        CLOCK,
+        record,
+        input,
+        Arc::new(Shared::default()),
+        at_us,
+    )
+    .unwrap();
     (owner, sender)
 }
 
@@ -184,7 +191,8 @@ fn option_validation_does_not_accept_ambiguous_paths() {
         ControlsOptions {
             stop: true,
             bus_root: Some("relative".into()),
-            mute_record: None
+            mute_record: None,
+            head_touch: false,
         }
         .validate()
         .is_err()
@@ -213,11 +221,46 @@ fn pump_subscriptions_open_both_declared_topics_with_a_valid_bus_name() {
     // Exercise the production connection helper on macOS as well as Linux.
     // A hyphenated subscriber name used to make every pump attempt fail
     // before it created any socket; that must fail here with the actual error.
-    let (state, gestures) = subscriptions(&directory.0).expect("hand controls bus subscriptions");
-    assert_eq!(state.expects(), Some(ControlsState::TYPE));
-    assert_eq!(gestures.expects(), Some(ControlGesture::TYPE));
+    let (subscribed, mute) =
+        subscriptions(&directory.0, false, false).expect("hand controls bus subscriptions");
+    assert!(mute.is_none());
+    fn expects(subscribed: &[(Subscriber, Topic)]) -> Vec<(Option<&str>, Topic)> {
+        subscribed
+            .iter()
+            .map(|(subscriber, topic)| (subscriber.expects(), *topic))
+            .collect()
+    }
+    assert_eq!(
+        expects(&subscribed),
+        [
+            (Some(ControlsState::TYPE), Topic::State),
+            (Some(ControlGesture::TYPE), Topic::Gesture)
+        ]
+    );
     assert_eq!(bus.subscribers(ControlsState::TOPIC).unwrap().len(), 1);
     assert_eq!(bus.subscribers(ControlGesture::TOPIC).unwrap().len(), 1);
+    assert!(
+        bus.subscribers(TouchState::TOPIC)
+            .unwrap_or_default()
+            .is_empty()
+    );
+    drop(subscribed);
+    // The head pads' topics only with LAMP_HEAD_TOUCH=on (#711), and
+    // `voice/mute` said only where sleep from the head is on.
+    let (subscribed, mute) =
+        subscriptions(&directory.0, true, false).expect("head touch subscriptions");
+    assert_eq!(
+        expects(&subscribed)[2..],
+        [
+            (Some(TouchState::TYPE), Topic::TouchState),
+            (Some(TouchEvent::TYPE), Topic::Touch)
+        ]
+    );
+    assert!(mute.is_none());
+    drop(subscribed);
+    let (_, mute) = subscriptions(&directory.0, true, true).expect("voice mute publisher");
+    assert!(mute.is_some());
+    assert_eq!(bus.publishers(VoiceMute::TOPIC).unwrap().len(), 1);
 }
 
 #[test]
@@ -530,6 +573,7 @@ fn overflow_and_full_poll_batches_invalidate_pending_clear() {
     assert_eq!(shared.discontinuities.load(Ordering::Acquire), 1);
     let mut owner = HandControls::from_parts(
         options(true, None),
+        CLOCK,
         MuteRecord::new(CLOCK).unwrap(),
         input,
         Arc::new(shared),
@@ -637,7 +681,7 @@ fn envelope(state_topic: bool, payload: impl serde::Serialize) -> Message {
 #[test]
 fn envelopes_require_exact_source_type_kind_expiry_and_state_owner() {
     let good = envelope(true, state(1, START, None));
-    assert!(parse(good.clone(), true, 10_000).is_ok());
+    assert!(parse(good.clone(), Topic::State, 10_000).is_ok());
     let corruptions: &[fn(&mut Message)] = &[
         |m| m.header.topic = "controls/gesture".into(),
         |m| m.header.source = "replay".into(),
@@ -656,13 +700,321 @@ fn envelopes_require_exact_source_type_kind_expiry_and_state_owner() {
     for corrupt in corruptions {
         let mut bad = good.clone();
         corrupt(&mut bad);
-        assert!(parse(bad, true, 10_000).is_err());
+        assert!(parse(bad, Topic::State, 10_000).is_err());
     }
-    assert!(parse(good, true, 10_351).is_err());
+    assert!(parse(good, Topic::State, 10_351).is_err());
     let mut pet = envelope(false, gesture(ControlIntent::Pet, 1, 2_000_000));
     // The event publisher has its own boot; payload session still names state.
     pet.header.boot = "fedcba9876543210".into();
-    assert!(parse(pet, false, 10_000).is_ok());
+    assert!(parse(pet, Topic::Gesture, 10_000).is_ok());
+}
+
+fn head_touch() -> (TouchState, Vec<TouchEvent>) {
+    test_head_touch(CLOCK, START)
+}
+
+#[test]
+fn a_head_touch_is_taken_once_fresh_and_only_with_lamp_head_touch_on() {
+    let (state, events) = head_touch();
+    assert_eq!(events.len(), 1);
+    let touched = events[0].observed_us;
+    assert_eq!(touched, START + 20_000);
+    let mut switched = options(false, None);
+    switched.head_touch = true;
+    let (mut owner, sender) = fixture(switched);
+    send(&owner, &sender, Input::TouchState(Box::new(state.clone())));
+    send(&owner, &sender, Input::Touch(Box::new(events[0].clone())));
+    let seen = owner.poll_at(START + 31_000).unwrap();
+    assert_eq!(seen.head_touch_at_us, Some(touched));
+    assert_eq!(seen.observed_at_us, Some(START + 31_000));
+    assert!(!seen.stop, "a head touch is not the button's stop");
+    // The same touch again, and its state, ask nothing more.
+    send(&owner, &sender, Input::TouchState(Box::new(state.clone())));
+    send(&owner, &sender, Input::Touch(Box::new(events[0].clone())));
+    assert_eq!(
+        owner.poll_at(START + 32_000).unwrap().head_touch_at_us,
+        None
+    );
+
+    // Too late: a touch older than its freshness never stops a later turn.
+    let mut switched = options(false, None);
+    switched.head_touch = true;
+    let (mut owner, sender) = fixture(switched);
+    send(&owner, &sender, Input::TouchState(Box::new(state.clone())));
+    send(&owner, &sender, Input::Touch(Box::new(events[0].clone())));
+    assert_eq!(
+        owner.poll_at(START + 400_000).unwrap().head_touch_at_us,
+        None
+    );
+
+    // Off: nothing is taken from the head.
+    let (mut owner, sender) = fixture(options(true, None));
+    send(&owner, &sender, Input::TouchState(Box::new(state)));
+    send(&owner, &sender, Input::Touch(Box::new(events[0].clone())));
+    assert_eq!(
+        owner.poll_at(START + 31_000).unwrap().head_touch_at_us,
+        None
+    );
+}
+
+/// Head touch on and the durable mute at `directory`, or not.
+fn head_options(directory: Option<&Directory>) -> ControlsOptions {
+    let file = directory.map(Directory::file);
+    let mut options = options(false, file.as_deref());
+    options.head_touch = true;
+    options
+}
+
+/// Feeds each step's state and events, as the pump would, and polls at its
+/// time: through the quiescent transaction when `quiescent`. Returns each
+/// step's observation and whether a quiescent poll allowed opening.
+fn feed(
+    owner: &mut HandControls,
+    sender: &SyncSender<Queued>,
+    ticks: Vec<(u64, TouchState, Vec<TouchEvent>)>,
+    quiescent: bool,
+) -> Vec<(u64, Observation, bool)> {
+    ticks
+        .into_iter()
+        .map(|(at, state, events)| {
+            send(owner, sender, Input::TouchState(Box::new(state)));
+            for event in events {
+                send(owner, sender, Input::Touch(Box::new(event)));
+            }
+            if quiescent {
+                let (allowed, seen) = owner.quiescent_observation_with_clock(|| at).unwrap();
+                (at, seen, allowed)
+            } else {
+                (at, owner.poll_at(at).unwrap(), false)
+            }
+        })
+        .collect()
+}
+
+#[test]
+fn a_hand_held_on_the_head_puts_it_to_sleep_and_a_tap_wakes_it_once_saved() {
+    let directory = Directory::new();
+    let (mut owner, sender) = fixture(head_options(Some(&directory)));
+    assert_eq!(owner.shared.latch.load(Ordering::Acquire), LATCH_OPEN);
+    let mut head = TestHead::new(CLOCK, START);
+    feed(&mut owner, &sender, head.run(START + 500_000, false), false);
+    // A hand from 1.51 s, kept 3.2 s: at 3 s it is asleep, as a mute.
+    let held = feed(
+        &mut owner,
+        &sender,
+        head.run(START + 3_700_000, true),
+        false,
+    );
+    let (slept_at, seen, _) = held
+        .iter()
+        .find(|(_, seen, _)| seen.mute_changed)
+        .copied()
+        .expect("the hold puts it to sleep");
+    assert!(seen.muted && seen.asleep);
+    assert_eq!(seen.acquired_at_us, Some(START + 510_000 + 3_000_000));
+    assert_eq!(slept_at, START + 510_000 + 3_000_000);
+    assert!(
+        held.iter()
+            .all(|(at, seen, _)| (*at < slept_at) != seen.muted)
+    );
+    assert_eq!(owner.shared.latch.load(Ordering::Acquire), LATCH_ASLEEP);
+    // Saved before anything else, as any mute; a restart keeps it asleep.
+    owner.persist_muted().unwrap();
+    let saved = MuteRecord::load(&directory.file(), CLOCK, START + 3_800_000).unwrap();
+    assert!(saved.asleep());
+    // Let go, a second's quiet, then a tap of 0.2 s: it wakes once the
+    // clear is saved, in the quiescent wait.
+    let quiet = feed(
+        &mut owner,
+        &sender,
+        head.run(START + 4_800_000, false),
+        true,
+    );
+    assert!(
+        quiet
+            .iter()
+            .all(|(_, seen, allowed)| seen.asleep && !allowed)
+    );
+    let mut ticks = head.run(START + 5_000_000, true);
+    ticks.extend(head.run(START + 5_500_000, false));
+    let tapped = feed(&mut owner, &sender, ticks, true);
+    let (woke_at, seen, _) = tapped
+        .iter()
+        .find(|(_, _, allowed)| *allowed)
+        .copied()
+        .expect("the tap wakes it");
+    assert!(!seen.muted && !seen.asleep);
+    assert!(seen.head_tap_at_us.is_some());
+    assert!(woke_at < START + 5_500_000);
+    assert_eq!(owner.shared.latch.load(Ordering::Acquire), LATCH_OPEN);
+    let saved = MuteRecord::load(&directory.file(), CLOCK, START + 5_600_000).unwrap();
+    assert!(!saved.muted && saved.reason.is_none());
+}
+
+#[test]
+fn the_head_never_opens_a_privacy_mute_and_sleeps_only_with_the_durable_mute() {
+    // Muted by the button's hold: a hold of the head and a tap change
+    // nothing; the mute stays a person's privacy.
+    let directory = Directory::new();
+    let mut record = MuteRecord::new(CLOCK).unwrap();
+    assert!(record.request_mute(START / 2));
+    record.save(&directory.file()).unwrap();
+    let (mut owner, sender) = from_record(head_options(Some(&directory)), record, START);
+    assert_eq!(owner.shared.latch.load(Ordering::Acquire), LATCH_MUTED);
+    let mut head = TestHead::new(CLOCK, START);
+    feed(&mut owner, &sender, head.run(START + 500_000, false), true);
+    let mut ticks = head.run(START + 3_700_000, true);
+    ticks.extend(head.run(START + 4_500_000, false));
+    ticks.extend(head.run(START + 4_700_000, true));
+    ticks.extend(head.run(START + 5_200_000, false));
+    let seen = feed(&mut owner, &sender, ticks, true);
+    assert!(
+        seen.iter()
+            .any(|(_, seen, _)| seen.head_tap_at_us.is_some())
+    );
+    assert!(
+        seen.iter()
+            .all(|(_, seen, allowed)| seen.muted && !seen.asleep && !allowed)
+    );
+    assert_eq!(owner.shared.latch.load(Ordering::Acquire), LATCH_MUTED);
+
+    // Head touch without `--controls-mute`: a hold is not a sleep, and
+    // `voice/mute` is never said.
+    let (mut owner, sender) = fixture(head_options(None));
+    assert_eq!(owner.shared.latch.load(Ordering::Acquire), LATCH_NONE);
+    let mut head = TestHead::new(CLOCK, START);
+    feed(&mut owner, &sender, head.run(START + 500_000, false), false);
+    let held = feed(
+        &mut owner,
+        &sender,
+        head.run(START + 3_700_000, true),
+        false,
+    );
+    assert!(
+        held.iter()
+            .all(|(_, seen, _)| !seen.muted && !seen.mute_changed)
+    );
+    assert_eq!(owner.shared.latch.load(Ordering::Acquire), LATCH_NONE);
+}
+
+#[test]
+fn the_pump_says_the_latch_on_voice_mute_when_it_changes_and_every_second() {
+    let directory = Directory::new();
+    let root = directory.0.join("bus");
+    let bus = Bus::new(&root).unwrap();
+    let mut heard = bus
+        .subscribe_typed(VoiceMute::TOPIC, "mute_test", VoiceMute::TYPE)
+        .unwrap();
+    let (sender, _input) = mpsc::sync_channel(QUEUE_CAPACITY);
+    let shared = Arc::new(Shared::default());
+    shared.latch.store(LATCH_OPEN, Ordering::Release);
+    let (pump_shared, pump_root) = (Arc::clone(&shared), root.clone());
+    let worker = thread::spawn(move || pump(pump_root, true, true, sender, &pump_shared));
+    let next = |heard: &mut Subscriber| -> VoiceMute {
+        let message = heard
+            .recv(Duration::from_secs(2))
+            .unwrap()
+            .expect("voice/mute is said");
+        assert_eq!(message.header.source, "voice");
+        assert_eq!(message.header.expires_ms, Some(3_000));
+        message.parse().unwrap()
+    };
+    assert_eq!(
+        next(&mut heard),
+        VoiceMute {
+            muted: false,
+            reason: None
+        }
+    );
+    shared.latch.store(LATCH_ASLEEP, Ordering::Release);
+    let started = std::time::Instant::now();
+    assert!(next(&mut heard).asleep());
+    assert!(started.elapsed() < Duration::from_millis(500));
+    // Unchanged, it is said again within about a second.
+    assert!(next(&mut heard).asleep());
+    shared.stop.store(true, Ordering::Release);
+    worker.thread().unpark();
+    worker.join().unwrap();
+}
+
+#[test]
+#[ignore = "manual host probe: a head touch on a real bus to the coordinator's poll; no lamp claim"]
+fn head_touch_bus_to_poll_latency() {
+    let directory = Directory::new();
+    let mut elapsed_us = Vec::with_capacity(100);
+    for round in 0..100 {
+        // A fresh bus, publishers, listener and pump each round; all of it,
+        // and the recognizer's own work, is outside the measured boundary.
+        let root = directory.0.join(format!("b{round}"));
+        let bus = Bus::new(&root).unwrap();
+        let declared = |topic, declaration| bus.publisher_declared(topic, &declaration, "controls");
+        let mut states = declared(TouchState::TOPIC, TouchState::declaration()).unwrap();
+        let mut events = declared(TouchEvent::TOPIC, TouchEvent::declaration()).unwrap();
+        let (sender, input) = mpsc::sync_channel(QUEUE_CAPACITY);
+        let shared = Arc::new(Shared::default());
+        let mut owner = HandControls::from_parts(
+            ControlsOptions {
+                head_touch: true,
+                ..Default::default()
+            },
+            CLOCK,
+            MuteRecord::new(CLOCK).unwrap(),
+            input,
+            Arc::clone(&shared),
+            lamp_ipc::monotonic_us(),
+        )
+        .unwrap();
+        let (pump_shared, pump_root) = (Arc::clone(&shared), root.clone());
+        let worker = thread::spawn(move || pump(pump_root, true, false, sender, &pump_shared));
+        let deadline = std::time::Instant::now() + Duration::from_secs(2);
+        while bus.subscribers(TouchEvent::TOPIC).unwrap().is_empty() {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "pump never subscribed"
+            );
+            thread::sleep(Duration::from_millis(1));
+        }
+        let (state, touch) = test_head_touch(CLOCK, lamp_ipc::monotonic_us() - 40_000);
+        let published = lamp_ipc::monotonic_us();
+        states.publish_json(published, &state).unwrap();
+        events.publish_json(published, &touch[0]).unwrap();
+        loop {
+            if owner.poll().unwrap().head_touch_at_us.is_some() {
+                elapsed_us.push(lamp_ipc::monotonic_us() - published);
+                break;
+            }
+            assert!(
+                std::time::Instant::now() < deadline,
+                "the touch never arrived: {:?}",
+                owner.health()
+            );
+            thread::yield_now();
+        }
+        shared.stop.store(true, Ordering::Release);
+        worker.thread().unpark();
+        worker.join().unwrap();
+    }
+    let first_us = elapsed_us[0];
+    let mut repeated = elapsed_us[1..].to_vec();
+    repeated.sort_unstable();
+    let count = repeated.len();
+    println!(
+        "{}",
+        serde_json::json!({
+            "measurement":"head_touch_bus_to_poll",
+            "host_os":std::env::consts::OS,
+            "host_arch":std::env::consts::ARCH,
+            "boundary":"touch state then event published on a real bus to the listener's poll accepting the head touch",
+            "excludes":["the hand on the pad", "GPIO acquisition and Controls' 20 ms qualification", "the coordinator loop's own tick", "hand::cancel to the speaker (local_hand_stop_dispatch)", "device playback", "acoustic silence"],
+            "pump_tick_us":PUMP_TICK.as_micros(),
+            "samples":elapsed_us.len(),
+            "first_us":first_us,
+            "repeated_median_us":repeated[(count - 1) / 2],
+            "repeated_p95_us":repeated[(count * 95).div_ceil(100) - 1],
+            "repeated_worst_us":repeated[count - 1],
+            "lamp_measurement":false
+        })
+    );
 }
 
 #[test]
@@ -729,6 +1081,7 @@ mod live_bus {
             stop: true,
             mute_record: Some(directory.file()),
             bus_root: Some(bus_root.clone()),
+            head_touch: false,
         };
         let clock_id = lamp_controls::runtime::clock_id(None).unwrap();
         let mut owner = HandControls::restore(&options).unwrap().unwrap();

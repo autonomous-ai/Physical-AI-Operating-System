@@ -438,6 +438,18 @@ fn topic(topic: &str) -> Option<(&'static str, &'static str, Kind, bool)> {
         SuddenSound::TOPIC => ("sudden", SuddenSound::TYPE, Kind::Event, false),
         ControlGesture::TOPIC => ("touch", ControlGesture::TYPE, Kind::Event, false),
         ScheduleDue::TOPIC => ("due", ScheduleDue::TYPE, Kind::Latest, false),
+        lamp_msgs::TouchEvent::TOPIC => (
+            "head_touch",
+            lamp_msgs::TouchEvent::TYPE,
+            Kind::Event,
+            false,
+        ),
+        lamp_msgs::TouchState::TOPIC => (
+            "head_hand",
+            lamp_msgs::TouchState::TYPE,
+            Kind::Latest,
+            false,
+        ),
         _ => return None,
     })
 }
@@ -776,7 +788,9 @@ fn convert(
         | Input::Said { stamp, .. }
         | Input::Name { stamp, .. }
         | Input::Touch { stamp, .. }
-        | Input::Due { stamp, .. } = &mut record.input
+        | Input::Due { stamp, .. }
+        | Input::HeadTouch { stamp, .. }
+        | Input::HeadHand { stamp, .. } = &mut record.input
         {
             stamp.sequence = index as u64 + 1;
         }

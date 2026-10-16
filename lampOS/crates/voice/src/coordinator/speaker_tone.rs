@@ -290,6 +290,34 @@ pub(super) fn commit_tone_turn(
     provider_session: u64,
     playout_start: PlayoutStart,
     trace: &mut SessionState,
+    publish: impl FnMut(Snapshot) -> io::Result<()>,
+) -> Result<(Snapshot, TurnOwner)> {
+    commit_sound_turn(
+        owner,
+        reply,
+        NoticeDelivery::tone(speaker_check::tone()),
+        "selftest_tone",
+        "the self-test's tone: nothing heard, nothing sent to the provider",
+        provider_session,
+        playout_start,
+        trace,
+        publish,
+    )
+}
+
+/// Opens a turn that is only a short sound of the lamp's own (`sound`):
+/// the self-test's tone, or the head tap's "hm?" (#711). No provider
+/// request; ended as soon as it began.
+#[allow(clippy::too_many_arguments)]
+pub(super) fn commit_sound_turn(
+    owner: &mut Controller,
+    reply: &mut Option<Reply>,
+    sound: NoticeDelivery,
+    basis: &'static str,
+    boundary: &'static str,
+    provider_session: u64,
+    playout_start: PlayoutStart,
+    trace: &mut SessionState,
     mut publish: impl FnMut(Snapshot) -> io::Result<()>,
 ) -> Result<(Snapshot, TurnOwner)> {
     let turn = owner.admit(now(), AdmittedInput::NewTurn)?;
@@ -303,8 +331,8 @@ pub(super) fn commit_tone_turn(
     record(
         trace,
         json!({"kind":"input_admitted","owner":turn,"turn":turn.turn(),"at_us":admitted_at_us,"authority_issued_at_us":snapshot.issued_at().as_micros(),
-            "admission_basis":"selftest_tone","provider_session":null,
-            "boundary":"the self-test's tone: nothing heard, nothing sent to the provider"}),
+            "admission_basis":basis,"provider_session":null,
+            "boundary":boundary}),
     )?;
     let current = Reply {
         owner: turn,
@@ -330,7 +358,7 @@ pub(super) fn commit_tone_turn(
         voice_level: 0,
         final_chunk: None,
         playback_gaps: 0,
-        notice: NoticeDelivery::tone(speaker_check::tone()),
+        notice: sound,
         reminder: None,
         last_provider_audio_at_us: None,
         start: playout_start.gate(),

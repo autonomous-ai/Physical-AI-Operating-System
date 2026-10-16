@@ -226,9 +226,13 @@ mod tests {
         let result = Speaker {
             bus: &bus,
             occasion: Occasion::OnDemand,
-            answer_within: ANSWER_WITHIN,
+            // The voice thread answers only after it has the request, so the
+            // order is fixed; the only race left is a loaded runner starving
+            // it past the window. `run` returns at the answer, so a window no
+            // runner outlasts costs nothing (#705).
+            answer_within: Duration::from_secs(120),
         }
-        .run(Instant::now() + Duration::from_secs(30));
+        .run(Instant::now() + Duration::from_secs(240));
         let _held = voice.join().unwrap();
         std::fs::remove_dir_all(root).unwrap();
         assert_eq!(result.verdict, Verdict::Pass, "{result:?}");

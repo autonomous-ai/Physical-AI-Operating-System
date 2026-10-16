@@ -1,0 +1,106 @@
+{
+  "date": "2026-10-16 08:25:58 +0700",
+  "reason": "Review found two new already-exited boundary fixtures waiting before cleanup guard. Stop before test execution; preserve first fmt/metadata/Clippy/list outputs.",
+  "processes": [
+    {
+      "pid": 7985,
+      "ppid": 34038,
+      "command": "/usr/local/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python /private/tmp/tests-823-transport-exit-gate.py"
+    },
+    {
+      "pid": 10554,
+      "ppid": 7985,
+      "command": "/private/tmp/pipeline-788-tools/cargo-nextest nextest list --locked --offline -p lamp-voice-eval --message-format json"
+    },
+    {
+      "pid": 16606,
+      "ppid": 10554,
+      "command": "/private/tmp/tests-823-memory-application-target/debug/deps/recording_import-54f09d3853137c88 --list --format terse"
+    },
+    {
+      "pid": 16611,
+      "ppid": 10554,
+      "command": "/private/tmp/tests-823-memory-application-target/debug/deps/recording_import-54f09d3853137c88 --list --format terse --ignored"
+    },
+    {
+      "pid": 16625,
+      "ppid": 10554,
+      "command": "/private/tmp/tests-823-memory-application-target/debug/deps/relay_clock-92fcdf0a3e5d1fd7 --list --format terse"
+    },
+    {
+      "pid": 16626,
+      "ppid": 10554,
+      "command": "/private/tmp/tests-823-memory-application-target/debug/deps/relay_clock-92fcdf0a3e5d1fd7 --list --format terse --ignored"
+    },
+    {
+      "pid": 16641,
+      "ppid": 10554,
+      "command": "/private/tmp/tests-823-memory-application-target/debug/deps/relay_hardening-47a3358d299f0192 --list --format terse"
+    },
+    {
+      "pid": 16642,
+      "ppid": 10554,
+      "command": "/private/tmp/tests-823-memory-application-target/debug/deps/relay_hardening-47a3358d299f0192 --list --format terse --ignored"
+    },
+    {
+      "pid": 16665,
+      "ppid": 10554,
+      "command": "/private/tmp/tests-823-memory-application-target/debug/deps/report_validity-70fbc7723bf967c5 --list --format terse"
+    },
+    {
+      "pid": 16666,
+      "ppid": 10554,
+      "command": "/private/tmp/tests-823-memory-application-target/debug/deps/report_validity-70fbc7723bf967c5 --list --format terse --ignored"
+    },
+    {
+      "pid": 16694,
+      "ppid": 10554,
+      "command": "/private/tmp/tests-823-memory-application-target/debug/deps/serve_plan-2eaff2dfecd1024c --list --format terse"
+    },
+    {
+      "pid": 16695,
+      "ppid": 10554,
+      "command": "/private/tmp/tests-823-memory-application-target/debug/deps/serve_plan-2eaff2dfecd1024c --list --format terse --ignored"
+    },
+    {
+      "pid": 16743,
+      "ppid": 10554,
+      "command": "/private/tmp/tests-823-memory-application-target/debug/deps/serve_relay-4b82d5b25519e42c --list --format terse"
+    },
+    {
+      "pid": 16744,
+      "ppid": 10554,
+      "command": "/private/tmp/tests-823-memory-application-target/debug/deps/serve_relay-4b82d5b25519e42c --list --format terse --ignored"
+    },
+    {
+      "pid": 16784,
+      "ppid": 10554,
+      "command": "/private/tmp/tests-823-memory-application-target/debug/deps/serve_session-cf0702ce23ec9f81 --list --format terse"
+    },
+    {
+      "pid": 16785,
+      "ppid": 10554,
+      "command": "/private/tmp/tests-823-memory-application-target/debug/deps/serve_session-cf0702ce23ec9f81 --list --format terse --ignored"
+    },
+    {
+      "pid": 16804,
+      "ppid": 10554,
+      "command": "/private/tmp/tests-823-memory-application-target/debug/deps/target_audio-94b5dbf7762f2ce6 --list --format terse"
+    },
+    {
+      "pid": 16805,
+      "ppid": 10554,
+      "command": "/private/tmp/tests-823-memory-application-target/debug/deps/target_audio-94b5dbf7762f2ce6 --list --format terse --ignored"
+    },
+    {
+      "pid": 16973,
+      "ppid": 10554,
+      "command": "/private/tmp/tests-823-memory-application-target/debug/deps/lamp_voice_eval-fe2621dba2f9b6e8 --list --format terse"
+    },
+    {
+      "pid": 16974,
+      "ppid": 10554,
+      "command": "/private/tmp/tests-823-memory-application-target/debug/deps/lamp_voice_eval-fe2621dba2f9b6e8 --list --format terse --ignored"
+    }
+  ]
+}

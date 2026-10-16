@@ -1160,6 +1160,8 @@ pub struct PhysicalBackend<'a> {
     room_cover: RoomCover,
     /// Fixture-only mapping; the original Playback representation stays intact.
     fixture_player_attempts: BTreeMap<String, String>,
+    #[cfg(test)]
+    transport_exit_clock: Option<transport_exit_clock_tests::Clock>,
 }
 
 /// How long the room recording covers the session. A prompt is granted only
@@ -1428,6 +1430,8 @@ impl<'a> PhysicalBackend<'a> {
             evidence_lost: false,
             room_cover: RoomCover::default(),
             fixture_player_attempts: BTreeMap::new(),
+            #[cfg(test)]
+            transport_exit_clock: None,
         }
     }
 
@@ -2510,16 +2514,25 @@ fn relay_reader_with_progress_capacity<R: std::io::Read + Send + 'static>(
 }
 
 fn wait_child(child: &mut Child, deadline_us: u64) -> Option<std::process::ExitStatus> {
+    wait_child_with(child, deadline_us, monotonic_us, thread::sleep)
+}
+
+fn wait_child_with(
+    child: &mut Child,
+    deadline_us: u64,
+    mut now_us: impl FnMut() -> u64,
+    mut wait: impl FnMut(Duration),
+) -> Option<std::process::ExitStatus> {
     loop {
         if let Ok(Some(status)) = child.try_wait() {
             return Some(status);
         }
-        if monotonic_us() >= deadline_us {
+        if now_us() >= deadline_us {
             let _ = child.kill();
             let _ = child.wait();
             return None;
         }
-        thread::sleep(Duration::from_millis(20));
+        wait(Duration::from_millis(20));
     }
 }
 
@@ -3143,6 +3156,12 @@ impl Backend for PhysicalBackend<'_> {
             });
         };
         drop(session.stdin.take());
+        #[cfg(test)]
+        let exited = match &self.transport_exit_clock {
+            Some(clock) => clock.wait(&mut session.child, TRANSPORT_EXIT_BOUND_US),
+            None => wait_child(&mut session.child, monotonic_us() + TRANSPORT_EXIT_BOUND_US),
+        };
+        #[cfg(not(test))]
         let exited = wait_child(&mut session.child, monotonic_us() + TRANSPORT_EXIT_BOUND_US);
         // A serve attempt is certified only with its outer transport (the
         // relay, normally over SSH) reaped after a successful exit. A nominal
@@ -4042,7 +4061,7 @@ mod audit_grant_tests {
 
     /// As `exit_report_with`, after `prepare` adds attempt state (for
     /// example a room recorder and delivered playbacks) to the backend.
-    fn exit_report_prepared(
+    pub(super) fn exit_report_prepared(
         code: i32,
         transport: &[&str],
         reaped: bool,
@@ -4214,7 +4233,7 @@ mod audit_grant_tests {
 
     #[test]
     fn audit_transport_that_outlives_its_bound_is_killed_and_never_certified() {
-        let result = exit_report_with(0, &["/bin/sleep", "30"], false, "sleep");
+        let result = super::transport_exit_clock_tests::expired_transport_report();
         assert_eq!(result.evidence["session_end"]["exit_code"], 0);
         assert_eq!(result.evidence["transport_forced_kill"], true);
         assert!(result.evidence["transport_exit"].is_null());
@@ -4683,3 +4702,7 @@ mod prepared_player_progress_tests;
 #[cfg(test)]
 #[path = "recorder_backend_tests.rs"]
 mod recorder_backend_tests;
+
+#[cfg(test)]
+#[path = "transport_exit_clock_tests.rs"]
+mod transport_exit_clock_tests;

@@ -69,7 +69,10 @@ functions appear when it starts and go when its directory does. It is all
 or nothing: a file over 64 KiB, one that is not that shape, a function the
 provider link would refuse (a name that is not `[a-z][a-z0-9_]{0,47}`, a
 description over 1,024 bytes, parameters that are not an object or are over
-4,096 bytes) or a name twice leaves the session with none of them. At most
+4,096 bytes) or a name twice leaves the session with none of them, and the
+journal says why, by name and never a description's words (`lamp-voice: the
+executive's functions are left out of the session: tools.json has what the
+link would refuse: Light Off (a name the link does not take)`; #799). At most
 32 functions reach a session, the voice's own included; `not_for_me` in the
 file is ignored.
 

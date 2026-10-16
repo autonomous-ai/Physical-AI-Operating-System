@@ -4,12 +4,13 @@
 //! real model is asked.
 use lamp_bus::{Bus, Publisher, Subscriber};
 use lamp_msgs::{
-    Decision, Diagnostic, Face, Faces, Room, RoomState, Voice, VoiceArrival, VoiceState,
+    Decision, Diagnostic, Face, Faces, Room, RoomState, SkillAsk, Voice, VoiceArrival, VoiceState,
 };
 use lamp_policy::{
     attention,
     decide::{Answer, Asked, Decider, Failed, Question},
     hello::{self, Hello},
+    moment::{self, Moment},
     policy::{self, Note, Options},
     progress::{self, Choice, Progress},
 };
@@ -57,10 +58,11 @@ impl Decider for Attention {
     }
 }
 
-/// The hello judge, played by the test.
+/// The hello judge, or the moment judge, played by the test.
 struct Judge {
     shown: mpsc::Sender<Value>,
     replies: mpsc::Receiver<Result<Asked, Failed>>,
+    moment: bool,
 }
 impl Decider for Judge {
     fn ask(
@@ -69,9 +71,14 @@ impl Decider for Judge {
         questions: &[(String, Question)],
         deadline: Duration,
     ) -> Result<Asked, Failed> {
-        assert_eq!(questions, hello::questions());
-        // Never longer than the voice can wait, whatever was given.
-        assert_eq!(deadline, hello::MOST_ASKING);
+        // Never longer than the asker can wait, whatever was given.
+        if self.moment {
+            assert_eq!(questions, moment::questions());
+            assert_eq!(deadline, moment::MOST_ASKING);
+        } else {
+            assert_eq!(questions, hello::questions());
+            assert_eq!(deadline, hello::MOST_ASKING);
+        }
         let _ = self
             .shown
             .send(serde_json::from_str(state).expect("the state is JSON"));
@@ -92,14 +99,23 @@ struct Rig {
     running: Option<thread::JoinHandle<io::Result<policy::Totals>>>,
     saying: mpsc::Receiver<Note>,
     arrivals: Publisher,
+    skills: Publisher,
     voice: Publisher,
     decisions: Subscriber,
     shown: mpsc::Receiver<Value>,
     replies: mpsc::Sender<Result<Asked, Failed>>,
+    /// The moment judge's, with `--gate`.
+    moment_shown: mpsc::Receiver<Value>,
+    moment_replies: mpsc::Sender<Result<Asked, Failed>>,
 }
 
 impl Rig {
     fn new(name: &str, act: bool) -> Self {
+        Self::with(name, act, false)
+    }
+
+    /// With `gate`, as `lamp-policy --gate`: skills' asks are answered.
+    fn with(name: &str, act: bool, gate: bool) -> Self {
         let root = PathBuf::from(format!("/tmp/lph-{name}-{}", std::process::id()));
         let log_dir =
             std::env::temp_dir().join(format!("lamp-policy-hello-{name}-{}", std::process::id()));
@@ -112,6 +128,8 @@ impl Rig {
         };
         let (shown_to, shown) = mpsc::channel();
         let (replies, replied) = mpsc::channel();
+        let (moment_shown_to, moment_shown) = mpsc::channel();
+        let (moment_replies, moment_replied) = mpsc::channel();
         let (said_so, saying) = mpsc::channel();
         let mut eyes = declared(Faces::TOPIC, Faces::declaration(), "eyes");
         let mut room = declared(RoomState::TOPIC, RoomState::declaration(), "voice");
@@ -120,12 +138,15 @@ impl Rig {
                 .subscribe_typed(Decision::TOPIC, "test", Decision::TYPE)
                 .unwrap(),
             arrivals: declared(VoiceArrival::TOPIC, VoiceArrival::declaration(), "voice"),
+            skills: declared(SkillAsk::TOPIC, SkillAsk::declaration(), "skills"),
             voice: declared(VoiceState::TOPIC, VoiceState::declaration(), "voice"),
             stop: Arc::new(AtomicBool::new(false)),
             running: None,
             saying,
             shown,
             replies,
+            moment_shown,
+            moment_replies,
             root,
             log_dir,
             bus,
@@ -140,6 +161,7 @@ impl Rig {
             quiet_for: ms(400),
             at_most_every: Duration::from_secs(20 * 60),
             act,
+            gate,
             // No hour: the rule's answer must not hang on the time of day
             // the test is run at.
             ..hello::Options::new(Duration::from_secs(3), None)
@@ -147,10 +169,24 @@ impl Rig {
         let judge = Judge {
             shown: shown_to,
             replies: replied,
+            moment: false,
         };
         let (bus, stop) = (rig.bus.clone(), Arc::clone(&rig.stop));
         rig.running = Some(thread::spawn(move || {
             let hello = Hello::start(judge, hello)?;
+            let hello = if gate {
+                let judge = Judge {
+                    shown: moment_shown_to,
+                    replies: moment_replied,
+                    moment: true,
+                };
+                hello.with_moment(Moment::start(
+                    judge,
+                    moment::Options::new(Duration::from_secs(3), None),
+                )?)
+            } else {
+                hello
+            };
             policy::run_with_questions(
                 &bus,
                 Attention,
@@ -203,6 +239,19 @@ impl Rig {
         self.voice.publish_json(0, &VoiceState { state }).unwrap();
     }
 
+    /// A skill asks whether the lamp may do `act`, as ask `number`.
+    fn ask(&mut self, number: u64, act: &str) {
+        let ask = SkillAsk {
+            ask: number,
+            skill: "welcome-back".into(),
+            act: act.into(),
+            person: None,
+            away_min: (act == "hello").then_some(42),
+            there_s: (act == "hello").then_some(3),
+        };
+        self.skills.publish_json(0, &ask).unwrap();
+    }
+
     /// The voice holds a hello for arrival `number`.
     fn arrive(&mut self, number: u64, since_hello_min: Option<u32>) {
         let arrival = VoiceArrival {
@@ -239,6 +288,20 @@ impl Rig {
             let decision: Decision = message.parse().unwrap();
             decision.check().unwrap();
             if decision.about == "hello" {
+                return decision;
+            }
+        }
+    }
+
+    /// The next decision on the bus that answers ask `number`.
+    fn answer_to(&mut self, number: u64) -> Decision {
+        let started = Instant::now();
+        loop {
+            let left = WAIT.saturating_sub(started.elapsed());
+            let message = self.decisions.recv(left).unwrap().expect("an answer");
+            let decision: Decision = message.parse().unwrap();
+            decision.check().unwrap();
+            if decision.ask == Some(number) {
                 return decision;
             }
         }
@@ -428,6 +491,95 @@ fn a_failed_model_leaves_it_to_the_rule_in_time_for_the_voice() {
     rig.stop();
 }
 
+/// #939: with `--gate`, a skill's ask is answered by its question, and the
+/// decision acts and names the ask. A hello is put to the hello question,
+/// as the voice's arrivals are, with its minutes away and seconds there, and
+/// names the ask, not an arrival; the next is held by the hard rule, the
+/// lamp having just been told to greet, with no model asked. News is put to
+/// the moment question with how things are around the lamp; anything
+/// unprompted while someone talks to the lamp is `wait` by the rule, with
+/// no model asked.
+#[test]
+fn with_the_gate_a_skills_ask_is_decided_by_its_question_and_names_the_ask() {
+    let mut rig = Rig::with("gate", true, true);
+    rig.ask(3_000_001, "hello");
+    let shown = rig.shown();
+    assert_eq!(
+        (
+            &shown["arrival"]["minutes_away"],
+            &shown["arrival"]["seconds_there"]
+        ),
+        (&Value::from(42), &Value::from(3))
+    );
+    rig.answer([0.9, 0.1]);
+    let decided = rig.decision();
+    assert_eq!(
+        (
+            decided.about.as_str(),
+            decided.choice.as_str(),
+            decided.shadow,
+            decided.ask,
+            decided.arrival
+        ),
+        ("hello", "say_now", false, Some(3_000_001), None)
+    );
+    rig.ask(3_000_002, "hello");
+    let held = rig.decision();
+    assert_eq!(
+        (held.choice.as_str(), held.by.as_str(), held.ask),
+        ("wait", "rule", Some(3_000_002))
+    );
+    rig.not_asked();
+    assert_eq!(rig.log(2)[1]["guard"], "greeted_recently");
+    // News: put to the moment question, as it is now around the lamp.
+    rig.ask(3_000_003, "news");
+    let shown = rig
+        .moment_shown
+        .recv_timeout(WAIT)
+        .expect("the moment question asked");
+    assert_eq!(shown["what"]["skill"], "welcome-back");
+    assert_eq!(shown["room"]["someone_at_the_lamp"], true);
+    // The hello just said is the lamp's turn only once the voice says it.
+    assert_eq!(
+        shown["room"]["times_the_lamp_spoke_up_unasked_in_the_last_hour"],
+        0
+    );
+    rig.moment_replies
+        .send(Ok(asked(moment::questions(), &[0.8])))
+        .unwrap();
+    let moment = rig.answer_to(3_000_003);
+    assert_eq!(
+        (
+            moment.about.as_str(),
+            moment.choice.as_str(),
+            moment.shadow,
+            moment.ask,
+            moment.answers.get("good_moment").copied()
+        ),
+        ("moment", "say_now", false, Some(3_000_003), Some(0.8))
+    );
+    // Someone talking to the lamp: `wait` by the rule, no model asked.
+    rig.state(Voice::Listening);
+    thread::sleep(ms(50));
+    rig.ask(3_000_004, "unprompted");
+    let held = rig.answer_to(3_000_004);
+    assert_eq!(
+        (held.about.as_str(), held.choice.as_str(), held.by.as_str()),
+        ("moment", "wait", "rule")
+    );
+    assert!(rig.moment_shown.recv_timeout(ms(300)).is_err(), "asked");
+    let report = rig.report();
+    for (key, value) in [
+        ("skill_asks", "4"),
+        ("moment_decided", "2"),
+        ("moment_said", "1"),
+        ("moment_held_talking", "1"),
+    ] {
+        assert!(report.contains(&(key.into(), value.into())), "{report:?}");
+    }
+    rig.stop();
+}
+
 #[test]
 fn without_the_switch_arrivals_are_not_listened_to_and_the_report_is_as_before() {
     struct Never;
@@ -498,6 +650,12 @@ fn without_the_switch_arrivals_are_not_listened_to_and_the_report_is_as_before()
             .is_empty()
     );
     assert!(!root.join("voice/arrival").exists());
+    // Nor, without `--gate`, the skills' asks (#939).
+    assert!(
+        bus.subscribers(SkillAsk::TOPIC)
+            .unwrap_or_default()
+            .is_empty()
+    );
     stop.store(true, Ordering::Relaxed);
     running.join().unwrap().unwrap();
     let _ = fs::remove_dir_all(&root);

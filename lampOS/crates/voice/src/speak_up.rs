@@ -555,6 +555,7 @@ mod tests {
                 request: None,
                 task: None,
                 arrival: Some(number),
+                ask: None,
             },
         )
         .unwrap();

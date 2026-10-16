@@ -183,6 +183,7 @@ impl Place {
             request: None,
             task: Some(task.into()),
             arrival: None,
+            ask: None,
         };
         self.decisions.publish_json(0, &decision).unwrap();
     }

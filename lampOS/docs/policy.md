@@ -1332,7 +1332,12 @@ hello to its rule.
 A yes that comes back once someone has begun to talk is turned to `wait`.
 Asking never takes longer than 1.5 s, whatever `--deadline-ms` says
 (`hello::MOST_ASKING`): past it the rule answers, still inside the voice's
-2 s. An arrival not decided within those 2 s is let go (`hello_late`).
+2 s. The 2 s count from when the arrival was received: one that waited
+behind another is given only what is left of them, less 0.2 s for its
+answer to go out (`hello::time_left`, `ANSWER_MARGIN`), and the rule answers
+at once when nothing is left. An arrival not decided within those 2 s,
+waiting or asked about, is let go (`hello_late`): an answer that comes after
+them is never published and changes nothing kept (the reviewer on #958).
 
 **What is known, and shown.** The arrival (minutes away, seconds there,
 minutes since the last hello), and the room as the progress question has it
@@ -1385,6 +1390,74 @@ sound 6 s and 30 s after the turn began, and a turn cancelled before it),
 `a_slow_answer_is_never_counted_as_speaking_up_unasked` (two answers with
 their first sound 1 s and 30 s after the person was listened to: none
 counted, and the rule says hello; two turns the lamp began itself: two).
+
+**Asked by a skill: the gate (#939, `--gate`).** The Policy is the one
+gate for everything the lamp starts itself (`docs/skills.md` on
+`lamp-voice`): a skill asks on `skills/ask` (`lamp_msgs::SkillAsk`, an
+event: the ask's number, the skill's name, the act, the person if known,
+and for a hello its minutes away and seconds there), and is answered by a
+`Decision` on `policy/decisions` that names the ask (`ask`), within the 2 s
+the voice's own hello waits. With `--gate`, which needs `--hello` and
+`--act hello`:
+- `act` `hello` is put to the hello question as an arrival of that number
+  is: the same hard rules (someone talking, a hello within 20 minutes),
+  the same question and the same log. The quiet it is shown is the
+  policy's own (since anything was last said, or since it started), and
+  the last hello its own. The decision names the ask, not an arrival:
+  whether it came from a skill is carried with it from waiting to decided
+  (`Context::skill_ask`, written in the log only when true), so no other
+  ask can take its name (the reviewer on #958, 12:19). Its 2 s count from
+  its receipt, as an arrival's do.
+  `--act hello` is needed because a skill told `say_now` says the hello
+  itself: the decision must act, so that the 20 minutes are counted from
+  it and the hello is counted once, as the lamp's own turn on
+  `voice/state`, never also as a note chosen in shadow.
+- `news` and `unprompted` are put to **the moment question**
+  (`crates/policy/src/moment.rs`), "is this a good moment for the lamp to
+  start this itself?", on a connection of its own:
+  - one hard rule first, never while anyone is talking to the lamp (the
+    voice listening, thinking or speaking, or anything heard or said in the
+    last 15 s, as the hello question knows it): `wait` by the rule, no model
+    asked; and again as an answer comes back, by how things are then;
+  - then one question to the model, `good_moment` (the progress question's,
+    for anything the lamp would start: someone at the lamp, nobody spoken
+    for a little while, the room not busy, not spoken up unasked often in
+    the hour, not late at night or early in the morning), shown the skill's
+    name, what the lamp would do (news of work, or something small of its
+    own) and the room: someone at the lamp, seconds since anything was
+    said, the room, the times the lamp spoke up unasked in the hour (its own
+    turns on `voice/state`, as the hello question counts them), the hour;
+  - `say_now` from 0.5; with no answer within 1.5 s, the rule: yes unless
+    nobody is there, the room is busy, the lamp spoke up unasked twice in
+    the hour, or it is before eight or after ten;
+  - published with `about` `moment`, `shadow` false and the `ask`, and
+    written down with its state, as every decision is. An ask's 2 s count
+    from its receipt: one taken up after another is given only what is
+    left of them, less 0.2 s, and the rule answers at once when nothing is
+    left. An ask not decided within its 2 s, waiting or asked about, is let
+    go and counted `late`: an answer after them is never published (the
+    reviewer on #958, 12:19).
+  
+  The kept rules about speaking first (`--rules`, `news` limits) are the
+  progress question's today and are to be obeyed here too.
+- An ask that fails its check (a skill's name, a known act, a hello
+  without its minutes and seconds) is passed over.
+
+The diagnostics add `skill_asks` (asks taken), and `moment_decided`,
+`moment_said`, `moment_held_talking` and `moment_late`, with `--gate` only,
+and the start line `gate=true`. Without `--gate` the topic is not listened to.
+Run only one hello: with a skill greeting through the gate, the voice's
+own (`LAMP_SPEAK_FIRST`) is to be off. Test: `tests/hello.rs`,
+`with_the_gate_a_skills_ask_is_decided_by_its_question_and_names_the_ask`
+(a hello asked with 42 minutes away and 3 seconds there, `say_now` acting
+with `ask` and no `arrival`; the next held by `greeted_recently` with no
+model asked; news shown to the moment question with the skill and someone
+at the lamp, a yes of 0.8 `say_now` acting with the ask; something
+unprompted while the voice listens `wait` by the rule with no model asked;
+`skill_asks` 4, `moment_decided` 2, `moment_said` 1, `moment_held_talking`
+1), `crates/policy/src/moment.rs` (the state to the byte, the answer, the
+rule's four reasons to keep quiet and that not known is not no), and
+without the switch nothing listens to `skills/ask`.
 
 **What is published and written.** On `policy/decisions`: `about` `hello`,
 `say_now` or `wait`, the probability, the two answers, `by`, `took_ms`,

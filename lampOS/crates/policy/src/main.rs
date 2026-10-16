@@ -17,6 +17,7 @@ use lamp_policy::{
     decide::{DEFAULT_DEADLINE, DEFAULT_ENDPOINT, DEFAULT_MODEL, Endpoint, Jev},
     gather::PAUSE,
     hello::{self, Hello},
+    moment::{self, Moment},
     policy::{self, Options},
     progress::{self, LocalTime, Progress},
     record::private_dir,
@@ -29,7 +30,7 @@ use std::{
     time::Duration,
 };
 
-const USAGE: &str = "usage: lamp-policy --key-file ABSOLUTE_PATH --log-dir ABSOLUTE_DIR [--endpoint URL] [--model NAME] [--deadline-ms N] [--bus-root ABSOLUTE_DIR] [--progress] [--hello] [--utc-offset-minutes N | --zone system|NAME] [--act progress] [--act hello] [--rules] [--act attention]";
+const USAGE: &str = "usage: lamp-policy --key-file ABSOLUTE_PATH --log-dir ABSOLUTE_DIR [--endpoint URL] [--model NAME] [--deadline-ms N] [--bus-root ABSOLUTE_DIR] [--progress] [--hello] [--utc-offset-minutes N | --zone system|NAME] [--act progress] [--act hello] [--rules] [--act attention] [--gate]";
 const HELP: &str = "The lamp's policy, in shadow mode: judges whether each thing the voice hears was said to\n\
 the lamp, publishes the decision on the bus (policy/decisions) and writes it down. Nothing\n\
 acts on it. See docs/policy.md.\n\
@@ -61,6 +62,9 @@ acts on it. See docs/policy.md.\n\
                  first (memory/rules): never, not in the mornings, not before or from a time of\n\
                  day (by --utc-offset-minutes; all day without it), not while they talk; no model\n\
                  is asked then. Needs --progress. Off unless set\n\
+  --gate         also answer a skill that asks (skills/ask) whether the lamp may say hello, tell\n\
+                 news or start something itself, with the hello question or a moment question\n\
+                 of its own: the decision names the ask. Needs --hello and --act hello\n\
 What is heard is sent to the decision model's service. Do not run this on real speech in the\n\
 office until the owner has said so: it is for played tests.";
 
@@ -89,6 +93,8 @@ struct Arguments {
     /// It obeys the people's rules about speaking first (`--rules`, #813):
     /// off unless set.
     rules: bool,
+    /// Skills' asks are answered (`--gate`, #939): off unless set.
+    gate: bool,
 }
 
 fn parse(arguments: impl Iterator<Item = String>) -> Result<Option<Arguments>, String> {
@@ -99,17 +105,23 @@ fn parse(arguments: impl Iterator<Item = String>) -> Result<Option<Arguments>, S
     let mut act_attention = false;
     let mut rules = false;
     let mut zone = None;
+    let mut gate = false;
     let mut arguments = arguments;
     while let Some(option) = arguments.next() {
         if option == "--help" || option == "-h" {
             return Ok(None);
         }
         // The options without a value.
-        if option == "--progress" || option == "--hello" || option == "--rules" {
+        if option == "--progress"
+            || option == "--hello"
+            || option == "--rules"
+            || option == "--gate"
+        {
             let flag = match option.as_str() {
                 "--progress" => &mut progress,
                 "--hello" => &mut hello,
-                _ => &mut rules,
+                "--rules" => &mut rules,
+                _ => &mut gate,
             };
             if std::mem::replace(flag, true) {
                 return Err(format!("{option} was given twice"));
@@ -193,6 +205,11 @@ fn parse(arguments: impl Iterator<Item = String>) -> Result<Option<Arguments>, S
     if zone.is_some() && utc_offset_minutes.is_some() {
         return Err("--zone and --utc-offset-minutes are one or the other".into());
     }
+    // A skill that is told yes says the hello itself: the hello's decisions
+    // must act, so that the lamp's own last hello and its count are kept.
+    if gate && !act_hello {
+        return Err("--gate needs --hello and --act hello".into());
+    }
     Ok(Some(Arguments {
         key_file: key_file.ok_or("--key-file is required")?,
         log_dir: log_dir.ok_or("--log-dir is required")?,
@@ -208,6 +225,7 @@ fn parse(arguments: impl Iterator<Item = String>) -> Result<Option<Arguments>, S
         act_hello,
         act_attention,
         rules,
+        gate,
     }))
 }
 
@@ -229,6 +247,9 @@ fn questions(arguments: &Arguments) -> String {
     }
     if arguments.rules {
         said.push_str(" rules=true");
+    }
+    if arguments.gate {
+        said.push_str(" gate=true");
     }
     let acting: Vec<&str> = [
         (arguments.act_progress, "progress"),
@@ -299,9 +320,18 @@ fn run(arguments: &Arguments) -> io::Result<()> {
         let hello = if arguments.hello {
             let options = hello::Options {
                 act: arguments.act_hello,
-                ..hello::Options::new(arguments.deadline, local)
+                gate: arguments.gate,
+                ..hello::Options::new(arguments.deadline, local.clone())
             };
-            Some(Hello::start(judge()?, options)?)
+            let hello = Hello::start(judge()?, options)?;
+            // Answering skills, the moment question too, with a judge of
+            // its own (#939).
+            Some(if arguments.gate {
+                let options = moment::Options::new(arguments.deadline, local);
+                hello.with_moment(Moment::start(judge()?, options)?)
+            } else {
+                hello
+            })
         } else {
             None
         };
@@ -382,6 +412,7 @@ mod tests {
                 act_hello: false,
                 act_attention: false,
                 rules: false,
+                gate: false,
             }
         );
         let least = of("--log-dir /d --key-file /k").unwrap().unwrap();
@@ -402,6 +433,7 @@ mod tests {
                 act_hello: false,
                 act_attention: false,
                 rules: false,
+                gate: false,
             }
         );
         // The progress question, and the lamp's local time for it.
@@ -450,6 +482,12 @@ mod tests {
             questions(&both),
             " progress=true hello=true act=progress,hello"
         );
+        // Answering skills' asks (#939), with the hello acting.
+        let gating = of("--log-dir /d --hello --act hello --gate --key-file /k")
+            .unwrap()
+            .unwrap();
+        assert!(gating.gate && gating.hello && gating.act_hello);
+        assert_eq!(questions(&gating), " hello=true gate=true act=hello");
         let only = of("--log-dir /d --key-file /k --progress")
             .unwrap()
             .unwrap();
@@ -503,6 +541,9 @@ mod tests {
             "--key-file /k --log-dir /d --progress --act hello",
             "--key-file /k --log-dir /d --hello --hello",
             "--key-file /k --log-dir /d --hello --act hello --act hello",
+            "--key-file /k --log-dir /d --gate",
+            "--key-file /k --log-dir /d --hello --gate",
+            "--key-file /k --log-dir /d --hello --act hello --gate --gate",
             "--key-file /k --log-dir /d --progress --act progress --act progress",
             "--key-file /k --log-dir /d --progress --act",
             "--key-file /k --log-dir /d --utc-offset-minutes 841",

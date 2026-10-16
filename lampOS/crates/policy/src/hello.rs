@@ -69,6 +69,42 @@ pub const MOST_ASKING: Duration = Duration::from_millis(1_500);
 const HOUR: Duration = Duration::from_secs(3_600);
 /// No more arrivals than this wait to be decided; there is one voice.
 const MOST_WAITING: usize = 4;
+/// Kept back of what is left of the asker's wait when the model is asked,
+/// for the answer to be taken up and published in it.
+pub const ANSWER_MARGIN: Duration = Duration::from_millis(200);
+
+/// How long the model may take for one received at `received` and asked at
+/// `now`: what is left of `waits`, less [`ANSWER_MARGIN`], and at most
+/// `most`. Zero when nothing is left: the rule answers at once (the
+/// reviewer on #958, 12:19).
+pub(crate) fn time_left(
+    waits: Duration,
+    received: Instant,
+    now: Instant,
+    most: Duration,
+) -> Duration {
+    waits
+        .saturating_sub(now.saturating_duration_since(received))
+        .saturating_sub(ANSWER_MARGIN)
+        .min(most)
+}
+
+/// An arrival waiting to be decided, as it came: from the voice, or a
+/// skill's ask put as one (#939), and when.
+#[derive(Clone, Debug)]
+struct Waiting {
+    arrival: VoiceArrival,
+    received: Instant,
+    skill_ask: bool,
+}
+
+/// The question out, and when the one it is about was received.
+#[derive(Clone, Debug)]
+struct Asking {
+    context: Context,
+    sent: Instant,
+    received: Instant,
+}
 /// What the rule gives when no model answers. Authored, not measured.
 pub const RULE_YES: f32 = 0.6;
 pub const RULE_NO: f32 = 0.1;
@@ -88,6 +124,10 @@ pub struct Options {
     /// The decisions act (`--act hello`): published with `shadow: false`,
     /// and the voice says hello or not as they say. Off unless set.
     pub act: bool,
+    /// It also answers a skill's ask to say hello (`skills/ask`, `act`
+    /// `hello`, `lamp-policy --gate`, #939), as it answers the voice's
+    /// arrivals. Off unless set.
+    pub gate: bool,
 }
 
 impl Options {
@@ -98,6 +138,7 @@ impl Options {
             quiet_for: QUIET_FOR,
             at_most_every: AT_MOST_EVERY,
             act: false,
+            gate: false,
         }
     }
 }
@@ -147,6 +188,13 @@ pub struct Context {
     pub room: Room,
     pub spoke_up_last_hour: u32,
     pub hour: Option<u8>,
+    /// A skill's ask put as an arrival (#939): `arrival` is the ask's
+    /// number, and the decision names it as the ask. Carried with the
+    /// question it is about, from waiting to decided, so that no other ask
+    /// can take its place (the reviewer on #958, 12:19). Written only when
+    /// true.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub skill_ask: bool,
 }
 
 const LAMP: &str = "A small desk lamp robot on the desk of the person it works for, like a friend at the next desk: when someone comes back and sits down it may greet them with a few warm words, and otherwise it keeps quiet.";
@@ -315,11 +363,11 @@ type Answered = (Result<Asked, Failed>, Duration);
 pub struct Hello {
     options: Options,
     judge_name: String,
-    states: mpsc::SyncSender<String>,
+    states: mpsc::SyncSender<(String, Duration)>,
     answers: mpsc::Receiver<Answered>,
     asker_gone: bool,
-    asking: Option<(Context, Instant)>,
-    waiting: VecDeque<(VoiceArrival, Instant)>,
+    asking: Option<Asking>,
+    waiting: VecDeque<Waiting>,
     voice: Option<Voice>,
     last_talk: Option<Instant>,
     last_listening: Option<Instant>,
@@ -330,6 +378,12 @@ pub struct Hello {
     /// The turn the lamp began itself, while it lasts.
     own_turn: Option<OwnTurn>,
     greeted: Option<Instant>,
+    /// When it started: the quiet a skill's ask is shown is counted from
+    /// here if nothing has been said since.
+    started: Instant,
+    /// The moment question beside it (`--gate`, #939), which takes the
+    /// skills' asks of news and of anything else unprompted.
+    moment: Option<crate::moment::Moment>,
     totals: Totals,
 }
 
@@ -340,14 +394,14 @@ impl Hello {
         options: Options,
     ) -> io::Result<Self> {
         let judge_name = decider.name().to_owned();
-        let (states, asked) = mpsc::sync_channel::<String>(1);
+        let (states, asked) = mpsc::sync_channel::<(String, Duration)>(1);
         let (answered, answers) = mpsc::channel();
-        let deadline = options.deadline.min(MOST_ASKING);
         thread::Builder::new()
             .name("ask-hello".into())
             .spawn(move || {
                 let questions = questions();
-                for state in asked {
+                // Each state with what is left of its asker's wait.
+                for (state, deadline) in asked {
                     let started = Instant::now();
                     let answer = decider.ask(&state, &questions, deadline);
                     if answered.send((answer, started.elapsed())).is_err() {
@@ -370,6 +424,8 @@ impl Hello {
             notes: VecDeque::new(),
             own_turn: None,
             greeted: None,
+            started: Instant::now(),
+            moment: None,
             totals: Totals::default(),
         })
     }
@@ -383,6 +439,92 @@ impl Hello {
         self.options.act
     }
 
+    /// Whether it answers skills' asks ([`Options::gate`]).
+    pub fn answers_skills(&self) -> bool {
+        self.options.gate
+    }
+
+    /// With the moment question beside it (`--gate`, #939): skills' asks
+    /// of news and of anything else unprompted are put to it, with what
+    /// this question knows of who is talking and how often the lamp spoke
+    /// up unasked.
+    pub fn with_moment(mut self, moment: crate::moment::Moment) -> Self {
+        self.moment = Some(moment);
+        self
+    }
+
+    /// The moment question's counts, if it runs.
+    pub fn moment_totals(&self) -> Option<crate::moment::Totals> {
+        self.moment.as_ref().map(crate::moment::Moment::totals)
+    }
+
+    /// A skill's ask of news or of anything else unprompted, put to the
+    /// moment question. False when there is none to take it.
+    pub fn asked_moment(&mut self, ask: &lamp_msgs::SkillAsk, now: Instant) -> bool {
+        match self.moment.as_mut() {
+            Some(moment) => {
+                moment.asked(ask, now);
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// Take up the moment question's answer, or decide its next ask, with
+    /// how things are now.
+    pub fn moment_turn(
+        &mut self,
+        now: Instant,
+        unix_ms: u64,
+        room: Room,
+        someone_here: Option<bool>,
+    ) -> Option<crate::moment::Decided> {
+        let quiet = now.saturating_duration_since(self.last_talk.unwrap_or(self.started));
+        let room_now = crate::moment::Now {
+            room,
+            someone_here,
+            quiet_s: u32::try_from(quiet.as_secs()).unwrap_or(u32::MAX),
+            talking: self.talking(now),
+            // Acting, the lamp's own turns are counted from `voice/state`.
+            spoke_up_last_hour: u32::try_from(self.unasked.len()).unwrap_or(u32::MAX),
+        };
+        self.moment.as_mut()?.turn(now, unix_ms, room_now)
+    }
+
+    /// Someone is talking to the lamp: the voice listening, thinking or
+    /// speaking, or anything heard or said in the last [`Options::quiet_for`].
+    fn talking(&self, now: Instant) -> bool {
+        matches!(
+            self.voice,
+            Some(Voice::Listening | Voice::Thinking | Voice::Speaking)
+        ) || self
+            .last_talk
+            .is_some_and(|at| now.saturating_duration_since(at) < self.options.quiet_for)
+    }
+
+    /// A skill asks to say hello (`skills/ask`, #939): put as an arrival,
+    /// decided as the voice's are, by the same hard rules, the same kept
+    /// rules and the same question, and its decision names the ask. The
+    /// quiet is what the policy knows itself (since anything was last said,
+    /// or since it started), and the last hello its own. One that fails its
+    /// check, or is not a hello, is passed over.
+    pub fn asked(&mut self, ask: &lamp_msgs::SkillAsk, now: Instant) {
+        if ask.check().is_err() || ask.act != ABOUT {
+            return;
+        }
+        let quiet = now.saturating_duration_since(self.last_talk.unwrap_or(self.started));
+        let arrival = VoiceArrival {
+            arrival: ask.ask,
+            away_min: ask.away_min.unwrap_or_default(),
+            there_s: ask.there_s.unwrap_or_default(),
+            quiet_s: u32::try_from(quiet.as_secs()).unwrap_or(u32::MAX),
+            since_hello_min: self.greeted.map(|at| {
+                u32::try_from(now.saturating_duration_since(at).as_secs() / 60).unwrap_or(u32::MAX)
+            }),
+        };
+        self.wait(arrival, now, true);
+    }
+
     /// Whether a question is out or an arrival waits: the voice is waiting,
     /// so the loop looks again sooner.
     pub fn busy(&self) -> bool {
@@ -392,6 +534,10 @@ impl Hello {
     /// A hello is due: it waits to be decided. One that fails its check is
     /// passed over; past [`MOST_WAITING`] the oldest is let go.
     pub fn arrival(&mut self, arrival: VoiceArrival, now: Instant) {
+        self.wait(arrival, now, false);
+    }
+
+    fn wait(&mut self, arrival: VoiceArrival, now: Instant, skill_ask: bool) {
         if arrival.check().is_err() {
             return;
         }
@@ -399,7 +545,11 @@ impl Hello {
             self.waiting.pop_front();
             self.totals.late += 1;
         }
-        self.waiting.push_back((arrival, now));
+        self.waiting.push_back(Waiting {
+            arrival,
+            received: now,
+            skill_ask,
+        });
     }
 
     /// What the voice is doing, as the progress question takes it. Whether
@@ -499,12 +649,7 @@ impl Hello {
     }
 
     fn hold(&self, arrival: &VoiceArrival, now: Instant) -> Option<Hold> {
-        let talking = matches!(
-            self.voice,
-            Some(Voice::Listening | Voice::Thinking | Voice::Speaking)
-        ) || self
-            .last_talk
-            .is_some_and(|at| now.saturating_duration_since(at) < self.options.quiet_for);
+        let talking = self.talking(now);
         let every_min =
             u32::try_from(self.options.at_most_every.as_secs() / 60).unwrap_or(u32::MAX);
         let recent = arrival
@@ -540,30 +685,42 @@ impl Hello {
             }
         }
         if self.asking.is_some() {
-            return match self.answers.try_recv() {
-                Ok((answer, took)) => {
-                    let (context, _) = self.asking.take().expect("a question is out");
-                    Some(self.decide(context, Some(answer), None, took, now, unix_ms))
-                }
+            let answer = match self.answers.try_recv() {
+                Ok((answer, took)) => Some((Some(answer), took)),
                 Err(mpsc::TryRecvError::Empty) => None,
                 Err(mpsc::TryRecvError::Disconnected) => {
                     self.asker_gone = true;
-                    let (context, sent) = self.asking.take().expect("a question is out");
-                    let took = now.saturating_duration_since(sent);
-                    Some(self.decide(context, None, None, took, now, unix_ms))
+                    Some((None, Duration::ZERO))
                 }
+            }?;
+            let asking = self.asking.take().expect("a question is out");
+            // An answer after its asker stopped waiting is let go, as one
+            // never asked about is: nobody takes it up, and it changes
+            // nothing kept (the reviewer on #958, 12:19).
+            if now.saturating_duration_since(asking.received) >= VOICE_WAITS {
+                self.totals.late += 1;
+                return None;
+            }
+            let took = match answer.0 {
+                Some(_) => answer.1,
+                None => now.saturating_duration_since(asking.sent),
             };
+            return Some(self.decide(asking.context, answer.0, None, took, now, unix_ms));
         }
         // One the voice has stopped waiting for is let go undecided.
         while self
             .waiting
             .front()
-            .is_some_and(|(_, at)| now.saturating_duration_since(*at) >= VOICE_WAITS)
+            .is_some_and(|waiting| now.saturating_duration_since(waiting.received) >= VOICE_WAITS)
         {
             self.waiting.pop_front();
             self.totals.late += 1;
         }
-        let (arrival, _) = self.waiting.pop_front()?;
+        let Waiting {
+            arrival,
+            received,
+            skill_ask,
+        } = self.waiting.pop_front()?;
         let context = Context {
             arrival: arrival.arrival,
             away_min: arrival.away_min,
@@ -591,6 +748,7 @@ impl Hello {
                 .local
                 .as_ref()
                 .map(|local| local.hour_of_day(unix_ms)),
+            skill_ask,
         };
         if let Some(hold) = self.hold(&arrival, now) {
             match hold {
@@ -602,9 +760,25 @@ impl Hello {
         if self.asker_gone {
             return Some(self.decide(context, None, None, Duration::ZERO, now, unix_ms));
         }
-        match self.states.try_send(state_text(&context)) {
+        // The model is given only what is left of the wait; with nothing
+        // left, the rule answers now.
+        let deadline = time_left(
+            VOICE_WAITS,
+            received,
+            now,
+            self.options.deadline.min(MOST_ASKING),
+        );
+        if deadline.is_zero() {
+            let failed = Some(Err(Failed::TimedOut));
+            return Some(self.decide(context, failed, None, Duration::ZERO, now, unix_ms));
+        }
+        match self.states.try_send((state_text(&context), deadline)) {
             Ok(()) => {
-                self.asking = Some((context, now));
+                self.asking = Some(Asking {
+                    context,
+                    sent: now,
+                    received,
+                });
                 None
             }
             Err(_) => {
@@ -699,6 +873,8 @@ impl Hello {
         self.totals.decided += 1;
         self.totals.by_rule += u64::from(judgement.from_rule);
         let took_ms = u32::try_from(took.as_millis()).unwrap_or(u32::MAX);
+        // A skill's ask is named as the ask, a voice's arrival as an arrival.
+        let skill_ask = context.skill_ask.then_some(context.arrival);
         let decision = Decision {
             about: ABOUT.to_owned(),
             choice: judgement.choice.as_str().to_owned(),
@@ -709,7 +885,8 @@ impl Hello {
             shadow: !self.options.act,
             request: None,
             task: None,
-            arrival: Some(context.arrival),
+            arrival: skill_ask.is_none().then_some(context.arrival),
+            ask: skill_ask,
         };
         let line = Line {
             at_unix_ms: unix_ms,
@@ -748,6 +925,7 @@ mod tests {
             room: Room::Quiet,
             spoke_up_last_hour: 0,
             hour: Some(9),
+            skill_ask: false,
         }
     }
 
@@ -1056,5 +1234,160 @@ mod tests {
             );
             assert_eq!(run(first_sound, true), (2, Choice::Wait), "{first_sound:?}");
         }
+    }
+
+    /// Holds each asking until let go, and keeps the time each was given.
+    struct Held {
+        go: mpsc::Receiver<()>,
+        given: std::sync::Arc<std::sync::Mutex<Vec<Duration>>>,
+    }
+    impl Decider for Held {
+        fn ask(
+            &mut self,
+            _: &str,
+            _: &[(String, Question)],
+            deadline: Duration,
+        ) -> Result<Asked, Failed> {
+            self.given.lock().unwrap().push(deadline);
+            self.go.recv().map_err(|_| Failed::TimedOut)?;
+            Ok(Asked {
+                answers: answers([0.9, 0.0]),
+                model: "held".into(),
+                took: Duration::ZERO,
+                usage: None,
+                connection: None,
+            })
+        }
+        fn name(&self) -> &str {
+            "held"
+        }
+    }
+
+    #[test]
+    fn the_model_is_given_what_is_left_of_the_two_seconds_less_a_margin() {
+        let t = Instant::now();
+        let ms = Duration::from_millis;
+        assert_eq!(time_left(VOICE_WAITS, t, t, MOST_ASKING), MOST_ASKING);
+        assert_eq!(
+            time_left(VOICE_WAITS, t, t + ms(800), MOST_ASKING),
+            ms(1_000)
+        );
+        assert_eq!(
+            time_left(VOICE_WAITS, t, t + ms(1_800), MOST_ASKING),
+            Duration::ZERO
+        );
+        assert_eq!(
+            time_left(VOICE_WAITS, t, t + ms(5_000), MOST_ASKING),
+            Duration::ZERO
+        );
+    }
+
+    /// The reviewer on #958 (12:19): each ask carries who it is from to its
+    /// decision, and its 2 s count from when it was received. With A out
+    /// to the model and four more asks waiting, A's decision still names A
+    /// as the ask. B, waiting 0.8 s, is given 1 s, and its answer after
+    /// its 2 s is let go and counted late, never published. One with too
+    /// little left is answered by the rule at once.
+    #[test]
+    fn each_ask_keeps_its_own_name_and_its_two_seconds_from_receipt() {
+        let ms = Duration::from_millis;
+        let (go, gate) = mpsc::channel();
+        let given = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let options = Options {
+            gate: true,
+            ..Options::new(Duration::from_secs(3), None)
+        };
+        let decider = Held {
+            go: gate,
+            given: given.clone(),
+        };
+        let mut hello = Hello::start(decider, options).unwrap();
+        let ask = |number: u64| lamp_msgs::SkillAsk {
+            ask: number,
+            skill: "welcome-back".into(),
+            act: "hello".into(),
+            person: None,
+            away_min: Some(42),
+            there_s: Some(3),
+        };
+        let turn = |hello: &mut Hello, at: Instant| {
+            hello.turn(at, 1_000_000, Room::Quiet, (Some(true), None))
+        };
+        // What the asker was given, once it has taken up `count` askings.
+        let given_now = |count: usize| {
+            for _ in 0..500 {
+                if given.lock().unwrap().len() >= count {
+                    break;
+                }
+                std::thread::sleep(ms(2));
+            }
+            given.lock().unwrap().clone()
+        };
+        let t = Instant::now();
+        hello.asked(&ask(1), t);
+        assert!(turn(&mut hello, t).is_none(), "A is out");
+        for number in 2..=5 {
+            hello.asked(&ask(number), t + ms(100));
+        }
+        go.send(()).unwrap();
+        let a = (0..500)
+            .find_map(|_| {
+                std::thread::sleep(ms(2));
+                turn(&mut hello, t + ms(900))
+            })
+            .expect("A decided");
+        assert_eq!((a.decision.ask, a.decision.arrival), (Some(1), None));
+        assert_eq!(a.decision.choice, "say_now");
+        // B: received at 0.1 s, asked at 0.9 s.
+        assert!(turn(&mut hello, t + ms(900)).is_none(), "B is out");
+        assert_eq!(given_now(2), [MOST_ASKING, ms(1_000)]);
+        go.send(()).unwrap();
+        for _ in 0..500 {
+            if hello.totals().late == 1 {
+                break;
+            }
+            assert!(
+                turn(&mut hello, t + ms(2_100)).is_none(),
+                "B published late"
+            );
+            std::thread::sleep(ms(2));
+        }
+        assert_eq!(hello.totals().late, 1);
+        // C, D and E, received at 0.1 s, are let go too.
+        assert!(turn(&mut hello, t + ms(2_100)).is_none());
+        assert_eq!((hello.totals().late, hello.totals().decided), (4, 1));
+        // Received at 3 s and taken up at 4.85 s: the rule, at once.
+        hello.asked(&ask(6), t + ms(3_000));
+        let ruled = turn(&mut hello, t + ms(4_850)).expect("the rule at once");
+        assert_eq!(
+            (ruled.decision.ask, ruled.decision.by.as_str()),
+            (Some(6), crate::policy::RULE)
+        );
+        assert_eq!(ruled.line.failed, Some("timed_out"));
+        assert_eq!(given_now(2).len(), 2);
+        // A voice's arrival is still named as an arrival.
+        hello.arrival(
+            VoiceArrival {
+                arrival: 7,
+                away_min: 60,
+                there_s: 3,
+                quiet_s: 300,
+                since_hello_min: None,
+            },
+            t + ms(6_000),
+        );
+        assert!(turn(&mut hello, t + ms(6_000)).is_none());
+        go.send(()).unwrap();
+        let arrival = (0..500)
+            .find_map(|_| {
+                std::thread::sleep(ms(2));
+                turn(&mut hello, t + ms(6_500))
+            })
+            .expect("the arrival decided");
+        assert_eq!(
+            (arrival.decision.ask, arrival.decision.arrival),
+            (None, Some(7))
+        );
+        assert!(!arrival.line.context.skill_ask);
     }
 }

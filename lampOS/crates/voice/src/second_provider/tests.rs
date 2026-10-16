@@ -1130,3 +1130,113 @@ async fn a_full_look_without_its_still_still_says_it_could_not_look() {
         Some(&Message::user(crate::speak_up::NO_LOOK_NOTE))
     );
 }
+
+/// A request that goes on from one given up after an early end is asked
+/// with that one's words before its own, as Gemini, which heard both, is
+/// told; what is told as heard is its own words only. A request that does
+/// not go on from one starts afresh.
+#[tokio::test]
+async fn a_request_going_on_from_one_given_up_begins_with_its_words() {
+    let script = Arc::new(Script {
+        heard: Mutex::new(
+            [
+                Ok("What time".to_owned()),
+                Ok("is it in Paris".to_owned()),
+                Ok("Thanks".to_owned()),
+            ]
+            .into(),
+        ),
+        chats: Mutex::new(
+            [
+                vec![text("Hm."), Ok(ChatEvent::Done)],
+                vec![text("Nine."), Ok(ChatEvent::Done)],
+                vec![text("Sure."), Ok(ChatEvent::Done)],
+            ]
+            .into(),
+        ),
+        ..Script::default()
+    });
+    let (mut engine, _, _) = scripted(script.clone());
+    engine.submit(start(1));
+    engine.submit(audio(1, 1));
+    engine.submit(end(1));
+    turn(&mut engine).await;
+    engine.submit(ProviderInput::Start {
+        request: 2,
+        session: 1,
+        privacy_generation: 1,
+        continues: false,
+        continues_cut_off: true,
+        over_the_lamp: false,
+    });
+    engine.submit(audio(2, 1));
+    engine.submit(end(2));
+    let heard = turn(&mut engine).await;
+    assert!(
+        heard.contains(&"heard:is it in Paris".to_owned()),
+        "{heard:?}"
+    );
+    engine.submit(start(3));
+    engine.submit(audio(3, 1));
+    engine.submit(end(3));
+    turn(&mut engine).await;
+    let asked = script.asked.lock().unwrap();
+    assert_eq!(
+        asked[1].last(),
+        Some(&Message::user("What time is it in Paris"))
+    );
+    assert_eq!(asked[2].last(), Some(&Message::user("Thanks")));
+}
+
+/// The reviewer's probe on #1168: a request given up before its words came
+/// leaves the one going on from it to be asked alone, never with an earlier
+/// request's words; nor is another session's taken.
+#[tokio::test]
+async fn a_request_going_on_takes_only_the_words_of_the_one_just_before_it_in_its_session() {
+    let begin = |request, session, continues_cut_off| ProviderInput::Start {
+        request,
+        session,
+        privacy_generation: 1,
+        continues: false,
+        continues_cut_off,
+        over_the_lamp: false,
+    };
+    let script = Arc::new(Script {
+        heard: Mutex::new(
+            [
+                Ok("my code is four four one two".to_owned()),
+                Ok("is it in Paris".to_owned()),
+                Ok("and in Rome".to_owned()),
+            ]
+            .into(),
+        ),
+        chats: Mutex::new(
+            [
+                vec![text("Noted."), Ok(ChatEvent::Done)],
+                vec![text("Nine."), Ok(ChatEvent::Done)],
+                vec![text("Nine."), Ok(ChatEvent::Done)],
+            ]
+            .into(),
+        ),
+        ..Script::default()
+    });
+    let (mut engine, _, _) = scripted(script.clone());
+    engine.submit(begin(1, 1, false));
+    engine.submit(audio(1, 1));
+    engine.submit(end(1));
+    turn(&mut engine).await;
+    // Request 2, another session, is given up before any of its words.
+    engine.submit(begin(2, 2, false));
+    engine.submit(begin(3, 2, true));
+    engine.submit(audio(3, 1));
+    engine.submit(end(3));
+    turn(&mut engine).await;
+    // Request 4 goes on from request 3, but in another session.
+    engine.submit(begin(4, 3, true));
+    engine.submit(audio(4, 1));
+    engine.submit(end(4));
+    turn(&mut engine).await;
+    let asked = script.asked.lock().unwrap();
+    assert_eq!(asked[1].last(), Some(&Message::user("is it in Paris")));
+    assert_eq!(asked[2].last(), Some(&Message::user("and in Rome")));
+}

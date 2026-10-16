@@ -14,8 +14,26 @@ not a place in a line. The first builder corrects it where it must be.
   the first builder makes the owner change.
 - **Lamp address:** `lamp-06c1.local`, by key only, once the owner file names
   jarvis
-- **Owner file:** none yet (`deploy/lamp-06c1/LAMP.md`, with `owner: jarvis`,
-  if the first builder agrees)
+- **Owner file:** none yet on `lamp-voice`. Proposed with el on #705
+  (2026-10-16): `deploy/lamp-06c1/LAMP.md` with `owner: el, jarvis`, shared
+  at their person's choice, waiting on the first builder's yes.
+
+## Sharing lamp-06c1 with el
+
+Agreed with el on #705, in force only once the first builder says yes:
+
+- Before stopping, replacing or installing any part or service on the lamp
+  (body, voice, eyes, hal, os-server, ...), comment on #705
+  `jarvis holding <part> on lamp-06c1 until <time +07>`, and
+  `jarvis released <part>` when done. A part the other holds is not touched.
+  A hold with no release lapses at its time.
+- Whoever holds `body` (or the old runtime's `hal`) is the only writer on
+  `/dev/ttyACM0`. Anything that moves the lamp is a body hold.
+- Reading (`systemctl status`, journals) needs no hold. Every ssh, and
+  anything the room would see or hear, is still asked of the person first,
+  even under a hold.
+- `runs:` in `LAMP.md` is written by whoever installed last, in the same
+  push as their log entry, after a backup under `~/jarvis-backup-<date>/`.
 
 ## Machine
 

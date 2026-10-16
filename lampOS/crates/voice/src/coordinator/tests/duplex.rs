@@ -2,9 +2,11 @@
 //! commit and speaker-dispatch functions, one capture block at a time.
 //!
 //! Time here is the host's own and the blocks follow one another at once, so
-//! every assertion is about order and counts of blocks. The bounds that are
-//! measured in time are tested where they live: the decision budget in
-//! `admission`, the tail and the staleness of hearing in `turn_taking`.
+//! every assertion is about order and counts of blocks; a paced test runs on
+//! the scenario clock instead, 40 ms a block
+//! ([`Harness::keeping_first_words_paced`]). The bounds that are measured in
+//! time are tested where they live: the decision budget in `admission`, the
+//! tail and the staleness of hearing in `turn_taking`.
 use super::*;
 use crate::{activity::START_BLOCKS, admission::Hold, turn_taking::HEARING_STALE_US};
 use lamp_audio::{
@@ -508,11 +510,11 @@ fn a_person_over_the_lamp_stops_the_speaker_then_interrupts_with_their_opening_w
     assert_eq!(h.events("turn_finished").len(), 1, "one interruption");
 }
 
-/// #936, the reviewer at 08:02, paced in real time: first words said 2.5 s
-/// before the commit are older than the provider takes (2.5 s). The commit
-/// drops the oldest of them from the front, keeps every block it sends
-/// within `FIRST_WORDS_AGE_US`, keeps the onset and what followed, and
-/// says what it dropped. Without first words kept, as before.
+/// #936, the reviewer at 08:02, paced on the scenario clock, 40 ms a block:
+/// first words said 2.5 s before the commit are older than the provider
+/// takes (2.5 s). The commit drops the oldest of them from the front, keeps
+/// every block it sends within `FIRST_WORDS_AGE_US`, keeps the onset and what
+/// followed, and says what it dropped. Without first words kept, as before.
 #[test]
 fn first_words_older_than_the_provider_takes_are_dropped_before_the_commit() {
     let (_clock, mut h) = Harness::keeping_first_words_paced(true, 400);

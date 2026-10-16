@@ -631,7 +631,11 @@ used only to say it.
   heard; and the room is not busy. With `LAMP_TASK_NEWS_AT_PAUSE=on` (#560,
   off unless set) the 15 s is the first pause of a second instead: nobody
   heard speaking for 1 s and the lamp's last turn over for as long, as a
-  due reminder waits (`task_news::quiet_for_news`, `PAUSE_US`). The first
+  due reminder waits (`task_news::quiet_for_news`, `PAUSE_US`). After the
+  lamp's own words it waits 3 s with nobody starting (`AFTER_LAMP_US`): 1 s
+  after the lamp stops is the person's turn to answer it, and someone who
+  starts then has their line, the news waiting for its end and 1 s more
+  (the first builder on #1161). The first
   builder's bound on #560 is that a person at the lamp hears the result
   within 20 s of the agent settling, at their first pause of at least 1 s if
   they are talking; someone who talks with the lamp until 18 s after it

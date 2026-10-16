@@ -5714,6 +5714,8 @@ fn conversation_with_gate(
                 news_at_pause,
                 clock,
                 last_turn_us,
+                last_spoke_us,
+                last_speech_us,
                 reminder_quiet(
                     clock,
                     reminder_cycle_started_us,

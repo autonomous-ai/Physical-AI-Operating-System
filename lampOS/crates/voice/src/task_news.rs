@@ -79,10 +79,15 @@ pub const QUIET_US: u64 = 15_000_000;
 /// within 20 s of the agent settling, at their first pause of at least 1 s
 /// if they are talking. Read at start; off unless set.
 pub const AT_PAUSE_ENVIRONMENT: &str = "LAMP_TASK_NEWS_AT_PAUSE";
-/// The pause news waits for with [`AT_PAUSE_ENVIRONMENT`]: nobody heard
-/// speaking for this long, and the lamp's own turn over as long, as a due
-/// reminder waits (`coordinator::reminder_quiet`).
+/// The pause news waits for with [`AT_PAUSE_ENVIRONMENT`] after someone
+/// spoke: nobody heard speaking for this long, and the turn over as long,
+/// as a due reminder waits (`coordinator::reminder_quiet`).
 pub const PAUSE_US: u64 = 1_000_000;
+/// After the lamp's own words, news waits this long with nobody starting:
+/// 1 s after the lamp stops is the person's turn to answer it, not a pause
+/// (someone answering begins 0.2 to 1.5 s after), and a friend with news
+/// lets them have it (the first builder on #1161).
+pub const AFTER_LAMP_US: u64 = 3_000_000;
 
 /// Whether news is told at the first pause ([`AT_PAUSE_ENVIRONMENT`]):
 /// `on`, and nothing else.
@@ -92,15 +97,26 @@ pub fn at_pause(value: Option<&str>) -> bool {
 
 /// Whether it is quiet enough now (`now_us`) to tell news: [`QUIET_US`]
 /// since the last turn, by or to the lamp (`last_turn_us`); or, `at_pause`,
-/// [`PAUSE_US`] since it, with nobody heard speaking for as long
-/// (`speech_paused`, as the coordinator judges it for a reminder).
-pub fn quiet_for_news(at_pause: bool, now_us: u64, last_turn_us: u64, speech_paused: bool) -> bool {
+/// the first pause: [`PAUSE_US`] since the turn, with nobody heard speaking
+/// for as long (`speech_paused`, as the coordinator judges it for a
+/// reminder), and, when the lamp's own words (`lamp_spoke_us`) came after
+/// anyone's speech (`last_speech_us`), [`AFTER_LAMP_US`] since them.
+pub fn quiet_for_news(
+    at_pause: bool,
+    now_us: u64,
+    last_turn_us: u64,
+    lamp_spoke_us: Option<u64>,
+    last_speech_us: u64,
+    speech_paused: bool,
+) -> bool {
     let since_turn = now_us.saturating_sub(last_turn_us);
-    if at_pause {
-        speech_paused && since_turn >= PAUSE_US
-    } else {
-        since_turn >= QUIET_US
+    if !at_pause {
+        return since_turn >= QUIET_US;
     }
+    let after_the_lamp = lamp_spoke_us.is_none_or(|spoke| {
+        spoke < last_speech_us || now_us.saturating_sub(spoke) >= AFTER_LAMP_US
+    });
+    speech_paused && since_turn >= PAUSE_US && after_the_lamp
 }
 /// Without eyes that say someone is there, something said this recently
 /// says it.
@@ -2050,51 +2066,71 @@ mod tests {
         let _ = std::fs::remove_dir_all(root);
     }
 
+    /// When news is first told, stepping every 100 ms from `from` to 40 s
+    /// on: a person speaks over `person`, the lamp over `lamp` (start and
+    /// end), and the turn lasts while either does. In tenths of a second
+    /// after `from`.
+    fn first_told(
+        at_pause: bool,
+        from: u64,
+        person: &[(u64, u64)],
+        lamp: &[(u64, u64)],
+    ) -> Option<u64> {
+        const S: u64 = 1_000_000;
+        let last = |spans: &[(u64, u64)], now: u64| {
+            spans
+                .iter()
+                .filter(|(start, _)| *start <= now)
+                .map(|(_, end)| (*end).min(now))
+                .max()
+        };
+        (from..=from + 40 * S).step_by(100_000).find_map(|now| {
+            let speech = last(person, now).unwrap_or(0);
+            let spoke = last(lamp, now);
+            let turn = speech.max(spoke.unwrap_or(0));
+            let paused = now.saturating_sub(speech) >= PAUSE_US;
+            quiet_for_news(at_pause, now, turn, spoke, speech, paused)
+                .then_some((now - from) / 100_000)
+        })
+    }
+
     /// #560, the first builder's bound, the eighth's case: someone talks
-    /// with the lamp until 18 s after the agent settled. With
-    /// `LAMP_TASK_NEWS_AT_PAUSE=on` the news is told at their first pause
-    /// of a second, about 19 s; without it, 15 s after the last turn, about
-    /// 33 s, as before.
+    /// with the lamp until 18 s after the agent settled, and the lamp says
+    /// nothing after. With `LAMP_TASK_NEWS_AT_PAUSE=on` the news is told at
+    /// their first pause of a second, about 19 s; without it, 15 s after the
+    /// last turn, about 33 s, as before.
     #[test]
     fn news_is_told_at_the_first_pause_of_a_second_only_with_the_switch() {
         const S: u64 = 1_000_000;
         let settled = 100 * S;
-        let talked_until = settled + 18 * S;
-        let first = |at_pause| {
-            (talked_until..=talked_until + 20 * S)
-                .step_by(100_000)
-                .find(|&now| {
-                    let paused = now - talked_until >= PAUSE_US;
-                    quiet_for_news(at_pause, now, talked_until, paused)
-                })
-                .map(|now| (now - settled) / 100_000)
-        };
-        assert_eq!(first(true), Some(190));
-        assert_eq!(first(false), Some(330));
-        // Someone still speaking, or the lamp's turn just over: not yet.
-        assert!(!quiet_for_news(
-            true,
-            talked_until + 5 * S,
-            talked_until,
-            false
-        ));
-        assert!(!quiet_for_news(
-            true,
-            talked_until + 900_000,
-            talked_until,
-            true
-        ));
-        // Without the switch, 15 s since the last turn whoever is heard.
-        assert!(quiet_for_news(
-            false,
-            talked_until + QUIET_US,
-            talked_until,
-            false
-        ));
+        let person = [(settled, settled + 18 * S)];
+        assert_eq!(first_told(true, settled, &person, &[]), Some(190));
+        assert_eq!(first_told(false, settled, &person, &[]), Some(330));
         // Only `on` turns it on.
         for value in [None, Some(""), Some("off"), Some("ON"), Some("1")] {
             assert!(!at_pause(value), "{value:?}");
         }
         assert!(at_pause(Some("on")));
+    }
+
+    /// The first builder on #1161: 1 s after the lamp's own reply is the
+    /// person's turn, not a pause. The lamp's reply ends; the person starts
+    /// at 1.2 s and talks 2 s: the news waits for that line to end and 1 s
+    /// more (4.2 s), never told at 1 s. Nobody starts: it is told 3 s after
+    /// the lamp's words (`AFTER_LAMP_US`), not at 1 s.
+    #[test]
+    fn after_the_lamps_own_words_news_waits_for_the_persons_turn() {
+        const S: u64 = 1_000_000;
+        let ended = 200 * S;
+        let lamp = [(ended - 4 * S, ended)];
+        let answered = [
+            (ended - 6 * S, ended - 5 * S),
+            (ended + 1_200_000, ended + 3_200_000),
+        ];
+        assert_eq!(first_told(true, ended, &answered, &lamp), Some(42));
+        let asked = [(ended - 6 * S, ended - 5 * S)];
+        assert_eq!(first_told(true, ended, &asked, &lamp), Some(30));
+        // Without the switch, 15 s after the last turn either way.
+        assert_eq!(first_told(false, ended, &asked, &lamp), Some(150));
     }
 }

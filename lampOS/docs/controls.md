@@ -1,8 +1,10 @@
 # Controls: a hand can ask the lamp to stop
 
 Task 33 adds an opt-in touch path, described below. The later sections retain
-the installed Task 7 path and its evidence. Without `--touch`, that path's
-schema, topics, recognition and output remain unchanged.
+the installed Task 7 path and its evidence. Without `--touch` or the separately
+selected Task 755 privacy source, that path's schema, topics, recognition and
+output remain unchanged. Physical privacy can be selected independently in
+either mode.
 
 ## Touch and slides, Task 33
 
@@ -419,7 +421,7 @@ The shipped `serve` command uses `MissingPins` and reports that no adapter is
 installed. First replaces that one construction with its verified reader.
 No service unit or deployment change is included.
 
-The process and all receivers require explicit enablement. CLI configuration
+Hand requests and their receivers require explicit enablement. CLI configuration
 cannot turn on a process without `--enable`; the flag overrides the file's
 `enabled` value. Shadow mode publishes recognizable evidence with
 `enabled:false`, which `Receiver` refuses as authority. A publishing success
@@ -514,7 +516,9 @@ allows one process per bus root. The OS releases the lock when a process dies.
 
 `src/pins.rs`. `lamp-controls serve --pins FILE` reads the board's GPIO
 lines named in FILE in place of the stand-in that reports Missing.
-Without `--pins` nothing changes.
+Without `--pins` nothing changes. Physical privacy observation additionally
+requires the exact `LAMP_PRIVACY_CONTROLS=on` selection and an explicit `privacy`
+section, described below; absent/off never opens chip 1.
 
 The file is the board's wiring and nothing else: the chip, and for each
 button and head pad its name (the same names, in the same order, as the
@@ -528,8 +532,9 @@ and given as one complete observation stamped with the moment of the
 reading, numbered one after another, under a session of the reader's own
 that is new at every start. A line that cannot be read is reported as
 Missing, never as released. The lines are taken for this program alone:
-if another holds one, it does not start. The privacy slide is not read
-here; it is the voice's.
+if another holds one, it does not start. The hand reader does not include the
+privacy slide in these snapshots. Its separately selected reader owns a
+different chip request and cannot become a hand gesture.
 
 `lamp-controls probe --pins FILE` reads each line of the file once with
 a pull-down and once with a pull-up, 10 ms each, and serves nothing: a
@@ -592,7 +597,7 @@ all actuator contracts are unchanged.
 | Topic | Kind | Meaning |
 |---|---|---|
 | `controls/gesture`, `ControlGesture` v1 | Event, 500 ms lifespan | Source, gesture, one-way intent, original release/duration, enabled flag and stable event identity |
-| `controls/state`, `ControlsState` v1 | Latest, 100 ms heartbeat, 300 ms lifespan | Input health, observed button/base hold feedback, head activity, independent retained Stop and mute records |
+| `controls/state`, `ControlsState` v1 | Latest, declared 100 ms heartbeat, 300 ms lifespan | Input health, observed button/base hold feedback, head activity, independent retained Stop and mute records; optional independent physical privacy evidence |
 | `diagnostics`, `Diagnostic` | Event, once a second | Reader faults, counts, drops, publication/recording errors and explicit lack of physical confirmation |
 
 State is also published on feedback transitions and gestures. Its session is
@@ -649,11 +654,121 @@ cycle. These are scheduling/resource choices, not measured physical deadlines.
 
 ## Voice and physical privacy
 
-The existing Voice GPIO worker remains the only reader and authority for the
-physical slide switch. Controls has no privacy-switch field and cannot forge
-Voice's `PhysicalMute` restart token. The fresh 50 ms observations, stable
-60 ms unmute, verified shutdown, new runtime identities and input-readiness
-checks in [service privacy](service-privacy.md) remain unchanged.
+With `LAMP_PRIVACY_CONTROLS` absent or `off`, the existing Voice GPIO worker
+remains the physical slide reader. Selecting the new Controls producer does
+not forge Voice's `PhysicalMute` restart token or grant capture. The consumer
+must retain the fresh 50 ms observations, stable 60 ms unmute, verified shutdown,
+new runtime identities and input-readiness checks in
+[service privacy](service-privacy.md). Only one process may own chip 1 line 9;
+the consumer's selected route must relinquish its direct GPIO request before
+Controls can own the line.
+
+### Separately selected physical slide, Task 755
+
+The producer requires both the exact environment value
+`LAMP_PRIVACY_CONTROLS=on` and this section in a legacy or touch pins profile:
+
+```json
+"privacy": {
+  "chip": "/dev/gpiochip1",
+  "line": 9,
+  "active_low": true,
+  "pull": "up"
+}
+```
+
+This is the task's hardware-confirmed header-11 mapping: electrical LOW means
+muted. All four values are checked; changing the chip, offset, polarity or pull
+is rejected. The declared privacy line cannot also be a button or head-pad line
+on the same chip. Header number 11 is not a GPIO line offset. The implementation
+reuses the current `gpiocdev` request API and pull-up input convention, through
+a separate request and injectable `Lines` reader. It adds no GPIO probing or
+dependency. The board mapping is task evidence, not a new measurement by Third.
+
+Absent, `off`, differently cased and other environment values do not select the
+reader. No implicit chip-1 request is made by an old pins profile. A pins file
+that has a `privacy` section is refused without the selection, as any unknown
+field was before the switch existed, so a profile installed without it fails at
+start instead of running with no hand input. The selected
+profile defaults to observing its configured switch; removing the selection is
+the explicit off override. `--enable` remains the hand-gesture authority flag.
+Physical privacy has its own explicit opt-in and is not disabled by shadow hand
+messages or by a failed hand/strip source. It never changes the software-mute
+record. A fresh HIGH sample alone is not permission to reopen either microphone.
+
+`ControlsState.privacy` is an optional `PrivacySwitch`, omitted entirely when
+the producer is not selected. Existing messages retain their serialized fields
+and type/version/declaration. The nested value carries an actual-acquisition
+`ClockStamp`, `reader_session_id`, `muted: true|false|null`, and `fault`.
+Exactly one of a known level or a fault is present. Before any accepted
+acquisition, the unknown sentinel has time and sequence zero; it cannot be
+fresh. Read/open failure is unknown `Missing`, never HIGH. A failed initial
+request remains unavailable until process restart, without automatic retries or
+another worker.
+
+The independent monitor rejects malformed, future, wrong-boot, old, duplicate,
+out-of-order and skipped acquisitions. Reader changes withdraw evidence for the
+first new-reader sample; retired readers cannot return, and the retirement set
+is bounded to 32. Clock reversal and exhausting that fence require a new owner.
+At 50 ms, known evidence becomes unknown `Stale`, retaining the actual last
+acquisition timestamp. An outer heartbeat, live strip or live button cannot
+refresh it. The slide uses neither button debounce nor startup-held suppression:
+an initial LOW is observed immediately. Consumers must validate the nested
+50 ms age independently of the topic's existing 300 ms lifespan.
+
+The acquisition target is 5 ms, with a selected owner-loop target of 1 ms
+(the existing off-path loop stays 2 ms). While selected, Controls publishes state at
+most 20 ms apart in its running software loop and on physical level/fault/reader
+transitions immediately in that step. The selected Bus rescans subscribers every
+5 ms so a later Voice subscriber need not wait the ordinary 200 ms discovery
+interval, which exceeds the nested 50 ms freshness limit. The off route retains
+the ordinary Bus setting. The existing declaration remains 100 ms with a 300 ms
+lifespan. These are software scheduling targets; GPIO/system-call,
+filesystem and scheduler delays are not hard-bounded. No lamp switch-to-gate or
+switch-to-ring latency measurement is claimed here.
+
+The physical field is independent of top-level hand `ready` and `fault`.
+Base-only touch mode creates the `controls/state` owner when privacy is selected.
+A privacy-only touch profile uses that state owner without inventing a button or
+publishing an empty `TouchState`. Missing hand inputs may therefore coexist with
+fresh physical switch evidence. No switch sample becomes a Stop, software mute,
+clear, tap or touch event.
+
+Acquisition recording and replay keep privacy samples/faults separate from hand
+and strip input. Legacy records add optional `privacy` and `privacy_fault` fields;
+touch records add `privacy` and `privacy_fault` input kinds. A recording gap
+withdraws all potentially lost sources, while a GPIO/strip fault remains local.
+The existing 32 MiB total, 100,000-record, 16 KiB-line and ten-minute limits still
+apply. Replays open no GPIO, audio, I2C or Bus. Selected ordinary touch replay
+adds an optional `controls` state beside its existing touch output; privacy-only
+touch replay emits the ordinary Controls replay frames. Off output omits these
+additions.
+
+The `privacy-*.json*` fixtures are authored host scenarios, not lamp captures:
+
+```sh
+LAMP_PRIVACY_CONTROLS=on lamp-controls replay \
+  --config crates/controls/fixtures/privacy-controls.json \
+  --pins crates/controls/fixtures/privacy-pins.json \
+  --input crates/controls/fixtures/privacy-replay.jsonl \
+  --clock-id privacy-test
+```
+
+Host tests cover startup LOW/HIGH, exact selector/off bytes, missing/stale input,
+clock/order/reader faults, independent hand/strip failure, typed payload bounds,
+privacy-only/base-only state and deterministic replay. Authored test coverage is
+not a pass claim; the current task's validation report records executed checks.
+The ignored `synthetic_line_to_bus_latency_with_stalled_strip` test reports first
+and repeated elapsed times from an injected GPIO read through retained Bus
+read/parse/validation, with the strip giving one sample then stalling. Its
+authored 5 ms clock and local filesystem work do not measure an electrical
+switch, subscriber delivery, microphone closure or the lamp's ring.
+Voice's Linux-only `privacy_worker` integration fixture launches the selected
+child with private IPC and Bus paths, a synthetic 5 ms producer already running
+before subscription, and real Controller authority. It covers first-LOW
+revocation, stable-HIGH gating, verified replacement and producer loss under the
+unchanged 50/60 ms rules. It opens no GPIO or audio devices; authoring it does not
+claim native ARM64 execution or lamp latency.
 
 Voice's switches are independent and absent by default:
 

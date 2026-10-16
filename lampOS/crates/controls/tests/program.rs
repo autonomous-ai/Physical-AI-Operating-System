@@ -80,6 +80,9 @@ impl Root {
                         base_mask: None,
                     }),
                     fault: None,
+
+                    privacy: None,
+                    privacy_fault: None,
                 })
                 .unwrap()
             })

@@ -105,6 +105,7 @@ fn state(sequence: u64, at_us: u64, event: Option<ControlGesture>) -> ControlsSt
         latest_mute: None,
         event_sequence: event.as_ref().map_or(0, |event| event.stamp.sequence),
         rejected_inputs: 0,
+        privacy: None,
     };
     match event {
         Some(event) if event.intent == ControlIntent::Stop => state.latest_stop = Some(event),

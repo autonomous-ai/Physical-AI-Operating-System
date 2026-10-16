@@ -600,6 +600,25 @@ fn run() -> Result<()> {
             channels.connect(Path::new(dir), role, true)?;
             lamp_voice::ring_worker::run_continuous(channels, parent, ceiling, bus_root.as_deref(), eye, eye_strong, head_touch)?;
         }
+        [command,role,dir,parent,worker,flag,root] if command=="worker" && role=="privacy" && flag==lamp_voice::privacy_bus::ROOT_FLAG => {
+            let parent=parse_boot(parent)?;
+            let worker=parse_boot(worker)?;
+            let root=Path::new(root);
+            if !root.is_absolute() { return Err(io::Error::other("privacy root must be absolute").into()); }
+            let mut channels=WorkerChannels::bind(Path::new(dir),role,parent,worker,true)?;
+            channels.connect(Path::new(dir),role,true)?;
+            lamp_voice::privacy_bus::run(channels,parent,root)?;
+        },
+        #[cfg(target_os="linux")]
+        [command,role,dir,parent,worker,mode,flag,root] if command=="worker" && role=="ring" && mode=="--privacy" && flag=="--bus-root" => {
+            let parent=parse_boot(parent)?;
+            let worker=parse_boot(worker)?;
+            let root=Path::new(root);
+            if !root.is_absolute() { return Err(io::Error::other("privacy indicator root must be absolute").into()); }
+            let mut channels=WorkerChannels::bind(Path::new(dir),role,parent,worker,true)?;
+            channels.connect(Path::new(dir),role,true)?;
+            lamp_voice::privacy_indicator::run(channels,parent,root)?;
+        },
         [command,role,dir,parent,worker] if command=="worker" => {
             let parent=parse_boot(parent)?;
             let worker=parse_boot(worker)?;

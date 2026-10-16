@@ -35,6 +35,8 @@ pub struct TouchPinsConfig {
     pub head_tap_min_ms: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub head_gap_ms: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub privacy: Option<crate::privacy::Pins>,
 }
 
 impl TouchPinsConfig {
@@ -50,7 +52,13 @@ impl TouchPinsConfig {
     pub fn check(&self, config: &Config) -> Result<TouchConfig, String> {
         config.check().map_err(|e| e.to_string())?;
         if self.chip != "/dev/gpiochip0" {
-            return Err("touch wiring currently describes Orange Pi chip 0; privacy chip 1 belongs to Voice".into());
+            return Err(
+                "touch hand wiring describes Orange Pi chip 0; privacy has its own chip-1 section"
+                    .into(),
+            );
+        }
+        if let Some(privacy) = &self.privacy {
+            privacy.check()?;
         }
         if !(2..=50).contains(&self.every_ms) {
             return Err("GPIO acquisition interval must be 2..50 ms".into());
@@ -144,6 +152,7 @@ impl TouchPinsConfig {
         };
         Some((
             PinsConfig {
+                privacy: None,
                 chip: self.chip.clone(),
                 buttons,
                 head_pads: self.head_pads.clone(),
@@ -185,6 +194,32 @@ impl TouchPinsConfig {
             session_id: observation.session_id,
             head_pads: observation.head_pads,
         })
+    }
+
+    /// A privacy-only profile uses the Controls state owner, without inventing
+    /// a touch source or publishing an empty TouchState.
+    pub fn privacy_only(&self, config: &Config) -> Result<bool, String> {
+        if !self.buttons.is_empty()
+            || !self.head_pads.is_empty()
+            || self.reset.is_some()
+            || self.base.is_some()
+        {
+            return Ok(false);
+        }
+        config.check().map_err(|error| error.to_string())?;
+        if self.chip != "/dev/gpiochip0"
+            || !(2..=50).contains(&self.every_ms)
+            || !config.buttons.is_empty()
+            || !config.head_pads.is_empty()
+            || config.base_selected_mask.is_some()
+        {
+            return Err("privacy-only profile must have no configured hand inputs".into());
+        }
+        self.privacy
+            .as_ref()
+            .ok_or("privacy-only profile needs explicit privacy wiring")?
+            .check()?;
+        Ok(true)
     }
 }
 

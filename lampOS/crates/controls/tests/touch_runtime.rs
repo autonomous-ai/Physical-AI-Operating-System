@@ -105,6 +105,7 @@ fn wiring() -> TouchPinsConfig {
         pull: Pull::Up,
     };
     TouchPinsConfig {
+        privacy: None,
         chip: "/dev/gpiochip0".into(),
         buttons: vec![pin("primary", 99)],
         head_pads: vec![pin("head", 37)],

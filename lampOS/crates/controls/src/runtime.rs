@@ -102,6 +102,8 @@ pub struct Service<R: PinReader> {
     last_feedback: Option<Feedback>,
     pub counts: Counts,
     recorder: Option<crate::record::Recorder>,
+    privacy: Option<crate::privacy::Source>,
+    privacy_touch_recording: bool,
     _lock: File,
 }
 
@@ -111,6 +113,7 @@ struct Feedback {
     head_active: bool,
     base_ready: bool,
     base_tier: lamp_msgs::HoldTier,
+    privacy: Option<(Option<bool>, Option<ControlFault>, String)>,
 }
 
 impl From<&ControlsState> for Feedback {
@@ -124,6 +127,10 @@ impl From<&ControlsState> for Feedback {
             head_active: state.head_active,
             base_ready: state.base_ready,
             base_tier: state.base_tier,
+            privacy: state
+                .privacy
+                .as_ref()
+                .map(|value| (value.muted, value.fault, value.reader_session_id.clone())),
         }
     }
 }
@@ -159,6 +166,8 @@ impl<R: PinReader> Service<R> {
             last_feedback: None,
             counts: Counts::default(),
             recorder: None,
+            privacy: None,
+            privacy_touch_recording: false,
             _lock: lock,
         })
     }
@@ -171,6 +180,37 @@ impl<R: PinReader> Service<R> {
         Ok(())
     }
 
+    pub fn attach_privacy(&mut self, source: crate::privacy::Source) {
+        self.privacy = Some(source);
+    }
+
+    /// The --touch privacy-only route records the tagged touch envelope without
+    /// manufacturing GPIO or strip acquisitions for absent hand hardware.
+    pub fn record_privacy_touch_to(&mut self, path: &Path) -> io::Result<()> {
+        let config = self.engine.config();
+        if self.recorder.is_some()
+            || self.privacy.is_none()
+            || !config.buttons.is_empty()
+            || !config.head_pads.is_empty()
+            || config.base_selected_mask.is_some()
+        {
+            return Err(invalid(
+                "touch privacy recording requires only an attached privacy source",
+            ));
+        }
+        self.recorder = Some(crate::record::Recorder::create_touch(path)?);
+        self.privacy_touch_recording = true;
+        Ok(())
+    }
+
+    pub fn poll_us(&self) -> u64 {
+        if self.privacy.is_some() {
+            crate::privacy::STEP_US
+        } else {
+            POLL_US
+        }
+    }
+
     pub fn finish_recording(&mut self) -> Option<crate::record::RecordStats> {
         self.recorder.take().map(crate::record::Recorder::finish)
     }
@@ -181,11 +221,16 @@ impl<R: PinReader> Service<R> {
         observation: Option<crate::input::Observation>,
         fault: Option<ControlFault>,
     ) {
+        if self.privacy_touch_recording {
+            return;
+        }
         if let Some(recorder) = &mut self.recorder {
             recorder.submit(&crate::replay::Record {
                 now_us,
                 observation,
                 fault,
+                privacy: None,
+                privacy_fault: None,
             });
         }
     }
@@ -194,6 +239,25 @@ impl<R: PinReader> Service<R> {
     /// slow adapter cannot make its old samples fresh by taking time to read.
     pub fn step(&mut self, now: impl Fn() -> u64) -> Output {
         let start = now();
+        if let Some(privacy) = &mut self.privacy
+            && let Some((received, sample)) = privacy.poll(&now)
+            && let Some(recorder) = &mut self.recorder
+        {
+            if self.privacy_touch_recording {
+                recorder.submit_touch(&crate::touch_replay::Record {
+                    now_us: received,
+                    input: crate::touch_replay::Input::Privacy { sample },
+                });
+            } else {
+                recorder.submit(&crate::replay::Record {
+                    now_us: received,
+                    observation: None,
+                    fault: None,
+                    privacy: Some(sample),
+                    privacy_fault: None,
+                });
+            }
+        }
         let mut drained = 0;
         for _ in 0..DRAIN_LIMIT {
             match self.reader.read(now()) {
@@ -228,12 +292,20 @@ impl<R: PinReader> Service<R> {
             self.engine.input_fault(received, ControlFault::Overflow);
         }
         let at_us = now();
-        let output = self.engine.tick(at_us);
+        let mut output = self.engine.tick(at_us);
+        if let Some(privacy) = &mut self.privacy {
+            output.state.privacy = Some(privacy.monitor.snapshot(at_us));
+        }
         let feedback = Feedback::from(&output.state);
         if !output.gestures.is_empty()
-            || self
-                .last_state
-                .is_none_or(|at| at_us.saturating_sub(at) >= 100_000)
+            || self.last_state.is_none_or(|at| {
+                at_us.saturating_sub(at)
+                    >= if self.privacy.is_some() {
+                        crate::privacy::STATE_EVERY_US
+                    } else {
+                        100_000
+                    }
+            })
             || self.last_fault != output.state.fault
             || self.last_feedback.as_ref() != Some(&feedback)
         {
@@ -270,7 +342,25 @@ impl<R: PinReader> Service<R> {
     }
 
     pub fn report(&self, output: &Output) -> Diagnostic {
-        let (level, message) = if !output.state.ready {
+        let privacy = output.state.privacy.as_ref();
+        let config = self.engine.config();
+        let privacy_only = privacy.is_some()
+            && config.buttons.is_empty()
+            && config.head_pads.is_empty()
+            && config.base_selected_mask.is_none();
+        let (level, message) = if privacy.is_some_and(|sample| {
+            !sample.fresh_at(&output.state.stamp.clock_id, output.state.stamp.at_us)
+        }) {
+            (
+                Level::Error,
+                "physical privacy evidence is unavailable or invalid",
+            )
+        } else if privacy_only {
+            (
+                Level::Ok,
+                "physical privacy evidence published; capture is not owned",
+            )
+        } else if !output.state.ready {
             (Level::Error, "controls input is unavailable or invalid")
         } else if !output.state.enabled {
             // Watching only is how the controls are meant to run until
@@ -294,7 +384,7 @@ impl<R: PinReader> Service<R> {
         } else {
             level
         };
-        Diagnostic::new(level, "controls", message)
+        let report = Diagnostic::new(level, "controls", message)
             .with("enabled", output.state.enabled)
             .with("input_ready", output.state.ready)
             .with("input_fault", format!("{:?}", output.state.fault))
@@ -308,7 +398,14 @@ impl<R: PinReader> Service<R> {
             .with("record_dropped", record.dropped)
             .with("record_failed", record.failed)
             .with("physical_stop_verified", false)
-            .with("capture_permission", "not_owned")
+            .with("capture_permission", "not_owned");
+        if let Some(privacy) = privacy {
+            report
+                .with("privacy_muted", format!("{:?}", privacy.muted))
+                .with("privacy_fault", format!("{:?}", privacy.fault))
+        } else {
+            report
+        }
     }
 }
 

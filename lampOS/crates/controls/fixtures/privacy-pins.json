@@ -1,0 +1,12 @@
+{
+  "chip": "/dev/gpiochip0",
+  "buttons": [],
+  "head_pads": [],
+  "every_ms": 5,
+  "privacy": {
+    "chip": "/dev/gpiochip1",
+    "line": 9,
+    "active_low": true,
+    "pull": "up"
+  }
+}

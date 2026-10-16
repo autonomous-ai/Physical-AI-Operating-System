@@ -53,6 +53,7 @@ fn record(muted: bool) -> MuteRecord {
 
 fn state() -> ControlsState {
     ControlsState {
+        privacy: None,
         stamp: ClockStamp {
             clock_id: "boot".into(),
             at_us: START,

@@ -10,8 +10,8 @@
 //!
 //! [`LinePins`] is the rule and has no hardware: it reads through
 //! [`Lines`]. [`GpioLines`] is the Linux character device behind it. The
-//! privacy slide is not read here: it is the voice's, and nothing in the
-//! controls may stand in for it.
+//! privacy slide has a separate reader in `privacy`; it never joins a hand
+//! observation or becomes a gesture.
 use crate::{
     engine::Config,
     input::{InputError, Level, Observation, PinReader},
@@ -50,12 +50,17 @@ pub struct PinsConfig {
     pub head_pads: Vec<Pin>,
     /// How often the lines are read, 2 to 50 ms.
     pub every_ms: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub privacy: Option<crate::privacy::Pins>,
 }
 
 impl PinsConfig {
     /// Sound in itself, and naming exactly the inputs the controls are
     /// configured for, in the same order.
     pub fn check(&self, controls: &Config) -> Result<(), String> {
+        if let Some(privacy) = &self.privacy {
+            privacy.check()?;
+        }
         if !self.chip.starts_with("/dev/") || self.chip.len() > 64 {
             return Err("the chip is a device under /dev".into());
         }
@@ -68,6 +73,13 @@ impl PinsConfig {
         }
         let mut lines = BTreeSet::new();
         for pin in self.buttons.iter().chain(&self.head_pads) {
+            if self
+                .privacy
+                .as_ref()
+                .is_some_and(|privacy| privacy.chip == self.chip && privacy.line == pin.line)
+            {
+                return Err("the privacy line cannot also be a hand input".into());
+            }
             if !lines.insert(pin.line) {
                 return Err(format!("line {} is named twice", pin.line));
             }
@@ -79,7 +91,7 @@ impl PinsConfig {
                 "the pins must name the controls' buttons and head pads, in the same order".into(),
             );
         }
-        if lines.is_empty() {
+        if lines.is_empty() && self.privacy.is_none() {
             return Err("no line is configured".into());
         }
         Ok(())
@@ -264,6 +276,7 @@ mod tests {
         };
         (
             PinsConfig {
+                privacy: None,
                 chip: "/dev/gpiochip0".into(),
                 buttons: vec![pin("primary", 99)],
                 head_pads: vec![pin("head-1", 37), pin("head-2", 96)],

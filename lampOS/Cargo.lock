@@ -2172,6 +2172,7 @@ dependencies = [
  "lamp-bus",
  "lamp-camera",
  "lamp-controls",
+ "lamp-ears",
  "lamp-expression",
  "lamp-gemini",
  "lamp-ipc",

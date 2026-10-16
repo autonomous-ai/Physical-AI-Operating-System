@@ -156,8 +156,14 @@ settled, `select_failure_notice_in` chooses:
 - nothing for any other try in the same outage: the breath alone shows it
   was heard.
 
-The outage ends when the link is ready again; the next outage says the line
-again. The recording goes through the same speaker path, permits and
+The line counts as said only once the speaker has taken some of it (the
+turn's playback has begun) or it has retired, never when it is merely
+chosen: a turn cancelled before that (a Stop) leaves the line owed, and
+"back online" is owed only after a line that was said (the reviewer on
+#884). A block accepted and cancelled within one loop of the coordinator is
+missed, and the line may then be said once more: it errs toward saying it,
+not toward silence. The outage ends when the link is ready again; the next
+outage says the line again. The recording goes through the same speaker path, permits and
 retirement as `turn_lost`. With no recording provisioned the turn is
 `Skipped` and the lamp is silent, as before.
 

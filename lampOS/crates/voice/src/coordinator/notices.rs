@@ -101,6 +101,28 @@ pub(super) struct Outage {
     pub(super) said: bool,
 }
 
+impl Outage {
+    /// The offline line counts as said once the speaker has taken some of
+    /// it (the turn's playback has begun) or all of it retired: not when it
+    /// is merely chosen. A turn cancelled before that leaves the line owed
+    /// (the reviewer on #884). Called every loop, before the turn can go.
+    pub(super) fn note_delivery(&mut self, reply: &Option<Reply>) {
+        let Some(current) = reply.as_ref() else {
+            return;
+        };
+        let offline_line = current.local_only.is_some_and(|local| !local.back);
+        let delivered = match &current.notice {
+            NoticeDelivery::Selected { retired_at_us, .. } => {
+                current.playback.is_some() || retired_at_us.is_some()
+            }
+            _ => false,
+        };
+        if offline_line && delivered {
+            self.said = true;
+        }
+    }
+}
+
 /// "I'm back online." is owed this long after the link returns, and then
 /// let go: a lamp that has answered someone since, or could not speak for
 /// a minute, has shown it is back without saying so.
@@ -419,11 +441,6 @@ pub(super) fn select_failure_notice_in(
         },
         Err(reason) => NoticeDelivery::Skipped(*reason),
     };
-    if current.local_only.is_some_and(|local| !local.back)
-        && matches!(current.notice, NoticeDelivery::Selected { .. })
-    {
-        outage.said = true;
-    }
     record(
         trace,
         json!({"kind":"failure_notice_selected","at_us":monotonic_us(),

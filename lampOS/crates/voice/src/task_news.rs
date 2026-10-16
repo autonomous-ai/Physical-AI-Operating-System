@@ -489,22 +489,37 @@ impl TaskNews {
         let Some(first) = news.finished.clone() else {
             return Some(news);
         };
-        let mut others = Vec::new();
-        let mut index = 0;
-        while others.len() + 1 < TOGETHER_MOST && index < self.waiting.len() {
-            if self.waiting[index].finished.is_some()
-                && let Some(other) = self.waiting.remove(index)
-            {
-                others.push(other);
-            } else {
-                index += 1;
-            }
-        }
-        while !others.is_empty() {
-            let parts: Vec<&Finished> = std::iter::once(&first)
-                .chain(others.iter().filter_map(|other| other.finished.as_ref()))
-                .collect();
-            if let Some(note) = note_together(&parts) {
+        // Where the finished ones wait in line. How many go together is
+        // settled before any is taken out, so what is left keeps its place:
+        // put back at the front, a task left out went ahead of one waiting
+        // for the person that came before it (the reviewer on #1223).
+        let mut places: Vec<usize> = self
+            .waiting
+            .iter()
+            .enumerate()
+            .filter(|(_, waiting)| waiting.finished.is_some())
+            .map(|(place, _)| place)
+            .take(TOGETHER_MOST - 1)
+            .collect();
+        while !places.is_empty() {
+            let note = {
+                let parts: Vec<&Finished> = std::iter::once(&first)
+                    .chain(
+                        places
+                            .iter()
+                            .filter_map(|place| self.waiting[*place].finished.as_ref()),
+                    )
+                    .collect();
+                note_together(&parts)
+            };
+            if let Some(note) = note {
+                // From the back, so that the places before stay right.
+                let mut others: Vec<News> = places
+                    .iter()
+                    .rev()
+                    .filter_map(|place| self.waiting.remove(*place))
+                    .collect();
+                others.reverse();
                 for other in &others {
                     let _ = self.told.send(Wake::Told(other.key.clone()));
                 }
@@ -512,10 +527,7 @@ impl TaskNews {
                 news.also = others.into_iter().map(|other| other.key).collect();
                 return Some(news);
             }
-            // Told next, in the order they waited.
-            if let Some(last) = others.pop() {
-                self.waiting.push_front(last);
-            }
+            places.pop();
         }
         Some(news)
     }
@@ -920,12 +932,14 @@ fn note_together(parts: &[&Finished]) -> Option<String> {
         _ => return None,
     };
     let say = |answer_most: usize| {
+        let mut cut = false;
         let each: Vec<String> = parts
             .iter()
             .map(|part| {
                 let asked: String = part.asked.chars().take(TOGETHER_TASK_CHARS).collect();
                 let answer: String = part.answer.chars().take(answer_most).collect();
                 let more = if part.cut || answer.len() < part.answer.len() {
+                    cut = true;
                     GOES_ON
                 } else {
                     ""
@@ -941,8 +955,17 @@ fn note_together(parts: &[&Finished]) -> Option<String> {
             "(Nobody has spoken. News from {how_many} pieces of work you handed over for the person. {} \
              Tell them now, together, in one turn: one plain spoken sentence for each, starting with something like \
              \"Oh, {first} just finished…\" (\"earlier\" for one a while ago), each with the gist of its result. \
-             No code, lists, file paths or links; if there is more, the rest is on their computer. No question.)",
-            each.join(" ")
+             No code, lists, file paths or links.{} No question.)",
+            each.join(" "),
+            // #757's guard, as for one cut answer: once the lamp told a
+            // story as only "the rest is waiting on your computer" (the
+            // reviewer on #1223).
+            if cut {
+                " Where an answer goes on, give its gist in one plain line from that beginning, \
+                 then that the rest is on their computer: never only that."
+            } else {
+                ""
+            }
         )
     };
     let longest = parts.iter().map(|part| part.answer.chars().count()).max()?;
@@ -2233,6 +2256,52 @@ mod tests {
             );
         }
         assert_eq!(news.tell_together(), Some(long[2].clone()));
+    }
+
+    /// The reviewer on #1223: five wait, 1 and 2 finished with long
+    /// answers, 3 waiting for the person, 4 finished with a long answer and
+    /// 5 with a short one. Three long ones would keep too little, so 1 and
+    /// 2 go together; 4, left out, keeps its place behind 3, which is told
+    /// next and not a turn later; then 4 and 5. A cut answer told together
+    /// keeps #757's guard: its gist from its beginning, never only that the
+    /// rest is on their computer.
+    #[test]
+    fn a_task_left_out_of_a_turn_keeps_its_place_and_cut_answers_keep_their_gist() {
+        let (mut news, offer, _heard) = waiting_news();
+        let line = [
+            news_of(1, "claude", "idle", MOST_ANSWER_CHARS),
+            news_of(2, "codex", "idle", MOST_ANSWER_CHARS),
+            news_of(3, "claude", "needs-input", 80),
+            news_of(4, "claude", "idle", MOST_ANSWER_CHARS),
+            news_of(5, "claude", "idle", 80),
+        ];
+        for each in &line {
+            offer.send(each.clone()).unwrap();
+        }
+        assert!(news.waiting().is_some());
+        let first = news.tell_together().unwrap();
+        assert_eq!(
+            (first.key.as_str(), first.also.clone()),
+            ("s:1:1", vec!["s:2:1".to_owned()])
+        );
+        assert!(first.note.contains("never only that"), "{}", first.note);
+        assert_eq!(news.tell_together(), Some(line[2].clone()));
+        let third = news.tell_together().unwrap();
+        assert_eq!(
+            (third.key.as_str(), third.also.clone()),
+            ("s:4:1", vec!["s:5:1".to_owned()])
+        );
+        assert!(third.note.len() <= lamp_gemini::wire::MAX_NOTE_BYTES);
+        assert!(third.note.contains("never only that"), "{}", third.note);
+        assert!(news.waiting().is_none());
+        // Nothing cut, nothing said of the rest.
+        let (mut news, offer, _heard) = waiting_news();
+        offer.send(news_of(6, "claude", "idle", 80)).unwrap();
+        offer.send(news_of(7, "codex", "idle", 80)).unwrap();
+        assert!(news.waiting().is_some());
+        let whole = news.tell_together().unwrap();
+        assert_eq!(whole.also, vec!["s:7:1".to_owned()]);
+        assert!(!whole.note.contains("never only that"), "{}", whole.note);
     }
 
     fn settled(task: u64) -> lamp_msgs::TaskSettled {

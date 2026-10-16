@@ -841,8 +841,8 @@ the next request's start, which the session's journal holds.
 on a quiet lamp's head plays a soft hum of its own, two short tones rising
 like a question (330 and 415 Hz with two soft overtones, 110 and 160 ms with
 30 ms between, each gliding up 4%, faded in and out over 25 ms; 7,200
-samples at 24 kHz). It is its own turn, as the self-test's tone is
-([speaker-check.md](speaker-check.md)): admitted with
+samples at 24 kHz). It is its own turn, a sound turn
+(`coordinator/speaker_tone.rs`, `commit_sound_turn`): admitted with
 `admission_basis: head_tap_cue`, nothing sent to the provider, played whole
 through the voice's own speaker path so the echo canceller has it, and none
 for the face, the head, the room or the voice's state. Each tap writes a

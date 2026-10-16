@@ -164,6 +164,8 @@ struct Seen {
     lights: Vec<String>,
     /// What the voice was asked to say.
     asked: Option<String>,
+    /// What the body's mood socket was told, for a skill that holds a pose.
+    moods: Vec<String>,
 }
 
 /// A hello that greets at once, with the light and the say of Welcome back.
@@ -210,6 +212,9 @@ fn the_program_with(
     let mut events = bus.subscribe(SkillEvent::TOPIC, "test").unwrap();
     let gaze = UnixDatagram::bind(root.join("gaze.sock")).unwrap();
     gaze.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
+    let mood = UnixDatagram::bind(root.join("mood.sock")).unwrap();
+    mood.set_read_timeout(Some(Duration::from_millis(1_500)))
+        .unwrap();
     let actions = UnixListener::bind(root.join("actions.sock")).unwrap();
     let (called, lights) = mpsc::channel();
     let ring = bus.clone();
@@ -310,11 +315,19 @@ fn the_program_with(
         .recv(&mut buffer)
         .ok()
         .map(|length| String::from_utf8_lossy(&buffer[..length]).into_owned());
+    // A held pose is said again every second until its for ends.
+    let mut moods = Vec::new();
+    while skill.contains("mood =")
+        && let Ok(length) = mood.recv(&mut buffer)
+    {
+        moods.push(String::from_utf8_lossy(&buffer[..length]).into_owned());
+    }
     Seen {
         events: seen,
         looked,
         lights: lights.try_iter().collect(),
         asked: asked.try_recv().ok(),
+        moods,
     }
 }
 
@@ -812,6 +825,40 @@ say = "Tutor: a hint or a question, never the answer."
 "#;
 
 #[test]
+fn a_reading_pose_is_held_on_the_mood_socket_for_its_for_and_then_let_go() {
+    let reading = AT_ONCE.replace(
+        "body = { look_at = \"face\" }",
+        "body = { mood = \"reading\", for = \"3s\" }",
+    );
+    let seen = the_program_with(
+        &reading,
+        true,
+        &[r#"{"event":"begun","at_us":5}"#, r#"{"outcome":"spoken"}"#],
+        3,
+        1,
+        4,
+    );
+    // Told at once when the say begins, then every second while it lasts:
+    // three in all for 3 s, and then nothing, so the body comes back.
+    assert_eq!(
+        seen.moods,
+        vec![r#"{"level":0,"mood":"reading"}"#; 3],
+        "{:?}",
+        seen.events
+    );
+    let dir = tempfile::tempdir().unwrap();
+    for (step, why) in [
+        ("body = { mood = \"dance\", for = \"3s\" }", "not one of"),
+        ("body = { mood = \"reading\" }", "goes with its for"),
+        ("body = { mood = \"reading\", for = \"3m\" }", "at most 2m"),
+    ] {
+        let toml = AT_ONCE.replace("body = { look_at = \"face\" }", step);
+        let error = load(&skill_with(&dir.path().join("bad"), "hello", &toml)).unwrap_err();
+        assert!(error.contains(why), "{step}: {error}");
+    }
+}
+
+#[test]
 fn a_tool_needs_no_trigger_and_a_look_needs_a_tool() {
     let dir = tempfile::tempdir().unwrap();
     let skill = load(&skill_with(dir.path(), "tutor", TUTOR)).unwrap();
@@ -1083,4 +1130,105 @@ fn a_repeat_call_with_only_made_steps_is_refused_while_its_run_is_under_way() {
     let again = call();
     assert_eq!(again["ok"], false, "{again}");
     assert_eq!(again["error"], "I'm still doing that.");
+}
+
+/// A repeat call while the run's light is still on holds its pose again,
+/// so each look comes with the head down over the page (#1051, Ten's P2):
+/// a 3 s pose, a call, 5 s later another, and the pose is said again.
+#[test]
+fn a_repeat_tool_call_holds_the_runs_pose_again_and_only_that() {
+    // Short: a socket's whole path has to fit in 103 bytes.
+    let dir = tempfile::Builder::new()
+        .prefix("sm")
+        .tempdir_in("/tmp")
+        .unwrap();
+    let root = dir.path();
+    fs::create_dir(root.join("skills")).unwrap();
+    let bus = Bus::new(root.join("bus")).unwrap();
+    let mut ring = bus
+        .publisher_declared("light/state", &Light::declaration(), "ring")
+        .unwrap();
+    let actions = UnixListener::bind(root.join("actions.sock")).unwrap();
+    let (called, lights) = mpsc::channel();
+    std::thread::spawn(move || {
+        for stream in actions.incoming().flatten() {
+            let mut line = String::new();
+            BufReader::new(&stream).read_line(&mut line).unwrap();
+            (&stream)
+                .write_all(b"{\"ok\":true,\"result\":{}}\n")
+                .unwrap();
+            let _ = called.send(line);
+        }
+    });
+    let mood = UnixDatagram::bind(root.join("mood.sock")).unwrap();
+    mood.set_read_timeout(Some(Duration::from_millis(200)))
+        .unwrap();
+    let tools = root.join("tools");
+    let _running = Running(
+        Command::new(env!("CARGO_BIN_EXE_lamp-skills"))
+            .args([
+                "--dir".as_ref(),
+                root.join("skills").as_os_str(),
+                "--bus-root".as_ref(),
+                root.join("bus").as_os_str(),
+                "--mood-socket".as_ref(),
+                root.join("mood.sock").as_os_str(),
+                "--actions-socket".as_ref(),
+                root.join("actions.sock").as_os_str(),
+                "--tools-dir".as_ref(),
+                tools.as_os_str(),
+            ])
+            .spawn()
+            .unwrap(),
+    );
+    skill_with(
+        &root.join("skills"),
+        "tutor",
+        &TUTOR.replace(
+            "light = { colour = \"white\", for = \"1s\" }",
+            "light = { colour = \"white\", for = \"10s\" }\nbody = { mood = \"reading\", for = \"3s\" }",
+        ),
+    );
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while !tools.join("tools.json").exists() {
+        assert!(Instant::now() < deadline, "no tools file");
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    let call = || {
+        let stream = std::os::unix::net::UnixStream::connect(tools.join("call.sock")).unwrap();
+        writeln!(
+            &stream,
+            r#"{{"op":"call","name":"check_my_work","args":{{}}}}"#
+        )
+        .unwrap();
+        let mut line = String::new();
+        BufReader::new(&stream).read_line(&mut line).unwrap();
+        serde_json::from_str::<serde_json::Value>(&line).unwrap()
+    };
+    // Poses said over `window`, from now.
+    let poses = |window: Duration| {
+        let until = Instant::now() + window;
+        let mut buffer = [0u8; 256];
+        let mut count = 0;
+        while Instant::now() < until {
+            if let Ok(length) = mood.recv(&mut buffer) {
+                assert_eq!(&buffer[..length], br#"{"level":0,"mood":"reading"}"#);
+                count += 1;
+            }
+        }
+        count
+    };
+    ring.publish_json(1, &Light::new(true, "blue", 3).unwrap())
+        .unwrap();
+    assert_eq!(call()["ok"], true);
+    let first = poses(Duration::from_millis(3_500));
+    // Let go: nothing said between the pose's end and the second call.
+    let quiet = poses(Duration::from_millis(1_500));
+    let again = call();
+    assert_eq!(again["ok"], true, "{again}");
+    let second = poses(Duration::from_millis(3_500));
+    assert_eq!((first, quiet, second), (3, 0, 3));
+    // The light was made once: the second call made only the pose.
+    let lights: Vec<String> = lights.try_iter().collect();
+    assert_eq!(lights.len(), 1, "{lights:?}");
 }

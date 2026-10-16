@@ -18,6 +18,12 @@ use std::{
 /// What the body plays by name on its mood socket (`crates/body/src/clips/data.rs`;
 /// `idle` is its own).
 pub const GESTURES: [&str; 6] = ["nod", "headshake", "greeting", "laugh", "shy", "stretching"];
+/// The pose a skill may hold on the body's mood socket (#1011): `reading`
+/// looks down at the desk and leans forward while it is said again, at
+/// least every 1.5 s. The voice's own moods are not a skill's.
+pub const MOODS: [&str; 1] = ["reading"];
+/// How long a skill may hold a pose.
+pub const MOOD_AT_MOST_US: u64 = 120_000_000;
 /// How long a face message counts when its header names no lifespan: the
 /// eyes' two seconds. A value on another topic counts until it is replaced.
 const FACE_LIFESPAN_MS: u64 = 2_000;
@@ -93,6 +99,9 @@ struct StepFile {
 struct BodyFile {
     look_at: Option<String>,
     gesture: Option<String>,
+    mood: Option<String>,
+    #[serde(rename = "for")]
+    lasting: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -197,6 +206,9 @@ pub enum Call {
     Gaze { face: Option<(f32, f32, f32)> },
     /// A gesture by name, to the body's mood socket.
     Gesture(String),
+    /// A pose held on the body's mood socket for `lasting_us`, said again
+    /// every second; the body comes back when it is no longer said.
+    Mood { mood: String, lasting_us: u64 },
     /// A colour, to the actions part's `light_colour`; a level and a while
     /// that it cannot carry out yet, kept as written.
     Light {
@@ -228,6 +240,10 @@ impl Call {
                 ("body.gaze", args)
             }
             Self::Gesture(name) => ("body.gesture", json!({ "gesture": name })),
+            Self::Mood { mood, lasting_us } => (
+                "body.mood",
+                json!({ "mood": mood, "for_ms": lasting_us / 1_000 }),
+            ),
             Self::Light {
                 colour,
                 level,
@@ -478,6 +494,20 @@ pub fn load(dir: &Path) -> Result<Skill, String> {
                     return Err(format!("gesture {gesture:?} is not one of {GESTURES:?}"));
                 }
                 steps.push(Call::Gesture(gesture));
+            }
+            match (body.mood, body.lasting) {
+                (None, None) => {}
+                (Some(mood), Some(lasting)) => {
+                    if !MOODS.contains(&mood.as_str()) {
+                        return Err(format!("mood {mood:?} is not one of {MOODS:?}"));
+                    }
+                    let lasting_us = duration_us(&lasting)?;
+                    if lasting_us == 0 || lasting_us > MOOD_AT_MOST_US {
+                        return Err("a mood's for is more than 0 and at most 2m".into());
+                    }
+                    steps.push(Call::Mood { mood, lasting_us });
+                }
+                _ => return Err("a body mood goes with its for, and a for with a mood".into()),
             }
         }
         if let Some(light) = step.light {

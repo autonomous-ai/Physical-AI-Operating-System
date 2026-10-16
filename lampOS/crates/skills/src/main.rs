@@ -31,6 +31,8 @@ const SAY_TIMEOUT: Duration = Duration::from_secs(180);
 /// The longest a tool call waits for the main loop, and for the voice's
 /// line: the voice gives up on a call after 1.5 s.
 const TOOL_TIMEOUT: Duration = Duration::from_secs(1);
+/// How often a held pose is said again: the body lets one go after 1.5 s.
+const MOOD_EVERY: Duration = Duration::from_secs(1);
 
 #[derive(Clone)]
 struct Sockets {
@@ -371,6 +373,13 @@ fn tool_call(
     for event in run.events {
         publish(out, event);
     }
+    if under_way {
+        // Each look comes with the head down over the page again: only the
+        // run's poses are made again, never its light (#1051, Ten's P2).
+        for call in made.iter().filter(|call| matches!(call, Call::Mood { .. })) {
+            make(call, &runner.sockets);
+        }
+    }
     if made.is_empty() || under_way {
         publish(
             out,
@@ -378,7 +387,7 @@ fn tool_call(
                 skill: run.skill,
                 stage: SkillStage::Done,
                 why: if under_way {
-                    "the model was told again what to do next; its last run is still under way, left as it is"
+                    "the model was told again what to do next; its last run is still under way, left as it is but for its poses, held again"
                 } else {
                     "the model was told what to do next"
                 }
@@ -507,6 +516,10 @@ fn perform(
                         .unwrap_or(0);
                 }
                 Call::Dim { steps, .. } => changed.dimmed += steps,
+                // The run lasts while the pose is held.
+                Call::Mood { lasting_us, .. } => {
+                    changed.lasting_us = changed.lasting_us.max(*lasting_us);
+                }
                 _ => {}
             }
             said.push(make(call, sockets));
@@ -666,6 +679,24 @@ fn make(call: &Call, sockets: &Sockets) -> String {
                 said.push("until it ends is not carried out yet".into());
             }
             said.join(", ")
+        }
+        Call::Mood { mood, lasting_us } => {
+            // Said again every second, as the body needs it at least every
+            // 1.5 s (#1011); when it stops being said, the body comes back.
+            let (path, text) = (
+                sockets.mood.clone(),
+                json!({ "mood": mood, "level": 0 }).to_string(),
+            );
+            let first = tell(&format!("mood {mood}"), text.clone(), &path);
+            let until = Instant::now() + Duration::from_micros(*lasting_us);
+            std::thread::spawn(move || {
+                while Instant::now() + MOOD_EVERY < until {
+                    std::thread::sleep(MOOD_EVERY);
+                    let _ = UnixDatagram::unbound()
+                        .and_then(|body| body.send_to(text.as_bytes(), &path));
+                }
+            });
+            format!("{first}, held {} s", lasting_us / 1_000_000)
         }
         Call::Say(_) => "say: made by its own step".into(),
         Call::Look => "look: the model's, when it says it will look".into(),

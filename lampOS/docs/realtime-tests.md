@@ -62,18 +62,15 @@ selection), which must stay identical:
   `coordinator::tests::endpoint_session`;
 - single tests that took 4 s or more outside those, named exactly;
 - tests with a real-clock bound that a loaded runner misses. Pull requests
-  run one test per core, and each of these failed twice on 2026-10-15/16,
-  on changes that did not touch it:
+  run one test per core, and this failed twice on 2026-10-15/16, on changes
+  that did not touch it:
   - `lamp-voice`'s module `coordinator::motor::tests::native_head`: a motor
     packet older
     than `MAX_AGE_US` (100 ms, `crates/body/src/runtime/channel.rs`) when it
     is read is refused as "motor packet boot/order/freshness violation"
-    (runs 38797329569 on `lamp-voice`, 38776871505);
-  - `lamp-body`'s `runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only`:
-    twelve stop-and-reap cycles of a real child, each within the 2 s
-    `until` deadline (runs 38745613195 on `lamp-voice`, 38801026642).
+    (runs 38797329569 on `lamp-voice`, 38776871505).
 
-  They run one at a time in the nightly full run. The fix is to give the
+  It runs one at a time in the nightly full run. The fix is to give the
   test its own time, not to raise the bound the lamp runs with.
 
 Because whole binaries and modules are matched, a new test added to one of

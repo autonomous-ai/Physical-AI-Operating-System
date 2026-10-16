@@ -478,6 +478,8 @@ mod tests {
             limp: false,
             hand: false,
             tipping: Default::default(),
+            gesture_fate: None,
+            looks_dropped: None,
         }
     }
 

@@ -503,6 +503,20 @@ is from `lamp-eyes` ([eyes.md](eyes.md)) on that socket: one datagram a look,
 `{"face":{"x":..,"y":..,"size":..,"turned":..}}` or `{"face":null}`. Anything
 else is ignored, and only the newest waiting counts.
 
+A skill's look (`lamp-skills`, "look at the face") comes on the same socket
+in the same shape, and the body cannot tell it from the eyes' own: it is
+taken or dropped by the same rules, and a look alone never stands a folded
+lamp up. A face across the room is not a reason to get up; being spoken to,
+somebody sitting in front of it for a second, or a gesture asked is. When
+whether a face in view is looked at changes, the journal says so once, with
+why (paused, folded or folding, neither listening nor speaking), and the
+face line every five seconds says it too:
+
+```text
+lamp-body: step N a face is not looked at: folded or folding
+lamp-body: step N a face is looked at
+```
+
 The camera is in the head, so turning toward a face moves the picture too.
 The gaze (`src/gaze.rs`) therefore works in small corrections with stillness
 between them:
@@ -815,8 +829,9 @@ asked after a second look. `excited`'s shoulder emphasis is 0.75 so that, throug
 1.0). `surprised` keeps its full head recoil with the shoulder at 0.6, 18.0 mm (25.7 before), and `dance_groove`
 is 8.8: every clip is under V1's 22 mm line (#1072) with a margin. The other clips are as before, byte for byte.
 
-The voice service asks for one on the mood socket, `{"gesture":"nod"}`; a
-name that is not a clip is ignored. It asks at most once an answer, from the
+The voice service asks for one on the mood socket, `{"gesture":"nod"}`, and
+so does a skill (`lamp-skills`); a name that is not a clip is dropped and
+said. It asks at most once an answer, from the
 first words of what the lamp itself says (`crates/voice/src/body_link.rs`,
 `cue_for`): a nod with "yes", "sure", "of course", "okay"; a shake with "no",
 "nope", "I don't think"; a greeting with "hello", "hi", "good morning"; a
@@ -843,8 +858,56 @@ a shake before, is now a surprise.
 What the body does with the request:
 
 - A gesture plays only on a lamp standing still at its full height. Asked
-  of one still rising it waits up to three seconds for that; asked of a
-  folded lamp, or one that may not stand, it is forgotten.
+  of a folded lamp that may stand (`--stand`), it stands up for it first,
+  through the same way up as for any mood other than rest (with its
+  anti-tip and arm-load rules), and stays up `--awake-seconds` after; the
+  gesture waits for as long as rising takes and then three seconds more.
+  Asked of one still rising (for a mood, or for a gesture asked just
+  before), it waits for the rest of the rise, `(1 - stand) × --stand-seconds`
+  and never less than the gesture it replaces, and then three seconds
+  more. Not stood up for, and dropped: a lamp paused (`lamp/pause`),
+  stopping, held by a hand where a joint gave way, or that let go under
+  overload or a hand and lies where it slumped (until a mood or somebody
+  in front of it stands it up), and one that may not stand. A gesture
+  asked while another plays is dropped too. Paused after a gesture was
+  taken, the awake window it opened is given back, so the lamp folds as a
+  paused body does: before it began, the gesture is dropped (`dropped:
+  paused`); once it plays, it ends first and the lamp folds after it.
+- The body has no idea of night, or of Expression's sleep: a gesture from
+  outside stands a folded lamp up at any hour. What keeps a sleeping lamp
+  down at night is only the Policy's unprompted question ("not late at
+  night or early in the morning", `crates/policy/src/moment.rs`), which a
+  skill such as Stretch break is asked under `LAMP_SKILLS_ASK=policy` with
+  the hour known (`lamp-policy --utc-offset-minutes` or `--zone`). With
+  `LAMP_SKILLS_ASK=skip`, nothing does.
+- Each gesture asked, taken or dropped, is one journal line with why; one
+  refused by the anti-tip rule is said by its own line instead ("Not
+  tipping over" below):
+
+  ```text
+  lamp-body: step N gesture stretching taken: it was folded and stood up for it
+  lamp-body: step N gesture nod taken: it plays
+  lamp-body: step N gesture nod dropped: paused
+  lamp-body: step N gesture nod dropped: a hand holds it
+  lamp-body: step N gesture nod dropped: it has let go and lies limp
+  lamp-body: step N gesture nod dropped: it let go and lies where it slumped
+  lamp-body: step N gesture nod dropped: it does not stand this run
+  lamp-body: step N gesture nod dropped: another gesture plays
+  lamp-body: step N gesture nod dropped: another was asked after it
+  lamp-body: step N gesture nod dropped: stale, it was not standing 3 s after it could have been
+  lamp-body: step N gesture nod dropped: a joint could not keep up with it
+  lamp-body: dropped from the mood socket, not a mood or a gesture this body has: {"gesture":"dance"}
+  ```
+
+  The same line is said at most once in five seconds, and the next time
+  with how many like it were held back (`(N more like it before this)`), so
+  a skill that asks in a loop cannot fill the journal. A gesture taken stays
+  up for the whole of it: the lamp's awake window is stretched to the end
+  of the clip, so it never folds mid-gesture.
+
+  Until 16 October a gesture asked of a folded lamp was forgotten without a
+  word: on lamp-4ace a skill's `stretching` at `stand 0.00` did nothing and
+  the journal said nothing.
 - Its offsets are laid over whatever the mood and the eyes have the lamp
   doing, outside the filter that follows the mood, and leave the lamp where
   it was. They change by at most 24, 34, 26, 21 and 21 counts a step and
@@ -1807,12 +1870,18 @@ that the head of a folded lamp does turn to a face while it listens, inside
 its reach, and comes home; and that without a face, or without eyes, the
 goals written are exactly those of a body that has none.
 
-Gestures (`clips::tests`, three in `body::tests`, and `body_link::tests` in
+Gestures (`clips::tests`, several in `body::tests`, and `body_link::tests` in
 `lamp-voice`): every clip begins and ends at nothing and stays inside its
 speed and size; a standing lamp asked to nod makes the clip's move, for the
 clip's time, with no goal jumping, and stands afterwards exactly as it
-stood; a gesture asked of a rising lamp begins when it stands, and one
-asked too early or of a folded lamp is forgotten; a head joint that strains
+stood; a gesture asked of a rising lamp, even one asked as the rise
+begins or a second one asked while it rises for the first, waits for the
+rest of the rise and begins when it stands, and one the lamp never stands
+up for goes stale and is said; one asked of a folded lamp at rest stands it
+up and then plays, and one asked of a paused, hand-held or slumped lamp is
+dropped with its line and the lamp stays as it was; paused after it was
+taken, it is dropped before it begins, or plays to its end, and the lamp
+folds; a head joint that strains
 ends the gesture and not the run; which first words get which gesture, that
 one is asked once an answer, and the datagram's exact text.
 

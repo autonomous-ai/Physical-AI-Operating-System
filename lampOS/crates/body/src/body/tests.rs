@@ -6975,3 +6975,74 @@ fn a_hold_let_go_by_the_fold_eases_and_does_not_stop_the_lamp() {
         );
     }
 }
+
+/// The reviewer's 04:39 probe on #1192: the folded elbow truly rests 60
+/// counts short of its fold (on a mat, a stiff joint) and pushes there. As
+/// it comes to rest it is left where it lies, at 2107, not walked back to
+/// 2047 to push again, and the run ends as asked rather than on `Window` at
+/// the exit; a misread with nothing pushing keeps its goal (the test above).
+#[test]
+fn an_arm_resting_short_of_its_fold_and_pushing_is_left_where_it_lies() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(30));
+    lamp.arm_moves = true;
+    lamp.overload_clears = 1;
+    for (servo, at) in lamp
+        .servos
+        .iter_mut()
+        .zip([2_028.0, 2_054.0, 2_047.0, 2_047.0, 1_948.0])
+    {
+        servo.position = at;
+        servo.goal = at as u16;
+        servo.status = 0;
+    }
+    lamp.short = Some((2, 60.0));
+    lamp.strains = vec![(
+        Duration::from_millis(14_700),
+        Duration::from_secs(20),
+        2,
+        160,
+    )];
+    let up = Standing::new(
+        [2_048, 2_047],
+        [1_772, 2_043, 2_015, 2_657, 2_602],
+        100,
+        6,
+        5,
+        [950, 950],
+    )
+    .unwrap();
+    let time = clock.time.clone();
+    let news = move || {
+        Some(
+            if (Duration::from_secs(1)..Duration::from_secs(3)).contains(&time.get()) {
+                (Mood::Listening, 100)
+            } else {
+                (Mood::Resting, 0)
+            },
+        )
+    };
+    let limits = Limits {
+        give_way: Some(GiveWay::Return),
+        ..gesture_limits()
+    };
+    let report = run_alive(
+        &mut lamp,
+        &mut clock,
+        limits,
+        Some([1_950, 2_043, 2_015]),
+        Some(up),
+        None,
+        news,
+        Asked::default,
+        |_| {},
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    let elbow: Vec<u16> = lamp
+        .goals
+        .iter()
+        .flatten()
+        .filter(|(id, _)| *id == 3)
+        .map(|(_, goal)| *goal)
+        .collect();
+    assert_eq!(elbow.last(), Some(&2_107), "{elbow:?}");
+}

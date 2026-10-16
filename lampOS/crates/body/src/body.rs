@@ -3338,11 +3338,16 @@ fn run_on<P: PortIo, R: Runtime>(
                 && let Some(last) = report.last
             {
                 arm_rests = true;
-                // Its resting goal keeps torque on: where it reads only
-                // within a step of the goal it had, else that goal.
+                // Its resting goal keeps torque on: where it reads, if that
+                // is within a step of the goal it had, or farther only while
+                // it pushes there (over `STALL_LOAD`), as an arm resting
+                // short of its fold on a mat or a stiff joint does. A
+                // misread leaves the arm at its goal pushing at nothing, and
+                // keeps that goal.
                 arm_goals = std::array::from_fn(|index| {
-                    let at = last[ARM[index].index()].position;
-                    if at.abs_diff(arm_written[index]) > ARM_GOAL_STEP {
+                    let is = last[ARM[index].index()];
+                    let at = is.position;
+                    if at.abs_diff(arm_written[index]) > ARM_GOAL_STEP && is.load <= STALL_LOAD {
                         arm_written[index]
                     } else {
                         at

@@ -858,6 +858,8 @@ What the body does with the request:
   (`gestures`, `gestures_dropped`).
 - The eyes correct nothing while a gesture plays, since the picture is
   moving.
+- One any frame of which would take the lamp more than 22 mm off its
+  base's axis is refused whole ("Not tipping over" below).
 
 With `--idle on` a lamp that has stood at rest for four seconds plays `idle`
 by itself, the old runtime's idle loop at half its size, and again eight
@@ -910,6 +912,62 @@ cannot be read is said once, and the body runs with its own gestures. The
 start says how many moves it took and their names. Which part asks for a
 move, and how the body weighs it against Expression and the eyes, is the
 body's arbitration (#940), not built yet.
+
+## Not tipping over (V1's anti-tip rule)
+
+The body keeps V1's anti-tip rule (#641, #642 in the first lamp software;
+`src/cog.rs`). It works out how far the lamp's centre of gravity sits off
+its base's axis. The model is V1's own (`robots/lamp/urdf/lamp.urdf`, in
+`lamp-lean`'s form as `deploy/lamp-4ace/lean-first-software.json`, which
+agrees with V1's `cog_offset_mm` to 0.03 mm). The limits are also V1's:
+
+| V1 | Limit | What the body does |
+| --- | --- | --- |
+| `check_stable`, `SAFETY.md` `motion.max_cog_offset_mm` | 22 mm off the axis, in any direction | A gesture, built in or from `--moves`, is checked frame by frame on the pose the lamp is in when it would begin (the idle shift too). If any frame goes past 22 mm, the whole gesture is refused and nothing moves. One that comes within 85% of 22 mm plays, and a line says so. |
+| `limit_lean_back` in `/servo/move` and `nudge` | 22 mm behind the axis | Every step while a gesture plays, and while the lamp rises, folds or is folded. |
+| `limit_lean_back` in `distribute_pitch`, `MAX_LEAN_BACK_MM` | 16 mm behind the axis | Every step of a lamp standing still at its full height: the mood's pose, the eyes, Expression, and anything else laid on the pose. |
+
+V1 also cut a step short the same way. Halving ten times, it found the
+largest share of the step from the last goals that stays inside the limit,
+and wrote that. A pose already past the limit may only come forward. "Behind"
+means along the arm's own heading, with base yaw left out. While a step is
+held short, what follows the mood is held there with it, and a rise or fold
+is taken back to where the arm stopped (the lamp then counts as not yet
+stood up), so nothing jumps when the rule lets go. A lamp held at the line
+is journaled once: the run of cuts ends only once what is asked is 1 mm
+inside it. The check is made once, where the goals of every
+step are made, just before they are written. That covers the mood's pose,
+the eyes, Expression, gestures, moves and standing up, and anything that
+later adds to the same goals. The other goal writes in `src/body.rs` move
+nothing new, so they are not checked:
+
+- the wake, which takes the head from where it was found to its folded home;
+- lowering a shoulder found up onto its folded count;
+- taking hold of, or stopping, a joint where it is read;
+- resting a joint where it arrived;
+- writing home at the end of a run of a lamp that is down.
+
+By this model a folded lamp sits 18 mm (lamp-4ace) to 20 mm (lamp-52e6)
+behind its axis. Standing it sits 2.7 mm in front. That is why the 16 mm
+bound applies only to a lamp that stands. A test (`cog::tests`) checks that
+every built-in clip passes the rule on both lamps' standing poses. No frame
+may come within 85% of 22 mm, and no frame may lean the lamp back past 16 mm.
+A regenerated clip therefore cannot be refused at runtime. No clip is let
+off: since #1058 trimmed `surprised`, `excited` and `dance_groove`, every clip
+is 18 mm or less at its worst frame (`surprised`, 18.0 mm), and none leans
+the lamp back more than 8.8 mm (`dance_groove`). The journal has one line each time the
+rule acts. A refused gesture's line names the clip, its worst frame and the
+millimetres:
+
+```text
+lamp-body: step N anti-tip: REFUSED gesture <clip>: frame <n> takes the centre of gravity <mm> mm off the base's axis, over V1's 22 mm (1 so far)
+lamp-body: step N anti-tip: cut a move short that would lean the lamp back 26.9 mm, over its 22 mm (V1's rule; 1 so far)
+```
+
+The report counts these under `tipping`. The masses in the model are V1's
+estimates, 1.49 kg against the 7 kg in the spec. V1 also scored its 22 mm on
+motor values it read as degrees ([lean.md](lean.md)). So these millimetres
+are V1's numbers on V1's model. They are not a measurement of any lamp.
 
 ## Running it
 

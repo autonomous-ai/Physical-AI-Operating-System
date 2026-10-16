@@ -11,6 +11,8 @@ rustix = { version = "=1.1.5", features = ["fs", "process"] }
 lamp-turn-owner = { path = "../turn-owner" }
 lamp-bus = { path = "../bus" }
 lamp-msgs = { path = "../msgs" }
+# V1's body model for its anti-tip rule (src/cog.rs).
+lamp-lean = { path = "../lean" }
 # Telling systemd it is ready, alive and stopping (docs/work-split.md, task 27).
 lamp-keeper = { path = "../keeper" }
 serde.workspace = true

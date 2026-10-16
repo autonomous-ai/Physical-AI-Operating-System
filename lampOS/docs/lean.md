@@ -525,7 +525,8 @@ the parts are weighed and the base drawn ("Measurements the first builder
 needs" above), only masses, centres and the outline change. The motions lampOS
 makes today are small beside the first software's dances: standing up moves
 the shoulder and elbow about 510 and 455 counts together, and Expression's
-nods move the head 20 to 40 counts. The check is not wired into the body.
+nods move the head 20 to 40 counts. The body uses this file only for V1's anti-tip
+rule, with V1's own limits ([body.md](body.md), "Not tipping over"). That qualifies nothing.
 
 ## What this does not establish
 
@@ -539,7 +540,8 @@ it together without lag or overshoot.
 
 Fourth has not measured the lamp's dimensions, masses, COM offsets, zero/sign
 calibration, loaded footprint, operating margin, folded/standing safety,
-end-to-end response time or resistance to tipping. Lean is not wired into
-Body, and a provenance label cannot supply those missing measurements.
+end-to-end response time or resistance to tipping. Body uses this file only
+for V1's anti-tip rule ([body.md](body.md)). A provenance label cannot supply
+those missing measurements.
 
 Not shown.

@@ -162,6 +162,9 @@ voice side, silent until the recordings exist.
   the first speech of the outage gets the recorded line, later tries and
   sounds get none ([failure-notices.md](failure-notices.md), "Offline").
 - **Idle while offline:** nothing changes.
+- **Expression** (`lamp-expression serve --offline-face`): while `lamp/online`
+  is false, its listening face is drawn as not ready, so the work light does
+  not say "go ahead"; a stale or unknown value counts as online.
 - **Back:** "I'm back online." once, when the link is ready again after an
   outage in which the line was said, when the lamp is free and the room
   quiet, within a minute or not at all.

@@ -20,7 +20,7 @@ use std::{
     time::Duration,
 };
 
-const USAGE: &str = "lamp-expression serve [--enable] [--bus-root PATH] [--clock-id ID] [--catalogue FILE] [--record FILE] [--seconds N] [--utc-offset-minutes N | --zone system|NAME] [--kernel-clock] [--head-touch]\n\
+const USAGE: &str = "lamp-expression serve [--enable] [--bus-root PATH] [--clock-id ID] [--catalogue FILE] [--record FILE] [--seconds N] [--utc-offset-minutes N | --zone system|NAME] [--kernel-clock] [--head-touch] [--offline-face]\n\
 lamp-expression replay --input FILE [--output FILE] --clock-id ID [--enable] [--catalogue FILE] [--until-us N] [--long]\n\
 lamp-expression import --clock-id ID [--long] [--utc-offset-minutes N | --zone system|NAME] FILE...\n\
 lamp-expression catalogue\n\
@@ -36,6 +36,7 @@ changes without a restart. A catalogue with sleep needs one.\n\
 --kernel-clock gives the time of day only while the kernel says the clock is set.\n\
 --head-touch reads the head's requests from --touch Controls: a hand kept on the head is leaned\n\
 into, a three-second hold puts it to sleep, a tap wakes it (docs/alive.md, #711).\n\
+--offline-face draws listening as not ready while lamp/online says the lamp is offline.\n\
 No command opens hardware, launches a provider, or changes a device's service settings.";
 
 #[derive(Debug, Default)]
@@ -43,6 +44,7 @@ struct Arguments {
     command: String,
     enabled: bool,
     kernel_clock: bool,
+    offline_face: bool,
     bus_root: Option<PathBuf>,
     clock: Option<String>,
     catalogue: Option<PathBuf>,
@@ -97,6 +99,7 @@ fn parse(arguments: impl IntoIterator<Item = String>) -> Result<Option<Arguments
                 "--kernel-clock",
                 "--head-touch",
                 "--zone",
+                "--offline-face",
             ]
             .contains(&option.as_str()),
             "replay" => [
@@ -119,6 +122,10 @@ fn parse(arguments: impl IntoIterator<Item = String>) -> Result<Option<Arguments
         }
         if option == "--enable" {
             out.enabled = true;
+            continue;
+        }
+        if option == "--offline-face" {
+            out.offline_face = true;
             continue;
         }
         if option == "--kernel-clock" {
@@ -319,6 +326,9 @@ fn run(args: Arguments) -> Result<(), Box<dyn std::error::Error>> {
     }
     if args.head_touch {
         service = service.with_head_touch(&bus)?;
+    }
+    if args.offline_face {
+        service = service.with_offline_face(&bus);
     }
     eprintln!(
         "lamp-expression: started mode={} clock_id={} root={}{}{}",

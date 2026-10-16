@@ -346,6 +346,9 @@ pub struct Engine {
     rejected: u64,
     /// The idle layer, sleep and waking, when the catalogue has them.
     life: Option<Life>,
+    /// The internet cannot be reached (`lamp/online` false, #830): the
+    /// listening face is not drawn as ready.
+    offline: bool,
 }
 
 impl Engine {
@@ -408,6 +411,7 @@ impl Engine {
             legacy_voice: None,
             rejected: 0,
             life,
+            offline: false,
         })
     }
 
@@ -608,6 +612,13 @@ impl Engine {
         } else {
             self.reset_rest(now_us);
         }
+    }
+
+    /// Whether the lamp can reach the internet: while it cannot, listening
+    /// is drawn as not ready (#830). The voice's ring shows the offline
+    /// breath; the work light does not say "go ahead".
+    pub fn set_offline(&mut self, offline: bool) {
+        self.offline = offline;
     }
 
     /// Forget the time of day given so far: the clock is not set (#830).
@@ -1556,7 +1567,9 @@ impl Engine {
         let levels = self.catalogue.face_levels;
         match voice {
             Voice::Resting => (ExpressionFace::Resting, levels.resting),
-            Voice::Listening if ready => (ExpressionFace::Listening, levels.listening),
+            Voice::Listening if ready && !self.offline => {
+                (ExpressionFace::Listening, levels.listening)
+            }
             Voice::Listening => (ExpressionFace::Unavailable, levels.unavailable),
             Voice::Thinking => (ExpressionFace::Thinking, levels.thinking),
             Voice::Speaking => (ExpressionFace::Speaking, levels.speaking),

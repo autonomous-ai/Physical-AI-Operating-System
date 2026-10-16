@@ -151,7 +151,10 @@ home in one write at the end. An arm goal must be inside its joint's
 window: the joint's way between `--folded-arm` and `--stand`,
 with 420 counts either side (the most a gesture adds to it, 360, and 60 to
 spare). On lamp-4ace that is shoulder 1,628 to 3,077 and elbow 1,627 to
-3,022. It must also be within 50 counts of the arm goal last written (a rise
+3,022. A pose whose window would reach past 0 or 4,095 (an arm count of
+`--folded-arm` or `--stand` under 420 or over 3,675) is refused, so no
+window is cut at the seam
+(`an_arm_pose_whose_window_would_reach_the_seam_is_refused`). It must also be within 50 counts of the arm goal last written (a rise
 moves it a few counts a step, a gesture 21, and an arm let go by a hand
 goes back down to its resting goal at 50 a step), or lie between that goal
 and where the joint was last read, if that reading was within 50 of the one

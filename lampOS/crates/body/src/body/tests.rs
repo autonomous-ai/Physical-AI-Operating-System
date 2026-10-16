@@ -6739,3 +6739,24 @@ fn a_steady_wrong_elbow_reading_as_the_arm_comes_to_rest_is_not_its_resting_goal
         );
     }
 }
+
+/// An arm pose whose window (420 either side) would reach past 0 or 4095
+/// is refused, so no window is ever cut at the seam.
+#[test]
+fn an_arm_pose_whose_window_would_reach_the_seam_is_refused() {
+    let pose = |folded: [u16; 2], shoulder: u16, elbow: u16| {
+        Standing::new(
+            folded,
+            [1_772, 2_043, 2_015, shoulder, elbow],
+            100,
+            6,
+            90,
+            [950, 950],
+        )
+    };
+    assert!(pose([2_048, 2_047], 2_657, 2_602).is_ok());
+    assert!(pose([2_048, 3_400], 2_657, 3_675).is_ok());
+    assert!(pose([2_048, 3_400], 2_657, 3_676).is_err());
+    assert!(pose([420, 2_047], 600, 2_602).is_ok());
+    assert!(pose([419, 2_047], 600, 2_602).is_err());
+}

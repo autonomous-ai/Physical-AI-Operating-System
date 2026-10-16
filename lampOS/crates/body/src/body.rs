@@ -431,6 +431,11 @@ impl Standing {
             .any(|(from, to)| from.abs_diff(*to) > Self::TRAVEL_CAP);
         if far
             || pose.iter().chain(&folded).any(|count| *count > 4_095)
+            // An arm window (`arm_windows`) that would reach past 0 or
+            // 4,095 would be cut at the seam: a pose so near it is refused.
+            || pose[3..].iter().chain(&folded).any(|count| {
+                !(ARM_WINDOW_MARGIN..=4_095 - ARM_WINDOW_MARGIN).contains(count)
+            })
             || !(1..=100).contains(&share)
             || !(2..=20).contains(&seconds)
             || !(5..=3_600).contains(&awake)

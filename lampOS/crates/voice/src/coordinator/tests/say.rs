@@ -639,6 +639,11 @@ fn a_skill_sound_cut_short_is_dropped() {
 /// turn, a skill's sound is refused at once and never played later.
 #[test]
 fn a_skill_sound_is_refused_while_a_reply_or_a_candidate_is_open() {
+    // A held scenario clock: on the host clock a microsecond passing
+    // between reading `at` and the snapshot's `now()` left the snapshot
+    // issued after the speech it judged, so the candidate was refused as
+    // "candidate input is unavailable" whenever the host was busy.
+    let _clock = crate::scenario_clock::Scope::enter(Duration::from_secs(10)).unwrap();
     let mut owner = resting_owner();
     let mut trace = SessionState::default();
     // A reply open: a say's written turn.

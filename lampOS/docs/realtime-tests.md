@@ -929,9 +929,26 @@ that run, 27 run on pull requests again. Two stay in the group by name: `hung_wo
 and `endpoint_fixture_reaps_on_panic_before_and_after_handoff` (3.1 s of
 real process reaping).
 
-The other 27 are stepped, or drive a real worker under the fixture's
-100 ms ordering tolerance, which is there for host scheduling delay (the
-lamp's 50 ms privacy bound is unchanged). They were qualified the way a pull
+None of the other 27 uses the fixture's 100 ms ordering tolerance; only
+`hung_worker…` and the ignored test reach it
+(`run_process_with_privacy_tolerance`). The 27 still keep these host-clock
+windows (the reviewer on #1203):
+- `confirmed_endpoint_exit_keeps_the_restartable_mute`: its `exec sleep 60`
+  worker is killed at the default 300 ms grace (`turn-end-wire`'s
+  `client.rs`) and must be reaped within `EndpointRig::finish`'s 500 ms,
+  so 200 ms to spare. It is the tightest, and the same 500 ms that
+  lamp-4ace missed on 2026-10-16. **If it fails on a pull-request runner, it
+  goes back into the group by its exact name.**
+- `unconfirmed_endpoint_exit_fails_mute_cleanup_and_never_reopens_service`:
+  the 1.5 s kill must not land within those 500 ms (1 s to spare).
+- The three `run_settled_process` tests wait up to 5 s for the worker to
+  settle, then run stepped. `a_worker_still_loading_leaves_the_baseline_window`
+  also needs its stepped scenario to decide before the worker's `exec sleep 6`
+  ends.
+- Every stepped scenario has one 12 s host watchdog for the whole scenario
+  (`Scope::enter`).
+
+They were qualified the way a pull
 request runs them, each test in its own process, on the Intel Mac (16 cores)
 at `54be5904b`, release build: the 29 one at a time (25.9 s; the 27, 16.4
 s), then ten of each, shuffled, 16 at once and again 32 at once, then twenty

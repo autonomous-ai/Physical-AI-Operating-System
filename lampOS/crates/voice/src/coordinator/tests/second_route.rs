@@ -46,6 +46,9 @@ enum Live {
     FailThenLate(Fault, usize),
     /// The link becomes unavailable during the line, at capture frame 50.
     DropLink,
+    /// As `DropLink` (at `link_drops_at` if set), and the line given to it
+    /// again on its new session is answered with `packets`: a reconnect.
+    Reconnect(usize),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -85,6 +88,8 @@ struct Script {
     live_back_at_frame: Option<u64>,
     /// The Live worker exits at this capture frame, with no report.
     live_dies_at: Option<u64>,
+    /// The capture frame a `DropLink` or `Reconnect` link drops at (50).
+    link_drops_at: Option<u64>,
     turn_taking: TurnTaking,
 }
 
@@ -103,6 +108,7 @@ impl Script {
             mute_after_second_dies: false,
             live_back_at_frame: None,
             live_dies_at: None,
+            link_drops_at: None,
             turn_taking: TurnTaking::V1Baseline,
         }
     }
@@ -471,9 +477,12 @@ impl Peers {
         while crate::scenario_clock::instant() >= self.next_capture {
             self.frames += 1;
             let frame = self.frames;
-            if frame == 50
+            if frame == self.script.link_drops_at.unwrap_or(50)
                 && !self.link_dropped
-                && self.script.live.first() == Some(&Live::DropLink)
+                && matches!(
+                    self.script.live.first(),
+                    Some(Live::DropLink | Live::Reconnect(_))
+                )
                 && let Some(live) = self.index("provider")
             {
                 self.link_dropped = true;
@@ -621,6 +630,10 @@ impl Peers {
                             self.finish(index, request);
                         }
                         Live::DropLink => {}
+                        Live::Reconnect(packets) => {
+                            self.audio(index, request, packets, LIVE);
+                            self.finish(index, request);
+                        }
                     }
                 }
                 _ => {}
@@ -1321,14 +1334,34 @@ fn geminis_worker_exiting_while_the_second_route_is_active_still_ends_the_voice(
         live_dies_at: Some(60),
         ..Script::question(Live::DropLink)
     });
-    assert_eq!(
-        run.events("voice_route_switched")[0]["why"],
-        "live_link_changed"
-    );
     let error = run.result.as_ref().unwrap_err().to_string();
     assert!(
         error.contains("provider worker exited"),
         "{}",
         run.summary()
     );
+}
+
+/// (p) #960, lamp-4ace (`server_go_away`): Gemini's link drops with no turn
+/// in hand and is Ready again 500 ms later; the question asked meanwhile
+/// waits for it, not for the second route.
+#[test]
+fn a_question_during_a_reconnect_at_rest_waits_for_gemini() {
+    let _one = super::pilot_faults::one_session();
+    let run = run(Script {
+        link_drops_at: Some(10),
+        live_back_at_frame: Some(60),
+        ..Script::question(Live::Reconnect(12))
+    });
+    run.assert_clean();
+    assert!(
+        run.events("voice_route_switched").is_empty(),
+        "{}",
+        run.summary()
+    );
+    let held = run.events("voice_route_held");
+    assert_eq!(held.len(), 1, "{held:?}");
+    assert_eq!(held[0]["to"], "live");
+    assert!(run.seen.second.is_empty());
+    assert_eq!(run.played(1), vec![LIVE; 48]);
 }

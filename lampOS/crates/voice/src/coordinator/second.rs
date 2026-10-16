@@ -128,8 +128,9 @@ pub(super) struct Route {
     replay: VecDeque<ProviderInput>,
     /// Gemini's link has been Ready in this process.
     live_was_ready: bool,
-    /// The second route is active only to stand in before Gemini's first
-    /// Ready: a request admitted on it is held, not given to it.
+    /// The second route is active only to stand in while Gemini's link is
+    /// not Ready yet: before its first Ready, or while it reconnects
+    /// (#960). A request admitted on it is held, not given to it.
     stand_in: bool,
     /// The request held while the second route stands in, and since when.
     hold: Option<(u64, u64)>,
@@ -280,7 +281,6 @@ impl Route {
     /// sent until Gemini is Ready or the hold is over.
     fn holds(&mut self, reply: Option<&Reply>) -> bool {
         if self.stand_in
-            && !self.live_was_ready
             && self.hold.is_none()
             && let Some(current) = reply.filter(|current| {
                 !current.cloud.start_submitted
@@ -488,11 +488,7 @@ fn resolve_hold(
     // Past the hold its oldest block may be too old for Gemini, Ready or not.
     let to = if held_us < STARTUP_HOLD_US && route.cloud.available() {
         "live"
-    } else if held_us >= STARTUP_HOLD_US
-        || route.live_was_ready
-        || route.cloud.terminal()
-        || route.cloud.output_ended()
-    {
+    } else if held_us >= STARTUP_HOLD_US || route.cloud.terminal() || route.cloud.output_ended() {
         "second"
     } else {
         return Ok(());
@@ -576,15 +572,12 @@ pub(super) fn service(
         && route.cloud.available()
     {
         swap(provider, cloud, flow, route);
-        // Before Gemini's first Ready the second route only stands in.
-        route.stand_in = !route.live_was_ready;
-        if route.live_was_ready {
-            record(
-                trace,
-                json!({"kind":"voice_route_switched","at_us":monotonic_us(),"to":"second",
-                "why":"live_link_not_ready","turn":null,"replayed_commands":0}),
-            )?;
-        }
+        // While Gemini's link is not Ready (before its first Ready, or
+        // reconnecting: a GoAway or renewal takes about 2 s on lamp-4ace,
+        // #960) the second route only stands in: a request is held for
+        // Gemini, and the second route is given it only when the hold is
+        // over (`resolve_hold`).
+        route.stand_in = true;
     } else if route.second_active
         && at_rest
         && reply.is_none()
@@ -1216,10 +1209,12 @@ mod tests {
     }
 
     /// Gemini's Ready and its loss in one drain while the second route
-    /// stands in: Gemini was Ready, so the next request is not held but
-    /// goes to the second route at once (PR #885 P2).
+    /// stands in. Until #960 the next request went to the second route at
+    /// once (PR #885 P2); a link that was Ready is now taken to be
+    /// reconnecting, and the request is held for it, bounded as a startup
+    /// hold, rather than given to a slower route.
     #[test]
-    fn a_ready_lost_in_the_same_drain_still_ends_the_startup_hold() {
+    fn a_ready_lost_in_the_same_drain_holds_the_next_request_for_the_reconnect() {
         let mut bench = Bench::standing_in();
         bench.gemini_link(1, true);
         bench.gemini_link(2, false);
@@ -1229,6 +1224,12 @@ mod tests {
         let turn = current.owner.turn();
         let mut reply = Some(current);
         let mut queue = whole_line(turn, 2);
+        bench.flush(&mut reply, &mut queue);
+        assert_eq!(bench.route().hold.map(|(held, _)| held), Some(turn));
+        assert!(received(&mut bench.second).is_empty());
+        // Past the hold, with Gemini still away, the second route has it.
+        bench.route().hold = Some((turn, monotonic_us() - STARTUP_HOLD_US));
+        bench.service(&mut reply, &mut queue);
         bench.flush(&mut reply, &mut queue);
         assert!(bench.route().hold.is_none());
         assert_eq!(received(&mut bench.second), sequences(turn, 2));

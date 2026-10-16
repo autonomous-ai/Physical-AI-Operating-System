@@ -189,3 +189,27 @@ Ready for lamp-voice: #997, #1102 (with #1120, #1102 first), #1052 green
 - #1052: models from the `models-2026-10-16` release, rebased to
   `9ef2faf43`, green.
 - #990 waits on DevOps. Proved #811's Harness-at-boot on lamp-75c9 and undid it.
+
+## 2026-10-16 evening — the push for #560, the mute guard, the reset button
+
+Ready for lamp-voice: #1174 yes (approved, ARM64 green); #990 waits on DevOps
+
+- Merged into `lamp-voice` tonight: #1052 (models), #1102 with the third's
+  #1120 (the voice key is the user's), #1145 (the watch confirms an idle
+  answer with a second look, follows it 10 min, and the voice tells only the
+  new part), #1157 (`serve --push-wait`: Harness's own `wait` held per
+  machine, a pushed task left out until the watch reads it again), #997 (the
+  restart guard's mute marker names its record, is rewritten after a reboot,
+  and is synced).
+- #1157 on lamp-75c9 (Ten): Harness's `idle` to `settled` 8.3 to 10.2 s,
+  against 39 to 41 s without, about 1 point of the lamp's CPU. On lamp-4ace
+  (the first builder, stack38) the voice began the news 1 to 4 s after that.
+- #1174: the product `lamp-tasks` unit serves `--progress --push-wait`; the
+  lamp-4ace unit is the first builder's record.
+- Peer reviews: #1101, #1104, #1103 (P2: a newer timer waits behind an overdue
+  reminder), #1167 and #1176 (the product's reset button), #1094's
+  `crates/update` part (P3, mine next: `peek_state` should be
+  `Records::state()` in install and prepare).
+- Open from #560: task 97 came by the watch, not the push; lamp-4ace's journal
+  says which of two causes.
+- Disk: removed 12 worktrees of merged work; build folders 8.5 GB, 366 GB free.

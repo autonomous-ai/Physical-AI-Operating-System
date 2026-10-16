@@ -376,10 +376,33 @@ Everything goes through Git, once each way. No back-and-forth.
 - Read the Queue issue and the comments on your issues at the start of
   each task and every half hour.
 
-Since tasks are GitHub issues, a proposal is a new issue labelled
-`proposal` and `builder:<name>` (and still a line in your log), and a
-question is a comment on the task's issue; the first builder answers there.
-Answers given before 2026-10-14, 16:50 stay in work-split.md.
+Since tasks are GitHub issues, a question is a comment on the task's issue;
+the first builder answers there. Answers given before 2026-10-14, 16:50
+stay in work-split.md.
+
+### Only the first builder opens issues (`fifth-P8`, proposed 2026-10-16)
+
+Proposed at the fifth builder's person's request. The first builder holds
+the roadmap and the order; a builder or its person does not know what the
+first builder wants next, so an issue opened by them is work the first
+builder has to read, place or close before anyone may do it.
+
+- **Issues and labels are the first builder's.** Only the first builder
+  opens an issue and makes or moves a `builder:<name>` label. A builder
+  does not open issues, does not make labels, and does not label issues,
+  its own included.
+- **A proposal or a "Found, not mine"** is one comment on the Queue issue
+  ([#705](https://github.com/autonomous-ai/lampOS/issues/705)), headed
+  `<name>-P<n>` or `Found by <name>`, with what was seen, how to see it, and
+  what it would cost (and still a line in your log). The first builder
+  answers there: it opens an issue with an owner and a place in the Queue,
+  or says no. No answer means not taken up.
+- **A builder takes only an issue labelled `builder:<name>`** with its own
+  name. Its person asking for another issue does not change that: the
+  person asks the first builder on the Queue issue, and the builder waits
+  for the label.
+- Issues opened before this (proposals labelled `proposal`, faults opened
+  by a builder) stay as they are; the first builder places or closes them.
 
 ### Tasks as GitHub issues (`fifth-P3`, decided 2026-10-14)
 
@@ -403,7 +426,8 @@ writes.
 - **Pull requests** say `Closes #N` (closed by hand at the merge, above) or
   `Part of #N`. No GitHub Project is needed.
 
-**Claiming an issue.** Skip any issue already `status:taken`. Add
+**Claiming an issue.** Take only an issue labelled `builder:<name>` with
+your own name (`fifth-P8`, above). Skip any issue already `status:taken`. Add
 `status:taken` and comment one line,
 `taken by <name> · session <session id> · <lamp>`. Then read the comments
 again: if the first "taken" comment is not your own, release the issue
@@ -507,11 +531,8 @@ numbers, not in kind.
 
 ## What was not shown, and open questions
 
-- Only one builder has joined this way, with one person and one lamp
-  (lamp-52e6). No second person, no second lamp per builder, and no
-  builder without a lamp has started from this document yet.
-- No role file exists yet except [fifth.md](../builders/fifth.md); the
-  other builders' are for the first builder to make.
-- Proposals still unanswered: `fifth-P2` (owner file), `fifth-P3` (tasks
-  as issues), `fifth-P4` (the ready line), and `fifth-P5` (this document
-  and the role files). `fifth-P1` is answered "yes, but", written in above.
+- Builders with and without a lamp, and with different people, have
+  started from this document since 2026-10-15 (role files in
+  [builders/](../builders/)).
+- `fifth-P1` to `fifth-P7` are answered and written in above. `fifth-P8`
+  (only the first builder opens issues) waits for the first builder.

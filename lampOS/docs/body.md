@@ -1018,14 +1018,16 @@ start says how many moves it took and their names.
 A skill's own move (`do.body.move`, [skills.md](skills.md)) comes whole on
 the mood socket instead, in one datagram of at most 16 KiB:
 `{"move":{"name":"wiggle","step_ms":750,"frames":[...]}}`. The body holds it
-to the same rules (`moves::check`; it need not be another file's name), and
+to the same rules (`moves::check`), and
 plays it as a gesture: the same drop rules (paused, held by a hand, slumped,
 another playing), the same journal line of why it was taken or dropped, the
 same smoothing and speed limits, and V1's anti-tip rule below as it begins.
 One it cannot play is dropped, and the journal says
 `dropped from the mood socket, a move this body cannot play: move "NAME": WHY`.
-The same move sent again plays what was kept; each different one is kept for
-the body's life, and past 64 of them no new one plays until it restarts.
+It may have the name of a `--moves` file: the sent one plays, and the journal
+names both alike. The body keeps one sent move a name: the same move sent
+again plays what was kept, and a changed one (the skill edited) replaces it.
+Past 64 names, a move of a new name is dropped until the body restarts.
 How the body weighs a move against Expression and the eyes is the body's
 arbitration (#940), not built yet.
 

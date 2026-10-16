@@ -67,8 +67,9 @@ What is missing for skills:
   asked; the body merges its inputs by fixed rules. bus.md's table says so
   ("Several requesters, one actuator: No").
 - **`camera/image` is declared and published by nobody.**
-- **The body plays only its six built-in gestures and a skill's own moves
-  (`moves/`, below)**; nothing weighs them against Expression and the eyes.
+- **The body plays its built-in clips by name (a skill may name six of
+  them) and a skill's own moves (`moves/`, below)**; nothing weighs them
+  against Expression and the eyes.
 - Expression's catalogue is data, but its triggers are a fixed list in code.
 
 ## The design

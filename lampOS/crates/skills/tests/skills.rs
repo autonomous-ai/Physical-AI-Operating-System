@@ -2159,6 +2159,25 @@ fn a_skills_own_move_loads_as_the_body_takes_it_and_a_bad_one_is_refused_with_wh
             "{why}: {error}"
         );
     }
+    // Looked at before it is read: too long, or not a regular file (a pipe
+    // there would stall every skill's load).
+    let long = sway("sway", 60).replace(
+        "\"step_ms\"",
+        &format!("{}\"step_ms\"", " ".repeat(300 * 1024)),
+    );
+    fs::write(skill.join("moves/sway.json"), long).unwrap();
+    assert!(
+        load(&skill)
+            .unwrap_err()
+            .contains("longer than 262144 bytes")
+    );
+    fs::remove_file(skill.join("moves/sway.json")).unwrap();
+    fs::create_dir(skill.join("moves/sway.json")).unwrap();
+    assert!(
+        load(&skill)
+            .unwrap_err()
+            .contains("moves/sway.json: not a file")
+    );
     // A move in the body's own name, and a file that is not there.
     fs::write(skill.join("moves/nod.json"), sway("nod", 60)).unwrap();
     for (step, why) in [

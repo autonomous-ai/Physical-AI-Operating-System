@@ -730,9 +730,10 @@ fn move_file(dir: &Path, name: &str) -> Result<lamp_body::moves::Move, String> {
         return Err(format!("move {name:?} is not a file name in moves/"));
     }
     let place = format!("moves/{name}.json");
-    let text = fs::read(dir.join(&place)).map_err(|error| format!("{place}: {error}"))?;
-    let clip: lamp_body::moves::Move =
-        serde_json::from_slice(&text).map_err(|error| format!("{place}: not a move: {error}"))?;
+    // The body's own reader: a regular file of at most 256 KiB, looked at
+    // before it is read, so a pipe or a huge file never stalls the load.
+    let clip =
+        lamp_body::moves::read(&dir.join(&place)).map_err(|why| format!("{place}: {why}"))?;
     if clip.name != name {
         return Err(format!("{place} names {:?}, not {name:?}", clip.name));
     }

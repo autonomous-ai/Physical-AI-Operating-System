@@ -76,8 +76,9 @@ pub struct Move {
     pub frames: Vec<[i16; 5]>,
 }
 
-/// Moves a skill sent whole on the mood socket, each kept once for the
-/// life of the body: the same move sent again plays what was kept.
+/// Moves a skill sent whole on the mood socket, one a name: the same move
+/// sent again plays what was kept, and a changed one of the same name (a
+/// skill edited and reloaded) takes its place.
 #[derive(Debug, Default)]
 pub struct Sent(Vec<&'static Clip>);
 
@@ -99,21 +100,27 @@ impl Sent {
         let sent: Move =
             serde_json::from_value(sent).map_err(|error| format!("not a move: {error}"))?;
         check(&sent).map_err(|why| format!("move {:?}: {why}", sent.name))?;
-        if let Some(kept) = self.0.iter().find(|clip| {
-            clip.name == sent.name && clip.step_ms == sent.step_ms && clip.frames == sent.frames
-        }) {
+        let same_name = self.0.iter().position(|clip| clip.name == sent.name);
+        if let Some(kept) = same_name.map(|at| self.0[at])
+            && kept.step_ms == sent.step_ms
+            && kept.frames == sent.frames
+        {
             return Ok(kept);
         }
-        // ponytail: kept for the body's life, as `--moves` are; past this
-        // many different moves, none new plays until the body restarts.
-        if self.0.len() >= MOST_MOVES {
+        if same_name.is_none() && self.0.len() >= MOST_MOVES {
             return Err(format!(
-                "move {:?}: {MOST_MOVES} different moves were sent already, none new until the body restarts",
+                "move {:?}: {MOST_MOVES} moves of other names were sent already, none of a new name until the body restarts",
                 sent.name
             ));
         }
+        // ponytail: a replaced move stays in memory (it may still be
+        // playing; at most 7 KB each); own the frames (`Arc`) if skills
+        // are ever edited thousands of times in one run.
         let clip = keep(sent);
-        self.0.push(clip);
+        match same_name {
+            Some(at) => self.0[at] = clip,
+            None => self.0.push(clip),
+        }
         Ok(clip)
     }
 }
@@ -183,7 +190,10 @@ pub fn load(folder: &Path) -> io::Result<Loaded> {
     Ok(loaded)
 }
 
-fn read(path: &Path) -> Result<Move, String> {
+/// One move file: refused unless a regular file of at most 256 KiB, before
+/// it is read, and then unless JSON of exactly a move's three fields. Not
+/// [`check`]ed.
+pub fn read(path: &Path) -> Result<Move, String> {
     let metadata = fs::metadata(path).map_err(|error| error.to_string())?;
     if !metadata.is_file() {
         return Err("not a file".into());
@@ -445,6 +455,22 @@ mod tests {
         let again = sent.take(datagram.as_bytes()).unwrap().unwrap();
         assert!(std::ptr::eq(first, again));
         assert_eq!(sent.0.len(), 1);
+        // Edited, the same name takes the new frames' place.
+        let edited = datagram.replace("[40,0,0,0,0]", "[38,0,0,0,0]");
+        let edited = sent.take(edited.as_bytes()).unwrap().unwrap();
+        assert_eq!(edited.at(1_000_000), Some([38.0, 0.0, 0.0, 0.0, 0.0]));
+        assert_eq!(sent.0.len(), 1);
+        // Past 64 names a new name is refused; an old one still plays.
+        for n in 1..MOST_MOVES {
+            let other = format!("{{\"move\":{}}}", good(&format!("m{n}")));
+            sent.take(other.as_bytes()).unwrap().unwrap();
+        }
+        let new = format!("{{\"move\":{}}}", good("one-more"));
+        let why = sent.take(new.as_bytes()).unwrap().unwrap_err();
+        assert!(why.contains("64 moves of other names"), "{why}");
+        assert!(sent.take(datagram.as_bytes()).unwrap().is_ok());
+        assert_eq!(sent.0.len(), MOST_MOVES);
+        let mut sent = Sent::default();
         // One the body cannot play is refused with why.
         let far = datagram.replace("[40,0,0,0,0]", "[40,0,151,0,0]");
         let why = sent.take(far.as_bytes()).unwrap().unwrap_err();

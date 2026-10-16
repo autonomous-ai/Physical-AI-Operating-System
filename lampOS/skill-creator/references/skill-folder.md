@@ -174,7 +174,9 @@ the first and last frame all zeros; no joint farther than 200, 200, 150,
 350, 350 counts, nor faster than 900, 1,300, 1,000, 800, 800 counts a
 second. The body plays it only on a standing lamp, never while it is paused,
 held or slumped, and refuses it whole if a frame would tip the lamp past V1's
-22 mm from the pose it is in: keep moves small. A test expects it as
+22 mm from the pose it is in: keep moves small. The file is a regular file
+of at most 256 KiB. The body keeps 64 move names a run; an edited move of the
+same name replaces the old one. A test expects it as
 `call = "body.move"`, `args = { move = "NAME" }`.
 
 ## `tests/`

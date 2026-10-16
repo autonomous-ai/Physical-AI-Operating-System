@@ -502,6 +502,40 @@ fn gesture_of(
     lamp_body::clips::named(message.gesture).or_else(|| moves.named(message.gesture))
 }
 
+/// What one datagram on the mood socket asks.
+#[cfg_attr(not(any(target_os = "linux", test)), allow(dead_code))]
+#[derive(Debug, PartialEq)]
+enum Heard {
+    /// The body's own clip, a `--moves` file's, or a skill's sent whole.
+    Gesture(&'static lamp_body::clips::Clip),
+    Mood(lamp_body::gesture::Mood, u8),
+    /// Not taken, and why, as the journal says it.
+    Dropped(String),
+}
+
+/// A gesture by name first, then a move sent whole, then a mood.
+#[cfg_attr(not(any(target_os = "linux", test)), allow(dead_code))]
+fn heard(
+    datagram: &[u8],
+    moves: &lamp_body::moves::Loaded,
+    sent: &mut lamp_body::moves::Sent,
+) -> Heard {
+    if let Some(clip) = gesture_of(datagram, moves) {
+        return Heard::Gesture(clip);
+    }
+    match sent.take(datagram) {
+        Some(Ok(clip)) => Heard::Gesture(clip),
+        Some(Err(why)) => Heard::Dropped(format!("a move this body cannot play: {why}")),
+        None => match mood_of(datagram) {
+            Some((mood, level)) => Heard::Mood(mood, level),
+            None => Heard::Dropped(format!(
+                "not a mood or a gesture this body has: {}",
+                String::from_utf8_lossy(&datagram[..datagram.len().min(200)])
+            )),
+        },
+    }
+}
+
 /// Each journal line about what was asked is said at most once in this
 /// long, and then with how many like it were not said.
 #[cfg_attr(not(any(target_os = "linux", test)), allow(dead_code))]
@@ -693,28 +727,13 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
             match moods.recv(&mut datagram) {
                 Ok(length) => {
                     let sent = &datagram[..length];
-                    let skills = match gesture_of(sent, &moves) {
-                        Some(clip) => Some(Ok(clip)),
-                        None => moves_sent.take(sent),
-                    };
-                    match (skills, mood_of(sent)) {
-                        (Some(Ok(clip)), _) => gesture_asked.set(Some(clip)),
-                        (Some(Err(why)), _) => {
-                            let line = format!(
-                                "lamp-body: dropped from the mood socket, a move this body cannot play: {why}"
-                            );
-                            if let Some(line) = unknown_said.due(line, std::time::Instant::now()) {
-                                eprintln!("{line}");
-                            }
-                        }
-                        (None, Some(mood)) => latest = Some(mood),
+                    match heard(sent, &moves, &mut moves_sent) {
+                        Heard::Gesture(clip) => gesture_asked.set(Some(clip)),
+                        Heard::Mood(mood, level) => latest = Some((mood, level)),
                         // An unknown gesture, most often: said, as the
                         // body says what it does with every gesture.
-                        (None, None) => {
-                            let line = format!(
-                                "lamp-body: dropped from the mood socket, not a mood or a gesture this body has: {}",
-                                String::from_utf8_lossy(&sent[..sent.len().min(200)])
-                            );
+                        Heard::Dropped(why) => {
+                            let line = format!("lamp-body: dropped from the mood socket, {why}");
                             if let Some(line) = unknown_said.due(line, std::time::Instant::now()) {
                                 eprintln!("{line}");
                             }
@@ -1660,6 +1679,48 @@ mod tests {
         }
         // And a gesture is not a mood.
         assert_eq!(mood_of(br#"{"gesture":"nod"}"#), None);
+    }
+
+    /// Each kind of datagram is read as before a move could be sent: a
+    /// gesture by name, a mood, and anything else dropped and said; a move
+    /// sent whole is a gesture, or dropped with why.
+    #[test]
+    fn the_mood_socket_reads_a_gesture_a_move_a_mood_or_says_why_not() {
+        let (moves, mut sent) = (
+            lamp_body::moves::Loaded::default(),
+            lamp_body::moves::Sent::default(),
+        );
+        let mut heard = |datagram: &str| heard(datagram.as_bytes(), &moves, &mut sent);
+        assert_eq!(
+            heard(r#"{"gesture":"nod"}"#),
+            Heard::Gesture(&lamp_body::clips::NOD)
+        );
+        assert_eq!(
+            heard(r#"{"mood":"listening","level":3}"#),
+            Heard::Mood(Mood::Listening, 3)
+        );
+        let frames: Vec<String> = (0..=30)
+            .map(|at| format!("[{},0,0,0,0]", 15 - (at - 15i32).abs()))
+            .collect();
+        let sway = format!(
+            r#"{{"move":{{"name":"sway","step_ms":50,"frames":[{}]}}}}"#,
+            frames.join(",")
+        );
+        match heard(&sway) {
+            Heard::Gesture(clip) => assert_eq!((clip.name, clip.frames.len()), ("sway", 31)),
+            other => panic!("{other:?}"),
+        }
+        let Heard::Dropped(why) = heard(&sway.replace("\"step_ms\":50", "\"step_ms\":5")) else {
+            panic!("a bad move was taken");
+        };
+        assert!(
+            why.starts_with("a move this body cannot play: move \"sway\""),
+            "{why}"
+        );
+        let Heard::Dropped(why) = heard(r#"{"gesture":"dance"}"#) else {
+            panic!("an unknown gesture was taken");
+        };
+        assert!(why.contains("not a mood or a gesture"), "{why}");
     }
 
     /// A line asked again and again is said once in five seconds, then with

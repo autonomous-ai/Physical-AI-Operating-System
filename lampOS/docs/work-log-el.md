@@ -77,3 +77,32 @@ Ready for lamp-voice: no (a lamp's own folder, `el/lamp-06c1-bringup`
   Its camera frames the whole lamp; stills described, none kept.
 - On lamp-06c1, once each. Not shown: the gaze and pitch window measured
   here (lamp-52e6's are used); a power cut; anything of #995 yet.
+
+## 2026-10-16 — #995 part 3, the V1 moves, judged and reworked (#1058)
+
+Ready for lamp-voice: yes (#1058)
+
+- Changes every lamp's default (the body's clips). Stacked on the first
+  builder's generator `246becfe8`. Head `b22e98dea`; ARM64 38874113322 green
+  on `e154e0847` (the head after it adds only the verification folder).
+- The person judged all 13 clips on lamp-06c1 (13:29–13:49): keep all, but
+  the dances read as one, and curious/happy/confused/excited are too small.
+  Head roll read from `body/joint_states`: the body drops a gesture's roll on
+  this head (`stand_roll`), so curious, confused and jazz lost theirs.
+- Rework: per-joint gains, roll moved onto pitch and yaw, each dance led by
+  its own joint; then, after rounds 2 and 3 with the person, chill and groove
+  swing about the standing pose and excited bounces twice. The fifth's lean
+  P2 and the first builder's #1072 rule: every clip ≤ 18.0 mm (surprised was
+  25.7). Final verdicts in `docs/verification/v1-moves-lamp-06c1-20261016/`.
+- Gate on el's Mac (Homebrew Rust 1.99): fmt clean; clippy lamp-body clean
+  with three 1.99-only lints allowed; lamp-body 302 passed, 0 failed;
+  workspace builds; generator output equals `data.rs`.
+- lamp-06c1 runs this body (`e998bb99`); `92d880d0` (build 1009) is kept.
+
+## 2026-10-16 — #795 tried on lamp-06c1 for the third
+
+Ready for lamp-voice: no (the third's)
+
+- Privacy slide wired on lamp-06c1 (chip 1 line 9). With #795's build the
+  ring breathed red while closed, Muted 37 ms after the slide, Allowed 58 ms
+  after reopening; reported on #795, then rolled back to jarvis's voice.

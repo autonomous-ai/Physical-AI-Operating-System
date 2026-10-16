@@ -1,0 +1,15 @@
+# Desk tutor (#941). Started only by its tool, which the model calls when
+# someone working on paper asks the lamp to check their work or says they
+# are stuck (SKILL.md's description tells it when): a person asked, so the
+# Policy is not asked. No trigger, no [ask].
+needs = ["eyes", "voice", "light"]
+tool = "check_my_work"
+
+[[do]]
+# The page lit bright and white while they work through the hint; their
+# own light comes back after.
+light = { colour = "white", level = 5, for = "2m" }
+# One full look at the page: the model says "Let me take a look." and the
+# voice hands it the picture.
+look = true
+say = "Tutor, don't solve: say in a few words what is right, then point to the first line that goes wrong and give a hint or a question, never the answer unless they ask outright after trying. Say which part you cannot read (blurred, cut off, in shadow) and never guess it. A sentence or two, then wait."

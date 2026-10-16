@@ -220,6 +220,7 @@ tested from both sides.
 | What | Warn | Error | Why there |
 |---|---|---|---|
 | A zone that names trip points | At or above its lowest passive point: `cpul_thermal_zone is at 72 °C: the board slows itself down from 70` | At or above its second passive point, or within 10 °C of its critical point: `... the board turns itself off at 110` | A passive point is where the board slows its processors down to cool, and what the lamp says then comes late. The warning is for a board that is doing that, not for one that is near it. The critical point is where the board turns itself off. A zone that has one of these points and not another is held only to the rules it has points for |
+| The processors (every zone whose name begins `cpu`, judged or not) | From 85 °C (`CPU_WARN_C`): `the processors are hot: 86 °C at cpub_thermal_zone, 4 below the board's trip at 90` | Once a processor group is held below what it can do: `the processors are held back to cool: policy6 may run at 1792 of 2002 MHz, cpub_thermal_zone at 93 °C` | The first builder, 2026-10-16: lamp-4ace's processor zones read 86 to 89 °C from 16:01 with the owner at the lamp, and at 16:38 a voice worker held up past its bound exited, with the big cores capped at 1.79 of 2.0 GHz. "Held back" is a cpufreq policy's `scaling_max_freq` below its `cpuinfo_max_freq` (`devices/system/cpu/cpufreq/policyN`), the cap a thermal cooling device sets; the board's idle-injection cooling (`idle-cpuN`) is not counted |
 | A zone that names none | From 80 °C | From 90 °C | Two fixed lines of this program's own, not taken from the board: 90 is where the processor zones have their second passive point |
 | `disk_free` | Under 0.10 | Under 0.03 | Logs, recordings and updates all need room. At a tenth there is still time to make some; at three hundredths the next thing written may not fit |
 | `memory_used` | Over 0.90 | never | Little is left before the system has to end a program to find some |
@@ -232,7 +233,12 @@ all, nothing is said of temperature.
 
 The report's `values` are the numbers as text, each there only if it was
 read: `cpu_load` (two decimals), `memory_used` and `disk_free` (three),
-`uptime_s`, `hottest_zone` and `hottest_c` (one decimal).
+`uptime_s`, `hottest_zone` and `hottest_c` (one decimal); the processors'
+`cpu_zone`, `cpu_c` (one decimal) and `cpu_next_trip_c` (the zone's next
+trip point above it, or its highest); and, where the board has cpufreq,
+`throttled` (`true` or `false`), with `cpu_max_mhz` and `cpu_hardware_mhz`
+of the group held furthest back when it is. The self-test and the review
+page read these.
 
 The real board's processor zones have passive points at 70 and 90 °C and a
 critical point at 110 °C, and read about 63 to 66 °C when the lamp is at

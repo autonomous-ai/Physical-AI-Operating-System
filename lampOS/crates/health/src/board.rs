@@ -44,6 +44,14 @@ pub const WARN_WITHOUT_TRIPS_C: i64 = 80;
 /// And an error from here: where the board's processor zones have their
 /// second passive trip point.
 pub const ERROR_WITHOUT_TRIPS_C: i64 = 90;
+/// A processor zone this hot is a warning, whatever trip points it names
+/// (the first builder, 2026-10-16: lamp-4ace's processor zones read 86 to
+/// 89 °C from 16:01 with the owner at the lamp, its first trip at 90, and at
+/// 16:38 a voice worker held up past its bounds exited). Said from every
+/// processor zone, judged or not ([`Places::judged`]).
+pub const CPU_WARN_C: i64 = 85;
+/// The zones that are the processors', by how their names begin.
+pub const CPU_ZONES: &str = "cpu";
 /// Less of the disk free than this is a warning: logs, recordings and
 /// updates all need room, and there is still time to make some.
 pub const DISK_FREE_WARN: f32 = 0.10;
@@ -141,6 +149,26 @@ pub struct Zone {
     pub critical_milli_c: Option<i64>,
 }
 
+/// One group of processors and the fastest it may run now: below what the
+/// hardware can do, the board is holding it back to cool (a thermal
+/// cooling device lowers `scaling_max_freq`).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CpuCap {
+    /// `policyN` under `devices/system/cpu/cpufreq`.
+    pub policy: String,
+    /// `scaling_max_freq`, in kHz: the fastest it may run now.
+    pub max_khz: u64,
+    /// `cpuinfo_max_freq`, in kHz: the fastest it can run.
+    pub hardware_khz: u64,
+}
+
+impl CpuCap {
+    /// Held below what the hardware can do.
+    pub fn throttled(&self) -> bool {
+        self.max_khz < self.hardware_khz
+    }
+}
+
 /// A number the lamp cannot do without, and why it could not be read.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Unread {
@@ -168,6 +196,8 @@ pub struct Reading {
     /// The zones whose own limits are judged, by how their names begin:
     /// every zone, with none named ([`Places::judged`]).
     pub judged: Vec<String>,
+    /// Each processor group's cap; empty where the board has no cpufreq.
+    pub cpu_caps: Vec<CpuCap>,
 }
 
 /// One thing that is not as it should be.
@@ -262,6 +292,62 @@ impl Reading {
         })
     }
 
+    /// The hottest processor zone ([`CPU_ZONES`]).
+    pub fn hottest_cpu(&self) -> Option<&Zone> {
+        self.zones
+            .iter()
+            .filter(|zone| zone.name.starts_with(CPU_ZONES))
+            .reduce(|hottest, zone| {
+                if zone.milli_c > hottest.milli_c {
+                    zone
+                } else {
+                    hottest
+                }
+            })
+    }
+
+    /// The processor group held furthest below what it can do, if any is.
+    pub fn throttled(&self) -> Option<&CpuCap> {
+        self.cpu_caps
+            .iter()
+            .filter(|cap| cap.throttled())
+            .min_by(|a, b| {
+                let share = |cap: &CpuCap| cap.max_khz as f64 / cap.hardware_khz.max(1) as f64;
+                share(a).total_cmp(&share(b))
+            })
+    }
+
+    /// What the board says of its processors' heat: an error once they are
+    /// held back to cool, a warning from [`CPU_WARN_C`].
+    fn cpu_finding(&self) -> Option<Finding> {
+        let zone = self.hottest_cpu();
+        let hot = zone.map(|zone| format!("{} at {} °C", zone.name, degrees(zone.milli_c)));
+        if let Some(cap) = self.throttled() {
+            return error(format!(
+                "the processors are held back to cool: {} may run at {} of {} MHz{}",
+                cap.policy,
+                cap.max_khz / 1_000,
+                cap.hardware_khz / 1_000,
+                hot.map(|hot| format!(", {hot}")).unwrap_or_default()
+            ));
+        }
+        let zone = zone.filter(|zone| zone.milli_c >= CPU_WARN_C * 1_000)?;
+        warn(match next_trip(zone) {
+            Some(trip) => format!(
+                "the processors are hot: {} °C at {}, {} below the board's trip at {}",
+                degrees(zone.milli_c),
+                zone.name,
+                degrees(trip - zone.milli_c),
+                degrees(trip)
+            ),
+            None => format!(
+                "the processors are hot: {} °C at {}",
+                degrees(zone.milli_c),
+                zone.name
+            ),
+        })
+    }
+
     /// The numbers as `board/state` carries them, if the four the lamp
     /// cannot do without are all there. A zone is there if it could be
     /// read; the Wi-Fi and the clock if they could be asked.
@@ -299,6 +385,7 @@ impl Reading {
             .collect();
         zones.sort_by_key(|zone| std::cmp::Reverse(zone.milli_c));
         let mut found: Vec<Finding> = zones.iter().filter_map(|zone| zone.finding()).collect();
+        found.extend(self.cpu_finding());
         found.extend(self.disk_free.and_then(|free| {
             if free < DISK_FREE_ERROR {
                 error(format!(
@@ -374,6 +461,21 @@ impl Reading {
             value("hottest_zone", zone.name.clone());
             value("hottest_c", format!("{:.1}", zone.celsius()));
         }
+        // The processors' heat, for the self-test and the review page.
+        if let Some(zone) = self.hottest_cpu() {
+            value("cpu_zone", zone.name.clone());
+            value("cpu_c", format!("{:.1}", zone.celsius()));
+            if let Some(trip) = next_trip(zone) {
+                value("cpu_next_trip_c", degrees(trip));
+            }
+        }
+        if !self.cpu_caps.is_empty() {
+            value("throttled", self.throttled().is_some().to_string());
+            if let Some(cap) = self.throttled() {
+                value("cpu_max_mhz", (cap.max_khz / 1_000).to_string());
+                value("cpu_hardware_mhz", (cap.hardware_khz / 1_000).to_string());
+            }
+        }
         Diagnostic {
             level,
             name: PART.into(),
@@ -381,6 +483,21 @@ impl Reading {
             values,
         }
     }
+}
+
+/// The zone's next trip point above it, passive or critical; with none
+/// above, the highest it names.
+fn next_trip(zone: &Zone) -> Option<i64> {
+    let trips = zone
+        .passive_milli_c
+        .iter()
+        .chain(zone.critical_milli_c.iter());
+    trips
+        .clone()
+        .filter(|trip| **trip > zone.milli_c)
+        .min()
+        .or_else(|| trips.max())
+        .copied()
 }
 
 /// What a file holds, or the file and what was the matter with it.
@@ -615,5 +732,34 @@ pub fn read(places: &Places) -> Reading {
         clock_synced: clock_synced(&places.run, places.clock),
         unread,
         judged: places.judged.clone(),
+        cpu_caps: cpu_caps(&places.sys),
     }
+}
+
+/// Each `policyN` under `devices/system/cpu/cpufreq` with both numbers, by
+/// its number; one that cannot be read is left out.
+fn cpu_caps(sys: &Path) -> Vec<CpuCap> {
+    let folder = sys.join("devices/system/cpu/cpufreq");
+    let Ok(entries) = fs::read_dir(&folder) else {
+        return Vec::new();
+    };
+    let mut caps: Vec<(u32, CpuCap)> = entries
+        .flatten()
+        .filter_map(|entry| {
+            let name = entry.file_name().to_string_lossy().into_owned();
+            let number: u32 = name.strip_prefix("policy")?.parse().ok()?;
+            let khz = |file: &str| -> Option<u64> {
+                text(&entry.path().join(file)).ok()?.trim().parse().ok()
+            };
+            let cap = CpuCap {
+                policy: name.clone(),
+                max_khz: khz("scaling_max_freq")?,
+                hardware_khz: khz("cpuinfo_max_freq").filter(|khz| *khz > 0)?,
+            };
+            Some((number, cap))
+        })
+        .take(MOST_ZONES)
+        .collect();
+    caps.sort_by_key(|(number, _)| *number);
+    caps.into_iter().map(|(_, cap)| cap).collect()
 }

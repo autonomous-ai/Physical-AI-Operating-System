@@ -32,6 +32,7 @@ fn well() -> Reading {
         clock_synced: None,
         unread: Vec::new(),
         judged: Vec::new(),
+        cpu_caps: Vec::new(),
     }
 }
 
@@ -144,7 +145,10 @@ fn the_real_boards_files_are_read_as_its_numbers() {
             "disk_free",
             "uptime_s",
             "hottest_zone",
-            "hottest_c"
+            "hottest_c",
+            "cpu_zone",
+            "cpu_c",
+            "cpu_next_trip_c"
         ]
     );
     assert_eq!(value(&report, "cpu_load"), Some("0.31"));
@@ -204,7 +208,9 @@ fn a_number_whose_file_is_missing_is_not_read_and_the_report_says_which() {
             );
         }
         assert_eq!(value(&report, number), None);
-        assert_eq!(report.values.len(), 5, "{file}");
+        // The four numbers but one, the hottest zone and the hottest processor
+        // zone with its next trip.
+        assert_eq!(report.values.len(), 8, "{file}");
         tree.file(file, &kept);
     }
     assert!(board::read(&tree.places()).unread.is_empty());
@@ -795,6 +801,7 @@ fn the_report_is_the_worst_finding_and_of_two_as_bad_the_first() {
         clock_synced: Some(false),
         unread: Vec::new(),
         judged: Vec::new(),
+        cpu_caps: Vec::new(),
     };
     assert_eq!(
         said(&reading),
@@ -875,4 +882,115 @@ fn the_kernel_is_asked_about_the_clock_only_when_named_and_the_marker_still_coun
     assert_eq!("kernel".parse(), Ok(board::ClockSource::Kernel));
     assert_eq!("timesync".parse(), Ok(board::ClockSource::Timesync));
     assert!("ntp".parse::<board::ClockSource>().is_err());
+}
+
+/// A processor zone whose trip is far off: only [`board::CPU_WARN_C`]
+/// speaks for it.
+fn processors_at(milli_c: i64) -> Reading {
+    Reading {
+        zones: vec![
+            zone("skin_zone", 37_000, &[], None),
+            zone("cpub_thermal_zone", milli_c, &[90_000], Some(110_000)),
+        ],
+        ..well()
+    }
+}
+
+/// The first builder, 2026-10-16: lamp-4ace's processors at 86 to 89 °C,
+/// its first trip at 90. From 85 °C the board says so, with the zone and the
+/// trip it is nearest, whatever the zone names; below, nothing.
+#[test]
+fn hot_processors_are_a_warning_from_85_with_the_trip_they_are_nearest() {
+    assert_eq!(said(&processors_at(84_900)), (Level::Ok, String::new()));
+    let hot = processors_at(86_000);
+    assert_eq!(
+        said(&hot),
+        (
+            Level::Warn,
+            "the processors are hot: 86 °C at cpub_thermal_zone, 4 below the board's trip at 90"
+                .into()
+        )
+    );
+    let report = hot.report();
+    assert_eq!(value(&report, "cpu_zone"), Some("cpub_thermal_zone"));
+    assert_eq!(value(&report, "cpu_c"), Some("86.0"));
+    assert_eq!(value(&report, "cpu_next_trip_c"), Some("90"));
+    assert_eq!(value(&report, "throttled"), None, "no cpufreq read");
+}
+
+/// Once a processor group is held below what it can do, the board is
+/// cooling itself by slowing the lamp: an error, with how far, whatever the
+/// heat. Not held, it says so too.
+#[test]
+fn processors_held_back_to_cool_are_an_error() {
+    let mut reading = processors_at(93_000);
+    reading.cpu_caps = vec![
+        board::CpuCap {
+            policy: "policy0".into(),
+            max_khz: 1_800_000,
+            hardware_khz: 1_800_000,
+        },
+        board::CpuCap {
+            policy: "policy4".into(),
+            max_khz: 1_792_000,
+            hardware_khz: 2_016_000,
+        },
+    ];
+    assert_eq!(
+        said(&reading),
+        (
+            Level::Error,
+            "the processors are held back to cool: policy4 may run at 1792 of 2016 MHz, cpub_thermal_zone at 93 °C"
+                .into()
+        )
+    );
+    let report = reading.report();
+    assert_eq!(value(&report, "throttled"), Some("true"));
+    assert_eq!(value(&report, "cpu_max_mhz"), Some("1792"));
+    assert_eq!(value(&report, "cpu_hardware_mhz"), Some("2016"));
+    reading.cpu_caps[1].max_khz = 2_016_000;
+    reading.zones[1].milli_c = 60_000;
+    assert_eq!(said(&reading), (Level::Ok, String::new()));
+    assert_eq!(value(&reading.report(), "throttled"), Some("false"));
+}
+
+/// The caps are read from `devices/system/cpu/cpufreq/policyN`, by number;
+/// a policy missing a number is left out.
+#[test]
+fn processor_caps_are_read_from_each_cpufreq_policy() {
+    let tree = Tree::real_board("cpu-caps");
+    tree.file(
+        "sys/devices/system/cpu/cpufreq/policy4/scaling_max_freq",
+        "1792000\n",
+    );
+    tree.file(
+        "sys/devices/system/cpu/cpufreq/policy4/cpuinfo_max_freq",
+        "2016000\n",
+    );
+    tree.file(
+        "sys/devices/system/cpu/cpufreq/policy0/scaling_max_freq",
+        "1800000\n",
+    );
+    tree.file(
+        "sys/devices/system/cpu/cpufreq/policy0/cpuinfo_max_freq",
+        "1800000\n",
+    );
+    tree.file(
+        "sys/devices/system/cpu/cpufreq/policy6/scaling_max_freq",
+        "1000\n",
+    );
+    let reading = board::read(&tree.places());
+    let caps: Vec<(&str, u64, u64)> = reading
+        .cpu_caps
+        .iter()
+        .map(|cap| (cap.policy.as_str(), cap.max_khz, cap.hardware_khz))
+        .collect();
+    assert_eq!(
+        caps,
+        [
+            ("policy0", 1_800_000, 1_800_000),
+            ("policy4", 1_792_000, 2_016_000)
+        ]
+    );
+    assert_eq!(reading.throttled().unwrap().policy, "policy4");
 }

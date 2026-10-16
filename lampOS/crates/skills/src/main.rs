@@ -354,8 +354,13 @@ fn tool_call(
         .filter(|call| !matches!(call, Call::Look | Call::Say(_)))
         .cloned()
         .collect();
-    // Told only what will be done: a run under way refuses this one whole.
-    if !made.is_empty() && busy.contains(&run.skill) {
+    // A run under way is left as it is: a call again meanwhile is told
+    // again what to do next (a student who asks a minute later gets a new
+    // look), and nothing more is made; the light already on is given back
+    // when its `for` ends. A call that is nothing but made steps has
+    // nothing to tell, and is refused.
+    let under_way = !made.is_empty() && busy.contains(&run.skill);
+    if under_way && made.len() == run.calls.len() {
         return refuse("I'm still doing that.");
     }
     // The caller told it timed out: nothing is done.
@@ -366,13 +371,18 @@ fn tool_call(
     for event in run.events {
         publish(out, event);
     }
-    if made.is_empty() {
+    if made.is_empty() || under_way {
         publish(
             out,
             SkillEvent {
                 skill: run.skill,
                 stage: SkillStage::Done,
-                why: "the model was told what to do next".into(),
+                why: if under_way {
+                    "the model was told again what to do next; its last run is still under way, left as it is"
+                } else {
+                    "the model was told what to do next"
+                }
+                .into(),
                 allowed: None,
             },
         );

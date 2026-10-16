@@ -971,27 +971,116 @@ fn a_declared_tool_is_in_the_tools_file_and_a_call_runs_the_skills_steps() {
         "{next}"
     );
     assert!(next.ends_with("never the answer."), "{next}");
-    // Again while the page is still lit: refused, not told to look.
+    // Again while the page is still lit, as a student asks once more after
+    // fixing a line (#941): told to look again, and the light left as it is.
     let again = call("check_my_work");
-    assert_eq!(again["ok"], false, "{again}");
-    assert_eq!(again["error"], "I'm still doing that.");
+    assert_eq!(again["ok"], true, "{again}");
+    assert_eq!(again["result"]["next"], answer["result"]["next"]);
     assert_eq!(call("nobody_has_this")["ok"], false);
     let mut seen = Vec::new();
-    while !seen
+    while seen
         .iter()
-        .any(|event: &SkillEvent| event.stage == SkillStage::Done)
+        .filter(|event: &&SkillEvent| event.stage == SkillStage::Done)
+        .count()
+        < 2
         && Instant::now() < deadline
     {
         if let Some(message) = events.recv(Duration::from_millis(100)).unwrap() {
             seen.push(message.parse().unwrap());
         }
     }
-    assert_eq!(stages(&seen), [SkillStage::Triggered, SkillStage::Done]);
+    assert_eq!(
+        stages(&seen),
+        [
+            SkillStage::Triggered,
+            SkillStage::Triggered,
+            SkillStage::Done,
+            SkillStage::Done
+        ]
+    );
+    assert!(seen[2].why.contains("still under way"), "{seen:?}");
     let lights: Vec<String> = lights.try_iter().collect();
-    // The page lit, and after its second given back.
+    // The page lit once, and after its second given back: nothing made for
+    // the second call.
+    assert_eq!(lights.len(), 2, "{lights:?}");
     assert!(
         lights[0].contains("\"light_colour\"") && lights[0].contains("white"),
         "{lights:?}"
     );
     assert!(lights[1].contains("blue"), "{lights:?}");
+}
+
+/// A skill whose tool only makes things: nothing to tell the model, so a
+/// call while its run is under way is still refused.
+#[test]
+fn a_repeat_call_with_only_made_steps_is_refused_while_its_run_is_under_way() {
+    // Short: a socket's whole path has to fit in 103 bytes.
+    let dir = tempfile::Builder::new()
+        .prefix("st")
+        .tempdir_in("/tmp")
+        .unwrap();
+    let root = dir.path();
+    fs::create_dir(root.join("skills")).unwrap();
+    let bus = Bus::new(root.join("bus")).unwrap();
+    let mut ring = bus
+        .publisher_declared("light/state", &Light::declaration(), "ring")
+        .unwrap();
+    let actions = UnixListener::bind(root.join("actions.sock")).unwrap();
+    std::thread::spawn(move || {
+        for stream in actions.incoming().flatten() {
+            let mut line = String::new();
+            BufReader::new(&stream).read_line(&mut line).unwrap();
+            (&stream)
+                .write_all(b"{\"ok\":true,\"result\":{}}\n")
+                .unwrap();
+        }
+    });
+    let tools = root.join("tools");
+    let _running = Running(
+        Command::new(env!("CARGO_BIN_EXE_lamp-skills"))
+            .args([
+                "--dir".as_ref(),
+                root.join("skills").as_os_str(),
+                "--bus-root".as_ref(),
+                root.join("bus").as_os_str(),
+                "--actions-socket".as_ref(),
+                root.join("actions.sock").as_os_str(),
+                "--tools-dir".as_ref(),
+                tools.as_os_str(),
+            ])
+            .spawn()
+            .unwrap(),
+    );
+    skill_with(
+        &root.join("skills"),
+        "glow",
+        &TUTOR
+            .replace("check_my_work", "glow")
+            .replace("look = true\n", "")
+            .replace(
+                "say = \"Tutor: a hint or a question, never the answer.\"\n",
+                "",
+            )
+            .replace("for = \"1s\"", "for = \"3s\""),
+    );
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while !tools.join("tools.json").exists() {
+        assert!(Instant::now() < deadline, "no tools file");
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    let call = || {
+        let stream = std::os::unix::net::UnixStream::connect(tools.join("call.sock")).unwrap();
+        writeln!(&stream, r#"{{"op":"call","name":"glow","args":{{}}}}"#).unwrap();
+        let mut line = String::new();
+        BufReader::new(&stream).read_line(&mut line).unwrap();
+        serde_json::from_str::<serde_json::Value>(&line).unwrap()
+    };
+    ring.publish_json(1, &Light::new(true, "blue", 3).unwrap())
+        .unwrap();
+    let first = call();
+    assert_eq!(first["ok"], true, "{first}");
+    assert_eq!(first["result"]["next"], "Done.");
+    let again = call();
+    assert_eq!(again["ok"], false, "{again}");
+    assert_eq!(again["error"], "I'm still doing that.");
 }

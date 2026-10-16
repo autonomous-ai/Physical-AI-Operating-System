@@ -192,6 +192,13 @@ impl Cues {
                     clips.push(soft(clip));
                 }
             }
+            // None came (speech failed): tried again at the next spoken turn.
+            if cues.clips.lock().is_ok_and(|clips| clips.is_empty()) {
+                eprintln!(
+                    "lamp-voice second: the wait's sounds could not be said; trying again at the next turn"
+                );
+                cues.rendering.store(false, Ordering::Release);
+            }
         });
     }
 
@@ -206,9 +213,13 @@ impl Cues {
     }
 }
 
-/// At most [`CUE_MOST_SAMPLES`], its end faded out, never louder than said.
+/// At most [`CUE_MOST_SAMPLES`], at half the reply's level (about -6 dB),
+/// its end faded out.
 fn soft(mut clip: Vec<i16>) -> Vec<i16> {
     clip.truncate(CUE_MOST_SAMPLES);
+    for sample in &mut clip {
+        *sample /= 2;
+    }
     let len = clip.len();
     let fade = CUE_FADE_SAMPLES.min(len);
     for (index, sample) in clip[len - fade..].iter_mut().enumerate() {
@@ -305,8 +316,12 @@ impl Engine {
     /// A spoken turn whose first round is slow makes one soft sound
     /// (`LAMP_SECOND_WAIT_CUE=on`, sixth-P3). Before any turn only.
     pub fn waiting_with_a_sound(mut self, on: bool) -> Self {
-        if on && let Some(shared) = Arc::get_mut(&mut self.shared) {
-            shared.cues = Some(Arc::default());
+        if on {
+            let shared = Arc::get_mut(&mut self.shared);
+            debug_assert!(shared.is_some(), "the wait sound is set before any turn");
+            if let Some(shared) = shared {
+                shared.cues = Some(Arc::default());
+            }
         }
         self
     }

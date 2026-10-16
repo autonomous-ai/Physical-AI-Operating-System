@@ -153,8 +153,8 @@ A base URL on `campaign-api.autonomous.ai` ending in `/ai` is given `/v1`
   "Mm." or "Hm.", the next never the last one played), and is then given up
   only at 4.5 s: a "hmm" followed by silence is the worst of both. The
   sounds are said once by this route's own voice at its first spoken turn,
-  kept in memory, cut to 0.6 s with a 30 ms fade, never louder than the
-  reply. They go as audio only: nothing is kept in the thread, the 120 s
+  kept in memory, cut to 0.6 s with a 30 ms fade, at half the
+  reply's level. They go as audio only: nothing is kept in the thread, the 120 s
   announcement still comes before the first real answer, and a written
   turn never makes one. On lamp-4ace on 2026-10-16, 9 of 10 backup turns
   waited past 1.5 s.

@@ -593,6 +593,7 @@ fn the_wait_sounds_take_turns() {
     // At most 0.6 s, and faded to quiet at its end.
     let clip = soft(vec![1_000; 24_000]);
     assert_eq!(clip.len(), 24_000 * 6 / 10);
+    assert_eq!(clip[0], 500, "half the reply's level");
     assert!(clip.last().unwrap().abs() < 50);
 }
 

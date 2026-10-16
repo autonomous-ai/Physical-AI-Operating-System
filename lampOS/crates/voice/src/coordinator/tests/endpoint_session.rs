@@ -168,16 +168,25 @@ fn drain_control(channels: &mut WorkerChannels, generation: &mut u64) -> io::Res
     Ok(true)
 }
 
+/// Whether a speech block, by its index and amplitude, holds a person over
+/// the lamp's voice, which the render then does not explain.
+type Over = fn(u64, i16) -> bool;
+
+/// Speech at ±1,000 or more is plainly over the lamp; quieter talk is under
+/// its voice, which explains the microphone.
+fn over_at_1000(_block: u64, level: i16) -> bool {
+    level >= 1_000
+}
+
 /// With `echo`, each block carries the canceller's evidence as lamp-4ace's
 /// capture worker gives it: no render before the first answer is written,
-/// and from then on the lamp's own voice, or speech over it. Speech at
-/// ±1,000 or more is plainly over the lamp; quieter talk is under its voice,
-/// which explains the microphone.
+/// and from then on the lamp's own voice, or a person over it as `echo`
+/// says.
 fn capture_peer(
     mut channels: WorkerChannels,
     script: Script,
     levels: Option<Levels>,
-    echo: bool,
+    echo: Option<Over>,
     seen: Arc<Mutex<Seen>>,
 ) -> PeerStep {
     let mut generation = 0;
@@ -243,11 +252,11 @@ fn capture_peer(
                 frame_sequence: sequence,
                 read_completed_at_us: at,
                 probability,
-                echo: echo.then(|| {
+                echo: echo.map(|over| {
                     use super::duplex::{OVER, OWN, evidence};
                     if seen.lock().unwrap().chunks.is_empty() {
                         evidence(lamp_audio::evidence::QUIET_BLOCKS_CEILING, None)
-                    } else if probability >= 0.5 && level >= 1_000 {
+                    } else if probability >= 0.5 && over(sequence, level) {
                         evidence(0, OVER)
                     } else {
                         evidence(0, OWN)
@@ -329,7 +338,7 @@ mod capture_timeline {
                 .unwrap();
             channels.control.send(Control::StartCapture).unwrap();
             let seen = Arc::new(Mutex::new(Seen::default()));
-            let mut step = capture_peer(peer, |_| QUIET, None, false, seen.clone());
+            let mut step = capture_peer(peer, |_| QUIET, None, None, seen.clone());
             assert!(step().unwrap());
             assert!(matches!(
                 channels.control.receive::<WorkerEvent>().unwrap(),
@@ -908,7 +917,7 @@ struct Lamp {
     /// The speaker retires each answer once it is written.
     retires: bool,
     /// The microphone's blocks carry echo evidence ([`capture_peer`]).
-    echo: bool,
+    echo: Option<Over>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -2488,6 +2497,17 @@ fn with_asker_first_the_lamps_echo_is_not_the_askers_level() {
 /// lamp-4ace's microphone gives it, and no later one; the asker at ±2,000
 /// in blocks 50 to 150, then `script` at `levels`.
 fn answer_begins_over(mode: crate::asker_first::Mode, script: Script, levels: Levels) -> Session {
+    answer_begins_over_with(mode, script, levels, over_at_1000)
+}
+
+/// [`answer_begins_over`], with `over` saying which speech blocks hold a
+/// person over the lamp's voice.
+fn answer_begins_over_with(
+    mode: crate::asker_first::Mode,
+    script: Script,
+    levels: Levels,
+    over: Over,
+) -> Session {
     let session = run_policy_with_peers(
         TurnTaking::Duplex,
         6,
@@ -2504,7 +2524,7 @@ fn answer_begins_over(mode: crate::asker_first::Mode, script: Script, levels: Le
             end_silence_blocks: Some(60),
             asker_first: mode,
             levels: Some(levels),
-            echo: true,
+            echo: Some(over),
             ..Lamp::default()
         },
     );
@@ -2567,6 +2587,56 @@ fn with_asker_first_a_line_the_answer_begins_over_is_let_go_and_the_answer_plays
         2,
         "{:?}",
         without.seen.requests
+    );
+}
+
+/// The reviewer's P2 on #1197 at 04:12: over the answer, the lamp's own
+/// voice let through by the canceller is not the line's. A line at ±300
+/// that the answer begins over, and from the answer's first block the
+/// microphone at ±1,201, which the render explains: the lamp's voice 4.4 dB
+/// under the asker, as loud as a person on lamp-4ace on 18% of its blocks.
+/// Judged on the leak too, the line took the turn and cut the answer.
+/// Judged on its own speech, it is let go at its last chance, and the
+/// answer plays.
+#[test]
+fn with_asker_first_the_lamps_own_voice_over_a_line_is_not_its_level() {
+    use crate::asker_first::Mode;
+    let _one = one_session();
+    fn script(block: u64) -> f32 {
+        if (50..150).contains(&block) || (228..328).contains(&block) {
+            SPEECH
+        } else {
+            QUIET
+        }
+    }
+    fn levels(block: u64) -> i16 {
+        match block {
+            50..150 => 2_000,
+            228..248 => 300,
+            248..328 => 1_201,
+            _ => 20,
+        }
+    }
+    let session = answer_begins_over_with(Mode::On, script, levels, |_, _| false);
+    assert_eq!(
+        session.seen.requests.len(),
+        1,
+        "{:?}",
+        session.seen.requests
+    );
+    let said = session.events("asker_first");
+    assert_eq!(said.len(), 1, "{said:?}");
+    assert_eq!(
+        (said[0]["acted"].as_bool(), said[0]["judged"].as_str()),
+        (Some(true), Some("after_its_answer_began")),
+        "{said:?}"
+    );
+    let finished = session.events("turn_finished");
+    assert!(
+        finished
+            .iter()
+            .all(|row| row["outcome"] != "user_interrupted"),
+        "{finished:?}"
     );
 }
 

@@ -528,6 +528,48 @@ async fn a_refused_scan_is_answered_with_the_last_list_seen() {
     assert_eq!(code, StatusCode::SERVICE_UNAVAILABLE);
 }
 
+/// The fifth on #1045: some radios as the hotspot answer a scan with no
+/// networks rather than a refusal. An empty answer never replaces a list
+/// seen before, and does not count as a warm list.
+#[tokio::test(flavor = "current_thread")]
+async fn an_empty_scan_never_replaces_a_list_seen_before() {
+    use lamp_setup::http::{list_networks, warm};
+    let empty = |before: Option<Vec<scan::Network>>| {
+        let root = Root::new();
+        let shared = Arc::new(Shared {
+            config: root.config(true),
+            status: Arc::new(Mutex::new(Status::new("lamp-06c1".into()))),
+            start: Box::new(|_| {}),
+            scanned: Mutex::new(None),
+            last_good: Mutex::new(before),
+            scan: Box::new(|| Ok(Vec::new())),
+        });
+        (shared, root)
+    };
+    let home = scan::parse("BSS 11:22:33:44:55:66(on wlan0)\n\tSSID: Home\n");
+    let (shared, _root) = empty(Some(home));
+    assert_eq!(named(&list_networks(&shared).unwrap()), ["Home"]);
+    assert_eq!(
+        named(shared.last_good.lock().unwrap().as_ref().unwrap()),
+        ["Home"]
+    );
+    let (code, body) = call(
+        &router(Arc::clone(&shared)),
+        "GET",
+        "/api/network",
+        Value::Null,
+    )
+    .await;
+    assert_eq!(
+        (code, body["data"][0]["ssid"].clone()),
+        (StatusCode::OK, json!("Home"))
+    );
+    assert!(!warm(&shared, 3, std::time::Duration::from_millis(1)));
+    // With nothing seen, the empty list is the answer, as it was.
+    let (none, _root_none) = empty(None);
+    assert!(list_networks(&none).unwrap().is_empty());
+}
+
 #[test]
 fn a_few_scans_before_anyone_asks_warm_the_list() {
     use lamp_setup::http::warm;

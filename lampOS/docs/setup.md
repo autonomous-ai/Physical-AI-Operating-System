@@ -252,10 +252,13 @@ comes back. A temporary file a crash left behind is removed at the next start.
 One network scan runs at a time, and its list answers for 5 s. The radio may
 refuse to scan while it is the hotspot (V1 lists networks in station mode
 only; lamp-06c1's phone said "Could not look for networks" until it asked a
-few times), so setup looks once before it raises the hotspot, scans up to
-three times in the hotspot's first 10 s before anyone asks, and answers a
-refused scan with the last list a scan gave (`http::list_networks`); only
-with no list seen at all is a refusal the page's error. After setup it goes on
+few times), so setup looks once before it raises the hotspot (at most 4 s,
+its count and time in the log, so a stuck `iw` never holds the hotspot back),
+scans up to three times in the hotspot's first 10 s before anyone asks, and
+answers a refused scan, or one that comes back empty as some radios' does as
+the hotspot, with the last list a scan gave (`http::list_networks`); only
+with no list seen at all is a refusal the page's error. Every scan is killed
+after 10 s, so none holds the one-at-a-time scan for long. After setup it goes on
 answering for 10 minutes, so the page can follow the lamp onto the home network
 and see it done.
 

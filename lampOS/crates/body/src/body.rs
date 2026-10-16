@@ -3116,7 +3116,11 @@ fn run_until_stopped(
                         let most = by.abs() * 1.5 * rate;
                         let toward = (eased - from).clamp(-most, most);
                         let into_hand = (toward > 0.0) == hand_up;
-                        let to = if stalls[3 + index].pressed && into_hand {
+                        // Leaving, no stall check runs and `pressed` is stale: a hand
+                        // no longer keeps the offset, which would take the fold
+                        // past its pose (#1010 review, 23:39).
+                        let pressed = stalls[3 + index].pressed && leaving.is_none();
+                        let to = if pressed && into_hand {
                             from
                         } else {
                             from + toward

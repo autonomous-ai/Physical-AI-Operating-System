@@ -2099,19 +2099,26 @@ fn asking_the_policy_in(
 }
 
 /// Nobody for a little over a second of the program's clock, then a face,
-/// and `leave`: gone again at once. When the face was published.
-fn a_face_appears(eyes: &mut lamp_bus::Publisher, clock: &Clock, leave: bool) -> Instant {
+/// and `leave`: gone again at once. When the face was published: just
+/// before, for a lower bound (the program may ask before the publish
+/// returns), and just after, for an upper one.
+fn a_face_appears(
+    eyes: &mut lamp_bus::Publisher,
+    clock: &Clock,
+    leave: bool,
+) -> (Instant, Instant) {
     eyes.publish_json(1, &serde_json::json!({"faces": []}))
         .unwrap();
     clock.skip(Duration::from_millis(1_300));
+    let before = Instant::now();
     eyes.publish_json(1, &serde_json::from_str::<serde_json::Value>(FACE).unwrap())
         .unwrap();
-    let at = Instant::now();
+    let after = Instant::now();
     if leave {
         eyes.publish_json(1, &serde_json::json!({"faces": []}))
             .unwrap();
     }
-    at
+    (before, after)
 }
 
 /// The next `answered` event, within `deadline`.
@@ -2156,6 +2163,9 @@ fn asking_the_policy_a_skill_acts_only_on_a_say_now_that_names_its_ask() {
     let (questions, put) = mpsc::channel::<serde_json::Value>();
     let clock = Clock::at(root);
     let (policy, takes) = (bus.clone(), clock.clone());
+    // The last face leaves at once: told once its leave is published, so
+    // the stand-in's skip takes the leave in before the answer comes.
+    let (gone, left) = mpsc::channel::<()>();
     let mut asks = policy.subscribe("skills/ask", "policy").unwrap();
     std::thread::spawn(move || {
         let mut decisions = policy
@@ -2165,7 +2175,7 @@ fn asking_the_policy_a_skill_acts_only_on_a_say_now_that_names_its_ask() {
                 "policy",
             )
             .unwrap();
-        for (choice, shadow, takes_ms, other_first) in script {
+        for (cycle, (choice, shadow, takes_ms, other_first)) in script.into_iter().enumerate() {
             let message = loop {
                 if let Ok(Some(message)) = asks.recv(Duration::from_millis(100)) {
                     break message;
@@ -2183,6 +2193,9 @@ fn asking_the_policy_a_skill_acts_only_on_a_say_now_that_names_its_ask() {
                 decision["ask"] = (number + 1).into();
                 decisions.publish_json(1, &decision).unwrap();
             }
+            if cycle == 5 {
+                left.recv().unwrap();
+            }
             // Its time is on the program's clock.
             if takes_ms > 0 {
                 takes.skip(Duration::from_millis(takes_ms));
@@ -2199,7 +2212,10 @@ fn asking_the_policy_a_skill_acts_only_on_a_say_now_that_names_its_ask() {
     let mut answered = Vec::new();
     let mut face_to_say = None;
     for cycle in 0..script.len() {
-        let face_at = a_face_appears(&mut eyes, &clock, cycle == 5);
+        let (_, face_at) = a_face_appears(&mut eyes, &clock, cycle == 5);
+        if cycle == 5 {
+            gone.send(()).unwrap();
+        }
         answered.push(next_answer(&mut events, deadline));
         if cycle == 0 {
             let (_, said_at) = said.recv_timeout(Duration::from_secs(2)).unwrap();
@@ -2285,7 +2301,7 @@ fn asking_the_policy_on_the_hosts_clock_gives_up_after_its_wait() {
     let mut eyes = bus
         .publisher_declared(Faces::TOPIC, &Faces::declaration(), "eyes")
         .unwrap();
-    let face_at = a_face_appears(&mut eyes, &clock, false);
+    let (face_at, _) = a_face_appears(&mut eyes, &clock, false);
     let answer = next_answer(&mut events, Instant::now() + Duration::from_secs(10));
     let waited = face_at.elapsed();
     assert_eq!(answer.allowed, Some(false), "{answer:?}");
@@ -2310,7 +2326,7 @@ fn asking_the_policy_with_nobody_to_answer_is_no_at_once() {
     let mut eyes = bus
         .publisher_declared(Faces::TOPIC, &Faces::declaration(), "eyes")
         .unwrap();
-    let face_at = a_face_appears(&mut eyes, &clock, false);
+    let (_, face_at) = a_face_appears(&mut eyes, &clock, false);
     let answer = next_answer(&mut events, Instant::now() + Duration::from_secs(5));
     assert!(face_at.elapsed() < Duration::from_secs(1), "{answer:?}");
     assert_eq!(answer.allowed, Some(false));
@@ -2646,12 +2662,15 @@ impl StandInBody {
     /// each clip begun, and when, on `played`; each gesture dropped on
     /// `dropped`. Says `body/joint_states` on `bus` every 100 ms, its
     /// `commanded` off the rest pose while a clip plays.
-    /// Its time is the program's `clock`.
+    /// Its time is the program's `clock`, and each gesture taken, when, is
+    /// on `took`.
+    #[allow(clippy::too_many_arguments)]
     fn run(
         mood: UnixDatagram,
         bus: &Bus,
         late: Duration,
         clock: Clock,
+        took: mpsc::Sender<Instant>,
         played: mpsc::Sender<(Instant, String)>,
         dropped: mpsc::Sender<(Instant, String)>,
     ) {
@@ -2690,7 +2709,10 @@ impl StandInBody {
                 let now_us = u64::try_from((now - began).as_micros()).unwrap();
                 let (taken, begun) = body.step(now_us, name.as_deref());
                 match (taken, asked) {
-                    (Some(true), Some(text)) => asked_text = text,
+                    (Some(true), Some(text)) => {
+                        asked_text = text;
+                        let _ = took.send(now);
+                    }
                     (Some(false), Some(text)) => {
                         let _ = dropped.send((now, text));
                     }
@@ -2832,7 +2854,9 @@ fn the_dance_late(
     let (moved, gestures) = mpsc::channel();
     let (lost, dropped) = mpsc::channel();
     let clock = Clock::at(root);
-    StandInBody::run(mood, &bus, late, clock.clone(), moved, lost);
+    let (took, taken) = mpsc::channel();
+    let mut joints = bus.subscribe(JointState::TOPIC, "test").unwrap();
+    StandInBody::run(mood, &bus, late, clock.clone(), took, moved, lost);
     let tools = root.join("tools");
     let _running = Running(
         Command::new(env!("CARGO_BIN_EXE_lamp-skills"))
@@ -2916,28 +2940,35 @@ fn the_dance_late(
     let gap = Duration::from_micros(CLIP_GAP_US);
     let mut played = Vec::new();
     if ending != Line::Cut {
-        if !late.is_zero() {
-            // Sent and taken at the line's end, and begun `late` after.
-            std::thread::sleep(Duration::from_millis(300));
-            clock.skip_to(stopped + late);
-        }
+        // Sent and taken at the line's end, and begun `late` after.
+        let took = taken.recv_timeout(Duration::from_secs(5)).unwrap();
+        clock.skip_to(took + late);
         played.push(gestures.recv_timeout(Duration::from_secs(5)).unwrap());
         if push {
             clock.skip_to(stopped + Duration::from_secs(1));
             hand.publish_json(1, &serde_json::json!({"pushed": true, "since_us": 5}))
                 .unwrap();
         } else {
-            // The program sees the clip begin on `body/joint_states`, said
-            // every 100 ms, and sends the next once it has played and the
-            // body has stepped past it: skipped to the clip's end, and the
-            // gap after it left to the body's own steps.
+            // The program sees the clip begin on `body/joint_states`: once
+            // the body has said it, a moment for the program to read it.
+            // Then it sends the next once the clip has played and the body
+            // has stepped past it: skipped to the clip's end, and the gap
+            // after it left to the body's own steps.
+            while joints
+                .recv(Duration::from_secs(5))
+                .unwrap()
+                .expect("no joint state while the clip plays")
+                .parse::<JointState>()
+                .unwrap()
+                .commanded
+                .iter()
+                .all(|joint| *joint == 0.0)
+            {}
             std::thread::sleep(Duration::from_millis(300));
             clock.skip_to(played[0].0 + nod);
-            if !late.is_zero() {
-                // Taken, and begun `late` after, as the first.
-                std::thread::sleep(Duration::from_millis(300));
-                clock.skip_to(played[0].0 + nod + gap + late);
-            }
+            // Taken, and begun `late` after, as the first.
+            let took = taken.recv_timeout(Duration::from_secs(5)).unwrap();
+            clock.skip_to(took + late);
             played.push(gestures.recv_timeout(Duration::from_secs(5)).unwrap());
             // The run is done once that one has played too.
             clock.skip_to(played[1].0 + nod + gap);

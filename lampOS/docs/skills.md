@@ -357,13 +357,24 @@ As built on 2026-10-16 (#938, `crates/skills`, not yet run on a lamp):
   10 s. In production it is the host's monotonic clock. `--clock-control
   PATH` is for tests only: each line `{"skip_us": N}` on that socket moves
   the clock N µs ahead, answered with `{"now_us": ...}` once done, and the
-  clock runs on from there at the host's pace. The main loop takes the skip:
+  clock runs on from there at the host's pace. A skip that would take the
+  total past a year is refused with `{"error": ...}`; a line is read up to
+  8 KiB; an old socket at PATH is taken over, anything else there is left
+  and the start fails. The main loop takes the skip:
   first everything already published to it, on the clock as it was, then
-  the skip, then the asks to the Policy that are now late. So
+  the skip, then the asks to the Policy that are now late, then the
+  Policy's answers that came since. The main loop is the only one that
+  takes a skip, so one sent while it waits up to 800 ms for a look call's
+  body and light (`MADE_BEFORE_ANSWER`) is taken when that wait ends, in
+  real time. So
   `crates/skills/tests/skills.rs` skips where it would sit through a reload,
   an absence, a slow Policy or a clip, and keeps every assertion: a skip
   stops just before a wait another part must see end in its own steps (the
-  stand-in body's), and real time does the rest. Stamps stay on the host's
+  stand-in body's), and real time does the rest. Two program tests run on
+  the host's clock, without the flag, as a lamp runs: the reading pose said
+  again each second for its 3 s, and a Policy given up at its 2.5 s; and
+  `clock.rs` checks that without a test a sleep and a wait take their whole
+  time. Stamps stay on the host's
   clocks, which the other parts read: `at_us` on `skills/events`, a light
   claim's `until_us`, and the freshness of what others said (`light/state`,
   `voice/state`, `body/joint_states`, from their `at_unix_ms`). So do the

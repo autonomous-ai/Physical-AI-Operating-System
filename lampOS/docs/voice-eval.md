@@ -521,7 +521,8 @@ on a copy of its sessions and journal.
 - **The parts' journal** (`--journal`): only lines whose shape is known are
   read, into numbers and plain words: the Policy's `decision`, `progress
   decision`, `hello decision` and `outcome of decision` lines (their
-  `key=value` pairs), the body's `step N gesture NAME`, its faces (`mood`,
+  `key=value` pairs, only for the keys the Policy writes: any other key is
+  left out and counted, even with a one-word value), the body's `step N gesture NAME`, its faces (`mood`,
   `across`, `down`, `size`) and its goals, and a skill's `SKILL Stage` (its
   why is left out). Every other line is left out and counted by part.
 - **Wall time.** The voice's `at_us` is the monotonic clock the journal also
@@ -541,8 +542,16 @@ speaking from `speaker_first_write`, resting from `turn_finished`.
 
 `a_session_full_of_words_exports_none_of_them` fills every text field, a
 name, a tool's arguments, an unknown kind and field, a closed-set field
-holding a sentence, and journal lines with distinct words, and fails if any
-byte of the output holds one.
+holding a sentence, and journal lines with distinct words (a Policy line's
+unknown keys among them, one lower-case word each), and fails if any byte of
+the output holds one.
+
+**The trust boundary.** A string is kept only from a field the export names
+(the voice's `WORD_FIELDS`, the Policy's `POLICY_KEYS` in `export.rs`), and
+only as one lower-case word. Those fields are trusted to be filled by code
+from a closed set; a person's words that become a reason go to `marked/`,
+never the trace. A field added there, or one made to echo what a person
+said, would be exported: add a field only when its values come from code.
 
 ## Physical runner (prepared, not executed)
 

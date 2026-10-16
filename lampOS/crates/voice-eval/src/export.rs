@@ -19,6 +19,15 @@
 //!   decisions and outcomes, the body's gestures, faces and goals, a skill's
 //!   stage). Every other line is left out and counted by its part.
 //!
+//! **The trust boundary.** A string is kept only from a field this file
+//! names: the voice's [`WORD_FIELDS`] and the Policy's [`POLICY_KEYS`], and
+//! only as one lower-case word. Those fields are trusted to be filled by
+//! code from a closed set; checked against today's producers (a `reason` is
+//! a code value or an error kind, never what a person said: a person's words
+//! that become a reason go to `marked/`, not the trace). Whoever adds a field
+//! there, or makes one of them echo a person's word, makes this tool export
+//! it: add it here only when its values come from code.
+//!
 //! What it writes, into a new folder: `events.jsonl` (both, in time order,
 //! each with `at_us` and the local wall time), `summary.json` (counts by kind,
 //! and by kind and plain-word value, such as
@@ -59,6 +68,31 @@ const WORD_FIELDS: &[&str] = &[
     "result",
     "trace_role",
     "policy",
+];
+
+/// The keys the Policy's four decision lines write (`lamp-policy`'s
+/// `Note` in `crates/policy/src/policy.rs`): each a number, `true`/`false`
+/// or a value its code picks. Any other key is left out and counted, even
+/// when its value looks like one plain word.
+const POLICY_KEYS: &[&str] = &[
+    "task",
+    "change",
+    "arrival",
+    "about",
+    "choice",
+    "probability",
+    "by",
+    "took_ms",
+    "waited_ms",
+    "guard",
+    "on",
+    "pieces",
+    "bytes",
+    "lamp",
+    "spoke_after_ms",
+    "heard_to_sound_ms",
+    "overtaken",
+    "logged",
 ];
 
 /// The biggest input read: a day of a lamp's traces is well under this.
@@ -229,12 +263,13 @@ fn numbers(text: &str) -> Option<Vec<Value>> {
     inner.split(',').map(|part| number(part.trim())).collect()
 }
 
-/// A Policy line's `key=value` pairs, kept when the key is a plain word and
-/// the value a number, `true`/`false` or a plain word.
+/// A Policy line's `key=value` pairs, kept when the key is one the Policy
+/// writes ([`POLICY_KEYS`]) and the value a number, `true`/`false` or a
+/// plain word.
 fn pairs(kind: &str, rest: &str, kept: &mut Map<String, Value>, left: &mut LeftOut) {
     for token in rest.split_whitespace() {
         let value = token.split_once('=').and_then(|(key, value)| {
-            if !plain_word(key) {
+            if !POLICY_KEYS.contains(&key) {
                 return None;
             }
             let value = match value {
@@ -729,8 +764,8 @@ mod tests {
             journal_line(
                 "lamp-policy",
                 &format!(
-                    "outcome of decision 12 choice=answer lamp=spoke spoke_after_ms=412 heard_to_sound_ms=1290 overtaken=false logged=true note={}",
-                    SECRETS[0]
+                    "outcome of decision 12 choice=answer lamp=spoke spoke_after_ms=412 heard_to_sound_ms=1290 overtaken=false logged=true note={} heard={}",
+                    SECRETS[0], SECRETS[1]
                 ),
                 wall(6),
                 at(6),
@@ -879,7 +914,9 @@ mod tests {
         assert_eq!(left["voice_lines_unreadable"], 1);
         assert_eq!(left["journal_lines_by_part"]["lamp-eyes"], 1);
         assert_eq!(left["journal_lines_by_part"]["lamp-skills"], 1);
-        assert_eq!(left["journal_pairs_by_kind"]["policy_outcome"], 1);
+        // `note=` and `heard=`: keys the Policy does not write, one of them a
+        // single lower-case word (Second's P3 on #1134).
+        assert_eq!(left["journal_pairs_by_kind"]["policy_outcome"], 2);
     }
 
     #[test]

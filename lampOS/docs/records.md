@@ -546,6 +546,14 @@ Here `stable` and named `1.96.0` resolve to the same compiler commit; only
 that selector failed with E0463, then the command above passed. This is
 cross-target checking, not ARM execution or a linked release build.
 
+Under ARM64 user-mode emulation (`qemu-aarch64` 7.2, as in a local podman
+gate), `openat2` is not implemented (ENOSYS), and the store refuses to run
+without it. The 23 tests that open a store (22 in `store.rs` and
+`public_tree_pipeline_dry_then_apply_keeps_live_memory_and_outside_link`)
+probe for it once, and on ENOSYS print why and stop (#1210). With `CI` set
+they fail instead, so the real ARM64 runner, whose kernel has `openat2`,
+always runs them.
+
 All three unchanged unit templates passed `systemd-analyze verify` under
 Debian Bookworm's systemd 252.39-1~deb12u2, in another disposable local Linux
 x86_64 container. The initial check reported the missing installed executable

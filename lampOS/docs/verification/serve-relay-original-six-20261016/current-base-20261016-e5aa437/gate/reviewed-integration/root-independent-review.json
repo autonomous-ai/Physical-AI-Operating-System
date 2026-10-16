@@ -1,0 +1,9 @@
+{
+  "date": "2026-10-16 07:25:17 +0700",
+  "base": "e5aa43747ec1540893b4da4509d14288e7e70806",
+  "all_evaluator_rust_cargo_same_as_qualified_candidate": true,
+  "current_docs_prefix_exact": true,
+  "all_historical_bytes_exact": true,
+  "full_tracked_source_diff_reviewed": true,
+  "source_proof_sha256": "c59ec9aad2dd59d91054e39b6b2918b43b7788d98b7de48a974e6469abc9ab59"
+}

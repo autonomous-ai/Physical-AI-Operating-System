@@ -1,0 +1,186 @@
+diff --git a/lampOS/crates/voice-eval/src/physical/fake_lamp.rs b/lampOS/crates/voice-eval/src/physical/fake_lamp.rs
+index c62744c60..60aff5ba4 100644
+--- a/lampOS/crates/voice-eval/src/physical/fake_lamp.rs
++++ b/lampOS/crates/voice-eval/src/physical/fake_lamp.rs
+@@ -107,13 +107,49 @@ pub fn run_serve_with_controlled_clock(
+     arguments: &[String],
+     now: impl Fn() -> MonoTime,
+     before_poll: impl FnMut() -> Result<ServePollTargets>,
++    completed_poll: impl FnMut(ServePollProgress) -> Result<()>,
++) -> Result<i32> {
++    run_serve_with_argument_views(arguments, arguments, now, before_poll, completed_poll)
++}
++
++/// Preserve the actual controlled command's received argv, including its
++/// control pair. Only the validated suffix is parsed as fake-runtime options;
++/// the existing stdout record reports the original received vector once.
++pub(super) fn run_serve_with_controlled_invocation(
++    received: &[String],
++    now: impl Fn() -> MonoTime,
++    before_poll: impl FnMut() -> Result<ServePollTargets>,
++    completed_poll: impl FnMut(ServePollProgress) -> Result<()>,
++) -> Result<i32> {
++    let arguments = controlled_serve_arguments(received)?;
++    run_serve_with_argument_views(arguments, received, now, before_poll, completed_poll)
++}
++
++fn controlled_serve_arguments(received: &[String]) -> Result<&[String]> {
++    match received {
++        [flag, path, arguments @ ..]
++            if flag == "--fixture-control" && Path::new(path).is_absolute() =>
++        {
++            Ok(arguments)
++        }
++        _ => Err(invalid(
++            "a controlled serve invocation requires leading --fixture-control SOCKET",
++        )),
++    }
++}
++
++fn run_serve_with_argument_views(
++    arguments: &[String],
++    received: &[String],
++    now: impl Fn() -> MonoTime,
++    before_poll: impl FnMut() -> Result<ServePollTargets>,
+     mut completed_poll: impl FnMut(ServePollProgress) -> Result<()>,
+ ) -> Result<i32> {
+     let parsed = parse_arguments(arguments)?;
+     if !parsed.is_serve() {
+         return Err(invalid("a controlled serve fake supports only serve runs"));
+     }
+-    let argv_frames = emit_serve_argv(&mut std::io::stdout().lock(), arguments)?;
++    let argv_frames = emit_serve_argv(&mut std::io::stdout().lock(), received)?;
+     fake_serve::run_with_controlled_clock(parsed.into_serve()?, now, before_poll, |mut progress| {
+         progress.stdout_lines = progress
+             .stdout_lines
+@@ -628,3 +664,7 @@ mod clock_tests;
+ #[cfg(test)]
+ #[path = "slow_transport_clock_tests.rs"]
+ mod slow_transport_clock_tests;
++
++#[cfg(test)]
++#[path = "serve_invocation_tests.rs"]
++mod invocation_tests;
+diff --git a/lampOS/crates/voice-eval/src/physical/fixture_commands.rs b/lampOS/crates/voice-eval/src/physical/fixture_commands.rs
+index 6ad2188d3..eeb3ee6e5 100644
+--- a/lampOS/crates/voice-eval/src/physical/fixture_commands.rs
++++ b/lampOS/crates/voice-eval/src/physical/fixture_commands.rs
+@@ -57,10 +57,10 @@ pub fn runtime(arguments: Vec<String>) -> Result<i32> {
+ /// fake serve arguments. This role waits for real signal observation when the
+ /// parent requires it; a terminal receipt follows the engine's final output.
+ pub fn serve_runtime(arguments: Vec<String>) -> Result<i32> {
+-    let (path, arguments) = controlled_arguments(arguments)?;
++    let (path, _) = controlled_arguments(arguments.clone())?;
+     let participant = RefCell::new(Participant::connect(&path, Role::ServeRuntime)?);
+     let clock = participant.borrow().clock();
+-    fake_lamp::run_serve_with_controlled_clock(
++    fake_lamp::run_serve_with_controlled_invocation(
+         &arguments,
+         || clock.now(),
+         || {
+diff --git a/lampOS/crates/voice-eval/tests/serve_relay.rs b/lampOS/crates/voice-eval/tests/serve_relay.rs
+index 91c1124e1..9c3b33264 100644
+--- a/lampOS/crates/voice-eval/tests/serve_relay.rs
++++ b/lampOS/crates/voice-eval/tests/serve_relay.rs
+@@ -3,22 +3,14 @@
+ //! runtime that ignores SIGTERM. Each keeps its stop cause, signal, exit,
+ //! forced kill and confirmed reap separately. No hardware; no audio.
+ mod common;
++#[path = "common/serve_relay_clock.rs"]
++mod serve_relay_clock;
+ 
+ use lamp_voice_eval::physical::{
+     protocol::{ServeEnd, SessionLine},
+     session::{self, SessionOptions},
+ };
+-use std::{
+-    fs,
+-    io::Write,
+-    os::unix::net::UnixStream,
+-    sync::{
+-        Arc,
+-        atomic::{AtomicBool, Ordering},
+-    },
+-    thread,
+-    time::Duration,
+-};
++use std::{fs, time::Duration};
+ 
+ const BIN: &str = env!("CARGO_BIN_EXE_lamp-voice-eval");
+ 
+@@ -75,36 +67,7 @@ enum Runner {
+ 
+ /// Run the relay in-process with a runner transport driven by `runner`.
+ fn relay(options: &SessionOptions, runner: Runner) -> (i32, Vec<SessionLine>) {
+-    let (runner_end, relay_end) = UnixStream::pair().unwrap();
+-    let done = Arc::new(AtomicBool::new(false));
+-    let finished = Arc::clone(&done);
+-    let control = thread::spawn(move || {
+-        let mut stream = runner_end;
+-        let hold = |stream: UnixStream| {
+-            while !finished.load(Ordering::SeqCst) {
+-                thread::sleep(Duration::from_millis(20));
+-            }
+-            drop(stream);
+-        };
+-        match runner {
+-            Runner::StopAfter(after) => {
+-                thread::sleep(after);
+-                stream
+-                    .write_all(b"{\"type\":\"stop\",\"reason\":\"test\"}\n")
+-                    .unwrap();
+-                hold(stream);
+-            }
+-            Runner::CloseAfter(after) => {
+-                thread::sleep(after);
+-                drop(stream);
+-            }
+-            Runner::Silent => hold(stream),
+-        }
+-    });
+-    let mut out = Vec::new();
+-    let code = session::run(options, relay_end, &mut out).unwrap();
+-    done.store(true, Ordering::SeqCst);
+-    control.join().unwrap();
++    let (code, out) = serve_relay_clock::run(options, runner).unwrap();
+     let lines = String::from_utf8(out)
+         .unwrap()
+         .lines()
+diff --git a/lampOS/docs/realtime-tests.md b/lampOS/docs/realtime-tests.md
+index 747dddf67..2d8adfbdc 100644
+--- a/lampOS/docs/realtime-tests.md
++++ b/lampOS/docs/realtime-tests.md
+@@ -570,3 +570,33 @@ This migration covers the original Serve-session family. The six separate
+ direct `serve_relay` tests retain their existing path. Clock-controlled results
+ check ordering and the full configured windows; they do not measure hardware
+ latency or establish a result for the complete original 123-test inventory.
++
++## Serve relay test coordinator
++
++The six `serve_relay` cases use an explicit helper clock while retaining their
++original test bodies, runner delays, fault settings and assertions. The relay
++and its coordinator run on the test thread; the existing session body still
++owns the real child, reader threads, Unix sockets, SIGTERM, process-group kill,
++reap, metadata checks and final output. The helper replaces its runner sleep
++with the full logical three-second boundary and advances the runtime and relay
++only after completed polls, using the original two-millisecond interval.
++
++A real Stop write is counted only after success. Closing the runner produces
++actual EOF; the helper holds time until the relay's real stop-signal receipt.
++The runtime then observes the actual signal through its existing handler.
++Final runtime progress freezes time until the relay observes actual child
++exit. The one-second run plus five-second allowance and the full ten-second
++ignored-signal grace remain unchanged. Host control, cleanup and late-output
++bounds remain active; a held post-stop boundary is checked against a ten-second
++host budget before and after polls. The existing reader-enqueue barrier can
++still wait up to thirty seconds before returning a failing poll; this is not a
++strict ten-second abort deadline. No progress receipt substitutes for a process
++status.
++
++The explicit controlled serve command reports its complete received argv,
++including its leading control pair, exactly once through the existing flushed
++JSON stdout record. Only the validated suffix is parsed as runtime arguments.
++Ordinary fake commands and the direct controlled library API retain their
++existing argument reporting. The original serve suffix and child-versus-spawn
++argv assertion remain unchanged. This implementation needs fresh paired and
++native qualification before a speedup can be claimed.

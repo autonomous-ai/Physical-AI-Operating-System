@@ -1,0 +1,12 @@
+{
+  "started_from_date": "2026-10-16 07:36:59 +0700",
+  "command": [
+    "python3",
+    "/private/tmp/tests-823-serve-relay-current-result-audit.py"
+  ],
+  "script_sha256": "b4211deb2458febcd8bbd42847b74c2e9514cdad535905106503602fc85467a8",
+  "no_test_execution": true,
+  "exit_code": 0,
+  "finished_from_date": "2026-10-16 07:37:00 +0700",
+  "log_sha256": "9e75403e7678630b28ac97239f95634e1eb2a7421f127eeb9498a58162c3e1de"
+}

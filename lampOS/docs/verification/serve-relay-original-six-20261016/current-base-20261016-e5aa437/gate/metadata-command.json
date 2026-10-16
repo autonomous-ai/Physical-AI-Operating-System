@@ -1,0 +1,17 @@
+{
+  "stage": "metadata-preflight",
+  "command": [
+    "/Users/autonomous/.cargo/bin/cargo",
+    "metadata",
+    "--locked",
+    "--offline",
+    "--format-version",
+    "1"
+  ],
+  "cwd": "/private/tmp/lampos-tests-serve-relay-current/lampOS",
+  "started_from_date": "2026-10-16 07:28:05 +0700",
+  "exit_code": 0,
+  "finished_from_date": "2026-10-16 07:28:06 +0700",
+  "stdout_sha256": "12eaa56f7281c706286ac7ffcf0bdaded287d837484edb3ba0ccab2add58de32",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

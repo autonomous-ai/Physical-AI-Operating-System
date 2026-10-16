@@ -1,0 +1,141 @@
+{
+  "date_from_date": "2026-10-16 05:59:44 +0700",
+  "tree": "/private/tmp/lampos-tests-serve-relay-coordination",
+  "base": "e057db620acb2bd61bac1ae7f157d87cdf635a18",
+  "source_manifest_sha256": "9ed0f6ed928da881fa96d9c16598b3e2b00c82aba5268522bf25f1a9e2f3c24b",
+  "all_70_rust_hashes_match": true,
+  "all_gate_exits_zero": true,
+  "raw_recount": [
+    432,
+    0,
+    0
+  ],
+  "summary_count": 25,
+  "raw_records": {
+    "/private/tmp/tests-823-serve-relay-clean-evidence/handoff.md": {
+      "sha256": "3a67724efc8bec997d327815394a60027de0ab5b22daae2ccbc81f3575e80d0e",
+      "bytes": 8415
+    },
+    "/private/tmp/tests-823-serve-relay-clean-evidence/integration-proof.json": {
+      "sha256": "6fb8446153c07862dc03dee5f5a699d64760118a1a9ef9c47108b873ff3490a6",
+      "bytes": 2526
+    },
+    "/private/tmp/tests-823-serve-relay-clean-evidence/participant-only.diff": {
+      "sha256": "703ea63c313a37d5de9bb55e1877733862b64650201d3d77cdcdaa47b4760d10",
+      "bytes": 29539
+    },
+    "/private/tmp/tests-823-serve-relay-clean-evidence/root-build.exit": {
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2
+    },
+    "/private/tmp/tests-823-serve-relay-clean-evidence/root-build.finished": {
+      "sha256": "8488e710432dd119f46afc4c84018a24605019a74679a93d97d11bf90f520387",
+      "bytes": 26
+    },
+    "/private/tmp/tests-823-serve-relay-clean-evidence/root-build.log": {
+      "sha256": "bc8572ede6d7334449fcf44bde5d7f0ee338c59e8e1f172f274b89c8af561996",
+      "bytes": 4247
+    },
+    "/private/tmp/tests-823-serve-relay-clean-evidence/root-build.started": {
+      "sha256": "fa738cb2df11f57a2dcef228d4c50c382982b7f6622548a835ebdb19a64ba72c",
+      "bytes": 26
+    },
+    "/private/tmp/tests-823-serve-relay-clean-evidence/root-cache-reset.exit": {
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2
+    },
+    "/private/tmp/tests-823-serve-relay-clean-evidence/root-cache-reset.finished": {
+      "sha256": "b5cb7a10fefda6251c69e4d871448b3e38f971cc96d4c81589150b2e9dc110bc",
+      "bytes": 26
+    },
+    "/private/tmp/tests-823-serve-relay-clean-evidence/root-cache-reset.log": {
+      "sha256": "89c67c37054b22a98e8ebfeed811161595d5fb482955e983e61e301bdb69313b",
+      "bytes": 38
+    },
+    "/private/tmp/tests-823-serve-relay-clean-evidence/root-cache-reset.started": {
+      "sha256": "6a2f888ba09d8d2f9e4d7c4faf1f652f1b718539c334255fb6b66620193d31e9",
+      "bytes": 26
+    },
+    "/private/tmp/tests-823-serve-relay-clean-evidence/root-clippy.exit": {
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2
+    },
+    "/private/tmp/tests-823-serve-relay-clean-evidence/root-clippy.finished": {
+      "sha256": "7d344e78ccec6b3ece7f8fb89ac3526e0c5b53642c318e470691aa31be8cf4d5",
+      "bytes": 26
+    },
+    "/private/tmp/tests-823-serve-relay-clean-evidence/root-clippy.log": {
+      "sha256": "22e776addb6b66fa93d23c4f1a8944d150893e5d0717af24c86637cb7632412e",
+      "bytes": 2015
+    },
+    "/private/tmp/tests-823-serve-relay-clean-evidence/root-clippy.started": {
+      "sha256": "b59d8411ad8506a7af6666cd8be820927febab38d8f26d612f1614f382de0f13",
+      "bytes": 26
+    },
+    "/private/tmp/tests-823-serve-relay-clean-evidence/root-fmt.exit": {
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2
+    },
+    "/private/tmp/tests-823-serve-relay-clean-evidence/root-fmt.finished": {
+      "sha256": "b59d8411ad8506a7af6666cd8be820927febab38d8f26d612f1614f382de0f13",
+      "bytes": 26
+    },
+    "/private/tmp/tests-823-serve-relay-clean-evidence/root-fmt.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "/private/tmp/tests-823-serve-relay-clean-evidence/root-fmt.started": {
+      "sha256": "b5cb7a10fefda6251c69e4d871448b3e38f971cc96d4c81589150b2e9dc110bc",
+      "bytes": 26
+    },
+    "/private/tmp/tests-823-serve-relay-clean-evidence/root-gates.json": {
+      "sha256": "3a5d9dd3bb992af584e2145d191c0be06a1f5ac62998e9e58e94d83d7889a7d9",
+      "bytes": 3789
+    },
+    "/private/tmp/tests-823-serve-relay-clean-evidence/root-list.exit": {
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2
+    },
+    "/private/tmp/tests-823-serve-relay-clean-evidence/root-list.finished": {
+      "sha256": "82a7a227c20fc5ec47d2710ec3dd57efa2fecff5a960fc01339323df6342dea4",
+      "bytes": 26
+    },
+    "/private/tmp/tests-823-serve-relay-clean-evidence/root-list.log": {
+      "sha256": "d60b7fac8d4a02af20027701a41d2e77a3f3ed327f931bd3a196af249f1d7195",
+      "bytes": 80457
+    },
+    "/private/tmp/tests-823-serve-relay-clean-evidence/root-list.started": {
+      "sha256": "7d344e78ccec6b3ece7f8fb89ac3526e0c5b53642c318e470691aa31be8cf4d5",
+      "bytes": 26
+    },
+    "/private/tmp/tests-823-serve-relay-clean-evidence/root-result.json": {
+      "sha256": "037af01ec7971538768764b5472d6ce6a7aad6843fbc271cb01b668d89adc1f9",
+      "bytes": 2117
+    },
+    "/private/tmp/tests-823-serve-relay-clean-evidence/root-source-before.json": {
+      "sha256": "9ed0f6ed928da881fa96d9c16598b3e2b00c82aba5268522bf25f1a9e2f3c24b",
+      "bytes": 8971
+    },
+    "/private/tmp/tests-823-serve-relay-clean-evidence/root-tests.exit": {
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2
+    },
+    "/private/tmp/tests-823-serve-relay-clean-evidence/root-tests.finished": {
+      "sha256": "fa738cb2df11f57a2dcef228d4c50c382982b7f6622548a835ebdb19a64ba72c",
+      "bytes": 26
+    },
+    "/private/tmp/tests-823-serve-relay-clean-evidence/root-tests.log": {
+      "sha256": "5f7a19d112219a98e54538c1fc03be22f1f321b900717ae831c0c58d146ed9ed",
+      "bytes": 45717
+    },
+    "/private/tmp/tests-823-serve-relay-clean-evidence/root-tests.started": {
+      "sha256": "82a7a227c20fc5ec47d2710ec3dd57efa2fecff5a960fc01339323df6342dea4",
+      "bytes": 26
+    },
+    "/private/tmp/tests-823-serve-relay-clean-evidence/source-audit.json": {
+      "sha256": "e2009f5dc51d1fc1b185728139426245f94125e40b0a566a55de0470b24d1dde",
+      "bytes": 18418
+    }
+  },
+  "current_integration_is_not_qualified_by_that_old_gate": true
+}

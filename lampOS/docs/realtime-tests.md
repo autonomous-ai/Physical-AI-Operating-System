@@ -570,3 +570,33 @@ This migration covers the original Serve-session family. The six separate
 direct `serve_relay` tests retain their existing path. Clock-controlled results
 check ordering and the full configured windows; they do not measure hardware
 latency or establish a result for the complete original 123-test inventory.
+
+## Serve relay test coordinator
+
+The six `serve_relay` cases use an explicit helper clock while retaining their
+original test bodies, runner delays, fault settings and assertions. The relay
+and its coordinator run on the test thread; the existing session body still
+owns the real child, reader threads, Unix sockets, SIGTERM, process-group kill,
+reap, metadata checks and final output. The helper replaces its runner sleep
+with the full logical three-second boundary and advances the runtime and relay
+only after completed polls, using the original two-millisecond interval.
+
+A real Stop write is counted only after success. Closing the runner produces
+actual EOF; the helper holds time until the relay's real stop-signal receipt.
+The runtime then observes the actual signal through its existing handler.
+Final runtime progress freezes time until the relay observes actual child
+exit. The one-second run plus five-second allowance and the full ten-second
+ignored-signal grace remain unchanged. Host control, cleanup and late-output
+bounds remain active; a held post-stop boundary is checked against a ten-second
+host budget before and after polls. The existing reader-enqueue barrier can
+still wait up to thirty seconds before returning a failing poll; this is not a
+strict ten-second abort deadline. No progress receipt substitutes for a process
+status.
+
+The explicit controlled serve command reports its complete received argv,
+including its leading control pair, exactly once through the existing flushed
+JSON stdout record. Only the validated suffix is parsed as runtime arguments.
+Ordinary fake commands and the direct controlled library API retain their
+existing argument reporting. The original serve suffix and child-versus-spawn
+argv assertion remain unchanged. This implementation needs fresh paired and
+native qualification before a speedup can be claimed.

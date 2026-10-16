@@ -1,0 +1,12 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.54s
+────────────
+ Nextest run ID d17a2894-dfb0-4cda-a45f-79d9d7e9e4ca with nextest profile: realtime
+    Starting 6 tests across 1 binary (6 tests skipped)
+        PASS [   0.932s] (1/6) lamp-voice-eval::serve_relay a_closed_runner_transport_stops_the_runtime_through_the_same_path
+        PASS [   0.191s] (2/6) lamp-voice-eval::serve_relay a_nonzero_runtime_exit_after_clean_metadata_is_a_relay_error
+        PASS [   0.171s] (3/6) lamp-voice-eval::serve_relay a_runner_stop_is_one_sigterm_and_a_clean_reaped_end
+        PASS [   0.571s] (4/6) lamp-voice-eval::serve_relay a_runtime_that_ignores_sigterm_is_force_killed_and_never_clean
+        PASS [   0.306s] (5/6) lamp-voice-eval::serve_relay the_hard_deadline_stops_the_runtime_and_is_an_error
+        PASS [   0.188s] (6/6) lamp-voice-eval::serve_relay the_pilot_runtime_settings_reach_the_serve_child_exactly
+────────────
+     Summary [   2.367s] 6 tests run: 6 passed, 6 skipped

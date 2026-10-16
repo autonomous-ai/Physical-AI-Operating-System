@@ -107,13 +107,49 @@ pub fn run_serve_with_controlled_clock(
     arguments: &[String],
     now: impl Fn() -> MonoTime,
     before_poll: impl FnMut() -> Result<ServePollTargets>,
+    completed_poll: impl FnMut(ServePollProgress) -> Result<()>,
+) -> Result<i32> {
+    run_serve_with_argument_views(arguments, arguments, now, before_poll, completed_poll)
+}
+
+/// Preserve the actual controlled command's received argv, including its
+/// control pair. Only the validated suffix is parsed as fake-runtime options;
+/// the existing stdout record reports the original received vector once.
+pub(super) fn run_serve_with_controlled_invocation(
+    received: &[String],
+    now: impl Fn() -> MonoTime,
+    before_poll: impl FnMut() -> Result<ServePollTargets>,
+    completed_poll: impl FnMut(ServePollProgress) -> Result<()>,
+) -> Result<i32> {
+    let arguments = controlled_serve_arguments(received)?;
+    run_serve_with_argument_views(arguments, received, now, before_poll, completed_poll)
+}
+
+fn controlled_serve_arguments(received: &[String]) -> Result<&[String]> {
+    match received {
+        [flag, path, arguments @ ..]
+            if flag == "--fixture-control" && Path::new(path).is_absolute() =>
+        {
+            Ok(arguments)
+        }
+        _ => Err(invalid(
+            "a controlled serve invocation requires leading --fixture-control SOCKET",
+        )),
+    }
+}
+
+fn run_serve_with_argument_views(
+    arguments: &[String],
+    received: &[String],
+    now: impl Fn() -> MonoTime,
+    before_poll: impl FnMut() -> Result<ServePollTargets>,
     mut completed_poll: impl FnMut(ServePollProgress) -> Result<()>,
 ) -> Result<i32> {
     let parsed = parse_arguments(arguments)?;
     if !parsed.is_serve() {
         return Err(invalid("a controlled serve fake supports only serve runs"));
     }
-    let argv_frames = emit_serve_argv(&mut std::io::stdout().lock(), arguments)?;
+    let argv_frames = emit_serve_argv(&mut std::io::stdout().lock(), received)?;
     fake_serve::run_with_controlled_clock(parsed.into_serve()?, now, before_poll, |mut progress| {
         progress.stdout_lines = progress
             .stdout_lines
@@ -628,3 +664,7 @@ mod clock_tests;
 #[cfg(test)]
 #[path = "slow_transport_clock_tests.rs"]
 mod slow_transport_clock_tests;
+
+#[cfg(test)]
+#[path = "serve_invocation_tests.rs"]
+mod invocation_tests;

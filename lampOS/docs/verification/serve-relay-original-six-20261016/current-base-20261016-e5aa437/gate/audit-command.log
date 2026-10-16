@@ -1,0 +1,14 @@
+{
+  "result": "/private/tmp/tests-823-serve-relay-current-gate/result-audit.json",
+  "sha256": "bff080a166242455e87b829577bed98ceb50ec49b70eb8aa17bce3ab6b9d5d1e",
+  "full_local_gate_passed": true,
+  "totals": {
+    "passed": 508,
+    "failed": 0,
+    "ignored": 0,
+    "filtered_out": 0
+  },
+  "gate_failures": [],
+  "native_qualification": false,
+  "unstarted_stages": []
+}

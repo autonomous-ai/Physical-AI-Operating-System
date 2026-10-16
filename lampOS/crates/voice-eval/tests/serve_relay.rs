@@ -3,22 +3,14 @@
 //! runtime that ignores SIGTERM. Each keeps its stop cause, signal, exit,
 //! forced kill and confirmed reap separately. No hardware; no audio.
 mod common;
+#[path = "common/serve_relay_clock.rs"]
+mod serve_relay_clock;
 
 use lamp_voice_eval::physical::{
     protocol::{ServeEnd, SessionLine},
     session::{self, SessionOptions},
 };
-use std::{
-    fs,
-    io::Write,
-    os::unix::net::UnixStream,
-    sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
-    },
-    thread,
-    time::Duration,
-};
+use std::{fs, time::Duration};
 
 const BIN: &str = env!("CARGO_BIN_EXE_lamp-voice-eval");
 
@@ -75,36 +67,7 @@ enum Runner {
 
 /// Run the relay in-process with a runner transport driven by `runner`.
 fn relay(options: &SessionOptions, runner: Runner) -> (i32, Vec<SessionLine>) {
-    let (runner_end, relay_end) = UnixStream::pair().unwrap();
-    let done = Arc::new(AtomicBool::new(false));
-    let finished = Arc::clone(&done);
-    let control = thread::spawn(move || {
-        let mut stream = runner_end;
-        let hold = |stream: UnixStream| {
-            while !finished.load(Ordering::SeqCst) {
-                thread::sleep(Duration::from_millis(20));
-            }
-            drop(stream);
-        };
-        match runner {
-            Runner::StopAfter(after) => {
-                thread::sleep(after);
-                stream
-                    .write_all(b"{\"type\":\"stop\",\"reason\":\"test\"}\n")
-                    .unwrap();
-                hold(stream);
-            }
-            Runner::CloseAfter(after) => {
-                thread::sleep(after);
-                drop(stream);
-            }
-            Runner::Silent => hold(stream),
-        }
-    });
-    let mut out = Vec::new();
-    let code = session::run(options, relay_end, &mut out).unwrap();
-    done.store(true, Ordering::SeqCst);
-    control.join().unwrap();
+    let (code, out) = serve_relay_clock::run(options, runner).unwrap();
     let lines = String::from_utf8(out)
         .unwrap()
         .lines()

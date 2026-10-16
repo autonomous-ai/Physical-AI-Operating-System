@@ -259,7 +259,10 @@ is not. One JSON line in:
   them. At most 900 bytes, no control characters.
 - `priority`, 0 to 9, 5 if left out: higher first, the oldest first among
   equals.
-- `expires_in_ms`, 1 ms to an hour: not begun by then, it is `expired`.
+- `expires_in_ms`, 1 ms to an hour, from when its line was read: not begun
+  by then, it is `expired`. Its time is looked at again as it is begun, so
+  that none begins after it, however long it waited for the voice's loop
+  (the reviewer on #954). A line is at most 4,096 bytes with its newline.
 
 When the voice begins the turn, one line, so that the body and the light
 can move with the words (the first builder on #939):
@@ -303,12 +306,15 @@ may not need it.
 `say::tests`: a request read and checked, each refusal naming its field
 and never repeating what was asked; the highest priority first, then the
 oldest, the urgent needing a second's quiet and the rest fifteen; those
-not begun in time told `expired`; a ticket dropped unanswered told
+not begun in time told `expired`, also when the voice takes one only after
+its time (looked at again as it is begun); a line of 4,096 bytes with its
+newline read and one of 4,097 refused; a ticket dropped unanswered told
 `dropped`; the answers one line each; the group found by its name; and
 through a real socket, an ask handed to the voice and its answer written
 back, begun first and spoken after, a bad one refused at once, sixteen
 sending a little every 300 ms refused a second after each was taken and
-their places given back to a prompt ask, the socket the voice user's
+their places given back to a prompt ask, a request of 1 ms first looked at
+200 ms after its line was read told `expired` and never begun, the socket the voice user's
 alone, a
 second voice unable to take a socket still answered, the socket gone with
 the voice. `coordinator::tests::say`: through the real written turn and

@@ -145,11 +145,12 @@ In order. Within one table: body, then light, then say.
 | `look = true` | Only in a skill with a `tool` and no trigger: the voice's full look (above) |
 
 **The light is always given back.** Before a run the light shown is read
-from `light/state`; after the light's `for` (or the say) it is set back. If
-nothing said the light in the last 3 s, the light step is left out: a skill
-never leaves someone's light changed. A light lasts at most 10 minutes, so
-"a calm light while I focus for 25 minutes" cannot be a skill's. Two skills,
-or a person, changing the light meanwhile are not arbitrated yet (#940).
+from `light/state`; at the end of the run (the say ends, or the run's
+longest `for`) it is set back. If nothing said the light in the last 3 s,
+the light step is left out: a skill never leaves someone's light changed. A
+light lasts at most 10 minutes, so "a calm light while I focus for 25
+minutes" cannot be a skill's. Two skills, or a person, changing the light
+meanwhile are not arbitrated yet (#940).
 
 ## `tests/`
 

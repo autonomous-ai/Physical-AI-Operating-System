@@ -9,6 +9,11 @@ For #941, item 1 of the first builder's 13:29: "If the still doesn't show legibl
   - **sharp:** 59,597 B;
   - **blurred** (`ffmpeg boxblur=12:2`): 18,183 B, with no digit legible.
 
+**What ran, exactly.**
+- `service_probe` was built for aarch64 with `cargo zigbuild` from `lamp-voice` `7b7000066` plus this change as committed in `44002a53b`. The binary's sha256 is `ffc334bd1f366555c3082121debf94d4f29d36ca7fbb5415a61b116f17f48ae3`.
+- `instruction.txt`'s sha256 is `388042a15859ce149b9dac8366ffdaee970c3366cccf8f9b99ee8088b227e64f`. It is `lampOS/deploy/character/lamp.txt` as at `08964105a`, then the line `## Skill: Desk tutor`, then the body of `lampOS/skills/desk-tutor/SKILL.md` as at `02b05e60c` (#1002, front matter dropped), then the say note from that folder's `skill.toml`.
+- `page.html` was rendered on macOS (Chrome headless, 1280×960; the Bradley Hand font is macOS's). A render elsewhere uses another font and gives other JPEG sizes.
+
 ```sh
 sudo LAMP_PROBE_INSTRUCTION_FILE=instruction.txt ./service_probe /etc/lampOS/voice/provider.json q.wav image blur.jpg
 ```

@@ -58,22 +58,31 @@ pub fn session(path: &Path) -> Outcome<SessionConfig> {
 }
 
 /// The probe's instruction: one short sentence for every question, or the
-/// text of `LAMP_PROBE_INSTRUCTION_FILE` (at most 64 KiB), so that a probe
-/// can ask as a skill would, for example Desk tutor's note on top of the
-/// lamp's character.
+/// text of `LAMP_PROBE_INSTRUCTION_FILE` (a regular file of at most 64 KiB),
+/// so that a probe can ask as a skill would, for example Desk tutor's note
+/// on top of the lamp's character. It is read by every probe that opens a
+/// session (`service_probe` in each mode, `early_end_probe`), and each says
+/// so on stderr with the file's size, never its text.
 fn instruction() -> Outcome<String> {
-    match std::env::var_os("LAMP_PROBE_INSTRUCTION_FILE") {
-        None => {
-            Ok("You are a voice assistant. Answer every question in one short sentence.".into())
-        }
-        Some(path) => {
-            let text = fs::read_to_string(&path)?;
-            if text.len() > 65_536 || text.trim().is_empty() {
-                return Err("the probe's instruction file is empty or over 64 KiB".into());
-            }
-            Ok(text)
-        }
+    let Some(path) = std::env::var_os("LAMP_PROBE_INSTRUCTION_FILE") else {
+        return Ok(
+            "You are a voice assistant. Answer every question in one short sentence.".into(),
+        );
+    };
+    // Checked before it is read: a FIFO or a device would hang or fill it.
+    let info = fs::metadata(&path)?;
+    if !info.is_file() || info.len() > 65_536 {
+        return Err("the probe's instruction file is not a regular file of at most 64 KiB".into());
     }
+    let text = fs::read_to_string(&path)?;
+    if text.trim().is_empty() {
+        return Err("the probe's instruction file is empty".into());
+    }
+    eprintln!(
+        "probe: instruction from LAMP_PROBE_INSTRUCTION_FILE, {} bytes, in place of the one sentence",
+        text.len()
+    );
+    Ok(text)
 }
 
 /// 16 kHz mono from a 16-bit PCM WAV, by linear interpolation. Adequate for a

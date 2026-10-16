@@ -1341,6 +1341,7 @@ mod tests {
             store_id: store.into(),
             run: RUN,
             unread: vec![],
+            settled: Vec::new(),
             tasks: vec![lamp_msgs::TaskProgress {
                 task: 3,
                 engine: "claude".into(),

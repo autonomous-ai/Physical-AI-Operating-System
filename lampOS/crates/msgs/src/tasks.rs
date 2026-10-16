@@ -87,8 +87,10 @@ pub struct TaskProgress {
 
 /// Every task the tasks part is watching, as last read
 /// (`lamp-tasks serve --progress`). Published at start with none, after
-/// every read, and when one leaves the watch, so the one kept value always
-/// holds all of them and an empty list means nothing is being worked on.
+/// every read, when one joins or leaves the watch, and when one joins or
+/// leaves `settled` (at the end of its two minutes with nothing else
+/// happening), so the one kept value always holds all of them and an empty
+/// list means nothing is being worked on.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TaskStatus {
     /// The tasks part's store: task numbers belong to it.
@@ -105,6 +107,67 @@ pub struct TaskStatus {
     /// review, 2026-10-15). Added 2026-10-15; left out when empty.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub unread: Vec<u64>,
+    /// Tasks the watch let go because their agent settled, for a while
+    /// after (#1021): the tasks part's own look, while it is the task's
+    /// latest read, found the agent finished
+    /// (`idle`, with an answer), stopped to ask (`needs_input`), `stopped`
+    /// or `failed`. A task is let go then, so `tasks` never shows that end
+    /// when no `ps` read came between; this does, for a skill (Task news)
+    /// to act on, per task. Not in `tasks` or `unread`. Added 2026-10-16;
+    /// left out when empty.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub settled: Vec<TaskSettled>,
+}
+
+/// One task whose agent settled ([`TaskStatus::settled`]).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TaskSettled {
+    pub task: u64,
+    /// Who had the work, as the task's target names it.
+    pub engine: String,
+    /// `idle` (finished), `needs_input`, `stopped` or `failed`.
+    pub state: AgentState,
+    /// Always true: a trigger may name it (`field = "settled"`).
+    pub settled: bool,
+    /// When the tasks part found it settled, in milliseconds since 1970
+    /// UTC.
+    pub at_unix_ms: u64,
+}
+
+impl TaskSettled {
+    pub fn check(&self) -> Result<(), Invalid> {
+        if self.task == 0 {
+            return Err(Invalid("a task's number is positive".into()));
+        }
+        if !engine_named(&self.engine) {
+            return Err(Invalid(
+                "an engine is 1..32 lowercase letters, digits or underscores".into(),
+            ));
+        }
+        if !matches!(
+            self.state,
+            AgentState::Idle | AgentState::NeedsInput | AgentState::Stopped | AgentState::Failed
+        ) {
+            return Err(Invalid(
+                "a settled state is idle, needs_input, stopped or failed".into(),
+            ));
+        }
+        if !self.settled {
+            return Err(Invalid("a settled task says settled".into()));
+        }
+        if self.at_unix_ms > MOST_UNIX_MS {
+            return Err(Invalid("a time is within years 1970 through 9999".into()));
+        }
+        Ok(())
+    }
+}
+
+fn engine_named(engine: &str) -> bool {
+    !engine.is_empty()
+        && engine.len() <= 32
+        && engine
+            .bytes()
+            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
 }
 
 fn sorted_unique(signs: &[Sign]) -> bool {
@@ -116,13 +179,7 @@ impl TaskProgress {
         if self.task == 0 {
             return Err(Invalid("a task's number is positive".into()));
         }
-        if self.engine.is_empty()
-            || self.engine.len() > 32
-            || !self
-                .engine
-                .bytes()
-                .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
-        {
+        if !engine_named(&self.engine) {
             return Err(Invalid(
                 "an engine is 1..32 lowercase letters, digits or underscores".into(),
             ));
@@ -204,6 +261,21 @@ impl TaskStatus {
                 "unread tasks are listed once each, in order, and not among the tasks read".into(),
             ));
         }
+        if self.settled.len() > TASK_STATUS_MOST_TASKS
+            || !self
+                .settled
+                .windows(2)
+                .all(|pair| pair[0].task < pair[1].task)
+            || self.settled.iter().any(|settled| {
+                self.tasks.iter().any(|read| read.task == settled.task)
+                    || self.unread.contains(&settled.task)
+            })
+        {
+            return Err(Invalid(
+                "settled tasks are listed once each, in order, and not among the watched".into(),
+            ));
+        }
+        self.settled.iter().try_for_each(TaskSettled::check)?;
         self.tasks.iter().try_for_each(TaskProgress::check)
     }
 }

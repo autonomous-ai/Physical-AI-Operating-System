@@ -1,8 +1,8 @@
 //! `tasks/status`: how the work handed over is going, as typed state.
 use lamp_bus::Kind;
 use lamp_msgs::{
-    AgentState, Decision, Sign, TASK_STATUS_MOST_TASKS, TaskProgress, TaskStatus, declaration_of,
-    first_topics, tasks_topics,
+    AgentState, Decision, Sign, TASK_STATUS_MOST_TASKS, TaskProgress, TaskSettled, TaskStatus,
+    declaration_of, first_topics, tasks_topics,
 };
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
@@ -28,6 +28,7 @@ fn status() -> TaskStatus {
         store_id: "0123456789abcdef0123456789abcdef".into(),
         run: 1_791_964_000_000,
         unread: vec![],
+        settled: Vec::new(),
         tasks: vec![progress()],
     }
 }
@@ -135,6 +136,7 @@ fn the_check_holds_the_bounds_and_the_signs_to_their_sense() {
     let waiting = TaskStatus {
         tasks: Vec::new(),
         unread: vec![3, 7],
+        settled: Vec::new(),
         ..status()
     };
     waiting.check().unwrap();
@@ -149,6 +151,69 @@ fn the_check_holds_the_bounds_and_the_signs_to_their_sense() {
     assert!(wrong(|s| s.unread = vec![7, 3]).contains("unread"));
     assert!(wrong(|s| s.unread = vec![3, 3]).contains("unread"));
     assert!(wrong(|s| s.unread = vec![s.tasks[0].task]).contains("unread"));
+}
+
+/// #1021: a task let go because its agent settled is said apart, with its
+/// settled state, for a skill to act on per task; left out when there is
+/// none, and read as none from an older publisher.
+#[test]
+fn a_task_let_go_because_it_settled_is_said_apart_with_its_state() {
+    let done = TaskSettled {
+        task: 5,
+        engine: "codex".into(),
+        state: AgentState::Idle,
+        settled: true,
+        at_unix_ms: 1_791_964_900_000,
+    };
+    let with = TaskStatus {
+        settled: vec![done.clone()],
+        ..status()
+    };
+    with.check().unwrap();
+    let text = serde_json::to_string(&with).unwrap();
+    assert!(
+        text.ends_with(r#""settled":[{"task":5,"engine":"codex","state":"idle","settled":true,"at_unix_ms":1791964900000}]}"#),
+        "{text}"
+    );
+    assert_eq!(serde_json::from_str::<TaskStatus>(&text).unwrap(), with);
+    assert!(
+        !serde_json::to_string(&status())
+            .unwrap()
+            .contains("settled")
+    );
+    let older: TaskStatus = serde_json::from_str(
+        r#"{"store_id":"0123456789abcdef0123456789abcdef","run":1,"tasks":[]}"#,
+    )
+    .unwrap();
+    assert!(older.settled.is_empty());
+    for state in [
+        AgentState::NeedsInput,
+        AgentState::Stopped,
+        AgentState::Failed,
+    ] {
+        TaskStatus {
+            settled: vec![TaskSettled {
+                state,
+                ..done.clone()
+            }],
+            ..status()
+        }
+        .check()
+        .unwrap();
+    }
+    let refused = |change: &dyn Fn(&mut TaskStatus)| {
+        let mut wrong = with.clone();
+        change(&mut wrong);
+        wrong.check().unwrap_err().0
+    };
+    assert!(refused(&|s| s.settled[0].state = AgentState::Working).contains("settled state"));
+    assert!(refused(&|s| s.settled[0].settled = false).contains("says settled"));
+    assert!(refused(&|s| s.settled[0].task = 0).contains("positive"));
+    assert!(refused(&|s| s.settled[0].engine = "Codex".into()).contains("engine"));
+    // Not among the watched, and once each, in order.
+    assert!(refused(&|s| s.settled[0].task = 3).contains("not among the watched"));
+    assert!(refused(&|s| s.unread = vec![5]).contains("not among the watched"));
+    assert!(refused(&|s| s.settled.push(s.settled[0].clone())).contains("once each"));
 }
 
 #[test]

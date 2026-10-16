@@ -1217,8 +1217,9 @@ identity run it, and `serde_json` reads it.
   [msgs.md](msgs.md#the-tasks-contract)), a kept (`latest`) value with no
   period. It is published at start, so the kept topic always has a value
   and a reader can tell "nothing being worked on" from "the tasks part is
-  not there"; after every read; and at once when the set of tasks watched
-  changes, a task joining or leaving the watch (settled, or a day old). A
+  not there"; after every read; at once when the set of tasks watched
+  changes, a task joining or leaving the watch (settled, or a day old); and
+  when a task joins or leaves `settled`, below. A
   task watched whose progress has not been read yet in this run (just handed
   over, there when the run began, or every read of it failed so far) is in
   `unread`, not in `tasks`, so `tasks` and `unread` both empty is nothing
@@ -1242,9 +1243,31 @@ identity run it, and `serde_json` reads it.
   | `new_share` | At the latest change, the share of the line's distinct words that were not in the line before, 0 to 1 |
   | `signs` | Signs in the line at its latest change that were not in the line before |
   | `signs_seen` | Every sign seen since reading began |
+  | `settled` | Tasks the watch let go because their agent settled, for two minutes after (`progress::SETTLED_FOR_MS`), in order, each with `task`, `engine`, `state` (`idle` for finished, `needs_input`, `stopped` or `failed`), `settled: true` and `at_unix_ms`, when the tasks part found it so; left out when none (#1021) |
 
   No word of the agent's, the task's text or the asks is in it: a test reads
   every message and looks for them.
+
+  **Settled (#1021).** The watch stops as soon as its own look finds the
+  agent settled (finished with an answer, stopped to ask, stopped or
+  failed), and the task leaves `tasks` at once, so its last `ps` state may
+  still be `working` and `idle` is often never published (Jarvis, for Task
+  news). Such a task is said in `settled` instead, for two minutes from
+  when its settled answer was first kept (the newest observation's
+  `observed`, by this boot's clock; `Engine::settled_within`), and only
+  while the watch's read is the task's latest and did not find the agent
+  back at work: a task the person asked to have read, or one read with the
+  watch off (`--no-watch`) or after it was let go for age, is not listed,
+  as the person has heard it or it is not news (Fourth on #1048). A later
+  look of the watch (#1145's follow looks) neither takes it off while under
+  way nor gives it a new time when it finds the same answer, so it is
+  never listed twice for one answer (Ten on #1145). The read is kept in the store, so a
+  restart of the tasks part inside the two minutes lists it again in its
+  first value. Two minutes: long enough for a skill that triggers on it
+  (Task news, per task, as it appears in `settled`, #1042), short enough to
+  say what has just happened. The list is looked at each turn of the
+  service, so a value is published when a task joins it and when it leaves,
+  with nothing else happening. A task let go for age just leaves.
 - **Signs**, cheap and without a model (`progress::SIGNS`): phrases matched
   as whole words, regardless of case, `#` for any number. A phrase with one
   of `not`, `no`, `never`, `cannot`, `can't`, `don't`, `doesn't`, `didn't`,
@@ -1271,7 +1294,12 @@ identity run it, and `serde_json` reads it.
   "revision":…,"completion":"unverified","id":3,"progress":{"engine","state",
   "about","run","changes","signs_seen","last_active_unix_ms","read_unix_ms"}}`;
   `not_read` for a task watched and not read yet, `not_found` for one not watched, and `progress_off` without the
-  switch. That is the only way the line leaves the tasks part.
+  switch. That is the only way the line leaves the tasks part. A task the
+  watch let go because its agent settled answers, while it is in
+  `settled`, `{"ok":true,…,"id":3,"settled":{"task","engine","state",
+  "settled":true,"at_unix_ms"}}`: what it ended in, not `not_found` (Ten and
+  Nine on #705, problem 3 (b)); its answer's words are `get_observation`'s.
+  Task news reads only `progress`, so it says nothing of one.
 - **The journal.** One line a read, so a minute on the lamp can be judged:
   `tasks: progress read of <machine> in 412 ms: 2 listed; task 7 working,
   new line, tests_pass fixed; task 8 needs_input, same line` (`first read`

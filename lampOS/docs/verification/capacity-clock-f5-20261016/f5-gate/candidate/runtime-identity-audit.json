@@ -1,0 +1,16 @@
+{
+  "date_from_date": "2026-10-16 11:48:07 +0700",
+  "compiled": 2504,
+  "compiled_ignored": 13,
+  "runtime_rows": 2491,
+  "expected_nonignored": 2491,
+  "complete_exact_once": true,
+  "counts": {
+    "PASS": 2491
+  },
+  "failures": [],
+  "missing": [],
+  "unexpected": [],
+  "retry_result_markers": false,
+  "log_sha256": "6644cd2a235c9bcd5e5ccc7ef7665bcef2177cf56e5b9a50a3b42b0d44c01225"
+}

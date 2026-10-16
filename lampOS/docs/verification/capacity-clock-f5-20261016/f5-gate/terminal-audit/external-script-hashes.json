@@ -1,0 +1,18 @@
+{
+  "date_from_date": "2026-10-16 11:50:30 +0700",
+  "scripts": [
+    {
+      "path": "/private/tmp/tests-823-capacity-f5-baseline.py",
+      "sha256": "745ac84610ad7d6da70476bb8c8cdc5c92a5df9444757f8675cde9b30fb4db53"
+    },
+    {
+      "path": "/private/tmp/tests-823-capacity-f5-candidate-gate.py",
+      "sha256": "36aba492c63625893f80610e5c712bac148b9727fea94e887df7160e92851901"
+    },
+    {
+      "path": "/private/tmp/tests-823-audit-capacity-f5-terminal.py",
+      "sha256": "b83bfe0ae3fa18631aff86916f457b89d45a3c6407cf88e4dfb83f79362cec7b"
+    }
+  ],
+  "retained_orchestration_preflight": "../script-preflight/syntax-correction.json records a non-executed Python syntax typo; raw initial script remains external only. No Rust/test source error or execution occurred in that preflight."
+}

@@ -1,0 +1,1369 @@
+diff --git a/lampOS/crates/voice/src/provider_worker.rs b/lampOS/crates/voice/src/provider_worker.rs
+index 7b378ca85..1c97ebd89 100644
+--- a/lampOS/crates/voice/src/provider_worker.rs
++++ b/lampOS/crates/voice/src/provider_worker.rs
+@@ -72,6 +72,8 @@ const RENEW_AT_MOST_EVERY: Duration = Duration::from_secs(900);
+ static UNANSWERED: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+ /// Where the eyes keep their newest frame, when the lamp may take a look.
+ static LOOK_FILE: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLock::new();
++/// A look is a full look (`--eyes-look-full`): its still may be older.
++static LOOK_FULL: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+ /// Where the conversation's thread is kept across a restart, if anywhere.
+ static THREAD_FILE: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLock::new();
+ /// Whether a new session is told how things stand.
+@@ -102,6 +104,8 @@ static ADDRESSED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool:
+ pub struct Files {
+     /// The eyes' newest frame (`--eyes-look`).
+     pub look: Option<std::path::PathBuf>,
++    /// A look is a full look (`--eyes-look-full`, #836).
++    pub look_full: bool,
+     /// The conversation's thread (`--thread-file`).
+     pub thread: Option<std::path::PathBuf>,
+     /// Whether a new session is told how things stand (`--session-fact`).
+@@ -113,6 +117,8 @@ pub struct Files {
+     pub air_facts: bool,
+     /// Whether the link is never given up (`--keep-link`).
+     pub keep_link: bool,
++    /// Whether input waits for room in the link's queue (`--wait-for-room`).
++    pub wait_for_room: bool,
+     /// What the model may do other than speak (`--tools`, `--actions-dir`).
+     pub tools: crate::tools::Settings,
+     /// Whether the lamp's own rule for whom it answers is applied
+@@ -149,6 +155,14 @@ pub struct Files {
+     /// something shows it was said to the lamp (`--sounds-checked`,
+     /// `crate::not_speech::CHECKED`). Only with `attention`.
+     pub sounds_checked: bool,
++    /// Whether, in a conversation, a turn heard in another script or as a
++    /// number alone is asked again (`--ask-unclear`, #926). Only with
++    /// `attention`.
++    pub ask_unclear: bool,
++    /// Whether the lamp's actions wait for the Policy's attention decision
++    /// (`--policy-holds-actions`, `crate::policy_holds`, #800). Only with the
++    /// bus.
++    pub policy_holds: bool,
+ }
+ 
+ /// The bus's root for this worker, if it publishes.
+@@ -159,6 +173,17 @@ static FIRST_OUTPUT: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLo
+ /// that runs all day passes it; a bounded run keeps the bounded policy, so
+ /// that it ends when its provider cannot be reached.
+ pub const KEEP_LINK_FLAG: &str = "--keep-link";
++/// The provider worker's flag to wait for room in Gemini's input queue
++/// rather than overrun it (lampOS#892). Passed only with a second voice
++/// route configured, whose held line is replayed faster than speech.
++pub const WAIT_FOR_ROOM_FLAG: &str = "--wait-for-room";
++/// Take a leading `--wait-for-room` off a worker's flags.
++pub fn take_wait_for_room(flags: &[String]) -> (bool, &[String]) {
++    match flags {
++        [flag, rest @ ..] if flag == WAIT_FOR_ROOM_FLAG => (true, rest),
++        _ => (false, flags),
++    }
++}
+ /// Take a leading `--keep-link` off a worker's flags.
+ pub fn take_keep_link(flags: &[String]) -> (bool, &[String]) {
+     match flags {
+@@ -180,11 +205,13 @@ pub fn parse_flags(dir: &std::path::Path, flags: &[String]) -> io::Result<Parsed
+     let (continuation, flags) = Continuation::take(flags)?;
+     let (sight, flags) = crate::sight::Sight::take(flags)?;
+     let (look, flags) = crate::sight::take_look(flags)?;
++    let (look_full, flags) = crate::sight::take_look_full(flags);
+     let (thread, flags) = crate::thread::take_file(flags)?;
+     let (session_fact, flags) = crate::session_fact::take(flags);
+     let (room_facts, flags) = crate::room_told::take(flags);
+     let (air_facts, flags) = crate::air_told::take(flags);
+     let (keep_link, flags) = take_keep_link(flags);
++    let (wait_for_room, flags) = take_wait_for_room(flags);
+     let (tools, flags) = crate::tools::take(flags)?;
+     let (attention, flags) = crate::attention::take(flags);
+     let (attention_busy, flags) = crate::attention::take_busy(flags);
+@@ -196,14 +223,18 @@ pub fn parse_flags(dir: &std::path::Path, flags: &[String]) -> io::Result<Parsed
+     let (bus_root, flags) = crate::bus_out::take_root(flags)?;
+     let (first_output, flags) = crate::first_output::take(flags)?;
+     let (sounds_checked, flags) = crate::not_speech::take_checked(flags);
++    let (ask_unclear, flags) = crate::not_speech::take_unclear(flags);
++    let (policy_holds, flags) = crate::policy_holds::take(flags);
+     let visual = VisualSource::parse(dir, flags)?;
+     let files = Files {
+         look,
++        look_full,
+         thread,
+         session_fact,
+         room_facts,
+         air_facts,
+         keep_link,
++        wait_for_room,
+         tools,
+         attention,
+         attention_busy,
+@@ -216,6 +247,8 @@ pub fn parse_flags(dir: &std::path::Path, flags: &[String]) -> io::Result<Parsed
+         bus_root,
+         first_output,
+         sounds_checked,
++        ask_unclear,
++        policy_holds,
+     };
+     Ok((continuation, sight, files, visual))
+ }
+@@ -305,6 +338,10 @@ impl FromStr for Continuation {
+ const CONTROL_SLICE: usize = 16;
+ const INPUT_SLICE: usize = 8;
+ const RETAINED_INPUT_US: u64 = 100_000;
++/// How long a command waits, first in line, for room in Gemini's input
++/// queue: past the link's own write bound (200 ms), so a write that is only
++/// slow is waited out and one that is stuck has failed the link first.
++const ROOM_WAIT_US: u64 = 250_000;
+ 
+ #[derive(Debug, Clone, Serialize, Deserialize)]
+ #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+@@ -345,6 +382,10 @@ pub enum ProviderInput {
+         /// count it.
+         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+         sound: bool,
++        /// The request took over from the lamp's own answer: a cut-in after
++        /// a yield (#926). Without it the End is as it was.
++        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
++        cut_in: bool,
+     },
+     /// A whole request in writing, for a turn the lamp begins itself: it is
+     /// a start and an end at once and carries no sound.
+@@ -435,6 +476,13 @@ pub enum ProviderOutput {
+         request: u64,
+         idle: bool,
+     },
++    /// What was heard for `request` made no sense in the conversation and
++    /// its answer is held (#926): the coordinator asks again. Sent before
++    /// the request's `TurnComplete`.
++    Unclear {
++        request: u64,
++        why: String,
++    },
+     TurnFailed {
+         request: u64,
+         stage: FailedStage,
+@@ -637,9 +685,19 @@ pub(crate) struct Options {
+     /// something shows it was said to the lamp (`--sounds-checked`, #800).
+     /// Only with `attention`.
+     pub(crate) sounds_checked: bool,
++    /// In a conversation, a turn heard in another script or as a number
++    /// alone is held and asked again (`--ask-unclear`, #926). Only with
++    /// `attention`.
++    pub(crate) ask_unclear: bool,
+     /// "The lamp" said in passing is no call for the rule
+     /// ([`crate::attention::called_by_name`], #829).
+     pub(crate) name_in_passing_ignored: bool,
++    /// The bus the Policy's decisions are read from when the lamp's actions
++    /// wait for them ([`crate::policy_holds`], #800). `None`: they run at
++    /// once.
++    pub(crate) policy_holds: Option<std::path::PathBuf>,
++    /// Input waits for room in Gemini's input queue (`--wait-for-room`).
++    pub(crate) wait_for_room: bool,
+ }
+ /// How the room is and whether the lamp is in a conversation, now.
+ fn attention_now() -> (crate::room_told::Room, bool) {
+@@ -663,7 +721,10 @@ impl Options {
+             attention: None,
+             name_signal: false,
+             sounds_checked: false,
++            ask_unclear: false,
+             name_in_passing_ignored: false,
++            policy_holds: None,
++            wait_for_room: false,
+         }
+     }
+ }
+@@ -696,7 +757,8 @@ fn prune_retired_output(output: &mut VecDeque<Outbound>, retired_through: u64) {
+             | ProviderOutput::Audio { request, .. }
+             | ProviderOutput::GenerationComplete { request }
+             | ProviderOutput::Interrupted { request }
+-            | ProviderOutput::TurnComplete { request, .. } => Some(*request),
++            | ProviderOutput::TurnComplete { request, .. }
++        | ProviderOutput::Unclear { request, .. } => Some(*request),
+         };
+         request.is_none_or(|request| request > retired_through)
+     });
+@@ -778,6 +840,7 @@ pub async fn run_with_continuation(
+     if let Some(path) = files.look {
+         let _ = LOOK_FILE.set(path);
+     }
++    LOOK_FULL.store(files.look_full, std::sync::atomic::Ordering::Relaxed);
+     SESSION_FACT.store(files.session_fact, std::sync::atomic::Ordering::Relaxed);
+     ROOM_FACTS.store(files.room_facts, std::sync::atomic::Ordering::Relaxed);
+     AIR_FACTS.store(files.air_facts, std::sync::atomic::Ordering::Relaxed);
+@@ -857,7 +920,19 @@ pub async fn run_with_continuation(
+         attention: files.attention.then_some(attention_now),
+         name_signal: files.name_signal,
+         sounds_checked: files.attention && files.sounds_checked,
++        ask_unclear: files.attention && files.ask_unclear,
+         name_in_passing_ignored: files.attention && files.name_in_passing_ignored,
++        policy_holds: match (files.policy_holds, &files.bus_root) {
++            (true, Some(root)) => Some(root.clone()),
++            (true, None) => {
++                eprintln!(
++                    "lamp-voice provider: the Policy cannot hold the lamp's actions without the bus (LAMP_BUS=on): they run at once"
++                );
++                None
++            }
++            (false, _) => None,
++        },
++        wait_for_room: files.wait_for_room,
+     };
+     let visual = visual
+         .map(|(source, worker)| ContextDelivery::new(source, boot, worker))
+@@ -908,6 +983,7 @@ async fn serve_with_visual<C: Connect>(
+     let mut upstream_ended = false;
+     let mut intake = ProviderIntake::new(boot, monotonic_us());
+     intake.handoff.tolerate_outage = typed;
++    intake.handoff.wait_for_room = options.wait_for_room;
+     intake.handoff.reminders.enabled = options.tools.schedule_speak;
+     let mut ticker = tokio::time::interval(Duration::from_millis(2));
+     ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+@@ -1015,9 +1091,20 @@ async fn serve_with_visual<C: Connect>(
+     });
+     let mut called = crate::called::Called::default();
+     let mut desk = ToolDesk::new(options.tools.clone());
++    // The lamp's actions wait for the Policy's decision (#800).
++    desk.verdicts = options.policy_holds.as_deref().and_then(|root| {
++        crate::policy_holds::Verdicts::on(root)
++            .inspect_err(|why| {
++                eprintln!(
++                    "lamp-voice provider: the Policy's decisions cannot be read from the bus, so the lamp's actions run at once: {why}"
++                );
++            })
++            .ok()
++    });
+     desk.name_signal = options.name_signal;
+     let mut attention = crate::attention::Attention::default();
+     attention.check_sounds(sounds_checked);
++    attention.ask_again_when_unclear(options.attention.is_some() && options.ask_unclear);
+     attention.ignore_name_in_passing(options.name_in_passing_ignored);
+     // The record of whom it answered, off unless set.
+     let mut first_output = FIRST_OUTPUT.get().and_then(|directory| {
+@@ -1054,6 +1141,9 @@ async fn serve_with_visual<C: Connect>(
+                 // while no provider event is being taken.
+                 service_link(&mut provider, link_clock.as_mut(), &mut link_status, |link|
+                     channels.control.send(WorkerEvent::ProviderLink { link }))?;
++                // The lamp's actions kept for the Policy's decision (#800),
++                // each let go if its turn was retired meanwhile.
++                desk.release(&provider, |request| intake.handoff.retired(request));
+                 // What the executive made of the calls it was asked.
+                 desk.answer(&provider);
+                 // Each call answered, for the first-output record when
+@@ -1085,6 +1175,9 @@ async fn serve_with_visual<C: Connect>(
+                 // request's sound ended is not that request's.
+                 if let Some((request, at_us)) = intake.handoff.ended {
+                     attention.ended(request, at_us);
++                    if intake.handoff.ended_cut_in == Some(request) {
++                        attention.ended_as_cut_in(request);
++                    }
+                     if intake.handoff.ended_as_sound == Some(request) {
+                         attention.ended_as_sound(request);
+                     }
+@@ -1491,7 +1584,17 @@ async fn serve_with_visual<C: Connect>(
+                                 }
+                                 addressed_said = Some(said);
+                             }
++                            attention.lamp_asked(crate::thread::THREAD.lock().is_ok_and(|thread| thread.lamp_asked(request)));
+                             let verdict = attention.first_output_busy(request, room, going_on, attention_busy, turned);
++                            // Held as unclear: the coordinator asks again. Said
++                            // once, when the verdict is given, never again for
++                            // the request's later output (lamp-4ace 06:42: eight
++                            // in 0.32 s).
++                            if verdict.is_some()
++                                && let Some(why) = attention.unclear(request)
++                            {
++                                output.push_back(Outbound::Output(ProviderOutput::Unclear { request, why: why.to_owned() }));
++                            }
+                             if let (Some(log), Some(verdict)) = (first_output.as_mut(), verdict) {
+                                 let (play, reason) = match verdict {
+                                     crate::attention::Verdict::Play(why) => (true, why),
+@@ -1569,13 +1672,37 @@ async fn serve_with_visual<C: Connect>(
+                     })),
+                     Ok(Notice::Event(Event::ToolCall { lineage, call })) => {
+                         let held = attention.holds(lineage.request.get());
+-                        desk.called(&provider, lineage, call, held)
++                        // The turn, for the Policy's decision about it (#800):
++                        // none for a turn the lamp wrote itself. Its name is
++                        // known here with the rule for whom it answers, which
++                        // follows the turn; without it, not.
++                        let request = lineage.request.get();
++                        let turn = (crate::attention::OWN_REQUEST
++                            .load(std::sync::atomic::Ordering::Acquire)
++                            != request)
++                            .then(|| Turn {
++                                name_heard: attention.in_hand().is_some_and(|turn| {
++                                    turn.request == request
++                                        && turn.name_score >= crate::policy_holds::NAME_FROM
++                                }),
++                            });
++                        desk.called(&provider, lineage, call, held, turn)
++                    }
++                    // Calls the service withdrew are not run if they still
++                    // wait for the Policy's decision (#800).
++                    Ok(Notice::Event(event @ Event::ToolCallsCancelled { .. })) => {
++                        if let Event::ToolCallsCancelled { session, ids } = &event {
++                            desk.withdrawn(*session, ids);
++                        }
++                        forward(event, &mut output, &mut output_sequence, &mut discards)?
+                     }
+                     // The model said this request was not for it: none of
+                     // its sound is let out, and none of its words are kept
+                     // as something the lamp said.
+                     Ok(Notice::Event(Event::Audio { lineage, .. } | Event::OutputTranscript { lineage, .. }))
+-                        if desk.declined(lineage.request) || attention.holds(lineage.request.get()) => {},
++                        if desk.declined(lineage.request)
++                            || desk.quieted(lineage.request)
++                            || attention.holds(lineage.request.get()) => {},
+                     Ok(Notice::Event(event)) if reminder_origin=>forward_reminder(event, &mut output, &mut output_sequence, &mut discards)?,
+                     Ok(Notice::Event(event))=>forward(event, &mut output, &mut output_sequence, &mut discards)?,
+                     Ok(Notice::Unavailable {error})=>{
+@@ -1679,6 +1806,27 @@ struct ToolDesk {
+     /// Each call answered since the worker last took them, for the
+     /// first-output record (#799).
+     lines: Vec<crate::first_output::ToolCallLine>,
++    /// The Policy's decisions, when the lamp's actions wait for them
++    /// ([`crate::policy_holds`], #800).
++    verdicts: Option<crate::policy_holds::Verdicts>,
++    /// The lamp's actions waiting for the turn's decision.
++    parked: Vec<Parked>,
++    /// The newest request one of whose actions the Policy held: none of its
++    /// sound is let out.
++    quieted: Option<u64>,
++}
++/// The turn a call came in, someone's, not the lamp's own.
++#[derive(Clone, Copy, Debug, PartialEq)]
++struct Turn {
++    /// The lamp's name was heard in it ([`crate::policy_holds::NAME_FROM`]).
++    name_heard: bool,
++}
++/// One of the lamp's actions kept for the turn's decision.
++struct Parked {
++    lineage: lamp_gemini::Lineage,
++    call: lamp_gemini::ToolCall,
++    turn: Turn,
++    called_us: u64,
+ }
+ /// Calls kept for the first-output record between two ticks at most.
+ const MOST_CALL_LINES: usize = 64;
+@@ -1710,6 +1858,9 @@ impl ToolDesk {
+             named: None,
+             sounded: None,
+             lines: Vec::new(),
++            verdicts: None,
++            parked: Vec::new(),
++            quieted: None,
+         }
+     }
+     /// The first sound of an answer to `request` has come. Said once for a
+@@ -1734,6 +1885,25 @@ impl ToolDesk {
+     fn declined(&self, request: RequestId) -> bool {
+         self.declined == Some(request.get())
+     }
++    /// Whether the Policy held one of `request`'s actions (#800).
++    fn quieted(&self, request: RequestId) -> bool {
++        self.quieted == Some(request.get())
++    }
++    /// The service withdrew calls: those still waiting for the Policy's
++    /// decision are let go, neither run nor answered (the reviewer on #908).
++    fn withdrawn(&mut self, session: SessionId, ids: &[String]) {
++        self.parked.retain(|parked| {
++            let gone = parked.lineage.session == session && ids.contains(&parked.call.id);
++            if gone {
++                eprintln!(
++                    "lamp-voice provider: request {} asked for {}; withdrawn by the service while it waited for the Policy's decision; not run",
++                    parked.lineage.request.get(),
++                    parked.call.name
++                );
++            }
++            !gone
++        });
++    }
+     /// One call from the model. Names only are logged, never arguments.
+     fn called<C: Connect>(
+         &mut self,
+@@ -1741,6 +1911,7 @@ impl ToolDesk {
+         lineage: lamp_gemini::Lineage,
+         call: lamp_gemini::ToolCall,
+         held: bool,
++        turn: Option<Turn>,
+     ) {
+         use crate::tools::Route;
+         let request = lineage.request.get();
+@@ -1763,6 +1934,7 @@ impl ToolDesk {
+                     | Route::Tasks(_)
+                     | Route::Faces(_)
+                     | Route::Mark(_)
++                    | Route::Onboarding(_)
+             )
+         {
+             let (sent, sent_us) = tell(&crate::tools::declined());
+@@ -1805,6 +1977,31 @@ impl ToolDesk {
+             }
+             return;
+         }
++        // One of the lamp's actions, with the Policy holding them: kept for
++        // the turn's decision, and run, held or let go on a later tick
++        // ([`Self::release`], #800). Timers and reminders too: "Yes, give me
++        // five minutes", said to someone else, set a timer on lamp-4ace (the
++        // first builder on #908, 05:02).
++        if let Some(turn) = turn
++            && self.verdicts.is_some()
++            && crate::policy_holds::holds(
++                &crate::tools::route(&self.settings, &call.name),
++                &call.name,
++            )
++            && self.parked.len() < lamp_gemini::MAX_TOOL_CALLS
++        {
++            eprintln!(
++                "lamp-voice provider: request {request} asked for {}; waiting for the Policy's decision",
++                call.name
++            );
++            self.parked.push(Parked {
++                lineage,
++                call,
++                turn,
++                called_us,
++            });
++            return;
++        }
+         match crate::tools::route(&self.settings, &call.name) {
+             Route::Clock => {
+                 let told = crate::tools::time_now();
+@@ -1860,64 +2057,11 @@ impl ToolDesk {
+             | Route::Memory(_)
+             | Route::Tasks(_)
+             | Route::Faces(_)
+-            | Route::Mark(_))
++            | Route::Mark(_)
++            | Route::Onboarding(_))
+                 if self.waiting < lamp_gemini::MAX_TOOL_CALLS =>
+             {
+-                // Being asked to keep or forget something is not itself
+-                // something to keep.
+-                if crate::tools::keeps_out(&route, &call.name) {
+-                    crate::remember::keep_out(request);
+-                }
+-                if matches!(
+-                    route,
+-                    Route::Executive(_)
+-                        | Route::Schedule(_)
+-                        | Route::Tasks(_)
+-                        | Route::Faces(_)
+-                        | Route::Mark(_)
+-                ) {
+-                    self.acted = Some(request);
+-                }
+-                // A request the lamp wrote itself was not heard from anyone:
+-                // a yes to a task cannot come in one.
+-                let heard = crate::attention::OWN_REQUEST
+-                    .load(std::sync::atomic::Ordering::Acquire)
+-                    != request;
+-                let asked = self.asked.clone();
+-                let session = lineage.session;
+-                let work = call.clone();
+-                let spawned = std::thread::Builder::new()
+-                    .name("lamp-voice-ask".into())
+-                    .spawn(move || {
+-                        let started = Instant::now();
+-                        let (whom, (told, answered)) =
+-                            crate::tools::run_call(&route, &work, request, heard);
+-                        let _ = asked.send(Asked {
+-                            session,
+-                            request,
+-                            call: work,
+-                            told,
+-                            whom,
+-                            answered,
+-                            took: started.elapsed(),
+-                            called_us,
+-                        });
+-                    });
+-                match spawned {
+-                    Ok(_) => self.waiting += 1,
+-                    Err(_) => {
+-                        let (sent, sent_us) = tell(&crate::tools::unavailable());
+-                        self.line(
+-                            lineage.session,
+-                            request,
+-                            &call.name,
+-                            called_us,
+-                            sent_us,
+-                            false,
+-                            sent,
+-                        );
+-                    }
+-                }
++                self.run(provider, lineage, call, route, called_us);
+             }
+             Route::Executive(_)
+             | Route::Schedule(_)
+@@ -1925,6 +2069,7 @@ impl ToolDesk {
+             | Route::Tasks(_)
+             | Route::Faces(_)
+             | Route::Mark(_)
++            | Route::Onboarding(_)
+             | Route::Nobody => {
+                 let (sent, sent_us) = tell(&crate::tools::unavailable());
+                 self.line(
+@@ -1943,6 +2088,199 @@ impl ToolDesk {
+             }
+         }
+     }
++    /// Run one call on a thread of its own, its answer taken on a later
++    /// tick ([`Self::answer`]).
++    fn run<C: Connect>(
++        &mut self,
++        provider: &Supervisor<C>,
++        lineage: lamp_gemini::Lineage,
++        call: lamp_gemini::ToolCall,
++        route: crate::tools::Route,
++        called_us: u64,
++    ) {
++        use crate::tools::Route;
++        let request = lineage.request.get();
++        // Being asked to keep or forget something is not itself
++        // something to keep.
++        if crate::tools::keeps_out(&route, &call.name) {
++            crate::remember::keep_out(request);
++        }
++        if matches!(
++            route,
++            Route::Executive(_)
++                | Route::Schedule(_)
++                | Route::Tasks(_)
++                | Route::Faces(_)
++                | Route::Mark(_)
++        ) {
++            self.acted = Some(request);
++        }
++        // A request the lamp wrote itself was not heard from anyone:
++        // a yes to a task cannot come in one.
++        let heard =
++            crate::attention::OWN_REQUEST.load(std::sync::atomic::Ordering::Acquire) != request;
++        let asked = self.asked.clone();
++        let session = lineage.session;
++        let work = call.clone();
++        let spawned = std::thread::Builder::new()
++            .name("lamp-voice-ask".into())
++            .spawn(move || {
++                let started = Instant::now();
++                let (whom, (told, answered)) =
++                    crate::tools::run_call(&route, &work, request, heard);
++                let _ = asked.send(Asked {
++                    session,
++                    request,
++                    call: work,
++                    told,
++                    whom,
++                    answered,
++                    took: started.elapsed(),
++                    called_us,
++                });
++            });
++        match spawned {
++            Ok(_) => self.waiting += 1,
++            Err(_) => {
++                let sent = provider
++                    .try_tool_response(
++                        lineage.session,
++                        &call.id,
++                        &call.name,
++                        &crate::tools::unavailable(),
++                    )
++                    .is_ok();
++                self.line(
++                    lineage.session,
++                    request,
++                    &call.name,
++                    called_us,
++                    monotonic_us(),
++                    false,
++                    sent,
++                );
++            }
++        }
++    }
++    /// The lamp's actions kept for the Policy's decision (#800), looked at
++    /// once a tick: each run, held, or kept a while longer. The decisions
++    /// are taken every tick, whether or not an action waits; each is its
++    /// own turn's by number, whenever it comes.
++    /// A parked call is let go, neither run nor answered, when its turn was
++    /// `retired` (its owner gone: cancelled, or a newer turn) or its session
++    /// is no longer the live one, looked at right before it would run (the
++    /// reviewer on #908). So is one the service withdrew, asked of the
++    /// session itself: its cancellation may still wait behind sound while
++    /// the output is full, and no provider notice is taken then (the
++    /// reviewer on #908, 05:11).
++    fn release<C: Connect>(&mut self, provider: &Supervisor<C>, retired: impl Fn(u64) -> bool) {
++        let now = monotonic_us();
++        let Some(verdicts) = self.verdicts.as_mut() else {
++            return;
++        };
++        verdicts.take();
++        for parked in std::mem::take(&mut self.parked) {
++            let request = parked.lineage.request.get();
++            if provider.live_session() == Some(parked.lineage.session)
++                && provider.call_withdrawn(parked.lineage.session, &parked.call.id)
++            {
++                eprintln!(
++                    "lamp-voice provider: request {request} asked for {}; withdrawn by the service while it waited for the Policy's decision; not run",
++                    parked.call.name
++                );
++                continue;
++            }
++            if retired(request) || provider.live_session() != Some(parked.lineage.session) {
++                // Answered all the same, as every call is, so that the
++                // service is not left waiting for it (refused, harmlessly,
++                // if its session has gone); never run.
++                let _ = provider.try_tool_response(
++                    parked.lineage.session,
++                    &parked.call.id,
++                    &parked.call.name,
++                    &serde_json::json!({"done": false}),
++                );
++                eprintln!(
++                    "lamp-voice provider: request {request} asked for {}; its turn ended while it waited for the Policy's decision; not run",
++                    parked.call.name
++                );
++                continue;
++            }
++            let verdict = self
++                .verdicts
++                .as_ref()
++                .and_then(|verdicts| verdicts.verdict(request));
++            let waited = Duration::from_micros(now.saturating_sub(parked.called_us));
++            match crate::policy_holds::gate(verdict, parked.turn.name_heard, waited) {
++                crate::policy_holds::Gate::Wait => self.parked.push(parked),
++                crate::policy_holds::Gate::Run => {
++                    let why = match verdict {
++                        _ if parked.turn.name_heard => "its name was heard",
++                        Some(_) => "the Policy took the turn as the lamp's",
++                        None => "no decision came in time",
++                    };
++                    eprintln!(
++                        "lamp-voice provider: request {request} asked for {}; run after {} ms: {why}",
++                        parked.call.name,
++                        waited.as_millis()
++                    );
++                    let route = crate::tools::route(&self.settings, &parked.call.name);
++                    if self.waiting < lamp_gemini::MAX_TOOL_CALLS {
++                        self.run(
++                            provider,
++                            parked.lineage,
++                            parked.call,
++                            route,
++                            parked.called_us,
++                        );
++                    } else {
++                        let sent = provider
++                            .try_tool_response(
++                                parked.lineage.session,
++                                &parked.call.id,
++                                &parked.call.name,
++                                &crate::tools::unavailable(),
++                            )
++                            .is_ok();
++                        self.line(
++                            parked.lineage.session,
++                            request,
++                            &parked.call.name,
++                            parked.called_us,
++                            monotonic_us(),
++                            false,
++                            sent,
++                        );
++                    }
++                }
++                crate::policy_holds::Gate::Hold => {
++                    let sent = provider
++                        .try_tool_response(
++                            parked.lineage.session,
++                            &parked.call.id,
++                            &parked.call.name,
++                            &crate::policy_holds::held(),
++                        )
++                        .is_ok();
++                    self.quieted = Some(request);
++                    self.line(
++                        parked.lineage.session,
++                        request,
++                        &parked.call.name,
++                        parked.called_us,
++                        monotonic_us(),
++                        true,
++                        sent,
++                    );
++                    eprintln!(
++                        "lamp-voice provider: request {request} asked for {}; not done: the Policy judged the turn not for the lamp, and its name was not heard ({} ms)",
++                        parked.call.name,
++                        waited.as_millis()
++                    );
++                }
++            }
++        }
++    }
+     /// Hand back what the executive answered since the last tick. An answer
+     /// for a connection that has gone is refused by the supervisor: the
+     /// call went with it.
+@@ -2342,6 +2680,9 @@ enum ControlDrain {
+ struct RetainedInput {
+     command: ProviderInput,
+     received_at_us: u64,
++    /// Held for room in Gemini's input queue, which bounds it by
++    /// [`ROOM_WAIT_US`] instead of [`RETAINED_INPUT_US`].
++    awaiting_room: bool,
+ }
+ 
+ /// Local process intake; this never grants authority or contacts the provider.
+@@ -2385,7 +2726,13 @@ impl ProviderIntake {
+         if self.retained.as_ref().is_some_and(|retained| {
+             now_us
+                 .checked_sub(retained.received_at_us)
+-                .is_none_or(|age| age >= RETAINED_INPUT_US)
++                .is_none_or(|age| {
++                    age >= if retained.awaiting_room {
++                        ROOM_WAIT_US + RETAINED_INPUT_US
++                    } else {
++                        RETAINED_INPUT_US
++                    }
++                })
+         }) {
+             return Err(
+                 io::Error::other("provider retained input expired or clock regressed").into(),
+@@ -2520,6 +2867,7 @@ impl ProviderIntake {
+                 self.retained = Some(RetainedInput {
+                     command,
+                     received_at_us: now(),
++                    awaiting_room: false,
+                 });
+             }
+             // The parent sends Authority before its dependent input. Both can
+@@ -2536,12 +2884,28 @@ impl ProviderIntake {
+                 return Ok(control);
+             }
+             self.check_retained(now())?;
+-            let Some(retained) = self.retained.take() else {
++            let Some(mut retained) = self.retained.take() else {
+                 break;
+             };
++            // Gemini's link gives its connection up when its input queue is
++            // full, as it is for a moment when a write is slow and input
++            // comes faster than speech (a held line replayed, lampOS#892).
++            // The command waits here, first in line, and nothing more is
++            // read; past ROOM_WAIT_US it goes, and a queue still full is
++            // the link's failure as before. A retired request's End owed
++            // for want of room goes first.
++            let now_us = now();
++            if self.handoff.wait_for_room
++                && (!input.has_room() || self.handoff.owes_end())
++                && now_us.saturating_sub(retained.received_at_us) < ROOM_WAIT_US
++            {
++                retained.awaiting_room = true;
++                self.retained = Some(retained);
++                break;
++            }
+             // Empty control plus unknown owner is a protocol error, not a reason
+             // to invent an authority grace period or relabel this command.
+-            self.handoff.submit(retained.command, now(), input)?;
++            self.handoff.submit(retained.command, now_us, input)?;
+         }
+         Ok(ControlDrain::Empty)
+     }
+@@ -2576,11 +2940,18 @@ struct InputHandoff {
+     /// The newest request ended as a short sound let through
+     /// (`ProviderInput::End { sound: true }`, #800).
+     ended_as_sound: Option<u64>,
++    /// The newest request ended as a cut-in over the lamp's own answer
++    /// (`ProviderInput::End { cut_in: true }`, #926).
++    ended_cut_in: Option<u64>,
+     /// Requests the provider will not serve. Their remaining input is dropped
+     /// here, exactly like retired input, until the coordinator retires them.
+     failed_through: u64,
+     /// Report an undeliverable request instead of ending the worker.
+     tolerate_outage: bool,
++    /// Input, and a retired request's End, wait for room in the link's
++    /// queue (`--wait-for-room`); without it a full queue ends the
++    /// connection as it always has.
++    wait_for_room: bool,
+     /// The sole unreported request whose selected connection refused its Start.
+     /// Drain it before receiving another command; it is never overwritten.
+     undelivered: Option<u64>,
+@@ -2598,6 +2969,12 @@ struct SubmittedInput {
+ }
+ 
+ impl InputHandoff {
++    /// Whether `request` is no longer the lamp's: retired, given up, or
++    /// failed. A call made in it is not to be run any more (#800).
++    fn retired(&self, request: u64) -> bool {
++        request <= self.retired_through.max(self.failed_through)
++    }
++
+     fn defer_reminder(
+         &mut self,
+         request: u64,
+@@ -2691,6 +3068,13 @@ impl InputHandoff {
+             && submitted.request.get() <= self.retired_through
+         {
+             if submitted.open {
++                // The End waits for room as any input does (lampOS#892):
++                // offered to a full queue it would end a healthy connection.
++                // It stays owed, and nothing is offered before it
++                // (`owes_end`); the retirement above is already done.
++                if self.wait_for_room && !input.has_room() {
++                    return Ok(());
++                }
+                 // Enqueued before any successor Start on the same FIFO. Merely
+                 // dropping a root End that is still on the IPC socket would
+                 // leave the Gemini actor's old input open and reject the Start.
+@@ -2713,6 +3097,13 @@ impl InputHandoff {
+         Ok(())
+     }
+ 
++    /// A retired request's input is open and its End not yet queued.
++    fn owes_end(&self) -> bool {
++        self.submitted.is_some_and(|submitted| {
++            submitted.open && submitted.request.get() <= self.retired_through
++        })
++    }
++
+     /// The provider will not serve this request. Nothing further of it is
+     /// submitted, and it is never treated as open again.
+     fn fail(&mut self, request: u64) {
+@@ -2925,7 +3316,7 @@ impl InputHandoff {
+                     room.hearing(now_us);
+                 }
+             }
+-            ProviderInput::End { sound, .. } => {
++            ProviderInput::End { sound, cut_in, .. } => {
+                 self.require_open(request)?;
+                 if let Err(error) = input.end(request) {
+                     return self.refused(request, error, input);
+@@ -2941,6 +3332,9 @@ impl InputHandoff {
+                 if sound {
+                     self.ended_as_sound = Some(request.get());
+                 }
++                if cut_in {
++                    self.ended_cut_in = Some(request.get());
++                }
+                 if let Some(submitted) = self.submitted.as_mut() {
+                     submitted.open = false;
+                 }
+@@ -2960,7 +3354,21 @@ impl InputHandoff {
+                 let picture = look
+                     .then(|| LOOK_FILE.get())
+                     .flatten()
+-                    .and_then(|path| crate::sight::fresh(path, std::time::SystemTime::now()).ok())
++                    .and_then(|path| {
++                        let within = if LOOK_FULL.load(std::sync::atomic::Ordering::Relaxed) {
++                            crate::sight::FULL_FRESH
++                        } else {
++                            std::time::Duration::from_secs(1)
++                        };
++                        crate::sight::fresh_within(path, std::time::SystemTime::now(), within)
++                            .inspect_err(|why| {
++                                eprintln!(
++                                    "lamp-voice provider: the lamp looked: no picture with request {}: {why}",
++                                    request.get()
++                                )
++                            })
++                            .ok()
++                    })
+                     .map(|(jpeg, _)| jpeg);
+                 let text = if look && picture.is_none() {
+                     crate::speak_up::NO_LOOK_NOTE
+@@ -3043,6 +3451,11 @@ trait InputSink {
+     fn belongs_to_replaced_connection(&self, _request: RequestId) -> bool {
+         false
+     }
++    /// Whether the next command offered can be queued without ending the
++    /// connection for want of room.
++    fn has_room(&self) -> bool {
++        true
++    }
+ }
+ 
+ /// What the model is told beside a request that goes on from one whose end
+@@ -3116,6 +3529,9 @@ impl<C: Connect> InputSink for Supervisor<C> {
+     fn belongs_to_replaced_connection(&self, request: RequestId) -> bool {
+         self.input_belongs_to_replaced_connection(request)
+     }
++    fn has_room(&self) -> bool {
++        self.input_has_room()
++    }
+ }
+ 
+ fn push_text(
+@@ -3864,6 +4280,7 @@ mod tests {
+             request,
+             privacy_generation: generation(handoff),
+             sound: false,
++            cut_in: false,
+         }
+     }
+ 
+@@ -4070,6 +4487,7 @@ mod tests {
+                                     request: new.turn(),
+                                     privacy_generation: state.microphone_generation(),
+                                     sound: false,
++                                    cut_in: false,
+                                 },
+                             ] {
+                                 rig.parent.data.send(command)?;
+@@ -4434,6 +4852,7 @@ mod tests {
+                 request: next.turn(),
+                 privacy_generation,
+                 sound: false,
++                cut_in: false,
+             },
+         ] {
+             parent.data.send(command).unwrap();
+@@ -5526,6 +5945,7 @@ mod tests {
+                         request,
+                         privacy_generation,
+                         sound: false,
++                        cut_in: false,
+                     })
+                     .unwrap();
+             }
+@@ -5598,6 +6018,7 @@ mod tests {
+                     request,
+                     privacy_generation: rig.snapshot.microphone_generation(),
+                     sound: false,
++                    cut_in: false,
+                 })
+                 .unwrap();
+             assert!(
+@@ -5704,6 +6125,7 @@ mod tests {
+                 request,
+                 privacy_generation: rig.snapshot.microphone_generation(),
+                 sound: false,
++                cut_in: false,
+             })
+             .unwrap();
+         assert!(
+@@ -5794,7 +6216,10 @@ mod tests {
+             attention: None,
+             name_signal: false,
+             sounds_checked: false,
++            ask_unclear: false,
+             name_in_passing_ignored: false,
++            policy_holds: None,
++            wait_for_room: false,
+         }
+     }
+ 
+@@ -5812,7 +6237,10 @@ mod tests {
+                 attention: None,
+                 name_signal: true,
+                 sounds_checked: false,
++                ask_unclear: false,
+                 name_in_passing_ignored: false,
++                policy_holds: None,
++                wait_for_room: false,
+             },
+         );
+         let mut dial = rig.ready().await;
+@@ -5855,7 +6283,10 @@ mod tests {
+                 attention: Some(busy),
+                 name_signal: false,
+                 sounds_checked: false,
++                ask_unclear: false,
+                 name_in_passing_ignored: false,
++                policy_holds: None,
++                wait_for_room: false,
+             },
+         );
+         let mut dial = rig.ready().await;
+@@ -6133,7 +6564,10 @@ mod tests {
+                 attention: Some(busy),
+                 name_signal: false,
+                 sounds_checked: false,
++                ask_unclear: false,
+                 name_in_passing_ignored: false,
++                policy_holds: None,
++                wait_for_room: false,
+             },
+         );
+         let mut dial = rig.ready().await;
+@@ -7084,6 +7518,7 @@ mod tests {
+                 request: newer.turn(),
+                 privacy_generation,
+                 sound: false,
++                cut_in: false,
+             })
+             .unwrap();
+         rig.pump(Duration::from_millis(25)).await;
+@@ -7812,6 +8247,7 @@ mod tests {
+                 request: second,
+                 privacy_generation: rig.snapshot.microphone_generation(),
+                 sound: false,
++                cut_in: false,
+             })
+             .unwrap();
+         rig.pump(Duration::from_millis(40)).await;
+@@ -8196,6 +8632,7 @@ mod tests {
+                 request: new,
+                 privacy_generation: rig.snapshot.microphone_generation(),
+                 sound: false,
++                cut_in: false,
+             })
+             .unwrap();
+         // The scripted service confirms the interruption and answers. Packets
+@@ -8487,6 +8924,296 @@ mod tests {
+         assert!(!rig.worker.is_finished());
+     }
+ 
++    /// lampOS#892, the reviewer's proof: input faster than speech (a held
++    /// line replayed, two blocks every 2 ms) meets a write that stalls for
++    /// 90 ms, within the link's 200 ms write bound. Gemini's input queue
++    /// fills; the worker waits for room instead of offering what would end
++    /// the connection, so every block arrives in order and nothing is lost.
++    #[tokio::test]
++    async fn a_short_stall_under_fast_input_waits_for_room_and_loses_nothing() {
++        const BLOCKS: u64 = 190;
++        let mut rig = LiveRig::start_capacity(
++            RecoveryPolicy {
++                outage_budget: Duration::from_secs(5),
++                require_context: false,
++                ..quick_policy()
++            },
++            Options {
++                wait_for_room: true,
++                ..Options::reporting(Reporting::Typed)
++            },
++            BARRIER,
++            false,
++            Continuation::Off,
++            2_048,
++        );
++        let mut dial = rig.ready().await;
++        let request = rig.speak(&mut dial, false, false).await;
++        let privacy_generation = rig.snapshot.microphone_generation();
++        // The service reads nothing for 90 ms, then everything it is sent.
++        let mut service = dial.service;
++        let reader = tokio::spawn(async move {
++            tokio::time::sleep(Duration::from_millis(90)).await;
++            let mut sequence = Vec::new();
++            while (sequence.len() as u64) < BLOCKS - 1 {
++                let Some(message) = service.try_receive(Duration::from_secs(1)).await else {
++                    break;
++                };
++                if message["realtimeInput"].get("audio").is_some() {
++                    sequence.push(message);
++                }
++            }
++            (sequence.len() as u64, service)
++        });
++        let mut pending: VecDeque<ProviderInput> = VecDeque::new();
++        let mut next = 2;
++        let deadline = Instant::now() + Duration::from_secs(3);
++        while next <= BLOCKS || !pending.is_empty() {
++            assert!(Instant::now() < deadline, "the input was never all taken");
++            rig.publish();
++            for _ in 0..2 {
++                if next <= BLOCKS {
++                    pending.push_back(ProviderInput::Audio {
++                        request,
++                        privacy_generation,
++                        sequence: next,
++                        read_completed_at_us: monotonic_us(),
++                        samples: vec![3; 160],
++                    });
++                    next += 1;
++                }
++            }
++            while let Some(command) = pending.front() {
++                match rig.parent.data.send(command) {
++                    Ok(()) => {
++                        pending.pop_front();
++                    }
++                    Err(error) if error.kind() == io::ErrorKind::WouldBlock => break,
++                    Err(error) => panic!("provider input: {error}"),
++                }
++            }
++            while let Some(wire) = rig.take() {
++                assert!(
++                    !matches!(wire, Wire::Status(ProviderStatus::TurnFailed { .. })),
++                    "the request was lost to a short stall: {wire:?}"
++                );
++            }
++            assert!(
++                !rig.worker.is_finished(),
++                "the worker ended on a short stall"
++            );
++            tokio::time::sleep(Duration::from_millis(2)).await;
++        }
++        // Held open, so the connection outlives the check.
++        let (received, _service) = reader.await.unwrap();
++        assert_eq!(received, BLOCKS - 1);
++        rig.pump(Duration::from_millis(200)).await;
++        while let Some(wire) = rig.take() {
++            assert!(
++                !matches!(
++                    wire,
++                    Wire::Status(
++                        ProviderStatus::TurnFailed { .. } | ProviderStatus::Unavailable { .. }
++                    )
++                ),
++                "the link was given up for a short stall: {wire:?}"
++            );
++        }
++        assert!(!rig.worker.is_finished());
++    }
++
++    /// The reviewer's second proof on lampOS#892: the request is cancelled
++    /// while the queue is full in the same stall. Its End (which writes
++    /// nothing: a cancelled activity is left for the next to continue) waits
++    /// for room as its audio did, goes before anything of the next request,
++    /// and the same connection serves the next request.
++    #[tokio::test]
++    async fn a_cancellation_in_a_short_stall_waits_for_room_and_keeps_the_link() {
++        let mut rig = LiveRig::start_capacity(
++            RecoveryPolicy {
++                outage_budget: Duration::from_secs(5),
++                require_context: false,
++                ..quick_policy()
++            },
++            Options {
++                wait_for_room: true,
++                ..Options::reporting(Reporting::Typed)
++            },
++            BARRIER,
++            false,
++            Continuation::Off,
++            2_048,
++        );
++        let mut dial = rig.ready().await;
++        let request = rig.speak(&mut dial, false, false).await;
++        let privacy_generation = rig.snapshot.microphone_generation();
++        // The service reads nothing for 90 ms, then what it is sent.
++        let mut service = dial.service;
++        let reader = tokio::spawn(async move {
++            tokio::time::sleep(Duration::from_millis(90)).await;
++            let mut blocks = 0;
++            while let Some(message) = service.try_receive(Duration::from_millis(300)).await {
++                if message["realtimeInput"].get("audio").is_some() {
++                    blocks += 1;
++                }
++            }
++            (blocks, service)
++        });
++        // Two blocks every 2 ms, by the clock, for 60 ms fill the queue;
++        // then it is cancelled.
++        let started = Instant::now();
++        let mut sequence = 1;
++        while started.elapsed() < Duration::from_millis(60) {
++            rig.publish();
++            while sequence < 1 + started.elapsed().as_millis() as u64 {
++                sequence += 1;
++                // A full socket keeps the rest at the source, as the coordinator does.
++                let _ = rig.parent.data.send(ProviderInput::Audio {
++                    request,
++                    privacy_generation,
++                    sequence,
++                    read_completed_at_us: monotonic_us(),
++                    samples: vec![3; 160],
++                });
++            }
++            tokio::time::sleep(Duration::from_millis(1)).await;
++        }
++        rig.owner
++            .cancel_turn(real_time(), rig.snapshot.owner().unwrap())
++            .unwrap();
++        let deadline = Instant::now() + Duration::from_millis(400);
++        while Instant::now() < deadline {
++            rig.publish();
++            while let Some(wire) = rig.take() {
++                assert!(
++                    !matches!(wire, Wire::Status(ProviderStatus::Unavailable { .. })),
++                    "the link was given up for a cancellation in a short stall: {wire:?}"
++                );
++            }
++            assert!(
++                !rig.worker.is_finished(),
++                "the worker ended on a cancellation in a short stall"
++            );
++            tokio::time::sleep(Duration::from_millis(2)).await;
++        }
++        let (blocks, service) = reader.await.unwrap();
++        assert!(blocks > 0);
++        // The same connection serves the next request, which continues the
++        // activity the cancelled one left open, through to its end.
++        dial.service = service;
++        let owner = rig
++            .owner
++            .admit(real_time(), AdmittedInput::NewTurn)
++            .unwrap();
++        let next = owner.turn();
++        assert!(next > request);
++        rig.publish();
++        let privacy_generation = rig.snapshot.microphone_generation();
++        for command in [
++            ProviderInput::Start {
++                session: dial.session.get(),
++                request: next,
++                privacy_generation,
++                continues: false,
++                continues_cut_off: false,
++            },
++            ProviderInput::Audio {
++                request: next,
++                privacy_generation,
++                sequence: 1,
++                read_completed_at_us: monotonic_us(),
++                samples: vec![3; 160],
++            },
++        ] {
++            rig.parent.data.send(&command).unwrap();
++        }
++        assert!(matches!(
++            rig.output().await,
++            ProviderOutput::Started { request: started, .. } if started == next
++        ));
++        rig.owner.input_ended(real_time(), owner).unwrap();
++        rig.publish();
++        rig.parent
++            .data
++            .send(&ProviderInput::End {
++                request: next,
++                privacy_generation,
++                sound: false,
++                cut_in: false,
++            })
++            .unwrap();
++        loop {
++            let message = rig.service_message(&mut dial).await;
++            if message["realtimeInput"].get("activityEnd").is_some() {
++                break;
++            }
++        }
++        assert!(rig.dials.try_recv().is_err(), "a new connection was made");
++        assert!(!rig.worker.is_finished());
++    }
++
++    /// Off unless set: without `--wait-for-room` (no second route) the same
++    /// fast input through the same short stall overruns the queue and ends
++    /// the connection, reported as the request lost, exactly as before.
++    #[tokio::test]
++    async fn without_the_flag_a_full_queue_still_ends_the_connection_as_before() {
++        let mut rig = LiveRig::start_capacity(
++            RecoveryPolicy {
++                outage_budget: Duration::from_secs(5),
++                require_context: false,
++                ..quick_policy()
++            },
++            Options::reporting(Reporting::Typed),
++            BARRIER,
++            false,
++            Continuation::Off,
++            2_048,
++        );
++        let mut dial = rig.ready().await;
++        let request = rig.speak(&mut dial, false, false).await;
++        let privacy_generation = rig.snapshot.microphone_generation();
++        // Read nothing for the whole test: the stall outlasts the input.
++        let _service = dial.service;
++        let started = Instant::now();
++        let mut sequence = 1;
++        let mut lost = None;
++        while lost.is_none() && started.elapsed() < Duration::from_millis(90) {
++            rig.publish();
++            while sequence < 1 + started.elapsed().as_millis() as u64 {
++                sequence += 1;
++                let _ = rig.parent.data.send(ProviderInput::Audio {
++                    request,
++                    privacy_generation,
++                    sequence,
++                    read_completed_at_us: monotonic_us(),
++                    samples: vec![3; 160],
++                });
++            }
++            while let Some(wire) = rig.take() {
++                if let Wire::Status(ProviderStatus::TurnFailed { reason, .. }) = wire {
++                    lost = Some(reason);
++                }
++            }
++            tokio::time::sleep(Duration::from_millis(1)).await;
++        }
++        assert_eq!(lost, Some(Fault::Local));
++    }
++
++    #[test]
++    fn wait_for_room_is_taken_after_keep_link_and_only_when_given() {
++        let flags = [
++            KEEP_LINK_FLAG.to_owned(),
++            WAIT_FOR_ROOM_FLAG.to_owned(),
++            "rest".to_owned(),
++        ];
++        let (kept, rest) = take_keep_link(&flags);
++        assert!(kept);
++        let (wait, rest) = take_wait_for_room(rest);
++        assert!(wait);
++        assert_eq!(rest, ["rest"]);
++        assert!(!take_wait_for_room(rest).0);
++    }
++
+     #[tokio::test]
+     async fn typed_reporting_fails_a_question_admitted_during_an_outage_once_and_never_sends_it() {
+         let mut rig = LiveRig::start_with(
+@@ -8546,6 +9273,7 @@ mod tests {
+                 request,
+                 privacy_generation,
+                 sound: false,
++                cut_in: false,
+             })
+             .unwrap();
+         // The connection comes back while that question is still the owner.
+@@ -8587,6 +9315,7 @@ mod tests {
+                 request: resumed,
+                 privacy_generation: rig.snapshot.microphone_generation(),
+                 sound: false,
++                cut_in: false,
+             })
+             .unwrap();
+         // The opening audio was already delivered. Only End must wait. A
+@@ -8627,6 +9356,7 @@ mod tests {
+                     request: resumed,
+                     privacy_generation: rig.snapshot.microphone_generation(),
+                     sound: false,
++                    cut_in: false,
+                 })
+                 .unwrap();
+             if reporting == Reporting::Typed {
+@@ -8746,6 +9476,7 @@ mod tests {
+                         request,
+                         privacy_generation: self.snapshot.microphone_generation(),
+                         sound: false,
++                        cut_in: false,
+                     })
+                     .unwrap();
+             }
+@@ -8864,7 +9595,10 @@ mod tests {
+                     attention: Some(busy),
+                     name_signal: false,
+                     sounds_checked: false,
++                    ask_unclear: false,
+                     name_in_passing_ignored: false,
++                    policy_holds: None,
++                    wait_for_room: false,
+                 },
+                 BARRIER,
+                 false,
+@@ -8927,7 +9661,10 @@ mod tests {
+                     attention: Some(busy),
+                     name_signal: false,
+                     sounds_checked: false,
++                    ask_unclear: false,
+                     name_in_passing_ignored: ignored,
++                    policy_holds: None,
++                    wait_for_room: false,
+                 },
+                 BARRIER,
+                 false,
+@@ -9290,4 +10027,7 @@ mod tests {
+ 
+     /// Short sounds let through and checked (#800): tests only.
+     mod sounds;
++
++    /// The Policy holds the lamp's actions (#800): tests only.
++    mod policy_holds;
+ }

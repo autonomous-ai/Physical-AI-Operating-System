@@ -1,0 +1,8 @@
+{
+  "date_from_date": "2026-10-16 11:23:23 +0700",
+  "source": "Root message during this gate; no independent issue-status polling performed.",
+  "issue893": "Root reports administrative closure by Eighth at 11:12 on owner request, explicitly retaining six pending pilot_faults failures under #972. This is not a test or product fix and not permission to waive a failed result.",
+  "issue949": "Root reports open with Eighth stepped-fixture plan and #906 gate link.",
+  "capacity_failure_policy": "Retain any exact first full-suite failure and its current source/log evidence. Do not call it passing or infer host-load cause from unchanged source/native success or issue closure.",
+  "old_native_scope": "Old c2 run38846183455 partial4032 supplement stays separate from root current db720 normal38849194888/full38849189990 watchers."
+}

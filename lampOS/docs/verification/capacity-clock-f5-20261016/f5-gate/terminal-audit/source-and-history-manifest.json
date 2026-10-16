@@ -1,0 +1,112 @@
+{
+  "date_from_date": "2026-10-16 11:50:30 +0700",
+  "base": "f5a20ba28f3227ab06979b6e662883aede96b046",
+  "branch": "tests/823-capacity-f5",
+  "worktree": "/private/tmp/lampos-tests-capacity-f5",
+  "source_files": [
+    {
+      "path": "lampOS/crates/voice/src/provider_worker.rs",
+      "external": "/private/tmp/tests-823-capacity-f5-candidate/candidate/lampOS/crates/voice/src/provider_worker.rs",
+      "sha256": "418e5433c7c96d300ee66f0af6012622269f66cb08194344f5c3e4a7f19c3552"
+    },
+    {
+      "path": "lampOS/docs/realtime-tests.md",
+      "external": "/private/tmp/tests-823-capacity-f5-doc-correction/realtime-tests.md",
+      "sha256": "295ead149bb286a7b53cfd538de26d3c4909bc30c933ea9eb1710dd0a274a8e0"
+    }
+  ],
+  "historical_files_count": 14,
+  "paths": [
+    {
+      "path": "lampOS/crates/voice/src/provider_worker.rs",
+      "sha256": "418e5433c7c96d300ee66f0af6012622269f66cb08194344f5c3e4a7f19c3552",
+      "bytes": 420977
+    },
+    {
+      "path": "lampOS/docs/realtime-tests.md",
+      "sha256": "295ead149bb286a7b53cfd538de26d3c4909bc30c933ea9eb1710dd0a274a8e0",
+      "bytes": 42382
+    },
+    {
+      "path": "lampOS/docs/verification/capacity-clock-20261015/README.md",
+      "sha256": "f4dea0f587ef667543979444e1dff11f5ab2721d13ca1b1a33a82aef29b8890f",
+      "bytes": 5366
+    },
+    {
+      "path": "lampOS/docs/verification/capacity-clock-20261015/after.log",
+      "sha256": "16af9db031f078cb50bdc402da1d3a6fccac5dfa5eb65b7183a04e9988b70e36",
+      "bytes": 1030
+    },
+    {
+      "path": "lampOS/docs/verification/capacity-clock-20261015/before.log",
+      "sha256": "c09430b083ed81e5e929289b10da0026cd86ac39af62a66a0abfe432f1f5277a",
+      "bytes": 1023
+    },
+    {
+      "path": "lampOS/docs/verification/capacity-clock-20261015/comparison.json",
+      "sha256": "3a78b0d1733e303e162f66e9c4c13c10aaeae775c31b57dc39ed116c703d60fa",
+      "bytes": 1767
+    },
+    {
+      "path": "lampOS/docs/verification/capacity-clock-20261015/gates.json",
+      "sha256": "dba6111279f3f4543c3a6714baf6e1181bd9b54072a3dc64d8eee1e3a44c10e8",
+      "bytes": 1209
+    },
+    {
+      "path": "lampOS/docs/verification/capacity-clock-20261015/identities.tsv",
+      "sha256": "f2099b63a0f55115ca2173625b27300da918fe79da5410be0261678e56411f36",
+      "bytes": 126930
+    },
+    {
+      "path": "lampOS/docs/verification/capacity-clock-20261015/initial-build.log",
+      "sha256": "1697b8b7e0db8a43cb83c9938436336825ebec53a1621dc91eb2608160d5a9ff",
+      "bytes": 349
+    },
+    {
+      "path": "lampOS/docs/verification/capacity-clock-20261015/initial-tests.log",
+      "sha256": "711b5948d60471288339799d9c3ffeabe3cb83685e83fee3cbdc24f2710dab2d",
+      "bytes": 182144
+    },
+    {
+      "path": "lampOS/docs/verification/capacity-clock-20261015/rebase-build.log",
+      "sha256": "054bcca611b169492a1b0e678c3b954e4648f7dbe74c7a7a8c8bbacc0aed28c8",
+      "bytes": 11506
+    },
+    {
+      "path": "lampOS/docs/verification/capacity-clock-20261015/rebase-clippy.log",
+      "sha256": "65382be3e89404993c806115df64b17b2a1a510758ad0c1ec23b0d6fc4822af8",
+      "bytes": 9673
+    },
+    {
+      "path": "lampOS/docs/verification/capacity-clock-20261015/rebase-fmt.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "lampOS/docs/verification/capacity-clock-20261015/rebase-tests.log",
+      "sha256": "255d5cd13768c70b98432114e85d6783bf03fb1c7ba59ee3ca61cf6a2a53a504",
+      "bytes": 184051
+    },
+    {
+      "path": "lampOS/docs/verification/capacity-clock-20261015/source-preservation.json",
+      "sha256": "88caadfb24be9087717c3039bff8729ad15a29620550c51fad5423c3767b0258",
+      "bytes": 1167
+    },
+    {
+      "path": "lampOS/docs/verification/capacity-clock-20261015/stall-failure-audit.md",
+      "sha256": "5634f1a2c7294ac68d0e83e942b89b8ef2cfa93a93fff06d4e06df65d1e8f2d6",
+      "bytes": 5279
+    }
+  ],
+  "force_add_files_if_later_authorized": [
+    "lampOS/docs/verification/capacity-clock-20261015/after.log",
+    "lampOS/docs/verification/capacity-clock-20261015/before.log",
+    "lampOS/docs/verification/capacity-clock-20261015/initial-build.log",
+    "lampOS/docs/verification/capacity-clock-20261015/initial-tests.log",
+    "lampOS/docs/verification/capacity-clock-20261015/rebase-build.log",
+    "lampOS/docs/verification/capacity-clock-20261015/rebase-clippy.log",
+    "lampOS/docs/verification/capacity-clock-20261015/rebase-fmt.log",
+    "lampOS/docs/verification/capacity-clock-20261015/rebase-tests.log"
+  ],
+  "no_commit_push_or_pr": true
+}

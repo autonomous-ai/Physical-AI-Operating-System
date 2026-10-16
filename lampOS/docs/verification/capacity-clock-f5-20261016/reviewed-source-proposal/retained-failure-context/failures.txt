@@ -1,0 +1,32 @@
+---- days_two_known_people_and_the_room_are_never_answered_from_each_other stdout ----
+
+thread 'days_two_known_people_and_the_room_are_never_answered_from_each_other' (580896501) panicked at crates/memory/tests/voice_people.rs:251:10:
+called `Option::unwrap()` on a `None` value
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+---- coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write stdout ----
+
+thread 'coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write' (580987068) panicked at crates/voice/src/coordinator/motor/tests.rs:1193:68:
+called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- coordinator::tests::second_route::without_a_second_route_the_packets_and_records_are_as_before stdout ----
+{"seconds":null,"status":"listening_ready"}
+result Err("physical mute observed at 2638468753818 us")
+kinds ["endpoint_policy", "turn_taking_availability", "capture_started", "provider_link_current", "listening_ready", "input_candidate", "input_admitted", "ring_requested", "provider_input_started", "ring_feedback", "ring_renewals", "ring_requested", "ring_feedback", "ring_renewals", "ring_requested", "local_endpoint", "ring_requested", "provider_first_audio", "provider_audio_enqueued", "turn_taking_availability", "ring_feedback", "speaker_first_write", "speech_queue_drained", "provider_audio_enqueued", "ring_requested", "speech_queue_drained", "provider_audio_enqueued", "ring_feedback", "provider_audio_enqueued", "speech_queue_drained", "provider_audio_enqueued", "provider_turn_complete", "speech_queue_drained", "ring_renewals", "ring_requested", "speech_queue_drained", "speech_final_sample_retired", "turn_finished", "physical_mute", "ring_shutdown_write"]
+phases [Listening, Waiting, Speaking]
+installs [(None, false), (None, true), (Some(1), true), (None, true), (None, false)]
+{"seconds":null,"status":"listening_ready"}
+result Err("service privacy freshness lost before next observation")
+kinds ["endpoint_policy", "turn_taking_availability", "capture_started", "provider_link_current", "listening_ready", "input_candidate", "input_admitted", "ring_requested", "provider_input_started", "ring_feedback", "ring_renewals", "ring_requested", "turn_finished", "worker_shutdown_event", "ring_shutdown_write"]
+phases [Listening]
+installs [(None, false), (None, true), (Some(1), true), (None, false)]
+
+thread 'coordinator::tests::second_route::without_a_second_route_the_packets_and_records_are_as_before' (581061058) panicked at crates/voice/src/coordinator/tests/second_route.rs:162:9:
+result Err("service privacy freshness lost before next observation")
+kinds ["endpoint_policy", "turn_taking_availability", "capture_started", "provider_link_current", "listening_ready", "input_candidate", "input_admitted", "ring_requested", "provider_input_started", "ring_feedback", "ring_renewals", "ring_requested", "turn_finished", "worker_shutdown_event", "ring_shutdown_write"]
+phases [Listening]
+installs [(None, false), (None, true), (Some(1), true), (None, false)]
+
+

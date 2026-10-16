@@ -1,0 +1,5 @@
+cargo-nextest 0.9.148 (cd1d6d546 2026-10-07)
+release: 0.9.148
+commit-hash: cd1d6d5467322dbc0d39a80cb671d000ac302798
+commit-date: 2026-10-07
+host: x86_64-apple-darwin

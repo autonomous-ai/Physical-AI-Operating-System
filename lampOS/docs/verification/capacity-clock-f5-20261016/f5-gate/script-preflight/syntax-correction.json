@@ -1,0 +1,7 @@
+{
+  "date_from_date": "2026-10-16 11:18:46 +0700",
+  "initial_sha256": "d4f24fa29f1c8e136c6a38d6935f8c288aac0c4d706cbc26688aeba2942e45f7",
+  "corrected_sha256": "36aba492c63625893f80610e5c712bac148b9727fea94e887df7160e92851901",
+  "diagnostic": "Python syntax preflight: missing + before re.escape(EXACT) at line64. Script never executed, no source application or Cargo from this candidate script.",
+  "scope": "External orchestration only; baseline compilation is independent and unchanged."
+}

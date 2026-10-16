@@ -1,0 +1,14 @@
+{
+  "date_from_date": "2026-10-16 11:21:18 +0700",
+  "base": "f5a20ba28f3227ab06979b6e662883aede96b046",
+  "compiled_count": 2504,
+  "compiled_ignored": 13,
+  "binaries": 84,
+  "selected_once_passed": true,
+  "selected_reported_seconds": "24.108",
+  "all_source_inputs_unchanged": true,
+  "source_count": 900,
+  "no_source_edit_before_baseline": true,
+  "test_retries": 0,
+  "all_exits_zero": true
+}

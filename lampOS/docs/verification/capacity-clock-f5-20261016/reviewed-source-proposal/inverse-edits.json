@@ -1,0 +1,43 @@
+{
+  "date": "2026-10-16 11:02:51 +0700",
+  "complete_worker_restored": true,
+  "edits": [
+    {
+      "before": "    // Real time: the IPC and authority clocks cannot be paused. The harness\n    // plays the coordinator exactly as `provider-flow-control.md` specifies:\n",
+      "after": "    // Fixture time drives modeled playback and the scripted service; IPC and\n    // authority freshness stay on the host clock. The harness plays the\n    // coordinator exactly as `provider-flow-control.md` specifies:\n"
+    },
+    {
+      "before": "    /// Playback advances by measured time only: time spent held or with\n",
+      "after": "    /// Playback advances by fixture time only: time spent held or with\n"
+    },
+    {
+      "before": "        at: Option<Instant>,\n",
+      "after": "        at: Option<tokio::time::Instant>,\n"
+    },
+    {
+      "before": "            self.at.get_or_insert_with(Instant::now);\n",
+      "after": "            self.at.get_or_insert_with(tokio::time::Instant::now);\n"
+    },
+    {
+      "before": "                let now = Instant::now();\n",
+      "after": "                let now = tokio::time::Instant::now();\n"
+    },
+    {
+      "before": "            let started = Instant::now();\n",
+      "after": "            let started = tokio::time::Instant::now();\n"
+    },
+    {
+      "before": "            let started = Instant::now();\n",
+      "after": "            let started = tokio::time::Instant::now();\n"
+    },
+    {
+      "before": "            \"MEASURED speaking_speed seconds={seconds} reply_buffer_s={:.1} hold_ms={} playback_finished_ms={} completion_received_ms={} starved_ms={} service_wrote_in_ms={} packets={} peak_backlog_s={:.2} (scripted service through output capacity to a local IPC reader and a modeled speaker, host)\",\n",
+      "after": "            \"FIXTURE speaking_speed seconds={seconds} reply_buffer_s={:.1} hold_ms={} playback_finished_ms={} completion_received_ms={} starved_ms={} service_wrote_in_ms={} packets={} peak_backlog_s={:.2} (scripted service through output capacity to a local IPC reader and a modeled speaker, fixture clock)\",\n"
+    },
+    {
+      "before": "    #[tokio::test]\n",
+      "after": "    #[tokio::test(flavor = \"current_thread\", start_paused = true)]\n"
+    }
+  ],
+  "doc_inverse": "remove exact appended capacity-doc-append.md; original prefix stays exact"
+}

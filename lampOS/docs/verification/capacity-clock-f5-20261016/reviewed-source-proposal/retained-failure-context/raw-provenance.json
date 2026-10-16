@@ -1,0 +1,17 @@
+{
+  "date": "2026-10-16 11:02:54 +0700",
+  "log": {
+    "path": "/private/tmp/tests-823-capacity-current-e5aa-gate/tests.log",
+    "sha256": "b31a29204c4ce51016f6a2b014bb04a7308bca8712f557114c6971f7f9e01fd8",
+    "bytes": 252550,
+    "published": "https://github.com/autonomous-ai/lampOS/blob/b65454e57bb30fb4a8dd57fe53528d2b3aecc5e2/lampOS/docs/verification/capacity-current-failed-gate-20261016/gate/tests.log"
+  },
+  "counts": [
+    2385,
+    3,
+    13
+  ],
+  "original_capacity_case_passed": true,
+  "reminder935_not_a_failure_in_this_gate": true,
+  "source_status_not_current_issue_state": "Cached issue records retain capture-time status only."
+}

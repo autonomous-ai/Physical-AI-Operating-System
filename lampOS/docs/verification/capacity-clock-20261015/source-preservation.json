@@ -1,0 +1,34 @@
+{
+  "head": "71a15e75de4345afb6c1937e15ff5a223c7bfb53",
+  "paired_baseline": "37b8be9ea36042a4d40dbf5bf82c81a8f87f6098",
+  "captured_baseline_equals_git": true,
+  "captured_baseline_sha256": "b3a928e12fefdd2949dae09416cc4b273c2936aed59d3c1a06ba9ff92882a3a2",
+  "reverse_edit_counts": [
+    1,
+    1,
+    1,
+    1,
+    1,
+    2,
+    1,
+    1,
+    1
+  ],
+  "reversing_only_fixture_edits_restores_entire_head": true,
+  "current_source_sha256": "288030b8934be3e1c80a74afc4d4686bf01e299781e4f58904067d225328ed56",
+  "paired_to_current_capacity_region_upstream_diff": "--- \n+++ \n@@ -347,6 +347,7 @@\n                 request: new,\n                 privacy_generation,\n                 continues: false,\n+                continues_cut_off: false,\n             })\n             .unwrap();\n         rig.parent",
+  "capacity_region_assertion_lines_equal_to_paired": true,
+  "before_list_keys": [
+    "rust-build-meta",
+    "test-count",
+    "rust-suites"
+  ],
+  "before_identity_count": 1105,
+  "after_list_keys": [
+    "rust-build-meta",
+    "test-count",
+    "rust-suites"
+  ],
+  "after_identity_count": 1105,
+  "paired_compiled_identities_ignore_flags_equal": true
+}

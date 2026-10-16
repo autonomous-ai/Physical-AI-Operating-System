@@ -1,0 +1,18 @@
+{
+  "date_from_date": "2026-10-16 11:13:09 +0700",
+  "base": "f5a20ba28f3227ab06979b6e662883aede96b046",
+  "only_new_document_append_changed": true,
+  "reviewed_external_package_unchanged": true,
+  "original_doc_sha256": "b6343dfdfec61c3a01d715f803c21231e8c9d1b660bd867709f3c2283950e0b2",
+  "clarified_doc_sha256": "295ead149bb286a7b53cfd538de26d3c4909bc30c933ea9eb1710dd0a274a8e0",
+  "before_append_sha256": "db4c516b5fe825e47095fc72ac474cb741bf2c8d16ba85822d90c95498348efb",
+  "after_append_sha256": "96a68a84655c98572b09cda63fcd3fc35551198ed9ede818974e0f50670d77ca",
+  "worker_sha256_unchanged": "418e5433c7c96d300ee66f0af6012622269f66cb08194344f5c3e4a7f19c3552",
+  "history_source": {
+    "path": "/private/tmp/lampos-tests-capacity-current/lampOS/docs/verification/capacity-clock-20261015/comparison.json",
+    "sha256": "3a78b0d1733e303e162f66e9c4c13c10aaeae775c31b57dc39ed116c703d60fa",
+    "initial_base": "37b8be9ea36042a4d40dbf5bf82c81a8f87f6098"
+  },
+  "inverse_to_base": "Remove exact clarified append; remainder is original f5 document.",
+  "no_worktree_or_test_actions": true
+}

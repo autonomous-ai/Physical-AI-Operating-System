@@ -1,0 +1,100 @@
+{
+  "date_from_date": "2026-10-16 11:50:30 +0700",
+  "base": "f5a20ba28f3227ab06979b6e662883aede96b046",
+  "compiled_identities": 2504,
+  "compiled_ignored": 13,
+  "compiled_binary_count": 84,
+  "runtime_once": 2491,
+  "runtime_outcomes": {
+    "PASS": 2491
+  },
+  "exact_complete_identity_execution": true,
+  "no_retry_markers": true,
+  "first_failures": [],
+  "full_capacity_result": {
+    "status": "PASS",
+    "seconds": "2.063",
+    "ordinal": 1333,
+    "total": 2491,
+    "binary": "lamp-voice",
+    "test": "provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity"
+  },
+  "before_after": {
+    "date_from_date": "2026-10-16 11:26:30 +0700",
+    "base": "f5a20ba28f3227ab06979b6e662883aede96b046",
+    "binary": "lamp-voice",
+    "test": "provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity",
+    "host": "x86_64-apple-darwin",
+    "profile": "debug/default dev",
+    "test_profile": "default",
+    "same_four_package_selection": true,
+    "same_target_and_toolchain": true,
+    "before_reported_seconds": "24.108",
+    "after_reported_seconds": "2.074",
+    "retries": 0,
+    "each_selected_command_once": true,
+    "shared_host_load_not_controlled": true,
+    "native_and_device_measurement": false,
+    "before_log_sha256": "115c81a10269f9bfda76be6a7055aea0ec4625ee47a050d980757ed28168f019",
+    "after_log_sha256": "e09e573ce27e0005a1dcb880128db2cf89e4afd4c8a54b07ef9ee559a284e70f"
+  },
+  "stdout_boundaries": [
+    {
+      "phase": "before",
+      "line": "MEASURED speaking_speed seconds=20 reply_buffer_s=5.0 hold_ms=4002 playback_finished_ms=24029 completion_received_ms=20006 starved_ms=1 service_wrote_in_ms=4316 packets=500 peak_backlog_s=5.00 (scripted service through output capacity to a local IPC reader and a modeled speaker, host)",
+      "log_sha256": "115c81a10269f9bfda76be6a7055aea0ec4625ee47a050d980757ed28168f019"
+    },
+    {
+      "phase": "after",
+      "line": "FIXTURE speaking_speed seconds=20 reply_buffer_s=5.0 hold_ms=4000 playback_finished_ms=24004 completion_received_ms=20004 starved_ms=0 service_wrote_in_ms=4200 packets=500 peak_backlog_s=5.00 (scripted service through output capacity to a local IPC reader and a modeled speaker, fixture clock)",
+      "log_sha256": "e09e573ce27e0005a1dcb880128db2cf89e4afd4c8a54b07ef9ee559a284e70f"
+    }
+  ],
+  "source_inputs914_exact": true,
+  "entire_tracked_lampos4343_exact_before_tests_to_terminal": true,
+  "old_dirty_tree997_inputs_and_status_exact": true,
+  "independent_build_exit": 0,
+  "independent_docs_exit": 0,
+  "docs_results": [
+    {
+      "target": "lamp_memory",
+      "start_line": 2,
+      "status": "ok",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "result_line": 6
+    },
+    {
+      "target": "lamp_surround",
+      "start_line": 8,
+      "status": "ok",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "result_line": 12
+    },
+    {
+      "target": "lamp_voice",
+      "start_line": 14,
+      "status": "ok",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "result_line": 18
+    },
+    {
+      "target": "lamp_voice_eval",
+      "start_line": 20,
+      "status": "ok",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "result_line": 24
+    }
+  ],
+  "overall_gate_pass": true,
+  "native_pending": true,
+  "timing_scope": "Two once-only local Mac debug selected processes, same arguments/toolchain/target, shared host load uncontrolled; full-suite case is a separately planned qualification, not a failed-test retry.",
+  "known_issue_policy": "Administrative closure or native results do not waive an observed local failure. Distinct failure identities/symptoms remain separate."
+}

@@ -1,0 +1,19 @@
+{
+  "date_from_date": "2026-10-16 11:21:42 +0700",
+  "binary": "lamp-voice",
+  "path": "/private/tmp/tests-823-memory-application-target/debug/deps/lamp_voice-802c5253738c2c8c",
+  "sha256": "fb690e285ea21338da257d94e35b0e0c321716a92dafccaa40e018d1c31aa9cb",
+  "bytes": 66416456,
+  "compiled_suite_metadata": {
+    "package-name": "lamp-voice",
+    "binary-id": "lamp-voice",
+    "binary-name": "lamp_voice",
+    "package-id": "path+file:///private/tmp/lampos-tests-capacity-f5/lampOS/crates/voice#lamp-voice@0.1.0",
+    "kind": "lib",
+    "binary-path": "/private/tmp/tests-823-memory-application-target/debug/deps/lamp_voice-802c5253738c2c8c",
+    "build-platform": "target",
+    "cwd": "/private/tmp/lampos-tests-capacity-f5/lampOS/crates/voice",
+    "status": "listed"
+  },
+  "captured_before_candidate_source_application": true
+}

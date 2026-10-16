@@ -1,0 +1,7 @@
+{
+  "date_recorded_from_date": "2026-10-16 11:51:58 +0700",
+  "script_sha256": "ad0c5cb6b9b57f1df1eaf57b467405ded94a99c17eea0e18e6c6990b623ca88f",
+  "audit_exit": 1,
+  "failure": "Audit incorrectly expected measured baseline hold_ms=4000; host baseline measured 4002 ms, candidate fixture measured 4000 ms. Configured hold remains 4000 ms in the byte-identical original test body.",
+  "tests_or_source_rerun_or_changed": false
+}

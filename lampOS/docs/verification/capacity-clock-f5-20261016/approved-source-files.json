@@ -1,0 +1,43 @@
+{
+  "date_from_date": "2026-10-16 11:13:09 +0700",
+  "base": "f5a20ba28f3227ab06979b6e662883aede96b046",
+  "source_files": [
+    {
+      "path": "lampOS/crates/voice/src/provider_worker.rs",
+      "external": "/private/tmp/tests-823-capacity-f5-candidate/candidate/lampOS/crates/voice/src/provider_worker.rs",
+      "sha256": "418e5433c7c96d300ee66f0af6012622269f66cb08194344f5c3e4a7f19c3552"
+    },
+    {
+      "path": "lampOS/docs/realtime-tests.md",
+      "external": "/private/tmp/tests-823-capacity-f5-doc-correction/realtime-tests.md",
+      "sha256": "295ead149bb286a7b53cfd538de26d3c4909bc30c933ea9eb1710dd0a274a8e0"
+    }
+  ],
+  "receipt": "/private/tmp/tests-823-capacity-f5-doc-correction/receipt.json",
+  "correction_files": [
+    {
+      "path": "/private/tmp/tests-823-capacity-f5-doc-correction/SHA256SUMS",
+      "sha256": "f9d1d8476729500b817efb41552fe6ffeb4de81e3f14c2f08df6510bb855c6da"
+    },
+    {
+      "path": "/private/tmp/tests-823-capacity-f5-doc-correction/capacity-doc-append.after.md",
+      "sha256": "96a68a84655c98572b09cda63fcd3fc35551198ed9ede818974e0f50670d77ca"
+    },
+    {
+      "path": "/private/tmp/tests-823-capacity-f5-doc-correction/capacity-doc-append.before.md",
+      "sha256": "db4c516b5fe825e47095fc72ac474cb741bf2c8d16ba85822d90c95498348efb"
+    },
+    {
+      "path": "/private/tmp/tests-823-capacity-f5-doc-correction/historical-wording.diff",
+      "sha256": "b8f6b2e0253bd43a49e81ac5f2f0a57101c49c00fc82fa8951b0bd961cc1cc6d"
+    },
+    {
+      "path": "/private/tmp/tests-823-capacity-f5-doc-correction/realtime-tests.md",
+      "sha256": "295ead149bb286a7b53cfd538de26d3c4909bc30c933ea9eb1710dd0a274a8e0"
+    },
+    {
+      "path": "/private/tmp/tests-823-capacity-f5-doc-correction/receipt.json",
+      "sha256": "21c1168155a4ce4d0da2f75916a1ccc65ab9c2ffdb7116795510183b5b67f0fb"
+    }
+  ]
+}

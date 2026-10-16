@@ -1,0 +1,8 @@
+{
+  "date_recorded_from_date": "2026-10-16 11:51:42 +0700",
+  "first_script_sha256": "2b158994b53ce37f9c11c2181c9ce8f1c16932d168d8ec5caba9815b313c2646",
+  "first_audit_exit": 1,
+  "failure": "Inverse proof incorrectly expected each replacement text to occur once; two recorded edits share the started = tokio::time::Instant::now line.",
+  "correction": "Validate aggregate multiplicity from the nine recorded inverse edits, then require whole-file byte equality to f5.",
+  "tests_or_source_rerun_or_changed": false
+}

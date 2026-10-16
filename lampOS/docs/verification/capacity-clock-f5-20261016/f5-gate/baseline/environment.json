@@ -1,0 +1,28 @@
+{
+  "date_from_date": "2026-10-16 11:16:10 +0700",
+  "target": "/private/tmp/tests-823-memory-application-target",
+  "toolchain": "1.96.0",
+  "build_profile": "debug/default dev",
+  "packages": [
+    "lamp-memory",
+    "lamp-voice",
+    "lamp-voice-eval",
+    "lamp-surround"
+  ],
+  "settings": {
+    "RUSTUP_TOOLCHAIN": "1.96.0",
+    "CARGO_BUILD_JOBS": "2",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_TARGET_DIR": "/private/tmp/tests-823-memory-application-target",
+    "CARGO_NET_OFFLINE": "true"
+  },
+  "selected_identity": {
+    "binary": "lamp-voice",
+    "test": "provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity"
+  },
+  "selector": "binary_id(lamp-voice) & test(=provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity)",
+  "retries": 0,
+  "shared_host_load_not_controlled": true,
+  "target_exclusively_released_by_root": true,
+  "no_target_copy_or_clean": true
+}

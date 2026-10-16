@@ -1,0 +1,9 @@
+{
+  "date_from_date": "2026-10-16 11:51:26 +0700",
+  "session": 38012,
+  "session_terminal_exit": 0,
+  "target": "/private/tmp/tests-823-memory-application-target",
+  "released": true,
+  "baseline_and_candidate_binary_hashes_retained": true,
+  "no_further_target_access_needed": true
+}

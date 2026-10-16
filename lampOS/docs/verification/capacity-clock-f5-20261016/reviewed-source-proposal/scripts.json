@@ -1,0 +1,16 @@
+{
+  "date": "2026-10-16 11:05:31 +0700",
+  "scripts": [
+    {
+      "path": "/private/tmp/tests-823-prepare-capacity-f5.py",
+      "sha256": "085779d1cb582f8d069ab8c46c067354c44a69c10033137812e7618d525306fb",
+      "description": "Read immutable source, construct external candidate, preserve dirty-tree hashes, exact inverse/assertion/dependency proof."
+    },
+    {
+      "path": "/private/tmp/tests-823-finalize-capacity-f5.py",
+      "sha256": "224d7d669d63b1b2946223fa663d3830d436550e83fefaedc92abab93630a39b",
+      "description": "Read-only original-body/value/upstream comparison and external review metadata."
+    }
+  ],
+  "not_repository_payload": true
+}

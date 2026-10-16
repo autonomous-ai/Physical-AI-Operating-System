@@ -1,0 +1,25 @@
+{
+  "name": "baseline-list",
+  "command": [
+    "cargo",
+    "nextest",
+    "list",
+    "--locked",
+    "--offline",
+    "-p",
+    "lamp-memory",
+    "-p",
+    "lamp-voice",
+    "-p",
+    "lamp-voice-eval",
+    "-p",
+    "lamp-surround",
+    "--message-format",
+    "json"
+  ],
+  "cwd": "/private/tmp/lampos-tests-scenario-moments-current/lampOS",
+  "target": "/private/tmp/tests-823-slow-progress-target",
+  "start_from_date": "2026-10-16 07:12:51 +0700",
+  "finish_from_date": "2026-10-16 07:16:44 +0700",
+  "exit_code": 0
+}

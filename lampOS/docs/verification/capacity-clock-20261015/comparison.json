@@ -1,0 +1,33 @@
+{
+  "source_before": "37b8be9ea36042a4d40dbf5bf82c81a8f87f6098",
+  "host": "x86_64-apple-darwin",
+  "profile": "release",
+  "exact_test": "provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity",
+  "all_voice_library_identities_equal": true,
+  "voice_library_identity_count": 1105,
+  "identities_sha256": "f2099b63a0f55115ca2173625b27300da918fe79da5410be0261678e56411f36",
+  "all_original_assertions_and_test_bodies_unchanged": true,
+  "source_sha256": "e87b696e2202e63b7d143466e1be6b4dbfac3add9a30ade35dff8d496c2704f4",
+  "retries": 0,
+  "before": {
+    "test_seconds": 24.049,
+    "nextest_execution_seconds": 24.054,
+    "command_started": "2026-10-15 19:42:30 +0700",
+    "command_finished": "2026-10-15 19:42:55 +0700",
+    "date_delimited_command_seconds": 25.0,
+    "passed": 1,
+    "selected_filtered_out": 1104,
+    "fixture_report": "seconds=20 reply_buffer_s=5.0 hold_ms=4002 playback_finished_ms=24011 completion_received_ms=20005 starved_ms=2 service_wrote_in_ms=4209 packets=500 peak_backlog_s=5.00 (scripted service through output capacity to a local IPC reader and a modeled speaker, host)"
+  },
+  "after": {
+    "test_seconds": 0.516,
+    "nextest_execution_seconds": 0.532,
+    "command_started": "2026-10-15 19:49:18 +0700",
+    "command_finished": "2026-10-15 19:49:20 +0700",
+    "date_delimited_command_seconds": 2.0,
+    "passed": 1,
+    "selected_filtered_out": 1104,
+    "fixture_report": "seconds=20 reply_buffer_s=5.0 hold_ms=4000 playback_finished_ms=24004 completion_received_ms=20004 starved_ms=0 service_wrote_in_ms=4200 packets=500 peak_backlog_s=5.00 (scripted service through output capacity to a local IPC reader and a modeled speaker, fixture clock)"
+  },
+  "test_seconds_saved": 23.533
+}

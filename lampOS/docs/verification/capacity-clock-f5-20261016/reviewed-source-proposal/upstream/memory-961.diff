@@ -1,0 +1,127 @@
+diff --git a/lampOS/crates/memory/tests/voice.rs b/lampOS/crates/memory/tests/voice.rs
+index e81fc97eb..3ab5008d6 100644
+--- a/lampOS/crates/memory/tests/voice.rs
++++ b/lampOS/crates/memory/tests/voice.rs
+@@ -24,6 +24,10 @@ use std::{
+ };
+ 
+ const DAY: u64 = 86_400_000;
++/// A session's deadline where a test checks what is opened, not how fast:
++/// each open commits with a full fsync, which a loaded disk can take past
++/// the voice's 300 ms (#948). The held-store test keeps the voice's own.
++const SESSION: Duration = Duration::from_secs(10);
+ static NEXT: AtomicU64 = AtomicU64::new(0);
+ 
+ struct Traced {
+@@ -138,6 +142,13 @@ impl Drop for Fixture {
+     }
+ }
+ 
++/// The room's snapshot for `session`, within [`SESSION`].
++fn opened(client: &DaysClient, session: u64) -> Option<Value> {
++    client
++        .open_session_within(session, SESSION, None)
++        .map(|(room, _)| room)
++}
++
+ fn call(name: &str, args: Value) -> ToolCall {
+     ToolCall {
+         id: "voice-memory-test".into(),
+@@ -224,7 +235,7 @@ fn a_voice_session_receives_a_frozen_note_with_provenance_then_a_new_snapshot()
+         None,
+     );
+     let client = fixture.client();
+-    let first = client.open_session(1, Duration::from_millis(300)).unwrap();
++    let first = opened(&client, 1).unwrap();
+     assert_eq!(first["source_ids"], json!([1]));
+     assert!(first["note"].as_str().unwrap().contains("coffee black"));
+     assert_eq!(first["invalidated"], false);
+@@ -233,19 +244,13 @@ fn a_voice_session_receives_a_frozen_note_with_provenance_then_a_new_snapshot()
+         Duration::from_millis(1500),
+     );
+     assert!(ok && told["remembered"] == true);
+-    assert_eq!(
+-        client.open_session(1, Duration::from_millis(300)).unwrap(),
+-        first
+-    );
+-    let second = client.open_session(2, Duration::from_millis(300)).unwrap();
++    assert_eq!(opened(&client, 1).unwrap(), first);
++    let second = opened(&client, 2).unwrap();
+     assert_ne!(first["session"], second["session"]);
+     assert!(second["note"].as_str().unwrap().contains("tea plain"));
+     fixture.next("session_close");
+     assert_eq!(fixture.count("sessions"), 1);
+-    let another = fixture
+-        .client()
+-        .open_session(1, Duration::from_millis(300))
+-        .unwrap();
++    let another = opened(&fixture.client(), 1).unwrap();
+     assert_ne!(
+         another["session"], first["session"],
+         "process-local client nonce prevents ID reuse"
+@@ -353,7 +358,7 @@ fn a_held_real_store_costs_only_the_note_and_call_deadlines_and_cleans_a_late_no
+     fixture.next("session_open");
+     fixture.next("session_close");
+     assert_eq!(fixture.count("sessions"), 0);
+-    assert!(client.open_session(2, Duration::from_millis(300)).is_some());
++    assert!(opened(&client, 2).is_some());
+ }
+ 
+ #[test]
+@@ -431,7 +436,7 @@ fn deletion_invalidates_a_frozen_note_and_linked_writes_never_fall_back_to_plain
+         None,
+     );
+     let client = fixture.client();
+-    assert!(client.open_session(1, Duration::from_millis(300)).is_some());
++    assert!(opened(&client, 1).is_some());
+     let deleted = lamp_voice::tools::exchange(
+         &fixture.socket,
+         &json!({"op":"forget_last","kind":"kept"}),
+@@ -444,7 +449,7 @@ fn deletion_invalidates_a_frozen_note_and_linked_writes_never_fall_back_to_plain
+     assert_eq!(request["source_ids"], json!([1]));
+     assert_eq!(answer["ok"], false);
+     assert_eq!(fixture.count("entries"), 0);
+-    assert!(client.open_session(1, Duration::from_millis(300)).is_none());
++    assert!(opened(&client, 1).is_none());
+     // The server has replied to that request only after processing the failed
+     // linked write; a plain-append retry would have made an entry by now.
+     assert_eq!(fixture.count("entries"), 0);
+diff --git a/lampOS/crates/memory/tests/voice_people.rs b/lampOS/crates/memory/tests/voice_people.rs
+index 3cb9894db..373ff12ee 100644
+--- a/lampOS/crates/memory/tests/voice_people.rs
++++ b/lampOS/crates/memory/tests/voice_people.rs
+@@ -246,9 +246,14 @@ fn days_two_known_people_and_the_room_are_never_answered_from_each_other() {
+         assert!(ok && told["remembered"] == true, "{told}");
+     }
+     // A session opened with Minh at the lamp is told the room's and Minh's.
+-    let (room, theirs) = client
+-        .open_session_for(1, Duration::from_millis(300), Some(&minh))
+-        .unwrap();
++    let started = Instant::now();
++    let Some((room, theirs)) = client.open_session_within(1, SESSION, Some(&minh)) else {
++        let seen: Vec<_> = fixture.trace.try_iter().collect();
++        panic!(
++            "no session after {:?}; the store saw {seen:?}",
++            started.elapsed()
++        );
++    };
+     let theirs = theirs.unwrap();
+     assert!(room["note"].as_str().unwrap().contains("coffee machine"));
+     assert!(theirs["note"].as_str().unwrap().contains("Minh takes"));
+diff --git a/lampOS/crates/voice/src/remember.rs b/lampOS/crates/voice/src/remember.rs
+index 83c379315..b653b7fec 100644
+--- a/lampOS/crates/voice/src/remember.rs
++++ b/lampOS/crates/voice/src/remember.rs
+@@ -892,7 +892,11 @@ impl DaysClient {
+         self.open_session_within(session, deadline.min(FIRST_READ), person)
+     }
+ 
+-    fn open_session_within(
++    /// [`Self::open_session_for`] within `deadline` instead of the voice's
++    /// 300 ms: for a test against the real store that checks what is
++    /// opened, not how fast. Each open commits with a full fsync, which a
++    /// loaded disk can take past 300 ms (#948).
++    pub fn open_session_within(
+         &self,
+         session: u64,
+         deadline: Duration,

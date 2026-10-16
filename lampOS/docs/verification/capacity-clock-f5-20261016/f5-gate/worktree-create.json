@@ -1,0 +1,17 @@
+{
+  "date_start": "2026-10-16 11:13:54 +0700",
+  "date_finish": "2026-10-16 11:13:58 +0700",
+  "command": [
+    "git",
+    "worktree",
+    "add",
+    "-b",
+    "tests/823-capacity-f5",
+    "/private/tmp/lampos-tests-capacity-f5",
+    "f5a20ba28f3227ab06979b6e662883aede96b046"
+  ],
+  "cwd": "/private/tmp/lampos-tests-capacity-current",
+  "exit": 0,
+  "root_authorization": "Create own isolated f5 worktree; retain old capacity-current dirty tree untouched; no commit/push.",
+  "reserved_target": "/private/tmp/tests-823-memory-application-target"
+}

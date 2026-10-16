@@ -1,0 +1,1053 @@
+{
+  "date_from_date": "2026-10-16 11:16:11 +0700",
+  "method": "Cargo 1.96 locked/offline workspace metadata resolve graph, all dependency kinds; source graph, not a claim that all cfg/features execute.",
+  "workspace_reverse_closure": [
+    "lamp-memory",
+    "lamp-voice",
+    "lamp-voice-eval"
+  ],
+  "authorized_broader_gate_selection": [
+    "lamp-memory",
+    "lamp-voice",
+    "lamp-voice-eval",
+    "lamp-surround"
+  ],
+  "metadata_sha256": "c790b89e2db40db0ee88195f44a821c5fb0bacba2b8c9326c6bfb4efca839def",
+  "nodes": {
+    "lamp-actions": [
+      {
+        "package": "lamp-bus",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-ipc",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-msgs",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-schedule",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      }
+    ],
+    "lamp-environment": [
+      {
+        "package": "lamp-turn-owner",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      }
+    ],
+    "lamp-health": [
+      {
+        "package": "lamp-bus",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-ipc",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-msgs",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      }
+    ],
+    "lamp-turn-end-wire": [
+      {
+        "package": "lamp-ipc",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      }
+    ],
+    "lamp-expression": [
+      {
+        "package": "lamp-body",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-bus",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-ipc",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-msgs",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      }
+    ],
+    "lamp-policy": [
+      {
+        "package": "lamp-bus",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-ipc",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-msgs",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      }
+    ],
+    "lamp-audio": [
+      {
+        "package": "lamp-ipc",
+        "kinds": [
+          {
+            "kind": null,
+            "target": "cfg(unix)"
+          }
+        ]
+      },
+      {
+        "package": "lamp-turn-owner",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      }
+    ],
+    "lamp-camera": [
+      {
+        "package": "lamp-ipc",
+        "kinds": [
+          {
+            "kind": null,
+            "target": "cfg(target_os = \"linux\")"
+          }
+        ]
+      },
+      {
+        "package": "lamp-turn-owner",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      }
+    ],
+    "lamp-body": [
+      {
+        "package": "lamp-bus",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-ipc",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-keeper",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-msgs",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-turn-owner",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      }
+    ],
+    "lamp-settings": [
+      {
+        "package": "lamp-bus",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-msgs",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-records",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      }
+    ],
+    "lamp-update": [
+      {
+        "package": "lamp-bus",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-msgs",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      }
+    ],
+    "lamp-voice-eval": [
+      {
+        "package": "lamp-audio",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-ipc",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-observer",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-sound-fixtures",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-turn-end",
+        "kinds": [
+          {
+            "kind": "dev",
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-turn-end-wire",
+        "kinds": [
+          {
+            "kind": "dev",
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-turn-owner",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-voice",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      }
+    ],
+    "lamp-turn-end": [
+      {
+        "package": "lamp-turn-end-wire",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      }
+    ],
+    "lamp-skills": [
+      {
+        "package": "lamp-bus",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-ipc",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-msgs",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      }
+    ],
+    "lamp-sound-fixtures": [],
+    "lamp-eyes": [
+      {
+        "package": "lamp-bus",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-camera",
+        "kinds": [
+          {
+            "kind": null,
+            "target": "cfg(target_os = \"linux\")"
+          }
+        ]
+      },
+      {
+        "package": "lamp-ipc",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-msgs",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-turn-owner",
+        "kinds": [
+          {
+            "kind": null,
+            "target": "cfg(target_os = \"linux\")"
+          }
+        ]
+      }
+    ],
+    "lamp-selftest": [
+      {
+        "package": "lamp-bus",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-ipc",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-msgs",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      }
+    ],
+    "lamp-ring": [
+      {
+        "package": "lamp-ipc",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-turn-owner",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      }
+    ],
+    "lamp-air": [
+      {
+        "package": "lamp-bus",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-ipc",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-msgs",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      }
+    ],
+    "lamp-setup": [
+      {
+        "package": "lamp-bus",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-ipc",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-msgs",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      }
+    ],
+    "lamp-observer": [
+      {
+        "package": "lamp-ipc",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      }
+    ],
+    "lamp-memory": [
+      {
+        "package": "lamp-bus",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-gemini",
+        "kinds": [
+          {
+            "kind": "dev",
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-ipc",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-msgs",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-voice",
+        "kinds": [
+          {
+            "kind": "dev",
+            "target": null
+          }
+        ]
+      }
+    ],
+    "lamp-bus": [],
+    "lamp-lean": [
+      {
+        "package": "lamp-expression",
+        "kinds": [
+          {
+            "kind": "dev",
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-msgs",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      }
+    ],
+    "lamp-mood": [
+      {
+        "package": "lamp-bus",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-msgs",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      }
+    ],
+    "lamp-same-voice": [],
+    "lamp-controls": [
+      {
+        "package": "lamp-bus",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-ipc",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-msgs",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      }
+    ],
+    "lamp-tasks": [
+      {
+        "package": "lamp-bus",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-ipc",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-msgs",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      }
+    ],
+    "lamp-voice": [
+      {
+        "package": "lamp-actions",
+        "kinds": [
+          {
+            "kind": "dev",
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-audio",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-body",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-bus",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-camera",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-controls",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-expression",
+        "kinds": [
+          {
+            "kind": "dev",
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-gemini",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-ipc",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-msgs",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-policy",
+        "kinds": [
+          {
+            "kind": "dev",
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-ring",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-schedule",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-turn-end-wire",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-turn-owner",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      }
+    ],
+    "lamp-schedule": [
+      {
+        "package": "lamp-bus",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-ipc",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-msgs",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      }
+    ],
+    "lamp-turn-owner": [],
+    "lamp-ears": [
+      {
+        "package": "lamp-bus",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-ipc",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-msgs",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      }
+    ],
+    "lamp-keeper": [
+      {
+        "package": "lamp-bus",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-msgs",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      }
+    ],
+    "lamp-gemini": [],
+    "lamp-surround": [
+      {
+        "package": "lamp-bus",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-gemini",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-ipc",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-msgs",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      }
+    ],
+    "lamp-msgs": [
+      {
+        "package": "lamp-bus",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      }
+    ],
+    "lamp-name": [
+      {
+        "package": "lamp-bus",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-ipc",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-msgs",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      }
+    ],
+    "lamp-records": [
+      {
+        "package": "lamp-bus",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      },
+      {
+        "package": "lamp-msgs",
+        "kinds": [
+          {
+            "kind": null,
+            "target": null
+          }
+        ]
+      }
+    ],
+    "lamp-ipc": []
+  }
+}

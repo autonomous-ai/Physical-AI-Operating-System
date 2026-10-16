@@ -1,0 +1,41 @@
+{
+  "base": "71a15e75d",
+  "gates": [
+    {
+      "command": "cargo fmt --all --check",
+      "exit": 0,
+      "started_from_date": "2026-10-15 21:41:24 +0700",
+      "finished_from_date": "2026-10-15 21:41:29 +0700"
+    },
+    {
+      "command": "cargo clippy --locked --offline -p lamp-voice -p lamp-memory -p lamp-voice-eval --all-targets -- -D warnings",
+      "exit": 0,
+      "started_from_date": "2026-10-15 21:41:29 +0700",
+      "finished_from_date": "2026-10-15 21:44:44 +0700"
+    },
+    {
+      "command": "cargo test --locked --offline --release -p lamp-voice -p lamp-memory -p lamp-voice-eval --no-fail-fast -- --test-threads=1",
+      "exit": 101,
+      "started_from_date": "2026-10-15 21:44:44 +0700",
+      "finished_from_date": "2026-10-15 22:11:28 +0700"
+    },
+    {
+      "command": "cargo build --locked --offline --workspace",
+      "exit": 0,
+      "started_from_date": "2026-10-15 22:17:51 +0700",
+      "finished_from_date": "2026-10-15 22:22:33 +0700"
+    }
+  ],
+  "totals": {
+    "passed": 1765,
+    "failed": 1,
+    "ignored": 13
+  },
+  "previous_base_totals": {
+    "passed": 1733,
+    "failed": 0,
+    "ignored": 13
+  },
+  "retained_failure_issue": 866,
+  "no_retries": true
+}

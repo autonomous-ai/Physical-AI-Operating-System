@@ -1,0 +1,16 @@
+    Finished `release` profile [optimized] target(s) in 0.32s
+────────────
+ Nextest run ID 1f532e7f-90b4-4c87-978c-6aae9491c154 with nextest profile: realtime
+    Starting 1 test across 1 binary (1104 tests skipped)
+        PASS [  24.049s] (1/1) lamp-voice provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity
+  stdout ───
+
+    running 1 test
+    MEASURED speaking_speed seconds=20 reply_buffer_s=5.0 hold_ms=4002 playback_finished_ms=24011 completion_received_ms=20005 starved_ms=2 service_wrote_in_ms=4209 packets=500 peak_backlog_s=5.00 (scripted service through output capacity to a local IPC reader and a modeled speaker, host)
+    test provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity ... ok
+
+    test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1104 filtered out; finished in 24.03s
+
+
+────────────
+     Summary [  24.054s] 1 test run: 1 passed, 1104 skipped

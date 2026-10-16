@@ -1,0 +1,29 @@
+{
+  "date_from_date": "2026-10-16 11:52:37 +0700",
+  "current_raw_log_sha256": "6644cd2a235c9bcd5e5ccc7ef7665bcef2177cf56e5b9a50a3b42b0d44c01225",
+  "current_rows": [
+    {
+      "identity": "days_two_known_people_and_the_room_are_never_answered_from_each_other",
+      "line": 190,
+      "text": "PASS [   1.630s] ( 186/2491) lamp-memory::voice_people days_two_known_people_and_the_room_are_never_answered_from_each_other"
+    },
+    {
+      "identity": "coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write",
+      "line": 671,
+      "text": "PASS [   0.809s] ( 667/2491) lamp-voice coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write"
+    },
+    {
+      "identity": "coordinator::tests::second_route::without_a_second_route_the_packets_and_records_are_as_before",
+      "line": 968,
+      "text": "PASS [   0.724s] ( 964/2491) lamp-voice coordinator::tests::second_route::without_a_second_route_the_packets_and_records_are_as_before"
+    },
+    {
+      "identity": "coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion",
+      "line": 940,
+      "text": "PASS [   1.615s] ( 936/2491) lamp-voice coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion"
+    }
+  ],
+  "retained_e5aa_result": "2385 PASS / 3 FAIL / 13 ignore; earlier source and raw results are unchanged.",
+  "interpretation": "These exact identities pass once in this complete f5 gate. This does not establish the cause of any earlier failure or prove them generally fixed. #961 source inclusion and changed second-route inputs are documented separately. #893 administrative closure is not a fix. #935 is distinct and was not one of the old capacity gate three failures.",
+  "native_pending": true
+}

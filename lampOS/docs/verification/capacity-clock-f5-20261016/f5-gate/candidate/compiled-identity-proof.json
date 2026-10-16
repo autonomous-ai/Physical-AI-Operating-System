@@ -1,0 +1,12 @@
+{
+  "date_from_date": "2026-10-16 11:26:26 +0700",
+  "before": 2504,
+  "after": 2504,
+  "ignored": 13,
+  "binaries": 84,
+  "exact_identity_and_ignore_equality": true,
+  "new": [],
+  "removed": [],
+  "baseline_list_sha256": "53a1d8ccbc66fc682fc83b70710b32a6ae9195e3a2ccb50bfabbfb5607ac3e06",
+  "candidate_list_sha256": "419c18354900e5a8cfb3ffe1151044295751d27f66d4c12ecc91aa2bccab52dd"
+}

@@ -1,0 +1,19 @@
+{
+  "date_from_date": "2026-10-16 11:26:30 +0700",
+  "base": "f5a20ba28f3227ab06979b6e662883aede96b046",
+  "binary": "lamp-voice",
+  "test": "provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity",
+  "host": "x86_64-apple-darwin",
+  "profile": "debug/default dev",
+  "test_profile": "default",
+  "same_four_package_selection": true,
+  "same_target_and_toolchain": true,
+  "before_reported_seconds": "24.108",
+  "after_reported_seconds": "2.074",
+  "retries": 0,
+  "each_selected_command_once": true,
+  "shared_host_load_not_controlled": true,
+  "native_and_device_measurement": false,
+  "before_log_sha256": "115c81a10269f9bfda76be6a7055aea0ec4625ee47a050d980757ed28168f019",
+  "after_log_sha256": "e09e573ce27e0005a1dcb880128db2cf89e4afd4c8a54b07ef9ee559a284e70f"
+}

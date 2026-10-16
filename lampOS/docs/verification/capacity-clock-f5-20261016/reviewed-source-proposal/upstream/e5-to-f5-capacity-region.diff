@@ -1,0 +1,10 @@
+--- e5 capacity region
++++ f5 capacity region
+@@ -368,6 +368,7 @@
+                 request: new,
+                 privacy_generation: rig.snapshot.microphone_generation(),
+                 sound: false,
++                cut_in: false,
+             })
+             .unwrap();
+         // The scripted service confirms the interruption and answers. Packets

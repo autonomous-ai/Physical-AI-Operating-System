@@ -1,0 +1,38 @@
+{
+  "date_from_date": "2026-10-16 11:52:37 +0700",
+  "excluded_package_inputs": [
+    {
+      "original_path": "/private/tmp/tests-823-capacity-f5-gate/script-preflight/candidate-gate-initial-source.txt",
+      "sha256": "d4f24fa29f1c8e136c6a38d6935f8c288aac0c4d706cbc26688aeba2942e45f7",
+      "bytes": 10880,
+      "reason": "Executable orchestration source retained externally; not repository evidence. No Rust/test execution occurred in this Python syntax preflight."
+    }
+  ],
+  "external_scripts": [
+    {
+      "path": "/private/tmp/tests-823-capacity-f5-baseline.py",
+      "sha256": "745ac84610ad7d6da70476bb8c8cdc5c92a5df9444757f8675cde9b30fb4db53",
+      "bytes": 5860,
+      "reason": "Orchestration/audit/packaging script, external only; commands and outputs are preserved as data."
+    },
+    {
+      "path": "/private/tmp/tests-823-capacity-f5-candidate-gate.py",
+      "sha256": "36aba492c63625893f80610e5c712bac148b9727fea94e887df7160e92851901",
+      "bytes": 10881,
+      "reason": "Orchestration/audit/packaging script, external only; commands and outputs are preserved as data."
+    },
+    {
+      "path": "/private/tmp/tests-823-audit-capacity-f5-terminal.py",
+      "sha256": "b83bfe0ae3fa18631aff86916f457b89d45a3c6407cf88e4dfb83f79362cec7b",
+      "bytes": 7696,
+      "reason": "Orchestration/audit/packaging script, external only; commands and outputs are preserved as data."
+    },
+    {
+      "path": "/private/tmp/tests-823-package-capacity-f5.py",
+      "sha256": "603c0fd2f96146d770fe304a72f4f23536961b8ac7ee9617260a28274674131c",
+      "bytes": 13112,
+      "reason": "Orchestration/audit/packaging script, external only; commands and outputs are preserved as data."
+    }
+  ],
+  "no_script_compiled_binary_or_symlink_payload": true
+}

@@ -57,6 +57,10 @@ struct Seen {
     requests: Vec<SeenRequest>,
     /// Every speech chunk dispatched to the speaker: its turn and when.
     chunks: Vec<(u64, Instant)>,
+    /// When the speaker reported its authority lapsed ([`Lamp::lapses_after`]).
+    lapsed_at: Option<Instant>,
+    /// Chunks the speaker refused after that, for the answer it lapsed in.
+    refused: Vec<(u64, Instant)>,
     /// When the capture peer sent its first frame.
     capture_started: Option<Instant>,
     capture_delivery: CaptureDelivery,
@@ -670,10 +674,19 @@ fn provider_peer(
 /// Records every chunk and acknowledges it as ALSA would, so the v1-baseline
 /// mask sees genuine write evidence. With `retires`, each chunk is drained
 /// as it is accepted and an answer's last one retires it, so the lamp falls
-/// silent when its answer is written; without, it plays to the end.
-fn speaker_peer(mut channels: WorkerChannels, seen: Arc<Mutex<Seen>>, retires: bool) -> PeerStep {
+/// silent when its answer is written; without, it plays to the end. With
+/// `lapses_after`, see [`Lamp::lapses_after`].
+fn speaker_peer(
+    mut channels: WorkerChannels,
+    seen: Arc<Mutex<Seen>>,
+    retires: bool,
+    lapses_after: Option<usize>,
+) -> PeerStep {
     let mut generation = 0;
     let mut frame = 1_000u64;
+    let mut epoch = 1u64;
+    let mut accepted = 0usize;
+    let mut lapsed = None;
     Box::new(move || {
         if !drain_control(&mut channels, &mut generation)? {
             return Ok(false);
@@ -683,6 +696,19 @@ fn speaker_peer(mut channels: WorkerChannels, seen: Arc<Mutex<Seen>>, retires: b
                 break;
             };
             let owner = chunk.permit.owner();
+            if lapsed == Some(owner) {
+                seen.lock()
+                    .unwrap()
+                    .refused
+                    .push((owner.turn(), scenario_clock::instant()));
+                channels.control.send(WorkerEvent::PlaybackRejected {
+                    turn: owner.turn(),
+                    sequence: chunk.chunk_sequence,
+                    reason: lamp_turn_owner::Error::StaleOwner.to_string(),
+                    lapsed: false,
+                })?;
+                continue;
+            }
             seen.lock()
                 .unwrap()
                 .chunks
@@ -691,9 +717,9 @@ fn speaker_peer(mut channels: WorkerChannels, seen: Arc<Mutex<Seen>>, retires: b
             let at = monotonic_us();
             channels.control.send(WorkerEvent::Playback {
                 owner,
-                first_sample: PlaybackCursor { epoch: 1, frame },
+                first_sample: PlaybackCursor { epoch, frame },
                 end_sample: PlaybackCursor {
-                    epoch: 1,
+                    epoch,
                     frame: frame + frames as u64,
                 },
                 queue_observed_at_us: at,
@@ -704,8 +730,34 @@ fn speaker_peer(mut channels: WorkerChannels, seen: Arc<Mutex<Seen>>, retires: b
                 observed_at_us: at,
             })?;
             frame += frames as u64;
+            accepted += 1;
+            if lapses_after == Some(accepted) {
+                // Held up past its lease: the device is reset and the
+                // answer's queued speech discarded, as `lapse()` reports it.
+                let at = monotonic_us();
+                channels.control.send(WorkerEvent::PlaybackClockReset {
+                    previous: lamp_audio::ownership::QueuedRange {
+                        epoch,
+                        retired_through: frame - frames as u64,
+                        accepted_through: frame,
+                    },
+                    next_epoch: epoch + 1,
+                    observed_at_us: at,
+                })?;
+                channels.control.send(WorkerEvent::PlaybackDiscarded {
+                    owner,
+                    reason: crate::wire::PlaybackDiscardReason::ExpiredState,
+                    queued_frames: frames,
+                    other_owners: false,
+                    observed_at_us: at,
+                })?;
+                epoch += 1;
+                lapsed = Some(owner);
+                seen.lock().unwrap().lapsed_at = Some(scenario_clock::instant());
+                continue;
+            }
             if retires {
-                let last = PlaybackCursor { epoch: 1, frame };
+                let last = PlaybackCursor { epoch, frame };
                 channels.control.send(WorkerEvent::SpeechDrained {
                     owner,
                     sequence: chunk.chunk_sequence,
@@ -924,6 +976,11 @@ struct Lamp {
     retires: bool,
     /// The microphone's blocks carry echo evidence ([`capture_peer`]).
     echo: Option<Over>,
+    /// The speaker's authority lapses after this many chunks, as the
+    /// speaker worker reports it (#1178): its reset, then the discard of
+    /// that answer's queued speech as `ExpiredState`. It refuses the rest of
+    /// that answer, as one revoked.
+    lapses_after: Option<usize>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -964,7 +1021,12 @@ fn run_policy_with_peers(
         ),
         privacy_peer(privacy_peer_channels, seen.clone(), mute_at),
         provider_peer(provider_peer_channels, seen.clone(), reply),
-        speaker_peer(speaker_peer_channels, seen.clone(), lamp.retires),
+        speaker_peer(
+            speaker_peer_channels,
+            seen.clone(),
+            lamp.retires,
+            lamp.lapses_after,
+        ),
     ];
     let peers: Vec<_> = if let Some(scope) = scope.as_mut() {
         let mut steps = steps.map(|step| (true, step));
@@ -2695,4 +2757,71 @@ fn with_asker_first_the_askers_soft_start_over_the_answers_start_takes_the_turn(
             session.events("asker_first")
         );
     }
+}
+
+/// #1178, the reviewer's P3 on #1214, through the coordinator's own loop:
+/// the speaker's authority lapses after the first answer's second chunk,
+/// and it reports its reset and the discard of that answer's queued speech
+/// (`ExpiredState`), as the speaker worker does. The loop cuts that answer
+/// (`speaker_lapsed`), sends nothing more of it, and goes on: the next
+/// question is answered. With the cut taken out of the loop, the session
+/// ends in an error: the voice ends, as before #1214. (Its clearing of the
+/// provider's queue is not what keeps the rest of the answer back: with no
+/// current answer nothing is sent anyway, and this test passes without it.)
+#[test]
+fn a_speaker_lapse_mid_answer_cuts_it_and_the_next_question_is_answered() {
+    let _one = one_session();
+    fn script(block: u64) -> f32 {
+        if (50..150).contains(&block) || (500..600).contains(&block) {
+            SPEECH
+        } else {
+            QUIET
+        }
+    }
+    let session = run_policy_with_peers(
+        TurnTaking::V1Baseline,
+        10,
+        script,
+        EndpointRig::double(delayed(0.95, Duration::from_millis(60))),
+        Some(ProviderReply {
+            after_end: Duration::from_millis(300),
+            packets: 5,
+            only_first: false,
+        }),
+        None,
+        PeerMode::Stepped,
+        Lamp {
+            lapses_after: Some(2),
+            ..Lamp::default()
+        },
+    );
+    session.result.as_ref().unwrap();
+    let seen = &session.seen;
+    let lapsed_at = seen.lapsed_at.expect("the speaker lapsed");
+    let first = seen.chunks[0].0;
+    let finished = session.events("turn_finished");
+    let cut: Vec<_> = finished
+        .iter()
+        .filter(|row| row["turn"] == first)
+        .map(|row| row["outcome"].as_str())
+        .collect();
+    assert_eq!(cut, [Some("speaker_lapsed")], "{finished:?}");
+    // Nothing more of it is sent: at most the one chunk already on its way
+    // reaches the speaker after the lapse, and is refused.
+    let after: Vec<_> = seen
+        .chunks
+        .iter()
+        .chain(&seen.refused)
+        .filter(|(turn, at)| *turn == first && *at > lapsed_at)
+        .collect();
+    assert!(after.len() <= 1, "{after:?}");
+    // The voice goes on: the next question is asked and answered.
+    assert_eq!(seen.requests.len(), 2, "{:?}", seen.requests);
+    assert!(
+        seen.chunks
+            .iter()
+            .any(|(turn, at)| *turn != first && *at > lapsed_at),
+        "{:?}",
+        seen.chunks
+    );
 }

@@ -58,7 +58,7 @@ fn open(scratch: &Scratch) -> Store {
     let options = Options {
         dir: scratch.0.join("store"),
         keep_days: 30,
-        utc_offset_minutes: 420,
+        local: lamp_memory::store::LocalTime::Offset(420),
     };
     Store::open(options, NOON).unwrap()
 }

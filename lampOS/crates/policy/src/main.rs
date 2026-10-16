@@ -18,18 +18,18 @@ use lamp_policy::{
     gather::PAUSE,
     hello::{self, Hello},
     policy::{self, Options},
-    progress::{self, Progress},
+    progress::{self, LocalTime, Progress},
     record::private_dir,
 };
 use std::{
     io::{self, Write},
     path::PathBuf,
     process::ExitCode,
-    sync::atomic::AtomicBool,
+    sync::{Arc, atomic::AtomicBool},
     time::Duration,
 };
 
-const USAGE: &str = "usage: lamp-policy --key-file ABSOLUTE_PATH --log-dir ABSOLUTE_DIR [--endpoint URL] [--model NAME] [--deadline-ms N] [--bus-root ABSOLUTE_DIR] [--progress] [--hello] [--utc-offset-minutes N] [--act progress] [--act hello] [--rules] [--act attention]";
+const USAGE: &str = "usage: lamp-policy --key-file ABSOLUTE_PATH --log-dir ABSOLUTE_DIR [--endpoint URL] [--model NAME] [--deadline-ms N] [--bus-root ABSOLUTE_DIR] [--progress] [--hello] [--utc-offset-minutes N | --zone system|NAME] [--act progress] [--act hello] [--rules] [--act attention]";
 const HELP: &str = "The lamp's policy, in shadow mode: judges whether each thing the voice hears was said to\n\
 the lamp, publishes the decision on the bus (policy/decisions) and writes it down. Nothing\n\
 acts on it. See docs/policy.md.\n\
@@ -45,7 +45,10 @@ acts on it. See docs/policy.md.\n\
   --progress     also judge, in shadow, whether progress of the work handed over (tasks/status)\n\
                  is worth telling now, with a second connection to the same model. Off unless set\n\
   --utc-offset-minutes  the lamp's local time east of UTC, for the hour of the day the progress\n\
-                 question is shown (-720 to 840); without it the hour is not known\n\
+                 and hello questions are shown (-720 to 840); without it the hour is not known\n\
+  --zone         in place of the offset: system, the lamp's own time zone (/etc/localtime, as setup\n\
+                 writes it), or a zone's name. The hour is taken at each moment, across summer time\n\
+                 and a zone setup changes while this runs; a zone that cannot be read ends the start\n\
   --act progress the progress decisions act: published with shadow false, so that the voice\n\
                  tells a say_now. Needs --progress. \"Is this said to the lamp?\" stays shadow\n\
   --hello        also judge whether a hello the voice holds (voice/arrival) is said now, with\n\
@@ -72,6 +75,8 @@ struct Arguments {
     /// The progress question beside the attention one: off unless set.
     progress: bool,
     utc_offset_minutes: Option<i32>,
+    /// `system` or a zone's name, in place of the offset (#820).
+    zone: Option<String>,
     /// Its decisions act (`--act progress`): off unless set.
     act_progress: bool,
     /// The hello question (`--hello`), and whether it acts (`--act hello`):
@@ -93,6 +98,7 @@ fn parse(arguments: impl Iterator<Item = String>) -> Result<Option<Arguments>, S
     let (mut hello, mut act_progress, mut act_hello) = (false, false, false);
     let mut act_attention = false;
     let mut rules = false;
+    let mut zone = None;
     let mut arguments = arguments;
     while let Some(option) = arguments.next() {
         if option == "--help" || option == "-h" {
@@ -153,6 +159,12 @@ fn parse(arguments: impl Iterator<Item = String>) -> Result<Option<Arguments>, S
                     .ok_or("--utc-offset-minutes is a whole number from -720 to 840")?;
                 utc_offset_minutes.replace(minutes).is_some()
             }
+            "--zone" => {
+                if value.is_empty() || value.chars().any(char::is_control) {
+                    return Err("--zone is system or a time zone's name".into());
+                }
+                zone.replace(value).is_some()
+            }
             "--deadline-ms" => {
                 let milliseconds = value
                     .parse::<u64>()
@@ -178,6 +190,9 @@ fn parse(arguments: impl Iterator<Item = String>) -> Result<Option<Arguments>, S
     if act_hello && !hello {
         return Err("--act hello needs --hello".into());
     }
+    if zone.is_some() && utc_offset_minutes.is_some() {
+        return Err("--zone and --utc-offset-minutes are one or the other".into());
+    }
     Ok(Some(Arguments {
         key_file: key_file.ok_or("--key-file is required")?,
         log_dir: log_dir.ok_or("--log-dir is required")?,
@@ -187,6 +202,7 @@ fn parse(arguments: impl Iterator<Item = String>) -> Result<Option<Arguments>, S
         bus,
         progress,
         utc_offset_minutes,
+        zone,
         act_progress,
         hello,
         act_hello,
@@ -232,12 +248,19 @@ fn run(arguments: &Arguments) -> io::Result<()> {
     // The key first: without it no model can be asked, and that is to be
     // found out before anything is subscribed to.
     let jev = Jev::new(&arguments.endpoint, &arguments.model, &arguments.key_file)?;
+    // Then the zone: one that cannot be read ends the start, never a silent
+    // UTC (#820).
+    let local = match (&arguments.zone, arguments.utc_offset_minutes) {
+        (Some(zone), _) => Some(Arc::new(LocalTime::zone(zone)?)),
+        (None, Some(minutes)) => Some(Arc::new(LocalTime::Offset(minutes))),
+        (None, None) => None,
+    };
     let bus = match &arguments.bus {
         Some(root) => Bus::new(root)?,
         None => Bus::from_environment()?,
     };
     log(&format!(
-        "started endpoint={} model={} deadline_ms={} pause_ms={} log_dir={} bus_root={} shadow={}{}",
+        "started endpoint={} model={} deadline_ms={} pause_ms={} log_dir={} bus_root={} shadow={}{}{}",
         arguments.endpoint,
         arguments.model,
         arguments.deadline.as_millis(),
@@ -246,6 +269,10 @@ fn run(arguments: &Arguments) -> io::Result<()> {
         bus.root().display(),
         policy::SHADOW && !arguments.act_attention,
         questions(arguments),
+        arguments
+            .zone
+            .as_ref()
+            .map_or_else(String::new, |zone| format!(" zone={zone}")),
     ));
     let options = Options {
         log_dir: arguments.log_dir.clone(),
@@ -263,7 +290,7 @@ fn run(arguments: &Arguments) -> io::Result<()> {
             let options = progress::Options {
                 act: arguments.act_progress,
                 rules: arguments.rules,
-                ..progress::Options::new(arguments.deadline, arguments.utc_offset_minutes)
+                ..progress::Options::new(arguments.deadline, local.clone())
             };
             Some(Progress::start(judge()?, options)?)
         } else {
@@ -272,7 +299,7 @@ fn run(arguments: &Arguments) -> io::Result<()> {
         let hello = if arguments.hello {
             let options = hello::Options {
                 act: arguments.act_hello,
-                ..hello::Options::new(arguments.deadline, arguments.utc_offset_minutes)
+                ..hello::Options::new(arguments.deadline, local)
             };
             Some(Hello::start(judge()?, options)?)
         } else {
@@ -349,6 +376,7 @@ mod tests {
                 bus: Some("/run/lampos-bus".into()),
                 progress: false,
                 utc_offset_minutes: None,
+                zone: None,
                 act_progress: false,
                 hello: false,
                 act_hello: false,
@@ -368,6 +396,7 @@ mod tests {
                 bus: None,
                 progress: false,
                 utc_offset_minutes: None,
+                zone: None,
                 act_progress: false,
                 hello: false,
                 act_hello: false,
@@ -381,6 +410,14 @@ mod tests {
             .unwrap();
         assert!(progress.progress && !progress.act_progress);
         assert_eq!(progress.utc_offset_minutes, Some(420));
+        // Or its zone (#820).
+        let zoned = of("--log-dir /d --progress --key-file /k --zone system")
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            (zoned.zone.as_deref(), zoned.utc_offset_minutes),
+            (Some("system"), None)
+        );
         // And acting on it.
         let acting = of("--log-dir /d --progress --act progress --key-file /k")
             .unwrap()
@@ -472,6 +509,10 @@ mod tests {
             "--key-file /k --log-dir /d --utc-offset-minutes -721",
             "--key-file /k --log-dir /d --utc-offset-minutes 7h",
             "--key-file /k --log-dir /d --utc-offset-minutes 1 --utc-offset-minutes 1",
+            "--key-file /k --log-dir /d --zone",
+            "--key-file /k --log-dir /d --zone system --zone system",
+            "--key-file /k --log-dir /d --zone system --utc-offset-minutes 420",
+            "--key-file /k --log-dir /d --utc-offset-minutes 0 --zone UTC",
         ] {
             assert!(of(refused).is_err(), "{refused:?}");
         }

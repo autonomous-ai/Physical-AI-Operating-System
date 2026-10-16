@@ -494,7 +494,7 @@ mod tests {
             let options = Options {
                 dir: self.0.join("store"),
                 keep_days: 30,
-                utc_offset_minutes: 0,
+                local: crate::store::LocalTime::Offset(0),
             };
             Store::open(options, now_unix_ms).unwrap()
         }

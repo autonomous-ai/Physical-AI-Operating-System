@@ -25,6 +25,27 @@ mod tests {
     }
 
     #[test]
+    fn the_memory_days_start_line_names_the_zone_only_when_one_is_given() {
+        let start = |extra: &[&str]| {
+            let mut args = vec!["--dir", "/m", "--socket", "/s", "--memory-days"];
+            args.extend_from_slice(extra);
+            days_start_line(&arguments(&args).unwrap().unwrap())
+        };
+        assert_eq!(
+            start(&["--zone", "system"]),
+            "started memory_days=true zone=system; the model adapter is not configured"
+        );
+        assert_eq!(
+            start(&["--utc-offset-minutes", "420"]),
+            "started memory_days=true; the model adapter is not configured"
+        );
+        assert_eq!(
+            start(&[]),
+            "started memory_days=true; the model adapter is not configured"
+        );
+    }
+
+    #[test]
     fn the_two_paths_are_required_and_the_days_and_the_offset_have_defaults() {
         assert_eq!(
             arguments(&[
@@ -38,6 +59,7 @@ mod tests {
                 socket: "/run/lamp/memory.sock".into(),
                 keep_days: 30,
                 utc_offset_minutes: 0,
+                zone: None,
                 memory_days: false,
                 bus_root: None,
             }))
@@ -58,6 +80,7 @@ mod tests {
                 socket: "/run/m.sock".into(),
                 keep_days: 7,
                 utc_offset_minutes: 420,
+                zone: None,
                 memory_days: false,
                 bus_root: None,
             }))
@@ -71,6 +94,35 @@ mod tests {
             "-300",
         ]);
         assert_eq!(west.unwrap().unwrap().utc_offset_minutes, -300);
+        // #820: a zone in place of the offset.
+        let zoned = arguments(&["--dir", "/m", "--socket", "/s", "--zone", "system"]);
+        let zoned = zoned.unwrap().unwrap();
+        assert_eq!(zoned.zone.as_deref(), Some("system"));
+        if std::path::Path::new("/etc/localtime").exists() {
+            assert!(matches!(local(&zoned), Ok(LocalTime::System(_))));
+        }
+        let named = arguments(&[
+            "--dir",
+            "/m",
+            "--socket",
+            "/s",
+            "--zone",
+            "America/New_York",
+        ]);
+        assert!(matches!(
+            local(&named.unwrap().unwrap()),
+            Ok(LocalTime::Zone(_))
+        ));
+        let nowhere = arguments(&["--dir", "/m", "--socket", "/s", "--zone", "Nowhere/City"]);
+        assert!(local(&nowhere.unwrap().unwrap()).is_err());
+        assert!(matches!(
+            local(
+                &arguments(&["--dir", "/m", "--socket", "/s"])
+                    .unwrap()
+                    .unwrap()
+            ),
+            Ok(LocalTime::Offset(0))
+        ));
         assert_eq!(arguments(&["--help"]), Ok(None));
         assert!(
             arguments(&["--dir", "/m", "--socket", "/s", "--memory-days"])
@@ -151,6 +203,11 @@ mod tests {
             &["--utc-offset-minutes", "-721"],
             &["--utc-offset-minutes", "+7h"],
             &["--utc-offset-minutes", "420", "--utc-offset-minutes", "420"],
+            &["--zone"],
+            &["--zone", ""],
+            &["--zone", "system", "--zone", "system"],
+            &["--zone", "system", "--utc-offset-minutes", "420"],
+            &["--utc-offset-minutes", "0", "--zone", "UTC"],
             &["extra"],
         ] {
             assert!(with(bad).is_err(), "{bad:?}");

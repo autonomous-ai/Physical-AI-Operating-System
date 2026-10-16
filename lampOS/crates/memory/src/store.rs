@@ -18,6 +18,9 @@
 //! counted and the rest of the file is used. A removal writes the file anew
 //! beside the old one and renames it into place, so a reader sees the file
 //! before or after and never part of either.
+
+/// Where the lamp is in time (#820).
+pub use lamp_local_time::LocalTime;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::{
     cmp::Reverse,
@@ -138,6 +141,20 @@ impl Day {
     pub fn of(at_unix_ms: u64, utc_offset_minutes: i32) -> Option<Self> {
         let day = local_day(at_unix_ms, utc_offset_minutes);
         (0..=LAST_DAY).contains(&day).then_some(Self(day))
+    }
+
+    /// The day this many calendar days before this one, if a journal can be
+    /// named for it: retention counts local days, not 24-hour spans, which a
+    /// day of summer time's change is not (#844).
+    pub fn before(self, days: u32) -> Option<Self> {
+        let day = self.0 - i64::from(days);
+        (0..=LAST_DAY).contains(&day).then_some(Self(day))
+    }
+
+    /// [`Self::of`], with the offset the lamp's local time has at that
+    /// moment: a zone's summer time counts on the days it is kept (#820).
+    pub fn at(at_unix_ms: u64, local: &LocalTime) -> Option<Self> {
+        Self::of(at_unix_ms, local.offset_minutes_at(at_unix_ms))
     }
 }
 
@@ -273,13 +290,15 @@ pub struct Options {
     /// A journal day is deleted once it is more than this many days before
     /// today.
     pub keep_days: u32,
-    pub utc_offset_minutes: i32,
+    /// Where the day turns: minutes east of UTC (`--utc-offset-minutes`) or
+    /// a zone (`--zone`), whose offset is taken at each moment (#820).
+    pub local: LocalTime,
 }
 
 pub struct Store {
     dir: PathBuf,
     keep_days: i64,
-    utc_offset_minutes: i32,
+    local: LocalTime,
     /// The latest local day this store has been told it is.
     today: i64,
     /// The id the next entry of each person gets.
@@ -720,11 +739,12 @@ impl Store {
                 "this directory uses memory across days; reopen it with --memory-days",
             ));
         }
+        let today = options.local.day(now_unix_ms);
         let mut store = Self {
             dir: options.dir,
             keep_days: i64::from(options.keep_days),
-            utc_offset_minutes: options.utc_offset_minutes,
-            today: local_day(now_unix_ms, options.utc_offset_minutes),
+            local: options.local,
+            today,
             next: BTreeMap::new(),
             found: Found::default(),
             _held: held,
@@ -833,7 +853,7 @@ impl Store {
     /// journal. A day that could not be deleted is tried again the next day
     /// and when the store is next opened.
     pub fn turn_to(&mut self, now_unix_ms: u64) -> usize {
-        let today = local_day(now_unix_ms, self.utc_offset_minutes);
+        let today = self.local.day(now_unix_ms);
         if today <= self.today {
             return 0;
         }
@@ -855,7 +875,7 @@ impl Store {
         now_unix_ms: u64,
     ) -> Result<u64, Refused> {
         self.turn_to(now_unix_ms);
-        let day = Day::of(at_unix_ms, self.utc_offset_minutes).ok_or(Refused::Time)?;
+        let day = Day::at(at_unix_ms, &self.local).ok_or(Refused::Time)?;
         let (heard, said) = (tidy(heard, HEARD_BYTES), tidy(said, SAID_BYTES));
         if heard.is_empty() && said.is_empty() {
             return Err(Refused::Empty);
@@ -880,7 +900,7 @@ impl Store {
         at_unix_ms: u64,
         text: &str,
     ) -> Result<u64, Refused> {
-        Day::of(at_unix_ms, self.utc_offset_minutes).ok_or(Refused::Time)?;
+        Day::at(at_unix_ms, &self.local).ok_or(Refused::Time)?;
         let text = tidy(text, TEXT_BYTES);
         if text.is_empty() {
             return Err(Refused::Empty);
@@ -1169,7 +1189,7 @@ mod tests {
                 Options {
                     dir: self.0.clone(),
                     keep_days,
-                    utc_offset_minutes,
+                    local: LocalTime::Offset(utc_offset_minutes),
                 },
                 now_unix_ms,
             )
@@ -1513,6 +1533,43 @@ mod tests {
             Day::of(at("2026-10-13", 60), -300),
             Day::parse("2026-10-12")
         );
+    }
+
+    #[test]
+    fn with_a_zone_the_day_turns_at_local_midnight_in_winter_and_in_summer() {
+        // #820: New York keeps summer time. Midnight is 05:00 UTC in January
+        // and 04:00 UTC in July; a fixed 300 minutes west is an hour off in July.
+        let scratch = Scratch::new("zone");
+        let winter = at("2026-01-15", 5 * 60);
+        let summer = at("2026-07-15", 4 * 60);
+        let mut store = Store::open(
+            Options {
+                dir: scratch.0.clone(),
+                keep_days: 365,
+                local: LocalTime::zone("America/New_York").unwrap(),
+            },
+            winter,
+        )
+        .unwrap();
+        let me = everyone();
+        for (moment, heard) in [
+            (winter - 1, "late"),
+            (winter, "early"),
+            (summer - 1, "late"),
+            (summer, "early"),
+        ] {
+            store.append(&me, moment, heard, "It is.", moment).unwrap();
+        }
+        assert_eq!(
+            scratch.names("everyone"),
+            [
+                "journal-2026-01-14.jsonl",
+                "journal-2026-01-15.jsonl",
+                "journal-2026-07-14.jsonl",
+                "journal-2026-07-15.jsonl"
+            ]
+        );
+        assert_eq!(Day::of(summer, -300), Day::parse("2026-07-14"));
     }
 
     #[test]
@@ -2067,7 +2124,7 @@ mod tests {
                 Options {
                     dir: nested.0.clone(),
                     keep_days: 30,
-                    utc_offset_minutes: 0,
+                    local: LocalTime::Offset(0),
                 },
                 now,
             )
@@ -2082,7 +2139,7 @@ mod tests {
             Options {
                 dir: file,
                 keep_days: 30,
-                utc_offset_minutes: 0,
+                local: LocalTime::Offset(0),
             },
             now,
         );
@@ -2179,7 +2236,7 @@ mod tests {
             Options {
                 dir: scratch.0.clone(),
                 keep_days: 30,
-                utc_offset_minutes: 0,
+                local: LocalTime::Offset(0),
             },
             now,
         );

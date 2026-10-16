@@ -164,7 +164,7 @@ impl Rig {
         };
         let progress = progress::Options {
             deadline: ms(900),
-            utc_offset_minutes,
+            local: utc_offset_minutes.map(|minutes| Arc::new(progress::LocalTime::Offset(minutes))),
             note_every: ms(1_500),
             quiet_for: ms(400),
             act,

@@ -321,7 +321,7 @@ pub struct Service {
     sequence: u64,
     last_report: Option<u64>,
     last_state: Option<u64>,
-    utc_offset_minutes: Option<i32>,
+    local: Option<crate::local_time::LocalTime>,
     last_daytime: Option<u64>,
     /// Asked before each time of day is given: only a clock it says is
     /// set gives one (`--kernel-clock`, #830). None: every clock does.
@@ -383,7 +383,7 @@ impl Service {
             sequence: 0,
             last_report: None,
             last_state: None,
-            utc_offset_minutes: None,
+            local: None,
             last_daytime: None,
             clock_set: None,
             clock_unset: false,
@@ -409,8 +409,14 @@ impl Service {
     /// Tell the planner the local time of day, from the wall clock this many
     /// minutes east of UTC, at once and every minute: sleep comes only at
     /// night (docs/alive.md).
-    pub fn with_local_time(mut self, utc_offset_minutes: i32) -> Self {
-        self.utc_offset_minutes = Some(utc_offset_minutes);
+    pub fn with_local_time(self, utc_offset_minutes: i32) -> Self {
+        self.with_local(crate::local_time::LocalTime::Offset(utc_offset_minutes))
+    }
+
+    /// As [`Self::with_local_time`], with a zone whose offset is taken at each
+    /// moment (#820), or a fixed offset.
+    pub fn with_local(mut self, local: crate::local_time::LocalTime) -> Self {
+        self.local = Some(local);
         self
     }
 
@@ -426,11 +432,12 @@ impl Service {
     /// sleeping through any behavior. Each valid topic has a bounded budget.
     pub fn step(&mut self, now: impl Fn() -> u64, wall_ms: u64) -> Output {
         let began = now();
-        let due = self.utc_offset_minutes.filter(|_| {
-            self.last_daytime
-                .is_none_or(|last| began.saturating_sub(last) >= DAYTIME_EVERY_US)
-        });
-        if due.is_some() {
+        // The zone or offset given, and a minute since the last (#820).
+        let due = self.local.is_some()
+            && self
+                .last_daytime
+                .is_none_or(|last| began.saturating_sub(last) >= DAYTIME_EVERY_US);
+        if due {
             self.last_daytime = Some(began);
             let set = self.clock_set.is_none_or(|set| set() == Some(true));
             if set == self.clock_unset {
@@ -450,8 +457,9 @@ impl Service {
                 );
             }
         }
-        if let Some(offset) = due
+        if due
             && !self.clock_unset
+            && let Some(local) = &self.local
         {
             self.sequence = self.sequence.saturating_add(1);
             let daytime = Input::DayTime {
@@ -460,7 +468,7 @@ impl Service {
                     at_us: began,
                     sequence: self.sequence,
                 },
-                minute: minute_of_day(wall_ms, offset),
+                minute: local.minute_of_day(wall_ms),
             };
             match self.engine.ingest(began, daytime) {
                 Ok(()) => self.counts.accepted += 1,

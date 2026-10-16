@@ -1,0 +1,18 @@
+[package]
+name = "lamp-local-time"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+# Zone data bundled, pinned as Schedule and Mood pin it (#820).
+jiff = { version = "0.2", features = ["tzdb-bundle-always"] }
+
+[dev-dependencies]
+# Real zone files for the tests, from the same bundle jiff carries.
+jiff-tzdb = "0.1"
+tempfile = "3"
+
+[lints]
+workspace = true

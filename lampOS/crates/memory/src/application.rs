@@ -2,7 +2,7 @@
 use lamp_memory::{
     health::{CountSource, Reporter, State},
     server::Server,
-    store::{Options, Store, private_dir},
+    store::{LocalTime, Options, Store, private_dir},
 };
 use std::{
     ffi::OsString,
@@ -12,9 +12,9 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-const USAGE: &str = "usage: lamp-memory --dir ABSOLUTE_DIR --socket ABSOLUTE_SOCKET_PATH [--keep-days N] [--utc-offset-minutes M] [--memory-days] [--bus-root ABSOLUTE_DIR]";
+const USAGE: &str = "usage: lamp-memory --dir ABSOLUTE_DIR --socket ABSOLUTE_SOCKET_PATH [--keep-days N] [--utc-offset-minutes M | --zone system|NAME] [--memory-days] [--bus-root ABSOLUTE_DIR]";
 
-const HELP: &str = "Keeps what the lamp remembers under --dir, a directory only its owner can enter (made\nwith mode 0700 if it is not there; refused if its group or everyone can enter it).\nThe default stores a journal file for each local day and a kept file per person.\n--memory-days opts into SQLite, ranked search and linked observations, importing and\nremoving the old files before serving. That directory then requires --memory-days;\nno model is configured or called. See docs/memory-days.md before enabling it.\nAnswers one JSON object per line on --socket (mode 0600), with ready beside the\nsocket while taking requests. --keep-days N (default 30, at least 1): delete journal\ndays more than N days before today. --utc-offset-minutes M (default 0, -720 to 840):\nminutes east of UTC for day boundaries.\n--bus-root ABSOLUTE_DIR opts into a memory health report once a second. The bus\nis optional and cannot hold the request loop; without this flag no reports run.\nSee docs/memory.md.";
+const HELP: &str = "Keeps what the lamp remembers under --dir, a directory only its owner can enter (made\nwith mode 0700 if it is not there; refused if its group or everyone can enter it).\nThe default stores a journal file for each local day and a kept file per person.\n--memory-days opts into SQLite, ranked search and linked observations, importing and\nremoving the old files before serving. That directory then requires --memory-days;\nno model is configured or called. See docs/memory-days.md before enabling it.\nAnswers one JSON object per line on --socket (mode 0600), with ready beside the\nsocket while taking requests. --keep-days N (default 30, at least 1): delete journal\ndays more than N days before today. --utc-offset-minutes M (default 0, -720 to 840):\nminutes east of UTC for day boundaries, the same all year. --zone system takes the\nlamp's own time zone (/etc/localtime, written at setup) at each moment, across daylight\nsaving and a zone setup changes while it runs; --zone NAME names one. Not both.\n--bus-root ABSOLUTE_DIR opts into a memory health report once a second. The bus\nis optional and cannot hold the request loop; without this flag no reports run.\nSee docs/memory.md.";
 
 #[derive(Debug, Eq, PartialEq)]
 struct Arguments {
@@ -22,6 +22,7 @@ struct Arguments {
     socket: PathBuf,
     keep_days: u32,
     utc_offset_minutes: i32,
+    zone: Option<String>,
     memory_days: bool,
     bus_root: Option<PathBuf>,
 }
@@ -30,13 +31,14 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
     let mut args = args.into_iter();
     let (mut dir, mut socket, mut keep_days, mut utc_offset_minutes) = (None, None, None, None);
     let mut memory_days = false;
-    let mut bus_root = None;
+    let (mut bus_root, mut zone) = (None, None);
     while let Some(key) = args.next() {
         if key == "--help" {
             let alone = dir.is_none()
                 && socket.is_none()
                 && keep_days.is_none()
                 && utc_offset_minutes.is_none()
+                && zone.is_none()
                 && !memory_days
                 && bus_root.is_none()
                 && args.next().is_none();
@@ -55,7 +57,9 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
         }
         let known = matches!(
             key.to_str(),
-            Some("--dir" | "--socket" | "--keep-days" | "--utc-offset-minutes" | "--bus-root")
+            Some(
+                "--dir" | "--socket" | "--keep-days" | "--utc-offset-minutes" | "--zone" | "--bus-root"
+            )
         );
         if !known {
             return Err("unknown option");
@@ -65,6 +69,13 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
             Some("--dir") if dir.is_none() => dir = Some(PathBuf::from(value)),
             Some("--socket") if socket.is_none() => socket = Some(PathBuf::from(value)),
             Some("--bus-root") if bus_root.is_none() => bus_root = Some(PathBuf::from(value)),
+            Some("--zone") if zone.is_none() => {
+                let name = value.to_str().filter(|name| !name.is_empty());
+                zone = Some(
+                    name.ok_or("--zone is system or a time zone's name")?
+                        .to_owned(),
+                );
+            }
             Some("--keep-days") if keep_days.is_none() => {
                 let days = value.to_str().and_then(|value| value.parse::<u32>().ok());
                 keep_days = Some(
@@ -83,11 +94,15 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
             _ => return Err("an option was given twice"),
         }
     }
+    if zone.is_some() && utc_offset_minutes.is_some() {
+        return Err("--zone and --utc-offset-minutes are one or the other");
+    }
     let arguments = Arguments {
         dir: dir.ok_or("--dir is required")?,
         socket: socket.ok_or("--socket is required")?,
         keep_days: keep_days.unwrap_or(30),
         utc_offset_minutes: utc_offset_minutes.unwrap_or(0),
+        zone,
         memory_days,
         bus_root,
     };
@@ -145,13 +160,32 @@ fn run(
     result
 }
 
+/// The zone, or the offset (0 unless given): an unknown zone ends the start,
+/// never a silent UTC (#820).
+fn local(arguments: &Arguments) -> io::Result<LocalTime> {
+    match &arguments.zone {
+        Some(zone) => LocalTime::zone(zone),
+        None => Ok(LocalTime::Offset(arguments.utc_offset_minutes)),
+    }
+}
+
+/// The start line with `--memory-days`: it names the zone when `--zone` is
+/// given, and is the same as before otherwise (#820).
+fn days_start_line(arguments: &Arguments) -> String {
+    let zone = arguments
+        .zone
+        .as_ref()
+        .map_or_else(String::new, |zone| format!(" zone={zone}"));
+    format!("started memory_days=true{zone}; the model adapter is not configured")
+}
+
 fn serve(arguments: &Arguments, server: Server, health: Option<&State>) -> io::Result<()> {
     if arguments.memory_days {
         let mut store = lamp_memory::days::Days::open(
             Options {
                 dir: arguments.dir.clone(),
                 keep_days: arguments.keep_days,
-                utc_offset_minutes: arguments.utc_offset_minutes,
+                local: local(arguments)?,
             },
             now_unix_ms(),
         )
@@ -162,24 +196,27 @@ fn serve(arguments: &Arguments, server: Server, health: Option<&State>) -> io::R
                 .and_then(|()| store.health_counts());
             health.counts(counts.map_err(io::Error::other));
         }
-        log("started memory_days=true; the model adapter is not configured");
+        log(&days_start_line(arguments));
         return server.run_reporting(&mut store, &mut now_unix_ms, &mut log, health);
     }
     let mut store = Store::open(
         Options {
             dir: arguments.dir.clone(),
             keep_days: arguments.keep_days,
-            utc_offset_minutes: arguments.utc_offset_minutes,
+            local: local(arguments)?,
         },
         now_unix_ms(),
     )?;
     let found = store.found();
     log(&format!(
-        "started dir={} socket={} keep_days={} utc_offset_minutes={} people={} skipped_lines={} expired_days={} unfinished_files={}",
+        "started dir={} socket={} keep_days={} {} people={} skipped_lines={} expired_days={} unfinished_files={}",
         arguments.dir.display(),
         arguments.socket.display(),
         arguments.keep_days,
-        arguments.utc_offset_minutes,
+        match &arguments.zone {
+            Some(zone) => format!("zone={zone}"),
+            None => format!("utc_offset_minutes={}", arguments.utc_offset_minutes),
+        },
         found.people,
         found.skipped_lines,
         found.expired_days,

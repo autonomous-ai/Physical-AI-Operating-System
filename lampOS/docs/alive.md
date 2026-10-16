@@ -141,11 +141,19 @@ not more life.
 | `schedule/due` | Schedule | Waking, once for each notice that comes due. New to Expression |
 | `controls/touch`, `controls/touch_state` | `--touch` Controls, only with `serve --head-touch` | The head (#711, below) |
 | `voice/mute` | The voice, with `LAMP_HEAD_TOUCH=on` and `--controls-mute`; read only with `serve --head-touch` | Sleep from the head, the voice's mute with the reason `sleep` (#711, below) |
-| The local time of day | The live service itself, from the wall clock and `--utc-offset-minutes` (420 in Vietnam), at start and every minute | Night. Not a bus topic. `serve` refuses a catalogue with sleep without it. With `--kernel-clock` it is given only while the kernel says the clock is set (`lamp_ipc::clock_synced`, #830): a lamp has no battery clock, and one not set knows no night, so it neither falls asleep nor wakes by a wrong hour; one line says each change |
+| The local time of day | The live service itself, from the wall clock and `--zone system` (the lamp's own time zone, written at setup) or `--utc-offset-minutes` (420 in Vietnam), at start and every minute | Night. Not a bus topic. `serve` refuses a catalogue with sleep without one. With `--kernel-clock` it is given only while the kernel says the clock is set (`lamp_ipc::clock_synced`, #830): a lamp has no battery clock, and one not set knows no night, so it neither falls asleep nor wakes by a wrong hour; one line says each change |
 
-`lamp-expression import --utc-offset-minutes N` adds the same time of day
-to an imported recording, from the recording's own wall clock, so that a
-replay can see night.
+`--zone system` (or `--zone America/New_York`) takes the zone's offset at
+each moment, so night stays at the same clock hours across a daylight-saving
+change (#820); `--utc-offset-minutes` is the same all year, as before. The two
+together are refused; an unknown zone ends the start (never a silent UTC).
+`--zone system` follows `/etc/localtime`: when setup points it at the home's
+zone while Expression runs, the next minute's reading takes the new zone, with
+no restart. A change that cannot be read keeps the last zone (`lamp-local-time`,
+shared with Memory and the policy).
+`lamp-expression import --zone NAME` or `--utc-offset-minutes N` adds the same
+time of day to an imported recording, from the recording's own wall clock, so
+that a replay can see night.
 
 ### The head (#711)
 

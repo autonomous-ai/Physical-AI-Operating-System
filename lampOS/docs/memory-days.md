@@ -159,8 +159,10 @@ before readiness (one extra byte is read to detect overflow). Calls use
 that cached TZif data and its listed transitions;
 missing, oversized or unsupported data falls back to UTC. A timezone-file
 change requires a worker restart. Memory's configured day offset must agree
-with Voice's local date; the store still has a fixed offset and no automatic
-summer-time adjustment. Startup file access is outside the note/call budgets.
+with Voice's local date. The store takes a fixed offset, or with `--zone` a
+zone whose summer time it follows and, for `system`, a zone setup changes
+while it runs (#820, [memory.md](memory.md)); this client still reads the file
+once. Startup file access is outside the note/call budgets.
 
 With someone the eyes know at the lamp (#764,
 [memory.md](memory.md#each-persons-own-764)), every request above names

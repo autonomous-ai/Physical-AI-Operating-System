@@ -34,13 +34,15 @@ use crate::{
     decide::{Answer, Asked, Connection, Decider, Failed, Question, Usage},
     rules::{Kept, Kind},
 };
+/// Where the lamp is in time (#820).
+pub use lamp_local_time::LocalTime;
 use lamp_msgs::{AgentState, Decision, Rules, Sign, TaskProgress, TaskStatus, Voice};
 use serde::Serialize;
 use serde_json::{Value, json};
 use std::{
     collections::{BTreeMap, BTreeSet, VecDeque},
     io,
-    sync::mpsc,
+    sync::{Arc, mpsc},
     thread,
     time::{Duration, Instant},
 };
@@ -65,13 +67,15 @@ pub const RULE_YES: f32 = 0.6;
 pub const RULE_NO: f32 = 0.1;
 
 /// How the progress question is asked (`lamp-policy --progress`).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 pub struct Options {
     /// How long the decision model has for one asking.
     pub deadline: Duration,
-    /// The lamp's local time, east of UTC, for the hour of the day. Without
-    /// it the hour is not known and is shown as null.
-    pub utc_offset_minutes: Option<i32>,
+    /// The lamp's local time, for the hour of the day: a fixed offset
+    /// (`--utc-offset-minutes`) or a zone (`--zone`), whose offset is taken
+    /// at the decision's moment (#820). Without it the hour is not known and
+    /// is shown as null.
+    pub local: Option<Arc<LocalTime>>,
     /// The two hard rules ([`NOTE_EVERY`], [`QUIET_FOR`]); shorter only in
     /// a test.
     pub note_every: Duration,
@@ -87,10 +91,10 @@ pub struct Options {
 }
 
 impl Options {
-    pub fn new(deadline: Duration, utc_offset_minutes: Option<i32>) -> Self {
+    pub fn new(deadline: Duration, local: Option<Arc<LocalTime>>) -> Self {
         Self {
             deadline,
-            utc_offset_minutes,
+            local,
             note_every: NOTE_EVERY,
             quiet_for: QUIET_FOR,
             act: false,
@@ -728,7 +732,12 @@ impl Progress {
         } else if self.rules.hold(
             Kind::News,
             unix_ms,
-            self.options.utc_offset_minutes,
+            // The zone's offset at this moment, so a kept morning ends at
+            // the zone's noon across daylight saving (#820).
+            self.options
+                .local
+                .as_ref()
+                .map(|local| local.offset_minutes_at(unix_ms)),
             room == Room::Quiet,
         ) {
             Some(Hold::KeptRule)
@@ -883,8 +892,9 @@ impl Progress {
             .unwrap_or(u32::MAX),
             hour: self
                 .options
-                .utc_offset_minutes
-                .map(|offset| hour_of_day(unix_ms, offset)),
+                .local
+                .as_ref()
+                .map(|local| local.hour_of_day(unix_ms)),
         }
     }
 
@@ -1636,6 +1646,23 @@ mod tests {
     }
 
     #[test]
+    fn with_a_zone_the_hour_is_the_zones_at_the_moment_of_the_decision() {
+        // #820: 23:00 in New York is 04:00 UTC in winter, 03:00 in summer.
+        let york = Arc::new(LocalTime::zone("America/New_York").unwrap());
+        let mut progress =
+            Progress::start(Never, Options::new(Duration::from_secs(1), Some(york))).unwrap();
+        let now = Instant::now();
+        progress.status(status(5, AgentState::Working));
+        progress.status(status(6, AgentState::Working));
+        let task = progress.next(now, 0, Room::Quiet).unwrap();
+        let hour = |unix_ms| progress.context(task, now, unix_ms, Room::Quiet, None).hour;
+        assert_eq!(hour(1_768_449_600_000), Some(23));
+        assert_eq!(hour(1_784_084_400_000), Some(23));
+        // A fixed 300 minutes west is an hour off in summer.
+        assert_eq!(hour_of_day(1_784_084_400_000, -300), 22);
+    }
+
+    #[test]
     fn the_hour_is_local_by_the_offset_given() {
         // 2026-10-14T17:31:02Z is half past midnight at UTC+7.
         assert_eq!(hour_of_day(1_791_999_062_000, 0), 17);
@@ -1664,8 +1691,14 @@ mod tests {
     fn a_kept_rule_holds_progress_news_and_no_model_is_asked() {
         // 2026-10-16 08:59 at a lamp seven hours east of UTC, and its noon.
         let (hanoi_0859, hanoi_noon) = (1_792_115_940_000, 1_792_115_940_000 + 181 * 60_000);
-        let mut progress =
-            Progress::start(Never, Options::new(Duration::from_secs(1), Some(7 * 60))).unwrap();
+        let mut progress = Progress::start(
+            Never,
+            Options::new(
+                Duration::from_secs(1),
+                Some(Arc::new(LocalTime::Offset(7 * 60))),
+            ),
+        )
+        .unwrap();
         let now = Instant::now();
         progress.status(status(1, AgentState::Working));
         progress.status(status(2, AgentState::Working));
@@ -1708,6 +1741,31 @@ mod tests {
         );
         assert_eq!(decided.decision.choice, "wait");
         assert_eq!(Hold::KeptRule.as_str(), "kept_rule");
+    }
+
+    /// #820: with a zone, a kept morning ends at the zone's noon on that
+    /// day, daylight saving included; a fixed offset of the winter's is an
+    /// hour late in summer.
+    #[test]
+    fn with_a_zone_a_kept_morning_ends_at_the_zones_noon() {
+        // 2026-07-15 15:30 and 16:30 UTC: 11:30 and 12:30 in New York (EDT).
+        let (york_1130, york_1230) = (1_784_129_400_000, 1_784_133_000_000);
+        let york = Arc::new(LocalTime::zone("America/New_York").unwrap());
+        let mut progress =
+            Progress::start(Never, Options::new(Duration::from_secs(1), Some(york))).unwrap();
+        let now = Instant::now();
+        progress.status(status(1, AgentState::Working));
+        progress.status(status(2, AgentState::Working));
+        progress.rules(rules(false, true));
+        assert_eq!(progress.next(now, york_1130, Room::Quiet), None);
+        assert_eq!(progress.next(now, york_1230, Room::Quiet), Some(3));
+        let winter = Arc::new(LocalTime::Offset(-300));
+        let mut fixed =
+            Progress::start(Never, Options::new(Duration::from_secs(1), Some(winter))).unwrap();
+        fixed.status(status(1, AgentState::Working));
+        fixed.status(status(2, AgentState::Working));
+        fixed.rules(rules(false, true));
+        assert_eq!(fixed.next(now, york_1230, Room::Quiet), None);
     }
 
     /// The reviewer on #937 (08:06): asked in a quiet room with news not

@@ -1789,9 +1789,11 @@ name = "lamp-expression"
 version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
+ "jiff",
  "lamp-body",
  "lamp-bus",
  "lamp-ipc",
+ "lamp-local-time",
  "lamp-msgs",
  "serde",
  "serde_json",
@@ -1872,12 +1874,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "lamp-local-time"
+version = "0.1.0"
+dependencies = [
+ "jiff",
+ "jiff-tzdb",
+ "tempfile",
+]
+
+[[package]]
 name = "lamp-memory"
 version = "0.1.0"
 dependencies = [
  "lamp-bus",
  "lamp-gemini",
  "lamp-ipc",
+ "lamp-local-time",
  "lamp-msgs",
  "lamp-voice",
  "rusqlite",
@@ -1946,6 +1958,7 @@ dependencies = [
  "httparse",
  "lamp-bus",
  "lamp-ipc",
+ "lamp-local-time",
  "lamp-msgs",
  "rustls",
  "serde",

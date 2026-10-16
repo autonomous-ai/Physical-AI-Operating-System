@@ -5,6 +5,7 @@
 mod alive;
 mod catalogue;
 mod engine;
+pub mod local_time;
 pub mod replay;
 pub mod runtime;
 mod speaking;

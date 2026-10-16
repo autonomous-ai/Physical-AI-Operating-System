@@ -12,6 +12,7 @@ use lamp_policy::{
     decide::{Answer, Asked, Decider, Failed, Question},
     hello::{self, Hello as PolicyHello},
     policy::{self, Options},
+    progress::LocalTime,
 };
 use lamp_voice::speak_up::{Arrival, Hello};
 use serde_json::json;
@@ -91,7 +92,10 @@ fn main() -> io::Result<()> {
         let hello = hello::Options {
             act: true,
             at_most_every: Duration::ZERO,
-            ..hello::Options::new(Duration::from_millis(1_500), Some(420))
+            ..hello::Options::new(
+                Duration::from_millis(1_500),
+                Some(Arc::new(LocalTime::Offset(420))),
+            )
         };
         thread::spawn(move || {
             let hello = PolicyHello::start(Yes, hello)?;

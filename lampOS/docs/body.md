@@ -946,13 +946,18 @@ nothing new, so they are not checked:
 
 By this model a folded lamp sits 18 mm (lamp-4ace) to 20 mm (lamp-52e6)
 behind its axis. Standing it sits 2.7 mm in front. That is why the 16 mm
-bound applies only to a lamp that stands. A test checks every built-in clip
-on both lamps' standing poses (`cog::tests`). All of them stay inside 22 mm,
-except `surprised`: its frame 30 reaches 25.7 mm (the shoulder 332 counts
-back with the head). It is refused when it is asked for, so "wow" now gets
-no gesture. There is no clip generator in this tree to make it smaller (#1058
-brings one). No clip leans the lamp back more than 7.3 mm. The journal says
-when the rule acts:
+bound applies only to a lamp that stands. A test (`cog::tests`) checks that
+every built-in clip passes the rule on both lamps' standing poses. No frame
+may come within 85% of 22 mm, and no frame may lean the lamp back past 16 mm.
+A regenerated clip therefore cannot be refused at runtime. The test lets off
+exactly three clips, named in it (`KNOWN_OVER`): `surprised`, `excited` and
+`dance_groove`. Here `surprised` reaches 25.7 mm at frame 30 (the shoulder
+332 counts back with the head). As #1058 has them, `excited` reaches 23.3 mm
+and `dance_groove` 23.5 mm. #1058 trims all three to 20 mm or less. Until
+then they are refused when asked for, so "wow" gets no gesture. No other clip
+leans the lamp back more than 7.3 mm. The journal has one line each time the
+rule acts. A refused gesture's line names the clip, its worst frame and the
+millimetres:
 
 ```text
 lamp-body: step N anti-tip: REFUSED gesture surprised: frame 30 takes the centre of gravity 25.7 mm off the base's axis, over V1's 22 mm (1 so far)

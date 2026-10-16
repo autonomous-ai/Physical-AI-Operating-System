@@ -19,7 +19,9 @@ serde_json.workspace = true
 lamp-bus = { path = "../bus" }
 lamp-msgs = { path = "../msgs" }
 lamp-ipc = { path = "../ipc" }
-# A skill's moves are held to the body's own check (`lamp_body::moves`).
+# A skill's moves are held to the body's own check (`lamp_body::moves`), a
+# gesture to its clip table, and a clip's length is how long a run waits
+# before the next.
 lamp-body = { path = "../body" }
 # The voice's own check of a skill's sound (`lamp_voice::say::read_sound`),
 # so that what loads is what the voice plays.

@@ -1,0 +1,21 @@
+# "Lamp, dance": the tool called with no mood. The line, then one of the five
+# dances, with a warm glow dimmed two steps first.
+[[call_tool]]
+name = "dance"
+at = "0s"
+
+[[expect]]
+call = "say"
+args = { note = "Say one short, playful line that you are going to dance, in your own words, then stop talking while you dance." }
+
+[[expect]]
+call = "light"
+args = { colour = "warm" }
+
+[[expect]]
+call = "light"
+args = { dim = 2 }
+
+[[expect]]
+call = "body.gesture"
+args = { gesture = ["dance_chill", "dance_waltz", "dance_groove", "dance_hype", "dance_jazz"] }

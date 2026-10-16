@@ -1,0 +1,47 @@
+# Dance: a person asks, the lamp says one playful line and dances one of
+# V1's dances, kept as body clips (#979). Started by its tool alone: no
+# trigger and no [ask], since a person asked. It never dances on its own,
+# not even to music, which the ears cannot yet tell from talk (#999).
+needs = ["voice", "body", "light"]
+tool = "dance"
+# A call while the dance plays: nothing more moves, and the 45 s below
+# still run from the dance under way.
+still = "I'm still dancing."
+
+[choice]
+name = "style"
+about = "The mood of the dance they asked for: calm, upbeat, or jazz. Leave it out when they gave none."
+one_of = ["calm", "upbeat", "jazz"]
+
+[flag]
+name = "long"
+about = "True when they asked for a long dance."
+
+# Within 45 s of a dance (from when it began), the tool runs only if what
+# was heard since asks for it: a dance word, or again, another, one more,
+# each a whole word ("guidance" and "against" do not count). A noise heard
+# as "¿Qué?" made the model dance again 28 s after a dance on lamp-06c1
+# (#999); a real "again!" still dances.
+[again]
+within = "45s"
+if_heard = ["dance", "dances", "dancing", "danced", "again", "another", "one more"]
+told = "You just danced. Dance again only if they ask for it; otherwise answer what they said."
+
+# The model's line first: the note is what it is told to say.
+[[do]]
+say = "Say one short, playful line that you are going to dance, in your own words, then stop talking while you dance."
+
+# When the line ends: a low warm glow, then the dance, a clip picked within
+# the asked mood (any of the five without one), played again for a long one.
+# The light first: a clip played again waits for the first to end, and every
+# step after it with it. The glow is given back when the last clip ends; it
+# is steady, and a slow pulse waits for the light requests (#993).
+[[do]]
+after = "say"
+light = { colour = "warm" }
+
+[[do]]
+light = { dim = 2 }
+
+[[do]]
+body = { gesture = { calm = ["dance_chill", "dance_waltz"], upbeat = ["dance_groove", "dance_hype"], jazz = ["dance_jazz"] }, again_if = "long" }

@@ -543,14 +543,18 @@ on a copy of its sessions and journal.
   the lamp, in the same boot). `summary.json` says which.
 - **One boot.** The monotonic clock starts again at every boot, and the
   sessions folder keeps sessions from earlier boots, whose times repeat.
-  A session's folder is named by lamp-voice's systemd `INVOCATION_ID`: with
-  a journal that has lamp-voice's lines for the offset's boot, a session is
-  read only when its name is one of their `_SYSTEMD_INVOCATION_ID`s.
-  Otherwise it is read only when its last event, mapped to the wall, is
-  within a minute of its files' modification time (keep it when copying:
-  `tar` does). `left-out.json`'s `sessions_skipped` counts the others by why
-  (`other_boot`, `far_from_file_time`); `summary.json` says how many were
-  read and how they were told apart. A bus recording needs neither: its
+  A session's folder is named by lamp-voice's systemd `INVOCATION_ID`. A
+  session is read when the journal's lamp-voice lines for the offset's boot
+  name it (`_SYSTEMD_INVOCATION_ID`), **or** when its last event, mapped to
+  the wall, is within a minute of its files' modification time (keep it when
+  copying: `tar` does). Either is enough: a lamp's journal is volatile and
+  forgets this boot's earlier runs, while an earlier boot's mapped times land
+  hours from its files' time. `left-out.json`'s `sessions_skipped` counts the
+  others by why (`other_boot` with journal runs to ask, `far_from_file_time`
+  without); `summary.json` gives `sessions_used` and `sessions_by`, how many
+  each rule admitted (`journal_run`, `file_time`). Each session is read a line
+  at a time, twice (its last event first), never held whole in memory, and a
+  skipped session's lines are not counted at all. A bus recording needs neither: its
   window is its own wall time.
 - **The window first.** An event outside `--since`..`--until` is neither
   kept nor counted, so `left-out.json` speaks of the window only.
@@ -570,7 +574,9 @@ carry. That assumes each publisher stamps `CLOCK_MONOTONIC`: true of
 trace as `bus_out::state` publishes it (the voice does not write the state
 itself): from `ring_requested.phase` while a turn owns the ring (`listening`
 listening, `waiting` thinking, `speaking` speaking), and resting at
-`turn_finished`. `summary.json` says which.
+`turn_finished`. `summary.json` says which. With the ring degraded
+(`OptionalRing` stops presenting) the trace has no `ring_requested`, so a
+built state stops there, while the bus still published the voice's state.
 
 `stretch_breaks_cases_rebuilt_from_the_export_replay_the_same` exports
 Stretch break's own recorded cases through `--bus` and replays `case/` with

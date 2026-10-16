@@ -48,12 +48,13 @@
 //! **One boot.** The monotonic clock starts again at every boot, and the
 //! sessions folder keeps sessions from earlier boots, so a session is read
 //! only when it ran in the offset's boot. Each session's folder is named by
-//! lamp-voice's systemd `INVOCATION_ID`: with a journal that has lamp-voice's
-//! lines for that boot, a session is read only when its name is one of their
-//! `_SYSTEMD_INVOCATION_ID`s. Otherwise a session is read only when its last
-//! event, mapped to the wall, is within a minute of its files' modification
-//! time. Skipped sessions are counted, by why, in `left-out.json`. A bus
-//! recording needs neither: its window is its own wall time.
+//! lamp-voice's systemd `INVOCATION_ID`. A session is read when the journal's
+//! lamp-voice lines for that boot name it (`_SYSTEMD_INVOCATION_ID`), or when
+//! its last event, mapped to the wall, is within a minute of its files'
+//! modification time: either is enough, since a volatile journal forgets this
+//! boot's earlier runs and an earlier boot's mapped times land hours from its
+//! files' time. Skipped sessions are counted, by why, in `left-out.json`. A
+//! bus recording needs neither: its window is its own wall time.
 //!
 //! What it writes, into a new folder: `events.jsonl` (both, in time order,
 //! each with `at_us` and the local wall time), `summary.json` (counts by kind,
@@ -71,7 +72,7 @@ use serde_json::{Map, Value, json};
 use std::{
     collections::BTreeMap,
     fs,
-    io::Write,
+    io::{BufRead, BufReader, Write},
     os::unix::fs::{DirBuilderExt, OpenOptionsExt},
     path::{Path, PathBuf},
 };
@@ -230,7 +231,8 @@ pub struct LeftOut {
     /// Fields left out of a kept bus message, by topic.
     pub bus_fields: BTreeMap<String, u64>,
     /// Session folders not read, by why: `other_boot` (the journal's
-    /// lamp-voice did not run it in this boot), `far_from_file_time` (its
+    /// lamp-voice did not run it in this boot, and its files' time does not
+    /// agree either), `far_from_file_time` (no journal runs to ask, and its
     /// last event is more than a minute from its files' time).
     pub sessions_skipped: BTreeMap<String, u64>,
 }
@@ -555,6 +557,18 @@ fn wall_text(zone: &LocalTime, unix_ms: u64) -> String {
         of_day / 1000 % 60,
         of_day % 1000
     )
+}
+
+/// Each line of a file at most [`MAX_INPUT_BYTES`] long, read one at a time,
+/// so a long session is never held whole in memory.
+fn each_line(path: &Path, mut line: impl FnMut(&str)) -> Result<()> {
+    if fs::metadata(path)?.len() > MAX_INPUT_BYTES {
+        return Err(invalid(&format!("{} is over 256 MiB", path.display())));
+    }
+    for text in BufReader::new(fs::File::open(path)?).lines() {
+        line(&text?);
+    }
+    Ok(())
 }
 
 fn read_bounded(path: &Path) -> Result<String> {
@@ -975,6 +989,8 @@ pub fn export(options: &ExportOptions) -> Result<Value> {
 
     let mut states = Vec::new();
     let mut sessions_used = 0u64;
+    // How each session read was found to be this boot's.
+    let mut sessions_by: BTreeMap<&str, u64> = BTreeMap::new();
     let wall_of = |at_us: u64| ((at_us as i64 + offset_us) / 1000).max(0) as u64;
     if let Some(sessions) = &options.sessions {
         let mut by_session: BTreeMap<PathBuf, Vec<PathBuf>> = BTreeMap::new();
@@ -985,66 +1001,78 @@ pub fn export(options: &ExportOptions) -> Result<Value> {
                 .push(file);
         }
         for (folder, files) in by_session {
-            let mut lines = Vec::new();
+            // First pass, a line at a time: the session's last event, to
+            // judge which boot it is. Nothing is counted yet, so a skipped
+            // session leaves no trace in what was left out.
+            let mut last_us: Option<u64> = None;
             for file in &files {
-                for line in read_bounded(file)?.lines() {
-                    match serde_json::from_str::<Value>(line) {
-                        Ok(value) => lines.push(value),
-                        Err(_) => left.voice_lines_unreadable += 1,
+                each_line(file, |line| {
+                    if let Some(at_us) = serde_json::from_str::<Value>(line)
+                        .ok()
+                        .and_then(|value| value.get("at_us").and_then(Value::as_u64))
+                    {
+                        last_us = Some(last_us.map_or(at_us, |last| last.max(at_us)));
                     }
-                }
+                })?;
             }
-            // This boot's, or skipped (above): by the journal's lamp-voice
-            // runs when it has them, else by the files' own time.
-            let skip = match boot_runs {
-                Some(runs) => {
-                    let name = folder
-                        .file_name()
-                        .map(|name| invocation_name(&name.to_string_lossy()))
-                        .unwrap_or_default();
-                    (!runs.contains(&name)).then_some("other_boot")
+            // This boot's when the journal's lamp-voice ran it in this boot,
+            // or when its files' time agrees with its last event: a volatile
+            // journal forgets this boot's earlier runs, and an earlier boot's
+            // mapped times land hours from its files' time.
+            let listed = boot_runs.is_some_and(|runs| {
+                folder
+                    .file_name()
+                    .is_some_and(|name| runs.contains(&invocation_name(&name.to_string_lossy())))
+            });
+            let by_time = match (
+                last_us,
+                files.iter().filter_map(|file| modified_ms(file)).max(),
+            ) {
+                (Some(last_us), Some(modified)) => {
+                    wall_of(last_us).abs_diff(modified) <= SAME_BOOT_WITHIN_MS
                 }
-                None => {
-                    let last_us = lines
-                        .iter()
-                        .filter_map(|value| value.get("at_us").and_then(Value::as_u64))
-                        .max();
-                    let modified = files.iter().filter_map(|file| modified_ms(file)).max();
-                    match (last_us, modified) {
-                        (Some(last_us), Some(modified))
-                            if wall_of(last_us).abs_diff(modified) <= SAME_BOOT_WITHIN_MS =>
-                        {
-                            None
-                        }
-                        (None, _) => None,
-                        _ => Some("far_from_file_time"),
-                    }
-                }
+                (None, _) => true,
+                _ => false,
             };
-            if let Some(why) = skip {
+            if listed {
+                *sessions_by.entry("journal_run").or_default() += 1;
+            } else if by_time {
+                *sessions_by.entry("file_time").or_default() += 1;
+            } else {
+                let why = if boot_runs.is_some() {
+                    "other_boot"
+                } else {
+                    "far_from_file_time"
+                };
                 *left.sessions_skipped.entry(why.into()).or_default() += 1;
                 continue;
             }
             sessions_used += 1;
-            for value in lines {
-                // The window first: what is outside it is neither kept nor
-                // counted.
-                let Some(at_us) = value.get("at_us").and_then(Value::as_u64) else {
-                    left.voice_lines_unreadable += 1;
-                    continue;
-                };
-                let wall_ms = wall_of(at_us);
-                if !(since_ms..=until_ms).contains(&wall_ms) {
-                    continue;
-                }
-                let Some(mut event) = voice_event(&value, &mut left) else {
-                    continue;
-                };
-                if let Some(state) = voice_state(&event) {
-                    states.push((at_us, wall_ms, state));
-                }
-                event.insert("source".into(), "voice".into());
-                rows.push((wall_ms, event));
+            // Second pass, a line at a time: the window first, so what is
+            // outside it is neither kept nor counted.
+            for file in &files {
+                each_line(file, |line| {
+                    let Ok(value) = serde_json::from_str::<Value>(line) else {
+                        left.voice_lines_unreadable += 1;
+                        return;
+                    };
+                    let Some(at_us) = value.get("at_us").and_then(Value::as_u64) else {
+                        left.voice_lines_unreadable += 1;
+                        return;
+                    };
+                    let wall_ms = wall_of(at_us);
+                    if !(since_ms..=until_ms).contains(&wall_ms) {
+                        return;
+                    }
+                    let Some(mut event) = voice_event(&value, &mut left) else {
+                        return;
+                    };
+                    if let Some(state) = voice_state(&event) {
+                        states.push((at_us, wall_ms, state));
+                    }
+                    event.insert("source".into(), "voice".into());
+                    rows.push((wall_ms, event));
+                })?;
             }
         }
     }
@@ -1162,7 +1190,7 @@ pub fn export(options: &ExportOptions) -> Result<Value> {
         "faces_messages": recorded_faces.len(),
         "faces_seen": ids.len(),
         "sessions_used": sessions_used,
-        "sessions_by": if boot_runs.is_some() { "the journal's lamp-voice runs in this boot" } else { "their files' time, within a minute" },
+        "sessions_by": sessions_by,
     });
 
     fs::DirBuilder::new().mode(0o700).create(&options.out)?;
@@ -1565,8 +1593,8 @@ mod tests {
         let dir = temp("boots-journal");
         let sessions = dir.0.join("sessions");
         let wall = |seconds: u64| OFFSET_US + 5_000_000_000 + seconds * 1_000_000;
-        // File times that would pass the backstop for both: the journal decides.
-        two_boots(&sessions, wall(6) / 1000, wall(6) / 1000);
+        // Yesterday's file was written a day ago, as on a lamp.
+        two_boots(&sessions, wall(6) / 1000, wall(6) / 1000 - 86_400_000);
         let journal = dir.0.join("journal.json");
         let voice = json!({"MESSAGE": "lamp-voice: started", "SYSLOG_IDENTIFIER": "lamp-voice",
             "_SYSTEMD_UNIT": "lamp-voice.service", "_SYSTEMD_INVOCATION_ID": TODAY,
@@ -1588,6 +1616,53 @@ mod tests {
             serde_json::from_str(&fs::read_to_string(dir.0.join("out/left-out.json")).unwrap())
                 .unwrap();
         assert_eq!(left["sessions_skipped"]["other_boot"], 1);
+        assert_eq!(summary["sessions_by"]["journal_run"], 1);
+    }
+
+    /// Second on #1170: a volatile journal keeps only this boot's latest
+    /// run. An earlier run of the same boot, whose files' time agrees, is
+    /// still read, and its answered turn counted.
+    #[test]
+    fn an_earlier_run_of_this_boot_the_journal_forgot_is_still_read() {
+        let dir = temp("boots-forgotten");
+        let sessions = dir.0.join("sessions");
+        let at = |seconds: u64| 5_000_000_000 + seconds * 1_000_000;
+        let wall_ms = |seconds: u64| (OFFSET_US + at(seconds)) / 1000;
+        let turn = |start: u64, outcome: &str| {
+            [
+                json!({"kind":"input_admitted","at_us":at(start),"turn":1}),
+                json!({"kind":"turn_finished","at_us":at(start + 4),"turn":1,"outcome":outcome}),
+            ]
+        };
+        // Two runs an hour apart, each file written as its last event happened.
+        session(&sessions, YESTERDAY, &turn(2, "answered"), wall_ms(6));
+        session(
+            &sessions,
+            TODAY,
+            &turn(3_602, "user_interrupted"),
+            wall_ms(3_606),
+        );
+        let journal = dir.0.join("journal.json");
+        let voice = json!({"MESSAGE": "lamp-voice: started", "SYSLOG_IDENTIFIER": "lamp-voice",
+            "_SYSTEMD_UNIT": "lamp-voice.service", "_SYSTEMD_INVOCATION_ID": TODAY,
+            "__REALTIME_TIMESTAMP": (OFFSET_US + at(3_601)).to_string(),
+            "__MONOTONIC_TIMESTAMP": at(3_601).to_string(), "_BOOT_ID": "b1"});
+        fs::write(&journal, format!("{voice}\n")).unwrap();
+        let mut given = options(&dir.0, sessions, Some(journal));
+        given.until = "18:30:00".into();
+        let summary = export(&given).unwrap();
+        assert_eq!(summary["sessions_used"], 2);
+        assert_eq!(summary["counts"]["turn_finished.outcome=answered"], 1);
+        assert_eq!(
+            summary["counts"]["turn_finished.outcome=user_interrupted"],
+            1
+        );
+        assert_eq!(summary["sessions_by"]["journal_run"], 1);
+        assert_eq!(summary["sessions_by"]["file_time"], 1);
+        let left: Value =
+            serde_json::from_str(&fs::read_to_string(dir.0.join("out/left-out.json")).unwrap())
+                .unwrap();
+        assert!(left["sessions_skipped"].get("other_boot").is_none());
     }
 
     /// Without a journal: a session whose last event, mapped, is more than a
@@ -1598,6 +1673,12 @@ mod tests {
         let sessions = dir.0.join("sessions");
         let wall_ms = (OFFSET_US + 5_000_000_000 + 6_000_000) / 1000;
         two_boots(&sessions, wall_ms + 2_000, wall_ms - 86_400_000);
+        // An unreadable line in the skipped session is not counted either.
+        let yesterday = sessions.join(YESTERDAY).join("metadata/events-0.jsonl");
+        let mut text = fs::read_to_string(&yesterday).unwrap();
+        text.push_str("not json\n");
+        fs::write(&yesterday, text).unwrap();
+        set_modified(&yesterday, wall_ms - 86_400_000);
         let mut given = options(&dir.0, sessions, None);
         given.wall_offset_us = Some(OFFSET_US as i64);
         let summary = export(&given).unwrap();
@@ -1614,6 +1695,8 @@ mod tests {
             serde_json::from_str(&fs::read_to_string(dir.0.join("out/left-out.json")).unwrap())
                 .unwrap();
         assert_eq!(left["sessions_skipped"]["far_from_file_time"], 1);
+        assert_eq!(left["voice_lines_unreadable"], 0);
+        assert_eq!(summary["sessions_by"]["file_time"], 1);
     }
 
     /// The window first: what is outside it is not counted as left out

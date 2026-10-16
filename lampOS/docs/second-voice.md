@@ -417,13 +417,8 @@ and its authority kept fresh during the rest of startup.
 - Trace: `voice_route_switched` (`to`, `why`, `turn`, `replayed_commands`,
   and the failure's `stage` and `reason`); `voice_route_held` (`turn`,
   `held_ms`, `to`: `live` or `second`) when a startup hold ends; the standby's startup link
-  record carries `"route":"second"`; an Ended of the standby, `"standby":true`.
-
-## Not done
-
-- **Gemini Terminal** (a wrong key or configuration) still ends the voice
-  service as before. The second route covers Unavailable and failed turns
-  only.
+  record carries `"route":"second"`; an Ended of the standby, `"standby":true`;
+  `voice_route_dropped` (`status`, `active`) when its worker exited.
 - **Held up, the second worker goes on** (#960): authority that lapsed in
   its queue while it was held up (lamp-4ace's SD/MMC stalls, #784) is
   skipped, as the Live worker does, and the controller's heartbeat is
@@ -431,8 +426,20 @@ and its authority kept fresh during the rest of startup.
   stall while finishing a turn ended it with "second route privacy or
   input lease expired", and the voice with it (lamp-4ace, 2026-10-16
   08:47).
-- **The standby is a voice worker:** if it exits or its channel fails, the
-  runtime cycle ends as for the Gemini worker, not as an optional part.
+- **A second worker that exits is dropped** (#960): checked once a tick
+  before anything else of the tick touches it (`second::dropped_if_gone`).
+  Standing by, the route goes and Gemini goes on. Active, Gemini's worker
+  is put back first and the turn the route held ends
+  (`second_route_failed`); the next turn is Gemini's. Recorded as
+  `voice_route_dropped` (`status`, `active`). An authority that cannot
+  reach it is not an error either. A worker that dies inside the very
+  tick that touches it still ends the voice, as before.
+
+## Not done
+
+- **Gemini Terminal** (a wrong key or configuration) still ends the voice
+  service as before. The second route covers Unavailable and failed turns
+  only.
 - A link change in the very first tick of a line, before the line is
   marked `movable`, abandons the line as before.
 - **Onboarding writing `second.json`:** waits on the owner's choice of how a

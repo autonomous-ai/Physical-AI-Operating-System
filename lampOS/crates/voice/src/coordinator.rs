@@ -451,17 +451,21 @@ impl Rig {
     /// to every remaining child even if one local channel has gone away.
     fn publish_hand_revocation(&mut self, snapshot: Snapshot) -> io::Result<()> {
         let mut failure = None;
+        let second_active = self.second.as_ref().is_some_and(second::Route::active);
         for worker in [&mut self.capture, &mut self.privacy, &mut self.provider] {
             if let Err(error) = worker
                 .channels
                 .control
                 .send(Control::Authority { snapshot })
+                // The active second route is not mandatory (#960).
+                && !(second_active && worker.role == "second")
             {
                 failure.get_or_insert(error);
             }
         }
-        if let Some(Err(error)) = self.second.as_mut().map(|route| route.publish(snapshot)) {
-            failure.get_or_insert(error);
+        // Not mandatory: dropped at the next tick if gone (#960).
+        if let Some(route) = &mut self.second {
+            let _ = route.publish(snapshot);
         }
         if let Some(motor) = &mut self.motor {
             motor.publish(snapshot);
@@ -482,19 +486,26 @@ impl Rig {
         if let Some(motor) = &mut self.motor {
             motor.publish(snapshot);
         }
-        for worker in [
-            &mut self.speaker,
-            &mut self.capture,
-            &mut self.privacy,
-            &mut self.provider,
-        ] {
+        let second_active = self.second.as_ref().is_some_and(second::Route::active);
+        for worker in [&mut self.speaker, &mut self.capture, &mut self.privacy] {
             worker
                 .channels
                 .control
                 .send(Control::Authority { snapshot })?;
         }
+        let provider = self
+            .provider
+            .channels
+            .control
+            .send(Control::Authority { snapshot });
+        // The second route's worker, standing by or active, is not
+        // mandatory: one that cannot be reached is dropped at the next tick
+        // (`second::dropped_if_gone`, #960), and the voice goes on.
+        if !second_active {
+            provider?;
+        }
         if let Some(route) = &mut self.second {
-            route.publish(snapshot)?;
+            let _ = route.publish(snapshot);
         }
         self.ring.publish(snapshot);
         if let Some(camera) = self.camera.as_mut()
@@ -2898,6 +2909,13 @@ fn conversation_with_gate(
         #[cfg(test)]
         crate::scenario_clock::step(crate::scenario_clock::Phase::Run)?;
         let loop_start = Instant::now();
+        // A second route whose worker exited is dropped before anything
+        // else of this tick touches it, and a turn it held ends (#960).
+        if second::dropped_if_gone(rig, &mut cloud, &mut output_flow, trace)? {
+            cancel_reply(owner, reply, trace, "second_route_failed")?;
+            snapshot = owner.snapshot(now())?;
+            rig.publish(snapshot)?;
+        }
         if let Some(current) = reply.as_ref() {
             let turn = current.owner.turn();
             highest_known_turn = Some(highest_known_turn.map_or(turn, |old| old.max(turn)));

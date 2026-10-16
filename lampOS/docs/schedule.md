@@ -565,7 +565,10 @@ Actions only; installation and on-lamp qualification remain First's work.
 
 ## Optional Voice consumer
 
-Voice requires exact `LAMP_SCHEDULE_SPEAK=on` and an explicit absolute
+Voice requires exact `LAMP_SCHEDULE_SPEAK=on` (or `skill`, where a due
+reminder also waits up to 10 s for the Reminders skill to ask for it through
+the say service, then is said by Voice itself: [speaking-first.md](speaking-first.md#asked-by-another-part-the-say-service-939))
+and an explicit absolute
 `LAMP_SCHEDULE_DELIVERY_DIR` on persistent storage. Provision its parent for the
 Voice service user; the final directory/database are private 0700/0600. This is
 a separate tagged ledger, never Schedule's item database or an audio session

@@ -16,6 +16,13 @@ mod transport;
 pub(crate) use consumer::roundtrip_tests::RoundtripFixture;
 
 pub const SPEAK_VARIABLE: &str = "LAMP_SCHEDULE_SPEAK";
+
+/// Whether Schedule speech is on: `on`, or `skill`, where a due reminder
+/// also waits for a skill's `from: schedule` ask (#939, (c);
+/// [`crate::say::SKILL_WAITS_US`]).
+fn speaking(value: Result<&str, &std::env::VarError>) -> bool {
+    matches!(value, Ok("on" | "skill"))
+}
 pub const LEDGER_VARIABLE: &str = "LAMP_SCHEDULE_DELIVERY_DIR";
 pub const LEASE_US: u64 = 750_000;
 const POLL_TARGET_US: u64 = 2_000;
@@ -207,12 +214,16 @@ pub(crate) struct Reminders {
     unadmitted: Option<ToWorker>,
     sent: bool,
     failed: bool,
+    /// `LAMP_SCHEDULE_SPEAK=skill`: a due reminder waits for a skill to ask.
+    by_skill: bool,
 }
 impl Reminders {
     pub fn from_environment() -> io::Result<Option<Self>> {
-        if std::env::var(SPEAK_VARIABLE).as_deref() != Ok("on") {
+        let value = std::env::var(SPEAK_VARIABLE);
+        if !speaking(value.as_deref()) {
             return Ok(None);
         }
+        let by_skill = value.as_deref() == Ok("skill");
         // Config is validated in the child. A slow/missing directory cannot
         // delay audio startup; parent startup only creates/spawns its IPC peer.
         let transport = transport::Transport::spawn(&std::env::current_exe()?)?;
@@ -223,7 +234,13 @@ impl Reminders {
             unadmitted: None,
             sent: false,
             failed: false,
+            by_skill,
         }))
+    }
+
+    /// Whether a due reminder waits for a skill's ask (`LAMP_SCHEDULE_SPEAK=skill`).
+    pub fn by_skill(&self) -> bool {
+        self.by_skill
     }
 
     pub fn poll(&mut self, now_us: u64) {
@@ -382,7 +399,7 @@ impl Reminders {
 
 /// Internal child entry. It opens no provider, microphone, speaker or actuator.
 pub fn run_consumer() -> io::Result<()> {
-    if std::env::var(SPEAK_VARIABLE).as_deref() != Ok("on") {
+    if !speaking(std::env::var(SPEAK_VARIABLE).as_deref()) {
         return Err(io::Error::other("Schedule speech is disabled"));
     }
     scheduling::background()?;

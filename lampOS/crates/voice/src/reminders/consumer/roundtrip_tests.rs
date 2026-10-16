@@ -228,6 +228,7 @@ impl RoundtripFixture {
             unadmitted: None,
             sent: false,
             failed: false,
+            by_skill: false,
         });
         self.worker = Some(worker);
         self.parent().poll(lamp_ipc::monotonic_us());

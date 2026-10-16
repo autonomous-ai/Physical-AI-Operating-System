@@ -301,3 +301,84 @@ fn a_say_the_model_left_silent_is_dropped() {
         Ok(Answer::Done(Outcome::Dropped("no_audio_answer".into())))
     );
 }
+
+/// #939, (c): with the switch, a due reminder or news waits for a skill's
+/// ask, at most `SKILL_WAITS_US` from when it was first held: taken with
+/// the ask's ticket when one is there, said by the voice once it has
+/// waited, and at once without the switch. Another one due begins its own
+/// wait; an ask for the other source is not taken.
+#[test]
+fn a_due_reminder_or_news_waits_for_a_skill_at_most_its_time() {
+    use crate::say::{SKILL_WAITS_US, Says, Source};
+    let mut held = None;
+    // Without the switch: said at once, as always.
+    assert!(matches!(
+        for_skill(None, Source::Schedule, false, "s/1/1", &mut held, 0),
+        Some(None)
+    ));
+    assert_eq!(held, None);
+    // With it and nobody asking: held, and said by the voice at 10 s.
+    assert!(for_skill(None, Source::Schedule, true, "s/1/1", &mut held, 1_000).is_none());
+    assert!(
+        for_skill(
+            None,
+            Source::Schedule,
+            true,
+            "s/1/1",
+            &mut held,
+            SKILL_WAITS_US
+        )
+        .is_none()
+    );
+    // Another reminder due begins its own wait.
+    assert!(
+        for_skill(
+            None,
+            Source::Schedule,
+            true,
+            "s/2/1",
+            &mut held,
+            SKILL_WAITS_US + 5
+        )
+        .is_none()
+    );
+    assert!(matches!(
+        for_skill(
+            None,
+            Source::Schedule,
+            true,
+            "s/2/1",
+            &mut held,
+            2 * SKILL_WAITS_US + 5
+        ),
+        Some(None)
+    ));
+    assert_eq!(held, None);
+    // A skill asked for news: a reminder does not take it; news does.
+    let (mut says, answered) = Says::asking_for_test(Source::Tasks, "task-news", 60_000_000);
+    assert!(
+        for_skill(
+            Some(&mut says),
+            Source::Schedule,
+            true,
+            "s/3/1",
+            &mut held,
+            2_000
+        )
+        .is_none()
+    );
+    let taken = for_skill(
+        Some(&mut says),
+        Source::Tasks,
+        true,
+        "t/7",
+        &mut held,
+        2_000,
+    );
+    let ticket = taken.flatten().expect("the skill's ticket");
+    assert_eq!(ticket.skill(), "task-news");
+    assert_eq!(held, None);
+    ticket.answer(Outcome::Spoken);
+    assert_eq!(answered.try_recv(), Ok(Answer::Done(Outcome::Spoken)));
+    assert_eq!(says.waiting(), 0);
+}

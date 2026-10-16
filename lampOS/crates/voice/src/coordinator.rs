@@ -2906,6 +2906,11 @@ fn conversation_with_gate(
     // A due reminder's quoted words cannot authorize a later camera turn.
     // Turn IDs increase within this conversation; fence older late words too.
     let mut last_reminder_turn: Option<u64> = None;
+    // Due things a skill may say (#939, (c)): the reminder or news held for
+    // a skill's ask, and since when.
+    let news_by_skill = crate::task_news::by_skill();
+    let mut reminder_held: Option<(String, u64)> = None;
+    let mut news_held: Option<(String, u64)> = None;
     let mut gesture_cue = crate::body_link::Cue::default();
     // What the voice is doing, heard and said, for whoever listens on the
     // lamp's bus. Nothing here waits for a listener.
@@ -5327,6 +5332,17 @@ fn conversation_with_gate(
                 &mut second_look,
                 reminder_now_us,
             )
+            && let Some(ticket) = for_skill(
+                says.as_mut(),
+                crate::say::Source::Schedule,
+                reminders.by_skill(),
+                &format!(
+                    "{}/{}/{}",
+                    offer.token.key.store_id, offer.token.key.id, offer.token.key.delivery
+                ),
+                &mut reminder_held,
+                reminder_now_us,
+            )
         {
             snapshot = commit_reminder_turn(
                 owner,
@@ -5341,6 +5357,7 @@ fn conversation_with_gate(
             )?;
             last_reminder_turn = reply.as_ref().map(|current| current.owner.turn());
             last_publish = monotonic_us();
+            begun_for(ticket, reply);
         }
         // What another part asked the voice to say (#939): after a due
         // reminder, before the hello and the news, through a reminder's
@@ -5632,6 +5649,7 @@ fn conversation_with_gate(
             && !submission_draining
             && snapshot.listening_ready(now())
             && let Some(provider_session) = unasked_session(&cloud, paused)
+            && let Some(ticket) = news_for_skill(news, says.as_mut(), news_by_skill, &mut news_held)
             && let Some(told) = news.tell()
         {
             eprintln!(
@@ -5655,6 +5673,7 @@ fn conversation_with_gate(
                 |state| rig.publish(state),
             )?;
             last_publish = monotonic_us();
+            begun_for(ticket, reply);
         }
         service_optional_ring(rig, &mut choreography, owner, trace, &mut ring_trace)?;
         if clock.saturating_sub(last_health) >= 50_000 {
@@ -6064,6 +6083,87 @@ fn reminder_quiet(
 
 /// A prepared reminder waits behind an existing turn's promised follow-up,
 /// including the gap after its final PCM retires and before the next owner.
+/// What a due reminder or news waits for (#939, (c)). With `by_skill`, a
+/// skill's `from` ask for what `source` keeps: `Some(Some(ticket))` when
+/// one has asked, to say it with that ask's ticket; `None` to wait; and
+/// `Some(None)` once it has waited [`crate::say::SKILL_WAITS_US`] since
+/// `key` was first held, to say it as the voice always did. Without
+/// `by_skill`, `Some(None)` at once. Called last before the turn is
+/// committed: a ticket taken is always said.
+fn for_skill(
+    says: Option<&mut crate::say::Says>,
+    source: crate::say::Source,
+    by_skill: bool,
+    key: &str,
+    held: &mut Option<(String, u64)>,
+    now_us: u64,
+) -> Option<Option<crate::say::Ticket>> {
+    if !by_skill {
+        return Some(None);
+    }
+    if let Some(ticket) = says.and_then(|says| says.take_from(source, now_us)) {
+        *held = None;
+        return Some(Some(ticket));
+    }
+    let since = match held {
+        Some((held_key, since)) if held_key == key => *since,
+        _ => {
+            *held = Some((key.to_owned(), now_us));
+            now_us
+        }
+    };
+    if now_us.saturating_sub(since) >= crate::say::SKILL_WAITS_US {
+        eprintln!(
+            "lamp-voice: no skill asked for the {} due within {} s: said by the voice",
+            match source {
+                crate::say::Source::Schedule => "reminder",
+                crate::say::Source::Tasks => "news",
+            },
+            crate::say::SKILL_WAITS_US / 1_000_000
+        );
+        *held = None;
+        Some(None)
+    } else {
+        None
+    }
+}
+
+/// [`for_skill`] for the news first in line. Progress is the Policy's to
+/// time already, and is told as it was.
+fn news_for_skill(
+    news: &mut crate::task_news::TaskNews,
+    says: Option<&mut crate::say::Says>,
+    by_skill: bool,
+    held: &mut Option<(String, u64)>,
+) -> Option<Option<crate::say::Ticket>> {
+    let (key, progress) = news
+        .waiting()
+        .map(|front| (front.key.clone(), front.progress.is_some()))?;
+    for_skill(
+        says,
+        crate::say::Source::Tasks,
+        by_skill && !progress,
+        &key,
+        held,
+        monotonic_us(),
+    )
+}
+
+/// A skill asked for what this turn says: it is begun, and is answered as
+/// the turn ends, on the proof a reminder's acknowledgement takes.
+fn begun_for(ticket: Option<crate::say::Ticket>, reply: &mut Option<Reply>) {
+    if let Some(ticket) = ticket {
+        eprintln!(
+            "lamp-voice: saying what the skill {} asked for",
+            ticket.skill()
+        );
+        ticket.begun(monotonic_us());
+        if let Some(current) = reply.as_mut() {
+            current.say = Some(ticket);
+        }
+    }
+}
+
 fn idle_reminder_offer(
     reminders: &crate::reminders::Reminders,
     reply: &Option<Reply>,

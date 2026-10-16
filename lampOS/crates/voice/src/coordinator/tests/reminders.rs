@@ -259,6 +259,9 @@ impl Test {
             .publish_speaker_snapshot(self.snapshot)
             .unwrap();
         current.complete_reminder(&self.pending, self.snapshot);
+        // As the coordinator's loop does: a skill's ask on the turn is
+        // answered on the same proof (#939, (c)).
+        current.answer_say(&self.pending, self.snapshot);
         self.reply = None;
         true
     }
@@ -519,6 +522,53 @@ fn whole_reminder_joins_two_real_retirements_and_successful_provider_terminal() 
     assert_eq!(proof.correlation, token.correlation);
     assert_eq!(proof.owner_boot, first.permit.owner().boot().bytes());
     assert_eq!(proof.turn, first.permit.owner().turn());
+}
+
+/// #939, (c): a reminder a skill asked for carries the ask's ticket on its
+/// turn: `begun` as the turn is committed, and `spoken` on the very proof
+/// the reminder's acknowledgement takes. Cut off, the reminder is
+/// abandoned and the skill told `dropped`.
+#[test]
+fn a_reminder_a_skill_asked_for_is_answered_on_the_acknowledgements_own_proof() {
+    use crate::say::{Answer, Outcome, ticket_for_test};
+    let mut test = Test::new();
+    let (ticket, answered) = ticket_for_test("reminders");
+    begun_for(Some(ticket), &mut test.reply);
+    assert!(matches!(answered.try_recv(), Ok(Answer::Begun(_))));
+    let first = test.generation(17);
+    test.accept(&first, 240);
+    test.provider_complete();
+    assert!(!test.finish_if_settled(), "its sound is still playing");
+    assert!(answered.try_recv().is_err(), "not before the turn settles");
+    test.retire(&first);
+    assert!(test.finish_if_settled());
+    assert!(matches!(
+        test.probe.settlement(),
+        Some(ToWorker::Complete { .. })
+    ));
+    assert_eq!(answered.try_recv(), Ok(Answer::Done(Outcome::Spoken)));
+
+    let mut test = Test::new();
+    let (ticket, answered) = ticket_for_test("reminders");
+    begun_for(Some(ticket), &mut test.reply);
+    let _begun = answered.try_recv();
+    let first = test.generation(17);
+    test.accept(&first, 240);
+    cancel_reply(
+        &mut test.owner,
+        &mut test.reply,
+        &mut test.trace,
+        "user_interrupted",
+    )
+    .unwrap();
+    assert!(matches!(
+        test.probe.settlement(),
+        Some(ToWorker::Abandon { .. })
+    ));
+    assert!(matches!(
+        answered.try_recv(),
+        Ok(Answer::Done(Outcome::Dropped(_)))
+    ));
 }
 
 #[test]

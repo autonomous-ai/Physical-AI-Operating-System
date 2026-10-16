@@ -35,6 +35,7 @@ impl Test {
             unadmitted: None,
             sent: false,
             failed: false,
+            by_skill: false,
         };
         Self {
             parent,
@@ -305,6 +306,17 @@ fn queued_completion_survives_privacy_cycle_state_dropping_without_new_admission
     assert!(test.parent.active.is_none());
 }
 
+/// #939, (c): `skill` turns Schedule speech on as `on` does; the due
+/// reminder then also waits for a skill's ask. Nothing else turns it on.
+#[test]
+fn on_and_skill_turn_schedule_speech_on_and_nothing_else_does() {
+    assert!(speaking(Ok("on")) && speaking(Ok("skill")));
+    for off in ["off", "ON", "SKILL", "skills", " skill", ""] {
+        assert!(!speaking(Ok(off)), "{off:?}");
+    }
+    assert!(!speaking(Err(&std::env::VarError::NotPresent)));
+}
+
 #[test]
 fn disabled_switch_never_opens_the_requested_ledger_or_consumer() {
     const MARKER: &str = "LAMP_SCHEDULE_PARENT_TEST_DISABLED";
@@ -320,6 +332,8 @@ fn disabled_switch_never_opens_the_requested_ledger_or_consumer() {
         Some("true"),
         Some("1"),
         Some(" on "),
+        Some("SKILL"),
+        Some("skills"),
     ] {
         let mut command = Command::new(std::env::current_exe().unwrap());
         command

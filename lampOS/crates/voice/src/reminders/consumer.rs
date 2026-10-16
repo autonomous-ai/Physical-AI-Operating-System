@@ -141,7 +141,9 @@ const HELD: &str = "held: an attempt may have been heard and was never proven sa
 /// never one per tick (the first builder, 2026-10-16: due reminders on
 /// lamp-4ace were never said and nothing said where they stopped).
 struct Journal {
-    items: BTreeMap<DeliveryKey, String>,
+    /// Each item's last line, and when it was written, in lines.
+    items: BTreeMap<DeliveryKey, (String, u64)>,
+    written: u64,
     /// Why due work was last unavailable; at start, that it is not read
     /// yet, so the first good read is said.
     unavailable: Option<String>,
@@ -152,6 +154,7 @@ impl Default for Journal {
     fn default() -> Self {
         Self {
             items: BTreeMap::new(),
+            written: 0,
             unavailable: Some("not read yet".into()),
             #[cfg(test)]
             lines: Vec::new(),
@@ -159,22 +162,31 @@ impl Default for Journal {
     }
 }
 impl Journal {
-    /// Items remembered at once; past it the oldest line may repeat.
+    /// Items remembered at once; past it the item written longest ago is
+    /// forgotten, and its next line may repeat.
     const ITEMS: usize = 64;
 
     fn item(&mut self, key: &DeliveryKey, what: impl Into<String>) {
         let what = what.into();
-        if self.items.get(key) == Some(&what) {
+        if self.items.get(key).is_some_and(|(said, _)| said == &what) {
             return;
         }
-        if self.items.len() >= Self::ITEMS && !self.items.contains_key(key) {
-            self.items.pop_first();
+        if self.items.len() >= Self::ITEMS
+            && !self.items.contains_key(key)
+            && let Some(oldest) = self
+                .items
+                .iter()
+                .min_by_key(|(_, (_, at))| *at)
+                .map(|(key, _)| key.clone())
+        {
+            self.items.remove(&oldest);
         }
         self.say(format!(
             "reminder id {} delivery {}: {what}",
             key.id, key.delivery
         ));
-        self.items.insert(key.clone(), what);
+        self.written += 1;
+        self.items.insert(key.clone(), (what, self.written));
     }
     /// Due work is unavailable for `why`, or available again with `None`.
     fn due(&mut self, why: Option<String>) {

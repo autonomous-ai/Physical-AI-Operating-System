@@ -290,7 +290,8 @@ turn's number (`request`): on `stay_quiet` with the lamp's name not heard
 it is not run; otherwise, or after 2 s with no decision, it runs as before.
 Speech is not held: what the lamp says stays the voice's rule. Without the
 flag every attention decision stays shadow, and the voice's switch only
-makes each action wait 2 s.
+makes a held call wait 2 s and run: one in a turn where the lamp's name was
+heard runs at once, as it does with the flag.
 
 The case it is for: on lamp-4ace on 15 October at 14:49 the lamp heard
 "Thailand" in a busy office and ran `volume_up`, which raised the software

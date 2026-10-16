@@ -132,7 +132,12 @@ then released into one `controls/touch` event, `source: reset`,
 `--touch` path with a `reset` line in the pins file). The product's
 `lamp-controls.service` serves `--touch`, and its `controls-pins.json` has
 `reset` on line 100, active low, pulled up (El on #705, 2026-10-16: before,
-a product lamp's reset button did nothing). `watch-reset` acts on the
+a product lamp's reset button did nothing). Install brings both to a lamp
+whose pins are still what install wrote; a running `lamp-controls` keeps
+its old command line until it starts again (a reboot, or `systemctl restart
+lamp-controls`). A lamp whose pins were changed by hand keeps them, and
+without a `reset` line its button stays dead; install's only word for it is
+"kept …: this lamp's own" (Nine on #1167). `watch-reset` acts on the
 first such event that is valid, comes from an **enabled** Controls (a shadow
 Controls never resets a lamp), is on this boot's clock and is less than 500 ms
 old. It does not reset in its own process: it is part of `lampos.target`, which

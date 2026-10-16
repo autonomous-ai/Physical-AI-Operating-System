@@ -5789,3 +5789,103 @@ fn a_pause_during_a_second_gesture_after_the_first_ended_still_folds() {
             .all(|s| s.1 == 0.0)
     );
 }
+
+/// lamp-4ace's standing pose and folded arm (`deploy/lamp-4ace/lamp-body.service`).
+fn lamp_4ace_standing() -> Standing {
+    Standing::new(
+        [2_048, 2_047],
+        [1_772, 2_043, 2_015, 2_657, 2_602],
+        100,
+        6,
+        90,
+        [950, 950],
+    )
+    .unwrap()
+}
+
+/// lamp-4ace, 2026-10-17 01:58: the elbow's goal register held 37,639 at
+/// start. The body took it as the arm's goal, the anti-tip cut clamped it
+/// to 4,095 and wrote it, and the elbow was driven past the seam. A
+/// register that is not a count near where the joint is found is not
+/// taken: the goal is where the joint is.
+#[test]
+fn a_goal_register_far_from_the_arm_is_not_taken_as_its_goal() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(1));
+    lamp.arm_moves = true;
+    // Its elbow without the old flag, and its goal register far off.
+    lamp.servos[2].status = 0;
+    lamp.servos[2].goal = 4_200;
+    // The head a little under home, so that it steps up to it.
+    lamp.servos[PITCH].position = 1_980.0;
+    lamp.servos[PITCH].goal = 1_980;
+    let report = run_alive(
+        &mut lamp,
+        &mut clock,
+        gesture_limits(),
+        Some(HOME),
+        Some(lamp_4ace_standing()),
+        None,
+        || Some((Mood::Resting, 0)),
+        Asked::default,
+        |_| {},
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    let elbow: Vec<u16> = lamp
+        .goals
+        .iter()
+        .flatten()
+        .filter(|(id, _)| *id == Joint::ElbowPitch.id())
+        .map(|(_, goal)| *goal)
+        .collect();
+    assert!(!elbow.is_empty(), "{report:?}");
+    assert!(
+        elbow.iter().all(|goal| (1_627..=3_022).contains(goal)),
+        "{elbow:?}"
+    );
+}
+
+/// The guard where every arm goal goes to the wire: a goal outside its
+/// joint's window, or more than a step from the last, is refused before it
+/// is written, and says which joint, which goal and which window.
+#[test]
+fn an_arm_goal_outside_its_window_never_reaches_the_wire() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(1));
+    lamp.servos[2].status = 0;
+    {
+        let mut bus = Bus::new(&mut lamp, &mut clock, Some(lamp_4ace_standing()));
+        bus.samples().unwrap();
+        // Where it is, and a step from there: written.
+        bus.send_goals(HOME, Some([2_050, 2_047])).unwrap();
+        bus.send_goals(HOME, Some([2_050, 2_090])).unwrap();
+        // The seam, as lamp-4ace's elbow was sent: refused.
+        assert!(bus.send_goals(HOME, Some([2_050, 4_095])).is_err());
+        assert_eq!(
+            bus.refused.take(),
+            Some(Stop::Window {
+                joint: 3,
+                goal: 4_095,
+                window: (1_627, 3_022),
+                from: 2_090,
+            })
+        );
+        // Inside the window, but a jump of 310 counts in one step, 353 from
+        // where the elbow is: refused.
+        assert!(bus.send_goals(HOME, Some([2_050, 2_400])).is_err());
+        assert!(matches!(
+            bus.refused.take(),
+            Some(Stop::Window {
+                joint: 3,
+                goal: 2_400,
+                ..
+            })
+        ));
+    }
+    let elbow: Vec<u16> = lamp
+        .goals
+        .iter()
+        .flatten()
+        .filter(|(id, _)| *id == Joint::ElbowPitch.id())
+        .map(|(_, goal)| *goal)
+        .collect();
+    assert_eq!(elbow, [2_047, 2_090]);
+}

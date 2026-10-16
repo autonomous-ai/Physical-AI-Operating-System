@@ -90,6 +90,7 @@ let go, and nothing is written after that, when:
 | The shoulder or the elbow away from where it was found, in a body that does not stand | 6 counts |
 | A commanded joint's temperature register, on every step for a second | 62 |
 | A read, or a write, that fails on every step for half a second (25 steps) | missing, late, malformed or unexpected bytes |
+| An arm goal outside its joint's window, or too far in one step (below) | refused before it is written, at once |
 
 The same let-go ends every run that stops on a surprise, not only one in
 the loop: taking hold, a profile or force limit that does not write or read
@@ -136,6 +137,40 @@ since the head test of 2026-10-12. A change of that byte is.
 
 It also ends on SIGINT or SIGTERM, after easing back to its home (three
 seconds at most), and prints one JSON report either way.
+
+### Every arm goal inside its window
+
+Every goal of the shoulder and the elbow goes to the wire through one place,
+`Bus::send_goals` in `src/body.rs`; lowering a shoulder goes through it too.
+There each arm goal is checked before anything is written. It must be inside
+its joint's window: the joint's way between `--folded-arm` and `--stand`,
+with 420 counts either side (the most a gesture, 360, and the lean, 60, add
+to it). On lamp-4ace that is shoulder 1,628 to 3,077 and elbow 1,627 to
+3,022. It must also be within 50 counts of the arm goal last written (a rise
+moves it a few counts a step, a gesture 21), or within 250 of where the
+joint was last read (an arm let go by a hand goes back to its resting goal
+in one step). A goal that is neither is not written. The run ends on
+`Stop::Window` and lets go as any surprise does, after the hold, which
+writes the arm where it was last read and is checked the same way. The end
+report names the joint, the goal, the window and the goal it came from:
+
+```text
+"stop":{"kind":"window","joint":3,"goal":4095,"window":[1627,3022],"from":2047}
+```
+
+Why, lamp-4ace on 2026-10-17 at 01:58. A body that may stand took the arm's
+goals at start from the servos' goal registers (40 to 47, read with the
+profile), raw. The elbow's register held 37,639 (0x9307). Folded at rest the
+body sends the arm's goals back every step, the anti-tip cut clamped the
+37,639 to 4,095 inside its model and wrote 4,095, and the elbow, found at
+2,049, was driven to the seam and ended at 4 (`stop: tracking, joint 3, goal
+4095, position 4`). Since then a register is taken only if it is 0 to 4,095
+and within 80 counts (`Standing::FOUND_SLACK`) of where the joint is found;
+otherwise the arm's goal is where it is. The anti-tip model refuses a count
+outside 0 to 4,095 instead of clamping it (below). What wrote 37,639 into
+that register is not known: the body is the only thing in lampOS that writes
+goals. The tests are `a_goal_register_far_from_the_arm_is_not_taken_as_its_goal`
+and `an_arm_goal_outside_its_window_never_reaches_the_wire`.
 
 ## What moves it
 
@@ -1091,6 +1126,12 @@ The report counts these under `tipping`. The masses in the model are V1's
 estimates, 1.49 kg against the 7 kg in the spec. V1 also scored its 22 mm on
 motor values it read as degrees ([lean.md](lean.md)). So these millimetres
 are V1's numbers on V1's model. They are not a measurement of any lamp.
+
+A pose with a count outside 0 to 4,095 is no pose a servo can be in. The
+model takes it as infinitely far off the axis, and a step toward it is not
+taken at all; it is not clamped to the seam, which is how an elbow goal of
+37,639 was written as 4,095 on lamp-4ace (above, "Every arm goal inside its
+window").
 
 ## Running it
 

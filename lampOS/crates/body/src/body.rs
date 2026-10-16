@@ -825,6 +825,14 @@ pub enum Stop {
     Bus {
         detail: String,
     },
+    /// An arm goal was refused before it was written (`Bus::send_goals`):
+    /// outside its joint's window, or more than a step from the last.
+    Window {
+        joint: u8,
+        goal: u16,
+        window: (u16, u16),
+        from: u16,
+    },
     /// Under `--overload release`: it let go a second time within ten
     /// minutes, or could not take the lamp up again. Torque is left as it
     /// was let go, off.
@@ -1061,9 +1069,60 @@ fn nothing_yet(error: &io::Error) -> bool {
     )
 }
 
+/// Each arm goal is kept this far either side of the joint's way between
+/// folded and stood up: the most a gesture (360) and the lean (60) add to
+/// it.
+const ARM_WINDOW_MARGIN: u16 = 420;
+/// The most an arm goal moves from the last one written in a step: a rise
+/// moves it a few counts, a gesture 21 (`GESTURE_STEP`).
+const ARM_GOAL_STEP: u16 = 50;
+/// A goal that moves farther than that in a step must be within this of
+/// where the joint was last read: an arm let go by a hand goes back to its
+/// resting goal in one step, from up to this far.
+const ARM_GOAL_REACH: u16 = 250;
+
+/// The window each arm goal must be inside, shoulder then elbow, for a body
+/// given a pose to stand in: its way between folded and stood up, and
+/// `ARM_WINDOW_MARGIN` either side.
+fn arm_windows(standing: Option<Standing>) -> [(u16, u16); 2] {
+    std::array::from_fn(|index| match standing {
+        Some(up) => {
+            let (folded, pose) = (up.folded[index], up.pose[3 + index]);
+            (
+                folded.min(pose).saturating_sub(ARM_WINDOW_MARGIN),
+                folded
+                    .max(pose)
+                    .saturating_add(ARM_WINDOW_MARGIN)
+                    .min(4_095),
+            )
+        }
+        None => (0, 4_095),
+    })
+}
+
 struct Bus<'a, P, R> {
     io: &'a mut P,
     runtime: &'a mut R,
+    /// Each arm joint's window (`arm_windows`).
+    arm_windows: [(u16, u16); 2],
+    /// The arm goals last written, and where the arm was last read.
+    arm_written: Option<[u16; 2]>,
+    arm_read: Option<[u16; 2]>,
+    /// An arm goal refused before it was written: the run ends on it.
+    refused: Option<Stop>,
+}
+
+impl<'a, P: PortIo, R: Runtime> Bus<'a, P, R> {
+    fn new(io: &'a mut P, runtime: &'a mut R, standing: Option<Standing>) -> Self {
+        Self {
+            io,
+            runtime,
+            arm_windows: arm_windows(standing),
+            arm_written: None,
+            arm_read: None,
+            refused: None,
+        }
+    }
 }
 
 impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
@@ -1164,6 +1223,7 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
             };
             Ok(())
         })?;
+        self.arm_read = Some(ARM.map(|joint| samples[joint.index()].position));
         Ok(samples)
     }
 
@@ -1249,11 +1309,43 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
 
     /// The goals of the head and base, and with them the arm's for a body
     /// that may stand.
+    ///
+    /// Every arm goal goes to the wire here, and is refused unless it is
+    /// inside its joint's window, and either within `ARM_GOAL_STEP` of the
+    /// arm goal last written (before one, of where the arm was read) or
+    /// within `ARM_GOAL_REACH` of where the joint was last read: nothing is
+    /// written, and the run ends on `Stop::Window`.
     fn send_goals(&mut self, goals: [u16; 3], arm: Option<[u16; 2]>) -> Result<(), String> {
-        match arm {
-            Some(arm) => self.send(&all_goals_write(goals, arm)),
-            None => self.send(&goals_write(goals)),
+        let Some(arm) = arm else {
+            return self.send(&goals_write(goals));
+        };
+        if let Some(stop) = self.arm_refused(arm) {
+            let detail = format!("{stop:?}");
+            self.refused.get_or_insert(stop);
+            return Err(detail);
         }
+        self.send(&all_goals_write(goals, arm))?;
+        self.arm_written = Some(arm);
+        Ok(())
+    }
+
+    /// The first of `arm` that may not be written, as the stop it ends on.
+    fn arm_refused(&self, arm: [u16; 2]) -> Option<Stop> {
+        (0..2).find_map(|index| {
+            let goal = arm[index];
+            let (low, high) = self.arm_windows[index];
+            let read = self.arm_read.map(|read| read[index]);
+            let from = self.arm_written.map(|written| written[index]).or(read);
+            let allowed = (low..=high).contains(&goal)
+                && (from.is_none_or(|from| goal.abs_diff(from) <= ARM_GOAL_STEP)
+                    || read.is_some_and(|at| goal.abs_diff(at) <= ARM_GOAL_REACH));
+            (!allowed).then(|| Stop::Window {
+                joint: ARM[index].id(),
+                goal,
+                window: (low, high),
+                from: from.unwrap_or(goal),
+            })
+        })
     }
 
     /// One register write to one servo and its plain acknowledgement, which
@@ -1570,7 +1662,7 @@ fn lower_shoulder<P: PortIo, R: Runtime>(
         let sent = if goal == written && done > 0 {
             Ok(())
         } else {
-            bus.send(&all_goals_write(head, [goal, elbow])).map(|()| {
+            bus.send_goals(head, Some([goal, elbow])).map(|()| {
                 written = goal;
                 report.goal_writes += 1;
                 report.moved = true;
@@ -2140,7 +2232,7 @@ pub(crate) fn run_alive(
         report.stop,
         Stop::Cancelled | Stop::Refused { .. } | Stop::Overload { .. }
     ) {
-        let_go_at_end(&mut Bus { io, runtime }, &mut report);
+        let_go_at_end(&mut Bus::new(io, runtime, None), &mut report);
     }
     report
 }
@@ -2197,7 +2289,7 @@ fn run_until_stopped(
         tipping: Tipping::default(),
         stop: Stop::Cancelled,
     };
-    let mut bus = Bus { io, runtime };
+    let mut bus = Bus::new(io, runtime, standing);
     let refused = |why: String| Stop::Refused { why };
 
     // What is there, before anything is written.
@@ -2271,7 +2363,7 @@ fn run_until_stopped(
             found = match take_hold(&mut bus, &mut report, &without, &found) {
                 Ok(now) => now,
                 Err(stop) => {
-                    report.stop = stop;
+                    report.stop = bus.refused.take().unwrap_or(stop);
                     return report;
                 }
             };
@@ -2360,12 +2452,12 @@ fn run_until_stopped(
                     if let Some(last) = report.last {
                         let at = |joint: Joint| last[joint.index()].position;
                         let hold = COMMANDED.map(at);
-                        if bus.send(&all_goals_write(hold, ARM.map(at))).is_ok() {
+                        if bus.send_goals(hold, Some(ARM.map(at))).is_ok() {
                             report.goal_writes += 1;
                             report.held_at = Some(hold);
                         }
                     }
-                    report.stop = stop;
+                    report.stop = bus.refused.take().unwrap_or(stop);
                     return report;
                 }
             }
@@ -2409,7 +2501,19 @@ fn run_until_stopped(
             None => {
                 // Under a twentieth of the way it is folded.
                 stand = if lift < 0.05 { 0.0 } else { unsmooth(lift) };
-                arm_written = [arm_profiles[0].3, arm_profiles[1].3];
+                // The goal a servo holds, only if it is a count near where
+                // the joint is found; otherwise where it is. lamp-4ace's
+                // elbow register held 37,639 on 2026-10-17, and taken raw
+                // it was written as 4,095.
+                arm_written = std::array::from_fn(|index| {
+                    let register = arm_profiles[index].3;
+                    let at = found[ARM[index].index()].position;
+                    if register <= 4_095 && register.abs_diff(at) <= Standing::FOUND_SLACK {
+                        register
+                    } else {
+                        at
+                    }
+                });
             }
         }
     }
@@ -2718,7 +2822,7 @@ fn run_until_stopped(
                         report.held_at = Some(hold);
                     }
                 }
-                report.stop = stop;
+                report.stop = bus.refused.take().unwrap_or(stop);
                 return report;
             }
         }
@@ -3532,7 +3636,10 @@ fn run_until_stopped(
             };
             let (cut, share) = cog::limit_lean_back(from, to, ceiling);
             if share < 1.0 {
-                let count = |value: f32| value.round().clamp(0.0, 4_095.0) as u16;
+                // Between two u16 poses, so never negative; not clamped to
+                // the seam: a count past 4,095 stays one, and the guard in
+                // `send_goals` refuses it.
+                let count = |value: f32| value.round() as u16;
                 let mut head = [count(cut[4]), count(cut[3]), count(cut[0])];
                 let mut arm = [count(cut[1]), count(cut[2])];
                 // Rounded, a step that would still lean past is not taken.
@@ -3585,6 +3692,11 @@ fn run_until_stopped(
                     report.moved = true;
                 }
                 Err(detail) => {
+                    // An arm goal refused is not a wire to try again. Kept
+                    // on the bus: the first refusal is what the run ends on.
+                    if let Some(stop) = bus.refused.clone() {
+                        break stop;
+                    }
                     report.missed_reads += 1;
                     unsent += 1;
                     // A step not read breaks a run of overloaded ones.
@@ -4317,13 +4429,16 @@ fn run_until_stopped(
                 )
                 .round() as u16
         });
-        if bus.send_goals(hold, standing.map(|_| arm_written)).is_ok() {
+        // The arm likewise where it is: the goal last written may be the
+        // one that ended the run.
+        let arm_at = ARM.map(|joint| last[joint.index()].position);
+        if bus.send_goals(hold, standing.map(|_| arm_at)).is_ok() {
             report.goal_writes += 1;
             report.held_at = Some(hold);
         }
     }
     // Any surprise lets go of the whole lamp: see `run_alive`.
-    report.stop = stop;
+    report.stop = bus.refused.take().unwrap_or(stop);
     report
 }
 

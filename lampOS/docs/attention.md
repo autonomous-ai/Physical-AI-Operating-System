@@ -809,9 +809,33 @@ with nobody seen turned: "its name was heard in the sound, and nobody is
 turned to the lamp". Now a request that begins within 3 s
 (`AFTER_CALL_US`) of the end of one that was only the name
 (`ProviderInput::Called`, then its End) is let out as the tap's is, in
-every room and every form of the rule. The bare call's own request isn't
-called by itself. A short sound is still judged as one first. The
-Policy's hold for the lamp's actions (#1054) is Second's side of it.
+every room and every form of the rule, on the Live route. The second
+route drops `ProviderInput::Called`, so there it is judged as before.
+
+It counts only if the call itself showed the lamp was called, as the busy
+room judges any request (`Attention::call_shown`):
+- its name heard at 0.999 (`SURE_SCORE`), or at 0.95 close to the lamp
+  (`NEAR_SCORE`, the room microphone 18 dB up);
+- or its text a call by name (`called_by_name`: "Lamp?", "Hey Lamp.");
+- and not a call to someone else (`addresses_someone_else`).
+
+A bare call is made by the name's first sign (`name/rising`), which comes
+at the name part's own 0.9 and is for timing only ([name.md](name.md)). In
+one morning that part heard the name 17 times in people's talk, at 0.903
+to 0.997 (above). So on that alone, a similar name heard at 0.92 in a
+pause let out whatever began in the next 3 s in a busy room (the reviewer
+on #1108). The call is judged as the next request begins, on all it
+heard: its text, its hearings of the name, and how close it was. How
+close is known once its own answer began, as for any request, so a call
+the model did not answer counts on its score and its text only. Two
+requests within the 3 s after a call that counts are both its. The bare
+call's own request isn't called by itself. A short sound is still judged
+as one first. The Policy's hold for the lamp's actions (#1054) is
+Second's side of it.
+
+The 3 s is not yet measured. The owner's two cases at 16:30:25 and
+16:31:21 are what it has to cover: the gap from the bare call's End to
+the next request's start, which the session's journal holds.
 
 **The "hm?"** (`crates/voice/src/head_cue.rs`, First's design on #711): a tap
 on a quiet lamp's head plays a soft hum of its own, two short tones rising

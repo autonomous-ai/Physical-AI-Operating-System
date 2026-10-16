@@ -316,7 +316,7 @@ export function MCPToolsSection({ active }: { active: boolean }) {
                     time to remove the link.
                     <div style={{ marginTop: 10, paddingTop: 8, borderTop: `1px solid ${C.border}` }}>
                       <b style={{ color: C.text }}>If Amazon shows &quot;Forbidden Error&quot;</b> after you sign in:
-                      <img src="https://cdn.autonomous.ai/production/ecm/261015/amazon-seller-error.png" alt="Amazon Forbidden Error: You don't have permission to access this resource"
+                      <img src="/amazon-guide/amazon-seller-error.png" alt="Amazon Forbidden Error: You don't have permission to access this resource"
                         style={{ display: "block", maxWidth: "100%", margin: "8px 0", borderRadius: 6, border: `1px solid ${C.border}` }} />
                       Amazon refused the sign-in. Two things cause it. <b>1)</b> The Seller Central account is not allowed to
                       authorize agents: ask the account owner to enable them under <b>Manage Your Permissions → Manage

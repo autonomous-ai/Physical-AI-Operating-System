@@ -337,7 +337,7 @@ export function AmazonSection({ active }: { active: boolean }) {
               <b>autonomous.ai</b> account also works.
               <div style={{ marginTop: 10 }}>
                 <b style={{ color: C.text }}>If Amazon shows &quot;Forbidden Error&quot;:</b>
-                <img src="https://cdn.autonomous.ai/production/ecm/261015/amazon-seller-error.png" alt="Amazon Forbidden Error: You don't have permission to access this resource"
+                <img src="/amazon-guide/amazon-seller-error.png" alt="Amazon Forbidden Error: You don't have permission to access this resource"
                   style={{ display: "block", maxWidth: "100%", margin: "8px 0", borderRadius: 6, border: `1px solid ${C.border}` }} />
                 Either the Seller Central account is not allowed to authorize agents (the account owner enables them under{" "}
                 <b>Manage Your Permissions → Manage Agents</b>, then press Connect Amazon again), or Amazon&apos;s beta

@@ -3164,8 +3164,8 @@ fn conversation_with_gate(
                     monotonic_us,
                 )?;
                 snapshot = cancellation.snapshot;
-                // A Stop, a head touch, the mute or a gap ends the unclear turn's asking
-                // too: nothing is asked again after it (#926).
+                // A Stop, a head touch, the mute or a gap ends the unclear
+                // turn's asking too: nothing is asked again after it (#926).
                 if let Some(turn) = asking.cancelled() {
                     record(
                         trace,

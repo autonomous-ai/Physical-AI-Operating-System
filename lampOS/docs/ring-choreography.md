@@ -169,10 +169,8 @@ none that evening, because the screen was locked and showed only its clock
 (the eyes' own frame showed it), so the photograph never appeared. It needs
 the screen unlocked, or a person at the lamp. The blink at rest has not been watched on the lamp either.
 
-Not done, from the task: a muted or asleep look (a muted lamp shows no
-resting face at all, by the guard below, and sleep comes with the touch
-strip's Sleep and Wake, #711), and the mood's pace and warmth (from the inner
-state, #713, when it publishes).
+Not done, from the task: the mood's pace and warmth (from the inner state,
+#713, when it publishes). The muted look is the asleep face, below.
 
 ### The resting face and its authority
 
@@ -190,6 +188,26 @@ like any other.
 
 So the resting face means one thing: the lamp is on and able to hear. It is
 dark when the privacy switch is closed.
+
+### The asleep face (#712)
+
+A lamp that cannot hear, because it is muted or its privacy switch is
+closed, has no ring worker, so without this its ring is dark, which reads as
+off or broken. With `LAMP_RING_ASLEEP=on` in the voice's unit, the service
+shows the asleep face while it waits for the lamp to hear again: a faint warm
+glow on the five pixels at the bottom of the ring (at most 12, 5, 1 of 255,
+and never over the resting ceiling), breathing once every 6 s between three
+tenths and all of that. It fades in over 1.5 s, starting 1.5 s into the wait,
+so the short wait at the start of every cycle never shows it. It is not red
+and not a line: a sleeping thing closes its eyes and keeps breathing.
+
+It is painted by `ring_asleep` from a thread of the voice, through
+`lamp_ring::asleep::AsleepRing`, the one writer that needs no permit because
+the one picture it can show (and black) says only that the lamp cannot hear.
+It opens the device after the cycle's ring worker has gone, and it is black
+with the device closed before the wait returns, so the next cycle's ring
+worker is again the only writer. If the device cannot be opened it says so
+once in the journal and the ring stays dark, as before.
 
 ### The lamp's own light
 

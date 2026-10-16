@@ -2,7 +2,7 @@
 //! loader's refusals, and the program on a real bus with the body's and the
 //! actions part's sockets stood in for.
 use lamp_bus::Bus;
-use lamp_msgs::{Faces, Light, SkillEvent, SkillStage};
+use lamp_msgs::{Faces, Light, LightRequest, Priority, SkillEvent, SkillStage};
 use lamp_skills::{Admission, Call, Engine, load, load_all, read_recordings, run_tests};
 use std::{
     fs,
@@ -193,6 +193,19 @@ struct Seen {
     asked: Option<String>,
     /// What the body's mood socket was told, for a skill that holds a pose.
     moods: Vec<String>,
+    /// What was asked on `light/request`, with the ring standing in.
+    requests: Vec<LightRequest>,
+}
+
+/// How the program is to light (#940).
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Ring {
+    /// Without `LAMP_LIGHT_REQUESTS`: through the actions part.
+    Off,
+    /// With it, and a ring that takes `light/request`.
+    Asked,
+    /// With it, and nothing that takes `light/request`.
+    Deaf,
 }
 
 /// A hello that greets at once, with the light and the say of Welcome back.
@@ -227,6 +240,19 @@ fn the_program_with(
     level: u8,
     faces: usize,
     wanted: usize,
+) -> Seen {
+    the_program_on(skill, skip, answers, level, faces, wanted, Ring::Off)
+}
+
+/// The same, lighting as `lighting` says.
+fn the_program_on(
+    skill: &str,
+    skip: bool,
+    answers: &'static [&'static str],
+    level: u8,
+    faces: usize,
+    wanted: usize,
+    lighting: Ring,
 ) -> Seen {
     // Short: a socket's whole path has to fit in 103 bytes.
     let dir = tempfile::Builder::new()
@@ -307,6 +333,13 @@ fn the_program_with(
     if skip {
         command.env("LAMP_SKILLS_ASK", "skip");
     }
+    command.env_remove("LAMP_LIGHT_REQUESTS");
+    if lighting != Ring::Off {
+        command.env("LAMP_LIGHT_REQUESTS", "on");
+        command.args(["--boot-id", "boot-test"]);
+    }
+    let mut requests =
+        (lighting == Ring::Asked).then(|| bus.subscribe(LightRequest::TOPIC, "ring").unwrap());
     let _running = Running(command.spawn().unwrap());
     std::thread::sleep(Duration::from_millis(300));
     // Put in after the start: found by the reload.
@@ -352,6 +385,10 @@ fn the_program_with(
         moods.push(String::from_utf8_lossy(&buffer[..length]).into_owned());
     }
     let (lights, lit_at) = lights.try_iter().unzip();
+    let mut asked_of_the_ring = Vec::new();
+    while let Some(Ok(Some(message))) = requests.as_mut().map(|ring| ring.recv(Duration::ZERO)) {
+        asked_of_the_ring.push(message.parse().unwrap());
+    }
     Seen {
         events: seen,
         looked,
@@ -360,6 +397,7 @@ fn the_program_with(
         answered_at: written.try_iter().collect(),
         asked: asked.try_recv().ok(),
         moods,
+        requests: asked_of_the_ring,
     }
 }
 
@@ -450,6 +488,67 @@ fn a_level_is_stepped_to_from_the_level_shown_and_given_back() {
         done.contains("light given back to on blue at 3: done, done, done"),
         "{done}"
     );
+}
+
+/// #940: with the switch, the light is asked of the ring from the skill
+/// and given back by asking with a time already passed; the actions part,
+/// which keeps the person's light, is never called.
+#[test]
+fn with_the_switch_a_skills_light_is_asked_of_the_ring_and_the_persons_never_touched() {
+    let to_five = AT_ONCE.replace(
+        "light = { colour = \"warm\" }",
+        "light = { colour = \"warm\", level = 5 }",
+    );
+    let words = &[r#"{"event":"begun","at_us":5}"#, r#"{"outcome":"spoken"}"#];
+    let seen = the_program_on(&to_five, true, words, 3, 1, 4, Ring::Asked);
+    assert!(seen.lights.is_empty(), "{:?}", seen.lights);
+    let done = &seen.events[3].why;
+    assert!(
+        done.contains("light warm: asked of the ring at level 5"),
+        "{done}"
+    );
+    assert!(
+        done.contains("say: spoken; light given back: asked again with a time already passed"),
+        "{done}"
+    );
+    assert_eq!(seen.requests.len(), 2, "{:?}", seen.requests);
+    let (asked, back) = (&seen.requests[0], &seen.requests[1]);
+    assert_eq!(
+        (
+            asked.claim.source.as_str(),
+            asked.claim.priority,
+            asked.claim.clock_id.as_str()
+        ),
+        ("skill:hello", Priority::Skill, "boot-test")
+    );
+    assert_eq!(asked.light, Light::new(true, "warm", 5).unwrap());
+    assert_eq!(back.light, asked.light);
+    let now = lamp_ipc::monotonic_us();
+    assert!(!back.claim.holds_at("boot-test", now), "{back:?}");
+    assert!(asked.claim.until_us > back.claim.until_us);
+
+    // Without a level, the level the light has; a dim steps down from it.
+    let seen = the_program_on(AT_ONCE, true, words, 3, 1, 4, Ring::Asked);
+    assert_eq!(seen.requests[0].light, Light::new(true, "warm", 3).unwrap());
+    let seen = the_program_on(DIMS, true, words, 3, 1, 4, Ring::Asked);
+    assert!(seen.lights.is_empty(), "{:?}", seen.lights);
+    assert_eq!(seen.requests[0].light, Light::new(true, "blue", 2).unwrap());
+}
+
+/// With the switch but no ring that takes requests, the light is left as it
+/// is, and the run says why.
+#[test]
+fn with_the_switch_and_nothing_to_take_it_the_light_is_left_and_the_run_says_why() {
+    let words = &[r#"{"event":"begun","at_us":5}"#, r#"{"outcome":"spoken"}"#];
+    let seen = the_program_on(AT_ONCE, true, words, 3, 1, 4, Ring::Deaf);
+    assert!(seen.lights.is_empty(), "{:?}", seen.lights);
+    let done = &seen.events[3].why;
+    assert!(
+        done.contains("light warm: left alone, since nothing takes light/request (the ring needs LAMP_LIGHT_REQUESTS=on)"),
+        "{done}"
+    );
+    assert!(!done.contains("given back"), "{done}");
+    assert!(done.contains("say: spoken"), "{done}");
 }
 
 #[test]

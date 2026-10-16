@@ -3,7 +3,8 @@
 //! triggers name, and runs their steps through the body's sockets, the
 //! actions part and the voice's say service.
 use lamp_bus::{Bus, Declaration, Kind, Publisher, Subscriber};
-use lamp_msgs::{Decision, Light, SkillEvent, SkillStage};
+use lamp_msgs::{Decision, Light, LightRequest, SkillEvent, SkillStage};
+use lamp_skills::glow::{GLOW_EVERY, Glow, Glows, REQUESTS_ENVIRONMENT};
 use lamp_skills::{Admission, Call, Engine, duration_us, load_all, run_tests, told, tools_file};
 use serde_json::json;
 use std::{
@@ -12,13 +13,13 @@ use std::{
     os::unix::net::{UnixDatagram, UnixListener, UnixStream},
     path::{Path, PathBuf},
     process::ExitCode,
-    sync::mpsc,
+    sync::{Arc, Mutex, mpsc},
     time::{Duration, Instant, SystemTime},
 };
 
 const USAGE: &str = "usage: lamp-skills [--dir DIR] [--bus-root DIR] [--gaze-socket PATH] \
                      [--mood-socket PATH] [--actions-socket PATH] [--say-socket PATH] \
-                     [--tools-dir DIR]\n       \
+                     [--tools-dir DIR] [--boot-id ID]\n       \
                      lamp-skills test SKILL_DIR...";
 /// How often the folder is looked at for a change.
 const RELOAD_EVERY: Duration = Duration::from_secs(2);
@@ -53,6 +54,7 @@ fn main() -> ExitCode {
     let mut dir = PathBuf::from("/var/lib/lampOS/skills");
     let mut root = None;
     let mut tools = None;
+    let mut boot_id = None;
     let mut sockets = Sockets {
         gaze: "/run/lampos-body/gaze.sock".into(),
         mood: "/run/lampos-body/mood.sock".into(),
@@ -74,6 +76,7 @@ fn main() -> ExitCode {
             "--actions-socket" => sockets.actions = value,
             "--say-socket" => sockets.say = value,
             "--tools-dir" => tools = Some(value),
+            "--boot-id" => boot_id = value.to_str().map(str::to_owned),
             _ => {
                 eprintln!("{USAGE}");
                 return ExitCode::from(2);
@@ -81,7 +84,13 @@ fn main() -> ExitCode {
         }
     }
     let ask = std::env::var("LAMP_SKILLS_ASK").unwrap_or_default();
-    match serve(&dir, root, &sockets, tools.as_deref(), &ask) {
+    let options = Options {
+        tools,
+        ask,
+        light_requests: std::env::var(REQUESTS_ENVIRONMENT).is_ok_and(|value| value == "on"),
+        boot_id,
+    };
+    match serve(&dir, root, &sockets, &options) {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
             eprintln!("lamp-skills: {error}");
@@ -170,20 +179,60 @@ fn light_now(bus: &Bus) -> Option<Light> {
         .flatten()
 }
 
+/// How the program serves, beyond its sockets.
+struct Options {
+    tools: Option<PathBuf>,
+    /// `LAMP_SKILLS_ASK`: `skip`, `policy`, or anything else for nothing done.
+    ask: String,
+    /// `LAMP_LIGHT_REQUESTS=on`: a skill's light is asked of the ring.
+    light_requests: bool,
+    /// `--boot-id`: the boot a light request's claim is on, in place of the
+    /// host's own, which only Linux has.
+    boot_id: Option<String>,
+}
+
+/// The boot the claims are on: `given`, or the host's on Linux.
+fn boot_clock(given: Option<&str>) -> io::Result<String> {
+    match given {
+        Some(id) => Ok(id.to_owned()),
+        None if cfg!(target_os = "linux") => {
+            Ok(std::fs::read_to_string("/proc/sys/kernel/random/boot_id")?
+                .trim()
+                .to_owned())
+        }
+        None => Err(io::Error::other(
+            "with LAMP_LIGHT_REQUESTS=on, supply --boot-id on this development host",
+        )),
+    }
+}
+
 fn serve(
     dir: &Path,
     root: Option<PathBuf>,
     sockets: &Sockets,
-    tools: Option<&Path>,
-    ask: &str,
+    options: &Options,
 ) -> io::Result<()> {
-    let (skip_ask, ask_policy) = (ask == "skip", ask == "policy");
+    let tools = options.tools.as_deref();
+    let (skip_ask, ask_policy) = (options.ask == "skip", options.ask == "policy");
     let bus = match root {
         Some(root) => Bus::new(root)?,
         None => Bus::from_environment()?,
     };
     let mut out =
         bus.publisher_declared(SkillEvent::TOPIC, &SkillEvent::declaration(), "skills")?;
+    let glows = if options.light_requests {
+        Some(Glows {
+            clock_id: boot_clock(options.boot_id.as_deref())?,
+            out: Arc::new(Mutex::new(bus.publisher_declared(
+                LightRequest::TOPIC,
+                &LightRequest::declaration(),
+                "skills",
+            )?)),
+            every: GLOW_EVERY,
+        })
+    } else {
+        None
+    };
     let (finished, done) = mpsc::channel::<SkillEvent>();
     let mut engine = Engine::new(Vec::new(), skip_ask);
     // The Policy's gate (#958): asks out on `skills/ask`, its answers in on
@@ -208,6 +257,7 @@ fn serve(
         sockets: sockets.clone(),
         finished,
         bus: bus.clone(),
+        glows,
     };
     let (ask, asks) = mpsc::channel::<ToolAsk>();
     if let Some(tools) = tools {
@@ -219,7 +269,7 @@ fn serve(
     let mut seen = None;
     let mut looked: Option<Instant> = None;
     eprintln!(
-        "lamp-skills: skills from {}, the Policy's ask {}",
+        "lamp-skills: skills from {}, the Policy's ask {}, a skill's light {}",
         dir.display(),
         if skip_ask {
             "skipped"
@@ -227,6 +277,11 @@ fn serve(
             "asked on skills/ask"
         } else {
             "not asked: nothing is done"
+        },
+        if runner.glows.is_some() {
+            "asked of the ring on light/request"
+        } else {
+            "set through the actions part and given back"
         }
     );
     loop {
@@ -330,6 +385,8 @@ struct Runner {
     sockets: Sockets,
     finished: mpsc::Sender<SkillEvent>,
     bus: Bus,
+    /// With `LAMP_LIGHT_REQUESTS=on`, how a skill's light is asked of the ring.
+    glows: Option<Glows>,
 }
 
 /// Starts one run of `skill`, unless its last is still under way.
@@ -356,14 +413,15 @@ fn start(
     // SAY_TIMEOUT a line) or a light's for (at most 10 min): its own
     // thread, one a skill, so the skills go on listening.
     // ponytail: a skill removed meanwhile still finishes its run.
-    let (sockets, finished, bus) = (
+    let (sockets, finished, bus, glows) = (
         runner.sockets.clone(),
         runner.finished.clone(),
         runner.bus.clone(),
+        runner.glows.clone(),
     );
     let before = light_now(&bus);
     std::thread::spawn(move || {
-        let why = perform(&skill, &calls, &sockets, &bus, before);
+        let why = perform(&skill, &calls, &sockets, &bus, before, glows.as_ref());
         let _ = finished.send(SkillEvent {
             skill,
             stage: SkillStage::Done,
@@ -643,17 +701,26 @@ struct Changed {
 /// Runs one skill's calls and says how each went. With a say, the others
 /// are made when the voice begins it, so the look and the light come with
 /// the words, and none if it is never begun. A light changed is given back
-/// when the say ends, or after its `for`.
+/// when the say ends, or after its `for`. With `glows`, the light is asked
+/// of the ring instead, and given back the same way ([`Glow`]).
 fn perform(
     skill: &str,
     calls: &[Call],
     sockets: &Sockets,
     bus: &Bus,
     before: Option<Light>,
+    glows: Option<&Glows>,
 ) -> String {
     let is_light = |call: &Call| matches!(call, Call::Light { .. } | Call::Dim { .. });
     let mut said = Vec::new();
-    if before.is_none() && calls.iter().any(is_light) {
+    // Asked of the ring, a light is never the person's to give back.
+    let mut glow = glows.filter(|_| calls.iter().any(is_light)).map(|glows| {
+        let taken = bus
+            .subscribers(LightRequest::TOPIC)
+            .is_ok_and(|subscribers| !subscribers.is_empty());
+        Glow::new(glows, skill, before.clone(), taken)
+    });
+    if glow.is_none() && before.is_none() && calls.iter().any(is_light) {
         said.push(
             "light: left alone, since the light shown is not known and could not be given back"
                 .into(),
@@ -663,7 +730,7 @@ fn perform(
         .iter()
         .filter(|call| {
             !matches!(call, Call::Say(_) | Call::SayFrom(_))
-                && (before.is_some() || !is_light(call))
+                && (glow.is_some() || before.is_some() || !is_light(call))
         })
         .collect();
     // What the voice is asked to say: a note in its own words, or words it
@@ -695,7 +762,10 @@ fn perform(
                 }
                 _ => {}
             }
-            said.push(make(call, sockets, bus));
+            said.push(match &mut glow {
+                Some(glow) if is_light(call) => glow.ask(call),
+                _ => make(call, sockets, bus),
+            });
         }
     };
     match asking {
@@ -710,10 +780,15 @@ fn perform(
             std::thread::sleep(Duration::from_micros(changed.lasting_us));
         }
     }
-    if let Some(before) = before
-        && (changed.coloured || changed.dimmed > 0)
-    {
-        said.push(give_back(&before, light_now(bus), sockets));
+    match glow {
+        Some(glow) => said.extend(glow.give_back()),
+        None => {
+            if let Some(before) = before
+                && (changed.coloured || changed.dimmed > 0)
+            {
+                said.push(give_back(&before, light_now(bus), sockets));
+            }
+        }
     }
     said.join("; ")
 }

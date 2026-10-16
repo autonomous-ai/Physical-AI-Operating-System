@@ -413,7 +413,7 @@ that owns it:
 | `light/state` | the voice's ring worker ([ring-choreography.md](ring-choreography.md), "The lamp's own light") | the actions program |
 | `light/test` | the self-test (#812) | the voice's ring worker |
 | `light/drawn` | the voice's ring worker, from its own write receipts ([ring-choreography.md](ring-choreography.md), "The lamp's own light") | the self-test |
-| `light/request` | nothing yet; skills are to ([skills.md](skills.md)) | the voice's ring worker, with `LAMP_LIGHT_REQUESTS=on` |
+| `light/request` | `lamp-skills`, a skill's light, with `LAMP_LIGHT_REQUESTS=on` ([skills.md](skills.md)) | the voice's ring worker, with `LAMP_LIGHT_REQUESTS=on` |
 | `diagnostics` | every part that says how it is: the voice, the eyes, the body, the policy, and the board through the health program | the health program |
 | `lamp/health`, `board/state` | the health program ([health.md](health.md)) | `lamp-health`, the command |
 

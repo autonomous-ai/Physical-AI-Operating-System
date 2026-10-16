@@ -1634,9 +1634,9 @@ fn wake<P: PortIo, R: Runtime>(
                         report.last,
                         bus.runtime.now().saturating_sub(started),
                     ));
-                    return Err(Stop::Bus {
+                    return Err(bus.refused.take().unwrap_or(Stop::Bus {
                         detail: format!("waking: {detail}"),
-                    });
+                    }));
                 }
             }
             Ok(now) => {
@@ -1799,9 +1799,9 @@ fn lower_shoulder<P: PortIo, R: Runtime>(
                 report.missed_reads += 1;
                 misses += 1;
                 if misses >= WIRE_STEPS || bus.refused.is_some() {
-                    break Err(Stop::Bus {
+                    break Err(bus.refused.take().unwrap_or(Stop::Bus {
                         detail: format!("lowering the shoulder: {detail}"),
-                    });
+                    }));
                 }
                 bus.sleep_until(due);
                 continue;
@@ -2023,6 +2023,8 @@ fn take_hold<P: PortIo, R: Runtime>(
             let at = now[joint.index()].position;
             let _ = bus.write_goal(*joint, at, false);
         }
+        // One refused is not written; the reason not to go on stands.
+        bus.refused = None;
         return Err(Stop::Refused {
             why: format!("{joint} moved {by} counts when its torque came on"),
         });
@@ -2106,9 +2108,9 @@ fn let_go<P: PortIo, R: Runtime>(
                 report.missed_reads += 1;
                 misses += 1;
                 if misses >= WIRE_STEPS || bus.refused.is_some() {
-                    return Err(Stop::Bus {
+                    return Err(bus.refused.take().unwrap_or(Stop::Bus {
                         detail: format!("letting go: {detail}"),
-                    });
+                    }));
                 }
             }
         }
@@ -2511,7 +2513,7 @@ fn run_on<P: PortIo, R: Runtime>(
             found = match take_hold(bus, &mut report, &without, &found) {
                 Ok(now) => now,
                 Err(stop) => {
-                    report.stop = bus.refused.take().unwrap_or(stop);
+                    report.stop = stop;
                     return report;
                 }
             };
@@ -2597,7 +2599,10 @@ fn run_on<P: PortIo, R: Runtime>(
                             report.held_at = Some(hold);
                         }
                     }
-                    report.stop = bus.refused.take().unwrap_or(stop);
+                    // A hold refused is not written; the run ends on what
+                    // ended it.
+                    bus.refused = None;
+                    report.stop = stop;
                     return report;
                 }
             }
@@ -2943,9 +2948,9 @@ fn run_on<P: PortIo, R: Runtime>(
                 }
                 if goals != to {
                     if let Err(detail) = bus.send_goals(goals, standing.map(|_| arm_written)) {
-                        report.stop = Stop::Bus {
+                        report.stop = bus.refused.take().unwrap_or(Stop::Bus {
                             detail: format!("waking: {detail}"),
-                        };
+                        });
                         return report;
                     }
                     report.goal_writes += 1;
@@ -2962,7 +2967,8 @@ fn run_on<P: PortIo, R: Runtime>(
                         report.held_at = Some(hold);
                     }
                 }
-                report.stop = bus.refused.take().unwrap_or(stop);
+                bus.refused = None;
+                report.stop = stop;
                 return report;
             }
         }
@@ -3843,7 +3849,7 @@ fn run_on<P: PortIo, R: Runtime>(
                 Err(detail) => {
                     // An arm goal refused is not a wire to try again. Kept
                     // on the bus: the first refusal is what the run ends on.
-                    if let Some(stop) = bus.refused.clone() {
+                    if let Some(stop) = bus.refused.take() {
                         break stop;
                     }
                     report.missed_reads += 1;
@@ -3868,7 +3874,7 @@ fn run_on<P: PortIo, R: Runtime>(
                 misses += 1;
                 overloaded = [0; 5];
                 if misses >= WIRE_STEPS || bus.refused.is_some() {
-                    break Stop::Bus { detail };
+                    break bus.refused.take().unwrap_or(Stop::Bus { detail });
                 }
                 bus.sleep_until(due);
                 continue;
@@ -3955,6 +3961,10 @@ fn run_on<P: PortIo, R: Runtime>(
         }
         match failed {
             Some(detail) => {
+                // A goal refused ends the run at once; it is not tried again.
+                if let Some(stop) = bus.refused.take() {
+                    break stop;
+                }
                 report.missed_reads += 1;
                 unsent += 1;
                 if unsent >= WIRE_STEPS {
@@ -4472,6 +4482,7 @@ fn run_on<P: PortIo, R: Runtime>(
                             hold = Some(at);
                         }
                     }
+                    bus.refused = None;
                     // A hand on it while it came up: as V1, it lets go again.
                     if let (true, Some(at), Stop::Load { .. } | Stop::Tracking { .. }) =
                         (by_hand, hold, &stop)
@@ -4502,9 +4513,9 @@ fn run_on<P: PortIo, R: Runtime>(
             }
             if goals != to {
                 if let Err(detail) = bus.send_goals(goals, standing.map(|_| arm_written)) {
-                    break Stop::Bus {
+                    break bus.refused.take().unwrap_or(Stop::Bus {
                         detail: format!("waking: {detail}"),
-                    };
+                    });
                 }
                 report.goal_writes += 1;
                 report.home = Some(home);
@@ -4586,8 +4597,14 @@ fn run_on<P: PortIo, R: Runtime>(
             report.held_at = Some(hold);
         }
     }
-    // Any surprise lets go of the whole lamp: see `run_alive`.
-    report.stop = bus.refused.take().unwrap_or(stop);
+    // Any surprise lets go of the whole lamp: see `run_alive`. Every
+    // refusal in the run ended it where it was made; one here is of the
+    // exit's own write, which ends a run asked to stop as a surprise, while
+    // a hold refused keeps what ended the run.
+    report.stop = match (stop, bus.refused.take()) {
+        (Stop::Cancelled, Some(refusal)) => refusal,
+        (stop, _) => stop,
+    };
     report
 }
 

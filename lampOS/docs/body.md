@@ -157,10 +157,13 @@ goes back down to its resting goal at 50 a step), or lie between that goal
 and where the joint was last read, if that reading was within 50 of the one
 before it: a hold where it is, as when it gives way to a hand, is taken hold
 of or stops pushing, never asks it past either. A goal that is neither is
-not written. The run ends on
-`Stop::Window` and lets go as any surprise does, after the hold, which
-writes the arm where it was last read and is checked the same way. The end
-report names the joint, the goal, the window and the goal it came from:
+not written. The run ends on `Stop::Window` at that step, never retried as
+a failed write nor reported as `Stop::Bus`, and lets go as any surprise
+does, after the hold, which writes the arm where it was last read and is
+checked the same way. A hold refused is not written, and the run ends on
+what ended it; at the end of a run asked to stop, a refused write ends it
+on `Stop::Window` instead of `Cancelled`. The end report names the joint,
+the goal, the window and the goal it came from:
 
 ```text
 "stop":{"kind":"window","joint":3,"goal":4095,"window":[1627,3022],"from":2047}

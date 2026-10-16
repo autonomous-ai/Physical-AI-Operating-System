@@ -1,0 +1,480 @@
+
+running 5 tests
+reminders::consumer::tests::completed_playout_survives_both_real_store_reopens_then_acks_without_respeech --- FAILED
+coordinator::tests::reminder_roundtrip::interruption_after_final_acceptance_keeps_the_durable_occurrence_pending --- FAILED
+coordinator::tests::reminder_roundtrip::microphone_denial_after_final_acceptance_keeps_the_durable_occurrence_pending --- FAILED
+coordinator::tests::reminder_roundtrip::completed_real_reply_reopens_before_ack_and_recovers_lost_ack_without_re_speech --- FAILED
+coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion --- FAILED
+
+failures:
+
+---- reminders::consumer::tests::completed_playout_survives_both_real_store_reopens_then_acks_without_respeech stdout ----
+
+thread 'reminders::consumer::tests::completed_playout_survives_both_real_store_reopens_then_acks_without_respeech' (5835016) panicked at crates/voice/src/reminders/consumer/tests.rs:644:5:
+assertion failed: matches!(restored.ledger.view(&offered.token.key).unwrap().unwrap().resolution,
+    Some(Resolution::AckConfirmed { .. }))
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- coordinator::tests::reminder_roundtrip::interruption_after_final_acceptance_keeps_the_durable_occurrence_pending stdout ----
+
+thread 'coordinator::tests::reminder_roundtrip::interruption_after_final_acceptance_keeps_the_durable_occurrence_pending' (5835014) panicked at crates/voice/src/coordinator/tests/reminder_roundtrip.rs:73:9:
+assertion failed: fixture.parent().active_valid(turn, monotonic_us())
+
+---- coordinator::tests::reminder_roundtrip::microphone_denial_after_final_acceptance_keeps_the_durable_occurrence_pending stdout ----
+
+thread 'coordinator::tests::reminder_roundtrip::microphone_denial_after_final_acceptance_keeps_the_durable_occurrence_pending' (5835015) panicked at crates/voice/src/coordinator/tests/reminder_roundtrip.rs:73:9:
+assertion failed: fixture.parent().active_valid(turn, monotonic_us())
+
+---- coordinator::tests::reminder_roundtrip::completed_real_reply_reopens_before_ack_and_recovers_lost_ack_without_re_speech stdout ----
+
+thread 'coordinator::tests::reminder_roundtrip::completed_real_reply_reopens_before_ack_and_recovers_lost_ack_without_re_speech' (5835013) panicked at crates/voice/src/coordinator/tests/reminder_roundtrip.rs:73:9:
+assertion failed: fixture.parent().active_valid(turn, monotonic_us())
+
+---- coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion stdout ----
+
+thread 'coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion' (5835012) panicked at crates/voice/src/coordinator/tests/reminder_roundtrip.rs:73:9:
+assertion failed: fixture.parent().active_valid(turn, monotonic_us())
+
+
+failures:
+    coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion
+    coordinator::tests::reminder_roundtrip::completed_real_reply_reopens_before_ack_and_recovers_lost_ack_without_re_speech
+    coordinator::tests::reminder_roundtrip::interruption_after_final_acceptance_keeps_the_durable_occurrence_pending
+    coordinator::tests::reminder_roundtrip::microphone_denial_after_final_acceptance_keeps_the_durable_occurrence_pending
+    reminders::consumer::tests::completed_playout_survives_both_real_store_reopens_then_acks_without_respeech
+
+test result: FAILED. 0 passed; 5 failed; 0 ignored; 0 measured; 1310 filtered out; finished in 5.33s
+
+error: test failed, to rerun pass `-p lamp-voice --lib`
+
+running 5 tests
+reminders::consumer::tests::completed_playout_survives_both_real_store_reopens_then_acks_without_respeech --- FAILED
+coordinator::tests::reminder_roundtrip::completed_real_reply_reopens_before_ack_and_recovers_lost_ack_without_re_speech --- FAILED
+coordinator::tests::reminder_roundtrip::interruption_after_final_acceptance_keeps_the_durable_occurrence_pending --- FAILED
+coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion --- FAILED
+coordinator::tests::reminder_roundtrip::microphone_denial_after_final_acceptance_keeps_the_durable_occurrence_pending --- FAILED
+
+failures:
+
+---- reminders::consumer::tests::completed_playout_survives_both_real_store_reopens_then_acks_without_respeech stdout ----
+
+thread 'reminders::consumer::tests::completed_playout_survives_both_real_store_reopens_then_acks_without_respeech' (5835358) panicked at crates/voice/src/reminders/consumer/tests.rs:644:5:
+assertion failed: matches!(restored.ledger.view(&offered.token.key).unwrap().unwrap().resolution,
+    Some(Resolution::AckConfirmed { .. }))
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- coordinator::tests::reminder_roundtrip::completed_real_reply_reopens_before_ack_and_recovers_lost_ack_without_re_speech stdout ----
+
+thread 'coordinator::tests::reminder_roundtrip::completed_real_reply_reopens_before_ack_and_recovers_lost_ack_without_re_speech' (5835355) panicked at crates/voice/src/coordinator/tests/reminder_roundtrip.rs:73:9:
+assertion failed: fixture.parent().active_valid(turn, monotonic_us())
+
+---- coordinator::tests::reminder_roundtrip::interruption_after_final_acceptance_keeps_the_durable_occurrence_pending stdout ----
+
+thread 'coordinator::tests::reminder_roundtrip::interruption_after_final_acceptance_keeps_the_durable_occurrence_pending' (5835356) panicked at crates/voice/src/coordinator/tests/reminder_roundtrip.rs:73:9:
+assertion failed: fixture.parent().active_valid(turn, monotonic_us())
+
+---- coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion stdout ----
+
+thread 'coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion' (5835354) panicked at crates/voice/src/coordinator/tests/reminder_roundtrip.rs:73:9:
+assertion failed: fixture.parent().active_valid(turn, monotonic_us())
+
+---- coordinator::tests::reminder_roundtrip::microphone_denial_after_final_acceptance_keeps_the_durable_occurrence_pending stdout ----
+
+thread 'coordinator::tests::reminder_roundtrip::microphone_denial_after_final_acceptance_keeps_the_durable_occurrence_pending' (5835357) panicked at crates/voice/src/coordinator/tests/reminder_roundtrip.rs:73:9:
+assertion failed: fixture.parent().active_valid(turn, monotonic_us())
+
+
+failures:
+    coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion
+    coordinator::tests::reminder_roundtrip::completed_real_reply_reopens_before_ack_and_recovers_lost_ack_without_re_speech
+    coordinator::tests::reminder_roundtrip::interruption_after_final_acceptance_keeps_the_durable_occurrence_pending
+    coordinator::tests::reminder_roundtrip::microphone_denial_after_final_acceptance_keeps_the_durable_occurrence_pending
+    reminders::consumer::tests::completed_playout_survives_both_real_store_reopens_then_acks_without_respeech
+
+test result: FAILED. 0 passed; 5 failed; 0 ignored; 0 measured; 1310 filtered out; finished in 5.08s
+
+error: test failed, to rerun pass `-p lamp-voice --lib`
+
+running 5 tests
+reminders::consumer::tests::completed_playout_survives_both_real_store_reopens_then_acks_without_respeech --- FAILED
+coordinator::tests::reminder_roundtrip::microphone_denial_after_final_acceptance_keeps_the_durable_occurrence_pending --- FAILED
+coordinator::tests::reminder_roundtrip::interruption_after_final_acceptance_keeps_the_durable_occurrence_pending --- FAILED
+coordinator::tests::reminder_roundtrip::completed_real_reply_reopens_before_ack_and_recovers_lost_ack_without_re_speech --- FAILED
+coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion --- FAILED
+
+failures:
+
+---- reminders::consumer::tests::completed_playout_survives_both_real_store_reopens_then_acks_without_respeech stdout ----
+
+thread 'reminders::consumer::tests::completed_playout_survives_both_real_store_reopens_then_acks_without_respeech' (5835865) panicked at crates/voice/src/reminders/consumer/tests.rs:644:5:
+assertion failed: matches!(restored.ledger.view(&offered.token.key).unwrap().unwrap().resolution,
+    Some(Resolution::AckConfirmed { .. }))
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- coordinator::tests::reminder_roundtrip::microphone_denial_after_final_acceptance_keeps_the_durable_occurrence_pending stdout ----
+
+thread 'coordinator::tests::reminder_roundtrip::microphone_denial_after_final_acceptance_keeps_the_durable_occurrence_pending' (5835864) panicked at crates/voice/src/coordinator/tests/reminder_roundtrip.rs:73:9:
+assertion failed: fixture.parent().active_valid(turn, monotonic_us())
+
+---- coordinator::tests::reminder_roundtrip::interruption_after_final_acceptance_keeps_the_durable_occurrence_pending stdout ----
+
+thread 'coordinator::tests::reminder_roundtrip::interruption_after_final_acceptance_keeps_the_durable_occurrence_pending' (5835863) panicked at crates/voice/src/coordinator/tests/reminder_roundtrip.rs:73:9:
+assertion failed: fixture.parent().active_valid(turn, monotonic_us())
+
+---- coordinator::tests::reminder_roundtrip::completed_real_reply_reopens_before_ack_and_recovers_lost_ack_without_re_speech stdout ----
+
+thread 'coordinator::tests::reminder_roundtrip::completed_real_reply_reopens_before_ack_and_recovers_lost_ack_without_re_speech' (5835862) panicked at crates/voice/src/coordinator/tests/reminder_roundtrip.rs:73:9:
+assertion failed: fixture.parent().active_valid(turn, monotonic_us())
+
+---- coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion stdout ----
+
+thread 'coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion' (5835861) panicked at crates/voice/src/coordinator/tests/reminder_roundtrip.rs:73:9:
+assertion failed: fixture.parent().active_valid(turn, monotonic_us())
+
+
+failures:
+    coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion
+    coordinator::tests::reminder_roundtrip::completed_real_reply_reopens_before_ack_and_recovers_lost_ack_without_re_speech
+    coordinator::tests::reminder_roundtrip::interruption_after_final_acceptance_keeps_the_durable_occurrence_pending
+    coordinator::tests::reminder_roundtrip::microphone_denial_after_final_acceptance_keeps_the_durable_occurrence_pending
+    reminders::consumer::tests::completed_playout_survives_both_real_store_reopens_then_acks_without_respeech
+
+test result: FAILED. 0 passed; 5 failed; 0 ignored; 0 measured; 1310 filtered out; finished in 5.46s
+
+error: test failed, to rerun pass `-p lamp-voice --lib`
+
+running 5 tests
+reminders::consumer::tests::completed_playout_survives_both_real_store_reopens_then_acks_without_respeech --- FAILED
+coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion --- FAILED
+coordinator::tests::reminder_roundtrip::completed_real_reply_reopens_before_ack_and_recovers_lost_ack_without_re_speech --- FAILED
+coordinator::tests::reminder_roundtrip::microphone_denial_after_final_acceptance_keeps_the_durable_occurrence_pending --- FAILED
+coordinator::tests::reminder_roundtrip::interruption_after_final_acceptance_keeps_the_durable_occurrence_pending --- FAILED
+
+failures:
+
+---- reminders::consumer::tests::completed_playout_survives_both_real_store_reopens_then_acks_without_respeech stdout ----
+
+thread 'reminders::consumer::tests::completed_playout_survives_both_real_store_reopens_then_acks_without_respeech' (5836460) panicked at crates/voice/src/reminders/consumer/tests.rs:644:5:
+assertion failed: matches!(restored.ledger.view(&offered.token.key).unwrap().unwrap().resolution,
+    Some(Resolution::AckConfirmed { .. }))
+
+---- coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion stdout ----
+
+thread 'coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion' (5836456) panicked at crates/voice/src/coordinator/tests/reminder_roundtrip.rs:73:9:
+assertion failed: fixture.parent().active_valid(turn, monotonic_us())
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- coordinator::tests::reminder_roundtrip::completed_real_reply_reopens_before_ack_and_recovers_lost_ack_without_re_speech stdout ----
+
+thread 'coordinator::tests::reminder_roundtrip::completed_real_reply_reopens_before_ack_and_recovers_lost_ack_without_re_speech' (5836457) panicked at crates/voice/src/coordinator/tests/reminder_roundtrip.rs:73:9:
+assertion failed: fixture.parent().active_valid(turn, monotonic_us())
+
+---- coordinator::tests::reminder_roundtrip::microphone_denial_after_final_acceptance_keeps_the_durable_occurrence_pending stdout ----
+
+thread 'coordinator::tests::reminder_roundtrip::microphone_denial_after_final_acceptance_keeps_the_durable_occurrence_pending' (5836459) panicked at crates/voice/src/coordinator/tests/reminder_roundtrip.rs:73:9:
+assertion failed: fixture.parent().active_valid(turn, monotonic_us())
+
+---- coordinator::tests::reminder_roundtrip::interruption_after_final_acceptance_keeps_the_durable_occurrence_pending stdout ----
+
+thread 'coordinator::tests::reminder_roundtrip::interruption_after_final_acceptance_keeps_the_durable_occurrence_pending' (5836458) panicked at crates/voice/src/coordinator/tests/reminder_roundtrip.rs:73:9:
+assertion failed: fixture.parent().active_valid(turn, monotonic_us())
+
+
+failures:
+    coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion
+    coordinator::tests::reminder_roundtrip::completed_real_reply_reopens_before_ack_and_recovers_lost_ack_without_re_speech
+    coordinator::tests::reminder_roundtrip::interruption_after_final_acceptance_keeps_the_durable_occurrence_pending
+    coordinator::tests::reminder_roundtrip::microphone_denial_after_final_acceptance_keeps_the_durable_occurrence_pending
+    reminders::consumer::tests::completed_playout_survives_both_real_store_reopens_then_acks_without_respeech
+
+test result: FAILED. 0 passed; 5 failed; 0 ignored; 0 measured; 1310 filtered out; finished in 4.85s
+
+error: test failed, to rerun pass `-p lamp-voice --lib`
+
+running 5 tests
+reminders::consumer::tests::completed_playout_survives_both_real_store_reopens_then_acks_without_respeech --- FAILED
+coordinator::tests::reminder_roundtrip::microphone_denial_after_final_acceptance_keeps_the_durable_occurrence_pending --- FAILED
+coordinator::tests::reminder_roundtrip::interruption_after_final_acceptance_keeps_the_durable_occurrence_pending --- FAILED
+coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion --- FAILED
+coordinator::tests::reminder_roundtrip::completed_real_reply_reopens_before_ack_and_recovers_lost_ack_without_re_speech --- FAILED
+
+failures:
+
+---- reminders::consumer::tests::completed_playout_survives_both_real_store_reopens_then_acks_without_respeech stdout ----
+
+thread 'reminders::consumer::tests::completed_playout_survives_both_real_store_reopens_then_acks_without_respeech' (5836700) panicked at crates/voice/src/reminders/consumer/tests.rs:644:5:
+assertion failed: matches!(restored.ledger.view(&offered.token.key).unwrap().unwrap().resolution,
+    Some(Resolution::AckConfirmed { .. }))
+
+---- coordinator::tests::reminder_roundtrip::microphone_denial_after_final_acceptance_keeps_the_durable_occurrence_pending stdout ----
+
+thread 'coordinator::tests::reminder_roundtrip::microphone_denial_after_final_acceptance_keeps_the_durable_occurrence_pending' (5836699) panicked at crates/voice/src/coordinator/tests/reminder_roundtrip.rs:73:9:
+assertion failed: fixture.parent().active_valid(turn, monotonic_us())
+
+---- coordinator::tests::reminder_roundtrip::interruption_after_final_acceptance_keeps_the_durable_occurrence_pending stdout ----
+
+thread 'coordinator::tests::reminder_roundtrip::interruption_after_final_acceptance_keeps_the_durable_occurrence_pending' (5836698) panicked at crates/voice/src/coordinator/tests/reminder_roundtrip.rs:73:9:
+assertion failed: fixture.parent().active_valid(turn, monotonic_us())
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion stdout ----
+
+thread 'coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion' (5836696) panicked at crates/voice/src/coordinator/tests/reminder_roundtrip.rs:73:9:
+assertion failed: fixture.parent().active_valid(turn, monotonic_us())
+
+---- coordinator::tests::reminder_roundtrip::completed_real_reply_reopens_before_ack_and_recovers_lost_ack_without_re_speech stdout ----
+
+thread 'coordinator::tests::reminder_roundtrip::completed_real_reply_reopens_before_ack_and_recovers_lost_ack_without_re_speech' (5836697) panicked at crates/voice/src/coordinator/tests/reminder_roundtrip.rs:73:9:
+assertion failed: fixture.parent().active_valid(turn, monotonic_us())
+
+
+failures:
+    coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion
+    coordinator::tests::reminder_roundtrip::completed_real_reply_reopens_before_ack_and_recovers_lost_ack_without_re_speech
+    coordinator::tests::reminder_roundtrip::interruption_after_final_acceptance_keeps_the_durable_occurrence_pending
+    coordinator::tests::reminder_roundtrip::microphone_denial_after_final_acceptance_keeps_the_durable_occurrence_pending
+    reminders::consumer::tests::completed_playout_survives_both_real_store_reopens_then_acks_without_respeech
+
+test result: FAILED. 0 passed; 5 failed; 0 ignored; 0 measured; 1310 filtered out; finished in 4.79s
+
+error: test failed, to rerun pass `-p lamp-voice --lib`
+
+running 5 tests
+reminders::consumer::tests::completed_playout_survives_both_real_store_reopens_then_acks_without_respeech --- FAILED
+coordinator::tests::reminder_roundtrip::completed_real_reply_reopens_before_ack_and_recovers_lost_ack_without_re_speech --- FAILED
+coordinator::tests::reminder_roundtrip::microphone_denial_after_final_acceptance_keeps_the_durable_occurrence_pending --- FAILED
+coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion --- FAILED
+coordinator::tests::reminder_roundtrip::interruption_after_final_acceptance_keeps_the_durable_occurrence_pending --- FAILED
+
+failures:
+
+---- reminders::consumer::tests::completed_playout_survives_both_real_store_reopens_then_acks_without_respeech stdout ----
+
+thread 'reminders::consumer::tests::completed_playout_survives_both_real_store_reopens_then_acks_without_respeech' (5836994) panicked at crates/voice/src/reminders/consumer/tests.rs:644:5:
+assertion failed: matches!(restored.ledger.view(&offered.token.key).unwrap().unwrap().resolution,
+    Some(Resolution::AckConfirmed { .. }))
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- coordinator::tests::reminder_roundtrip::completed_real_reply_reopens_before_ack_and_recovers_lost_ack_without_re_speech stdout ----
+
+thread 'coordinator::tests::reminder_roundtrip::completed_real_reply_reopens_before_ack_and_recovers_lost_ack_without_re_speech' (5836991) panicked at crates/voice/src/coordinator/tests/reminder_roundtrip.rs:73:9:
+assertion failed: fixture.parent().active_valid(turn, monotonic_us())
+
+---- coordinator::tests::reminder_roundtrip::microphone_denial_after_final_acceptance_keeps_the_durable_occurrence_pending stdout ----
+
+thread 'coordinator::tests::reminder_roundtrip::microphone_denial_after_final_acceptance_keeps_the_durable_occurrence_pending' (5836993) panicked at crates/voice/src/coordinator/tests/reminder_roundtrip.rs:73:9:
+assertion failed: fixture.parent().active_valid(turn, monotonic_us())
+
+---- coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion stdout ----
+
+thread 'coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion' (5836990) panicked at crates/voice/src/coordinator/tests/reminder_roundtrip.rs:73:9:
+assertion failed: fixture.parent().active_valid(turn, monotonic_us())
+
+---- coordinator::tests::reminder_roundtrip::interruption_after_final_acceptance_keeps_the_durable_occurrence_pending stdout ----
+
+thread 'coordinator::tests::reminder_roundtrip::interruption_after_final_acceptance_keeps_the_durable_occurrence_pending' (5836992) panicked at crates/voice/src/coordinator/tests/reminder_roundtrip.rs:73:9:
+assertion failed: fixture.parent().active_valid(turn, monotonic_us())
+
+
+failures:
+    coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion
+    coordinator::tests::reminder_roundtrip::completed_real_reply_reopens_before_ack_and_recovers_lost_ack_without_re_speech
+    coordinator::tests::reminder_roundtrip::interruption_after_final_acceptance_keeps_the_durable_occurrence_pending
+    coordinator::tests::reminder_roundtrip::microphone_denial_after_final_acceptance_keeps_the_durable_occurrence_pending
+    reminders::consumer::tests::completed_playout_survives_both_real_store_reopens_then_acks_without_respeech
+
+test result: FAILED. 0 passed; 5 failed; 0 ignored; 0 measured; 1310 filtered out; finished in 5.04s
+
+error: test failed, to rerun pass `-p lamp-voice --lib`
+
+running 5 tests
+reminders::consumer::tests::completed_playout_survives_both_real_store_reopens_then_acks_without_respeech --- FAILED
+coordinator::tests::reminder_roundtrip::microphone_denial_after_final_acceptance_keeps_the_durable_occurrence_pending --- FAILED
+coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion --- FAILED
+coordinator::tests::reminder_roundtrip::completed_real_reply_reopens_before_ack_and_recovers_lost_ack_without_re_speech --- FAILED
+coordinator::tests::reminder_roundtrip::interruption_after_final_acceptance_keeps_the_durable_occurrence_pending --- FAILED
+
+failures:
+
+---- reminders::consumer::tests::completed_playout_survives_both_real_store_reopens_then_acks_without_respeech stdout ----
+
+thread 'reminders::consumer::tests::completed_playout_survives_both_real_store_reopens_then_acks_without_respeech' (5837394) panicked at crates/voice/src/reminders/consumer/tests.rs:644:5:
+assertion failed: matches!(restored.ledger.view(&offered.token.key).unwrap().unwrap().resolution,
+    Some(Resolution::AckConfirmed { .. }))
+
+---- coordinator::tests::reminder_roundtrip::microphone_denial_after_final_acceptance_keeps_the_durable_occurrence_pending stdout ----
+
+thread 'coordinator::tests::reminder_roundtrip::microphone_denial_after_final_acceptance_keeps_the_durable_occurrence_pending' (5837393) panicked at crates/voice/src/coordinator/tests/reminder_roundtrip.rs:73:9:
+assertion failed: fixture.parent().active_valid(turn, monotonic_us())
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion stdout ----
+
+thread 'coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion' (5837390) panicked at crates/voice/src/coordinator/tests/reminder_roundtrip.rs:73:9:
+assertion failed: fixture.parent().active_valid(turn, monotonic_us())
+
+---- coordinator::tests::reminder_roundtrip::completed_real_reply_reopens_before_ack_and_recovers_lost_ack_without_re_speech stdout ----
+
+thread 'coordinator::tests::reminder_roundtrip::completed_real_reply_reopens_before_ack_and_recovers_lost_ack_without_re_speech' (5837391) panicked at crates/voice/src/coordinator/tests/reminder_roundtrip.rs:73:9:
+assertion failed: fixture.parent().active_valid(turn, monotonic_us())
+
+---- coordinator::tests::reminder_roundtrip::interruption_after_final_acceptance_keeps_the_durable_occurrence_pending stdout ----
+
+thread 'coordinator::tests::reminder_roundtrip::interruption_after_final_acceptance_keeps_the_durable_occurrence_pending' (5837392) panicked at crates/voice/src/coordinator/tests/reminder_roundtrip.rs:73:9:
+assertion failed: fixture.parent().active_valid(turn, monotonic_us())
+
+
+failures:
+    coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion
+    coordinator::tests::reminder_roundtrip::completed_real_reply_reopens_before_ack_and_recovers_lost_ack_without_re_speech
+    coordinator::tests::reminder_roundtrip::interruption_after_final_acceptance_keeps_the_durable_occurrence_pending
+    coordinator::tests::reminder_roundtrip::microphone_denial_after_final_acceptance_keeps_the_durable_occurrence_pending
+    reminders::consumer::tests::completed_playout_survives_both_real_store_reopens_then_acks_without_respeech
+
+test result: FAILED. 0 passed; 5 failed; 0 ignored; 0 measured; 1310 filtered out; finished in 5.06s
+
+error: test failed, to rerun pass `-p lamp-voice --lib`
+
+running 5 tests
+reminders::consumer::tests::completed_playout_survives_both_real_store_reopens_then_acks_without_respeech --- FAILED
+coordinator::tests::reminder_roundtrip::completed_real_reply_reopens_before_ack_and_recovers_lost_ack_without_re_speech --- FAILED
+coordinator::tests::reminder_roundtrip::microphone_denial_after_final_acceptance_keeps_the_durable_occurrence_pending --- FAILED
+coordinator::tests::reminder_roundtrip::interruption_after_final_acceptance_keeps_the_durable_occurrence_pending --- FAILED
+coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion --- FAILED
+
+failures:
+
+---- reminders::consumer::tests::completed_playout_survives_both_real_store_reopens_then_acks_without_respeech stdout ----
+
+thread 'reminders::consumer::tests::completed_playout_survives_both_real_store_reopens_then_acks_without_respeech' (5837713) panicked at crates/voice/src/reminders/consumer/tests.rs:644:5:
+assertion failed: matches!(restored.ledger.view(&offered.token.key).unwrap().unwrap().resolution,
+    Some(Resolution::AckConfirmed { .. }))
+
+---- coordinator::tests::reminder_roundtrip::completed_real_reply_reopens_before_ack_and_recovers_lost_ack_without_re_speech stdout ----
+
+thread 'coordinator::tests::reminder_roundtrip::completed_real_reply_reopens_before_ack_and_recovers_lost_ack_without_re_speech' (5837710) panicked at crates/voice/src/coordinator/tests/reminder_roundtrip.rs:73:9:
+assertion failed: fixture.parent().active_valid(turn, monotonic_us())
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- coordinator::tests::reminder_roundtrip::microphone_denial_after_final_acceptance_keeps_the_durable_occurrence_pending stdout ----
+
+thread 'coordinator::tests::reminder_roundtrip::microphone_denial_after_final_acceptance_keeps_the_durable_occurrence_pending' (5837712) panicked at crates/voice/src/coordinator/tests/reminder_roundtrip.rs:73:9:
+assertion failed: fixture.parent().active_valid(turn, monotonic_us())
+
+---- coordinator::tests::reminder_roundtrip::interruption_after_final_acceptance_keeps_the_durable_occurrence_pending stdout ----
+
+thread 'coordinator::tests::reminder_roundtrip::interruption_after_final_acceptance_keeps_the_durable_occurrence_pending' (5837711) panicked at crates/voice/src/coordinator/tests/reminder_roundtrip.rs:73:9:
+assertion failed: fixture.parent().active_valid(turn, monotonic_us())
+
+---- coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion stdout ----
+
+thread 'coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion' (5837709) panicked at crates/voice/src/coordinator/tests/reminder_roundtrip.rs:73:9:
+assertion failed: fixture.parent().active_valid(turn, monotonic_us())
+
+
+failures:
+    coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion
+    coordinator::tests::reminder_roundtrip::completed_real_reply_reopens_before_ack_and_recovers_lost_ack_without_re_speech
+    coordinator::tests::reminder_roundtrip::interruption_after_final_acceptance_keeps_the_durable_occurrence_pending
+    coordinator::tests::reminder_roundtrip::microphone_denial_after_final_acceptance_keeps_the_durable_occurrence_pending
+    reminders::consumer::tests::completed_playout_survives_both_real_store_reopens_then_acks_without_respeech
+
+test result: FAILED. 0 passed; 5 failed; 0 ignored; 0 measured; 1310 filtered out; finished in 4.52s
+
+error: test failed, to rerun pass `-p lamp-voice --lib`
+
+running 5 tests
+reminders::consumer::tests::completed_playout_survives_both_real_store_reopens_then_acks_without_respeech --- FAILED
+coordinator::tests::reminder_roundtrip::microphone_denial_after_final_acceptance_keeps_the_durable_occurrence_pending --- FAILED
+coordinator::tests::reminder_roundtrip::completed_real_reply_reopens_before_ack_and_recovers_lost_ack_without_re_speech --- FAILED
+coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion --- FAILED
+coordinator::tests::reminder_roundtrip::interruption_after_final_acceptance_keeps_the_durable_occurrence_pending --- FAILED
+
+failures:
+
+---- reminders::consumer::tests::completed_playout_survives_both_real_store_reopens_then_acks_without_respeech stdout ----
+
+thread 'reminders::consumer::tests::completed_playout_survives_both_real_store_reopens_then_acks_without_respeech' (5838046) panicked at crates/voice/src/reminders/consumer/tests.rs:644:5:
+assertion failed: matches!(restored.ledger.view(&offered.token.key).unwrap().unwrap().resolution,
+    Some(Resolution::AckConfirmed { .. }))
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- coordinator::tests::reminder_roundtrip::microphone_denial_after_final_acceptance_keeps_the_durable_occurrence_pending stdout ----
+
+thread 'coordinator::tests::reminder_roundtrip::microphone_denial_after_final_acceptance_keeps_the_durable_occurrence_pending' (5838045) panicked at crates/voice/src/coordinator/tests/reminder_roundtrip.rs:73:9:
+assertion failed: fixture.parent().active_valid(turn, monotonic_us())
+
+---- coordinator::tests::reminder_roundtrip::completed_real_reply_reopens_before_ack_and_recovers_lost_ack_without_re_speech stdout ----
+
+thread 'coordinator::tests::reminder_roundtrip::completed_real_reply_reopens_before_ack_and_recovers_lost_ack_without_re_speech' (5838043) panicked at crates/voice/src/coordinator/tests/reminder_roundtrip.rs:73:9:
+assertion failed: fixture.parent().active_valid(turn, monotonic_us())
+
+---- coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion stdout ----
+
+thread 'coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion' (5838042) panicked at crates/voice/src/coordinator/tests/reminder_roundtrip.rs:73:9:
+assertion failed: fixture.parent().active_valid(turn, monotonic_us())
+
+---- coordinator::tests::reminder_roundtrip::interruption_after_final_acceptance_keeps_the_durable_occurrence_pending stdout ----
+
+thread 'coordinator::tests::reminder_roundtrip::interruption_after_final_acceptance_keeps_the_durable_occurrence_pending' (5838044) panicked at crates/voice/src/coordinator/tests/reminder_roundtrip.rs:73:9:
+assertion failed: fixture.parent().active_valid(turn, monotonic_us())
+
+
+failures:
+    coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion
+    coordinator::tests::reminder_roundtrip::completed_real_reply_reopens_before_ack_and_recovers_lost_ack_without_re_speech
+    coordinator::tests::reminder_roundtrip::interruption_after_final_acceptance_keeps_the_durable_occurrence_pending
+    coordinator::tests::reminder_roundtrip::microphone_denial_after_final_acceptance_keeps_the_durable_occurrence_pending
+    reminders::consumer::tests::completed_playout_survives_both_real_store_reopens_then_acks_without_respeech
+
+test result: FAILED. 0 passed; 5 failed; 0 ignored; 0 measured; 1310 filtered out; finished in 4.92s
+
+error: test failed, to rerun pass `-p lamp-voice --lib`
+
+running 5 tests
+reminders::consumer::tests::completed_playout_survives_both_real_store_reopens_then_acks_without_respeech --- FAILED
+coordinator::tests::reminder_roundtrip::completed_real_reply_reopens_before_ack_and_recovers_lost_ack_without_re_speech --- FAILED
+coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion --- FAILED
+coordinator::tests::reminder_roundtrip::microphone_denial_after_final_acceptance_keeps_the_durable_occurrence_pending --- FAILED
+coordinator::tests::reminder_roundtrip::interruption_after_final_acceptance_keeps_the_durable_occurrence_pending --- FAILED
+
+failures:
+
+---- reminders::consumer::tests::completed_playout_survives_both_real_store_reopens_then_acks_without_respeech stdout ----
+
+thread 'reminders::consumer::tests::completed_playout_survives_both_real_store_reopens_then_acks_without_respeech' (5838298) panicked at crates/voice/src/reminders/consumer/tests.rs:644:5:
+assertion failed: matches!(restored.ledger.view(&offered.token.key).unwrap().unwrap().resolution,
+    Some(Resolution::AckConfirmed { .. }))
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- coordinator::tests::reminder_roundtrip::completed_real_reply_reopens_before_ack_and_recovers_lost_ack_without_re_speech stdout ----
+
+thread 'coordinator::tests::reminder_roundtrip::completed_real_reply_reopens_before_ack_and_recovers_lost_ack_without_re_speech' (5838295) panicked at crates/voice/src/coordinator/tests/reminder_roundtrip.rs:73:9:
+assertion failed: fixture.parent().active_valid(turn, monotonic_us())
+
+---- coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion stdout ----
+
+thread 'coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion' (5838294) panicked at crates/voice/src/coordinator/tests/reminder_roundtrip.rs:73:9:
+assertion failed: fixture.parent().active_valid(turn, monotonic_us())
+
+---- coordinator::tests::reminder_roundtrip::microphone_denial_after_final_acceptance_keeps_the_durable_occurrence_pending stdout ----
+
+thread 'coordinator::tests::reminder_roundtrip::microphone_denial_after_final_acceptance_keeps_the_durable_occurrence_pending' (5838297) panicked at crates/voice/src/coordinator/tests/reminder_roundtrip.rs:73:9:
+assertion failed: fixture.parent().active_valid(turn, monotonic_us())
+
+---- coordinator::tests::reminder_roundtrip::interruption_after_final_acceptance_keeps_the_durable_occurrence_pending stdout ----
+
+thread 'coordinator::tests::reminder_roundtrip::interruption_after_final_acceptance_keeps_the_durable_occurrence_pending' (5838296) panicked at crates/voice/src/coordinator/tests/reminder_roundtrip.rs:73:9:
+assertion failed: fixture.parent().active_valid(turn, monotonic_us())
+
+
+failures:
+    coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion
+    coordinator::tests::reminder_roundtrip::completed_real_reply_reopens_before_ack_and_recovers_lost_ack_without_re_speech
+    coordinator::tests::reminder_roundtrip::interruption_after_final_acceptance_keeps_the_durable_occurrence_pending
+    coordinator::tests::reminder_roundtrip::microphone_denial_after_final_acceptance_keeps_the_durable_occurrence_pending
+    reminders::consumer::tests::completed_playout_survives_both_real_store_reopens_then_acks_without_respeech
+
+test result: FAILED. 0 passed; 5 failed; 0 ignored; 0 measured; 1310 filtered out; finished in 4.87s
+
+error: test failed, to rerun pass `-p lamp-voice --lib`

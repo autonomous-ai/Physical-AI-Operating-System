@@ -1,7 +1,11 @@
 //! Disk and socket work runs here, outside Voice's urgent loop. This module
 //! never grants audio authority and never infers completion from a timeout.
 use super::{FromWorker, LEASE_US, Offer, ToWorker, transport::WorkerTransport};
+#[cfg(test)]
+use crate::scenario_clock::monotonic_us;
 use lamp_bus::{Bus, Kind, Message};
+#[cfg(not(test))]
+use lamp_ipc::monotonic_us;
 use lamp_msgs::ScheduleDue;
 use lamp_schedule::{
     client,
@@ -29,6 +33,17 @@ const QUEUE: usize = 4;
 
 fn invalid(message: impl std::fmt::Display) -> io::Error {
     io::Error::other(message.to_string())
+}
+/// One tick's socket budget. It also spans the ledger's durable writes
+/// between exchanges, so a slow disk spends it (lampOS#935). A stepped test
+/// scenario spends no logical time inside one tick, so there the budget cannot
+/// run out, and the scope's host watchdog bounds the real waits instead.
+fn request_deadline() -> Instant {
+    #[cfg(test)]
+    if let Some(deadline) = crate::scenario_clock::host_deadline() {
+        return deadline;
+    }
+    Instant::now() + REQUEST_BUDGET
 }
 fn exchange(socket: &Path, request: &Request, deadline: Instant) -> io::Result<Value> {
     client::exchange(socket, &serde_json::to_value(request)?, deadline).map_err(invalid)
@@ -273,7 +288,7 @@ impl<P: Persistence> Consumer<P> {
             expires_at_us,
         };
         // Disk latency cannot refresh the observation that preceded it.
-        if !offer.fresh(lamp_ipc::monotonic_us()) {
+        if !offer.fresh(monotonic_us()) {
             self.current = Some(offer);
             return self.withdraw();
         }
@@ -281,7 +296,7 @@ impl<P: Persistence> Consumer<P> {
         self.push(FromWorker::Offer { offer })
     }
     fn tick(&mut self, socket: &Path, due: Option<&ScheduleDue>, now: u64) -> io::Result<()> {
-        let deadline = Instant::now() + REQUEST_BUDGET;
+        let deadline = request_deadline();
         let Some(due) = due else {
             return self.withdraw();
         };

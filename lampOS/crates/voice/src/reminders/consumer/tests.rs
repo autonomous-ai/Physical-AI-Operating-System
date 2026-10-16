@@ -577,6 +577,11 @@ fn cancel_snooze_store_switch_and_missing_due_withdraw_existing_offer() {
 
 #[test]
 fn completed_playout_survives_both_real_store_reopens_then_acks_without_respeech() {
+    // The real Stores sync in full on each commit, and one tick plans and
+    // sends the Ack. On the stepped scenario clock no logical time passes in
+    // the tick, so a busy host's disk cannot spend its 250 ms socket budget
+    // (lampOS#935); the budget is the other tests'. The scope is a safety net.
+    let _clock = crate::scenario_clock::Scope::enter(Duration::from_secs(24)).unwrap();
     let root = Temp::new();
     let schedule_path = root.dir("schedule");
     let ledger_path = root.dir("ledger");
@@ -590,7 +595,7 @@ fn completed_playout_survives_both_real_store_reopens_then_acks_without_respeech
         DeliveryLedger::open(Store::open(&ledger_path).unwrap(), LEDGER_ID).unwrap(),
         SESSION.into(),
     );
-    let now = lamp_ipc::monotonic_us();
+    let now = monotonic_us();
     let report = due(&engine.lock().unwrap(), now);
     first.tick(&socket.path(), Some(&report), now).unwrap();
     let offered = take_offer(&mut first);
@@ -637,7 +642,7 @@ fn completed_playout_survives_both_real_store_reopens_then_acks_without_respeech
         DeliveryLedger::open(Store::open(&ledger_path).unwrap(), OTHER_STORE).unwrap(),
         "consumer-two".into(),
     );
-    let now = lamp_ipc::monotonic_us();
+    let now = monotonic_us();
     let report = due(&engine.lock().unwrap(), now);
     restored.tick(&socket.path(), Some(&report), now).unwrap();
     no_offer(&restored);

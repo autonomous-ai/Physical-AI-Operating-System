@@ -355,3 +355,31 @@ cleanup calls. Dropping the driver attempts an abort token and closes its FIFO.
 The backend retains ownership of stdin close, actual exit and its existing
 two-second kill/wait fallback, including abandonment before the child opens the
 FIFO. Neither a completion marker nor an empty queue certifies child reaping.
+
+## Reminder round trip on real Stores
+
+Task [#935](https://github.com/autonomous-ai/lampOS/issues/935). One consumer
+tick runs under one 250 ms socket budget (`REQUEST_BUDGET`), and the budget
+also spans the ledger's durable writes between exchanges: the Get, the Ack
+plan committed to the ledger, and the Ack that Schedule commits before it
+replies. Both Stores sync in full (`PRAGMA fullfsync=ON`), which on a Mac
+flushes the drive. Measured on an idle Intel Mac, the Ack tick spends about
+160 ms of its 250 ms: 77 ms to commit the plan, 80 ms for Schedule's commit
+and reply. On a busy disk the plan alone took 318 to 340 ms, so the Ack was
+never sent (`pending` stayed true), or Schedule committed it after the
+reply's deadline had passed (one Ack request, no `AckConfirmed`). Production
+recovers on the next tick with the same durable Ack, so the cause is the
+tests' assumption that one tick on the host's disk fits the budget, not the
+consumer.
+
+The two tests that tick on real Stores now run in a scenario scope:
+`reminders::consumer::tests::completed_playout_survives_both_real_store_reopens_then_acks_without_respeech`
+and the four tests in `coordinator::tests::reminder_roundtrip`. In a scope
+no logical time passes inside a tick, so `request_deadline()` gives the
+socket exchanges the scope's 24 s host watchdog in place of the budget, and
+the consumer, the parent's reminder lease (750 ms) and the round-trip fixture
+read `scenario_clock::monotonic_us`. Every original assertion stays,
+including exactly one Ack request. Outside a scope nothing changes: the
+budget is still `Instant::now() + REQUEST_BUDGET`, and the consumer tests
+that hold it (a slow Get withdraws the offer, a delayed prepare cannot
+publish an expired offer) stay on the host clock.

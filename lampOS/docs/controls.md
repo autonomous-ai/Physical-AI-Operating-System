@@ -721,7 +721,9 @@ reads as before, and an unmuted record with one is refused.
 Before audio starts, `arm_active` durably stores a conservative muted recovery
 record without changing the live preference. A crash, provider fault or failed
 cleanup therefore restores muted, even if no hand mute had been requested. This
-is a deliberate availability cost: a fresh local hold is needed after restart.
+is a deliberate availability cost: a fresh local hold is needed after restart
+(or, with `LAMP_RESTORED_MUTE=on` and `LAMP_HEAD_TOUCH=on`, a fresh head tap,
+below).
 Only verified clean destruction permits `disarm_after_cleanup` to store the
 actual unmuted preference, and so does a stop the service was asked for
 (`guard_released_on_stop`, #960): SIGTERM or SIGINT ended the conversation,
@@ -741,16 +743,25 @@ restart that finds the record muted with the marker present knows the mute is
 the guard's after a fault: `HandControls::restored_after_fault`, the trace
 record `mute_restored_after_fault` and one log line. A marker beside an unmuted
 record (a fault between the two writes), or found with the switch off, is
-removed. The marker is advice for what the lamp shows and says, never
-authority: failing to write or remove it changes no permission and never fails
-a cycle, and a missing marker reads as a chosen mute, which stays quiet.
+removed. **Writing** the marker is advice: failing to write it changes no
+permission, since a missing marker reads as a chosen mute, which stays shut.
+**Removing** it is not, because the marker is what lets a tap clear a mute
+(below). So it goes as soon as a person's mute is accepted: when the
+conversation ends on a software mute, after revocation and before teardown
+(`HandControls::mute_chosen`, from `run_inner`), and again before a muted
+record is saved (`persist_muted`, `disarm_after_cleanup`), never after. A
+crash in teardown, or between the removal and the save, therefore never
+leaves a person's mute beside the guard's marker. The folder is synced after
+the unlink, as a save is, and a removal or sync that fails is a persistence
+fault: nothing opens until recovery (the reviewer's P1 and P2 on #997).
 **A head tap wakes such a mute, as it wakes sleep** (`Receiver::request_wake_after_fault`):
 on lamp-4ace on 2026-10-16 a crash at 12:20 brought the voice up muted, and
 with no main button and the base strip off nothing at the lamp could open it.
 The tap is checked as a wake is (fresh, begun after the clear fence and the
 mute, released within the event lifetime), and only makes the clear pending
-for the quiescent owner to save. A person's own mute, or any mute without
-the switch, stays until their hold. With `LAMP_RING_ASLEEP=on` (#1025) the
+for the quiescent owner to save. It needs `LAMP_HEAD_TOUCH=on` too: there is
+no head receiver without it. A person's own mute, or any mute without the
+switch, stays until their hold. With `LAMP_RING_ASLEEP=on` (#1025) the
 wait shows the asleep face, not a dark ring.
 
 Saves retain a private `.pending` inode while linking/renaming the replacement

@@ -990,6 +990,81 @@ fn a_tap_wakes_a_mute_left_by_the_restart_guard_but_never_a_persons() {
     assert_eq!(tapped(true, false), (false, false), "off: as before");
 }
 
+/// The reviewer's probe on #997 (P1): a person mutes with the button while
+/// the lamp listens, the guard's marker still on disk, and the voice dies in
+/// teardown before the mute is saved. The coordinator removed the marker
+/// when the mute was accepted (`mute_chosen`), so after the restart the
+/// disk's mute is not taken for the guard's, and a head tap leaves it shut.
+#[test]
+fn a_persons_mute_left_unsaved_by_a_crash_is_never_opened_by_a_tap() {
+    let directory = Directory::new();
+    let marker = directory.0.join(format!("mute.json{GUARD_MARKER_SUFFIX}"));
+    let (mut owner, sender) = fixture(head_options(Some(&directory)));
+    owner.mark_guard = true;
+    owner.arm_active().unwrap();
+    assert!(marker.is_file());
+    let mute = gesture(ControlIntent::SoftwareMute, 1, 4_000_000);
+    let seen = observe(
+        &mut owner,
+        &sender,
+        state(1, 4_000_000, Some(mute)),
+        4_000_000,
+    );
+    assert!(seen.muted && seen.mute_changed);
+    // What `run_inner` does when the loop returns the mute, before teardown.
+    owner.mute_chosen().unwrap();
+    assert!(!marker.exists(), "gone before teardown");
+    // A crash in teardown: no persist_muted, no disarm.
+    drop(owner);
+    let record = MuteRecord::load(&directory.file(), CLOCK, 4_000_000).unwrap();
+    assert!(record.muted, "the guard's mute is what the disk holds");
+    let (mut restarted, sender) = from_record(head_options(Some(&directory)), record, 4_000_000);
+    restarted.mark_guard = true;
+    restarted.restore_guard_marker();
+    assert!(!restarted.restored_after_fault());
+    let mut head = TestHead::new(CLOCK, 4_000_000);
+    feed(&mut restarted, &sender, head.run(4_500_000, false), true);
+    let mut ticks = head.run(4_700_000, true);
+    ticks.extend(head.run(5_200_000, false));
+    let tapped = feed(&mut restarted, &sender, ticks, true);
+    assert!(
+        tapped
+            .iter()
+            .any(|(_, seen, _)| seen.head_tap_at_us.is_some())
+    );
+    assert!(
+        tapped
+            .iter()
+            .all(|(_, seen, allowed)| seen.muted && !allowed)
+    );
+}
+
+/// The reviewer's P2 on #997: the marker is what lets a tap clear a mute,
+/// so a removal that fails fails closed, as a failed save does.
+#[test]
+fn a_guard_marker_that_cannot_be_removed_fails_closed() {
+    let directory = Directory::new();
+    let marker = directory.0.join(format!("mute.json{GUARD_MARKER_SUFFIX}"));
+    let (mut owner, sender) = fixture(options(false, Some(&directory.file())));
+    owner.mark_guard = true;
+    owner.arm_active().unwrap();
+    // A marker that cannot be unlinked as a file.
+    fs::remove_file(&marker).unwrap();
+    fs::create_dir(&marker).unwrap();
+    fs::write(marker.join("held"), b"").unwrap();
+    let mute = gesture(ControlIntent::SoftwareMute, 1, 4_000_000);
+    observe(
+        &mut owner,
+        &sender,
+        state(1, 4_000_000, Some(mute)),
+        4_000_000,
+    );
+    assert!(owner.mute_chosen().is_err());
+    assert!(owner.health().persistence_failed);
+    assert!(owner.quiescent_at(4_100_000).is_err(), "nothing opens");
+    assert!(owner.disarm_after_cleanup().is_err());
+}
+
 #[test]
 fn the_head_never_opens_a_privacy_mute_and_sleeps_only_with_the_durable_mute() {
     // Muted by the button's hold: a hold of the head and a tap change

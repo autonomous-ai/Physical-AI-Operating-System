@@ -552,9 +552,12 @@ impl HandControls {
         }
     }
 
-    /// The marker is advice for what the lamp shows and says, never authority:
-    /// failing to write or remove it changes no permission, so it never fails
-    /// the cycle. A missing marker reads as a chosen mute, which stays quiet.
+    /// Writing the marker is advice: failing to write it changes no
+    /// permission, since a missing marker reads as a chosen mute, which a tap
+    /// never opens. Removing it is not: the marker is what lets a tap clear a
+    /// mute, so it goes before a person's mute is saved or torn down, and a
+    /// removal that fails fails closed ([`Self::drop_guard_marker`], the
+    /// reviewer on #997).
     fn set_guard_marker(&mut self, present: bool) {
         if !present {
             self.restored_after_fault = false;
@@ -574,6 +577,45 @@ impl HandControls {
         } else if marker.symlink_metadata().is_ok() {
             let _ = std::fs::remove_file(&marker);
         }
+    }
+
+    /// Removes the guard's marker, its folder synced after, as
+    /// `MuteRecord::save` syncs: a power cut must not bring it back beside a
+    /// person's mute. A removal or sync that fails is a persistence fault,
+    /// as a failed save is: nothing opens until recovery.
+    fn drop_guard_marker(&mut self) -> io::Result<()> {
+        self.restored_after_fault = false;
+        let Some(marker) = self.guard_marker() else {
+            return Ok(());
+        };
+        let removed = match std::fs::remove_file(&marker) {
+            Ok(()) => true,
+            Err(error) if error.kind() == io::ErrorKind::NotFound => false,
+            Err(error) => {
+                self.persistence_failed = true;
+                return Err(error);
+            }
+        };
+        if removed
+            && let Some(parent) = marker.parent()
+            && let Err(error) = std::fs::File::open(parent).and_then(|dir| dir.sync_all())
+        {
+            self.persistence_failed = true;
+            return Err(error);
+        }
+        Ok(())
+    }
+
+    /// A person's own mute (the button's or the strip's hold, or sleep) was
+    /// accepted: the guard's marker goes at once, after revocation and before
+    /// teardown, so a crash in teardown can never leave it beside the mute
+    /// for a tap to open (the reviewer's P1 on #997). Not from the urgent
+    /// loop: it touches the disk.
+    pub fn mute_chosen(&mut self) -> io::Result<()> {
+        if self.muted() {
+            self.drop_guard_marker()?;
+        }
+        Ok(())
     }
 
     fn fence_at(&mut self, now_us: u64) {
@@ -748,6 +790,9 @@ impl HandControls {
     /// teardown result is finalized. No acknowledgement precedes this save.
     pub fn persist_muted(&mut self) -> io::Result<()> {
         if self.muted() && self.dirty {
+            // The person chose this mute: the guard's marker goes before it
+            // is saved, never after.
+            self.drop_guard_marker()?;
             let result = self
                 .receiver
                 .mute_record()
@@ -757,8 +802,6 @@ impl HandControls {
                 return Err(error);
             }
             self.dirty = false;
-            // The person chose this mute: it is no longer the guard's.
-            self.set_guard_marker(false);
         }
         Ok(())
     }
@@ -865,7 +908,7 @@ impl HandControls {
     /// physical/software lifecycle exits and interrupted cleanup must keep the
     /// conservative disk guard until the supervisor chooses its safe next step.
     pub fn disarm_after_cleanup(&mut self) -> io::Result<()> {
-        let Some(path) = &self.options.mute_record else {
+        let Some(path) = self.options.mute_record.clone() else {
             return Ok(());
         };
         if self.persistence_failed {
@@ -874,13 +917,15 @@ impl HandControls {
             ));
         }
         if self.armed || self.dirty {
-            if let Err(error) = self.receiver.mute_record().save(path) {
+            // The marker goes before the live latch is written: muted, it is a
+            // person's mute, which must never read as the guard's.
+            self.drop_guard_marker()?;
+            if let Err(error) = self.receiver.mute_record().save(&path) {
                 self.persistence_failed = true;
                 return Err(error);
             }
             self.armed = false;
             self.dirty = false;
-            self.set_guard_marker(false);
         }
         Ok(())
     }

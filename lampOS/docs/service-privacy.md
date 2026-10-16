@@ -55,7 +55,9 @@ reported a fault (#960): the latch is then written as it was, muted only if
 it was muted. Crash/fault recovery consequently requires another explicit
 hold even if no mute was acknowledged before the fault; a requested stop does
 not. With `LAMP_RESTORED_MUTE=on` the voice also knows when its mute was
-restored by that guard rather than chosen (trace `mute_restored_after_fault`). See [controls](controls.md#voice-and-physical-privacy) for the switches,
+restored by that guard rather than chosen (trace `mute_restored_after_fault`),
+and with `LAMP_HEAD_TOUCH=on` as well a fresh head tap clears such a mute, as
+it wakes sleep; a person's own mute still needs their hold. See [controls](controls.md#voice-and-physical-privacy) for the switches,
 durability protocol, clear fences and physical acceptance procedure.
 
 Unmute creates fresh controller/worker/provider identities. Old PCM, prospective

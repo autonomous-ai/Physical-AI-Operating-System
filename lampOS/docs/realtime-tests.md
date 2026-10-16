@@ -57,9 +57,9 @@ selection), which must stay identical:
   `lamp-voice-eval::physical_loopback`, `lamp-voice-eval::serve_relay`,
   `lamp-voice-eval::final_dispatch`, `lamp-memory::health`,
   `lamp-voice::capture_hold_worker`;
-- whole modules of `lamp-voice`'s unit tests:
-  `coordinator::tests::pilot_faults`, `coordinator::tests::endpoint_session`
-  (`coordinator::tests::early_end` left on 2026-10-16, below);
+- the whole module `coordinator::tests::endpoint_session` of `lamp-voice`'s
+  unit tests (`coordinator::tests::early_end` and
+  `coordinator::tests::pilot_faults` left on 2026-10-16, below);
 - single tests that took 4 s or more outside those, named exactly;
 - tests with a real-clock bound that a loaded runner misses: none now. A
   test goes here only until it gets its own time; the bound the lamp runs
@@ -678,6 +678,18 @@ reaped) are taken on the host clock: they are real process events, and
 `rapid_mute…` compares them across runs, whose logical times are their own.
 Its cross-cycle privacy wait was already a separate mock thread. The
 SIGTERM raised on the stepping thread is the section above (#739).
+
+
+## pilot_faults leaves the group (#1128)
+
+Since #972 and #973 every `coordinator::tests::pilot_faults` scenario runs on
+the stepped fixture, and none waits on the real clock: the module's 45 tests
+took 2.2 s one at a time in full run 38924461963 (29.7 s before). So it left
+the group, in all three filtersets, on 2026-10-16, and runs on every pull
+request. On the Intel Mac four copies of the module at once, each running
+four tests at a time, passed 12 of 12 runs (540 test runs). The children
+they start and their cleanup stay on the host clock, as for the other
+coordinator fixtures outside the group.
 
 ## early_end on one logical clock (#823)
 

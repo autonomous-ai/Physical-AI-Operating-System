@@ -1182,13 +1182,22 @@ fn run_source(
             .transpose()?;
         if lifetime.continuous() {
             let executable = std::env::current_exe()?;
+            // While it waits out a mute or a closed privacy switch, a lamp
+            // with a ring shows the asleep face (#712, `LAMP_RING_ASLEEP=on`).
+            let asleep_ceiling = options
+                .ring_channel_ceiling
+                .filter(|_| crate::ring_asleep::enabled_from_environment());
             service::supervise(
                 &mut trace,
                 &mut cues,
                 termination,
                 |trace, cues| {
+                    #[cfg(target_os = "linux")]
+                    let asleep = asleep_ceiling.and_then(crate::ring_asleep::Asleep::start);
+                    #[cfg(not(target_os = "linux"))]
+                    let _ = asleep_ceiling;
                     let trace = RefCell::new(trace);
-                    service_privacy::wait_with_gate(
+                    let outcome = service_privacy::wait_with_gate(
                         &executable,
                         termination,
                         |state, boot, at_us| {
@@ -1211,7 +1220,16 @@ fn run_source(
                             record_hand_pats(&mut trace.borrow_mut(), observation.pets)?;
                             Ok(allowed)
                         },
-                    )
+                    );
+                    // Black and the device closed before a cycle's ring
+                    // worker can open it.
+                    #[cfg(target_os = "linux")]
+                    {
+                        if let Some(asleep) = asleep {
+                            asleep.stop();
+                        }
+                    }
+                    outcome
                 },
                 |trace, cues| {
                     run_inner(

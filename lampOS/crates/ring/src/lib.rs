@@ -1,13 +1,16 @@
 //! Lamp's 32-pixel WS2812 codec and one guarded output writer.
 //!
 //! The driver accepts conversational light permits, plus explicit black frames.
-//! It does not choose animations, privacy colors, listening cues, or readiness.
+//! It does not choose animations, privacy colors, listening cues, or readiness,
+//! with one exception: the asleep face ([`asleep`], #712), which needs no
+//! permit because it says only that the lamp cannot hear.
 //! An owning worker must drain priority control messages before calling `show`
 //! and call `tick` while a cue is displayed so leases expire without new output.
 
 use lamp_turn_owner::{BootId, BoundaryGuard, MonoTime, OutputKind, OutputPermit, Snapshot};
 use std::{fmt, io};
 
+pub mod asleep;
 #[cfg(target_os = "linux")]
 pub mod linux;
 

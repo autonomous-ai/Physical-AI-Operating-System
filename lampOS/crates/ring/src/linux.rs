@@ -16,7 +16,7 @@ pub struct SpiConfiguration {
     pub mode_bits: u32,
 }
 
-/// Construct only through `open`; the device handle cannot be borrowed for an
+/// Construct only through `open` or `open_asleep`; the device handle cannot be borrowed for an
 /// unguarded public write. The advisory lock excludes cooperating lampOS owners;
 /// legacy services and other writers must also be stopped by the supervisor.
 pub struct SpiSink {
@@ -38,6 +38,21 @@ impl FrameSink for SpiSink {
 /// Linux spidev has no per-write timeout; run this writer in its own supervised
 /// process and handle kernel/worker stalls without blocking voice capture.
 pub fn open(controller_boot: BootId) -> io::Result<(GuardedRing<SpiSink>, SpiConfiguration)> {
+    let (device, configuration) = open_device()?;
+    let ring = GuardedRing::new(SpiSink { device }, controller_boot).map_err(io::Error::other)?;
+    Ok((ring, configuration))
+}
+
+/// Open the same device, locked and configured as [`open`] does, for the
+/// asleep face alone ([`crate::asleep`]). It sends black first. While the
+/// asleep writer is open the ring worker cannot lock the device, so the
+/// voice closes this before it starts one.
+pub fn open_asleep() -> io::Result<crate::asleep::AsleepRing<SpiSink>> {
+    let (device, _) = open_device()?;
+    crate::asleep::AsleepRing::new(SpiSink { device })
+}
+
+fn open_device() -> io::Result<(Spidev, SpiConfiguration)> {
     let mut device = Spidev::open(DEVICE_PATH)?;
     device.inner().try_lock().map_err(|error| {
         let error = match error {
@@ -55,8 +70,7 @@ pub fn open(controller_boot: BootId) -> io::Result<(GuardedRing<SpiSink>, SpiCon
     device.configure(&requested)?;
     let accepted = device.query_configuration()?;
     let configuration = validate_configuration(accepted)?;
-    let ring = GuardedRing::new(SpiSink { device }, controller_boot).map_err(io::Error::other)?;
-    Ok((ring, configuration))
+    Ok((device, configuration))
 }
 
 fn validate_configuration(options: SpidevOptions) -> io::Result<SpiConfiguration> {

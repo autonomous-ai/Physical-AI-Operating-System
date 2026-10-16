@@ -466,7 +466,7 @@ of two functions:
   say the task back in one short sentence and ask whether to start it.
 - `confirm_agent_task()`: the voice, not the model, decides whether it may.
   Only when a task is waiting, in a request after the one that prepared it,
-  which the lamp heard rather than wrote itself (`OWN_REQUEST`), within two
+  which the lamp heard rather than wrote itself (`attention::own_request()`), within two
   minutes of preparing it. Then `status` again and `confirm` on the voice
   socket with that store's guard and session. The model is told it has
   started and that the answer will be on that computer.

@@ -68,8 +68,10 @@ const BARRIER: BarrierPolicy = BarrierPolicy::Require;
 /// (see `thread::GOING_ON_FOR`).
 const RENEW_AFTER_UNANSWERED: u32 = 8;
 const RENEW_AT_MOST_EVERY: Duration = Duration::from_secs(900);
-/// Requests the service has left unanswered since it last answered one.
-static UNANSWERED: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+worker_global! {
+    /// Requests the service has left unanswered since it last answered one.
+    fn unanswered_requests() -> std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+}
 /// Where the eyes keep their newest frame, when the lamp may take a look.
 static LOOK_FILE: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLock::new();
 /// A look is a full look (`--eyes-look-full`): its still may be older.
@@ -680,7 +682,7 @@ pub(crate) struct Options {
 }
 /// How the room is and whether the lamp is in a conversation, now.
 fn attention_now() -> (crate::room_told::Room, bool) {
-    let room = crate::room_told::ROOM
+    let room = crate::room_told::room()
         .lock()
         .map_or(crate::room_told::Room::Unknown, |mut room| {
             room.at(monotonic_us())
@@ -1101,7 +1103,7 @@ async fn serve_with_visual<C: Connect>(
     let mut noted: Option<(u64, String)> = None;
     // When the name was last heard plainly enough to count as a call.
     let mut sure_name_us: Option<u64> = None;
-    UNANSWERED.store(0, std::sync::atomic::Ordering::Relaxed);
+    unanswered_requests().store(0, std::sync::atomic::Ordering::Relaxed);
     loop {
         // Control is polled first and never waits for the provider: stop,
         // privacy and retirement are serviced every tick whether a connection
@@ -1130,7 +1132,7 @@ async fn serve_with_visual<C: Connect>(
                 }
                 // A session that has answered nothing for a long run of
                 // requests is replaced the next time nothing is owed on it.
-                if UNANSWERED.load(std::sync::atomic::Ordering::Relaxed) >= RENEW_AFTER_UNANSWERED
+                if unanswered_requests().load(std::sync::atomic::Ordering::Relaxed) >= RENEW_AFTER_UNANSWERED
                     && renewed_at.elapsed() >= RENEW_AT_MOST_EVERY
                     && provider.renew_when_idle()
                 {
@@ -1138,10 +1140,10 @@ async fn serve_with_visual<C: Connect>(
                         "lamp-voice provider: {RENEW_AFTER_UNANSWERED} requests in a row went unanswered; renewing the session when it is idle"
                     );
                     renewed_at = Instant::now();
-                    UNANSWERED.store(0, std::sync::atomic::Ordering::Relaxed);
+                    unanswered_requests().store(0, std::sync::atomic::Ordering::Relaxed);
                 }
                 if let Some(out) = room_out.as_mut()
-                    && let Ok(mut room) = crate::room_told::ROOM.lock()
+                    && let Ok(mut room) = crate::room_told::room().lock()
                 {
                     let now = monotonic_us();
                     out.tell(room.at(now), now);
@@ -1187,7 +1189,7 @@ async fn serve_with_visual<C: Connect>(
                     {
                         called.told(request);
                         let busy = busy_needs_face
-                            && crate::room_told::ROOM.lock().is_ok_and(|mut room| {
+                            && crate::room_told::room().lock().is_ok_and(|mut room| {
                                 room.at(monotonic_us()) == crate::room_told::Room::Busy
                             });
                         // A plain hearing of the name stands for a face.
@@ -1236,7 +1238,7 @@ async fn serve_with_visual<C: Connect>(
                 // going on: the thread's note says that.
                 if room_facts
                     && let Some(live) = provider.live_session()
-                    && let Ok(mut room) = crate::room_told::ROOM.lock()
+                    && let Ok(mut room) = crate::room_told::room().lock()
                 {
                     let now = monotonic_us();
                     let going_on = || {
@@ -1319,7 +1321,7 @@ async fn serve_with_visual<C: Connect>(
                         air_told.seen(stuffy, air.and_then(|air| air.co2_ppm), monotonic_us());
                     }
                     let now = monotonic_us();
-                    let busy = crate::room_told::ROOM
+                    let busy = crate::room_told::room()
                         .lock()
                         .is_ok_and(|mut room| room.at(now) == crate::room_told::Room::Busy);
                     if !busy
@@ -1639,7 +1641,7 @@ async fn serve_with_visual<C: Connect>(
                         // known here with the rule for whom it answers, which
                         // follows the turn; without it, not.
                         let request = lineage.request.get();
-                        let turn = (crate::attention::OWN_REQUEST
+                        let turn = (crate::attention::own_request()
                             .load(std::sync::atomic::Ordering::Acquire)
                             != request)
                             .then(|| Turn {
@@ -2080,7 +2082,7 @@ impl ToolDesk {
         // A request the lamp wrote itself was not heard from anyone:
         // a yes to a task cannot come in one.
         let heard =
-            crate::attention::OWN_REQUEST.load(std::sync::atomic::Ordering::Acquire) != request;
+            crate::attention::own_request().load(std::sync::atomic::Ordering::Acquire) != request;
         let asked = self.asked.clone();
         let session = lineage.session;
         let work = call.clone();
@@ -2395,7 +2397,7 @@ fn forward_origin(
             lineage,
             waiting_for_barrier,
         } => {
-            if heard_input && let Ok(mut room) = crate::room_told::ROOM.lock() {
+            if heard_input && let Ok(mut room) = crate::room_told::room().lock() {
                 room.heard(lineage.request.get(), monotonic_us());
             }
             push(ProviderOutput::Started {
@@ -2405,8 +2407,8 @@ fn forward_origin(
             })
         }
         Event::Audio { lineage, pcm, .. } => {
-            UNANSWERED.store(0, std::sync::atomic::Ordering::Relaxed);
-            if let Ok(mut room) = crate::room_told::ROOM.lock() {
+            unanswered_requests().store(0, std::sync::atomic::Ordering::Relaxed);
+            if let Ok(mut room) = crate::room_told::room().lock() {
                 room.spoke(lineage.request.get(), monotonic_us());
             }
             let provider_event_at_us = monotonic_us();
@@ -2465,11 +2467,11 @@ fn forward_origin(
             // A reminder attempt has no heard input at all. It must neither
             // change the room nor renew the session as unanswered speech.
             let said = heard_input
-                && crate::room_told::ROOM.lock().map_or(true, |mut room| {
+                && crate::room_told::room().lock().map_or(true, |mut room| {
                     room.unanswered(lineage.request.get(), monotonic_us())
                 });
             if said {
-                UNANSWERED.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                unanswered_requests().fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                 eprintln!(
                     "lamp-voice provider: request {} got no answer in {} ms; closed as unanswered, connection kept",
                     lineage.request.get(),
@@ -3189,7 +3191,7 @@ impl InputHandoff {
                 // Reminder data is not a memory instruction, nor something
                 // to remember automatically merely because it was spoken.
                 crate::remember::keep_out(request.get());
-                crate::attention::OWN_REQUEST
+                crate::attention::own_request()
                     .store(request.get(), std::sync::atomic::Ordering::Release);
                 if let Err(refusal) = input.written(expected, request, &note, None) {
                     return self.refused_start(request, refusal);
@@ -3271,7 +3273,7 @@ impl InputHandoff {
                 if let Err(error) = input.audio(request, sequence, captured, &samples) {
                     return self.refused(request, error, input);
                 }
-                if let Ok(mut room) = crate::room_told::ROOM.lock() {
+                if let Ok(mut room) = crate::room_told::room().lock() {
                     room.hearing(now_us);
                 }
             }
@@ -3280,7 +3282,7 @@ impl InputHandoff {
                 if let Err(error) = input.end(request) {
                     return self.refused(request, error, input);
                 }
-                if let Ok(mut room) = crate::room_told::ROOM.lock() {
+                if let Ok(mut room) = crate::room_told::room().lock() {
                     if sound {
                         room.ended_as_sound(request.get(), now_us);
                     } else {
@@ -3332,7 +3334,7 @@ impl InputHandoff {
                     text.as_str()
                 };
                 // The lamp's own turn: nothing was said to anyone else.
-                crate::attention::OWN_REQUEST
+                crate::attention::own_request()
                     .store(request.get(), std::sync::atomic::Ordering::Release);
                 if let Err(refusal) = input.written(expected, request, text, picture.as_deref()) {
                     return self.refused_start(request, refusal);

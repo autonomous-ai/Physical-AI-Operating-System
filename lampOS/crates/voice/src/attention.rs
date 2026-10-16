@@ -75,9 +75,11 @@ fn keeps_name(value: Option<&str>) -> bool {
     value == Some("on")
 }
 
-/// The newest request the lamp began itself, in writing: a hello, a look.
-/// Nothing was said to it, so nothing can have been said to someone else.
-pub static OWN_REQUEST: AtomicU64 = AtomicU64::new(0);
+worker_global! {
+    /// The newest request the lamp began itself, in writing: a hello, a look.
+    /// Nothing was said to it, so nothing can have been said to someone else.
+    pub fn own_request() -> AtomicU64 = AtomicU64::new(0);
+}
 
 /// The provider worker's argument for the switch in the environment.
 pub fn arguments_from_environment() -> Vec<String> {
@@ -594,7 +596,7 @@ impl Attention {
             self.session = session;
             self.begun = 0;
         }
-        if OWN_REQUEST.load(Ordering::Acquire) != request {
+        if own_request().load(Ordering::Acquire) != request {
             self.begun = self.begun.saturating_add(1);
         }
         self.request = request;
@@ -651,7 +653,7 @@ impl Attention {
     /// The request in hand as `crate::addressed` judges it, once it began.
     /// None for a turn the lamp wrote itself: nobody spoke in it.
     pub fn in_hand(&self) -> Option<crate::addressed::Request> {
-        if OWN_REQUEST.load(Ordering::Acquire) == self.request {
+        if own_request().load(Ordering::Acquire) == self.request {
             return None;
         }
         self.began_us.map(|began_us| crate::addressed::Request {
@@ -694,7 +696,7 @@ impl Attention {
         if request != self.request || self.verdict.is_some() {
             return None;
         }
-        let own = OWN_REQUEST.load(Ordering::Acquire) == request;
+        let own = own_request().load(Ordering::Acquire) == request;
         self.judged_own = own;
         let fresh = self.begun <= FRESH_REQUESTS;
         // A short sound let through in a quiet room (#800): on lamp-52e6 on
@@ -964,10 +966,10 @@ mod tests {
             })
         );
         // The lamp's own turn: nobody spoke in it.
-        OWN_REQUEST.store(4_242, Ordering::Release);
+        own_request().store(4_242, Ordering::Release);
         attention.began_at(4_242, 2, 13_000_000);
         assert_eq!(attention.in_hand(), None);
-        OWN_REQUEST.store(0, Ordering::Release);
+        own_request().store(0, Ordering::Release);
     }
 
     #[test]
@@ -1516,12 +1518,12 @@ mod tests {
         // A turn the lamp began itself is played whatever was heard.
         attention.began(9, 8);
         attention.heard("so did you send the report");
-        OWN_REQUEST.store(9, Ordering::Release);
+        own_request().store(9, Ordering::Release);
         assert!(matches!(
             attention.first_output(9, Room::Busy, false),
             Some(Verdict::Play("the lamp began this turn itself"))
         ));
-        OWN_REQUEST.store(0, Ordering::Release);
+        own_request().store(0, Ordering::Release);
     }
 
     #[test]

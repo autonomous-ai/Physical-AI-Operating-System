@@ -1396,9 +1396,6 @@ async fn serve_with_visual<C: Connect>(
                         }
                     }
                 }
-                // A request that goes on from one whose end was sent early
-                // and given up: the model is told so, beside what it hears
-                // (`--early-end-ms`; docs/early-end-taken-back.md).
                 // The first request after a hand or the head stopped the
                 // lamp: the model is told so, so that it does not pick up
                 // what it was saying (#829, the first builder at 16:33).
@@ -1414,6 +1411,9 @@ async fn serve_with_visual<C: Connect>(
                         ),
                     }
                 }
+                // A request that goes on from one whose end was sent early
+                // and given up: the model is told so, beside what it hears
+                // (`--early-end-ms`; docs/early-end-taken-back.md).
                 if let Some(request) = intake.handoff.take_cut_off() {
                     match add_note(&provider, &mut intake.handoff.noted, request, CUT_OFF_NOTE) {
                         Ok(()) => eprintln!(
@@ -3297,8 +3297,6 @@ impl InputHandoff {
         input.discard(RequestId::new(request).expect("validated reminder request"));
     }
 
-    /// The open request that goes on from one ended early, once: the model
-    /// is to be told so beside what it hears.
     /// The open request that is the first after a Stop, once: the model is
     /// to be told so beside what it hears.
     fn take_after_stop(&mut self) -> Option<RequestId> {
@@ -3308,6 +3306,8 @@ impl InputHandoff {
             .map(|_| request)
     }
 
+    /// The open request that goes on from one ended early, once: the model
+    /// is to be told so beside what it hears.
     fn take_cut_off(&mut self) -> Option<RequestId> {
         let request = self.cut_off.take()?;
         self.visual_turn()
@@ -3842,16 +3842,19 @@ trait InputSink {
 /// person who hears their name and nothing more says "Yes?" and waits.
 pub(crate) const CALLED_NOTE: &str = "The person said your name, Lamp, and nothing more: they are calling you. Answer as someone who hears their name does, with one short word such as \"Yes?\", and wait for them to go on.";
 
+/// What the model is told beside the first request after a hand or the
+/// lamp's head stopped its speech (#829, the first builder at 16:33: after
+/// each tap that stopped a story, the story began again). With
+/// `LAMP_STOP_TOLD=on` only. In the form of the lamp's other notes, which
+/// its character says nobody said aloud: never answered, never mentioned
+/// (the first builder on #1148: "Okay, I'll stop" said aloud is no better).
+pub(crate) const STOPPED_NOTE: &str = "(For you to know, not to answer: the person stopped you just now, with a touch or the stop button, while you were speaking. What you were saying is over: do not go back to it or start it again unless they ask for it, and say nothing about the stop.)";
+
 /// What the model is told beside a request that goes on from one whose end
 /// was sent early and given up when the person spoke again
 /// (`--early-end-ms`; docs/early-end-taken-back.md). The same words as
 /// `REST_NOTE` in `lamp-gemini`'s `early_end_probe`, which tried them on
 /// the service.
-/// What the model is told beside the first request after a hand or the
-/// lamp's head stopped its speech (#829, the first builder at 16:33: after
-/// each tap that stopped a story, the story began again).
-pub(crate) const STOPPED_NOTE: &str = "The person stopped you just now while you were speaking, with a touch or the stop button: what you were saying is over. Do not go back to it or start it again unless they ask for it.";
-
 pub(crate) const CUT_OFF_NOTE: &str = "The person paused and then went on: the request just before this one was cut off by that pause, and this is the rest of it. Answer all of it as one request.";
 
 /// Give `request` a note beside what is being said, keeping what it was

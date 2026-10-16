@@ -186,6 +186,55 @@ pub const AFTER_STOP_US: u64 = 4_000_000;
 /// in the same conversation.
 pub const TELL_STOP_WITHIN_US: u64 = 120_000_000;
 
+/// Where the coordinator reads whether the model is told of a Stop
+/// ([`StopToTell`]). `on` only: off until it is played on lamp-4ace (the
+/// first builder on #1148).
+pub const STOP_TOLD_ENVIRONMENT: &str = "LAMP_STOP_TOLD";
+
+/// Whether the environment tells the model of a Stop.
+pub fn stop_told_from_environment() -> bool {
+    stop_told(std::env::var(STOP_TOLD_ENVIRONMENT).ok().as_deref())
+}
+
+fn stop_told(value: Option<&str>) -> bool {
+    value == Some("on")
+}
+
+/// A Stop the model has not been told of yet (`LAMP_STOP_TOLD=on`): when a
+/// hand or the head stopped the lamp's speech, and the session of the
+/// answer it stopped. The first request after it on that session, within
+/// [`TELL_STOP_WITHIN_US`], tells the model. A request that took it and was
+/// then thrown out as a sound, before its End went, gives it back: on
+/// lamp-4ace at 16:32 a tap's own thump was heard just after the tap, and
+/// the person's real question came after it (the first builder on #1148).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct StopToTell(Option<(u64, u64)>);
+
+impl StopToTell {
+    /// A Stop at `at_us` cut the answer on `session`.
+    pub fn stopped(&mut self, at_us: u64, session: u64) {
+        self.0 = Some((at_us, session));
+    }
+
+    /// For a request beginning on `session` at `now_us`: the Stop, once,
+    /// if it cut an answer on that session within [`TELL_STOP_WITHIN_US`].
+    /// One on another session, or older, is let go: a new session has not
+    /// the answer that was stopped.
+    pub fn take_for(&mut self, session: u64, now_us: u64) -> Option<(u64, u64)> {
+        self.0
+            .take()
+            .filter(|(at, of)| *of == session && now_us.saturating_sub(*at) <= TELL_STOP_WITHIN_US)
+    }
+
+    /// The request that took `stop` was thrown out before its End went: the
+    /// next one tells it, unless a newer Stop came meanwhile.
+    pub fn given_back(&mut self, stop: (u64, u64)) {
+        if self.0.is_none_or(|(at, _)| at < stop.0) {
+            self.0 = Some(stop);
+        }
+    }
+}
+
 /// Whether the lamp was stopped by a hand or its head (`stopped_at_us`)
 /// less than [`AFTER_STOP_US`] before `now_us`, and has not spoken since
 /// (`last_spoke_us`): once it answers again ("Want another?"), a short
@@ -661,6 +710,40 @@ pub fn unclear_in_conversation(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The first builder on #1148: a Stop, then the tap's thump taken as a
+    /// request and thrown out as a sound, then the person's real question,
+    /// whose Start must say the lamp was stopped. Once only, on the
+    /// session whose answer was cut, within two minutes. And the switch is
+    /// `on` only.
+    #[test]
+    fn a_stop_is_told_to_the_first_real_request_on_its_session() {
+        const S: u64 = 1_000_000;
+        let mut stop = StopToTell::default();
+        stop.stopped(10 * S, 3);
+        // The thump takes it, and is thrown out before its End went.
+        let thump = stop.take_for(3, 11 * S);
+        assert_eq!(thump, Some((10 * S, 3)));
+        assert_eq!(stop.take_for(3, 11 * S), None);
+        stop.given_back(thump.unwrap());
+        // The real question has it, once.
+        assert_eq!(stop.take_for(3, 13 * S), Some((10 * S, 3)));
+        assert_eq!(stop.take_for(3, 14 * S), None);
+        // A newer Stop meanwhile is not replaced by the older one given back.
+        stop.stopped(20 * S, 3);
+        stop.given_back((10 * S, 3));
+        assert_eq!(stop.take_for(3, 21 * S), Some((20 * S, 3)));
+        // Another session, or past two minutes: let go.
+        stop.stopped(30 * S, 3);
+        assert_eq!(stop.take_for(4, 31 * S), None);
+        assert_eq!(stop.take_for(3, 31 * S), None);
+        stop.stopped(40 * S, 3);
+        assert_eq!(stop.take_for(3, 40 * S + TELL_STOP_WITHIN_US + 1), None);
+        assert!(stop_told(Some("on")));
+        for value in [None, Some(""), Some("off"), Some("ON")] {
+            assert!(!stop_told(value), "{value:?}");
+        }
+    }
 
     /// #829, the first builder at 16:33: a tap's own sound just after it
     /// stopped the lamp is a sound, not a short word answering the lamp, and

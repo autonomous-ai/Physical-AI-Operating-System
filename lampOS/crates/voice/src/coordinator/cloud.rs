@@ -526,6 +526,7 @@ mod tests {
             input_sequence: 0,
             had_audio: false,
             voice_level: 0,
+            told_stop: None,
             final_chunk: None,
             playback_gaps: 0,
             notice: Default::default(),

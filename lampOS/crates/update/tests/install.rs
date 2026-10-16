@@ -496,6 +496,32 @@ fn every_part_of_the_lamp_waits_for_setups_marker_itself() {
     assert!(page.contains(&format!("`{condition}`")));
 }
 
+/// #811: no battery clock. Every product part that acts on the time of day
+/// trusts the wall clock only once the kernel says a time client set it:
+/// the schedule, Expression's night and the voice's telling of the time.
+#[test]
+fn time_of_day_parts_wait_for_the_kernel_to_say_the_clock_is_set() {
+    let unit = |name: &str| {
+        install::PRODUCT
+            .iter()
+            .find(|(unit, _)| *unit == name)
+            .unwrap_or_else(|| panic!("no {name}"))
+            .1
+    };
+    let exec = |name: &str| {
+        section(unit(name), "Service")
+            .into_iter()
+            .find(|line| line.starts_with("ExecStart="))
+            .unwrap()
+            .to_owned()
+    };
+    let schedule = exec("lamp-schedule.service");
+    assert!(schedule.contains(" --kernel-clock") && !schedule.contains("--trust-clock"));
+    assert!(exec("lamp-expression.service").contains(" --kernel-clock"));
+    let voice = section(unit("lamp-voice.service"), "Service");
+    assert!(voice.contains(&"Environment=LAMP_KERNEL_CLOCK=on"));
+}
+
 const PINS: &str = "/etc/lampOS/controls/controls-pins.json";
 
 /// The reviewer's case on #815: install, move the primary button to

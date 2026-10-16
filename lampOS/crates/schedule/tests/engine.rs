@@ -434,6 +434,66 @@ fn a_new_boot_waits_for_wall_trust_then_recovers_the_overdue_timer() {
     e.tick(&at).unwrap();
     assert!(due(&e, &at).oldest.unwrap().late);
 }
+/// #811: the lamp has no battery clock, so after a reboot its wall clock is a
+/// day behind until chrony sets it, and the product schedule trusts it only
+/// once the kernel says so (`--kernel-clock`). In that window a daily
+/// reminder neither falls due nor is lost, and nothing calendar-timed can be
+/// made from the wrong date; once the clock is set it falls due once, then
+/// waits for tomorrow.
+#[test]
+fn after_a_reboot_with_the_clock_a_day_behind_nothing_calendar_timed_acts_until_it_is_set() {
+    let disk = Disk::default();
+    let mut e = open(disk.clone(), &now(0));
+    create(
+        &mut e,
+        &now(0),
+        When::Daily {
+            time: "09:00".into(),
+            zone: None,
+        },
+    );
+    let due_at = get(&mut e, &now(0), 1)["due_unix_ms"].as_i64().unwrap();
+    assert_eq!(due_at, WALL + 3_600_000);
+    drop(e);
+
+    // Rebooted ten seconds after the reminder's time, the clock a day back.
+    let mut at = now(0);
+    at.boot_id = "boot-b".into();
+    at.boot_ms = 1_000;
+    at.unix_ms = due_at + 10_000 - 86_400_000;
+    at.wall_trusted = false;
+    let mut e = open(disk, &at);
+    for step in 0..70 {
+        at.boot_ms += 1_000;
+        at.unix_ms += 1_000;
+        e.tick(&at).unwrap();
+        assert_eq!(due(&e, &at).pending, 0, "{step} s after boot");
+    }
+    let made = e.answer(
+        Request::Set {
+            guard: guard(&e),
+            text: "Tea".into(),
+            when: When::At {
+                time: "10:00".into(),
+                day: None,
+                zone: None,
+                fold: None,
+            },
+        },
+        &at,
+    );
+    assert_eq!(made.unwrap_err().code, "bad_time");
+
+    // chrony sets it: the reminder falls due once, as late as it really is.
+    at.boot_ms += 1_000;
+    at.unix_ms = due_at + 81_000;
+    at.wall_trusted = true;
+    e.tick(&at).unwrap();
+    let shown = due(&e, &at);
+    assert_eq!(shown.pending, 1);
+    assert!(shown.oldest.unwrap().late);
+}
+
 #[test]
 fn untrusted_wall_time_cannot_create_a_false_reboot_deadline() {
     let mut at = now(0);

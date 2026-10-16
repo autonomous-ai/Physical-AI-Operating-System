@@ -325,7 +325,11 @@ ARM64 run and the keeper's `--setup-marker` (#816):
    `reset-plan-product.json`, the example stopped by
    `systemctl stop lampos.target` (every part is `PartOf` the target), and
    nothing else changes. `install` writes neither file yet, so both are put
-   there by hand. `serve-own-page.json` needs only a phone: the voice's key
+   there by hand. The product's pair is `serve-own-page.json` with
+   `reset-plan-product.json`: a test holds them to the same marker, and every
+   file setup saves (the credential, at the `/etc/lampOS/voice/credential`
+   the voice's `provider.json` names, and the name) is one the reset wipes.
+   `serve-own-page.json` needs only a phone: the voice's key
    is a field of its form. V1's page asks for the key only through its URL
    (question 1 below), so it needs that link opened on the phone.
 3. **First boot.** With no marker, reboot. Expect the open hotspot `lamp-xxxx`

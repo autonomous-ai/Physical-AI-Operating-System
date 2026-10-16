@@ -359,6 +359,30 @@ fn fixture(text: &str) -> Config {
     config
 }
 
+/// The product's pair (#1016, install.md): the own page's settings and the
+/// product reset plan agree on the marker, and every file setup saves is
+/// one the reset wipes, so a reset leaves nothing of the person setup took.
+#[test]
+fn the_own_page_and_the_product_plan_agree_on_what_setup_saves() {
+    let own = fixture(include_str!("../fixtures/serve-own-page.json"));
+    let plan: lamp_setup::reset::Plan =
+        serde_json::from_str(include_str!("../fixtures/reset-plan-product.json")).unwrap();
+    plan.check().unwrap();
+    assert_eq!(own.marker, plan.marker);
+    for saved in [&own.credential, &own.name] {
+        assert!(
+            plan.wipe.iter().any(|wiped| saved.starts_with(wiped)),
+            "{} is saved and not wiped",
+            saved.display()
+        );
+    }
+    // The voice reads the credential where setup saves it.
+    assert_eq!(
+        own.credential,
+        std::path::Path::new("/etc/lampOS/voice/credential")
+    );
+}
+
 #[test]
 fn the_own_page_stops_nginx_after_the_hotspot_restarts_it_and_before_answering() {
     // Reviewer, #817: `device-ap-mode` restarts nginx, which holds port 80.

@@ -2842,6 +2842,9 @@ fn conversation_with_gate(
     // When the lamp was last speaking, and the turn that took the place of
     // another: neither a word after its own nor one that cut in is a sound.
     let mut last_spoke_us: Option<u64> = None;
+    // When a hand or the head last stopped the lamp's speech: a short sound
+    // just after is the tap's own, not an answer (#829, 16:33).
+    let mut stopped_at_us: Option<u64> = None;
     let mut spoke_in_turn: Option<u64> = None;
     // The head tap's "hm?" (#711): its sound, made once for the cycle when
     // the head is read, and when it last played, so it plays at most once
@@ -3352,6 +3355,9 @@ fn conversation_with_gate(
                 use crate::receipt_history::{
                     CAPTURE_GAP, HAND_STOP, HEAD_SLEEP, HEAD_STOP, SOFTWARE_MUTED,
                 };
+                if (stop || head_stop) && !muted {
+                    stopped_at_us = Some(observed_at_us);
+                }
                 let reason = if asleep {
                     HEAD_SLEEP
                 } else if muted {
@@ -4442,7 +4448,11 @@ fn conversation_with_gate(
                             && !crate::not_speech::was_a_sound(
                                 speech_levels.len(),
                                 took_over_turn == Some(turn),
-                                last_spoke_us.map(|at| monotonic_us().saturating_sub(at)),
+                                crate::not_speech::own_words_ago(
+                                    last_spoke_us,
+                                    stopped_at_us,
+                                    monotonic_us(),
+                                ),
                             )
                         {
                             let sent_at = monotonic_us();
@@ -4568,10 +4578,18 @@ fn conversation_with_gate(
                         crate::not_speech::scrap(
                             speech_levels.len(),
                             took_over_turn == Some(current.owner.turn()),
-                            last_spoke_us.map(|at| monotonic_us().saturating_sub(at)),
+                            crate::not_speech::own_words_ago(
+                                last_spoke_us,
+                                stopped_at_us,
+                                monotonic_us(),
+                            ),
                             said_close(&speech_levels, &loud_blocks, &rise),
                         )
-                    }) && !crate::not_speech::sent_anyway(short_sounds, room.busy()) =>
+                    }) && !crate::not_speech::sent_anyway(
+                        short_sounds
+                            && !crate::not_speech::just_stopped(stopped_at_us, monotonic_us()),
+                        room.busy(),
+                    ) =>
                 {
                     // A sound, not something said. It is not sent on as a
                     // finished question: the turn ends here, unanswered.
@@ -4583,6 +4601,12 @@ fn conversation_with_gate(
                                 "not_speech":{"speech_blocks":speech_levels.len(),"fewer_than":crate::not_speech::SCRAP_BLOCKS,
                                     "said_close":said_close(&speech_levels, &loud_blocks, &rise),
                                     "last_blocks":last_blocks(&judged_blocks)}});
+                        if crate::not_speech::just_stopped(stopped_at_us, monotonic_us()) {
+                            endpoint_record["not_speech"]["after_stop"] = json!(true);
+                            eprintln!(
+                                "lamp-voice: a short sound just after the lamp was stopped is not taken as a request"
+                            );
+                        }
                         // Its end went early, while it was not yet a sound
                         // (the lamp's own words were still near); its
                         // answer is never played.
@@ -4633,7 +4657,11 @@ fn conversation_with_gate(
                         } else if crate::not_speech::was_a_sound(
                             speech_levels.len(),
                             took_over_turn == Some(current.owner.turn()),
-                            last_spoke_us.map(|at| monotonic_us().saturating_sub(at)),
+                            crate::not_speech::own_words_ago(
+                                last_spoke_us,
+                                stopped_at_us,
+                                monotonic_us(),
+                            ),
                         ) {
                             // Let through only for the model to judge
                             // (`LAMP_SHORT_SOUNDS`): unanswered, it is no one

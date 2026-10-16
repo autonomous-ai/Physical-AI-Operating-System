@@ -37,7 +37,17 @@ treated so:
 - one that began within four seconds of the lamp's own last sound: "Yes."
   and "No." answer what the lamp just asked. (This was ten seconds at
   first. On the lamp each sound it answered then excused the next one,
-  eight seconds later.)
+  eight seconds later.) But not in the 4 s after a hand or the lamp's head
+  stopped it (`AFTER_STOP_US`, `hand_stop` or `head_stop`): its words then
+  were cut, not answered. Then a short utterance is a sound, and is sent
+  nowhere even with `LAMP_SHORT_SOUNDS`. On lamp-4ace on 16 October from
+  16:32:16 to 16:32:34 the owner tapped the head to stop a story six
+  times. Each time, within 1 to 3 s, the tap's own sound was heard
+  ("¿Quién?", "un", "¿Qué?"), excused, sent to the model, and the story
+  began again (the first builder, #829, 16:33). The record's `not_speech`
+  then says `after_stop`, and the journal "a short sound just after the
+  lamp was stopped is not taken as a request". Real words, 30 blocks or
+  more, are taken as always.
 - one that took the turn from the lamp's own answer (a quick "stop" over
   it), or from something that had itself been said (the short second half
   of a sentence after a pause). At first any turn that took over from

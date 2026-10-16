@@ -169,6 +169,36 @@ pub fn takes_over(lamp_answering: bool, replaced_was_said: bool) -> bool {
     lamp_answering || replaced_was_said
 }
 
+/// After a hand or a head stops the lamp's speech (`hand_stop`,
+/// `head_stop`), a short utterance is a sound for this long, sent nowhere,
+/// whatever [`AFTER_OWN_WORDS_US`] and [`sent_anyway`] say. On lamp-4ace on
+/// 16 October from 16:32:16 to 16:32:34 the owner tapped the lamp's head to
+/// stop a story six times. Each time, within 1 to 3 s, the tap's own sound
+/// was heard ("¿Quién?", "un", "¿Qué?"), excused as a short word after the
+/// lamp's own, sent to the model, and the story began again (the first
+/// builder, #829, 16:33).
+pub const AFTER_STOP_US: u64 = 4_000_000;
+
+/// Whether the lamp was stopped by a hand or its head (`stopped_at_us`)
+/// less than [`AFTER_STOP_US`] before `now_us`.
+pub fn just_stopped(stopped_at_us: Option<u64>, now_us: u64) -> bool {
+    stopped_at_us.is_some_and(|at| now_us.saturating_sub(at) < AFTER_STOP_US)
+}
+
+/// How long ago the lamp's own words were (`last_spoke_us`), as an excuse
+/// for a short word after them: none just after it was stopped, for its
+/// words then were cut, not answered.
+pub fn own_words_ago(
+    last_spoke_us: Option<u64>,
+    stopped_at_us: Option<u64>,
+    now_us: u64,
+) -> Option<u64> {
+    if just_stopped(stopped_at_us, now_us) {
+        return None;
+    }
+    last_spoke_us.map(|at| now_us.saturating_sub(at))
+}
+
 /// Whether an utterance that has just ended, with this many blocks scored
 /// as speech, was a sound. `since_own_words_us` is how long ago the lamp was
 /// last heard, if it ever was.
@@ -595,6 +625,33 @@ pub fn unclear_in_conversation(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// #829, the first builder at 16:33: a tap's own sound just after it
+    /// stopped the lamp is a sound, not a short word answering the lamp, and
+    /// is sent nowhere even where short sounds go to the model. Real words
+    /// are taken, and so is a short word once the moment has passed.
+    #[test]
+    fn a_short_sound_just_after_the_lamp_is_stopped_is_a_sound() {
+        const S: u64 = 1_000_000;
+        let (spoke, stopped) = (Some(10 * S), Some(10 * S + 100_000));
+        // 2 s after the stop: no excuse, a sound.
+        let ago = own_words_ago(spoke, stopped, 12 * S);
+        assert_eq!(ago, None);
+        assert!(was_a_sound(12, false, ago));
+        assert!(just_stopped(stopped, 12 * S));
+        // Real words are not a sound.
+        assert!(!was_a_sound(SCRAP_BLOCKS, false, ago));
+        // Not stopped: a short word 2 s after the lamp's own is its answer.
+        let ago = own_words_ago(spoke, None, 12 * S);
+        assert_eq!(ago, Some(2 * S));
+        assert!(!was_a_sound(12, false, ago));
+        // Once the moment has passed, as before.
+        assert!(!just_stopped(stopped, 10 * S + 100_000 + AFTER_STOP_US));
+        assert_eq!(
+            own_words_ago(spoke, stopped, 10 * S + 100_000 + AFTER_STOP_US),
+            Some(AFTER_STOP_US + 100_000)
+        );
+    }
 
     /// #800: `quiet-room-checked` lets short sounds through as `quiet-room`
     /// does and tells the provider worker to check them; nothing else does.

@@ -750,8 +750,6 @@ async fn answer(
         messages.extend(told.history);
         messages.push(asked);
         let asked_at = messages.len() - 1;
-        // A refused picture's retry keeps the one sound and its longer wait.
-        let mut cued = false;
         let mut round = 0;
         while round < MAX_ROUNDS {
             round += 1;
@@ -765,9 +763,7 @@ async fn answer(
                 let next = if first && round == 1 {
                     let at = |after: Duration| begun + after;
                     let cues = shared.cues.as_ref().filter(|_| heard);
-                    let first_wait = if cued {
-                        BEGIN_WITHIN_AFTER_CUE
-                    } else if cues.is_some() {
+                    let first_wait = if cues.is_some() {
                         CUE_AFTER
                     } else if looking {
                         LOOK_BEGIN_WITHIN
@@ -776,7 +772,6 @@ async fn answer(
                     };
                     let mut next = tokio::time::timeout_at(at(first_wait), stream.next()).await;
                     if next.is_err()
-                        && !cued
                         && let Some(cues) = cues
                     {
                         // One soft sound, then a longer wait; with no sound
@@ -788,7 +783,6 @@ async fn answer(
                                     began.elapsed().as_millis()
                                 );
                                 cue(shared, request, clip).await?;
-                                cued = true;
                                 BEGIN_WITHIN_AFTER_CUE
                             }
                             None => BEGIN_WITHIN,

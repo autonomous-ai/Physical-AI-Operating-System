@@ -445,8 +445,9 @@ journal (`worker.rs`); the thread reload (`thread::tests`).
 The switch: `coordinator::second::tests` (the line's 30 s bound, its
 request, its clearing on mute or a closed microphone and once answered or
 abandoned, the worker arguments) and `coordinator::tests::second_route`,
-the production `conversation()` with peer processes on real local IPC:
-without a route nothing of it is seen and a route standing by leaves
+the production `conversation()` with peer processes on real local IPC,
+stepped on the scenario clock so a busy host cannot age a lease
+(lampOS#890): without a route nothing of it is seen and a route standing by leaves
 Gemini's packets and the kinds and fields of every record unchanged; a
 spent quota moves the whole line and the rest of the lamp sees the same
 turn; a link dropped mid-line loses nothing; Gemini's audio after its

@@ -693,8 +693,17 @@ used only to say it.
   builder's bound on #560 is that a person at the lamp hears the result
   within 20 s of the agent settling, at their first pause of at least 1 s if
   they are talking; someone who talks with the lamp until 18 s after it
-  hears it at about 19 s, not 33. The record's `task_news` says `at_pause`
-  and `since_turn_ms`, how long after the last turn it was told. The note gives the model the task's words
+  hears it at about 19 s, not 33. With the switch, tasks that finished
+  together are told in one turn, at most three, one sentence each from one
+  note (`TaskNews::tell_together`, the reviewer on #1161). Told one by one,
+  each 3 s after the lamp's words before it, three were told at about 1, 9
+  and 17 s, each "Oh, Claude Code just finished…", and a fourth missed the
+  20 s bound. One note holds 1,024 bytes, so fewer go together when each
+  answer would keep under 120 characters: three long answers go as two,
+  about 210 characters of each, then one. A task waiting for the person,
+  one that stopped, a hand-over that failed and progress are told on their
+  own. The record's `task_news` says `at_pause`, `since_turn_ms`, how long
+  after the last turn it was told, and `also`, the news told with it. The note gives the model the task's words
   and up to 1,200 characters of the answer, and asks for one or two natural
   sentences starting like "Oh, Claude Code just finished…" ("earlier" after
   ten minutes), the gist in plain words, no code, lists, paths or links, and

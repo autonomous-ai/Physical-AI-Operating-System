@@ -71,6 +71,16 @@ pub(crate) const MOST_TASK_CHARS: usize = 300;
 /// long answer; on lamp-4ace on 2026-10-15 at 08:02 the lamp then told a
 /// 300-word story as only "the rest is waiting on your computer" (#757).
 const TASK_CHARS_KEPT_FIRST: usize = 100;
+/// At most this many finished tasks are told in one turn
+/// ([`TaskNews::tell_together`]): one sentence each, from one note.
+pub const TOGETHER_MOST: usize = 3;
+/// Told together, each task's words are kept to this many characters: what
+/// it was, for the person to know it by.
+const TOGETHER_TASK_CHARS: usize = 60;
+/// Told together, each answer keeps at least this many characters, or
+/// fewer tasks are told together: less is no gist. One note holds
+/// `lamp_gemini::wire::MAX_NOTE_BYTES`.
+const TOGETHER_ANSWER_LEAST: usize = 120;
 /// Nothing said by or to the lamp for this long before news is told.
 pub const QUIET_US: u64 = 15_000_000;
 /// `on`: news is told at the first pause of [`PAUSE_US`] instead of after
@@ -174,6 +184,23 @@ pub struct News {
     /// For progress, which change of which task it tells: withdrawn once
     /// `tasks/status` no longer shows that change of that task at work.
     pub progress: Option<ProgressOf>,
+    /// For a task finished with an answer, what its note is made of, so
+    /// that several can be told in one turn.
+    pub finished: Option<Finished>,
+    /// The keys of the news told with this, in the same turn.
+    pub also: Vec<String>,
+}
+
+/// What a finished task's news is made of.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Finished {
+    who: &'static str,
+    asked: String,
+    answer: String,
+    /// The answer was cut before it came here.
+    cut: bool,
+    /// Within [`JUST_MS`]: "just now", not "a while ago".
+    just: bool,
 }
 
 /// The piece of progress a note tells: a change is named by its count and
@@ -444,6 +471,52 @@ impl TaskNews {
         let _ = self.told.send(Wake::Told(news.key.clone()));
         Some(news)
     }
+
+    /// [`Self::tell`], with other tasks that finished told in the same
+    /// turn, at most [`TOGETHER_MOST`] in all (`LAMP_TASK_NEWS_AT_PAUSE=on`,
+    /// the reviewer on #1161). A person would say them together. Told one
+    /// by one, each 3 s after the lamp's words before it, three were told
+    /// at about 1, 9 and 17 s, each "Oh, Claude Code just finished…", and a
+    /// fourth missed the 20 s bound. Only finished tasks with an answer go
+    /// together; one waiting for the person, one that stopped, a hand-over
+    /// that failed and progress are told on their own. Fewer go together
+    /// when one note would keep too little of each answer
+    /// ([`TOGETHER_ANSWER_LEAST`]).
+    pub fn tell_together(&mut self) -> Option<News> {
+        let mut news = self.tell()?;
+        let Some(first) = news.finished.clone() else {
+            return Some(news);
+        };
+        let mut others = Vec::new();
+        let mut index = 0;
+        while others.len() + 1 < TOGETHER_MOST && index < self.waiting.len() {
+            if self.waiting[index].finished.is_some()
+                && let Some(other) = self.waiting.remove(index)
+            {
+                others.push(other);
+            } else {
+                index += 1;
+            }
+        }
+        while !others.is_empty() {
+            let parts: Vec<&Finished> = std::iter::once(&first)
+                .chain(others.iter().filter_map(|other| other.finished.as_ref()))
+                .collect();
+            if let Some(note) = note_together(&parts) {
+                for other in &others {
+                    let _ = self.told.send(Wake::Told(other.key.clone()));
+                }
+                news.note = note;
+                news.also = others.into_iter().map(|other| other.key).collect();
+                return Some(news);
+            }
+            // Told next, in the order they waited.
+            if let Some(last) = others.pop() {
+                self.waiting.push_front(last);
+            }
+        }
+        Some(news)
+    }
 }
 
 /// Read the tasks part every [`READ_EVERY`], and at once when a task newly
@@ -605,6 +678,8 @@ fn read_once(
                         note,
                         until: None,
                         progress: None,
+                        finished: None,
+                        also: Vec::new(),
                     });
                 }
                 continue;
@@ -650,6 +725,8 @@ fn read_once(
                     note,
                     until: None,
                     progress: None,
+                    finished: finished(&task, &data, age_ms),
+                    also: Vec::new(),
                 });
             }
         }
@@ -807,6 +884,80 @@ fn note(task: &Value, data: &Value, age_ms: u64) -> Option<String> {
         ),
     };
     fitted(&asked, &answer, cut, say)
+}
+
+/// A task finished with an answer, as [`note`] reads it, for telling with
+/// others; none for any other state.
+fn finished(task: &Value, data: &Value, age_ms: u64) -> Option<Finished> {
+    if data["state"].as_str()? != "idle" {
+        return None;
+    }
+    let (asked, _) = quoted(task["text"].as_str()?, MOST_TASK_CHARS);
+    let (answer, cut) = quoted(
+        data["answer"].as_str().unwrap_or_default(),
+        MOST_ANSWER_CHARS,
+    );
+    (!answer.is_empty()).then_some(Finished {
+        who: who(task),
+        asked,
+        answer,
+        cut: cut || data["truncated"] == json!(true),
+        just: age_ms <= JUST_MS,
+    })
+}
+
+/// The note for finished tasks told together: what each was and the
+/// beginning of its answer, the answers cut alike to one written turn
+/// (`lamp_gemini::wire::MAX_NOTE_BYTES`). None if each would keep less than
+/// [`TOGETHER_ANSWER_LEAST`] of an answer that is longer.
+fn note_together(parts: &[&Finished]) -> Option<String> {
+    let first = parts.first()?.who;
+    let how_many = match parts.len() {
+        2 => "two",
+        3 => "three",
+        _ => return None,
+    };
+    let say = |answer_most: usize| {
+        let each: Vec<String> = parts
+            .iter()
+            .map(|part| {
+                let asked: String = part.asked.chars().take(TOGETHER_TASK_CHARS).collect();
+                let answer: String = part.answer.chars().take(answer_most).collect();
+                let more = if part.cut || answer.len() < part.answer.len() {
+                    GOES_ON
+                } else {
+                    ""
+                };
+                let when = if part.just { "just now" } else { "a while ago" };
+                format!(
+                    "{} finished \"{asked}\" {when}: \"{answer}{more}\".",
+                    part.who
+                )
+            })
+            .collect();
+        format!(
+            "(Nobody has spoken. News from {how_many} pieces of work you handed over for the person. {} \
+             Tell them now, together, in one turn: one plain spoken sentence for each, starting with something like \
+             \"Oh, {first} just finished…\" (\"earlier\" for one a while ago), each with the gist of its result. \
+             No code, lists, file paths or links; if there is more, the rest is on their computer. No question.)",
+            each.join(" ")
+        )
+    };
+    let longest = parts.iter().map(|part| part.answer.chars().count()).max()?;
+    let mut answer_most = longest;
+    loop {
+        let text = say(answer_most);
+        let over = text.len().saturating_sub(lamp_gemini::wire::MAX_NOTE_BYTES);
+        if over == 0 {
+            return Some(text);
+        }
+        // A character is at least one byte: each answer at the most loses
+        // its share of what is over.
+        answer_most = answer_most.saturating_sub(over.div_ceil(parts.len()));
+        if answer_most < TOGETHER_ANSWER_LEAST.min(longest) {
+            return None;
+        }
+    }
 }
 
 /// What the model is told to say while the agent waits for the person
@@ -1114,6 +1265,8 @@ impl ProgressReader {
                 change: wanted.change,
                 run: wanted.run,
             }),
+            finished: None,
+            also: Vec::new(),
         })
     }
 }
@@ -1896,6 +2049,8 @@ mod tests {
             note: "(…)".into(),
             until: Some(Instant::now() + Duration::from_millis(50)),
             progress: None,
+            finished: None,
+            also: Vec::new(),
         };
         offer.send(soon.clone()).unwrap();
         assert_eq!(news.waiting(), Some(&soon));
@@ -1922,6 +2077,8 @@ mod tests {
             note: "(…)".into(),
             until: None,
             progress: None,
+            finished: None,
+            also: Vec::new(),
         };
         offer.send(one.clone()).unwrap();
         offer.send(one.clone()).unwrap();
@@ -1935,11 +2092,145 @@ mod tests {
             note: "(…)".into(),
             until: None,
             progress: None,
+            finished: None,
+            also: Vec::new(),
         };
         offer.send(two.clone()).unwrap();
         assert_eq!(news.waiting(), Some(&two));
         told_already.lock().unwrap().insert("s:2:1".into());
         assert!(news.waiting().is_none());
+    }
+
+    /// News waiting to be told, with nothing behind it: its channels.
+    fn waiting_news() -> (TaskNews, mpsc::Sender<News>, mpsc::Receiver<Wake>) {
+        let (offer, offered) = mpsc::channel();
+        let (told, heard) = mpsc::channel();
+        let news = TaskNews {
+            offered,
+            told,
+            waiting: VecDeque::new(),
+            told_already: Arc::new(Mutex::new(BTreeSet::new())),
+            stopping: Arc::new(AtomicBool::new(false)),
+            status: Arc::new(Mutex::new(None)),
+        };
+        (news, offer, heard)
+    }
+
+    /// The news of task `id` for `engine` in `state`, as the reader makes
+    /// it, with an answer of `answer_chars` characters.
+    fn news_of(id: u64, engine: &str, state: &str, answer_chars: usize) -> News {
+        let mut task = task(engine, json!([]));
+        task["text"] = json!(format!("Task number {id}: suggest names for a desk lamp"));
+        let answer: String = format!("Answer {id}. ")
+            .chars()
+            .chain(std::iter::repeat('a'))
+            .take(answer_chars)
+            .collect();
+        let data = json!({"state":state,"answer":answer,"truncated":false});
+        News {
+            key: format!("s:{id}:1"),
+            note: note(&task, &data, 0).unwrap(),
+            until: None,
+            progress: None,
+            finished: finished(&task, &data, 0),
+            also: Vec::new(),
+        }
+    }
+
+    /// The reviewer's P3 on #1161: tasks that finished together are told
+    /// in one turn, at most three, in one note; one waiting for the person
+    /// is told on its own, in its place; a fourth waits for the next turn.
+    #[test]
+    fn tasks_finished_together_are_told_in_one_turn() {
+        let (mut news, offer, heard) = waiting_news();
+        let (one, two) = (
+            news_of(1, "claude", "idle", 80),
+            news_of(2, "codex", "idle", 80),
+        );
+        let waits = news_of(3, "claude", "needs-input", 80);
+        let (four, five) = (
+            news_of(4, "claude", "idle", 80),
+            news_of(5, "opencode", "idle", 80),
+        );
+        assert!(waits.finished.is_none());
+        for each in [&one, &two, &waits, &four, &five] {
+            offer.send(each.clone()).unwrap();
+        }
+        assert_eq!(news.waiting(), Some(&one));
+        let told = news.tell_together().unwrap();
+        assert_eq!(
+            (told.key.as_str(), told.also.clone()),
+            ("s:1:1", vec!["s:2:1".to_owned(), "s:4:1".to_owned()])
+        );
+        assert!(told.note.len() <= lamp_gemini::wire::MAX_NOTE_BYTES);
+        assert!(told.note.contains("three pieces of work"), "{}", told.note);
+        for (who, id) in [("Claude Code", 1), ("Codex", 2), ("Claude Code", 4)] {
+            assert!(
+                told.note.contains(&format!(
+                    "{who} finished \"Task number {id}: suggest names for a desk lamp\" just now: \"Answer {id}."
+                )),
+                "{}",
+                told.note
+            );
+        }
+        let keys: Vec<Wake> = heard.try_iter().collect();
+        assert_eq!(
+            keys,
+            ["s:1:1", "s:2:1", "s:4:1"].map(|key| Wake::Told(key.into()))
+        );
+        // The one waiting for the person, on its own and as it was.
+        assert_eq!(news.waiting(), Some(&waits));
+        assert_eq!(news.tell_together(), Some(waits));
+        // The fifth, alone now: its own note.
+        assert_eq!(news.tell_together(), Some(five));
+        assert!(news.waiting().is_none());
+    }
+
+    /// Without the switch each is told on its own, as before.
+    #[test]
+    fn tasks_finished_together_are_told_one_by_one_without_the_switch() {
+        let (mut news, offer, _heard) = waiting_news();
+        let (one, two) = (
+            news_of(1, "claude", "idle", 80),
+            news_of(2, "codex", "idle", 80),
+        );
+        offer.send(one.clone()).unwrap();
+        offer.send(two.clone()).unwrap();
+        assert!(news.waiting().is_some());
+        assert_eq!(news.tell(), Some(one));
+        assert_eq!(news.tell(), Some(two));
+    }
+
+    /// One note holds 1,024 bytes. Three long answers would keep under 120
+    /// characters each: two are told together, keeping more of each, and
+    /// the third waits for the next turn, where it is told whole as ever.
+    #[test]
+    fn long_answers_told_together_each_keep_their_gist() {
+        let (mut news, offer, _heard) = waiting_news();
+        let long: Vec<News> = (1..=3)
+            .map(|id| news_of(id, "claude", "idle", MOST_ANSWER_CHARS))
+            .collect();
+        for each in &long {
+            offer.send(each.clone()).unwrap();
+        }
+        assert!(news.waiting().is_some());
+        let told = news.tell_together().unwrap();
+        assert_eq!(told.also, vec!["s:2:1".to_owned()]);
+        assert!(told.note.len() <= lamp_gemini::wire::MAX_NOTE_BYTES);
+        assert!(told.note.contains("two pieces of work"), "{}", told.note);
+        for id in [1, 2] {
+            let kept = told
+                .note
+                .split(&format!("\"Answer {id}. "))
+                .nth(1)
+                .and_then(|rest| rest.split(GOES_ON).next())
+                .unwrap();
+            assert!(
+                kept.chars().count() + "Answer 1. ".len() >= TOGETHER_ANSWER_LEAST,
+                "{kept:?}"
+            );
+        }
+        assert_eq!(news.tell_together(), Some(long[2].clone()));
     }
 
     fn settled(task: u64) -> lamp_msgs::TaskSettled {

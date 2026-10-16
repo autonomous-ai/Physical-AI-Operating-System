@@ -676,8 +676,11 @@ fn a_skill_sound_is_refused_while_a_reply_or_a_candidate_is_open() {
     let mut owner = resting_owner();
     let (mut says, answered) = crate::say::Says::sound_for_test("chime", vec![500; 480]);
     let mut admission = InputAdmission::default();
+    // The authority issued at the very moment the speech is observed: one
+    // issued a microsecond later is not yet current at `at`, and the
+    // candidate is refused as unavailable (failed about 1 run in 5).
     let at = monotonic_us();
-    let authority = owner.snapshot(now()).unwrap();
+    let authority = owner.snapshot(MonoTime::from_micros(at)).unwrap();
     let update = admission
         .observe(
             Activity::Start(vec![ObservedAudio {

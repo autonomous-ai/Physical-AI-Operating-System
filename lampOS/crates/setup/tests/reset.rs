@@ -286,7 +286,7 @@ fn a_plan_never_wipes_software_system_or_shallow_paths() {
 /// Every store of the person's that a part keeps, as lamp-4ace's units set
 /// it or as the part's own default has it. A part that adds a store adds it
 /// here and to the plan.
-const PERSON_STORES: [&str; 21] = [
+const PERSON_STORES: [&str; 23] = [
     // lamp-4ace's units.
     "/var/lib/lampos-memory",
     "/var/lib/lampos-eyes/people.json",
@@ -312,8 +312,10 @@ const PERSON_STORES: [&str; 21] = [
     // The voice's default for the task news it has told (reviewer, #817):
     // `DEFAULT_TOLD` in crates/voice/src/task_news.rs.
     "/var/lib/lampOS/voice/tasks-told",
-    // What setup saves, and its marker. Not the voice's key: it is the
-    // lamp's own (#806, 12:36), kept as the update key is.
+    // What setup saves, and its marker: the user's key, to the voice and to
+    // the Policy (the owner, #806, 16:13), and the name.
+    "/etc/lampOS/voice/credential",
+    "/etc/lampOS/policy/jev.key",
     "/etc/lampOS/person/name",
     "/etc/wpa_supplicant/wpa_supplicant-wlan0.conf",
     "/var/lib/lampos-setup/done",
@@ -331,9 +333,8 @@ fn the_example_plan_wipes_every_store_of_the_person() {
             store.display()
         );
     }
-    // What makes the lamp itself is kept: its voice key (#806) and its
-    // update key.
-    for kept in ["/etc/lampOS/voice/credential", "/etc/lampOS/update/key.pub"] {
+    // What makes the lamp itself is kept: its update key.
+    for kept in ["/etc/lampOS/update/key.pub"] {
         assert!(
             !plan
                 .wipe

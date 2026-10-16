@@ -74,7 +74,7 @@ the saved network every 2 minutes only while no phone is on it.
 | Join rules: 60 s, two wrong keys end it, named failures, hotspot back, nothing saved on failure | **Take as is** | They handle the most common failure. |
 | 90 s loss to a recovery hotspot, retry every 2 min only with no phone on it | **Take as is** | `lamp-surround` already has the same numbers. |
 | The setup page (React bundle served by nginx) | **Take with a change** | The same Wi-Fi step and progress screens, served by V2 from the same paths with the same API shapes; the agent, channel and MQTT parts removed; a name and a time zone added. |
-| Credentials only through the account page's URL | **Decided: the lamp's own key** | The first builder on #806, 2026-10-16 12:36, from El's run on lamp-06c1: V2's voice uses V1's route, the campaign-api proxy with the lamp's own device key, written at the factory or by `install` (#811). The person never types or sees a key; setup takes none and the page carries none. |
+| Credentials only through the account page's URL | **Decided: the user's key, as in V1** | The owner, 2026-10-16 16:13 (#806, relayed by Leo; it replaces the first builder's 12:36): the key is the user's, and the factory has none to write. The account page (`/setup?llm_api_key=…&device_id=…`) or the app posts it down in `POST /api/device/setup`, and setup writes it to the voice's credential and the Policy's `jev.key`, root's, 0600, never logged or echoed. `install` still copies V1's key on a lamp that ran V1 (#1102). A reset wipes it with the rest of the person's data. |
 | Admin password = sticker suffix | **Take as is** | The person has the sticker; refuse to start if the hardware ID is unreadable. |
 | `set_up_completed` | **Take with a change** | One marker of V2's own, written only after the voice is healthy (not an agent); `lampos.target` starts only when it exists. |
 | Agent runtime, MQTT, channels, the backend ping | **Leave** | V2 has none of them. |
@@ -90,7 +90,7 @@ What lamp-4ace's units read today (`deploy/lamp-4ace/`):
 | Item | Today | What setup writes |
 |---|---|---|
 | Wi-Fi | V1's `wpa_supplicant-wlan0.conf` | The same file, mode 0600. |
-| The voice's service | `/etc/lampOS/voice/provider.json`, which names a credential file | Nothing: the file holds the lamp's own device key, and it and `provider.json` come with `install` or the factory (#806). |
+| The voice's service | `/etc/lampOS/voice/provider.json`, which names a credential file | The user's key, in that file and in the Policy's `/etc/lampOS/policy/jev.key` (#806, 16:13); `provider.json` comes with `install`. |
 | Update trust | `/etc/lampOS/update/key.pub` | Nothing: a trust root belongs in the image, not on a page anyone near the lamp can open. |
 | Time zone | Schedule takes `--zone Asia/Ho_Chi_Minh`; Memory, Expression and the policy take `--utc-offset-minutes 420` | `/etc/localtime` and `/etc/timezone`. Memory, Expression and the policy take `--zone system` (#820), which follows the file across daylight saving and takes up the zone setup writes without a restart; their units still pass the offset until First switches them. |
 | The person's name | Not read by any part yet | A private file the voice gives the model with its instruction. |
@@ -110,10 +110,11 @@ the tasks part's home (`/var/lib/lampos-tasks/.harness/` `auth`,
 `connections`, `computer-id`, `cli/data`, `agent-messages`, `hook-routes`
 and `logs`: the sign-in, the pairings and what they left; not `.harness`
 whole, which is Harness itself, its CLI and its own Node, and not the
-Harness service `install` set up, #934; Nine on #1016), the name,
-the Wi-Fi configuration and the setup marker. Kept: the software, its releases, the update key, the
-voice's key (the lamp's own, #806), the touch calibration and other per-lamp
-facts, and physical privacy.
+Harness service `install` set up, #934; Nine on #1016), the user's key
+(`/etc/lampOS/voice/credential` and `/etc/lampOS/policy/jev.key`, #806,
+16:13), the name, the Wi-Fi configuration and the setup marker. Kept: the
+software, its releases, the update key, the touch calibration and other
+per-lamp facts, and physical privacy.
 
 ## The reset (built, off unless set)
 
@@ -244,13 +245,15 @@ read before it would send the page to the wrong `.local` address:
 |---|---|
 | `GET /api/device/setup/status` | V1's `phase` (`idle`/`connecting`/`connected`/`failed`), `lan_ip`, `error`, `mac` (the kernel's host name, `lamp-xxxx`, which avahi announces), `run`, `set_up_completed`, `runtime_phase`. |
 | `GET /api/network` | `iw dev wlan0 scan`, parsed as V1 does, in V1's `domain.Network` fields. |
-| `POST /api/device/setup` | V1's `SetupRequest`; its other fields are accepted and ignored, `llm_api_key` among them (the voice's key is the lamp's own, #806). Checked before anything is touched: the network's name and password as for the join; V2's own `name` (up to 64 characters) and `timezone` (an IANA name whose file, links followed, is a `TZif` zone file inside the zone data; one the lamp lacks is skipped, not a reason to refuse setup). Replies at once, then, 2 s later as in V1, joins; one run at a time; refused once the lamp is set up. |
+| `POST /api/device/setup` | V1's `SetupRequest`; its other fields are accepted and ignored. Checked before anything is touched: the network's name and password as for the join; `llm_api_key`, the user's voice key (at most 512 printable characters; none keeps the key already there, as on a lamp that ran V1); V2's own `name` (up to 64 characters) and `timezone` (an IANA name whose file, links followed, is a `TZif` zone file inside the zone data; one the lamp lacks is skipped, not a reason to refuse setup). Replies at once, then, 2 s later as in V1, joins; one run at a time; refused once the lamp is set up. |
 
 While joining it reads the station address every second and publishes it as
 `lan_ip`, V1's fix for the page that lost the lamp, and once more when the join
 is done; a new run clears the last run's address at once, so V1's page cannot
 follow an old one. Once joined, it saves the
-name and the time zone (`/etc/localtime` linked to the zone,
+user's key (to the voice's credential and the Policy's `jev.key`, never
+logged, never in a reply), the name and the time zone (`/etc/localtime`
+linked to the zone,
 `/etc/timezone` naming it, as V1's `timezone.go`), each private and synced,
 and only then the marker; the keeper starts the lamp. If anything cannot be
 saved, there is no marker, the previous Wi-Fi file goes back, and the hotspot
@@ -282,11 +285,12 @@ config as its default site, and V1's page bundle.
 After the join, `runtime_phase` stays `preparing`. V1's page then keeps its
 "Preparing your robot's voice…" screen; at `ready` it would reload into its own
 settings, which need V1's server. The lamp's greeting, as in V1, is how the
-person learns it is done. V1's page still asks for a key from its URL
-(`?llm_api_key=…`) or, with `?debug=true`, in its AI step; whatever it sends is
-ignored (#806). `serve-own-page.json` answers on port 80 with
+person learns it is done. V1's page takes the key from the account page's URL
+(`?llm_api_key=…&device_id=…`) or, with `?debug=true`, in its AI step.
+`serve-own-page.json` answers on port 80 with
 `page: true`: this crate's own page (`src/page.html`, one step: network,
-password and the person's name; the time zone comes from the phone; no key), and 204 to the phones' sign-in
+password, the voice's key unless the account page passed one, the person's
+name; the time zone comes from the phone), and 204 to the phones' sign-in
 checks, as V1's nginx does. `device-ap-mode` restarts nginx whether or not it
 is used, and nginx would hold port 80, so this configuration's `free_port`
 (`systemctl stop nginx`) runs after the hotspot is up and before answering; on
@@ -338,14 +342,16 @@ ARM64 run and the keeper's `--setup-marker` (#816):
    `systemctl stop lampos.target` (every part is `PartOf` the target), and
    nothing else changes. `install` writes neither file yet, so both are put
    there by hand. The product's pair is `serve-own-page.json` with
-   `reset-plan-product.json`: a test holds them to the same marker, the name
-   setup saves is one the reset wipes, and the voice's key
-   (`/etc/lampOS/voice/credential`, the lamp's own) is not. Settings written
-   before #806's decision may still name a `credential`; it is read and never
-   used. `serve-own-page.json` needs only a phone and asks for no key.
+   `reset-plan-product.json`: a test holds them to the same marker, and what
+   setup saves of the person, the user's key in both its places and the name,
+   is what the reset wipes. Settings that name no key files take the
+   product's places. `serve-own-page.json` needs only a phone, and the
+   account page's link fills the key.
 3. **First boot.** With no marker, reboot. Expect the open hotspot `lamp-xxxx`
    and no lampOS part running. Join it with a phone and open
-   `http://192.168.100.1/`. Time, separately: phone joined
+   `http://192.168.100.1/setup?llm_api_key=<key>&device_id=<lamp>` as the
+   account page does (or `http://192.168.100.1/` and type the key in the own
+   page). Time, separately: phone joined
    to page shown (target under 5 s); Setup pressed to the hotspot gone; to
    `connected` or a named failure (at most 60 s); marker to the lamp's first
    word.
@@ -388,8 +394,8 @@ stop and the reboot for the second.
 ## Open questions (asked on #806)
 
 1. Where does a home lamp's voice credential come from? **Answered** (the
-   first builder, 2026-10-16 12:36): the lamp's own device key, on V1's proxy
-   route, written at the factory or by `install`; never by setup.
+   owner, 2026-10-16 16:13, replacing the first builder's 12:36): the user's
+   key, posted down to setup as in V1; a reset wipes it.
 2. Is `key.pub` put in the image at the factory (proposed), not by setup?
 
 ## Not shown

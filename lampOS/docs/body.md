@@ -166,7 +166,10 @@ on `Stop::Window` instead of `Cancelled`. That last write keeps torque on,
 so there the arm may only be left within 50 counts of its last goal: a
 reading farther off, even a steady one under 300, is not written, and the
 run ends on `Stop::Window` and lets go
-(`a_steady_wrong_elbow_reading_before_cancelled_is_not_written_at_the_exit`). The end report names the joint,
+(`a_steady_wrong_elbow_reading_before_cancelled_is_not_written_at_the_exit`). The same holds when the folded arm comes
+to rest: its resting goal, which keeps torque on, is where it reads only
+within 50 counts of the goal it had, and otherwise that goal
+(`a_steady_wrong_elbow_reading_as_the_arm_comes_to_rest_is_not_its_resting_goal`). The end report names the joint,
 the goal, the window and the goal it came from:
 
 ```text

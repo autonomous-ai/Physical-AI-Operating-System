@@ -718,11 +718,14 @@ The same bound holds for any written turn: a note made from other text
 A turn in which the model calls `start_agent_task` or `confirm_agent_task`
 began 1.8 to 2.9 s after the end of speech on lamp-4ace on 2026-10-15, against
 0.87 to 1.45 s for a plain answer: the model makes the call in one generation
-and speaks in another. With `LAMP_TOOL_LEAD_IN=on` the read-back and its
-question come before `start_agent_task`, "giving that to …" before
+and speaks in another. With `LAMP_TOOL_LEAD_IN=on` the read-back, as a
+statement, comes before `start_agent_task`, "giving that to …" before
 `confirm_agent_task` and "let me see" before `check_agent_task`, in the same
-turn, and each answer's `next` says the person has heard it
-([tools.md](tools.md#where-a-turn-with-a-function-call-spends-its-time-799)).
+turn, and each answer's `next` says the person has heard it; the question
+whether to start comes from `start_agent_task`'s answer
+([tools.md](tools.md#where-a-turn-with-a-function-call-spends-its-time-799),
+with what went wrong on lamp-4ace on 2026-10-16: a description too long
+for the link left those sessions without any function).
 What a prepared or handed-over task is, and what reaches the tasks part, is
 unchanged.
 

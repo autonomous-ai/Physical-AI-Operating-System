@@ -36,10 +36,21 @@
 //! one, because the model makes the call in one generation and speaks in
 //! another, after the answer. With the switch the model is asked to say the
 //! start of its answer in the same breath, before the call: the read-back
-//! and its question before `start_agent_task`, "giving that to …" before
+//! before `start_agent_task`, "giving that to …" before
 //! `confirm_agent_task`, "let me see" before `check_agent_task`; and the
 //! answers' `next` tell it the person has heard that, so it is not said
-//! twice. Words that carry the answer, not fillers.
+//! twice. Words that carry the answer, not fillers. On lamp-4ace on
+//! 2026-10-16 (00:08 to 00:11), with the lead-in, work asked of the staff
+//! and two of them to choose from, nothing was called in either round, not
+//! even [`CHECK`], and the model made up what became of the work: [`START`]'s
+//! description was 1,036 bytes, over the 1,024 the link takes, and a list
+//! the link refused left the session with no function at all
+//! (`thread::equipped`; now only that one is left out, and the journal says
+//! so). Its lead-in sentence is now the shortest that says
+//! it, and a test holds every description under the limit for every
+//! combination of the switches. The read-back is a statement, and the
+//! question whether to start comes after the call, from its answer, while
+//! the read-back still plays: a question ends a spoken turn.
 //!
 //! Asked of the staff (#854), off unless `LAMP_TASKS_ASKED=on`
 //! (`--tasks-asked`): on lamp-4ace on 2026-10-15 the person asked "can you
@@ -206,13 +217,18 @@ fn choosing(place: &Place, staff: &[Member]) -> bool {
 }
 
 /// What `start_agent_task`'s description asks to be said, and when: after
-/// the call, as always, or with the lead-in before it, in the same breath.
+/// the call, as always, or with the lead-in before it, in the same turn, as
+/// a statement. The question comes after, from the answer's `next`
+/// ([`prepared_next`]), while the read-back is still being played: a
+/// question said before a call ends a spoken turn, and the call need not
+/// come. Kept short: with work asked of the staff ([`ASKED_FLAG`]) and
+/// three of them, the description has 165 bytes left for it of the 1,024
+/// the service takes.
 fn read_back(lead_in: bool, with_who: &str) -> String {
     if lead_in {
         format!(
-            "Nothing starts yet. In the same breath, before you call it, say the task \
-             back in one short sentence{with_who} and ask whether to start it; then call \
-             it, and say nothing more unless it could not be prepared."
+            "Say the task back in one short sentence{with_who} as a statement, then call it \
+             at once; ask whether to start it only after it answers."
         )
     } else {
         format!(
@@ -379,7 +395,10 @@ fn declared(place: &Place, staff: &[Member]) -> Vec<Tool> {
 /// What the model is told after `start_agent_task` prepared the work.
 pub fn prepared_next(lead_in: bool, choosing: bool, who: &str) -> String {
     match (lead_in, choosing) {
-        (true, _) => "If you already said the task back and asked whether to start it, say nothing more now. If you did not, say it back in one short sentence and ask. Start it only if the person says yes.".to_owned(),
+        (true, false) => "If you already said the task back, now only ask in a few words whether to start it (\"Shall I start it?\"). If you did not, say it back in one short sentence and ask. Start it only if the person says yes.".to_owned(),
+        (true, true) => format!(
+            "If you already said the task back, now only ask in a few words whether to start it (\"Shall I start it?\"). If you did not, say it back in one short sentence, saying {who} will do it, and ask. Start it only if the person says yes."
+        ),
         (false, true) => format!(
             "Say the task back in one short sentence, saying {who} will do it, and ask whether to start it. Start it only if the person says yes."
         ),
@@ -1792,10 +1811,14 @@ mod tests {
         };
         let start = described(START);
         assert!(
-            start.contains("before you call it, say the task back in one short sentence and ask whether to start it; then call it, and say nothing more unless it could not be prepared"),
+            start.contains("Say the task back in one short sentence as a statement, then call it at once; ask whether to start it only after it answers."),
             "{start}"
         );
         assert!(!start.contains("Nothing starts yet: then say the task back"));
+        // No question before the call: a question ends a spoken turn, and
+        // the call need not come (#799).
+        let before_the_call = &start[..start.find("then call it").unwrap()];
+        assert!(!before_the_call.contains("and ask"), "{before_the_call}");
         assert!(
             described(CONFIRM).contains("(\"Okay, giving that to Claude Code.\")"),
             "{}",
@@ -1812,10 +1835,11 @@ mod tests {
             .map(|tool| (tool.name, tool.parameters))
             .collect();
         assert_eq!(with, off);
-        // Afterwards: nothing said twice.
+        // Afterwards: the question, and nothing said twice.
         assert!(prepared_next(true, false, "Claude Code").starts_with(
-            "If you already said the task back and asked whether to start it, say nothing more now."
+            "If you already said the task back, now only ask in a few words whether to start it (\"Shall I start it?\")."
         ));
+        assert!(prepared_next(true, true, "Codex").contains("saying Codex will do it, and ask"));
         assert!(
             handing_over_next(true, "Codex")
                 .starts_with("They have heard you say you are giving it to Codex.")
@@ -1829,9 +1853,43 @@ mod tests {
             .unwrap()
             .description;
         assert!(
-            start.contains("one short sentence, with who will do it, and ask"),
+            start.contains("one short sentence, with who will do it, as a statement, then call it"),
             "{start}"
         );
+    }
+
+    /// #799: one description the service would refuse leaves a session
+    /// with no functions at all (`thread::equipped`). On lamp-4ace on
+    /// 2026-10-16, with work asked of the staff, two of them to choose from
+    /// and the lead-in, `start_agent_task` was 1,036 bytes, and nothing was
+    /// called in either round. Every combination of the switches fits, with
+    /// one, two or three of the staff.
+    #[test]
+    fn every_description_fits_the_service_whatever_the_switches() {
+        let three = vec![
+            member("office-claude", "claude"),
+            member("office-codex", "codex"),
+            member("office-opencode", "opencode"),
+        ];
+        let mut refused = Vec::new();
+        for staff in [Vec::new(), two(), three] {
+            for (asked, lead_in) in [(false, false), (false, true), (true, false), (true, true)] {
+                let mut switched = place(Path::new("/run/t"), !staff.is_empty());
+                switched.asked = asked;
+                switched.lead_in = lead_in;
+                for tool in super::declared(&switched, &staff) {
+                    if tool.validate().is_err() {
+                        refused.push(format!(
+                            "{} with {} of the staff, asked {asked}, lead-in {lead_in}: {} bytes",
+                            tool.name,
+                            staff.len(),
+                            tool.description.len()
+                        ));
+                    }
+                }
+            }
+        }
+        assert!(refused.is_empty(), "{refused:#?}");
     }
 
     #[test]

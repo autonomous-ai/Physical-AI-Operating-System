@@ -655,9 +655,117 @@ pub fn exchange_up_to(socket: &Path, line: &Value, deadline: Duration, most: u64
     serde_json::from_slice(&answer).ok()
 }
 
+/// The functions of `tools` the service's link takes, in their order, and
+/// each it would refuse, left out, by name and why: a description or
+/// parameters it would not take (the length of the description given), a
+/// name given twice, or past [`lamp_gemini::MAX_TOOLS`]. One refused
+/// function used to leave a session with none at all (`thread::equipped`);
+/// on lamp-4ace on 2026-10-16 one description 12 bytes too long would have
+/// done that, and nothing said so (#799). Names and lengths only:
+/// descriptions are the voice's own fixed words or the executive's.
+pub fn admitted(tools: Vec<Tool>) -> (Vec<Tool>, Vec<String>) {
+    let mut kept: Vec<Tool> = Vec::new();
+    let mut left_out = Vec::new();
+    for tool in tools {
+        if tool.validate().is_err() {
+            left_out.push(format!(
+                "{} ({} bytes described)",
+                tool.name,
+                tool.description.len()
+            ));
+        } else if kept.iter().any(|earlier| earlier.name == tool.name) {
+            left_out.push(format!("{} (a name given twice)", tool.name));
+        } else if kept.len() == lamp_gemini::MAX_TOOLS {
+            left_out.push(format!("{} (past {})", tool.name, lamp_gemini::MAX_TOOLS));
+        } else {
+            kept.push(tool);
+        }
+    }
+    (kept, left_out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// #799: a function the link would refuse is left out and named; the
+    /// rest are kept, and the link takes them.
+    #[test]
+    fn a_function_the_link_refuses_is_left_out_by_name_and_the_rest_are_kept() {
+        let tool = |name: &str, bytes: usize| Tool {
+            name: name.into(),
+            description: "x".repeat(bytes),
+            parameters: None,
+            silent: false,
+        };
+        let link = || {
+            lamp_gemini::SessionConfig::new(
+                lamp_gemini::GOOGLE_ENDPOINT,
+                lamp_gemini::Credential::api_key("test-only").unwrap(),
+            )
+            .unwrap()
+        };
+        let all = vec![
+            tool("not_for_me", 9),
+            tool("start_agent_task", 1_036),
+            tool("confirm_agent_task", 1_024),
+            tool("not_for_me", 9),
+        ];
+        assert!(
+            link().tools(all.clone()).is_err(),
+            "the whole list is refused"
+        );
+        let (kept, left_out) = admitted(all);
+        let names: Vec<&str> = kept.iter().map(|tool| tool.name.as_str()).collect();
+        assert_eq!(names, ["not_for_me", "confirm_agent_task"]);
+        assert_eq!(
+            left_out,
+            [
+                "start_agent_task (1036 bytes described)",
+                "not_for_me (a name given twice)"
+            ]
+        );
+        assert!(link().tools(kept).is_ok());
+        let many: Vec<Tool> = (0..=lamp_gemini::MAX_TOOLS)
+            .map(|index| tool(&format!("f{index}"), 9))
+            .collect();
+        let (kept, left_out) = admitted(many);
+        assert_eq!(
+            (kept.len(), left_out),
+            (32, vec!["f32 (past 32)".to_owned()])
+        );
+        assert_eq!(admitted(Vec::new()), (Vec::new(), Vec::new()));
+    }
+
+    /// #799: with every switch of the voice's own on, the name signal
+    /// included, none of its functions is one the link would refuse.
+    #[test]
+    fn with_every_switch_on_the_voices_own_functions_are_a_list_the_link_takes() {
+        let settings = Settings {
+            decline: true,
+            exec: None,
+            memory: Some("/run/lampos-memory/memory.sock".into()),
+            clock: true,
+            tasks: Some(crate::agent_tasks::Place {
+                directory: "/run/lampos-tasks".into(),
+                target: crate::agent_tasks::DEFAULT_TARGET.into(),
+                who: true,
+                lead_in: true,
+                asked: true,
+            }),
+            schedule_tools: true,
+            schedule_speak: true,
+            who: Some("/run/lampos-eyes/request.sock".into()),
+            mark: Some("/var/lib/lampos-voice/session".into()),
+            onboarding: Some("/var/lib/lampos-voice/onboarding.json".into()),
+        };
+        let mut tools = declared(&settings);
+        tools.push(crate::attention::name_tool());
+        let count = tools.len();
+        let (kept, left_out) = admitted(tools);
+        assert!(left_out.is_empty(), "{left_out:?}");
+        assert_eq!(kept.len(), count);
+    }
     use std::os::unix::net::UnixListener;
 
     fn directory(name: &str) -> PathBuf {

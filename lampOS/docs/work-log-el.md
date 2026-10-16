@@ -9,6 +9,7 @@ result on a lamp.
 
 | Id | Proposal | Answer |
 |----|----------|--------|
+| el-P1 | Welcome back waits for a lull (`wait = "60s"`), so it greets someone arriving in a busy room (#1140) | |
 
 ## Found, not mine
 
@@ -106,3 +107,19 @@ Ready for lamp-voice: no (the third's)
 - Privacy slide wired on lamp-06c1 (chip 1 line 9). With #795's build the
   ring breathed red while closed, Muted 37 ms after the slide, Allowed 58 ms
   after reopening; reported on #795, then rolled back to jarvis's voice.
+
+## 2026-10-16 — #995 parts 1 and 2 on lamp-06c1, and a case file
+
+Ready for lamp-voice: yes (#1135, tests only)
+
+- Stretch break fired at 17:15:56 (look, stretch; seen by the person).
+  Welcome back did not greet at 17:56:39: the room talked within its 30 s.
+  Desk face 0.234, 0.21–0.31; across the room ≤ 0.097 (`near` settled 0.14).
+- lamp-06c1's eyes had never opened the camera until 17:12 (the camera lock
+  folder still 0775); fixed by hand. The say socket needed
+  `LAMP_SAY_GROUP=lampos`.
+- #1135: Welcome back's case recorded on lamp-06c1, ARM64 38892099402
+  green; two across-the-room cases dropped because they passed with `near`
+  removed. Proposal el-P1 (#1140) from the finding.
+- The person went home at 18:20; lamp-06c1 may be worked unattended
+  through the Mac's speaker and camera (their word).

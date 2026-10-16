@@ -743,8 +743,15 @@ record `mute_restored_after_fault` and one log line. A marker beside an unmuted
 record (a fault between the two writes), or found with the switch off, is
 removed. The marker is advice for what the lamp shows and says, never
 authority: failing to write or remove it changes no permission and never fails
-a cycle, and a missing marker reads as a chosen mute, which stays quiet. What
-the lamp then shows and says is not built yet.
+a cycle, and a missing marker reads as a chosen mute, which stays quiet.
+**A head tap wakes such a mute, as it wakes sleep** (`Receiver::request_wake_after_fault`):
+on lamp-4ace on 2026-10-16 a crash at 12:20 brought the voice up muted, and
+with no main button and the base strip off nothing at the lamp could open it.
+The tap is checked as a wake is (fresh, begun after the clear fence and the
+mute, released within the event lifetime), and only makes the clear pending
+for the quiescent owner to save. A person's own mute, or any mute without
+the switch, stays until their hold. With `LAMP_RING_ASLEEP=on` (#1025) the
+wait shows the asleep face, not a dark ring.
 
 Saves retain a private `.pending` inode while linking/renaming the replacement
 and syncing file and directory; `.replacement` and `.pending` evidence both

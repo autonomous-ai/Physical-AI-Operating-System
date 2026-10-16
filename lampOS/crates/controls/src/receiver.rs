@@ -194,8 +194,34 @@ impl Receiver {
         began_us: u64,
         released_us: u64,
     ) -> io::Result<bool> {
+        let asleep = self.record.asleep();
+        self.wake(now_us, began_us, released_us, asleep)
+    }
+
+    /// The same tap clears a mute the owner knows was left by its restart
+    /// guard after a fault, not chosen by a person (#960, the voice's
+    /// `LAMP_RESTORED_MUTE=on`): a lamp brought up deaf by a crash can be
+    /// woken at the lamp. Call only when the owner has established that; a
+    /// person's own mute must keep to `request_wake`, which leaves it.
+    pub fn request_wake_after_fault(
+        &mut self,
+        now_us: u64,
+        began_us: u64,
+        released_us: u64,
+    ) -> io::Result<bool> {
+        let muted = self.record.muted;
+        self.wake(now_us, began_us, released_us, muted)
+    }
+
+    fn wake(
+        &mut self,
+        now_us: u64,
+        began_us: u64,
+        released_us: u64,
+        clearable: bool,
+    ) -> io::Result<bool> {
         self.clock(now_us)?;
-        let eligible = self.record.asleep()
+        let eligible = clearable
             && began_us <= released_us
             && released_us <= now_us
             && now_us - released_us < CONTROL_EVENT_TTL_US

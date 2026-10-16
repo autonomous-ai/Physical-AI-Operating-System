@@ -716,12 +716,19 @@ impl HandControls {
             TouchGesture::Tap => {
                 earlier(&mut observation.head_tap_at_us, event.observed_us);
                 earlier(&mut observation.head_tap_began_us, event.began_us);
+                // A mute left by the restart guard wakes by a tap as sleep
+                // does (#960); a person's own mute stays until their hold.
+                let after_fault = self.restored_after_fault();
                 if mute
                     && let Some(released_us) = event.released_us
-                    && self
-                        .receiver
-                        .request_wake(now_us, event.began_us, released_us)
-                        .is_err()
+                    && if after_fault {
+                        self.receiver
+                            .request_wake_after_fault(now_us, event.began_us, released_us)
+                    } else {
+                        self.receiver
+                            .request_wake(now_us, event.began_us, released_us)
+                    }
+                    .is_err()
                 {
                     add(&self.shared.rejected, 1);
                 }

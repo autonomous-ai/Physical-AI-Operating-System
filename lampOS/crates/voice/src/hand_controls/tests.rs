@@ -947,6 +947,49 @@ fn a_hand_held_on_the_head_puts_it_to_sleep_and_a_tap_wakes_it_once_saved() {
     assert!(!saved.muted && saved.reason.is_none());
 }
 
+/// #960, `LAMP_RESTORED_MUTE=on`: a lamp brought up muted by its restart
+/// guard after a crash wakes by a head tap, as sleep does; a person's own
+/// mute does not, and without the switch neither does the guard's.
+#[test]
+fn a_tap_wakes_a_mute_left_by_the_restart_guard_but_never_a_persons() {
+    let tapped = |guard: bool, mark_guard: bool| {
+        let directory = Directory::new();
+        let mut record = MuteRecord::new(CLOCK).unwrap();
+        if guard {
+            // As `arm_active` writes it: the live record, muted.
+            record.muted = true;
+            fs::write(
+                directory.0.join(format!("mute.json{GUARD_MARKER_SUFFIX}")),
+                b"",
+            )
+            .unwrap();
+        } else {
+            assert!(record.request_mute(START / 2));
+        }
+        record.save(&directory.file()).unwrap();
+        let (mut owner, sender) = from_record(head_options(Some(&directory)), record, START);
+        owner.mark_guard = mark_guard;
+        owner.restore_guard_marker();
+        assert_eq!(owner.restored_after_fault(), guard && mark_guard);
+        let mut head = TestHead::new(CLOCK, START);
+        feed(&mut owner, &sender, head.run(START + 500_000, false), true);
+        let mut ticks = head.run(START + 700_000, true);
+        ticks.extend(head.run(START + 1_200_000, false));
+        let seen = feed(&mut owner, &sender, ticks, true);
+        assert!(
+            seen.iter()
+                .any(|(_, seen, _)| seen.head_tap_at_us.is_some())
+        );
+        let opened = seen.iter().any(|(_, _, allowed)| *allowed);
+        let saved = MuteRecord::load(&directory.file(), CLOCK, START + 1_300_000).unwrap();
+        assert_eq!(saved.muted, !opened);
+        (opened, owner.restored_after_fault())
+    };
+    assert_eq!(tapped(true, true), (true, false), "the guard's mute wakes");
+    assert_eq!(tapped(false, true), (false, false), "a person's mute stays");
+    assert_eq!(tapped(true, false), (false, false), "off: as before");
+}
+
 #[test]
 fn the_head_never_opens_a_privacy_mute_and_sleeps_only_with_the_durable_mute() {
     // Muted by the button's hold: a hold of the head and a tap change

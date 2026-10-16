@@ -441,8 +441,8 @@ fn asked_of(whom: &str, examples: &str, noted: bool) -> String {
 /// Who does the work is the person's choice, and the model's never.
 const CHOSE: &str = "The person chose who does it: never do the work yourself instead, never begin it, and never offer to.";
 /// The same, saying that the staff's note ([`crate::staff_note`]) names who:
-/// 9 bytes more, which every description has room for, three of the staff
-/// and the lead-in included, with 20 to spare
+/// 9 bytes more, which every description has room for. The longest, three
+/// of the staff with the lead-in, is 1,014 of the 1,024 bytes with it
 /// (`every_description_fits_the_service_whatever_the_switches`).
 const CHOSE_NOTED: &str = "The person chose who does it (a note may name them): never do the work yourself, never begin it, nor offer to.";
 
@@ -545,10 +545,10 @@ fn named<'a>(staff: &'a [Member], said: &str) -> Option<&'a Member> {
 }
 
 /// Which of the staff the heard words of a request name, as the person
-/// calls them ([`crate::staff_note`]): the staff as last read, or Claude
-/// Code alone when the person may not name anyone (all work goes there).
-/// `None` when the words name nobody, or more than one of them.
-pub fn named_in_words(place: &Place, heard: &str) -> Option<&'static str> {
+/// calls them, in the order first named ([`crate::staff_note`]): the staff
+/// as last read, or Claude Code alone when the person may not name anyone
+/// (all work goes there). Empty when the words name nobody.
+pub fn named_in_words(place: &Place, heard: &str) -> Vec<&'static str> {
     let staff = staff_now(place);
     let kinds: Vec<&'static Kind> = if staff.is_empty() {
         KINDS
@@ -558,13 +558,26 @@ pub fn named_in_words(place: &Place, heard: &str) -> Option<&'static str> {
     } else {
         staff.iter().map(|member| member.kind).collect()
     };
-    kind_in_words(&kinds, heard).map(|kind| kind.name)
+    kinds_in_words(&kinds, heard)
+        .into_iter()
+        .map(|kind| kind.name)
+        .collect()
 }
 
-/// The one kind among `kinds` that a word, or two words said together, of
-/// `heard` is a close form of. "Cloud" alone is not taken: "save it to the
-/// cloud" names nobody; "cloud code" still does.
-fn kind_in_words(kinds: &[&'static Kind], heard: &str) -> Option<&'static Kind> {
+/// The words before a single-word form that make it a name said to have
+/// work done ("ask Claude to …"): alone, "Claude" or "codecs" is as likely
+/// someone else or something else ("which codec?" names nobody). The first
+/// builder on #1173. "Tell" counts only with "to" after the name: "tell
+/// Claude to …" asks, "tell Claude I'm late" is a message.
+const ASKING: [&str; 4] = ["ask", "get", "have", "tell"];
+
+/// The kinds among `kinds` that `heard` names, in the order first named:
+/// two words said together that are a close form ("Claude Code", "code X",
+/// "cloud code", "open code"), anywhere; one word that is ("Codex",
+/// "Claude", "codecs"), only right after one of [`ASKING`] ("tell" with
+/// "to" after the name). "Cloud" alone
+/// is never taken: "save it to the cloud" names nobody.
+fn kinds_in_words(kinds: &[&'static Kind], heard: &str) -> Vec<&'static Kind> {
     let words: Vec<String> = heard
         .split(|letter: char| !letter.is_alphanumeric())
         .filter(|word| !word.is_empty())
@@ -572,9 +585,14 @@ fn kind_in_words(kinds: &[&'static Kind], heard: &str) -> Option<&'static Kind> 
         .collect();
     let mut found: Vec<&'static Kind> = Vec::new();
     for (at, word) in words.iter().enumerate() {
+        let asked = at.checked_sub(1).is_some_and(|before| {
+            let before = words[before].as_str();
+            ASKING.contains(&before)
+                && (before != "tell" || words.get(at + 1).is_some_and(|next| next == "to"))
+        });
         let pair = words.get(at + 1).map(|next| format!("{word}{next}"));
         for kind in kinds {
-            let alone = word != "cloud" && kind.close.contains(&word.as_str());
+            let alone = asked && word != "cloud" && kind.close.contains(&word.as_str());
             let together = pair
                 .as_deref()
                 .is_some_and(|pair| kind.close.contains(&pair));
@@ -583,10 +601,7 @@ fn kind_in_words(kinds: &[&'static Kind], heard: &str) -> Option<&'static Kind> 
             }
         }
     }
-    match found.as_slice() {
-        [one] => Some(one),
-        _ => None,
-    }
+    found
 }
 
 /// Who gets the work in a call: nobody in particular when the person
@@ -1890,47 +1905,61 @@ mod tests {
         }
     }
 
-    /// The heard words of a request name one of the staff: by a word, two
-    /// words said together, or a garbled form; nobody for "the cloud", a
-    /// sentence naming no one, or one naming both.
+    /// The heard words of a request name the staff: two words said
+    /// together anywhere, one word only after "ask", "get", "have" or
+    /// "tell"; nobody for "the cloud", "tell Claude I'm late" or "which
+    /// codec?"; both, in order, for a line naming both.
     #[test]
-    fn the_words_of_a_request_name_one_of_the_staff() {
+    fn the_words_of_a_request_name_the_staff() {
         let staff = two();
         let kinds: Vec<&'static Kind> = staff.iter().map(|member| member.kind).collect();
-        let named = |heard: &str| kind_in_words(&kinds, heard).map(|kind| kind.name);
+        let named = |heard: &str| -> Vec<&str> {
+            kinds_in_words(&kinds, heard)
+                .into_iter()
+                .map(|kind| kind.name)
+                .collect()
+        };
         // lamp-4ace, 2026-10-16, 22:51 and about 21:05.
         assert_eq!(
             named("Hey Lamp, ask Codex to write a haiku about coffee."),
-            Some("Codex")
+            ["Codex"]
         );
         assert_eq!(
             named("Can you ask Claude Code to write a short poem about the sea?"),
-            Some("Claude Code")
+            ["Claude Code"]
         );
         for heard in [
             "ask code X to tidy the readme",
             "have codecs look at the build",
             "Get cloud code to write a test.",
-            "Claude Co, write me a limerick",
+            "can you ask Claude Co to write me a limerick",
             "ask Claude to sum it up",
+            "Tell Codex to tidy the readme.",
+            "Claude Code, write me a test.",
         ] {
-            assert!(named(heard).is_some(), "{heard}");
+            assert_eq!(named(heard).len(), 1, "{heard}");
         }
         for heard in [
             "Save it to the cloud.",
             "Write me a haiku about coffee.",
             "What does the code do?",
-            "Ask Claude Code and Codex to race.",
+            "Tell Claude I'm late.",
+            "Which codec does it use?",
+            "Claude said it was fine.",
         ] {
-            assert_eq!(named(heard), None, "{heard}");
+            assert!(named(heard).is_empty(), "{heard}");
         }
+        assert_eq!(
+            named("Ask Claude Code and get Codex to check it."),
+            ["Claude Code", "Codex"]
+        );
         // Without the switch the staff are not read: Claude Code alone.
         let alone = place(Path::new("/nowhere"), false);
         assert_eq!(
             named_in_words(&alone, "ask Claude Code for a poem"),
-            Some("Claude Code")
+            ["Claude Code"]
         );
-        assert_eq!(named_in_words(&alone, "ask Codex for a poem"), None);
+        assert!(named_in_words(&alone, "ask Codex for a poem").is_empty());
     }
 
     fn place(directory: &Path, who: bool) -> Place {

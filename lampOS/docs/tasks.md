@@ -976,50 +976,65 @@ With `LAMP_STAFF_NOTE=on` (the provider worker's `--staff-note`, after
 `--policy-holds-actions`; only with the tasks part), `crate::staff_note`:
 
 - **What is matched:** the service's transcript of the request whose input
-  began last, its pieces joined (`staff_note::Heard`). A word, or two words
-  said together, that is one of the staff's close forms
-  (`agent_tasks::named_in_words`, the forms `who` already takes: "Codex",
-  "code X", "codecs", "Claude", "Claude Code", "cloud code", "OpenCode").
-  "Cloud" alone is not taken ("save it to the cloud"). Words naming two of
-  the staff name nobody. Without `LAMP_TASKS_WHO` the staff are not read and
-  only Claude Code is matched, since all work goes there.
-- **What the model is told,** once for the request:
-  "(For you to know, not to answer: the person named Codex, one of the
-  staff. If this is work for Codex, hand it over with start_agent_task; never
-  do it yourself.)" It is conditional where the first builder's wording
-  ("this is for Codex; hand it over") was not, because a name alone is not
-  always a request: "what does Codex cost?" names it too.
+  began last, all its pieces so far each time one comes
+  (`staff_note::Heard`), against the staff's close forms, the ones `who`
+  already takes (`agent_tasks::named_in_words`):
+  - two words said together, anywhere: "Claude Code", "code X", "cloud
+    code", "open code";
+  - one word ("Codex", "Claude", "codecs", "OpenCode") only right after
+    "ask", "get" or "have", or after "tell" with "to" after the name: alone,
+    "Claude" or "codec" is as likely someone or something else ("tell Claude
+    I'm late", "which codec?"; the first builder on #1173);
+  - "cloud" alone never ("save it to the cloud").
+
+  Without `LAMP_TASKS_WHO` the staff are not read and only Claude Code is
+  matched, since all work goes there.
+- **What the model is told** beside the request's sound: "(For you to know,
+  not to answer: the person named Codex, one of the staff. If this is work
+  for Codex, hand it over with start_agent_task; never do it yourself.)", or
+  for more than one, "the person named Claude Code and Codex, of the staff.
+  If this is work for them, …". It is conditional where the first builder's
+  wording ("this is for Codex; hand it over") was not, because a name alone
+  is not always a request: "what does Codex cost?" names it too.
+- **A name said later in the request** ("ask Claude Code and get Codex …")
+  changes the note before it is sent: the staff's part takes the place of
+  the one given (`staff_note_text`), since the newest note for a request is
+  the one sent.
 - **Before the answer:** the note goes in as the lamp's name note does
   (`crate::called`): `Session::try_note`, sent inside the request's activity,
   after its audio and just before its end. The model answers only after the
   end, so a note given while the request's input is open always reaches it
   first (`a_request_that_names_one_of_the_staff_is_told_so_before_its_end`).
-  Words the service writes only after the input was closed are too late:
-  nothing is sent, and the journal says "named Codex after its input was
-  closed; the model is not told". Counting those lines on a lamp says how
-  often the transcript lags the end. Most requests name the staff early ("ask
-  Codex to …").
-- **The journal** says, for each request noted, "request N: named Codex;
-  the model is told". Nothing of what was said is written: only which of the
-  staff.
+- **Words that come too late:** the service may write its transcript only
+  after the end. By `attention.md` the heard text comes 0.32 to 0.44 s before
+  the first sound, and the first sound 0.86 to 0.99 s after the end, so the
+  words likely come after it (the first builder on #1173). Then nothing is
+  sent (`words_that_name_the_staff_after_the_end_send_nothing`).
+- **The journal** says which each match was, for counting on a lamp:
+  "request N: named Codex in time; the model is told" or "request N: named
+  Codex after its input was closed; the model is not told". Nothing of what
+  was said is written: only which of the staff. **Decided** (the first
+  builder, #1173): they are counted on lamp-4ace through one battery with
+  the switch on. If late is common, the next step is what `second_look`
+  does: a first answer that is not a hand-over, for words naming the staff,
+  is held and asked again with the note.
 - **`start_agent_task` says it too,** with work asked of the staff
   (`LAMP_TASKS_ASKED=on`): its "The person chose who does it: never do the
   work yourself instead, …" becomes "The person chose who does it (a note may
-  name them): never do the work yourself, never begin it, nor offer to." That
-  is 9 bytes more, where three of the staff with the lead-in leave 20 of the
-  1,024 the service takes
+  name them): never do the work yourself, never begin it, nor offer to."
+  That is 9 bytes more. The longest description, three of the staff with the
+  lead-in, is then 1,014 of the 1,024 the service takes
   (`every_description_fits_the_service_whatever_the_switches`, now with the
-  note too). Without the switch, the description is as it was, word for
-  word (`the_description_says_the_staffs_note_names_who_only_with_it`). #903
+  note too). Without the switch it is as it was, word for word
+  (`the_description_says_the_staffs_note_names_who_only_with_it`). #903
   showed this description is where a change loses the hand-overs, so the
   change is one clause.
 
-Without the switch nothing is matched or sent
-(`a_request_that_names_none_of_the_staff_is_given_no_note` covers words that
-name nobody; `the_words_of_a_request_name_one_of_the_staff` the matching).
-**Not shown on a lamp yet.** Most likely wrong: the transcript of a long
-request may arrive after its end, which the "after its input was closed"
-lines count.
+Without the switch nothing is matched or sent, a name in the words or not
+(`no_note_without_a_name_or_without_the_switch`); the matching is
+`the_words_of_a_request_name_the_staff`. **Not shown on a lamp yet.** Most
+likely wrong: the words coming after the end, which the journal's "after its
+input was closed" lines count.
 
 ### Told twice, and no gist (#757, 2026-10-15)
 

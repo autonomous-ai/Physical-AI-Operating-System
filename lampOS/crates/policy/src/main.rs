@@ -45,7 +45,7 @@ acts on it. See docs/policy.md.\n\
   --progress     also judge, in shadow, whether progress of the work handed over (tasks/status)\n\
                  is worth telling now, with a second connection to the same model. Off unless set\n\
   --utc-offset-minutes  the lamp's local time east of UTC, for the hour of the day the progress\n\
-                 question is shown (-720 to 840); without it the hour is not known\n\
+                 and hello questions are shown (-720 to 840); without it the hour is not known\n\
   --zone         in place of the offset: system, the lamp's own time zone (/etc/localtime, as setup\n\
                  writes it), or a zone's name. The hour is taken at each moment, across summer time\n\
                  and a zone setup changes while this runs; a zone that cannot be read ends the start\n\

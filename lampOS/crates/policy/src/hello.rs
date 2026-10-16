@@ -899,6 +899,18 @@ mod tests {
         panic!("no decision");
     }
 
+    /// #820: with a zone, the hour shown is the zone's at the decision.
+    #[test]
+    fn with_a_zone_the_hello_is_shown_the_zones_hour() {
+        let york = Arc::new(LocalTime::zone("America/New_York").unwrap());
+        let options = Options::new(Duration::from_millis(50), Some(york));
+        let mut hello = Hello::start(Never, options).unwrap();
+        // `decided` decides at 00:16 UTC on 1 January 1970: 19:16 the
+        // evening before in New York.
+        let first = decided(&mut hello, 1, Instant::now() + Duration::from_millis(500));
+        assert_eq!(first.line.context.hour, Some(19));
+    }
+
     /// The reviewer on #883: in shadow, with the voice saying its own rule's
     /// hello, one greeting was counted twice, as the hello chosen and as the
     /// turn the lamp began, and the next arrival's rule answered `wait`. Now

@@ -53,7 +53,7 @@ owner's rules for this part:
 | `--deadline-ms` | How long one asking may take, from 1 to 60000 | 3000 |
 | `--bus-root` | The bus's directory | `LAMP_BUS_ROOT`, or `/run/lampos-bus` |
 | `--progress` | Also ask, in shadow, whether progress of the work handed over is worth telling now ([below](#progress-news-say-this-progress-now-732)) | off |
-| `--utc-offset-minutes` | The lamp's local time east of UTC, for that question's hour of the day, the same all year | the hour is null |
+| `--utc-offset-minutes` | The lamp's local time east of UTC, for the hour of the day the progress and hello questions show, the same all year | the hour is null |
 | `--zone` | In place of the offset: `system`, the lamp's own zone (`/etc/localtime`, as setup writes it), or a zone's name. The hour is taken at the decision's moment, across summer time, and `system` takes up a zone setup changes while the policy runs (#820). An unknown or unreadable zone ends the start (exit 1); with the offset too, exit 2 | the offset |
 | `--act progress` | That question's decisions act: published with `shadow: false`, so that the voice tells a `say_now` ([below](#acting---act-progress-752)). Needs `--progress` | shadow |
 | `--hello` | Also ask, when the voice holds a due hello, whether to say it now ([below](#hello-on-arrival-say-hello-now-752)) | off |
@@ -1340,7 +1340,8 @@ plus facing: someone near (the eyes' list, no older than 2 s), whether such
 a face is turned to the lamp (null without a near face), the seconds since
 anything was said (the voice's count), the room, the turns the lamp began
 itself in the hour (with the hellos chosen in shadow, as for progress), and
-the hour. Made-up numbers:
+the hour, by `--utc-offset-minutes` or `--zone` as for progress. Made-up
+numbers:
 
     {"lamp":"A small desk lamp robot on the desk of the person it works for, like a friend at the next desk: when someone comes back and sits down it may greet them with a few warm words, and otherwise it keeps quiet.","arrival":{"minutes_away":42,"seconds_there":3,"minutes_since_the_lamp_last_said_hello":95},"room":{"someone_at_the_lamp":true,"facing_the_lamp":true,"seconds_since_anything_was_said":310,"room":"quiet: nobody else has been talking","times_the_lamp_spoke_up_unasked_in_the_last_hour":0,"hour_of_day":9}}
 

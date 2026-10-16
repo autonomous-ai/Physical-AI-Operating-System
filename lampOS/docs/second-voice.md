@@ -408,9 +408,21 @@ and its authority kept fresh during the rest of startup.
   its link reports go to its register; its output is drained, credited and
   dropped (how a late Gemini answer is lost).
 - **At rest** (no turn in flight, nothing queued): to the second route
-  while Gemini is not Ready and has not ended; back to Gemini, silently, on
-  the first idle tick its link is Ready again or has ended (so Gemini's end
-  still ends the service).
+  while Gemini is not Ready and has not ended, as a stand-in only (below);
+  back to Gemini, silently, on the first idle tick its link is Ready again
+  or has ended (so Gemini's end still ends the service).
+- **While Gemini reconnects** (#960): with no turn in hand when Gemini's
+  link drops (lamp-4ace, `server_go_away`, Ready again after 1.9 s), the
+  second route only stands in, and a request admitted meanwhile is held
+  for Gemini as at startup, up to `STARTUP_HOLD_US`; the second route is
+  given it only when the hold is over or Gemini's link has ended. A line
+  Gemini loses mid-line (09:03, `write_timeout`) still goes to the second
+  route at once: Gemini's worker has retired that request with its turn
+  (`TurnLost` raises `failed_through`), so a replay of it to Gemini's new
+  session would be dropped; going back to Gemini mid-line would need a new
+  request. The next turn goes to Gemini once it is Ready (#962). Until
+  #960, a request after Gemini's first Ready went to the second route at
+  once (#885's review).
 - **A new turn on the second route** goes to Gemini when Gemini's link is
   Ready, before anything of it is sent (`second::flush`): its queued
   commands are rebound to Gemini's session, recorded as

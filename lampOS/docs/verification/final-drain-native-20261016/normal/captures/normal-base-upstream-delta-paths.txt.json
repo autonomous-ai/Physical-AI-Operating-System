@@ -1,0 +1,18 @@
+{
+  "command": [
+    "git",
+    "diff",
+    "--no-ext-diff",
+    "--name-only",
+    "1fb07c6f57ee280a49de7b4ddd74008c2a32a20d",
+    "f4b5b0cff8450de33ae394e363ac6f9cc0eab615"
+  ],
+  "cwd": "/private/tmp/lampos-tests-final-drain-clock",
+  "started_from_date": "2026-10-16 09:40:36 +0700",
+  "finished_from_date": "2026-10-16 09:40:36 +0700",
+  "exit_code": 0,
+  "stdout": "normal/raw/normal-base-upstream-delta-paths.txt",
+  "stderr": "normal/raw/normal-base-upstream-delta-paths.txt.stderr",
+  "stdout_sha256": "22a780567f50e013e473ca70cae5f838e7eb2d1bf511346987be386199c76230",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

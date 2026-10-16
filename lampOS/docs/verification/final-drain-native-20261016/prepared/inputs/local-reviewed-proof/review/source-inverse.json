@@ -1,0 +1,102 @@
+{
+  "date_from_date": "2026-10-16 09:08:33 +0700",
+  "files": [
+    {
+      "path": "lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "base_source_path": "/private/tmp/tests-823-final-dispatch-real-pipe-plan-evidence/source/current-69bae/lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "baseline_sha256": "600ad54a33c7a98ba0abf9c6aadeca366cb319d121b3847f36211cc5b0a30a29",
+      "reversed_sha256": "600ad54a33c7a98ba0abf9c6aadeca366cb319d121b3847f36211cc5b0a30a29",
+      "whole_file_inverse_exact": true,
+      "edit_segments": [
+        {
+          "operation": "insert",
+          "original_lines": [
+            6,
+            5
+          ],
+          "new_lines": [
+            6,
+            7
+          ],
+          "original_segment_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "current_segment_sha256": "12449c48713976393e97c711bbbd11c553b0a81b2395893d285f56a8bcb745c4"
+        },
+        {
+          "operation": "insert",
+          "original_lines": [
+            134,
+            133
+          ],
+          "new_lines": [
+            136,
+            143
+          ],
+          "original_segment_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "current_segment_sha256": "8b46750a16b3a421ffd71d3bd7966b89f322e11223043f2f0a734ae71eff792e"
+        },
+        {
+          "operation": "replace",
+          "original_lines": [
+            136,
+            136
+          ],
+          "new_lines": [
+            146,
+            146
+          ],
+          "original_segment_sha256": "e1b13bf9fcd92ed3ce52eb31c262cc72f7367414e17aada865f51fd283be7b2f",
+          "current_segment_sha256": "e0db12c0f00cbae186a62b68e911af454594e3f06bd47f64e1c1515adcf38308"
+        },
+        {
+          "operation": "replace",
+          "original_lines": [
+            151,
+            156
+          ],
+          "new_lines": [
+            161,
+            161
+          ],
+          "original_segment_sha256": "9ad127da57bc4d1ce41864d7dc7ee94bca1aa349836ab50069435dc3fbb71ef3",
+          "current_segment_sha256": "e6b04491469722e8363a94e4044538e013a2a217e36b1e568ba60acb7b4c8f2e"
+        },
+        {
+          "operation": "replace",
+          "original_lines": [
+            274,
+            274
+          ],
+          "new_lines": [
+            279,
+            280
+          ],
+          "original_segment_sha256": "d88365e3eea20e3eb8b0ad4ce22942824bbd02e21f8f56e71a270be6e768d9d0",
+          "current_segment_sha256": "6794b0db16fbf120d795ca56564531f96b477177a79033535a0db3a46ebea215"
+        }
+      ]
+    },
+    {
+      "path": "lampOS/docs/voice-test-fixtures.md",
+      "base_source_path": "/private/tmp/tests-823-original123-current-map-20261016/source/current-69bae/lampOS/docs/voice-test-fixtures.md",
+      "baseline_sha256": "04bf0a07ddbd0e9de139988b65c51aa23a11bb1b542176a8185a473d923a19d4",
+      "reversed_sha256": "04bf0a07ddbd0e9de139988b65c51aa23a11bb1b542176a8185a473d923a19d4",
+      "whole_file_inverse_exact": true,
+      "edit_segments": [
+        {
+          "operation": "insert",
+          "original_lines": [
+            314,
+            313
+          ],
+          "new_lines": [
+            314,
+            335
+          ],
+          "original_segment_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "current_segment_sha256": "84b6fde663b042115df565cdfd9a4b113138c757d12d7e24b7b2458779edc652"
+        }
+      ]
+    }
+  ],
+  "new_file_inverse": "Remove new tests/common/final_drain_clock.rs; no pre-existing file at this path in baseline source inventory"
+}

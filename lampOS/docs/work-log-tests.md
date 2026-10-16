@@ -1,5 +1,21 @@
 # Tests work log
 
+## 2026-10-16 09:52:21 +0700 — Final-drain session-end clock native green
+
+Ready for lamp-voice: yes (#963)
+
+[Final-drain #963](https://github.com/autonomous-ai/lampOS/pull/963), exact `c5bcc45b905458c1a8adcd8bcf06885f35dbfdf7`, passed normal **38839828555: 5,251 unique tests** and full **38839828296: 5,376 unique tests**, both on attempt 1. Full covers all **123 originals, six additions and 504 Evaluator identities exactly once**. Normal has exactly 452 Evaluator cases and excludes the original 123 and six additions. Four doc tests, the IPC signal harness and twelve process cases passed separately in each run. [Unedited native evidence, source mapping and independent audit](verification/final-drain-native-20261016/README.md). No job or test retry.
+
+The full checkouts match c5 and all 1,023 local frozen inputs; normal tests synthetic merge 3b41a399, with every published file and all Evaluator sources exact. Its 39 upstream differences, including 26 frozen inputs, are enumerated rather than represented as whole-dependency parity. The original case's single native observation is **0.053 s**; the original 123 printed sum is **232.213 s across four concurrent shards**, not a native pair or standalone serial result. Local first gate remains **504/0/0**, strict checks/build green, with the single original pair **1.272 → 0.444 s**. All original assertions and the 300/800 ms logical boundaries remain. The reviewer owns merge; the under-120-second original 123 target stays unproved.
+
+Ready for lamp-voice: no (three-case follow-up and Gemini task joins)
+
+The isolated final-drain event continuation changes only three original initializers plus their documentation. It preserves all **504 identities/ignore flags**, adds none, and passes its first full **504/0/0**, fmt, strict Clippy and workspace build. All 1,031 enumerated inputs are frozen. First single local pairs: malformed line **1.263 → 0.442 s**, invalid cue **1.226 → 0.442 s**, readiness/revalidation **1.242 → 0.437 s**; three-case serial nextest summary **3.733 → 1.322 s**. Shared-host load is uncontrolled. It stays local until #963 merges, then requires its own native qualification. Source and complete raw evidence are retained externally; no test was rerun after failure.
+
+Gemini actual task-join preparation preserves all **2,708 identities/15 ignores** and adds eighteen tests. All additions pass focused and full, but the first full affected gate stays **2,710/1/15**: native_head_six_explicit_actions_prepare_profile_then_new_requests, phase Inhibited / motor worker progress timed out. This exact identity was previously accepted into #739 on #834; this symptom differs and its cause is unproved. Its actual Voice dependency excludes the new fixture-clock adapters. First compile-only E0277, reviewed capture correction and external parser correction remain preserved. Formatting, strict Clippy, workspace build and five-target doc checks pass; its own native run is still required before joining's known-timed-test exception can apply.
+
+Relay #942 is merged at 9dd7bb27118291b3fcc964a60ddd5d48c604278b. Transport #957 is ready and under review. #783's remaining loaded policy qualification stays with Eighth. No workflow, runner, settings, lamp or device change.
+
 ## 2026-10-16 09:24:26 +0700 — Transport expiry ready; final-drain native gate started
 
 Ready for lamp-voice: yes (#957)

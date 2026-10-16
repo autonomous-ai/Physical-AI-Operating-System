@@ -1,0 +1,6 @@
+{
+  "date_from_date": "2026-10-16 09:29:01 +0700",
+  "action": "Initial read-only source discovery",
+  "diagnostic": "rg on guessed tests/common/delayed_line.rs returned file-not-found. The exact publication manifest identifies tests/common/final_drain_clock.rs; all source proof uses that observed path and immutable Git objects.",
+  "source_or_test_or_network_mutation": false
+}

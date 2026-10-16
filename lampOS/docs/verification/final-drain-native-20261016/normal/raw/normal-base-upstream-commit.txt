@@ -1,0 +1,6 @@
+tree eabdfd89e694eff936f109f40ff9046835f13254
+parent fca65fde534948a0e973955f0aaf9338552d6330
+author leo <leo@autonomous.ai> 1792080051 +0700
+committer Dee <dee@autonomous.ai> 1792116849 +0700
+
+lampOS: a nod or greeting when an onboarding step is done, and a step not ready at the first walk offered once a day when it is

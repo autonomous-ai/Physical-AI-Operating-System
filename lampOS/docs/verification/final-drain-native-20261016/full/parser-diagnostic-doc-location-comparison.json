@@ -1,0 +1,58 @@
+{
+  "date_from_date": "2026-10-16 09:46:19 +0700",
+  "scope": "Local parser only, no new test execution or source changes",
+  "command": [
+    "python3",
+    "/private/tmp/tests-823-audit-final-drain-native-full.py"
+  ],
+  "exit_code": 1,
+  "error": "AssertionError at line 63: equality of full and normal doc-test display strings including source line locations",
+  "normal_doc_cases": [
+    {
+      "package": "lamp_bus",
+      "test": "on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-16T02:31:04.8813965Z test crates/bus/src/lib.rs - (line 14) - compile",
+      "line": 5824
+    },
+    {
+      "package": "lamp_bus",
+      "test": "on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-16T02:31:04.8814836Z test crates/bus/src/lib.rs - (line 34) - compile",
+      "line": 5825
+    },
+    {
+      "package": "lamp_ipc",
+      "test": "on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-16T02:31:05.9120255Z test crates/ipc/src/lib.rs - (line 12)",
+      "line": 5881
+    },
+    {
+      "package": "lamp_msgs",
+      "test": "on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-16T02:31:06.8226190Z test crates/msgs/src/lib.rs - (line 24) - compile",
+      "line": 5913
+    }
+  ],
+  "full_doc_cases": [
+    {
+      "package": "lamp_bus",
+      "test": "on Linux ARM64 (1/4)\tUNKNOWN STEP\t2026-10-16T02:35:35.4767100Z test crates/bus/src/lib.rs - (line 14) - compile",
+      "line": 2498
+    },
+    {
+      "package": "lamp_bus",
+      "test": "on Linux ARM64 (1/4)\tUNKNOWN STEP\t2026-10-16T02:35:35.4767798Z test crates/bus/src/lib.rs - (line 34) - compile",
+      "line": 2499
+    },
+    {
+      "package": "lamp_ipc",
+      "test": "on Linux ARM64 (1/4)\tUNKNOWN STEP\t2026-10-16T02:35:36.4992054Z test crates/ipc/src/lib.rs - (line 12)",
+      "line": 2555
+    },
+    {
+      "package": "lamp_msgs",
+      "test": "on Linux ARM64 (1/4)\tUNKNOWN STEP\t2026-10-16T02:35:37.4137947Z test crates/msgs/src/lib.rs - (line 24) - compile",
+      "line": 2587
+    }
+  ],
+  "correction": "Keep exact doc display locations separate for each tested source; compare semantic package/path/name after removing only terminal (line N), and preserve the raw difference.",
+  "files_written_before_stop": [],
+  "raw_logs_changed": false,
+  "tests_rerun": false
+}

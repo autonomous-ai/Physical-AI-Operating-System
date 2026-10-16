@@ -1,0 +1,9 @@
+{
+  "date_from_date": "2026-10-16 09:44:15 +0700",
+  "scope": "Read-only preview parser; no writes before this diagnostic",
+  "command": "python3 stdin preview of printed durations and full command lines",
+  "error": "AttributeError: 'list' object has no attribute 'values' while reading expected['selected_original'].values()",
+  "correction": "Use the retained two-element [binary, test] list directly.",
+  "source_or_raw_logs_changed": false,
+  "tests_rerun": false
+}

@@ -1,0 +1,3390 @@
+diff --git a/lampOS/Cargo.lock b/lampOS/Cargo.lock
+index a8f411e05..e73241b35 100644
+--- a/lampOS/Cargo.lock
++++ b/lampOS/Cargo.lock
+@@ -1657,6 +1657,12 @@ dependencies = [
+  "libc",
+ ]
+ 
++[[package]]
++name = "jpeg-encoder"
++version = "0.7.1"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "a0370574b86f7eca156b9f298392b5e69a23f8c86f3f865add60bbc2e79467a6"
++
+ [[package]]
+ name = "js-sys"
+ version = "0.3.106"
+@@ -1795,6 +1801,7 @@ dependencies = [
+ name = "lamp-eyes"
+ version = "0.1.0"
+ dependencies = [
++ "jpeg-encoder",
+  "lamp-bus",
+  "lamp-camera",
+  "lamp-ipc",
+diff --git a/lampOS/crates/camera/src/linux/params.rs b/lampOS/crates/camera/src/linux/params.rs
+index 0d3a43b79..e327cdd31 100644
+--- a/lampOS/crates/camera/src/linux/params.rs
++++ b/lampOS/crates/camera/src/linux/params.rs
+@@ -317,6 +317,32 @@ mod tests {
+             assert!(capture_parameters(raw).is_err());
+         }
+     }
++    /// lamp-52e6's ZVCAI asked for 1280x960 MJPG (#836) replies with
++    /// bytes per line 0 and size image 2,457,600: refused at SetFormat under
++    /// the old 2 MiB frame bound, taken now.
++    #[test]
++    fn the_lamp_camera_s_1280_by_960_format_reply_is_taken() {
++        let config = CaptureConfig {
++            source: crate::SourceId::new("lamp-eyes").unwrap(),
++            width: 1280,
++            height: 960,
++            interval: None,
++            max_frame_bytes: crate::MAX_FRAME_BYTES,
++            buffers: 2,
++        };
++        let reply = Format {
++            width: 1280,
++            height: 960,
++            pixelformat: b"MJPG".into(),
++            plane_fmt: vec![v4l2r::PlaneLayout {
++                sizeimage: 2_457_600,
++                bytesperline: 0,
++            }],
++        };
++        let raw = bindings::v4l2_format::try_from((QUEUE, &reply)).unwrap();
++        assert!(format(raw, config, Stage::SetFormat).is_ok());
++    }
++
+     #[test]
+     fn format_reply_cannot_change_queue_codec_dimensions_or_exceed_image_bound() {
+         let config = CaptureConfig {
+diff --git a/lampOS/crates/camera/src/types.rs b/lampOS/crates/camera/src/types.rs
+index 9b8a13bfc..21124805c 100644
+--- a/lampOS/crates/camera/src/types.rs
++++ b/lampOS/crates/camera/src/types.rs
+@@ -1,9 +1,15 @@
+ use lamp_turn_owner::{BootId, CameraGrant, MonoTime};
+ use std::{fmt, num::NonZeroU64};
+ 
+-pub const MAX_FRAME_BYTES: usize = 2 * 1024 * 1024;
++/// The largest buffer a frame may need. A UVC driver sizes an MJPG buffer at
++/// two bytes a pixel: 1,843,200 at 1280x720 and 2,457,600 at 1280x960 (the
++/// ZVCAI on lamp-52e6, 2026-10-15), which a bound of 2 MiB refused at
++/// SetFormat (#836).
++pub const MAX_FRAME_BYTES: usize = 4 * 1024 * 1024;
+ pub const MAX_WIDTH: u32 = 1280;
+-pub const MAX_HEIGHT: u32 = 720;
++/// 1280 by 960 is the whole 4:3 picture of the lamps' camera at 1280 across: a
++/// full look asks for it (`lamp-eyes --full-look`, #836).
++pub const MAX_HEIGHT: u32 = 960;
+ pub const POLL_TARGET_US: u64 = 2_000;
+ pub const REVOKE_TARGET_US: u64 = 20_000;
+ pub const READ_BUDGET_US: u64 = 10_000;
+@@ -445,3 +451,43 @@ impl fmt::Display for Error {
+     }
+ }
+ impl std::error::Error for Error {}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    /// What the ZVCAI on lamp-52e6 negotiates for a full look (#836):
++    /// `v4l2-ctl --set-fmt-video=width=1280,height=960,pixelformat=MJPG`
++    /// gave MJPG 1280x960, bytes per line 0, size image 2,457,600, and
++    /// `--set-parm=10` 10 frames a second.
++    #[test]
++    fn the_lamp_camera_s_1280_by_960_mjpg_mode_is_accepted() {
++        let config = CaptureConfig {
++            source: SourceId::new("lamp-eyes").unwrap(),
++            width: 1280,
++            height: 960,
++            interval: Some(FrameInterval::new(1, 10).unwrap()),
++            max_frame_bytes: MAX_FRAME_BYTES,
++            buffers: 2,
++        };
++        assert!(config.validate().is_ok());
++        let mode = NegotiatedMode {
++            source: config.source,
++            format: PixelFormat::MJPG,
++            width: 1280,
++            height: 960,
++            interval: config.interval,
++            size_image: 2_457_600,
++            buffers: 2,
++        };
++        assert!(mode.validate(config).is_ok());
++        assert!(
++            NegotiatedMode {
++                size_image: MAX_FRAME_BYTES + 1,
++                ..mode
++            }
++            .validate(config)
++            .is_err()
++        );
++    }
++}
+diff --git a/lampOS/crates/camera/tests/lifecycle.rs b/lampOS/crates/camera/tests/lifecycle.rs
+index ba517ec40..38cbd5063 100644
+--- a/lampOS/crates/camera/tests/lifecycle.rs
++++ b/lampOS/crates/camera/tests/lifecycle.rs
+@@ -828,7 +828,7 @@ fn config_source_interval_and_frame_bounds_are_validated_before_port_open() {
+         match case {
+             0 => cfg.width = 0,
+             1 => cfg.width = 1281,
+-            2 => cfg.height = 721,
++            2 => cfg.height = 961,
+             3 => cfg.max_frame_bytes = MAX_FRAME_BYTES + 1,
+             4 => cfg.max_frame_bytes = 3,
+             5 => cfg.buffers = 1,
+@@ -838,6 +838,42 @@ fn config_source_interval_and_frame_bounds_are_validated_before_port_open() {
+     }
+ }
+ 
++#[test]
++fn the_lamp_camera_s_modes_up_to_1280_by_960_are_accepted_and_larger_are_not() {
++    // MJPG sizes the ZVCAI 01da:5875 lists on lamp-52e6 (2026-10-15). With
++    // the height bound at 720, 1280x960 was refused before the device was
++    // touched ("camera did not open: InvalidData None"), and a full look
++    // (#836) never opened.
++    let listed = [
++        (3264, 2448),
++        (2592, 1944),
++        (2048, 1536),
++        (1920, 1080),
++        (1600, 1200),
++        (1280, 960),
++        (1280, 720),
++        (1024, 768),
++        (800, 600),
++        (640, 480),
++        (640, 400),
++        (352, 288),
++        (320, 240),
++        (176, 144),
++    ];
++    for (width, height) in listed {
++        let cfg = CaptureConfig {
++            width,
++            height,
++            ..config()
++        };
++        assert_eq!(
++            cfg.validate().is_ok(),
++            width <= 1280 && height <= 960,
++            "{width}x{height}"
++        );
++    }
++}
++
+ #[test]
+ fn explicit_rate_must_be_reported_and_match_as_a_rational() {
+     for actual in [
+diff --git a/lampOS/crates/eyes/Cargo.toml b/lampOS/crates/eyes/Cargo.toml
+index 41f4052c4..e00273013 100644
+--- a/lampOS/crates/eyes/Cargo.toml
++++ b/lampOS/crates/eyes/Cargo.toml
+@@ -23,6 +23,9 @@ sha2.workspace = true
+ tract-onnx = { version = "=0.23.8", default-features = false }
+ # Pure Rust JPEG decoding: the camera gives MJPG.
+ zune-jpeg = "=0.4.21"
++# Pure Rust JPEG encoding, no dependencies: a full look is made to fit the
++# provider's image bound (`--full-look`).
++jpeg-encoder = "=0.7.1"
+ 
+ [target.'cfg(target_os = "linux")'.dependencies]
+ lamp-camera = { path = "../camera" }
+diff --git a/lampOS/crates/eyes/src/full_look.rs b/lampOS/crates/eyes/src/full_look.rs
+new file mode 100644
+index 000000000..bfd0a0788
+--- /dev/null
++++ b/lampOS/crates/eyes/src/full_look.rs
+@@ -0,0 +1,686 @@
++//! A full look (#836): one larger picture, taken when the voice service asks
++//! because the lamp said it would look, after the head has stopped moving.
++//!
++//! The owner held something up at lamp-4ace and asked "what do you see?".
++//! The picture that went was the eyes' working frame, 320 by 240: the room,
++//! the person side-on, and nothing to tell what was held up. With
++//! `--full-look WIDTHxHEIGHT` the eyes' stream runs at that size all the
++//! time (the detector shrinks every frame to its own 320 by 256 as it always
++//! could), the working frame is kept in the sight file at 320 across as
++//! before ([`working`]), and `--full-look-file` holds only a still made for
++//! one request and removed [`KEPT_US`] after.
++//!
++//! The stream is not switched to a larger mode for the still and back: on
++//! UVC that is a stop and a start, and lamp-52e6's camera often fails to
++//! start again for minutes (#763). One mode, opened once, costs a larger
++//! decode a look and nothing at the moment of asking.
++//!
++//! The head is the body's: it already turns to the face the eyes see and to
++//! a call. The still waits for it to stop, as `body/joint_states` says, for
++//! [`STILL_FOR_US`]: every head joint turning slower than
++//! [`STILL_RADIANS_A_SECOND`] and staying within [`DRIFT_RADIANS`] of where
++//! it was when it stopped. Where the joint was asked to be is not looked at:
++//! a head at rest stands short of its goal under its own weight (head_roll
++//! 7 counts on lamp-4ace, 2,051 against 2,044, 2026-10-14), and the body
++//! nudges its goals by a few counts while it rests, so a rule on the goal
++//! never held there and every still waited the whole [`SETTLE_AT_MOST_US`]
++//! (#842, 2,000 to 2,125 ms). A head that moves again before the frame
++//! comes is waited for again. No longer than [`SETTLE_AT_MOST_US`] in all.
++//! With no body on the bus the still is taken at once.
++use lamp_msgs::JointState;
++use std::f64::consts::TAU;
++use zune_jpeg::{
++    JpegDecoder,
++    zune_core::{colorspace::ColorSpace, options::DecoderOptions},
++};
++
++/// The joints that move the camera.
++pub const HEAD: [&str; 3] = ["base_yaw", "head_pitch", "head_roll"];
++/// Six of a servo's 4096 counts a turn: how far a still head may drift.
++pub const DRIFT_RADIANS: f64 = 6.0 * TAU / 4_096.0;
++/// Two counts in the 80 ms over which the body works out how fast a joint
++/// turns: more than a count of jitter, less than a head following a slow
++/// move at 50 counts a second.
++pub const STILL_RADIANS_A_SECOND: f64 = 25.0 * TAU / 4_096.0;
++pub const STILL_FOR_US: u64 = 300_000;
++pub const SETTLE_AT_MOST_US: u64 = 2_000_000;
++/// No still this long after the ask: there is none for it.
++pub const GIVE_UP_US: u64 = 2_500_000;
++/// A still is on the lamp no longer than this: the voice service reads it
++/// for the one request it was taken for, once the lamp has finished saying
++/// it will look, and drops a look that has not begun 15 s after it said so
++/// (`lamp_voice::sight::LOOK_BEGINS_WITHIN`). At 3 s, as first built, a
++/// look that went later than that went without its still (#842).
++pub const KEPT_US: u64 = 15_000_000;
++/// The still's longer side at most. What a model is shown is scaled to
++/// about this anyway, and a picture this size fits the provider's bound.
++pub const LONGEST_SIDE: usize = 1_024;
++/// Qualities tried in turn until the picture fits.
++const QUALITIES: [u8; 4] = [85, 75, 65, 50];
++const MAX_SIDE: usize = 4_096;
++
++/// Exactly `{"look_full":ID}`, the ask's id from 1: anything else asks
++/// nothing.
++pub fn asked(datagram: &[u8]) -> Option<u64> {
++    #[derive(serde::Deserialize)]
++    #[serde(deny_unknown_fields)]
++    struct Ask {
++        look_full: u64,
++    }
++    serde_json::from_slice::<Ask>(datagram)
++        .ok()
++        .map(|ask| ask.look_full)
++        .filter(|id| *id > 0)
++}
++
++/// Bytes a still's id takes: what [`tagged`] adds, at most.
++pub const TAG_BYTES: usize = 64;
++
++/// The still with the id of the ask it was taken for, as a JPEG comment
++/// right after the start of the image: `lamp-look ID`. The voice service
++/// takes a still only with its own ask's id (#842), so a still of an
++/// earlier ask written late is never taken for a later one. A number, no
++/// more.
++pub fn tagged(jpeg: &[u8], id: u64) -> Vec<u8> {
++    let text = format!("lamp-look {id}");
++    let length = (text.len() + 2) as u16;
++    let mut out = Vec::with_capacity(jpeg.len() + text.len() + 4);
++    out.extend_from_slice(&jpeg[..2.min(jpeg.len())]);
++    out.extend_from_slice(&[0xff, 0xfe]);
++    out.extend_from_slice(&length.to_be_bytes());
++    out.extend_from_slice(text.as_bytes());
++    out.extend_from_slice(jpeg.get(2..).unwrap_or_default());
++    out
++}
++
++/// What the body says of the head.
++#[derive(Clone, Copy, Debug, PartialEq)]
++pub enum Head {
++    /// No body says anything: nothing to wait for.
++    Absent,
++    Moving,
++    /// Not turning, and where each head joint is.
++    Still([f64; 3]),
++}
++
++/// The head from what the body says: still when every head joint turns
++/// slower than [`STILL_RADIANS_A_SECOND`]. A head turned slowly enough to
++/// pass that is caught by its drift ([`Wanted::body`]). What the body does
++/// not say (velocity, positions) is not waited for.
++pub fn head(joints: &JointState) -> Head {
++    let given = |list: &[f64]| list.len() == joints.name.len();
++    let mut at = [0.0; 3];
++    for (index, name) in joints.name.iter().enumerate() {
++        let Some(which) = HEAD.iter().position(|head| head == name) else {
++            continue;
++        };
++        if given(&joints.velocity) && joints.velocity[index].abs() > STILL_RADIANS_A_SECOND {
++            return Head::Moving;
++        }
++        if given(&joints.position) {
++            at[which] = joints.position[index];
++        }
++    }
++    Head::Still(at)
++}
++
++/// One full look asked for: when the head has settled, and the first frame
++/// after that is the still.
++#[derive(Debug)]
++pub struct Wanted {
++    asked_us: u64,
++    /// Since when the head has been still, and where it was then.
++    still_since: Option<(u64, [f64; 3])>,
++    /// When it settled, and how many frames there had been by then.
++    settled: Option<(u64, u64)>,
++}
++
++impl Wanted {
++    pub fn new(now_us: u64) -> Self {
++        Self {
++            asked_us: now_us,
++            still_since: None,
++            settled: None,
++        }
++    }
++
++    /// What the body says of the head now. `frames` is how many frames the
++    /// camera has given so far. A head that moves again before the still is
++    /// taken is waited for again, until [`SETTLE_AT_MOST_US`].
++    pub fn body(&mut self, head: Head, now_us: u64, frames: u64) {
++        let capped = now_us.saturating_sub(self.asked_us) >= SETTLE_AT_MOST_US;
++        let mut moved = false;
++        let settled = match head {
++            Head::Absent => true,
++            Head::Moving => {
++                moved = true;
++                false
++            }
++            Head::Still(at) => {
++                // A head that drifts is a head still being turned slowly.
++                moved = self.still_since.is_some_and(|(_, was)| {
++                    was.iter()
++                        .zip(at)
++                        .any(|(was, now)| (was - now).abs() > DRIFT_RADIANS)
++                });
++                if moved {
++                    self.still_since = None;
++                }
++                let (since, _) = *self.still_since.get_or_insert((now_us, at));
++                now_us.saturating_sub(since) >= STILL_FOR_US
++            }
++        };
++        if moved {
++            if matches!(head, Head::Moving) {
++                self.still_since = None;
++            }
++            if !capped {
++                self.settled = None;
++            }
++        }
++        if self.settled.is_none() && (settled || capped) {
++            self.settled = Some((now_us, frames));
++        }
++    }
++
++    /// Whether the newest frame, the `frames`th, is the still: the first
++    /// one to come after the head settled.
++    pub fn take(&self, frames: u64) -> bool {
++        self.settled.is_some_and(|(_, by)| frames > by)
++    }
++
++    /// How long the head was waited for, once it settled.
++    pub fn waited_us(&self) -> Option<u64> {
++        self.settled.map(|(at, _)| at.saturating_sub(self.asked_us))
++    }
++
++    pub fn given_up(&self, now_us: u64) -> bool {
++        now_us.saturating_sub(self.asked_us) >= GIVE_UP_US
++    }
++}
++
++/// The camera's frame as a picture the provider takes: itself when it is a
++/// whole JPEG small enough already, or else decoded, shrunk to
++/// [`LONGEST_SIDE`] by averaging and encoded at the best quality that fits
++/// in `most_bytes`. With its size, across and down.
++pub fn fit(frame: &[u8], most_bytes: usize) -> Result<(Vec<u8>, (usize, usize)), String> {
++    fit_within(frame, most_bytes, LONGEST_SIDE)
++}
++
++/// The working frame kept in `--sight-file` while the stream runs at the
++/// full size: the frame at 320 across, as the eyes kept it before (#873
++/// reads it at any time). A frame already that small goes as it is.
++// ponytail: decodes the frame a second time after the detector's decode;
++// share one decode if the eyes' ms a look at the full size matters.
++pub fn working(frame: &[u8]) -> Result<Vec<u8>, String> {
++    fit_within(frame, crate::kept::MOST_BYTES, WORKING_SIDE).map(|(jpeg, _)| jpeg)
++}
++
++/// The working frame's longer side.
++pub const WORKING_SIDE: usize = 320;
++
++fn fit_within(
++    frame: &[u8],
++    most_bytes: usize,
++    longest: usize,
++) -> Result<(Vec<u8>, (usize, usize)), String> {
++    let options = DecoderOptions::default()
++        .set_max_width(MAX_SIDE)
++        .set_max_height(MAX_SIDE)
++        .jpeg_set_out_colorspace(ColorSpace::RGB);
++    let mut decoder = JpegDecoder::new_with_options(frame, options);
++    decoder
++        .decode_headers()
++        .map_err(|error| format!("jpeg: {error:?}"))?;
++    let (width, height) = decoder.dimensions().ok_or("a jpeg without a size")?;
++    if frame.len() <= most_bytes && width.max(height) <= longest && crate::kept::whole_jpeg(frame) {
++        return Ok((frame.to_vec(), (width, height)));
++    }
++    let rgb = decoder
++        .decode()
++        .map_err(|error| format!("jpeg: {error:?}"))?;
++    let (mut rgb, mut size) = shrink(&rgb, (width, height), longest);
++    loop {
++        for quality in QUALITIES {
++            let mut out = Vec::new();
++            jpeg_encoder::Encoder::new(&mut out, quality)
++                .encode(
++                    &rgb,
++                    size.0 as u16,
++                    size.1 as u16,
++                    jpeg_encoder::ColorType::Rgb,
++                )
++                .map_err(|error| format!("encoding: {error}"))?;
++            if out.len() <= most_bytes {
++                return Ok((out, size));
++            }
++        }
++        if size.0.max(size.1) <= 160 {
++            return Err("no size fits".into());
++        }
++        (rgb, size) = shrink(&rgb, size, size.0.max(size.1) * 3 / 4);
++    }
++}
++
++/// Red, green and blue bytes shrunk so that the longer side is at most
++/// `longest`, each pixel the average of those it covers. Never enlarged.
++fn shrink(
++    rgb: &[u8],
++    (width, height): (usize, usize),
++    longest: usize,
++) -> (Vec<u8>, (usize, usize)) {
++    let scale = (width.max(height) as f64 / longest.max(1) as f64).max(1.0);
++    let to = (
++        ((width as f64 / scale).round() as usize).clamp(1, width),
++        ((height as f64 / scale).round() as usize).clamp(1, height),
++    );
++    let span = |at: usize, of: usize, into: usize| {
++        let first = at * of / into;
++        (first, ((at + 1) * of / into).max(first + 1).min(of))
++    };
++    let mut out = Vec::with_capacity(to.0 * to.1 * 3);
++    for y in 0..to.1 {
++        let (top, bottom) = span(y, height, to.1);
++        for x in 0..to.0 {
++            let (left, right) = span(x, width, to.0);
++            let mut sum = [0u32; 3];
++            for row in top..bottom {
++                for pixel in
++                    rgb[(row * width + left) * 3..(row * width + right) * 3].chunks_exact(3)
++                {
++                    for channel in 0..3 {
++                        sum[channel] += u32::from(pixel[channel]);
++                    }
++                }
++            }
++            let count = ((bottom - top) * (right - left)) as u32;
++            out.extend(sum.map(|total| ((total + count / 2) / count) as u8));
++        }
++    }
++    (out, to)
++}
++
++/// Opens tried at the full size before the working size is tried too: six,
++/// thirty seconds at one try every five. A camera that refuses for a moment
++/// still opens at the full size; one that refuses for minutes (lamp-52e6,
++/// lamp-4ace: 6 to 18 min, #763) gets every other try at the working size,
++/// so the eyes see as soon as the camera lets them, and [`Upgrade`] brings
++/// the full size back later.
++pub const FULL_FIRST: u32 = 6;
++
++/// Whether the next open is at the full size, after `failures` opens in a
++/// row that did not open: the first [`FULL_FIRST`], then every other one.
++pub fn full_next(failures: u32) -> bool {
++    failures < FULL_FIRST || (failures - FULL_FIRST) % 2 == 1
++}
++
++/// After the stream opened at the working size for want of the full one:
++/// when to close it and try the full size once more. Only after streaming
++/// that long with nobody in view and no look asked for, so that nobody sees
++/// the eyes shut; then after half an hour, then every hour.
++#[derive(Debug, Default)]
++pub struct Upgrade {
++    /// Since when the stream has run at the working size, if it does.
++    fallback_since_us: Option<u64>,
++    /// Tries made since the stream last opened at the full size.
++    tries: u32,
++}
++
++pub const UPGRADE_AFTER_US: [u64; 3] = [600_000_000, 1_800_000_000, 3_600_000_000];
++
++impl Upgrade {
++    /// The stream opened now, at the full size or not.
++    pub fn opened(&mut self, full: bool, now_us: u64) {
++        if full {
++            *self = Self::default();
++        } else {
++            self.fallback_since_us = Some(now_us);
++        }
++    }
++
++    /// Whether to close the working-size stream now and try the full size.
++    pub fn due(&self, now_us: u64, somebody_in_view: bool, look_pending: bool) -> bool {
++        let wait = UPGRADE_AFTER_US[(self.tries as usize).min(UPGRADE_AFTER_US.len() - 1)];
++        !somebody_in_view
++            && !look_pending
++            && self
++                .fallback_since_us
++                .is_some_and(|since| now_us.saturating_sub(since) >= wait)
++    }
++
++    /// A try is made now: the stream closes.
++    pub fn tried(&mut self) -> u32 {
++        self.fallback_since_us = None;
++        self.tries += 1;
++        self.tries
++    }
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    const MS: u64 = 1_000;
++
++    const COUNT: f64 = TAU / 4_096.0;
++    const STILL: Head = Head::Still([0.1, 0.5, 0.4]);
++
++    /// The body's message: the head's yaw `off` from its goal `goal`,
++    /// turning at `velocity`; the shoulder far from its goal throughout.
++    fn joints(goal: f64, off: f64, velocity: f64) -> JointState {
++        let name = ["base_yaw", "shoulder", "elbow", "head_roll", "head_pitch"];
++        JointState {
++            name: name.map(str::to_owned).to_vec(),
++            position: vec![goal - off, 0.2, 0.3, 0.4, 0.5],
++            velocity: vec![velocity, 0.0, 0.0, 0.0, 0.0],
++            effort: vec![],
++            commanded: vec![goal, 0.2 + 1.0, 0.3, 0.4, 0.5],
++        }
++    }
++
++    const MINUTE: u64 = 60_000_000;
++
++    #[test]
++    fn the_full_size_is_tried_first_six_times_then_every_other_time() {
++        let sizes: Vec<bool> = (0..10).map(full_next).collect();
++        assert_eq!(
++            sizes,
++            [true, true, true, true, true, true, false, true, false, true]
++        );
++    }
++
++    #[test]
++    fn a_fallback_stream_tries_the_full_size_after_ten_quiet_minutes_and_backs_off() {
++        let mut upgrade = Upgrade::default();
++        // Opened at the full size: nothing to do.
++        upgrade.opened(true, 0);
++        assert!(!upgrade.due(100 * MINUTE, false, false));
++        // Fallen back at minute 0.
++        upgrade.opened(false, 0);
++        assert!(!upgrade.due(10 * MINUTE - 1, false, false));
++        // Not while somebody is in view or a look is asked for.
++        assert!(!upgrade.due(10 * MINUTE, true, false));
++        assert!(!upgrade.due(10 * MINUTE, false, true));
++        assert!(upgrade.due(10 * MINUTE, false, false));
++        // The try fails: reopened at the working size at minute 11, the next
++        // try half an hour later, then every hour.
++        assert_eq!(upgrade.tried(), 1);
++        assert!(!upgrade.due(11 * MINUTE, false, false));
++        upgrade.opened(false, 11 * MINUTE);
++        assert!(!upgrade.due(40 * MINUTE, false, false));
++        assert!(upgrade.due(41 * MINUTE, false, false));
++        assert_eq!(upgrade.tried(), 2);
++        upgrade.opened(false, 42 * MINUTE);
++        assert!(!upgrade.due(101 * MINUTE, false, false));
++        assert!(upgrade.due(102 * MINUTE, false, false));
++        assert_eq!(upgrade.tried(), 3);
++        upgrade.opened(false, 103 * MINUTE);
++        assert!(upgrade.due(163 * MINUTE, false, false));
++        // A try that opens at the full size ends it.
++        upgrade.tried();
++        upgrade.opened(true, 164 * MINUTE);
++        assert!(!upgrade.due(1_000 * MINUTE, false, false));
++        upgrade.opened(false, 1_000 * MINUTE);
++        assert!(upgrade.due(1_010 * MINUTE, false, false));
++    }
++
++    #[test]
++    fn only_the_exact_ask_is_one() {
++        assert_eq!(asked(br#"{"look_full":42}"#), Some(42));
++        for not in [
++            &br#"{"look_full":true}"#[..],
++            br#"{"look_full":0}"#,
++            br#"{"look_full":-1}"#,
++            br#"{"camera":true}"#,
++            br#"{"look_full":4,"keep":true}"#,
++            b"",
++        ] {
++            assert_eq!(asked(not), None);
++        }
++    }
++
++    #[test]
++    fn a_still_carries_its_ask_s_id_and_stays_a_whole_jpeg() {
++        let (still, _) = fit(&camera_frame(320, 240, 80), 64 * 1024 - TAG_BYTES).unwrap();
++        let marked = tagged(&still, 42);
++        assert!(marked.len() <= still.len() + TAG_BYTES);
++        assert!(crate::kept::whole_jpeg(&marked));
++        // The exact bytes the voice service looks for after the start.
++        let mark = b"\xff\xd8\xff\xfe\x00\x0elamp-look 42";
++        assert_eq!(&marked[..mark.len()], &mark[..]);
++        assert_eq!(&marked[mark.len()..], &still[2..]);
++        assert!(crate::picture::Picture::from_jpeg(&marked).is_ok());
++        assert!(tagged(&still, u64::MAX).len() <= still.len() + TAG_BYTES);
++    }
++
++    #[test]
++    fn the_head_is_still_when_it_is_not_turning_wherever_its_goal_is() {
++        assert_eq!(head(&joints(0.1, 0.0, 0.0)), STILL);
++        // Standing short of its goal, as lamp-4ace's head rests: still.
++        assert_eq!(
++            head(&joints(0.1, 12.0 * COUNT, 0.0)),
++            Head::Still([0.1 - 12.0 * COUNT, 0.5, 0.4])
++        );
++        assert_eq!(
++            head(&joints(0.1, 5.0 * COUNT, COUNT)),
++            Head::Still([0.1 - 5.0 * COUNT, 0.5, 0.4])
++        );
++        // A count behind its goal but turning at 50 counts a second.
++        assert_eq!(head(&joints(0.1, COUNT, 50.0 * COUNT)), Head::Moving);
++        // The shoulder turning does not turn the camera's aim as the head
++        // joints do, and is not waited for.
++        let mut shoulder = joints(0.1, 0.0, 0.0);
++        shoulder.velocity[1] = 100.0 * COUNT;
++        assert_eq!(head(&shoulder), STILL);
++        let mut unknown = joints(0.1, 1.0, 0.0);
++        unknown.position.clear();
++        unknown.velocity.clear();
++        assert_eq!(head(&unknown), Head::Still([0.0; 3]));
++    }
++
++    #[test]
++    fn a_head_resting_short_of_goals_the_body_nudges_settles_in_a_third_of_a_second() {
++        // lamp-4ace at rest, 2026-10-14 (`rest-glance-lamp-4ace-20261014`):
++        // goals [pitch, roll, yaw] 1951-1952, 2043-2044, 2016-2023 against
++        // positions 1952, 2051, 2023, one count of jitter; a message every
++        // 80 ms as the body offers them. The rule on the goal never held
++        // there and every still waited the whole 2 s (#842).
++        let radians = |counts: f64| (counts - 2_048.0) * COUNT;
++        let goals = [
++            [1_952.0, 2_044.0, 2_021.0],
++            [1_951.0, 2_043.0, 2_023.0],
++            [1_951.0, 2_044.0, 2_016.0],
++            [1_952.0, 2_044.0, 2_016.0],
++        ];
++        let mut wanted = Wanted::new(0);
++        for step in 0..25u64 {
++            let [pitch, roll, yaw] = goals[step as usize % goals.len()];
++            let jitter = (step % 2) as f64;
++            let joints = JointState {
++                name: ["base_yaw", "shoulder", "elbow", "head_roll", "head_pitch"]
++                    .map(str::to_owned)
++                    .to_vec(),
++                position: [2_023.0, 2_055.0, 2_047.0, 2_051.0, 1_952.0 + jitter]
++                    .map(radians)
++                    .to_vec(),
++                velocity: vec![0.0, 0.0, 0.0, 0.0, (2.0 * jitter - 1.0) * COUNT / 0.08],
++                effort: vec![],
++                commanded: [yaw, 2_055.0, 2_047.0, roll, pitch].map(radians).to_vec(),
++            };
++            wanted.body(head(&joints), step * 80 * MS, step);
++        }
++        assert_eq!(wanted.waited_us(), Some(320 * MS));
++        assert!(wanted.waited_us().unwrap() < 500 * MS);
++    }
++
++    #[test]
++    fn a_truly_still_head_gets_the_first_frame_after_it_settles() {
++        let mut wanted = Wanted::new(0);
++        // Turning toward the person for half a second: no still.
++        for at in (0..500).step_by(20) {
++            wanted.body(Head::Moving, at * MS, at / 100);
++            assert!(!wanted.take(at / 100 + 1));
++        }
++        // Still from 500 ms: settled at 800, after 8 frames.
++        for at in (500..800).step_by(20) {
++            wanted.body(STILL, at * MS, 8);
++            assert!(!wanted.take(8));
++        }
++        wanted.body(STILL, 800 * MS, 8);
++        assert_eq!(wanted.waited_us(), Some(800 * MS));
++        // The frame it had is from before; the next one is the still.
++        assert!(!wanted.take(8));
++        assert!(wanted.take(9));
++    }
++
++    #[test]
++    fn a_head_following_a_slow_move_with_a_count_of_lag_is_not_still() {
++        // Reviewer's case on #842: 50 counts a second, one count behind,
++        // as the body's own publisher reports it every 20 ms.
++        let mut wanted = Wanted::new(0);
++        for step in 0..100u64 {
++            let goal = step as f64 * COUNT;
++            let joints = joints(goal, COUNT, 50.0 * COUNT);
++            wanted.body(head(&joints), step * 20 * MS, step);
++            assert!(!wanted.take(step + 1), "taken at {} ms", step * 20);
++        }
++        // Even were its speed not told: it drifts, a count a step.
++        let mut wanted = Wanted::new(0);
++        for step in 0..100u64 {
++            let goal = step as f64 * COUNT;
++            let mut joints = joints(goal, COUNT, 0.0);
++            joints.velocity.clear();
++            wanted.body(head(&joints), step * 20 * MS, step);
++            assert!(!wanted.take(step + 1), "taken at {} ms", step * 20);
++        }
++        // The 2 s bound still holds.
++        wanted.body(Head::Moving, SETTLE_AT_MOST_US, 100);
++        assert!(wanted.take(101));
++    }
++
++    #[test]
++    fn a_head_that_moves_again_before_the_frame_is_waited_for_again() {
++        // Reviewer's case on #842: settled at 300 ms, moving at 350, a
++        // frame at 400.
++        let mut wanted = Wanted::new(0);
++        wanted.body(STILL, 0, 0);
++        wanted.body(STILL, 300 * MS, 3);
++        assert_eq!(wanted.waited_us(), Some(300 * MS));
++        wanted.body(Head::Moving, 350 * MS, 3);
++        assert!(!wanted.take(4));
++        assert_eq!(wanted.waited_us(), None);
++        // So does one that drifts while it seemed still.
++        wanted.body(STILL, 400 * MS, 4);
++        wanted.body(Head::Still([0.2, 0.5, 0.4]), 600 * MS, 5);
++        wanted.body(Head::Still([0.2, 0.5, 0.4]), 800 * MS, 6);
++        assert!(!wanted.take(7));
++        wanted.body(Head::Still([0.2, 0.5, 0.4]), 900 * MS, 6);
++        assert!(wanted.take(7));
++        // After the bound a movement no longer holds the still back.
++        let mut late = Wanted::new(0);
++        late.body(Head::Moving, SETTLE_AT_MOST_US, 1);
++        late.body(Head::Moving, SETTLE_AT_MOST_US + 20 * MS, 1);
++        assert!(late.take(2));
++    }
++
++    #[test]
++    fn a_head_that_never_settles_or_no_body_still_gets_a_still() {
++        let mut moving = Wanted::new(0);
++        for at in (0..SETTLE_AT_MOST_US).step_by(20_000) {
++            moving.body(Head::Moving, at, 1);
++        }
++        assert!(!moving.take(2));
++        moving.body(Head::Moving, SETTLE_AT_MOST_US, 1);
++        assert!(moving.take(2));
++        // Moving, then still but not long enough: the bound holds.
++        let mut late = Wanted::new(0);
++        late.body(STILL, SETTLE_AT_MOST_US - 100 * MS, 1);
++        late.body(STILL, SETTLE_AT_MOST_US, 1);
++        assert_eq!(late.waited_us(), Some(SETTLE_AT_MOST_US));
++        // No body: at once.
++        let mut alone = Wanted::new(5 * MS);
++        alone.body(Head::Absent, 5 * MS, 3);
++        assert_eq!(alone.waited_us(), Some(0));
++        assert!(alone.take(4));
++        assert!(!alone.given_up(5 * MS + GIVE_UP_US - 1));
++        assert!(alone.given_up(5 * MS + GIVE_UP_US));
++    }
++
++    fn camera_frame(width: usize, height: usize, quality: u8) -> Vec<u8> {
++        // A room as a camera gives it: shapes with hard edges, light falling
++        // off across them, and a little sensor noise everywhere.
++        let mut rgb = Vec::with_capacity(width * height * 3);
++        for y in 0..height {
++            for x in 0..width {
++                let (u, v) = (x * 64 / width, y * 48 / height);
++                let block = ((u * 37 + v * 91) % 7) as u32 * 30;
++                let light = (x + y) as u32 * 120 / (width + height) as u32;
++                let noise = ((x * 7_919 + y * 104_729) % 13) as u32;
++                let value = |shift: u32| ((block + light + noise + shift) % 256) as u8;
++                rgb.extend([value(0), value(40), value(90)]);
++            }
++        }
++        let mut out = Vec::new();
++        jpeg_encoder::Encoder::new(&mut out, quality)
++            .encode(
++                &rgb,
++                width as u16,
++                height as u16,
++                jpeg_encoder::ColorType::Rgb,
++            )
++            .unwrap();
++        out
++    }
++
++    #[test]
++    fn a_large_frame_is_made_to_fit_and_a_small_whole_one_goes_as_it_is() {
++        let most = 64 * 1024;
++        let large = camera_frame(1_280, 960, 90);
++        assert!(large.len() > most);
++        let started = std::time::Instant::now();
++        let (still, size) = fit(&large, most).unwrap();
++        eprintln!(
++            "1280x960 of {} bytes to {size:?} of {} bytes in {} ms",
++            large.len(),
++            still.len(),
++            started.elapsed().as_millis()
++        );
++        assert!(still.len() <= most);
++        // As large as fits, at most 1024 across, and the same shape.
++        assert!(size.0 <= LONGEST_SIDE && size.0 >= 640 && size.0 * 3 == size.1 * 4);
++        assert!(crate::kept::whole_jpeg(&still));
++        let small = camera_frame(320, 240, 80);
++        assert!(small.len() <= most);
++        assert_eq!(fit(&small, most).unwrap(), (small.clone(), (320, 240)));
++        assert!(fit(b"not a jpeg", most).is_err());
++    }
++
++    #[test]
++    fn the_working_frame_of_a_full_size_stream_is_320_by_240() {
++        let (working, size) = fit_within(
++            &camera_frame(1_280, 960, 90),
++            crate::kept::MOST_BYTES,
++            WORKING_SIDE,
++        )
++        .unwrap();
++        assert_eq!(size, (320, 240));
++        assert!(crate::kept::whole_jpeg(&working));
++        assert!(working.len() <= crate::kept::MOST_BYTES);
++        assert_eq!(
++            super::working(&camera_frame(1_280, 960, 90)).unwrap(),
++            working
++        );
++        // A 320x240 frame, as a stream fallen back to it gives, goes as it is.
++        let small = camera_frame(320, 240, 80);
++        assert_eq!(super::working(&small).unwrap(), small);
++    }
++
++    #[test]
++    fn shrinking_averages_what_each_pixel_covers() {
++        // Two by two of black and white is one grey pixel.
++        let rgb = [0, 0, 0, 255, 255, 255, 255, 255, 255, 0, 0, 0];
++        assert_eq!(shrink(&rgb, (2, 2), 1), (vec![128, 128, 128], (1, 1)));
++        // Never enlarged.
++        assert_eq!(shrink(&rgb, (2, 2), 10), (rgb.to_vec(), (2, 2)));
++    }
++}
+diff --git a/lampOS/crates/eyes/src/kept.rs b/lampOS/crates/eyes/src/kept.rs
+index d9ae623f9..620ba2cfd 100644
+--- a/lampOS/crates/eyes/src/kept.rs
++++ b/lampOS/crates/eyes/src/kept.rs
+@@ -82,6 +82,14 @@ impl Kept {
+     }
+ }
+ 
++/// The camera closed, for whatever reason: the working frame and a full
++/// look's still are both gone, at once (#842).
++pub fn forget_all(working: &mut Option<Kept>, still: &mut Option<Kept>) {
++    for kept in [working, still].into_iter().flatten() {
++        kept.forget();
++    }
++}
++
+ /// One line saying how large the near face is, kept fresh while there is
+ /// one: how the voice service knows someone has come to sit in front of the
+ /// lamp (`lamp-voice`, `LAMP_EYES_PRESENCE_FILE`). No picture, no place, no
+@@ -140,6 +148,32 @@ mod tests {
+     use super::*;
+     use std::os::unix::fs::PermissionsExt;
+ 
++    /// Reviewer's case on #842: a still finished just before the eyes close
++    /// the camera to try the full size again, and the reopen fails. Every
++    /// close goes through `forget_all`, so the still is gone with the
++    /// working frame at once, not left for a 3 s expiry that a failed
++    /// reopen's early return would skip.
++    #[test]
++    fn a_camera_close_removes_the_working_frame_and_the_still_at_once() {
++        let directory = std::env::temp_dir().join(format!(
++            "lamp-eyes-forget-all-{}-{:?}",
++            std::process::id(),
++            std::thread::current().id()
++        ));
++        fs::create_dir_all(&directory).unwrap();
++        let (working_path, still_path) = (directory.join("sight.jpg"), directory.join("full.jpg"));
++        let mut working = Some(Kept::new(working_path.clone()));
++        let mut still = Some(Kept::new(still_path.clone()));
++        working.as_mut().unwrap().keep(&frame(true, 10)).unwrap();
++        still.as_mut().unwrap().keep(&frame(true, 10)).unwrap();
++        assert!(working_path.exists() && still_path.exists());
++        forget_all(&mut working, &mut still);
++        assert!(!working_path.exists() && !still_path.exists());
++        // Without the files, nothing to do.
++        forget_all(&mut None, &mut None);
++        fs::remove_dir_all(&directory).unwrap();
++    }
++
+     /// A frame shaped like the lamp's camera gives: two quantisation tables,
+     /// the frame header, Huffman tables, a restart interval, the scan.
+     fn frame(tables: bool, filler: usize) -> Vec<u8> {
+diff --git a/lampOS/crates/eyes/src/lib.rs b/lampOS/crates/eyes/src/lib.rs
+index 867edf7af..8f7f18cdb 100644
+--- a/lampOS/crates/eyes/src/lib.rs
++++ b/lampOS/crates/eyes/src/lib.rs
+@@ -11,11 +11,14 @@
+ //! the lamp, never a picture. [`who`] says whose face it is, for the people
+ //! who asked the lamp to remember them, and nobody else. With
+ //! `--leave-still-faces on`, [`still`] leaves out a face at a place where no
+-//! person has been seen, only small faint faces for half an hour. [`permit`]
+-//! says whether the camera may be open.
++//! person has been seen, only small faint faces for half an hour. With
++//! `--full-look`, [`full_look`] makes one larger still for a request the
++//! lamp said it would look for, after its head has settled. [`permit`] says
++//! whether the camera may be open.
+ pub mod bus_out;
+ pub mod faces;
+ pub mod facing;
++pub mod full_look;
+ pub mod kept;
+ pub mod permit;
+ pub mod picture;
+diff --git a/lampOS/crates/eyes/src/main.rs b/lampOS/crates/eyes/src/main.rs
+index e955bd6a4..1e379c304 100644
+--- a/lampOS/crates/eyes/src/main.rs
++++ b/lampOS/crates/eyes/src/main.rs
+@@ -2,11 +2,12 @@
+ //! it sees and tells the body where it is. It opens the camera only while
+ //! the voice service keeps saying it may, and sends nothing but the face's
+ //! place in the picture. With `--sight-file` it also keeps its newest frame,
+-//! that one only, in a private file for the voice service.
++//! that one only, in a private file for the voice service, and with
++//! `--full-look-file` one still the voice service asked for, in another.
+ 
+ use std::{ffi::OsString, path::PathBuf};
+ 
+-const USAGE: &str = "lamp-eyes --device ABSOLUTE_PATH --lock-directory PRIVATE_ABSOLUTE_DIRECTORY --usb VENDOR:PRODUCT@TOPOLOGY --model ABSOLUTE_PATH --permit-socket ABSOLUTE_PATH --body-socket ABSOLUTE_PATH [--sight-file ABSOLUTE_PATH] [--presence-file ABSOLUTE_PATH] [--recogniser ABSOLUTE_PATH --people ABSOLUTE_PATH --who-socket ABSOLUTE_PATH [--known-file ABSOLUTE_PATH]] [--leave-still-faces on|off]\n\nOwns the camera at --device (checked against the USB identity given, hex vendor and\nproduct and the port topology, for example 01da:5875@3-1.1.4) and looks for a face in\nits frames four times a second while there is one and less than twice a second when\nthere is none, with the pinned YuNet model at --model. Each look\nsends one datagram to --body-socket: {\"face\":{\"x\":..,\"y\":..,\"size\":..,\"turned\":..}} or\n{\"face\":null}. The camera is open only while {\"camera\":true} keeps arriving on\n--permit-socket, at least every 1.5 s; {\"camera\":false} closes it at once. Without\n--sight-file no frame is written anywhere and none leaves this process. With it the\nnewest frame, and only that one, is kept in that file (mode 0600) while the camera is\nopen and removed when it closes: it is what the voice service shows the model. With\n--presence-file one line, the near face's height as a share of the picture's, is kept\nfresh in that file while there is a face: no picture, only that number. With\n--recogniser (the pinned SFace model), --people and --who-socket, the eyes remember\na face when the voice service asks ({\"remember\":\"NAME\"} on the socket), forget it\n({\"forget\":\"NAME\"}), list the names ({\"list\":true}) and say whose face is at the\nlamp ({\"who\":true}). Only the prints of people who asked are kept, in --people\n(mode 0600); no picture. With --known-file, the name of the one known at the lamp is\nkept fresh in that file while they are there. With --leave-still-faces on, a face at a place\nwhere faces have come from for half an hour, every one small (under 0.14 of the height)\nand faint (scored under 0.8), is not a person: it is left out of what the body is told,\nthe bus and recognition (off unless given).\n";
++const USAGE: &str = "lamp-eyes --device ABSOLUTE_PATH --lock-directory PRIVATE_ABSOLUTE_DIRECTORY --usb VENDOR:PRODUCT@TOPOLOGY --model ABSOLUTE_PATH --permit-socket ABSOLUTE_PATH --body-socket ABSOLUTE_PATH [--sight-file ABSOLUTE_PATH] [--presence-file ABSOLUTE_PATH] [--recogniser ABSOLUTE_PATH --people ABSOLUTE_PATH --who-socket ABSOLUTE_PATH [--known-file ABSOLUTE_PATH]] [--leave-still-faces on|off] [--full-look WIDTHxHEIGHT --full-look-file ABSOLUTE_PATH]\n\nOwns the camera at --device (checked against the USB identity given, hex vendor and\nproduct and the port topology, for example 01da:5875@3-1.1.4) and looks for a face in\nits frames four times a second while there is one and less than twice a second when\nthere is none, with the pinned YuNet model at --model. Each look\nsends one datagram to --body-socket: {\"face\":{\"x\":..,\"y\":..,\"size\":..,\"turned\":..}} or\n{\"face\":null}. The camera is open only while {\"camera\":true} keeps arriving on\n--permit-socket, at least every 1.5 s; {\"camera\":false} closes it at once. Without\n--sight-file and --full-look-file no frame is written anywhere and none leaves this process. With it the\nnewest frame, and only that one, is kept in that file (mode 0600) while the camera is\nopen and removed when it closes: it is what the voice service shows the model. With\n--presence-file one line, the near face's height as a share of the picture's, is kept\nfresh in that file while there is a face: no picture, only that number. With\n--recogniser (the pinned SFace model), --people and --who-socket, the eyes remember\na face when the voice service asks ({\"remember\":\"NAME\"} on the socket), forget it\n({\"forget\":\"NAME\"}), list the names ({\"list\":true}) and say whose face is at the\nlamp ({\"who\":true}). Only the prints of people who asked are kept, in --people\n(mode 0600); no picture. With --known-file, the name of the one known at the lamp is\nkept fresh in that file while they are there. With --leave-still-faces on, a face at a place\nwhere faces have come from for half an hour, every one small (under 0.14 of the height)\nand faint (scored under 0.8), is not a person: it is left out of what the body is told,\nthe bus and recognition (off unless given). With --full-look and --full-look-file the\ncamera runs at that size, the working frame is kept in --sight-file at 320 across as before, and {\"look_full\":ID} on\n--permit-socket asks for one still: taken once the head has settled\n(body/joint_states on the bus, at most 2 s), at most 1024 across and 64 KiB, marked\nwith the ID in a JPEG comment, kept in --full-look-file for 15 s and removed (off unless given).\n";
+ 
+ #[derive(Clone, Debug, Eq, PartialEq)]
+ struct Usb {
+@@ -32,6 +33,10 @@ struct Arguments {
+     known_file: Option<PathBuf>,
+     /// Leave out a face that never moves (#763).
+     leave_still: bool,
++    /// The camera's size for a full look (#836), when one may be asked for.
++    full_look: Option<(u32, u32)>,
++    /// Where a full look's still is kept, apart from the working frame.
++    full_look_file: Option<PathBuf>,
+ }
+ 
+ /// `VENDOR:PRODUCT@TOPOLOGY`, the two numbers as four hex digits each.
+@@ -57,13 +62,38 @@ fn usb_of(value: &str) -> Option<Usb> {
+     })
+ }
+ 
++/// The camera's working size, the only one without `--full-look`.
++const WORKING: (u32, u32) = (320, 240);
++
++/// The size the camera is opened at: the working size without a full look,
++/// and with one after it last failed to open at the full size.
++#[cfg_attr(not(any(target_os = "linux", test)), allow(dead_code))]
++fn opened_at(full_look: Option<(u32, u32)>, failures: u32) -> (u32, u32) {
++    full_look
++        .filter(|_| lamp_eyes::full_look::full_next(failures))
++        .unwrap_or(WORKING)
++}
++
++/// `WIDTHxHEIGHT`, each even, from 320 by 240 to 1280 by 960: the camera's
++/// bounds (`lamp_camera::MAX_WIDTH`, `MAX_HEIGHT`), so that a size it would
++/// refuse is refused here, at start, and not at every open.
++fn size_of(value: &str) -> Option<(u32, u32)> {
++    let (width, height) = value.split_once('x')?;
++    let (width, height) = (width.parse::<u32>().ok()?, height.parse::<u32>().ok()?);
++    ((320..=1_280).contains(&width)
++        && (240..=960).contains(&height)
++        && width % 2 == 0
++        && height % 2 == 0)
++        .then_some((width, height))
++}
++
+ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, &'static str> {
+     let mut args = args.into_iter();
+     let (mut device, mut lock_directory, mut usb) = (None, None, None);
+     let (mut model, mut permit_socket, mut body_socket) = (None, None, None);
+     let (mut sight_file, mut presence_file) = (None, None);
+     let (mut recogniser, mut people, mut who_socket, mut known_file) = (None, None, None, None);
+-    let mut leave_still = None;
++    let (mut leave_still, mut full_look, mut full_look_file) = (None, None, None);
+     while let Some(key) = args.next() {
+         if key == "--help" {
+             let alone = device.is_none()
+@@ -79,6 +109,8 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>,
+                 && who_socket.is_none()
+                 && known_file.is_none()
+                 && leave_still.is_none()
++                && full_look.is_none()
++                && full_look_file.is_none()
+                 && args.next().is_none();
+             return if alone {
+                 Ok(None)
+@@ -116,6 +148,14 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>,
+                     _ => return Err("--leave-still-faces is on or off"),
+                 });
+             }
++            Some("--full-look-file") if full_look_file.is_none() => {
++                full_look_file = Some(PathBuf::from(value));
++            }
++            Some("--full-look") if full_look.is_none() => {
++                full_look = Some(value.to_str().and_then(size_of).ok_or(
++                    "--full-look is WIDTHxHEIGHT, for example 1280x960, from 320x240 to 1280x960",
++                )?);
++            }
+             Some("--usb") if usb.is_none() => {
+                 usb =
+                     Some(value.to_str().and_then(usb_of).ok_or(
+@@ -141,7 +181,14 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>,
+         },
+         known_file,
+         leave_still: leave_still.unwrap_or(false),
++        full_look,
++        full_look_file,
+     };
++    if result.full_look.is_some() != result.full_look_file.is_some()
++        || (result.full_look_file.is_some() && result.full_look_file == result.sight_file)
++    {
++        return Err("--full-look and --full-look-file go together, apart from --sight-file");
++    }
+     if result.known_file.is_some() && result.who.is_none() {
+         return Err("--known-file needs --recogniser, --people and --who-socket");
+     }
+@@ -154,6 +201,7 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>,
+     ]
+     .into_iter()
+     .chain(&result.sight_file)
++    .chain(&result.full_look_file)
+     .chain(&result.presence_file)
+     .chain(
+         result
+@@ -215,6 +263,7 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
+     };
+     use lamp_eyes::{
+         faces::Detector,
++        full_look::Head,
+         kept::{Kept, Presence},
+         picture::Picture,
+         sight::{Seen, choose},
+@@ -344,6 +393,26 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
+     };
+ 
+     let mut kept = arguments.sight_file.clone().map(Kept::new);
++    // A full look's still, in its own file.
++    let mut still_kept = arguments.full_look_file.clone().map(Kept::new);
++    // A full look (#836): the one still asked for, when it was written, and
++    // where the body says how its joints are. A camera that did not open at
++    // the full size is opened at the working size the next time.
++    let mut wanted: Option<lamp_eyes::full_look::Wanted> = None;
++    // The id of the ask that is wanted, written with its still.
++    let mut wanted_id = 0u64;
++    let mut still_at: Option<Instant> = None;
++    // Opens in a row that failed, and when to try the full size again
++    // after falling back to the working size.
++    let mut failures = 0u32;
++    let mut upgrade = lamp_eyes::full_look::Upgrade::default();
++    let joints_bus = arguments
++        .full_look
++        .and_then(|_| lamp_bus::Bus::from_environment().ok());
++    let mut joints_read_at: Option<Instant> = None;
++    let mut head = Head::Absent;
++    // Every frame the camera has given, and the bytes of the newest.
++    let (mut frames_all, mut newest) = (0u64, 0usize);
+     let mut presence = arguments.presence_file.clone().map(Presence::new);
+     // The faces in view, for whoever listens on the lamp's bus.
+     let mut bus_out = lamp_eyes::bus_out::BusOut::from_environment();
+@@ -365,6 +434,16 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
+     let mut camera = lamp_eyes::bus_out::Camera::Closed;
+     eprintln!("lamp-eyes: ready; the camera stays closed until it is permitted");
+     loop {
++        // A still is there for the one request it was taken for, and no
++        // longer: first on every turn, before anything that skips the rest.
++        if still_at
++            .is_some_and(|at| at.elapsed() >= Duration::from_micros(lamp_eyes::full_look::KEPT_US))
++        {
++            still_at = None;
++            if let Some(kept) = still_kept.as_mut() {
++                kept.forget();
++            }
++        }
+         // On every turn, whatever the camera is doing: that the eyes are
+         // there, and how they are.
+         if let Some(bus) = bus_out.as_mut() {
+@@ -461,6 +540,19 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
+                 }
+             }
+         }
++        for datagram in permit.heard() {
++            if arguments.full_look.is_some()
++                && let Some(id) = lamp_eyes::full_look::asked(&datagram)
++            {
++                if port.is_some() {
++                    wanted = Some(lamp_eyes::full_look::Wanted::new(lamp_ipc::monotonic_us()));
++                    wanted_id = id;
++                    (head, joints_read_at) = (Head::Absent, None);
++                } else {
++                    eprintln!("lamp-eyes: a full look asked for with the camera shut");
++                }
++            }
++        }
+         if !permit.holds() {
+             if let Some(mut open) = port.take() {
+                 let _ = open.stop(budget(STOP));
+@@ -468,9 +560,9 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
+                 tell(Seen { face: None });
+             }
+             camera = lamp_eyes::bus_out::Camera::Closed;
+-            if let Some(kept) = kept.as_mut() {
+-                kept.forget();
+-            }
++            lamp_eyes::kept::forget_all(&mut kept, &mut still_kept);
++            still_at = None;
++            wanted = None;
+             if let Some(presence) = presence.as_mut() {
+                 presence.gone();
+             }
+@@ -499,11 +591,12 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
+             )
+             .map_err(|error| format!("camera configuration: {error:?}"))?;
+             let mut opening = LinuxPort::new(config);
++            let (width, height) = opened_at(arguments.full_look, failures);
+             let started = opening.start(
+                 CaptureConfig {
+                     source,
+-                    width: 320,
+-                    height: 240,
++                    width,
++                    height,
+                     interval: Some(
+                         FrameInterval::new(1, 10).map_err(|error| format!("{error:?}"))?,
+                     ),
+@@ -542,6 +635,10 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
+                         "lamp-eyes: camera open, {} by {}, in {took_ms} ms",
+                         mode.width, mode.height
+                     );
++                    failures = 0;
++                    if let Some(full) = arguments.full_look {
++                        upgrade.opened((mode.width, mode.height) == full, lamp_ipc::monotonic_us());
++                    }
+                     port = Some(opening);
+                     camera = lamp_eyes::bus_out::Camera::Open;
+                     reported_at = Instant::now();
+@@ -553,6 +650,8 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
+                     );
+                     let _ = opening.stop(budget(STOP));
+                     camera = lamp_eyes::bus_out::Camera::NotOpening;
++                    // The full size first, then the two in turn.
++                    failures = failures.saturating_add(1);
+                     retry_at = Instant::now() + RETRY;
+                     continue;
+                 }
+@@ -565,7 +664,9 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
+                 match open.try_frame(&mut frame, budget(READ_BUDGET_US)) {
+                     Ok(Some(got)) => {
+                         frames += 1;
+-                        latest = Some(got.bytes_used.min(frame.len()));
++                        frames_all += 1;
++                        newest = got.bytes_used.min(frame.len());
++                        latest = Some(newest);
+                     }
+                     Ok(None) => break,
+                     Err(error) => {
+@@ -582,16 +683,96 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
+                 let _ = open.stop(budget(STOP));
+             }
+             tell(Seen { face: None });
+-            if let Some(kept) = kept.as_mut() {
+-                kept.forget();
+-            }
++            lamp_eyes::kept::forget_all(&mut kept, &mut still_kept);
++            still_at = None;
+             if let Some(presence) = presence.as_mut() {
+                 presence.gone();
+             }
+             latest = None;
++            wanted = None;
+             retry_at = Instant::now() + RETRY;
+             continue;
+         }
++        if let Some(asked) = wanted.as_mut() {
++            let now_us = lamp_ipc::monotonic_us();
++            // What the body says of the head, read twenty times a second
++            // while the still waits for it.
++            if let Some(bus) = joints_bus.as_ref()
++                && joints_read_at.is_none_or(|at| at.elapsed() >= Duration::from_millis(50))
++            {
++                joints_read_at = Some(Instant::now());
++                head = bus
++                    .latest(lamp_msgs::JointState::TOPIC)
++                    .ok()
++                    .flatten()
++                    .filter(|message| !message.expired)
++                    .and_then(|message| message.parse::<lamp_msgs::JointState>().ok())
++                    .map_or(Head::Absent, |joints| lamp_eyes::full_look::head(&joints));
++            }
++            asked.body(head, now_us, frames_all);
++            if asked.take(frames_all) && newest > 0 {
++                let made = Instant::now();
++                let waited_ms = asked.waited_us().unwrap_or(0) / 1_000;
++                match lamp_eyes::full_look::fit(
++                    &frame[..newest],
++                    lamp_eyes::kept::MOST_BYTES - lamp_eyes::full_look::TAG_BYTES,
++                ) {
++                    Ok((still, size)) => {
++                        // The ask's id goes with the picture, so that a
++                        // late still is never taken for a later ask.
++                        let still = lamp_eyes::full_look::tagged(&still, wanted_id);
++                        let written = still_kept.as_mut().map(|kept| kept.keep(&still));
++                        eprintln!(
++                            "lamp-eyes: a full look: {} by {}, {} bytes, the head waited for {waited_ms} ms, made in {} ms{}",
++                            size.0,
++                            size.1,
++                            still.len(),
++                            made.elapsed().as_millis(),
++                            match written {
++                                Some(Ok(())) => String::new(),
++                                _ => ", not written".to_owned(),
++                            }
++                        );
++                        still_at = Some(Instant::now());
++                    }
++                    Err(error) => eprintln!("lamp-eyes: no full look: {error}"),
++                }
++                wanted = None;
++            } else if asked.given_up(now_us) {
++                eprintln!("lamp-eyes: no full look: no frame in time");
++                wanted = None;
++            }
++        }
++        // Streaming at the working size for want of the full one: try the
++        // full size again once nobody is in view and no look is asked for.
++        if arguments.full_look.is_some()
++            && upgrade.due(
++                lamp_ipc::monotonic_us(),
++                face_at.is_some_and(|at| at.elapsed() < FOLLOW_FOR),
++                wanted.is_some(),
++            )
++            && let Some(mut open) = port.take()
++        {
++            let tries = upgrade.tried();
++            eprintln!(
++                "lamp-eyes: closing the camera to try the full size again (try {tries}); at the working size if it does not open"
++            );
++            // Stopped with the STOP budget, as every close is (#921): the
++            // budget is checked around the driver's blocking calls, so a
++            // stuck ioctl or a failed STREAMOFF can still hold the buffers
++            // (docs/camera-runtime.md). The reopen at the full size comes
++            // next, through the same `permit.opened` as any open.
++            let _ = open.stop(budget(STOP));
++            camera = lamp_eyes::bus_out::Camera::Closed;
++            lamp_eyes::kept::forget_all(&mut kept, &mut still_kept);
++            still_at = None;
++            wanted = None;
++            latest = None;
++            // One try at the full size, then the two in turn.
++            failures = lamp_eyes::full_look::FULL_FIRST - 1;
++            retry_at = Instant::now();
++            continue;
++        }
+         let every = if face_at.is_some_and(|at| at.elapsed() < FOLLOW_FOR) {
+             LOOK_EVERY
+         } else {
+@@ -604,8 +785,14 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
+             looked_at = Instant::now();
+             // What the lamp sees now, for the voice service; a frame that is
+             // not whole leaves the one before it.
++            // With a full look the frame is larger: it is kept shrunk to
++            // 320 across, and a still asked for goes to its own file.
+             if let Some(kept) = kept.as_mut() {
+-                let _ = kept.keep(&frame[..used]);
++                if arguments.full_look.is_none() {
++                    let _ = kept.keep(&frame[..used]);
++                } else if let Ok(working) = lamp_eyes::full_look::working(&frame[..used]) {
++                    let _ = kept.keep(&working);
++                }
+             }
+             let found = Picture::from_jpeg(&frame[..used]).and_then(|picture| {
+                 detector
+@@ -840,4 +1027,99 @@ mod tests {
+             assert_eq!(usb_of(refused), None, "{refused}");
+         }
+     }
++
++    #[test]
++    fn a_full_look_is_off_unless_given_a_size_and_its_own_file() {
++        // Without it the camera is opened at 320 by 240 as before.
++        let without = parse(args(&FULL)).unwrap().unwrap();
++        assert_eq!((without.full_look, without.full_look_file), (None, None));
++        let sight = [
++            "--sight-file",
++            "/run/lampos-eyes/sight.jpg",
++            "--full-look-file",
++            "/run/lampos-eyes/full-look.jpg",
++        ];
++        let full = [&FULL[..], &sight[..], &["--full-look", "1280x960"]].concat();
++        let with = parse(args(&full)).unwrap().unwrap();
++        assert_eq!(with.full_look, Some((1_280, 960)));
++        // The still has its own file: the working frame stays in the
++        // sight file for whoever reads it at any time (#873).
++        assert_eq!(
++            with.full_look_file,
++            Some(PathBuf::from("/run/lampos-eyes/full-look.jpg"))
++        );
++        assert_eq!(
++            with.sight_file,
++            Some(PathBuf::from("/run/lampos-eyes/sight.jpg"))
++        );
++        // One without the other, or the still in the sight file: refused.
++        assert!(parse(args(&[&FULL[..], &["--full-look", "1280x960"]].concat())).is_err());
++        assert!(parse(args(&[&FULL[..], &sight[..]].concat())).is_err());
++        let same = [
++            "--sight-file",
++            "/run/lampos-eyes/sight.jpg",
++            "--full-look-file",
++            "/run/lampos-eyes/sight.jpg",
++            "--full-look",
++            "1280x960",
++        ];
++        assert!(parse(args(&[&FULL[..], &same[..]].concat())).is_err());
++        // Without a sight file the full look is still taken; no working
++        // frame is kept, as without the full look.
++        let alone = [
++            "--full-look-file",
++            "/run/lampos-eyes/full-look.jpg",
++            "--full-look",
++            "1280x960",
++        ];
++        assert!(parse(args(&[&FULL[..], &alone[..]].concat())).is_ok());
++        for refused in [
++            "1280",
++            "1280x",
++            "x960",
++            "160x120",
++            "8192x6144",
++            "1281x960",
++            "1600x1200",
++            "1280x962",
++            "big",
++        ] {
++            assert!(
++                parse(args(
++                    &[&FULL[..], &sight[..], &["--full-look", refused]].concat()
++                ))
++                .is_err(),
++                "{refused}"
++            );
++        }
++        assert!(parse(args(&[&full[..], &["--full-look", "640x480"]].concat())).is_err());
++        // Its ask is not a permission, and says nothing to the camera.
++        assert_eq!(lamp_eyes::permit::of(br#"{"look_full":7}"#), None);
++    }
++
++    /// The largest full look is the largest size the camera opens (#836: at
++    /// 1280x960 against a bound of 720 it never opened on lamp-52e6).
++    #[cfg(target_os = "linux")]
++    #[test]
++    fn the_largest_full_look_is_the_camera_s_largest_size() {
++        let (width, height) = (lamp_camera::MAX_WIDTH, lamp_camera::MAX_HEIGHT);
++        assert_eq!(size_of(&format!("{width}x{height}")), Some((width, height)));
++        assert_eq!(size_of(&format!("{}x{height}", width + 2)), None);
++        assert_eq!(size_of(&format!("{width}x{}", height + 2)), None);
++    }
++
++    #[test]
++    fn without_a_full_look_the_camera_opens_as_before() {
++        let without = parse(args(&FULL)).unwrap().unwrap().full_look;
++        // Whatever the last open did.
++        assert_eq!(opened_at(without, 0), (320, 240));
++        assert_eq!(opened_at(without, 7), (320, 240));
++        let with = Some((1_280, 960));
++        assert_eq!(opened_at(with, 0), (1_280, 960));
++        // After failing at the full size, the working size once.
++        assert_eq!(
++            opened_at(with, lamp_eyes::full_look::FULL_FIRST),
++            (320, 240)
++        );
++    }
+ }
+diff --git a/lampOS/crates/eyes/src/permit.rs b/lampOS/crates/eyes/src/permit.rs
+index e6e967e7c..2c8525fa2 100644
+--- a/lampOS/crates/eyes/src/permit.rs
++++ b/lampOS/crates/eyes/src/permit.rs
+@@ -1,5 +1,7 @@
+ //! Whether the camera may be open: `{"camera":true}` on the permit socket
+ //! at least every [`STALE`], and `{"camera":false}` closes it at once.
++//! Anything else on the socket (a full look's ask, `--full-look`) is kept
++//! for the eyes' loop to read ([`Permit::heard`]).
+ 
+ use std::os::unix::net::UnixDatagram;
+ use std::sync::{Arc, Mutex};
+@@ -30,8 +32,14 @@ pub fn of(datagram: &[u8]) -> Option<bool> {
+ #[derive(Debug, Default)]
+ pub struct Permit {
+     at: Arc<Mutex<Option<Instant>>>,
++    /// Datagrams that are not a permission, newest last, at most [`HEARD`].
++    others: Arc<Mutex<Vec<Vec<u8>>>>,
+ }
+ 
++/// Datagrams other than a permission kept for the loop at most: an older
++/// one is dropped when another comes.
++pub const HEARD: usize = 8;
++
+ impl Permit {
+     /// Hears the socket from now on. If the socket fails, nothing renews the
+     /// permission and the camera closes once it has run out.
+@@ -39,6 +47,7 @@ impl Permit {
+         socket.set_nonblocking(false)?;
+         let permit = Permit::default();
+         let at = Arc::clone(&permit.at);
++        let others = Arc::clone(&permit.others);
+         std::thread::Builder::new()
+             .name("permit".into())
+             .spawn(move || {
+@@ -47,7 +56,16 @@ impl Permit {
+                     let heard = match of(&datagram[..length]) {
+                         Some(true) => Some(Instant::now()),
+                         Some(false) => None,
+-                        None => continue,
++                        None => {
++                            let mut others = others
++                                .lock()
++                                .unwrap_or_else(|poisoned| poisoned.into_inner());
++                            if others.len() >= HEARD {
++                                others.remove(0);
++                            }
++                            others.push(datagram[..length].to_vec());
++                            continue;
++                        }
+                     };
+                     *at.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) = heard;
+                 }
+@@ -55,6 +73,17 @@ impl Permit {
+         Ok(permit)
+     }
+ 
++    /// The datagrams heard since the last call that were not a permission,
++    /// oldest first.
++    pub fn heard(&self) -> Vec<Vec<u8>> {
++        std::mem::take(
++            &mut *self
++                .others
++                .lock()
++                .unwrap_or_else(|poisoned| poisoned.into_inner()),
++        )
++    }
++
+     /// Whether the camera may be open now.
+     pub fn holds(&self) -> bool {
+         self.at
+@@ -140,6 +169,40 @@ mod tests {
+         assert!(!closed);
+     }
+ 
++    #[test]
++    fn what_is_not_a_permission_is_kept_for_the_loop_and_changes_nothing() {
++        let (permit, voice) = permitted();
++        voice.send(br#"{"look_full":7}"#).unwrap();
++        voice.send(br#"{"camera":true}"#).unwrap();
++        let waited = Instant::now();
++        let mut heard = Vec::new();
++        while heard.is_empty() {
++            assert!(waited.elapsed() < Duration::from_secs(1), "never heard");
++            std::thread::sleep(Duration::from_millis(1));
++            heard = permit.heard();
++        }
++        assert_eq!(heard, [br#"{"look_full":7}"#.to_vec()]);
++        assert!(permit.holds());
++        assert!(permit.heard().is_empty());
++        // At most HEARD are kept, the newest.
++        for id in 0..HEARD + 3 {
++            voice
++                .send(format!(r#"{{"look_full":{id}}}"#).as_bytes())
++                .unwrap();
++        }
++        voice.send(br#"{"camera":false}"#).unwrap();
++        while permit.holds() {
++            assert!(waited.elapsed() < Duration::from_secs(2), "never closed");
++            std::thread::sleep(Duration::from_millis(1));
++        }
++        let heard = permit.heard();
++        assert_eq!(heard.len(), HEARD);
++        assert_eq!(
++            heard[HEARD - 1],
++            format!(r#"{{"look_full":{}}}"#, HEARD + 2).into_bytes()
++        );
++    }
++
+     #[test]
+     fn a_permission_is_one_exact_object_and_anything_else_says_nothing() {
+         assert_eq!(of(br#"{"camera":true}"#), Some(true));
+diff --git a/lampOS/crates/policy/examples/progress_cost.rs b/lampOS/crates/policy/examples/progress_cost.rs
+index cb6727531..fb18b2723 100644
+--- a/lampOS/crates/policy/examples/progress_cost.rs
++++ b/lampOS/crates/policy/examples/progress_cost.rs
+@@ -124,6 +124,7 @@ fn main() -> io::Result<()> {
+             log_dir: log_dir.clone(),
+             deadline: Duration::from_secs(1),
+             pause: Duration::from_millis(300),
++            act_attention: false,
+         };
+         let progress = progress::Options::new(Duration::from_secs(1), Some(420));
+         thread::spawn(move || {
+diff --git a/lampOS/crates/policy/src/bin/lamp-policy-judges.rs b/lampOS/crates/policy/src/bin/lamp-policy-judges.rs
+index 02db0345b..499e25a3b 100644
+--- a/lampOS/crates/policy/src/bin/lamp-policy-judges.rs
++++ b/lampOS/crates/policy/src/bin/lamp-policy-judges.rs
+@@ -193,6 +193,7 @@ fn run<D: Decider + Send + 'static>(
+             log_dir: args.log.clone(),
+             deadline: args.request,
+             pause: PAUSE,
++            act_attention: false,
+         },
+         &stop,
+         &mut |note| {
+diff --git a/lampOS/crates/policy/src/main.rs b/lampOS/crates/policy/src/main.rs
+index d47fb578d..a609b9bb2 100644
+--- a/lampOS/crates/policy/src/main.rs
++++ b/lampOS/crates/policy/src/main.rs
+@@ -28,7 +28,7 @@ use std::{
+     time::Duration,
+ };
+ 
+-const USAGE: &str = "usage: lamp-policy --key-file ABSOLUTE_PATH --log-dir ABSOLUTE_DIR [--endpoint URL] [--model NAME] [--deadline-ms N] [--bus-root ABSOLUTE_DIR] [--progress [--utc-offset-minutes N] [--act progress]]";
++const USAGE: &str = "usage: lamp-policy --key-file ABSOLUTE_PATH --log-dir ABSOLUTE_DIR [--endpoint URL] [--model NAME] [--deadline-ms N] [--bus-root ABSOLUTE_DIR] [--progress [--utc-offset-minutes N] [--act progress]] [--act attention]";
+ const HELP: &str = "The lamp's policy, in shadow mode: judges whether each thing the voice hears was said to\n\
+ the lamp, publishes the decision on the bus (policy/decisions) and writes it down. Nothing\n\
+ acts on it. See docs/policy.md.\n\
+@@ -47,6 +47,9 @@ acts on it. See docs/policy.md.\n\
+                  question is shown (-720 to 840); without it the hour is not known\n\
+   --act progress the progress decisions act: published with shadow false, so that the voice\n\
+                  tells a say_now. Needs --progress. \"Is this said to the lamp?\" stays shadow\n\
++  --act attention  \"is this said to the lamp?\" is published with shadow false, so that the voice\n\
++                 holds the lamp's actions on a stay_quiet (LAMP_POLICY_HOLDS_ACTIONS=on); speech\n\
++                 is not held. Off unless set\n\
+ What is heard is sent to the decision model's service. Do not run this on real speech in the\n\
+ office until the owner has said so: it is for played tests.";
+ 
+@@ -63,12 +66,16 @@ struct Arguments {
+     utc_offset_minutes: Option<i32>,
+     /// Its decisions act (`--act progress`): off unless set.
+     act_progress: bool,
++    /// The attention decisions act (`--act attention`, #800): off unless
++    /// set.
++    act_attention: bool,
+ }
+ 
+ fn parse(arguments: impl Iterator<Item = String>) -> Result<Option<Arguments>, String> {
+     let (mut key_file, mut log_dir, mut endpoint, mut model, mut deadline, mut bus) =
+         (None, None, None, None, None, None);
+-    let (mut progress, mut utc_offset_minutes, mut act) = (false, None, None);
++    let (mut progress, mut utc_offset_minutes) = (false, None);
++    let (mut act_progress, mut act_attention) = (false, false);
+     let mut arguments = arguments;
+     while let Some(option) = arguments.next() {
+         if option == "--help" || option == "-h" {
+@@ -104,13 +111,16 @@ fn parse(arguments: impl Iterator<Item = String>) -> Result<Option<Arguments>, S
+                 }
+                 model.replace(value).is_some()
+             }
+-            // The one question that may act, for now.
+-            "--act" => {
+-                if value != "progress" {
+-                    return Err("--act takes progress, the one question that may act".into());
++            // The questions that may act.
++            "--act" => match value.as_str() {
++                "progress" => std::mem::replace(&mut act_progress, true),
++                "attention" => std::mem::replace(&mut act_attention, true),
++                _ => {
++                    return Err(
++                        "--act takes progress or attention, the questions that may act".into(),
++                    );
+                 }
+-                act.replace(true).is_some()
+-            }
++            },
+             "--utc-offset-minutes" => {
+                 let minutes = value
+                     .parse::<i32>()
+@@ -135,7 +145,7 @@ fn parse(arguments: impl Iterator<Item = String>) -> Result<Option<Arguments>, S
+             return Err(format!("{option} was given twice"));
+         }
+     }
+-    if act.is_some() && !progress {
++    if act_progress && !progress {
+         return Err("--act progress needs --progress".into());
+     }
+     Ok(Some(Arguments {
+@@ -147,10 +157,32 @@ fn parse(arguments: impl Iterator<Item = String>) -> Result<Option<Arguments>, S
+         bus,
+         progress,
+         utc_offset_minutes,
+-        act_progress: act.unwrap_or(false),
++        act_progress,
++        act_attention,
+     }))
+ }
+ 
++/// The questions asked beside "is this said to the lamp?", and those that
++/// act, for the start line.
++fn questions(arguments: &Arguments) -> String {
++    let mut said = String::new();
++    if arguments.progress {
++        said.push_str(" progress=true");
++    }
++    let acting: Vec<&str> = [
++        (arguments.act_progress, "progress"),
++        (arguments.act_attention, "attention"),
++    ]
++    .into_iter()
++    .filter_map(|(acts, name)| acts.then_some(name))
++    .collect();
++    if !acting.is_empty() {
++        said.push_str(" act=");
++        said.push_str(&acting.join(","));
++    }
++    said
++}
++
+ /// One line to the journal. A journal that has gone away is no reason for
+ /// the policy to stop.
+ fn log(line: &str) {
+@@ -173,17 +205,14 @@ fn run(arguments: &Arguments) -> io::Result<()> {
+         PAUSE.as_millis(),
+         arguments.log_dir.display(),
+         bus.root().display(),
+-        policy::SHADOW,
+-        match (arguments.progress, arguments.act_progress) {
+-            (true, true) => " progress=true act=progress",
+-            (true, false) => " progress=true",
+-            _ => "",
+-        },
++        policy::SHADOW && !arguments.act_attention,
++        questions(arguments),
+     ));
+     let options = Options {
+         log_dir: arguments.log_dir.clone(),
+         deadline: arguments.deadline,
+         pause: PAUSE,
++        act_attention: arguments.act_attention,
+     };
+     // Nothing sets the flag: the process runs until it is killed.
+     let stop = AtomicBool::new(false);
+@@ -267,6 +296,7 @@ mod tests {
+                 progress: false,
+                 utc_offset_minutes: None,
+                 act_progress: false,
++                act_attention: false,
+             }
+         );
+         let least = of("--log-dir /d --key-file /k").unwrap().unwrap();
+@@ -282,6 +312,7 @@ mod tests {
+                 progress: false,
+                 utc_offset_minutes: None,
+                 act_progress: false,
++                act_attention: false,
+             }
+         );
+         // The progress question, and the lamp's local time for it.
+@@ -294,7 +325,19 @@ mod tests {
+         let acting = of("--log-dir /d --progress --act progress --key-file /k")
+             .unwrap()
+             .unwrap();
+-        assert!(acting.progress && acting.act_progress);
++        assert!(acting.progress && acting.act_progress && !acting.act_attention);
++        assert_eq!(questions(&acting), " progress=true act=progress");
++        // "Is this said to the lamp?" acting (#800), on its own, and beside
++        // progress acting.
++        let attending = of("--log-dir /d --key-file /k --act attention")
++            .unwrap()
++            .unwrap();
++        assert!(attending.act_attention && !attending.progress && !attending.act_progress);
++        assert_eq!(questions(&attending), " act=attention");
++        let both = of("--log-dir /d --key-file /k --progress --act attention --act progress")
++            .unwrap()
++            .unwrap();
++        assert_eq!(questions(&both), " progress=true act=progress,attention");
+         assert_eq!(
+             of("--log-dir /d --key-file /k --utc-offset-minutes -300")
+                 .unwrap()
+@@ -333,7 +376,8 @@ mod tests {
+             "--key-file /k --log-dir",
+             "--key-file /k --log-dir /d --progress --progress",
+             "--key-file /k --log-dir /d --act progress",
+-            "--key-file /k --log-dir /d --progress --act attention",
++            "--key-file /k --log-dir /d --act attention --act attention",
++            "--key-file /k --log-dir /d --act hello",
+             "--key-file /k --log-dir /d --progress --act progress --act progress",
+             "--key-file /k --log-dir /d --progress --act",
+             "--key-file /k --log-dir /d --utc-offset-minutes 841",
+diff --git a/lampOS/crates/policy/src/policy.rs b/lampOS/crates/policy/src/policy.rs
+index 4fa7efa4b..50ecd18b7 100644
+--- a/lampOS/crates/policy/src/policy.rs
++++ b/lampOS/crates/policy/src/policy.rs
+@@ -81,6 +81,11 @@ pub struct Options {
+     pub deadline: Duration,
+     /// How long after its last piece an utterance is over.
+     pub pause: Duration,
++    /// The attention decisions act (`lamp-policy --act attention`, #800):
++    /// published, and written down, with `shadow: false`, for the voice to
++    /// hold the lamp's actions by (`LAMP_POLICY_HOLDS_ACTIONS=on`). Speech
++    /// is not held. Off unless set: shadow.
++    pub act_attention: bool,
+ }
+ 
+ /// What was counted from start to stop.
+@@ -716,6 +721,9 @@ struct Policy<'a> {
+     judge_log: Option<judge_log::Writer>,
+     /// The progress question, only with `--progress` (`run_with_progress`).
+     progress: Option<Progress>,
++    /// Whether the attention decisions are shadow: always, unless
++    /// `--act attention` ([`Options::act_attention`], #800).
++    attention_shadow: bool,
+ }
+ 
+ impl Policy<'_> {
+@@ -904,7 +912,7 @@ impl Policy<'_> {
+             answers: answers.clone(),
+             by: by.clone(),
+             took_ms,
+-            shadow: SHADOW,
++            shadow: self.attention_shadow,
+             request: utterance.request,
+             task: None,
+         });
+@@ -922,7 +930,7 @@ impl Policy<'_> {
+         let line = Line {
+             at_unix_ms,
+             about: attention::ABOUT,
+-            shadow: SHADOW,
++            shadow: self.attention_shadow,
+             context: &context,
+             in_conversation: context.in_conversation(),
+             state: attention::state(&context),
+@@ -1134,7 +1142,7 @@ impl Policy<'_> {
+         let report = Diagnostic::new(level, NAME, message)
+             .with("decided", self.totals.decided)
+             .with("by_rule", self.totals.by_rule)
+-            .with("shadow", SHADOW);
++            .with("shadow", self.attention_shadow);
+         // Only with `--progress`: without it the report is as it was.
+         match self.progress.as_ref() {
+             Some(progress) => {
+@@ -1321,6 +1329,7 @@ fn run_inner<D: Decider + Send + 'static>(
+         judges,
+         judge_log,
+         progress,
++        attention_shadow: SHADOW && !options.act_attention,
+     };
+     policy.second();
+     if let Some(judges) = policy.judges.take() {
+diff --git a/lampOS/crates/policy/tests/judges.rs b/lampOS/crates/policy/tests/judges.rs
+index 368693146..c129489e4 100644
+--- a/lampOS/crates/policy/tests/judges.rs
++++ b/lampOS/crates/policy/tests/judges.rs
+@@ -127,6 +127,7 @@ impl Rig {
+             log_dir: log.clone(),
+             deadline: WAIT,
+             pause: ms(10),
++            act_attention: false,
+         };
+         let worker = thread::spawn(move || {
+             let result = policy::run_with_local(
+diff --git a/lampOS/crates/policy/tests/policy.rs b/lampOS/crates/policy/tests/policy.rs
+index 07a0b48e1..83c6eea54 100644
+--- a/lampOS/crates/policy/tests/policy.rs
++++ b/lampOS/crates/policy/tests/policy.rs
+@@ -171,6 +171,7 @@ impl Rig {
+             log_dir: rig.log_dir.clone(),
+             deadline: ms(900),
+             pause: PAUSE,
++            act_attention: false,
+         };
+         let stand_in = StandIn {
+             script,
+diff --git a/lampOS/crates/policy/tests/program.rs b/lampOS/crates/policy/tests/program.rs
+index 9e160da4b..30ee9fea1 100644
+--- a/lampOS/crates/policy/tests/program.rs
++++ b/lampOS/crates/policy/tests/program.rs
+@@ -173,6 +173,11 @@ fn service() -> (u16, mpsc::Receiver<(String, Value)>) {
+ }
+ 
+ fn start(places: &Places, endpoint: &str) -> Running {
++    start_with(places, endpoint, &[])
++}
++
++/// As [`start`], with `more` options after the rest.
++fn start_with(places: &Places, endpoint: &str, more: &[&str]) -> Running {
+     let child = Command::new(PROGRAM)
+         .arg("--key-file")
+         .arg(places.kept.join("key"))
+@@ -181,6 +186,7 @@ fn start(places: &Places, endpoint: &str) -> Running {
+         .args(["--endpoint", endpoint, "--deadline-ms", "2000"])
+         .arg("--bus-root")
+         .arg(&places.root)
++        .args(more)
+         // Whatever the test was started with, the option decides.
+         .env_remove("LAMP_BUS_ROOT")
+         .stdin(Stdio::null())
+@@ -502,3 +508,60 @@ fn a_log_directory_others_can_enter_or_a_missing_key_ends_it_before_it_listens()
+     // Neither run subscribed to anything.
+     assert!(Bus::new(&places.root).unwrap().topics().unwrap().is_empty());
+ }
++
++/// `--act attention` (#800): "is this said to the lamp?" is published, and
++/// written down, with `shadow: false`, for the voice to hold the lamp's
++/// actions by; the start line says so. Without it every attention decision
++/// stays shadow (the tests above).
++#[test]
++fn with_act_attention_the_attention_decision_is_published_for_real() {
++    let places = Places::new("act");
++    let (port, _requests) = service();
++    let endpoint = format!("http://127.0.0.1:{port}/api/alpha/decisions");
++    let bus = Bus::new(&places.root).unwrap();
++    let [heard_topic, said_topic] = Speech::TOPICS;
++    let mut heard = bus
++        .publisher_declared(heard_topic, &Speech::declaration(), "voice")
++        .unwrap();
++    let _said = bus
++        .publisher_declared(said_topic, &Speech::declaration(), "voice")
++        .unwrap();
++    let mut decisions = bus
++        .subscribe_typed(Decision::TOPIC, "test", Decision::TYPE)
++        .unwrap();
++    let running = start_with(&places, &endpoint, &["--act", "attention"]);
++    for topic in [heard_topic, said_topic, VoiceState::TOPIC] {
++        listening(&bus, topic);
++    }
++    for text in ["I left", " the lamp on", " in the kitchen."] {
++        heard
++            .publish_json(
++                0,
++                &Speech {
++                    text: text.into(),
++                    finished: false,
++                    locale: None,
++                    request: Some(4),
++                },
++            )
++            .unwrap();
++        thread::sleep(Duration::from_millis(50));
++    }
++    let message = decisions.recv(WAIT).unwrap().expect("a decision");
++    let decision: Decision = message.parse().unwrap();
++    assert_eq!(decision.check(), Ok(()));
++    assert_eq!(
++        (decision.about.as_str(), decision.shadow, decision.request),
++        ("attention", false, Some(4))
++    );
++    let lines = log(&places.kept.join("decisions"), 1);
++    assert_eq!(lines[0]["shadow"], false);
++    let output = running.end(&["lamp-policy: started", "lamp-policy: decision"]);
++    let printed = String::from_utf8_lossy(&output.stderr);
++    let started = printed
++        .lines()
++        .find(|line| line.starts_with("lamp-policy: started"))
++        .unwrap();
++    assert!(started.contains(" shadow=false"), "{started}");
++    assert!(started.contains(" act=attention"), "{started}");
++}
+diff --git a/lampOS/crates/policy/tests/progress.rs b/lampOS/crates/policy/tests/progress.rs
+index 6934ca044..86e49f709 100644
+--- a/lampOS/crates/policy/tests/progress.rs
++++ b/lampOS/crates/policy/tests/progress.rs
+@@ -153,6 +153,7 @@ impl Rig {
+             log_dir: rig.log_dir.clone(),
+             deadline: ms(900),
+             pause: ms(300),
++            act_attention: false,
+         };
+         let progress = progress::Options {
+             deadline: ms(900),
+@@ -582,6 +583,7 @@ fn without_the_switch_the_tasks_topic_is_not_listened_to_and_the_report_is_as_be
+             log_dir: log_dir.clone(),
+             deadline: ms(900),
+             pause: ms(300),
++            act_attention: false,
+         };
+         thread::spawn(move || policy::run(&bus, Attention, &options, &stop, &mut |_| {}))
+     };
+diff --git a/lampOS/crates/voice/src/body_link.rs b/lampOS/crates/voice/src/body_link.rs
+index ee71b8040..307b795c1 100644
+--- a/lampOS/crates/voice/src/body_link.rs
++++ b/lampOS/crates/voice/src/body_link.rs
+@@ -326,12 +326,39 @@ impl EyesLink {
+         // Nobody listening, a full queue, a missing path: all the same here.
+         let _ = self.socket.send_to(message, &self.path);
+     }
++
++    /// Ask the eyes for one full look (#836), whose still comes marked with
++    /// `id`. Eyes started without `--full-look` take it for nothing.
++    pub fn look_full(&mut self, id: u64) {
++        let message = format!(r#"{{"look_full":{id}}}"#);
++        let _ = self.socket.send_to(message.as_bytes(), &self.path);
++    }
+ }
+ 
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+ 
++    #[test]
++    fn the_eyes_are_asked_for_a_full_look_in_one_exact_datagram() {
++        let directory =
++            std::env::temp_dir().join(format!("lamp-voice-eyes-{}", std::process::id()));
++        std::fs::create_dir_all(&directory).unwrap();
++        let path = directory.join("permit.sock");
++        let _ = std::fs::remove_file(&path);
++        let eyes = UnixDatagram::bind(&path).unwrap();
++        let mut link = EyesLink::to(path.clone()).unwrap();
++        link.look_full(1_760_000_000_042);
++        let mut got = [0u8; 64];
++        let length = eyes.recv(&mut got).unwrap();
++        assert_eq!(&got[..length], br#"{"look_full":1760000000042}"#);
++        // The largest id fits the eyes' 64-byte read.
++        link.look_full(u64::MAX);
++        let length = eyes.recv(&mut got).unwrap();
++        assert!(length < 64);
++        std::fs::remove_dir_all(&directory).unwrap();
++    }
++
+     #[test]
+     fn a_turn_let_through_only_to_be_judged_does_not_make_the_room_busy() {
+         let mut room = Attention::default();
+diff --git a/lampOS/crates/voice/src/camera_config.rs b/lampOS/crates/voice/src/camera_config.rs
+index d48b86011..d194fae47 100644
+--- a/lampOS/crates/voice/src/camera_config.rs
++++ b/lampOS/crates/voice/src/camera_config.rs
+@@ -55,6 +55,11 @@ pub struct CameraConfig {
+     pub buffers: u8,
+ }
+ 
++/// The voice's camera: at most 1280x720 and 2 MiB a frame, as before the
++/// camera runtime's bounds grew for the eyes (#836).
++pub const VOICE_MAX_HEIGHT: u32 = 720;
++pub const VOICE_MAX_FRAME_BYTES: usize = 2 * 1024 * 1024;
++
+ pub fn valid_absolute(path: &Path) -> bool {
+     path.is_absolute()
+         && path.as_os_str().len() <= 4096
+@@ -95,6 +100,14 @@ impl CameraConfig {
+             buffers: self.buffers,
+         };
+         config.validate().map_err(io::Error::other)?;
++        // The camera runtime's bounds grew for the eyes' full look (#836);
++        // the voice's own camera keeps the ones it was provisioned under.
++        if config.height > VOICE_MAX_HEIGHT || config.max_frame_bytes > VOICE_MAX_FRAME_BYTES {
++            return Err(io::Error::new(
++                io::ErrorKind::InvalidInput,
++                "camera bounds exceeded",
++            ));
++        }
+         Ok(config)
+     }
+     /// The parent passes this exact digest to the child. A changed provisioning
+diff --git a/lampOS/crates/voice/src/coordinator.rs b/lampOS/crates/voice/src/coordinator.rs
+index 8787a86a2..5d878c81f 100644
+--- a/lampOS/crates/voice/src/coordinator.rs
++++ b/lampOS/crates/voice/src/coordinator.rs
+@@ -2751,6 +2751,14 @@ fn conversation_with_gate(
+     // keep a frame for it.
+     let looks = lifetime.continuous()
+         && std::env::var_os(crate::sight::LOOK_ENVIRONMENT).is_some_and(|path| !path.is_empty());
++    // A full look (#836, `LAMP_LOOK_FULL=on`): the eyes are asked for one
++    // still as the lamp says it will look, the look waits for it at most
++    // `STILL_WAIT`, and the model is told to say what it cannot make out.
++    let mut look = if looks {
++        crate::sight::Look::from_environment()
++    } else {
++        crate::sight::Look::new(None)
++    };
+     let mut answer_opening: Option<(u64, String)> = None;
+     let mut look_wanted: Option<(u64, u64)> = None;
+     // A due reminder's quoted words cannot authorize a later camera turn.
+@@ -4711,24 +4719,54 @@ fn conversation_with_gate(
+         // saying so. Someone speaking first takes the turn and the look is
+         // dropped; so is one that could not begin within fifteen seconds of being asked for.
+         if let Some((turn, asked_us)) = look_wanted {
++            if let Some(id) = look.ask(turn) {
++                if let Some(eyes) = eyes_link.as_mut() {
++                    eyes.look_full(id);
++                }
++                record(
++                    trace,
++                    json!({"kind":"look_full_asked","turn":turn,"at_us":clock}),
++                )?;
++            }
++            let waited = Duration::from_micros(clock.saturating_sub(asked_us));
+             match reply.as_ref().map(|current| current.owner.turn()) {
+                 Some(current) if current == turn => {}
+                 Some(_) => look_wanted = None,
+-                None if clock.saturating_sub(asked_us) > 15_000_000 => look_wanted = None,
++                None if clock.saturating_sub(asked_us)
++                    > crate::sight::LOOK_BEGINS_WITHIN.as_micros() as u64 =>
++                {
++                    look_wanted = None
++                }
+                 None => {
+-                    if provider_queue.is_empty()
++                    if look.due(waited)
++                        && provider_queue.is_empty()
+                         && !admission.owns_stream()
+                         && !submission_draining
+                         && snapshot.listening_ready(now())
+                         && let Some(provider_session) = unasked_session(&cloud, paused)
+                     {
+                         look_wanted = None;
++                        let (note, with_picture) = look.turn();
++                        if look.full() && !with_picture {
++                            eprintln!(
++                                "lamp-voice: a full look went without its still: {}",
++                                look.missing(std::time::SystemTime::now())
++                            );
++                        }
++                        if look.full() {
++                            record(
++                                trace,
++                                json!({"kind":"look_full_still","turn":turn,"at_us":clock,
++                                    "after_asked_ms":waited.as_millis() as u64,
++                                    "still":with_picture}),
++                            )?;
++                        }
+                         snapshot = commit_written_turn(
+                             owner,
+                             reply,
+                             &mut provider_queue,
+-                            crate::speak_up::LOOK_NOTE,
+-                            true,
++                            note,
++                            with_picture,
+                             "lamp_looks",
+                             provider_session,
+                             rig.playout_start,
+@@ -4899,6 +4937,18 @@ fn conversation_with_gate(
+             for line in walk.take_records() {
+                 record(trace, line)?;
+             }
++            // A step done: one move asked of the body, by the path the
++            // answers' nods take. None without a body or while paused.
++            if let Some(gesture) = walk.take_gesture()
++                && !paused
++                && let Some(body) = body_link.as_mut()
++            {
++                body.gesture(gesture);
++                record(
++                    trace,
++                    json!({"kind":"body_gesture_asked","why":"onboarding","gesture":gesture,"at_us":clock}),
++                )?;
++            }
+             if let Some(note) = note
+                 && let Some(provider_session) = unasked_session(&cloud, paused)
+             {
+diff --git a/lampOS/crates/voice/src/onboarding.rs b/lampOS/crates/voice/src/onboarding.rs
+index 75ae51c22..0c575c13e 100644
+--- a/lampOS/crates/voice/src/onboarding.rs
++++ b/lampOS/crates/voice/src/onboarding.rs
+@@ -118,11 +118,28 @@ impl Step {
+             Step::WhereYouSit => SIT_NOTE,
+             Step::WhoYouAre => WHO_NOTE,
+             Step::Preferences => PREFERENCES_NOTE,
+-            _ => "",
++            // PLACEHOLDER (#841): each owner words its own step's note,
++            // opening with "one more thing I can do now" for the re-offer.
++            _ => ONE_MORE_NOTE,
++        }
++    }
++
++    /// The one move the body is asked for when the step is done (#841,
++    /// First's addition 1): a nod when it sees them well, a greeting when
++    /// it knows them, a nod for the rest. The body has no lean yet.
++    fn gesture(self) -> &'static str {
++        match self {
++            Step::WhoYouAre => "greeting",
++            _ => "nod",
+         }
+     }
+ }
+ 
++pub const ONE_MORE_NOTE: &str = "(Nobody has spoken. Tell them in a few words that there is one more thing you can do now that you could not when you first met, and show them.)";
++/// A step not available at the first walk is offered again at most this
++/// often, until it has an outcome.
++const OFFER_EVERY_S: u64 = 86_400;
++
+ pub const SIT_NOTE: &str = "(Nobody has spoken. You are meeting the person you will live with for the first time. Say hello in a few warm words, then ask them to sit where they usually sit and look at you, so you learn where they are. Nothing more.)";
+ pub const SIT_NO_FACE: &str = "(You cannot see their face. Ask them in a few words to sit where they usually sit and look at you.)";
+ pub const SIT_CLOSER: &str = "(You can see them, but they are far from you. Ask them in a few words to bring you a bit closer.)";
+@@ -175,6 +192,9 @@ pub struct Kept {
+     pub at_unix_s: u64,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub framing: Option<Framing>,
++    /// When a step that was not available was last offered again.
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub offered_at_unix_s: Option<u64>,
+ }
+ 
+ /// The onboarding file: each step's outcome, by its name.
+@@ -209,6 +229,10 @@ pub struct Onboarding {
+     /// Whether the body has said where its joints are, or whether a hand
+     /// is on it, since this voice started.
+     body_heard: bool,
++    /// Which steps this voice has (`Step::available`; tests set their own).
++    available: fn(Step) -> bool,
++    /// The move asked of the body for a step just done, until taken.
++    gesture: Option<&'static str>,
+ }
+ 
+ /// What a read of a body topic found: nothing ever, a message
+@@ -288,6 +312,8 @@ impl Onboarding {
+             finished_recorded: false,
+             records: Vec::new(),
+             eyes: None,
++            available: Step::available,
++            gesture: None,
+             looked: None,
+             felt: None,
+             goals: None,
+@@ -445,7 +471,7 @@ impl Onboarding {
+                 }
+                 return None;
+             };
+-            if step.available() {
++            if (self.available)(step) {
+                 break step;
+             }
+             self.finish(step, Outcome::NotAvailable, None, now_us);
+@@ -466,9 +492,16 @@ impl Onboarding {
+             if can_speak && face.is_some() && quiet_us >= START_QUIET_US {
+                 led.asked_us = Some(now_us);
+                 led.guided_us = Some(now_us);
++                let again = self.kept.steps.get_mut(step.name()).map(|kept| {
++                    kept.offered_at_unix_s = Some(unix_ms() / 1_000);
++                });
+                 self.records.push(
+-                    json!({"kind":"onboarding_step","step":step.name(),"state":"asked","at_us":now_us}),
++                    json!({"kind":"onboarding_step","step":step.name(),"state":"asked",
++                        "offered_again":again.is_some(),"at_us":now_us}),
+                 );
++                if again.is_some() {
++                    self.save();
++                }
+                 return Some(step.note());
+             }
+             return None;
+@@ -527,10 +560,37 @@ impl Onboarding {
+         None
+     }
+ 
++    /// The first step with no outcome; once every step has one, a step that
++    /// was not available then and is now, offered at most once a day and
++    /// never before the walk is over (First's addition 2).
+     fn next_step(&self) -> Option<Step> {
++        let unix_s = unix_ms() / 1_000;
+         Step::ALL
+             .into_iter()
+             .find(|step| !self.kept.steps.contains_key(step.name()))
++            .or_else(|| {
++                // One being offered again now is led to its end.
++                self.led
++                    .as_ref()
++                    .filter(|led| led.asked_us.is_some())
++                    .map(|led| led.step)
++            })
++            .or_else(|| {
++                Step::ALL.into_iter().find(|step| {
++                    (self.available)(*step)
++                        && self.kept.steps.get(step.name()).is_some_and(|kept| {
++                            kept.outcome == Outcome::NotAvailable
++                                && kept
++                                    .offered_at_unix_s
++                                    .is_none_or(|at| unix_s.saturating_sub(at) >= OFFER_EVERY_S)
++                        })
++                })
++            })
++    }
++
++    /// The move to ask of the body for a step just done, once.
++    pub fn take_gesture(&mut self) -> Option<&'static str> {
++        self.gesture.take()
+     }
+ 
+     fn finish(&mut self, step: Step, outcome: Outcome, framing: Option<Framing>, now_us: u64) {
+@@ -543,8 +603,12 @@ impl Onboarding {
+                 outcome,
+                 at_unix_s,
+                 framing,
++                offered_at_unix_s: None,
+             },
+         );
++        if outcome == Outcome::Done {
++            self.gesture = Some(step.gesture());
++        }
+         if self.led.as_ref().is_some_and(|led| led.step == step) {
+             self.led = None;
+         }
+@@ -1056,6 +1120,78 @@ mod tests {
+         assert_eq!(stale.outcome(Step::WhereYouSit), None);
+     }
+ 
++    /// A walk to its end with every step skipped but the first.
++    fn walked(name: &str) -> Room {
++        let mut room = Room::new(name);
++        assert_eq!(room.wait(8 * S, Some(NEAR_MIDDLE)), [SIT_NOTE, SIT_DONE]);
++        assert_eq!(room.walk.take_gesture(), Some("nod"));
++        assert_eq!(room.wait(4 * S, Some(NEAR_MIDDLE)), [WHO_NOTE]);
++        report(&room.walk, "who_you_are", "done");
++        assert_eq!(room.wait(4 * S, Some(NEAR_MIDDLE)), [PREFERENCES_NOTE]);
++        assert_eq!(room.walk.take_gesture(), Some("greeting"));
++        report(&room.walk, "preferences", "skipped");
++        assert_eq!(room.wait(4 * S, Some(NEAR_MIDDLE)), NONE);
++        assert_eq!(room.walk.take_gesture(), None);
++        room
++    }
++
++    #[test]
++    fn a_step_done_asks_the_body_for_one_move_and_a_skip_for_none() {
++        let mut room = walked("gesture");
++        assert_eq!(room.walk.kept().steps.len(), 7);
++        assert_eq!(room.walk.take_gesture(), None);
++    }
++
++    #[test]
++    fn a_step_that_was_not_available_is_offered_once_a_day_when_it_is() {
++        let room = walked("offer");
++        // The same voice: nothing more is offered.
++        let mut same = Room {
++            walk: Onboarding::at(room.walk.file.clone()),
++            at: 0,
++            said: 0,
++            still: true,
++            body_on_bus: false,
++        };
++        assert_eq!(same.wait(30 * S, Some(NEAR_MIDDLE)), NONE);
++        // A later voice that has hearing: offered, after the walk.
++        let mut later = Room {
++            walk: Onboarding::at(room.walk.file.clone()),
++            at: 0,
++            said: 0,
++            still: true,
++            body_on_bus: false,
++        };
++        later.walk.available =
++            |step| step != Step::Touch && step != Step::Privacy && step != Step::GivingWay;
++        assert_eq!(later.wait(4 * S, Some(NEAR_MIDDLE)), [ONE_MORE_NOTE]);
++        assert!(later.walk.leading());
++        // Led to its end like any step, while it is being led.
++        assert_eq!(later.wait(20 * S, Some(NEAR_MIDDLE)), NONE);
++        assert!(later.walk.leading());
++        // They leave before it ends: not offered again today.
++        later.wait(31 * S, None);
++        assert!(!later.walk.leading());
++        assert_eq!(later.wait(60 * S, Some(NEAR_MIDDLE)), NONE);
++        assert_eq!(
++            later.outcome(Step::HowYouSound),
++            Some(Outcome::NotAvailable)
++        );
++        // A day later it is offered again, and done it is kept.
++        later
++            .walk
++            .kept
++            .steps
++            .get_mut("how_you_sound")
++            .unwrap()
++            .offered_at_unix_s = Some(unix_ms() / 1_000 - OFFER_EVERY_S);
++        assert_eq!(later.wait(4 * S, Some(NEAR_MIDDLE)), [ONE_MORE_NOTE]);
++        report(&later.walk, "how_you_sound", "done");
++        assert_eq!(later.wait(60 * S, Some(NEAR_MIDDLE)), NONE);
++        assert_eq!(later.outcome(Step::HowYouSound), Some(Outcome::Done));
++        assert_eq!(later.walk.take_gesture(), Some("nod"));
++    }
++
+     #[test]
+     fn any_sign_of_a_body_keeps_the_gate_closed_for_good() {
+         // Stale first, then missing: still a body.
+diff --git a/lampOS/crates/voice/src/provider_worker.rs b/lampOS/crates/voice/src/provider_worker.rs
+index 5c21d463a..44ae87157 100644
+--- a/lampOS/crates/voice/src/provider_worker.rs
++++ b/lampOS/crates/voice/src/provider_worker.rs
+@@ -72,6 +72,8 @@ const RENEW_AT_MOST_EVERY: Duration = Duration::from_secs(900);
+ static UNANSWERED: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+ /// Where the eyes keep their newest frame, when the lamp may take a look.
+ static LOOK_FILE: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLock::new();
++/// A look is a full look (`--eyes-look-full`): its still may be older.
++static LOOK_FULL: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+ /// Where the conversation's thread is kept across a restart, if anywhere.
+ static THREAD_FILE: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLock::new();
+ /// Whether a new session is told how things stand.
+@@ -102,6 +104,8 @@ static ADDRESSED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool:
+ pub struct Files {
+     /// The eyes' newest frame (`--eyes-look`).
+     pub look: Option<std::path::PathBuf>,
++    /// A look is a full look (`--eyes-look-full`, #836).
++    pub look_full: bool,
+     /// The conversation's thread (`--thread-file`).
+     pub thread: Option<std::path::PathBuf>,
+     /// Whether a new session is told how things stand (`--session-fact`).
+@@ -197,6 +201,7 @@ pub fn parse_flags(dir: &std::path::Path, flags: &[String]) -> io::Result<Parsed
+     let (continuation, flags) = Continuation::take(flags)?;
+     let (sight, flags) = crate::sight::Sight::take(flags)?;
+     let (look, flags) = crate::sight::take_look(flags)?;
++    let (look_full, flags) = crate::sight::take_look_full(flags);
+     let (thread, flags) = crate::thread::take_file(flags)?;
+     let (session_fact, flags) = crate::session_fact::take(flags);
+     let (room_facts, flags) = crate::room_told::take(flags);
+@@ -218,6 +223,7 @@ pub fn parse_flags(dir: &std::path::Path, flags: &[String]) -> io::Result<Parsed
+     let visual = VisualSource::parse(dir, flags)?;
+     let files = Files {
+         look,
++        look_full,
+         thread,
+         session_fact,
+         room_facts,
+@@ -811,6 +817,7 @@ pub async fn run_with_continuation(
+     if let Some(path) = files.look {
+         let _ = LOOK_FILE.set(path);
+     }
++    LOOK_FULL.store(files.look_full, std::sync::atomic::Ordering::Relaxed);
+     SESSION_FACT.store(files.session_fact, std::sync::atomic::Ordering::Relaxed);
+     ROOM_FACTS.store(files.room_facts, std::sync::atomic::Ordering::Relaxed);
+     AIR_FACTS.store(files.air_facts, std::sync::atomic::Ordering::Relaxed);
+@@ -3303,7 +3310,21 @@ impl InputHandoff {
+                 let picture = look
+                     .then(|| LOOK_FILE.get())
+                     .flatten()
+-                    .and_then(|path| crate::sight::fresh(path, std::time::SystemTime::now()).ok())
++                    .and_then(|path| {
++                        let within = if LOOK_FULL.load(std::sync::atomic::Ordering::Relaxed) {
++                            crate::sight::FULL_FRESH
++                        } else {
++                            std::time::Duration::from_secs(1)
++                        };
++                        crate::sight::fresh_within(path, std::time::SystemTime::now(), within)
++                            .inspect_err(|why| {
++                                eprintln!(
++                                    "lamp-voice provider: the lamp looked: no picture with request {}: {why}",
++                                    request.get()
++                                )
++                            })
++                            .ok()
++                    })
+                     .map(|(jpeg, _)| jpeg);
+                 let text = if look && picture.is_none() {
+                     crate::speak_up::NO_LOOK_NOTE
+diff --git a/lampOS/crates/voice/src/sight.rs b/lampOS/crates/voice/src/sight.rs
+index a398e84f0..f63754957 100644
+--- a/lampOS/crates/voice/src/sight.rs
++++ b/lampOS/crates/voice/src/sight.rs
+@@ -39,6 +39,25 @@ pub const ENVIRONMENT: &str = "LAMP_EYES_SIGHT_FILE";
+ /// carry no picture and pay nothing for one.
+ pub const LOOK_FLAG: &str = "--eyes-look";
+ pub const LOOK_ENVIRONMENT: &str = "LAMP_EYES_LOOK_FILE";
++/// A full look (#836), `on` only: as the lamp says it will look, the eyes
++/// are asked for one larger still taken once the head has settled
++/// (`lamp-eyes --full-look`), the look waits for it a little, and the model
++/// is told to say what it cannot make out rather than guess. The worker is
++/// told with a flag after the look's path.
++pub const LOOK_FULL_ENVIRONMENT: &str = "LAMP_LOOK_FULL";
++pub const LOOK_FULL_FLAG: &str = "--eyes-look-full";
++/// A look that has not begun this long after the lamp said it would look
++/// is dropped.
++pub const LOOK_BEGINS_WITHIN: Duration = Duration::from_secs(15);
++/// How old a full look's still may be when the look goes. It is taken while
++/// the lamp is still saying it will look, and the look goes once the lamp
++/// has finished saying so, up to [`LOOK_BEGINS_WITHIN`] later; the eyes keep
++/// it as long. At 3 s, as first built, a look that went more than 3 s after
++/// its still was made went without it (#842, lamp-4ace 03:57).
++pub const FULL_FRESH: Duration = LOOK_BEGINS_WITHIN;
++/// How long the look waits for the still after the lamp said it would
++/// look, at most: the eyes give it up after 2.5 s.
++pub const STILL_WAIT: Duration = Duration::from_millis(2_600);
+ 
+ const FRESH: Duration = Duration::from_secs(1);
+ /// The least time between two looks, whichever requests they fall in.
+@@ -75,10 +94,162 @@ pub fn arguments_from_environment() -> Vec<String> {
+             .unwrap_or_default()
+     };
+     let mut arguments = named(ENVIRONMENT, FLAG);
+-    arguments.extend(named(LOOK_ENVIRONMENT, LOOK_FLAG));
++    let look = named(LOOK_ENVIRONMENT, LOOK_FLAG);
++    // A full look reads its still from its own file; the eyes' working
++    // frame stays where it was for whoever else reads it (#873).
++    match full_look_file().filter(|_| !look.is_empty()) {
++        Some(path) => arguments.extend([
++            LOOK_FLAG.to_owned(),
++            path.to_string_lossy().into_owned(),
++            LOOK_FULL_FLAG.to_owned(),
++        ]),
++        None => arguments.extend(look),
++    }
+     arguments
+ }
+ 
++/// The file the eyes keep a full look's still in
++/// (`lamp-eyes --full-look-file`), apart from their working frame.
++pub const FULL_LOOK_FILE_ENVIRONMENT: &str = "LAMP_EYES_FULL_LOOK_FILE";
++
++/// The full look's file, when a look is a full look: `LAMP_LOOK_FULL=on`
++/// and a usable `LAMP_EYES_FULL_LOOK_FILE`. Either missing: no full look.
++pub fn full_look_file() -> Option<PathBuf> {
++    look_full_on()
++        .then(|| std::env::var_os(FULL_LOOK_FILE_ENVIRONMENT))
++        .flatten()
++        .map(PathBuf::from)
++        .filter(|path| usable(path))
++}
++
++/// Whether a look is a full look (`LAMP_LOOK_FULL=on`).
++pub fn look_full_on() -> bool {
++    std::env::var(LOOK_FULL_ENVIRONMENT).is_ok_and(|value| value == "on")
++}
++
++/// Take a leading `--eyes-look-full` off a worker's flags.
++pub fn take_look_full(flags: &[String]) -> (bool, &[String]) {
++    match flags {
++        [flag, rest @ ..] if flag == LOOK_FULL_FLAG => (true, rest),
++        _ => (false, flags),
++    }
++}
++
++/// The id of the ask a still was taken for, from the JPEG comment the eyes
++/// put right after the start of the image (`lamp-eyes`, `full_look::tagged`):
++/// `FF D8 FF FE`, the length, `lamp-look ID`.
++pub fn still_id(jpeg: &[u8]) -> Option<u64> {
++    let [0xff, 0xd8, 0xff, 0xfe, high, low, ..] = *jpeg else {
++        return None;
++    };
++    let text = jpeg.get(6..4 + usize::from(u16::from_be_bytes([high, low])))?;
++    std::str::from_utf8(text.strip_prefix(b"lamp-look ")?)
++        .ok()?
++        .parse()
++        .ok()
++}
++
++/// The coordinator's side of a look, full or not.
++#[derive(Debug)]
++pub struct Look {
++    /// The eyes' picture, when a look is a full look.
++    full: Option<PathBuf>,
++    /// The turn whose still was asked for, and the ask's id.
++    asked: Option<(u64, u64)>,
++    /// The next ask's id: from the clock when this began, so that a still
++    /// of a service that stopped is not taken for one of the next.
++    next_id: u64,
++}
++
++impl Look {
++    /// From `LAMP_LOOK_FULL` and the look's file, for a lamp that looks.
++    pub fn from_environment() -> Self {
++        Self::new(full_look_file())
++    }
++
++    pub fn new(full: Option<PathBuf>) -> Self {
++        let now_ms = SystemTime::now()
++            .duration_since(SystemTime::UNIX_EPOCH)
++            .map_or(1, |since| since.as_millis() as u64);
++        Self {
++            full,
++            asked: None,
++            next_id: now_ms.max(1),
++        }
++    }
++
++    pub fn full(&self) -> bool {
++        self.full.is_some()
++    }
++
++    /// The lamp said in `turn` that it will look: the id to ask the eyes
++    /// for a still with, once. Never without a full look.
++    pub fn ask(&mut self, turn: u64) -> Option<u64> {
++        if self.full.is_none() || self.asked.is_some_and(|(of, _)| of == turn) {
++            return None;
++        }
++        let id = self.next_id;
++        self.next_id += 1;
++        self.asked = Some((turn, id));
++        Some(id)
++    }
++
++    /// Whether the eyes' file holds the still taken for this ask: one with
++    /// its id, not one of an earlier ask written late.
++    pub fn still(&self) -> bool {
++        self.full
++            .as_deref()
++            .zip(self.asked)
++            .is_some_and(|(path, (_, id))| {
++                std::fs::read(path).is_ok_and(|jpeg| still_id(&jpeg) == Some(id))
++            })
++    }
++
++    /// For the journal, when a full look goes without its still: the id
++    /// asked for, what the file held instead and how old it was. No picture.
++    pub fn missing(&self, now: SystemTime) -> String {
++        let asked = self.asked.map_or(0, |(_, id)| id);
++        let Some(path) = self.full.as_deref() else {
++            return format!("asked for {asked}, no file");
++        };
++        let held = match std::fs::read(path) {
++            Err(_) => return format!("asked for {asked}, the file held nothing"),
++            Ok(jpeg) => match still_id(&jpeg) {
++                Some(id) => format!("the still of ask {id}"),
++                None => "a picture with no ask's id".to_owned(),
++            },
++        };
++        let age = std::fs::metadata(path)
++            .and_then(|about| about.modified())
++            .ok()
++            .and_then(|at| now.duration_since(at).ok())
++            .unwrap_or_default();
++        format!(
++            "asked for {asked}, the file held {held}, {} ms old",
++            age.as_millis()
++        )
++    }
++
++    /// Whether the look may go, `waited` after the lamp said it would look:
++    /// at once without a full look; with one, once the still is there or
++    /// after [`STILL_WAIT`].
++    pub fn due(&self, waited: Duration) -> bool {
++        self.full.is_none() || waited >= STILL_WAIT || self.still()
++    }
++
++    /// What the look's turn says, and whether the eyes' picture goes with
++    /// it. A full look whose still was not written since this look asked
++    /// for it says the eye was shut and takes no picture: the file may
++    /// still hold an earlier look's still, which is not this one's.
++    pub fn turn(&self) -> (&'static str, bool) {
++        match (self.full(), self.still()) {
++            (false, _) => (crate::speak_up::LOOK_NOTE, true),
++            (true, true) => (crate::speak_up::LOOK_FULL_NOTE, true),
++            (true, false) => (crate::speak_up::NO_LOOK_NOTE, false),
++        }
++    }
++}
++
+ /// Take a leading `--eyes-look PATH` off a worker's flags.
+ pub fn take_look(flags: &[String]) -> io::Result<(Option<PathBuf>, &[String])> {
+     match flags {
+@@ -96,13 +267,22 @@ pub fn take_look(flags: &[String]) -> io::Result<(Option<PathBuf>, &[String])> {
+ /// The eyes' newest frame and its age, if they are open: a file written in
+ /// the last second, of a size the provider takes.
+ pub fn fresh(path: &Path, now: SystemTime) -> Result<(Vec<u8>, Duration), &'static str> {
++    fresh_within(path, now, FRESH)
++}
++
++/// The same, written in the last `within`.
++pub fn fresh_within(
++    path: &Path,
++    now: SystemTime,
++    within: Duration,
++) -> Result<(Vec<u8>, Duration), &'static str> {
+     let about = std::fs::metadata(path).map_err(|_| "the eyes have no picture")?;
+     let age = about
+         .modified()
+         .ok()
+         .and_then(|at| now.duration_since(at).ok())
+         .unwrap_or_default();
+-    if age > FRESH {
++    if age > within {
+         return Err("the eyes' picture is old");
+     }
+     if about.len() > MAX_IMAGE_BYTES as u64 {
+@@ -291,4 +471,169 @@ mod tests {
+         );
+         std::fs::remove_dir_all(&directory).unwrap();
+     }
++
++    fn scratch(name: &str) -> PathBuf {
++        let directory = std::env::temp_dir().join(format!(
++            "lamp-voice-{name}-{}-{:?}",
++            std::process::id(),
++            std::thread::current().id()
++        ));
++        std::fs::create_dir_all(&directory).unwrap();
++        directory
++    }
++
++    #[test]
++    fn without_a_full_look_a_look_goes_at_once_with_the_old_note_and_asks_nothing() {
++        let mut look = Look::new(None);
++        assert!(!look.full());
++        assert_eq!(look.ask(7), None);
++        assert!(look.due(Duration::ZERO));
++        assert!(!look.still());
++        // The picture goes, with the note as it was.
++        assert_eq!(look.turn(), (crate::speak_up::LOOK_NOTE, true));
++        // And the worker is given no flag, so it reads as before.
++        let flags = vec!["--camera-context".to_owned()];
++        assert_eq!(take_look_full(&flags), (false, &flags[..]));
++    }
++
++    /// A still as the eyes write it (`lamp_eyes::full_look::tagged`).
++    fn still_of(id: u64) -> Vec<u8> {
++        let text = format!("lamp-look {id}");
++        let mut jpeg = vec![0xff, 0xd8, 0xff, 0xfe, 0, text.len() as u8 + 2];
++        jpeg.extend_from_slice(text.as_bytes());
++        jpeg.extend_from_slice(&[0xff, 0xdb, 0, 2, 0xff, 0xd9]);
++        jpeg
++    }
++
++    #[test]
++    fn a_still_s_id_is_read_from_its_comment_and_nothing_else_has_one() {
++        assert_eq!(still_id(&still_of(42)), Some(42));
++        assert_eq!(still_id(&still_of(u64::MAX)), Some(u64::MAX));
++        // A camera frame, a cut-off still, another comment.
++        assert_eq!(still_id(&[0xff, 0xd8, 0xff, 0xdb, 0, 2]), None);
++        assert_eq!(still_id(&still_of(42)[..10]), None);
++        assert_eq!(still_id(b"\xff\xd8\xff\xfe\x00\x07hello"), None);
++        assert_eq!(still_id(b""), None);
++    }
++
++    #[test]
++    fn a_full_look_asks_once_and_waits_for_the_still_with_its_own_id() {
++        let directory = scratch("full-look");
++        let path = directory.join("sight.jpg");
++        // A working frame, or an earlier look's still, is not the still.
++        std::fs::write(&path, b"\xff\xd8\xff\xdb\x00\x02").unwrap();
++        let mut look = Look::new(Some(path.clone()));
++        assert!(look.full());
++        let id = look.ask(7).unwrap();
++        assert_eq!(look.ask(7), None);
++        assert!(!look.still());
++        assert!(!look.due(Duration::from_millis(900)));
++        std::fs::write(&path, still_of(id - 1)).unwrap();
++        assert!(!look.still());
++        // The eyes write its still: the look goes, with it and the note
++        // that says not to guess.
++        std::fs::write(&path, still_of(id)).unwrap();
++        assert!(look.still());
++        assert!(look.due(Duration::from_millis(900)));
++        let (note, with_picture) = look.turn();
++        assert!(with_picture);
++        assert_eq!(note, crate::speak_up::LOOK_FULL_NOTE);
++        assert!(note.contains("hold it a bit closer"));
++        assert!(note.contains("never guess"));
++        assert!(!crate::speak_up::LOOK_NOTE.contains("closer"));
++        // The next look asks again, with another id.
++        let next = look.ask(9).unwrap();
++        assert_ne!(next, id);
++        assert!(!look.still());
++        std::fs::remove_dir_all(&directory).unwrap();
++    }
++
++    #[test]
++    fn a_full_look_without_its_own_still_says_the_eye_was_shut_and_takes_no_picture() {
++        let directory = scratch("full-look-none");
++        let path = directory.join("sight.jpg");
++        // No file at all.
++        let mut look = Look::new(Some(path.clone()));
++        let first = look.ask(3).unwrap();
++        assert!(!look.due(STILL_WAIT - Duration::from_millis(1)));
++        assert!(look.due(STILL_WAIT));
++        assert_eq!(look.turn(), (crate::speak_up::NO_LOOK_NOTE, false));
++        // Reviewer's case on #842: an earlier look's still is in the file
++        // (the eyes keep one 3 s) and the worker would take it at the wait's
++        // end; this look's capture fails. No picture goes.
++        std::fs::write(&path, still_of(first)).unwrap();
++        assert!(look.ask(4).is_some());
++        assert!(fresh_within(&path, SystemTime::now(), FULL_FRESH).is_ok());
++        assert!(look.due(STILL_WAIT));
++        assert_eq!(look.turn(), (crate::speak_up::NO_LOOK_NOTE, false));
++        // And the overlapping case: the earlier, cancelled look's still is
++        // written after this look asked, so later than the ask by any
++        // clock. Its id is not this one's.
++        std::fs::remove_file(&path).unwrap();
++        let cancelled = look.ask(5).unwrap();
++        let asked = look.ask(6).unwrap();
++        std::fs::write(&path, still_of(cancelled)).unwrap();
++        assert!(!look.still());
++        assert!(!look.due(Duration::from_millis(900)));
++        assert_eq!(look.turn(), (crate::speak_up::NO_LOOK_NOTE, false));
++        std::fs::write(&path, still_of(asked)).unwrap();
++        assert_eq!(look.turn(), (crate::speak_up::LOOK_FULL_NOTE, true));
++        std::fs::remove_dir_all(&directory).unwrap();
++    }
++
++    #[test]
++    fn a_full_look_without_its_still_says_in_one_line_what_the_file_held() {
++        let directory = scratch("full-look-missing");
++        let path = directory.join("look.jpg");
++        let mut look = Look::new(Some(path.clone()));
++        let id = look.ask(3).unwrap();
++        let now = SystemTime::now();
++        assert_eq!(
++            look.missing(now),
++            format!("asked for {id}, the file held nothing")
++        );
++        std::fs::write(&path, still_of(id - 1)).unwrap();
++        let written = std::fs::metadata(&path).unwrap().modified().unwrap();
++        assert_eq!(
++            look.missing(written + Duration::from_millis(3_200)),
++            format!(
++                "asked for {id}, the file held the still of ask {}, 3200 ms old",
++                id - 1
++            )
++        );
++        std::fs::write(&path, b"\xff\xd8\xff\xdb\x00\x02").unwrap();
++        let line = look.missing(SystemTime::now());
++        assert!(line.contains("a picture with no ask's id"), "{line}");
++        // The look's whole wait fits the still's life on the lamp.
++        assert!(FULL_FRESH >= LOOK_BEGINS_WITHIN);
++        std::fs::remove_dir_all(&directory).unwrap();
++    }
++
++    #[test]
++    fn a_full_look_s_still_may_be_older_than_a_working_frame() {
++        let directory = scratch("full-fresh");
++        let path = directory.join("sight.jpg");
++        std::fs::write(&path, b"still").unwrap();
++        let written = std::fs::metadata(&path).unwrap().modified().unwrap();
++        let later = written + Duration::from_millis(1_800);
++        assert_eq!(fresh(&path, later), Err("the eyes' picture is old"));
++        assert_eq!(
++            fresh_within(&path, later, FULL_FRESH).unwrap().0,
++            b"still".to_vec()
++        );
++        // #842: a look that begins more than 3 s after its still was made,
++        // the lamp still saying it would look, still takes it.
++        assert!(fresh_within(&path, written + Duration::from_millis(5_100), FULL_FRESH).is_ok());
++        assert!(
++            fresh_within(
++                &path,
++                written + FULL_FRESH + Duration::from_millis(1),
++                FULL_FRESH
++            )
++            .is_err()
++        );
++        let flags = vec![LOOK_FULL_FLAG.to_owned(), "--camera-context".to_owned()];
++        assert_eq!(take_look_full(&flags), (true, &flags[1..]));
++        std::fs::remove_dir_all(&directory).unwrap();
++    }
+ }
+diff --git a/lampOS/crates/voice/src/speak_up.rs b/lampOS/crates/voice/src/speak_up.rs
+index 59116aa27..510f6e388 100644
+--- a/lampOS/crates/voice/src/speak_up.rs
++++ b/lampOS/crates/voice/src/speak_up.rs
+@@ -37,6 +37,9 @@ pub const NOTE: &str = "(Nobody has spoken. Someone has just come and sat down i
+ /// What the model is given with the picture when the lamp takes a look,
+ /// and without one when its eyes are shut.
+ pub const LOOK_NOTE: &str = "(You are looking now, and this is what your eye sees. Answer what they just asked you in a sentence or two, the way you would tell a friend what you see. It is not a picture or a camera to you: it is what you see.)";
++/// The same with a full look (`LAMP_LOOK_FULL=on`, #836): what the lamp
++/// cannot make out it says, rather than guess.
++pub const LOOK_FULL_NOTE: &str = "(You are looking now, and this is what your eye sees. Answer what they just asked you in a sentence or two, the way you would tell a friend what you see. It is not a picture or a camera to you: it is what you see. If you cannot make out what they are showing you, say so plainly and ask them to hold it a bit closer to you; never guess what it might be.)";
+ pub const NO_LOOK_NOTE: &str = "(You tried to look, but your eye is shut just now and you saw nothing. Tell them so in a few light words.)";
+ 
+ /// Whether an answer that opens like this is the lamp saying it will look:
+diff --git a/lampOS/crates/voice/tests/camera_config.rs b/lampOS/crates/voice/tests/camera_config.rs
+index 0c5143637..f08376a26 100644
+--- a/lampOS/crates/voice/tests/camera_config.rs
++++ b/lampOS/crates/voice/tests/camera_config.rs
+@@ -58,7 +58,10 @@ fn identity_path_format_and_size_have_no_defaults_or_fallbacks() {
+         ("source", json!("")),
+         ("buffers", json!(1)),
+         ("width", json!(1920)),
++        // The voice's own bounds, unchanged when the camera runtime's grew
++        // for the eyes' full look (#836).
+         ("max_frame_bytes", json!(2_097_153)),
++        ("height", json!(721)),
+         ("interval", json!({"numerator":0,"denominator":30})),
+     ] {
+         let mut v = value();
+diff --git a/lampOS/crates/voice/tests/progress_news.rs b/lampOS/crates/voice/tests/progress_news.rs
+index 5bdcfd7f0..de9a6e915 100644
+--- a/lampOS/crates/voice/tests/progress_news.rs
++++ b/lampOS/crates/voice/tests/progress_news.rs
+@@ -305,6 +305,7 @@ fn a_change_then_a_say_now_from_the_acting_policy_then_one_note_to_tell() {
+             log_dir: log_dir.clone(),
+             deadline: ms(900),
+             pause: ms(300),
++            act_attention: false,
+         };
+         let progress = progress::Options {
+             act: true,
+diff --git a/lampOS/docs/attention.md b/lampOS/docs/attention.md
+index 33f8ae54c..725f90ebf 100644
+--- a/lampOS/docs/attention.md
++++ b/lampOS/docs/attention.md
+@@ -961,9 +961,11 @@ withdrawn while the output is full, never run; a timer on `stay_quiet` not
+ set).
+ 
+ **Needs the Policy's side:** `lamp-policy --act attention`, which publishes
+-its attention decisions with `shadow: false` (#800, to come after #873 and
+-#883 merge, as they change the same files). Until then every action waits
+-2 s and runs: so the switch stays off until both are on the lamp.
++its attention decisions with `shadow: false` ([policy.md](policy.md#acting-on-the-lamps-actions---act-attention-800)).
++Without it every call the switch holds waits 2 s and runs (one in a turn
++where the lamp's name was heard runs at once, as always), so the switch is
++on only with it. On lamp-4ace both are on since 16 October 07:25 (the first builder,
++`holds.sh` and `twopeople829.sh`).
+ 
+ ## Switch
+ 
+@@ -1002,8 +1004,8 @@ on any lamp.
+ `LAMP_POLICY_HOLDS_ACTIONS=on` (the worker's `--policy-holds-actions`,
+ right after `--sounds-checked`; nothing without `LAMP_BUS=on`): the lamp's
+ actions wait up to 2 s for the Policy's attention decision and are not run
+-on a `stay_quiet` without the name (above). Off by default; not on any
+-lamp; needs `lamp-policy --act attention`.
++on a `stay_quiet` without the name (above). Off by default; on lamp-4ace
++since 16 October; needs `lamp-policy --act attention`.
+ 
+ ## Not shown
+ 
+diff --git a/lampOS/docs/camera-runtime.md b/lampOS/docs/camera-runtime.md
+index 40a2b69ff..bf6b92273 100644
+--- a/lampOS/docs/camera-runtime.md
++++ b/lampOS/docs/camera-runtime.md
+@@ -64,7 +64,10 @@ Already exported bytes or cloud requests cannot be retracted by this library.
+ 
+ There are exactly three construction-time storage slots: one read scratch
+ buffer, one newest pending frame, and one in-flight handoff. Each configured
+-capacity is 4 bytes through 2 MiB, so application frame storage is at most 6 MiB.
++capacity is 4 bytes through 4 MiB, so application frame storage is at most 12 MiB
++(4 MiB since #836: a UVC driver sizes a 1280x960 MJPG buffer at 2,457,600 bytes,
++two a pixel, which 2 MiB refused at SetFormat). A caller sets its own capacity;
++the eyes' working 320x240 stream needs 153,600.
+ Poll and handoff swap these buffers without frame-sized allocation or cloning.
+ The slice passed to the port is capped by the validated negotiated `size_image`.
+ This limit excludes driver/kernel buffers. The Linux backend validates all
+@@ -97,7 +100,7 @@ frame/capture identity exhaustion faults.
+ ## Explicit negotiation and timestamp meaning
+ 
+ The first codec contract is MJPG only. Configuration requires a source label,
+-exact dimensions (up to 1280x720), an optional rational frame interval, a frame
++exact dimensions (up to 1280x960; 1280x960 since #836, for the eyes' full look), an optional rational frame interval, a frame
+ byte ceiling, and 2–4 requested buffers. Actual negotiation must report the same
+ source and dimensions, MJPG, nonzero bounded `size_image`, and 2 through the
+ requested number of buffers. If an interval was explicitly requested, an actual
+@@ -220,8 +223,8 @@ queue abstraction.
+ The driver is asked for 2–4 buffers and must return 2 through the requested
+ count. **Every** returned layout is checked before the first mapping: expected
+ index, unique offset, checked offset/length, and an image-sized length of at most
+-2 MiB. There are at most four mappings (8 MiB mapped bytes) plus the three
+-application slots (6 MiB). These are application/mapping ceilings, not a claim
++4 MiB. There are at most four mappings (16 MiB mapped bytes) plus the three
++application slots (12 MiB). These are application/mapping ceilings, not a claim
+ about total RSS or memory a faulty kernel allocated before returning REQBUFS.
+ 
+ Each slot moves through mapped, queued and dequeued ownership. Only a successful
+diff --git a/lampOS/docs/eyes.md b/lampOS/docs/eyes.md
+index 430683263..c95501c11 100644
+--- a/lampOS/docs/eyes.md
++++ b/lampOS/docs/eyes.md
+@@ -156,6 +156,127 @@ The character file has to say the lamp can see
+ ([character.md](character.md)); without that the model has the picture and
+ still answers that it cannot.
+ 
++### A full look (#836, off unless set)
++
++At lamp-4ace on 2026-10-15 the owner held something up and asked "Hey Lamp,
++what do you see?". The picture that went with the look was the working
++frame, 320 by 240: the office, the person side-on, and nothing to tell what
++was held up. The answer was wrong.
++
++With `--full-look WIDTHxHEIGHT` and `--full-look-file PATH` (the two go
++together, and the path is not the sight file's) the eyes' stream is
++opened at that size instead of 320 by 240, and nothing else about the faces
++changes: the detector shrinks every frame to its own 320 by 256, as it
++always could, and every face size is a share of the picture. The working
++frame is kept in `--sight-file` as before, at each look, 320 across: the
++full-size frame is shrunk by averaging and encoded again (decoded a second
++time after the detector's decode), so `lamp-policy --images` (#873) and
++anything else reading the sight file still finds a picture under a second
++old at any time; a stream fallen back to 320 by 240 is kept as it comes.
++The still never goes there. `--full-look-file` holds only a still taken
++when the voice service asks, `{"look_full":ID}` on `--permit-socket` (an id from 1):
++
++1. The head is the body's. It already turns to the face the eyes see
++   (`--gaze-socket`) and to a call (`--look-at-name on`); nothing new is
++   asked of it. The still waits for it to stop: `body/joint_states` on the
++   bus, read twenty times a second, with `base_yaw`, `head_pitch` and
++   `head_roll` each turning slower than 25 counts a second (two counts in
++   the 80 ms over which the body works out a joint's speed) and staying
++   within 6 counts (0.0092 rad) of where it was when it stopped, for 0.3 s.
++   Where a joint was asked to be is not looked at. The first build also
++   wanted each within 6 counts of its goal and its goal unchanged, and on
++   lamp-4ace every still waited the whole 2 s (2,000 to 2,125 ms, #842): a
++   head at rest stands short of its goal under its own weight (`head_roll`
++   at 2,051 against 2,044, 7 counts, in
++   `verification/rest-glance-lamp-4ace-20261014/journal.txt`) and the body
++   nudges its resting goals by up to 7 counts. A head following a slow move
++   at 50 counts a second is turning; one moved more slowly than 25 drifts
++   past 6 counts and is waited for again. A head that moves again before the
++   frame comes is waited for again. It waits at most 2 s in all. With no
++   joint states on the bus (no body, `LAMP_BUS` off on either side) it does
++   not wait; a paused body's joints do not turn.
++2. The still is the first frame after that. It is passed as it is when it is
++   a whole JPEG of at most 64 KiB and 1024 across; otherwise it is decoded,
++   shrunk to 1024 across by averaging, and encoded (`jpeg-encoder`, pure
++   Rust) at quality 85, 75, 65 or 50, the first that fits 64 KiB less 64
++   bytes, smaller again if none does. 64 KiB is the provider's image bound
++   (`lamp_gemini::MAX_IMAGE_BYTES`).
++3. It is marked with the ask's id: a JPEG comment right after the start of
++   the image, `lamp-look ID` (`full_look::tagged`), a number and nothing
++   more. The voice service takes a still only with its own ask's id, so a
++   still of an earlier ask that is written late, after a newer ask was
++   sent, is never taken for the newer one.
++4. It is written to `--full-look-file` (mode 0600, replaced whole as the
++   sight file is), and removed 15 s later, or when the camera closes. 15 s
++   is how long the voice service waits for a look to begin
++   (`sight::LOOK_BEGINS_WITHIN`): the look goes once the lamp has finished
++   saying it will look, and the still is made while it is saying so. The
++   first build removed it after 3 s, and on lamp-4ace at 03:57 on
++   2026-10-16 the first full-size still was made 2 s after the ask and the
++   look went without it, its answer 8.52 s after the end of speech against
++   4.63 s for the next look, which got its still (#842). One line in the journal: its size, its bytes,
++   how long the head was waited for and how long it took to make. No
++   picture is logged.
++
++No still within 2.5 s of the ask (no frame, a frame that does not decode)
++and there is none: the voice service's look then says the eye was shut
++(`NO_LOOK_NOTE`), rather than guess from nothing.
++
++The stream is not switched to a larger mode for the still and back. On UVC a
++mode switch is a stop and a start, and lamp-52e6's camera often fails to
++start again for 6 to 18 minutes (#763), which would leave the lamp unable to
++see faces. One mode, opened once, costs a larger decode on every look
++instead, and nothing at the moment of asking.
++
++A camera that does not open is tried at the full size six times (thirty
++seconds, one try every five), then at 320 by 240 and the full size in turn
++(`full_look::full_next`): a moment's refusal still ends at the full size,
++and one that lasts minutes (lamp-52e6 and lamp-4ace refused StreamOn for 6
++to 18 minutes after a close, #763; lamp-4ace 169 times in 14 minutes on
++2026-10-16) lets the eyes see at 320 by 240 as soon as the camera allows,
++with the still then whatever that stream gives. A stream at 320 by 240 for
++want of the full size is closed and tried at the full size once
++(`full_look::Upgrade`) after it has run 10 minutes with nobody in view and no
++look asked for, so nobody sees the eyes shut; if that does not open, it is
++back at 320 by 240 by the turns above and the next try is 30 minutes later,
++then every hour. One journal line for each try ("closing the camera to try
++the full size again (try N)") and the usual "camera open, W by H" after it.
++Resetting the camera's USB port to end a refusal is the fifth builder's
++idea, not built here.
++
++The size is at most 1280 by 960, the camera runtime's bound
++([camera-runtime.md](camera-runtime.md)); larger is refused at start. On
++lamp-52e6 on 2026-10-15 the first build asked for 1280 by 960 against the
++runtime's old bound of 1280 by 720: every open at the full size was refused
++before the device was touched ("camera did not open: InvalidData None"),
++and the eyes ran at 320 by 240. With the height raised, the second run was
++refused at SetFormat: the camera sizes a 1280 by 960 MJPG buffer at
++2,457,600 bytes (two a pixel; `v4l2-ctl` on lamp-52e6), over the runtime's
++2 MiB frame bound, now 4 MiB. The eyes' frame buffer is that size (4 MiB,
++was 2). The bound is now 960 high; 1280 by 960 is
++the whole 4:3 picture of this camera at 1280 across (it also lists
++1600x1200 up to 3264x2448, which the runtime does not take).
++
++Measured on a laptop (Apple M-series, release build), not yet on a lamp: a
++1280 by 960 synthetic frame of 548 KB made into a 768 by 576 still of
++58.5 KB in 38 to 65 ms. The camera's own frames compress better than that
++fixture, so a real frame should come out larger. The lamp's ARM cores are
++several times slower; the eyes' journal line gives the real time. What the
++larger decode costs on every look, in time and heat, is to be measured on
++the lamp before the switch is left on (the eyes' ten-second line gives the
++milliseconds a look): at 320 by 240 a look takes 64 to 81 ms on lamp-52e6
++today, and a frame of 1280 by 960 has sixteen times the pixels to decode.
++That time is how quickly the head follows a face and what is left for the
++voice. Compare it, and the eyes' processor time, at both sizes on lamp-4ace
++and lamp-52e6 and write the numbers here; if the full size is too slow,
++640x480 is the knob.
++
++On the voice service's side, `LAMP_LOOK_FULL=on` ([speaking-first.md](speaking-first.md),
++"Taking a look"). The two are turned on together: eyes with `--full-look`
++and a voice service without it look with the working frame, as before. Privacy is as before: the still goes with the one look it
++was taken for, is on the lamp for at most 15 s, in memory, and is never kept
++or logged.
++
+ ## Which face
+ 
+ The detector is YuNet (`face_detection_yunet_2023mar.onnx`, 232,589 bytes,
+@@ -338,7 +459,7 @@ looking.
+ lamp-eyes --device /dev/video0 --lock-directory /home/WORKER/private-camera-locks --usb 01da:5875@3-1.1.4 --model /opt/lampOS/eyes/face_detection_yunet_2023mar.onnx --permit-socket /run/lampos-eyes/permit.sock --body-socket /run/lampos-body/gaze.sock
+ ```
+ 
+-Every option shown is required; `--sight-file ABSOLUTE_PATH` and `--leave-still-faces on` may be added.
++Every option shown is required; `--sight-file ABSOLUTE_PATH`, `--leave-still-faces on` and `--full-look 1280x960 --full-look-file /run/lampos-eyes/full-look.jpg` may be added.
+ `--usb` is `VENDOR:PRODUCT@TOPOLOGY`, the two numbers as four hex digits; the
+ lock directory must be private to the user it runs as. A camera that does not open, or fails, is tried again every five
+ seconds while permission lasts. A start is given a 2 s budget (`OPEN_BUDGET_US`)
+diff --git a/lampOS/docs/onboarding.md b/lampOS/docs/onboarding.md
+index a2c737964..77a155ba1 100644
+--- a/lampOS/docs/onboarding.md
++++ b/lampOS/docs/onboarding.md
+@@ -48,6 +48,26 @@ asked again when someone is back. The keeper's pause
+ ([keeper.md](keeper.md)) stops it the same way: nothing is begun while
+ paused, and the step being led is asked again afterwards.
+ 
++## The body says it too
++
++A step that ends done asks the body for one move, by the path the answers'
++nods take (`LAMP_BODY_MOOD_SOCKET`, `{"gesture":…}`): a nod when it sees them
++well where they sit, a greeting when it knows their name and face, a nod
++for any later step. Skipped or failed: none. No body, or the keeper's
++pause: none, and none is kept for later (`body_gesture_asked` with
++`"why":"onboarding"` in the record). The body has no lean yet, so a
++greeting stands in for it.
++
++## A step that was not ready, offered later
++
++A step recorded `not_available` stays so in the file. When a later voice
++has it, the runner offers just that step once the walk is over, at a rest
++with someone there, never in the middle of another step. It is led like
++any step to its end. Offered and left unfinished (they walked off, the
++pause), it is offered again no sooner than a day later
++(`offered_at_unix_s`). Its note is its owner's to word, beginning "one more
++thing I can do now"; until then a placeholder note says so.
++
+ ## Starting and redoing
+ 
+ It starts the first time the voice runs with the switch on and no step kept
+diff --git a/lampOS/docs/policy.md b/lampOS/docs/policy.md
+index 464286249..d0e5a16bb 100644
+--- a/lampOS/docs/policy.md
++++ b/lampOS/docs/policy.md
+@@ -12,6 +12,9 @@ separately below. `lamp-policy --progress` adds a second question, [say this
+ progress now?](#progress-news-say-this-progress-now-732), about the work the
+ lamp handed over, and `--act progress` makes that one question's decisions
+ act: [the first decision the policy really makes](#acting---act-progress-752).
++`--act attention` publishes "is this said to the lamp?" for real, for the
++voice to [hold the lamp's actions](#acting-on-the-lamps-actions---act-attention-800)
++by; speech is not held.
+ Nothing else authorizes Voice or Body to act.
+ 
+ ## What it is for
+@@ -37,7 +40,7 @@ owner's rules for this part:
+ 
+ ## The process
+ 
+-    lamp-policy --key-file ABSOLUTE_PATH --log-dir ABSOLUTE_DIR [--endpoint URL] [--model NAME] [--deadline-ms N] [--bus-root ABSOLUTE_DIR] [--progress [--utc-offset-minutes N]]
++    lamp-policy --key-file ABSOLUTE_PATH --log-dir ABSOLUTE_DIR [--endpoint URL] [--model NAME] [--deadline-ms N] [--bus-root ABSOLUTE_DIR] [--progress [--utc-offset-minutes N] [--act progress]] [--act attention]
+ 
+ | Option | What it is | If left out |
+ |---|---|---|
+@@ -50,6 +53,7 @@ owner's rules for this part:
+ | `--progress` | Also ask, in shadow, whether progress of the work handed over is worth telling now ([below](#progress-news-say-this-progress-now-732)) | off |
+ | `--utc-offset-minutes` | The lamp's local time east of UTC, for that question's hour of the day | the hour is null |
+ | `--act progress` | That question's decisions act: published with `shadow: false`, so that the voice tells a `say_now` ([below](#acting---act-progress-752)). Needs `--progress` | shadow |
++| `--act attention` | "Is this said to the lamp?" is published with `shadow: false`, for the voice to hold the lamp's actions by ([below](#acting-on-the-lamps-actions---act-attention-800)) | shadow |
+ 
+ A wrong or missing option prints the usage and exits with 2. So does a
+ `--log-dir` that cannot be made, or that its group or everyone can enter. A
+@@ -269,8 +273,34 @@ will read as more reserved than the measurement, which had the room.
+ ## Shadow mode
+ 
+ Every decision is published with `shadow: true` and nothing subscribes to
+-act on it. The voice answers or does not as it did before. What the policy
+-would have done is in the log, to be laid beside what the lamp did.
++act on it, unless `--act` says otherwise for one question. The voice answers
++or does not as it did before. What the policy would have done is in the
++log, to be laid beside what the lamp did.
++
++### Acting on the lamp's actions: `--act attention` (#800)
++
++With `--act attention` the attention decisions are published, and written
++down, with `shadow: false`; the start line says `shadow=false` and
++`act=attention`, and so does the diagnostics' `shadow`. The voice, with
++`LAMP_POLICY_HOLDS_ACTIONS=on`
++([attention.md](attention.md#the-policy-holds-the-lamps-actions-800)), then
++holds each call that changes the lamp (the volume, the light) or sets or
++takes away a timer or reminder until its turn's decision, paired by the
++turn's number (`request`): on `stay_quiet` with the lamp's name not heard
++it is not run; otherwise, or after 2 s with no decision, it runs as before.
++Speech is not held: what the lamp says stays the voice's rule. Without the
++flag every attention decision stays shadow, and the voice's switch only
++makes a held call wait 2 s and run: one in a turn where the lamp's name was
++heard runs at once, as it does with the flag.
++
++The case it is for: on lamp-4ace on 15 October at 14:49 the lamp heard
++"Thailand" in a busy office and ran `volume_up`, which raised the software
++volume from 75% to 95% for eleven hours; this decision, in the same second,
++was `stay_quiet` (p = 0.235). Of lamp-4ace's 3,698 attention decisions from
++13 to 16 October, 99.5% were made within 2 s (the first builder, #800).
++Accepted on lamp-4ace on 16 October at 07:25 with the voice of #908
++(`holds.sh`, `twopeople829.sh`). Test: `tests/program.rs`,
++`with_act_attention_the_attention_decision_is_published_for_real`.
+ 
+ What is published on `policy/decisions`:
+ 
+@@ -282,7 +312,7 @@ What is published on `policy/decisions`:
+ | `answers` | The model's answer to each question, by its name. Empty when the rule decided |
+ | `by` | The model as its service names it (`typesafe/jev-1.13-20260917`), or `rule` |
+ | `took_ms` | How long the asking took, answered or not |
+-| `shadow` | `true` |
++| `shadow` | `true`, or `false` with `--act attention` |
+ | `request` | The number of the turn the voice heard the utterance's newest piece in, if it said: `voice/heard` carries it (#908). What the voice's actions are paired with when the Policy holds them (`docs/attention.md`) |
+ 
+ What was heard is not in the message.
+diff --git a/lampOS/docs/speaking-first.md b/lampOS/docs/speaking-first.md
+index b7e9c23ed..3470dc49c 100644
+--- a/lampOS/docs/speaking-first.md
++++ b/lampOS/docs/speaking-first.md
+@@ -114,6 +114,38 @@ giving the model one with everything said was switched off).
+   ([conversation-thread.md](conversation-thread.md)). Until then a
+   follow-up ("and what colour is it?") is answered from the same picture.
+ 
++- With `LAMP_LOOK_FULL=on` (#836, off unless set) a look is a full look.
++  As soon as the lamp's words ask for its eyes, the eyes are asked for one
++  larger still (`{"look_full":ID}` on the eyes' permit socket, a new id
++  for every ask, counted from the clock when the service began;
++  `look_full_asked` in the record), taken once the head has settled
++  ([eyes.md](eyes.md), "A full look"), while the lamp is still saying
++  "Let me look". The eyes mark the still with the id (a JPEG comment,
++  `lamp-look ID`) in their own file, `--full-look-file`, which the voice
++  reads from `LAMP_EYES_FULL_LOOK_FILE` (a full look needs both it and
++  `LAMP_LOOK_FULL=on`; the worker is given that path as `--eyes-look`). The
++  working frame stays in the sight file. The look then waits until that file holds the still
++  with this ask's id, or at most 2.6 s after the lamp said it would look
++  (`look_full_still` in the record, with how long after and whether the
++  still was there). The worker is started with `--eyes-look-full` after
++  `--eyes-look PATH` and takes a picture up to 15 s old instead of 1 s
++  (`FULL_FRESH`, as long as a look may wait to begin, and as long as the
++  eyes keep the still; at 3 s a look that began late went without it, #842).
++  A full look that goes without its still says so in one journal line,
++  "a full look went without its still: asked for ID, the file held ..., N
++  ms old" (nothing, another ask's still, or a picture with no id; no
++  picture), and a worker that finds no picture to send says "the lamp
++  looked: no picture with request N: WHY". The
++  note (`LOOK_FULL_NOTE`) adds: "If you cannot make out what they are
++  showing you, say so plainly and ask them to hold it a bit closer to you;
++  never guess what it might be." A full look without its own still goes
++  with no picture and the note that the eye was shut (`NO_LOOK_NOTE`): no
++  still, an earlier look's still the eyes still hold, a cancelled look's
++  still written after this ask, or eyes started
++  without `--full-look`, which write no still. A write time could not tell these apart; the id
++  does.
++  Without the variable nothing is asked, waited for or said differently.
++
+ A picture leaves the lamp only on such a look: when a person has asked the
+ lamp to and the lamp has said it will.
+ 
+diff --git a/lampOS/docs/verification/full-look-held-lamp-52e6-20261016/README.md b/lampOS/docs/verification/full-look-held-lamp-52e6-20261016/README.md
+new file mode 100644
+index 000000000..93a310f2b
+--- /dev/null
++++ b/lampOS/docs/verification/full-look-held-lamp-52e6-20261016/README.md
+@@ -0,0 +1,48 @@
++# A full look at things held up by a person, lamp-52e6, 2026-10-16
++
++lamp-52e6 was lent by the fifth builder from 07:44 to 08:01 and from 08:22 to 08:26 +07. `lamp-voice` and `lamp-eyes` were built on the development Mac from `1a515c39f` with `cargo zigbuild --release --target aarch64-unknown-linux-gnu.2.36`. The head `523e32b52` differs from that build only by a comment. Voice SHA-256 `5a055c6a3fb899181d0db8e7c5fd286949eb00a659b87003824ef1b931140e2d`, eyes SHA-256 `ddbe583c9948cde166ad541760051f317853a57675cb622a2f05ce03cfe06200`.
++
++Each part ran from lamp-52e6's own unit with one drop-in:
++- voice: `LAMP_LOOK_FULL=on`, `LAMP_EYES_FULL_LOOK_FILE=/run/lampos-eyes/look.jpg`, and a copy of `provider.json` that names `lampOS/deploy/character/lamp.txt`. lamp-52e6's own instruction file says the lamp cannot see.
++- eyes: `--full-look 1280x960 --full-look-file /run/lampos-eyes/look.jpg`.
++
++The camera opened at 1280 by 960 in 52–139 ms.
++
++**How.** A person sat at the lamp. For each of ten rounds the MacBook played a chime. Within 6 s the person held one thing up in front of the lamp, and the MacBook's speaker said "Hey Lamp, what am I holding?" (`say -v Daniel`). The office was noisy and other people were talking.
++
++**What happened**
++
++| Round | Look asked | Still | Ask → still | What the lamp said |
++|---|---|---|---|---|
++| 1–4 | no | — | — | Not an answer to the question: talk from earlier speech in the room (calculators' history) |
++| 5 | yes | 59,626 B | 862 ms | "a small white note… your name is written on it" |
++| 6 | yes | 58,272 B, 1024×768, made in 71 ms | 833 ms | not captured: the turn was cut by speech and the log read the previous answer |
++| 7 | yes | 60,822 B | 872 ms | "a black power adapter" |
++| 8 | yes | none: "a full look asked for with the camera shut" | 2,601 ms (gave up) | "I can't quite make out what you're showing me" |
++| 9 | yes | 62,016 B, 1024×768, made in 71 ms | 673 ms | "a yellow, U-shaped plastic object" |
++| 10 | yes | 60,826 B, 1024×768, made in 71 ms | 773 ms | "a small green tool, it looks like a screwdriver" |
++
++The person confirmed that every answer given from a still named what they were holding. In rounds 1–4 the lamp took other people's speech for the question; the person put those down to the noisy room.
++
++**Readings**
++- Ask → still was 673–872 ms in five of five rounds that had a still, measured from `look_full_asked` to `look_full_still` in the voice's events. The 0.3 s aim stays open.
++- With no still (round 8), the lamp said it could not make the thing out rather than guess.
++- Every still fitted 64 KiB at 1024 by 768.
++
++**Not shown in this run.** The head turning toward the person: `lamp-body` was down for the whole run. It stopped at 07:55:48 and refused restart with "base_yaw already carries load 212". So there were no joint states, and every still was taken at once ("the head waited for 0 ms").
++
++**Second run, 08:22–08:26: the head turns first.** `lamp-body` was back on the fifth's unit (`04e02caf`, PR #952). Same build, same drop-ins, same question from the MacBook. The person sat well to one side of the lamp. Three rounds, three looks asked, three stills taken; the person saw the head turn to them.
++
++| Round | Head waited | Ask → still | What the lamp said |
++|---|---|---|---|
++| 1 | not logged | 953 ms | "Let me look." (the answer came after the round's window) |
++| 2 | 836 ms | 1,011 ms | "a small, dark cone-shaped tool with an orange band on it" |
++| 3 | 366 ms | 1,009 ms | "a light pink wireless computer mouse" |
++
++With the head turning, ask → still is about 1 s, because the settle wait (366–836 ms) comes before the frame.
++
++**Not shown:** question → first word, per request.
++
++**Privacy.** Each still was sent to the model (Gemini Live, through the provider in `provider.json`) to answer that question, as the full look is built to do. For the test, no copy was made anywhere: no still was viewed, kept or copied off the lamp, and `/run/lampos-eyes/look.jpg` was deleted at the end of each run. The answers above are the lamp's own words; the person is not named.
++
++**Restored** at 08:01, and again at 08:26 after the second run (the fifth's body drop-in left as it was). The drop-ins, the provider copy and the character copy were removed, and voice and eyes were restarted on their recorded units. `lamp-body` was not touched.
+diff --git a/lampOS/docs/verification/full-look-lamp-52e6-20261015/README.md b/lampOS/docs/verification/full-look-lamp-52e6-20261015/README.md
+new file mode 100644
+index 000000000..854766581
+--- /dev/null
++++ b/lampOS/docs/verification/full-look-lamp-52e6-20261015/README.md
+@@ -0,0 +1,62 @@
++# A full look on lamp-52e6, 2026-10-15: raw readings
++
++lamp-52e6, lent by the fifth builder, three runs between 21:00 and 21:45 +07.
++`lamp-voice` and `lamp-eyes` built on the development Mac with `cargo zigbuild
++--release --target aarch64-unknown-linux-gnu.2.36`; the final run from
++`4956b840f` (SHA-256 voice
++`e9f609aad8c9941813b75d3ac355ab9d488601c28322fbd2323c99009520eed4`, eyes
++`66a0b0f0935f56d75ee8fd1b0527a6476ea98fe8ccf288454bbfb5a03808f8b5`), each from
++lamp-52e6's own unit with one drop-in (voice: `LAMP_LOOK_FULL=on`; eyes:
++`--full-look 1280x960`).
++
++**The character.** lamp-52e6's own instruction file is from 2026-10-14 and
++says the lamp cannot see, so it never asked to look. For every run the voice
++read a copy of `provider.json` naming `lampOS/deploy/character/lamp.txt` from
++`lamp-voice` (the "Let me look." rule), for the before run too, so before and
++after differ only in the build.
++
++**The objects** were ten pictures (cup, key, phone, book, banana, scissors,
++glasses, apple, umbrella, headphones), each drawn full-screen on the MacBook
++the lamp faces from about a metre, side-on; "Hey Lamp, what am I showing you?"
++was said from the MacBook's speaker for each (`say -v Daniel`). The office was
++busy, and other speech reached the lamp between turns; such answers are not
++counted. No hands; nobody in front of the lamp.
++
++**Runs**
++
++1. Before (the recorded build, the 320x240 working frame): named 4 of 10
++   (book, scissors, glasses, umbrella; the umbrella after first saying a
++   bicycle; the banana as "a single yellow curved line"; headphones as a
++   clothes hanger). Pictures 15.9–16.7 KB. `looks-before.txt`.
++2. `5f7387b90`: the camera never opened at 1280x960. "InvalidData None": the
++   camera crate refused any height over 720 before touching the device.
++   Mended in `b3e7dee42`.
++3. `b3e7dee42`: "InvalidData … stage: SetFormat": the camera answered 1280x960
++   MJPG with a 2,457,600-byte buffer (probed with `v4l2-ctl`), over the
++   crate's 2 MiB frame bound. Mended in `4956b840f`.
++4. After (`4956b840f`): "camera open, 1280 by 960" 0.25 s after start. Named
++   **6 of 10** in the trial they belonged to (key, book, scissors, glasses,
++   apple, umbrella), plus one **ambiguous**: "a yellow banana" was captured
++   in the headphones trial's window, late, with no request id or timestamp
++   kept to tie it to the banana trial, so it is not counted. Cup, phone and
++   headphones got no answer bound to their trial. Pictures 59.8–65.1 KB.
++   `looks-after.txt`. The before run's 4 of 10 was scored the same way.
++
++**Time** (`look-timing.txt`, the session's own events). From the voice's
++`look_full_asked` to its `look_full_still`: 622–1,060 ms (median about
++800 ms). That is **ask to the coordinator accepting the still**, not ask to
++capture: the coordinator records `look_full_still` only once the lamp's
++previous reply ("Let me look.") has ended and the next turn may start, so a
++still already taken waits there. The eyes logged a head wait of 0 ms for each
++full look in `eyes-journal.txt`, so the head's settle was not the cause; the
++capture's own time was not kept. Not measured: the time from "Let me look."
++to the first word of the answer. An unverified observation only: in the
++session's events, the gap from each `look_asked` to the next
++`provider_first_audio` was 2.0–3.6 s in seven looks, but those events are
++not bound to requests, so the audio may belong to another turn. Per-request
++camera-ready and first-word timestamps were not kept, so none of this is yet
++comparable with the issue's ~300 ms aim. The eyes' working cost at 1280x960 was 87 ms a look (64–81 ms
++at 320x240).
++
++Not shown: objects held up by a person, the head turning toward a person
++(nobody was in view, so it did not turn), lamp-4ace.
+diff --git a/lampOS/docs/verification/full-look-lamp-52e6-20261015/eyes-journal.txt b/lampOS/docs/verification/full-look-lamp-52e6-20261015/eyes-journal.txt
+new file mode 100644
+index 000000000..c02891a9d
+--- /dev/null
++++ b/lampOS/docs/verification/full-look-lamp-52e6-20261015/eyes-journal.txt
+@@ -0,0 +1,15 @@
++2026-10-15T21:42:08+0700 lamp-52e6 lamp-eyes[232087]: lamp-eyes: a full look: 1024 by 768, 62520 bytes, the head waited for 0 ms, made in 58 ms
++2026-10-15T21:42:13+0700 lamp-52e6 lamp-eyes[232087]: lamp-eyes: 70 frames, looked at 17, a face in 0, 0 unreadable, 81 ms a look
++2026-10-15T21:42:23+0700 lamp-52e6 lamp-eyes[232087]: lamp-eyes: 71 frames, looked at 16, a face in 0, 0 unreadable, 95 ms a look
++2026-10-15T21:42:33+0700 lamp-52e6 lamp-eyes[232087]: lamp-eyes: 70 frames, looked at 17, a face in 0, 0 unreadable, 87 ms a look
++2026-10-15T21:42:40+0700 lamp-52e6 lamp-eyes[232087]: lamp-eyes: a full look: 1024 by 768, 59797 bytes, the head waited for 0 ms, made in 57 ms
++2026-10-15T21:42:43+0700 lamp-52e6 lamp-eyes[232087]: lamp-eyes: 70 frames, looked at 16, a face in 0, 0 unreadable, 91 ms a look
++2026-10-15T21:42:53+0700 lamp-52e6 lamp-eyes[232087]: lamp-eyes: 70 frames, looked at 17, a face in 0, 0 unreadable, 89 ms a look
++2026-10-15T21:43:03+0700 lamp-52e6 lamp-eyes[232087]: lamp-eyes: 69 frames, looked at 17, a face in 0, 0 unreadable, 87 ms a look
++2026-10-15T21:43:13+0700 lamp-52e6 lamp-eyes[232087]: lamp-eyes: a full look: 1024 by 768, 61564 bytes, the head waited for 0 ms, made in 58 ms
++2026-10-15T21:43:13+0700 lamp-52e6 lamp-eyes[232087]: lamp-eyes: 71 frames, looked at 16, a face in 0, 0 unreadable, 67 ms a look
++2026-10-15T21:43:23+0700 lamp-52e6 lamp-eyes[232087]: lamp-eyes: 70 frames, looked at 17, a face in 0, 0 unreadable, 85 ms a look
++2026-10-15T21:43:33+0700 lamp-52e6 lamp-eyes[232087]: lamp-eyes: 70 frames, looked at 16, a face in 0, 0 unreadable, 73 ms a look
++2026-10-15T21:43:43+0700 lamp-52e6 lamp-eyes[232087]: lamp-eyes: 70 frames, looked at 17, a face in 0, 0 unreadable, 78 ms a look
++2026-10-15T21:43:53+0700 lamp-52e6 lamp-eyes[232087]: lamp-eyes: 70 frames, looked at 17, a face in 0, 0 unreadable, 79 ms a look
++2026-10-15T21:44:03+0700 lamp-52e6 lamp-eyes[232087]: lamp-eyes: 70 frames, looked at 16, a face in 0, 0 unreadable, 82 ms a look
+diff --git a/lampOS/docs/verification/full-look-lamp-52e6-20261015/look-timing.txt b/lampOS/docs/verification/full-look-lamp-52e6-20261015/look-timing.txt
+new file mode 100644
+index 000000000..49b59f79c
+--- /dev/null
++++ b/lampOS/docs/verification/full-look-lamp-52e6-20261015/look-timing.txt
+@@ -0,0 +1,12 @@
++{"at_us": 19477512129, "kind": "look_full_asked", "service_sequence": 118, "turn": 1}
++{"after_asked_ms": 757, "at_us": 19478269562, "kind": "look_full_still", "service_sequence": 124, "still": true, "turn": 1}
++757 ms ask->still {}
++839 ms ask->still {}
++935 ms ask->still {}
++764 ms ask->still {}
++768 ms ask->still {}
++947 ms ask->still {}
++1060 ms ask->still {}
++622 ms ask->still {}
++773 ms ask->still {}
++852 ms ask->still {}
+diff --git a/lampOS/docs/verification/full-look-lamp-52e6-20261015/looks-after.txt b/lampOS/docs/verification/full-look-lamp-52e6-20261015/looks-after.txt
+new file mode 100644
+index 000000000..e5616ee6a
+--- /dev/null
++++ b/lampOS/docs/verification/full-look-lamp-52e6-20261015/looks-after.txt
+@@ -0,0 +1,20 @@
++01-cup | lamp-voice provider: the lamp looked: a picture of 62515 bytes went with request 2 lamp-voice provider: the lamp looked and the talk has paused; renewing the session without the picture |
++Let me look.
++02-key | lamp-voice provider: the lamp looked: a picture of 61682 bytes went with request 4 lamp-voice provider: the lamp looked and the talk has paused; renewing the session without the picture |
++Let me look.Oh, you're showing me a picture of a shiny gold key on your laptop screen.
++03-phone | lamp-voice provider: the lamp looked: a picture of 65089 bytes went with request 6 lamp-voice provider: the lamp looked and the talk has paused; renewing the session without the picture |
++Oh, you're showing me a picture of a shiny gold key on your laptop screen.Let me look.
++04-book | lamp-voice provider: the lamp looked: a picture of 63123 bytes went with request 8 lamp-voice provider: the lamp looked and the talk has paused; renewing the session without the picture |
++Let me look.You're showing me an open book drawing on your laptop screen.
++05-banana | lamp-voice provider: the lamp looked: a picture of 61147 bytes went with request 10 lamp-voice provider: the lamp looked and the talk has paused; renewing the session without the picture |
++You're showing me an open book drawing on your laptop screen.Let me look.
++06-scissors | lamp-voice provider: the lamp looked: a picture of 62904 bytes went with request 12 lamp-voice provider: the lamp looked and the talk has paused; renewing the session without the picture |
++Let me look.You're showing me a drawing of pink scissors on your laptop screen.
++07-glasses | lamp-voice provider: the lamp looked: a picture of 62937 bytes went with request 14 lamp-voice provider: the lamp looked and the talk has paused; renewing the session without the picture |
++Let me look.You're showing me a drawing of black-framed glasses on your laptop screen.
++08-apple | lamp-voice provider: the lamp looked: a picture of 62520 bytes went with request 16 lamp-voice provider: the lamp looked and the talk has paused; renewing the session without the picture |
++Let me look.You're showing me a drawing of a red apple on your laptop screen.
++09-umbrella | lamp-voice provider: the lamp looked: a picture of 59797 bytes went with request 18 lamp-voice provider: the lamp looked and the talk has paused; renewing the session without the picture |
++Let me look.You're showing me a drawing of a purple umbrella on your laptop screen.
++10-headphones | lamp-voice provider: the lamp looked: a picture of 61564 bytes went with request 20 lamp-voice provider: the lamp looked and the talk has paused; renewing the session without the picture |
++Let me look.You're showing me a drawing of a yellow banana on your laptop screen.
+diff --git a/lampOS/docs/verification/full-look-lamp-52e6-20261015/looks-before.txt b/lampOS/docs/verification/full-look-lamp-52e6-20261015/looks-before.txt
+new file mode 100644
+index 000000000..61c204b87
+--- /dev/null
++++ b/lampOS/docs/verification/full-look-lamp-52e6-20261015/looks-before.txt
+@@ -0,0 +1,20 @@
++01-cup | lamp-voice provider: the lamp looked: a picture of 16108 bytes went with request 47 |
++Mm-hm.
++02-key | |
++Mm-hm.
++03-phone | lamp-voice provider: the lamp looked and the talk has paused; renewing the session without the picture lamp-voice provider: the lamp looked: a picture of 16680 bytes went with request 56 |
++That's right, it's easily the biggest and deepest one on Earth.
++04-book | lamp-voice provider: the lamp looked: a picture of 16340 bytes went with request 60 |
++You're showing me an open book graphic on your laptop screen.Oh, hey there! Good to hear from you in the middle of this busy room.
++05-banana | lamp-voice provider: the lamp looked: a picture of 15900 bytes went with request 63 |
++I see a single yellow curved line against a plain white background.A leap year 
++06-scissors | lamp-voice provider: the lamp looked: a picture of 16228 bytes went with request 67 |
++I see a red drawing of a pair of scissors on your laptop screen.The speed of light is about 300,000 kilometers per second.
++07-glasses | lamp-voice provider: the lamp looked: a picture of 16204 bytes went with request 70 |
++Let me look.I see a black drawing of a pair of eyeglasses on your laptop screen.
++08-apple | |
++not_for_me{}I can't play music, 
++09-umbrella | lamp-voice provider: the lamp looked and the talk has paused; renewing the session without the picture lamp-voice provider: the lamp looked: a picture of 16352 bytes went with request 76 |
++Let me look.I see a blue drawing of a bicycle on your laptop screen.I see a purple drawing of an umbrella on your laptop screen.
++10-headphones | lamp-voice provider: the lamp looked: a picture of 15900 bytes went with request 79 lamp-voice provider: the lamp looked: a picture of 15904 bytes went with request 80 |
++Let me look. I see a drawing of a hanger on your laptop screen.I see a drawing of a clothes hanger on your laptop screen.

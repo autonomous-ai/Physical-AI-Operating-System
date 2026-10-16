@@ -1,0 +1,114 @@
+{
+  "date_from_date": "2026-10-16 09:29:01 +0700",
+  "copies": [
+    {
+      "source": "/private/tmp/tests-823-final-drain-publication-files.json",
+      "destination": "inputs/publication-files.json",
+      "bytes": 21439,
+      "sha256": "7022fc9efcf5c99ffe30642061dac100adcd9920a2fb98d55080a22a120ac086"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-evidence/first-gate/source.json",
+      "destination": "inputs/local-gate/source.json",
+      "bytes": 131487,
+      "sha256": "412f11ff830b62ee5d50119fea35201f66b55a1127c1b724ba73a7eb9fecc925"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-evidence/first-gate/list.log",
+      "destination": "inputs/local-gate/list.log",
+      "bytes": 92024,
+      "sha256": "e43a8e204cb5d2d1e55fca6aa60c0589be88eed274d28d7d3098b20652dbdff3"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-evidence/first-gate/identity-proof.json",
+      "destination": "inputs/local-gate/identity-proof.json",
+      "bytes": 1130,
+      "sha256": "9047e74296c630804c3ab367e16622ed8bdc007ab9dbf37a4cf9d617a8999a5c"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-evidence/first-gate/completed.json",
+      "destination": "inputs/local-gate/completed.json",
+      "bytes": 274,
+      "sha256": "865c5721247cdb051c6dcbc2ec315fa97375a391a7852d817a8f9d247b9d3fbd"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-evidence/first-gate/gates.json",
+      "destination": "inputs/local-gate/gates.json",
+      "bytes": 3822,
+      "sha256": "d9cae151dde72939985d16b1214a11ae1ae0438415be6480457d6115c4f4b63a"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-evidence/first-gate/metadata.log",
+      "destination": "inputs/local-gate/metadata.log",
+      "bytes": 165053,
+      "sha256": "a6621ece2127e3e13253c22980e459a17b14f059a85b51a351c384c4a01036ae"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-evidence/baseline/source.json",
+      "destination": "inputs/local-baseline/source.json",
+      "bytes": 131243,
+      "sha256": "26bce2f46178f9aacba7fc2fda00b4b87d4433aadae9abd1954128038f3028c1"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-evidence/baseline/list.log",
+      "destination": "inputs/local-baseline/list.log",
+      "bytes": 92785,
+      "sha256": "32b008ef2f57ea9d1854d916e412ebb10d0e4fa6ba4f08f8c69250abe5383f47"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-evidence/baseline/gates.json",
+      "destination": "inputs/local-baseline/gates.json",
+      "bytes": 1047,
+      "sha256": "1bc56e6d51f3d8813d5897c90abe259de1ed715a7c415b1cefcc44e6937f1234"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-publication/review/original-tests-proof.json",
+      "destination": "inputs/local-reviewed-proof/review/original-tests-proof.json",
+      "bytes": 5064,
+      "sha256": "b7400fa9da4aff98dc002628cb3ec82e7c05e83b7cf6bb32d4110d11a209b996"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-publication/review/final-source-freeze.json",
+      "destination": "inputs/local-reviewed-proof/review/final-source-freeze.json",
+      "bytes": 1904,
+      "sha256": "73f9ef4ffe6e4363eb212d04605b8df2e5ebe100fa04815195d848a8765f5b11"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-publication/review/source-inverse.json",
+      "destination": "inputs/local-reviewed-proof/review/source-inverse.json",
+      "bytes": 3614,
+      "sha256": "d649f699b556b97f0bf3f9a1b2f54bc488ae50ef4d348db835daae2e95511ff5"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-publication/audit/original-case-timing.json",
+      "destination": "inputs/local-reviewed-proof/audit/original-case-timing.json",
+      "bytes": 2868,
+      "sha256": "2bdd03aa5e08c4387a95d76ea1bc428b6bcbfab363db56966a3fb3db3ebf00ea"
+    },
+    {
+      "source": "/private/tmp/tests-823-final-drain-publication/audit/terminal-source-gate-audit.json",
+      "destination": "inputs/local-reviewed-proof/audit/terminal-source-gate-audit.json",
+      "bytes": 1345,
+      "sha256": "3f864e1c90364d93459da8bbac5b7b56c8deff044f11dfeb9f5dc6db521aa670"
+    },
+    {
+      "source": "/private/tmp/lampos-tests-inventory/lampOS/docs/verification/realtime-inventory-20261015/inventory.json",
+      "destination": "inputs/original123-inventory.json",
+      "bytes": 416179,
+      "sha256": "72d671f8b22246898f9142c0216c9fbced55e350e46b83ffec787c81496fb1fc"
+    },
+    {
+      "source": "/private/tmp/tests-823-original123-current-map-20261016/source-definitions-audit.json",
+      "destination": "inputs/prior-original123-source-definition-audit.json",
+      "bytes": 345598,
+      "sha256": "74c00b36423309af7527a31030b74ef3203dd6e57d4f321bc16eca32cbfca12c"
+    },
+    {
+      "source": "/private/tmp/tests-823-original123-current-map-20261016/latest-source-delta-1fb07c6/fixed123-source-delta.json",
+      "destination": "inputs/base1fb-original123-source-audit.json",
+      "bytes": 321545,
+      "sha256": "65b2916a5356bbb5918dc6592bec89acf05d150eae17fba3a7f97fc534dfd8a6"
+    }
+  ],
+  "all_copy_bytes_exact": true
+}

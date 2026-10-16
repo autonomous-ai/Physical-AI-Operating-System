@@ -1,0 +1,14 @@
+{
+  "date_from_date": "2026-10-16 09:32:06 +0700",
+  "head": "c5bcc45b905458c1a8adcd8bcf06885f35dbfdf7",
+  "tree": "b4f45bc806c4b34661828d0cb2b25fce1cf37bf7",
+  "commit_api_sha256": "edeb56f9c42bed9e34b8202baf2b149ddc777ea0ba6eac3a74e996164b9746d2",
+  "tree_api_sha256": "fd1c50aca672f988f8acff242d4d4586a1587e15182b1eea83e20ffb7895c7db",
+  "recursive_tree_complete": true,
+  "frozen_gate_inputs_verified": 1023,
+  "publication_entries_verified": 56,
+  "evaluator_source_files_verified": 77,
+  "all_match_prepared_local_git_blob_hashes": true,
+  "source_only_api_access": true,
+  "no_workflow_status_or_unfinished_logs_accessed": true
+}

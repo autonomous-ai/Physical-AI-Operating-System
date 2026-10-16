@@ -1,0 +1,397 @@
+{
+  "date_from_date": "2026-10-16 09:47:22 +0700",
+  "run": 38839828296,
+  "attempt": 1,
+  "shard": 1,
+  "job": 116777121667,
+  "log_sha256": "8318718459fc3ad22f7ac15a11590ffa4cdd454a5fb90d91c9f0ec70680576a7",
+  "doc_package_results": [
+    {
+      "package": "lamp_actions",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "line": 2475
+    },
+    {
+      "package": "lamp_air",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "line": 2481
+    },
+    {
+      "package": "lamp_audio",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "line": 2487
+    },
+    {
+      "package": "lamp_body",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "line": 2493
+    },
+    {
+      "package": "lamp_bus",
+      "passed": 2,
+      "failed": 0,
+      "ignored": 0,
+      "line": 2501
+    },
+    {
+      "package": "lamp_camera",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "line": 2508
+    },
+    {
+      "package": "lamp_controls",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "line": 2514
+    },
+    {
+      "package": "lamp_ears",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "line": 2520
+    },
+    {
+      "package": "lamp_environment",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "line": 2526
+    },
+    {
+      "package": "lamp_expression",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "line": 2532
+    },
+    {
+      "package": "lamp_eyes",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "line": 2538
+    },
+    {
+      "package": "lamp_gemini",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "line": 2544
+    },
+    {
+      "package": "lamp_health",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "line": 2550
+    },
+    {
+      "package": "lamp_ipc",
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0,
+      "line": 2557
+    },
+    {
+      "package": "lamp_keeper",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "line": 2564
+    },
+    {
+      "package": "lamp_lean",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "line": 2570
+    },
+    {
+      "package": "lamp_memory",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "line": 2576
+    },
+    {
+      "package": "lamp_mood",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "line": 2582
+    },
+    {
+      "package": "lamp_msgs",
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0,
+      "line": 2589
+    },
+    {
+      "package": "lamp_name",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "line": 2596
+    },
+    {
+      "package": "lamp_observer",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "line": 2602
+    },
+    {
+      "package": "lamp_policy",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "line": 2608
+    },
+    {
+      "package": "lamp_records",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "line": 2614
+    },
+    {
+      "package": "lamp_ring",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "line": 2620
+    },
+    {
+      "package": "lamp_same_voice",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "line": 2626
+    },
+    {
+      "package": "lamp_schedule",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "line": 2632
+    },
+    {
+      "package": "lamp_selftest",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "line": 2638
+    },
+    {
+      "package": "lamp_settings",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "line": 2644
+    },
+    {
+      "package": "lamp_setup",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "line": 2650
+    },
+    {
+      "package": "lamp_sound_fixtures",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "line": 2656
+    },
+    {
+      "package": "lamp_surround",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "line": 2662
+    },
+    {
+      "package": "lamp_tasks",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "line": 2668
+    },
+    {
+      "package": "lamp_turn_end",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "line": 2674
+    },
+    {
+      "package": "lamp_turn_end_wire",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "line": 2680
+    },
+    {
+      "package": "lamp_turn_owner",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "line": 2686
+    },
+    {
+      "package": "lamp_update",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "line": 2692
+    },
+    {
+      "package": "lamp_voice",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "line": 2698
+    },
+    {
+      "package": "lamp_voice_eval",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "line": 2704
+    }
+  ],
+  "doc_cases": [
+    {
+      "package": "lamp_bus",
+      "test": "crates/bus/src/lib.rs - (line 14) - compile",
+      "line": 2498
+    },
+    {
+      "package": "lamp_bus",
+      "test": "crates/bus/src/lib.rs - (line 34) - compile",
+      "line": 2499
+    },
+    {
+      "package": "lamp_ipc",
+      "test": "crates/ipc/src/lib.rs - (line 12)",
+      "line": 2555
+    },
+    {
+      "package": "lamp_msgs",
+      "test": "crates/msgs/src/lib.rs - (line 24) - compile",
+      "line": 2587
+    }
+  ],
+  "doc_tests_passed": 4,
+  "ipc_relay_signals_success": [
+    {
+      "line": 2715,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/4)\tUNKNOWN STEP\t2026-10-16T02:35:46.1172959Z relay_signals: ok"
+    }
+  ],
+  "turn_end_wire_process_passes": [
+    {
+      "test": "an_idle_worker_stays_ready_across_a_long_quiet",
+      "milliseconds": 2012,
+      "line": 2720
+    },
+    {
+      "test": "a_worker_reporting_another_model_is_refused_before_any_request",
+      "milliseconds": 2,
+      "line": 2721
+    },
+    {
+      "test": "no_outcome_is_delivered_after_close_even_for_an_answer_on_its_way",
+      "milliseconds": 4,
+      "line": 2722
+    },
+    {
+      "test": "verdict_carries_identity_and_one_request_at_a_time",
+      "milliseconds": 67,
+      "line": 2723
+    },
+    {
+      "test": "missing_model_is_final_and_never_restarted",
+      "milliseconds": 162,
+      "line": 2724
+    },
+    {
+      "test": "missing_executable_fails_at_once",
+      "milliseconds": 2,
+      "line": 2725
+    },
+    {
+      "test": "startup_failures_are_final",
+      "milliseconds": 411,
+      "line": 2726
+    },
+    {
+      "test": "serving_failures_are_replaced_within_budget",
+      "milliseconds": 516,
+      "line": 2727
+    },
+    {
+      "test": "protocol_violations_are_replaced",
+      "milliseconds": 181,
+      "line": 2728
+    },
+    {
+      "test": "cancelled_answers_are_never_delivered",
+      "milliseconds": 155,
+      "line": 2729
+    },
+    {
+      "test": "close_during_inference_never_waits",
+      "milliseconds": 235,
+      "line": 2730
+    },
+    {
+      "test": "sustained_requests_stay_bounded",
+      "milliseconds": 690,
+      "line": 2732
+    }
+  ],
+  "process_pass_count": 12,
+  "normal_doc_cases_corrected_from_same_raw_lines": [
+    {
+      "package": "lamp_bus",
+      "test": "crates/bus/src/lib.rs - (line 14) - compile",
+      "line": 5824,
+      "previous_extraction": "on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-16T02:31:04.8813965Z test crates/bus/src/lib.rs - (line 14) - compile"
+    },
+    {
+      "package": "lamp_bus",
+      "test": "crates/bus/src/lib.rs - (line 34) - compile",
+      "line": 5825,
+      "previous_extraction": "on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-16T02:31:04.8814836Z test crates/bus/src/lib.rs - (line 34) - compile"
+    },
+    {
+      "package": "lamp_ipc",
+      "test": "crates/ipc/src/lib.rs - (line 12)",
+      "line": 5881,
+      "previous_extraction": "on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-16T02:31:05.9120255Z test crates/ipc/src/lib.rs - (line 12)"
+    },
+    {
+      "package": "lamp_msgs",
+      "test": "crates/msgs/src/lib.rs - (line 24) - compile",
+      "line": 5913,
+      "previous_extraction": "on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-16T02:31:06.8226190Z test crates/msgs/src/lib.rs - (line 24) - compile"
+    }
+  ],
+  "normal_doc_cases_correction_scope": "Only the doc_cases display strings in the immutable earlier normal audit included the job prefix and timestamp; the raw line references, package and all counts are unchanged. These four exact names supersede only those four strings.",
+  "exact_same_doc_and_process_identity_sets_as_normal": true,
+  "nextest_counts_exclude_these": true
+}

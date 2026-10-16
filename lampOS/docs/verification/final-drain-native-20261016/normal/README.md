@@ -1,0 +1,13 @@
+# #963 normal ARM64 audit
+
+Captured and audited at shell date 2026-10-16 09:42:01 +0700. [Normal run 38839828555](https://github.com/autonomous-ai/lampOS/actions/runs/38839828555), attempt 1, completed successfully for PR head `c5bcc45b905458c1a8adcd8bcf06885f35dbfdf7`. ARM64 job `116777119417` and every step succeeded; the separate failure-report job was skipped.
+
+The complete, unedited log contains **5,251 unique PASS results**, exact ordinals 1–5,251, no FAIL/LEAK or retry result markers, and matching start/summary totals. The exact prepared normal filter membership is present: **452 Evaluator cases, zero of the six additions, and zero fixed original123 cases**. The header names 274 binaries; results contain 248 distinct binary display names. These are retained as separate observations. Four doc tests, the IPC `relay_signals: ok` result and 12 turn-end-wire process cases passed outside nextest's count.
+
+Checkout `3b41a399c6ff693f7afc342241119940bcbd0953` is the actual synthetic merge, with parents `f4b5b0cff8450de33ae394e363ac6f9cc0eab615` and the exact PR head. GitHub's complete tree and local immutable Git objects prove all 56 published files, the complete Evaluator source subtree (77 frozen inputs), workflow and nextest filters are exact. The merge adds the enumerated 39-path upstream delta: 26 of the 1,023 frozen inputs differ, including `Cargo.lock` and Voice; the new Eyes `full_look.rs` is also enumerated. This is not whole-dependency byte parity with the local gate.
+
+`normal-final-audit.json` records job/step results and membership. `normal-results.json` retains every parsed outcome with raw line, shard, ordinal and printed duration. `normal-source-and-merge-audit.json` records all 1,023 input comparisons, every upstream difference and all publication identities. `normal-doc-and-own-harness-audit.json` keeps separate harness identities. Raw command/API/log bytes and dated command/exit/hash receipts are under `raw/` and `captures/`.
+
+The first local parser invocation stopped at an unsupported equality between header binaries and distinct printed names; `parser-diagnostic-printed-binary-count.json` preserves it. Only the parser was corrected. No tests, source or raw logs changed. The NUL-delimited local Git-tree metadata stays external; its reversible text rendering and the complete raw remote JSON tree are published, with exact provenance.
+
+All 70 prepared files remain byte-exact. This supplement qualifies only the completed normal run. Full run 38839828296 is not captured here; this slice has no full-run, fixed123 execution, native timing-pair, standalone serial bound, device, or PR-readiness claim.

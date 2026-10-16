@@ -1,0 +1,9 @@
+{
+  "date_from_date": "2026-10-16 09:47:22 +0700",
+  "corrects": "parser-diagnostic-doc-location-comparison.json",
+  "actual_cause": "The unanchored greedy test regex began at the word test in the job prefix build and test on Linux ARM64, including the timestamp in the extracted name. It was not a source line-location change.",
+  "correction": "Remove exactly the first two tab-delimited gh log fields, then anchor the doc-case match after the timestamp. Reparse the four original normal raw lines without modifying the frozen earlier normal files.",
+  "normal_counts_and_raw_line_references_unchanged": true,
+  "raw_test_logs_unchanged": true,
+  "no_test_or_source_execution": true
+}

@@ -1,0 +1,238 @@
+{
+  "date_from_date": "2026-10-16 09:42:01 +0700",
+  "directory": "/private/tmp/tests-823-final-drain-native-audit",
+  "normal_run": 38839828555,
+  "head": "c5bcc45b905458c1a8adcd8bcf06885f35dbfdf7",
+  "files": 36,
+  "manifest": [
+    {
+      "path": "normal/README.md",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/normal/README.md",
+      "bytes": 2659,
+      "sha256": "2539aa79b19f2900eda1d05767e5c18024481dba3f083c2867572cbbf02c34c6"
+    },
+    {
+      "path": "normal/SHA256SUMS",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/normal/SHA256SUMS",
+      "bytes": 3558,
+      "sha256": "2c595f3cbf20a1a90b5bb3d6c5284b3c7a267d9ad2a303f59d519b523f119488"
+    },
+    {
+      "path": "normal/captures/normal-attempt1.jobs-api.json.json",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/normal/captures/normal-attempt1.jobs-api.json.json",
+      "bytes": 547,
+      "sha256": "779d229ffd6480c7ee580922b00d7207010e1c2f69016413a0703b9069810f17"
+    },
+    {
+      "path": "normal/captures/normal-attempt1.log.json",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/normal/captures/normal-attempt1.log.json",
+      "bytes": 547,
+      "sha256": "5c74ff320a180698b52d4edfaa0ddd90ca9339563d463a06e8ad61ded7aa22d8"
+    },
+    {
+      "path": "normal/captures/normal-attempt1.run-api.json.json",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/normal/captures/normal-attempt1.run-api.json.json",
+      "bytes": 527,
+      "sha256": "d20c753b7bd4aac3ec8676b4c3a94e75fa5b8c09e6ea28134342c61ef030db32"
+    },
+    {
+      "path": "normal/captures/normal-base-upstream-commit.txt.json",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/normal/captures/normal-base-upstream-commit.txt.json",
+      "bytes": 583,
+      "sha256": "e08f206b0531333f257fb68625082f417345169e778976a08546839f30a1f5d0"
+    },
+    {
+      "path": "normal/captures/normal-base-upstream-delta-paths.txt.json",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/normal/captures/normal-base-upstream-delta-paths.txt.json",
+      "bytes": 667,
+      "sha256": "764f69ecc414e0c8ccd12065e9aa8521f969578cf448df6693f1bf9b273ddb20"
+    },
+    {
+      "path": "normal/captures/normal-base-upstream-tree.z.json",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/normal/captures/normal-base-upstream-tree.z.json",
+      "bytes": 584,
+      "sha256": "caa0acf22dcb39a13df478cd156dab28db0c9936ce18c98a4450a7b1804d71de"
+    },
+    {
+      "path": "normal/captures/normal-base-upstream.diff.json",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/normal/captures/normal-base-upstream.diff.json",
+      "bytes": 642,
+      "sha256": "864d5c1c0c4f520f697fc1f83329be98be93a8985b5aa24a5707676da09c89bf"
+    },
+    {
+      "path": "normal/captures/normal-merge-commit.json.json",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/normal/captures/normal-merge-commit.json.json",
+      "bytes": 536,
+      "sha256": "e5b2969015285e427fdb4acc076230c1fbca022d9e7375c568aed45ebfa35d63"
+    },
+    {
+      "path": "normal/captures/normal-merge-tree.json.json",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/normal/captures/normal-merge-tree.json.json",
+      "bytes": 542,
+      "sha256": "221a28684dbf90188d5451eee5078b68af369d68169cbf054073a3c7ec23c3b2"
+    },
+    {
+      "path": "normal/normal-audit-provenance.json",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/normal/normal-audit-provenance.json",
+      "bytes": 1387,
+      "sha256": "b2725da7b4a8f216ced10a1b3609cb39fdde8af0b0e14af5822fcb1b041a7b57"
+    },
+    {
+      "path": "normal/normal-doc-and-own-harness-audit.json",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/normal/normal-doc-and-own-harness-audit.json",
+      "bytes": 7388,
+      "sha256": "a4d3bf45fa0765a222e0536021502589b91c86454a0b4d8737c7a0a716777ddd"
+    },
+    {
+      "path": "normal/normal-final-audit.json",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/normal/normal-final-audit.json",
+      "bytes": 6800,
+      "sha256": "e97c1f8eb48a84220b12ba5dd4e7cd758d822e36b3a9dbfabe845ac79983b4eb"
+    },
+    {
+      "path": "normal/normal-membership-preliminary.json",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/normal/normal-membership-preliminary.json",
+      "bytes": 30034,
+      "sha256": "a5ad193b1f6a06a0739eec579f565205dc9cc1f5bad8aa4eb5c0865fcc076e9e"
+    },
+    {
+      "path": "normal/normal-results.json",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/normal/normal-results.json",
+      "bytes": 1326707,
+      "sha256": "4bf8d2357f34d638e455cd4b48524a715ac0d3bf430eaa7b12aac25462facfa4"
+    },
+    {
+      "path": "normal/normal-source-and-merge-audit.json",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/normal/normal-source-and-merge-audit.json",
+      "bytes": 505555,
+      "sha256": "01b2a0cbaa0d1700796af6920c1fe7e466bb5cd416ed745159fe9db15bf7b04e"
+    },
+    {
+      "path": "normal/parser-diagnostic-printed-binary-count.json",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/normal/parser-diagnostic-printed-binary-count.json",
+      "bytes": 672,
+      "sha256": "de37ea64247a6dee360d3bf7b9a65dfd795c0e417dbcde0cd33c9e4b880feef6"
+    },
+    {
+      "path": "normal/raw/normal-attempt1.jobs-api.json",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/normal/raw/normal-attempt1.jobs-api.json",
+      "bytes": 4267,
+      "sha256": "cac40b2faaac1acf55445c3f1c84ee59a0a476d7099fa9b531b7da165ca64746"
+    },
+    {
+      "path": "normal/raw/normal-attempt1.jobs-api.json.stderr",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/normal/raw/normal-attempt1.jobs-api.json.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "normal/raw/normal-attempt1.log",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/normal/raw/normal-attempt1.log",
+      "bytes": 1276238,
+      "sha256": "f412947e790c9eea50e0bfe598805c9997723ab347fb99a192fc70b8d736dac7"
+    },
+    {
+      "path": "normal/raw/normal-attempt1.log.stderr",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/normal/raw/normal-attempt1.log.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "normal/raw/normal-attempt1.run-api.json",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/normal/raw/normal-attempt1.run-api.json",
+      "bytes": 12724,
+      "sha256": "f55a052324af24b948a2d1aa1117656980b332a00bb3905f1490c017024cef98"
+    },
+    {
+      "path": "normal/raw/normal-attempt1.run-api.json.stderr",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/normal/raw/normal-attempt1.run-api.json.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "normal/raw/normal-base-upstream-commit.txt",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/normal/raw/normal-base-upstream-commit.txt",
+      "bytes": 322,
+      "sha256": "872bdbf21f141719948933f4e2369883690f45392731e6c5d1cc660bd43c7c7a"
+    },
+    {
+      "path": "normal/raw/normal-base-upstream-commit.txt.stderr",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/normal/raw/normal-base-upstream-commit.txt.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "normal/raw/normal-base-upstream-delta-paths.txt",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/normal/raw/normal-base-upstream-delta-paths.txt",
+      "bytes": 1562,
+      "sha256": "22a780567f50e013e473ca70cae5f838e7eb2d1bf511346987be386199c76230"
+    },
+    {
+      "path": "normal/raw/normal-base-upstream-delta-paths.txt.stderr",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/normal/raw/normal-base-upstream-delta-paths.txt.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "normal/raw/normal-base-upstream-tree.txt",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/normal/raw/normal-base-upstream-tree.txt",
+      "bytes": 846737,
+      "sha256": "80343d5661ac2087630075c7fe6fc625589fff28079067184825ebf3dd93bbb8"
+    },
+    {
+      "path": "normal/raw/normal-base-upstream-tree.z.stderr",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/normal/raw/normal-base-upstream-tree.z.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "normal/raw/normal-base-upstream.diff",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/normal/raw/normal-base-upstream.diff",
+      "bytes": 166380,
+      "sha256": "429e5ecf3f2439fbcf830b24abf4cc644956b6e399a37afb1c6d4145dd198b30"
+    },
+    {
+      "path": "normal/raw/normal-base-upstream.diff.stderr",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/normal/raw/normal-base-upstream.diff.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "normal/raw/normal-merge-commit.json",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/normal/raw/normal-merge-commit.json",
+      "bytes": 2603,
+      "sha256": "1ea4166591db27554d744c91847701fbd5f21927fc13f2b4cb52370fb8a5fbfd"
+    },
+    {
+      "path": "normal/raw/normal-merge-commit.json.stderr",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/normal/raw/normal-merge-commit.json.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "normal/raw/normal-merge-tree.json",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/normal/raw/normal-merge-tree.json",
+      "bytes": 2324111,
+      "sha256": "1f0a851353e19f3847f0d8bcb58467270f2700273dc556bf9b3bd16b8e3f5f17"
+    },
+    {
+      "path": "normal/raw/normal-merge-tree.json.stderr",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/normal/raw/normal-merge-tree.json.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "force_add_logs": [
+    "normal/raw/normal-attempt1.log"
+  ],
+  "prepared_manifest": "/private/tmp/tests-823-final-drain-native-prepared-files.json",
+  "prepared70_unchanged": true,
+  "external_binary_metadata_not_for_publication": [
+    {
+      "path": "/private/tmp/tests-823-final-drain-native-audit/normal/raw/normal-base-upstream-tree.z",
+      "sha256": "22ff4f0dc35893f886c803431ab13cdb5d4b9a85292de341c338e9399eaf2baf",
+      "bytes": 846737
+    }
+  ],
+  "full_logs_captured": false
+}

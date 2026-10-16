@@ -1,0 +1,16 @@
+{
+  "date_from_date": "2026-10-16 09:40:35 +0700",
+  "scope": "Local audit parser only; no test or source execution",
+  "command": [
+    "python3",
+    "/private/tmp/tests-823-audit-final-drain-native-normal.py"
+  ],
+  "exit_code": 1,
+  "raw_error": "AssertionError at line 38: assert len({r['binary'] for r in results})==274",
+  "header_binaries": 274,
+  "distinct_printed_result_binary_names": 248,
+  "correction": "Retain header binary count separately from the number of distinct binary display names in outcome rows; do not infer equality without a native compiled inventory.",
+  "files_written_before_stop": [],
+  "raw_logs_changed": false,
+  "tests_rerun": false
+}

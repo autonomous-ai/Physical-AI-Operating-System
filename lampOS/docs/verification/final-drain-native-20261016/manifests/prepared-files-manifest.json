@@ -1,0 +1,445 @@
+{
+  "date_from_date": "2026-10-16 09:32:06 +0700",
+  "directory": "/private/tmp/tests-823-final-drain-native-audit",
+  "head": "c5bcc45b905458c1a8adcd8bcf06885f35dbfdf7",
+  "base": "1fb07c6f57ee280a49de7b4ddd74008c2a32a20d",
+  "files": 70,
+  "manifest": [
+    {
+      "path": "NATIVE-AUDIT-CHECKLIST.md",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/NATIVE-AUDIT-CHECKLIST.md",
+      "bytes": 2926,
+      "sha256": "dfbbf04147725480fe3b0f4f98fd218d812a7ec31e643bc558b68ab58d8c9c05"
+    },
+    {
+      "path": "PREPARED-SHA256SUMS",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/PREPARED-SHA256SUMS",
+      "bytes": 8208,
+      "sha256": "eae7654dcac83a5d742147b81cfe20052c954165493862c59eceb272afd1b6b3"
+    },
+    {
+      "path": "README.md",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/README.md",
+      "bytes": 3584,
+      "sha256": "63c4e24785e782b7ee186d4204b906d879bfd074f24d8808554eb39eeed6235b"
+    },
+    {
+      "path": "captures/prepared-head-commit.json.json",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/captures/prepared-head-commit.json.json",
+      "bytes": 524,
+      "sha256": "5fb50cf3d6a2eeaa97ecdb38fe7c5c946204196dcfc51136367339bf69fdb1f8"
+    },
+    {
+      "path": "captures/prepared-head-tree.json.json",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/captures/prepared-head-tree.json.json",
+      "bytes": 530,
+      "sha256": "0295449b63ac13b4ff62e9d16e39d6ea082629f95138587c13f5c27cc1808bec"
+    },
+    {
+      "path": "expected-native-membership.json",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/expected-native-membership.json",
+      "bytes": 159886,
+      "sha256": "d4857e2373c896c2a1570dce8bdb9b42c7e42a08c943610a82fc72c2384234b8"
+    },
+    {
+      "path": "input-copy-provenance.json",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/input-copy-provenance.json",
+      "bytes": 5104,
+      "sha256": "96b0ab512ec8a51652a2f68e23153879e661b96f056a4d200d57fde2d798bf8c"
+    },
+    {
+      "path": "inputs/base1fb-original123-source-audit.json",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/inputs/base1fb-original123-source-audit.json",
+      "bytes": 321545,
+      "sha256": "65b2916a5356bbb5918dc6592bec89acf05d150eae17fba3a7f97fc534dfd8a6"
+    },
+    {
+      "path": "inputs/local-baseline/gates.json",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/inputs/local-baseline/gates.json",
+      "bytes": 1047,
+      "sha256": "1bc56e6d51f3d8813d5897c90abe259de1ed715a7c415b1cefcc44e6937f1234"
+    },
+    {
+      "path": "inputs/local-baseline/list.log",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/inputs/local-baseline/list.log",
+      "bytes": 92785,
+      "sha256": "32b008ef2f57ea9d1854d916e412ebb10d0e4fa6ba4f08f8c69250abe5383f47"
+    },
+    {
+      "path": "inputs/local-baseline/source.json",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/inputs/local-baseline/source.json",
+      "bytes": 131243,
+      "sha256": "26bce2f46178f9aacba7fc2fda00b4b87d4433aadae9abd1954128038f3028c1"
+    },
+    {
+      "path": "inputs/local-gate/completed.json",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/inputs/local-gate/completed.json",
+      "bytes": 274,
+      "sha256": "865c5721247cdb051c6dcbc2ec315fa97375a391a7852d817a8f9d247b9d3fbd"
+    },
+    {
+      "path": "inputs/local-gate/gates.json",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/inputs/local-gate/gates.json",
+      "bytes": 3822,
+      "sha256": "d9cae151dde72939985d16b1214a11ae1ae0438415be6480457d6115c4f4b63a"
+    },
+    {
+      "path": "inputs/local-gate/identity-proof.json",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/inputs/local-gate/identity-proof.json",
+      "bytes": 1130,
+      "sha256": "9047e74296c630804c3ab367e16622ed8bdc007ab9dbf37a4cf9d617a8999a5c"
+    },
+    {
+      "path": "inputs/local-gate/list.log",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/inputs/local-gate/list.log",
+      "bytes": 92024,
+      "sha256": "e43a8e204cb5d2d1e55fca6aa60c0589be88eed274d28d7d3098b20652dbdff3"
+    },
+    {
+      "path": "inputs/local-gate/metadata.log",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/inputs/local-gate/metadata.log",
+      "bytes": 165053,
+      "sha256": "a6621ece2127e3e13253c22980e459a17b14f059a85b51a351c384c4a01036ae"
+    },
+    {
+      "path": "inputs/local-gate/source.json",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/inputs/local-gate/source.json",
+      "bytes": 131487,
+      "sha256": "412f11ff830b62ee5d50119fea35201f66b55a1127c1b724ba73a7eb9fecc925"
+    },
+    {
+      "path": "inputs/local-reviewed-proof/audit/original-case-timing.json",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/inputs/local-reviewed-proof/audit/original-case-timing.json",
+      "bytes": 2868,
+      "sha256": "2bdd03aa5e08c4387a95d76ea1bc428b6bcbfab363db56966a3fb3db3ebf00ea"
+    },
+    {
+      "path": "inputs/local-reviewed-proof/audit/terminal-source-gate-audit.json",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/inputs/local-reviewed-proof/audit/terminal-source-gate-audit.json",
+      "bytes": 1345,
+      "sha256": "3f864e1c90364d93459da8bbac5b7b56c8deff044f11dfeb9f5dc6db521aa670"
+    },
+    {
+      "path": "inputs/local-reviewed-proof/review/final-source-freeze.json",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/inputs/local-reviewed-proof/review/final-source-freeze.json",
+      "bytes": 1904,
+      "sha256": "73f9ef4ffe6e4363eb212d04605b8df2e5ebe100fa04815195d848a8765f5b11"
+    },
+    {
+      "path": "inputs/local-reviewed-proof/review/original-tests-proof.json",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/inputs/local-reviewed-proof/review/original-tests-proof.json",
+      "bytes": 5064,
+      "sha256": "b7400fa9da4aff98dc002628cb3ec82e7c05e83b7cf6bb32d4110d11a209b996"
+    },
+    {
+      "path": "inputs/local-reviewed-proof/review/source-inverse.json",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/inputs/local-reviewed-proof/review/source-inverse.json",
+      "bytes": 3614,
+      "sha256": "d649f699b556b97f0bf3f9a1b2f54bc488ae50ef4d348db835daae2e95511ff5"
+    },
+    {
+      "path": "inputs/original123-inventory.json",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/inputs/original123-inventory.json",
+      "bytes": 416179,
+      "sha256": "72d671f8b22246898f9142c0216c9fbced55e350e46b83ffec787c81496fb1fc"
+    },
+    {
+      "path": "inputs/prior-original123-source-definition-audit.json",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/inputs/prior-original123-source-definition-audit.json",
+      "bytes": 345598,
+      "sha256": "74c00b36423309af7527a31030b74ef3203dd6e57d4f321bc16eca32cbfca12c"
+    },
+    {
+      "path": "inputs/publication-files.json",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/inputs/publication-files.json",
+      "bytes": 21439,
+      "sha256": "7022fc9efcf5c99ffe30642061dac100adcd9920a2fb98d55080a22a120ac086"
+    },
+    {
+      "path": "preparation-discovery-diagnostic.json",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/preparation-discovery-diagnostic.json",
+      "bytes": 381,
+      "sha256": "a504325b6e64c70e66b3e26454b8ec8b7a3c65b5aeba74b0acafd10cabcc7519"
+    },
+    {
+      "path": "prepared-audit-plan.json",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/prepared-audit-plan.json",
+      "bytes": 2444,
+      "sha256": "01774fc01045fc0e9a3f488a7e984d3912beddec9edaa18450cc11ffa2bdf088"
+    },
+    {
+      "path": "prepared-original123-source-proof.json",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/prepared-original123-source-proof.json",
+      "bytes": 307549,
+      "sha256": "bda55ef52aa071b53cbb84d376cc310bb9d56977f84685bb13dc73b188bc085b"
+    },
+    {
+      "path": "prepared-remote-source-proof.json",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/prepared-remote-source-proof.json",
+      "bytes": 637,
+      "sha256": "771deb88c61ea6c51cb863b109799dc1f58cbd9c3419e5c9050e6ed8167d0dd0"
+    },
+    {
+      "path": "prepared-source-proof.json",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/prepared-source-proof.json",
+      "bytes": 336039,
+      "sha256": "b9fe001ebff17243f13a0e8d929b2574bbefb348db796d73d8620f25f30782a5"
+    },
+    {
+      "path": "raw/prepared-head-commit.json",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/raw/prepared-head-commit.json",
+      "bytes": 1127,
+      "sha256": "edeb56f9c42bed9e34b8202baf2b149ddc777ea0ba6eac3a74e996164b9746d2"
+    },
+    {
+      "path": "raw/prepared-head-commit.json.stderr",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/raw/prepared-head-commit.json.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "raw/prepared-head-tree.json",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/raw/prepared-head-tree.json",
+      "bytes": 2321671,
+      "sha256": "fd1c50aca672f988f8acff242d4d4586a1587e15182b1eea83e20ffb7895c7db"
+    },
+    {
+      "path": "raw/prepared-head-tree.json.stderr",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/raw/prepared-head-tree.json.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "source-snapshots/base/lampOS/crates/actions/tests/server.rs",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/source-snapshots/base/lampOS/crates/actions/tests/server.rs",
+      "bytes": 11487,
+      "sha256": "7806d5cdb8a2b55fd62edfb69f86e34d0f4c58633030fd5cd3e32403d72053e3"
+    },
+    {
+      "path": "source-snapshots/base/lampOS/crates/health/tests/program.rs",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/source-snapshots/base/lampOS/crates/health/tests/program.rs",
+      "bytes": 29330,
+      "sha256": "8c3a9b304642820f1c9e4e80ca8b1703b66fb08828e24d1fac9870a43101687c"
+    },
+    {
+      "path": "source-snapshots/base/lampOS/crates/memory/tests/health.rs",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/source-snapshots/base/lampOS/crates/memory/tests/health.rs",
+      "bytes": 24315,
+      "sha256": "0d829067a29a9e5105326b1e0b50c09436e6aefe5091849a683be282910f9d91"
+    },
+    {
+      "path": "source-snapshots/base/lampOS/crates/records/tests/records.rs",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/source-snapshots/base/lampOS/crates/records/tests/records.rs",
+      "bytes": 17837,
+      "sha256": "ed3504349c3a48400f2db666a5653588eee25cc602d664b95bea5962a20535f9"
+    },
+    {
+      "path": "source-snapshots/base/lampOS/crates/voice/src/coordinator/tests/early_end.rs",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/source-snapshots/base/lampOS/crates/voice/src/coordinator/tests/early_end.rs",
+      "bytes": 66998,
+      "sha256": "a743ebda9d5833fa974f9dadaee1504583cbe89ee1e062ba78219a8550d2ffa4"
+    },
+    {
+      "path": "source-snapshots/base/lampOS/crates/voice/src/coordinator/tests/endpoint_session.rs",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/source-snapshots/base/lampOS/crates/voice/src/coordinator/tests/endpoint_session.rs",
+      "bytes": 65847,
+      "sha256": "2526813f55abae1fe44b61bd839b0eee06cd27e362729da2dd505bb283c334be"
+    },
+    {
+      "path": "source-snapshots/base/lampOS/crates/voice/src/coordinator/tests/pilot_faults.rs",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/source-snapshots/base/lampOS/crates/voice/src/coordinator/tests/pilot_faults.rs",
+      "bytes": 109236,
+      "sha256": "217a109eaa90202de370be4db825f2285bd1b6582a0011b17bb8f4e183071d8e"
+    },
+    {
+      "path": "source-snapshots/base/lampOS/crates/voice/src/provider_worker/tests/review_2026_10_14.rs",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/source-snapshots/base/lampOS/crates/voice/src/provider_worker/tests/review_2026_10_14.rs",
+      "bytes": 8745,
+      "sha256": "20d12134b676ba2d1c3957b4f0f7abe30d9052c7751e583bb0338259ec1c2800"
+    },
+    {
+      "path": "source-snapshots/base/lampOS/crates/voice/src/provider_worker.rs",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/source-snapshots/base/lampOS/crates/voice/src/provider_worker.rs",
+      "bytes": 416659,
+      "sha256": "5cd8cc110e3156a8d4b353b54975d23bb237a823a91c04910daf7eca684ccaef"
+    },
+    {
+      "path": "source-snapshots/base/lampOS/crates/voice/tests/capture_hold_worker.rs",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/source-snapshots/base/lampOS/crates/voice/tests/capture_hold_worker.rs",
+      "bytes": 25423,
+      "sha256": "03937a74d3070dd0d0f9442998b2d60719f0d823a17d45a95ce363ed026657e0"
+    },
+    {
+      "path": "source-snapshots/base/lampOS/crates/voice-eval/src/physical/mac.rs",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/source-snapshots/base/lampOS/crates/voice-eval/src/physical/mac.rs",
+      "bytes": 189541,
+      "sha256": "c14c40669ad423baf9c21672587bd6e97e47a64e102d6d22c2714e3e399d78e2"
+    },
+    {
+      "path": "source-snapshots/base/lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/source-snapshots/base/lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "bytes": 17804,
+      "sha256": "600ad54a33c7a98ba0abf9c6aadeca366cb319d121b3847f36211cc5b0a30a29"
+    },
+    {
+      "path": "source-snapshots/base/lampOS/crates/voice-eval/tests/physical_loopback.rs",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/source-snapshots/base/lampOS/crates/voice-eval/tests/physical_loopback.rs",
+      "bytes": 26025,
+      "sha256": "de31d80698e7188af40278c9e982eceed0c15a1ccf8fe42323365dca028d3d98"
+    },
+    {
+      "path": "source-snapshots/base/lampOS/crates/voice-eval/tests/serve_relay.rs",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/source-snapshots/base/lampOS/crates/voice-eval/tests/serve_relay.rs",
+      "bytes": 10467,
+      "sha256": "53f5cc802a0101518da7214b63b77e052b3406fe1b5db3ce43d5c0c305145bf5"
+    },
+    {
+      "path": "source-snapshots/base/lampOS/crates/voice-eval/tests/serve_session.rs",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/source-snapshots/base/lampOS/crates/voice-eval/tests/serve_session.rs",
+      "bytes": 30354,
+      "sha256": "1850248165b8c7d5022ec06f3267b5de1a829fa375135cdda26aa3bfe539b905"
+    },
+    {
+      "path": "source-snapshots/head/.github/workflows/lampos-arm64.yml",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/source-snapshots/head/.github/workflows/lampos-arm64.yml",
+      "bytes": 7440,
+      "sha256": "11cbcf5ced5022ca685b5c9e51f349c986259a5044575a20f39d3b8e869a045f"
+    },
+    {
+      "path": "source-snapshots/head/lampOS/.config/nextest.toml",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/source-snapshots/head/lampOS/.config/nextest.toml",
+      "bytes": 6466,
+      "sha256": "33254521c34198ae2d4f988c4b7d04391c03da769ad91769e691171ae3b87367"
+    },
+    {
+      "path": "source-snapshots/head/lampOS/Cargo.lock",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/source-snapshots/head/lampOS/Cargo.lock",
+      "bytes": 113084,
+      "sha256": "40d62fead16a6f138c4d7dbe400a2e4a9855ceece96d19b1e642136431aed4c5"
+    },
+    {
+      "path": "source-snapshots/head/lampOS/Cargo.toml",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/source-snapshots/head/lampOS/Cargo.toml",
+      "bytes": 1211,
+      "sha256": "dafaa1133d09ab0137847973359e8d1c01e7dc306aa54e299ec1a6f611e24c2b"
+    },
+    {
+      "path": "source-snapshots/head/lampOS/crates/actions/tests/server.rs",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/source-snapshots/head/lampOS/crates/actions/tests/server.rs",
+      "bytes": 11487,
+      "sha256": "7806d5cdb8a2b55fd62edfb69f86e34d0f4c58633030fd5cd3e32403d72053e3"
+    },
+    {
+      "path": "source-snapshots/head/lampOS/crates/health/tests/program.rs",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/source-snapshots/head/lampOS/crates/health/tests/program.rs",
+      "bytes": 29330,
+      "sha256": "8c3a9b304642820f1c9e4e80ca8b1703b66fb08828e24d1fac9870a43101687c"
+    },
+    {
+      "path": "source-snapshots/head/lampOS/crates/memory/tests/health.rs",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/source-snapshots/head/lampOS/crates/memory/tests/health.rs",
+      "bytes": 24315,
+      "sha256": "0d829067a29a9e5105326b1e0b50c09436e6aefe5091849a683be282910f9d91"
+    },
+    {
+      "path": "source-snapshots/head/lampOS/crates/records/tests/records.rs",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/source-snapshots/head/lampOS/crates/records/tests/records.rs",
+      "bytes": 17837,
+      "sha256": "ed3504349c3a48400f2db666a5653588eee25cc602d664b95bea5962a20535f9"
+    },
+    {
+      "path": "source-snapshots/head/lampOS/crates/voice/src/coordinator/tests/early_end.rs",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/source-snapshots/head/lampOS/crates/voice/src/coordinator/tests/early_end.rs",
+      "bytes": 66998,
+      "sha256": "a743ebda9d5833fa974f9dadaee1504583cbe89ee1e062ba78219a8550d2ffa4"
+    },
+    {
+      "path": "source-snapshots/head/lampOS/crates/voice/src/coordinator/tests/endpoint_session.rs",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/source-snapshots/head/lampOS/crates/voice/src/coordinator/tests/endpoint_session.rs",
+      "bytes": 65847,
+      "sha256": "2526813f55abae1fe44b61bd839b0eee06cd27e362729da2dd505bb283c334be"
+    },
+    {
+      "path": "source-snapshots/head/lampOS/crates/voice/src/coordinator/tests/pilot_faults.rs",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/source-snapshots/head/lampOS/crates/voice/src/coordinator/tests/pilot_faults.rs",
+      "bytes": 109236,
+      "sha256": "217a109eaa90202de370be4db825f2285bd1b6582a0011b17bb8f4e183071d8e"
+    },
+    {
+      "path": "source-snapshots/head/lampOS/crates/voice/src/provider_worker/tests/review_2026_10_14.rs",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/source-snapshots/head/lampOS/crates/voice/src/provider_worker/tests/review_2026_10_14.rs",
+      "bytes": 8745,
+      "sha256": "20d12134b676ba2d1c3957b4f0f7abe30d9052c7751e583bb0338259ec1c2800"
+    },
+    {
+      "path": "source-snapshots/head/lampOS/crates/voice/src/provider_worker.rs",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/source-snapshots/head/lampOS/crates/voice/src/provider_worker.rs",
+      "bytes": 416659,
+      "sha256": "5cd8cc110e3156a8d4b353b54975d23bb237a823a91c04910daf7eca684ccaef"
+    },
+    {
+      "path": "source-snapshots/head/lampOS/crates/voice/tests/capture_hold_worker.rs",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/source-snapshots/head/lampOS/crates/voice/tests/capture_hold_worker.rs",
+      "bytes": 25423,
+      "sha256": "03937a74d3070dd0d0f9442998b2d60719f0d823a17d45a95ce363ed026657e0"
+    },
+    {
+      "path": "source-snapshots/head/lampOS/crates/voice-eval/src/physical/mac.rs",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/source-snapshots/head/lampOS/crates/voice-eval/src/physical/mac.rs",
+      "bytes": 189541,
+      "sha256": "c14c40669ad423baf9c21672587bd6e97e47a64e102d6d22c2714e3e399d78e2"
+    },
+    {
+      "path": "source-snapshots/head/lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/source-snapshots/head/lampOS/crates/voice-eval/tests/common/final_drain_clock.rs",
+      "bytes": 13432,
+      "sha256": "fcc6988f7837440550a090ea6e2b04c9b9f569f3f7589558234780477880148e"
+    },
+    {
+      "path": "source-snapshots/head/lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/source-snapshots/head/lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "bytes": 17959,
+      "sha256": "aca9379bbb7c993267251c1103a88f91d06ad8468e7f3cc936efb0d44797227c"
+    },
+    {
+      "path": "source-snapshots/head/lampOS/crates/voice-eval/tests/physical_loopback.rs",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/source-snapshots/head/lampOS/crates/voice-eval/tests/physical_loopback.rs",
+      "bytes": 26025,
+      "sha256": "de31d80698e7188af40278c9e982eceed0c15a1ccf8fe42323365dca028d3d98"
+    },
+    {
+      "path": "source-snapshots/head/lampOS/crates/voice-eval/tests/serve_relay.rs",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/source-snapshots/head/lampOS/crates/voice-eval/tests/serve_relay.rs",
+      "bytes": 10467,
+      "sha256": "53f5cc802a0101518da7214b63b77e052b3406fe1b5db3ce43d5c0c305145bf5"
+    },
+    {
+      "path": "source-snapshots/head/lampOS/crates/voice-eval/tests/serve_session.rs",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/source-snapshots/head/lampOS/crates/voice-eval/tests/serve_session.rs",
+      "bytes": 30354,
+      "sha256": "1850248165b8c7d5022ec06f3267b5de1a829fa375135cdda26aa3bfe539b905"
+    },
+    {
+      "path": "source-snapshots/head/lampOS/docs/voice-test-fixtures.md",
+      "source": "/private/tmp/tests-823-final-drain-native-audit/source-snapshots/head/lampOS/docs/voice-test-fixtures.md",
+      "bytes": 19699,
+      "sha256": "bd618f4471d5ec69dad490abc9e4747a91fdb21ef9fb1033a1e9d8f20e332940"
+    }
+  ],
+  "force_add_logs": [
+    "inputs/local-baseline/list.log",
+    "inputs/local-gate/list.log",
+    "inputs/local-gate/metadata.log"
+  ],
+  "native_results_claimed": false,
+  "scripts_outside_package": [
+    {
+      "path": "/private/tmp/tests-823-capture-final-drain-native-terminal.py",
+      "sha256": "445a6d51c61e1cef456ada943df2f576d503a0d73f2c5757374140cf50c154f0"
+    },
+    {
+      "path": "/private/tmp/tests-823-final-drain-native-parser.py",
+      "sha256": "a91b48faf5b518f48f8005b9bf60754e8c2d09dfc2893f5a57e57a7c073db7d0"
+    }
+  ]
+}

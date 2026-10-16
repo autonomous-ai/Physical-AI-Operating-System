@@ -1,0 +1,14 @@
+{
+  "command": [
+    "gh",
+    "api",
+    "repos/autonomous-ai/lampOS/git/trees/b4f45bc806c4b34661828d0cb2b25fce1cf37bf7?recursive=1"
+  ],
+  "started_from_date": "2026-10-16 09:26:52 +0700",
+  "finished_from_date": "2026-10-16 09:26:55 +0700",
+  "exit_code": 0,
+  "stdout": "raw/prepared-head-tree.json",
+  "stderr": "raw/prepared-head-tree.json.stderr",
+  "stdout_sha256": "fd1c50aca672f988f8acff242d4d4586a1587e15182b1eea83e20ffb7895c7db",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

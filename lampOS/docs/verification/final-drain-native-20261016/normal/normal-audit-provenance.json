@@ -1,0 +1,29 @@
+{
+  "date_from_date": "2026-10-16 09:42:01 +0700",
+  "scope": "Read-only capture and parsing after root terminal notification; no test/Cargo/source/Git/GitHub mutation",
+  "commands_and_exit_receipts": "captures/",
+  "source_proof": "normal-source-and-merge-audit.json",
+  "local_metadata_text_rendering": {
+    "input": "raw/normal-base-upstream-tree.z",
+    "input_sha256": "22ff4f0dc35893f886c803431ab13cdb5d4b9a85292de341c338e9399eaf2baf",
+    "input_bytes": 846737,
+    "output": "raw/normal-base-upstream-tree.txt",
+    "output_sha256": "80343d5661ac2087630075c7fe6fc625589fff28079067184825ebf3dd93bbb8",
+    "operation": "Replace every NUL record delimiter with LF; verified original contains no LF. The original NUL stream is retained externally but omitted from publication as binary metadata.",
+    "reversible": true
+  },
+  "external_parser_scripts": [
+    {
+      "path": "/private/tmp/tests-823-audit-final-drain-native-normal.py",
+      "sha256": "7e2ca8b713f54e9ccadc3b81d5806643e22d72a43ed6086ac7ccaad97421b00e"
+    },
+    {
+      "path": "/private/tmp/tests-823-final-drain-native-parser.py",
+      "sha256": "a91b48faf5b518f48f8005b9bf60754e8c2d09dfc2893f5a57e57a7c073db7d0"
+    }
+  ],
+  "parser_diagnostics": "parser-diagnostic-printed-binary-count.json",
+  "native_tests_repeated": false,
+  "normal_total_is_actual_not_predicted": true,
+  "full_run_not_read": true
+}

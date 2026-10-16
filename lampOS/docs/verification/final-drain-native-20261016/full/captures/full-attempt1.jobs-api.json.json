@@ -1,0 +1,14 @@
+{
+  "command": [
+    "gh",
+    "api",
+    "repos/autonomous-ai/lampOS/actions/runs/38839828296/attempts/1/jobs?per_page=100"
+  ],
+  "started_from_date": "2026-10-16 09:42:45 +0700",
+  "finished_from_date": "2026-10-16 09:42:46 +0700",
+  "exit_code": 0,
+  "stdout": "full/raw/full-attempt1.jobs-api.json",
+  "stderr": "full/raw/full-attempt1.jobs-api.json.stderr",
+  "stdout_sha256": "0450a7633d624c583d96d71aae7cbdd73ae0541072cf49c1c1a4fb6cb6383900",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

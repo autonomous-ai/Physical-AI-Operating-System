@@ -1,0 +1,38 @@
+{
+  "date_from_date": "2026-10-16 09:32:06 +0700",
+  "source_head": "c5bcc45b905458c1a8adcd8bcf06885f35dbfdf7",
+  "base": "1fb07c6f57ee280a49de7b4ddd74008c2a32a20d",
+  "pr": 963,
+  "normal_run": 38839828555,
+  "full_run": 38839828296,
+  "expected_membership": "expected-native-membership.json",
+  "terminal_capture_script": "/private/tmp/tests-823-capture-final-drain-native-terminal.py",
+  "terminal_capture_script_sha256": "445a6d51c61e1cef456ada943df2f576d503a0d73f2c5757374140cf50c154f0",
+  "pure_parser": "/private/tmp/tests-823-final-drain-native-parser.py",
+  "pure_parser_sha256": "a91b48faf5b518f48f8005b9bf60754e8c2d09dfc2893f5a57e57a7c073db7d0",
+  "scripts_syntax_valid": true,
+  "scripts_executed_for_native_data": false,
+  "root_owns_watcher_and_any_restart": true,
+  "normal_requirements": [
+    "terminal success and correct PR head metadata",
+    "actual checkout merge includes the exact head; compare source tree to frozen head before applying expectations",
+    "all nextest identities unique, every ordinal 1..N once, totals/start/summary agree, no FAIL/LEAK or test retry markers",
+    "exact 452 Evaluator identities, zero fixed123, zero new6",
+    "successful build/test/doc/own-harness jobs; skipped failure-report job is classified separately"
+  ],
+  "full_requirements": [
+    "every participating checkout is exact c5bcc45b head",
+    "all 504 compiled Evaluator identities, all fixed123 and all six additions exactly once",
+    "all four shard result sets disjoint and each has complete ordinals/start/summary",
+    "all job/step conclusions and doc/own-harness outputs checked",
+    "if infrastructure stops a shard before tests, preserve complete raw bytes and skipped step; root alone decides restart",
+    "if a composite is needed, original successful complete logs, start/end times and every step must remain exact; distinguish original execution IDs from later record IDs",
+    "new execution must cover precisely missing identities without repeating an executed test"
+  ],
+  "limits": [
+    "No normal/full result or exact total workspace nextest count inferred from preparation.",
+    "A new merge-source difference is a review input, never a reason to silently relax identity expectations.",
+    "Zero source ignores and all base assertion macros unchanged do not erase three older inherited assertion differences.",
+    "No native timing pair, original123 standalone serial bound, or device claim."
+  ]
+}

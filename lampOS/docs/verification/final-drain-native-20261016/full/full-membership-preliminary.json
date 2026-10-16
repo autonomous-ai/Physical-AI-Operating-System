@@ -1,0 +1,397 @@
+{
+  "path": "/private/tmp/tests-823-final-drain-native-audit/full/raw/full-attempt1.log",
+  "sha256": "8318718459fc3ad22f7ac15a11590ffa4cdd454a5fb90d91c9f0ec70680576a7",
+  "counts": {
+    "1": 1316,
+    "3": 1269,
+    "4": 1412,
+    "2": 1379
+  },
+  "ordinal_proofs": [
+    {
+      "shard": 1,
+      "count": 1316,
+      "exact_ordinals": "1..1316",
+      "every_total_equals_count": true,
+      "nextest_summary_agrees": true
+    },
+    {
+      "shard": 2,
+      "count": 1379,
+      "exact_ordinals": "1..1379",
+      "every_total_equals_count": true,
+      "nextest_summary_agrees": true
+    },
+    {
+      "shard": 3,
+      "count": 1269,
+      "exact_ordinals": "1..1269",
+      "every_total_equals_count": true,
+      "nextest_summary_agrees": true
+    },
+    {
+      "shard": 4,
+      "count": 1412,
+      "exact_ordinals": "1..1412",
+      "every_total_equals_count": true,
+      "nextest_summary_agrees": true
+    }
+  ],
+  "checkouts": [
+    {
+      "shard": 1,
+      "head": "c5bcc45b905458c1a8adcd8bcf06885f35dbfdf7",
+      "line": 247
+    },
+    {
+      "shard": 3,
+      "head": "c5bcc45b905458c1a8adcd8bcf06885f35dbfdf7",
+      "line": 3081
+    },
+    {
+      "shard": 4,
+      "head": "c5bcc45b905458c1a8adcd8bcf06885f35dbfdf7",
+      "line": 5518
+    },
+    {
+      "shard": 2,
+      "head": "c5bcc45b905458c1a8adcd8bcf06885f35dbfdf7",
+      "line": 8098
+    }
+  ],
+  "starts": [
+    {
+      "shard": 1,
+      "line": 1145,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/4)\tUNKNOWN STEP\t2026-10-16T02:32:57.4707310Z     Starting 1316 tests across 280 binaries (4097 tests and 2 binaries skipped)"
+    },
+    {
+      "shard": 3,
+      "line": 3979,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (3/4)\tUNKNOWN STEP\t2026-10-16T02:32:56.3087524Z     Starting 1269 tests across 280 binaries (4144 tests and 2 binaries skipped)"
+    },
+    {
+      "shard": 4,
+      "line": 6416,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (4/4)\tUNKNOWN STEP\t2026-10-16T02:33:16.7935011Z     Starting 1412 tests across 280 binaries (4001 tests and 2 binaries skipped)"
+    },
+    {
+      "shard": 2,
+      "line": 8996,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (2/4)\tUNKNOWN STEP\t2026-10-16T02:32:33.9959494Z     Starting 1379 tests across 280 binaries (4034 tests and 2 binaries skipped)"
+    }
+  ],
+  "summaries": [
+    {
+      "shard": 1,
+      "line": 2463,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/4)\tUNKNOWN STEP\t2026-10-16T02:35:34.3081880Z      Summary [ 156.838s] 1316 tests run: 1316 passed, 4097 skipped"
+    },
+    {
+      "shard": 3,
+      "line": 5250,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (3/4)\tUNKNOWN STEP\t2026-10-16T02:35:18.3338677Z      Summary [ 142.025s] 1269 tests run: 1269 passed, 4144 skipped"
+    },
+    {
+      "shard": 4,
+      "line": 7830,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (4/4)\tUNKNOWN STEP\t2026-10-16T02:35:45.2347014Z      Summary [ 148.441s] 1412 tests run: 1412 passed, 4001 skipped"
+    },
+    {
+      "shard": 2,
+      "line": 10377,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (2/4)\tUNKNOWN STEP\t2026-10-16T02:35:14.6069946Z      Summary [ 160.611s] 1379 tests run: 1379 passed, 4034 skipped"
+    }
+  ],
+  "doc_harness_summaries": [
+    {
+      "shard": 1,
+      "line": 2475,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/4)\tUNKNOWN STEP\t2026-10-16T02:35:34.6117351Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 2481,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/4)\tUNKNOWN STEP\t2026-10-16T02:35:34.6323217Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 2487,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/4)\tUNKNOWN STEP\t2026-10-16T02:35:34.7921119Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 2493,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/4)\tUNKNOWN STEP\t2026-10-16T02:35:35.0507722Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 2501,
+      "passed": 2,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/4)\tUNKNOWN STEP\t2026-10-16T02:35:35.4768238Z test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 2508,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/4)\tUNKNOWN STEP\t2026-10-16T02:35:35.5847830Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 2514,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/4)\tUNKNOWN STEP\t2026-10-16T02:35:35.7686977Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 2520,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/4)\tUNKNOWN STEP\t2026-10-16T02:35:35.7909702Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 2526,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/4)\tUNKNOWN STEP\t2026-10-16T02:35:35.8180168Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 2532,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/4)\tUNKNOWN STEP\t2026-10-16T02:35:35.9521350Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 2538,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/4)\tUNKNOWN STEP\t2026-10-16T02:35:36.0079416Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 2544,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/4)\tUNKNOWN STEP\t2026-10-16T02:35:36.1190104Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 2550,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/4)\tUNKNOWN STEP\t2026-10-16T02:35:36.1559529Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 2557,
+      "passed": 1,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/4)\tUNKNOWN STEP\t2026-10-16T02:35:36.4992528Z test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 2564,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/4)\tUNKNOWN STEP\t2026-10-16T02:35:36.5338470Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 2570,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/4)\tUNKNOWN STEP\t2026-10-16T02:35:36.5793104Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 2576,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/4)\tUNKNOWN STEP\t2026-10-16T02:35:36.7023109Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 2582,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/4)\tUNKNOWN STEP\t2026-10-16T02:35:36.7598930Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 2589,
+      "passed": 1,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/4)\tUNKNOWN STEP\t2026-10-16T02:35:37.4138402Z test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 2596,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/4)\tUNKNOWN STEP\t2026-10-16T02:35:37.4443139Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 2602,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/4)\tUNKNOWN STEP\t2026-10-16T02:35:37.4851930Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 2608,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/4)\tUNKNOWN STEP\t2026-10-16T02:35:37.6327278Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 2614,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/4)\tUNKNOWN STEP\t2026-10-16T02:35:37.7137778Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 2620,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/4)\tUNKNOWN STEP\t2026-10-16T02:35:37.7402636Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 2626,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/4)\tUNKNOWN STEP\t2026-10-16T02:35:37.7672462Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 2632,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/4)\tUNKNOWN STEP\t2026-10-16T02:35:37.9366139Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 2638,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/4)\tUNKNOWN STEP\t2026-10-16T02:35:37.9711183Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 2644,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/4)\tUNKNOWN STEP\t2026-10-16T02:35:38.0485703Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 2650,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/4)\tUNKNOWN STEP\t2026-10-16T02:35:38.1054467Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 2656,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/4)\tUNKNOWN STEP\t2026-10-16T02:35:38.1608910Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 2662,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/4)\tUNKNOWN STEP\t2026-10-16T02:35:38.5983207Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 2668,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/4)\tUNKNOWN STEP\t2026-10-16T02:35:38.7614708Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 2674,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/4)\tUNKNOWN STEP\t2026-10-16T02:35:38.8021654Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 2680,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/4)\tUNKNOWN STEP\t2026-10-16T02:35:38.8319968Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 2686,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/4)\tUNKNOWN STEP\t2026-10-16T02:35:38.8916706Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 2692,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/4)\tUNKNOWN STEP\t2026-10-16T02:35:38.9784314Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 2698,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/4)\tUNKNOWN STEP\t2026-10-16T02:35:39.9688882Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 2704,
+      "passed": 0,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/4)\tUNKNOWN STEP\t2026-10-16T02:35:40.4866802Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "shard": 1,
+      "line": 2733,
+      "passed": 12,
+      "failed": 0,
+      "text": "lampOS \u2014 build and test on Linux ARM64 (1/4)\tUNKNOWN STEP\t2026-10-16T02:35:51.9957391Z test result: 12 passed; 0 failed"
+    }
+  ],
+  "failure_markers": [],
+  "date_from_date": "2026-10-16 09:43:19 +0700",
+  "unique_results": 5376,
+  "evaluator_expected": 504,
+  "evaluator_actual": 504,
+  "evaluator_missing": [],
+  "evaluator_extra": [],
+  "fixed123_covered": 123,
+  "fixed123_missing": [],
+  "new6_covered": 6,
+  "new6_missing": [],
+  "preliminary_only": true,
+  "source_check_pending": true,
+  "job_metadata_check_pending": true,
+  "normal_evaluator_match": true,
+  "complete_expected_membership": true
+}

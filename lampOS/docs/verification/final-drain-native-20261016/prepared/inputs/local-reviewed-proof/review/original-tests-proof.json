@@ -1,0 +1,103 @@
+{
+  "date_from_date": "2026-10-16 09:08:33 +0700",
+  "original_identity_count": 13,
+  "unchanged_functions": 12,
+  "only_changed_function": "a_session_end_first_seen_in_the_final_drain_withholds_and_is_kept",
+  "initializer_inverse": {
+    "from": "final_drain_clock::backend(\n        &rig,",
+    "to": "rig.backend("
+  },
+  "functions": [
+    {
+      "test": "a_known_session_end_withholds_dispatch",
+      "current_fn_sha256": "a0c3a21d89a2686042ce22cf38a5d946c2d26a7dae630ffda22b8e0f67b1b0ea",
+      "baseline_fn_sha256": "a0c3a21d89a2686042ce22cf38a5d946c2d26a7dae630ffda22b8e0f67b1b0ea",
+      "current_exact": true,
+      "after_selected_initializer_inverse_exact": true
+    },
+    {
+      "test": "a_known_invalid_cue_withholds_dispatch_as_a_protocol_failure",
+      "current_fn_sha256": "1250aeec80189ed6749bde730206a4f5832c9203bf5f00e04249bee9fbd2d9aa",
+      "baseline_fn_sha256": "1250aeec80189ed6749bde730206a4f5832c9203bf5f00e04249bee9fbd2d9aa",
+      "current_exact": true,
+      "after_selected_initializer_inverse_exact": true
+    },
+    {
+      "test": "a_known_run_end_cue_withholds_dispatch",
+      "current_fn_sha256": "f2d7d23ff9aa505ae2a39999a47d35e9902112d4ef63bf440c4b45c69b1a23cf",
+      "baseline_fn_sha256": "f2d7d23ff9aa505ae2a39999a47d35e9902112d4ef63bf440c4b45c69b1a23cf",
+      "current_exact": true,
+      "after_selected_initializer_inverse_exact": true
+    },
+    {
+      "test": "a_session_end_first_seen_in_the_final_drain_withholds_and_is_kept",
+      "current_fn_sha256": "7e5ea4998f094a8f13e3a38b1896b76130c4039e81950ace6c1227b0e345d1bd",
+      "baseline_fn_sha256": "4abb4ab7bb2dbfd40900037d3d99b5438d86a08177b59c7f3a9c739679ce4a64",
+      "current_exact": false,
+      "after_selected_initializer_inverse_exact": true
+    },
+    {
+      "test": "an_invalid_cue_first_seen_in_the_final_drain_withholds",
+      "current_fn_sha256": "c90d0877a3e0de48d29eb641affeadb2d967756a9cd8370765c42c65305bc906",
+      "baseline_fn_sha256": "c90d0877a3e0de48d29eb641affeadb2d967756a9cd8370765c42c65305bc906",
+      "current_exact": true,
+      "after_selected_initializer_inverse_exact": true
+    },
+    {
+      "test": "a_relay_framing_error_first_seen_in_the_final_drain_withholds",
+      "current_fn_sha256": "62fecf34dee5c1c9eb30d82cac4ecb91a2055d0948c1697b464d91965bddf8bb",
+      "baseline_fn_sha256": "62fecf34dee5c1c9eb30d82cac4ecb91a2055d0948c1697b464d91965bddf8bb",
+      "current_exact": true,
+      "after_selected_initializer_inverse_exact": true
+    },
+    {
+      "test": "a_transport_closed_during_the_final_drain_withholds",
+      "current_fn_sha256": "03871d12477f00480f271aa25ed2e5dbbb8a6db2d017b05a2762dfe11f47b86c",
+      "baseline_fn_sha256": "03871d12477f00480f271aa25ed2e5dbbb8a6db2d017b05a2762dfe11f47b86c",
+      "current_exact": true,
+      "after_selected_initializer_inverse_exact": true
+    },
+    {
+      "test": "a_healthy_session_still_dispatches_once",
+      "current_fn_sha256": "b0e6e1241ed85bdac69122fb249ea5af881fc34cce65005e9e2d60a884e7dbf4",
+      "baseline_fn_sha256": "b0e6e1241ed85bdac69122fb249ea5af881fc34cce65005e9e2d60a884e7dbf4",
+      "current_exact": true,
+      "after_selected_initializer_inverse_exact": true
+    },
+    {
+      "test": "the_first_terminal_cause_wins_and_a_provider_failure_stays_provider_unavailable",
+      "current_fn_sha256": "cb356669bb0b6fc4f66fd447061ea0b949fe871425cfcaab22a7d897d0527629",
+      "baseline_fn_sha256": "cb356669bb0b6fc4f66fd447061ea0b949fe871425cfcaab22a7d897d0527629",
+      "current_exact": true,
+      "after_selected_initializer_inverse_exact": true
+    },
+    {
+      "test": "an_unobserved_event_in_the_final_drain_requires_revalidation",
+      "current_fn_sha256": "e54de8ebfeba1e5297c7f7979f01360bb9cd4dbe972d3c8a5b2eb5a14372eb24",
+      "baseline_fn_sha256": "e54de8ebfeba1e5297c7f7979f01360bb9cd4dbe972d3c8a5b2eb5a14372eb24",
+      "current_exact": true,
+      "after_selected_initializer_inverse_exact": true
+    },
+    {
+      "test": "audit_physical_boundary_rejects_a_target_already_over_100ms_late",
+      "current_fn_sha256": "d0ade0d9b624047d0c7797e8267f8546b5bf988be98161a822e95e68c41b65ee",
+      "baseline_fn_sha256": "d0ade0d9b624047d0c7797e8267f8546b5bf988be98161a822e95e68c41b65ee",
+      "current_exact": true,
+      "after_selected_initializer_inverse_exact": true
+    },
+    {
+      "test": "audit_physical_boundary_does_not_dispatch_during_post_exit_trace_relay",
+      "current_fn_sha256": "8a1f22074f10f543e6d08985e496b4e3cc2df3ab3b409896cb49cc12f1eb1054",
+      "baseline_fn_sha256": "8a1f22074f10f543e6d08985e496b4e3cc2df3ab3b409896cb49cc12f1eb1054",
+      "current_exact": true,
+      "after_selected_initializer_inverse_exact": true
+    },
+    {
+      "test": "a_final_drain_that_exhausts_its_budget_requires_revalidation",
+      "current_fn_sha256": "4a2880c37da3523fdde8e4c3e0f5e1f5e4dc7ce92838f63294362a2038ba0ae4",
+      "baseline_fn_sha256": "4a2880c37da3523fdde8e4c3e0f5e1f5e4dc7ce92838f63294362a2038ba0ae4",
+      "current_exact": true,
+      "after_selected_initializer_inverse_exact": true
+    }
+  ]
+}

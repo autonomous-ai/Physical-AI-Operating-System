@@ -1,0 +1,17 @@
+{
+  "command": [
+    "git",
+    "ls-tree",
+    "-r",
+    "-z",
+    "f4b5b0cff8450de33ae394e363ac6f9cc0eab615"
+  ],
+  "cwd": "/private/tmp/lampos-tests-final-drain-clock",
+  "started_from_date": "2026-10-16 09:40:36 +0700",
+  "finished_from_date": "2026-10-16 09:40:36 +0700",
+  "exit_code": 0,
+  "stdout": "normal/raw/normal-base-upstream-tree.z",
+  "stderr": "normal/raw/normal-base-upstream-tree.z.stderr",
+  "stdout_sha256": "22ff4f0dc35893f886c803431ab13cdb5d4b9a85292de341c338e9399eaf2baf",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

@@ -588,7 +588,18 @@ used only to say it.
   finished (idle with an answer), stopped, failed, or stopped to ask
   (`needs-input`); otherwise it ends as a failed read with code `working`,
   so the four observations a task may keep are not spent on work in
-  progress. Once one such observation is kept, the watch leaves that task.
+  progress. An idle answer is kept only when the next look finds the same
+  one, as Harness's own `wait` takes two looks at one turn for done: the
+  first ends as a failed read with code `idle_once`, the task remembers it
+  (`watch_idle`, kept across a restart), and the next look comes 10 s later
+  (`WATCH_CONFIRM_MS`) instead of on the usual schedule. A look that finds
+  it at work again, or a different answer, starts over. An agent can end a
+  turn while it waits on its own background work and then go on: on
+  lamp-75c9 on 2026-10-16, a task that ran `sleep 25` in the background read
+  idle → working → idle on one line before it was done. So "done" is told
+  about 10 s after the agent goes idle. A question (`needs-input`), a stop
+  or a failure is kept on the first look. Once one such observation is
+  kept, the watch leaves that task.
   An asked read's receipt that a watch read replaces is dropped: a retry of
   that request finds the revision moved on and is refused, never run twice.
   Nothing is read while a launch or another read is in hand.

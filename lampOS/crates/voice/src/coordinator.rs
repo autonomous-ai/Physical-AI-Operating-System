@@ -2519,17 +2519,13 @@ fn run_inner(
     // A person's mute, accepted and revoked: the restart guard's marker goes
     // now, before teardown, so a crash in teardown cannot leave it for a tap
     // to open (#997). A removal that fails ends the cycle as a fault would.
-    let chosen = match controls.as_mut() {
-        Some(controls)
-            if result
-                .as_ref()
-                .err()
-                .is_some_and(|error| error.is::<SoftwareMute>()) =>
-        {
-            controls.mute_chosen()
-        }
-        _ => Ok(()),
-    };
+    // Whatever the result: a run can end in a fault after the mute was taken
+    // (a failed publish, a speaker socket gone), and `arm_active` refuses to
+    // start muted, so a muted live latch here is always the person's (the
+    // reviewer's P3 on #997).
+    let chosen = controls
+        .as_mut()
+        .map_or(Ok(()), |controls| controls.mute_chosen());
     let result = finish_active_run(&mut rig, &mut owner, &mut reply, trace, cues, result);
     chosen?;
     if let Some(motor) = &rig.motor {

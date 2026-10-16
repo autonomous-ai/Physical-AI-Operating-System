@@ -736,24 +736,30 @@ whose subsequent save fails still has the active durable guard. Persistence
 failure stays visible and cannot clear the live latch.
 
 **A restored mute told from a chosen one** (#960 point 2, `LAMP_RESTORED_MUTE=on`
-on the voice, off unless set). Arming also leaves an empty private marker,
-`<record>.restart-guard`, beside the record, written before the guard. A clean
-release, a mute the person chose (once saved), and a clear each remove it. A
-restart that finds the record muted with the marker present knows the mute is
-the guard's after a fault: `HandControls::restored_after_fault`, the trace
+on the voice, off unless set). Arming also leaves a private marker,
+`<record>.restart-guard`, beside the record, written before the guard and
+naming the guard record it goes with (its `clock_id` and `through_us`). A clean
+release, a mute the person chose (as soon as it is taken), and a clear each
+remove it. A restart that finds the record muted with the marker present, and
+the record as stored (before any rebase on a new boot) still the one the
+marker names, knows the mute is the guard's after a fault: `HandControls::restored_after_fault`, the trace
 record `mute_restored_after_fault` and one log line. A marker beside an unmuted
 record (a fault between the two writes), or found with the switch off, is
 removed. **Writing** the marker is advice: failing to write it changes no
 permission, since a missing marker reads as a chosen mute, which stays shut.
 **Removing** it is not, because the marker is what lets a tap clear a mute
-(below). So it goes as soon as a person's mute is accepted: when the
-conversation ends on a software mute, after revocation and before teardown
-(`HandControls::mute_chosen`, from `run_inner`), and again before a muted
-record is saved (`persist_muted`, `disarm_after_cleanup`), never after. A
-crash in teardown, or between the removal and the save, therefore never
-leaves a person's mute beside the guard's marker. The folder is synced after
-the unlink, as a save is, and a removal or sync that fails is a persistence
-fault: nothing opens until recovery (the reviewer's P1 and P2 on #997).
+(below). So it goes as soon as a person's mute is accepted: after every
+conversation, whatever its result, after revocation and before teardown
+(`HandControls::mute_chosen`, from `run_inner`; `arm_active` refuses to start
+muted, so a muted live latch there is the person's), and again before a muted
+record is saved (`persist_muted`, `disarm_after_cleanup`), never after. The
+folder is synced after the unlink, as a save is. A removal or sync that fails
+is a persistence fault for this run, and the person's mute is still saved.
+Across the restart that fault causes, a marker that could not be removed no
+longer counts: every person's mute moves `through_us` forward, so it never
+matches the guard record the marker names. A crash in teardown, between the
+removal and the save, or after a removal that failed, therefore never lets a
+tap open a person's mute (the reviewer's P1 and P2 on #997).
 **A head tap wakes such a mute, as it wakes sleep** (`Receiver::request_wake_after_fault`):
 on lamp-4ace on 2026-10-16 a crash at 12:20 brought the voice up muted, and
 with no main button and the base strip off nothing at the lamp could open it.

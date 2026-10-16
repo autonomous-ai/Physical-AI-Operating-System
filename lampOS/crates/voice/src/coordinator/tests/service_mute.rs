@@ -343,3 +343,130 @@ fn unavailable_startup_or_failed_cleanup_never_calls_next_runtime() {
         assert_eq!(opened.get(), 0);
     }
 }
+
+/// One active rig's shutdown after the cycle ended as an unreadable switch,
+/// with the privacy worker having queued `fault` (if any) and ended by
+/// itself: cleanly, or killed.
+fn shutdown_after_unreadable(
+    privacy_controls: bool,
+    fault: Option<&str>,
+    killed: bool,
+) -> Result<()> {
+    let directory = SessionDirectory::create().unwrap();
+    let mut peers = Vec::new();
+    let mut fixture = |role: &str| {
+        let (worker, mut channels, input) = Worker::cooperative_fixture(&directory.path, role);
+        peers.push(thread::spawn(move || {
+            let deadline = Instant::now() + Duration::from_secs(3);
+            while !matches!(
+                channels.control.receive::<Control>(),
+                Ok(Some(Control::Stop))
+            ) {
+                assert!(Instant::now() < deadline);
+                thread::sleep(Duration::from_millis(1));
+            }
+            drop(input);
+            channels
+        }));
+        worker
+    };
+    let (speaker, capture, provider) =
+        (fixture("speaker"), fixture("capture"), fixture("provider"));
+    // The privacy worker said why and ended before any Stop.
+    let (mut privacy, mut privacy_channels, privacy_input) =
+        Worker::cooperative_fixture(&directory.path, "privacy");
+    if let Some(code) = fault {
+        privacy_channels
+            .control
+            .send(WorkerEvent::Fault { code: code.into() })
+            .unwrap();
+    }
+    if killed {
+        let pid = rustix::process::Pid::from_raw(privacy.fixture_pid() as i32).unwrap();
+        rustix::process::kill_process(pid, rustix::process::Signal::KILL).unwrap();
+    }
+    drop(privacy_input);
+    let deadline = Instant::now() + Duration::from_secs(3);
+    while privacy.try_exit().unwrap().is_none() {
+        assert!(Instant::now() < deadline);
+        thread::sleep(Duration::from_millis(1));
+    }
+    let mut rig = Rig {
+        second: None,
+        microphone: crate::options::Microphone::Mic2,
+        end_silence_blocks: None,
+        early_end_blocks: None,
+        faint_level: None,
+        speaker,
+        capture,
+        provider,
+        privacy,
+        privacy_controls,
+        ring: None.into(),
+        camera: None,
+        motor: None,
+        ring_channel_ceiling: None,
+        diagnostic_directory: None,
+        noise_suppression: NoiseSuppression::On,
+        turn_taking: TurnTaking::VadOnly,
+        playout_start: PlayoutStart::default(),
+        endpoint: None,
+        call_wait_blocks: None,
+        cut_keeps_name: false,
+        paused: Box::new(|| false),
+    };
+    let (mut controller, _, _) = active_reply();
+    let result = finish_active_run(
+        &mut rig,
+        &mut controller,
+        &mut None,
+        &mut SessionState::default(),
+        &mut None,
+        Err(crate::service_privacy::unavailable(
+            "service privacy freshness lost before next observation",
+        )),
+    );
+    for peer in peers {
+        let _ = peer.join();
+    }
+    drop(privacy_channels);
+    drop(rig);
+    let _ = fs::remove_dir_all(&directory.path);
+    result
+}
+
+/// The reviewer on #795 (15:50): on the Controls route the privacy worker
+/// may end with its unreadable fault still queued when the cycle closes.
+/// That fault, with a clean exit, keeps the cycle an unreadable switch for
+/// the service to wait out, never a failed shutdown that ends the voice. A
+/// killed worker, another fault, or the direct route still fail cleanup.
+#[test]
+fn a_queued_unreadable_fault_with_a_clean_exit_is_no_failed_shutdown() {
+    let unreadable = format!(
+        "{}physical privacy source expired",
+        crate::privacy_bus::UNREADABLE
+    );
+    let error = |result: Result<()>| result.unwrap_err();
+    let kept = error(shutdown_after_unreadable(true, Some(&unreadable), false));
+    assert!(
+        crate::service_privacy::is_unavailable(&*kept),
+        "expected an unreadable switch, got: {kept}"
+    );
+    let kept = error(shutdown_after_unreadable(true, None, false));
+    assert!(crate::service_privacy::is_unavailable(&*kept), "{kept}");
+    for (controls, fault, killed) in [
+        (true, Some(unreadable.as_str()), true),
+        (true, Some("privacy controller lease expired"), false),
+        (false, Some(unreadable.as_str()), false),
+    ] {
+        let failed = error(shutdown_after_unreadable(controls, fault, killed));
+        assert!(
+            !crate::service_privacy::is_unavailable(&*failed),
+            "{controls} {fault:?} {killed}: {failed}"
+        );
+        assert!(
+            failed.to_string().contains("verified cleanup failed"),
+            "{failed}"
+        );
+    }
+}

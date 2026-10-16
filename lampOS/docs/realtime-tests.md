@@ -944,6 +944,15 @@ before its owner is made, reads its peers on the test thread after the loop
 as before, and takes their Stop through the scope's teardown pump. With a
 120 ms or 1 s sleep there, all 16 pass. The assertions are unchanged.
 
+Those stepped runs end on the fixture's silent privacy worker, but none
+said so. `a_silent_privacy_worker_ends_the_loop_once_its_freshness_has_passed`
+does (the reviewer on #1222): a quiet lamp, stepped, ends on "physical
+privacy unavailable; not a user mute" after exactly `PRIVACY_FRESH_US`
+(50 ms) of the loop's own time; the test allows 50 to 60 ms. It fails if
+the startup arm is gone (the loop then never ends on privacy), if the loop
+ends at once (2 ms), or if it waits twice the freshness (100 ms).
+`Ran::ended_us` is the loop's end on the clock it ran on.
+
 ## endpoint_session on pull requests, but for two (#823)
 
 `coordinator::tests::endpoint_session` holds 30 tests now. One is

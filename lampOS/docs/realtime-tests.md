@@ -613,6 +613,17 @@ existing argument reporting. The original serve suffix and child-versus-spawn
 argv assertion remain unchanged. This implementation needs fresh paired and
 native qualification before a speedup can be claimed.
 
+## The reply-buffer capacity test on a paused clock (#823)
+
+`provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity`
+played a twenty-second answer and a four-second hold in real time, 24 s. Its
+coordinator ticks were already scenario steps (#1035). Its modeled speaker,
+elapsed times and scripted service now read Tokio's clock, and the test runs
+on a paused runtime, so it takes about 3 s with the same assertions and the
+same values every run (`voice-test-fixtures.md`, "Speaking speed through a
+small reply buffer"). It left the group, in all three filtersets, on
+2026-10-16.
+
 ## Pilot capture stalls on the stepped fixture (#893)
 
 Six `coordinator::tests::pilot_faults` capture-stall cases now select the

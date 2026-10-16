@@ -1334,6 +1334,55 @@ mod tests {
         );
     }
 
+    /// #560, V1's third lesson: Harness accepted work and its agent never
+    /// answered (V1 held the run 15 minutes and said nothing). Here work the
+    /// person said yes to was accepted half an hour ago, and every look since
+    /// finds its agent `offline`: the person should hear that it isn't
+    /// answering, in plain words, as a failed hand-over is told. Today an
+    /// accepted agent that goes silent is watched for a day and never told.
+    #[test]
+    #[ignore = "#560: accepted work whose agent never answers is never told"]
+    fn work_whose_agent_never_answers_after_it_was_accepted_is_told() {
+        let root = std::env::temp_dir().join(format!("task-news-silent-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        let socket = root.join("request.sock");
+        let listener = UnixListener::bind(&socket).unwrap();
+        const ACCEPTED: u64 = NOW - 30 * 60_000;
+        std::thread::spawn(move || {
+            for stream in listener.incoming() {
+                let mut stream = stream.unwrap();
+                let mut line = String::new();
+                BufReader::new(&stream).read_line(&mut line).unwrap();
+                let asked: Value = serde_json::from_str(&line).unwrap();
+                let answer = match (asked["op"].as_str().unwrap(), asked["id"].as_u64()) {
+                    ("list", _) => json!({"ok":true,"store_id":"s1","items":[
+                        {"id":4,"observations":3,"dispatch":{"state":"accepted",
+                            "confirmed":{"boot_id":"boot-a"},
+                            "finished":{"boot_id":"boot-a","monotonic_ms":ACCEPTED}}}]}),
+                    ("get_task", Some(4)) => task(
+                        "claude",
+                        json!([
+                            seen(1, "offline", "boot-a", ACCEPTED + 30_000),
+                            seen(2, "offline", "boot-a", ACCEPTED + 600_000),
+                            seen(3, "offline", "boot-a", NOW - 60_000),
+                        ]),
+                    ),
+                    _ => json!({"ok":false}),
+                };
+                writeln!(stream, "{answer}").unwrap();
+            }
+        });
+        let news = read_once(&socket, &now(), &BTreeSet::new(), &BTreeSet::new());
+        let _ = std::fs::remove_dir_all(&root);
+        assert_eq!(
+            news.len(),
+            1,
+            "half an hour without an answer from the agent is news"
+        );
+        assert!(news[0].note.contains("Claude Code"), "{}", news[0].note);
+    }
+
     const RUN: u64 = 1_791_964_000_000;
 
     fn status(store: &str, changes: u32, state: AgentState) -> TaskStatus {

@@ -1,0 +1,2 @@
+20bf8cabe0bd4ada2521f41daa15b301543fd250 lampOS: add gated Schedule tools and due reminder speech
+74e833eb830eb6f5f0694b4a80150c3d08285b36 lampOS: add durable timers and reminders

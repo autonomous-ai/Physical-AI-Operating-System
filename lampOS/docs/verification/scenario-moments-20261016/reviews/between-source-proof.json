@@ -1,0 +1,48 @@
+{
+  "checked_at_from_date": "2026-10-16 04:33:08+0700",
+  "new_addition_reverses_to_old_preparation_byte_exact": true,
+  "composite_reversal_recreates_original_clock_byte_exact": true,
+  "docs_new_and_composite_reversals_byte_exact": true,
+  "old_root_test_module_byte_exact": true,
+  "old_root_test_count": 7,
+  "old_root_assertion_macros": 43,
+  "old_root_module_sha256": "ef98675980c838fc13ad4632aa2ecdcb0aa04f2df9dd509c499063ed5f1add20",
+  "old_moment_test_file_byte_exact": true,
+  "old_moment_test_count": 13,
+  "old_moment_assertion_macros": 78,
+  "unchanged_existing_voice_files": 162,
+  "changed_existing_voice_files": [
+    "lampOS/crates/voice/src/scenario_clock.rs"
+  ],
+  "new_voice_files": [
+    "lampOS/crates/voice/src/scenario_moment_between_tests.rs"
+  ],
+  "removed_voice_files": [],
+  "new_test_ids": [
+    "inclusive_projection_uses_absolute_origin_offsets_without_running_peers",
+    "equal_endpoints_admit_only_their_exact_offset",
+    "reversed_and_outside_intervals_fail_without_changing_the_root",
+    "nanosecond_projection_keeps_order_inside_one_integer_microsecond",
+    "same_valued_distinct_roots_cannot_be_mixed_or_admitted_by_projection",
+    "inconsistent_lower_and_upper_endpoints_are_validated_before_projection",
+    "projection_preserves_the_last_microsecond_and_rejects_overflowing_endpoints",
+    "projection_rejects_an_endpoint_with_instant_overflow",
+    "an_external_thread_can_project_without_admitting_or_advancing_its_clock",
+    "normal_root_drop_invalidates_projection_but_keeps_admitted_reads_frozen",
+    "callback_panic_invalidates_projection_but_keeps_admitted_reads_frozen",
+    "root_thread_teardown_invalidates_both_projection_endpoints"
+  ],
+  "new_test_assertion_macros": 67,
+  "hashes": {
+    "lampOS/crates/voice/src/scenario_clock.rs": "7ebed538d61d20442e4fe3cc0e2a0b0987cf18a599b1283e511954f54de482d5",
+    "lampOS/crates/voice/src/scenario_moment_between_tests.rs": "ab7d7f015c077c6ee8bc43cc48bceaa8c723e85f922547f8ec2be4745134b0b4",
+    "lampOS/docs/voice-test-fixtures.md": "63fbd6fc9d456251f1151a4e65bc6ac96fcd78e2458503e03679897d0a2366fc",
+    "lampOS/crates/voice/src/scenario_moment_tests.rs": "c372eac927457059471d7a6bc3b56c8855f530aab1b7b81e11305fe2dddfe210"
+  },
+  "preserved_previous_evidence_files": 81,
+  "previous_evidence_unchanged": true,
+  "raw_worker_plan_unchanged": true,
+  "root_step_guards_pump_shutdown_unchanged": true,
+  "no_dependencies_or_unowned_voice_files_changed": true,
+  "cargo_or_tests_run": false
+}

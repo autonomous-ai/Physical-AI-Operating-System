@@ -1,0 +1,202 @@
+{
+  "from_date": "2026-10-16 07:50:19 +0700",
+  "base": "e5aa43747ec1540893b4da4509d14288e7e70806",
+  "test_log_sha256": "92b2ddde5fbc1feb5d886defa93a57b943a03a87d6e87bd94c1970e57d29acd6",
+  "root_audit_sha256": "d363d09b1f0a5c7a5f096ee3c65b0947133aeeb043a2bb6ac04bfdbf68296513",
+  "source_snapshots": [
+    {
+      "path": "lampOS/crates/voice/src/coordinator/motor/tests.rs",
+      "snapshot": "triage/source/lampOS/crates/voice/src/coordinator/motor/tests.rs",
+      "bytes": 47489,
+      "sha256": "33a8f47b0d69079697e5ef04bf1617f25dd4f81f3501d9524f1c024236f520ba",
+      "equal_to_base": true,
+      "equal_to_pre_gate_frozen_source": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/coordinator/motor/tests/native_head.rs",
+      "snapshot": "triage/source/lampOS/crates/voice/src/coordinator/motor/tests/native_head.rs",
+      "bytes": 15938,
+      "sha256": "a6870c6a1c2f063f5b83ec4e17bf3ed3f7e4d1c6c0bff3ee1942d1108ada38cc",
+      "equal_to_base": true,
+      "equal_to_pre_gate_frozen_source": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/coordinator/motor.rs",
+      "snapshot": "triage/source/lampOS/crates/voice/src/coordinator/motor.rs",
+      "bytes": 37408,
+      "sha256": "29b82801801be234ae865f7593c957a79537acc3469805401b759c21cf6c748e",
+      "equal_to_base": true,
+      "equal_to_pre_gate_frozen_source": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/coordinator/motor/head.rs",
+      "snapshot": "triage/source/lampOS/crates/voice/src/coordinator/motor/head.rs",
+      "bytes": 8452,
+      "sha256": "4de64a3ab9fe22f6329e990bf1cc990d065fa781f2f38ff69b603fe9b05870b0",
+      "equal_to_base": true,
+      "equal_to_pre_gate_frozen_source": true
+    },
+    {
+      "path": "lampOS/crates/body/src/runtime.rs",
+      "snapshot": "triage/source/lampOS/crates/body/src/runtime.rs",
+      "bytes": 612,
+      "sha256": "f70ac6cb58b472a85130c8b81eed4258f689afc644de9ffbab98e087f71a0c8b",
+      "equal_to_base": true,
+      "equal_to_pre_gate_frozen_source": true
+    },
+    {
+      "path": "lampOS/crates/body/src/runtime/worker.rs",
+      "snapshot": "triage/source/lampOS/crates/body/src/runtime/worker.rs",
+      "bytes": 23534,
+      "sha256": "d126a1b0020f202c22a0a7a9ec64f54dcb6a52d9f6d02e965d61871aa6ab4cca",
+      "equal_to_base": true,
+      "equal_to_pre_gate_frozen_source": true
+    },
+    {
+      "path": "lampOS/crates/body/src/runtime/supervisor.rs",
+      "snapshot": "triage/source/lampOS/crates/body/src/runtime/supervisor.rs",
+      "bytes": 22565,
+      "sha256": "103009ea8a3baf449a760cf7f1dc43d0aa0b47d999b585c4084c65ff63ff2a3f",
+      "equal_to_base": true,
+      "equal_to_pre_gate_frozen_source": true
+    },
+    {
+      "path": "lampOS/crates/body/src/runtime/channel.rs",
+      "snapshot": "triage/source/lampOS/crates/body/src/runtime/channel.rs",
+      "bytes": 6122,
+      "sha256": "471c6cad77547060ec69348ccf08cbb98878463d2038aa34999e4d4f5f3a48ee",
+      "equal_to_base": true,
+      "equal_to_pre_gate_frozen_source": true
+    },
+    {
+      "path": "lampOS/crates/ipc/src/lib.rs",
+      "snapshot": "triage/source/lampOS/crates/ipc/src/lib.rs",
+      "bytes": 11335,
+      "sha256": "f9789cc83665f00bd39aff1d8670af525de8403c8821f0f143c04a02e644f6bf",
+      "equal_to_base": true,
+      "equal_to_pre_gate_frozen_source": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/lib.rs",
+      "snapshot": "triage/source/lampOS/crates/voice/src/lib.rs",
+      "bytes": 1877,
+      "sha256": "15c6f007e8352c79e3ef841d62df17b5683a0136859b820f780440e58cf4654f",
+      "equal_to_base": true,
+      "equal_to_pre_gate_frozen_source": true
+    },
+    {
+      "path": "lampOS/rust-toolchain.toml",
+      "snapshot": "triage/source/lampOS/rust-toolchain.toml",
+      "bytes": 86,
+      "sha256": "fb0a56ca2fc09db10159f6983e9d747f4afeb64e1d6d941dc36a3c20bf3a5749",
+      "equal_to_base": true,
+      "equal_to_pre_gate_frozen_source": true
+    }
+  ],
+  "failures": [
+    {
+      "binary_id": "lamp-voice",
+      "test": "coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement",
+      "raw_block": "triage/failure-1-raw-lines-1945-1956.log",
+      "first_raw_line": 1945,
+      "last_raw_line": 1956,
+      "status_line": 871,
+      "raw_block_sha256": "ecb9c4e7262575d650eede253e7a7828234a973075f5589a1ec93d55cda7ec02",
+      "source_line": 601,
+      "failure_boundary": "shared owned-child wait assertion",
+      "printed_adapter_failure": "motor worker progress timed out",
+      "printed_supervisor_failure": "motor worker progress timed out",
+      "printed_connected": true,
+      "printed_ready": false,
+      "printed_reaped": true,
+      "printed_largest_poll_gap_us": 1651,
+      "last_printed_child_phase": "ready_send",
+      "which_wait_call_failed": "Not identified by the raw panic; initial readiness versus inspection is not distinguished.",
+      "clean_terminal_receipts_proved": false,
+      "exact_identity_already_in_issue_906_snapshot": true,
+      "difference_from_906": "The historical #906 observation reached a later required child-position-writes read; this observation fails inside the shared wait helper."
+    },
+    {
+      "binary_id": "lamp-voice",
+      "test": "coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write",
+      "raw_block": "triage/failure-2-raw-lines-1957-1961.log",
+      "first_raw_line": 1957,
+      "last_raw_line": 1961,
+      "status_line": 886,
+      "raw_block_sha256": "5864b095e302c60f8a276816455b79101431aa05eb5f8dcfad0488fb9d2d3041",
+      "source_line": 1056,
+      "failure_boundary": "m.finish().is_ok() assertion",
+      "printed_error": "motor cleanup unconfirmed: Some(\"motor inhibit acknowledgement timed out\"); None",
+      "printed_supervisor_failure": "motor inhibit acknowledgement timed out",
+      "printed_child_finish": "Ok(\"ControlLost\")",
+      "following_zero_position_write_assertion_reached": false,
+      "exact_identity_already_in_issue_906_snapshot": false,
+      "owner_acceptance_of_this_exact_identity_established": false
+    },
+    {
+      "binary_id": "lamp-voice",
+      "test": "coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write",
+      "raw_block": "triage/failure-3-raw-lines-1962-1967.log",
+      "first_raw_line": 1962,
+      "last_raw_line": 1967,
+      "status_line": 889,
+      "raw_block_sha256": "f2a10abba180aad619ac305bc31e9927fcc94a3ee1c599a02b8120056902d91d",
+      "source_line": 1193,
+      "failure_boundary": "required child-position-writes file read unwrap",
+      "printed_error": "Os { code: 2, kind: NotFound, message: \"No such file or directory\" }",
+      "missing_file_is_zero_write_receipt": false,
+      "exact_identity_already_in_issue_906_snapshot": true
+    }
+  ],
+  "source_boundary": {
+    "fixture_uses_actual_host_Instant_waits": true,
+    "inert_child_motor_core_and_worker_use_SystemClock": true,
+    "SystemClock_reads_lamp_ipc_monotonic_us": true,
+    "motor_fixture_source_has_no_Moment_or_scenario_clock_reference": true,
+    "unchanged_source_does_not_establish_cause": true,
+    "reaped_does_not_establish_clean_terminal_receipts": true
+  },
+  "clock_results": {
+    "new_passed": 25,
+    "original_passed": 7,
+    "raw_lines": [
+      1704,
+      1705,
+      1706,
+      1707,
+      1708,
+      1709,
+      1710,
+      1711,
+      1712,
+      1713,
+      1714,
+      1715,
+      1716,
+      1717,
+      1718,
+      1719,
+      1720,
+      1721,
+      1722,
+      1723,
+      1724,
+      1725,
+      1726,
+      1727,
+      1728,
+      1729,
+      1730,
+      1731,
+      1732,
+      1733,
+      1734,
+      1735
+    ]
+  },
+  "no_tests_reexecuted": true,
+  "no_deadline_change": true,
+  "no_missing_file_acceptance": true,
+  "no_device_claim": true,
+  "full_gate_qualified": false
+}

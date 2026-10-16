@@ -1,0 +1,6 @@
+---- coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write stdout ----
+
+thread 'coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write' (580921840) panicked at crates/voice/src/coordinator/motor/tests.rs:1193:68:
+called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+
+

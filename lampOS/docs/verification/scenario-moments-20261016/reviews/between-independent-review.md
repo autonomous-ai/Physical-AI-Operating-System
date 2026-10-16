@@ -1,0 +1,29 @@
+No blocking finding in the reviewed `Moment::between` addition. This is a source review, not a fresh build or test result. Reviewed on 2026-10-16; independent source checks completed at 04:38:28 +0700 from `date`.
+
+Scope: `/private/tmp/lampos-tests-provider-moment`, compared directly with the saved prior preparation in `/private/tmp/tests-823-provider-moment-between-evidence/before-*`. I read the actual method, its existing origin/observer implementation, all 12 new test bodies, and the documentation addition. I independently compared the files rather than relying on the author's source-proof result.
+
+- `scenario_clock.rs:124–145` validates both endpoints, rejects unequal `Arc` origin identity, checks ordering and the inclusive interval using the full `Duration`, and passes the absolute offset unchanged to `Moment::checked`. A nonzero lower endpoint cannot accidentally turn the argument into a relative offset. It neither reads a host clock nor accesses root/observer TLS, pumps peers, advances time, or adopts a value.
+- `scenario_clock.rs:93–118` retains exact nanosecond duration/Instant construction, integer-microsecond truncation, checked conversion/addition, and endpoint consistency checks. Two valid ordered endpoints already enclose representable interior values; malformed endpoint overflow is rejected before projection. Same-valued independent roots remain distinct.
+- Invalidation remains a snapshot contract, not a lifetime lease. The final `checked` operation rechecks the active flag. Concurrent root removal can occur immediately after that check, allowing the operation to return a value whose root has since become inactive. This is the existing snapshot/adoption race model, not new progress or continued authorization. Observer entry/adoption validates again; an already admitted observer stays frozen until its controller cancels/drops it. `between` does not strengthen those semantics into an acknowledgement of completed work. The deterministic tests prove ordered invalidation boundaries, not exhaustive concurrent interleavings.
+
+The new tests are meaningful source-level boundaries: inclusive endpoints and nonzero absolute offsets; equal endpoints and ±1 ns exclusion; reversed/outside intervals; 900/925/950 ns ordering within one integer microsecond; actual separate TLS roots forced to equal epoch values; inconsistent lower and upper endpoints; final microsecond and both overflow domains; external-thread projection without admission; normal drop, callback panic, and actual root-thread TLS teardown. The test-only malformed-value instrumentation is explicitly identified and does not create a production constructor.
+
+All spawned threads are owned and joined. The foreign-root and invalidation tests use scoped threads and bounded 30-second receives; sender disconnection releases their waits during parent unwind. Their one-message channels cannot accumulate an unbounded stream. The other workers perform finite work and are joined directly. No new sleep, retry, detached worker, synthetic exit, or process cleanup path was introduced. The `Instant` overflow boundary test is a finite binary search over seconds, not elapsed host waiting. As with ordinary thread joins, these guards do not guarantee a hard return under an unresponsive OS scheduler.
+
+Independent preservation checks:
+
+- The actual clock diff contains exactly two insertions: the 26-line method/documentation addition and the four-line test-module declaration. Removing those insertions reconstructs the saved prepared clock byte for byte, SHA256 `4bb0811dbc62ad2345755eca06daa8f91a4e64a8dc1bfab66f763afe5cd7a5f6`. Root stepping, pumping, error/panic handling, shutdown, observer implementation, and real watchdogs have no edits in this addition.
+- The actual documentation diff is one nine-line insertion. Removing it reconstructs the saved prior documentation byte for byte, SHA256 `bbcc661ecb1d1d8021cac7acd0152a5957098ff0a4f63592da1eaa3eebee46c1`.
+- The complete original root test module is present byte for byte in both the prior preparation and current source: seven identities, 43 assertion macro sites, module SHA256 `ef98675980c838fc13ad4632aa2ecdcb0aa04f2df9dd509c499063ed5f1add20`. The existing Moment test file is byte-identical: 13 identities and 78 assertion macro sites. Their module declarations are unchanged. These are source identity proofs; this review did not obtain a new compiled test listing.
+- The new module contains 12 identities and 67 assertion macro sites. Against the pre-addition manifest, all 162 other existing Voice files are unchanged, no existing file is removed, and the only added Voice file is the new boundary-test module. No existing scenario has been migrated by this addition.
+
+Independently measured SHA256 values:
+
+| File under the reviewed tree | SHA256 |
+| --- | --- |
+| `lampOS/crates/voice/src/scenario_clock.rs` | `7ebed538d61d20442e4fe3cc0e2a0b0987cf18a599b1283e511954f54de482d5` |
+| `lampOS/crates/voice/src/scenario_moment_between_tests.rs` | `ab7d7f015c077c6ee8bc43cc48bceaa8c723e85f922547f8ec2be4745134b0b4` |
+| `lampOS/docs/voice-test-fixtures.md` | `63fbd6fc9d456251f1151a4e65bc6ac96fcd78e2458503e03679897d0a2366fc` |
+| `lampOS/crates/voice/src/scenario_moment_tests.rs` | `c372eac927457059471d7a6bc3b56c8855f530aab1b7b81e11305fe2dddfe210` |
+
+All four match the author's frozen handoff. I made no repository edits and ran no Cargo, builds, tests, Git commands, network, or device operations. A scratch-only comparison script initially had a Python list/bytes join error; correcting that comparison code produced the independent successful preservation checks above. This was not a source/test failure. The prior preparation's retained gates do not qualify the new method: root still needs the fresh integration gate and test listing on the exact integrated source.

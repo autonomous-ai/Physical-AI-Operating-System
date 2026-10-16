@@ -1,0 +1,144 @@
+[
+  {
+    "name": "baseline-list",
+    "command": [
+      "cargo",
+      "nextest",
+      "list",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-memory",
+      "-p",
+      "lamp-voice",
+      "-p",
+      "lamp-voice-eval",
+      "-p",
+      "lamp-surround",
+      "--message-format",
+      "json"
+    ],
+    "cwd": "/private/tmp/lampos-tests-scenario-moments-current/lampOS",
+    "target": "/private/tmp/tests-823-slow-progress-target",
+    "start_from_date": "2026-10-16 07:12:51 +0700",
+    "finish_from_date": "2026-10-16 07:16:44 +0700",
+    "exit_code": 0
+  },
+  {
+    "name": "integrate",
+    "command": [
+      "python3",
+      "/private/tmp/tests-823-integrate-moments-current.py"
+    ],
+    "cwd": "/private/tmp/lampos-tests-scenario-moments-current",
+    "target": "/private/tmp/tests-823-slow-progress-target",
+    "start_from_date": "2026-10-16 07:16:44 +0700",
+    "finish_from_date": "2026-10-16 07:16:48 +0700",
+    "exit_code": 0
+  },
+  {
+    "name": "fmt",
+    "command": [
+      "cargo",
+      "fmt",
+      "--all",
+      "--check"
+    ],
+    "cwd": "/private/tmp/lampos-tests-scenario-moments-current/lampOS",
+    "target": "/private/tmp/tests-823-slow-progress-target",
+    "start_from_date": "2026-10-16 07:16:48 +0700",
+    "finish_from_date": "2026-10-16 07:16:54 +0700",
+    "exit_code": 0
+  },
+  {
+    "name": "clippy",
+    "command": [
+      "cargo",
+      "clippy",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-memory",
+      "-p",
+      "lamp-voice",
+      "-p",
+      "lamp-voice-eval",
+      "-p",
+      "lamp-surround",
+      "--all-targets",
+      "--",
+      "-D",
+      "warnings"
+    ],
+    "cwd": "/private/tmp/lampos-tests-scenario-moments-current/lampOS",
+    "target": "/private/tmp/tests-823-slow-progress-target",
+    "start_from_date": "2026-10-16 07:16:54 +0700",
+    "finish_from_date": "2026-10-16 07:18:03 +0700",
+    "exit_code": 0
+  },
+  {
+    "name": "list",
+    "command": [
+      "cargo",
+      "nextest",
+      "list",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-memory",
+      "-p",
+      "lamp-voice",
+      "-p",
+      "lamp-voice-eval",
+      "-p",
+      "lamp-surround",
+      "--message-format",
+      "json"
+    ],
+    "cwd": "/private/tmp/lampos-tests-scenario-moments-current/lampOS",
+    "target": "/private/tmp/tests-823-slow-progress-target",
+    "start_from_date": "2026-10-16 07:18:03 +0700",
+    "finish_from_date": "2026-10-16 07:18:54 +0700",
+    "exit_code": 0
+  },
+  {
+    "name": "tests",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-memory",
+      "-p",
+      "lamp-voice",
+      "-p",
+      "lamp-voice-eval",
+      "-p",
+      "lamp-surround",
+      "--no-fail-fast",
+      "--",
+      "--test-threads=1"
+    ],
+    "cwd": "/private/tmp/lampos-tests-scenario-moments-current/lampOS",
+    "target": "/private/tmp/tests-823-slow-progress-target",
+    "start_from_date": "2026-10-16 07:18:54 +0700",
+    "finish_from_date": "2026-10-16 07:41:05 +0700",
+    "exit_code": 101
+  },
+  {
+    "name": "build",
+    "command": [
+      "cargo",
+      "build",
+      "--locked",
+      "--offline",
+      "--workspace"
+    ],
+    "cwd": "/private/tmp/lampos-tests-scenario-moments-current/lampOS",
+    "target": "/private/tmp/tests-823-slow-progress-target",
+    "start_from_date": "2026-10-16 07:41:05 +0700",
+    "finish_from_date": "2026-10-16 07:42:47 +0700",
+    "exit_code": 0
+  }
+]

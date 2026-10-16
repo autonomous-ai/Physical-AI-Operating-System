@@ -1,0 +1,543 @@
+{
+  "from_date": "2026-10-16 07:50:19 +0700",
+  "base": "e5aa43747ec1540893b4da4509d14288e7e70806",
+  "old_reviewed_head": "dee1cdd455072a92491bc800fd3993a124ee411a",
+  "all_three_reviewed_rust_files_exact": true,
+  "reviewed_document_exact": true,
+  "all_101_historical_files_exact": true,
+  "all_974_frozen_gate_inputs_exact": true,
+  "original_input_rows": [
+    {
+      "path": "lampOS/crates/voice/src/scenario_clock.rs",
+      "bytes": 26590,
+      "sha256": "7ebed538d61d20442e4fe3cc0e2a0b0987cf18a599b1283e511954f54de482d5"
+    },
+    {
+      "path": "lampOS/crates/voice/src/scenario_moment_tests.rs",
+      "bytes": 14771,
+      "sha256": "c372eac927457059471d7a6bc3b56c8855f530aab1b7b81e11305fe2dddfe210"
+    },
+    {
+      "path": "lampOS/crates/voice/src/scenario_moment_between_tests.rs",
+      "bytes": 16634,
+      "sha256": "ab7d7f015c077c6ee8bc43cc48bceaa8c723e85f922547f8ec2be4745134b0b4"
+    },
+    {
+      "path": "lampOS/docs/voice-test-fixtures.md",
+      "bytes": 20599,
+      "sha256": "959df7b77865d587fa1e81de2f5de8b735c10a094d0b7fdd40f47eecd08a2f6b"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/README.md",
+      "bytes": 7110,
+      "sha256": "02eb873652cb2e113718feba148a025d578cd0682e1e50105fb448418fd15d44"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/SHA256SUMS",
+      "bytes": 10090,
+      "sha256": "41000d861da6118254377c44d4096cb981c7098566128f413b8f2457d76a2679"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/clock-test-results.txt",
+      "bytes": 3481,
+      "sha256": "dad416812929f78950252e4bab3cef1cd1927c2d0da926506f54f87b03dd340f"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/fresh/base-files.json",
+      "bytes": 1705321,
+      "sha256": "d97ba0b1b590816a6a30b7d7d317a625466905e565cbcdeb9772187346fa6004"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/fresh/base-scenario_clock.rs",
+      "bytes": 18539,
+      "sha256": "7eb0215c649311dd9303d3043c46d8c50af2d165ab677e6c1c37720a79fc7cef"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/fresh/base-voice-test-fixtures.md",
+      "bytes": 16485,
+      "sha256": "7e59fc75a29b795a9fc66380db8869194f760c418aea5b82306604bdda6bbb21"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/fresh/baseline-compiled-inputs.json",
+      "bytes": 75731,
+      "sha256": "37f08bb3b0a0bf21fb3546050cead9c24b90f1146300aec7c71f1c78bd68328c"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/fresh/clean-base.json",
+      "bytes": 245,
+      "sha256": "d190e384ef073b5b6512c41941ee49f7222c88823a0ff414786231d1f6dcf088"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/fresh/handoff.md",
+      "bytes": 4672,
+      "sha256": "a12ed349f9f2cb9c587749bf41a8379c33af181bbda4ba1bfec6678a47be3643"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/fresh/integration.diff",
+      "bytes": 14311,
+      "sha256": "483750760ca5b08bdfe2def58d1ecc6e5056dda0484f18a727016343a1a5a4f4"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/fresh/integration.json",
+      "bytes": 2528,
+      "sha256": "8b3a788a7f0f27748a2761c57ec2f488f0a83040081ea0070a5ab9d529e6fc4b"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/fresh/moment-doc-section.md",
+      "bytes": 2241,
+      "sha256": "16b6153383c6e3d4b1408367ca932932364b3f9e472cee76f28e36fa7f8ae051"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/fresh/original-source-SHA256SUMS",
+      "bytes": 510,
+      "sha256": "43fba5e97bf31c07216427ea8087dcf6867083f68ffebbf556c033c218175e3d"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/fresh/preserved-earlier-evidence.json",
+      "bytes": 7889,
+      "sha256": "7a11304f2466d103237248f8f468d1d854b7b08110a81a7217808ea43695f7ec"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/fresh/root-baseline-list.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/fresh/root-baseline-list.finished",
+      "bytes": 26,
+      "sha256": "beb0ae8ce342bcb3636e3dcb40898374d6198bfc9eafee1180eb30c06162f1c8"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/fresh/root-baseline-list.log",
+      "bytes": 332067,
+      "sha256": "d474a57d3ad8dd726260e4e97a87cd428ecc6a6c2f72126c36e762b9fdc9d9a9"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/fresh/root-baseline-list.started",
+      "bytes": 26,
+      "sha256": "bf8286322378acb16f3e9dd1dcb9baae6fea3f113240cb34808bb02da43d5f41"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/fresh/root-build.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/fresh/root-build.finished",
+      "bytes": 26,
+      "sha256": "9bb64d9446e5f6640cf7a85c32318dae517e4422689a1544531d800b302932a7"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/fresh/root-build.log",
+      "bytes": 3935,
+      "sha256": "db82f35c64abab51f1614945b50f71318e5245857ead0af8a864d16cb7d20be1"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/fresh/root-build.started",
+      "bytes": 26,
+      "sha256": "dfc61c6d42df2ce6fa56c83eb54957de9449be201da9c8f27ece5ee2cf81acbf"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/fresh/root-clippy.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/fresh/root-clippy.finished",
+      "bytes": 26,
+      "sha256": "f216dc1c086849974b8bc8c6acd579f689760e3dbad832bea2ceca24ec379c4e"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/fresh/root-clippy.log",
+      "bytes": 2273,
+      "sha256": "cf4d4e9517589bc30e0f90daec4b3e515e5c1c5d22e7e19d94d1d20299fb493e"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/fresh/root-clippy.started",
+      "bytes": 26,
+      "sha256": "4ee6b395f384bbf3ecbf2cbfb235a512441498aee238ea6e82e4c332403d813b"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/fresh/root-fmt.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/fresh/root-fmt.finished",
+      "bytes": 26,
+      "sha256": "4ee6b395f384bbf3ecbf2cbfb235a512441498aee238ea6e82e4c332403d813b"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/fresh/root-fmt.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/fresh/root-fmt.started",
+      "bytes": 26,
+      "sha256": "beb0ae8ce342bcb3636e3dcb40898374d6198bfc9eafee1180eb30c06162f1c8"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/fresh/root-gates.json",
+      "bytes": 2849,
+      "sha256": "201d209d939586e70da2ec96f568150446c2e8c1ad45ae9a8233898b6157483c"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/fresh/root-identity-proof.json",
+      "bytes": 3681,
+      "sha256": "2f7e2ab124225d861d6dbe75477f1796111af6679f09cc1b0f4d9a6c57ec792e"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/fresh/root-list.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/fresh/root-list.finished",
+      "bytes": 26,
+      "sha256": "06f85b4449736840c6a6dd9c1829939bfe697f360b0f80e62ce6fde4289f3b64"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/fresh/root-list.log",
+      "bytes": 334650,
+      "sha256": "598163a3939ce4ee8a04c60bb217cd6477fb636c150b6ba04f22b4cd6dd118fd"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/fresh/root-list.started",
+      "bytes": 26,
+      "sha256": "f216dc1c086849974b8bc8c6acd579f689760e3dbad832bea2ceca24ec379c4e"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/fresh/root-result.json",
+      "bytes": 306,
+      "sha256": "edb6e2fba76e97f96a389d368c9a24f6641229376727aca2941033db1efbeee3"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/fresh/root-source.json",
+      "bytes": 20107,
+      "sha256": "78943b15a5616c7d944931f75cfa278def569ba19ef8815a11480537e013fd22"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/fresh/root-tests.exit",
+      "bytes": 4,
+      "sha256": "39b8dc3fc8b44765c8e6f1adee04c5b465e555ab791cc42d0d9e810d5b64297c"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/fresh/root-tests.finished",
+      "bytes": 26,
+      "sha256": "dfc61c6d42df2ce6fa56c83eb54957de9449be201da9c8f27ece5ee2cf81acbf"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/fresh/root-tests.log",
+      "bytes": 205837,
+      "sha256": "09512be214ccec8075d682155907c4dc0794f86fafc9eb1cfe8d178c38aadc94"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/fresh/root-tests.started",
+      "bytes": 26,
+      "sha256": "06f85b4449736840c6a6dd9c1829939bfe697f360b0f80e62ce6fde4289f3b64"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/historical/provider-moment-original-README.md",
+      "bytes": 1789,
+      "sha256": "79aa6a25756823e390dc77877993ae991d059eb5b0cefd9fd25d2ae6ae64ee43"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/provenance.json",
+      "bytes": 31096,
+      "sha256": "353ab3dec8721a9b0926614775780ed0a2ecf8c5a54f64e9b5bfbd9974c72edc"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/audit.json",
+      "bytes": 70168,
+      "sha256": "f0412c91e9dd8f707090bebca6fae012a6ab596b0520521a2e77121a4157a901"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/failure-raw-lines-1493-1523.log",
+      "bytes": 1995,
+      "sha256": "4b816ca13cee61c9a72b8b2a7d4b8fea4105529be1854e75c67568480af37196"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/issue-705.json",
+      "bytes": 56689,
+      "sha256": "95f11df46a097040c5a84425a0f3f916ff4eeddd2d1fe6712adc09280fdaf9e7"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/issue-705.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/issue-739.json",
+      "bytes": 45972,
+      "sha256": "84e434b60ec47d3701be55166db639df278b83e1c7570d2defc90bc46779ebab"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/issue-739.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/issue-893.json",
+      "bytes": 5170,
+      "sha256": "4f2e5c6777c0c7fb530e69e54990a5f857e53d482044cfb1966b12b292f765cf"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/issue-893.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/issues-consumer-network.json",
+      "bytes": 6385,
+      "sha256": "81eafbf638716cb4a2b0d34d4ddc7f148b44361fbb768744198f402242da1dd5"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/issues-consumer-network.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/issues-consumer.json",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/issues-consumer.stderr",
+      "bytes": 94,
+      "sha256": "eed65211f0fcee1b82c2661764250c1adaebcb36f0cb78a702d59632f056c439"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/issues-exact-network.json",
+      "bytes": 2528,
+      "sha256": "d3256e1f22abd63fae81fe7e2acd0e03379c5205f69fe04b45b240c5de489ef5"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/issues-exact-network.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/issues-exact.json",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/issues-exact.stderr",
+      "bytes": 94,
+      "sha256": "eed65211f0fcee1b82c2661764250c1adaebcb36f0cb78a702d59632f056c439"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/issues-reminder-network.json",
+      "bytes": 23777,
+      "sha256": "54cccce61e6a7fa2ff739a21fa44629d0427075faf6dd2a3c98de55b21b49fe9"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/issues-reminder-network.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/issues-reminder.json",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/issues-reminder.stderr",
+      "bytes": 94,
+      "sha256": "eed65211f0fcee1b82c2661764250c1adaebcb36f0cb78a702d59632f056c439"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/issues-socket-network.json",
+      "bytes": 2528,
+      "sha256": "d3256e1f22abd63fae81fe7e2acd0e03379c5205f69fe04b45b240c5de489ef5"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/issues-socket-network.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/issues-stem-network.json",
+      "bytes": 2528,
+      "sha256": "d3256e1f22abd63fae81fe7e2acd0e03379c5205f69fe04b45b240c5de489ef5"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/issues-stem-network.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/issues-stem.json",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/issues-stem.stderr",
+      "bytes": 94,
+      "sha256": "eed65211f0fcee1b82c2661764250c1adaebcb36f0cb78a702d59632f056c439"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/line-history.txt",
+      "bytes": 6501,
+      "sha256": "78108a1bd99a4d928f5ecf81b9af90ccc0a5ad198023a9328ade4c1b94ddcf69"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/preceding-raw-lines-1179-1201.log",
+      "bytes": 2514,
+      "sha256": "9bd9d1fa336d3fdb64b5af549afbe7fcf564d6e491c81eeb3cdd119309918851"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/relevant-739-comments.json",
+      "bytes": 5288,
+      "sha256": "e4035e1529eee960f278851118d944db8461acb60b8a4154b8c7cb180f8052a1"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/report.md",
+      "bytes": 8243,
+      "sha256": "a4fe05c18dabc4e243485363ff97980bfb1575ee74e7a0c94b36f4aba5e12103"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/scenario_clock.after.rs",
+      "bytes": 26590,
+      "sha256": "7ebed538d61d20442e4fe3cc0e2a0b0987cf18a599b1283e511954f54de482d5"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/scenario_clock.before.rs",
+      "bytes": 18539,
+      "sha256": "7eb0215c649311dd9303d3043c46d8c50af2d165ab677e6c1c37720a79fc7cef"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/scenario_clock.diff",
+      "bytes": 11541,
+      "sha256": "0aef7676ac7e0fd3073450a3d73f99da1a03f466f3b3df2f333b9e1509d89a27"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/search-audit.json",
+      "bytes": 2776,
+      "sha256": "13762be7743d6858d490c75f9bae4c0fdccf4c6d2d6adc106495c68afc86f3db"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/source-history.txt",
+      "bytes": 180,
+      "sha256": "fc9e3aaf155f8b380446c0251b64effd8b02f067962c470e007d09164a4190a4"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/source/CLAUDE.md",
+      "bytes": 18914,
+      "sha256": "800de47bba89872bbcebc6114beb9525432291733be00d1597f9be8faa8f7f8c"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/source/lampOS/builders/eighth.md",
+      "bytes": 2636,
+      "sha256": "ccefe4a059fddc08c810cc9b5c020b27183819388bf6213b25724470d4908741"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/source/lampOS/builders/fifth.md",
+      "bytes": 1929,
+      "sha256": "007f9035a068c5eb23e72d0d41bae6f56c71d1dfe17c0463d34635f78c7871ef"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/source/lampOS/builders/third.md",
+      "bytes": 2084,
+      "sha256": "9e1657156a5a323ec3fe674860255eb98f37160c2dc1b0912fa496a4d98d341c"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/source/lampOS/crates/ipc/src/lib.rs",
+      "bytes": 11335,
+      "sha256": "f9789cc83665f00bd39aff1d8670af525de8403c8821f0f143c04a02e644f6bf"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/source/lampOS/crates/schedule/src/client.rs",
+      "bytes": 8092,
+      "sha256": "680b813b43b878ed56a173e4e5efcd1b8c66afe5e337e116181207423606a48f"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/source/lampOS/crates/schedule/src/delivery.rs",
+      "bytes": 38131,
+      "sha256": "bb8ea913f5246faf1f52d84aea0e6c543ae6e0d9fa153ae3c57fb1ce5c3436f0"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/source/lampOS/crates/schedule/src/engine.rs",
+      "bytes": 23555,
+      "sha256": "9f8018e3fa5f9c17aa9c499e7c1c36184c348f7c95e13b65499c842f4a3be38a"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/source/lampOS/crates/schedule/src/store.rs",
+      "bytes": 15041,
+      "sha256": "2b6a2334d4078197496ee15287dab4d8490891b137566a7c2b0f0900c2ed3fb1"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/source/lampOS/crates/schedule/src/time.rs",
+      "bytes": 17010,
+      "sha256": "89bf1b03294944fbfc51ef71d9b94c86fa5a149399832075ead0739d8b38959c"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/source/lampOS/crates/voice/src/lib.rs",
+      "bytes": 1877,
+      "sha256": "15c6f007e8352c79e3ef841d62df17b5683a0136859b820f780440e58cf4654f"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/source/lampOS/crates/voice/src/reminders.rs",
+      "bytes": 13825,
+      "sha256": "7c15681003c4f84b5ea264f579a35a66c63fd4b60726d7c80debd60490e77bbd"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/source/lampOS/crates/voice/src/reminders/consumer.rs",
+      "bytes": 18976,
+      "sha256": "b7dded14b021b7eba40331ee3daba89cc64ab82f93675d84a63471a5f5d49a25"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/source/lampOS/crates/voice/src/reminders/consumer/tests.rs",
+      "bytes": 37148,
+      "sha256": "86bae4ca750965c7281a4dcfb711e0de98f9cba3ac31c3e9d3ad05eaa55efed3"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/source/lampOS/docs/joining.md",
+      "bytes": 22335,
+      "sha256": "a031c6ad1dd0c729623ce35736fa4373cdbcb5ffa2412947660714c0729ba706"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reviews/between-independent-review.md",
+      "bytes": 5845,
+      "sha256": "6ea62687903a11a54afd71999756420630cd5a94e46ca02efb9bd9b79bc4427d"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reviews/between-source-handoff.md",
+      "bytes": 5113,
+      "sha256": "743ba92036231e980502af4831ba5bfcdb22a28268fc1d74879caddec92d54ec"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reviews/between-source-proof.json",
+      "bytes": 2495,
+      "sha256": "9bf0173c2206bafbf0ba2e26240b995e52eb2c8c52d4453ebc14efcc858f226c"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reviews/moment-independent-proof.json",
+      "bytes": 581,
+      "sha256": "226da26ba8da728a58ab456e711f9d9fd2197ba746ee534b650deec5b60aa2e4"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reviews/moment-independent-review.md",
+      "bytes": 4850,
+      "sha256": "4fd67e669f0e5fa12f4c4ee1b586f5a8a40ec73316e0b605e39ce30d44dd592a"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/reviews/moment-source-proof.json",
+      "bytes": 2342,
+      "sha256": "2c4ba05cc53be988a89ab6a1273b4be7d7537a50bb4afda8db045719522bb829"
+    },
+    {
+      "path": "lampOS/docs/verification/scenario-moments-20261016/source-hashes.json",
+      "bytes": 671,
+      "sha256": "ef1566277e0b79c31b36ebe390f93bd2679240aabb0709cb802e800273982f86"
+    }
+  ],
+  "raw_copy_count": 63,
+  "all_raw_copies_exact": true,
+  "no_source_edits": true,
+  "no_tests_or_cargo_execution": true,
+  "no_git_index_commit_push_or_github_operations": true,
+  "full_gate_passed": false,
+  "native_on_new_head_pending": true
+}

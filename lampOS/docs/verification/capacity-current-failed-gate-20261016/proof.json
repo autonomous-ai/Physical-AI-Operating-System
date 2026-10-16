@@ -1,0 +1,264 @@
+{
+  "date": "2026-10-16 07:49:59 +0700",
+  "base": "e5aa43747ec1540893b4da4509d14288e7e70806",
+  "gate_counts": [
+    2385,
+    3,
+    13
+  ],
+  "all_2401_identities_and_13_ignore_flags_exact": true,
+  "original_capacity_case_passes": true,
+  "failed_identities": [
+    [
+      "lamp-memory::voice_people",
+      "days_two_known_people_and_the_room_are_never_answered_from_each_other"
+    ],
+    [
+      "lamp-voice",
+      "coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write"
+    ],
+    [
+      "lamp-voice",
+      "coordinator::tests::second_route::without_a_second_route_the_packets_and_records_are_as_before"
+    ]
+  ],
+  "all_three_failures_outside_fixed123": true,
+  "source_snapshots_exact_to_base": [
+    "lampOS/crates/memory/tests/voice_people.rs",
+    "lampOS/crates/voice/src/remember.rs",
+    "lampOS/crates/voice/src/coordinator/motor/tests.rs",
+    "lampOS/crates/voice/src/coordinator/tests/second_route.rs"
+  ],
+  "raw_full_log_sha256": "b31a29204c4ce51016f6a2b014bb04a7308bca8712f557114c6971f7f9e01fd8",
+  "readiness": false,
+  "new_memory_failure_cause": "unclassified: open_session_for returned outer None, underlying transport/validation/lock/deadline outcome unprinted",
+  "retry": false,
+  "provenance": [
+    {
+      "source": "/private/tmp/tests-823-capacity-current-e5aa-gate/baseline-command.json",
+      "published": "gate/baseline-command.json",
+      "sha256": "9faad9d7fc21394de82b0f5c1d2deff8ebb46927f533381b8f5fb7174b83bdc9",
+      "bytes": 527
+    },
+    {
+      "source": "/private/tmp/tests-823-capacity-current-e5aa-gate/baseline-list.exit",
+      "published": "gate/baseline-list.exit",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2
+    },
+    {
+      "source": "/private/tmp/tests-823-capacity-current-e5aa-gate/baseline-list.log",
+      "published": "gate/baseline-list.log",
+      "sha256": "3f7c4bcc4dfb7853d57c4b9cb2dfddc925356e4853895e499ebd19d8f96ea9e5",
+      "bytes": 413045
+    },
+    {
+      "source": "/private/tmp/tests-823-capacity-current-e5aa-gate/baseline-source.json",
+      "published": "gate/baseline-source.json",
+      "sha256": "afccf50c12903cc51b7d56a97a74c2067a5a046e82decf2c2194252bcfb15545",
+      "bytes": 101684
+    },
+    {
+      "source": "/private/tmp/tests-823-capacity-current-e5aa-gate/build.exit",
+      "published": "gate/build.exit",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2
+    },
+    {
+      "source": "/private/tmp/tests-823-capacity-current-e5aa-gate/build.log",
+      "published": "gate/build.log",
+      "sha256": "6a932faa68a17136b0f70546ff83d4382b4faa04992d69d6126b9d02b557c833",
+      "bytes": 3735
+    },
+    {
+      "source": "/private/tmp/tests-823-capacity-current-e5aa-gate/clippy.exit",
+      "published": "gate/clippy.exit",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2
+    },
+    {
+      "source": "/private/tmp/tests-823-capacity-current-e5aa-gate/clippy.log",
+      "published": "gate/clippy.log",
+      "sha256": "17016cb0591cd0cbf5706c774eda01851e5d0e3c14b8cfc58327c1a891f2a546",
+      "bytes": 5198
+    },
+    {
+      "source": "/private/tmp/tests-823-capacity-current-e5aa-gate/completed.json",
+      "published": "gate/completed.json",
+      "sha256": "4e65a5eb9463d5e9f30f949a2b45f96b0cff5691565452be986af55ecc6065d0",
+      "bytes": 256
+    },
+    {
+      "source": "/private/tmp/tests-823-capacity-current-e5aa-gate/fmt.exit",
+      "published": "gate/fmt.exit",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2
+    },
+    {
+      "source": "/private/tmp/tests-823-capacity-current-e5aa-gate/fmt.log",
+      "published": "gate/fmt.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source": "/private/tmp/tests-823-capacity-current-e5aa-gate/gates.json",
+      "published": "gate/gates.json",
+      "sha256": "4bc1622ae5d3df276c015aba723e3b4348a19f5fcc9cebbd8f508ca7f4394dfe",
+      "bytes": 2481
+    },
+    {
+      "source": "/private/tmp/tests-823-capacity-current-e5aa-gate/identity-proof.json",
+      "published": "gate/identity-proof.json",
+      "sha256": "0a0f7b4f77a71b8c5caf84b1939621afa51b258b319a34edc1d2b978d2492edc",
+      "bytes": 227
+    },
+    {
+      "source": "/private/tmp/tests-823-capacity-current-e5aa-gate/list.exit",
+      "published": "gate/list.exit",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2
+    },
+    {
+      "source": "/private/tmp/tests-823-capacity-current-e5aa-gate/list.log",
+      "published": "gate/list.log",
+      "sha256": "d4bfb1e30b071da2280e050d899e544a0d8ecaef14e1fc8753e73d50382ceb2c",
+      "bytes": 412548
+    },
+    {
+      "source": "/private/tmp/tests-823-capacity-current-e5aa-gate/root-result-audit.json",
+      "published": "gate/root-result-audit.json",
+      "sha256": "f58867dd696f32684eec0d9b3c6b72bf04cbbd17a750e082d06aa670644d9996",
+      "bytes": 1837
+    },
+    {
+      "source": "/private/tmp/tests-823-capacity-current-e5aa-gate/source-before-gate.json",
+      "published": "gate/source-before-gate.json",
+      "sha256": "c07d18f8e1188458383d75af8c4b4c7ea4bc006ece8c68fdaca308ee4c0a332f",
+      "bytes": 103727
+    },
+    {
+      "source": "/private/tmp/tests-823-capacity-current-e5aa-gate/tests.exit",
+      "published": "gate/tests.exit",
+      "sha256": "39b8dc3fc8b44765c8e6f1adee04c5b465e555ab791cc42d0d9e810d5b64297c",
+      "bytes": 4
+    },
+    {
+      "source": "/private/tmp/tests-823-capacity-current-e5aa-gate/tests.log",
+      "published": "gate/tests.log",
+      "sha256": "b31a29204c4ce51016f6a2b014bb04a7308bca8712f557114c6971f7f9e01fd8",
+      "bytes": 252550
+    },
+    {
+      "source": "/private/tmp/tests-823-capacity-current-e5aa-evidence/SHA256SUMS",
+      "published": "integration/SHA256SUMS",
+      "sha256": "115aad9cb1179acf44a65d40012e060220042508e8892733903002303520193f",
+      "bytes": 1051
+    },
+    {
+      "source": "/private/tmp/tests-823-capacity-current-e5aa-evidence/capacity-doc-append.md",
+      "published": "integration/capacity-doc-append.md",
+      "sha256": "db4c516b5fe825e47095fc72ac474cb741bf2c8d16ba85822d90c95498348efb",
+      "bytes": 687
+    },
+    {
+      "source": "/private/tmp/tests-823-capacity-current-e5aa-evidence/capacity-region.after.rs",
+      "published": "integration/capacity-region.after.rs",
+      "sha256": "81e9bddd33a12cdd6ac4332f0dbb2a5af923fcb403aefd97f4e37ccfcaf32205",
+      "bytes": 18564
+    },
+    {
+      "source": "/private/tmp/tests-823-capacity-current-e5aa-evidence/capacity-region.before.rs",
+      "published": "integration/capacity-region.before.rs",
+      "sha256": "214e6accb0252dec267ae3f6a33467e63e1676dd5294a27c79e9884c52893887",
+      "bytes": 18380
+    },
+    {
+      "source": "/private/tmp/tests-823-capacity-current-e5aa-evidence/clean-base.json",
+      "published": "integration/clean-base.json",
+      "sha256": "e04c9c92a5ad0540b3ace616d38a80d2c8943101883d922fde0ac3801fa64d58",
+      "bytes": 126115
+    },
+    {
+      "source": "/private/tmp/tests-823-capacity-current-e5aa-evidence/handoff.md",
+      "published": "integration/handoff.md",
+      "sha256": "5c51d95c7e9585b6356226a168b75226e6a1b0133668ebd0e0e1b452195a405f",
+      "bytes": 2874
+    },
+    {
+      "source": "/private/tmp/tests-823-capacity-current-e5aa-evidence/integration.diff",
+      "published": "integration/integration.diff",
+      "sha256": "adcea6168eac411511e78b0b67f4b589331b4e198bc69d222a64b8d9f79b3359",
+      "bytes": 5737
+    },
+    {
+      "source": "/private/tmp/tests-823-capacity-current-e5aa-evidence/original-capacity.diff",
+      "published": "integration/original-capacity.diff",
+      "sha256": "d7377b03fc67a1b965e849c23e06443287484356336e73ea487df32505ce4ed6",
+      "bytes": 5710
+    },
+    {
+      "source": "/private/tmp/tests-823-capacity-current-e5aa-evidence/provider_worker.after.rs",
+      "published": "integration/provider_worker.after.rs",
+      "sha256": "a04a35c83efbc68d9b781205f5afc087d484821843e575d6bd000e427fdf72f6",
+      "bytes": 389016
+    },
+    {
+      "source": "/private/tmp/tests-823-capacity-current-e5aa-evidence/provider_worker.before.rs",
+      "published": "integration/provider_worker.before.rs",
+      "sha256": "9e2a59f6cfbe5e39a4baf96ccda72ea1ec90e95b1e0c9e9d999bd6916df18219",
+      "bytes": 388832
+    },
+    {
+      "source": "/private/tmp/tests-823-capacity-current-e5aa-evidence/realtime-tests.after.md",
+      "published": "integration/realtime-tests.after.md",
+      "sha256": "bcb490e3ed5216be918b182eda5ac3b8bfb5e038901467b9a64a7f1cc3fbe3a5",
+      "bytes": 40380
+    },
+    {
+      "source": "/private/tmp/tests-823-capacity-current-e5aa-evidence/realtime-tests.before.md",
+      "published": "integration/realtime-tests.before.md",
+      "sha256": "379e5b356b4e69322609ce87f44ab61fd3632b969f09afcde56f7cc8f73c4f68",
+      "bytes": 39693
+    },
+    {
+      "source": "/private/tmp/tests-823-capacity-current-e5aa-evidence/root-independent-review.json",
+      "published": "integration/root-independent-review.json",
+      "sha256": "e8b5682dc3f8159d932dabaea575ffc85d449011719f5b98d7da59e260ba3b1a",
+      "bytes": 397
+    },
+    {
+      "source": "/private/tmp/tests-823-capacity-current-e5aa-evidence/source-proof.json",
+      "published": "integration/source-proof.json",
+      "sha256": "77e732a1e486b6704b49e65beb73e77a819aebc65ee0d5766e2c3a4bb4702665",
+      "bytes": 80946
+    },
+    {
+      "source": "/private/tmp/lampos-tests-capacity-current/lampOS/crates/memory/tests/voice_people.rs",
+      "published": "unchanged-failure-source/lampOS/crates/memory/tests/voice_people.rs",
+      "sha256": "c09bd59e337bb798b3e82d3e93f6cd14402c4e14bccc237bc3ca856fae7aa946",
+      "bytes": 30122,
+      "exact_to_base": "e5aa43747ec1540893b4da4509d14288e7e70806"
+    },
+    {
+      "source": "/private/tmp/lampos-tests-capacity-current/lampOS/crates/voice/src/remember.rs",
+      "published": "unchanged-failure-source/lampOS/crates/voice/src/remember.rs",
+      "sha256": "609055407e093b63718bd77c4163fd5b974bd55467701bda5c222ff3480b3dec",
+      "bytes": 120166,
+      "exact_to_base": "e5aa43747ec1540893b4da4509d14288e7e70806"
+    },
+    {
+      "source": "/private/tmp/lampos-tests-capacity-current/lampOS/crates/voice/src/coordinator/motor/tests.rs",
+      "published": "unchanged-failure-source/lampOS/crates/voice/src/coordinator/motor/tests.rs",
+      "sha256": "33a8f47b0d69079697e5ef04bf1617f25dd4f81f3501d9524f1c024236f520ba",
+      "bytes": 47489,
+      "exact_to_base": "e5aa43747ec1540893b4da4509d14288e7e70806"
+    },
+    {
+      "source": "/private/tmp/lampos-tests-capacity-current/lampOS/crates/voice/src/coordinator/tests/second_route.rs",
+      "published": "unchanged-failure-source/lampOS/crates/voice/src/coordinator/tests/second_route.rs",
+      "sha256": "8a728775559ce919f940e4a126d8a57524d5405197d129c8c6921a6ab71b222a",
+      "bytes": 38121,
+      "exact_to_base": "e5aa43747ec1540893b4da4509d14288e7e70806"
+    }
+  ]
+}

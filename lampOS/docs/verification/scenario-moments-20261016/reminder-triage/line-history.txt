@@ -1,0 +1,84 @@
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 579) fn completed_playout_survives_both_real_store_reopens_then_acks_without_respeech() {
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 580)     let root = Temp::new();
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 581)     let schedule_path = root.dir("schedule");
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 582)     let ledger_path = root.dir("ledger");
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 583)     let engine = Arc::new(Mutex::new(prepared_engine(
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 584)         Store::open(&schedule_path).unwrap(),
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 585)         1,
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 586)     )));
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 587)     let shared = engine.clone();
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 588)     let socket = Socket::new(move |request| Some(answer(&mut shared.lock().unwrap(), request)));
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 589)     let mut first = Consumer::new(
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 590)         DeliveryLedger::open(Store::open(&ledger_path).unwrap(), LEDGER_ID).unwrap(),
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 591)         SESSION.into(),
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 592)     );
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 593)     let now = lamp_ipc::monotonic_us();
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 594)     let report = due(&engine.lock().unwrap(), now);
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 595)     first.tick(&socket.path(), Some(&report), now).unwrap();
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 596)     let offered = take_offer(&mut first);
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 597)     first
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 598)         .command(
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 599)             ToWorker::Complete {
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 600)                 token: offered.token.clone(),
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 601)                 proof: completion(&offered.token),
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 602)             },
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 603)             now,
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 604)         )
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 605)         .unwrap();
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 606)     assert!(
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 607)         first
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 608)             .ledger
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 609)             .view(&offered.token.key)
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 610)             .unwrap()
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 611)             .unwrap()
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 612)             .completion
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 613)             .is_some()
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 614)     );
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 615)     assert!(
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 616)         !socket
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 617)             .requests()
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 618)             .iter()
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 619)             .any(|r| matches!(r, Request::Ack { .. }))
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 620)     );
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 621)     drop(first);
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 622)     drop(socket);
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 623)     drop(engine);
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 624) 
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 625)     let engine = Arc::new(Mutex::new(
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 626)         Engine::open(
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 627)             Store::open(&schedule_path).unwrap(),
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 628)             "Etc/UTC",
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 629)             &sample(1000),
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 630)             OTHER_STORE,
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 631)         )
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 632)         .unwrap(),
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 633)     ));
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 634)     let shared = engine.clone();
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 635)     let socket = Socket::new(move |request| Some(answer(&mut shared.lock().unwrap(), request)));
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 636)     let mut restored = Consumer::new(
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 637)         DeliveryLedger::open(Store::open(&ledger_path).unwrap(), OTHER_STORE).unwrap(),
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 638)         "consumer-two".into(),
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 639)     );
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 640)     let now = lamp_ipc::monotonic_us();
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 641)     let report = due(&engine.lock().unwrap(), now);
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 642)     restored.tick(&socket.path(), Some(&report), now).unwrap();
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 643)     no_offer(&restored);
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 644)     assert!(matches!(
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 645)         restored
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 646)             .ledger
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 647)             .view(&offered.token.key)
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 648)             .unwrap()
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 649)             .unwrap()
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 650)             .resolution,
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 651)         Some(Resolution::AckConfirmed { .. })
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 652)     ));
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 653)     assert_eq!(engine.lock().unwrap().counts(&sample(1000)), (0, 0, 0));
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 654)     assert_eq!(
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 655)         socket
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 656)             .requests()
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 657)             .iter()
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 658)             .filter(|r| matches!(r, Request::Ack { .. }))
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 659)             .count(),
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 660)         1
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 661)     );
+20bf8cabe0 (Dee 2026-10-15 02:05:34 +0700 662) }

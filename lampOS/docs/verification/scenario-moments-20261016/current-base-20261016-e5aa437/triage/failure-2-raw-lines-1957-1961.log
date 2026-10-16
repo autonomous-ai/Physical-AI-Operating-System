@@ -1,0 +1,5 @@
+---- coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write stdout ----
+
+thread 'coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write' (580919990) panicked at crates/voice/src/coordinator/motor/tests.rs:1056:5:
+Err(Custom { kind: Other, error: "motor cleanup unconfirmed: Some(\"motor inhibit acknowledgement timed out\"); None" }); supervisor=Some("motor inhibit acknowledgement timed out"); child_finish=Ok("ControlLost")
+

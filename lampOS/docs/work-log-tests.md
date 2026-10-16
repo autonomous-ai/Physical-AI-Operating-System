@@ -1,5 +1,17 @@
 # Tests work log
 
+## 2026-10-16 07:52:53 +0700 — Records merged; Relay native started; current gate failures retained
+
+Ready for lamp-voice: no (new or rebased work); #931 merged
+
+- Records #931 merged as `69bae3831449bc03d1f11e3ed0c55eccfa1e6f3d`. Reviewer independently passed **190/0/2**, preserved all sixteen original assertions/six transitions, and qualified normal plus complete composite native coverage without retrying any test.
+- Relay continuation is draft **#942**, head `917a19c5c36bdecb965f404385df386c16b22af4`, after fresh **508/0/0**. Normal **38831311751** and full **38831310695** are running. [First shard 3 failure](verification/relay-native-first-shard-failure-20261016/README.md) is a serde registry download curl 55, before tests; other jobs continue. No follow-up or passing-result claim yet.
+- [Current Moments rebase gate](verification/scenario-moments-20261016/current-base-20261016-e5aa437/README.md) preserves **2,410/3/13**, all 2,401 current identities plus 25 additions. Fmt/strict Clippy/build pass; all original and new clock cases pass. Two failing motor identities are already #906; the exact privacy-revoke identity is newly reported, with `ControlLost` finish/inhibit-ack timeout and unknown cause. The three reviewed Rust files and 101 old evidence files remain exact. New-head native qualification and local-failure disposition remain pending; no retry.
+- [Current capacity gate](verification/capacity-current-failed-gate-20261016/README.md) preserves **2,385/3/13**, all 2,401 identities/ignore flags exact, original capacity case passing, and fmt/strict Clippy/build passing. Motor missing-file and second-route privacy cases map to #906/#893. Memory's person-scope test newly returns outer None from its 300 ms initial session call; cause is unprinted and goes to the Memory owner. All three are outside the fixed 123.
+- Audio's standalone focused command selected zero tests and is retained. The accepted four-package listing selects all nine actual additions; that exact selection passes nine on their first execution and the full affected gate continues. The zero-selection artifact/freshness evidence is preserved without asserting Cargo's untraced internal decision. Current Provider observation integration retains 2,401 originals plus 20 additions and remains in its first complete gate.
+
+The original 123 standalone serial under-two-minute target remains unproved. DevOps has the measurement request on #788; #783 loaded qualification stays with Eighth. No workflow, runner, repository setting or lamp changed.
+
 ## 2026-10-16 07:35:27 +0700 — complete failed gates retained; current integrations underway
 
 Ready for lamp-voice: yes (#931); no (new Provider, silent-service, capacity, Moment rebase, Relay continuation and Audio preparation)

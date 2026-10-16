@@ -1,0 +1,12 @@
+{
+  "date": "2026-10-16 05:11:55 +0700",
+  "totals": [
+    1960,
+    2,
+    13
+  ],
+  "summaries": 64,
+  "source_unchanged": true,
+  "complete_gate_passed": false,
+  "historical_failed_gate_retained": "/private/tmp/lampos-tests-log/lampOS/docs/verification/provider-moment-local-gate-20261016/README.md"
+}

@@ -1,0 +1,522 @@
+{
+  "from_date": "2026-10-16 07:50:16 +0700",
+  "base": "e5aa43747ec1540893b4da4509d14288e7e70806",
+  "old_head": "dee1cdd455072a92491bc800fd3993a124ee411a",
+  "source_tree": "/private/tmp/lampos-tests-scenario-moments-current",
+  "raw_copies": [
+    {
+      "source": "/private/tmp/tests-823-scenario-moments-current-gate/baseline-list.exit",
+      "destination": "gate/baseline-list.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/private/tmp/tests-823-scenario-moments-current-gate/baseline-list.log",
+      "destination": "gate/baseline-list.log",
+      "bytes": 413045,
+      "sha256": "3f7c4bcc4dfb7853d57c4b9cb2dfddc925356e4853895e499ebd19d8f96ea9e5"
+    },
+    {
+      "source": "/private/tmp/tests-823-scenario-moments-current-gate/baseline-source.json",
+      "destination": "gate/baseline-source.json",
+      "bytes": 101684,
+      "sha256": "afccf50c12903cc51b7d56a97a74c2067a5a046e82decf2c2194252bcfb15545"
+    },
+    {
+      "source": "/private/tmp/tests-823-scenario-moments-current-gate/build.exit",
+      "destination": "gate/build.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/private/tmp/tests-823-scenario-moments-current-gate/build.log",
+      "destination": "gate/build.log",
+      "bytes": 4031,
+      "sha256": "2dcb3f06bbd28916f6ae6a32f873862d85c3d8bdd0947594842bdb75b991af36"
+    },
+    {
+      "source": "/private/tmp/tests-823-scenario-moments-current-gate/clippy.exit",
+      "destination": "gate/clippy.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/private/tmp/tests-823-scenario-moments-current-gate/clippy.log",
+      "destination": "gate/clippy.log",
+      "bytes": 2659,
+      "sha256": "4b582ea4c2fcb7aa74daf8725841c4e0f6bb19dd54f0dde2b7b247f04b6d58a6"
+    },
+    {
+      "source": "/private/tmp/tests-823-scenario-moments-current-gate/completed.json",
+      "destination": "gate/completed.json",
+      "bytes": 256,
+      "sha256": "fa7efdb96e7e660476320ee8ed21c4ff0eb1fc62de7a3a2ba2fe8e24872f7123"
+    },
+    {
+      "source": "/private/tmp/tests-823-scenario-moments-current-gate/fmt.exit",
+      "destination": "gate/fmt.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/private/tmp/tests-823-scenario-moments-current-gate/fmt.log",
+      "destination": "gate/fmt.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/private/tmp/tests-823-scenario-moments-current-gate/gates.json",
+      "destination": "gate/gates.json",
+      "bytes": 3459,
+      "sha256": "9077d3dfcdafe92b7c0b1cd01b4008dead5edd9a1a3b385749df0e032c2b037e"
+    },
+    {
+      "source": "/private/tmp/tests-823-scenario-moments-current-gate/identity-proof.json",
+      "destination": "gate/identity-proof.json",
+      "bytes": 3684,
+      "sha256": "1075e9ec23a8121da467d5c53fd15ac68a0a1c1a4fc2c568f8f925d34951867e"
+    },
+    {
+      "source": "/private/tmp/tests-823-scenario-moments-current-gate/integrate.exit",
+      "destination": "gate/integrate.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/private/tmp/tests-823-scenario-moments-current-gate/integrate.log",
+      "destination": "gate/integrate.log",
+      "bytes": 154,
+      "sha256": "c2f160dde5f9658fd7d8952785996d6025552b59d8f61ab509e4cf85d8095d71"
+    },
+    {
+      "source": "/private/tmp/tests-823-scenario-moments-current-gate/list.exit",
+      "destination": "gate/list.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/private/tmp/tests-823-scenario-moments-current-gate/list.log",
+      "destination": "gate/list.log",
+      "bytes": 414801,
+      "sha256": "b0eaa005ae8e9ef660059a25f6f1a29b7c5ddc1631b4929df8d3e823109e98d9"
+    },
+    {
+      "source": "/private/tmp/tests-823-scenario-moments-current-gate/root-result-audit.json",
+      "destination": "gate/root-result-audit.json",
+      "bytes": 1843,
+      "sha256": "d363d09b1f0a5c7a5f096ee3c65b0947133aeeb043a2bb6ac04bfdbf68296513"
+    },
+    {
+      "source": "/private/tmp/tests-823-scenario-moments-current-gate/source-before-gate.json",
+      "destination": "gate/source-before-gate.json",
+      "bytes": 118255,
+      "sha256": "2e52a3e86a11d4893df2a63e2f06d08d677a69b00b91ddd6d0c210940e59e62a"
+    },
+    {
+      "source": "/private/tmp/tests-823-scenario-moments-current-gate/tests.exit",
+      "destination": "gate/tests.exit",
+      "bytes": 4,
+      "sha256": "39b8dc3fc8b44765c8e6f1adee04c5b465e555ab791cc42d0d9e810d5b64297c"
+    },
+    {
+      "source": "/private/tmp/tests-823-scenario-moments-current-gate/tests.log",
+      "destination": "gate/tests.log",
+      "bytes": 253284,
+      "sha256": "92b2ddde5fbc1feb5d886defa93a57b943a03a87d6e87bd94c1970e57d29acd6"
+    },
+    {
+      "source": "/private/tmp/tests-823-scenario-moments-current-evidence/base-voice-test-fixtures.md",
+      "destination": "integration/base-voice-test-fixtures.md",
+      "bytes": 18358,
+      "sha256": "04bf0a07ddbd0e9de139988b65c51aa23a11bb1b542176a8185a473d923a19d4"
+    },
+    {
+      "source": "/private/tmp/tests-823-scenario-moments-current-evidence/clean-base.json",
+      "destination": "integration/clean-base.json",
+      "bytes": 171,
+      "sha256": "098f0e30431cf47bcc5966772419c01702519fbb8c6813b2eeb4fa10e0b83649"
+    },
+    {
+      "source": "/private/tmp/tests-823-scenario-moments-current-evidence/root-independent-review.json",
+      "destination": "integration/root-independent-review.json",
+      "bytes": 331,
+      "sha256": "9c347a86ae903db99ba7d4d341852381de7cb494db7f6914feab131854323e17"
+    },
+    {
+      "source": "/private/tmp/tests-823-scenario-moments-current-evidence/source-doc.diff",
+      "destination": "integration/source-doc.diff",
+      "bytes": 14353,
+      "sha256": "1d8756f668474de89555e105bde8afb568c9027445c75631be7084175218e1b0"
+    },
+    {
+      "source": "/private/tmp/tests-823-scenario-moments-current-evidence/source-proof.json",
+      "destination": "integration/source-proof.json",
+      "bytes": 17099,
+      "sha256": "0ae0bc78fbc038a25ed488a55271eda54bb3a2027990ab3b710560878349b7d2"
+    },
+    {
+      "source": "/private/tmp/tests-823-scenario-moments-current-files.json",
+      "destination": "publication-input-files.json",
+      "bytes": 9363,
+      "sha256": "9a38c37b5716a4d336527785fa484849abfef3624975813cfbafc7231fcd8f63"
+    },
+    {
+      "source": "/private/tmp/tests-823-906-0742.json",
+      "destination": "triage/issues/tests-823-906-0742.json",
+      "bytes": 2686,
+      "sha256": "164fd14577904b1532cf5c341926d0a555e1d259e5f581977414038eb2a7fc28"
+    },
+    {
+      "source": "/private/tmp/tests-823-739-0743.json",
+      "destination": "triage/issues/tests-823-739-0743.json",
+      "bytes": 48156,
+      "sha256": "40b7ed31185f7db3953970ca52599a0b6b1572ff3aded32580f80a470dcdc803"
+    },
+    {
+      "source": "/private/tmp/tests-823-739-body-0743.json",
+      "destination": "triage/issues/tests-823-739-body-0743.json",
+      "bytes": 2083,
+      "sha256": "56eab0e32219ddd09bdb5223523b01e87530d590e53ba0b566a88c6ddf84326d"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/925-38819671092.audit.json",
+      "destination": "historical-native-38819671092/925-38819671092.audit.json",
+      "bytes": 16469,
+      "sha256": "366a2e9692675930ee2d4e9f754e28e41387af98336e7953ec7574f315a40017"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/925-38819671092.capture.json",
+      "destination": "historical-native-38819671092/925-38819671092.capture.json",
+      "bytes": 3281,
+      "sha256": "b50f6d58f7f377d4b546cfb3dceb218097fafd9b0ec3e570d45919e3db70cb14"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/925-38819671092.checkout.response.json",
+      "destination": "historical-native-38819671092/925-38819671092.checkout.response.json",
+      "bytes": 2603,
+      "sha256": "ef12766b68b8b073fe9da20a501f43db408241082ada2f4a7f160b20ff3d042b"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/925-38819671092.checkout.response.json.stderr",
+      "destination": "historical-native-38819671092/925-38819671092.checkout.response.json.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/925-38819671092.completed",
+      "destination": "historical-native-38819671092/925-38819671092.completed",
+      "bytes": 26,
+      "sha256": "7152fa916816ccc7d55374a1340b4cb0d3069d25600817913b26dd812587f565"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/925-38819671092.json",
+      "destination": "historical-native-38819671092/925-38819671092.json",
+      "bytes": 3201,
+      "sha256": "e1b67809e49fd21d2a0421ba4c18fde5ca11390d3961f36f0a64e1a73b772efb"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/925-38819671092.latest.json",
+      "destination": "historical-native-38819671092/925-38819671092.latest.json",
+      "bytes": 3201,
+      "sha256": "e1b67809e49fd21d2a0421ba4c18fde5ca11390d3961f36f0a64e1a73b772efb"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/925-38819671092.local-failure-native-membership.json",
+      "destination": "historical-native-38819671092/925-38819671092.local-failure-native-membership.json",
+      "bytes": 450,
+      "sha256": "05f342365f1f87db4a93dd4f702c0553b08b1c1104d80719f00084031728801f"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/925-38819671092.log",
+      "destination": "historical-native-38819671092/925-38819671092.log",
+      "bytes": 1219365,
+      "sha256": "c008fc5ddb69381546dc321917cc83bc0ca2444d3a6d907b2d044173cefcf9a9"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/925-38819671092.log.stderr",
+      "destination": "historical-native-38819671092/925-38819671092.log.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/925-38819671092.results.json",
+      "destination": "historical-native-38819671092/925-38819671092.results.json",
+      "bytes": 1178922,
+      "sha256": "8014aecc5e80c8f9ee634bdf129d6e3553ef21f6c59d69a267e665ea9fd18509"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/925-38819671092.run-api.json",
+      "destination": "historical-native-38819671092/925-38819671092.run-api.json",
+      "bytes": 12716,
+      "sha256": "368c9af5da700be2bbf0cbc8bb08aa85646fa053564ed7c30557b143fc3d9980"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/925-38819671092.run-api.json.stderr",
+      "destination": "historical-native-38819671092/925-38819671092.run-api.json.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/925-38819671092.run-final.json",
+      "destination": "historical-native-38819671092/925-38819671092.run-final.json",
+      "bytes": 3169,
+      "sha256": "a9521bb446f1d301c8b3703f134c348a7d3bc59636c77573f8cc3db2d99a76d6"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/925-38819671092.run-final.json.stderr",
+      "destination": "historical-native-38819671092/925-38819671092.run-final.json.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/925-38819671092.source-0.response.json",
+      "destination": "historical-native-38819671092/925-38819671092.source-0.response.json",
+      "bytes": 37801,
+      "sha256": "aa17747d53fb8d7f10447db5acf35b93540fc1fbe0220f78d9fc35f5325cea5d"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/925-38819671092.source-0.response.json.stderr",
+      "destination": "historical-native-38819671092/925-38819671092.source-0.response.json.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/925-38819671092.source-1.response.json",
+      "destination": "historical-native-38819671092/925-38819671092.source-1.response.json",
+      "bytes": 21566,
+      "sha256": "4046ed2984d69dbd1887aa6e9a61c7b7fe2b1f564793aee678727bcbd2558522"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/925-38819671092.source-1.response.json.stderr",
+      "destination": "historical-native-38819671092/925-38819671092.source-1.response.json.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/925-38819671092.source-2.response.json",
+      "destination": "historical-native-38819671092/925-38819671092.source-2.response.json",
+      "bytes": 24188,
+      "sha256": "9367e1ea3c300e5d49d549d160f1a81bb2df1940002ca80ce9472ce5eaa4a0aa"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/925-38819671092.source-2.response.json.stderr",
+      "destination": "historical-native-38819671092/925-38819671092.source-2.response.json.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/925-38819671092.source-3.response.json",
+      "destination": "historical-native-38819671092/925-38819671092.source-3.response.json",
+      "bytes": 26928,
+      "sha256": "0145ac755c9dbd4880383eb3302607d32ef5769a9cc0825a5d5137d334b4144c"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/925-38819671092.source-3.response.json.stderr",
+      "destination": "historical-native-38819671092/925-38819671092.source-3.response.json.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/private/tmp/lampos-tests-scenario-moments-current/lampOS/crates/voice/src/coordinator/motor/tests.rs",
+      "destination": "triage/source/lampOS/crates/voice/src/coordinator/motor/tests.rs",
+      "bytes": 47489,
+      "sha256": "33a8f47b0d69079697e5ef04bf1617f25dd4f81f3501d9524f1c024236f520ba"
+    },
+    {
+      "source": "/private/tmp/lampos-tests-scenario-moments-current/lampOS/crates/voice/src/coordinator/motor/tests/native_head.rs",
+      "destination": "triage/source/lampOS/crates/voice/src/coordinator/motor/tests/native_head.rs",
+      "bytes": 15938,
+      "sha256": "a6870c6a1c2f063f5b83ec4e17bf3ed3f7e4d1c6c0bff3ee1942d1108ada38cc"
+    },
+    {
+      "source": "/private/tmp/lampos-tests-scenario-moments-current/lampOS/crates/voice/src/coordinator/motor.rs",
+      "destination": "triage/source/lampOS/crates/voice/src/coordinator/motor.rs",
+      "bytes": 37408,
+      "sha256": "29b82801801be234ae865f7593c957a79537acc3469805401b759c21cf6c748e"
+    },
+    {
+      "source": "/private/tmp/lampos-tests-scenario-moments-current/lampOS/crates/voice/src/coordinator/motor/head.rs",
+      "destination": "triage/source/lampOS/crates/voice/src/coordinator/motor/head.rs",
+      "bytes": 8452,
+      "sha256": "4de64a3ab9fe22f6329e990bf1cc990d065fa781f2f38ff69b603fe9b05870b0"
+    },
+    {
+      "source": "/private/tmp/lampos-tests-scenario-moments-current/lampOS/crates/body/src/runtime.rs",
+      "destination": "triage/source/lampOS/crates/body/src/runtime.rs",
+      "bytes": 612,
+      "sha256": "f70ac6cb58b472a85130c8b81eed4258f689afc644de9ffbab98e087f71a0c8b"
+    },
+    {
+      "source": "/private/tmp/lampos-tests-scenario-moments-current/lampOS/crates/body/src/runtime/worker.rs",
+      "destination": "triage/source/lampOS/crates/body/src/runtime/worker.rs",
+      "bytes": 23534,
+      "sha256": "d126a1b0020f202c22a0a7a9ec64f54dcb6a52d9f6d02e965d61871aa6ab4cca"
+    },
+    {
+      "source": "/private/tmp/lampos-tests-scenario-moments-current/lampOS/crates/body/src/runtime/supervisor.rs",
+      "destination": "triage/source/lampOS/crates/body/src/runtime/supervisor.rs",
+      "bytes": 22565,
+      "sha256": "103009ea8a3baf449a760cf7f1dc43d0aa0b47d999b585c4084c65ff63ff2a3f"
+    },
+    {
+      "source": "/private/tmp/lampos-tests-scenario-moments-current/lampOS/crates/body/src/runtime/channel.rs",
+      "destination": "triage/source/lampOS/crates/body/src/runtime/channel.rs",
+      "bytes": 6122,
+      "sha256": "471c6cad77547060ec69348ccf08cbb98878463d2038aa34999e4d4f5f3a48ee"
+    },
+    {
+      "source": "/private/tmp/lampos-tests-scenario-moments-current/lampOS/crates/ipc/src/lib.rs",
+      "destination": "triage/source/lampOS/crates/ipc/src/lib.rs",
+      "bytes": 11335,
+      "sha256": "f9789cc83665f00bd39aff1d8670af525de8403c8821f0f143c04a02e644f6bf"
+    },
+    {
+      "source": "/private/tmp/lampos-tests-scenario-moments-current/lampOS/crates/voice/src/lib.rs",
+      "destination": "triage/source/lampOS/crates/voice/src/lib.rs",
+      "bytes": 1877,
+      "sha256": "15c6f007e8352c79e3ef841d62df17b5683a0136859b820f780440e58cf4654f"
+    },
+    {
+      "source": "/private/tmp/lampos-tests-scenario-moments-current/lampOS/rust-toolchain.toml",
+      "destination": "triage/source/lampOS/rust-toolchain.toml",
+      "bytes": 86,
+      "sha256": "fb0a56ca2fc09db10159f6983e9d747f4afeb64e1d6d941dc36a3c20bf3a5749"
+    }
+  ],
+  "input_file_list_sha256": "9a38c37b5716a4d336527785fa484849abfef3624975813cfbafc7231fcd8f63",
+  "historical_files_preserved": [
+    "lampOS/docs/verification/scenario-moments-20261016/README.md",
+    "lampOS/docs/verification/scenario-moments-20261016/SHA256SUMS",
+    "lampOS/docs/verification/scenario-moments-20261016/clock-test-results.txt",
+    "lampOS/docs/verification/scenario-moments-20261016/fresh/base-files.json",
+    "lampOS/docs/verification/scenario-moments-20261016/fresh/base-scenario_clock.rs",
+    "lampOS/docs/verification/scenario-moments-20261016/fresh/base-voice-test-fixtures.md",
+    "lampOS/docs/verification/scenario-moments-20261016/fresh/baseline-compiled-inputs.json",
+    "lampOS/docs/verification/scenario-moments-20261016/fresh/clean-base.json",
+    "lampOS/docs/verification/scenario-moments-20261016/fresh/handoff.md",
+    "lampOS/docs/verification/scenario-moments-20261016/fresh/integration.diff",
+    "lampOS/docs/verification/scenario-moments-20261016/fresh/integration.json",
+    "lampOS/docs/verification/scenario-moments-20261016/fresh/moment-doc-section.md",
+    "lampOS/docs/verification/scenario-moments-20261016/fresh/original-source-SHA256SUMS",
+    "lampOS/docs/verification/scenario-moments-20261016/fresh/preserved-earlier-evidence.json",
+    "lampOS/docs/verification/scenario-moments-20261016/fresh/root-baseline-list.exit",
+    "lampOS/docs/verification/scenario-moments-20261016/fresh/root-baseline-list.finished",
+    "lampOS/docs/verification/scenario-moments-20261016/fresh/root-baseline-list.log",
+    "lampOS/docs/verification/scenario-moments-20261016/fresh/root-baseline-list.started",
+    "lampOS/docs/verification/scenario-moments-20261016/fresh/root-build.exit",
+    "lampOS/docs/verification/scenario-moments-20261016/fresh/root-build.finished",
+    "lampOS/docs/verification/scenario-moments-20261016/fresh/root-build.log",
+    "lampOS/docs/verification/scenario-moments-20261016/fresh/root-build.started",
+    "lampOS/docs/verification/scenario-moments-20261016/fresh/root-clippy.exit",
+    "lampOS/docs/verification/scenario-moments-20261016/fresh/root-clippy.finished",
+    "lampOS/docs/verification/scenario-moments-20261016/fresh/root-clippy.log",
+    "lampOS/docs/verification/scenario-moments-20261016/fresh/root-clippy.started",
+    "lampOS/docs/verification/scenario-moments-20261016/fresh/root-fmt.exit",
+    "lampOS/docs/verification/scenario-moments-20261016/fresh/root-fmt.finished",
+    "lampOS/docs/verification/scenario-moments-20261016/fresh/root-fmt.log",
+    "lampOS/docs/verification/scenario-moments-20261016/fresh/root-fmt.started",
+    "lampOS/docs/verification/scenario-moments-20261016/fresh/root-gates.json",
+    "lampOS/docs/verification/scenario-moments-20261016/fresh/root-identity-proof.json",
+    "lampOS/docs/verification/scenario-moments-20261016/fresh/root-list.exit",
+    "lampOS/docs/verification/scenario-moments-20261016/fresh/root-list.finished",
+    "lampOS/docs/verification/scenario-moments-20261016/fresh/root-list.log",
+    "lampOS/docs/verification/scenario-moments-20261016/fresh/root-list.started",
+    "lampOS/docs/verification/scenario-moments-20261016/fresh/root-result.json",
+    "lampOS/docs/verification/scenario-moments-20261016/fresh/root-source.json",
+    "lampOS/docs/verification/scenario-moments-20261016/fresh/root-tests.exit",
+    "lampOS/docs/verification/scenario-moments-20261016/fresh/root-tests.finished",
+    "lampOS/docs/verification/scenario-moments-20261016/fresh/root-tests.log",
+    "lampOS/docs/verification/scenario-moments-20261016/fresh/root-tests.started",
+    "lampOS/docs/verification/scenario-moments-20261016/historical/provider-moment-original-README.md",
+    "lampOS/docs/verification/scenario-moments-20261016/provenance.json",
+    "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/audit.json",
+    "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/failure-raw-lines-1493-1523.log",
+    "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/issue-705.json",
+    "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/issue-705.stderr",
+    "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/issue-739.json",
+    "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/issue-739.stderr",
+    "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/issue-893.json",
+    "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/issue-893.stderr",
+    "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/issues-consumer-network.json",
+    "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/issues-consumer-network.stderr",
+    "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/issues-consumer.json",
+    "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/issues-consumer.stderr",
+    "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/issues-exact-network.json",
+    "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/issues-exact-network.stderr",
+    "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/issues-exact.json",
+    "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/issues-exact.stderr",
+    "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/issues-reminder-network.json",
+    "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/issues-reminder-network.stderr",
+    "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/issues-reminder.json",
+    "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/issues-reminder.stderr",
+    "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/issues-socket-network.json",
+    "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/issues-socket-network.stderr",
+    "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/issues-stem-network.json",
+    "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/issues-stem-network.stderr",
+    "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/issues-stem.json",
+    "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/issues-stem.stderr",
+    "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/line-history.txt",
+    "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/preceding-raw-lines-1179-1201.log",
+    "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/relevant-739-comments.json",
+    "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/report.md",
+    "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/scenario_clock.after.rs",
+    "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/scenario_clock.before.rs",
+    "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/scenario_clock.diff",
+    "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/search-audit.json",
+    "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/source-history.txt",
+    "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/source/CLAUDE.md",
+    "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/source/lampOS/builders/eighth.md",
+    "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/source/lampOS/builders/fifth.md",
+    "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/source/lampOS/builders/third.md",
+    "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/source/lampOS/crates/ipc/src/lib.rs",
+    "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/source/lampOS/crates/schedule/src/client.rs",
+    "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/source/lampOS/crates/schedule/src/delivery.rs",
+    "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/source/lampOS/crates/schedule/src/engine.rs",
+    "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/source/lampOS/crates/schedule/src/store.rs",
+    "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/source/lampOS/crates/schedule/src/time.rs",
+    "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/source/lampOS/crates/voice/src/lib.rs",
+    "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/source/lampOS/crates/voice/src/reminders.rs",
+    "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/source/lampOS/crates/voice/src/reminders/consumer.rs",
+    "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/source/lampOS/crates/voice/src/reminders/consumer/tests.rs",
+    "lampOS/docs/verification/scenario-moments-20261016/reminder-triage/source/lampOS/docs/joining.md",
+    "lampOS/docs/verification/scenario-moments-20261016/reviews/between-independent-review.md",
+    "lampOS/docs/verification/scenario-moments-20261016/reviews/between-source-handoff.md",
+    "lampOS/docs/verification/scenario-moments-20261016/reviews/between-source-proof.json",
+    "lampOS/docs/verification/scenario-moments-20261016/reviews/moment-independent-proof.json",
+    "lampOS/docs/verification/scenario-moments-20261016/reviews/moment-independent-review.md",
+    "lampOS/docs/verification/scenario-moments-20261016/reviews/moment-source-proof.json",
+    "lampOS/docs/verification/scenario-moments-20261016/source-hashes.json"
+  ],
+  "gate_script_provenance_only_not_copied": {
+    "path": "/private/tmp/tests-823-moments-current-gate.py",
+    "sha256": "28266880a7dab148fd175acb0d48c0f206a5fc00fb540f9d12815f7f7d8b9595",
+    "explicit_environment": {
+      "CARGO_BUILD_JOBS": "2",
+      "CARGO_INCREMENTAL": "0",
+      "CARGO_TARGET_DIR": "/private/tmp/tests-823-slow-progress-target"
+    },
+    "pinned_toolchain": "1.96.0"
+  },
+  "current_local_counts": [
+    2410,
+    3,
+    13
+  ],
+  "current_local_gate_passed": false,
+  "historical_local_counts": [
+    1960,
+    2,
+    13
+  ],
+  "historical_native": {
+    "run": 38819671092,
+    "head": "dee1cdd455072a92491bc800fd3993a124ee411a",
+    "tested_merge": "67c3d4b00551eb8c981923d69272aa255cf31eb7",
+    "unique_passes": 5000,
+    "new_test_count": 25,
+    "observed_original123_count": 0
+  },
+  "new_head_native_qualification": false,
+  "standalone_original123_timing_claim": false,
+  "current_local_failure_owner_acceptance_claim": false
+}

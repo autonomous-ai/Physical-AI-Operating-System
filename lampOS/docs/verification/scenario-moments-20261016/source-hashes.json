@@ -1,0 +1,11 @@
+{
+  "checked_at_from_date": "2026-10-16 05:26:08 +0700",
+  "base": "7ae0eb647914e286817c29bff2abc2934fb19546",
+  "source_bytes_unchanged_from_frozen_integration": true,
+  "sha256": {
+    "lampOS/crates/voice/src/scenario_clock.rs": "7ebed538d61d20442e4fe3cc0e2a0b0987cf18a599b1283e511954f54de482d5",
+    "lampOS/crates/voice/src/scenario_moment_tests.rs": "c372eac927457059471d7a6bc3b56c8855f530aab1b7b81e11305fe2dddfe210",
+    "lampOS/crates/voice/src/scenario_moment_between_tests.rs": "ab7d7f015c077c6ee8bc43cc48bceaa8c723e85f922547f8ec2be4745134b0b4",
+    "lampOS/docs/voice-test-fixtures.md": "ff6708a212d0fc43ff5c9a0b49040a3ded7612f9055e85d48181dc672987798c"
+  }
+}

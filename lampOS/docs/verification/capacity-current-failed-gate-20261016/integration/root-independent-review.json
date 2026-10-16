@@ -1,0 +1,11 @@
+{
+  "date": "2026-10-16 07:14:53 +0700",
+  "base": "e5aa43747ec1540893b4da4509d14288e7e70806",
+  "root_read_full_diff": true,
+  "exact_old_delta": true,
+  "entire_file_inverse_to_current_base": true,
+  "all_function_names_same": true,
+  "current_docs_prefix_kept": true,
+  "historical_files_exact": 14,
+  "source_proof_sha256": "77e732a1e486b6704b49e65beb73e77a819aebc65ee0d5766e2c3a4bb4702665"
+}

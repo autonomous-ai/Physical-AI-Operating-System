@@ -1,0 +1,12 @@
+---- coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement stdout ----
+
+thread 'coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement' (580916617) panicked at crates/voice/src/coordinator/motor/tests.rs:601:9:
+owned child timed out: adapter=Some("motor worker progress timed out"); connected=true; ready=false; reaped=true; supervisor=Some("motor worker progress timed out"); largest_poll_gap_us=1651; output=
+running 1 test
+motor_fixture_phase=child_entry at_us=2637956544780
+motor_fixture_phase=channels_bound at_us=2637956583652
+motor_fixture_phase=channels_connected at_us=2637956583759
+motor_fixture_phase=ready_send at_us=2637956586269
+
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+

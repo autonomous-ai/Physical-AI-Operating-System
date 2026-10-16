@@ -207,7 +207,8 @@ counted and not run.
 `cargo test -p lamp-skills` loads every folder in `lampOS/skills/` and runs
 its recorded cases, so CI checks every skill. To make a case, record the
 topics while the thing happens, or publish it by hand with
-`lamp-bus pub ... --at-us`. Welcome back's two cases were made that way:
+`lamp-bus pub ... --at-us`. Welcome back's first two cases were made that way
+(its third was recorded on lamp-06c1, #995):
 
     lamp-bus record skills/welcome-back/tests/CASE humans/faces/tracked --seconds 40 --root R &
     lamp-bus pub humans/faces/tracked latest '{"faces":[]}' --type lamp_msgs/Faces --at-us 0 --root R
@@ -327,11 +328,26 @@ greets where it is switched on, and a lamp that ran both would greet twice.
 
 Welcome back carries Arrival's rules as data: a face at least 0.14 of the
 picture's height (`near`), there three seconds (`for`), after five minutes
-with nobody near, and the voice resting for 30 s (`[[while]]` on
-`voice/state`, where Arrival counts the time since anything was said to the
-lamp or by it). Arrival forgives a face lost for under 20 s before it counts
-an absence; Welcome back counts the absence from the last near face, which
-comes to the same for an arrival after five minutes.
+with nobody near. Where Arrival counts the time since anything was said to the
+lamp or by it, Welcome back has two conditions on `voice/state` (#1140):
+nothing heard or said for 5 s (resting), and the lamp itself not speaking for
+30 s (`not_equals = "speaking"`). Its quiet was Arrival's 30 s until lamp-06c1
+showed that in an office the voice is seldom resting 30 s at the moment
+someone sits down (its own talk passes in 1 to 4 s every 5 to 60 s), so nobody
+arriving was greeted; but a hello right after the lamp spoke would greet
+someone it has just talked with, so its own speech still counts 30 s. The
+chance waits up to a minute while the person stays (`wait = "60s"`, with a 3 s
+`gap` for a look down) and is taken once both hold. Arrival forgives a face
+lost for under 20 s before it counts an absence; Welcome back counts the
+absence from the last near face, which comes to the same for an arrival after
+five minutes.
+
+**With the Policy's gate** (`LAMP_SKILLS_ASK=policy`) the 5 s quiet is not
+enough: the Policy holds every hello asked within 15 s of anything heard or
+said (`crates/policy/src/hello.rs`), and the skill's cooldown counts from the
+ask, so a hello asked at the first 5 s lull is refused and the 20 minutes are
+spent. It greets in a busy room only while the product skips the ask
+(`deploy/product/lamp-skills.service`); the Policy's side is #1155.
 
 What is not done, and why:
 

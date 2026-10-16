@@ -159,6 +159,10 @@ pub const PROVIDER: &str = include_str!("../../../deploy/product/settings/voice-
 /// The lamp's device key, as `provider.json` names it. The customer never
 /// types or sees it: on a lamp made with V1's image it is V1's `llm_api_key`.
 pub const CREDENTIAL_PATH: &str = "/etc/lampOS/voice/credential";
+/// The Policy's judge key: the same device key, for V1's route to Jev
+/// (`deploy/product/lamp-policy.service`; the first builder on #811, 13:09:
+/// provision it like the voice's).
+pub const JEV_KEY_PATH: &str = "/etc/lampOS/policy/jev.key";
 pub const V1_CONFIG: &str = "/root/config/config.json";
 pub const UNITS: &str = "/etc/systemd/system/";
 
@@ -451,11 +455,19 @@ pub fn install(
     let key = device_key(config);
     let mut private: Vec<(&str, &str)> = vec![(PROVIDER_PATH, PROVIDER)];
     match &key {
-        Some(key) => private.push((CREDENTIAL_PATH, key)),
-        None if !config.on(CREDENTIAL_PATH).exists() => say(&format!(
-            "no device key: the voice cannot reach its service until {CREDENTIAL_PATH} holds the lamp's key (none in {V1_CONFIG})"
-        )),
-        None => {}
+        Some(key) => {
+            private.push((CREDENTIAL_PATH, key));
+            private.push((JEV_KEY_PATH, key));
+        }
+        None => {
+            for (path, part) in [(CREDENTIAL_PATH, "the voice"), (JEV_KEY_PATH, "the Policy")] {
+                if !config.on(path).exists() {
+                    say(&format!(
+                        "no device key: {part} cannot reach its service until {path} holds the lamp's key (none in {V1_CONFIG})"
+                    ));
+                }
+            }
+        }
     }
     let wrote = changed.len();
     settings_with_mode(
@@ -467,13 +479,15 @@ pub fn install(
         say,
         &mut |state| save(&records, state),
     )?;
-    if changed[wrote..]
-        .iter()
-        .any(|line| line == &format!("wrote {CREDENTIAL_PATH}"))
-    {
-        say(&format!(
-            "the voice's device key was taken from {V1_CONFIG} into {CREDENTIAL_PATH}"
-        ));
+    for path in [CREDENTIAL_PATH, JEV_KEY_PATH] {
+        if changed[wrote..]
+            .iter()
+            .any(|line| line == &format!("wrote {path}"))
+        {
+            say(&format!(
+                "the device key was taken from {V1_CONFIG} into {path}"
+            ));
+        }
     }
     // Made 0755 here on a blank lamp. One made closed before (lamp-4ace's is
     // root's alone) is not opened: credentials may be below it. Said instead.

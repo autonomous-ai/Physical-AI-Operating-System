@@ -563,6 +563,28 @@ fn the_voice_gets_its_service_and_the_lamps_device_key_from_v1s_config() {
             .iter()
             .any(|line| line.contains("device key was taken"))
     );
+    // The Policy's judge key is the same device key, as private (#811, 2).
+    assert_eq!(
+        fs::read_to_string(lamp.on(install::JEV_KEY_PATH)).unwrap(),
+        KEY
+    );
+    assert_eq!(private(&lamp, install::JEV_KEY_PATH), 0o600);
+    let policy = section(
+        install::PRODUCT
+            .iter()
+            .find(|(name, _)| *name == "lamp-policy.service")
+            .unwrap()
+            .1,
+        "Service",
+    );
+    let exec = policy
+        .iter()
+        .find(|line| line.starts_with("ExecStart="))
+        .unwrap();
+    assert!(
+        exec.contains("--endpoint https://campaign-api.autonomous.ai/api/v1/ai/v1/jev/decisions")
+    );
+    assert!(policy.contains(&"LoadCredential=jev.key:/etc/lampOS/policy/jev.key"));
     assert!(
         lamp.said.iter().all(|line| !line.contains(KEY)),
         "{:?}",
@@ -582,6 +604,10 @@ fn the_voice_gets_its_service_and_the_lamps_device_key_from_v1s_config() {
     lamp.install().unwrap();
     assert_eq!(
         fs::read_to_string(lamp.on(install::CREDENTIAL_PATH)).unwrap(),
+        "rotated-key-42"
+    );
+    assert_eq!(
+        fs::read_to_string(lamp.on(install::JEV_KEY_PATH)).unwrap(),
         "rotated-key-42"
     );
     assert_eq!(private(&lamp, install::CREDENTIAL_PATH), 0o600);
@@ -606,6 +632,7 @@ fn the_voice_gets_its_service_and_the_lamps_device_key_from_v1s_config() {
     let mut bare = Lamp::new(188, &[]);
     bare.install().unwrap();
     assert!(!bare.on(install::CREDENTIAL_PATH).exists());
+    assert!(!bare.on(install::JEV_KEY_PATH).exists());
     assert!(bare.on(install::PROVIDER_PATH).exists());
     assert!(
         bare.said

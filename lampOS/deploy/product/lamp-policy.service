@@ -18,9 +18,11 @@ Slice=lampos-parts.slice
 StateDirectory=lampos-policy
 StateDirectoryMode=0700
 Nice=5
-# The judge's key, root's file, handed in by systemd.
+# The judge's key, root's file, handed in by systemd: the lamp's own device key, written by
+# install from V1's config (#811). The judge is asked through V1's route, the campaign-api proxy,
+# as V1's own Jev client does (system/intent/jev), not with a key of the project's own.
 LoadCredential=jev.key:/etc/lampOS/policy/jev.key
-ExecStart=/opt/lampOS/policy/current/lamp-policy --key-file %d/jev.key --log-dir /var/lib/lampos-policy --bus-root /run/lampos-bus
+ExecStart=/opt/lampOS/policy/current/lamp-policy --key-file %d/jev.key --endpoint https://campaign-api.autonomous.ai/api/v1/ai/v1/jev/decisions --log-dir /var/lib/lampos-policy --bus-root /run/lampos-bus
 Restart=on-failure
 RestartSec=5s
 StandardInput=null

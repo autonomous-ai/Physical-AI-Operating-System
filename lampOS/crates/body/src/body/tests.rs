@@ -6752,6 +6752,7 @@ fn a_jump_that_stays_becomes_the_reading_and_stops_on_heat() {
             temperature: to,
         };
         assert_eq!(report.stop, hot, "{to}: {report:?}");
+        assert_eq!(report.temperature_settles, vec![(5, 45, to)], "{to}");
         assert_eq!(
             report.bad_temperatures[4],
             // It settles on the read half of `temperature_steps` in.
@@ -6907,6 +6908,81 @@ fn a_cool_joint_glitching_one_read_in_27_runs_on_for_a_minute() {
     assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
     assert!(report.bad_temperatures[4] > 100, "{report:?}");
     assert_eq!(report.peak_temperature[0], 45);
+}
+
+/// At lamp-52e6's measured rate, one read in 27 at random, a cool head runs
+/// ten minutes and nothing stops it.
+#[test]
+fn a_cool_joint_glitching_at_random_one_read_in_27_runs_ten_minutes() {
+    let mut seed: u32 = 0x5eed_1e57;
+    let readings = (0..30_500)
+        .map(|_| {
+            seed = seed.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+            (seed >> 8).is_multiple_of(27).then_some(150)
+        })
+        .collect();
+    let (report, _) = scripted_pitch(
+        45,
+        Vec::new(),
+        Duration::from_millis(1_500),
+        readings,
+        Duration::from_secs(600),
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert!(report.bad_temperatures[4] > 900, "{report:?}");
+    assert_eq!(report.peak_temperature[0], 45);
+}
+
+/// Garbage with one good read in 50 is still garbage: a head warmed to 70,
+/// then 49 reads of 150 and 5 by turns and one true, again and again. A
+/// good read takes one off the bad reads in a row instead of starting them
+/// again, so it ends as unreadable within seconds (44.7 s before).
+#[test]
+fn garbage_with_one_good_read_in_50_still_stops_within_seconds() {
+    let ramp = (61..=70)
+        .zip(0..)
+        .map(|(to, n)| (Duration::from_millis(1_500 + 40 * n), PITCH, to))
+        .collect();
+    let at = Duration::from_millis(1_900);
+    let readings = (0..2_000)
+        .map(|n| (n % 50 != 49).then_some(if n % 2 == 0 { 150 } else { 5 }))
+        .collect();
+    let (report, lamp) = scripted_pitch(60, ramp, at, readings, Duration::from_secs(8));
+    assert!(
+        matches!(report.stop, Stop::BadTemperature { joint: 5, .. }),
+        "{report:?}"
+    );
+    let reads = lamp.read_times.iter().filter(|t| **t >= at).count();
+    assert!(reads <= 150, "{reads}");
+}
+
+/// A low first read, then the true value rising 5 degrees a second with a
+/// 150 every 20 reads: each glitch is skipped by the settle, not a reason to
+/// start it again, so the true value settles and heat stops it near the
+/// limit (it ended as unreadable on a cool lamp before).
+#[test]
+fn a_true_value_settles_through_glitches_after_a_low_first_read() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(8));
+    lamp.servos[PITCH].temperature = 45;
+    lamp.event = Some((Duration::ZERO, PITCH, Event::HeatOnce(5)));
+    lamp.heats = (0..100)
+        .map(|n| (Duration::from_millis(200 * (n + 1)), PITCH, 46 + n as u8))
+        .collect();
+    let readings = (0..400).map(|n| (n % 20 == 19).then_some(150)).collect();
+    lamp.flicker = Some((Duration::from_millis(20), PITCH, readings, 0));
+    let news = script(&clock.time);
+    let report = run(&mut lamp, &mut clock, Limits::FOLDED, None, news, |_| {});
+    assert!(
+        matches!(
+            report.stop,
+            Stop::Temperature {
+                joint: 5,
+                temperature: 62..=72
+            }
+        ),
+        "{report:?}"
+    );
+    assert_eq!(report.temperature_settles.first().map(|s| s.0), Some(5));
 }
 
 /// One glitch on the first read is read again before it is acted on: a

@@ -902,6 +902,10 @@ pub struct BodyReport {
     /// `FIRST_HEAT_REREADS` times, before anything acts on it: the
     /// temperatures of each read again, per joint as `bad_reads`.
     pub hot_rereads: Vec<[u8; 5]>,
+    /// Bad temperature values that settled into the good one
+    /// (`Bus::judge_temperatures`), the first 16: joint, last good, settled.
+    /// A steady 150 that then stops on heat says so here.
+    pub temperature_settles: Vec<(u8, u8, u8)>,
     pub peak_load: [u16; 3],
     pub peak_temperature: [u8; 3],
     /// Times each commanded joint met resistance and was left where it was.
@@ -1151,9 +1155,15 @@ const BAD_READS_IN_ROW: u8 = 3;
 /// margin. A real rise moves the good one with it a read at a time.
 const TEMPERATURE_MAX: u8 = 100;
 const TEMPERATURE_JUMP: u8 = 3;
-/// How near the read before it each bad read must be, read after read, for
-/// the value to become the good one after `Limits::temperature_steps` reads.
+/// How near the last agreeing one a bad read must be to agree with it: a
+/// bad value settles once half of `Limits::temperature_steps` reads agree.
 const TEMPERATURE_SETTLE: u8 = 2;
+/// Outliers a settle skips without starting again: 25 of 30 reads agreeing
+/// settle, so a glitch among them (lamp-52e6's elbow, one read in 27)
+/// does not keep a true value from settling after a low first read.
+const TEMPERATURE_SETTLE_SKIPS: u8 = 5;
+/// Settles kept in the report.
+const SETTLES_KEPT: usize = 16;
 /// Reads of a first read that found a joint hot, before it is acted on.
 const FIRST_HEAT_REREADS: usize = 3;
 
@@ -1197,13 +1207,16 @@ struct Bus<'a, P, R> {
     /// (`judge_temperatures`).
     warm: [Option<u8>; 5],
     bad_temperatures: [u16; 5],
-    /// Each joint's last bad read, and for how many reads in a row it
-    /// has stayed near the one before.
-    settling: [Option<(u8, u8)>; 5],
+    /// Each joint's settling bad value: the last read that agreed, how many
+    /// agreed, and how many outliers were skipped.
+    settling: [Option<(u8, u8, u8)>; 5],
+    /// Each bad value that settled: joint, last good, settled.
+    settles: Vec<(u8, u8, u8)>,
     /// `Limits::temperature_steps`: replaced reads in a row that end the
     /// run on `Stop::BadTemperature`. Half of it settles a bad value.
     settle_steps: u8,
-    /// Each joint's replaced temperature reads in a row.
+    /// Each joint's replaced temperature reads in a row, less one for each
+    /// good read.
     bad_warm_in_row: [u8; 5],
     /// Joints whose temperature this read was replaced: their heat streak
     /// holds for the step, neither adding nor resetting.
@@ -1226,6 +1239,7 @@ impl<'a, P: PortIo, R: Runtime> Bus<'a, P, R> {
             warm: [None; 5],
             bad_temperatures: [0; 5],
             settling: [None; 5],
+            settles: Vec::new(),
             settle_steps: Limits::FOLDED.temperature_steps,
             bad_warm_in_row: [0; 5],
             temperature_held: [false; 5],
@@ -1392,17 +1406,19 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
     /// `TEMPERATURE_MAX`, or farther from the joint's last good one than
     /// `TEMPERATURE_JUMP`. It is counted and replaced by the last good one,
     /// so it is never a peak, and marked in `temperature_held` so the heat
-    /// streak holds for that step, neither adding nor resetting. Bad reads
-    /// that each stay within `TEMPERATURE_SETTLE` of the one before for half
-    /// of `settle_steps` reads in a row are what the servo reads now, and the
-    /// last becomes the good one: a joint really at 70 after a low read, one
-    /// rising fast after it, or a steady 150, is judged on it again. Half,
-    /// so a settle stays well under the stop: `settle_steps` replaced reads
-    /// of one joint in a row end the run on `Stop::BadTemperature`, as three
-    /// bad positions do. A temperature that cannot be read that long is not
-    /// known to be cool: a joint can warm behind it, its last good one cool.
-    /// A glitch, or glitches between good reads, never stop the run. With
-    /// no good one yet (the first read) a reading is taken as it is (`run_on` reads a hot one again before acting on it).
+    /// streak holds for that step, neither adding nor resetting. A bad value
+    /// settles, and becomes the good one, once half of `settle_steps` reads
+    /// each agree within `TEMPERATURE_SETTLE` with the last that agreed,
+    /// skipping up to `TEMPERATURE_SETTLE_SKIPS` outliers among them: a
+    /// joint really at 70 after a low read, one rising fast after it, or a
+    /// steady 150, is judged on it again, and each settle is kept in
+    /// `settles` for the report. Bad reads in a row, less one for each good
+    /// read, end the run on `Stop::BadTemperature` at `settle_steps`, as
+    /// three bad positions do: a temperature that cannot be read that long
+    /// is not known to be cool, and a joint can warm behind it while its
+    /// last good one is cool. With no good one yet (the first read) a
+    /// reading is taken as it is (`run_on` reads a hot one again before
+    /// acting on it).
     fn judge_temperatures(&mut self, samples: &mut [Sample; 5]) -> Result<(), String> {
         self.temperature_held = [false; 5];
         for (index, sample) in samples.iter_mut().enumerate() {
@@ -1417,21 +1433,34 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
             };
             // Over the limit is bad unless the good one is too: it settled there.
             let in_range = read <= TEMPERATURE_MAX || good > TEMPERATURE_MAX;
-            let count = match self.settling[index] {
-                Some((before, count)) if read.abs_diff(before) <= TEMPERATURE_SETTLE => {
-                    count.saturating_add(1)
+            if in_range && read.abs_diff(good) <= TEMPERATURE_JUMP {
+                self.warm[index] = Some(read);
+                self.settling[index] = None;
+                // One off, not all: one good read in 50 must not keep a
+                // joint whose reads are garbage running, while one bad read
+                // in 27 still never adds up.
+                self.bad_warm_in_row[index] = self.bad_warm_in_row[index].saturating_sub(1);
+                continue;
+            }
+            let settling = match self.settling[index] {
+                Some((last, agreed, skips)) if read.abs_diff(last) <= TEMPERATURE_SETTLE => {
+                    (read, agreed.saturating_add(1), skips)
                 }
-                _ => 1,
+                Some((last, agreed, skips)) if skips < TEMPERATURE_SETTLE_SKIPS => {
+                    (last, agreed, skips + 1)
+                }
+                _ => (read, 1, 0),
             };
-            if (in_range && read.abs_diff(good) <= TEMPERATURE_JUMP)
-                || count >= (self.settle_steps / 2).max(1)
-            {
+            if settling.0 == read && settling.1 >= (self.settle_steps / 2).max(1) {
                 self.warm[index] = Some(read);
                 self.settling[index] = None;
                 self.bad_warm_in_row[index] = 0;
+                if self.settles.len() < SETTLES_KEPT {
+                    self.settles.push((Joint::ALL[index].id(), good, read));
+                }
                 continue;
             }
-            self.settling[index] = Some((read, count));
+            self.settling[index] = Some(settling);
             self.bad_temperatures[index] = self.bad_temperatures[index].saturating_add(1);
             self.bad_warm_in_row[index] = self.bad_warm_in_row[index].saturating_add(1);
             if self.bad_warm_in_row[index] >= self.settle_steps {
@@ -2565,6 +2594,7 @@ fn run_until_stopped(
     );
     report.bad_reads = bus.bad_reads;
     report.bad_temperatures = bus.bad_temperatures;
+    report.temperature_settles = std::mem::take(&mut bus.settles);
     report
 }
 
@@ -2593,6 +2623,7 @@ fn run_on<P: PortIo, R: Runtime>(
         bad_reads: [0; 5],
         bad_temperatures: [0; 5],
         hot_rereads: Vec::new(),
+        temperature_settles: Vec::new(),
         peak_load: [0; 3],
         eased: [0; 3],
         kept_where_put: [0; 3],

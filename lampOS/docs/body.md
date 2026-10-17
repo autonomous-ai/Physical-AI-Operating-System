@@ -276,21 +276,30 @@ neither adding nor resetting (`Bus::temperature_held`). Before this hold, a
 replaced read carried the last good value into the streak: one read of 63
 let in at a true 60, then the register at 59, made 50 hot steps of one hot
 read and let the whole lamp go (the seventh's re-check of #1236, 2026-10-17
-08:37). Bad reads that each stay within 2 degrees (`TEMPERATURE_SETTLE`) of
-the one before for half of `temperature_steps` (25) reads in a row are what
-the servo reads now, and the last becomes the good one, so a servo really
-at 70 after a low first read, one rising 5 degrees a second after it, a
-jump to 70 that stays, or a steady 150 still stops on heat, half a second
-later than without the check; one 150 is still dropped. Half, so a settle
-stays well under the stop below (24 replaced reads at most, against 50).
-With no good one yet (the first read) a reading is taken as it is: one over
-100 is counted, and a hot one is read again before it is acted on (above).
-A glitch, or glitches between good reads however many, never stop the run:
-the hot-servo stop needs 50 hot steps in a row, and letting go of a lamp
-for a sensor glitch is worse than the glitch. But 50 (`temperature_steps`)
-replaced reads of one joint in a row that never settle end the run on
-`Stop::BadTemperature`, as three bad positions do, naming the joint
-(`stopped: head_pitch temperature unreadable (it reads 5, last good 41)`):
+08:37). A bad value settles, and becomes the good one, once half of
+`temperature_steps` (25) reads each agree within 2 degrees
+(`TEMPERATURE_SETTLE`) with the last that agreed, skipping up to 5 outliers
+among them (`TEMPERATURE_SETTLE_SKIPS`: 25 of 30): a glitch is skipped, not
+a reason to start again, since lamp-52e6's elbow glitches on one read in 27,
+close to a window of 25. So a servo really at 70 after a low first read,
+one rising 5 degrees a second after it (with a 150 every 20 reads), a jump
+to 70 that stays, or a steady 150 still stops on heat, about half a second
+later than without the check; one 150 is still dropped. Each settle is in
+the end report, `temperature_settles` (joint, last good, settled; the first
+16), so a stop on a steady 150 says it settled there rather than looking
+like heat that was read. With no good one yet (the first read) a reading is
+taken as it is: one over 100 is counted, and a hot one is read again before
+it is acted on (above). A glitch, or glitches between good reads however
+many, never stop the run: the hot-servo stop needs 50 hot steps in a row,
+and letting go of a lamp for a sensor glitch is worse than the glitch. But
+bad reads of one joint in a row, less one for each good read, end the run
+at 50 (`temperature_steps`) on `Stop::BadTemperature`, as three bad
+positions do, naming the joint (`stopped: head_pitch temperature unreadable
+(it reads 5, last good 41)`). A good read takes one off rather than
+starting the count again, so 49 bad and one good, again and again, still
+ends it within about a second more, where starting again took 44.7 s, and
+one bad read in 27 never adds up (ten simulated minutes at that rate, at
+random, run on). The stop in the report:
 
 ```text
 "stop":{"kind":"bad_temperature","joint":5,"temperature":5,"from":41}
@@ -332,6 +341,9 @@ register (63) said. The tests are
 `a_joint_warming_behind_bad_reads_stops_as_unreadable_within_a_second`,
 `a_hot_joint_whose_reads_never_settle_stops_as_unreadable`,
 `a_cool_joint_glitching_one_read_in_27_runs_on_for_a_minute`,
+`a_cool_joint_glitching_at_random_one_read_in_27_runs_ten_minutes`,
+`garbage_with_one_good_read_in_50_still_stops_within_seconds`,
+`a_true_value_settles_through_glitches_after_a_low_first_read`,
 `a_hot_first_read_that_does_not_repeat_starts_as_usual`,
 `a_hot_first_read_that_repeats_is_refused_as_before` and
 `one_hot_reading_while_it_moves_is_not_heat` (lamp-4ace's yaw reading 72

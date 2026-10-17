@@ -806,6 +806,17 @@ mod implementation {
         Ok(())
     }
 
+    /// How many more times, and how far apart, a process still live but
+    /// not inspectable after its one-shot exit check is looked at again
+    /// before it refuses the root. A process ending with more than one
+    /// thread, whose leader has let go of its memory, reads an empty
+    /// `cmdline` for a few milliseconds, as does one between `execve` and
+    /// its new arguments. Then it is gone, a zombie, or readable. On
+    /// lamp-4ace on 17 October one such process failed every run, so the
+    /// voice's sessions were never trimmed (the first builder on #705).
+    const SETTLE_LOOKS: u32 = 3;
+    const SETTLE_WAIT: Duration = Duration::from_millis(20);
+
     fn inspect_process(
         process: &OwnedFd,
         pid: u32,
@@ -815,11 +826,66 @@ mod implementation {
         observations: &mut ProcessObservations,
         deadline: Instant,
     ) -> io::Result<()> {
+        inspect_process_settling(
+            process,
+            pid,
+            snapshot,
+            root,
+            scan,
+            observations,
+            deadline,
+            &mut || thread::sleep(SETTLE_WAIT),
+        )
+    }
+
+    /// [`inspect_process`], with `settle` between looks at a process that
+    /// is still live and not inspectable: at most [`SETTLE_LOOKS`] more. One
+    /// gone, a zombie or exiting by then is skipped, as on the first look;
+    /// one readable is inspected as any live process; one still live and
+    /// unreadable refuses.
+    #[allow(clippy::too_many_arguments)]
+    fn inspect_process_settling(
+        process: &OwnedFd,
+        pid: u32,
+        snapshot: &Snapshot,
+        root: &Path,
+        scan: &mut Scan,
+        observations: &mut ProcessObservations,
+        deadline: Instant,
+        settle: &mut dyn FnMut(),
+    ) -> io::Result<()> {
+        let mut looks = 0;
+        loop {
+            match inspect_once(process, pid, snapshot, root, scan, observations, deadline)? {
+                None => return check_deadline(deadline),
+                Some(_) if looks < SETTLE_LOOKS => {
+                    looks += 1;
+                    settle();
+                    check_deadline(deadline)?;
+                }
+                Some(error) => return Err(error),
+            }
+        }
+    }
+
+    /// One look at a process: done (inspected, or skipped as gone, a
+    /// zombie, exiting or a kernel thread), or the error of a process still
+    /// live and not inspectable after its one-shot exit check.
+    fn inspect_once(
+        process: &OwnedFd,
+        pid: u32,
+        snapshot: &Snapshot,
+        root: &Path,
+        scan: &mut Scan,
+        observations: &mut ProcessObservations,
+        deadline: Instant,
+    ) -> io::Result<Option<io::Error>> {
         check_deadline(deadline)?;
         let before = match read_identity(process, pid) {
             Ok(before) => before,
             Err(error) if gone(&error) => {
-                return skipped(pid, snapshot, observations, ProcessSkipReason::Gone);
+                skipped(pid, snapshot, observations, ProcessSkipReason::Gone)?;
+                return Ok(None);
             }
             Err(error) => return Err(error),
         };
@@ -830,7 +896,7 @@ mod implementation {
             return if pid == snapshot.main_pid {
                 Err(refused("voice main process is a kernel thread"))
             } else {
-                Ok(())
+                Ok(None)
             };
         }
         let inspection = if before.threads == 0 {
@@ -840,25 +906,31 @@ mod implementation {
             Err(refused("process thread count is unavailable"))
         } else {
             match zombie(&before) {
-                Ok(true) => return skipped(pid, snapshot, observations, ProcessSkipReason::Zombie),
+                Ok(true) => {
+                    skipped(pid, snapshot, observations, ProcessSkipReason::Zombie)?;
+                    return Ok(None);
+                }
                 Ok(false) => {
                     inspect_live_process(process, pid, snapshot, root, scan, deadline, &before)
                 }
                 Err(error) => Err(error),
             }
         };
-        if let Err(error) = inspection {
-            check_deadline(deadline)?;
-            match after_failure(
-                &before,
-                || read_identity(process, pid),
-                || read_at(process, "cmdline", MAX_PROCESS_BYTES),
-            )? {
-                Some(reason) => skipped(pid, snapshot, observations, reason)?,
-                None => return Err(error),
+        let Err(error) = inspection else {
+            return Ok(None);
+        };
+        check_deadline(deadline)?;
+        match after_failure(
+            &before,
+            || read_identity(process, pid),
+            || read_at(process, "cmdline", MAX_PROCESS_BYTES),
+        )? {
+            Some(reason) => {
+                skipped(pid, snapshot, observations, reason)?;
+                Ok(None)
             }
+            None => Ok(Some(error)),
         }
-        check_deadline(deadline)
     }
 
     fn skipped(
@@ -1950,6 +2022,114 @@ mod implementation {
                 );
                 assert_eq!(observations, ProcessObservations::default());
             }
+        }
+
+        /// The first builder on #705 (17 Oct, 15:10): lamp-4ace's records
+        /// run failed every time on a process live with no arguments when it
+        /// was looked at, and its scan saw processes gone and zombies around
+        /// it. A process ending with two threads, its leader having let go
+        /// of its memory, reads so. Looked at again after a short wait, it
+        /// is gone, a zombie or exiting, and skipped as on a first look.
+        #[test]
+        fn unreadable_at_first_and_gone_a_zombie_or_exiting_on_a_later_look_is_skipped() {
+            for later in ["gone", "zombie", "exiting"] {
+                let tree = Tree::new();
+                let root = tree.directory("sessions");
+                let path = process(&tree, 42, &[], "/unrelated");
+                fs::write(path.join("stat"), stat_with(42, 44, "S", 4, 2)).unwrap();
+                let pinned = directory_at(rustix::fs::CWD, path.as_os_str()).unwrap();
+                let mut observations = ProcessObservations::default();
+                let mut looks = 0;
+                inspect_process_settling(
+                    &pinned,
+                    42,
+                    &snapshot(&root),
+                    &root,
+                    &mut empty_scan(),
+                    &mut observations,
+                    Instant::now() + TOTAL_BUDGET,
+                    &mut || {
+                        looks += 1;
+                        match later {
+                            "gone" => fs::remove_dir_all(&path).unwrap(),
+                            "zombie" => {
+                                fs::write(path.join("stat"), stat_with(42, 44, "Z", 4, 1)).unwrap()
+                            }
+                            _ => {
+                                fs::write(path.join("stat"), stat_with(42, 44, "S", 4, 1)).unwrap()
+                            }
+                        }
+                    },
+                )
+                .unwrap_or_else(|error| panic!("{later}: {error}"));
+                assert_eq!(looks, 1, "{later}");
+                let counted = match later {
+                    "gone" => observations.gone,
+                    "zombie" => observations.zombie,
+                    _ => observations.exiting,
+                };
+                assert_eq!(counted, 1, "{later}: {observations:?}");
+                assert_eq!(observations.examples.len(), 1, "{later}");
+            }
+        }
+
+        /// One between `execve` and its new arguments reads no arguments for
+        /// a moment too. Readable on a later look, it is inspected as any
+        /// live process, and the session it writes is protected.
+        #[test]
+        fn unreadable_at_first_and_readable_on_a_later_look_is_inspected_as_live() {
+            let tree = Tree::new();
+            let root = tree.directory("sessions");
+            let path = serve(&tree, 42, &root.join(OLD), "/unrelated");
+            let argv = fs::read(path.join("cmdline")).unwrap();
+            fs::write(path.join("cmdline"), b"").unwrap();
+            let pinned = directory_at(rustix::fs::CWD, path.as_os_str()).unwrap();
+            let mut observations = ProcessObservations::default();
+            let mut scan = empty_scan();
+            inspect_process_settling(
+                &pinned,
+                42,
+                &snapshot(&root),
+                &root,
+                &mut scan,
+                &mut observations,
+                Instant::now() + TOTAL_BUDGET,
+                &mut || fs::write(path.join("cmdline"), &argv).unwrap(),
+            )
+            .unwrap();
+            assert!(scan.sessions.contains(OLD), "{:?}", scan.sessions);
+            assert_eq!(observations, ProcessObservations::default());
+        }
+
+        /// Still live with no arguments after every look, a process fails
+        /// closed, as it did on a single look, and only after
+        /// [`SETTLE_LOOKS`] waits.
+        #[test]
+        fn still_live_and_unreadable_after_every_look_refuses() {
+            let tree = Tree::new();
+            let root = tree.directory("sessions");
+            let path = serve(&tree, 42, &root.join(OLD), "/unrelated");
+            fs::write(path.join("cmdline"), b"").unwrap();
+            let pinned = directory_at(rustix::fs::CWD, path.as_os_str()).unwrap();
+            let mut observations = ProcessObservations::default();
+            let mut looks = 0;
+            let error = inspect_process_settling(
+                &pinned,
+                42,
+                &snapshot(&root),
+                &root,
+                &mut empty_scan(),
+                &mut observations,
+                Instant::now() + TOTAL_BUDGET,
+                &mut || looks += 1,
+            )
+            .unwrap_err();
+            assert_eq!(looks, SETTLE_LOOKS);
+            assert!(
+                error.to_string().contains("no inspectable arguments"),
+                "{error}"
+            );
+            assert_eq!(observations, ProcessObservations::default());
         }
 
         #[test]

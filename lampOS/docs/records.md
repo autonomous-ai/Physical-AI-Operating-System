@@ -150,9 +150,32 @@ metadata cannot be inspected:
   thread stays out of the exit examples. A manager main PID
   classified as gone, dead, exiting or a kernel thread always refuses the root.
 
-There is no sleep or retry loop in this recovery, at most one extra `stat`
-read and one extra `cmdline` read per failed inspection, under the same
-ten-second work budget. Kernel I/O still cannot be preempted by that budget.
+- **A process still live and not inspectable after that** is looked at
+  again, from its `stat`, up to three more times, 20 ms apart
+  (`SETTLE_LOOKS`, `SETTLE_WAIT`):
+  - gone, a zombie or exiting by then, it is skipped, as on a first look;
+  - readable by then, it is inspected as any live process, and what it
+    holds is protected;
+  - still live and not inspectable after the last look, it refuses the
+    root, as before.
+
+  A process ending with more than one thread, whose leader has let go of
+  its memory, reads an empty `cmdline` for a few milliseconds, as does one
+  between `execve` and its new arguments. On lamp-4ace on 17 October such a
+  process failed every run (`live process has no inspectable arguments`,
+  beside `gone: 1, zombie: 2`), so the voice's sessions were never trimmed
+  and would have grown past the limit (the first builder on #705, 15:10).
+
+  Tests, in `guard.rs`, with each wait scripted:
+  - `unreadable_at_first_and_gone_a_zombie_or_exiting_on_a_later_look_is_skipped`;
+  - `unreadable_at_first_and_readable_on_a_later_look_is_inspected_as_live`;
+  - `still_live_and_unreadable_after_every_look_refuses`.
+
+  The first two fail with a single look.
+
+Each failed inspection costs at most one extra `stat` and `cmdline` read per
+look, and at most 60 ms of waiting, under the same ten-second work budget.
+Kernel I/O still cannot be preempted by that budget.
 Paths already protected before an exit remain protected, and both complete
 process passes retain their union. A live file holder remains protected.
 

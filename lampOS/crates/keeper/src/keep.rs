@@ -162,6 +162,8 @@ impl Keeper {
         let rules = self.rules;
         let mut done = Vec::new();
         for item in &health.items {
+            // The keeper itself, and the self-test's result: neither is a
+            // unit to restart (the fifth on #1243).
             if item.name == NAME || item.name == SELFTEST {
                 continue;
             }

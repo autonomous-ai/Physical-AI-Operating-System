@@ -9,6 +9,9 @@ PartOf=lampos.target
 ConditionPathExists=/var/lib/lampos-setup/done
 # Memory, actions, schedule and tasks answer its calls from the first turn: all first.
 After=network-online.target sound.target lamp-memory.service lamp-actions.service lamp-schedule.service lamp-tasks.service
+# The image's speaker level, set by udev when the C-Media card appears (lampOS/docs/install.md): after it, so the
+# first word is at its level. Not Wanted: a lamp without that card or unit starts the voice all the same.
+After=lamp-cmedia-speaker.service
 Wants=network-online.target
 StartLimitIntervalSec=600
 StartLimitBurst=10

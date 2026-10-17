@@ -537,7 +537,7 @@ lamp-update check-units --cat units.txt --product lampOS/deploy/product
   `lamp-policy`, `lamp-tasks` and `lamp-voice` differing by what merged
   since (`--touch`, `LAMP_PERSON_NAME`, `--progress --push-wait`, the
   processors' rule, the key's comment); and `lamp-cmedia-speaker.service`,
-  that lamp's own, not in the product. Exit 1, as it should be.
+  the image's, not in the product. Exit 1, as it should be.
 
 ## What was not shown
 
@@ -586,8 +586,14 @@ lamp-update check-units --cat units.txt --product lampOS/deploy/product
   not from the lamps, and lamp-4ace's `LAMP.md` and its unit files already
   disagree on builds (updates.md, "Most likely wrong").
 - Two lamps, one board. A third lamp may show another line as its own.
-- lamp-4ace's `lamp-cmedia-speaker.service` (the speaker's level, from V1)
-  is named by its voice unit and is not in the repository.
+- `lamp-cmedia-speaker.service` (the speaker's level, from V1) is the
+  image's, not the product's: `robots/lamp/rootfs/etc/systemd/system/`, at
+  step 9 (−28 dB), with the `pro` override at step 6 (−31 dB). udev starts it
+  when the C-Media card appears (`99-lamp-device.rules`). It sets the card's
+  hardware level and creates `/etc/asound.conf`'s softvol "Speaker"
+  control. `install` sets no level of its own. The product's voice unit is
+  ordered after it, without wanting it (El on #705, 17 Oct). On lamp-06c1
+  it is byte for byte the image's.
 - Which group may read the GPIO chips and the I²C bus on the base image was
   not checked.
 - `lamp-surround` was not read beyond its unit, and `lamp-records` has two

@@ -145,10 +145,13 @@ pub fn then(lets_go: bool, verdict: Verdict, ended: bool, at_us: u64, deadline_u
 /// [`Then`] for a waited sound that `on` has already decided, when its words
 /// were asked for and it has been quiet since: words that only say to stop
 /// still stop. While they aren't back, it waits for them only if `on`
-/// decided because the answer began to sound inside its 300 ms of quiet
-/// (`answer_sounding`), as long as it hasn't ended and is short of
-/// `deadline_us`. One decided at its 1 s mark went on, and is taken as
-/// before. Anything else is as `on` decided. So a "Stop." that ends just
+/// decided because the answer began to sound inside its 300 ms of quiet,
+/// on a block the mask heard with echo evidence (`answer_sounding`), as
+/// long as it hasn't ended and is short of `deadline_us`. One decided at its
+/// 1 s mark went on, and is taken as before. One decided because its block
+/// had no echo evidence is never held: such a block is kept only among the
+/// mask's last reads (the reviewer's P1 on #1352). Anything else is as `on`
+/// decided. So a "Stop." that ends just
 /// before the answer sounds is never asked of the model (the seventh's P2
 /// on #1352).
 pub fn then_once_decided(

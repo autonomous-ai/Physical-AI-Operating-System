@@ -25,8 +25,9 @@ struct Servo {
 enum Event {
     Flag(u8),
     Push(f32),
-    /// Moved this far at 1,500 counts a second, as an arm let go falls:
-    /// never the jump of a bad read (`READ_JUMP`).
+    /// Moved this far at 1,500 counts a second, a fall under `READ_JUMP`
+    /// (300 counts a step) so it is not a bad read. The real speed is not
+    /// measured: the 16:45 journal has only before and after.
     Fall(f32),
     Heat(u8),
     /// One reading of this temperature, then back to what it was.

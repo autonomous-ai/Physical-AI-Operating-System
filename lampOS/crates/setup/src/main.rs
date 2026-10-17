@@ -358,25 +358,29 @@ fn answer(
         ),
     }
     let before_hotspot = before_hotspot.ok().filter(|list| !list.is_empty());
-    // A stop during the look: no hotspot. The wait lets the runtime take in
-    // a signal that came while it was not running; a stop from here on ends
-    // serving at once, once it has begun.
-    if runtime.block_on(async {
-        tokio::time::timeout(Duration::from_millis(20), stopped.recv())
-            .await
-            .is_ok()
-    }) {
+    // A stop during the look: no hotspot. A stop from here on ends serving
+    // at once, once it has begun.
+    if asked_to_stop(&runtime, &mut stopped) {
         eprintln!("lamp-setup: asked to stop before the hotspot");
         return Ok(true);
     }
     // The hotspot first: on a fresh image it is what names the lamp.
-    let started = lamp_setup::serve::start(
+    let started = match lamp_setup::serve::start(
         &config,
         &mut ImageHost::new(),
         |argv| System.run(argv),
         host_name,
         |line| eprintln!("lamp-setup: {line}"),
-    )?;
+    ) {
+        Ok(started) => started,
+        // systemd's stop reaches the whole unit, so the hotspot script dies
+        // of it too: that is a stop, not a failure (the reviewer on #1336).
+        Err(_) if asked_to_stop(&runtime, &mut stopped) => {
+            eprintln!("lamp-setup: asked to stop while the hotspot came up");
+            return Ok(true);
+        }
+        Err(error) => return Err(error.into()),
+    };
     *status.lock().unwrap() = started;
     eprintln!(
         "lamp-setup: the lamp's hotspot is up; answering on {}",
@@ -473,6 +477,19 @@ fn answer(
         System.run(&web_stop)?;
     }
     Ok(true)
+}
+
+/// Whether a stop has come. The short wait lets the runtime take in a
+/// signal that came while it was not running.
+fn asked_to_stop(
+    runtime: &tokio::runtime::Runtime,
+    stopped: &mut tokio::signal::unix::Signal,
+) -> bool {
+    runtime.block_on(async {
+        tokio::time::timeout(Duration::from_millis(20), stopped.recv())
+            .await
+            .is_ok()
+    })
 }
 
 fn main() -> ExitCode {

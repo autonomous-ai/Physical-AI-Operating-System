@@ -141,6 +141,11 @@ fn run(
     // The socket first, so that a second process started by mistake stops
     // here, before it has touched the store; the store before `ready`.
     let server = Server::bind(&arguments.socket)?;
+    if arguments.bus_root.is_none() {
+        // Said once, so that the journal, and a test, can tell that reports
+        // are off rather than wait to see none.
+        log("health reports off: no --bus-root");
+    }
     let mut reporter = arguments.bus_root.as_ref().and_then(|root| {
         start_reporter(
             root.clone(),

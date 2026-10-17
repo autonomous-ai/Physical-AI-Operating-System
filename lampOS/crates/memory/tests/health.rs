@@ -539,14 +539,11 @@ fn the_environment_alone_does_not_enable_reporting_or_create_bus_data() {
             json!({"op":"remember","at_unix_ms":now(),"text":"synthetic offline note"}),
         );
         let _ = ok(&scratch, json!({"op":"status"}));
-        // A bounded negative observation spans two report periods. It is
-        // test synchronization, not a response-latency measurement.
-        let until = Instant::now() + Duration::from_millis(2200);
-        while Instant::now() < until {
-            assert!(!scratch.path("b").exists());
-            assert!(process.child.try_wait().unwrap().is_none());
-            thread::sleep(Duration::from_millis(100));
-        }
+        // The program says reports are off, an event, instead of the test
+        // watching two report periods for nothing: with no `--bus-root` it
+        // makes no reporter, so nothing could appear later.
+        process.logged("lamp-memory: health reports off: no --bus-root");
+        assert!(process.child.try_wait().unwrap().is_none());
         assert!(!scratch.path("b").exists());
         assert!(!process.log().contains("health delivery"));
     }

@@ -352,8 +352,9 @@ fn a_killed_process_leaves_a_store_the_next_one_loads_and_a_socket_it_replaces()
     );
     second.kill(4, "lamp-memory: status person=* ok ", 1);
 
-    // Each said what it found as it started and one line for each request,
-    // with none of the text in any of them.
+    // Each said what it found as it started, that its health reports are
+    // off (no `--bus-root`), and one line for each request, with none of the
+    // text in any of them.
     let (log1, log2) = (
         fs::read_to_string(scratch.0.join("log1")).unwrap(),
         fs::read_to_string(scratch.0.join("log2")).unwrap(),
@@ -371,7 +372,7 @@ fn a_killed_process_leaves_a_store_the_next_one_loads_and_a_socket_it_replaces()
         log2.contains("lamp-memory: recall person=everyone ok entries=2 bytes=54\n"),
         "{log2}"
     );
-    assert_eq!((log1.lines().count(), log2.lines().count()), (4, 4));
+    assert_eq!((log1.lines().count(), log2.lines().count()), (5, 5));
     for log in [log1, log2] {
         assert!(!log.contains("orchid") && !log.contains("fern") && !log.contains("sill"));
     }

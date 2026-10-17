@@ -186,7 +186,8 @@ pub fn take_passing(flags: &[String]) -> (bool, &[String]) {
 }
 
 /// Where the coordinator reads whether the lamp speaks only when spoken
-/// to (#829, step 2). `on` only.
+/// to (#829, step 2). `on`, or `day-and-night` for that and the day's own
+/// bars ([`BY_DAY_FLAG`]).
 ///
 /// Why: outside a busy room, and in a session the rule trusts, every
 /// answer is played, whatever was said and to whom. On lamp-4ace on
@@ -204,6 +205,14 @@ pub fn take_passing(flags: &[String]) -> (bool, &[String]) {
 pub const SPOKEN_TO_ENVIRONMENT: &str = "LAMP_SPOKEN_TO";
 /// The provider worker's flag for it, right after [`PASSING_FLAG`].
 pub const SPOKEN_TO_FLAG: &str = "--spoken-to";
+/// The provider worker's flag for `LAMP_SPOKEN_TO=day-and-night`, right
+/// after [`SPOKEN_TO_FLAG`]: the switch, and by day, in a busy room with
+/// nobody turned to the lamp, the name counts only heard surely, and close
+/// to the lamp only with a face turned to it or its words calling it by
+/// name (#829, the first builder at 15:23 and 17:09). With `on` the name
+/// needs no face by day or at night. The day's half is its own value
+/// because no lamp has played it by day (the reviewer on #1158).
+pub const BY_DAY_FLAG: &str = "--spoken-to-by-day";
 
 /// The provider worker's argument for that switch in the environment.
 pub fn spoken_to_arguments_from_environment() -> Vec<String> {
@@ -211,10 +220,10 @@ pub fn spoken_to_arguments_from_environment() -> Vec<String> {
 }
 
 fn spoken_to_arguments(value: Option<&str>) -> Vec<String> {
-    if value == Some("on") {
-        vec![SPOKEN_TO_FLAG.to_owned()]
-    } else {
-        Vec::new()
+    match value {
+        Some("on") => vec![SPOKEN_TO_FLAG.to_owned()],
+        Some("day-and-night") => vec![SPOKEN_TO_FLAG.to_owned(), BY_DAY_FLAG.to_owned()],
+        _ => Vec::new(),
     }
 }
 
@@ -223,6 +232,15 @@ fn spoken_to_arguments(value: Option<&str>) -> Vec<String> {
 pub fn take_spoken_to(flags: &[String]) -> (bool, &[String]) {
     match flags {
         [flag, rest @ ..] if flag == SPOKEN_TO_FLAG => (true, rest),
+        _ => (false, flags),
+    }
+}
+
+/// Take a leading `--spoken-to-by-day` off a worker's flags, after
+/// [`take_spoken_to`].
+pub fn take_by_day(flags: &[String]) -> (bool, &[String]) {
+    match flags {
+        [flag, rest @ ..] if flag == BY_DAY_FLAG => (true, rest),
         _ => (false, flags),
     }
 }
@@ -752,8 +770,11 @@ pub struct Attention {
     /// that line, not the lamp's own last words (#1054). Whatever the
     /// switch.
     after_unanswered: bool,
+    /// The day's own bars (`LAMP_SPOKEN_TO=day-and-night`, [`BY_DAY_FLAG`]).
+    /// With `spoken_to` only.
+    by_day: bool,
     /// It is night where the lamp stands ([`crate::local_time::night_here`]),
-    /// as the caller read it before judging.
+    /// as the caller read it before judging. Read only with `by_day`.
     night: bool,
 }
 
@@ -771,6 +792,25 @@ impl Attention {
     /// in every room, from now on (`LAMP_SPOKEN_TO=on`, #829).
     pub fn speak_when_spoken_to(&mut self, on: bool) {
         self.spoken_to = on;
+    }
+
+    /// Hold the name to the day's own bars ([`BY_DAY_FLAG`]) from now on,
+    /// with [`Self::speak_when_spoken_to`].
+    pub fn judge_by_day(&mut self, on: bool) {
+        self.by_day = on;
+    }
+
+    /// Whether the day's own bars are set: only then is the night read
+    /// ([`Self::set_night`]).
+    pub fn judges_by_day(&self) -> bool {
+        self.spoken_to && self.by_day
+    }
+
+    /// By day, with the day's own bars: the name alone counts in a busy
+    /// room only heard surely, and close to the lamp only with a face or
+    /// its words calling it.
+    fn day_bars(&self) -> bool {
+        self.judges_by_day() && !self.night
     }
 
     /// Whether the rule reads the eyes for every request, whatever the
@@ -878,10 +918,14 @@ impl Attention {
     /// comes at the name part's own 0.9 and is for timing only
     /// (`docs/name.md`): in one morning on lamp-4ace it heard the name 17
     /// times in people's talk at 0.903 to 0.997 (the reviewer on #1108).
+    /// By day with the day's own bars, close to the lamp is not enough on
+    /// its own, as for a request (the first builder's 17:09 sign; the
+    /// reviewer on #1158). The eyes are not read for a bare call, so only
+    /// its words or a sure hearing show it then.
     fn call_shown(&self) -> bool {
         !addresses_someone_else(&self.heard)
             && (self.named_sure
-                || self.near && self.best_score >= NEAR_SCORE
+                || self.near && self.best_score >= NEAR_SCORE && !self.day_bars()
                 || called_by_name(&self.heard))
     }
 
@@ -1061,7 +1105,8 @@ impl Attention {
     }
 
     /// Whether it is night where the lamp stands, for the next judgement:
-    /// at night the name heard in a busy room needs no face (#829).
+    /// with the day's own bars, at night the name heard in a busy room
+    /// needs no face (#829), as with `LAMP_SPOKEN_TO=on` at any hour.
     pub fn set_night(&mut self, night: bool) {
         self.night = night;
     }
@@ -1249,13 +1294,12 @@ impl Attention {
             self.verdict = Some(verdict);
             return Some(verdict);
         }
-        // #829, the first builder at 17:09: with the switch, by day, a name
-        // heard close to the lamp also needs a face turned to it or its own
-        // words calling it by name. On lamp-4ace on 16 October at 17:08,
-        // request 169 played on the near rule alone and answered colleagues
-        // talking about eye drops beside it.
-        let near_shows =
-            !self.spoken_to || self.night || turned == Some(true) || called_by_name(&self.heard);
+        // #829, the first builder at 17:09: with the day's own bars, by day,
+        // a name heard close to the lamp also needs a face turned to it or
+        // its own words calling it by name. On lamp-4ace on 16 October at
+        // 17:08, request 169 played on the near rule alone and answered
+        // colleagues talking about eye drops beside it.
+        let near_shows = !self.day_bars() || turned == Some(true) || called_by_name(&self.heard);
         if strict && room == Room::Busy && self.near && self.best_score >= NEAR_SCORE && near_shows
         {
             let verdict = Verdict::Play(NAMED_NEAR);
@@ -1276,14 +1320,14 @@ impl Attention {
             verdict => verdict,
         };
         // #829, step 2: it holds what nobody said to the lamp, in every
-        // room. And at night a request with the name heard in its sound
-        // needs no face in a busy room either: nobody faces the lamp then
+        // room. And a request with the name heard in its sound needs no
+        // face in a busy room either: at night nobody faces the lamp
         // (lamp-4ace, 16 October at 03:28, "Hey Lamp, turn your volume down
-        // a little." was held for want of one). By day, in a busy room with
-        // nobody turned to it, the name counts only close to the lamp or
-        // heard surely, above: the first builder's table at 15:23 had three
-        // answers to office talk let out by a hearing of 0.93 to 0.997, and
-        // the name was heard 227 times in that room since 07:00.
+        // a little." was held for want of one). With the day's own bars, by
+        // day, in a busy room with nobody turned to it, the name counts
+        // only heard surely, above: the first builder's table at 15:23 had
+        // three answers to office talk let out by a hearing of 0.93 to
+        // 0.997, and the name was heard 227 times in that room since 07:00.
         let spoken_to = if answering_another {
             called_in_text || self.named
         } else {
@@ -1304,7 +1348,7 @@ impl Attention {
             Verdict::Hold(_)
                 if self.spoken_to
                     && self.named
-                    && (self.night || !(strict && room == Room::Busy)) =>
+                    && !(self.day_bars() && strict && room == Room::Busy) =>
             {
                 Verdict::Play(NAMED)
             }
@@ -1840,9 +1884,15 @@ mod tests {
     }
 
     #[test]
-    fn the_spoken_to_switch_is_on_only_and_its_flag_follows_the_passing_one() {
+    fn the_spoken_to_switch_is_on_or_day_and_night_and_its_flags_follow_the_passing_one() {
         assert_eq!(spoken_to_arguments(Some("on")), [SPOKEN_TO_FLAG]);
-        assert!(spoken_to_arguments(Some("ignored")).is_empty());
+        assert_eq!(
+            spoken_to_arguments(Some("day-and-night")),
+            [SPOKEN_TO_FLAG, BY_DAY_FLAG]
+        );
+        for value in ["ignored", "by-day", "ON", ""] {
+            assert!(spoken_to_arguments(Some(value)).is_empty(), "{value}");
+        }
         assert!(spoken_to_arguments(None).is_empty());
         let flags = [SPOKEN_TO_FLAG.to_owned(), "rest".to_owned()];
         assert_eq!(take_spoken_to(&flags), (true, &flags[1..]));
@@ -1850,6 +1900,10 @@ mod tests {
         let both = [PASSING_FLAG.to_owned(), SPOKEN_TO_FLAG.to_owned()];
         let (passing, rest) = take_passing(&both);
         assert_eq!((passing, take_spoken_to(rest)), (true, (true, &[][..])));
+        let by_day = [SPOKEN_TO_FLAG.to_owned(), BY_DAY_FLAG.to_owned()];
+        let (spoken_to, rest) = take_spoken_to(&by_day);
+        assert_eq!((spoken_to, take_by_day(rest)), (true, (true, &[][..])));
+        assert_eq!(take_by_day(&by_day), (false, &by_day[..]));
     }
 
     /// #829, step 2: with the switch an answer is played, in every room,
@@ -2362,17 +2416,18 @@ mod tests {
         }
     }
 
-    /// #829, the first builder at 03:29: at night a request said with the
-    /// name needs no face, in a busy room too. Without the switch the busy
-    /// form holds the name heard in the sound with nobody turned to the
-    /// lamp; with it, at night, it is played. By day it is held as without
-    /// the switch (the first builder at 15:23). And the lamp's own turn is
-    /// always played.
+    /// #829, the first builder at 03:29: a request said with the name
+    /// needs no face, in a busy room too. Without the switch the busy form
+    /// holds the name heard in the sound with nobody turned to the lamp;
+    /// with it, it is played. With the day's own bars (`day-and-night`) it
+    /// is played at night, and by day held as without the switch (the
+    /// first builder at 15:23). And the lamp's own turn is always played.
     #[test]
-    fn with_the_switch_the_name_needs_no_face_at_night_and_the_lamps_own_turn_plays() {
-        let named = |spoken_to: bool, night: bool| {
+    fn with_the_switch_the_name_needs_no_face_and_the_lamps_own_turn_plays() {
+        let named = |spoken_to: bool, by_day: bool, night: bool| {
             let mut attention = Attention::default();
             attention.speak_when_spoken_to(spoken_to);
+            attention.judge_by_day(by_day);
             attention.set_night(night);
             attention.began_at(5, 3, 10_000_000);
             attention.name_heard_scored(10_100_000, 0.97);
@@ -2382,9 +2437,14 @@ mod tests {
         let held = Some(Verdict::Hold(
             "a busy room: its name was heard in the sound, and nobody is turned to the lamp",
         ));
-        assert_eq!(named(false, true), held);
-        assert_eq!(named(true, true), Some(Verdict::Play(NAMED)));
-        assert_eq!(named(true, false), held);
+        assert_eq!(named(false, false, false), held);
+        assert_eq!(named(false, true, true), held);
+        // `on`, by day or at night.
+        assert_eq!(named(true, false, false), Some(Verdict::Play(NAMED)));
+        assert_eq!(named(true, false, true), Some(Verdict::Play(NAMED)));
+        // `day-and-night`.
+        assert_eq!(named(true, true, true), Some(Verdict::Play(NAMED)));
+        assert_eq!(named(true, true, false), held);
         let mut attention = Attention::default();
         attention.speak_when_spoken_to(true);
         own_request().store(6_829, Ordering::Release);
@@ -2399,17 +2459,20 @@ mod tests {
     /// #829, the first builder at 15:23: lamp-4ace in the busy office by
     /// day, nobody turned to the lamp, with the switch. Every answer let out
     /// that day for the name heard in the room's sound, by lamp-name's
-    /// score: four played calls and three hearings in office talk. The name
-    /// alone now counts only heard surely (0.999), or at 0.95 close to the
-    /// lamp (the room microphone 18 dB over its quiet). Which of the seven
-    /// were close was not recorded; each is judged both ways. With a face
-    /// turned, in a quiet room, or at night, a hearing at the 0.9 floor
-    /// still counts.
+    /// score: four played calls and three hearings in office talk. With the
+    /// day's own bars the name alone counts by day only heard surely
+    /// (0.999), close to the lamp or not (the 17:09 sign). Which of the
+    /// seven were close was not recorded; each is judged both ways. With a
+    /// face turned, in a quiet room, or at night, a hearing at the 0.9
+    /// floor still counts. With `on` all seven are let out, the three in
+    /// office talk too: no score of these separates them (the reviewer on
+    /// #1158).
     #[test]
-    fn by_day_in_a_busy_room_the_name_alone_counts_only_heard_surely_or_close() {
+    fn with_the_days_bars_in_a_busy_room_by_day_the_name_alone_counts_only_heard_surely() {
         let judge = |score: f32, near: bool, room: Room, turned: Option<bool>, night: bool| {
             let mut attention = Attention::default();
             attention.speak_when_spoken_to(true);
+            attention.judge_by_day(true);
             attention.set_night(night);
             attention.began_at(9, 4, 10_000_000);
             attention.name_heard_scored(10_100_000, score);
@@ -2430,6 +2493,16 @@ mod tests {
             ("15:14", 0.997, false),
         ];
         for (at, score, _) in seven {
+            for near in [false, true] {
+                let mut attention = Attention::default();
+                attention.speak_when_spoken_to(true);
+                attention.began_at(9, 4, 10_000_000);
+                attention.name_heard_scored(10_100_000, score);
+                attention.set_near(near);
+                attention.heard("What time is it?");
+                let on = attention.first_output_busy(9, Room::Busy, false, true, Some(false));
+                assert!(matches!(on, Some(Verdict::Play(_))), "{at} with on");
+            }
             // Not close: none is let out by its score alone.
             assert!(!by_day(score, false), "{at}");
             // Close, by day: not on that alone either, the first builder's
@@ -2455,15 +2528,16 @@ mod tests {
     /// played on the near rule alone, and the lamp answered colleagues
     /// talking about eye drops beside it ("I can't recommend specific eye
     /// drops."). The voice journals no transcripts, so the line here is one
-    /// of that shape, not the words heard. With the switch, by day, a name
-    /// heard close to the lamp at 0.96 in a busy room also needs a face
-    /// turned to it or its words calling it by name; at night, or without
-    /// the switch, the near rule stands as it was.
+    /// of that shape, not the words heard. With the day's own bars, by day,
+    /// a name heard close to the lamp at 0.96 in a busy room also needs a
+    /// face turned to it or its words calling it by name; at night, with
+    /// `on`, or without the switch, the near rule stands as it was.
     #[test]
-    fn by_day_a_name_heard_close_also_needs_a_face_or_the_words_calling_it() {
+    fn with_the_days_bars_a_name_heard_close_by_day_also_needs_a_face_or_the_words_calling_it() {
         let near = |said: &str, turned: Option<bool>, night: bool, spoken_to: bool| {
             let mut attention = Attention::default();
             attention.speak_when_spoken_to(spoken_to);
+            attention.judge_by_day(true);
             attention.set_night(night);
             attention.began_at(169, 4, 10_000_000);
             attention.name_heard_scored(10_100_000, 0.96);
@@ -2499,6 +2573,17 @@ mod tests {
         );
         assert_eq!(
             near(talk, Some(false), false, false),
+            Some(Verdict::Play(NAMED_NEAR))
+        );
+        // `on`, by day.
+        let mut attention = Attention::default();
+        attention.speak_when_spoken_to(true);
+        attention.began_at(169, 4, 10_000_000);
+        attention.name_heard_scored(10_100_000, 0.96);
+        attention.set_near(true);
+        attention.heard(talk);
+        assert_eq!(
+            attention.first_output_busy(169, Room::Busy, false, true, Some(false)),
             Some(Verdict::Play(NAMED_NEAR))
         );
     }
@@ -2801,6 +2886,53 @@ mod tests {
         attention.heard("And the second page.");
         assert_eq!(
             attention.first_output_busy(22, Room::Busy, false, true, Some(false)),
+            Some(Verdict::Play(AFTER_CALL))
+        );
+    }
+
+    /// The reviewer on #1158: request 169's shape, cut off as a bare call.
+    /// With the day's own bars, by day, a bare call heard close to the lamp
+    /// at 0.96 shows nothing on that alone, as for a request (the first
+    /// builder's 17:09 sign), so the line after it within 3 s is not its.
+    /// At night, or with `on`, closeness shows it as before; its words
+    /// calling the lamp, or a sure hearing, show it by day too.
+    #[test]
+    fn with_the_days_bars_a_bare_call_close_by_day_needs_its_words_or_a_sure_hearing() {
+        const S: u64 = 1_000_000;
+        let after = |said: &str, score: f32, by_day: bool, night: bool| {
+            let mut attention = Attention::default();
+            attention.speak_when_spoken_to(true);
+            attention.judge_by_day(by_day);
+            attention.set_night(night);
+            attention.began_at(20, 3, 10 * S);
+            attention.name_heard_scored(10 * S + 200_000, score);
+            attention.heard(said);
+            attention.set_near(true);
+            attention.ended(20, 11 * S);
+            attention.bare_call(20, 13 * S);
+            attention.began_at(21, 3, 14 * S);
+            attention.heard("Can you look at this?");
+            attention.first_output_busy(21, Room::Busy, false, true, Some(false))
+        };
+        let talk = "Have you tried the eye drops";
+        assert!(matches!(
+            after(talk, 0.96, true, false),
+            Some(Verdict::Hold(_))
+        ));
+        assert_eq!(
+            after(talk, 0.96, true, true),
+            Some(Verdict::Play(AFTER_CALL))
+        );
+        assert_eq!(
+            after(talk, 0.96, false, false),
+            Some(Verdict::Play(AFTER_CALL))
+        );
+        assert_eq!(
+            after("Lamp?", 0.96, true, false),
+            Some(Verdict::Play(AFTER_CALL))
+        );
+        assert_eq!(
+            after(talk, 0.999, true, false),
             Some(Verdict::Play(AFTER_CALL))
         );
     }

@@ -815,7 +815,10 @@ route drops `ProviderInput::Called`, so there it is judged as before.
 It counts only if the call itself showed the lamp was called, as the busy
 room judges any request (`Attention::call_shown`):
 - its name heard at 0.999 (`SURE_SCORE`), or at 0.95 close to the lamp
-  (`NEAR_SCORE`, the room microphone 18 dB up);
+  (`NEAR_SCORE`, the room microphone 18 dB up), but by day with
+  `LAMP_SPOKEN_TO=day-and-night` close is not enough on its own, as for a
+  request (the 17:09 sign below; the reviewer on #1158). The eyes are not
+  read for a bare call, so then only its words or a sure hearing show it;
 - or its text a call by name (`called_by_name`: "Lamp?", "Hey Lamp.");
 - and not a call to someone else (`addresses_someone_else`).
 
@@ -1149,7 +1152,9 @@ on only with it. On lamp-4ace both are on since 16 October 07:25 (the first buil
 Off unless `LAMP_SPOKEN_TO=on` in the voice's environment (built by the
 fourth builder on 16 October 2026, from the first builder's judgement on
 #829 at 22:13 on 15 October; the coordinator passes the worker
-`--spoken-to`, right after `--name-in-passing-ignored`).
+`--spoken-to`, right after `--name-in-passing-ignored`). `day-and-night`
+is the switch with the day's own bars as well (below; the worker's
+`--spoken-to-by-day`, right after `--spoken-to`).
 
 Without it the rule holds answers only in a busy room. In a room not known
 to be busy, and in a session it trusts, every answer is played, whatever
@@ -1207,11 +1212,19 @@ busy.
 
 One more, from 03:28 that night (#829, #908): in a busy room, "Hey Lamp,
 turn your volume down a little." was held, because the name was heard in
-the sound and nobody was turned to the lamp. With the switch, at night, a
-request with the name heard in its sound is played in a busy room too,
-without a face: nobody faces the lamp then. Night is 21:00 to 4:59 where
-the lamp stands, as it tells the time (`local_time::night_here`), read
-once a request as its sound ends, off the way to its first output. A zone
+the sound and nobody was turned to the lamp. With the switch, a request
+with the name heard in its sound is played in a busy room too, without a
+face: nobody faces the lamp at night. With `on` that holds by day too.
+
+**The day's own bars, `LAMP_SPOKEN_TO=day-and-night`:** the switch, and
+by day the name needs more (the next two paragraphs). It is its own value
+because no lamp has played it by day, and by day it lets out fewer desk
+calls than `on`, or than `busy-near` without the switch (the reviewer on
+#1158). Its lamp check is a weekday in the busy office with the owner's
+"Lamp, …" calls. Night is 21:00 to 4:59 where the lamp stands, as it
+tells the time (`local_time::night_here`), read once a request as its
+sound ends, off the way to its first output, and only with
+`day-and-night`. A zone
 that can't be read is day, and so is any time while the clock is known not
 to be set (`LAMP_KERNEL_CLOCK=on`, no time client yet): the lamp has no
 battery clock and shows the last time it saved, so one switched off at
@@ -1228,31 +1241,39 @@ the busy office the name heard alone let the lamp answer office talk three
 times in 25 minutes: 0.932 (talk in Vietnamese), 0.933 and 0.997 (both
 heard as Spanish). `lamp-name` had heard its name 227 times since 07:00,
 at a median of 0.998. So by day, in a busy room with nobody turned to the
-lamp, the name alone counts as the busy form has it: heard surely
-(`SURE_SCORE`, 0.999), or at `NEAR_SCORE` (0.95) with the room microphone
-`NEAR_RISE_DB` (18 dB) over its quiet. With a face turned, in a room not
-known to be busy, or at night, a hearing at `lamp-name`'s 0.9 floor still
-counts.
+lamp, the name alone counts with `day-and-night` only heard surely
+(`SURE_SCORE`, 0.999), close to the lamp or not (the next paragraph).
+With a face turned, in a room not known to be busy, or at night, a
+hearing at `lamp-name`'s 0.9 floor still counts. With `on`, all seven of
+that day's answers are let out, the three to office talk too: no score
+separates them (0.996 for a call, 0.997 for talk).
 
 Close is not enough by day either (the first builder at 17:09 on 16
 October). Request 169 on lamp-4ace at 17:08 played on the near rule
 (`NAMED_NEAR`: 0.95 or more and the room microphone 18 dB up), and the
-lamp answered colleagues talking about eye drops beside it. So with the
-switch, by day, a name heard close to the lamp also needs a face turned
-to it or its own words calling it by name (`called_by_name`); both of
-those let an answer out anyway, so by day the near rule no longer counts
-on its own. The voice journals no transcripts, so "its words" is read as
-the lamp's name said to it in them. At night, or without the switch, the
-near rule stands as it was. Of that day's four played calls, the one at
-0.949 is held now by day. The other three (0.995 to 0.998) are played by
-day only with a face or the name in their words.
+lamp answered colleagues talking about eye drops beside it. So with
+`day-and-night`, by day, a name heard close to the lamp also needs a face
+turned to it or its own words calling it by name (`called_by_name`); both
+of those let an answer out anyway, so by day the near rule no longer
+counts on its own. The voice journals no transcripts, so "its words" is
+read as the lamp's name said to it in them. At night, with `on`, or
+without the switch, the near rule stands as it was. By day with
+`day-and-night` all four of that day's played calls are held as they
+were let out: their words did not carry the name, nobody was turned to
+the lamp, and none was heard at 0.999 (the reviewer on #1158). Each plays
+with a face turned or the name in its words.
 
-**The 18 dB is not yet set from the lamp's own rises.** The journal held
-two busy-room rises from 16 October 00:00 to 17 October 07:10 (22.2 and
-21.9 dB, requests 13 and 14, both "nobody is turned"), and nothing says
-whose they were. Both sit above 18 dB. The bar stands as it was, from the
-room microphone's rises in [ears.md](ears.md), until a weekday of rises
-for calls known to be the owner's, and talk known not to be, sets it.
+**With the switch, the 18 dB bar decides no named answer.** With `on` the
+name at the 0.9 floor plays anyway. With `day-and-night`, by day close
+needs what plays on its own, and at night the 0.9 floor plays (the
+reviewer's probe on #1158, 720 cases: close or not never changed a
+verdict). The bar still matters without the switch, for short sounds, and
+for a bare call (above; not by day with `day-and-night`). So a weekday of
+rises sets it for those only. It isn't set from the lamp's own rises yet:
+the journal held two busy-room rises from 16 October 00:00 to 17 October
+07:10 (22.2 and 21.9 dB, requests 13 and 14, both "nobody is turned"), and
+nothing says whose they were. Both sit above 18 dB. The bar stands as it
+was, from the room microphone's rises in [ears.md](ears.md).
 
 And one from 04:58 (#829, 05:02): in the two-person scene, Samantha asked
 "Daniel, are you coming to the meeting at two?" and Daniel answered her
@@ -1321,8 +1342,8 @@ a line of 1.5 s or more, said with the lamp quiet, in a voice plainly not
 the conversation's, is no part of it.
 
 Beyond the reply to the lamp's news, the question about its work and the
-name without a face at night, the switch only holds: what the rule holds without it
-stays held.
+name without a face (with `day-and-night`, at night only), the switch only
+holds: what the rule holds without it stays held.
 
 What it would have cost (lamp-4ace's first-output records of 15 October,
 13:01 to 16:07, 69 decisions; [the evidence](verification/spoken-to-20261016/README.md)):
@@ -1345,6 +1366,11 @@ Tests:
 - `with_the_switch_only_what_was_said_to_the_lamp_is_played_in_every_room`
   and `with_the_switch_the_name_needs_no_face_and_the_lamps_own_turn_plays`
   (the rule);
+- the day's own bars: `with_the_days_bars_in_a_busy_room_by_day_the_name_alone_counts_only_heard_surely`
+  (the seven of 15:23, with `on` too),
+  `with_the_days_bars_a_name_heard_close_by_day_also_needs_a_face_or_the_words_calling_it`
+  (request 169's shape), `with_the_days_bars_a_bare_call_close_by_day_needs_its_words_or_a_sure_hearing`,
+  and `local_time`'s `night_is_from_nine_in_the_evening_to_five_in_the_morning_where_the_lamp_stands`;
 - `what_nobody_said_to_the_lamp_is_held_with_the_switch_and_played_without`,
   `the_lamp_called_by_name_or_in_a_conversation_is_answered_with_the_switch`,
   `a_turn_nobody_said_to_the_lamp_never_changes_the_lamp` and
@@ -1415,8 +1441,9 @@ since 16 October; needs `lamp-policy --act attention`.
 `LAMP_SPOKEN_TO=on` (the worker's `--spoken-to`, right after
 `--name-in-passing-ignored`; nothing without `LAMP_ATTENTION`, and no eyes
 or name from the sound without `LAMP_BUS=on`): in every room, an answer is
-played only when the lamp was spoken to (above). Off by default; not on
-any lamp.
+played only when the lamp was spoken to (above). `day-and-night` adds the
+day's own bars (the worker's `--spoken-to-by-day`, right after
+`--spoken-to`). Off by default; not on any lamp.
 
 `LAMP_HEAD_TOUCH=on` (the worker's `--head-touch`, right after the name
 note's flags; nothing without `LAMP_BUS=on` and Controls run with

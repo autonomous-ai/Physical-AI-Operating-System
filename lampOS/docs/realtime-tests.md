@@ -1214,6 +1214,29 @@ reported failing, and they are left as they are. `rules`'
 `the_fact_is_kept_on_the_bus_and_a_stalled_bus_never_holds_up_a_session`
 asserts `took < 300 ms` on purpose: there the bound is what it checks.
 
+## A voice fixture's first `sh` gets 30 s to start (#1317)
+
+The reviewer saw timed fixture starts fail in full local `cargo test -p
+lamp-voice` runs, three times on 17 October and each time in a run of
+consecutive tests: 8 `ring_trace_tests` once, 10 `pilot_faults` another
+time, each failing its own "fixture exec marker timed out". Every one passed
+alone. `fixture_exec_barrier` (`cfg(test)`) waits for a fixture's first `sh`
+to print one byte, and it had the lamp's `WORKER_STARTUP_TIMEOUT` (3 s) as
+its bound. On a quiet run of the whole crate here every such wait was under
+50 ms, so the failures look like stretches where the whole machine stalled
+beside other builders' work.
+
+The fixtures (`Worker::command_fixture` and the cooperative fixture) now give
+it `FIXTURE_EXEC_WAIT`, 30 s, as the serve fixtures have. Only a fixture that
+never starts fails there, and it then fails in 30 s instead of 3. Nothing
+the lamp runs changes, nor does any assertion. The barrier's own tests keep
+their bounds (20 ms for its timeout, and a wrong marker fails at once).
+
+With the fixture's `sh` made 4 s slow to print its marker,
+`ring_trace_renewal_without_receipt_never_claims_success_and_times_out`
+fails on the old bound with the reviewer's message (at 3.00 s) and passes on
+the new one (4.0 s).
+
 ## The first control message's ages on a clock the test moves (#1128)
 
 `lamp-voice::first_control_message`'s only test (3.7 s, among the slowest

@@ -235,6 +235,8 @@ holds no check past its time, and three attempts in a row start one lookup.
 
 ## The setup server (built, off unless set)
 
+Its `GET /api/device/setup/status` answers V1's fields, plus one of its own: `"generation": "lamp-v2"`. The Autonomous app keeps V1's Lamp and this one as two products, as it does Intern's two, and stops before the setup `POST` when the lamp on the hotspot is not the product the person picked (#1396, decided 17 Oct).
+
 ```sh
 lamp-setup serve --config SERVE.json --plan PLAN.json --enable
 ```

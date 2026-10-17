@@ -163,7 +163,14 @@ pub struct Status {
     pub run: u64,
     pub set_up_completed: bool,
     pub runtime_phase: String,
+    /// Which lamp this is, beyond V1's fields: the Autonomous app keeps V1's
+    /// Lamp and this one as two products and stops before the setup POST when
+    /// the lamp on the hotspot is not the one claimed (#1396, Fourth's (a)).
+    pub generation: &'static str,
 }
+
+/// The `generation` a V2 lamp's setup reports; V1's server has no such field.
+pub const GENERATION: &str = "lamp-v2";
 
 impl Status {
     pub fn new(mac: String) -> Self {
@@ -175,6 +182,7 @@ impl Status {
             run: 0,
             set_up_completed: false,
             runtime_phase: String::new(),
+            generation: GENERATION,
         }
     }
 }

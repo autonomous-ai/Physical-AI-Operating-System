@@ -4,6 +4,90 @@
 
 Newest first. Times from `date` (+07). 00:12 to 01:40: the review agents stopped at a usage limit.
 
+- 12:55 merged #1295 (#1158's P3s: the worker command one tested function, identical for 64 of 64 cases; no secret reaches a worker)
+- 12:52 #1276 (#983 follow-up: the head move needs a fresh joint state) ready, first review started; #1278 moved, re-check started
+- 12:48 #1288 first review: P2 (a closed privacy slide doesn't count as muted for the tap face; fails safe but misses the slide; fix in the voice: keep the last PrivacyState); not the privacy path (draws a face only)
+- 12:47 #1230 ready at ae2990f4b but conflicts again after #1281 (body tests.rs end): rebase asked
+- 12:46 #1291 first review: two P2s ('over the lamp' means any reply in hand, so two people near a silent lamp never make the room busy and the 15:39 shape plays; room_told keeps only the newest mark); off unless set
+- 12:46 #1283, #1286, #1290, #1294 (Tests: memory, actions, self-test clocks) ready, first reviews started (one agent)
+- 12:45 merged #1281 (temperature follow-up: a hot first read re-read; an unreadable arm folds then lets go; lamp-52e6 run of the head)
+- 12:45 #1263 re-checked at 194b7e0a8: code ready (all three orders hold); waiting for the second builder's yes on records.rs (their crate)
+- 12:37 #1277 first review: privacy path (a new speech-to-text stream gets what the mic hears while an answer waits): left to the first builder; P2 (the privacy doc line understates what is sent); off unless set
+- 12:37 #1281 re-checked at d364ed6d0: the unreadable arm folds then lets go (capped); the seventh's two-150s case starts; lamp-52e6 run of this head posted; merge on green ARM64
+- 12:33 #1295 (#1158's P3s: worker command one function, tested; doc) ready, first review started
+- 12:32 #1252 merged by the first builder as my re-check posted (no finding)
+- 12:31 merged #1271 (remember's kept-note test reads within its own 2 s) and closed #1269
+- 12:30 merged #1289 (#1259's P3s: a refused message counts as read, tested; the CPU measure Linux-only)
+- 12:27 #1285 (LAMP_QUIET_EVIDENCE: skip the echo search while the speaker is silent) ready, first review started
+- 12:25 merged #1257 (Stuffy air after review: my four #1066 P3s, the lamp-06c1 check)
+- 12:24 #983 merged by the first builder (the self-test's head move at rest)
+- 12:22 #1291 (cut-ins over the lamp don't make the room busy; off unless set) ready, first review started; #1199 rebased
+- 12:21 merged #1265 (reading, a gesture is laid over the lean; speaking unchanged and now tested; shown on lamp-52e6)
+- 12:20 #1287 merged by the first builder (lamp-4ace units: reach probe); #1277 and #1281 moved
+- 12:19 merged #1284 (the journal ties a late answer to its request; journal only)
+- 12:16 #1281 re-checked at d7c8026b8: new P2 (an unreadable arm is held up with torque on and never lowered or released, so a really hot arm stays powered); the seventh's P2 open; conflicts with #940's body commits; no lamp run. #1289 reviewed clean, merge on green
+- 12:15 #1287 (lamp-4ace units: reach probe and offline voice) left to the first builder (lamp-4ace settings); #1288 and #1289 ready
+- 12:13 #1278 first review: P2 (reply.is_some() stands for 'over the lamp', so a follow-up begun while a sound waits ~4 s for the model gets no mark: s-0857's shape); off unless set
+- 12:12 #1263 re-checked at 48468665a: both probe orders fixed; new P2 (lamp-update's own round sets a damaged file aside and saves records with no mark, so a later reset brings V1's key back; probed); fix in Records::state
+- 12:12 merged #1234 (lamp-voice stalls: tonight's stall reader; all findings fixed; the Mac test fixed and run)
+- 12:11 #1259 merged by the first builder (hand-controls pump; mute worst case unchanged, measured)
+- 12:09 #1259 measured both ways: mute and touch worst cases unchanged within noise (after ~3 ms, before ~3-5 ms); P3s; left to the first builder (mute path)
+- 12:08 #1282 first review: two P2s (the privacy slide isn't on voice/mute, so on today's lamps a tap still looks up with the slide closed while the docs say not; a stale mute counts as unmuted); not the privacy path (reads only)
+- 12:07 #1264 after the merge: no privacy change (the mic sends and opens as in duplex today); P2 doc (the sixth's 52e6 run, no gain, not recorded) and P3s posted
+- 12:06 merged #1273 (the actions server's periods on a caller's clock; the light test leaves the realtime group; lamp unchanged)
+- 12:05 #1281 first review: code ready (probes hold); waits for a lamp-52e6 run of the head (on by default, changes the start-up heat refusal) and ARM64
+- 12:04 #1284 (journal ties a late answer to its request) ready, first review started
+- 12:04 merged #1279 (a test comment: joint states every 100 ms)
+- 12:00 #1265 re-checked at 7ad517053: P2 fixed, nothing to change; needs a rebase (tests.rs end, with #1239); 409/0/0 on a merged copy
+- 12:00 merged #1266 (#1047's P3s: the play-time stamp as one tested function; docs on where the raw-blocks test runs)
+- 11:55 #1257 reviewed at 88ba52929: all four #1066 P3s fixed; needs a rebase (one-line loader conflict with #1042); P3s on the README times and the cut sleepy clip
+- 11:55 #1264 merged by the first builder (listen gaps, off unless set; Nine's approval and the sixth's 52e6 check)
+- 11:53 #1282 (muted for privacy, a tap gets no look-up; #711) ready, first review started
+- 11:52 #1281 (temperature follow-up to #1270: a hot first read re-read until two agree) ready, first review started
+- 11:50 #1271 reviewed clean but conflicts in realtime-tests.md: rebase asked; #1270 probes hold after the merge; follow-up asked of the fifth (an unreadable arm joint lets go of the whole lamp)
+- 11:49 merged #1158 (the name alone in a busy room needs no face only at night, behind LAMP_SPOKEN_TO=day-and-night; on unchanged; LAMP_KERNEL_CLOCK reaches the workers)
+- 11:47 #1199 re-checked at f9932f8f2: earlier findings fixed, shown on lamp-06c1; needs a rebase after #1230 (stacked); #1230's rebase must rename #1239's gesture_fate line (silent build break)
+- 11:47 merged #1247 (lamp/online asks the internet itself while the link is down; 443 only; off unless set)
+- 11:46 #1230 checked at 3fa2c76b7: ready (P3s only), but conflicts in body tests.rs after #1239 merged; needs a rebase
+- 11:45 merged #1239 (the body weighs who asks for a gesture, behind --arbitration on; the snap, the overwrite and the slump replay all fixed; safety holds)
+- 11:44 merged #1042 (Task news as a skill; off unless installed; each run tied to its own task's news)
+- 11:44 #1234 re-checked at d90fce269: all five fixed; one P2 left (the new test fails on macOS: its ring line's counters are all 0, which prints 'not Linux' off Linux; make it [0,1,0,0]); #1277 and #1278 first reviews started
+- 11:43 #1270 merged by the first builder at 11:43 while I was out (heat streak fix; seventh's four rounds); my probes to run after the merge
+- 11:43 #1262 merged by the first builder (the rule given only a carried-over request's own words)
+- 11:43 #1274 merged by the first builder as my review posted (no finding)
+- 11:42 merged #1275 (Desk tutor's note and marks: #1260's P3s; needs names the body)
+- 11:41 usage limit ~10:30-11:40: all review agents stopped; resuming in order (noted on #705)
+- 10:27 #1261 after the merge: with LAMP_QUIET_PACE=on a mute closes the mic up to 3 ms later in a quiet room (the first builder's call, inside the 100 ms target); posted as P3s
+- 10:26 #1259 first review (partial): on the mute path (controls/state latest_mute, touch sleep); worst case unchanged by reading; left to the first builder; measure both ways running
+- 10:23 #1263 first review at 48bf33993: P2 (when the records are set aside, a key still there loses its 'written once' mark, so a later reset brings V1's key back; probed); P3s (doc, a wrong 'in place' line)
+- 10:23 merged #1260 (Desk tutor's marks: a nod at right work, a tilt at a wrong line; off on every lamp; P3s: the gesture starts before the first word, curious lifts the head past reading's bound)
+- 10:16 #1261 merged by the first builder on their own review (quiet pace); my review told to post only a real defect
+- 10:16 merged #1244 (the ring's listening face after a head tap follows the voice's hum; off unless LAMP_HEAD_TOUCH=on; my P2 fixed with a coordinator test)
+- 10:13 #1265 first review: P2 (no test shows speaking is unchanged); safety holds; shown on lamp-52e6 at 09:36; note: curious over reading writes head pitch 2112, past its normal reach (only the floor and 4095 bound it; existing behaviour)
+- 10:05 #1252 first review at 38d052a56: wait for #1239, then a rebase that rewords #1239's 'nothing sends them yet' lines; checks hold (off is byte-identical; priority fixed to skill; one Priority type)
+- 10:04 merged #1268 (--full-look-movement waits on the camera's aim turning; 2 s caps on 52e6 back to 36 from 329; off unless set; P3s; my #1251 24->342 came from a 66 ms joint read)
+- 10:03 #1240 merged by the first builder (tests-only rule)
+- 10:01 #1209 merged by the first builder (reset line safety; it was theirs); #1042 and #1239 moved with fixes, re-checks started
+- 10:00 merged #1267 (hung_worker on the stepped clock, waiting on the real supervisor's hang and respawn; leaves the realtime group; #823)
+- 09:57 #1255 closed by its builder; #1259 (hand-controls pump: one look per subscriber when idle; on by default) ready, first review started (checking the mute's latency); #1263 moved again
+- 09:56 #1042 re-checked at 1f37b9dfb (rebased past Stuffy air): the merge is right, task only on from=tasks; new P2 (the loader accepts each with [quiet] or until=ends, and neither works on an item's run: an each skill with a dim never ends it)
+- 09:53 #1264 (LAMP_LISTEN_GAPS: a long answer's sentence ends held quiet 250 ms so a person is heard; #828) ready, first review started
+- 09:50 #1253 merged by the first builder (the LAMP_SCHEDULE_SPEAK=skill fix; one rule for both)
+- 09:46 #1239 re-checked at fdd465e9c: the snap and the same-step overwrite fixed; new P2 (a slump during the 0.7 s ease leaves it paused, and it replays the old nod about 2 min later when the lamp is taken up); P3 the ease runs past a gesture's farthest point
+- 09:46 #1270 (fixes a P1 now in lamp-voice from #1236: a replaced read fed the heat streak, so a false heat stop turns torque off on every joint) ready, first review started at priority; #1247 moved again
+- 09:43 #1268 (#1251 follow-up: the wait follows the camera's aim; my 09:24 note) ready, first review started
+- 09:38 #1245 merged by the first builder (left to them at 08:26; green, P1 fixed)
+- 09:38 #1266 (#1047's P3s: the stamp as one tested function, doc fixes) ready, first review started
+- 09:36 #1234 first review: P2 (the 'what held it' line is wrong for a pass that ran on the CPU the whole time, and says 'not Linux?' on a Linux lamp); P3s (a loop-ending pass hidden unless in the top five; an unreadable file dropped silently; a muddled reboot doc line)
+- 09:36 #1265 (a gesture laid over the reading lean; #941) ready, first review started
+- 09:35 #1258 merged by the first builder (tests-only rule)
+- 09:35 merged #1243 (lamp-health carries the self-test's newest run; a failed part is error until a run checks it again; report-only, nothing acts on the level; P3: a restart forgets a fail the newest run did not check)
+- 09:34 #1255 first review: five P2s (no docs; no with/without test; the first-audio check acts on unfinished words; false stops like 'Wait, is that right?'; 'stop_word' not an expected discard); lamp run posted (2 of 5 stops caught on 52e6)
+- 09:33 #1250 (service_privacy_controls cleanup runs the stop hook; #1249) and #1258 (three more stepped fixtures on the watchdog; my #1235 follow-up) ready, first reviews started
+- 09:28 #1263 (lamp-keeper prepare reads the records as install does: the device key path) ready, first review started
+- 09:26 #1261 (LAMP_QUIET_PACE: the coordinator passes every 5 ms while quiet) ready, first review started (checking whether the mute or privacy path rides on the coordinator's pass)
+- 09:24 merged #1251 (a full look's head settles on movement only with --full-look-movement on; off unless set; P3s)
+- 09:23 #1260 (Desk tutor's marks: a nod at right work, a tilt at a wrong line) ready, first review started; #1199 and #1244 moved, re-checks continue
 - 09:16 #1256 merged by the first builder (tests-only rule); #1262 (#1226's P3 fix) ready, first review started
 - 09:14 #1253 (the LAMP_SCHEDULE_SPEAK=skill fix) ready, first review started; #1042 rebased past Stuffy air, re-check started; #1158 moved again
 - 09:11 merged #1047 (with LAMP_STOP_WORDS=heard-always a stop word over the lamp's voice stops it; off unless set; P3s left)

@@ -7,7 +7,7 @@ use lamp_setup::{
     scan,
     serve::{
         Accepted, Config, Files, Phase, Save, SetupRequest, Status, check, run, start,
-        start_unless_stopped, zone_known,
+        start_unless_stopped, zone_env, zone_known,
     },
     wifi::Host,
 };
@@ -62,6 +62,7 @@ impl Root {
             zoneinfo: self.0.join("zoneinfo"),
             localtime: self.0.join("etc/localtime"),
             timezone_file: self.0.join("etc/timezone"),
+            zone_env: self.0.join("etc/zone.env"),
             web_start: vec![],
             web_stop: vec![],
             free_port: vec![],
@@ -539,11 +540,37 @@ fn the_files_are_private_and_the_zone_is_linked_as_v1_does() {
         fs::read(&config.timezone_file).unwrap(),
         b"Asia/Ho_Chi_Minh\n"
     );
-    // A second zone replaces the first.
+    // Schedule's and skills' zone (#820), readable by the parts, as install's.
+    assert_eq!(
+        fs::read_to_string(&config.zone_env).unwrap(),
+        zone_env("Asia/Ho_Chi_Minh", 420)
+    );
+    let mode = fs::metadata(&config.zone_env).unwrap().permissions().mode() & 0o777;
+    assert_eq!(mode, 0o644);
+    // A second zone replaces the first: a lamp set up outside +07.
     files.timezone("America/New_York").unwrap();
     assert_eq!(
         fs::read_link(&config.localtime).unwrap(),
         config.zoneinfo.join("America/New_York")
+    );
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as u64;
+    let west = lamp_local_time::LocalTime::zone("America/New_York")
+        .unwrap()
+        .offset_minutes_at(now_ms);
+    assert!(west == -300 || west == -240, "{west}");
+    let written = fs::read_to_string(&config.zone_env).unwrap();
+    assert_eq!(written, zone_env("America/New_York", west));
+    assert!(written.contains("\nLAMP_ZONE=America/New_York\n"));
+    // A zone the parts' zone data lacks leaves theirs as it was: schedule
+    // would not start on it.
+    files.timezone("Mars/Olympus_Mons").unwrap();
+    assert_eq!(fs::read_to_string(&config.zone_env).unwrap(), written);
+    assert_eq!(
+        fs::read(&config.timezone_file).unwrap(),
+        b"Mars/Olympus_Mons\n"
     );
 }
 

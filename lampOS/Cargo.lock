@@ -2055,6 +2055,7 @@ dependencies = [
  "axum",
  "lamp-bus",
  "lamp-ipc",
+ "lamp-local-time",
  "lamp-msgs",
  "lamp-ring",
  "rustix",

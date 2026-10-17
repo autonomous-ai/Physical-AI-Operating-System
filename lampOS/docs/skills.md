@@ -423,9 +423,9 @@ As built on 2026-10-16 (#938, `crates/skills`, not yet run on a lamp):
 and the product voice with the say service on and its own hello off.
 `deploy/units/lamp-skills.service` stays the template for a lamp set up by hand.
 It reads the lamp's zone (`LAMP_UTC_OFFSET_MINUTES`) from
-`/etc/lampOS/zone.env`, as the product units do, for `--utc-offset-minutes`;
-neither the product unit nor lamp-4ace's passes it yet, so there a skill
-with `[quiet]` hours never starts itself. Neither puts Stuffy air in its
+`/etc/lampOS/zone.env`, which setup writes with the person's zone (#820),
+for `--utc-offset-minutes`. The product unit passes it; lamp-4ace's doesn't
+yet, so there a skill with `[quiet]` hours never starts itself. Neither puts Stuffy air in its
 folder today (install puts only Welcome back on a home lamp).
 lamp-4ace's folder carries `lamp-skills.service`, and its voice unit has the
 voice's own hello (`LAMP_SPEAK_FIRST`) off and the say service on, so only

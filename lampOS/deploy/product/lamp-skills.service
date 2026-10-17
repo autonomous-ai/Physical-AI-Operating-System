@@ -22,7 +22,11 @@ Nice=10
 Environment=LAMP_SKILLS_ASK=skip
 # A skill's light is asked of the ring (#1132): the ring's half is the voice's LAMP_LIGHT_REQUESTS (17 Oct).
 Environment=LAMP_LIGHT_REQUESTS=on
-ExecStart=/opt/lampOS/skills/current/lamp-skills --dir /var/lib/lampOS/skills --bus-root /run/lampos-bus --gaze-socket /run/lampos-body/gaze.sock --mood-socket /run/lampos-body/mood.sock --actions-socket /run/lampos-actions/call.sock --say-socket /run/lampos-say/say.sock --tools-dir /run/lampos-actions/skills
+# LAMP_UTC_OFFSET_MINUTES: the lamp's zone, written by the install and again by setup (#820), for a skill's
+# [quiet] hours, which without it never start themselves (docs/skills.md). It is setup day's offset until a
+# reset, so summer time moves those hours by one (third-P1).
+EnvironmentFile=/etc/lampOS/zone.env
+ExecStart=/opt/lampOS/skills/current/lamp-skills --dir /var/lib/lampOS/skills --bus-root /run/lampos-bus --gaze-socket /run/lampos-body/gaze.sock --mood-socket /run/lampos-body/mood.sock --actions-socket /run/lampos-actions/call.sock --say-socket /run/lampos-say/say.sock --tools-dir /run/lampos-actions/skills --utc-offset-minutes ${LAMP_UTC_OFFSET_MINUTES}
 Restart=on-failure
 RestartSec=5s
 StandardInput=null

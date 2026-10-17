@@ -973,7 +973,13 @@ fn set_mode(
 ) -> Result<(), String> {
     let at = config.on(path);
     let failed = |error: io::Error| format!("{path}: {error}");
-    let now = fs::metadata(&at).map_err(failed)?.permissions().mode() & 0o7777;
+    let meta = fs::symlink_metadata(&at).map_err(failed)?;
+    // A link is left as it is: its target is not install's to open or close
+    // (Nine on #1293).
+    if meta.file_type().is_symlink() {
+        return Ok(());
+    }
+    let now = meta.permissions().mode() & 0o7777;
     if now != mode {
         fs::set_permissions(&at, fs::Permissions::from_mode(mode)).map_err(failed)?;
         changed.push(format!("made {path} {mode:o}, was {now:o}"));

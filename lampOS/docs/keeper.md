@@ -286,7 +286,9 @@ leaves the key to setup. It reads the records as install does
 (`Records::state`, #1094's review): a corrupt `state.json` is set aside as
 `state.json.corrupt-<ms>` and said, and since what was written before is
 then not known, V1's key is not copied; every key path, missing or there,
-is recorded as once written (`install::SET_ASIDE`), so neither the next
+is recorded as once written (`install::SET_ASIDE`, marked by
+`Records::state` as it sets the file aside, so a round that finds the
+damage first saves the mark too), so neither the next
 prepare or install, nor one after a later reset, copies it (Third and the
 reviewer on #1263). If that mark cannot be saved (records damaged, then
 unwritable), prepare exits 1 and that update is refused; the next run,

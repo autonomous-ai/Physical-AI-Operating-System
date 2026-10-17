@@ -424,7 +424,9 @@ As root, on a lamp with the base image (`crates/update/src/install.rs`):
    not copied into a missing key file (said instead): a reset may have
    removed the user's, and V1's config may still hold the previous owner's
    (#1094's review). Every key path, missing or there, is then recorded as
-   once written (`SET_ASIDE`, no hash a file can match), so later runs, and
+   once written (`SET_ASIDE`, no hash a file can match). `Records::state`
+   marks them as it sets the file aside, so whichever reader saves first, a
+   round as much as install or prepare, keeps the mark, and later runs, and
    one after a later reset, keep to the rule for a key removed since it was
    written. A key there that is V1's gets its real hash; any other, and one
    setup writes later, is kept as the lamp's own. No `state.json` with a

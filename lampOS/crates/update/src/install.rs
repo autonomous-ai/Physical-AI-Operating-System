@@ -250,6 +250,8 @@ pub const JEV_KEY_PATH: &str = "/etc/lampOS/policy/jev.key";
 /// found the damage, which saves records with no key in them (Third on
 /// #1263). A key setup writes later is kept as the lamp's own.
 pub const SET_ASIDE: &str = "unknown: the records were set aside";
+/// The key paths [`SET_ASIDE`] marks: the voice's and the Policy's.
+pub const KEY_PATHS: [&str; 2] = [CREDENTIAL_PATH, JEV_KEY_PATH];
 
 /// Whether the records in `folder` were set aside: by this run's read
 /// (`existed`, and now gone), or by an earlier run that could not save what

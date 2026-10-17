@@ -2872,7 +2872,7 @@ fn a_service_started_with_no_link_says_so_once_and_is_ready_when_the_link_comes(
     // service's cycle, as a person's mute does.
     let link_after = INPUT_READINESS_TIMEOUT + Duration::from_secs(3);
     let mute_block = (link_after.as_millis() as u64 + 5_000) / 10;
-    let late = |start_offline: bool| {
+    let run = |start_offline: bool, link_after: Duration| {
         run_policy_with_peers(
             TurnTaking::V1Baseline,
             0,
@@ -2889,6 +2889,7 @@ fn a_service_started_with_no_link_says_so_once_and_is_ready_when_the_link_comes(
             },
         )
     };
+    let late = |start_offline: bool| run(start_offline, link_after);
     let waited = late(true);
     // It lived past the budget to the mute that ends the cycle.
     let end = format!("{:?}", waited.result.as_ref().unwrap_err());
@@ -2897,10 +2898,26 @@ fn a_service_started_with_no_link_says_so_once_and_is_ready_when_the_link_comes(
     assert_eq!(said.len(), 1, "said once: {said:?}");
     let ready = waited.events("provider_link_current");
     assert_eq!(ready.len(), 1, "ready once the link came: {ready:?}");
+    // Said at the budget, not before it: the link came 3 s after the line,
+    // so a line said at the first frame would be about 28 s early (the
+    // reviewer, after the merge).
+    let said_at = said[0]["at_us"].as_u64().unwrap();
+    let ready_at = ready[0]["at_us"].as_u64().unwrap();
+    let before = ready_at.saturating_sub(said_at);
     assert!(
-        said[0]["at_us"].as_u64().unwrap() < ready[0]["at_us"].as_u64().unwrap(),
-        "said before ready"
+        (2_900_000..=3_100_000).contains(&before),
+        "said {before} us before ready, not about 3 s"
     );
+    // A normal start with the switch on: the link up within the budget, and
+    // no line at all.
+    let normal = run(true, Duration::from_secs(1));
+    let end = format!("{:?}", normal.result.as_ref().unwrap_err());
+    assert!(end.contains("PhysicalMute"), "{end}");
+    assert!(
+        normal.events("waiting_for_link").is_empty(),
+        "no line when the link comes in time"
+    );
+    assert_eq!(normal.events("provider_link_current").len(), 1);
     // Without the switch the startup budget covers the link, as before.
     let ended = late(false);
     let error = ended.result.as_ref().unwrap_err().to_string();

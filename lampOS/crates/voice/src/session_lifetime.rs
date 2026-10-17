@@ -180,6 +180,10 @@ mod tests {
             .unwrap()
             .with_start_offline(true);
         clock.capture_retained();
+        // Not before the budget: within it a link is only coming up.
+        assert!(!clock.waiting_for_link(started));
+        assert!(!clock.waiting_for_link(started + budget - Duration::from_millis(1)));
+        assert!(clock.waiting_for_link(started + budget));
         let late = started + Duration::from_secs(600);
         assert!(clock.waiting_for_link(late));
         assert!(!clock.startup_expired(late));

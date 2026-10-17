@@ -1549,12 +1549,6 @@ mod tests {
         std::fs::remove_dir_all(dir).unwrap();
     }
 
-    /// The reviewer on #1047 at 07:42: the lamp's words are its own while
-    /// they are being heard. Their text can come 10 s or more before their
-    /// sound, the voice holding up to 30 s of a reply ahead of playback, so
-    /// the coordinator stamps them with when they will play. Stamped then,
-    /// the story's own "wait" read back from the raw microphone at 12.5 s
-    /// stops nothing; stamped as its text came, at 1 s, it stopped the lamp.
     /// The stamp the coordinator gives the lamp's words: their text's
     /// arrival, plus the reply's audio queued ahead of them at 24 kHz (the
     /// reviewer on #1047 at 09:10: the sum had no test).
@@ -1566,6 +1560,12 @@ mod tests {
         assert_eq!(plays_at_us(u64::MAX, 240_000), u64::MAX);
     }
 
+    /// The reviewer on #1047 at 07:42: the lamp's words are its own while
+    /// they are being heard. Their text can come 10 s or more before their
+    /// sound, the voice holding up to 30 s of a reply ahead of playback, so
+    /// the coordinator stamps them with when they will play. Stamped then,
+    /// the story's own "wait" read back from the raw microphone at 12.5 s
+    /// stops nothing; stamped as its text came, at 1 s, it stopped the lamp.
     #[test]
     fn the_lamps_own_words_count_from_when_they_play() {
         let stops = |stamped_at_us: u64| {

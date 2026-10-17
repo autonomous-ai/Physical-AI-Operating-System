@@ -84,6 +84,12 @@ Environment=LAMP_MEMORY_SOCKET=/run/lampos-memory/memory.sock
 Environment=LAMP_MEMORY_DAYS=on
 Environment=LAMP_FAINT_HOLD_MS=400
 Environment=LAMP_BUS=on
+# No internet: the offline line once and the amber breath, said only on lamp-health's probe, so a relay
+# outage, with the internet up, is the backup voice's (LAMP_VOICE_SECOND_CONFIG, in this lamp's drop-in)
+# and not "no internet" (lampOS/docs/offline.md; #830). The line is silent until recordings are given
+# (--failure-notice-dir). Shown with the Wi-Fi off on Monday (#830).
+Environment=LAMP_OFFLINE_VOICE=on
+Environment=LAMP_REACH_PROBE=on
 # What the microphone hears also goes on the bus (mic2/audio), for the part that hears the lamp's name
 # (lampOS/docs/name.md). The one topic that carries sound; nothing on the lamp writes it down.
 Environment=LAMP_BUS_AUDIO=on

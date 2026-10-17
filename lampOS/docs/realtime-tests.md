@@ -1384,3 +1384,31 @@ since no ring is open and letting go returns at once. So all of the fade out
 comes after both. That painter is now caught 10 of 10 at stalls of 0, 20,
 40 and 400 ms there. The right one passes under a 400 ms stall 10 of 10, and
 all six tests pass 20 of 20.
+
+## The ring's startup deadline on a clock its tests move once the child is up (#1128)
+
+Three of `lamp-voice`'s `process::ring_startup_tests` took 3.0 s each in the
+17 October full run (39029608429), waiting out `WORKER_STARTUP_TIMEOUT` (3 s)
+in `Worker::wait_until_ready`:
+- `permanently_nonprivate_peers_timeout_without_connecting_or_chmod`;
+- `missing_socket_deadline_is_unchanged_and_does_not_lose_the_child`;
+- `connected_but_unready_ring_times_out_and_remains_owned`.
+
+That wait now reads its deadline through `startup_now()` at its three places:
+setting the deadline, and its two checks. On the lamp (any build that isn't a
+test build) it is `Instant::now()`, so the lamp's code is unchanged. A test
+build adds a thread-local amount (`startup_clock`, zero unless a test moves
+it), and the wait runs on the thread that started it.
+
+Each test's own tick moves that clock on 100 ms, but only once what the test
+is about has happened: the child started, its peers bound, or its peer
+connected. So the 3 s deadline passes in about 30 ticks, and a child slow to
+start never finds it already gone; the host's clock still counts as well.
+`missing_socket_deadline_is_unchanged` measures the wait on the same clock,
+so it still finds at least the full 3 s.
+
+On this Mac the three went from 3.54, 3.52 and 3.52 s to 0.70, 0.72 and
+0.62 s; most of what's left is the fixture's first run of a fresh script.
+A deadline set to end at half the bound fails
+`missing_socket_deadline_is_unchanged` at the same check, old and new. A fake
+ring 400 ms slow to start leaves all ten `ring_startup_tests` passing.

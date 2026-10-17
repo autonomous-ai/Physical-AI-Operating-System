@@ -88,6 +88,16 @@ fn unavailable(startup: RingStartup) -> (Option<Box<Worker>>, io::Error) {
     }
 }
 
+/// A tick of a test of the startup deadline: once what the test is about has
+/// happened (the child started, its peers made), the wait's clock moves on
+/// 100 ms, so the 3 s deadline passes in about 30 ticks instead of 3 s. Not
+/// before: a child slow to start must not find the deadline already gone.
+fn move_on_once(ready: bool) {
+    if ready {
+        super::startup_clock::move_on(Duration::from_millis(100));
+    }
+}
+
 pub(crate) fn await_exit(worker: &mut Worker) -> ExitStatus {
     let deadline = Instant::now() + Duration::from_secs(1);
     loop {
@@ -180,7 +190,7 @@ fn ready_ring_keeps_private_handshake_and_control_contract() {
 #[test]
 fn missing_socket_deadline_is_unchanged_and_does_not_lose_the_child() {
     let fixture = ChildFixture::new();
-    let began = Instant::now();
+    let began = startup_now();
     let mut ticks = 0;
     let (worker, error) = unavailable(
         Worker::spawn_optional_ring_with_tick(
@@ -190,13 +200,14 @@ fn missing_socket_deadline_is_unchanged_and_does_not_lose_the_child() {
             &[],
             || {
                 ticks += 1;
+                move_on_once(fixture.identity().is_some());
                 Ok(())
             },
         )
         .unwrap(),
     );
     assert_eq!(error.kind(), io::ErrorKind::TimedOut);
-    assert!(began.elapsed() >= WORKER_STARTUP_TIMEOUT);
+    assert!(startup_now() - began >= WORKER_STARTUP_TIMEOUT);
     assert!(ticks > 1);
     let mut worker = worker.unwrap();
     worker.check_running().unwrap();
@@ -364,6 +375,7 @@ fn permanently_nonprivate_peers_timeout_without_connecting_or_chmod() {
                         fs::set_permissions(path, fs::Permissions::from_mode(0o666))?;
                     }
                 }
+                move_on_once(peers.is_some());
                 Ok(())
             },
         )
@@ -410,6 +422,7 @@ fn connected_but_unready_ring_times_out_and_remains_owned() {
                 if peer.is_none() {
                     peer = fixture.connect_peer();
                 }
+                move_on_once(peer.is_some());
                 Ok(())
             },
         )

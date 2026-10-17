@@ -1158,8 +1158,8 @@ async fn serve_with_visual<C: Connect>(
     // and the request, for its journal lines (#829, the first builder at
     // 15:23 and 17:09).
     let mut judged_rise: Option<(u64, f32)> = None;
-    // Whether it is night where the lamp stands, read once a request, for
-    // whether the name heard in a busy room needs a face (#829).
+    // Whether it is night where the lamp stands, read once a request as it
+    // ends, for whether the name heard in a busy room needs a face (#829).
     let mut night_read: Option<(u64, bool)> = None;
     let mut ears_read_at: Option<Instant> = None;
     let mut air_read_at: Option<Instant> = None;
@@ -1343,6 +1343,13 @@ async fn serve_with_visual<C: Connect>(
                 // request's sound ended is not that request's.
                 if let Some((request, at_us)) = intake.handoff.ended {
                     attention.ended(request, at_us);
+                    // Whether it is night, read once as the request ends: a
+                    // file and the kernel's clock, off the way to its first
+                    // output (Ten on #1158). One whose end this worker never
+                    // saw is read at its first output.
+                    if night_read.is_none_or(|(of, _)| of != request) {
+                        night_read = Some((request, crate::local_time::night_here()));
+                    }
                     if intake.handoff.ended_cut_in == Some(request) {
                         attention.ended_as_cut_in(request);
                     }

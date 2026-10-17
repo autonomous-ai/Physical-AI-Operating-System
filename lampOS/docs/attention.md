@@ -1210,12 +1210,18 @@ turn your volume down a little." was held, because the name was heard in
 the sound and nobody was turned to the lamp. With the switch, at night, a
 request with the name heard in its sound is played in a busy room too,
 without a face: nobody faces the lamp then. Night is 21:00 to 4:59 where
-the lamp stands, as it tells the time (`local_time::night_here`). A zone
+the lamp stands, as it tells the time (`local_time::night_here`), read
+once a request as its sound ends, off the way to its first output. A zone
 that can't be read is day, and so is any time while the clock is known not
 to be set (`LAMP_KERNEL_CLOCK=on`, no time client yet): the lamp has no
 battery clock and shows the last time it saved, so one switched off at
 22:00 and on at 09:00 where NTP is blocked would read night in the
 morning (the reviewer on #1083; Expression does the same, `offline.md`).
+The voice passes `LAMP_KERNEL_CLOCK` on to its provider and second
+workers, which start with a cleared environment; it never reached them
+before (Ten on #1158). The hours are the same for every lamp: they fit
+an office, and a home desk at 22:00 can be someone working late, so they
+are to be looked at again with home use.
 
 By day that cost too much (the first builder at 15:23 on 16 October). In
 the busy office the name heard alone let the lamp answer office talk three

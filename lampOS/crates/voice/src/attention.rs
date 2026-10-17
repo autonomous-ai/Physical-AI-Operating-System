@@ -1249,7 +1249,15 @@ impl Attention {
             self.verdict = Some(verdict);
             return Some(verdict);
         }
-        if strict && room == Room::Busy && self.near && self.best_score >= NEAR_SCORE {
+        // #829, the first builder at 17:09: with the switch, by day, a name
+        // heard close to the lamp also needs a face turned to it or its own
+        // words calling it by name. On lamp-4ace on 16 October at 17:08,
+        // request 169 played on the near rule alone and answered colleagues
+        // talking about eye drops beside it.
+        let near_shows =
+            !self.spoken_to || self.night || turned == Some(true) || called_by_name(&self.heard);
+        if strict && room == Room::Busy && self.near && self.best_score >= NEAR_SCORE && near_shows
+        {
             let verdict = Verdict::Play(NAMED_NEAR);
             self.verdict = Some(verdict);
             return Some(verdict);
@@ -2424,8 +2432,13 @@ mod tests {
         for (at, score, _) in seven {
             // Not close: none is let out by its score alone.
             assert!(!by_day(score, false), "{at}");
-            // Close: at 0.95 or more.
-            assert_eq!(by_day(score, true), score >= NEAR_SCORE, "{at}");
+            // Close, by day: not on that alone either, the first builder's
+            // 17:09 sign; at night, at 0.95 or more.
+            assert!(!by_day(score, true), "{at}");
+            assert!(
+                judge(score, true, Room::Busy, Some(false), true),
+                "{at} at night"
+            );
         }
         assert!(by_day(SURE_SCORE, false));
         for score in [0.9, 0.932] {
@@ -2436,6 +2449,58 @@ mod tests {
             );
             assert!(judge(score, false, Room::Busy, Some(false), true), "night");
         }
+    }
+
+    /// #829, the first builder at 17:09: request 169 on lamp-4ace at 17:08
+    /// played on the near rule alone, and the lamp answered colleagues
+    /// talking about eye drops beside it ("I can't recommend specific eye
+    /// drops."). The voice journals no transcripts, so the line here is one
+    /// of that shape, not the words heard. With the switch, by day, a name
+    /// heard close to the lamp at 0.96 in a busy room also needs a face
+    /// turned to it or its words calling it by name; at night, or without
+    /// the switch, the near rule stands as it was.
+    #[test]
+    fn by_day_a_name_heard_close_also_needs_a_face_or_the_words_calling_it() {
+        let near = |said: &str, turned: Option<bool>, night: bool, spoken_to: bool| {
+            let mut attention = Attention::default();
+            attention.speak_when_spoken_to(spoken_to);
+            attention.set_night(night);
+            attention.began_at(169, 4, 10_000_000);
+            attention.name_heard_scored(10_100_000, 0.96);
+            attention.set_near(true);
+            attention.heard(said);
+            attention.first_output_busy(169, Room::Busy, false, true, turned)
+        };
+        let talk = "Have you tried the eye drops from the pharmacy downstairs?";
+        assert!(matches!(
+            near(talk, Some(false), false, true),
+            Some(Verdict::Hold(_))
+        ));
+        assert!(matches!(
+            near(talk, None, false, true),
+            Some(Verdict::Hold(_))
+        ));
+        assert!(matches!(
+            near(talk, Some(true), false, true),
+            Some(Verdict::Play(_))
+        ));
+        assert!(matches!(
+            near(
+                "Lamp, which eye drops should I use?",
+                Some(false),
+                false,
+                true
+            ),
+            Some(Verdict::Play(_))
+        ));
+        assert_eq!(
+            near(talk, Some(false), true, true),
+            Some(Verdict::Play(NAMED_NEAR))
+        );
+        assert_eq!(
+            near(talk, Some(false), false, false),
+            Some(Verdict::Play(NAMED_NEAR))
+        );
     }
 
     /// #829: with the switch the name counts when it is said to the lamp,

@@ -71,6 +71,26 @@ pub fn words_in(text: &str) -> usize {
         .count()
 }
 
+/// Words said with a stop that ask nothing more: "Stop it, please.",
+/// "Lamp, stop now."
+const WITH_A_STOP: &[&str] = &["it", "please", "now", "lamp", "hey", "talking", "that"];
+
+/// Whether `text` only tells the lamp to stop (the reviewer's P3 on #1277):
+/// a stop phrase by the stop words' own list
+/// ([`crate::stop_words::stop_phrase`]), and every other word one that asks
+/// nothing, a stop word, or one that only goes with a stop
+/// ([`WITH_A_STOP`]). "Stop.", "Okay, stop it, please." and "Hold on." do.
+/// "Wait, what about tomorrow?" asks something more and takes the turn as
+/// before, and "Don't stop." is no stop.
+pub fn only_a_stop(text: &str) -> bool {
+    crate::stop_words::stop_phrase(text)
+        && crate::not_speech::plain_words(text).iter().all(|word| {
+            asks_nothing(word)
+                || crate::stop_words::stop_word(word)
+                || WITH_A_STOP.contains(&word.as_str())
+        })
+}
+
 /// What the words say of the waited sound so far.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Verdict {
@@ -78,6 +98,9 @@ pub enum Verdict {
     Pending,
     /// Back, with this many words that ask something.
     Words(usize),
+    /// Back, and they only tell the lamp to stop ([`only_a_stop`]), with
+    /// this many words that ask something.
+    Stop(usize),
 }
 
 /// What a waited sound does with its words.
@@ -87,6 +110,10 @@ pub enum Then {
     AsBefore,
     /// It said something: decided at once, as a sound that went on.
     Take(usize),
+    /// It only said to stop: it is let go, never asked of the model, and
+    /// the answer it waits for is stopped, as a stop said over the lamp's
+    /// speech stops it.
+    Stop,
     /// `on` would let it go and its words are not back: it waits for them.
     Wait,
     /// `on` lets it go, and its words said nothing or did not come in time.
@@ -98,6 +125,7 @@ pub enum Then {
 /// must be decided by (`deadline_us`).
 pub fn then(lets_go: bool, verdict: Verdict, ended: bool, at_us: u64, deadline_us: u64) -> Then {
     match verdict {
+        Verdict::Stop(_) => Then::Stop,
         Verdict::Words(count) if count > 0 => Then::Take(count),
         _ if !lets_go => Then::AsBefore,
         Verdict::Words(_) => Then::LetGo,
@@ -202,7 +230,12 @@ impl WaitWords {
             && self.asked_at_us.is_some()
             && let Some(words) = self.ears.words()
         {
-            self.verdict = Verdict::Words(words_in(&words));
+            let count = words_in(&words);
+            self.verdict = if only_a_stop(&words) {
+                Verdict::Stop(count)
+            } else {
+                Verdict::Words(count)
+            };
         }
         self.verdict
     }
@@ -409,5 +442,49 @@ pub(crate) mod tests {
         assert_eq!(then(true, Verdict::Pending, false, 99, 100), Then::Wait);
         assert_eq!(then(true, Verdict::Pending, false, 100, 100), Then::LetGo);
         assert_eq!(then(true, Verdict::Pending, true, 0, 100), Then::LetGo);
+    }
+
+    /// The reviewer's P3 on #1277: words that only tell the lamp to stop,
+    /// by the stop words' own list, stop it, ended or not, before `on`
+    /// would decide or after. A stop with something more asked takes the
+    /// turn as before, and "Don't stop." is no stop.
+    #[test]
+    fn words_that_only_say_stop_stop_and_more_take_the_turn() {
+        for said in [
+            "Stop.",
+            "Stop!",
+            "Okay, stop it, please.",
+            "Lamp, stop now.",
+            "Hold on.",
+            "Wait.",
+            "Uh, enough.",
+            "Hush, hush.",
+        ] {
+            assert!(only_a_stop(said), "{said:?}");
+        }
+        for said in [
+            "Don't stop.",
+            "Wait, what about tomorrow?",
+            "Stop, what's the weather?",
+            "No.",
+            "Okay.",
+            "",
+        ] {
+            assert!(!only_a_stop(said), "{said:?}");
+        }
+        for (lets_go, ended) in [(false, false), (true, false), (true, true)] {
+            assert_eq!(then(lets_go, Verdict::Stop(1), ended, 0, 1), Then::Stop);
+        }
+    }
+
+    /// The words that come back are classed once: a lone stop as one.
+    #[test]
+    fn a_lone_stop_comes_back_as_a_stop() {
+        let (mut words, script) = scripted();
+        let (first, _) = candidates();
+        words.ask(first, &audio(&[1, 2]), 20_000);
+        script.lock().unwrap().words = Some("Stop.".into());
+        assert_eq!(words.verdict(first), Verdict::Stop(1));
+        assert_eq!(words.verdict(first), Verdict::Stop(1), "it stays");
     }
 }

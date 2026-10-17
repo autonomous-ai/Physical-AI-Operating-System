@@ -47,6 +47,8 @@ pub struct Usb {
     /// and none was overwritten while it was read. Otherwise the drops are
     /// "at least".
     pub since_boot: bool,
+    /// The kernel's log could be read (the self-test has `CAP_SYSLOG`).
+    pub log_read: bool,
 }
 
 impl Usb {
@@ -146,6 +148,7 @@ pub fn usb(sound: &std::path::Path, kmsg: &str) -> Usb {
         port,
         drops,
         since_boot: overwritten == Ok(false) && records.first_sequence == Some(0),
+        log_read: read,
     }
 }
 
@@ -199,10 +202,14 @@ pub fn voice_mic(declared: bool, heard: &Result<Heard, String>, usb: Option<&Usb
         if !usb.jieli {
             // No Jieli on this lamp, or none the log still holds: nothing
             // to say of its USB.
-            return result.with(
-                "on_usb",
-                "unknown: no Jieli card here, and none in the kernel's log",
-            );
+            let why = if !usb.log_read {
+                "unknown: no Jieli card here, and the kernel's log could not be read (it needs CAP_SYSLOG)"
+            } else if !usb.since_boot {
+                "unknown: no Jieli card here, and the kernel's log no longer reaches back to boot"
+            } else {
+                "unknown: no Jieli card here, and none in the kernel's log"
+            };
+            return result.with("on_usb", why);
         }
         result = result.with("on_usb", usb.present);
         result = match usb.drops {
@@ -491,6 +498,7 @@ mod tests {
                 port: Some("3-1.1.1".into()),
                 drops: Some(1),
                 since_boot: true,
+                log_read: true,
             }
         );
         std::fs::remove_dir_all(sound.join("card4")).unwrap();
@@ -544,6 +552,7 @@ mod tests {
             port: Some("3-1.1.1".into()),
             drops: Some(2),
             since_boot: true,
+            log_read: true,
         };
         let off = voice_mic(true, &Ok(Heard::default()), Some(&gone));
         assert_eq!(off.verdict, Verdict::Fail);
@@ -594,6 +603,7 @@ mod tests {
                 port: None,
                 drops: None,
                 since_boot: true,
+                log_read: true,
             }),
         );
         assert_eq!(quiet.verdict, Verdict::NotChecked);
@@ -612,16 +622,45 @@ mod tests {
                 .find(|v| v.key == key)
                 .map(|v| v.value.clone())
         };
-        let other = voice_mic(true, &Ok(Heard::default()), Some(&Usb::default()));
+        let read = Usb {
+            since_boot: true,
+            log_read: true,
+            ..Usb::default()
+        };
+        let other = voice_mic(true, &Ok(Heard::default()), Some(&read));
         assert_eq!(other.verdict, Verdict::NotChecked, "{other:?}");
         assert!(value(&other, "usb_drops").is_none());
-        assert!(value(&other, "on_usb").unwrap().starts_with("unknown"));
+        assert_eq!(
+            value(&other, "on_usb").as_deref(),
+            Some("unknown: no Jieli card here, and none in the kernel's log")
+        );
+        // By hand, without CAP_SYSLOG, or with the ring wrapped past the
+        // Jieli's record: never a fail, and the words say which (the
+        // reviewer on #1308).
+        let by_hand = voice_mic(true, &Ok(Heard::default()), Some(&Usb::default()));
+        assert_eq!(by_hand.verdict, Verdict::NotChecked);
+        assert!(
+            value(&by_hand, "on_usb")
+                .unwrap()
+                .contains("could not be read")
+        );
+        let wrapped_past = Usb {
+            log_read: true,
+            ..Usb::default()
+        };
+        let late = voice_mic(true, &Ok(Heard::default()), Some(&wrapped_past));
+        assert!(
+            value(&late, "on_usb")
+                .unwrap()
+                .contains("no longer reaches back to boot")
+        );
         let wrapped = Usb {
             present: false,
             jieli: true,
             port: Some("3-1.1.1".into()),
             drops: Some(2),
             since_boot: false,
+            log_read: true,
         };
         let off = voice_mic(true, &Ok(Heard::default()), Some(&wrapped));
         assert_eq!(off.verdict, Verdict::Fail);

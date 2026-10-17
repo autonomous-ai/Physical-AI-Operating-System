@@ -9,7 +9,9 @@ use lamp_health::{
     parts::same_but_for_ages,
     serve::{self, Note, Options, Times, Totals},
 };
-use lamp_msgs::{BoardState, Diagnostic, Health, HealthItem, Level};
+use lamp_msgs::{
+    BoardState, Diagnostic, Health, HealthItem, Level, Occasion, PartResult, SelfTest, Verdict,
+};
 use serde_json::json;
 use std::{
     fs, io,
@@ -936,9 +938,18 @@ fn a_topic_that_cannot_be_published_is_said_once_and_the_rest_goes_on() {
     assert!(*unpublished >= 1);
     assert_eq!(totals.unpublished, *unpublished);
     assert!(totals.healths >= 1 && totals.boards >= 1);
-    // The lamp's level was said though it could not be published.
+    // The lamp's level was said though it could not be published. The
+    // self-test's runs, whose directory was in the way too, were said
+    // once as not heard, and the health went on without them.
     assert_eq!(levels(&notes), [(None, Level::Ok, "")]);
-    assert!(matches!(notes[0], Note::NotPublishing { .. }), "{notes:?}");
+    assert_eq!(
+        notes[0],
+        Note::NoSelfTest {
+            kind: io::ErrorKind::NotADirectory
+        },
+        "{notes:?}"
+    );
+    assert!(matches!(notes[1], Note::NotPublishing { .. }), "{notes:?}");
 }
 
 #[test]
@@ -984,6 +995,10 @@ fn every_note_is_one_line_about_the_program_or_the_lamps_level() {
         },
         Note::Receiving,
         Note::TooManyParts,
+        Note::NoSelfTest {
+            kind: io::ErrorKind::PermissionDenied,
+        },
+        Note::SelfTestUnreadable,
     ]
     .iter()
     .map(Note::to_string)
@@ -1004,6 +1019,8 @@ fn every_note_is_one_line_about_the_program_or_the_lamps_level() {
             "diagnostics cannot be received from (permission denied)",
             "diagnostics is received from again",
             "more than 64 parts report: the newcomers are not kept",
+            "lamp/selftest cannot be received from (permission denied): the health goes on without it",
+            "a message on lamp/selftest is not a whole run: it is passed over",
         ]
     );
     assert!(lines.iter().all(|line| !line.contains('\n')));
@@ -1084,4 +1101,99 @@ fn lamp_online_follows_the_voice_link_only_when_asked() {
         }
     }
     rig.stop();
+}
+
+/// A self-test run of these parts, begun now.
+fn selftest(parts: &[(&str, Verdict, &str)]) -> SelfTest {
+    let parts: Vec<PartResult> = parts
+        .iter()
+        .map(|(part, verdict, reason)| PartResult {
+            part: (*part).into(),
+            verdict: *verdict,
+            reason: (*reason).into(),
+            values: Vec::new(),
+            took: 0.1,
+        })
+        .collect();
+    SelfTest {
+        occasion: Occasion::OnDemand,
+        started: SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_secs_f64(),
+        took: 2.0,
+        verdict: SelfTest::verdict_of(&parts),
+        parts,
+    }
+}
+
+/// #812: a lamp says a part has failed before its person finds out. A run
+/// that failed a part, kept on `lamp/selftest` before the loop began, makes
+/// the lamp `error`, naming the part and why; the next run, which passed,
+/// makes it well again; a message that is no whole run is passed over and
+/// said once, and the run before it stands.
+#[test]
+fn a_part_the_selftest_failed_is_in_the_lamps_health_until_a_run_passes() {
+    let failed = selftest(&[
+        ("voice_mic", Verdict::Pass, ""),
+        (
+            "storage",
+            Verdict::Fail,
+            "9 SD/MMC re-tunes timed out since boot",
+        ),
+        ("touch", Verdict::NotChecked, "Controls is not running"),
+    ]);
+    let mut rig = Rig::with(
+        "selftest",
+        |_| {},
+        None,
+        |rig| {
+            let mut out = rig
+                .bus
+                .publisher_declared(SelfTest::TOPIC, &SelfTest::declaration(), "selftest")
+                .unwrap();
+            out.publish_json(0, &failed).unwrap();
+        },
+    );
+    let health = rig.health_where("the failed run is in it", |health| {
+        item(health, "selftest").is_some()
+    });
+    assert_eq!(
+        item(&health, "selftest").map(|item| (item.level, item.message.as_str())),
+        Some((
+            Level::Error,
+            "failed: storage (9 SD/MMC re-tunes timed out since boot)"
+        ))
+    );
+    assert_eq!(
+        (health.level, health.message.as_str()),
+        (
+            Level::Error,
+            "selftest: failed: storage (9 SD/MMC re-tunes timed out since boot)"
+        )
+    );
+
+    let mut out = rig
+        .bus
+        .publisher_declared(SelfTest::TOPIC, &SelfTest::declaration(), "selftest")
+        .unwrap();
+    out.publish_json(1, &serde_json::json!({"not": "a run"}))
+        .unwrap();
+    rig.said("the message that is no run", |note| {
+        *note == Note::SelfTestUnreadable
+    });
+    let passed = selftest(&[
+        ("voice_mic", Verdict::Pass, ""),
+        ("storage", Verdict::Pass, ""),
+        ("touch", Verdict::NotChecked, "Controls is not running"),
+    ]);
+    out.publish_json(2, &passed).unwrap();
+    let health = rig.health_where("the passing run is in it", |health| {
+        level_of(health, "selftest") == Some(Level::Ok)
+    });
+    assert_eq!(
+        item(&health, "selftest").map(|item| item.message.as_str()),
+        Some("passed; 1 not checked")
+    );
+    assert_eq!((health.level, health.message.as_str()), (Level::Ok, ""));
 }

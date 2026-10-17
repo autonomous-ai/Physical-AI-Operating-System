@@ -77,6 +77,7 @@ All with the types of [lamp-msgs](msgs.md), under the name `health`.
 | `diagnostics` | `lamp_msgs/Diagnostic` | event | Publishes the board's own report, named `board` | Once a second. With a stale time under three seconds, three times within it, so that the board is never stale by its own doing |
 | `lamp/health` | `lamp_msgs/Health` | latest | Publishes how the whole lamp is | At once when it says something new, and every 5 s besides. It means nothing after 15 s |
 | `board/state` | `lamp_msgs/BoardState` | latest | Publishes the board's numbers | Every 5 s, when the board is read. It means nothing after 15 s |
+| `lamp/selftest` | `lamp_msgs/SelfTest` | latest | Subscribes: the self-test's newest run, its kept value first ([The self-test's run](#the-self-tests-run)) | As runs come; the subscription is tried again each second while it cannot be made |
 
 The two kept values come five seconds apart, and the bus takes a publisher
 that has been silent for its lease of three seconds for gone. So the
@@ -151,6 +152,36 @@ more, a part no longer missing, a part gone stale or come back. The count
 of seconds in `not heard from for N s` is an age too, so a part that stays
 quiet is news once and not again with every second. A health that is no
 news is published when five seconds have passed since the last.
+
+## The self-test's run
+
+A lamp says a part has failed before its person finds out (#812). The
+self-test (`lamp-selftest`, [selftest.md](selftest.md)) publishes no
+`diagnostics`: a run is rare, and a one-off part would go stale here. So
+`serve` subscribes to `lamp/selftest` and keeps its newest whole run (one
+that passes `SelfTest::check`), the run kept on the topic first. Each time
+the health is worked out it gets one more item, `selftest`
+(`parts::selftest_item`, `parts::mark_selftest`):
+
+- **A part failed:** `error`, `failed: PART (REASON), …` for each part that
+  failed, in the order they ran. The lamp is then `error` too, with that as
+  its message, until a run passes.
+- **None failed:** `ok`, `passed`, or `passed; N not checked`. An ok item
+  lowers nothing.
+- **Its age** is since the run began, by the wall clock. It is never
+  stale: a run holds until the next.
+- A part that reports on `diagnostics` under the name `selftest` keeps its
+  own report.
+- `lamp-keeper`, which restarts a part unwell for long enough, passes the
+  item over (`keep.rs`, `SELFTEST`): it is a result, not a part that runs,
+  and `lamp-selftest.service` is never restarted for it, mid-run least of
+  all.
+
+A message on `lamp/selftest` that is no whole run is passed over and said
+(`a message on lamp/selftest is not a whole run`); the run before it
+stands. If the topic cannot be subscribed to, that is said once
+(`lamp/selftest cannot be received from (…)`) and the health goes on
+without the item, trying again each second.
 
 ## Memory reports
 

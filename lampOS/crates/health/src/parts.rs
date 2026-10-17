@@ -8,7 +8,7 @@
 //!
 //! [`health`] is the whole of the rule and touches nothing: the reports,
 //! the time and what is expected go in, and a `Health` comes out.
-use lamp_msgs::{Diagnostic, Health, HealthItem, Level, Online};
+use lamp_msgs::{Diagnostic, Health, HealthItem, Level, Online, SelfTest, Verdict};
 use std::{
     collections::BTreeMap,
     time::{Duration, Instant},
@@ -198,6 +198,68 @@ pub fn mark_off(health: &mut Health, off: &[(String, String)]) {
     });
 }
 
+/// The name the self-test's newest run has among the lamp's parts.
+pub const SELFTEST: &str = "selftest";
+
+/// The self-test's newest run (`lamp/selftest`) as one item of the lamp's
+/// health (#812: a lamp says a part has failed before its person finds
+/// out). A part that failed makes it `error`, naming each such part and
+/// why; a run with none is `ok`, saying how many parts it could not check.
+/// Its age is since the run began (`now_unix_s`, the wall clock's seconds),
+/// and it is never stale: a run is rare and holds until the next.
+pub fn selftest_item(test: &SelfTest, now_unix_s: f64) -> HealthItem {
+    let failed: Vec<String> = test
+        .parts
+        .iter()
+        .filter(|part| part.verdict == Verdict::Fail)
+        .map(|part| format!("{} ({})", part.part, part.reason))
+        .collect();
+    let unchecked = test
+        .parts
+        .iter()
+        .filter(|part| part.verdict == Verdict::NotChecked)
+        .count();
+    let (level, message) = if failed.is_empty() {
+        let message = match unchecked {
+            0 => "passed".to_owned(),
+            n => format!("passed; {n} not checked"),
+        };
+        (Level::Ok, message)
+    } else {
+        (Level::Error, format!("failed: {}", failed.join(", ")))
+    };
+    let age_s = (now_unix_s - test.started).max(0.0);
+    HealthItem {
+        name: SELFTEST.to_owned(),
+        level,
+        message: one_line(&message),
+        age_ms: (age_s * 1_000.0).min(u64::MAX as f64) as u64,
+    }
+}
+
+/// Add the self-test's item to `health`, in its place among the items,
+/// and work the lamp's level and message out again as [`health`] does: a
+/// failed part makes the lamp `error`. A part that reported under the same
+/// name keeps its own report. What comes out still passes `Health::check`.
+pub fn mark_selftest(health: &mut Health, item: HealthItem) {
+    if health.items.iter().any(|kept| kept.name == item.name) {
+        return;
+    }
+    health.items.push(item);
+    health.items.sort_by(|a, b| {
+        b.level
+            .rank()
+            .cmp(&a.level.rank())
+            .then_with(|| a.name.cmp(&b.name))
+    });
+    let worst = health.items.first().filter(|item| item.level != Level::Ok);
+    (health.level, health.message) = match (worst, health.missing.first()) {
+        (Some(item), _) => (item.level, said(item)),
+        (None, Some(name)) => (Level::Stale, format!("{name}: has never reported")),
+        (None, None) => (Level::Ok, String::new()),
+    };
+}
+
 /// How the whole lamp is at `now`, from each part's newest report.
 ///
 /// - A part heard from within `stale_after` has the level and the message
@@ -353,6 +415,93 @@ mod tests {
     /// #811: a part that runs only where its file is (tasks needs Harness)
     /// is listed as off while the file is missing: ok, never missing, and the
     /// lamp's health stays ok.
+    fn run(parts: &[(&str, Verdict, &str)], started: f64) -> SelfTest {
+        let parts: Vec<lamp_msgs::PartResult> = parts
+            .iter()
+            .map(|(part, verdict, reason)| lamp_msgs::PartResult {
+                part: (*part).into(),
+                verdict: *verdict,
+                reason: (*reason).into(),
+                values: Vec::new(),
+                took: 0.1,
+            })
+            .collect();
+        SelfTest {
+            occasion: lamp_msgs::Occasion::FirstBoot,
+            started,
+            took: 2.0,
+            verdict: SelfTest::verdict_of(&parts),
+            parts,
+        }
+    }
+
+    /// #812: a run's item names each part that failed and why, says how
+    /// many it could not check when none failed, and is as old as the run.
+    #[test]
+    fn the_selftests_item_names_what_failed_and_is_as_old_as_its_run() {
+        let failed = run(
+            &[
+                ("ring", Verdict::Fail, "red did not light"),
+                ("air", Verdict::NotFitted, "no sensor"),
+                ("storage", Verdict::Fail, "9 re-tunes timed out"),
+            ],
+            1_000.0,
+        );
+        let item = selftest_item(&failed, 1_090.5);
+        assert_eq!(item.name, SELFTEST);
+        assert_eq!(item.level, Level::Error);
+        assert_eq!(
+            item.message,
+            "failed: ring (red did not light), storage (9 re-tunes timed out)"
+        );
+        assert_eq!(item.age_ms, 90_500);
+        let passed = run(
+            &[
+                ("ring", Verdict::Pass, ""),
+                ("touch", Verdict::NotChecked, "nobody there"),
+                ("air", Verdict::NotFitted, "no sensor"),
+            ],
+            1_000.0,
+        );
+        let item = selftest_item(&passed, 1_000.0);
+        assert_eq!(
+            (item.level, item.message.as_str()),
+            (Level::Ok, "passed; 1 not checked")
+        );
+        let all = run(&[("ring", Verdict::Pass, "")], 1_000.0);
+        assert_eq!(selftest_item(&all, 999.0).message, "passed");
+        // A clock behind the run's start is no negative age.
+        assert_eq!(selftest_item(&all, 999.0).age_ms, 0);
+    }
+
+    /// A failed run makes a well lamp `error`, with the item first and the
+    /// lamp's message from it; a passing run lowers nothing; a part that
+    /// reported as `selftest` keeps its own report.
+    #[test]
+    fn a_failed_selftest_makes_the_lamp_error_and_still_passes_the_check() {
+        let mut health = of(&[(Level::Ok, "voice", "", 0)], &["voice", "body"]);
+        let failed = run(&[("ring", Verdict::Fail, "red did not light")], 0.0);
+        mark_selftest(&mut health, selftest_item(&failed, 1.0));
+        assert_eq!(health.check(), Ok(()), "{health:?}");
+        assert_eq!(health.items[0].name, SELFTEST);
+        assert_eq!(
+            (health.level, health.message.as_str()),
+            (Level::Error, "selftest: failed: ring (red did not light)")
+        );
+        assert_eq!(health.missing, ["body"]);
+
+        let mut health = of(&[(Level::Ok, "voice", "", 0)], &["voice"]);
+        let passed = run(&[("ring", Verdict::Pass, "")], 0.0);
+        mark_selftest(&mut health, selftest_item(&passed, 1.0));
+        assert_eq!(health.check(), Ok(()), "{health:?}");
+        assert_eq!((health.level, health.message.as_str()), (Level::Ok, ""));
+        assert_eq!(health.items.len(), 2);
+
+        let mut health = of(&[(Level::Warn, SELFTEST, "its own", 0)], &[]);
+        mark_selftest(&mut health, selftest_item(&failed, 1.0));
+        assert_eq!(shape(&health), [(SELFTEST, Level::Warn, "its own")]);
+    }
+
     #[test]
     fn a_part_off_for_want_of_its_file_is_listed_off_not_missing() {
         let parts = Parts::new();

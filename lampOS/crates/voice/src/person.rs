@@ -75,7 +75,17 @@ pub fn from_environment() -> Option<String> {
         return None;
     }
     match read(path) {
-        Ok(name) => name,
+        Ok(Some(name)) => {
+            // Said each time it is read (each session, each hello), so a
+            // journal shows it was used; never the name itself.
+            eprintln!(
+                "lamp-voice: the person's name from {} is used ({} characters)",
+                path.display(),
+                name.chars().count()
+            );
+            Some(name)
+        }
+        Ok(None) => None,
         Err(why) => {
             eprintln!("lamp-voice: the person's name is not used: {why}");
             None

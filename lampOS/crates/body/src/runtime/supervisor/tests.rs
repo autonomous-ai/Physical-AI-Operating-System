@@ -36,20 +36,6 @@ fn inert_child() {
         let _control = lamp_ipc::Endpoint::bind(directory.join("motor.c.w")).unwrap();
         std::process::exit(7);
     }
-    let mut channels = Channels::bind(&directory, parent, own, true).unwrap();
-    let deadline = Instant::now() + Duration::from_secs(2);
-    while !channels.connect_step().unwrap() {
-        assert!(Instant::now() < deadline);
-        std::thread::sleep(Duration::from_millis(1))
-    }
-    if mode == "crash" {
-        std::process::exit(7)
-    }
-    if mode == "hang" {
-        loop {
-            std::thread::park_timeout(Duration::from_secs(1));
-        }
-    }
     let unit = UnitId::new("inert-child").unwrap();
     let calibration = UnitCalibration::new(
         unit.clone(),
@@ -74,6 +60,23 @@ fn inert_child() {
     )
     .unwrap();
     let worker = Worker::new(core, SystemClock, parent, own, own, 1_000_000).unwrap();
+    // Built before the endpoints are bound: the parent issues Authority as
+    // soon as it can connect, and a datagram that waits in the queue past
+    // MAX_AGE_US while this child starts is refused as stale.
+    let mut channels = Channels::bind(&directory, parent, own, true).unwrap();
+    let deadline = Instant::now() + Duration::from_secs(2);
+    while !channels.connect_step().unwrap() {
+        assert!(Instant::now() < deadline);
+        std::thread::sleep(Duration::from_millis(1))
+    }
+    if mode == "crash" {
+        std::process::exit(7)
+    }
+    if mode == "hang" {
+        loop {
+            std::thread::park_timeout(Duration::from_secs(1));
+        }
+    }
     let result = if mode == "hang_after_ready" {
         struct HangAfterReady(Channels);
         impl worker::Link for HangAfterReady {

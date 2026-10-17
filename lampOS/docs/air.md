@@ -23,8 +23,13 @@ counts it as back. Each look is an I2C transaction, and the kernel logs
 every one nobody acknowledges ("ACK not received"): on lamp-cb94, which
 has no sensor, a look every 200 ms made about 300 kernel lines a minute,
 and the journal kept only about 90 minutes. The journal hears of it twice,
-the first miss and when the sensor counts as absent, and the health report
-says so steadily with the last error. A sensor that stops answering is
+the first miss and when the sensor counts as absent. The health report
+says it steadily: a sensor that never answered since `lamp-air` started is
+`ok`, "not fitted" (a lamp without one is well), and one that answered, by
+name or with words that failed their CRC, and gives no reading is a
+warning with the last error. A reading already kept on `air/state` this
+boot counts as an answer, so a restart of `lamp-air` never takes a fitted
+sensor that now only refuses for an absent one (#1324). A sensor that stops answering is
 looked for again 5 s later, then the same way; one plugged back in is found
 within ten minutes, or at once after `systemctl restart lamp-air`. A bus
 that cannot be opened (no `/dev/i2c-0`, or no permission) makes no
@@ -39,7 +44,7 @@ room's, and nothing should speak of them as if they were.
 | Topic | Type | Kind | What |
 |---|---|---|---|
 | `air/state` | `AirState` | latest, every 5 s | PM1, PM2.5, PM4, PM10 (ug/m3), humidity (%), temperature (°C), CO2 (ppm), and `feel`: fresh (under 800 ppm), fine (to 1,200), stuffy (to 2,000), very stuffy, or unknown |
-| `diagnostics` | `Diagnostic` | every second | `air`: ok, or a warning with why the sensor does not answer ("the sensor does not answer: …" in its first three looks; then `no air sensor answers on I2C bus 0 (…); looked for again every 10 min` for a sensor that has never answered since `lamp-air` started, or `the air sensor answered but gives no reading on I2C bus 0 (…)` for one that has, by name or with a reading that failed its CRC. The self-test reads these words, kept as `watch::LOOKING`, `ABSENT` and `NO_READING`: the first is `not_checked`, the second `not_fitted`, the third a `fail` (#1324)); the feel, CO2 and PM2.5 |
+| `diagnostics` | `Diagnostic` | every second | `air`: ok, or a warning with why the sensor does not answer ("the sensor does not answer: …" in its first three looks; then, for a sensor that has never answered since `lamp-air` started, an **`ok`** report, `not fitted: no air sensor has answered since start` (the sensor is optional, so a lamp without one is well; the journal keeps `no air sensor answers on I2C bus 0 (…); looked for again every 10 min`), or `the air sensor answered but gives no reading on I2C bus 0 (…)` for one that has, by name or with a reading that failed its CRC. The self-test reads these words, kept as `watch::LOOKING`, `NOT_FITTED` (and `ABSENT`) and `NO_READING`: the first is `not_checked`, the second `not_fitted`, the third a `fail` (#1324)); the feel, CO2 and PM2.5 |
 
 The bands follow carbon dioxide because that is what a person at the desk
 feels as a stuffy room; they are round figures, not a standard.

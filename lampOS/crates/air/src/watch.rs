@@ -37,6 +37,13 @@ pub const ABSENT: &str = "no air sensor answers";
 /// a fitted sensor that is faulty or unseated (lamp-4ace), never taken for
 /// an absent one (the Seventh and the reviewer on #1324).
 pub const NO_READING: &str = "the air sensor answered but gives no reading";
+/// What the health report says, at `ok`, for a sensor counted [`ABSENT`]:
+/// the sensor is optional, and a part a lamp does not have is no warning,
+/// so `lamp-health` says the lamp is well (the first builder on #705, 17 Oct
+/// 15:36). The journal keeps the [`ABSENT`] line with the bus and error. A
+/// fitted sensor that fails ([`NO_READING`], or a reading that failed)
+/// stays a warning.
+pub const NOT_FITTED: &str = "not fitted: no air sensor has answered since start";
 
 /// Why a look found no sensor.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -77,6 +84,7 @@ pub trait Say {
 /// The health report: ok, or a warning with why, and the last air read.
 pub fn report(why: Option<&str>, last: Option<&AirState>) -> Diagnostic {
     let mut report = match why {
+        Some(why) if why.starts_with(ABSENT) => Diagnostic::new(Level::Ok, "air", NOT_FITTED),
         Some(why) => Diagnostic::new(Level::Warn, "air", why),
         None => Diagnostic::new(Level::Ok, "air", ""),
     };
@@ -130,10 +138,26 @@ pub fn run(
     bus_number: u32,
     until: Duration,
 ) {
+    run_answered(sensor, clock, say, bus_number, until, false);
+}
+
+/// [`run`], told whether the sensor already answered this boot, before
+/// this `lamp-air` started: a restart (a crash, an update, a replugged
+/// sensor) must not take a fitted sensor that only refuses for an absent
+/// one (the reviewer on #1324). `main` knows it by a reading already kept
+/// on `air/state`, which lives under `/run` and so clears at each boot.
+pub fn run_answered(
+    sensor: &mut impl Sensor,
+    clock: &mut impl Clock,
+    say: &mut impl Say,
+    bus_number: u32,
+    until: Duration,
+    answered_before: bool,
+) {
     let mut found = false;
     // Whether the sensor has answered since start: by name, or with words
     // that failed their CRC (something on the bus spoke). Never cleared.
-    let mut ever_answered = false;
+    let mut ever_answered = answered_before;
     // Looks and readings in a row that gave no reading, counted out only by a
     // good reading, so a sensor that answers its name and then fails backs
     // off as one that never answers (eighth and the reviewer on #1163).
@@ -282,6 +306,8 @@ mod tests {
         answers_from: Option<Duration>,
         stops_at: Option<Duration>,
         reads_fail: bool,
+        /// Every look answers, but with words that fail their CRC.
+        garbled: bool,
         measuring_from: Duration,
         transactions: u32,
         not_acknowledged: u32,
@@ -307,6 +333,10 @@ mod tests {
                 return Err(Missing::NoBus(
                     "No such file or directory (os error 2)".into(),
                 ));
+            }
+            if self.garbled {
+                self.transactions += 1;
+                return Err(Missing::NoAnswer("word 0 fails its CRC".into()));
             }
             self.answers()
                 .map(|()| "SEN63C".into())
@@ -407,10 +437,7 @@ mod tests {
         );
         let (when, last) = said.reports.last().unwrap();
         assert!(*when > at(3_598));
-        assert_eq!(
-            (last.level, last.message.as_str()),
-            (Level::Warn, absent.as_str())
-        );
+        assert_eq!((last.level, last.message.as_str()), (Level::Ok, NOT_FITTED));
     }
 
     /// Eighth and the reviewer on #1163: a sensor that answers its name and
@@ -434,6 +461,46 @@ mod tests {
             ]
         );
         assert_eq!(said.airs, 0);
+    }
+
+    /// The reviewer's P2 on #1324: a sensor whose every look comes back
+    /// with words that fail their CRC has answered (something on the bus
+    /// spoke): it ends as one that gives no reading, a warning, never as
+    /// not fitted.
+    #[test]
+    fn a_sensor_whose_every_look_fails_its_crc_has_answered_and_is_no_reading_not_absent() {
+        let (_, said) = run_for(60, |bus| bus.garbled = true);
+        let (_, last) = said.reports.last().unwrap();
+        assert_eq!(last.level, Level::Warn, "{last:?}");
+        assert!(last.message.starts_with(NO_READING), "{last:?}");
+    }
+
+    /// The reviewer's P3 on #1324: after a restart this boot, a sensor that
+    /// answered before and now only refuses is still no reading, not absent.
+    #[test]
+    fn a_sensor_that_answered_before_a_restart_is_not_taken_for_absent() {
+        let time: Time = Rc::default();
+        let mut bus = Bus {
+            time: Rc::clone(&time),
+            ..Bus::default()
+        };
+        let mut said = Said {
+            time: Rc::clone(&time),
+            airs: 0,
+            reports: Vec::new(),
+            lines: Vec::new(),
+        };
+        run_answered(
+            &mut bus,
+            &mut Stepped(Rc::clone(&time)),
+            &mut said,
+            0,
+            at(60),
+            true,
+        );
+        let (_, last) = said.reports.last().unwrap();
+        assert_eq!(last.level, Level::Warn, "{last:?}");
+        assert!(last.message.starts_with(NO_READING), "{last:?}");
     }
 
     /// A sensor plugged in, or woken, later is found at the next look and
@@ -535,10 +602,24 @@ mod tests {
     #[test]
     fn report_is_ok_or_a_warning_and_carries_the_last_air() {
         assert_eq!(report(None, None).level, Level::Ok);
-        let warned = report(Some("no air sensor"), None);
+        let warned = report(Some("a reading failed: word 0 fails its CRC"), None);
         assert_eq!(
             (warned.level, warned.message.as_str()),
-            (Level::Warn, "no air sensor")
+            (Level::Warn, "a reading failed: word 0 fails its CRC")
         );
+        // Absent is no warning: the sensor is optional (the first builder,
+        // 17 Oct 15:36). Answered and silent stays one.
+        let absent = report(
+            Some(&format!(
+                "{ABSENT} on I2C bus 0 (x); looked for again every 10 min"
+            )),
+            None,
+        );
+        assert_eq!(
+            (absent.level, absent.message.as_str()),
+            (Level::Ok, NOT_FITTED)
+        );
+        let silent = report(Some(&format!("{NO_READING} on I2C bus 0 (x)")), None);
+        assert_eq!(silent.level, Level::Warn);
     }
 }

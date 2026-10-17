@@ -70,7 +70,8 @@ enum AtStart {
 struct OpenAtStart {
     busy_since: Option<Instant>,
     gone_since: Option<Instant>,
-    last: Option<AtStart>,
+    /// Failed opens so far.
+    failed: u32,
     next: Option<Instant>,
 }
 
@@ -94,7 +95,7 @@ impl OpenAtStart {
             AtStart::Gone => (&mut self.gone_since, GONE_AT_START, GONE_RETRY),
         };
         let since = *since.get_or_insert(now);
-        self.last = Some(why);
+        self.failed = self.failed.saturating_add(1);
         self.next = Some(now + retry);
         now.duration_since(since) < bound
     }
@@ -104,15 +105,21 @@ impl OpenAtStart {
         self.next.is_none_or(|next| now >= next)
     }
 
-    /// The microphone opened: what it last waited for, and how long since
-    /// the first failed open.
-    fn opened(&mut self, now: Instant) -> Option<(AtStart, Duration)> {
-        let first = match (self.busy_since.take(), self.gone_since.take()) {
+    /// The microphone opened: whether it was off USB at all (else only
+    /// busy), how long since the first failed open, and on which try.
+    fn opened(&mut self, now: Instant) -> Option<crate::wire::MicWaited> {
+        let gone = self.gone_since.take();
+        let first = match (self.busy_since.take(), gone) {
             (Some(busy), Some(gone)) => Some(busy.min(gone)),
             (busy, gone) => busy.or(gone),
         };
+        let failed = std::mem::take(&mut self.failed);
         self.next = None;
-        Some((self.last.take()?, now.duration_since(first?)))
+        Some(crate::wire::MicWaited {
+            gone: gone.is_some(),
+            waited_ms: u64::try_from(now.duration_since(first?).as_millis()).unwrap_or(u64::MAX),
+            opened_on_try: failed.saturating_add(1),
+        })
     }
 }
 
@@ -617,16 +624,9 @@ fn capture_loop<D: CaptureDevice>(
                     Err(error) => return Err(error.into()),
                 };
                 if let Some(report) = report {
-                    match at_start.opened(Instant::now()) {
-                        Some((AtStart::Busy, waited)) => eprintln!(
-                            "lamp-voice: capture: the microphone was busy at start for {} ms, and is open now",
-                            waited.as_millis()
-                        ),
-                        Some((AtStart::Gone, waited)) => eprintln!(
-                            "lamp-voice: capture: the microphone was gone at start for {} ms, and is open now",
-                            waited.as_millis()
-                        ),
-                        None => {}
+                    let waited = at_start.opened(Instant::now());
+                    if let Some(waited) = &waited {
+                        eprintln!("lamp-voice: capture: {}", waited.plain());
                     }
                     privacy = report.microphone_generation;
                     capture_prepared = true;
@@ -634,6 +634,7 @@ fn capture_loop<D: CaptureDevice>(
                         epoch: report.epoch,
                         privacy_generation: privacy,
                         prepared_at_us: report.prepared_at_us,
+                        waited,
                     })?;
                     link.control.send(ReferenceControl::CapturePrepared {
                         privacy_generation: privacy,
@@ -1911,9 +1912,19 @@ mod open_at_start_tests {
         assert!(!wait.waits(&gone, at(10_000)));
         let mut back = OpenAtStart::default();
         assert!(back.waits(&gone, at(0)));
+        assert!(back.waits(&gone, at(250)));
+        let waited = back.opened(at(4_500)).unwrap();
         assert_eq!(
-            back.opened(at(4_500)),
-            Some((AtStart::Gone, Duration::from_millis(4_500)))
+            waited,
+            crate::wire::MicWaited {
+                gone: true,
+                waited_ms: 4_500,
+                opened_on_try: 3
+            }
+        );
+        assert_eq!(
+            waited.plain(),
+            "the voice mic was off USB for 4.5 s at start; opened on try 3"
         );
         assert!(back.due(at(4_500)));
         assert_eq!(back.opened(at(4_600)), None);
@@ -1932,9 +1943,14 @@ mod open_at_start_tests {
         assert!(back.waits(&gone, at(0)));
         assert!(back.waits(&busy, at(4_500)));
         assert!(back.waits(&busy, at(7_499)));
+        // Off USB first, so it says so.
         assert_eq!(
             back.opened(at(7_500)),
-            Some((AtStart::Busy, Duration::from_millis(7_500)))
+            Some(crate::wire::MicWaited {
+                gone: true,
+                waited_ms: 7_500,
+                opened_on_try: 4
+            })
         );
         let mut back = OpenAtStart::default();
         assert!(back.waits(&busy, at(0)));

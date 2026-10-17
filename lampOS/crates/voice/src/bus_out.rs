@@ -452,21 +452,35 @@ fn turned_in(message: &lamp_bus::Message) -> Option<bool> {
 pub const LINK_GRACE_US: u64 = 5_000_000;
 
 /// The voice's own report (`diagnostics`): well while it can reach the
-/// speech service, or has only just lost it.
-pub fn health(link_up: bool, down_for_us: u64) -> lamp_msgs::Diagnostic {
+/// speech service, or has only just lost it. A voice mic waited for at this
+/// run's start (#1178) is its message while it is well, so `lamp-health`
+/// names it until the voice starts again; it is a value otherwise.
+pub fn health(
+    link_up: bool,
+    down_for_us: u64,
+    mic_at_start: Option<crate::wire::MicWaited>,
+) -> lamp_msgs::Diagnostic {
     use lamp_msgs::{Diagnostic, Level};
+    let well = |link: &str| match mic_at_start {
+        Some(waited) => Diagnostic::new(Level::Ok, SOURCE, &waited.plain()).with("link", link),
+        None => Diagnostic::ok(SOURCE).with("link", link),
+    };
     if link_up {
-        Diagnostic::ok(SOURCE).with("link", "ready")
+        well("ready")
     } else if down_for_us < LINK_GRACE_US {
-        Diagnostic::ok(SOURCE).with("link", "connecting")
+        well("connecting")
     } else {
-        Diagnostic::new(
+        let down = Diagnostic::new(
             Level::Warn,
             SOURCE,
             "it cannot reach the speech service, and keeps trying",
         )
         .with("link", "down")
-        .with("down_for_s", down_for_us / 1_000_000)
+        .with("down_for_s", down_for_us / 1_000_000);
+        match mic_at_start {
+            Some(waited) => down.with("mic_at_start", waited.plain()),
+            None => down,
+        }
     }
 }
 
@@ -589,7 +603,12 @@ impl BusOut {
     /// Whether the voice can reach the speech service now. Call every
     /// tick: how the voice is, is said a little more often than once a
     /// second, for the lamp's health.
-    pub fn report(&mut self, link_up: bool, now_us: u64) {
+    pub fn report(
+        &mut self,
+        link_up: bool,
+        now_us: u64,
+        mic_at_start: Option<crate::wire::MicWaited>,
+    ) {
         if link_up {
             self.down_since_us = None;
         } else {
@@ -605,7 +624,9 @@ impl BusOut {
         let down_for = self
             .down_since_us
             .map_or(0, |since| now_us.saturating_sub(since));
-        let _ = self.health.publish_json(now_us, &health(link_up, down_for));
+        let _ = self
+            .health
+            .publish_json(now_us, &health(link_up, down_for, mic_at_start));
         if let Some(link) = &mut self.link {
             let _ = link.publish_json(now_us, &link_state(link_up, down_for));
         }
@@ -696,12 +717,12 @@ mod tests {
         assert!(down.check().is_ok());
         let (bus, root) = bus("link");
         let mut off = BusOut::on(&bus).unwrap().with_link(&bus, false).unwrap();
-        off.report(false, 0);
-        off.report(false, LINK_GRACE_US + 1_000_000);
+        off.report(false, 0, None);
+        off.report(false, LINK_GRACE_US + 1_000_000, None);
         assert!(bus.latest(VoiceLink::TOPIC).unwrap().is_none());
         let mut on = BusOut::on(&bus).unwrap().with_link(&bus, true).unwrap();
-        on.report(false, 0);
-        on.report(false, LINK_GRACE_US + 1_000_000);
+        on.report(false, 0, None);
+        on.report(false, LINK_GRACE_US + 1_000_000, None);
         let latest = bus.latest(VoiceLink::TOPIC).unwrap().unwrap();
         assert_eq!(
             latest.parse::<VoiceLink>().unwrap(),
@@ -797,21 +818,21 @@ mod tests {
                 .map(|fact| (fact.key.clone(), fact.value.clone()))
                 .collect()
         };
-        let up = health(true, 0);
+        let up = health(true, 0, None);
         assert_eq!(
             (up.level, up.name.as_str(), up.message.as_str()),
             (Level::Ok, "voice", "")
         );
         assert_eq!(facts(&up), [("link".to_string(), "ready".to_string())]);
         // Down for a moment, as at every start and every renewal: still well.
-        let renewing = health(false, LINK_GRACE_US - 1);
+        let renewing = health(false, LINK_GRACE_US - 1, None);
         assert_eq!(renewing.level, Level::Ok);
         assert_eq!(
             facts(&renewing),
             [("link".to_string(), "connecting".to_string())]
         );
         // Down for longer: said, with for how long.
-        let down = health(false, 42_500_000);
+        let down = health(false, 42_500_000, None);
         assert_eq!(
             (down.level, down.message.as_str()),
             (
@@ -826,6 +847,30 @@ mod tests {
                 ("down_for_s".to_string(), "42".to_string())
             ]
         );
+        // A voice mic waited for at start (#1178): the message while well,
+        // so `lamp-health` names it; a value beside a warning.
+        let waited = Some(crate::wire::MicWaited {
+            gone: true,
+            waited_ms: 4_300,
+            opened_on_try: 18,
+        });
+        let noted = health(true, 0, waited);
+        assert_eq!(
+            (noted.level, noted.message.as_str()),
+            (
+                Level::Ok,
+                "the voice mic was off USB for 4.3 s at start; opened on try 18"
+            )
+        );
+        let down = health(false, 42_500_000, waited);
+        assert_eq!(down.level, Level::Warn);
+        assert_eq!(
+            facts(&down).last().unwrap(),
+            &(
+                "mic_at_start".to_string(),
+                "the voice mic was off USB for 4.3 s at start; opened on try 18".to_string()
+            )
+        );
         // On the bus: a little more often than once a second, and the
         // time the link has been down is counted from when it went.
         let (bus, root) = bus("health");
@@ -835,7 +880,7 @@ mod tests {
         let mut out = BusOut::on(&bus).unwrap();
         // Nine seconds of ticks, 2 ms apart: up for one, then down.
         for tick in 0..4_500u64 {
-            out.report(tick < 500, tick * 2_000);
+            out.report(tick < 500, tick * 2_000, None);
         }
         let mut said = Vec::new();
         while let Some(message) = hears.recv(Duration::from_millis(50)).unwrap() {

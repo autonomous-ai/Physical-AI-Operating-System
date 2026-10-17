@@ -307,7 +307,13 @@ Two of the voice's start-up failures, found on lamp-52e6 and lamp-4ace on
   reason's bound runs from its own first answer, so a microphone that comes
   back from off USB and answers busy for a moment still gets its 3 s. A mute
   during the wait opens nothing and ends the worker. Only the start is
-  covered: a microphone lost mid-run still ends it.
+  covered: a microphone lost mid-run still ends it. A wait that ended with
+  the microphone open is said in one plain line, the same in three places:
+  the journal (`lamp-voice: capture: the voice mic was off USB for 4.3 s at
+  start; opened on try 18`, or `was busy`), the session's events
+  (`mic_waited_at_start`, with `said` and the numbers) and the voice's
+  health, so `lamp-health show` names it beside `voice` until the voice
+  starts again.
 - **A worker's first control message older than 100 ms.** A worker sends its
   first control message as soon as its peer is there; at start the
   coordinator may read it only after starting its other workers. lamp-4ace

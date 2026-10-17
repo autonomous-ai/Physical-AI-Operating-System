@@ -6054,7 +6054,7 @@ fn conversation_with_gate(
                 crate::ring_wire::RingPhase::from_snapshot(snapshot).filter(|_| !sound_now),
                 clock,
             );
-            bus.report(cloud.available(), clock);
+            bus.report(cloud.available(), clock, trace.mic_at_start);
         }
         if let Some(mic) = mic_out.as_mut() {
             mic.tick(clock);
@@ -8772,10 +8772,20 @@ fn drain_capture_control(
             break;
         };
         match event {
-            WorkerEvent::CapturePrepared { .. } => record(
-                trace,
-                json!({"kind":"capture_prepared","at_us":monotonic_us(),"details":event}),
-            )?,
+            WorkerEvent::CapturePrepared { waited, .. } => {
+                if let Some(waited) = waited {
+                    trace.mic_at_start = Some(waited);
+                    record(
+                        trace,
+                        json!({"kind":"mic_waited_at_start","at_us":monotonic_us(),
+                            "said":waited.plain(),"details":waited}),
+                    )?;
+                }
+                record(
+                    trace,
+                    json!({"kind":"capture_prepared","at_us":monotonic_us(),"details":event}),
+                )?
+            }
             WorkerEvent::CaptureStarted {
                 epoch: started,
                 noise_suppression,
@@ -9519,6 +9529,54 @@ mod tests {
                 );
             }
         }
+    }
+
+    /// A voice mic waited for at start (#1178) is one plain line in the
+    /// session's events, and is kept for the voice's health; a prepare with
+    /// no wait says nothing more than before.
+    #[test]
+    fn a_mic_waited_for_at_start_is_said_plainly_and_kept_for_the_health() {
+        let dir = SessionDirectory::create().unwrap();
+        let (mut parent, mut child) = pair(&dir, "capture");
+        let mut epoch = None;
+        let mut trace = SessionState::default();
+        let waited = crate::wire::MicWaited {
+            gone: true,
+            waited_ms: 4_300,
+            opened_on_try: 18,
+        };
+        for waited in [None, Some(waited)] {
+            child
+                .control
+                .send(WorkerEvent::CapturePrepared {
+                    epoch: 1,
+                    privacy_generation: 0,
+                    prepared_at_us: 1,
+                    waited,
+                })
+                .unwrap();
+        }
+        drain_capture_control(
+            &mut parent.control,
+            &mut epoch,
+            NoiseSuppression::Off,
+            &mut trace,
+        )
+        .unwrap();
+        let kinds: Vec<_> = trace.iter().map(|event| event["kind"].clone()).collect();
+        assert_eq!(
+            kinds,
+            [
+                json!("capture_prepared"),
+                json!("mic_waited_at_start"),
+                json!("capture_prepared")
+            ]
+        );
+        assert_eq!(
+            trace[1]["said"],
+            "the voice mic was off USB for 4.3 s at start; opened on try 18"
+        );
+        assert_eq!(trace.mic_at_start, Some(waited));
     }
 
     #[test]

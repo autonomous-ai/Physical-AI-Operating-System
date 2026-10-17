@@ -181,9 +181,9 @@ and the worker opens a new session between turns when that person changes
 those 10 s one person's conversation never reaches another's session, and someone who
 comes back within ten minutes is told theirs again. The first session is
 for whom the eyes name as the voice starts, read before it opens: opened
-for the room, it was renewed for them the moment it was ready, a
-`server_go_away` 0 s after the start on lamp-52e6 and lamp-4ace (#705,
-17 October; `thread::tests::the_first_session_is_for_whom_the_eyes_name_at_start`).
+for the room, it was renewed for them the moment it was ready: 4
+`server_go_away` drops 0 s after a start on lamp-52e6 on 15 October (#705;
+`thread::tests::the_first_session_is_for_whom_the_eyes_name_at_start`).
 The file keeps whose
 each exchange is (`whose`, left out for the room's, so a thread with
 nobody known is written as before); an entry whose `whose` is not a memory

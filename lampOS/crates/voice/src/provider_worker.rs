@@ -301,6 +301,9 @@ pub fn parse_flags(dir: &std::path::Path, flags: &[String]) -> io::Result<Parsed
 /// anything was last submitted. A picture in a session's history makes
 /// every later answer about half a second slower ([eyes.md]), so once the
 /// conversation has paused the session is renewed without it.
+/// The eyes' known face as the voice started, before its first session:
+/// that session's person, and where the switch's count starts.
+static KNOWN_AT_START: std::sync::OnceLock<(String, Instant)> = std::sync::OnceLock::new();
 static LOOKED_AT_US: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 static SUBMITTED_AT_US: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 const RENEW_AFTER_LOOK_QUIET_US: u64 = 20_000_000;
@@ -1024,16 +1027,22 @@ pub async fn run_with_continuation(
             .barrier_policy(barrier),
     )?;
     // Whose the first session is, read before it opens: the eyes' known
-    // face, when each session is one person's (the switch below).
+    // face, when each session is one person's (the switch below). The
+    // switch's count starts from the same reading.
     if files.tools.memory.is_some()
         && let Some(path) = files
             .tools
             .who
             .as_deref()
             .map(crate::known_faces::known_file_of)
-        && let Ok(mut thread) = crate::thread::THREAD.lock()
     {
-        thread.at_start(crate::known_faces::known_now(&path).as_deref());
+        let known = crate::known_faces::known_now(&path);
+        if let Ok(mut thread) = crate::thread::THREAD.lock() {
+            thread.at_start(known.as_deref());
+        }
+        if let Some(name) = known {
+            let _ = KNOWN_AT_START.set((name, Instant::now()));
+        }
     }
     // Each session it opens is told how the conversation went until then.
     let provider = Supervisor::new(
@@ -1175,6 +1184,9 @@ async fn serve_with_visual<C: Connect>(
         .as_deref()
         .filter(|_| options.tools.memory.is_some());
     let mut presence = crate::known_faces::Presence::default();
+    if let Some((name, at)) = KNOWN_AT_START.get() {
+        presence.seen(Some(name.clone()), *at);
+    }
     let mut presence_read_at: Option<Instant> = None;
     // The name of the one counted at the lamp, for the name note: a face
     // kept under two names is told one, not each in turn (the reviewer on

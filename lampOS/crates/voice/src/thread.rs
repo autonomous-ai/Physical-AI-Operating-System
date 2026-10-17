@@ -207,8 +207,8 @@ impl Thread {
 
     /// Whom the eyes name at the lamp as the voice starts, before its first
     /// session opens, so that session is theirs. Opened for nobody, it was
-    /// renewed for them the moment it was ready: a `server_go_away` 0 s
-    /// after every start with a known face in view (lamp-52e6, lamp-4ace).
+    /// renewed for them the moment it was ready: the 4 `server_go_away`
+    /// drops 0 s after a start on lamp-52e6 on 15 October.
     pub fn at_start(&mut self, known: Option<&str>) {
         let id = known.map(crate::remember::person_id);
         self.whose.clone_from(&id);
@@ -1850,6 +1850,21 @@ mod tests {
         for second in [0, 1, 30] {
             read(&mut presence, &mut thread, at(second));
             assert!(!thread.switch_now(false, false, at(second)), "{second} s");
+        }
+        // The count starts from the start's reading (the reviewer on
+        // #1388): a stale file or another name at the loop's first reading
+        // renews nothing, where an empty count would at once.
+        for first in [None, Some("Bob")] {
+            let mut thread = Thread::new();
+            thread.at_start(Some("Ann"));
+            thread.opening(at(0));
+            let mut seeded = Presence::default();
+            seeded.seen(Some("Ann".into()), at(0));
+            for (presence, renews) in [(&mut seeded, false), (&mut Presence::default(), true)] {
+                let whose = presence.seen(first.map(str::to_owned), at(1));
+                thread.at_lamp(whose.map(crate::remember::person_id));
+                assert_eq!(thread.switch_now(false, false, at(1)), renews, "{first:?}");
+            }
         }
         // Nobody named at start: as before, the room's.
         let mut empty = Thread::new();

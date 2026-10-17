@@ -1168,16 +1168,19 @@ on ARM64, 6.1 s on the Intel Mac) checked that `LAMP_BUS_ROOT` alone, without
 is no report clock to step, so it watched for 2.2 s, twice, that nothing
 appeared.
 
-The program now says so once at start, after taking its socket:
+The program now says so once at start, from what it made: when no reporter
+was made and no `--bus-root` was given, after the socket is taken,
 `lamp-memory: health reports off: no --bus-root` (docs/memory.md). The test
 waits for that line, an event, then checks as before that the process is
 still serving, that the bus directory doesn't exist and that the log has no
-`health delivery`. The line comes from the same decision that makes the
-reporter, so the program states the absence instead of the test watching
-for it. That is a change of method, not of what is checked: a scratch change
-that lets `LAMP_BUS_ROOT` alone set the bus root fails the new test ("never
-logged …", 8 s) as it fails the old one (the bus directory appears). With a
-400 ms sleep before the line, it passes. `lamp-memory::binary`'s
+`health delivery`. The program states the absence instead of the test
+watching for it. That is a change of method, not of what is checked. A
+scratch change that lets `LAMP_BUS_ROOT` alone set the bus root fails the
+new test ("never logged …", 8 s) as it fails the old one (the bus directory
+appears). So does the tenth's, which starts a reporter from `LAMP_BUS_ROOT`
+and leaves the bus root unset: 5 of 5. A first version said the line beside
+the reporter's decision rather than from it, and caught that only 6 times in
+10 (the tenth's P2 on #1283). With a 400 ms sleep before the line, it passes. `lamp-memory::binary`'s
 `a_killed_process_leaves_a_store_the_next_one_loads_and_a_socket_it_replaces`
 counts each journal's lines exactly, and now counts the new one (5, not 4).
 

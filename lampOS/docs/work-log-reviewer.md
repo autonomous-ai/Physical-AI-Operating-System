@@ -4,6 +4,21 @@
 
 Newest first. Times from `date` (+07). 00:12 to 01:40: the review agents stopped at a usage limit.
 
+- 23:51 #1415 and #1416 ready; reviews started
+- 23:50 #1394 c7b22b2e0 is a merge commit; asked for one folded commit
+- 23:48 #1414 reviewed at 0c9bcd9f4: one P3 (step 1's pgrep pair takes the last exit only; the /proc fd check still guards); tooling, merge on green ARM64
+- 23:47 #1397 ready but conflicts with lamp-voice in switches.md (#1410); asked for a rebase
+- 23:47 merged #1411 (the setup light's retry-window test holds the fast clock across the marker)
+- 23:46 #1411 reviewed at 1e47726ed: no finding (the light test holds the fast clock across the marker; my #1402 P3); merge on green ARM64
+- 23:44 #1397 re-checked at 63162f447: P2 fixed (the early read only with patient writes; unset unchanged, pinned); off unless set; merge on green ARM64
+- 23:40 #1394 re-checked at 8f17d0e3f: P2s and P3s fixed (cb94's 313 first outputs all within 2.41 s); needs a rebase as one commit (conflicts with #926 in policy_holds.rs; a merge commit on the branch); then the first builder merges with his lamp-4ace run
+- 23:37 merged #1410 (a product lamp with no link says so once and keeps going; option A of #830)
+- 23:31 merged #1409 (a null or a number in setup's link fields never fails setup)
+- 23:24 #1410 reviewed at e488c4289: no finding (the product's offline line and lamp/online, the first builder's option A); merge on green ARM64
+- 23:18 merged #1407 (a transport failure says its cause by kind, never the URL)
+- 23:16 #1367 merged by the first builder at 23:15
+- 23:16 #1409 reviewed at 3f8f662aa: no finding (a null or a number in a link field never fails setup; my #1406 P3); merge on green ARM64
+- 23:15 #1388 and #1399 merged by the first builder at 23:15
 - 23:11 posted where every ready PR stands on #705
 - 23:10 merged #1402 (setup's light paints on a clock its tests run fast; P3: the after-marker window shrinks)
 - 23:10 merged #1406 (setup's backend link needs the device id; a link it cannot write never fails setup; a broken one names its fields; null-field 400 still open)

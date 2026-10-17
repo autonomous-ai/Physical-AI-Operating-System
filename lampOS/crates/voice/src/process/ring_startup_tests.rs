@@ -187,6 +187,26 @@ fn ready_ring_keeps_private_handshake_and_control_contract() {
     assert!(!fixture.directory.path.join("ring").exists());
 }
 
+/// What the lamp runs: the startup wait reads the host's clock. In a test
+/// build that holds until the test's own thread moves it, and only that
+/// thread's wait sees the move, so every other test starts its workers on
+/// the host's clock as before (the first builder, #1412).
+#[test]
+fn the_startup_wait_reads_the_hosts_clock_unless_this_thread_moves_it() {
+    let before = Instant::now();
+    let read = startup_now();
+    assert!(before <= read && read <= Instant::now());
+    std::thread::spawn(|| super::startup_clock::move_on(Duration::from_secs(60)))
+        .join()
+        .unwrap();
+    assert!(startup_now() <= Instant::now(), "another thread's move");
+    super::startup_clock::move_on(Duration::from_secs(60));
+    let before = Instant::now();
+    let read = startup_now();
+    assert!(read >= before + Duration::from_secs(60));
+    assert!(read <= Instant::now() + Duration::from_secs(60));
+}
+
 #[test]
 fn missing_socket_deadline_is_unchanged_and_does_not_lose_the_child() {
     let fixture = ChildFixture::new();

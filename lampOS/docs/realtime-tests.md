@@ -1412,3 +1412,11 @@ On this Mac the three went from 3.54, 3.52 and 3.52 s to 0.70, 0.72 and
 A deadline set to end at half the bound fails
 `missing_socket_deadline_is_unchanged` at the same check, old and new. A fake
 ring 400 ms slow to start leaves all ten `ring_startup_tests` passing.
+
+The first builder's ask on #1412:
+`the_startup_wait_reads_the_hosts_clock_unless_this_thread_moves_it` pins
+that the wait reads the host's clock until the test's own thread moves it,
+and that another thread's move never reaches it. So every other test starts
+its workers on the host's clock as before, and the other seven
+`ring_startup_tests` start the ring on it. A test build whose clock ignored
+the move fails it.

@@ -243,6 +243,17 @@ everything `on` does, and:
   the pause and comes back "Wait.", but the person has gone on, so it
   takes the turn from its start as any word does (the reviewer's P2 on
   #1352; `WaitWords::asked_through_us` against the loop's `last_speech_us`).
+  A stop is most likely just before the answer begins, when `on` has
+  already decided to take the sound because the answer started to sound.
+  If that sound's words were asked for and it has been quiet since, it is
+  still judged by its words: a stop stops the answer, and while they
+  aren't back it waits for them up to the same deadline
+  (`wait_words::then_once_decided`; the seventh's P2 on #1352). Two
+  stops still take the turn as before, because `on` decides them before
+  any words are asked for: one with the lamp's name ("Lamp, stop now."),
+  and one still going at its 1 s mark (a slow "Okay, stop it, please.").
+  `only_a_stop` reads them as stops; the loop never asks it (the
+  seventh's P3 on #1352).
 - where `on` would let it go and its words aren't back: it waits for them
   while it hasn't ended, up to 100 ms before its deadline, and is then let
   go as with `on`. A sound that has ended is never held. The next sound's
@@ -317,9 +328,10 @@ Tests:
   `with_words_a_cough_a_filler_or_no_words_in_time_are_let_go`,
   `with_words_a_sound_is_never_held_for_them_past_its_end`,
   `how_long_the_words_may_take_by_length`,
-  `a_stream_for_words_is_kept_ready_only_while_a_sound_may_wait` and
-  `with_words_a_lone_stop_while_an_answer_waits_stops_it_and_is_never_asked` and
-  `with_words_a_stop_the_person_went_on_from_takes_the_turn_and_a_lone_one_stops`.
+  `a_stream_for_words_is_kept_ready_only_while_a_sound_may_wait`,
+  `with_words_a_lone_stop_while_an_answer_waits_stops_it_and_is_never_asked`,
+  `with_words_a_stop_the_person_went_on_from_takes_the_turn_and_a_lone_one_stops` and
+  `with_words_a_stop_just_before_the_answer_sounds_still_stops_it`.
   The stop itself is the loop's spoken-stop path, which no test drives
   through the loop, as for the stop words.
 

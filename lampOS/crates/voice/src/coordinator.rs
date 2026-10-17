@@ -345,7 +345,9 @@ struct WordsTold {
 /// [`crate::wait_words::ASK_AFTER_QUIET_BLOCKS`], well before its
 /// endpoint. What they did is told once a sound. `last_speech_us` is when
 /// the last block heard as speech was captured: a stop counts only when
-/// none came after its words were asked for.
+/// none came after its words were asked for. `answer_sounding` is whether
+/// `on` decided a sound that waited because the answer began to sound
+/// (`AnswerWait::waited` and `sounding`).
 #[allow(clippy::too_many_arguments)]
 fn with_waited_words(
     words: &mut crate::wait_words::WaitWords,
@@ -355,14 +357,31 @@ fn with_waited_words(
     ended: bool,
     pause_blocks: u16,
     last_speech_us: u64,
+    answer_sounding: bool,
     at_us: u64,
 ) -> (WhileAnswerWaits, Option<WordsTold>) {
     use crate::wait_words::{Then, Verdict};
-    if waits == WhileAnswerWaits::Decide {
-        return (waits, None);
-    }
+    // Whether its words were asked for and no new speech has begun since:
+    // speech after the ask is the person going on (the reviewer's P2 on
+    // #1352).
+    let quiet_since_asked = |words: &crate::wait_words::WaitWords| {
+        words.holds() == Some(candidate.id)
+            && words
+                .asked_through_us()
+                .is_some_and(|through| last_speech_us <= through)
+    };
+    let decided = waits == WhileAnswerWaits::Decide;
     let lets_go = matches!(waits, WhileAnswerWaits::LetGo(_));
-    if lets_go || ended || pause_blocks >= crate::wait_words::ASK_AFTER_QUIET_BLOCKS {
+    if decided {
+        // `on` has decided (the answer began to sound inside its 300 ms of
+        // quiet, or its 1 s mark came). A sound whose words were asked for
+        // and that has been quiet since is still judged by them, so a stop
+        // just before the answer sounds is never asked of the model (the
+        // seventh's P2 on #1352). Any other is as `on` decided.
+        if !quiet_since_asked(words) {
+            return (waits, None);
+        }
+    } else if lets_go || ended || pause_blocks >= crate::wait_words::ASK_AFTER_QUIET_BLOCKS {
         words.ask(candidate.id, audio, at_us);
     } else {
         words.hear(candidate.id, audio);
@@ -371,19 +390,20 @@ fn with_waited_words(
     // A stop counts only if no new speech has begun since its words were
     // asked for. "Wait, … what about tomorrow?" with a comma's pause is
     // asked for at the pause and comes back "Wait.": the person went on, so
-    // it takes the turn from its start, as any word does (the reviewer's P2
-    // on #1352).
+    // it takes the turn from its start, as any word does.
     if let Verdict::Stop(count) = verdict
-        && words
-            .asked_through_us()
-            .is_some_and(|through| last_speech_us > through)
+        && !quiet_since_asked(words)
     {
         verdict = Verdict::Words(count);
     }
     let deadline_us = candidate
         .decision_deadline_us
         .saturating_sub(WAIT_DECIDES_BEFORE_US);
-    let then = crate::wait_words::then(lets_go, verdict, ended, at_us, deadline_us);
+    let then = if decided {
+        crate::wait_words::then_once_decided(verdict, answer_sounding, ended, at_us, deadline_us)
+    } else {
+        crate::wait_words::then(lets_go, verdict, ended, at_us, deadline_us)
+    };
     let waits = match then {
         Then::AsBefore => return (waits, None),
         Then::Wait => return (WhileAnswerWaits::Wait, None),
@@ -5303,6 +5323,7 @@ fn conversation_with_gate(
                             admission.pending_ended(),
                             detector.pause_blocks(),
                             last_speech_us,
+                            wait.waited && wait.sounding,
                             at_us,
                         );
                         if let Some(told) = told {

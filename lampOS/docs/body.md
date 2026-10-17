@@ -926,7 +926,21 @@ mood socket, and says it again at least once every 1.5 s
   lift it to a face and Expression does not nod it while it reads; the
   base's turn is as in any other mood.
 - **Leans forward** as it does while it speaks (`LEAN`, above), with the
-  same conditions.
+  same conditions but one: a gesture does not take the lean away. A
+  skill's `acknowledge` or `curious` at the page is laid over the lean,
+  which is held exactly where it is while the gesture plays and goes on
+  easing in after, so the lamp keeps looking at the work instead of
+  pulling back for two or three seconds and leaning in again (#1260
+  review, 09:19). Held, the pose V1's anti-tip rule checks the gesture
+  over as it begins (the lean included) is the pose it plays over: a
+  gesture that would tip over it is refused whole, as any other is, and
+  each step is still cut at the lean-back bound and eased at most
+  `ARM_GOAL_STEP`. Speaking, a gesture still lets the lean go: that lean
+  is toward a person, and the gesture is the move made at them instead.
+  The gesture's pitch is laid over the reading pitch after the bounds,
+  kept only from the pitch floor and the seam, so the whole of it is
+  made: `curious` lifts 58 counts above it and dips 190 below;
+  `acknowledge`'s pitch only lifts (28 counts), its nod is the arm's.
 - **Holds** it, and comes back to the voice's mood once the skill stops
   saying `reading`: the pose is followed back at the same speed.
 - **Stands up for it** if it is folded, as for any mood but rest.
@@ -952,6 +966,19 @@ up at 1,900, the head's goal went down to 2,048 to 2,050 and stayed there
 for the six seconds of reading, under an asked Expression lift of 40
 counts; the arm leaned by `LEAN`; afterwards both were back where the lamp
 listened, no goal moving more than 3 counts in a step.
+
+A gesture over reading, with lamp-4ace's and lamp-52e6's flags
+(`a_reading_lamp_keeps_its_lean_through_a_gesture`,
+`a_gesture_asked_as_the_reading_lean_eases_in_holds_it_where_it_was`,
+`a_reading_lamp_makes_the_whole_of_a_gestures_pitch`): `acknowledge`
+dips the elbow from the lean's 2,542 to about 2,220, never lifts the arm
+above the lean, and leaves it at 2,612 and 2,542 on every step after
+(before, it went back to 2,657 and 2,602 and leaned in again over 1.5 s);
+asked while the lean is still easing in, the arm ends the gesture where
+it began. The head's goal goes 50 or more counts above the reading pitch
+and 180 or more below it for `curious`. No arm goal moves more than 50 a
+write, no `Window` stop, nothing refused or cut by the anti-tip rule, no
+pose past 22 mm.
 
 **On lamp-52e6, 2026-10-16, 11:51**, body `92634401`, unit flags
 unchanged, `reading` sent every half second for 14 s by a small script on

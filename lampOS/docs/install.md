@@ -595,6 +595,35 @@ lamp-update check-units --cat units.txt --product lampOS/deploy/product
   control. `install` sets no level of its own. The product's voice unit is
   ordered after it, without wanting it (El on #705, 17 Oct). On lamp-06c1
   it is byte for byte the image's.
+- The journal's size is the image's too:
+  `robots/lamp/rootfs/etc/systemd/journald.conf.d/zz-lamp-journal.conf`
+  (#1178).
+  - **What it sets:** at most 20M of journal in files of 4M, with 10M of the
+    `/var/log` RAM disk always left free. The same for a journal kept in
+    `/run`. It's the base image's own `SystemMaxUse=20M` (its `journald.conf`
+    on lamp-75c9 and lamp-cb94), pinned in a drop-in so an edit of
+    `journald.conf` doesn't undo it.
+  - **Why:** lamp-4ace's had been set to 1G by hand. On 17 Oct its journal
+    filled the RAM disk, and the voice's lines were lost until a rotate by
+    hand. Its 171M were also copied whole by `orangepi-ramlog` at 00:00, the
+    night the voice ended at 00:00:06.
+  - **The RAM disk's size isn't ours:** it's `SIZE` in
+    `/etc/default/orangepi-ramlog`, 50M on the image as installed and 400M
+    where set by hand (lamp-4ace, a 375M `zram1`). The cap is the same
+    either way, so a bigger disk only leaves more free.
+  - **How long 20M lasts:** about three hours at lamp-4ace's rate on 17 Oct.
+    A quieter lamp keeps more, but no check should count on a whole day of
+    journal (`--since yesterday`).
+  - **Read last:** "zz-" puts it after any other drop-in, so its numbers win.
+  - **Tests:** `lamp-update`'s `tests/image_journal.rs` checks the numbers
+    against the disk. Where `systemd-analyze` exists, it checks that systemd
+    reads them last beside a 100M `persistent.conf`. lamp-75c9's systemd 252
+    reads it last after its own `journald.conf` too.
+  - **Existing lamps:** only a newly imaged lamp has it. `install` and
+    updates don't place the image's files (#1369). On a lamp already in use
+    it is copied there by hand, and journald reads it when it next starts,
+    at the next boot. `journalctl --vacuum-size=20M` shrinks the journal at
+    once, with no restart of anything.
 - Which group may read the GPIO chips and the I²C bus on the base image was
   not checked.
 - `lamp-surround` was not read beyond its unit, and `lamp-records` has two

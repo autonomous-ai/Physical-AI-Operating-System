@@ -1,0 +1,3 @@
+--- tasks (as lampos, temp folders /tmp/twelve-tasks.x6vp, --enable, temp paths only)
+tasks: No such file or directory (os error 2)
+exit 1

@@ -746,11 +746,28 @@ pub fn settings_with_mode(
         };
         match now {
             Some(now) if now == default => {
+                // Its bytes are install's, so its mode is too: a default
+                // written closed by something before install (lamp-cb94's,
+                // 0600) is opened, or the parts run as `lampos` never read it.
+                set_mode(config, path, mode, changed)?;
                 state.settings.insert((*path).to_owned(), default);
             }
-            Some(now) if !installs(&now) => say(&format!(
-                "kept {path}: this lamp's own, not a default an install wrote; the build's default is not written"
-            )),
+            Some(now) if !installs(&now) => {
+                say(&format!(
+                    "kept {path}: this lamp's own, not a default an install wrote; the build's default is not written"
+                ));
+                // The lamp's own is not install's to open: said instead.
+                if mode & 0o004 != 0 {
+                    let meta = fs::metadata(config.on(path))
+                        .map_err(|error| format!("{path}: {error}"))?;
+                    if meta.permissions().mode() & 0o004 == 0 {
+                        say(&format!(
+                            "{path} is closed to other users ({:o}): the parts run as {USER} cannot read it",
+                            meta.permissions().mode() & 0o777
+                        ));
+                    }
+                }
+            }
             _ => {
                 // A file that is install's only by an earlier run's intent
                 // (written, then that run failed or stopped) is settled as
@@ -930,7 +947,7 @@ fn put(
 ) -> Result<(), String> {
     let at = config.on(path);
     if fs::read(&at).is_ok_and(|now| now == bytes) {
-        return Ok(());
+        return set_mode(config, path, mode, changed);
     }
     let failed = |error: io::Error| format!("{path}: {error}");
     if let Some(parent) = at.parent() {
@@ -942,6 +959,25 @@ fn put(
     }
     write_whole(&at, bytes, mode).map_err(failed)?;
     changed.push(format!("wrote {path}"));
+    Ok(())
+}
+
+/// Gives install's file at `path` `mode` when it has another: the bytes
+/// alone do not make it install's as written (the first builder on #705,
+/// 12:13).
+fn set_mode(
+    config: &Install,
+    path: &str,
+    mode: u32,
+    changed: &mut Vec<String>,
+) -> Result<(), String> {
+    let at = config.on(path);
+    let failed = |error: io::Error| format!("{path}: {error}");
+    let now = fs::metadata(&at).map_err(failed)?.permissions().mode() & 0o7777;
+    if now != mode {
+        fs::set_permissions(&at, fs::Permissions::from_mode(mode)).map_err(failed)?;
+        changed.push(format!("made {path} {mode:o}, was {now:o}"));
+    }
     Ok(())
 }
 

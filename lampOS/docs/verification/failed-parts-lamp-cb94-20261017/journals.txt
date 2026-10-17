@@ -1,0 +1,40 @@
+=== lamp-controls
+Result=exit-code
+NRestarts=5
+ExecMainExitTimestamp=Fri 2026-10-16 11:06:38 UTC
+ExecMainStatus=1
+ActiveEnterTimestamp=Fri 2026-10-16 11:06:38 UTC
+InactiveEnterTimestamp=Fri 2026-10-16 11:06:44 UTC
+-- No entries --
+=== lamp-body
+Result=resources
+NRestarts=3
+ExecMainExitTimestamp=
+ExecMainStatus=0
+ActiveEnterTimestamp=
+InactiveEnterTimestamp=Fri 2026-10-16 11:07:03 UTC
+-- No entries --
+=== lamp-expression
+Result=exit-code
+NRestarts=5
+ExecMainExitTimestamp=Fri 2026-10-16 11:06:38 UTC
+ExecMainStatus=1
+ActiveEnterTimestamp=Fri 2026-10-16 11:06:38 UTC
+InactiveEnterTimestamp=Fri 2026-10-16 11:06:44 UTC
+-- No entries --
+=== lamp-name
+Result=exit-code
+NRestarts=5
+ExecMainExitTimestamp=Fri 2026-10-16 11:06:38 UTC
+ExecMainStatus=1
+ActiveEnterTimestamp=Fri 2026-10-16 11:06:38 UTC
+InactiveEnterTimestamp=Fri 2026-10-16 11:06:44 UTC
+-- No entries --
+=== lamp-tasks
+Result=exit-code
+NRestarts=5
+ExecMainExitTimestamp=Fri 2026-10-16 11:06:38 UTC
+ExecMainStatus=1
+ActiveEnterTimestamp=Fri 2026-10-16 11:06:23 UTC
+InactiveEnterTimestamp=Fri 2026-10-16 11:06:44 UTC
+-- No entries --

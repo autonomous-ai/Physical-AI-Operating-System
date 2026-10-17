@@ -353,14 +353,17 @@ and 59 to 61 by turns (its settles 4 to 6 apart) and ended at 15:25:38 on
 `BadTemperature` (`temperature 55, from 60`) after 618,587 steps, every
 read under 62: each good read cleared the settle, so the other value never
 settled while the bad reads in a row climbed to 50. A flap is counted in
-`bad_temperatures` and still feeds a settle, but never adds toward
-`BadTemperature`. A flap read holds the heat streak, as a replaced read
-does. Only a flap that repeats the last one, within 2 degrees
-(`TEMPERATURE_SETTLE`) and within 10 reads (`TEMPERATURE_FLAP_READS`), is
-heat evidence: it is judged on the higher of it and the good one (the
+`bad_temperatures` and still feeds a settle. Only a flap that repeats, the
+third in a row each within 2 degrees of the last (`TEMPERATURE_FLAP_AGREE`,
+`TEMPERATURE_SETTLE`) and within 10 reads of it (`TEMPERATURE_FLAP_READS`),
+is kept out of `BadTemperature`; it holds the heat streak, as a replaced
+read does, and is heat evidence: it is judged on the higher of it and the good one (the
 cautious side for heat), and the good reads in the 10 after it on it too.
-A lone flap, a glitch inside the window, is replaced by the good one as
-before. A flap holds only next to its good value: a read with no
+A lone flap, a glitch or noise inside the window, is a bad read as on
+lamp-voice: a joint near 70 read as 64 to 70 at random, its last good 60
+coming back one read in 8, still ends on `BadTemperature` within about 3 s
+(`lone_flaps_around_a_good_value_that_returns_still_stop`, the reviewer's
+probes on #1347), while lone glitches between good reads never add up. A flap holds only next to its good value: a read with no
 good read in the last 10 is a bad read as before, toward
 `BadTemperature`, so a sensor whose reads all sit 4 to 10 from a stale good
 one (last good 60, then 64 and 70 by turns) still ends within about a

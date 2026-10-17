@@ -7670,6 +7670,51 @@ fn reads_within_the_flap_window_of_a_stale_good_one_still_stop() {
     }
 }
 
+/// The reviewer's noise probes on #1347: reads 4 to 10 from a good 60 that
+/// never repeat within 2 are bad reads, though the 60 comes back. A joint
+/// really near 70 read as 64 to 70 at random with its last good 60 again
+/// one read in 8, or as 64 and 70 by turns with 60 once in 3, 6, 8, 11 or
+/// 12, ends on `BadTemperature` within about 3 s, as on lamp-voice.
+#[test]
+fn lone_flaps_around_a_good_value_that_returns_still_stop() {
+    let mut seed: u32 = 0x5eed_1e57;
+    let random = (0..3_000)
+        .map(|n| {
+            seed = seed.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+            Some(if n % 8 == 7 {
+                60
+            } else {
+                64 + ((seed >> 20) % 7) as u8
+            })
+        })
+        .collect::<Vec<_>>();
+    let mut cases = vec![(8, random)];
+    for every in [3, 6, 8, 11, 12] {
+        let turns = (0..3_000)
+            .map(|n| {
+                Some(if n % every == every - 1 {
+                    60
+                } else if n % 2 == 0 {
+                    64
+                } else {
+                    70
+                })
+            })
+            .collect();
+        cases.push((every, turns));
+    }
+    for (every, readings) in cases {
+        let at = Duration::from_millis(1_500);
+        let (report, lamp) = scripted_pitch(60, Vec::new(), at, readings, Duration::from_secs(60));
+        assert!(
+            matches!(report.stop, Stop::BadTemperature { joint: 5, .. }),
+            "{every}: {report:?}"
+        );
+        let last = lamp.read_times.last().copied().unwrap_or_default();
+        assert!(last <= at + Duration::from_secs(3), "{every}: {last:?}");
+    }
+}
+
 /// Taking hold of an arm joint writes its goal by itself, and that write is
 /// checked as every other arm goal is: an elbow found without torque
 /// outside its window is not given that as its goal.

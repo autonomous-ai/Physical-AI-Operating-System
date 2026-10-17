@@ -40,6 +40,29 @@ a row for it and the pins are measured again.
    one clock, is there a loopback of the speaker's signal to use as the echo
    reference, and can the voice microphone sit farther from the speakers or
    be isolated from them?
+
+   **Measured on 17 October:** on lamp-4ace, neither microphone carries a
+   person's word said over the lamp's own speech, whatever the software
+   after it does (#828).
+   - **Voice microphone (Jieli, mic2):** the echo canceller's linear stage,
+     before its suppressor, takes only 3 to 4 dB of the lamp's voice out,
+     and its suppressor takes 11 to 15 dB, the person's words with it. A
+     person 10 dB under the echo stays 4 to 7 dB under it after the linear
+     stage. "Lamp, stop." played from the office Mac over a story barely
+     raises the linear stage's level (−18.8 against −18.1 dBFS), the final
+     signal falls silent under it, and on lamp-52e6 the raw signal's
+     speech-to-text returned only the story. A canceller can
+     remove only an echo it can model, and this one has its own clock, no
+     loopback and processing on the chip.
+   - **Room microphone (the C-Media speakerphone, mic1, which is also the
+     speaker):** recorded while the lamp told a story and "Lamp, stop.",
+     a second request and "Stop." were played over it, the speech-to-text
+     returned the whole story and none of the three. The speakerphone does
+     not take its own voice out.
+   - **What the new board needs for a person to be heard over the lamp:** a
+     voice microphone on the speaker's clock with a hardware loopback of the
+     speaker signal (the echo reference), or a microphone the speaker's
+     sound reaches far more weakly than a person's.
 2. **Amplifier.** Are the PAM8610's mute or shutdown pins on a GPIO, on
    lamp-4ace or on the new board, and which? The lamp would silence it when
    it is not speaking.

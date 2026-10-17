@@ -453,6 +453,18 @@ enum Ring {
     Deaf,
 }
 
+/// What happens after the faces.
+enum After {
+    /// Nothing.
+    Nothing,
+    /// Nobody in view 300 ms after the faces: before it, the light as
+    /// someone else set it, if one is given.
+    Leaves(Option<Light>),
+    /// The skill's folder removed once the first call to the actions part
+    /// is answered, and the reload waited for.
+    Removed,
+}
+
 /// A hello that greets at once, with the light and the say of Welcome back.
 const AT_ONCE: &str = r#"
 [trigger]
@@ -506,7 +518,7 @@ fn the_program_on(
         level,
         faces,
         wanted,
-        (lighting, None),
+        (lighting, After::Nothing),
         false,
     )
 }
@@ -529,7 +541,7 @@ fn the_program_then(
         level,
         faces,
         wanted,
-        (Ring::Off, then),
+        (Ring::Off, then.map_or(After::Nothing, After::Leaves)),
         false,
     )
 }
@@ -544,7 +556,7 @@ fn the_program_timed(
     level: u8,
     faces: usize,
     wanted: usize,
-    (lighting, then): (Ring, Option<Option<Light>>),
+    (lighting, then): (Ring, After),
     on_the_host: bool,
 ) -> Seen {
     // Short: a socket's whole path has to fit in 103 bytes.
@@ -672,7 +684,17 @@ fn the_program_timed(
         .unwrap();
         std::thread::sleep(Duration::from_millis(50));
     }
-    if let Some(changed) = then {
+    let mut first = None;
+    if let After::Removed = then {
+        first = Some(
+            lights
+                .recv_timeout(Duration::from_secs(5))
+                .expect("no call to the actions part before the removal"),
+        );
+        fs::remove_dir_all(root.join("skills/hello")).unwrap();
+        clock.skip(RELOAD);
+    }
+    if let After::Leaves(changed) = then {
         std::thread::sleep(Duration::from_millis(300));
         if let Some(light) = changed {
             bus.publisher_declared("light/state", &Light::declaration(), "ring")
@@ -712,7 +734,7 @@ fn the_program_timed(
     {
         moods.push(String::from_utf8_lossy(&buffer[..length]).into_owned());
     }
-    let (lights, lit_at) = lights.try_iter().unzip();
+    let (lights, lit_at) = first.into_iter().chain(lights.try_iter()).unzip();
     let mut asked_of_the_ring = Vec::new();
     while let Some(Ok(Some(message))) = requests.as_mut().map(|ring| ring.recv(Duration::ZERO)) {
         asked_of_the_ring.push(message.parse().unwrap());
@@ -1558,7 +1580,7 @@ fn a_reading_pose_is_held_on_the_mood_socket_for_its_for_and_then_let_go() {
         3,
         1,
         4,
-        (Ring::Off, None),
+        (Ring::Off, After::Nothing),
         true,
     );
     // Told at once when the say begins, then every second while it lasts:
@@ -3603,7 +3625,7 @@ fn a_dim_until_it_ends_asked_of_the_ring_is_given_back_when_the_trigger_ends() {
         3,
         1,
         4,
-        (Ring::Asked, Some(None)),
+        (Ring::Asked, After::Leaves(None)),
         false,
     );
     assert!(seen.lights.is_empty(), "{:?}", seen.lights);
@@ -3630,6 +3652,38 @@ fn a_light_someone_changed_while_it_was_held_is_left_as_it_is() {
         done.why
     );
     assert_eq!(seen.lights.len(), 1, "{:?}", seen.lights);
+}
+
+/// A dim held while someone is in view, its skill's folder removed while
+/// they are still there: the reload gives the light back and the run is
+/// done (#1066's P3).
+#[test]
+fn a_dim_held_until_it_ends_is_given_back_when_its_skill_is_removed() {
+    let seen = the_program_timed(
+        DIM_WHILE,
+        true,
+        &[],
+        3,
+        1,
+        4,
+        (Ring::Off, After::Removed),
+        false,
+    );
+    let done = &seen.events[3];
+    assert_eq!(done.stage, SkillStage::Done, "{:?}", seen.events);
+    assert!(
+        done.why.contains("held until its trigger ended")
+            && done.why.contains("light given back to on blue at 3"),
+        "{}",
+        done.why
+    );
+    assert_eq!(seen.lights.len(), 2, "{:?}", seen.lights);
+    assert!(seen.lights[0].contains("light_dimmer"), "{:?}", seen.lights);
+    assert!(
+        seen.lights[1].contains("light_brighter"),
+        "{:?}",
+        seen.lights
+    );
 }
 
 /// Stuffy air's trigger and quiet hours, as #1021 asks, with no condition.
@@ -3813,6 +3867,64 @@ fn a_held_run_ends_when_its_trigger_value_expires_or_its_topic_goes_silent() {
         assert_eq!(ended[0].calls, [Call::Ends]);
         // Once.
         assert!(engine.tick((29 + ends_after + 5) * MINUTE).is_empty());
+    }
+}
+
+/// A reload ends a held run whose skill is gone, whose trigger is gone or
+/// moved to another topic, or that no longer holds until its trigger ends,
+/// once; a skill reloaded with the same trigger keeps its hold (#1066's P3).
+#[test]
+fn a_reload_ends_a_held_run_whose_skill_or_trigger_is_gone() {
+    let dir = tempfile::tempdir().unwrap();
+    let skill = skill_with(dir.path(), "stuffy", STUFFY);
+    let high = br#"{"co2_ppm":1300}"#;
+    let held = || {
+        let mut engine = Engine::new(vec![load(&skill).unwrap()], true);
+        engine.clock(0, 0, 600 * 60_000);
+        let ran: usize = (0..30)
+            .map(|minute| {
+                engine
+                    .observe("air/state", minute * MINUTE, high, None)
+                    .len()
+            })
+            .sum();
+        assert_eq!(ran, 1);
+        engine
+    };
+    // The same skill again, and one edited with the same trigger: kept.
+    let mut engine = held();
+    assert!(engine.replace(vec![load(&skill).unwrap()]).is_empty());
+    let louder = skill_with(
+        &dir.path().join("louder"),
+        "stuffy",
+        &STUFFY.replace("dim = 1,", "dim = 2,"),
+    );
+    assert!(engine.replace(vec![load(&louder).unwrap()]).is_empty());
+    // Its own end still comes.
+    assert_eq!(engine.tick(44 * MINUTE)[0].calls, [Call::Ends]);
+    let elsewhere = skill_with(
+        &dir.path().join("elsewhere"),
+        "stuffy",
+        &STUFFY.replace("air/state", "air/indoor"),
+    );
+    let no_end = skill_with(
+        &dir.path().join("no-end"),
+        "stuffy",
+        &STUFFY.replace(", until = \"ends\"", ""),
+    );
+    for after in [
+        vec![],
+        vec![load(&elsewhere).unwrap()],
+        vec![load(&no_end).unwrap()],
+    ] {
+        let mut engine = held();
+        let ended = engine.replace(after);
+        assert_eq!(ended.len(), 1);
+        assert_eq!(ended[0].skill, "stuffy");
+        assert_eq!(ended[0].calls, [Call::Ends]);
+        // Once: no second end from the reload or from the time after it.
+        assert!(engine.replace(vec![]).is_empty());
+        assert!(engine.tick(60 * MINUTE).is_empty());
     }
 }
 

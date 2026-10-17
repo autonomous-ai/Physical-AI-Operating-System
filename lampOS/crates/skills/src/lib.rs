@@ -1533,9 +1533,42 @@ impl Engine {
     }
 
     /// The skills loaded again. A timed condition keeps when it began to
-    /// hold only if it is the same condition as before.
-    pub fn replace(&mut self, skills: Vec<Skill>) {
+    /// hold only if it is the same condition as before. A run held until its
+    /// trigger ends ends now, as at a normal end, if its skill is gone, no
+    /// longer holds anything until its trigger ends, or no longer has that
+    /// trigger (the same place in the skill on the same topic): nothing else
+    /// would ever end it (the reviewer on #1066). Those ends are returned.
+    pub fn replace(&mut self, skills: Vec<Skill>) -> Vec<Run> {
         let old = std::mem::replace(&mut self.skills, skills);
+        let mut ends = Vec::new();
+        for ((name, index), watch) in &mut self.watches {
+            if !watch.open {
+                continue;
+            }
+            let topic = |skills: &[Skill]| {
+                skills
+                    .iter()
+                    .find(|skill| &skill.name == name)
+                    .filter(|skill| skill.holds_until_ends())
+                    .and_then(|skill| skill.triggers.get(*index))
+                    .map(|trigger| trigger.topic.clone())
+            };
+            let kept = topic(&self.skills);
+            if kept.is_some() && kept == topic(&old) {
+                continue;
+            }
+            watch.open = false;
+            watch.since_us = None;
+            ends.push(Run {
+                skill: name.clone(),
+                events: Vec::new(),
+                calls: vec![Call::Ends],
+                ask: None,
+                queue: false,
+                from: None,
+            });
+        }
+        ends.sort_by(|a, b| a.skill.cmp(&b.skill));
         // A list's items begin again from the topic's value kept here: what
         // is there at the reload is not news, and the next message, which is
         // the next change (`tasks/status` is published when it changes, and
@@ -1569,6 +1602,7 @@ impl Engine {
             let before = condition(&old, name, *index);
             before.is_some() && before == condition(new, name, *index)
         });
+        ends
     }
 
     pub fn skills(&self) -> &[Skill] {

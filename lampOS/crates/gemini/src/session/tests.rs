@@ -488,10 +488,15 @@ async fn read_response_and_write_waits_have_finite_deadlines() {
         send(
             &mut client,
             Message::text("x".repeat(4096)),
-            Duration::from_millis(20)
+            Duration::from_millis(20),
+            crate::Write::Context
         )
         .await,
-        Err(Error::WriteTimeout)
+        Err(Error::WriteTimeout {
+            write: crate::Write::Context,
+            kib: 4,
+            deadline_ms: 20
+        })
     );
 }
 

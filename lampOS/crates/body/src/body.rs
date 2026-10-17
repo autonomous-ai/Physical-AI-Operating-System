@@ -287,6 +287,11 @@ pub const LEAN: [f32; 2] = [-45.0, -60.0];
 /// The lean takes at least this long each way, and longer if its farther
 /// joint would go faster than the pose follows at (`Limits::speed`).
 const LEAN_SECONDS: f32 = 1.5;
+/// A gesture ended for another (`Limits::arbitration`) eases back to
+/// nothing over this long: from the speed it had, slowing into the end as a
+/// cubic does, never faster than `GESTURE_STEP`, so it neither snaps back
+/// nor stops dead.
+const EASE_OUT: Duration = Duration::from_millis(700);
 /// While a gesture plays, and for half a second after, a joint of the head
 /// may be this far from its goal and read this load before the gesture is
 /// dropped; the shoulder and the elbow may be this far from theirs. A quick
@@ -3315,6 +3320,10 @@ fn run_on<P: PortIo, R: Runtime>(
     // conversation's), and whether one ended for another still eases out.
     let (mut playing_by, mut pending_by) = (Priority::Conversation, Priority::Conversation);
     let mut yielding = false;
+    // Such a gesture's ease back: steps since it ended, its offsets then and
+    // how far they moved in the step before, counts a step.
+    let mut easing_out: Option<(u32, [f32; 5], [f32; 5])> = None;
+    let mut gesture_moved = [0.0f32; 5];
     // The gesture waiting stood a folded lamp up; and what to say of a
     // gesture asked from outside, on the next glimpse.
     let mut pending_woke = false;
@@ -3756,6 +3765,7 @@ fn run_on<P: PortIo, R: Runtime>(
                         }
                         playing = None;
                         yielding = true;
+                        easing_out = Some((0, gesture_now, gesture_moved));
                     }
                     if let Some((old, _)) = pending.filter(|(old, _)| from_outside(old)) {
                         gesture_fate = Some((old.name, "dropped: another was asked after it"));
@@ -3867,10 +3877,36 @@ fn run_on<P: PortIo, R: Runtime>(
                 _ => playing = None,
             }
         }
-        for (index, now_at) in gesture_now.iter_mut().enumerate() {
-            let wanted = gesture_wanted[index].clamp(-GESTURE_REACH[index], GESTURE_REACH[index]);
-            *now_at += (wanted - *now_at).clamp(-GESTURE_STEP[index], GESTURE_STEP[index]);
+        let before = gesture_now;
+        match easing_out.as_mut().filter(|_| playing.is_none()) {
+            Some((steps, from, speed)) => {
+                *steps += 1;
+                let span = EASE_OUT.as_secs_f32() / TICK.as_secs_f32();
+                let t = (*steps as f32 / span).min(1.0);
+                // Hermite: from `from` at the speed it had to nothing at rest.
+                let (stays, carries) = (
+                    2.0 * t * t * t - 3.0 * t * t + 1.0,
+                    t * t * t - 2.0 * t * t + t,
+                );
+                for (index, now_at) in gesture_now.iter_mut().enumerate() {
+                    let wanted = from[index] * stays + speed[index] * span * carries;
+                    *now_at += (wanted - *now_at).clamp(-GESTURE_STEP[index], GESTURE_STEP[index]);
+                }
+                if t >= 1.0 {
+                    gesture_now = [0.0; 5];
+                    easing_out = None;
+                }
+            }
+            None => {
+                easing_out = None;
+                for (index, now_at) in gesture_now.iter_mut().enumerate() {
+                    let wanted =
+                        gesture_wanted[index].clamp(-GESTURE_REACH[index], GESTURE_REACH[index]);
+                    *now_at += (wanted - *now_at).clamp(-GESTURE_STEP[index], GESTURE_STEP[index]);
+                }
+            }
         }
+        gesture_moved = std::array::from_fn(|index| gesture_now[index] - before[index]);
         let gesturing = playing.is_some() || gesture_now != [0.0; 5];
         yielding &= gesturing;
         // A glance is a quick move of the head, and is judged as a gesture

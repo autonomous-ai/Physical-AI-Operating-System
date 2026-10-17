@@ -8305,6 +8305,30 @@ fn a_skill_move_ended_for_a_conversation_gesture_eases_out_and_then_it_plays() {
             assert!(after.3[joint].abs_diff(before.3[joint]) <= 50, "{pair:?}");
         }
     }
+    // A real ease, not a snap back: from the step before it ended until the
+    // nod begins, each joint's change a step differs from the one before by
+    // a few counts at most, and the last step into nothing is a small one.
+    // The arm, the head's roll and the base's turn carry nothing else; the
+    // head's pitch also nods with the voice.
+    let moves = |pick: &dyn Fn(&Step) -> f32| -> Vec<f32> {
+        seen[ended - 2..nod]
+            .windows(2)
+            .map(|pair| pick(&pair[1]) - pick(&pair[0]))
+            .collect()
+    };
+    for (joint, change) in [
+        moves(&|step| f32::from(step.3[0])),
+        moves(&|step| f32::from(step.3[1])),
+        moves(&|step| f32::from(step.2[0])),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        for pair in change.windows(2) {
+            assert!((pair[1] - pair[0]).abs() <= 4.0, "{joint}: {change:?}");
+        }
+        assert!(change.last().unwrap().abs() <= 4.0, "{joint}: {change:?}");
+    }
 }
 
 /// A skill's move asked while a hand holds the lamp is dropped, naming

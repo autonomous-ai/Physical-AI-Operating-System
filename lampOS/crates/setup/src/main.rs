@@ -375,8 +375,10 @@ fn answer(
         Ok(started) => started,
         // systemd's stop reaches the whole unit, so the hotspot script dies
         // of it too: that is a stop, not a failure (the reviewer on #1336).
-        Err(_) if asked_to_stop(&runtime, &mut stopped) => {
-            eprintln!("lamp-setup: asked to stop while the hotspot came up");
+        // Its error is kept in the line: a script that failed by itself
+        // just before the stop is still in the journal.
+        Err(error) if asked_to_stop(&runtime, &mut stopped) => {
+            eprintln!("lamp-setup: asked to stop while the hotspot came up ({error})");
             return Ok(true);
         }
         Err(error) => return Err(error.into()),

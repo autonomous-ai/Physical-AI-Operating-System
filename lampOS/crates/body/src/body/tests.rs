@@ -25,6 +25,9 @@ struct Servo {
 enum Event {
     Flag(u8),
     Push(f32),
+    /// Moved this far at 1,500 counts a second, as an arm let go falls:
+    /// never the jump of a bad read (`READ_JUMP`).
+    Fall(f32),
     Heat(u8),
     /// One reading of this temperature, then back to what it was.
     HeatOnce(u8),
@@ -185,6 +188,13 @@ impl Lamp {
             match event {
                 Event::Flag(status) => self.servos[index].status = status,
                 Event::Push(by) => self.servos[index].position += by,
+                Event::Fall(left) => {
+                    let by = left.clamp(-1_500.0 * step, 1_500.0 * step);
+                    self.servos[index].position += by;
+                    if (left - by).abs() >= 1.0 {
+                        self.event = Some((at, index, Event::Fall(left - by)));
+                    }
+                }
                 Event::Heat(to) => self.servos[index].temperature = to,
                 Event::HeatOnce(to) => {
                     self.blip = Some((index, self.servos[index].temperature));
@@ -5154,7 +5164,7 @@ fn let_go_standing_turned(
         lamp.strains.push((secs(from), secs(until), 1, 700));
     }
     if elbow_falls {
-        lamp.event = Some((secs(4.0), 2, Event::Push(-520.0)));
+        lamp.event = Some((secs(4.0), 2, Event::Fall(-520.0)));
     }
     let limits = Limits {
         force: Some(600),

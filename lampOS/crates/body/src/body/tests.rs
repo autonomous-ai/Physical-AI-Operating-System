@@ -64,6 +64,9 @@ struct Lamp {
     blip: Option<(usize, u8)>,
     /// Temperatures one servo reads from a given time: when, servo, degrees.
     heats: Vec<(Duration, usize, u8)>,
+    /// From this time, one servo's temperature reads these two by turns,
+    /// whatever it is: from, servo, readings, reads so far.
+    flicker: Option<(Duration, usize, [u8; 2], usize)>,
     simulated_to: Duration,
     /// The shoulder and the elbow follow their goals like the other three.
     /// Off, they stay where they are whatever is written to them.
@@ -149,6 +152,7 @@ fn folded(cancel_at: Duration) -> (Lamp, Clock) {
             unstrained: None,
             blip: None,
             heats: Vec::new(),
+            flicker: None,
             simulated_to: Duration::ZERO,
             arm_moves: false,
             overload_clears: 0,
@@ -336,6 +340,14 @@ impl Lamp {
                         {
                             servo.position = f32::from(misread.2);
                             misread.3 -= 1;
+                        }
+                        if address == 56
+                            && let Some((from, flickering, readings, reads)) = self.flicker.as_mut()
+                            && *flickering == index
+                            && now >= *from
+                        {
+                            servo.temperature = readings[*reads % 2];
+                            *reads += 1;
                         }
                         let data = self.registers_of(&servo, address, count);
                         self.answer(asked, &data);
@@ -6797,6 +6809,80 @@ fn a_fast_rise_after_a_low_first_read_still_stops_near_the_limit() {
         ),
         "{report:?}"
     );
+}
+
+/// Folded, the head pitch at `start`, warmed by `heats`, its temperature
+/// reading 150 and 5 by turns from `from`, as the seventh's never-settling
+/// case.
+fn flickering_pitch(start: u8, heats: Vec<(Duration, usize, u8)>, from: Duration) -> BodyReport {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(8));
+    lamp.servos[PITCH].temperature = start;
+    lamp.heats = heats;
+    lamp.flicker = Some((from, PITCH, [150, 5], 0));
+    let news = script(&clock.time);
+    run(&mut lamp, &mut clock, Limits::FOLDED, None, news, |_| {})
+}
+
+/// Reads that never settle do not hide heat for ever: a head warmed to 70,
+/// then reading 150 and 5 by turns. After `temperature_steps` replaced
+/// reads in a row the last good one counts in the streak again, and it
+/// stops on heat (on `lamp-voice` at once; held for ever before this).
+#[test]
+fn a_hot_joint_whose_reads_never_settle_still_stops_on_heat() {
+    let ramp = (61..=70)
+        .zip(0..)
+        .map(|(to, n)| (Duration::from_millis(1_500 + 40 * n), PITCH, to))
+        .collect();
+    let report = flickering_pitch(60, ramp, Duration::from_millis(1_900));
+    assert!(
+        matches!(
+            report.stop,
+            Stop::Temperature {
+                joint: 5,
+                temperature: 66..=70
+            }
+        ),
+        "{report:?}"
+    );
+    assert!(report.bad_temperatures[4] >= 50, "{report:?}");
+}
+
+/// The same reads on a cool joint are only counted: it runs on.
+#[test]
+fn a_cool_joint_whose_reads_never_settle_runs_on() {
+    let report = flickering_pitch(45, Vec::new(), Duration::from_millis(1_500));
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert!(report.bad_temperatures[4] > 200, "{report:?}");
+    assert_eq!(report.peak_temperature[0], 45);
+}
+
+/// One glitch on the first read is read again before it is acted on: a
+/// first read of 150 and then 45 starts as usual, nothing let go.
+#[test]
+fn a_hot_first_read_that_does_not_repeat_starts_as_usual() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(4));
+    lamp.event = Some((Duration::ZERO, PITCH, Event::HeatOnce(150)));
+    let news = script(&clock.time);
+    let report = run(&mut lamp, &mut clock, Limits::FOLDED, None, news, |_| {});
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!(report.hot_rereads, vec![[45; 5]]);
+    assert!(report.moved, "{report:?}");
+}
+
+/// Heat that repeats on every read again is acted on as before: refused,
+/// and the whole lamp let go.
+#[test]
+fn a_hot_first_read_that_repeats_is_refused_as_before() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(4));
+    lamp.servos[PITCH].temperature = 70;
+    let news = script(&clock.time);
+    let report = run(&mut lamp, &mut clock, Limits::FOLDED, None, news, |_| {});
+    assert!(
+        matches!(&report.stop, Stop::Refused { why } if why.contains("70 already")),
+        "{report:?}"
+    );
+    assert_eq!(report.hot_rereads.len(), 3);
+    assert!(let_go_of_the_whole_lamp(&lamp), "{:?}", lamp.registers);
 }
 
 /// Taking hold of an arm joint writes its goal by itself, and that write is

@@ -889,6 +889,10 @@ pub struct BodyReport {
     /// joint as `bad_reads`. None was used for a peak or for heat. Apart
     /// from `bad_reads`: the position in the same reply was good.
     pub bad_temperatures: [u16; 5],
+    /// A first read that found a joint hot is read again, up to
+    /// `FIRST_HEAT_REREADS` times, before anything acts on it: the
+    /// temperatures of each read again, per joint as `bad_reads`.
+    pub hot_rereads: Vec<[u8; 5]>,
     pub peak_load: [u16; 3],
     pub peak_temperature: [u8; 3],
     /// Times each commanded joint met resistance and was left where it was.
@@ -1141,6 +1145,8 @@ const TEMPERATURE_JUMP: u8 = 3;
 /// How near the read before it each bad read must be, read after read, for
 /// the value to become the good one after `Limits::temperature_steps` reads.
 const TEMPERATURE_SETTLE: u8 = 2;
+/// Reads of a first read that found a joint hot, before it is acted on.
+const FIRST_HEAT_REREADS: usize = 3;
 
 /// The window each arm goal must be inside, shoulder then elbow, for a body
 /// given a pose to stand in: its way between folded and stood up, and
@@ -1188,6 +1194,8 @@ struct Bus<'a, P, R> {
     /// (`Limits::temperature_steps`).
     settling: [Option<(u8, u8)>; 5],
     settle_steps: u8,
+    /// Each joint's replaced temperature reads in a row.
+    bad_warm_in_row: [u8; 5],
     /// Joints whose temperature this read was replaced: their heat streak
     /// holds for the step, neither adding nor resetting.
     pub(crate) temperature_held: [bool; 5],
@@ -1210,6 +1218,7 @@ impl<'a, P: PortIo, R: Runtime> Bus<'a, P, R> {
             bad_temperatures: [0; 5],
             settling: [None; 5],
             settle_steps: Limits::FOLDED.temperature_steps,
+            bad_warm_in_row: [0; 5],
             temperature_held: [false; 5],
         }
     }
@@ -1378,10 +1387,12 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
     /// that each stay within `TEMPERATURE_SETTLE` of the one before for
     /// `settle_steps` reads in a row are what the servo reads now, and the
     /// last becomes the good one: a joint really at 70 after a low read, one
-    /// rising fast after it, or a steady 150, is judged on it again. Bad
-    /// reads never stop the run. With no good one yet (the first read) a
-    /// reading is taken as it is, so one over the limit goes down the
-    /// found-hot path (refused, torque off on all five).
+    /// rising fast after it, or a steady 150, is judged on it again. A
+    /// glitch never stops the run. After `settle_steps` replaced reads of
+    /// one joint in a row that never settle, a replaced read counts in the
+    /// streak again as the last good one, so a hot joint whose reads keep
+    /// glitching still stops on heat, a second later, and a cool one runs on. With no good one yet (the first read) a reading is taken
+    /// as it is (`run_on` reads a hot one again before acting on it).
     fn judge_temperatures(&mut self, samples: &mut [Sample; 5]) {
         self.temperature_held = [false; 5];
         for (index, sample) in samples.iter_mut().enumerate() {
@@ -1396,27 +1407,34 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
             };
             // Over the limit is bad unless the good one is too: it settled there.
             let in_range = read <= TEMPERATURE_MAX || good > TEMPERATURE_MAX;
-            if in_range && read.abs_diff(good) <= TEMPERATURE_JUMP {
-                self.warm[index] = Some(read);
-                self.settling[index] = None;
-                continue;
-            }
             let count = match self.settling[index] {
                 Some((before, count)) if read.abs_diff(before) <= TEMPERATURE_SETTLE => {
                     count.saturating_add(1)
                 }
                 _ => 1,
             };
-            if count >= self.settle_steps {
+            if (in_range && read.abs_diff(good) <= TEMPERATURE_JUMP) || count >= self.settle_steps {
                 self.warm[index] = Some(read);
                 self.settling[index] = None;
+                self.bad_warm_in_row[index] = 0;
                 continue;
             }
             self.settling[index] = Some((read, count));
             self.bad_temperatures[index] = self.bad_temperatures[index].saturating_add(1);
-            self.temperature_held[index] = true;
+            self.bad_warm_in_row[index] = self.bad_warm_in_row[index].saturating_add(1);
+            // Held this long and never settled, the hold would hide its heat for
+            // as long as it lasts: the last good one counts in the streak again.
+            self.temperature_held[index] = self.bad_warm_in_row[index] < self.settle_steps;
             sample.temperature = good;
         }
+    }
+
+    /// Forget every joint's good temperature, so the next read is taken as
+    /// it is (`run_on`, a hot first read read again).
+    fn forget_temperatures(&mut self) {
+        self.warm = [None; 5];
+        self.settling = [None; 5];
+        self.bad_warm_in_row = [0; 5];
     }
 
     /// Torque, acceleration and goal speed of the commanded joints.
@@ -2553,6 +2571,7 @@ fn run_on<P: PortIo, R: Runtime>(
         missed_reads: 0,
         bad_reads: [0; 5],
         bad_temperatures: [0; 5],
+        hot_rereads: Vec::new(),
         peak_load: [0; 3],
         eased: [0; 3],
         kept_where_put: [0; 3],
@@ -2593,6 +2612,25 @@ fn run_on<P: PortIo, R: Runtime>(
             return report;
         }
     };
+    // One glitch on the first read must not let go of a lamp, which may be
+    // standing: a joint found hot is read again, and only heat that
+    // repeats is acted on. Nothing has been written yet.
+    let warmest = limits.temperature.min(Standing::TEMPERATURE);
+    while report.hot_rereads.len() < FIRST_HEAT_REREADS
+        && found.iter().any(|sample| sample.temperature >= warmest)
+    {
+        bus.forget_temperatures();
+        found = match bus.samples() {
+            Ok(found) => found,
+            Err(detail) => {
+                report.stop = refused(format!("first read: {detail}"));
+                return report;
+            }
+        };
+        report
+            .hot_rereads
+            .push(found.map(|sample| sample.temperature));
+    }
     report.found = Some(found);
     report.last = Some(found);
     let mut profiles = match bus.profiles() {

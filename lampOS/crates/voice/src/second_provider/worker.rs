@@ -461,7 +461,7 @@ pub(crate) struct Heeding {
     levels: Option<Levels>,
     /// The request the rule judged last, and the session it is judged in,
     /// which a request going on from it keeps.
-    judged: Option<(u64, u64)>,
+    judged: Option<(u64, u64, String)>,
 }
 
 /// The room microphone's rise over its quiet, dB, by when it was sampled.
@@ -651,20 +651,28 @@ impl Heeding {
         // what the rule knew of it (its name, the words so far, whether it
         // was close), as on the Live route. Anything else, a request never
         // judged among them, is judged fresh (the reviewer on #1226).
-        let session = match self
+        let (session, heard) = match self
             .judged
-            .filter(|(last, _)| signs.continues_from == Some(*last))
+            .as_ref()
+            .filter(|(last, _, _)| signs.continues_from == Some(*last))
         {
-            Some((_, session)) => {
-                attention.continued_at(request, session, began_us);
-                session
+            Some((_, session, before)) => {
+                attention.continued_at(request, *session, began_us);
+                // The engine put the words going on from in front of these
+                // (#1168); the rule keeps them already, so it is given only
+                // this request's own (the reviewer on #1226).
+                let own = heard
+                    .strip_prefix(before.as_str())
+                    .unwrap_or(heard)
+                    .trim_start();
+                (*session, own)
             }
             None => {
                 attention.began_at(request, request, began_us);
-                request
+                (request, heard)
             }
         };
-        self.judged = Some((request, session));
+        self.judged = Some((request, session, heard.to_owned()));
         attention.ended(request, ended_us);
         for (at_us, score) in signs.names {
             attention.name_heard_scored(at_us, score);

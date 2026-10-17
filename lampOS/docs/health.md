@@ -171,6 +171,7 @@ item, `selftest` (`SelfTests::item`, `parts::mark_selftest`):
 - **A part still failed:** `error`, `N parts failing: PART (REASON), …` for each, each part by the name a person knows it by (`storage` is "the SD card", `air` "the air sensor", `parts::part_known_as`),
   in the order they first failed, with each one's newest reason. The lamp
   is then `error` too, with that as its message.
+- **The lamp's USB hub dropped** (the newest run's `voice_mic` says `usb_hub_said`): `warn` with that line when nothing failed, and before the failed parts' message when something did (so the line's 160-byte cap never cuts it). Beside failed parts, when the whole line won't fit, it's the self-test's short form (`usb_hub_said_short`: "the lamp's USB hub dropped 2 times since boot, with the voice mic, servo port, speaker and camera"), so the part's name still fits and at worst the end of its reason is cut; until a run's `voice_mic` says nothing of it. `lamp-health` can't read the kernel's log itself (it runs as `lampos`, without `CAP_SYSLOG`), so it takes the self-test's word.
 - **None failed:** `ok`, `passed`, or `passed; N not checked` for the newest
   run. An ok item lowers nothing.
 - **Its age** is since the newest run began, by the wall clock. It is never

@@ -49,20 +49,106 @@ pub struct Usb {
     pub since_boot: bool,
     /// The kernel's log could be read (the self-test has `CAP_SYSLOG`).
     pub log_read: bool,
+    /// The USB hub the mic hangs from, when the kernel saw it go: on
+    /// lamp-4ace at 17:12 on 17 Oct the inner hub `3-1.1` dropped twice and
+    /// took the mic, the speaker, the body's servo port and the camera with
+    /// it (the first builder, #705 17:31).
+    pub hub: Option<Hub>,
+}
+
+/// A hub's drops, and what went with them.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Hub {
+    pub port: String,
+    pub drops: usize,
+    /// What dropped within [`WITH_HUB_US`] of one of its drops, by the name
+    /// the kernel's records give each port, in port order.
+    pub took: Vec<String>,
+    /// How many of the mic's own drops came with the hub's.
+    pub mic_with_it: usize,
+}
+
+/// A port dropped this close to its hub's drop went with it.
+pub const WITH_HUB_US: u64 = 1_000_000;
+
+/// A port's name, short: "the body's servo port" is "servo port".
+fn short(name: &str) -> String {
+    match name {
+        "the body's servo port" => "servo port".to_owned(),
+        "the speaker with the room mic" => "speaker".to_owned(),
+        name => name.strip_prefix("the ").unwrap_or(name).to_owned(),
+    }
+}
+
+/// "a", "a and b", "a, b and c".
+fn listed(names: &[String]) -> String {
+    match names {
+        [] => String::new(),
+        [one] => one.clone(),
+        [rest @ .., last] => format!("{} and {last}", rest.join(", ")),
+    }
 }
 
 impl Usb {
-    /// The drops, as said: "2 times since boot", or "at least 2 times" when
+    /// Drops, as said: "2 times since boot", or "at least 2 times" when
     /// the kernel's log no longer reaches back to boot.
-    fn drops_said(&self) -> Option<String> {
-        let drops = self.drops?;
+    fn times(&self, drops: usize) -> String {
         let times = if drops == 1 { "time" } else { "times" };
-        Some(if self.since_boot {
+        if self.since_boot {
             format!("{drops} {times} since boot")
         } else {
             format!(
                 "at least {drops} {times} since boot (the kernel's log no longer reaches back to boot)"
             )
+        }
+    }
+
+    /// The hub's drops in one line, for a person: "the lamp's USB hub
+    /// dropped 2 times since boot; the voice mic, the body's servo port,
+    /// the speaker with the room mic and the camera went with it". `None`
+    /// when it never did. Short enough for `lamp/health`'s line: "at
+    /// least" alone says the log no longer reaches back to boot.
+    pub fn hub_said(&self) -> Option<String> {
+        let (mut said, hub) = self.hub_dropped()?;
+        if !hub.took.is_empty() {
+            said.push_str(&format!("; {} went with it", listed(&hub.took)));
+        }
+        Some(said)
+    }
+
+    /// The same, short enough to stand before a failed part in
+    /// `lamp/health`'s line: "the lamp's USB hub dropped 2 times since
+    /// boot, with the voice mic, servo port, speaker and camera".
+    pub fn hub_said_short(&self) -> Option<String> {
+        let (mut said, hub) = self.hub_dropped()?;
+        if !hub.took.is_empty() {
+            let took: Vec<String> = hub.took.iter().map(|name| short(name)).collect();
+            said.push_str(&format!(", with the {}", listed(&took)));
+        }
+        Some(said)
+    }
+
+    fn hub_dropped(&self) -> Option<(String, &Hub)> {
+        let hub = self.hub.as_ref().filter(|hub| hub.drops > 0)?;
+        let times = if hub.drops == 1 { "time" } else { "times" };
+        let at_least = if self.since_boot { "" } else { "at least " };
+        let said = format!(
+            "the lamp's USB hub dropped {at_least}{} {times} since boot",
+            hub.drops
+        );
+        Some((said, hub))
+    }
+
+    /// The mic's own drops, apart from those that came with its hub's.
+    fn alone_said(&self) -> Option<String> {
+        let with_hub = self.hub.as_ref().map_or(0, |hub| hub.mic_with_it);
+        let alone = self.drops?.saturating_sub(with_hub);
+        (alone > 0).then(|| {
+            if with_hub > 0 {
+                format!("the voice mic alone dropped {}", self.times(alone))
+            } else {
+                format!("off USB {}", self.times(alone))
+            }
         })
     }
 }
@@ -82,6 +168,10 @@ pub fn port_of(device: &str) -> Option<String> {
 pub struct UsbRecords {
     pub jieli_ports: Vec<String>,
     pub disconnects: Vec<String>,
+    /// Each disconnect with when it came, in microseconds since boot.
+    pub disconnected_at: Vec<(String, u64)>,
+    /// What each port is, by the kernel's own records of it.
+    pub names: Vec<(String, String)>,
     /// Records read, and the first one's sequence (the boot's first is 0).
     pub records: usize,
     pub first_sequence: Option<u64>,
@@ -97,6 +187,21 @@ impl UsbRecords {
             self.first_sequence = prefix.split(',').nth(1).and_then(|s| s.parse().ok());
         }
         self.records += 1;
+        let at_us = prefix
+            .split(',')
+            .nth(2)
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(0);
+        // `cdc_acm 3-1.1.2:1.0: ttyACM0: USB ACM device`: the body's servo
+        // port, the only serial device on the lamp's hub.
+        if let Some(rest) = text.strip_prefix("cdc_acm ")
+            && let Some((interface, said)) = rest.split_once(": ")
+            && said.starts_with("ttyACM")
+            && let Some((port, _)) = interface.split_once(':')
+        {
+            self.name(port, "the body's servo port");
+            return;
+        }
         let Some(rest) = text.strip_prefix("usb ") else {
             return;
         };
@@ -105,10 +210,63 @@ impl UsbRecords {
         };
         if said.starts_with("USB disconnect") {
             self.disconnects.push(port.to_owned());
-        } else if said.starts_with("Manufacturer: Jieli")
-            && !self.jieli_ports.iter().any(|p| p == port)
-        {
-            self.jieli_ports.push(port.to_owned());
+            self.disconnected_at.push((port.to_owned(), at_us));
+        } else if said.starts_with("Manufacturer: Jieli") {
+            if !self.jieli_ports.iter().any(|p| p == port) {
+                self.jieli_ports.push(port.to_owned());
+            }
+            self.name(port, "the voice mic");
+        } else if said.starts_with("Manufacturer: C-Media") {
+            // The C-Media speakerphone is the room mic too (lamp-ears' mic1).
+            self.name(port, "the speaker with the room mic");
+        } else if said.starts_with("Product: ") && said.to_lowercase().contains("camera") {
+            self.name(port, "the camera");
+        }
+    }
+
+    fn name(&mut self, port: &str, what: &str) {
+        self.names.retain(|(named, _)| named != port);
+        self.names.push((port.to_owned(), what.to_owned()));
+    }
+
+    /// The hub `hub`: its drops, what went with them, and how many of
+    /// `mic`'s drops were among them.
+    pub fn hub(&self, hub: &str, mic: &str) -> Hub {
+        let drops: Vec<u64> = self
+            .disconnected_at
+            .iter()
+            .filter(|(port, _)| port == hub)
+            .map(|(_, at)| *at)
+            .collect();
+        let near = |at: u64| drops.iter().any(|drop| drop.abs_diff(at) <= WITH_HUB_US);
+        let child = format!("{hub}.");
+        let mut ports: Vec<&str> = self
+            .disconnected_at
+            .iter()
+            .filter(|(port, at)| port.starts_with(&child) && near(*at))
+            .map(|(port, _)| port.as_str())
+            .collect();
+        ports.sort_unstable();
+        ports.dedup();
+        let took = ports
+            .iter()
+            .map(|port| {
+                self.names
+                    .iter()
+                    .find(|(named, _)| named == port)
+                    .map_or_else(|| (*port).to_owned(), |(_, what)| what.clone())
+            })
+            .collect();
+        let mic_with_it = self
+            .disconnected_at
+            .iter()
+            .filter(|(port, at)| port == mic && near(*at))
+            .count();
+        Hub {
+            port: hub.to_owned(),
+            drops: drops.len(),
+            took,
+            mic_with_it,
         }
     }
 
@@ -142,6 +300,11 @@ pub fn usb(sound: &std::path::Path, kmsg: &str) -> Usb {
         (Some(port), true) => Some(records.drops(port)),
         _ => None,
     };
+    // The mic's parent hub: `3-1.1.1` hangs from `3-1.1`.
+    let hub = match (&port, read) {
+        (Some(port), true) => port.rsplit_once('.').map(|(hub, _)| records.hub(hub, port)),
+        _ => None,
+    };
     Usb {
         present,
         jieli: present || !records.jieli_ports.is_empty(),
@@ -149,6 +312,7 @@ pub fn usb(sound: &std::path::Path, kmsg: &str) -> Usb {
         drops,
         since_boot: overwritten == Ok(false) && records.first_sequence == Some(0),
         log_read: read,
+        hub,
     }
 }
 
@@ -220,15 +384,41 @@ pub fn voice_mic(declared: bool, heard: &Result<Heard, String>, usb: Option<&Usb
                 "unknown: the kernel's log could not be read (it needs CAP_SYSLOG), or the port is not known",
             ),
         };
-        if usb.drops.is_some_and(|drops| drops > 0)
+        if let Some(hub) = &usb.hub {
+            result = result.with("usb_hub", &hub.port).with(
+                "usb_hub_drops",
+                if usb.since_boot {
+                    hub.drops.to_string()
+                } else {
+                    format!("at least {}", hub.drops)
+                },
+            );
+        }
+        // The hub first: when it drops, the mic goes with everything else
+        // on it, and that is one thing, not a mic problem (the first
+        // builder, #705 17:31). Then the mic's own drops, apart from those.
+        // A fail says its own drops already, and `lamp-health` adds the
+        // hub's line from `usb_hub_said`, so a fail's reason leaves it out.
+        let mut notes = Vec::new();
+        if let Some(said) = usb.hub_said() {
+            result = result.with("usb_hub_said", &said);
+            if let Some(short) = usb.hub_said_short() {
+                result = result.with("usb_hub_said_short", short);
+            }
+            if result.verdict != Verdict::Fail {
+                notes.push(said);
+            }
+        }
+        if let Some(alone) = usb.alone_said()
             && result.verdict != Verdict::Fail
-            && let Some(said) = usb.drops_said()
         {
-            let off = format!("off USB {said}");
+            notes.push(alone);
+        }
+        for note in notes {
             result.reason = if result.reason.is_empty() {
-                off
+                note
             } else {
-                format!("{}; {off}", result.reason)
+                format!("{}; {note}", result.reason)
             };
         }
     }
@@ -252,8 +442,8 @@ fn judged(declared: bool, heard: &Result<Heard, String>, usb: Option<&Usb>) -> P
         // `device_micro2` is no card at all.
         if let Some(usb) = usb.filter(|usb| usb.jieli && !usb.present) {
             let drops = usb
-                .drops_said()
-                .map_or(String::new(), |said| format!(", off USB {said}"));
+                .alone_said()
+                .map_or(String::new(), |said| format!(", {said}"));
             return PartResult::new(
                 part,
                 Verdict::Fail,
@@ -499,6 +689,10 @@ mod tests {
                 drops: Some(1),
                 since_boot: true,
                 log_read: true,
+                hub: Some(Hub {
+                    port: "3-1.1".into(),
+                    ..Hub::default()
+                }),
             }
         );
         std::fs::remove_dir_all(sound.join("card4")).unwrap();
@@ -542,6 +736,132 @@ mod tests {
         let _ = std::fs::remove_dir_all(&root);
     }
 
+    /// lamp-4ace on 17 Oct at 17:12 (the first builder, #705 17:31): the
+    /// inner hub `3-1.1` dropped twice, and the mic, the body's servo port,
+    /// the speaker and the camera went with it each time. Once more the mic
+    /// dropped alone. Said as the hub, then the mic's own drop.
+    #[test]
+    fn a_whole_hub_dropping_is_said_as_the_hub_with_what_went_with_it() {
+        let mut records = UsbRecords::default();
+        for line in [
+            "6,0,0,-;Booting Linux",
+            "6,410,2100000,-;usb 3-1.1.1: Manufacturer: Jieli Technology",
+            "6,411,2110000,-;usb 3-1.1.3: Manufacturer: C-Media Electronics Inc.",
+            "6,412,2120000,-;usb 3-1.1.4: Product: USB_Camera",
+            "6,413,2130000,-;cdc_acm 3-1.1.2:1.0: ttyACM0: USB ACM device",
+            "6,9000,62649000000,-;usb 3-1.1: USB disconnect, device number 3",
+            "6,9001,62649010000,-;usb 3-1.1.1: USB disconnect, device number 4",
+            "6,9002,62649020000,-;usb 3-1.1.2: USB disconnect, device number 5",
+            "6,9003,62649030000,-;usb 3-1.1.3: USB disconnect, device number 6",
+            "6,9004,62649040000,-;usb 3-1.1.4: USB disconnect, device number 7",
+            // A port that only starts with the hub's name is not under it.
+            "6,9005,62649050000,-;usb 3-1.10: USB disconnect, device number 2",
+            "6,9100,62656000000,-;usb 3-1.1: USB disconnect, device number 8",
+            "6,9101,62656010000,-;usb 3-1.1.1: USB disconnect, device number 9",
+            "6,9102,62656020000,-;usb 3-1.1.2: USB disconnect, device number 10",
+            "6,9103,62656030000,-;usb 3-1.1.3: USB disconnect, device number 11",
+            "6,9104,62656040000,-;usb 3-1.1.4: USB disconnect, device number 12",
+            "6,9500,70000000000,-;usb 3-1.1.1: USB disconnect, device number 13",
+        ] {
+            records.count(line);
+        }
+        let hub = records.hub("3-1.1", "3-1.1.1");
+        assert_eq!(
+            hub,
+            Hub {
+                port: "3-1.1".into(),
+                drops: 2,
+                took: [
+                    "the voice mic",
+                    "the body's servo port",
+                    "the speaker with the room mic",
+                    "the camera"
+                ]
+                .map(String::from)
+                .to_vec(),
+                mic_with_it: 2,
+            }
+        );
+        let usb = Usb {
+            present: true,
+            jieli: true,
+            port: Some("3-1.1.1".into()),
+            drops: Some(records.drops("3-1.1.1")),
+            since_boot: true,
+            log_read: true,
+            hub: Some(hub),
+        };
+        let mut room = Heard::default();
+        for sequence in 0..50 {
+            room.add(&block(sequence, 300)).unwrap();
+        }
+        let heard = voice_mic(true, &Ok(room), Some(&usb));
+        assert_eq!(heard.verdict, Verdict::Pass);
+        assert_eq!(
+            heard.reason,
+            "the lamp's USB hub dropped 2 times since boot; the voice mic, the body's servo port, \
+             the speaker with the room mic and the camera went with it; \
+             the voice mic alone dropped 1 time since boot"
+        );
+        let value = |key: &str| {
+            heard
+                .values
+                .iter()
+                .find(|v| v.key == key)
+                .map(|v| v.value.clone())
+        };
+        assert_eq!(value("usb_hub").as_deref(), Some("3-1.1"));
+        assert_eq!(value("usb_hub_drops").as_deref(), Some("2"));
+        assert!(
+            value("usb_hub_said")
+                .unwrap()
+                .starts_with("the lamp's USB hub dropped 2 times")
+        );
+        assert_eq!(
+            value("usb_hub_said_short").as_deref(),
+            Some(
+                "the lamp's USB hub dropped 2 times since boot, with the voice mic, servo port, \
+                 speaker and camera"
+            )
+        );
+        // A hub that never dropped says nothing of itself.
+        let calm = Usb {
+            hub: Some(Hub {
+                port: "3-1.1".into(),
+                ..Hub::default()
+            }),
+            drops: Some(0),
+            ..usb.clone()
+        };
+        assert!(calm.hub_said().is_none());
+        // The kernel's log wrapped: "at least", and no more, so the line
+        // fits `lamp/health`'s.
+        let wrapped = Usb {
+            since_boot: false,
+            ..usb.clone()
+        };
+        assert_eq!(
+            wrapped.hub_said().unwrap(),
+            "the lamp's USB hub dropped at least 2 times since boot; the voice mic, \
+             the body's servo port, the speaker with the room mic and the camera went with it"
+        );
+        // The mic gone after the hub's drops: its reason says only its own
+        // drop, and leaves the hub's line to `usb_hub_said`.
+        let gone = Usb {
+            present: false,
+            ..usb
+        };
+        let off = voice_mic(true, &Ok(Heard::default()), Some(&gone));
+        assert_eq!(off.verdict, Verdict::Fail);
+        assert_eq!(
+            off.reason,
+            format!(
+                "not on USB now: no sound card {CARD}, the voice mic alone dropped 1 time since boot"
+            )
+        );
+        assert!(off.values.iter().any(|v| v.key == "usb_hub_said"));
+    }
+
     /// Off USB now and nothing heard: a fail, with its drops. On USB, heard
     /// and dropped twice: a pass that says so. Drops never fail it alone.
     #[test]
@@ -553,6 +873,7 @@ mod tests {
             drops: Some(2),
             since_boot: true,
             log_read: true,
+            hub: None,
         };
         let off = voice_mic(true, &Ok(Heard::default()), Some(&gone));
         assert_eq!(off.verdict, Verdict::Fail);
@@ -604,6 +925,7 @@ mod tests {
                 drops: None,
                 since_boot: true,
                 log_read: true,
+                hub: None,
             }),
         );
         assert_eq!(quiet.verdict, Verdict::NotChecked);
@@ -625,6 +947,7 @@ mod tests {
         let read = Usb {
             since_boot: true,
             log_read: true,
+            hub: None,
             ..Usb::default()
         };
         let other = voice_mic(true, &Ok(Heard::default()), Some(&read));
@@ -646,6 +969,7 @@ mod tests {
         );
         let wrapped_past = Usb {
             log_read: true,
+            hub: None,
             ..Usb::default()
         };
         let late = voice_mic(true, &Ok(Heard::default()), Some(&wrapped_past));
@@ -661,6 +985,7 @@ mod tests {
             drops: Some(2),
             since_boot: false,
             log_read: true,
+            hub: None,
         };
         let off = voice_mic(true, &Ok(Heard::default()), Some(&wrapped));
         assert_eq!(off.verdict, Verdict::Fail);

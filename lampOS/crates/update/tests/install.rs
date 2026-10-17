@@ -2119,11 +2119,11 @@ fn prepare_then_reset_then_install_does_not_restore_the_old_key() {
     }
 }
 
-/// #820: a home lamp outside +07 keeps its own clock. Expression and memory
-/// follow the system's zone (`--zone system`: `/etc/localtime`, which setup
-/// points at the person's zone, across summer time), and schedule and skills
-/// take `zone.env`, which setup writes again with that zone. None keeps the
-/// offset install found in the image.
+/// #820: a home lamp outside +07 keeps its own clock. Expression, memory and
+/// skills follow the system's zone (`--zone system`: `/etc/localtime`, which
+/// setup points at the person's zone, across summer time, #1384), and
+/// schedule takes `zone.env`, which setup writes again with that zone. None
+/// keeps the offset install found in the image.
 #[test]
 fn the_parts_that_keep_local_time_read_the_zone_setup_saves() {
     let unit = |name: &str| {
@@ -2133,13 +2133,21 @@ fn the_parts_that_keep_local_time_read_the_zone_setup_saves() {
             .unwrap_or_else(|| panic!("no {name}"))
             .1
     };
-    for name in ["lamp-expression.service", "lamp-memory.service"] {
+    for name in [
+        "lamp-expression.service",
+        "lamp-memory.service",
+        "lamp-skills.service",
+    ] {
         let text = unit(name);
         let start = text
             .lines()
             .find(|line| line.starts_with("ExecStart="))
             .unwrap();
-        assert!(start.contains(" --zone system "), "{name}: {start}");
+        let words: Vec<&str> = start.split_whitespace().collect();
+        assert!(
+            words.windows(2).any(|pair| pair == ["--zone", "system"]),
+            "{name}: {start}"
+        );
         assert!(!text.contains("--utc-offset-minutes"), "{name}");
         assert!(
             !text.contains("EnvironmentFile=/etc/lampOS/zone.env"),
@@ -2149,9 +2157,6 @@ fn the_parts_that_keep_local_time_read_the_zone_setup_saves() {
     let schedule = unit("lamp-schedule.service");
     assert!(schedule.contains("EnvironmentFile=/etc/lampOS/zone.env"));
     assert!(schedule.contains(" --zone ${LAMP_ZONE} "));
-    let skills = unit("lamp-skills.service");
-    assert!(skills.contains("EnvironmentFile=/etc/lampOS/zone.env"));
-    assert!(skills.contains(" --utc-offset-minutes ${LAMP_UTC_OFFSET_MINUTES}"));
 }
 
 /// #820 (the first builder, 20:46): a lamp set up before setup wrote

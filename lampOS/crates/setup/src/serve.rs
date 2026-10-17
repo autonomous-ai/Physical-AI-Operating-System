@@ -545,8 +545,8 @@ impl Save for Files<'_> {
         }
         // Schedule and skills read the zone from install's file (#820). A
         // zone the parts' own zone data lacks leaves it as it was: schedule
-        // would refuse to start on it. The offset is today's: skills keep it
-        // until a reset's setup, across summer time (third-P1).
+        // would refuse to start on it. The offset is today's, for a unit that
+        // still takes one; the product's skills follow /etc/localtime (#1384).
         if let Ok(local) = lamp_local_time::LocalTime::zone(zone) {
             let now_ms = SystemTime::now()
                 .duration_since(UNIX_EPOCH)

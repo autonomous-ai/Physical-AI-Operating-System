@@ -1,0 +1,13 @@
+// I2C bus 0 (TWI0, header pins 3 and 5) at 100 kHz: the most the air sensor
+// (Sensirion SEN6x, standard mode only) takes, where the board runs 400 kHz.
+// A limit kept, not a cure shown: lamp-4ace's sensor read at 400 kHz too once
+// it measured (#705, 17 Oct). The MPR121 on the same bus works at 100 kHz. The imager compiles
+// it with `dtc -@` and names it in /boot/orangepiEnv.txt's user_overlays=,
+// which boot.cmd applies after the kernel's overlays (`i2c0` enables the
+// bus). lamp-air-clock.service sets the same rate at run time.
+/dts-v1/;
+/plugin/;
+
+&twi0 {
+	clock-frequency = <100000>;
+};

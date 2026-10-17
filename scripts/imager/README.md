@@ -252,9 +252,23 @@ cat /opt/hal/.env | grep HAL_AUDIO      # audio vars present
 cat /etc/asound.conf                    # from robots/<type>/rootfs overlay
 ls /etc/udev/rules.d/                   # 99-lamp-device.rules + 91-pulseaudio-hal-ignore.rules from robots/lamp/rootfs overlay
 grep overlays /boot/orangepiEnv.txt     # spi3 + i2c0, no uart8 (uart8 claims PL9 = GPIO button pin)
+grep user_overlays /boot/orangepiEnv.txt   # lamp-i2c0-100khz (robots/lamp/rootfs/boot/overlay-user/*.dts, compiled at build)
+grep freq /sys/class/i2c-adapter/i2c-0/device/info   # twi->freqency = 100000 after the first boot (the air sensor takes no more);
+                                        # no i2c-0 at all, and a dark LED ring, means U-Boot dropped every overlay (spi3, i2c0 too)
 findmnt /                               # ext4, expanded to full SD
 systemctl is-enabled resize-once 2>&1 | grep -q "not found" && echo "OK: self-destructed"
 ```
+
+> **Device-tree overlays from the rootfs**: `robots/<type>/rootfs/boot/overlay-user/NAME.dts`
+> is source, never a binary in the repo. The build compiles each with `dtc -@` into
+> `NAME.dtbo` beside it and adds `NAME` to `user_overlays=`; `boot.cmd` applies them after
+> the kernel's `overlays=`. A device-profile OTA copies the `.dts` onto a lamp but compiles
+> nothing, so it changes nothing there until a lamp is rebuilt from the image.
+> `lamp-i2c0-100khz` sets I2C bus 0 to 100 kHz, the SEN6x air sensor's limit; the product's
+> `lamp-air-clock.service` sets the same rate at run time on lamps already out. The build
+> takes the `.dts` from the uploaded device profile, not from the checkout, so run
+> `make upload-device lamp` after a change here and before building the image. If an overlay
+> fails to apply in U-Boot, the board may boot with none of them: check the ring and bus 0.
 
 > **uart8 warning**: if `grep overlays` shows `uart8`, the GPIO button will fail with
 > `bad event request`. uart8 overlay claims PL8+PL9; PL9 = gpiochip1 line 9 = button pin.

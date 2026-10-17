@@ -114,6 +114,9 @@ async fn a_request_after_a_bare_call_is_answered_only_when_the_call_showed_the_l
 /// A bare call heard as `call`, answered and complete, then "Check my
 /// work.": whether that request's answer came out of the worker.
 async fn after_a_bare_call(call: &str) -> bool {
+    // Its heard lines go into the process's thread: kept out of the other
+    // tests' conversation (the reviewer on #1228).
+    let _room = OwnRoom::fresh();
     let mut rig = LiveRig::start_with(
         quick_policy(),
         options(true, quiet, crate::tools::Settings::default()),

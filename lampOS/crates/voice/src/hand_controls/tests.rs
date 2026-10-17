@@ -1522,3 +1522,98 @@ mod live_bus {
         drop(owner); // Requests bounded shutdown of this one persistent pump.
     }
 }
+
+/// The pump's pass (#705, 08:37): idle, one look at each subscriber, not
+/// eight; a burst still taken in one pass, up to its bound; a closed queue
+/// or an error ends it at once.
+#[test]
+fn the_pump_looks_once_a_pass_when_idle_and_drains_a_burst() {
+    let mut subscribed = vec![(0usize, 'a'), (0, 'b'), (0, 'c'), (0, 'd')];
+    let mut looks = 0;
+    assert_eq!(
+        drain(&mut subscribed, |_, _| {
+            looks += 1;
+            Ok(Pumped::Empty)
+        })
+        .unwrap(),
+        Drained::Done
+    );
+    assert_eq!(looks, 4, "one look at each of four, idle");
+    // Three messages waiting on 'b': three rounds read, a fourth finds none.
+    let mut waiting = 3;
+    let mut looks = 0;
+    drain(&mut subscribed, |_, topic| {
+        looks += 1;
+        Ok(if topic == 'b' && waiting > 0 {
+            waiting -= 1;
+            Pumped::Read
+        } else {
+            Pumped::Empty
+        })
+    })
+    .unwrap();
+    assert_eq!((waiting, looks), (0, 16));
+    // A flood is bounded: POLL_LIMIT / 2 rounds a pass, as before.
+    let mut looks = 0;
+    drain(&mut subscribed, |_, _| {
+        looks += 1;
+        Ok(Pumped::Read)
+    })
+    .unwrap();
+    assert_eq!(looks, 4 * POLL_LIMIT / 2);
+    // Closed ends the pass where it is.
+    let mut looks = 0;
+    assert_eq!(
+        drain(&mut subscribed, |_, _| {
+            looks += 1;
+            Ok(Pumped::Closed)
+        })
+        .unwrap(),
+        Drained::Closed
+    );
+    assert_eq!(looks, 1);
+    assert!(drain(&mut subscribed, |_, _| Err(io::Error::other("gone"))).is_err());
+}
+
+/// What the pump costs with nothing happening (#705, 08:37): the real pump on
+/// an idle bus with all four subscriptions, its thread's CPU over 10 s from
+/// `/proc/self/task`. A measure, not a check: run with `--ignored
+/// --nocapture`, on the host or a lamp.
+#[test]
+#[ignore = "a 10 s measure of the idle pump's CPU, on the real clock"]
+fn measure_the_idle_pumps_cpu() {
+    let directory = Directory::new();
+    let options = ControlsOptions {
+        stop: true,
+        mute_record: Some(directory.file()),
+        bus_root: Some(directory.0.join("b")),
+        head_touch: true,
+    };
+    let _owner = HandControls::restore(&options).unwrap().unwrap();
+    let ticks = || -> u64 {
+        fs::read_dir("/proc/self/task")
+            .unwrap()
+            .filter_map(Result::ok)
+            .filter(|task| {
+                fs::read_to_string(task.path().join("comm"))
+                    .is_ok_and(|name| name.trim() == "voice-hand-cont")
+            })
+            .map(|task| {
+                let stat = fs::read_to_string(task.path().join("stat")).unwrap();
+                let fields: Vec<&str> = stat[stat.rfind(')').unwrap() + 2..]
+                    .split_whitespace()
+                    .collect();
+                fields[11].parse::<u64>().unwrap() + fields[12].parse::<u64>().unwrap()
+            })
+            .sum()
+    };
+    std::thread::sleep(Duration::from_secs(1));
+    let before = ticks();
+    std::thread::sleep(Duration::from_secs(10));
+    let used = ticks() - before;
+    // Linux's USER_HZ is 100 on the lamps and on this host.
+    println!(
+        "idle pump: {used} ticks in 10 s, {:.1}% of a core",
+        used as f64 / 10.0
+    );
+}

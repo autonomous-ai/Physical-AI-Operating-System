@@ -32,6 +32,10 @@ test-group = 'realtime'
 # Started first, so that its one-at-a-time chain runs beside the rest rather
 # than after it.
 priority = 100
+# A passing test's output at the end of every run: `capture_hold_worker`
+# prints the medians it bounds, so a drift toward a bound shows before it
+# turns a run red (the reviewer on #1299).
+success-output = "final"
 
 # Pull requests and pushes to lamp-voice on GitHub Actions
 # (.github/workflows/lampos-arm64.yml): every test, the realtime group

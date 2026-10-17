@@ -4,6 +4,52 @@
 
 Newest first. Times from `date` (+07). 00:12 to 01:40: the review agents stopped at a usage limit.
 
+- 09:16 #1256 merged by the first builder (tests-only rule); #1262 (#1226's P3 fix) ready, first review started
+- 09:14 #1253 (the LAMP_SCHEDULE_SPEAK=skill fix) ready, first review started; #1042 rebased past Stuffy air, re-check started; #1158 moved again
+- 09:11 merged #1047 (with LAMP_STOP_WORDS=heard-always a stop word over the lamp's voice stops it; off unless set; P3s left)
+- 09:05 #1238 merged by the first builder at 09:03 after a rebase (switch census); #1239, #1243, #1245, #1251 moved again, reviewers told
+- 09:04 merged #1226 (a request going on after an early end keeps what the second voice's rule knew of the one just before; my P2 fixed; P3 the first half read twice)
+- 09:03 #1238 re-checked at 6583600cf: no finding left; ARM64 red only from lamp-voice's lamp-body break (fixed by #1254); merge on a fresh green run after a rebase
+- 09:01 #1247 first review: P2 (port-53 probes can read a dead network as online behind a router that answers DNS itself; count only 443); off unless set; it opens a bare TCP handshake to 1.1.1.1 and 8.8.8.8 only while the link is down
+- 08:58 merged #1011 (the reading pose: head down at the desk, leaning forward, held while a skill says reading; off unless sent; lamp-52e6 and lamp-4ace runs; P3 the base turns away from a person off to the side)
+- 08:55 #1042 re-checked at 766779d3c: clippy P2 and queue P3 fixed; needs a rebase (4 files conflict with Stuffy air) folding in its task commit, task only on from=tasks
+- 08:55 merged #1237 (a skill's news ask may name its task; the voice side of #1042's order P2)
+- 08:55 #1254 merged by the first builder before me (lamp-body tests compile again)
+- 08:54 #1244 first review: P2 (no test sends a refused tap through the coordinator with a ring: the face test's first half compares two untouched clones); P3s (latency not measured; a stale doc line). Not posted: Expression looks up at a tap while muted (predates the PR)
+- 08:50 #1257 (Stuffy air follow-up: my #1066 P3s and the lamp-06c1 check) ready, first review started; #1158 moved (clock guard fix), re-check started; #1245 moved again
+- 08:40 #1254 reviewed (lamp-voice's lamp-body tests don't compile since #1010 and #1192: duplicate helper; pure rename): merge on green ARM64
+- 08:39 #1238 re-checked at a01ee4350: all 17 earlier findings fixed; three new P2s (LAMP_TASKS_WHO proposed on though its newest lamp-4ace records fail; second voice and --controls-mute have lamp-4ace records the page says are missing)
+- 08:39 #1158 first review: two P2s (the clock guard never reaches the worker: env_clear drops LAMP_KERNEL_CLOCK; by day in a busy room all four 15:23 true calls are now held); after fixes, for the first builder (the day rule shown on no lamp; Fourth has none)
+- 08:39 #1235 after the merge: no defect (a 400 ms cleanup stall fails 7 tests without it, 17/17 with it); the same pattern left in three other test files, noted on #705 for Tests
+- 08:35 #1235 merged by the first builder (tests-only rule); #1011 (reading pose, was stacked on #1010) ready, first review started
+- 08:32 merged #1248 (privacy_worker tests check the worker's fresh view, not the producer's cadence) and closed #1241
+- 08:28 LAMP_SCHEDULE_SPEAK=skill bug confirmed by probe (the worker refuses every reminder): posted on #1038 and #705 for an owner
+- 08:27 #1233 after the merge: nothing posted (product lines all cfg(test); not reproduced on base); an unconfirmed doubt that the mock no longer catches a shutdown that kills at once, not checked further
+- 08:27 #1242 after the merge: P2 posted (no test fails if the 25 s budget is dropped from waiting_for_link); #1251 ready, first review started; #1238 re-check started
+- 08:26 #1010 merged by the first builder (lean toward the person; lamp check on lamp-4ace today)
+- 08:26 #1245 first review: P1 (ARM64 red: voice-eval PARTS lacks lamp-selftest); then for the first builder (on every new install, no lamp run, Ten has none); not the privacy path (passive: no mic, camera, sound, light or move)
+- 08:26 merged #1236 (bad temperature reads counted, never a peak or heat; P1 fixed, lamp-52e6 run of the head; P3 a fast climb from a low first read never settles)
+- 08:24 #1233 and #1242 merged by the first builder under the new tests-or-docs rule (08:21: a clean peer review plus green ARM64); #1237 and #1042 review started (top of the first builder's 08:04 order); #1243 moved (fixes), re-check started; #1240 and #1247 queued; the watcher now keeps its state between runs (it had missed #1237 going ready)
+- 08:12 #1235 ready (hand_controls teardown under load, from my 07:07 on #705), first review started; #1234 and #1244 moved mid-review
+- 08:11 #1243 first review: P2 (a later run that could not check the failed part clears the error; the 6 h passive timer would clear speaker, ring and head failures); P2 scope (keep.rs is the fifth's; needs its yes); no lamp run posted for an always-on change
+- 08:09 #1230 ready, first review started; #1047 moved to 640f54449 (fixes), re-check queued
+- 08:07 #1238 first review (switch census): 7 P2s (LAMP_SPOKEN_TO and LAMP_POLICY_HOLDS_ACTIONS proposed on though later records show them failing; held calls run after 2 s; six switches missing; wrong 'not shown' and 'shown' rows); side find: LAMP_SCHEDULE_SPEAK=skill may never speak a reminder (#1038), being traced
+- 08:05 merged #1246 (lamp-4ace hardware note: neither mic carries a person's word over the lamp's speech; P3 wording)
+- 08:03 #1239 first review: two P2s (the ease-out is a snap, 0.32 s at +24/-21 a step then a dead stop; the newest gesture in a step overwrites the one before whatever its priority); safety holds; off by default
+- 08:00 #1243 and #1244 ready, first reviews started; #1236 moved to 11515b50d, re-check started; #1226 moved to 5c9a2e780, re-check queued
+- 07:54 #1233, #1239, #1242 ready, first reviews started; #1199 and #1238 moved mid-review, re-checks continue
+- 07:48 #1236 first review at be93c2332: P1 (once a joint reads more than 15 from its last good value every later read is bad, so a real 70 never stops the arm; probes confirm); P2 (five stood asserts removed from unrelated tests); P3 doc; on by default, needs a lamp-52e6 run of the fixed head
+- 07:44 merged #1231 (news left out keeps its place; a cut answer told together keeps its gist; my #1223 P3s)
+- 07:43 merged #1228 (the worker's own loop shows a request after a bare call; #1108's unexercised path)
+- 07:42 #1047 first review: three P2s (a spoken stop skips the end-of-reply count write; the lamp's own words are kept 6 s from text arrival though a reply can sit 30 s ahead, so its own 'wait' stops it; docs say raw was never played though three lamp runs exist); off unless set; not a privacy-path change
+- 07:42 merged #968 (the speaker check reads echo from the lamp's own speech, off unless LAMP_SELFTEST_SPEAKER=on)
+- 07:40 #968 re-checked at 369e973cb (rebased): no finding; merge on green ARM64 (off unless LAMP_SELFTEST_SPEAKER=on; the msgs shape is the first builder's 10:21 answer)
+- 07:38 #1199 re-checked at 6280d17c8: plain timing, no lamp run needed (as ask 18's build); P2 (README and docs say ask 22 played both clips; its recording shows plain timing drops the second in 19 and 22); P3 (the long-dance test fails without the gap only 3 of 6 runs)
+- 07:33 merged #1066 (Stuffy air reworked per #1021; off unless installed; P3s: a tool-started dim gets no end, rearm untested in cases, night spends a chance, whole sleepy clip)
+- 07:26 #1042 re-checked at 973e5778d: reload P2 fixed; order P2 fixed for one message only (still needs the voice to carry the task, no PR yet); new P2 (clippy too_many_arguments on take_skips); P3 (a dropped queued run blocks the runs behind it)
+- 07:23 #1191 merged by the first builder (ring resync); #1047 and #1231 ready, first reviews started
+- 07:18 #1179 merged by the first builder (stall recorder)
+- 07:15 #968 re-checked at 7aadecde0: my 06:46 P2 fixed (set_unshown back for a skill sound); needs a rebase (speaker_tone.rs conflicts with #1214); P3 (the ported test copies the loop's expression)
 - 07:13 merged #1229 (a silent privacy worker ends the loop: stepped test; my #1222 P3)
 - 07:12 merged #1225 (a speaker lapse mid-answer tested through the loop; my #1214 P3)
 - 07:10 merged #1227 (#1224's open P2: introductions no longer name the speaker)

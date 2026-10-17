@@ -1129,12 +1129,13 @@ fn selftest(parts: &[(&str, Verdict, &str)]) -> SelfTest {
 
 /// #812: a lamp says a part has failed before its person finds out. A run
 /// that failed a part, kept on `lamp/selftest` before the loop began, makes
-/// the lamp `error`, naming the part and why; the next run, which passed,
-/// makes it well again; a message that is no whole run is passed over and
-/// said once, and the run before it stands.
+/// the lamp `error`, naming the part and why; a message that is no whole run
+/// is passed over and said once; a run that could not check that part
+/// leaves it failed; the next run, where it passed, makes the lamp well
+/// again.
 #[test]
 fn a_part_the_selftest_failed_is_in_the_lamps_health_until_a_run_passes() {
-    let failed = selftest(&[
+    let mut failed = selftest(&[
         ("voice_mic", Verdict::Pass, ""),
         (
             "storage",
@@ -1143,6 +1144,8 @@ fn a_part_the_selftest_failed_is_in_the_lamps_health_until_a_run_passes() {
         ),
         ("touch", Verdict::NotChecked, "Controls is not running"),
     ]);
+    // A minute old, so that a later run is told apart by its age.
+    failed.started -= 60.0;
     let mut rig = Rig::with(
         "selftest",
         |_| {},
@@ -1182,12 +1185,33 @@ fn a_part_the_selftest_failed_is_in_the_lamps_health_until_a_run_passes() {
     rig.said("the message that is no run", |note| {
         *note == Note::SelfTestUnreadable
     });
+    // A run that could not check storage leaves its fail standing (the
+    // reviewer on #1243): the lamp is still error, now that run's age.
+    let unchecked = selftest(&[
+        ("voice_mic", Verdict::Pass, ""),
+        (
+            "storage",
+            Verdict::NotChecked,
+            "the kernel's log cannot be read",
+        ),
+    ]);
+    out.publish_json(2, &unchecked).unwrap();
+    let health = rig.health_where("the run that could not check storage is in it", |health| {
+        item(health, "selftest").is_some_and(|item| item.age_ms < 1_000)
+    });
+    assert_eq!(
+        (health.level, health.message.as_str()),
+        (
+            Level::Error,
+            "selftest: failed: storage (9 SD/MMC re-tunes timed out since boot)"
+        )
+    );
     let passed = selftest(&[
         ("voice_mic", Verdict::Pass, ""),
         ("storage", Verdict::Pass, ""),
         ("touch", Verdict::NotChecked, "Controls is not running"),
     ]);
-    out.publish_json(2, &passed).unwrap();
+    out.publish_json(3, &passed).unwrap();
     let health = rig.health_where("the passing run is in it", |health| {
         level_of(health, "selftest") == Some(Level::Ok)
     });

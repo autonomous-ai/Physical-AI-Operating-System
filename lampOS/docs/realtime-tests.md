@@ -1294,3 +1294,23 @@ either way. For #1351: a scratch `service()` right after that test joins its
 worker, with no send due, receives on the gone sockets first; on
 `lamp-voice` it failed 1 of 3 at the refused receive, and with this the
 receive never fails. The whole binary passes 9 of 9.
+
+## lamp-tasks' status waits read the kept value in slices (#1128)
+
+`lamp-tasks::runtime`'s
+`with_progress_a_value_from_the_start_each_task_read_at_once_then_on_schedule_and_the_words_stay_here`
+(6.1 s) and `a_watched_task_whose_reads_fail_is_unread_not_gone_and_after_a_restart_too`
+(5.6 s) were among the slowest in the full run of 17 October (39029608429).
+Almost all of it was one wait: `next_status`'s single `recv(5 s)` for the
+task's first status. A publisher looks for new subscribers at most every
+200 ms (`Bus::rescan_every`), so a status published just after the test
+subscribed reaches it only as the topic's kept value, which `recv` reads
+when its wait on the socket is over: at the end of the 5 s. That's the bus
+as designed; the test asked for the whole timeout at once.
+
+`next_status` now receives in slices of 100 ms within the same 5 s bound, so
+the kept value is read within about 100 ms. It is the same message, and the
+same checks follow. On Linux x86_64 (release, as CI): the first test went from
+6.1 s to 1.1 s (5 of 5 each; what's left is the diagnostic's real one-second
+cadence), the second from 5.3 s (4 of 5; 0.15 s once) to 0.2 s, and the whole
+`runtime` binary from 6.4 s to 1.4 s.

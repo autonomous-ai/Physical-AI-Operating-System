@@ -516,12 +516,19 @@ fn refuse_duplicate_fields_with(input: &str, slow_writer_ms: Option<&str>) {
     assert!(stderr.contains("bad_request"), "{seen}");
 }
 
-/// The next status on the bus, checked.
+/// The next status on the bus, checked. Received in slices of 100 ms within
+/// the same 5 s: a publisher looks for new subscribers at most every 200 ms
+/// (`rescan_every`), so a status published just after this subscribed
+/// reaches it only as the topic's kept value, which `recv` reads once its
+/// wait on the socket is over. One 5 s wait then took the whole 5 s.
 fn next_status(watch: &mut lamp_bus::Subscriber) -> TaskStatus {
-    let message = watch
-        .recv(Duration::from_secs(5))
-        .unwrap()
-        .expect("a status on the bus");
+    let until = Instant::now() + Duration::from_secs(5);
+    let message = loop {
+        if let Some(message) = watch.recv(Duration::from_millis(100)).unwrap() {
+            break message;
+        }
+        assert!(Instant::now() < until, "a status on the bus");
+    };
     assert_eq!(message.header.source, "tasks");
     let text = String::from_utf8(message.payload.clone()).unwrap();
     // Typed state only: no word an agent wrote, no task text.

@@ -1168,6 +1168,19 @@ fn run_loop_with(
     fault_first: bool,
     clocking: Clocking,
 ) -> Ran {
+    run_loop_ringed(controls, start, fault_first, clocking, false)
+}
+
+/// As [`run_loop_with`], and with a ring worker when `ringed`, so the
+/// trace holds the frames the ring was asked to draw (`ring_requested`).
+/// The ring's side answers none: a frame only has to be asked for.
+fn run_loop_ringed(
+    controls: impl FnOnce() -> HandControls,
+    start: impl FnOnce() -> (Controller, Option<Reply>),
+    fault_first: bool,
+    clocking: Clocking,
+    ringed: bool,
+) -> Ran {
     let directory = SessionDirectory::create().unwrap();
     // The stepped clock cannot rely on the scheduler running each child
     // before logical time advances: its fixture's echo proves it ready.
@@ -1179,7 +1192,21 @@ fn run_loop_with(
     let (capture, capture_peer, capture_input) = fixture(&directory.path, "capture");
     let (provider, provider_peer, provider_input) = fixture(&directory.path, "provider");
     let (privacy, privacy_peer, privacy_input) = fixture(&directory.path, "privacy");
-    let pids = [&speaker, &capture, &provider, &privacy].map(|worker| worker.fixture_pid());
+    let mut pids = vec![
+        speaker.fixture_pid(),
+        capture.fixture_pid(),
+        provider.fixture_pid(),
+        privacy.fixture_pid(),
+    ];
+    let ring = ringed.then(|| fixture(&directory.path, "ring"));
+    let ring_channel_ceiling = ring.as_ref().map(|_| 24);
+    let (ring, ring_peer) = match ring {
+        Some((worker, peer, input)) => {
+            pids.push(worker.fixture_pid());
+            (Some(worker), Some((false, peer, input)))
+        }
+        None => (None, None),
+    };
     let mut rig = Rig {
         second: None,
         microphone: crate::options::Microphone::Mic2,
@@ -1190,10 +1217,10 @@ fn run_loop_with(
         provider,
         privacy,
         privacy_controls: false,
-        ring: None.into(),
+        ring: ring.into(),
         camera: None,
         motor: None,
-        ring_channel_ceiling: None,
+        ring_channel_ceiling,
         diagnostic_directory: None,
         noise_suppression: NoiseSuppression::On,
         turn_taking: TurnTaking::VadOnly,
@@ -1228,7 +1255,10 @@ fn run_loop_with(
         (false, capture_peer, capture_input),
         (false, provider_peer, provider_input),
         (false, privacy_peer, privacy_input),
-    ];
+    ]
+    .into_iter()
+    .chain(ring_peer)
+    .collect::<Vec<_>>();
     let (mut threads, mut stepped, mut scope) = (Vec::new(), None, None);
     if clocking == Clocking::Stepped {
         // Every child has crossed its readiness barrier: the loop, its
@@ -1468,6 +1498,52 @@ fn head_tap() -> HandControls {
 /// says anything ends the loop once its freshness (`PRIVACY_FRESH_US`) has
 /// passed, and not before. Stepped, so the time the loop ran is its own:
 /// a host stall neither ends it early nor keeps it going.
+/// The reviewer on #1244: the ring's face after a head tap follows the
+/// voice's hum, so only the hum's own frames may be marked `listening`. A
+/// tap that hums: the first frame the ring is asked for is. A tap refused
+/// while the lamp still thinks: frames go out for its turn, and none is.
+#[test]
+fn only_the_hums_own_ring_frames_are_marked_listening() {
+    let listening = |ran: &Ran| -> Vec<bool> {
+        ran.trace
+            .iter()
+            .filter(|row| row["kind"] == "ring_requested")
+            .map(|row| row["frame"]["listening"] == true)
+            .collect()
+    };
+    let hummed = run_loop_ringed(
+        head_tap,
+        || (quiet_owner(), None),
+        false,
+        Clocking::Stepped,
+        true,
+    );
+    let cue = hummed
+        .trace
+        .iter()
+        .find(|row| row["kind"] == "head_tap_cue")
+        .expect("the tap is judged");
+    assert_eq!(cue["plays"], true, "{cue}");
+    let frames = listening(&hummed);
+    assert_eq!(frames.first(), Some(&true), "{frames:?}");
+    let still_thinking = || {
+        let (owner, mut current, _) = active_reply();
+        current.had_audio = false;
+        current.playback = None;
+        (owner, Some(current))
+    };
+    let refused = run_loop_ringed(head_tap, still_thinking, false, Clocking::Stepped, true);
+    let cue = refused
+        .trace
+        .iter()
+        .find(|row| row["kind"] == "head_tap_cue")
+        .expect("the tap is judged");
+    assert_eq!(cue["plays"], false, "{cue}");
+    let frames = listening(&refused);
+    assert!(!frames.is_empty(), "the thinking turn's frames go out");
+    assert!(frames.iter().all(|listening| !listening), "{frames:?}");
+}
+
 #[test]
 fn a_silent_privacy_worker_ends_the_loop_once_its_freshness_has_passed() {
     let started = std::cell::Cell::new(0);

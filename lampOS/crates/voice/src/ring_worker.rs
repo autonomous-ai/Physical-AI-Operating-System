@@ -535,7 +535,6 @@ fn service(
         // only a bounded few at a time (#849 review).
         if let Some(head) = head.as_mut() {
             face.hand(head.tick(at));
-            face.tapped(head.tapped_until());
         }
         if budget > 0 && pending.is_none() {
             pending = link.receive_frame()?;
@@ -596,8 +595,7 @@ fn service(
                             face.toward(sight.tick(monotonic_us()));
                         }
                         face.accent(frame.accent, frame.accent_at_us);
-                        let pixels: [_; PIXEL_COUNT] =
-                            face.render(frame.mood(), frame.level, monotonic_us(), ceiling.get());
+                        let pixels = draw(&mut face, &frame, monotonic_us(), ceiling.get());
                         match ring.show(&pixels, ceiling, frame.permit) {
                             Ok(write) => link.publish(WorkerEvent::Ring {
                                 report: RingFeedback::Presented {
@@ -672,6 +670,21 @@ fn rest<S: FrameSink>(
     Ok(())
 }
 
+/// A frame's face at `at_us`. A frame of the head tap's "hm?" starts the
+/// tap's window at rest (#711), so only a tap the voice answers gets the
+/// listening face after its turn.
+fn draw(
+    face: &mut Face,
+    frame: &RingFrame,
+    at_us: u64,
+    ceiling: u8,
+) -> [lamp_ring::Rgb; PIXEL_COUNT] {
+    if frame.listening {
+        face.hum_frame(frame.permit.owner().turn(), at_us);
+    }
+    face.render(frame.mood(), frame.level, at_us, ceiling)
+}
+
 #[cfg(test)]
 mod drawn_tests {
     use super::*;
@@ -715,6 +728,61 @@ mod drawn_tests {
         ring.install_authority(controller.snapshot(now()).unwrap())
             .unwrap();
         ring
+    }
+
+    /// A frame of a new turn's waiting phase, the hum's when `listening`.
+    fn turn_frame(listening: bool) -> RingFrame {
+        let boot = crate::process::new_boot().unwrap();
+        let mut controller = Controller::new(boot, now());
+        controller
+            .set_microphone_permission(now(), Permission::Allowed)
+            .unwrap();
+        let until = MonoTime::from_micros(now().as_micros() + 500_000);
+        controller
+            .set_capture(now(), CaptureState::RetainingUntil(until))
+            .unwrap();
+        controller
+            .set_admission(now(), AdmissionState::OpenUntil(until))
+            .unwrap();
+        let owner = controller
+            .admit(now(), lamp_turn_owner::AdmittedInput::NewTurn)
+            .unwrap();
+        controller.input_ended(now(), owner).unwrap();
+        let plan = controller
+            .plan_output(now(), owner, OutputKind::Light, None)
+            .unwrap();
+        let permit = controller.issue_output(now(), plan, 100_000).unwrap();
+        let snapshot = controller.snapshot(now()).unwrap();
+        RingFrame {
+            snapshot,
+            permit,
+            phase: RingPhase::from_snapshot(snapshot).unwrap(),
+            ceiling: 40,
+            requested_at_us: monotonic_us(),
+            level: 0,
+            attending: false,
+            offline: false,
+            listening,
+            accent: 0,
+            accent_at_us: 0,
+        }
+    }
+
+    /// First on #705, 17 Oct 07:26: the face at rest after a tap only when
+    /// the voice's hum plays. Drawn, a hum's frame opens the tap's window,
+    /// so the resting frames after it are not the lamp's own light until
+    /// the window and its settle are over; another turn's frame opens none.
+    #[test]
+    fn only_a_frame_of_the_hum_opens_the_taps_window_at_rest() {
+        let at = 5_000_000_000;
+        let end = at + crate::ring_face::TAP_LISTENS_US + 600_000;
+        let mut face = Face::new();
+        draw(&mut face, &turn_frame(false), at, 40);
+        assert!(face.rests_on_its_light(at + 1));
+        draw(&mut face, &turn_frame(true), at, 40);
+        assert!(!face.rests_on_its_light(at + 1));
+        assert!(!face.rests_on_its_light(end - 1));
+        assert!(face.rests_on_its_light(end));
     }
 
     #[test]

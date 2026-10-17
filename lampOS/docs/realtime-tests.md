@@ -963,6 +963,10 @@ privacy unavailable; not a user mute" after exactly `PRIVACY_FRESH_US`
 the startup arm is gone (the loop then never ends on privacy), if the loop
 ends at once (2 ms), or if it waits twice the freshness (100 ms).
 `Ran::ended_us` is the loop's end on the clock it ran on.
+`run_loop_ringed` adds a ring worker whose side answers nothing, so the
+trace holds the frames the ring was asked for (`ring_requested`):
+`only_the_hums_own_ring_frames_are_marked_listening` (#1244) runs a tap that
+hums and one refused while the lamp thinks.
 
 ## endpoint_session on pull requests, but for two (#823)
 

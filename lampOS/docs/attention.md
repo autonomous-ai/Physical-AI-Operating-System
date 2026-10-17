@@ -877,13 +877,15 @@ the bus to the voice's poll took 1.8–2.1 ms median before. Controls' tap to
 the speaker's write on a lamp is not measured yet (First's target: under
 150 ms).
 
-The same tap also gives the ring's listening face at rest for 2 s, settling
-back over half a second ([ring-choreography.md](ring-choreography.md)), and
-Expression's small look-up ([alive.md](alive.md)): one gesture from one tap
-event, as First asked on #711 at 05:05. The hum's own turn is drawn as that
-listening face in every frame (`RingFrame::listening`), from the pass that
-admits it, so the face comes with the hum; the ring keeps it at rest for the
-rest of the window.
+When the hum plays, the ring shows the listening face at rest for 2 s,
+settling back over half a second ([ring-choreography.md](ring-choreography.md)),
+and Expression gives its small look-up ([alive.md](alive.md)): one gesture
+from one tap event, as First asked on #711 at 05:05. The hum's own turn is
+drawn as that listening face in every frame (`RingFrame::listening`), from
+the pass that admits it, so the face comes with the hum. The ring keeps it
+at rest for the rest of the window. A tap the voice doesn't answer gets no
+hum and no face (First on #705, 17 Oct 07:26). The tap is still a call for
+the attention rule.
 
 ## The record of whom it answered
 

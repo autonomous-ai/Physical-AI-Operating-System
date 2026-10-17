@@ -179,7 +179,9 @@ Off unless `lamp-expression serve --head-touch`, and Controls runs with
   at the edge).
   - **Timing:** in over 150 ms, the moment of the voice's "hm?" and the ring's
     listening face; held 2 s, as long as a call waits; held on while someone
-    is speaking (the voice says Listening); out over 0.5 s.
+    is speaking (the voice says Listening); out over 0.5 s. It follows the
+    tap itself. The ring's face follows the hum, so it is shown only when
+    the hum plays (17 Oct).
   - **Only:** awake, with the body free, and not while the lamp thinks or
     speaks.
   - **Only the head:** never a turn of the body, so it sends no gaze, which

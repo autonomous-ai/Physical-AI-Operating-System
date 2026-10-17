@@ -496,3 +496,46 @@ fn a_voiced_reply_over_the_path_a_device_recorded_is_matched_and_explained() {
     assert!(sorted[50] >= 70, "{}", sorted[50]);
     assert!(below <= 10, "{below}");
 }
+
+/// #828: a pause in a reply. Once the window the echo would come from is
+/// silent, the evidence says so (`silent_at_echo`, with a fresh alignment),
+/// apart from having no alignment at all, as before the reply. While the
+/// lamp is heard and matched it is absent.
+#[test]
+fn a_pause_in_a_reply_is_said_to_be_silent_at_the_echo() {
+    let scene = Scene {
+        speaker: Box::new(|t| {
+            if (0.5..3.0).contains(&t) || (3.3..5.0).contains(&t) {
+                0.3
+            } else {
+                0.0
+            }
+        }),
+        ..Scene::playback(0.0, 0.0)
+    };
+    let evidence = scene.run(5.5);
+    // Before the reply nothing is matched, and nothing is silent at it.
+    assert!(
+        evidence[..block_at(0.5)]
+            .iter()
+            .all(|block| block.echo.is_none() && block.silent_at_echo.is_none())
+    );
+    // In the pause, past the window its last words fill, at the microphone.
+    let pause = &evidence[block_at(3.0 + DELAY + 0.13)..block_at(3.3 + DELAY)];
+    assert!(!pause.is_empty());
+    assert!(
+        pause
+            .iter()
+            .all(|block| block.echo.is_none() && block.silent_at_echo.is_some_and(|age| age <= 40)),
+        "{:?}",
+        pause
+            .iter()
+            .map(|block| block.silent_at_echo)
+            .collect::<Vec<_>>()
+    );
+    // While the lamp is heard and matched, it is absent.
+    let speaking = &evidence[block_at(1.5)..block_at(2.5)];
+    assert!(speaking.iter().all(|block| block.silent_at_echo.is_none()));
+    let matched_blocks = speaking.iter().filter(|block| block.echo.is_some()).count();
+    assert!(matched_blocks > 90, "{matched_blocks}");
+}

@@ -560,6 +560,8 @@ fn failure_notice_retains_raw_gap_without_tainting_provider_answer_metrics() {
             gap,
             observed_at_us: 11,
         },
+        false,
+        None,
     )
     .unwrap();
     assert_eq!(reply.as_ref().unwrap().playback_gaps, 0);
@@ -586,7 +588,9 @@ fn failure_notice_retains_raw_gap_without_tainting_provider_answer_metrics() {
                 phase: PlaybackGapPhase::Started,
                 gap: malformed,
                 observed_at_us: 11
-            }
+            },
+            false,
+            None
         )
         .is_err()
     );
@@ -607,6 +611,8 @@ fn failure_notice_retains_raw_gap_without_tainting_provider_answer_metrics() {
             gap,
             observed_at_us: 12,
         },
+        false,
+        None,
     )
     .unwrap();
     assert_eq!(reply.as_ref().unwrap().playback_gaps, 0);

@@ -1010,6 +1010,92 @@ sound. It reaches back over whatever the detector scores as speech, and
 the canceller takes out much of a person's speech under the lamp's voice.
 A start found after the 1.6 s is still late.
 
+## Listening gaps (#828)
+
+Off unless `LAMP_LISTEN_GAPS=on` in the voice's environment, and nothing
+without `--turn-taking duplex` (17 October 2026, the first builder's
+proposal on #828).
+
+**Why:**
+- On lamp-4ace a short "stop" said on top of the lamp's speech is never
+  heard over its echo.
+- Every yield of the first builder's ten cut-ins on 17 October came where
+  the lamp's speech left a pause.
+
+**Two parts, both behind the switch:**
+- **The gap** (`crate::listen_gaps`). At a sentence end in a reply that has
+  sent at least 2 s (`AFTER_FRAMES`), the next words wait until 250 ms
+  (`GAP_US`) after the first quiet chunk.
+  - A sentence end is a run of 80 ms (`LOW_RUN_CHUNKS`) of chunks under
+    RMS 300 (`LOW_RMS`), then a chunk over it.
+  - Each one is held once. None while a yield is pending: the mask hands
+    nothing over then anyway.
+  - The mask holds the next chunk back in `dispatch_speaker_chunk`. The
+    speaker writes real zeros through its zero-only API while speech is
+    owed, as for a provider pause, so the canceller's reference and the
+    render's coverage stay exact.
+  - The speaker's `playback_gap` for those zeros is recorded with
+    `listen_gap: true` and not counted as a delivery gap. Each gap is
+    recorded as `listen_gap`.
+  - Zeros begun in a hold that run on more than 100 ms past its end
+    (`OVERRUN_US`) waited for late words: a delivery stall begun in the
+    hold. They are counted as a delivery gap when they resume, and recorded
+    with `listen_gap_overran_us`. The hold's end counts, not the next
+    words' going: those go only once there are words, so late ones are let
+    go late (Nine's P3 on #1264).
+- **Hearing in the lamp's own silence** (`Hearing::silence_heard`). A gap of
+  zeros alone gave the yield nothing to hear:
+  - Once the 120 ms render window at the echo's alignment is silent, the
+    evidence had no match.
+  - A speech block was then `Unknown`, or `Clear` after 30 quiet render
+    blocks, and neither starts a yield.
+  - Now the evidence says when the render at the echo's alignment is silent
+    (`EchoEvidence::silent_at_echo`, the alignment's age), apart from having
+    no alignment at all.
+  - With the switch, speech there, with an alignment no older than
+    `fresh_blocks`, is `Over`. Nothing of the lamp's is in the window its
+    echo would come from then, only the room's tail, which the canceller
+    has.
+
+**A probe, a model and not lamp data** (described on #828):
+- **The model:** the real `EchoObserver` and `Hearing::EVALUATED`, with a
+  synthetic voice as the render and a person 7 dB under its echo.
+- **A 250 ms gap of zeros:** the person got 5 to 6 `Over` blocks in a row,
+  then `Unknown`. No yield.
+- **The same gap with a faint sound above the silence bar:** `Over`
+  throughout, 7 in a row at 60 to 120 ms.
+
+`duplex_policy` records `listen_gaps` (after 2,000 ms, a quiet run of 80 ms,
+a gap of 250 ms, silence heard).
+
+**Tests:**
+- `listen_gaps::tests`: one gap at a sentence end after 2 s, held to 250 ms
+  from its first quiet chunk; none in the first 2 s, for a pause under
+  80 ms, or where the reply's own pause was long enough; each sentence end
+  its own; a new reply counts again; zeros begun before the hold or after
+  the next words aren't its, and zeros that ran on 300 ms past it are a
+  delivery gap too.
+- `coordinator::tests::a_listening_gaps_zeros_are_no_delivery_gap_unless_they_ran_past_its_hold`:
+  started and resumed in a hold, the reply keeps no playback gap and a
+  clean outcome; one that ran on is counted once it resumes. It fails
+  with the resumed count taken out.
+- `endpoint_session::a_long_answers_sentence_end_is_held_quiet_once_only_with_the_switch`:
+  through the coordinator's loop, one hold of at least 200 ms with the
+  switch and none without, the speaker handed the same samples either way.
+  It fails with the hold taken out.
+- `turn_taking::tests::speech_in_a_listening_gap_yields_only_with_the_switch`
+  and `duplex::tests::speech_in_the_lamps_own_silence_is_over_it_only_with_the_switch`.
+- `tests/evidence.rs`'s `a_pause_in_a_reply_is_said_to_be_silent_at_the_echo`:
+  through the real canceller. It fails with the new field left unset.
+
+**What it may cost, and isn't shown yet:**
+- The hearing applies in the reply's own pauses too. The room's tail or the
+  detector firing on the canceller's residue there could yield for nothing.
+- The pause may sound stilted.
+- The first builder's lamp check counts both: the ten cut-ins plus
+  "Lamp, stop." and "Stop." five times each, on and off, the yields with
+  nobody speaking, and the story by ear.
+
 ## Tests
 
 Deterministic, no device, no recording:

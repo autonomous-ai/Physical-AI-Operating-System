@@ -41,6 +41,7 @@ pub(super) fn evidence(render_quiet_blocks: u8, shares: Option<(u8, u8)>) -> Ech
             residual_playback_floor,
             alignment_age_blocks: 0,
         }),
+        silent_at_echo: None,
     }
 }
 

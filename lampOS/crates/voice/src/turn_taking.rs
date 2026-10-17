@@ -188,6 +188,9 @@ pub(crate) struct PlaybackMask {
     last_dispatch: u64,
     last_now: u64,
     suppressed_blocks: u64,
+    /// Listening gaps (#828, [`crate::listen_gaps`]): with the duplex mask
+    /// only, off unless set.
+    listen_gaps: Option<crate::listen_gaps::ListenGaps>,
 }
 impl PlaybackMask {
     pub fn new(policy: TurnTaking) -> Self {
@@ -204,6 +207,7 @@ impl PlaybackMask {
             last_dispatch: 0,
             last_now: 0,
             suppressed_blocks: 0,
+            listen_gaps: None,
         }
     }
     /// The conservative mask with ears. See the module documentation.
@@ -226,6 +230,40 @@ impl PlaybackMask {
     }
     pub fn is_duplex(&self) -> bool {
         self.duplex.is_some()
+    }
+    /// Listening gaps (#828, `LAMP_LISTEN_GAPS=on`): a sentence end of a
+    /// long reply is held quiet ([`crate::listen_gaps`]), and speech in the
+    /// lamp's own silence is heard as a person over it
+    /// (`Hearing::silence_heard`). Only with ears.
+    pub fn listen_in_gaps(&mut self) {
+        if let Some(duplex) = self.duplex.as_mut() {
+            duplex.hearing.silence_heard = true;
+            self.listen_gaps = Some(crate::listen_gaps::ListenGaps::default());
+        }
+    }
+    /// The listening gaps, when on.
+    pub fn listen_gaps(&mut self) -> Option<&mut crate::listen_gaps::ListenGaps> {
+        self.listen_gaps.as_mut()
+    }
+    /// Whether the speaker's zeros for `owner` from `started_us` are a
+    /// listening gap's, not a delivery gap.
+    pub fn listen_gap_covers(&self, owner: TurnOwner, started_us: u64) -> bool {
+        self.listen_gaps
+            .as_ref()
+            .is_some_and(|gaps| gaps.covers(owner, started_us))
+    }
+    /// How far a listening gap's zeros ran past its hold, last accepted at
+    /// `last_zero_us`, if far enough to be a delivery gap too
+    /// ([`crate::listen_gaps::ListenGaps::overran_us`]).
+    pub fn listen_gap_overran_us(
+        &self,
+        owner: TurnOwner,
+        started_us: u64,
+        last_zero_us: u64,
+    ) -> Option<u64> {
+        self.listen_gaps
+            .as_ref()
+            .and_then(|gaps| gaps.overran_us(owner, started_us, last_zero_us))
     }
     /// Remember enough hearing for a yield's first words (#828): every
     /// block of a candidate that reaches back is checked against it before
@@ -1347,6 +1385,7 @@ mod tests {
                 residual_playback_floor,
                 alignment_age_blocks: 0,
             }),
+            silent_at_echo: None,
         }
     }
     const OWN: Option<(u8, u8)> = Some((97, 10));
@@ -1421,6 +1460,37 @@ mod tests {
             (None, 0.99, Step::Carry)
         );
         assert!(!plain.yielded(10_000) && plain.duplex_summary().is_none());
+    }
+
+    /// #828, listening gaps: speech in the lamp's own silence (the render at
+    /// the echo's alignment silent, a fresh alignment) makes the lamp yield
+    /// with the switch, as speech over it does; without it, it says nothing
+    /// and nothing yields.
+    #[test]
+    fn speech_in_a_listening_gap_yields_only_with_the_switch() {
+        let silent = EchoEvidence {
+            silent_at_echo: Some(5),
+            ..evidence(5, None)
+        };
+        for on in [true, false] {
+            let mut mask = PlaybackMask::duplex();
+            mask.assume_matched();
+            if on {
+                mask.listen_in_gaps();
+            }
+            let mut yielded = false;
+            for sequence in 1..=ONSET + 2 {
+                let listened = mask
+                    .listen(sequence, 0.9, Some(&silent), true, sequence * 10_000)
+                    .unwrap();
+                yielded |= listened.step == Step::Yield;
+            }
+            assert_eq!(yielded, on, "switch {on}");
+        }
+        // Only with ears: the plain mask has no gaps to listen in.
+        let mut plain = PlaybackMask::new(TurnTaking::V1Baseline);
+        plain.listen_in_gaps();
+        assert!(plain.listen_gaps().is_none());
     }
 
     #[test]

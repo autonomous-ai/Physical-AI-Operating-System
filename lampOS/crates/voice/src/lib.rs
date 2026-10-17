@@ -55,6 +55,7 @@ pub mod fixture_provider;
 pub mod hand_controls;
 pub mod head_qualification;
 pub mod known_faces;
+pub mod listen_gaps;
 pub mod local_time;
 pub mod marked;
 pub use lamp_ipc::log_relay;

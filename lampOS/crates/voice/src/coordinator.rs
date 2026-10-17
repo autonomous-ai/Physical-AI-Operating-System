@@ -1852,8 +1852,23 @@ fn service_speaker_control(
                 playback_mask.cancelled_tail(old, end_sample, observed_at_us, monotonic_us())?;
                 handle_cancelled_tail_retirement(reply, trace, event, monotonic_us())?;
             }
-            event @ WorkerEvent::PlaybackGap { .. } => {
-                handle_playback_gap(reply, speaker_pending.as_ref(), trace, event)?;
+            event @ WorkerEvent::PlaybackGap { gap, .. } => {
+                // Zeros the lamp holds on purpose at a sentence end (#828)
+                // are no delivery gap, unless they ran on past the hold.
+                let listening = playback_mask.listen_gap_covers(gap.owner, gap.started_at_us);
+                let overran_us = playback_mask.listen_gap_overran_us(
+                    gap.owner,
+                    gap.started_at_us,
+                    gap.last_zero_accepted_at_us,
+                );
+                handle_playback_gap(
+                    reply,
+                    speaker_pending.as_ref(),
+                    trace,
+                    event,
+                    listening,
+                    overran_us,
+                )?;
             }
             WorkerEvent::PlaybackRejected {
                 turn,
@@ -3405,6 +3420,10 @@ fn conversation_with_gate(
     // A yield's request begins at the person's first words, said under the
     // lamp's voice, as far back as 1.6 s (#828). Off unless set.
     let first_words = duplex && crate::activity::first_words_kept();
+    // Listening gaps (#828, `LAMP_LISTEN_GAPS=on`): a long reply's
+    // sentence ends held quiet, and a person heard in the lamp's own
+    // silence. Off unless set; only with ears.
+    let listen_gaps = duplex && crate::listen_gaps::on_from_environment();
     detector.keep_first_words(first_words);
     let hold = match (duplex, first_words) {
         (true, true) => Hold::DUPLEX.keeping_first_words(),
@@ -3476,6 +3495,7 @@ fn conversation_with_gate(
             "fruitless_yields_before_fallback":FRUITLESS_YIELDS,
             "decision_budget_us":hold.decision_budget_us,
             "first_words_kept_blocks":first_words.then_some(crate::activity::REACH_BACK_BLOCKS),
+            "listen_gaps":listen_gaps.then_some(json!({"after_ms":crate::listen_gaps::AFTER_FRAMES * 1_000 / u64::from(lamp_audio::RENDER_RATE),"quiet_run_ms":crate::listen_gaps::LOW_RUN_CHUNKS * 10,"gap_ms":crate::listen_gaps::GAP_US / 1_000,"silence_heard":true})),
             "stop_words_after_still_blocks":(stop_words.is_some() && !always).then_some(crate::stop_words::FINALIZE_AFTER_STILL_BLOCKS),
             "stop_words_always":(stop_words.is_some() && always).then_some(true),
             "provider_queue_bound":provider_queue_bound(hold),
@@ -3488,6 +3508,9 @@ fn conversation_with_gate(
         let mut mask = PlaybackMask::duplex();
         if first_words {
             mask.keep_first_words();
+        }
+        if listen_gaps {
+            mask.listen_in_gaps();
         }
         // A sound that waits holds its pre-roll and up to the hold's 1.2 s:
         // more than the mask's usual memory, which would reject it as
@@ -5711,6 +5734,12 @@ fn conversation_with_gate(
                 &mut playback_mask,
             )?
         };
+        if let Some(news) = playback_mask
+            .listen_gaps()
+            .and_then(|gaps| gaps.take_news())
+        {
+            record(trace, news)?;
+        }
         if let Some((notice_owner, evidence)) = notice_attempt {
             // Named for what plays: a failure notice or the head tap's "hm?".
             let origin = reply
@@ -8426,6 +8455,18 @@ fn dispatch_speaker_chunk(
     if origin.local() && (!current.notice.has_chunk() || current.final_chunk.is_some()) {
         return Ok(None);
     }
+    // Listening gaps (#828): at a sentence end of a long reply the next
+    // words wait until the lamp has been quiet a while, the speaker writing
+    // zeros meanwhile as for a provider pause. Off unless set.
+    if origin == SpeechOrigin::Provider
+        && current.has_speaker_chunk()
+        && let Some(gaps) = playback_mask.listen_gaps()
+    {
+        let next: Vec<i16> = current.pcm.iter().take(240).copied().collect();
+        if gaps.holds(current.owner, &next, monotonic_us()) {
+            return Ok(None);
+        }
+    }
     let permit = owner.issue_output(now(), current.plan, SPEAKER_PERMIT_LEASE_US)?;
     let (samples, final_chunk, first_notice) = if origin.local() {
         current.notice.reserve_chunk(monotonic_us())?
@@ -8440,6 +8481,11 @@ fn dispatch_speaker_chunk(
         .checked_add(1)
         .ok_or_else(|| io::Error::other("speaker counter exhausted"))?;
     let dispatch_at = monotonic_us();
+    if origin == SpeechOrigin::Provider
+        && let Some(gaps) = playback_mask.listen_gaps()
+    {
+        gaps.sent(permit.owner(), &samples, dispatch_at);
+    }
     channel.send(SpeakerChunk {
         snapshot: *snapshot,
         permit,
@@ -8890,11 +8936,17 @@ fn cut_after_speaker_lapse<T>(
     Ok(true)
 }
 
+/// The speaker's accepted zeros while a reply was unfinished: a delivery
+/// gap, unless they are a listening gap's (`listening`, #828). One whose
+/// zeros ran on past its hold (`overran_us`) is counted once it resumes,
+/// for its words came late.
 fn handle_playback_gap(
     reply: &mut Option<Reply>,
     pending: Option<&PendingSpeaker>,
     trace: &mut SessionState,
     event: WorkerEvent,
+    listening: bool,
+    overran_us: Option<u64>,
 ) -> Result<()> {
     let WorkerEvent::PlaybackGap {
         phase,
@@ -8920,7 +8972,12 @@ fn handle_playback_gap(
     let (queued, held, last_provider_audio) = if let Some(current) = current {
         if phase == PlaybackGapPhase::Started && origin.is_some_and(SpeechOrigin::local) {
             current.notice.gap()?;
-        } else if phase == PlaybackGapPhase::Started {
+        } else if match phase {
+            PlaybackGapPhase::Started => !listening,
+            PlaybackGapPhase::Resumed => listening && overran_us.is_some(),
+            PlaybackGapPhase::Cancelled => false,
+        } && !origin.is_some_and(SpeechOrigin::local)
+        {
             current.playback_gaps = current
                 .playback_gaps
                 .checked_add(1)
@@ -8937,6 +8994,7 @@ fn handle_playback_gap(
     record(
         trace,
         json!({"kind":"playback_gap","origin":origin,"phase":phase,"gap":gap,
+        "listen_gap":listening,"listen_gap_overran_us":overran_us,
         "at_us":observed_at_us,"coordinator_observed_at_us":monotonic_us(),
         "reply_queued_frames_at_observation":queued,"held_final_frames_at_observation":held,
         "speaker_pending_sequence_at_observation":pending.map(|pending| pending.sequence),
@@ -10323,6 +10381,8 @@ mod tests {
             None,
             &mut trace,
             crate::wire::decode(&bytes).unwrap(),
+            false,
+            None,
         )
         .unwrap();
         let current = reply.as_ref().unwrap();
@@ -10349,6 +10409,8 @@ mod tests {
                 gap,
                 observed_at_us: 12,
             },
+            false,
+            None,
         )
         .unwrap();
         assert_eq!(reply.as_ref().unwrap().playback_gaps, 0);
@@ -10357,6 +10419,83 @@ mod tests {
             "audio_written_unscored"
         );
         assert!(trace[1]["reply_queued_frames_at_observation"].is_null());
+    }
+
+    /// Nine's P3s on #1264: a listening gap's zeros (#828) are no delivery
+    /// gap. Started and resumed inside its hold, the reply keeps no playback
+    /// gap and its outcome stays clean, and the record says `listen_gap`.
+    /// One whose zeros ran on past the hold is counted once it resumes, and
+    /// the record says by how much.
+    #[test]
+    fn a_listening_gaps_zeros_are_no_delivery_gap_unless_they_ran_past_its_hold() {
+        for overran_us in [None, Some(300_000)] {
+            let (_, mut current, _) = active_reply();
+            current.pcm = vec![7; 240].into();
+            let gap = crate::wire::PlaybackGap {
+                owner: current.owner,
+                first_sample: lamp_audio::ownership::PlaybackCursor {
+                    epoch: 1,
+                    frame: 2640,
+                },
+                end_sample: lamp_audio::ownership::PlaybackCursor {
+                    epoch: 1,
+                    frame: 2880,
+                },
+                started_at_us: 11,
+                last_zero_accepted_at_us: 11,
+                zero_frames: 240,
+            };
+            let mut reply = Some(current);
+            let mut trace = SessionState::default();
+            handle_playback_gap(
+                &mut reply,
+                None,
+                &mut trace,
+                WorkerEvent::PlaybackGap {
+                    phase: PlaybackGapPhase::Started,
+                    gap,
+                    observed_at_us: 11,
+                },
+                true,
+                None,
+            )
+            .unwrap();
+            assert_eq!(reply.as_ref().unwrap().playback_gaps, 0);
+            assert_eq!(trace[0]["listen_gap"], true);
+            let resumed = crate::wire::PlaybackGap {
+                end_sample: lamp_audio::ownership::PlaybackCursor {
+                    epoch: 1,
+                    frame: 2640 + 6_000,
+                },
+                last_zero_accepted_at_us: 250_011,
+                zero_frames: 6_000,
+                ..gap
+            };
+            handle_playback_gap(
+                &mut reply,
+                None,
+                &mut trace,
+                WorkerEvent::PlaybackGap {
+                    phase: PlaybackGapPhase::Resumed,
+                    gap: resumed,
+                    observed_at_us: 250_011,
+                },
+                true,
+                overran_us,
+            )
+            .unwrap();
+            let current = reply.as_ref().unwrap();
+            assert_eq!(current.playback_gaps, u64::from(overran_us.is_some()));
+            assert_eq!(
+                current.delivery_outcome(),
+                if overran_us.is_some() {
+                    "audio_written_with_playback_gaps_unscored"
+                } else {
+                    "audio_written_unscored"
+                }
+            );
+            assert_eq!(trace[1]["listen_gap_overran_us"], json!(overran_us));
+        }
     }
 
     #[test]

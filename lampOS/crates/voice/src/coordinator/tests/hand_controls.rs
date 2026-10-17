@@ -1115,10 +1115,14 @@ impl SteppedPeer {
             match message {
                 Control::Stop => {
                     self.stopped = true;
-                    // The child exits once its input closes; logical time
-                    // does not pass in a shutdown step.
+                    // The child exits once its input closes, and its exit is
+                    // waited for here, bounded by the scope's own watchdog,
+                    // not the cleanup's real deadline, which a busy host can
+                    // use up before this step runs (the reviewer, 07:07 on
+                    // #705). The cleanup that follows finds it gone.
                     drop(self.input.take());
-                    return crate::scenario_clock::wait_child_exited(self.pid, deadline);
+                    let bound = crate::scenario_clock::host_deadline().unwrap_or(deadline);
+                    return crate::scenario_clock::wait_child_exited(self.pid, bound);
                 }
                 Control::Authority { snapshot } if self.speaker && self.keeping => {
                     self.told.push(snapshot)

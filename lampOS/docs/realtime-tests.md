@@ -944,6 +944,17 @@ before its owner is made, reads its peers on the test thread after the loop
 as before, and takes their Stop through the scope's teardown pump. With a
 120 ms or 1 s sleep there, all 16 pass. The assertions are unchanged.
 
+Their teardown kept one host-clock budget (the reviewer, 07:07 on #705):
+`SteppedPeer::read` waited for a stopped child's exit against the
+coordinator's real shared cleanup deadline. Under heavy load that deadline
+could be spent before the pump ran, so the wait timed out, the pump stopped
+before the remaining peers, and they never saw Stop ("mock peer did not
+receive Stop", or "verified cleanup failed"): 2 to 3 of 120 module runs. A
+400 ms sleep just after the cleanup's deadline is set fails four tests that
+way every time. The peer now waits for the exit against the scope's own
+watchdog, as #1232's `MutePeer` does, so the cleanup finds the child gone;
+with that sleep, all of `hand_controls` passes.
+
 Those stepped runs end on the fixture's silent privacy worker, but none
 said so. `a_silent_privacy_worker_ends_the_loop_once_its_freshness_has_passed`
 does (the reviewer on #1222): a quiet lamp, stepped, ends on "physical

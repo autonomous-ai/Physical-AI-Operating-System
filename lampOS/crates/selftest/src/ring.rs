@@ -146,15 +146,37 @@ pub fn colours(shown: &Shown) -> PartResult {
     result.with("drawn", shown.drawn.len())
 }
 
+/// What the colour check waits on: the host's clock on the lamp, or a
+/// test's that moves on only when the check pauses.
+trait Clock {
+    fn now(&self) -> Instant;
+    fn pause(&mut self, pause: Duration);
+}
+
+struct Host;
+
+impl Clock for Host {
+    fn now(&self) -> Instant {
+        Instant::now()
+    }
+    fn pause(&mut self, pause: Duration) {
+        std::thread::sleep(pause);
+    }
+}
+
 /// Asks for each colour on `light/test` and watches `light/drawn`.
 pub fn ask_colours(bus: &Bus, deadline: Instant) -> Result<Shown, String> {
+    ask_colours_on(bus, deadline, &mut Host)
+}
+
+fn ask_colours_on(bus: &Bus, deadline: Instant, clock: &mut impl Clock) -> Result<Shown, String> {
     let mut asks = bus
         .publisher_declared(TEST_TOPIC, &Light::declaration(), SOURCE)
         .map_err(|e| e.to_string())?;
     let began_ms = unix_ms();
     let mut shown = Shown::default();
     for (n, colour) in Light::COLOURS.into_iter().enumerate() {
-        if Instant::now() + DRAWN_WITHIN > deadline {
+        if clock.now() + DRAWN_WITHIN > deadline {
             shown.out_of_time = true;
             break;
         }
@@ -172,9 +194,9 @@ pub fn ask_colours(bus: &Bus, deadline: Instant) -> Result<Shown, String> {
         let asked_ms = unix_ms();
         asks.publish_json(n as u64 + 1, &light)
             .map_err(|e| e.to_string())?;
-        let until = Instant::now() + DRAWN_WITHIN;
+        let until = clock.now() + DRAWN_WITHIN;
         let mut drawn = false;
-        while Instant::now() < until {
+        while clock.now() < until {
             if asked_by_person(bus, began_ms) {
                 shown.interrupted = true;
                 return Ok(shown);
@@ -183,19 +205,19 @@ pub fn ask_colours(bus: &Bus, deadline: Instant) -> Result<Shown, String> {
                 drawn = true;
                 break;
             }
-            std::thread::sleep(Duration::from_millis(20));
+            clock.pause(Duration::from_millis(20));
         }
         if drawn {
             shown.drawn.push(colour);
             // Held for the person at the factory to see, watching all the
             // while for their own request.
-            let until = Instant::now() + HOLD;
-            while Instant::now() < until {
+            let until = clock.now() + HOLD;
+            while clock.now() < until {
                 if asked_by_person(bus, began_ms) {
                     shown.interrupted = true;
                     return Ok(shown);
                 }
-                std::thread::sleep(Duration::from_millis(20));
+                clock.pause(Duration::from_millis(20));
             }
         } else {
             shown.missed.push(colour);
@@ -218,6 +240,12 @@ impl Check for Ring<'_> {
     }
 
     fn run(&mut self, deadline: Instant) -> PartResult {
+        self.run_on(deadline, &mut Host)
+    }
+}
+
+impl Ring<'_> {
+    fn run_on(&mut self, deadline: Instant, clock: &mut impl Clock) -> PartResult {
         if !self.active {
             return ring(&shown(self.bus));
         }
@@ -225,7 +253,7 @@ impl Check for Ring<'_> {
             Ok(Some((_, age))) if age <= STATE_FRESH => {}
             heard => return ring(&heard),
         }
-        match ask_colours(self.bus, deadline) {
+        match ask_colours_on(self.bus, deadline, clock) {
             Ok(shown) => colours(&shown),
             Err(why) => PartResult::new(
                 "ring",
@@ -289,12 +317,14 @@ mod tests {
 
     /// A ring owner as lamp-voice's: shows a test colour unless it is
     /// `refuses` or it refuses all (the privacy switch), says what it drew,
-    /// and says the person's light on `light/state`.
+    /// and says the person's light on `light/state`. `handled` is the last
+    /// colour asked that it has drawn or refused.
     fn owner(
         root: &std::path::Path,
         refuses: Option<&'static str>,
         draws: bool,
         stop: std::sync::Arc<std::sync::atomic::AtomicBool>,
+        handled: std::sync::Arc<std::sync::atomic::AtomicU64>,
     ) -> std::thread::JoinHandle<()> {
         let bus = Bus::new(root).unwrap();
         let mut tests = bus
@@ -312,17 +342,54 @@ mod tests {
             while !stop.load(std::sync::atomic::Ordering::Relaxed) {
                 clock += 1;
                 state.publish_json(clock, &light("warm")).unwrap();
-                if let Ok(Some(message)) = tests.recv(Duration::from_millis(20))
-                    && let Ok(test) = message.parse::<Light>()
-                    && draws
-                    && Some(test.colour.as_str()) != refuses
-                {
-                    drawn.publish_json(clock, &test).unwrap();
+                if let Ok(Some(message)) = tests.recv(Duration::from_millis(20)) {
+                    if let Ok(test) = message.parse::<Light>()
+                        && draws
+                        && Some(test.colour.as_str()) != refuses
+                    {
+                        drawn.publish_json(clock, &test).unwrap();
+                    }
+                    handled.store(message.header.seq, std::sync::atomic::Ordering::Release);
                 }
             }
         })
     }
 
+    /// The check's clock in a test: it stands still until the check
+    /// pauses, and then moves on only once the stand-in ring owner has
+    /// drawn or refused every colour asked so far. So a colour is never
+    /// missed for want of the owner's thread, and the 1 s for a colour that
+    /// is refused, and each 300 ms hold, take no real time.
+    struct Stepped<'a> {
+        at: Instant,
+        bus: &'a Bus,
+        handled: std::sync::Arc<std::sync::atomic::AtomicU64>,
+    }
+
+    impl Clock for Stepped<'_> {
+        fn now(&self) -> Instant {
+            self.at
+        }
+        fn pause(&mut self, pause: Duration) {
+            let asked = self
+                .bus
+                .latest(TEST_TOPIC)
+                .unwrap()
+                .map_or(0, |message| message.header.seq);
+            let until = Instant::now() + Duration::from_secs(5);
+            while self.handled.load(std::sync::atomic::Ordering::Acquire) < asked {
+                assert!(
+                    Instant::now() < until,
+                    "the ring owner never took colour {asked}"
+                );
+                std::thread::sleep(Duration::from_millis(1));
+            }
+            self.at += pause;
+        }
+    }
+
+    /// The check against a stand-in ring owner, on the stepped clock or,
+    /// with a person who asks for a light after `person_at`, on the host's.
     fn run_with(
         name: &str,
         refuses: Option<&'static str>,
@@ -334,7 +401,8 @@ mod tests {
         std::fs::create_dir_all(&root).unwrap();
         let bus = Bus::new(&root).unwrap();
         let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-        let ring_owner = owner(&root, refuses, draws, stop.clone());
+        let handled = std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0));
+        let ring_owner = owner(&root, refuses, draws, stop.clone(), handled.clone());
         let person = person_at.map(|after| {
             let bus = Bus::new(&root).unwrap();
             std::thread::spawn(move || {
@@ -346,11 +414,23 @@ mod tests {
                 asks
             })
         });
-        let result = Ring {
+        let mut ring = Ring {
             bus: &bus,
             active: true,
-        }
-        .run(Instant::now() + Duration::from_secs(60));
+        };
+        let result = if person.is_some() {
+            // The person's request comes after a real time: the host's
+            // clock.
+            ring.run(Instant::now() + Duration::from_secs(60))
+        } else {
+            let mut clock = Stepped {
+                at: Instant::now(),
+                bus: &bus,
+                handled,
+            };
+            let deadline = clock.at + Duration::from_secs(60);
+            ring.run_on(deadline, &mut clock)
+        };
         let _asks = person.map(|p| p.join().unwrap());
         stop.store(true, std::sync::atomic::Ordering::Relaxed);
         ring_owner.join().unwrap();
@@ -416,7 +496,8 @@ mod tests {
             .subscribe_typed(TEST_TOPIC, "witness", Light::TYPE)
             .unwrap();
         let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-        let ring_owner = owner(&root, None, true, stop.clone());
+        let handled = std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0));
+        let ring_owner = owner(&root, None, true, stop.clone(), handled);
         // The person asks once the first colour is drawn, inside its hold.
         let person_bus = Bus::new(&root).unwrap();
         let person = std::thread::spawn(move || {

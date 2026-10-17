@@ -322,18 +322,30 @@ of those ends is at 2 ms again. What it costs is up to 3 ms more before a
 pass sees the first block of speech; authority is still renewed every 20 ms,
 far inside every lease. The workers' own loops keep their pace for now.
 
-The capture worker's echo evidence (`crates/audio/src/evidence.rs`) searches
-up to 32 alignments of the speaker's sound against the microphone on every
-10 ms block louder than -60 dBFS, so a room with a fan or an office in it
-pays for that search while the lamp says nothing: on lamp-4ace on
-2026-10-17 capture rose from 7 % to 17-19 % of a core as the room got
-louder (#705, 11:46). With `LAMP_QUIET_EVIDENCE=on` (off unless set, passed
-on to the capture worker only) the search is skipped while every sample of
-the speaker's sound it would read, the last 520 ms, is zero. It could find
-nothing then: the evidence is the same block for block (no echo, the held
+The capture worker's echo evidence (`crates/audio/src/evidence.rs`) works
+on every 10 ms block while the lamp says nothing: it searches up to 32
+alignments of the speaker's sound against the microphone on a block louder
+than -60 dBFS (a fan, an office), and, once the lamp has spoken since the
+last canceller reset, it fits the held alignment on every block, in a room
+of any level. With `LAMP_QUIET_EVIDENCE=on` (off unless set, passed on to
+the capture worker only) neither is run while every sample of the speaker's
+sound they would read, the last 520 ms, is zero. They could find nothing
+then: the evidence is the same block for block (no echo, the held
 alignment's age, the search's place moved on), which a test runs both ways
-to show. Measured on a laptop, a silent-speaker block in a -26 dBFS room
-took 54 us of canceller and evidence, and 42 us with the skip.
+to show. Measured on a laptop (`measure_a_silent_render_block`), the
+evidence took 12-15 us a block in a -26 dBFS room, with or without an
+alignment held, and 4.4 us in a quiet room with one held; 1.4-1.8 us with
+the skip.
+
+On lamp-4ace on 2026-10-17 capture rose from 7 % to 17-19 % of a core
+(#705, 11:46). What caused that is not known yet. By these numbers the
+evidence is at most a part of it; the A/B with the switch on lamp-4ace will
+say how much. The canceller itself is not it either: on lamp-75c9 it took
+203 us a block (p50) with the lamp's echo playing and 124 us in the silence
+after it (`lamp-audio bench-aec-fixture`). A laptop is no guide to that
+second figure: on x86 the canceller's filters decay into subnormal floats in
+the silence after speech and its cost rises tenfold (705 us), which the
+lamp's ARM cores do not pay.
 
 ## Stop and current limits
 

@@ -332,9 +332,11 @@ impl EchoObserver {
     /// microphone hears: the render under every alignment is below
     /// [`SILENT_RMS`]. With this on, it is not run then, and the evidence is
     /// the same: no echo, the held alignment's age in `silent_at_echo`, and
-    /// the search's place moved on as the search would have. A room loud
-    /// enough to search (a fan, an office) otherwise costs a search every
-    /// block while the lamp says nothing. Off by default.
+    /// the search's place moved on as the search would have. Without it, a
+    /// silent speaker still costs, every block: a room loud enough to search
+    /// (a fan, an office) pays for the search, and once the lamp has spoken
+    /// since the last reset, a room of any level pays for fitting the held
+    /// alignment's copies. Off by default.
     pub fn skip_while_render_silent(&mut self, on: bool) {
         self.skip_silent = on;
     }

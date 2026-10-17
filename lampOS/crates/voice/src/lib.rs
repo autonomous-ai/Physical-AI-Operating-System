@@ -112,6 +112,7 @@ pub mod transport;
 mod turn_taking;
 pub mod turn_times;
 pub mod visual_context;
+pub mod wait_words;
 pub mod wire;
 
 #[cfg(target_os = "linux")]

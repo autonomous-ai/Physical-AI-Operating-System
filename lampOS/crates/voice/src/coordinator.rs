@@ -149,14 +149,25 @@ const WAIT_KEEPS_WITHIN_US: u64 = 3_000_000;
 const AFTER_LET_GO_US: u64 = 1_000_000;
 
 /// Whether `value`, the voice's `LAMP_WAIT_KEEPS_ANSWER`, turns the wait on:
-/// `on`, and nothing else.
+/// `on`, or `words`, and nothing else.
 fn wait_keeps_answer(value: Option<&str>) -> bool {
-    value == Some("on")
+    value == Some("on") || wait_hears_words(value)
 }
 
-/// Whether the voice's environment says `LAMP_WAIT_KEEPS_ANSWER=on`.
-fn wait_keeps_answer_from_environment() -> bool {
-    wait_keeps_answer(std::env::var(WAIT_KEEPS_ANSWER_ENVIRONMENT).ok().as_deref())
+/// Whether `value` has the wait judge a waited sound by its words too
+/// (`words`, #1123 step 2, [`crate::wait_words`]).
+fn wait_hears_words(value: Option<&str>) -> bool {
+    value == Some(crate::wait_words::VALUE)
+}
+
+/// Whether the voice's environment turns the wait on, and whether with the
+/// words.
+fn wait_keeps_answer_from_environment() -> (bool, bool) {
+    let value = std::env::var(WAIT_KEEPS_ANSWER_ENVIRONMENT).ok();
+    (
+        wait_keeps_answer(value.as_deref()),
+        wait_hears_words(value.as_deref()),
+    )
 }
 
 /// What a new sound does while an answer is awaited and has not sounded
@@ -233,8 +244,7 @@ fn while_answer_waits(
     let Some(current) = reply.filter(|current| current.input_sequence > 0) else {
         return WhileAnswerWaits::Decide;
     };
-    let unheard = current.local_input_ended && !current.had_audio && current.playback.is_none();
-    if !wait.on || !(unheard || wait.waited) || !wait.heard {
+    if !wait.on || !(answer_unheard(current) || wait.waited) || !wait.heard {
         return WhileAnswerWaits::Decide;
     }
     // Once the answer sounds, the sound is judged by its pause as it stood
@@ -287,6 +297,73 @@ fn while_answer_waits(
     } else {
         WhileAnswerWaits::Decide
     }
+}
+
+/// Whether `current` is an answer to someone's request that has ended, none
+/// of which has arrived or sounded: what a new sound may wait for.
+fn answer_unheard(current: &Reply) -> bool {
+    current.input_sequence > 0
+        && current.local_input_ended
+        && !current.had_audio
+        && current.playback.is_none()
+}
+
+/// What a waited sound's words did, for the record (#1123, step 2).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct WordsTold {
+    /// Its words that ask something, or none back in time.
+    words: Option<usize>,
+    /// It was decided at once for them.
+    took: bool,
+    asked_at_us: u64,
+}
+
+/// `waits`, [`while_answer_waits`] for `candidate`, with its words
+/// (`LAMP_WAIT_KEEPS_ANSWER=words`, [`crate::wait_words`]): `audio` its
+/// kept audio, `ended` if its sound is over, and the detector's pause in
+/// blocks. Its audio goes to the stream while it waits, and its words are
+/// asked for once it has been quiet for
+/// [`crate::wait_words::ASK_AFTER_QUIET_BLOCKS`], well before its
+/// endpoint. What they did is told once a sound.
+fn with_waited_words(
+    words: &mut crate::wait_words::WaitWords,
+    waits: WhileAnswerWaits,
+    candidate: &crate::admission::Candidate,
+    audio: &[ObservedAudio],
+    ended: bool,
+    pause_blocks: u16,
+    at_us: u64,
+) -> (WhileAnswerWaits, Option<WordsTold>) {
+    use crate::wait_words::{Then, Verdict};
+    if waits == WhileAnswerWaits::Decide {
+        return (waits, None);
+    }
+    let lets_go = matches!(waits, WhileAnswerWaits::LetGo(_));
+    if lets_go || ended || pause_blocks >= crate::wait_words::ASK_AFTER_QUIET_BLOCKS {
+        words.ask(candidate.id, audio, at_us);
+    } else {
+        words.hear(candidate.id, audio);
+    }
+    let verdict = words.verdict(candidate.id);
+    let deadline_us = candidate
+        .decision_deadline_us
+        .saturating_sub(WAIT_DECIDES_BEFORE_US);
+    let then = crate::wait_words::then(lets_go, verdict, ended, at_us, deadline_us);
+    let waits = match then {
+        Then::AsBefore => return (waits, None),
+        Then::Wait => return (WhileAnswerWaits::Wait, None),
+        Then::Take(_) => WhileAnswerWaits::Decide,
+        Then::LetGo => waits,
+    };
+    let told = words.tell().then(|| WordsTold {
+        words: match verdict {
+            Verdict::Words(count) => Some(count),
+            Verdict::Pending => None,
+        },
+        took: matches!(then, Then::Take(_)),
+        asked_at_us: words.asked_at_us().unwrap_or(at_us),
+    });
+    (waits, told)
 }
 /// One capture block.
 const BLOCK_US: u64 = 10_000;
@@ -3129,8 +3206,9 @@ fn conversation_with_gate(
     let short_sounds = crate::not_speech::short_sounds_from_environment();
     // A new sound waits while an answer is awaited unheard
     // (`LAMP_WAIT_KEEPS_ANSWER=on`, #1123), and the candidate it was last
-    // recorded for, so that the record says so once.
-    let wait_keeps_answer = wait_keeps_answer_from_environment();
+    // recorded for, so that the record says so once. With `words`, its
+    // words are heard too.
+    let (wait_keeps_answer, wait_hears_words) = wait_keeps_answer_from_environment();
     let mut answer_kept_for: Option<crate::admission::CandidateId> = None;
     // When the lamp's name was last heard beginning, and when the sound
     // last let go had stopped, for the wait.
@@ -3451,6 +3529,45 @@ fn conversation_with_gate(
             }
         })
         .flatten();
+    // A waited sound's words (`LAMP_WAIT_KEEPS_ANSWER=words`, #1123 step
+    // 2), from a stream of their own through the second voice's
+    // speech-to-text. Without its configuration the wait is `on`'s alone.
+    let mut wait_words = wait_hears_words
+        .then(|| match crate::second_config::load_from_env() {
+            Ok(Some(config)) => {
+                eprintln!(
+                    "lamp-voice: wait words: a sound while an answer waits is judged by its words, through the second voice's speech-to-text at {}",
+                    crate::stop_words::where_heard(&config)
+                );
+                crate::stop_words::RelayEars::for_waits(config)
+                    .map(|ears| crate::wait_words::WaitWords::new(Box::new(ears)))
+                    .map_err(|error| {
+                        eprintln!("lamp-voice: wait words are not heard: {error}");
+                    })
+                    .ok()
+            }
+            Ok(None) => {
+                eprintln!(
+                    "lamp-voice: LAMP_WAIT_KEEPS_ANSWER=words has no speech-to-text without the second voice's configuration: the wait is on, without words"
+                );
+                None
+            }
+            Err(error) => {
+                eprintln!("lamp-voice: wait words are not heard: {error}");
+                None
+            }
+        })
+        .flatten();
+    if wait_keeps_answer {
+        record(
+            trace,
+            json!({"kind":"wait_keeps_answer","at_us":monotonic_us(),
+                "words":wait_words.is_some(),
+                "keeps_for_us":WAIT_KEEPS_FOR_US,
+                "quiet_blocks":WAIT_QUIET_BLOCKS,
+                "words_asked_after_quiet_blocks":wait_words.is_some().then_some(crate::wait_words::ASK_AFTER_QUIET_BLOCKS)}),
+        )?;
+    }
     let mut admission = InputAdmission::with_hold(hold);
     let mut playback_mask = if duplex {
         record(
@@ -3760,6 +3877,10 @@ fn conversation_with_gate(
                 }
                 // What a yield heard is dropped with the reply (#828).
                 if let Some(words) = stop_words.as_mut() {
+                    words.close();
+                }
+                // So is what a waited sound heard (#1123).
+                if let Some(words) = wait_words.as_mut() {
                     words.close();
                 }
                 if gap_cut && !stop && !head_stop && !spoken_stop && !muted {
@@ -4812,6 +4933,17 @@ fn conversation_with_gate(
                     trace,
                 )?;
             }
+            // A stream for a waited sound's words is kept ready while an
+            // answer is awaited and the microphone is allowed, and what a
+            // sound no longer pending heard is dropped (#1123 step 2).
+            if let Some(words) = wait_words.as_mut() {
+                let still_pending = words
+                    .holds()
+                    .is_some_and(|candidate| admission.pending_audio(candidate).is_some());
+                let awaited = snapshot.microphone_permission() == Permission::Allowed
+                    && reply.as_ref().is_some_and(answer_unheard);
+                words.follow(awaited, still_pending);
+            }
             let step = match update.step {
                 AdmissionStep::None => admission
                     .pending_evidence(monotonic_us(), AcceptanceBasis::DirectedSessionVadOnly)
@@ -4927,14 +5059,37 @@ fn conversation_with_gate(
                         decided: answer_sounded_for == Some(candidate.id),
                         heard: !playback_mask.is_duplex() || frame.echo.is_some(),
                     };
-                    match while_answer_waits(
+                    let mut waits = while_answer_waits(
                         wait,
                         reply.as_ref(),
                         &candidate,
                         admission.pending_ended(),
                         detector.pause_blocks(),
                         at_us,
-                    ) {
+                    );
+                    // With `words`, its words too (step 2).
+                    if let Some(words) = wait_words.as_mut() {
+                        let told;
+                        (waits, told) = with_waited_words(
+                            words,
+                            waits,
+                            &candidate,
+                            admission.pending_audio(candidate.id).unwrap_or_default(),
+                            admission.pending_ended(),
+                            detector.pause_blocks(),
+                            at_us,
+                        );
+                        if let Some(told) = told {
+                            // The count of its words only, never the words.
+                            record(
+                                trace,
+                                json!({"kind":"wait_words","turn":reply.as_ref().map(|current| current.owner.turn()),
+                                    "candidate":candidate.id,"words":told.words,"took":told.took,
+                                    "asked_at_us":told.asked_at_us,"at_us":at_us}),
+                            )?;
+                        }
+                    }
+                    match waits {
                         WhileAnswerWaits::Decide => {
                             if wait.waited && wait.sounding {
                                 answer_sounded_for = Some(candidate.id);
@@ -5972,6 +6127,12 @@ fn conversation_with_gate(
         // A yield's words are never heard without the microphone (#828).
         if snapshot.microphone_permission() != Permission::Allowed
             && let Some(words) = stop_words.as_mut()
+        {
+            words.close();
+        }
+        // Nor a waited sound's (#1123).
+        if snapshot.microphone_permission() != Permission::Allowed
+            && let Some(words) = wait_words.as_mut()
         {
             words.close();
         }

@@ -59,6 +59,16 @@ a row for it and the pins are measured again.
      a second request and "Stop." were played over it, the speech-to-text
      returned the whole story and none of the three. The speakerphone does
      not take its own voice out.
+   - **How loud the lamp's own voice is on the voice microphone** (17 October,
+     afternoon, the raw mic2 signal over one short story each): about
+     −13 to −14 dBFS RMS with the 99th percentile at −2 to −2.6 dBFS and 12
+     to 61 samples at full scale in 10 s, at every setting tried: `Mic`
+     capture 147 with Auto Gain Control on (as found), 147 with it off, and
+     120 (−6 dB) with it off. The ALSA controls hardly change what the Jieli
+     delivers. A voice from the room arrives about 15 dB under the lamp's own
+     (−17 to −20 dBFS), so "Lamp, stop." said alone over a story was heard in
+     none of 11 runs, by the hearing or by the stop words' speech-to-text.
+     The settings were put back to 147 with Auto Gain Control on.
    - **What the new board needs for a person to be heard over the lamp:** a
      voice microphone on the speaker's clock with a hardware loopback of the
      speaker signal (the echo reference), or a microphone the speaker's
@@ -76,6 +86,25 @@ a row for it and the pins are measured again.
 6. **Fan.** Always on, or controllable from software, and from which pin?
 7. **The new board.** When do lamp-4ace and the other test lamps get it, and
    do any buses, pins or USB audio devices change? Its pinout early, please.
+
+## Asked of the hardware team (2026-10-17, lampOS's first builder)
+
+8. **The voice microphone falls off USB.** On 17 October the Jieli (port 1
+   of the second hub) disconnected for 4 to 5 s twice: at 12:29:20 and at
+   12:49:06 ICT (kernel `usb 3-1.1.1: USB disconnect`, back as a new
+   device number). Both times a 47 MB build was being copied onto the
+   lamp's SD card over Wi-Fi; there was no other disconnect in the 42 hours
+   since boot, and at 12:49 the arm was resting and still (the body's own
+   log). Each time the voice could not open
+   the microphone and came back muted. Is the hub chain powered from the
+   MP2482 rail with the computer, ring and fan, and could a load step on it
+   drop the hub's first port? Is the cable or its plug worth reseating?
+9. **The air sensor's reads fail.** Since at least 11:00 on 17 October
+   `lamp-air` has logged 20 to 30 failed reads of the SEN63C a minute
+   ("word 0 fails its CRC", "command 0xd014: Invalid argument (os error
+   22)"), on I2C bus 0 with the MPR121 (how many reads still succeed was
+   not counted). Its wiring and pull-ups, please, or whether this unit's
+   sensor is faulty.
 
 ## Parts the design does not list
 

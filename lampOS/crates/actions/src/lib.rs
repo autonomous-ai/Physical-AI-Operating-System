@@ -92,7 +92,7 @@ pub fn catalog(sound: bool, light: bool) -> Vec<Function> {
             plain("light_off", "Switch your own light off."),
             Function {
                 name: "light_colour",
-                description: "Your light can change colour: set your own light to one of the named colours. Violet is purple; warm white is warm. For a step warmer or cooler than it is, use light_warmer or light_cooler.",
+                description: "Your light can change colour: set your own light to one of its colours by name: white, warm (a warm white), orange, yellow, red, pink, purple (violet), blue, cyan or green. White and warm are colours here, not brightness: \"make your light white\" is white, and \"make it warm\" is warm. For a step warmer or cooler than it is, use light_warmer or light_cooler.",
                 parameters: Some(json!({
                     "type": "object",
                     "properties": {"colour": {"type": "string", "enum": names}},
@@ -101,7 +101,7 @@ pub fn catalog(sound: bool, light: bool) -> Vec<Function> {
             },
             plain(
                 "light_brighter",
-                "Make your own light a step brighter, keeping its colour.",
+                "Make your own light a step brighter, keeping its colour. Not for white or whiter: white is a colour (light_colour, or light_cooler for a step).",
             ),
             plain(
                 "light_dimmer",
@@ -109,11 +109,11 @@ pub fn catalog(sound: bool, light: bool) -> Vec<Function> {
             ),
             plain(
                 "light_warmer",
-                "Make your own light a step warmer in tone (white, then warm, then orange), keeping its brightness, when someone asks for it warmer, cosier or more golden.",
+                "Make your own light a step warmer in tone (white, then warm, then orange), keeping its brightness, when someone asks for it warmer, cosier or more golden. For a colour by name, warm included, use light_colour.",
             ),
             plain(
                 "light_cooler",
-                "Make your own light a step cooler in tone (orange, then warm, then white), keeping its brightness, when someone asks for it cooler, whiter, crisper or more like daylight.",
+                "Make your own light a step cooler in tone (orange, then warm, then white), keeping its brightness, when someone asks for it cooler, whiter, a cooler white, crisper or more like daylight. For a colour by name, white included, use light_colour.",
             ),
         ]);
     }
@@ -243,6 +243,21 @@ mod tests {
             10
         );
         assert!(catalog_file(&all).len() < 65_536);
+    }
+
+    #[test]
+    fn white_and_warm_are_named_as_colours_not_brightness() {
+        // lamp-4ace, 17 Oct 15:26 (the first builder on #1316): "make your
+        // light white" and "make it whiter" each went to light_brighter.
+        let all = catalog(true, true);
+        let said = |name: &str| all.iter().find(|f| f.name == name).unwrap().description;
+        for colour in lamp_msgs::Light::COLOURS {
+            assert!(said("light_colour").contains(colour), "{colour}");
+        }
+        assert!(said("light_colour").contains("not brightness"));
+        assert!(said("light_brighter").contains("Not for white or whiter"));
+        assert!(said("light_cooler").contains("whiter, a cooler white"));
+        assert!(said("light_warmer").contains("warm included, use light_colour"));
     }
 
     #[test]

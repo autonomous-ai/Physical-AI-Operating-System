@@ -682,6 +682,58 @@ fn asleep_face_allowed(switch_on: bool, privacy_controls: bool) -> bool {
     switch_on && !privacy_controls
 }
 
+/// Whether a tap on the head while the lamp waits out a mute shows the
+/// asleep face for about a second (#711, First on #711, 17 Oct 10:18):
+/// with head touch, where the asleep face is the muted look (not the
+/// Controls privacy route, whose ring is the switch's own indication and
+/// has one writer, #755), and not already shown all the time by
+/// `LAMP_RING_ASLEEP=on`.
+fn tap_face_allowed(head_touch: bool, asleep_on: bool, privacy_controls: bool) -> bool {
+    head_touch && !asleep_on && !privacy_controls
+}
+
+/// One look of the muted wait at the head (#711): a tap taken while the
+/// lamp still may not hear gets the asleep face for about a second, said in
+/// the trace as `head_tap_muted_face`.
+fn answer_muted_tap<F: FnMut() -> Option<crate::ring_asleep::Asleep>>(
+    face: Option<&mut crate::ring_asleep::TapFace<F>>,
+    observation: &crate::hand_controls::Observation,
+    allowed: bool,
+    trace: &mut SessionState,
+) -> Result<()> {
+    if let Some(face) = face
+        && face.poll(observation.head_tap_at_us.is_some(), allowed)
+    {
+        record(
+            trace,
+            json!({"kind":"head_tap_muted_face","at_us":monotonic_us()}),
+        )?;
+    }
+    Ok(())
+}
+
+/// Whether the lamp may hear again, for the tap's face (#711): the software
+/// mute open (`allowed`), and the privacy slide, as the wait last read it,
+/// not closed. With the Controls route off the voice reads the slide itself
+/// and keeps it apart from the software mute, so a closed slide with the
+/// mute open is still a muted lamp (the reviewer on #1288).
+fn may_hear(allowed: bool, slide: Option<crate::privacy::PrivacyState>) -> bool {
+    allowed && slide != Some(crate::privacy::PrivacyState::Muted)
+}
+
+/// The asleep face for a tap, on the lamp's own ring (Linux).
+fn tapped_face(ceiling: u16) -> Option<crate::ring_asleep::Asleep> {
+    #[cfg(target_os = "linux")]
+    {
+        crate::ring_asleep::Asleep::tapped(ceiling)
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = ceiling;
+        None
+    }
+}
+
 /// Whether a worker's failure ends the voice. Only the second route's is
 /// optional, in whichever slot it is (`rig.provider` while it is the active
 /// route): one that exited is dropped by `second::dropped_if_gone` (#960).
@@ -1426,10 +1478,22 @@ fn run_source(
             // with a ring shows the asleep face (#712, `LAMP_RING_ASLEEP=on`).
             // Not with the Controls privacy route: its wait paints the
             // physical-mute indication, and the ring has one writer (#795).
+            let privacy_controls =
+                matches!(crate::privacy_bus::root_from_environment(), Ok(Some(_)));
             let asleep_ceiling = options.ring_channel_ceiling.filter(|_| {
                 asleep_face_allowed(
                     crate::ring_asleep::enabled_from_environment(),
-                    matches!(crate::privacy_bus::root_from_environment(), Ok(Some(_))),
+                    privacy_controls,
+                )
+            });
+            // A tap on the head while it waits gets the asleep face for
+            // about a second (#711), where that is the muted look and it is
+            // not already shown.
+            let tap_face_ceiling = options.ring_channel_ceiling.filter(|_| {
+                tap_face_allowed(
+                    crate::hand_controls::head_touch_from_environment(),
+                    crate::ring_asleep::enabled_from_environment(),
+                    privacy_controls,
                 )
             });
             service::supervise(
@@ -1442,10 +1506,17 @@ fn run_source(
                     #[cfg(not(target_os = "linux"))]
                     let _ = asleep_ceiling;
                     let trace = RefCell::new(trace);
+                    // The slide's last state from the wait: closed is muted too,
+                    // whatever the software mute says (the reviewer on #1288).
+                    let slide = std::cell::Cell::new(None);
+                    let tap_face = RefCell::new(tap_face_ceiling.map(|ceiling| {
+                        crate::ring_asleep::TapFace::new(move || tapped_face(ceiling))
+                    }));
                     let outcome = crate::service_privacy_controls::wait_selected(
                         &executable,
                         termination,
                         |state, boot, at_us| {
+                            slide.set(Some(state));
                             let mut trace = trace.borrow_mut();
                             record(
                                 &mut trace,
@@ -1463,9 +1534,18 @@ fn run_source(
                             };
                             let (allowed, observation) = controls.quiescent_observation()?;
                             record_hand_pats(&mut trace.borrow_mut(), observation.pets)?;
+                            answer_muted_tap(
+                                tap_face.borrow_mut().as_mut(),
+                                &observation,
+                                may_hear(allowed, slide.get()),
+                                &mut trace.borrow_mut(),
+                            )?;
                             Ok(allowed)
                         },
                     );
+                    if let Some(face) = tap_face.into_inner() {
+                        face.stop();
+                    }
                     // Black and the device closed before a cycle's ring
                     // worker can open it.
                     #[cfg(target_os = "linux")]

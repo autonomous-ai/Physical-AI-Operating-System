@@ -293,6 +293,36 @@ with the device closed before the wait returns, so the next cycle's ring
 worker is again the only writer. If the device cannot be opened it says so
 once in the journal and the ring stays dark, as before.
 
+**A tap on the head while muted (#711, First on #711, 17 Oct 10:18).** A
+tap still gets an answer, but nothing moves and nothing is heard: the ring
+shows the asleep face for about a second (`TAP_SHOWS`, 1 s). It comes at
+once, up over a quarter of a second, held at the top of a breath, and down
+over the last quarter (`TAP_FADE`). Then it's black with the device
+closed, by itself. One at a time. None for the tap that lets the lamp hear
+again, since its ring worker is about to start. The trace says
+`head_tap_muted_face`. Muted here is the software mute or the privacy
+slide closed: the wait reads the slide itself and keeps it apart from the
+software mute, so its last state (`PrivacyState::Muted`) counts too, and a
+closed slide with the mute open still gets the face (`may_hear`, the
+reviewer on #1288). The face is drawn only where it is the muted look:
+- head touch on (`LAMP_HEAD_TOUCH=on`, which brings the taps);
+- not the Controls privacy route, whose ring is the switch's own indication
+  and has one writer (#755): there a software mute stays dark, rather than
+  show a look that claims the switch;
+- not `LAMP_RING_ASLEEP=on`, which shows the face the whole time already.
+
+It is stopped, black and closed, before the wait returns, as the long face
+is. Expression gives no look-up for a tap while the software mute holds
+(#1282). It sees the slide only on the Controls route, so on this route a
+tap with the slide closed still gets Expression's look-up beside this face
+([alive.md](alive.md)).
+Tests: `ring_asleep`'s
+`a_taps_face_shows_at_once_fades_in_and_out_and_closes_by_itself` and
+`a_tap_face_comes_one_at_a_time_and_never_for_a_tap_that_wakes_it`, and the
+coordinator's `a_tap_while_muted_gets_the_asleep_face_once` (the muted
+wait's call, `answer_muted_tap`, the slide closed with the mute open, and
+where the face is allowed). Not shown on a lamp.
+
 ### The lamp's own light
 
 The resting face is also the lamp's light: a colour and a level that

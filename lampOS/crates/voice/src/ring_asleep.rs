@@ -36,6 +36,12 @@ pub const BREATH: Duration = Duration::from_secs(6);
 const FRAME: Duration = Duration::from_millis(50);
 /// How often a waiting painter looks at its stop flag.
 const STEP: Duration = Duration::from_millis(10);
+/// How long a tap on the head of a muted lamp shows the asleep face: "about
+/// a second", so the tap gets an answer while nothing moves and nothing is
+/// heard (#711, First on #711, 17 Oct 10:18).
+pub const TAP_SHOWS: Duration = Duration::from_millis(1_000);
+/// Its fade in, and its fade out, each.
+pub const TAP_FADE: Duration = Duration::from_millis(250);
 
 /// Whether the switch is on in this process's environment.
 pub fn enabled_from_environment() -> bool {
@@ -58,6 +64,19 @@ pub fn breath_at(since: Duration) -> f32 {
 pub fn ceiling_at(since: Duration, ceiling: ChannelCeiling) -> ChannelCeiling {
     let top = ceiling.get().min(PEAK.red);
     let share = (since.as_secs_f32() / FADE_IN.as_secs_f32()).clamp(0.0, 1.0);
+    ChannelCeiling::new(u16::from((f32::from(top) * share).round() as u8))
+        .expect("a share of a valid ceiling is valid")
+}
+
+/// The ceiling `since` a tap's face began, for a face that shows `shows`
+/// ([`TAP_SHOWS`] on a lamp): up over [`TAP_FADE`] (or a quarter of a
+/// shorter face), held, and down over as long at its end, never above what
+/// the face itself reaches.
+pub fn tap_ceiling_at(since: Duration, shows: Duration, ceiling: ChannelCeiling) -> ChannelCeiling {
+    let top = ceiling.get().min(PEAK.red);
+    let fade = TAP_FADE.min(shows / 4).max(Duration::from_millis(1));
+    let left = shows.saturating_sub(since);
+    let share = (since.min(left).as_secs_f32() / fade.as_secs_f32()).clamp(0.0, 1.0);
     ChannelCeiling::new(u16::from((f32::from(top) * share).round() as u8))
         .expect("a share of a valid ceiling is valid")
 }
@@ -91,13 +110,44 @@ impl Asleep {
         S: FrameSink + 'static,
         F: FnOnce() -> io::Result<AsleepRing<S>> + Send + 'static,
     {
+        Self::spawn(move |stop| paint(open, ceiling, stop))
+    }
+
+    /// The face for a tap on the head of a muted lamp: at once, for
+    /// [`TAP_SHOWS`], then black and the device closed by itself.
+    #[cfg(target_os = "linux")]
+    pub fn tapped(ceiling: u16) -> Option<Self> {
+        let ceiling = ChannelCeiling::new(ceiling).ok()?;
+        Some(Self::tapped_with(lamp_ring::linux::open_asleep, ceiling))
+    }
+
+    /// [`Self::tapped`], on whatever `open` gives.
+    pub fn tapped_with<S, F>(open: F, ceiling: ChannelCeiling) -> Self
+    where
+        S: FrameSink + 'static,
+        F: FnOnce() -> io::Result<AsleepRing<S>> + Send + 'static,
+    {
+        Self::tapped_for(open, ceiling, TAP_SHOWS)
+    }
+
+    /// [`Self::tapped_with`] for `shows` instead of [`TAP_SHOWS`]: a test's
+    /// short face, so it needn't wait a whole second.
+    pub fn tapped_for<S, F>(open: F, ceiling: ChannelCeiling, shows: Duration) -> Self
+    where
+        S: FrameSink + 'static,
+        F: FnOnce() -> io::Result<AsleepRing<S>> + Send + 'static,
+    {
+        Self::spawn(move |stop| paint_tapped(open, ceiling, shows, stop))
+    }
+
+    fn spawn(paint: impl FnOnce(&AtomicBool) -> io::Result<()> + Send + 'static) -> Self {
         let stop = Arc::new(AtomicBool::new(false));
         let flag = stop.clone();
         let (finished, done) = std::sync::mpsc::channel();
         let thread = std::thread::Builder::new()
             .name("ring-asleep".into())
             .spawn(move || {
-                if let Err(error) = paint(open, ceiling, &flag) {
+                if let Err(error) = paint(&flag) {
                     eprintln!("lamp-voice ring: the asleep face stopped: {error}");
                 }
                 let _ = finished.send(());
@@ -108,6 +158,11 @@ impl Asleep {
             thread,
             done: Some(done),
         }
+    }
+
+    /// Whether its painting is over: a tap's ends by itself.
+    pub fn finished(&self) -> bool {
+        self.thread.as_ref().is_none_or(JoinHandle::is_finished)
     }
 
     /// Stop painting: the ring is black and the device closed on return.
@@ -162,6 +217,64 @@ fn paint<S: FrameSink>(
         wait(FRAME, stop);
     }
     ring.shutdown()
+}
+
+/// A tap's face at once, faded in and out over `shows`, then black, unless
+/// stopped first.
+fn paint_tapped<S: FrameSink>(
+    open: impl FnOnce() -> io::Result<AsleepRing<S>>,
+    ceiling: ChannelCeiling,
+    shows: Duration,
+    stop: &AtomicBool,
+) -> io::Result<()> {
+    let mut ring = open()?;
+    let began = Instant::now();
+    while !stop.load(Ordering::SeqCst) && began.elapsed() < shows {
+        // At the top of a breath: a second is a sixth of one.
+        if let Err(error) = ring.show(1.0, tap_ceiling_at(began.elapsed(), shows, ceiling)) {
+            let _ = ring.shutdown();
+            return Err(error);
+        }
+        wait(FRAME, stop);
+    }
+    ring.shutdown()
+}
+
+/// The asleep face for about a second at each tap on the head while the
+/// lamp waits out a mute (#711): one at a time, and none for the tap that
+/// lets it hear again, since its ring worker is about to start.
+pub struct TapFace<F: FnMut() -> Option<Asleep>> {
+    start: F,
+    showing: Option<Asleep>,
+}
+
+impl<F: FnMut() -> Option<Asleep>> TapFace<F> {
+    pub fn new(start: F) -> Self {
+        Self {
+            start,
+            showing: None,
+        }
+    }
+
+    /// One look of the muted wait: whether a tap on the head was taken in
+    /// it, and whether the lamp may hear again. True when a face began.
+    pub fn poll(&mut self, tapped: bool, allowed: bool) -> bool {
+        if self.showing.as_ref().is_some_and(Asleep::finished) {
+            self.showing = None;
+        }
+        if tapped && !allowed && self.showing.is_none() {
+            self.showing = (self.start)();
+            return self.showing.is_some();
+        }
+        false
+    }
+
+    /// Black and the device closed, before the next cycle's ring worker.
+    pub fn stop(self) {
+        if let Some(showing) = self.showing {
+            showing.stop();
+        }
+    }
 }
 
 /// Sleep `length` in short steps; false if stopped meanwhile.
@@ -276,6 +389,73 @@ mod tests {
             assert!((breath_at(next) - breath_at(since)).abs() < 0.03);
             since = next;
         }
+    }
+
+    /// #711: a tap on a muted lamp's head shows the asleep face at once,
+    /// up over a quarter of a second, held, down over the last quarter, and
+    /// then black and the device closed by itself, within its second.
+    #[test]
+    fn a_taps_face_shows_at_once_fades_in_and_out_and_closes_by_itself() {
+        let top = ceiling(48);
+        assert_eq!(tap_ceiling_at(Duration::ZERO, TAP_SHOWS, top).get(), 0);
+        assert_eq!(
+            tap_ceiling_at(TAP_SHOWS / 2, TAP_SHOWS, top).get(),
+            PEAK.red
+        );
+        assert_eq!(tap_ceiling_at(TAP_SHOWS, TAP_SHOWS, top).get(), 0);
+        let quarter = tap_ceiling_at(TAP_FADE / 2, TAP_SHOWS, top).get();
+        assert!(0 < quarter && quarter < PEAK.red, "{quarter}");
+        // The painter, on a face a test makes short: it ends by itself.
+        let shows = Duration::from_millis(200);
+        let frames = Frames::default();
+        let sink = frames.clone();
+        let started = Instant::now();
+        let face = Asleep::tapped_for(move || AsleepRing::new(sink), top, shows);
+        while !face.finished() {
+            assert!(started.elapsed() < shows + STOP_DEADLINE, "never ended");
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        assert!(started.elapsed() >= shows);
+        face.stop();
+        let frames = frames.0.lock().unwrap();
+        assert_eq!(frames[0], EncodedFrame::black());
+        assert_eq!(*frames.last().unwrap(), EncodedFrame::black());
+        assert!(
+            frames[1..frames.len() - 1]
+                .iter()
+                .any(|frame| *frame != EncodedFrame::black())
+        );
+    }
+
+    /// #711: one face at a time; none for a tap that lets the lamp hear
+    /// again, since its ring worker is about to start; and stopping it is
+    /// black at once.
+    #[test]
+    fn a_tap_face_comes_one_at_a_time_and_never_for_a_tap_that_wakes_it() {
+        let frames = Frames::default();
+        let starts = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let (sink, counted) = (frames.clone(), starts.clone());
+        let mut face = TapFace::new(move || {
+            counted.fetch_add(1, Ordering::SeqCst);
+            let sink = sink.clone();
+            Some(Asleep::tapped_for(
+                move || AsleepRing::new(sink),
+                ceiling(48),
+                Duration::from_millis(100),
+            ))
+        });
+        assert!(!face.poll(false, false), "no tap, no face");
+        assert!(!face.poll(true, true), "the tap that wakes it");
+        assert!(face.poll(true, false));
+        assert!(!face.poll(true, false), "one at a time");
+        std::thread::sleep(Duration::from_millis(300));
+        assert!(face.poll(true, false), "the next tap, once it ended");
+        face.stop();
+        assert_eq!(starts.load(Ordering::SeqCst), 2);
+        assert_eq!(
+            *frames.0.lock().unwrap().last().unwrap(),
+            EncodedFrame::black()
+        );
     }
 
     #[test]

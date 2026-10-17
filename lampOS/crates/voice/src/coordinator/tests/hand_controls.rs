@@ -1494,10 +1494,91 @@ fn head_tap() -> HandControls {
     HandControls::with_test_tap("test-hand-clock", monotonic_us() - 420_000).unwrap()
 }
 
-/// The reviewer on #1222: nothing pinned that a privacy worker that never
-/// says anything ends the loop once its freshness (`PRIVACY_FRESH_US`) has
-/// passed, and not before. Stepped, so the time the loop ran is its own:
-/// a host stall neither ends it early nor keeps it going.
+/// #711 (First on #711, 17 Oct 10:18): a tap on the head while the lamp
+/// waits out a mute gets the asleep face for about a second, said in the
+/// trace; none without a tap, none for the tap that wakes it, and one at a
+/// time. Only where that face is the muted look: head touch on, not the
+/// Controls privacy route, and not shown all along by `LAMP_RING_ASLEEP`.
+#[test]
+fn a_tap_while_muted_gets_the_asleep_face_once() {
+    use crate::hand_controls::Observation;
+    use crate::ring_asleep::{Asleep, TapFace};
+    let starts = std::cell::Cell::new(0);
+    let mut face = TapFace::new(|| {
+        starts.set(starts.get() + 1);
+        Some(Asleep::tapped_with(
+            || lamp_ring::asleep::AsleepRing::new(DiscardFrames),
+            lamp_ring::ChannelCeiling::new(24).unwrap(),
+        ))
+    });
+    let tap = Observation {
+        head_tap_at_us: Some(1),
+        ..Observation::default()
+    };
+    let mut trace = SessionState::default();
+    let faces = |trace: &SessionState| {
+        trace
+            .iter()
+            .filter(|row| row["kind"] == "head_tap_muted_face")
+            .count()
+    };
+    answer_muted_tap(Some(&mut face), &Observation::default(), false, &mut trace).unwrap();
+    answer_muted_tap(Some(&mut face), &tap, true, &mut trace).unwrap();
+    assert_eq!(faces(&trace), 0, "no tap, or the tap that wakes it");
+    answer_muted_tap(Some(&mut face), &tap, false, &mut trace).unwrap();
+    answer_muted_tap(Some(&mut face), &tap, false, &mut trace).unwrap();
+    assert_eq!((faces(&trace), starts.get()), (1, 1), "one at a time");
+    face.stop();
+    // The slide closed with the software mute open is still muted: the tap
+    // gets its face (the reviewer on #1288).
+    use crate::privacy::PrivacyState;
+    for (allowed, slide, hears) in [
+        (true, None, true),
+        (true, Some(PrivacyState::Allowed), true),
+        (true, Some(PrivacyState::Muted), false),
+        (false, Some(PrivacyState::Allowed), false),
+        (false, None, false),
+    ] {
+        assert_eq!(may_hear(allowed, slide), hears, "{allowed} {slide:?}");
+    }
+    let mut face = TapFace::new(|| {
+        Some(Asleep::tapped_with(
+            || lamp_ring::asleep::AsleepRing::new(DiscardFrames),
+            lamp_ring::ChannelCeiling::new(24).unwrap(),
+        ))
+    });
+    let mut slid = SessionState::default();
+    answer_muted_tap(
+        Some(&mut face),
+        &tap,
+        may_hear(true, Some(PrivacyState::Muted)),
+        &mut slid,
+    )
+    .unwrap();
+    assert_eq!(faces(&slid), 1, "the slide closed, the mute open");
+    face.stop();
+    for (head_touch, asleep_on, privacy_controls, shown) in [
+        (true, false, false, true),
+        (false, false, false, false),
+        (true, true, false, false),
+        (true, false, true, false),
+    ] {
+        assert_eq!(
+            tap_face_allowed(head_touch, asleep_on, privacy_controls),
+            shown,
+            "{head_touch} {asleep_on} {privacy_controls}"
+        );
+    }
+}
+
+/// A ring that takes every frame and keeps none.
+struct DiscardFrames;
+impl lamp_ring::FrameSink for DiscardFrames {
+    fn write_frame(&mut self, _: &lamp_ring::EncodedFrame) -> io::Result<()> {
+        Ok(())
+    }
+}
+
 /// The reviewer on #1244: the ring's face after a head tap follows the
 /// voice's hum, so only the hum's own frames may be marked `listening`. A
 /// tap that hums: the first frame the ring is asked for is. A tap refused
@@ -1544,6 +1625,10 @@ fn only_the_hums_own_ring_frames_are_marked_listening() {
     assert!(frames.iter().all(|listening| !listening), "{frames:?}");
 }
 
+/// The reviewer on #1222: nothing pinned that a privacy worker that never
+/// says anything ends the loop once its freshness (`PRIVACY_FRESH_US`) has
+/// passed, and not before. Stepped, so the time the loop ran is its own:
+/// a host stall neither ends it early nor keeps it going.
 #[test]
 fn a_silent_privacy_worker_ends_the_loop_once_its_freshness_has_passed() {
     let started = std::cell::Cell::new(0);

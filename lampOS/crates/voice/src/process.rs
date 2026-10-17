@@ -277,6 +277,10 @@ impl Worker {
                 role,
                 std::env::var_os(crate::rules::ENVIRONMENT).as_deref(),
             ))
+            .envs(kernel_clock_worker_environment(
+                role,
+                std::env::var_os(crate::local_time::KERNEL_CLOCK_ENVIRONMENT).as_deref(),
+            ))
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::inherit())
@@ -723,6 +727,18 @@ fn memory_rules_worker_environment(
         .then_some((crate::rules::ENVIRONMENT, "on"))
 }
 
+// The clock's switch (#830), passed the same narrow way: the exact `on`, to
+// the two workers that tell the time and judge the night. Cleared, it never
+// reached them, so a lamp whose clock was not set took its saved 22:00 as
+// night by day (Ten on #1158).
+fn kernel_clock_worker_environment(
+    role: &str,
+    value: Option<&std::ffi::OsStr>,
+) -> Option<(&'static str, &'static str)> {
+    (matches!(role, "provider" | "second") && value == Some(std::ffi::OsStr::new("on")))
+        .then_some((crate::local_time::KERNEL_CLOCK_ENVIRONMENT, "on"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -757,6 +773,12 @@ mod tests {
                         memory_rules_worker_environment,
                         "LAMP_MEMORY_RULES",
                         ["provider"].as_slice(),
+                    ),
+                    // The clock's switch, the two that tell the time.
+                    (
+                        kernel_clock_worker_environment,
+                        "LAMP_KERNEL_CLOCK",
+                        ["provider", "second"].as_slice(),
                     ),
                 ] {
                     // Observe an actual child's environment without changing this

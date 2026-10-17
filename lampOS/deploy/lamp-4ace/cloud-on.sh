@@ -3,7 +3,8 @@
 # setup from the app. Run from the office Mac; it needs no person at the lamp.
 # It puts lamp-cloud on lamp-4ace the way a part is installed
 # (/opt/lampOS/cloud/<sha256>/lamp-cloud, `current` pointing at it, the product's
-# unit), turns it on with a drop-in (LAMP_CLOUD=on) and starts it. Then it prints
+# unit), turns it on with the drop-in the unit's header gives
+# (`Conflicts=os-server.service`, `LAMP_CLOUD=on`) and starts it. Then it prints
 # lamp-cloud's own journal lines (online on the broker, offline, the backend's
 # ping) with every address and URL taken out, and `systemctl show` for its
 # conditions. It never prints a value from setup's account or the voice's key.
@@ -11,7 +12,7 @@
 #   1. here: the binary is an aarch64 ELF; its sha256
 #   2. the lamp: setup is done, and the four files the unit needs are there
 #      (only present or missing is said); V1's os-server is not running, since
-#      the unit conflicts with it and starting lamp-cloud would stop it
+#      the drop-in conflicts with it and starting lamp-cloud would stop it
 #   3. the lamp: binary, `current`, unit, drop-in; daemon-reload; start
 #   4. the lamp, after WAIT seconds: the journal lines and the conditions
 #
@@ -82,7 +83,7 @@ on_lamp() {
 	[ "${missing:-0}" = 1 ] && abort "the unit's conditions are not met: it would not start"
 	[ "$DRY" = 1 ] || id lampos >/dev/null 2>&1 || abort "no lampos user"
 	if [ "$DRY" = 0 ] && systemctl is-active --quiet os-server; then
-		abort "V1's os-server is running; lamp-cloud's unit conflicts with it (one broker client id), and starting it would stop os-server. Stop os-server first, if that is meant."
+		abort "V1's os-server is running; lamp-cloud's drop-in conflicts with it (one broker client id), and starting it would stop os-server. Stop os-server first, if that is meant."
 	fi
 	echo "=== 3. Install and start"
 	sha=$(if [ "$DRY" = 1 ]; then echo '<sha256>'; else sha256sum "$STAGE/lamp-cloud" | cut -d' ' -f1; fi)
@@ -92,7 +93,9 @@ on_lamp() {
 	run "ln -sfn /opt/lampOS/cloud/$sha /opt/lampOS/cloud/current"
 	run "install -m 0644 '$STAGE/lamp-cloud.service' /etc/systemd/system/lamp-cloud.service"
 	run "install -d -m 0755 '$(dirname "$DROPIN")'"
-	run "printf '[Service]\nEnvironment=LAMP_CLOUD=on\n' > '$DROPIN'"
+	# The conflict is in the drop-in, not the unit (#1418): an off
+	# lamp-cloud never stops os-server; this one, on, does.
+	run "printf '[Unit]\nConflicts=os-server.service\n[Service]\nEnvironment=LAMP_CLOUD=on\n' > '$DROPIN'"
 	run "systemctl daemon-reload"
 	started=$(date '+%Y-%m-%d %H:%M:%S')
 	run "systemctl start lamp-cloud"

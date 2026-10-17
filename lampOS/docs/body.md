@@ -1386,10 +1386,15 @@ stamps `skill:<name>` and `skill` ([skills.md](skills.md)).
   where it gave way is dropped as `held by a hand`, and one asked of a
   lamp that slumped is dropped as before.
 - A gesture asked while another plays, at a higher priority than the one
-  playing, ends it (`ended: by conversation`): its offsets ease out at the
-  gesture's own step (at most 24, 34, 26, 21 and 21 counts a step), the
-  arm's through the same guarded write as every arm goal, and the new one
-  begins once they are back at nothing. Asked at the same priority or
+  playing, ends it (`ended: by conversation`): its offsets ease back to
+  nothing over 0.7 s (`EASE_OUT`), from the speed they had, on a cubic that
+  slows into the end, so the change a step grows and shrinks by a count or
+  two and never snaps back or stops dead (in the test, a stretch ended at
+  its widest: the shoulder 1, 2, 2, 4 … 13 … 3, 2, 1 counts a step). Never
+  more than the gesture's own step (24, 34, 26, 21 and 21 counts), the arm's
+  through the same guarded write as every arm goal; the new one begins once
+  they are back at nothing. Not yet looked at on a lamp: it is, on
+  lamp-52e6, before the switch goes on. Asked at the same priority or
   lower, it is dropped, naming who holds the body (`dropped: busy,
   conversation`). The body's own turn to a call is the conversation's.
 - Of several gestures read in one step (the socket is read up to 32

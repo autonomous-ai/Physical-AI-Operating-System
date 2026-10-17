@@ -1023,6 +1023,18 @@ pub async fn run_with_continuation(
             .into_session_with_camera(visual.is_some())?
             .barrier_policy(barrier),
     )?;
+    // Whose the first session is, read before it opens: the eyes' known
+    // face, when each session is one person's (the switch below).
+    if files.tools.memory.is_some()
+        && let Some(path) = files
+            .tools
+            .who
+            .as_deref()
+            .map(crate::known_faces::known_file_of)
+        && let Ok(mut thread) = crate::thread::THREAD.lock()
+    {
+        thread.at_start(crate::known_faces::known_now(&path).as_deref());
+    }
     // Each session it opens is told how the conversation went until then.
     let provider = Supervisor::new(
         crate::thread::Recalling::new(config)

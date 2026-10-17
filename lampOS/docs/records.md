@@ -101,6 +101,14 @@ leftover and manually launched voice writers. PID identities and bounded
 manager/process observations are checked for change. Ambiguity, missing
 visibility, a changed unit, unknown output arguments or an unavailable manager
 refuses the entire root. No producer or service process is signaled or frozen.
+The loaded command's binary is resolved through its links before it is
+compared with each process's `exe`, which the kernel gives resolved. A
+product unit names `/opt/lampOS/voice/current/lamp-voice`, and its main
+process's `exe` is the build that link points to. Compared as written, they
+disagreed, and every run on a product lamp refused ("main process disagrees
+with manager invocation mapping"; Twelve on lamp-cb94, 17 October). A link
+switched to another build while the old one still runs disagrees again and
+refuses (`a_voice_started_through_a_current_link_is_its_own_main_process`).
 The guard kills and reaps its own query child on a timeout or query failure.
 The voice's known processes, its commands and worker roles, come from the
 voice's own list, `lamp-voice-processes` ("The voice's own list" below). The
@@ -226,6 +234,16 @@ follows links; it cannot revoke root's ability to mutate its namespace.
 
 [records.example.json](../crates/records/records.example.json) is the complete
 customer proposal. `lamp-records defaults` prints the same configuration.
+
+**On a product lamp,** `lamp-update install` places
+`/etc/lampOS/records.json` from
+[deploy/product/settings/records.json](../deploy/product/settings/records.json),
+as lamp-4ace has run since 14 October: on, the voice's sessions bounded at
+2 GB and 14 days. Before 17 October install placed none, so the timer ran
+nothing (`ConditionPathExists`), and a customer's sessions would have grown
+without end (Twelve on lamp-cb94). A file already on the lamp that isn't
+install's own is kept, as any setting is. The built-in default below stays
+off and at 500 MB; the product file is what turns it on.
 There are no environment overrides for retention, no implicit roots and no
 CLI option to bypass live protection. Unknown JSON fields and kinds are errors.
 

@@ -152,6 +152,29 @@ mod tests {
         assert_ne!(config.fingerprint(), changed.fingerprint());
     }
 
+    /// The product's file, as install places it at `/etc/lampOS/records.json`
+    /// (`deploy/product/settings/records.json`): valid, on, and bounding
+    /// the voice's sessions at 2.0 GB and two weeks. Without it the timer
+    /// runs nothing on a product lamp (Twelve on lamp-cb94, 17 Oct).
+    #[test]
+    fn the_products_config_is_valid_and_bounds_the_voices_sessions() {
+        let config: Config = serde_json::from_str(include_str!(
+            "../../../deploy/product/settings/records.json"
+        ))
+        .unwrap();
+        config.validate().unwrap();
+        assert!(config.enabled);
+        assert_eq!(config.roots.len(), 1);
+        let root = &config.roots[0];
+        assert_eq!(
+            root.path,
+            std::path::Path::new("/var/lib/lampOS/voice/sessions")
+        );
+        assert_eq!(root.unit, "lamp-voice.service");
+        assert_eq!(root.max_bytes, 2_000_000_000);
+        assert_eq!(root.max_age_seconds, 1_209_600);
+    }
+
     #[test]
     fn unknown_fields_and_kinds_do_not_enable_generic_cleanup() {
         let mut value = serde_json::to_value(Config::customer_default()).unwrap();

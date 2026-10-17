@@ -125,7 +125,7 @@ impl Worker {
             .stderr(Stdio::null())
             .spawn()
             .unwrap();
-        fixture_exec_barrier(&mut child, WORKER_STARTUP_TIMEOUT).unwrap();
+        fixture_exec_barrier(&mut child, FIXTURE_EXEC_WAIT).unwrap();
         (
             Self {
                 channels,
@@ -208,7 +208,7 @@ impl Worker {
             if let Err(error) = sent {
                 panic!("{}", failed_fixture(&mut child, error));
             }
-            fixture_exec_barrier(&mut child, WORKER_STARTUP_TIMEOUT).unwrap();
+            fixture_exec_barrier(&mut child, FIXTURE_EXEC_WAIT).unwrap();
         }
         let input = child.stdin.take().unwrap();
         (
@@ -441,8 +441,17 @@ impl Worker {
     }
 }
 
+/// The longest a fixture's first `sh` has to print its marker. A start takes
+/// milliseconds, so this is far above it: only a fixture that never starts
+/// fails here, not a host that stalled for seconds in a long run beside other
+/// work (#1317, as the serve fixtures' bound). The lamp's own
+/// `WORKER_STARTUP_TIMEOUT` is not this.
+#[cfg(test)]
+const FIXTURE_EXEC_WAIT: Duration = Duration::from_secs(30);
+
 /// Test-only exec completion, never an audio/runtime readiness signal. The
-/// one-byte pipe is nonblocking and has the same finite bound as worker startup.
+/// one-byte pipe is nonblocking and has a finite bound, [`FIXTURE_EXEC_WAIT`]
+/// for the fixtures.
 #[cfg(test)]
 fn fixture_exec_barrier(child: &mut Child, timeout: Duration) -> io::Result<()> {
     let result = (|| {

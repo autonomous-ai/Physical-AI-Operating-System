@@ -354,13 +354,20 @@ and 59 to 61 by turns (its settles 4 to 6 apart) and ended at 15:25:38 on
 read under 62: each good read cleared the settle, so the other value never
 settled while the bad reads in a row climbed to 50. A flap is counted in
 `bad_temperatures` and still feeds a settle, but never adds toward
-`BadTemperature`: the joint is judged on the higher of the flap read, the
-good one and the flap's own higher value (the cautious side for heat), and
-the good reads after it are judged on that higher value too until 25 reads
-pass with no flap. The flap read itself holds the heat streak, as a
-replaced read does, so one glitch within 10 is at most 25 hot steps,
-never heat; a flap of 60 and 64 by turns is judged 64 and stops on
-`Temperature`
+`BadTemperature`. A flap read holds the heat streak, as a replaced read
+does. Only a flap that repeats the last one, within 2 degrees
+(`TEMPERATURE_SETTLE`) and within 10 reads (`TEMPERATURE_FLAP_READS`), is
+heat evidence: it is judged on the higher of it and the good one (the
+cautious side for heat), and the good reads in the 10 after it on it too.
+A lone flap, a glitch inside the window, is replaced by the good one as
+before. So lamp-52e6's glitches, one read in 27 at random, never chain
+into heat: a cool head at 56 whose glitches read 57 to 66 runs ten
+minutes (`a_cool_joint_glitching_within_the_flap_window_runs_ten_minutes`,
+the eighth's probe on #1347, which judging on the highest flap ever seen
+stopped on `Temperature` 65). A real flap over the limit, 60 and 64 by
+turns, is judged 64 and stops on `Temperature`, but its streak runs at
+half rate (the flap reads hold), so the stop comes at about 100 reads
+rather than 50
 (`a_shoulder_flapping_between_55_and_61_runs_20_minutes_judged_at_61`,
 `a_joint_flapping_between_60_and_64_stops_on_heat`). A read over 100 or
 more than 10 from the good one is judged as before. With no good one yet (the first read) a reading is

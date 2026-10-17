@@ -4702,3 +4702,64 @@ fn quiet_hours_keep_their_clock_hours_across_summer_time_in_the_lamps_zone() {
     const WINTER_0815: u64 = 1_793_625_300_000;
     assert_eq!(stuffy_droops_in(&skill, &air, &new_york, WINTER_0815), 1);
 }
+
+/// `lamp-skills` with `args`: its exit code and what it said, if it ended
+/// within 5 s. One that starts serving instead is ended and fails the test.
+fn refused(args: &[&str]) -> (Option<i32>, String) {
+    let mut child = Command::new(env!("CARGO_BIN_EXE_lamp-skills"))
+        .args(args)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    let until = Instant::now() + Duration::from_secs(5);
+    while child.try_wait().unwrap().is_none() {
+        if Instant::now() >= until {
+            let _ = child.kill();
+            let _ = child.wait();
+            panic!("lamp-skills {args:?} started instead of refusing");
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    let output = child.wait_with_output().unwrap();
+    (
+        output.status.code(),
+        String::from_utf8_lossy(&output.stderr).into_owned(),
+    )
+}
+
+/// #1391's start path (the reviewer and Nine): the zone flags are refused
+/// before anything starts when they can't stand, as memory refuses them.
+#[test]
+fn the_zone_flags_are_refused_before_the_start_when_they_cannot_stand() {
+    for (args, said) in [
+        (
+            &["--zone", "system", "--utc-offset-minutes", "420"][..],
+            "--zone and --utc-offset-minutes are one or the other",
+        ),
+        (
+            &["--zone", "Not/A_Zone"][..],
+            "time zone Not/A_Zone is unknown",
+        ),
+        (
+            &["--zone", "system", "--zone", "Asia/Tokyo"][..],
+            "--zone is given once",
+        ),
+        (
+            &["--utc-offset-minutes", "420", "--utc-offset-minutes", "0"][..],
+            "--utc-offset-minutes is given once",
+        ),
+        (
+            &["--zone", ""][..],
+            "--zone is system or a time zone's name",
+        ),
+        (
+            &["--utc-offset-minutes", "900"][..],
+            "--utc-offset-minutes is a whole number from -720 to 840",
+        ),
+    ] {
+        let (code, stderr) = refused(args);
+        assert_eq!(code, Some(2), "{args:?}: {stderr}");
+        assert!(stderr.contains(said), "{args:?}: {stderr}");
+    }
+}

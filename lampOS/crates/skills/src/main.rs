@@ -99,7 +99,12 @@ fn main() -> ExitCode {
         };
         if flag == "--utc-offset-minutes" {
             // The lamp's local time east of UTC, as the Policy and
-            // Expression take it: a skill's quiet hours need it.
+            // Expression take it: a skill's quiet hours need it. Once, as
+            // memory takes it: a second would silently replace the first.
+            if offset.is_some() {
+                eprintln!("--utc-offset-minutes is given once");
+                return ExitCode::from(2);
+            }
             match value.parse::<i32>() {
                 Ok(minutes) if (-720..=840).contains(&minutes) => offset = Some(minutes),
                 _ => {
@@ -110,7 +115,15 @@ fn main() -> ExitCode {
             continue;
         }
         if flag == "--zone" {
-            // The lamp's zone, `system` for /etc/localtime (#1384).
+            // The lamp's zone, `system` for /etc/localtime (#1384). Once.
+            if zone.is_some() {
+                eprintln!("--zone is given once");
+                return ExitCode::from(2);
+            }
+            if value.is_empty() || value.chars().any(char::is_control) {
+                eprintln!("--zone is system or a time zone's name");
+                return ExitCode::from(2);
+            }
             zone = Some(value.clone());
             continue;
         }

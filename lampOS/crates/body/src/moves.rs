@@ -184,8 +184,16 @@ impl Sent {
     /// The clip of a `{"move":{...}}` datagram, or why the body cannot play
     /// it; `None` for a datagram that is not a move.
     pub fn take(&mut self, datagram: &[u8]) -> Option<Result<&'static Clip, String>> {
-        let (sent, asker) = asked(datagram)?;
-        asker.is_none().then(|| self.keep(sent))
+        // The one field and nothing else, as before #940: a `source` or a
+        // `priority`, even `null`, is not read.
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct Message {
+            #[serde(rename = "move")]
+            sent: serde_json::Value,
+        }
+        let message: Message = serde_json::from_slice(datagram).ok()?;
+        Some(self.keep(message.sent))
     }
 
     /// The same, for a datagram that may also say who asks (`source`,

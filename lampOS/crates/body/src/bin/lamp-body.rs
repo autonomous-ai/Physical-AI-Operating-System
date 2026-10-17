@@ -525,14 +525,18 @@ fn of_this_step(
 /// A gesture asked for by the voice service: `{"gesture":"nod"}` and nothing
 /// else in it, naming a clip this body has, its own or a move read from
 /// `--moves`.
-#[cfg(test)]
+#[cfg_attr(not(any(target_os = "linux", test)), allow(dead_code))]
 fn gesture_of(
     datagram: &[u8],
     moves: &lamp_body::moves::Loaded,
 ) -> Option<&'static lamp_body::clips::Clip> {
-    gesture_asked(datagram, moves)
-        .filter(|(_, asker)| asker.is_none())
-        .map(|(clip, _)| clip)
+    #[derive(serde::Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Message<'a> {
+        gesture: &'a str,
+    }
+    let message: Message = serde_json::from_slice(datagram).ok()?;
+    lamp_body::clips::named(message.gesture).or_else(|| moves.named(message.gesture))
 }
 
 /// The same, with who asks for it (`source`, `priority`) when it says.
@@ -596,9 +600,12 @@ fn heard_asked(
             Asker::default(),
         );
     }
-    if let Some((clip, asker)) = gesture_asked(datagram, moves)
-        && (arbitration || asker.is_none())
-    {
+    let gesture = if arbitration {
+        gesture_asked(datagram, moves)
+    } else {
+        gesture_of(datagram, moves).map(|clip| (clip, Asker::default()))
+    };
+    if let Some((clip, asker)) = gesture {
         return (Heard::Gesture(clip), asker);
     }
     let taken = if arbitration {
@@ -1917,7 +1924,18 @@ mod tests {
                 "{refused}: {said:?}"
             );
         }
-        for not_read in [asked, &sway] {
+        // Off, the datagrams of before #940 only: a `source` or a
+        // `priority` is an unknown field, even `null`.
+        let nulls = sway
+            .replace(r#""skill:dance""#, "null")
+            .replace(r#""skill"}"#, "null}");
+        for not_read in [
+            asked,
+            &sway,
+            &nulls,
+            r#"{"gesture":"nod","source":null}"#,
+            r#"{"gesture":"nod","priority":null}"#,
+        ] {
             let (said, _) = heard(not_read, false);
             assert!(matches!(said, Heard::Dropped(_)), "{not_read}: {said:?}");
         }

@@ -30,6 +30,10 @@ pub mod speaker;
 
 /// The whole self-test has two minutes (#812).
 pub const BUDGET: Duration = Duration::from_secs(120);
+/// How long a passive run waits before it checks again the parts it
+/// failed (the reviewer on #1245): a part restarting at that moment, or a
+/// hand resting on a pad, is over by then.
+pub const AGAIN_AFTER: Duration = Duration::from_secs(30);
 
 /// One part's check.
 pub trait Check {
@@ -75,6 +79,49 @@ pub fn run(occasion: Occasion, checks: &mut [Box<dyn Check + '_>], budget: Durat
         verdict: SelfTest::verdict_of(&parts),
         parts,
     }
+}
+
+/// Checks again, inside `budget`, each part `first` failed, and keeps its
+/// new result in its place: a part fails only if it failed twice. Every
+/// other part keeps its first result; the run keeps its start, and its
+/// verdict and length are worked out again.
+pub fn again(
+    mut first: SelfTest,
+    checks: &mut [Box<dyn Check + '_>],
+    budget: Duration,
+) -> SelfTest {
+    let failed: Vec<String> = first
+        .parts
+        .iter()
+        .filter(|part| part.verdict == Verdict::Fail)
+        .map(|part| part.part.clone())
+        .collect();
+    let begin = Instant::now();
+    let mut those: Vec<&mut Box<dyn Check + '_>> = checks
+        .iter_mut()
+        .filter(|check| failed.iter().any(|part| part == check.part()))
+        .collect();
+    let deadline = begin + budget;
+    for check in those.iter_mut() {
+        let at = Instant::now();
+        let mut result = if at >= deadline {
+            PartResult::new(
+                check.part(),
+                Verdict::NotChecked,
+                "the self-test ran out of time before checking this part again",
+            )
+        } else {
+            check.run(deadline)
+        };
+        result.part = check.part().to_owned();
+        result.took = at.elapsed().as_secs_f64();
+        if let Some(kept) = first.parts.iter_mut().find(|part| part.part == result.part) {
+            *kept = result;
+        }
+    }
+    first.took += begin.elapsed().as_secs_f64();
+    first.verdict = SelfTest::verdict_of(&first.parts);
+    first
 }
 
 #[cfg(test)]
@@ -145,5 +192,58 @@ mod tests {
         assert!(test.parts[1].reason.contains("out of time"));
         assert_eq!(test.verdict, Verdict::NotChecked);
         assert_eq!(test.check(), Ok(()));
+    }
+
+    /// The reviewer on #1245: a part that fails once (a part restarting at
+    /// that moment, a hand on a pad) is checked again and passes; one that
+    /// fails again stays failed; the others are not run again and keep
+    /// their first results.
+    #[test]
+    fn only_a_part_that_fails_twice_is_failed() {
+        let mut first = run(
+            Occasion::FirstBoot,
+            &mut [
+                Fake::boxed("ring", Verdict::Fail, Duration::ZERO),
+                Fake::boxed("touch", Verdict::Fail, Duration::ZERO),
+                Fake::boxed("air", Verdict::Pass, Duration::ZERO),
+            ],
+            BUDGET,
+        );
+        assert_eq!(first.verdict, Verdict::Fail);
+        first.started = 7.0;
+        let mut later: Vec<Box<dyn Check>> = vec![
+            Fake::boxed("ring", Verdict::Pass, Duration::ZERO),
+            Fake::boxed("touch", Verdict::Fail, Duration::ZERO),
+            Fake::boxed("air", Verdict::Fail, Duration::ZERO),
+        ];
+        let checked = again(first, &mut later, BUDGET);
+        let verdicts: Vec<(&str, Verdict)> = checked
+            .parts
+            .iter()
+            .map(|part| (part.part.as_str(), part.verdict))
+            .collect();
+        // air passed the first time and is not run again.
+        assert_eq!(
+            verdicts,
+            [
+                ("ring", Verdict::Pass),
+                ("touch", Verdict::Fail),
+                ("air", Verdict::Pass)
+            ]
+        );
+        assert_eq!(checked.verdict, Verdict::Fail);
+        assert_eq!(checked.started, 7.0);
+        assert_eq!(checked.check(), Ok(()));
+        let mut once = run(
+            Occasion::FirstBoot,
+            &mut [Fake::boxed("ring", Verdict::Fail, Duration::ZERO)],
+            BUDGET,
+        );
+        once = again(
+            once,
+            &mut [Fake::boxed("ring", Verdict::Pass, Duration::ZERO)],
+            BUDGET,
+        );
+        assert_eq!(once.verdict, Verdict::Pass);
     }
 }

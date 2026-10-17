@@ -3,7 +3,7 @@
 //! prints one line a part (docs/selftest.md).
 use lamp_bus::Bus;
 use lamp_msgs::{Occasion, SelfTest, Verdict};
-use lamp_selftest::{BUDGET, hand, kernel, listen, mic, quiet, report, ring, speaker};
+use lamp_selftest::{AGAIN_AFTER, BUDGET, hand, kernel, listen, mic, quiet, report, ring, speaker};
 use std::{path::PathBuf, process::ExitCode, time::Instant};
 
 const USAGE: &str = "usage: lamp-selftest [--occasion factory|first-boot|on-demand] [--dir ABSOLUTE] [--bus-root ABSOLUTE]";
@@ -120,7 +120,19 @@ fn main() -> ExitCode {
             ask: Box::new(|what| eprintln!("lamp-selftest: {what}")),
         }));
     }
-    let test = lamp_selftest::run(arguments.occasion, &mut checks, BUDGET);
+    let mut test = lamp_selftest::run(arguments.occasion, &mut checks, BUDGET);
+    // A passive run checks a failed part once more, half a minute later,
+    // and keeps the fail only if it fails again (the reviewer on #1245): it
+    // runs by itself every six hours, and lamp-health says its fails.
+    if arguments.occasion == Occasion::FirstBoot && test.verdict == Verdict::Fail {
+        eprintln!(
+            "lamp-selftest: a part failed; it is checked again in {} s",
+            AGAIN_AFTER.as_secs()
+        );
+        std::thread::sleep(AGAIN_AFTER);
+        quiet::wait(|| quiet::read(&bus), std::thread::sleep);
+        test = lamp_selftest::again(test, &mut checks, BUDGET);
+    }
     print!("{}", report::text(&test));
     match report::keep(&arguments.dir, &test) {
         Ok(path) => eprintln!("lamp-selftest: kept {}", path.display()),

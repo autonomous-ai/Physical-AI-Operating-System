@@ -25,6 +25,7 @@ What is one lamp's own is outside them:
 | `lamp-<part>.service` | Each part, `PartOf=` and `WantedBy=lampos.target`, in keeper.md's order |
 | `lamp-update.service` | Outside the target; `--apply on`; the channel on GitHub |
 | `lamp-records.service`, `lamp-records.timer` | Hourly, outside the target |
+| `lamp-selftest.service`, `lamp-selftest.timer` | The passive self-test (#812): the timer is in the target and waits for setup's marker; it runs the service 5 min after the lamp starts and every 6 h. The service has no `[Install]` |
 | `lamp-setup.service` | First boot only: while the marker is missing and setup's settings exist (#806, #811) |
 | `lampos-setup-done.path` | Starts `lampos.target` once the marker exists ([install.md](../../docs/install.md), "Setup at first boot, without the keeper") |
 | `lamp-setup-reset.service` | In the target: the reset button held 5 s |

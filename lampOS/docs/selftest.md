@@ -2,7 +2,8 @@
 
 `lamp-selftest` ([#812](https://github.com/autonomous-ai/lampOS/issues/812))
 checks whether each part of the lamp works, in two minutes, at the factory,
-at the first boot after setup (#806) and when asked. For each part it says
+at the first boot after setup (#806), every six hours after on a product
+lamp, and when asked. For each part it says
 pass, fail, not fitted or not checked, with one plain reason. Nothing leaves
 the lamp.
 
@@ -92,6 +93,13 @@ It never begins inside a turn (`quiet`, the first builder on #812): it waits whi
 `voice/state` says listening, thinking or speaking (fresh within 3 s), looking each second for
 at most two minutes, and leaves a turn longer than that for the next run, exit 0, saying so.
 A run a person asked for begins at once. Passive, it wakes nothing in sleep hours.
+A passive run that failed a part checks that part again half a minute later
+(`lamp_selftest::again`), and keeps the fail only if it fails twice: a part restarting
+at that moment, or a hand resting on a pad, would otherwise mark a sound lamp
+`error` for six hours (the reviewer on #1245). Every timed run reports
+`occasion: first_boot`, the passive one. The timer comes with `lamp-update install`,
+which writes and enables the units; an update round adds no unit, so a lamp that
+only takes rounds gets it at its next install.
 `lamp-health` then carries the newest run in `lamp/health`, so a part that failed since is said
 before its person finds out. The factory's run and an on-demand one are started by hand.
 

@@ -1469,32 +1469,6 @@ async fn serve_with_visual<C: Connect>(
                         ),
                     }
                 }
-                // Begun soon after the lamp's own words finished: the model
-                // is told it may follow on from them, unless the room is
-                // busy (`LAMP_FOLLOWS_ON=on`, #829, the first builder at
-                // 09:01 on 17 October).
-                if let Some(request) = intake.handoff.take_follows_on() {
-                    let busy = crate::room_told::room().lock().is_ok_and(|mut room| {
-                        room.at(monotonic_us()) == crate::room_told::Room::Busy
-                    });
-                    if busy {
-                        eprintln!(
-                            "lamp-voice provider: request {}: begun soon after the lamp spoke, in a busy room; the model is not told it may follow on",
-                            request.get()
-                        );
-                    } else {
-                        match add_note(&provider, &mut intake.handoff.noted, request, crate::follows_on::NOTE) {
-                            Ok(()) => eprintln!(
-                                "lamp-voice provider: request {}: the model is told it may follow on from what the lamp said",
-                                request.get()
-                            ),
-                            Err(error) => eprintln!(
-                                "lamp-voice provider: request {}: begun soon after the lamp spoke, and the model could not be told: {error}",
-                                request.get()
-                            ),
-                        }
-                    }
-                }
                 // Only the lamp's name was said: what follows it is called
                 // (#829, the first builder at 16:32).
                 if let Some((request, at_us)) = intake.handoff.take_bare_call() {
@@ -3521,8 +3495,9 @@ struct InputHandoff {
     /// The first request after a hand or the head stopped the lamp, until
     /// the model has been told so ([`STOPPED_NOTE`]).
     after_stop: Option<RequestId>,
-    /// A request begun soon after the lamp's words finished, until the
-    /// model has been told it may follow on ([`crate::follows_on::NOTE`]).
+    /// A request begun soon after the lamp's words finished, until its End:
+    /// the model is then told it may follow on ([`crate::follows_on::NOTE`]),
+    /// unless the End says it was a sound.
     follows_on: Option<RequestId>,
     /// The newest request whose sound was ended here, and when: a name
     /// heard after that was not said in it (`crate::attention`).
@@ -3598,14 +3573,6 @@ impl InputHandoff {
     /// to be told so beside what it hears.
     fn take_after_stop(&mut self) -> Option<RequestId> {
         let request = self.after_stop.take()?;
-        self.visual_turn()
-            .filter(|turn| turn.request == request)
-            .map(|_| request)
-    }
-
-    /// The open request begun soon after the lamp's words finished, once.
-    fn take_follows_on(&mut self) -> Option<RequestId> {
-        let request = self.follows_on.take()?;
         self.visual_turn()
             .filter(|turn| turn.request == request)
             .map(|_| request)
@@ -3973,6 +3940,12 @@ impl InputHandoff {
                     self.bare_call = Some((request.get(), now_us));
                     self.tell_called(request, input);
                 }
+                // Told with its End, once it is known not to be a sound: a
+                // thump let through for the model to judge is never told it
+                // may follow on (the reviewer on #1278).
+                if self.follows_on.take() == Some(request) && !sound {
+                    self.tell_follows_on(request, input);
+                }
                 if let Err(error) = input.end(request) {
                     return self.refused(request, error, input);
                 }
@@ -4060,6 +4033,44 @@ impl InputHandoff {
             }
         }
         Ok(())
+    }
+
+    /// Tell the model, just before `request`'s End, that it may follow on
+    /// from what the lamp said ([`crate::follows_on::NOTE`]), unless the
+    /// room is busy, and if the link's input queue has room for the note
+    /// and the End both, as [`Self::tell_called`].
+    fn tell_follows_on(&mut self, request: RequestId, input: &impl InputSink) {
+        let busy = crate::room_told::room()
+            .lock()
+            .is_ok_and(|mut room| room.at(monotonic_us()) == crate::room_told::Room::Busy);
+        if busy {
+            eprintln!(
+                "lamp-voice provider: request {}: begun soon after the lamp spoke, in a busy room; the model is not told it may follow on",
+                request.get()
+            );
+            return;
+        }
+        if !input.has_room_for(2) {
+            eprintln!(
+                "lamp-voice provider: request {}: begun soon after the lamp spoke, but the link's input queue has no room for the note and the end: the model is not told",
+                request.get()
+            );
+            return;
+        }
+        let text = note_text(self.noted.as_ref(), request.get(), crate::follows_on::NOTE);
+        match input.note(request, &text) {
+            Ok(()) => {
+                self.noted = Some((request.get(), text));
+                eprintln!(
+                    "lamp-voice provider: request {}: the model is told it may follow on from what the lamp said",
+                    request.get()
+                );
+            }
+            Err(error) => eprintln!(
+                "lamp-voice provider: request {}: begun soon after the lamp spoke, and the model could not be told: {error}",
+                request.get()
+            ),
+        }
     }
 
     /// Tell the model, just before `request`'s End, that it was only the
@@ -7859,9 +7870,10 @@ mod tests {
 
     /// #829, the first builder at 09:01 on 17 October: a request begun
     /// soon after the lamp's words finished, as its Start says
-    /// (`LAMP_FOLLOWS_ON=on`), is told beside it that it may follow on, in
-    /// a room not known to be busy. In a busy room it is not, nor is one
-    /// whose Start doesn't say so.
+    /// (`LAMP_FOLLOWS_ON=on`), is told with its End that it may follow on,
+    /// in a room not known to be busy. In a busy room it is not, nor is one
+    /// whose Start doesn't say so, nor one that ends as a sound sent on for
+    /// the model to judge (the reviewer on #1278).
     #[tokio::test]
     async fn a_request_begun_soon_after_the_lamp_spoke_is_told_it_may_follow_on() {
         let room = |busy: bool| {
@@ -7889,10 +7901,11 @@ mod tests {
                 }
             }
         }
-        for (follows_on, busy, told_it) in [
-            (true, false, true),
-            (true, true, false),
-            (false, false, false),
+        for (follows_on, busy, sound, told_it) in [
+            (true, false, false, true),
+            (true, true, false, false),
+            (false, false, false, false),
+            (true, false, true, false),
         ] {
             let _put_back = PutBack(Some(std::mem::replace(
                 &mut *crate::room_told::room().lock().unwrap(),
@@ -7919,7 +7932,7 @@ mod tests {
                 .send(ProviderInput::End {
                     request,
                     privacy_generation: rig.snapshot.microphone_generation(),
-                    sound: false,
+                    sound,
                     cut_in: false,
                 })
                 .unwrap();
@@ -7938,7 +7951,10 @@ mod tests {
             } else {
                 &[]
             };
-            assert_eq!(told, expected, "follows on {follows_on}, busy {busy}");
+            assert_eq!(
+                told, expected,
+                "follows on {follows_on}, busy {busy}, sound {sound}"
+            );
             rig.stop().await;
         }
     }

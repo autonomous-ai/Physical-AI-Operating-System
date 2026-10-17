@@ -73,8 +73,9 @@ pub(crate) struct SessionState {
     dropped: u64,
     cue_history_lost: bool,
     sequence: u64,
-    /// The voice mic was waited for at this run's start (#1178), said on the
-    /// voice's health until the voice starts again.
+    /// The voice mic was waited for at the latest capture start (#1178): the
+    /// voice's own, or after a mute or a sleep. Said on the voice's health
+    /// until the next capture start.
     pub(crate) mic_at_start: Option<crate::wire::MicWaited>,
 }
 impl SessionState {

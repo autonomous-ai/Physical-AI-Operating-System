@@ -452,9 +452,10 @@ fn turned_in(message: &lamp_bus::Message) -> Option<bool> {
 pub const LINK_GRACE_US: u64 = 5_000_000;
 
 /// The voice's own report (`diagnostics`): well while it can reach the
-/// speech service, or has only just lost it. A voice mic waited for at this
-/// run's start (#1178) is its message while it is well, so `lamp-health`
-/// names it until the voice starts again; it is a value otherwise.
+/// speech service, or has only just lost it. A voice mic waited for at the
+/// latest capture start (#1178) is said in its message, so `lamp-health`
+/// names it until the next capture start: alone while well, after the
+/// link's warning otherwise.
 pub fn health(
     link_up: bool,
     down_for_us: u64,
@@ -470,17 +471,14 @@ pub fn health(
     } else if down_for_us < LINK_GRACE_US {
         well("connecting")
     } else {
-        let down = Diagnostic::new(
-            Level::Warn,
-            SOURCE,
-            "it cannot reach the speech service, and keeps trying",
-        )
-        .with("link", "down")
-        .with("down_for_s", down_for_us / 1_000_000);
-        match mic_at_start {
-            Some(waited) => down.with("mic_at_start", waited.plain()),
-            None => down,
-        }
+        let message = "it cannot reach the speech service, and keeps trying";
+        let message = match mic_at_start {
+            Some(waited) => format!("{message}; {}", waited.plain()),
+            None => message.to_owned(),
+        };
+        Diagnostic::new(Level::Warn, SOURCE, &message)
+            .with("link", "down")
+            .with("down_for_s", down_for_us / 1_000_000)
     }
 }
 
@@ -848,7 +846,7 @@ mod tests {
             ]
         );
         // A voice mic waited for at start (#1178): the message while well,
-        // so `lamp-health` names it; a value beside a warning.
+        // and after the warning's, so `lamp-health` names it either way.
         let waited = Some(crate::wire::MicWaited {
             gone: true,
             waited_ms: 4_300,
@@ -863,14 +861,14 @@ mod tests {
             )
         );
         let down = health(false, 42_500_000, waited);
-        assert_eq!(down.level, Level::Warn);
         assert_eq!(
-            facts(&down).last().unwrap(),
-            &(
-                "mic_at_start".to_string(),
-                "the voice mic was off USB for 4.3 s at start; opened on try 18".to_string()
+            (down.level, down.message.as_str()),
+            (
+                Level::Warn,
+                "it cannot reach the speech service, and keeps trying; the voice mic was off USB for 4.3 s at start; opened on try 18"
             )
         );
+        assert_eq!(facts(&down).len(), 2, "link and down_for_s, as before");
         // On the bus: a little more often than once a second, and the
         // time the link has been down is counted from when it went.
         let (bus, root) = bus("health");

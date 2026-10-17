@@ -1128,8 +1128,19 @@ fn a_default_found_closed_is_opened_and_a_lamps_own_found_closed_is_said() {
     let mut lamp = Lamp::new(188, &[]);
     let default = SETTINGS.iter().find(|(path, _)| *path == PINS).unwrap().1;
     let own = "{\"the lamp's\": \"own\"}\n";
+    // A product unit with the build's bytes, closed: `put()`'s equal bytes.
+    let (name, text) = PRODUCT[0];
+    let unit = format!("{}{name}", install::UNITS);
+    // A unit linked to the same bytes elsewhere: the link's target is left.
+    let (linked_name, linked_text) = PRODUCT[1];
+    let linked = format!("{}{linked_name}", install::UNITS);
+    let target = lamp.root.join("elsewhere");
+    fs::write(&target, linked_text).unwrap();
+    fs::set_permissions(&target, fs::Permissions::from_mode(0o600)).unwrap();
+    fs::create_dir_all(lamp.on(install::UNITS)).unwrap();
+    std::os::unix::fs::symlink(&target, lamp.on(&linked)).unwrap();
     fs::create_dir_all(lamp.on("/etc/lampOS/controls")).unwrap();
-    for (path, text) in [(PINS, default), (CONTROLS, own)] {
+    for (path, text) in [(PINS, default), (CONTROLS, own), (unit.as_str(), text)] {
         fs::write(lamp.on(path), text).unwrap();
         fs::set_permissions(lamp.on(path), fs::Permissions::from_mode(0o600)).unwrap();
     }
@@ -1143,6 +1154,10 @@ fn a_default_found_closed_is_opened_and_a_lamps_own_found_closed_is_said() {
         "{:?}",
         first.changed
     );
+    assert_eq!(mode_of(&lamp.on(&unit)), 0o644);
+    assert!(first.changed.contains(&format!("made {unit} 644, was 600")));
+    assert!(fs::symlink_metadata(lamp.on(&linked)).unwrap().is_symlink());
+    assert_eq!(mode_of(&target), 0o600);
     assert_eq!(mode_of(&lamp.on(CONTROLS)), 0o600);
     assert_eq!(fs::read_to_string(lamp.on(CONTROLS)).unwrap(), own);
     let closed = format!("{CONTROLS} is closed to other users (600)");

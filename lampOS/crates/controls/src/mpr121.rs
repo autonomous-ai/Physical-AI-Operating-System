@@ -15,6 +15,16 @@ const CHARGE_LEN: usize = 0x72 - CDC as usize;
 const CONFIG_START: u8 = 0x2b;
 const CONFIG_END: u8 = 0x7f;
 const CONFIG_LEN: usize = (CONFIG_END - CONFIG_START + 1) as usize;
+/// A served read checks one of this many equal parts of the static
+/// configuration, in turn, so the whole of it every this many reads (at
+/// most 250 ms at the slowest `every_ms`). Read whole every sample, its 85
+/// bytes were about 1,000 bit-clocks: ~9.7 ms at the 100 kHz the air
+/// sensor needs on the same bus, past the strip's 5 ms pace; a part is
+/// ~3.5 ms of wire time there, worked out from bit-clocks (the first
+/// builder, #705 17 Oct 19:04).
+pub const CONFIG_PARTS: usize = 5;
+const CONFIG_PART_LEN: usize = CONFIG_LEN / CONFIG_PARTS;
+const _: () = assert!(CONFIG_LEN.is_multiple_of(CONFIG_PARTS));
 const ECR: u8 = 0x5e;
 const RESET: u8 = 0x80;
 const RESET_WAIT_US: u64 = 1_000;
@@ -420,6 +430,8 @@ pub struct Device<T: RegisterIo> {
     check_cdc: bool,
     check_cdt: bool,
     failed: bool,
+    /// The part of the static configuration the next read checks.
+    part: usize,
 }
 
 impl<T: RegisterIo> Device<T> {
@@ -432,6 +444,7 @@ impl<T: RegisterIo> Device<T> {
             check_cdc: matches!(config.profile.autoconfig, AutoConfig::Disabled {}),
             check_cdt: !config.profile.searches_cdt(),
             failed: false,
+            part: 0,
         };
         // A known active overcurrent must not be erased by a convenient reset.
         let mut status = [0; 4];
@@ -525,9 +538,12 @@ impl<T: RegisterIo> Device<T> {
         self.io.read(STATUS, &mut status)?;
         check_status(status, self.selected)?;
         let expected = self.expected;
-        self.verify_registers(&expected, self.check_cdc, self.check_cdt)?;
-        // Check faults again after the longer static readback. The final ECR
-        // check catches a reset occurring between static readback and status.
+        let part = self.part;
+        self.part = (part + 1) % CONFIG_PARTS;
+        self.verify_part(&expected, part, self.check_cdc, self.check_cdt)?;
+        // Check faults again after the static readback. The final ECR check,
+        // every read, catches a reset between static readback and status,
+        // and a reset at any time: it stops the electrodes.
         self.io.read(STATUS, &mut status)?;
         check_status(status, self.selected)?;
         let mut ecr = [0];
@@ -542,9 +558,39 @@ impl<T: RegisterIo> Device<T> {
         check_cdc: bool,
         check_cdt: bool,
     ) -> Result<(), Error> {
+        self.verify_range(expected, 0, CONFIG_LEN, check_cdc, check_cdt)
+    }
+
+    /// Part `part` of [`CONFIG_PARTS`].
+    fn verify_part(
+        &mut self,
+        expected: &[u8; CONFIG_LEN],
+        part: usize,
+        check_cdc: bool,
+        check_cdt: bool,
+    ) -> Result<(), Error> {
+        self.verify_range(
+            expected,
+            part * CONFIG_PART_LEN,
+            CONFIG_PART_LEN,
+            check_cdc,
+            check_cdt,
+        )
+    }
+
+    /// `len` registers from `CONFIG_START + from`, read at once and compared.
+    fn verify_range(
+        &mut self,
+        expected: &[u8; CONFIG_LEN],
+        from: usize,
+        len: usize,
+        check_cdc: bool,
+        check_cdt: bool,
+    ) -> Result<(), Error> {
         let mut actual = [0; CONFIG_LEN];
-        self.io.read(CONFIG_START, &mut actual)?;
-        for register in CONFIG_START..=CONFIG_END {
+        let first = CONFIG_START + from as u8;
+        self.io.read(first, &mut actual[from..from + len])?;
+        for register in first..first + len as u8 {
             if (!check_cdc && (0x5f..=0x6a).contains(&register))
                 || (!check_cdt && (0x6c..=0x71).contains(&register))
                 // GPIO data and its set/clear/toggle aliases are not static.

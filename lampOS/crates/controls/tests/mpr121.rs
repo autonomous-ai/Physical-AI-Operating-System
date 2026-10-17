@@ -1,4 +1,4 @@
-use lamp_controls::mpr121::{AutoConfig, Config, Device, Error, RegisterIo};
+use lamp_controls::mpr121::{AutoConfig, CONFIG_PARTS, Config, Device, Error, RegisterIo};
 use serde_json::{Value, json};
 use std::{cell::RefCell, io, rc::Rc};
 
@@ -149,6 +149,40 @@ fn device() -> (Io, Device<Io>) {
     let io = rig();
     let device = initialize(&io, config()).unwrap();
     (io, device)
+}
+
+/// The transfers of `count` served reads, the first checking part `first`
+/// of the static configuration. Initialization's own validation read
+/// checks part 0, so a device's first served read checks part 1.
+fn served(first: usize, count: usize) -> Vec<Event> {
+    (first..first + count)
+        .flat_map(|part| {
+            let part = (part % CONFIG_PARTS) as u8;
+            [
+                Event::Read(0, 4),
+                Event::Read(0x2b + 17 * part, 17),
+                Event::Read(0, 4),
+                Event::Read(0x5e, 1),
+            ]
+        })
+        .collect()
+}
+
+/// The first fault in a whole turn of the configuration's parts.
+fn fault_within_a_turn(device: &mut Device<Io>) -> Error {
+    for _ in 0..CONFIG_PARTS {
+        if let Err(error) = device.read() {
+            return error;
+        }
+    }
+    panic!("no fault within {CONFIG_PARTS} reads");
+}
+
+/// A whole turn of reads, each `Ok(mask)`.
+fn a_turn_reads(device: &mut Device<Io>, mask: u16) {
+    for _ in 0..CONFIG_PARTS {
+        assert_eq!(device.read().unwrap(), mask);
+    }
 }
 
 fn mismatch(error: Error, register: u8) {
@@ -690,16 +724,7 @@ fn excluded_electrode_oor_alone_does_not_mask_or_rewrite_raw_touch_bits() {
         io.0.borrow_mut().registers[0..2].copy_from_slice(&u16::to_le_bytes(mask));
         assert_eq!(device.read().unwrap(), mask);
     }
-    assert_eq!(
-        io.0.borrow().events,
-        [
-            Event::Read(0, 4),
-            Event::Read(0x2b, 85),
-            Event::Read(0, 4),
-            Event::Read(0x5e, 1),
-        ]
-        .repeat(6)
-    );
+    assert_eq!(io.0.borrow().events, served(1, 6));
 }
 
 #[test]
@@ -814,7 +839,7 @@ fn excluded_channel_static_configuration_is_still_verified() {
         let io = rig();
         let mut device = initialize(&io, config).unwrap();
         io.0.borrow_mut().registers[usize::from(register)] ^= 1;
-        mismatch(device.read().unwrap_err(), register);
+        mismatch(fault_within_a_turn(&mut device), register);
     }
 }
 
@@ -880,13 +905,28 @@ fn brownout_defaults_cannot_be_mistaken_for_zero_touch() {
     assert!(matches!(device.read(), Err(Error::Unavailable)));
 }
 
+/// Each static register is checked once in every turn of
+/// [`CONFIG_PARTS`] reads: its drift is caught at the read of its part,
+/// and not before. A turn is at most 250 ms at the slowest `every_ms`, so
+/// a fault is caught well within a second.
 #[test]
-fn static_drift_is_checked_on_every_read() {
+fn static_drift_is_caught_within_one_turn_of_reads() {
+    assert!(CONFIG_PARTS as u64 * 50 <= 250);
     for register in (0x2b..=0x5e).chain([
         0x6b, 0x72, 0x73, 0x74, 0x76, 0x77, 0x7b, 0x7c, 0x7d, 0x7e, 0x7f,
     ]) {
         let (io, mut device) = device();
         io.0.borrow_mut().registers[usize::from(register)] ^= 1;
+        // The first served read checks part 1. ECR is read on its own
+        // every read too, so it is caught at once.
+        let part = usize::from(register - 0x2b) / 17;
+        let before = match register {
+            0x5e => 0,
+            _ => (part + CONFIG_PARTS - 1) % CONFIG_PARTS,
+        };
+        for _ in 0..before {
+            device.read().unwrap();
+        }
         mismatch(device.read().unwrap_err(), register);
     }
 }
@@ -899,10 +939,10 @@ fn auto_adjusted_charge_registers_are_not_compared_to_initial_values() {
         .chain((0x6c..=0x71).map(|r| (r, 0x22)))
         .collect();
     let mut device = initialize(&io, config()).unwrap();
-    assert_eq!(device.read().unwrap(), 0);
+    a_turn_reads(&mut device, 0);
     io.0.borrow_mut().registers[0x5f] = 41;
     io.0.borrow_mut().registers[0x71] = 0x33;
-    assert_eq!(device.read().unwrap(), 0);
+    a_turn_reads(&mut device, 0);
 }
 
 #[test]
@@ -914,7 +954,7 @@ fn manual_charge_drift_is_detected() {
         let mut device = initialize(&io, config).unwrap();
         assert_eq!(io.0.borrow().registers[0x7b..0x80], [0; 5]);
         io.0.borrow_mut().registers[usize::from(register)] ^= 1;
-        mismatch(device.read().unwrap_err(), register);
+        mismatch(fault_within_a_turn(&mut device), register);
     }
 }
 
@@ -932,9 +972,9 @@ fn skipped_charge_time_search_keeps_cdt_static_but_not_cdc() {
     let mut device = initialize(&io, config).unwrap();
     assert_eq!(io.0.borrow().registers[0x7c], 0x80);
     io.0.borrow_mut().registers[0x5f] = 41;
-    assert_eq!(device.read().unwrap(), 0);
+    a_turn_reads(&mut device, 0);
     io.0.borrow_mut().registers[0x6c] = 0x12;
-    mismatch(device.read().unwrap_err(), 0x6c);
+    mismatch(fault_within_a_turn(&mut device), 0x6c);
 }
 
 #[test]
@@ -943,7 +983,7 @@ fn gpio_data_aliases_are_not_mistaken_for_static_configuration() {
     for register in [0x75, 0x78, 0x79, 0x7a] {
         io.0.borrow_mut().registers[register] = 0xff;
     }
-    assert_eq!(device.read().unwrap(), 0);
+    a_turn_reads(&mut device, 0);
 }
 
 #[test]
@@ -987,19 +1027,42 @@ fn any_runtime_transfer_failure_is_terminal_and_not_retried() {
 fn steady_state_work_is_fixed_size_without_delay_or_writes() {
     let (io, mut device) = device();
     io.0.borrow_mut().events.clear();
-    for _ in 0..3 {
+    for _ in 0..2 * CONFIG_PARTS {
         device.read().unwrap();
     }
-    assert_eq!(
-        io.0.borrow().events,
-        [
-            Event::Read(0, 4),
-            Event::Read(0x2b, 85),
-            Event::Read(0, 4),
-            Event::Read(0x5e, 1)
-        ]
-        .repeat(3)
-    );
+    assert_eq!(io.0.borrow().events, served(1, 2 * CONFIG_PARTS));
+}
+
+/// I2C bit-clocks for one combined register read of `bytes`: start, the
+/// address and register, a repeated start, the address, the bytes, stop.
+fn clocks(bytes: usize) -> u64 {
+    1 + 9 + 9 + 1 + 9 + 9 * bytes as u64 + 1
+}
+
+/// At the 100 kHz the air sensor needs on the same bus (#1368), every
+/// served read takes under the strip's fastest pace (`every_ms` 5), so the
+/// strip keeps its pace: well inside `base.rs`'s 11 ms and
+/// `MAX_SAMPLE_GAP_US`. Reading the whole configuration every sample did
+/// not: ~9.7 ms at 100 kHz, before any bus or scheduling delay.
+#[test]
+fn a_served_read_fits_the_strips_pace_on_a_100_khz_bus() {
+    let (io, mut device) = device();
+    for _ in 0..CONFIG_PARTS {
+        io.0.borrow_mut().events.clear();
+        device.read().unwrap();
+        let us: u64 =
+            io.0.borrow()
+                .events
+                .iter()
+                .map(|event| match event {
+                    Event::Read(_, bytes) => clocks(*bytes) * 10,
+                    _ => panic!("a served read only reads"),
+                })
+                .sum();
+        assert!(us < 4_000, "{us} µs");
+    }
+    let whole: u64 = [4, 85, 4, 1].iter().map(|bytes| clocks(*bytes) * 10).sum();
+    assert!(whole > 9_000, "{whole} µs");
 }
 
 #[test]
@@ -1042,16 +1105,9 @@ fn signals_read_every_electrode_filtered_and_baseline_after_the_checked_mask() {
     assert_eq!(signals.baseline[11], 0x100);
     assert_eq!(signals.delta(11), 0x100 - 0x310);
     // The same checks as a served read, then one more transfer of 39 bytes.
-    assert_eq!(
-        io.0.borrow().events,
-        [
-            Event::Read(0, 4),
-            Event::Read(0x2b, 85),
-            Event::Read(0, 4),
-            Event::Read(0x5e, 1),
-            Event::Read(0x04, 39),
-        ]
-    );
+    let mut expected = served(1, 1);
+    expected.push(Event::Read(0x04, 39));
+    assert_eq!(io.0.borrow().events, expected);
 }
 
 #[test]

@@ -1182,6 +1182,40 @@ fn a_default_found_closed_is_opened_and_a_lamps_own_found_closed_is_said() {
     assert!(lamp.said.iter().any(|line| line.starts_with(&closed)));
 }
 
+/// The private half (the reviewer on #1293): the device key found with
+/// V1's key but open (0644) is narrowed to 0600, and the key is in no line
+/// said or changed.
+#[test]
+fn a_device_key_found_open_is_narrowed_and_never_said() {
+    use std::os::unix::fs::PermissionsExt;
+    const KEY: &str = "dev-key-0123456789abcdef";
+    let mut lamp = Lamp::new(188, &[]);
+    fs::create_dir_all(lamp.on("/root/config")).unwrap();
+    fs::write(
+        lamp.on(install::V1_CONFIG),
+        format!(r#"{{"llm_api_key": "{KEY}", "device_id": "lamp-06c1"}}"#),
+    )
+    .unwrap();
+    let credential = install::CREDENTIAL_PATH;
+    fs::create_dir_all(lamp.on(credential).parent().unwrap()).unwrap();
+    fs::write(lamp.on(credential), KEY).unwrap();
+    fs::set_permissions(lamp.on(credential), fs::Permissions::from_mode(0o644)).unwrap();
+
+    let first = lamp.install().unwrap();
+    assert_eq!(fs::read_to_string(lamp.on(credential)).unwrap(), KEY);
+    assert_eq!(mode_of(&lamp.on(credential)), 0o600);
+    assert!(
+        first
+            .changed
+            .contains(&format!("made {credential} 600, was 644")),
+        "{:?}",
+        first.changed
+    );
+    for line in first.changed.iter().chain(&lamp.said) {
+        assert!(!line.contains(KEY), "{line}");
+    }
+}
+
 /// #811: `--setup on` writes setup's two settings, exactly the setup crate's
 /// own-page and product reset files, so `lamp-setup.service` starts on a
 /// blank lamp with no file by hand. Without it, none is written. A serve

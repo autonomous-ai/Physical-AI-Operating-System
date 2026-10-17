@@ -368,7 +368,13 @@ As root, on a lamp with the base image (`crates/update/src/install.rs`):
    any `current` link move, each replaced whole by a new link renamed over
    it.
 5. Writes each product unit and `lampos.conf`, each only if it is not
-   already exactly that. The product settings (Expression's catalogue, the
+   already exactly that. A unit, `lampos.conf` or setting found already
+   holding install's exact bytes is given install's mode (0644; the voice's
+   provider, its key and the Policy's key 0600, so a key is only ever
+   narrowed), read and changed through one open of the file, never through
+   a link: a link is left as it is (#1293). A lamp's own setting found
+   closed to other users is kept as it is and said: `PATH is closed to
+   other users (600): the parts run as lampos cannot read it`. The product settings (Expression's catalogue, the
    controls' two files, and the first skill, Welcome back, in
    `/var/lib/lampOS/skills/welcome-back/`: its `skill.toml`, `SKILL.md` and
    light, not its tests) are written only where one is missing or is still

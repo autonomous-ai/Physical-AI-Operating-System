@@ -23,8 +23,9 @@ use crate::{
 };
 use ring::digest;
 use std::{
-    fs, io,
-    os::unix::fs::{DirBuilderExt, PermissionsExt},
+    fs,
+    io::{self, Read},
+    os::unix::fs::{DirBuilderExt, OpenOptionsExt, PermissionsExt},
     path::{Path, PathBuf},
     process::Command,
 };
@@ -749,23 +750,24 @@ pub fn settings_with_mode(
                 // Its bytes are install's, so its mode is too: a default
                 // written closed by something before install (lamp-cb94's,
                 // 0600) is opened, or the parts run as `lampos` never read it.
-                set_mode(config, path, mode, changed)?;
+                set_mode(config, path, text.as_bytes(), mode, changed)?;
                 state.settings.insert((*path).to_owned(), default);
             }
             Some(now) if !installs(&now) => {
                 say(&format!(
                     "kept {path}: this lamp's own, not a default an install wrote; the build's default is not written"
                 ));
-                // The lamp's own is not install's to open: said instead.
-                if mode & 0o004 != 0 {
-                    let meta = fs::metadata(config.on(path))
-                        .map_err(|error| format!("{path}: {error}"))?;
-                    if meta.permissions().mode() & 0o004 == 0 {
-                        say(&format!(
-                            "{path} is closed to other users ({:o}): the parts run as {USER} cannot read it",
-                            meta.permissions().mode() & 0o777
-                        ));
-                    }
+                // The lamp's own is not install's to open: said instead,
+                // and only said, so a file gone since it was read stops
+                // nothing (the reviewer on #1293).
+                if mode & 0o004 != 0
+                    && let Ok(meta) = fs::metadata(config.on(path))
+                    && meta.permissions().mode() & 0o004 == 0
+                {
+                    say(&format!(
+                        "{path} is closed to other users ({:o}): the parts run as {USER} cannot read it",
+                        meta.permissions().mode() & 0o777
+                    ));
                 }
             }
             _ => {
@@ -947,7 +949,7 @@ fn put(
 ) -> Result<(), String> {
     let at = config.on(path);
     if fs::read(&at).is_ok_and(|now| now == bytes) {
-        return set_mode(config, path, mode, changed);
+        return set_mode(config, path, bytes, mode, changed);
     }
     let failed = |error: io::Error| format!("{path}: {error}");
     if let Some(parent) = at.parent() {
@@ -962,26 +964,46 @@ fn put(
     Ok(())
 }
 
-/// Gives install's file at `path` `mode` when it has another: the bytes
-/// alone do not make it install's as written (the first builder on #705,
-/// 12:13).
+/// Gives install's file at `path` `mode` when it has another and still
+/// holds exactly `bytes`: the bytes alone do not make it install's as
+/// written (the first builder on #705, 12:13). It is opened once, never
+/// through a link, and what is read and what is changed are that one open
+/// file, so nothing swapped in at the path between is touched (the
+/// reviewer on #1293). A link is left as it is: its target is not
+/// install's to open or close (Nine on #1293).
 fn set_mode(
     config: &Install,
     path: &str,
+    bytes: &[u8],
     mode: u32,
     changed: &mut Vec<String>,
 ) -> Result<(), String> {
-    let at = config.on(path);
     let failed = |error: io::Error| format!("{path}: {error}");
-    let meta = fs::symlink_metadata(&at).map_err(failed)?;
-    // A link is left as it is: its target is not install's to open or close
-    // (Nine on #1293).
-    if meta.file_type().is_symlink() {
+    let flags = rustix::fs::OFlags::NOFOLLOW | rustix::fs::OFlags::NONBLOCK;
+    let mut file = match fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(flags.bits() as i32)
+        .open(config.on(path))
+    {
+        Ok(file) => file,
+        Err(error) if error.raw_os_error() == Some(rustix::io::Errno::LOOP.raw_os_error()) => {
+            return Ok(());
+        }
+        Err(error) => return Err(failed(error)),
+    };
+    let meta = file.metadata().map_err(failed)?;
+    if !meta.is_file() {
+        return Ok(());
+    }
+    let mut now_bytes = Vec::new();
+    file.read_to_end(&mut now_bytes).map_err(failed)?;
+    if now_bytes != bytes {
         return Ok(());
     }
     let now = meta.permissions().mode() & 0o7777;
     if now != mode {
-        fs::set_permissions(&at, fs::Permissions::from_mode(mode)).map_err(failed)?;
+        file.set_permissions(fs::Permissions::from_mode(mode))
+            .map_err(failed)?;
         changed.push(format!("made {path} {mode:o}, was {now:o}"));
     }
     Ok(())

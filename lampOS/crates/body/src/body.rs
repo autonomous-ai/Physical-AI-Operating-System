@@ -1243,6 +1243,11 @@ struct Bus<'a, P, R> {
     /// Arm joints whose temperature is no longer judged: unreadable, the
     /// arm is folding down to be let go (`run_on`). Each read is held.
     unjudged: [bool; 5],
+    /// Joints no goal is written to while the lamp folds: flagged by their
+    /// own protection, or found with torque off and a temperature that
+    /// cannot be read, which may be the servo's own cut-out. A goal turns
+    /// such a servo back on; it is left as it is.
+    left: [bool; 5],
 }
 
 impl<'a, P: PortIo, R: Runtime> Bus<'a, P, R> {
@@ -1266,6 +1271,7 @@ impl<'a, P: PortIo, R: Runtime> Bus<'a, P, R> {
             bad_warm_in_row: [0; 5],
             temperature_held: [false; 5],
             unjudged: [false; 5],
+            left: [false; 5],
         }
     }
 }
@@ -1606,9 +1612,34 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
                     .into_iter()
                     .flatten(),
             )
+            .filter(|(joint, _)| !self.left[joint.index()])
             .find_map(|(joint, goal)| self.goal_refused(joint, goal))
         {
             return Err(self.refuse(stop));
+        }
+        if self.left.contains(&true) {
+            // The same sync write, without the joints left as they are.
+            let entries: Vec<(Joint, u16)> = COMMANDED
+                .into_iter()
+                .zip(goals)
+                .chain(
+                    arm.map(|arm| ARM.into_iter().zip(arm))
+                        .into_iter()
+                        .flatten(),
+                )
+                .filter(|(joint, _)| !self.left[joint.index()])
+                .collect();
+            let mut packet = vec![0xff, 0xff, 0xfe, (entries.len() * 3 + 4) as u8, 0x83, 42, 2];
+            for (joint, goal) in &entries {
+                let [low, high] = goal.to_le_bytes();
+                packet.extend([joint.id(), low, high]);
+            }
+            packet.push(checksum(&packet[2..]));
+            self.send(&packet)?;
+            for (joint, goal) in entries {
+                self.goals[joint.index()] = Some(goal);
+            }
+            return Ok(());
         }
         let Some(arm) = arm else {
             self.send(&goals_write(goals))?;
@@ -1623,6 +1654,9 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
     /// One joint's goal by itself, checked as `send_goals` checks, written
     /// and acknowledged (with `patiently`, as `write_patiently`).
     fn write_goal(&mut self, joint: Joint, goal: u16, patiently: bool) -> Result<(), String> {
+        if self.left[joint.index()] {
+            return Ok(());
+        }
         if let Some(stop) = self.goal_refused(joint, goal) {
             return Err(self.refuse(stop));
         }
@@ -2937,6 +2971,11 @@ fn run_on<P: PortIo, R: Runtime>(
             if hot || loaded {
                 let_go_at_end(bus, &mut report);
             } else if arm_judged && standing.is_some_and(|up| found_up(up, &found)) {
+                // Flagged by its own protection, or without torque and
+                // unreadable (perhaps its heat cut-out): left as it is
+                // while the rest folds.
+                bus.left[joint.index()] =
+                    sample.status != 0 || (profiles[index].0 != 1 && bus.unjudged[joint.index()]);
                 refusal.get_or_insert(why);
                 continue;
             }
@@ -3075,11 +3114,11 @@ fn run_on<P: PortIo, R: Runtime>(
     if let Some(why) = &refusal {
         fold_for = fold_for.or(Some(refused(why.clone())));
         // A head or base found without torque is taken hold of where it
-        // is, goal first, to come down with the arm.
+        // is, goal first, to come down with the arm, unless it is left.
         let without: Vec<Joint> = COMMANDED
             .into_iter()
             .zip(profiles)
-            .filter(|(_, profile)| profile.0 != 1)
+            .filter(|(joint, profile)| profile.0 != 1 && !bus.left[joint.index()])
             .map(|(joint, _)| joint)
             .collect();
         if !without.is_empty() {
@@ -3226,8 +3265,12 @@ fn run_on<P: PortIo, R: Runtime>(
         return report;
     }
 
-    // The servo's own speed bound, where it is not already the one wanted.
+    // The servo's own speed bound, where it is not already the one wanted
+    // (nothing to a joint left as it is).
     for (index, joint) in COMMANDED.iter().enumerate() {
+        if bus.left[joint.index()] {
+            continue;
+        }
         let (_, acceleration, speed) = profiles[index];
         let mut outcome = Ok(());
         if speed != limits.servo_speed {
@@ -3301,9 +3344,10 @@ fn run_on<P: PortIo, R: Runtime>(
     }
     match bus.profiles() {
         Ok(now)
-            if now
-                .iter()
-                .all(|profile| *profile == (1, limits.servo_acceleration, limits.servo_speed)) => {}
+            if now.iter().zip(COMMANDED).all(|(profile, joint)| {
+                bus.left[joint.index()]
+                    || *profile == (1, limits.servo_acceleration, limits.servo_speed)
+            }) => {}
         Ok(now) => {
             report.stop = Stop::Bus {
                 detail: format!("profile read back as {now:?}"),
@@ -4538,6 +4582,14 @@ fn run_on<P: PortIo, R: Runtime>(
                 continue;
             }
         };
+        // A head or base joint left as it is (`Bus::left`) is wherever it
+        // is: nothing is asked of it, so nothing is judged against it.
+        for (index, joint) in COMMANDED.iter().enumerate() {
+            if bus.left[joint.index()] {
+                let at = samples[joint.index()].position;
+                (written[index], commanded[index], velocity[index]) = (at, f32::from(at), 0.0);
+            }
+        }
         // A write below that fails changes nothing and is tried again.
         let mut failed: Option<String> = None;
         report.last = Some(samples);
@@ -4706,7 +4758,7 @@ fn run_on<P: PortIo, R: Runtime>(
         let mut surprise = None;
         for joint in Joint::ALL {
             let (was, is) = (found[joint.index()], samples[joint.index()]);
-            if is.status != was.status {
+            if is.status != was.status && !bus.left[joint.index()] {
                 surprise.get_or_insert(Stop::Status {
                     joint: joint.id(),
                     found: was.status,
@@ -5223,16 +5275,30 @@ fn run_on<P: PortIo, R: Runtime>(
         // time a stop allows, and ends on what it was folding for, or else
         // on this. A lost wire, an arm goal the guard refuses, a position
         // that cannot be read and a hand or an overload letting go end it
-        // as before.
+        // as before. A status flag is the servo's own protection, and a
+        // goal turns a servo that cut itself out back on: a flagged head or
+        // base joint is written nothing more and left as it is while the
+        // rest folds; a flagged shoulder or elbow, without which the arm
+        // cannot fold, lets go at once.
         if let Some(surprise) = surprise {
-            if leaving.is_none() || stand <= 0.0 {
+            let flagged = match surprise {
+                Stop::Status { joint, .. } => Joint::ALL.into_iter().find(|j| j.id() == joint),
+                _ => None,
+            };
+            // Not even the hold at the end is written to it.
+            if let Some(joint) = flagged {
+                bus.left[joint.index()] = true;
+            }
+            if leaving.is_none() || stand <= 0.0 || flagged.is_some_and(|j| ARM.contains(&j)) {
                 break surprise;
             }
             leave_for.get_or_insert(surprise);
         }
         if let Some(since) = leaving {
             let settled = (0..3).all(|index| {
-                (commanded[index] - home_now[index]).abs() < 0.6 && velocity[index].abs() < 3.0
+                bus.left[COMMANDED[index].index()]
+                    || (commanded[index] - home_now[index]).abs() < 0.6
+                        && velocity[index].abs() < 3.0
             }) && (slumped || stand <= 0.0 && stand_velocity == 0.0);
             // A lamp that stands folds down first, and that takes its time.
             let allowed = LEAVE

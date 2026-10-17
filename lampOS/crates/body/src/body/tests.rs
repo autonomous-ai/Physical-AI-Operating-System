@@ -7271,6 +7271,98 @@ fn two_first_reads_of_150_then_45_start_as_usual_standing() {
     assert_eq!((lamp.servos[1].torque, lamp.servos[2].torque), (1, 1));
 }
 
+/// Goal writes that name servo `id` after `after`.
+fn goals_to_after(lamp: &Lamp, id: u8, after: Duration) -> usize {
+    lamp.goals
+        .iter()
+        .zip(&lamp.goal_times)
+        .filter(|(write, at)| **at > after && write.iter().any(|(to, _)| *to == id))
+        .count()
+}
+
+/// The reviewer's 13:14 P2 on #1296: a status flag is the servo's own
+/// protection, and a goal turns a servo that cut itself out back on. Stood
+/// up and asked to stop at 12 s, a joint raising 0x20 at 12.5 s is written
+/// no goal after that. The elbow, without which the arm cannot fold, lets
+/// go at once; the head's pitch is left as it is while the arm folds.
+#[test]
+fn a_flag_while_a_standing_lamp_folds_writes_that_joint_nothing_more() {
+    for (index, id) in [(2usize, 3u8), (PITCH, 5)] {
+        let (mut lamp, mut clock) = folded(Duration::from_secs(12));
+        lamp.arm_moves = true;
+        lamp.overload_clears = 1;
+        let at = Duration::from_millis(12_500);
+        lamp.event = Some((at, index, Event::Flag(0x20)));
+        let report = run_standing(
+            &mut lamp,
+            &mut clock,
+            Limits::FOLDED,
+            Some(HOME),
+            Some(standing(100, 60)),
+            || Some((Mood::Listening, 100)),
+            |_| {},
+        );
+        assert!(report.stood, "{report:?}");
+        assert!(
+            matches!(report.stop, Stop::Status { joint, now: 0x20, .. } if joint == id),
+            "{report:?}"
+        );
+        assert_eq!(
+            goals_to_after(&lamp, id, at + Duration::from_millis(40)),
+            0,
+            "{id}"
+        );
+        if id == 5 {
+            assert_folded_then_let_go(&lamp);
+        } else {
+            assert!(lamp.servos[1].position > 2_100.0, "{report:?}");
+            assert!(let_go_of_the_whole_lamp(&lamp), "{:?}", lamp.registers);
+        }
+    }
+}
+
+/// The reviewer's 13:14 P3 on #1296: found standing, a head joint with
+/// torque off and over 100 on every read may be the servo's own heat
+/// cut-out. It is not taken hold of nor written a goal: the arm folds
+/// without it, then all five are let go.
+#[test]
+fn a_head_found_without_torque_and_unreadable_is_left_while_the_arm_folds() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(20));
+    lamp.arm_moves = true;
+    for (index, at) in [(1usize, 2_650.0f32), (2, 2_600.0), (PITCH, 1_900.0)] {
+        lamp.servos[index].position = at;
+        lamp.servos[index].goal = at as u16;
+        lamp.servos[index].status = 0;
+    }
+    lamp.servos[PITCH].torque = 0;
+    lamp.flicker = Some((Duration::ZERO, PITCH, vec![Some(150); 100_000], 0));
+    let report = run_standing(
+        &mut lamp,
+        &mut clock,
+        Limits::FOLDED,
+        Some(HOME),
+        Some(standing(100, 60)),
+        || Some((Mood::Resting, 0)),
+        |_| {},
+    );
+    assert!(
+        matches!(&report.stop, Stop::Refused { why }
+            if why == "temperature unreadable at start: wrist_pitch reads 150"),
+        "{report:?}"
+    );
+    assert!(report.torque_given.is_empty(), "{report:?}");
+    assert_eq!(goals_to_after(&lamp, 5, Duration::ZERO), 0);
+    assert!(
+        !lamp
+            .registers
+            .iter()
+            .any(|(id, address, _)| *id == 5 && *address != 40),
+        "{:?}",
+        lamp.registers
+    );
+    assert_folded_then_let_go(&lamp);
+}
+
 /// The reviewer's 12:36 P3 on #1281: a lamp found standing whose start is
 /// refused with nothing written (head pitch 150 on every read, or its torque
 /// off) was left up, held, by every restart. It folds down first, a step at

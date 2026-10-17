@@ -1,0 +1,14 @@
+# The model has seen a page that is right and calls show_verdict before its answer: the short nod and the tutoring note, at once.
+[[call_tool]]
+name = "show_verdict"
+at = "0s"
+args = { verdict = "right" }
+
+[[expect]]
+at = "0s"
+call = "body.gesture"
+args = { gesture = ["acknowledge"] }
+
+[[expect]]
+at = "0s"
+call = "say"

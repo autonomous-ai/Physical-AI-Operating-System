@@ -1,0 +1,20 @@
+# Desk tutor's marks (#941, step 4 of the owner's Desk tutor): once the
+# model has seen the page through Desk tutor's look, it calls this just
+# before it answers, and the lamp shows its verdict with the body: a small
+# nod where the work is right, a curious tilt where it goes wrong. Started
+# by its tool alone, after someone asked for their work to be checked: no
+# trigger and no [ask].
+needs = ["voice", "body"]
+tool = "show_verdict"
+
+[choice]
+name = "verdict"
+about = "right: every line you could read is right. wrong: you are about to point to the first line that goes wrong. Always give one."
+one_of = ["right", "wrong"]
+
+# The gesture at once, as the model begins its answer: V1's short nod
+# (acknowledge, about 2 s) or its tilt (curious, 3 s), each over the
+# reading pose Desk tutor holds. The note sends the model on to answer.
+[[do]]
+body = { gesture = { right = ["acknowledge"], wrong = ["curious"] } }
+say = "Now answer as the tutor: what is right in a few words, then the first line that goes wrong with a hint or a question."

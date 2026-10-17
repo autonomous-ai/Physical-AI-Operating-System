@@ -38,6 +38,8 @@ struct Harness {
     /// they did (#1123 step 2).
     words: Option<crate::wait_words::WaitWords>,
     told: Vec<WordsTold>,
+    /// The answer was asked to stop by a waited sound's words.
+    stopped: bool,
 }
 impl Harness {
     /// The product's turn-taking and mask with `LAMP_WAIT_KEEPS_ANSWER=on`:
@@ -142,6 +144,7 @@ impl Harness {
             last_speech_us: 0,
             words: None,
             told: Vec::new(),
+            stopped: false,
         }
     }
     fn old(&self) -> TurnOwner {
@@ -331,6 +334,16 @@ impl Harness {
                     self.wait.let_go_ended_us = Some(self.last_speech_us);
                     self.detector.clear_prospective();
                     self.let_go.push(why);
+                    return Ok(None);
+                }
+                // As the loop does: let go, and the answer stopped next pass.
+                WhileAnswerWaits::Stop => {
+                    if let Some(r) = self.admission.release_prospective(at_us)? {
+                        record_input_rejection(&mut self.trace, r)?;
+                    }
+                    self.detector.clear_prospective();
+                    self.let_go.push("stop_said");
+                    self.stopped = true;
                     return Ok(None);
                 }
             }
@@ -603,6 +616,8 @@ struct WithWords {
     decided: Option<u32>,
     /// When the sound began, by the capture clock.
     began: u64,
+    /// Its words asked the loop to stop the answer.
+    stopped: bool,
 }
 
 /// A fresh product harness, with `LAMP_WAIT_KEEPS_ANSWER=words` on scripted
@@ -648,6 +663,7 @@ fn with_words(blocks: u32, words: bool, said: Option<(&str, u32)>) -> WithWords 
         asked,
         decided,
         began,
+        stopped: h.stopped,
     }
 }
 
@@ -1731,4 +1747,26 @@ fn valid_control_receipts_and_short_read_gap_never_forward_masked_preroll() {
         })
         .collect();
     assert_eq!(fresh_samples, vec![11, 12, 13, 14, 15, 16]);
+}
+
+/// The reviewer's P3 on #1277: with `words`, a lone "Stop." said before the
+/// answer begins is let go and never asked of the model, and asks the loop
+/// to stop the answer it waited for, as a stop said over the lamp's speech
+/// does. "Stop, what's the weather?" asks something more and takes the
+/// turn from its start, as before. With `on` alone nothing is stopped.
+#[test]
+fn with_words_a_lone_stop_while_an_answer_waits_stops_it_and_is_never_asked() {
+    let stop = with_words(40, true, Some(("Stop.", 10)));
+    assert!(stop.accepted.is_none(), "a lone stop is never a request");
+    assert_eq!(stop.let_go, ["stop_said"]);
+    assert!(stop.stopped);
+    assert_eq!(stop.told.len(), 1);
+    assert!(stop.told[0].stop && !stop.told[0].took);
+    assert_eq!(stop.told[0].words, Some(1));
+    let more = with_words(40, true, Some(("Stop, what's the weather?", 10)));
+    assert!(more.accepted.is_some(), "a stop with more is a request");
+    assert!(!more.stopped);
+    assert!(more.told[0].took && !more.told[0].stop);
+    let on = with_words(40, false, None);
+    assert!(on.accepted.is_none() && !on.stopped);
 }

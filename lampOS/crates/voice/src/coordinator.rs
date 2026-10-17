@@ -183,6 +183,11 @@ enum WhileAnswerWaits {
     /// It ended, or went quiet, before it could take the turn: let go, and
     /// the answer goes on.
     LetGo(&'static str),
+    /// Its words only told the lamp to stop (`LAMP_WAIT_KEEPS_ANSWER=words`,
+    /// [`crate::wait_words::only_a_stop`]): let go, never asked of the
+    /// model, and the answer it waits for is stopped, as a stop said over
+    /// the lamp's speech stops it (the reviewer's P3 on #1277).
+    Stop,
 }
 
 /// What the wait knows besides the candidate and the reply.
@@ -327,6 +332,8 @@ struct WordsTold {
     words: Option<usize>,
     /// It was decided at once for them.
     took: bool,
+    /// They only told the lamp to stop.
+    stop: bool,
     asked_at_us: u64,
 }
 
@@ -365,14 +372,16 @@ fn with_waited_words(
         Then::AsBefore => return (waits, None),
         Then::Wait => return (WhileAnswerWaits::Wait, None),
         Then::Take(_) => WhileAnswerWaits::Decide,
+        Then::Stop => WhileAnswerWaits::Stop,
         Then::LetGo => waits,
     };
     let told = words.tell().then(|| WordsTold {
         words: match verdict {
-            Verdict::Words(count) => Some(count),
+            Verdict::Words(count) | Verdict::Stop(count) => Some(count),
             Verdict::Pending => None,
         },
         took: matches!(then, Then::Take(_)),
+        stop: then == Then::Stop,
         asked_at_us: words.asked_at_us().unwrap_or(at_us),
     });
     (waits, told)
@@ -3693,6 +3702,9 @@ fn conversation_with_gate(
     // A waited sound's words (`LAMP_WAIT_KEEPS_ANSWER=words`, #1123 step
     // 2), from a stream of their own through the second voice's
     // speech-to-text. Without its configuration the wait is `on`'s alone.
+    // A waited sound whose words only said to stop stops the answer it
+    // waited for on the next pass, as a spoken stop does.
+    let mut waited_stop = false;
     let mut wait_words = wait_hears_words
         .then(|| match crate::second_config::load_from_env() {
             Ok(Some(config)) => {
@@ -4018,8 +4030,13 @@ fn conversation_with_gate(
             .is_some_and(|current| current.had_audio || current.playback.is_some());
         let head_stop = speaking && head_touch_at_us.is_some();
         // A stop phrase said over the lamp and heard while it speaks
-        // (#828, `LAMP_STOP_WORDS=heard-always`) stops it as the hand does.
-        let spoken_stop = stop_words.as_mut().is_some_and(|words| words.spoken_stop()) && speaking;
+        // (#828, `LAMP_STOP_WORDS=heard-always`) stops it as the hand does,
+        // and so does one said before its answer began, heard as a waited
+        // sound's words (`LAMP_WAIT_KEEPS_ANSWER=words`, the reviewer's P3
+        // on #1277).
+        let spoken_stop = (stop_words.as_mut().is_some_and(|words| words.spoken_stop())
+            && speaking)
+            || std::mem::take(&mut waited_stop);
         {
             if stop || muted || gap_cut || head_stop || spoken_stop {
                 let observed_at_us = monotonic_us();
@@ -5274,7 +5291,7 @@ fn conversation_with_gate(
                                 trace,
                                 json!({"kind":"wait_words","turn":reply.as_ref().map(|current| current.owner.turn()),
                                     "candidate":candidate.id,"words":told.words,"took":told.took,
-                                    "asked_at_us":told.asked_at_us,"at_us":at_us}),
+                                    "stop":told.stop,"asked_at_us":told.asked_at_us,"at_us":at_us}),
                             )?;
                         }
                     }
@@ -5308,6 +5325,25 @@ fn conversation_with_gate(
                                 trace,
                                 json!({"kind":"input_let_go_answer_waits","turn":reply.as_ref().map(|current| current.owner.turn()),
                                     "candidate":candidate.id,"why":why,"at_us":at_us}),
+                            )?;
+                            continue;
+                        }
+                        WhileAnswerWaits::Stop => {
+                            // "Stop." said before the answer began: never
+                            // asked of the model, and the answer it waits
+                            // for is stopped on the next pass, as a stop
+                            // said over the lamp's speech stops it (the
+                            // reviewer's P3 on #1277).
+                            if let Some(rejection) = admission.release_prospective(monotonic_us())?
+                            {
+                                record_input_rejection(trace, rejection)?;
+                            }
+                            detector.clear_prospective();
+                            waited_stop = true;
+                            record(
+                                trace,
+                                json!({"kind":"input_let_go_answer_waits","turn":reply.as_ref().map(|current| current.owner.turn()),
+                                    "candidate":candidate.id,"why":"stop_said","at_us":at_us}),
                             )?;
                             continue;
                         }

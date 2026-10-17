@@ -223,8 +223,21 @@ everything `on` does, and:
   only m and h ("mm-hm"), laughs of only h, a and e ("haha", "heh"), and
   acknowledgements ("okay", "yeah", "yes", "right", "alright",
   `ACKNOWLEDGEMENTS`). So a laugh, or the asker's "Okay.", doesn't cut off
-  the answer it waits for (the seventh's P2). "No", "wait", "stop" and
-  "what" ask, alone or after them ("Okay, stop.").
+  the answer it waits for (the seventh's P2). "No" and "what" ask, alone
+  or after them. A stop alone, or after them ("Okay, stop."), is a stop
+  (next).
+- words back that only tell the lamp to stop (`only_a_stop`): a stop
+  phrase by the stop words' own list (`stop_words::stop_phrase`), and
+  nothing more that asks. That covers "Stop.", "Okay, stop it, please.",
+  "Hold on." and "Wait.". The sound is let go and never asked of the model,
+  and the answer it waits for is stopped on the next pass, as a stop said
+  over the lamp's speech stops it (`hand_control_cancel` with
+  `spoken_stop`). It's recorded as `input_let_go_answer_waits` with `why:
+  stop_said`, and as `wait_words` with `stop: true`. Before, "Stop." took
+  the turn and went to the model as a request, which answered it (the
+  reviewer's P3 on #1277). A stop with more asked ("Wait, what about
+  tomorrow?", "Stop, what's the weather?") takes the turn as before, and
+  "Don't stop." is no stop.
 - where `on` would let it go and its words aren't back: it waits for them
   while it hasn't ended, up to 100 ms before its deadline, and is then let
   go as with `on`. A sound that has ended is never held. The next sound's
@@ -298,8 +311,11 @@ Tests:
   detector: `with_words_a_short_no_while_an_answer_waits_takes_the_turn_from_its_start`,
   `with_words_a_cough_a_filler_or_no_words_in_time_are_let_go`,
   `with_words_a_sound_is_never_held_for_them_past_its_end`,
-  `how_long_the_words_may_take_by_length` and
-  `a_stream_for_words_is_kept_ready_only_while_a_sound_may_wait`.
+  `how_long_the_words_may_take_by_length`,
+  `a_stream_for_words_is_kept_ready_only_while_a_sound_may_wait` and
+  `with_words_a_lone_stop_while_an_answer_waits_stops_it_and_is_never_asked`.
+  The stop itself is the loop's spoken-stop path, which no test drives
+  through the loop, as for the stop words.
 
 The real relay is not driven by a test. The lamp check, on lamp-4ace with
 the second voice configured: a question, then in the gap before its answer

@@ -178,6 +178,16 @@ pub fn stop_phrase(heard: &str) -> bool {
     stop_over(heard, "")
 }
 
+/// Whether `word`, lower case, is one of the stop words, or a word of a
+/// pair that stops ("hold", "hang", "on"): the one list, for a reader that
+/// needs to know a stop asks nothing more (`crate::wait_words`).
+pub fn stop_word(word: &str) -> bool {
+    STOP_WORDS.contains(&word)
+        || STOP_PAIRS
+            .iter()
+            .any(|(first, second)| word == *first || word == *second)
+}
+
 /// Whether what was heard tells the lamp to stop, when the lamp itself has
 /// just said `lamp`: a stop word, or pair, that is not among the lamp's own
 /// words, nor right after one that turns it round. "The fox had to wait"

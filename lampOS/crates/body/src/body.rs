@@ -914,8 +914,9 @@ pub struct BodyReport {
     /// from `bad_reads`: the position in the same reply was good.
     pub bad_temperatures: [u16; 5],
     /// A first read that found a joint hot is read again, up to
-    /// `FIRST_HEAT_REREADS` times, before anything acts on it: the
-    /// temperatures of each read again, per joint as `bad_reads`.
+    /// `FIRST_HEAT_REREADS` times, until two reads in a row agree, before
+    /// anything acts on it: the temperatures of each read again, per joint
+    /// as `bad_reads`.
     pub hot_rereads: Vec<[u8; 5]>,
     /// Bad temperature values that settled into the good one
     /// (`Bus::judge_temperatures`), the first 16: joint, last good, settled.
@@ -2707,23 +2708,53 @@ fn run_on<P: PortIo, R: Runtime>(
         }
     };
     // One glitch on the first read must not let go of a lamp, which may be
-    // standing: a joint found hot is read again, and only heat that
-    // repeats is acted on. Nothing has been written yet.
-    let warmest = limits.temperature.min(Standing::TEMPERATURE);
-    while report.hot_rereads.len() < FIRST_HEAT_REREADS
-        && found.iter().any(|sample| sample.temperature >= warmest)
-    {
-        bus.forget_temperatures();
-        found = match bus.samples() {
-            Ok(found) => found,
-            Err(detail) => {
-                report.stop = refused(format!("first read: {detail}"));
-                return report;
+    // standing: a joint found hot is read again until two reads in a row
+    // agree within `TEMPERATURE_JUMP`, and heat is acted on only if they
+    // agree hot, or never agree. Only the joints the found-hot checks below
+    // judge are read for it: the three commanded, and the arm of a lamp
+    // that may stand. Nothing has been written yet.
+    let arm_judged = standing.is_some() && home.is_some();
+    let judged = |read: &[Sample; 5]| {
+        let commanded =
+            COMMANDED.map(|joint| (read[joint.index()].temperature, limits.temperature));
+        let arm = ARM.map(|joint| (read[joint.index()].temperature, Standing::TEMPERATURE));
+        commanded
+            .into_iter()
+            .chain(arm.into_iter().filter(|_| arm_judged))
+    };
+    let hot = |read: &[Sample; 5]| judged(read).any(|(temperature, limit)| temperature >= limit);
+    if hot(&found) {
+        let mut hottest = found;
+        loop {
+            if report.hot_rereads.len() >= FIRST_HEAT_REREADS {
+                found = hottest;
+                break;
             }
-        };
-        report
-            .hot_rereads
-            .push(found.map(|sample| sample.temperature));
+            bus.forget_temperatures();
+            let again = match bus.samples() {
+                Ok(again) => again,
+                Err(detail) => {
+                    report.stop = refused(format!("first read: {detail}"));
+                    return report;
+                }
+            };
+            report
+                .hot_rereads
+                .push(again.map(|sample| sample.temperature));
+            let agree = judged(&found)
+                .zip(judged(&again))
+                .all(|((before, _), (now, _))| before.abs_diff(now) <= TEMPERATURE_JUMP);
+            if agree {
+                if !hot(&found) || hot(&again) {
+                    found = again;
+                }
+                break;
+            }
+            if hot(&again) {
+                hottest = again;
+            }
+            found = again;
+        }
     }
     report.found = Some(found);
     report.last = Some(found);

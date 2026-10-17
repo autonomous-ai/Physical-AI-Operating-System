@@ -801,7 +801,9 @@ async fn v1s_routes_answer_in_v1s_shapes() {
     assert_eq!(
         body,
         json!({"status": 1, "message": null, "data": {"phase": "idle", "lan_ip": "", "error": "",
-               "mac": "lamp-4ace", "run": 0, "set_up_completed": false, "runtime_phase": ""}})
+               "mac": "lamp-4ace", "run": 0, "set_up_completed": false, "runtime_phase": "",
+               // Not V1's: the app tells its two Lamps apart by it (#1396).
+               "generation": "lamp-v2"}})
     );
     let before = SCANS.load(Ordering::Relaxed);
     let (code, body) = call(&app, "GET", "/api/network", Value::Null).await;

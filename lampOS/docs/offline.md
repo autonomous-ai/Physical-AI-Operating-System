@@ -178,8 +178,7 @@ internet, not the relay, and nothing in #830 depends on the relay.
 
 - **`lamp-health serve --online on --reach-probe on`** (`crates/health/src/reach.rs`):
   while the voice's link is down, and only then, a TCP connection to
-  1.1.1.1:53, 8.8.8.8:53 and 1.1.1.1:443 at once (443 for a network that
-  blocks port 53 to outside resolvers), any answering is enough, at most
+  1.1.1.1:443 and 8.8.8.8:443 at once, any answering is enough, at most
   every 30 s (`PROBE_EVERY`), the try bounded at 2 s (`PROBE_WITHIN`), on its
   own thread so the loop never waits; nothing is sent on a connection made.
   Its verdict goes in `lamp/online` (`parts::with_reach`): the internet
@@ -189,19 +188,35 @@ internet, not the relay, and nothing in #830 depends on the relay.
   offline face never shows before the probe has spoken. With the link up
   again what was found is forgotten, so the next outage asks at once.
   Refused without `--online on`. Off unless set.
+- **Never port 53** (the reviewer on #1247): a router that forces its own
+  name server (OpenWrt's "force DNS", several ISP routers) redirects port 53
+  to itself, and that server answers with the WAN down, so a dead network
+  would read as online. 443 is asked instead, still with nothing sent. The
+  limit that stays: a network that answers 443 itself while the internet is
+  down (a captive portal that takes every connection) reads as online.
 - **The voice, `LAMP_REACH_PROBE=on`** (with `LAMP_OFFLINE_VOICE=on`): while its
   link is down it reads the probe's verdict from the kept `lamp/online` at
   most once a second (`reach_verdict`) and says the lamp offline only on it
   (`offline_now`): the internet answering is never offline (no offline line,
-  no offline breath; the backup voice, or the sixth's down line, answers
-  instead), not answering is offline once past the link's grace, and with
+  no offline breath), not answering is offline once past the link's grace, and with
   no verdict it waits `REACH_WAIT_US` (the 5 s grace, the probe's 2 s bound
   and two of health's reports: 10 s) before taking the link alone, so a
   lamp without `lamp-health` is still said offline. So the first seconds of
   a relay outage never say no internet (El on #1247). Off unless set.
+- **What answers during a relay outage then:** only the second route. With
+  `LAMP_VOICE_SECOND_CONFIG` set the backup voice answers, and its down line
+  (`LAMP_SECOND_DOWN_LINE=on`) when that fails too. **Without the second
+  route, speech while the link is down and the probe says online is dropped
+  without a word or a breath** (`accepted_without_cloud`, trace
+  `input_not_submitted`). So a unit
+  takes `LAMP_REACH_PROBE=on` where the second route is set, or knowingly
+  without it (the reviewer on #1247).
 - Tests: `reach::tests` (a target answering, none answering and asked again
   only after its time, a target that never answers given up within the
-  bound), `parts::tests::a_link_down_with_the_internet_answering_is_online_from_reach`,
+  bound, the default targets never on port 53), health's
+  `lamp_online_asks_the_internet_only_while_the_voice_link_is_down` (a real
+  `serve` with a local listener as the target: link `ready`, no connection;
+  `down`, online from `reach`; a closed port, offline from `reach`), `parts::tests::a_link_down_with_the_internet_answering_is_online_from_reach`,
   the voice's `the_probe_verdict_is_read_from_lamp_online_only_when_it_is_from_reach`,
   `with_the_probe_the_first_seconds_of_an_outage_wait_for_its_verdict` (the
   first minute of a relay outage, every 250 ms: never offline) and

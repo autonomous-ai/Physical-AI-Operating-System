@@ -459,8 +459,9 @@ pub(crate) struct Heeding {
     /// The room microphone's rise over its quiet, by when it was sampled,
     /// with `--attention-near`: the last [`LEVELS_KEPT_US`].
     levels: Option<Levels>,
-    /// The request the rule judged last, and the session it is judged in,
-    /// which a request going on from it keeps.
+    /// The request the rule judged last, the session it is judged in, which
+    /// a request going on from it keeps, and the words it was judged with,
+    /// which are stripped from the front of that request's.
     judged: Option<(u64, u64, String)>,
 }
 
@@ -664,6 +665,9 @@ impl Heeding {
                 // Its leading space kept: the rule's text goes on from the
                 // first half's words (Fourth on #1262: "HeyLamp, …").
                 let own = heard.strip_prefix(before.trim()).unwrap_or(heard);
+                // ponytail: a chain whose first link was never judged keeps
+                // that link's words in `before`, the strip misses, and the
+                // rule reads the joined words as before this (Fourth on #1262).
                 (*session, own)
             }
             None => {

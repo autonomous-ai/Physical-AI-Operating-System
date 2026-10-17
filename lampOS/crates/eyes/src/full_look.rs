@@ -31,6 +31,13 @@
 //! before the frame comes is waited for again. No longer than
 //! [`SETTLE_AT_MOST_US`] in all.
 //! With no body on the bus the still is taken at once.
+//!
+//! With `--full-look-movement on` (off unless given) the head settles on
+//! movement only: no joint's distance to its goal counts, and the arm's
+//! [`ARM`] joints, which carry the head and the camera with it, are waited
+//! for while they turn as the head's are. A standing shoulder pushes 22 to
+//! 34 counts short of its goal on lamp-52e6 for as long as it stands
+//! (`docs/body.md`): that is not a move, and the still is taken at once.
 use lamp_msgs::JointState;
 use std::f64::consts::TAU;
 use zune_jpeg::{
@@ -40,6 +47,9 @@ use zune_jpeg::{
 
 /// The joints that move the camera.
 pub const HEAD: [&str; 3] = ["base_yaw", "head_pitch", "head_roll"];
+/// The arm's joints, which carry the head: watched only with
+/// `--full-look-movement on`, by their speed alone.
+pub const ARM: [&str; 2] = ["shoulder", "elbow"];
 /// Six of a servo's 4096 counts a turn: how far a still head may drift.
 pub const DRIFT_RADIANS: f64 = 6.0 * TAU / 4_096.0;
 /// Two counts in the 80 ms over which the body works out how fast a joint
@@ -157,13 +167,18 @@ pub enum Head {
     Still([f64; 3]),
 }
 
-/// [`head`] of a reading published at `at_unix_ms`, moving when it is older
-/// than [`FRESH_MS`] at `now_unix_ms`.
-pub fn head_of(joints: &JointState, at_unix_ms: u64, now_unix_ms: u64) -> Head {
+/// [`head_by`] of a reading published at `at_unix_ms`, moving when it is
+/// older than [`FRESH_MS`] at `now_unix_ms`.
+pub fn head_of(
+    joints: &JointState,
+    at_unix_ms: u64,
+    now_unix_ms: u64,
+    movement_only: bool,
+) -> Head {
     if now_unix_ms.saturating_sub(at_unix_ms) > FRESH_MS {
         Head::Moving
     } else {
-        head(joints)
+        head_by(joints, movement_only)
     }
 }
 
@@ -180,11 +195,27 @@ pub fn unix_ms() -> u64 {
 /// What the body does not say is not waited for, except that a head
 /// without speeds is watched for drift ([`Wanted::body`]).
 pub fn head(joints: &JointState) -> Head {
+    head_by(joints, false)
+}
+
+/// [`head`], or with `movement_only` on movement alone: a head or [`ARM`]
+/// joint turning faster than [`STILL_RADIANS_A_SECOND`], with no goal read.
+// ponytail: the arm is judged by its speed only, not by drift, so the one
+// reading before the body has a speed misses an arm already moving; watch
+// its drift too if a still is ever taken in that first 80 ms.
+pub fn head_by(joints: &JointState, movement_only: bool) -> Head {
     let given = |list: &[f64]| list.len() == joints.name.len();
     let (speed, placed) = (given(&joints.velocity), given(&joints.position));
     let mut at = [0.0; 3];
     for (index, name) in joints.name.iter().enumerate() {
         let Some(which) = HEAD.iter().position(|head| head == name) else {
+            if movement_only
+                && speed
+                && ARM.contains(&name.as_str())
+                && joints.velocity[index].abs() > STILL_RADIANS_A_SECOND
+            {
+                return Head::Moving;
+            }
             continue;
         };
         if speed && joints.velocity[index].abs() > STILL_RADIANS_A_SECOND {
@@ -192,7 +223,8 @@ pub fn head(joints: &JointState) -> Head {
         }
         if placed {
             at[which] = joints.position[index];
-            if given(&joints.commanded)
+            if !movement_only
+                && given(&joints.commanded)
                 && (joints.commanded[index] - at[which]).abs() > ASKED_RADIANS
             {
                 return Head::Moving;
@@ -668,6 +700,69 @@ mod tests {
         assert!(wanted.take(9));
     }
 
+    /// lamp-52e6 standing: the shoulder 30 counts short of its goal at
+    /// 2,657 and pushing, not moving; head_pitch 80 counts short at rest.
+    fn standing(shoulder_speed: f64, yaw_speed: f64) -> JointState {
+        let radians = |counts: f64| (counts - 2_048.0) * COUNT;
+        JointState {
+            name: ["base_yaw", "shoulder", "elbow", "head_roll", "head_pitch"]
+                .map(str::to_owned)
+                .to_vec(),
+            position: [2_015.0, 2_627.0, 2_069.0, 2_051.0, 1_888.0]
+                .map(radians)
+                .to_vec(),
+            velocity: vec![yaw_speed * COUNT, shoulder_speed * COUNT, 0.0, 0.0, 0.0],
+            effort: vec![],
+            commanded: [2_015.0, 2_657.0, 2_069.0, 2_051.0, 1_968.0]
+                .map(radians)
+                .to_vec(),
+        }
+    }
+
+    #[test]
+    fn on_movement_only_a_joint_resting_short_is_taken_at_once_and_a_move_waits() {
+        // Resting short, not moving: at once. With the goal rule, head_pitch
+        // 80 counts short is taken for a turn and waits the whole 2 s.
+        let mut wanted = Wanted::new(0);
+        wanted.body(head_by(&standing(0.0, 0.0), true), 0, 0);
+        assert_eq!(wanted.waited_us(), Some(0));
+        assert!(wanted.take(1));
+        // The shoulder standing up at 200 counts a second for 400 ms carries
+        // the camera: waited for, then 0.3 s still, as a head that turns.
+        // Without movement only the arm is not read and it is taken at once.
+        let mut wanted = Wanted::new(0);
+        for at in (0..=700u64).step_by(20) {
+            let speed = if at < 400 { 200.0 } else { 0.0 };
+            wanted.body(head_by(&standing(speed, 0.0), true), at * MS, at / 33);
+            if at < 700 {
+                assert!(!wanted.take(at / 33 + 1), "taken at {at} ms");
+            }
+        }
+        assert_eq!(wanted.waited_us(), Some(700 * MS));
+        // A turning head the same way, 0.3 s after it stops.
+        let mut wanted = Wanted::new(0);
+        for at in (0..=700u64).step_by(20) {
+            let speed = if at < 400 { 263.0 } else { 0.0 };
+            wanted.body(head_by(&standing(0.0, speed), true), at * MS, at / 33);
+        }
+        assert_eq!(wanted.waited_us(), Some(700 * MS));
+    }
+
+    #[test]
+    fn without_movement_only_the_head_settles_as_before() {
+        // The goal rule stands and the arm is not read.
+        assert_eq!(head_by(&standing(0.0, 0.0), false), Head::Moving);
+        assert!(matches!(
+            head_by(&standing(200.0, 0.0), false),
+            Head::Moving
+        ));
+        let mut resting = standing(200.0, 0.0);
+        resting.commanded = resting.position.clone();
+        assert!(matches!(head(&resting), Head::Stopped(_)));
+        assert_eq!(head_by(&resting, false), head(&resting));
+        assert_eq!(head_by(&resting, true), Head::Moving);
+    }
+
     #[test]
     fn a_pause_inside_a_move_is_not_taken_for_a_stop() {
         // lamp-52e6, 18.88 s into `look-at-name-lamp-52e6-20261014`: base_yaw
@@ -692,10 +787,14 @@ mod tests {
     fn an_old_reading_is_taken_as_moving() {
         let still = joints(0.1, 0.0, 0.0);
         assert_eq!(
-            head_of(&still, 1_000, 1_000 + FRESH_MS),
+            head_of(&still, 1_000, 1_000 + FRESH_MS, false),
             Head::Stopped([0.1, 0.5, 0.4])
         );
-        assert_eq!(head_of(&still, 1_000, 1_001 + FRESH_MS), Head::Moving);
+        assert_eq!(
+            head_of(&still, 1_000, 1_001 + FRESH_MS, false),
+            Head::Moving
+        );
+        assert_eq!(head_of(&still, 1_000, 1_001 + FRESH_MS, true), Head::Moving);
     }
 
     #[test]

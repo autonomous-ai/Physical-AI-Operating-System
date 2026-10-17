@@ -6,6 +6,7 @@
   "name": "/etc/lampOS/person/name",
   "country": "VN",
   "page": true,
+  "light": true,
   "free_port": [
     "/usr/bin/systemctl",
     "stop",

@@ -2,8 +2,9 @@
 //!
 //! The driver accepts conversational light permits, plus explicit black frames.
 //! It does not choose animations, privacy colors, listening cues, or readiness,
-//! with one exception: the asleep face ([`asleep`], #712), which needs no
-//! permit because it says only that the lamp cannot hear.
+//! with two exceptions that need no permit: the asleep face ([`asleep`], #712),
+//! which says only that the lamp cannot hear, and the setup light ([`setup`],
+//! #806), shown only while the lamp is not set up and no voice runs.
 //! Its separate physical-mute indication accepts only fresh denied authority and
 //! a matching physical observation; that path can render only a dim red breath.
 //! An owning worker must drain priority control messages before calling `show`
@@ -14,6 +15,7 @@ use std::{fmt, io};
 
 pub mod asleep;
 mod privacy;
+pub mod setup;
 pub use privacy::PrivacyObservation;
 
 #[cfg(target_os = "linux")]

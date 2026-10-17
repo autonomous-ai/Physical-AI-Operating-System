@@ -384,7 +384,8 @@ As root, on a lamp with the base image (`crates/update/src/install.rs`):
    install (lamp-4ace's own pins), is the lamp's: it is kept, and said
    (`kept /etc/lampOS/controls/controls-pins.json: …`). With `--setup on`
    (off unless set), setup's two settings are among them, exactly the setup
-   crate's `fixtures/serve-own-page.json` (setup's own page on port 80) and
+   crate's `fixtures/serve-own-page.json` (setup's own page on port 80, with
+   the setup light on the ring) and
    `fixtures/reset-plan-product.json` (the reset stops `lampos.target`, there
    being no keeper). Which key setup takes and whether a reset wipes it are
    setup's (#806; the owner's 16:13 decision: setup takes the user's, a reset

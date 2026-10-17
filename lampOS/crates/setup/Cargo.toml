@@ -17,12 +17,15 @@ path = "src/main.rs"
 lamp-ipc = { path = "../ipc" }
 lamp-bus = { path = "../bus" }
 lamp-msgs = { path = "../msgs" }
+# The setup light (src/light.rs): the ring's own setup writer, no permit.
+lamp-ring = { path = "../ring" }
 serde.workspace = true
 serde_json.workspace = true
 rustix = { version = "=1.1.5", features = ["fs", "process", "system"] }
 # The same HTTP stack as lamp-surround: one small server, one thread.
 axum = { version = "=0.8.9", default-features = false, features = ["http1", "json", "tokio"] }
-tokio = { version = "1", features = ["rt", "net", "time"] }
+# `signal` and `macros`: a stop ends serving as its end does (src/main.rs).
+tokio = { version = "1", features = ["rt", "net", "time", "signal", "macros"] }
 # V1's TLS reach of the Internet when ping is blocked. The same features as
 # lamp-gemini and lamp-policy, so one rustls is built for all of them.
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }

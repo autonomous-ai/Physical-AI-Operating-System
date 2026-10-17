@@ -2055,6 +2055,7 @@ dependencies = [
  "lamp-bus",
  "lamp-ipc",
  "lamp-msgs",
+ "lamp-ring",
  "rustix",
  "rustls",
  "serde",

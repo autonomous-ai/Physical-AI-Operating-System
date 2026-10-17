@@ -1,5 +1,6 @@
 //! A lamp's first boot and its way back there (#806, `docs/setup.md`).
 pub mod http;
+pub mod light;
 pub mod reset;
 pub mod scan;
 pub mod serve;

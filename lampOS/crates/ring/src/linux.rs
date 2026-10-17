@@ -16,7 +16,7 @@ pub struct SpiConfiguration {
     pub mode_bits: u32,
 }
 
-/// Construct only through `open` or `open_asleep`; the device handle cannot be borrowed for an
+/// Construct only through `open`, `open_asleep` or `open_setup`; the device handle cannot be borrowed for an
 /// unguarded public write. The advisory lock excludes cooperating lampOS owners;
 /// legacy services and other writers must also be stopped by the supervisor.
 pub struct SpiSink {
@@ -50,6 +50,15 @@ pub fn open(controller_boot: BootId) -> io::Result<(GuardedRing<SpiSink>, SpiCon
 pub fn open_asleep() -> io::Result<crate::asleep::AsleepRing<SpiSink>> {
     let (device, _) = open_device()?;
     crate::asleep::AsleepRing::new(SpiSink { device })
+}
+
+/// Open the same device, locked and configured as [`open`] does, for the
+/// setup light alone ([`crate::setup`]). It sends black first. While it is
+/// open the voice's ring worker cannot lock the device, so `lamp-setup`
+/// closes it before the lamp starts.
+pub fn open_setup() -> io::Result<crate::setup::SetupRing<SpiSink>> {
+    let (device, _) = open_device()?;
+    crate::setup::SetupRing::new(SpiSink { device })
 }
 
 fn open_device() -> io::Result<(Spidev, SpiConfiguration)> {

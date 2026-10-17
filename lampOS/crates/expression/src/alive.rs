@@ -913,19 +913,22 @@ impl Life {
     pub(crate) fn voice_mute(&mut self, stamp_us: u64, mute: &VoiceMute) {
         self.voice_said = Some((stamp_us, mute.asleep()));
         let muted = mute.muted && !mute.asleep();
-        // Opened just after a tap: that tap cleared the mute (the restart
-        // guard's, `LAMP_RESTORED_MUTE`), and it is answered now, as any tap
-        // on an open lamp is.
-        let tapped = self.tapped_muted_us.take();
-        if self.voice_muted
-            && !muted
-            && !self.privacy_muted
-            && tapped.is_some_and(|at| stamp_us.saturating_sub(at) < TAP_OPENS_US)
-        {
-            if self.asleep() {
-                self.called = true;
-            } else {
-                self.looking_until_us = Some(stamp_us + LOOK_UP_FOR_US);
+        let recent = |at: u64| stamp_us.saturating_sub(at) < TAP_OPENS_US;
+        if muted {
+            // Still muted, said every second: the mark waits for the word
+            // that opens, and only ages out (the reviewer on #1282).
+            self.tapped_muted_us = self.tapped_muted_us.filter(|at| recent(*at));
+        } else {
+            // Opened just after a tap: that tap cleared the mute (the
+            // restart guard's, `LAMP_RESTORED_MUTE`), and it is answered
+            // now, as any tap on an open lamp is.
+            let tapped = self.tapped_muted_us.take();
+            if self.voice_muted && !self.privacy_muted && tapped.is_some_and(recent) {
+                if self.asleep() {
+                    self.called = true;
+                } else {
+                    self.looking_until_us = Some(stamp_us + LOOK_UP_FOR_US);
+                }
             }
         }
         self.voice_muted = muted;

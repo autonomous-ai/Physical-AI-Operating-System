@@ -1836,6 +1836,12 @@ mod head {
         }
         tapped.head(TouchGesture::Tap, 5, 200_000);
         looks(&mut tapped, &mut plain, 5);
+        // The voice's once-a-second "still muted" between the tap and the
+        // open uses nothing up (the reviewer on #1282).
+        for lamp in [&mut tapped, &mut plain] {
+            lamp.mute(true, false);
+        }
+        looks(&mut tapped, &mut plain, 5);
         for lamp in [&mut tapped, &mut plain] {
             lamp.mute(false, false);
         }

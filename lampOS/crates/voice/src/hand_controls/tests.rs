@@ -1399,6 +1399,62 @@ mod live_bus {
         }
     }
 
+    /// A message the pump refuses is a look that found something, as one it
+    /// takes is: the good one behind it is read in the same pass, not a
+    /// tick later. Only a look at an empty socket is `Empty`.
+    #[test]
+    fn a_refused_message_is_read_and_so_is_the_good_one_behind_it() {
+        let directory = Directory::new();
+        let bus = Bus::new(directory.0.join("b"))
+            .unwrap()
+            .rescan_every(Duration::from_millis(5));
+        let mut subscriber = bus
+            .subscribe_typed(ControlsState::TOPIC, SUBSCRIBER, ControlsState::TYPE)
+            .unwrap();
+        let mut publisher = bus
+            .publisher_declared(
+                ControlsState::TOPIC,
+                &ControlsState::declaration(),
+                "controls",
+            )
+            .unwrap();
+        let clock_id = lamp_controls::runtime::clock_id(None).unwrap();
+        let (sender, _input) = mpsc::sync_channel(QUEUE_CAPACITY);
+        let shared = Shared::default();
+        let mut sequence = 0;
+        // Until the subscriber is found, and then nothing is left.
+        let deadline = Instant::now() + Duration::from_secs(2);
+        loop {
+            publish(&mut publisher, &clock_id, &mut sequence, None);
+            thread::sleep(Duration::from_millis(10));
+            let read = read_one(&mut subscriber, Topic::State, &sender, &shared).unwrap();
+            if read == Pumped::Read {
+                break;
+            }
+            assert!(Instant::now() < deadline, "never delivered");
+        }
+        while read_one(&mut subscriber, Topic::State, &sender, &shared).unwrap() != Pumped::Empty {}
+        let (received, rejected) = (
+            shared.received.load(Ordering::Relaxed),
+            shared.rejected.load(Ordering::Relaxed),
+        );
+
+        publisher
+            .publish_json(
+                lamp_ipc::monotonic_us(),
+                &serde_json::json!({"not": "a state"}),
+            )
+            .unwrap();
+        publish(&mut publisher, &clock_id, &mut sequence, None);
+        thread::sleep(Duration::from_millis(20));
+        let looks: Vec<_> = (0..3)
+            .map(|_| read_one(&mut subscriber, Topic::State, &sender, &shared).unwrap())
+            .collect();
+        assert_eq!(looks, [Pumped::Read, Pumped::Read, Pumped::Empty]);
+        assert_eq!(shared.rejected.load(Ordering::Relaxed), rejected + 1);
+        assert_eq!(shared.received.load(Ordering::Relaxed), received + 1);
+    }
+
     #[test]
     fn actual_bus_pump_restarts_publisher_fences_old_owner_and_keeps_mute() {
         let directory = Directory::new();
@@ -1580,6 +1636,7 @@ fn the_pump_looks_once_a_pass_when_idle_and_drains_a_burst() {
 /// `/proc/self/task`. A measure, not a check: run with `--ignored
 /// --nocapture`, on the host or a lamp.
 #[test]
+#[cfg(target_os = "linux")]
 #[ignore = "a 10 s measure of the idle pump's CPU, on the real clock"]
 fn measure_the_idle_pumps_cpu() {
     let directory = Directory::new();

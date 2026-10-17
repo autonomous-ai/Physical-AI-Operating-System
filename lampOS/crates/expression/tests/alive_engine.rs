@@ -1770,6 +1770,117 @@ mod head {
         assert!(named(&woken, "waking") && !named(&woken, "looking up at a tap"));
     }
 
+    /// First on #711, 17 Oct 10:18: muted for privacy, by the voice's own
+    /// mute or by the privacy switch, a tap gets no look up, since looking
+    /// up says "I'm listening". Open again, it looks up as before. A mute
+    /// that begins while it looks up ends the look. The voice's sleep is
+    /// not this: a tap still wakes it (above).
+    #[test]
+    fn muted_for_privacy_a_tap_gets_no_look_up() {
+        let none = |looked: &[(f64, f64, bool)]| {
+            looked
+                .iter()
+                .all(|(up, yaw, named)| !named && *up == 0.0 && *yaw == 0.0)
+        };
+        // The voice's own mute.
+        let (mut tapped, mut plain) = twins(vec![]);
+        for lamp in [&mut tapped, &mut plain] {
+            lamp.mute(true, false);
+        }
+        tapped.head(TouchGesture::Tap, 5, 200_000);
+        let looked = looks(&mut tapped, &mut plain, 20);
+        assert!(none(&looked), "{looked:?}");
+        // The privacy switch closed, as `voice/privacy` said at the tap.
+        let (mut tapped, mut plain) = twins(vec![]);
+        tapped.engine.set_privacy_muted(true);
+        tapped.head(TouchGesture::Tap, 5, 200_000);
+        let looked = looks(&mut tapped, &mut plain, 20);
+        assert!(none(&looked), "{looked:?}");
+        // Open again: a tap looks up as before.
+        tapped.engine.set_privacy_muted(false);
+        tapped.head(TouchGesture::Tap, 6, 200_000);
+        let up = looks(&mut tapped, &mut plain, 20);
+        assert!(up.iter().all(|(_, _, named)| *named), "{up:?}");
+        // Muted while it looks up: down, eased, and no longer looking.
+        for lamp in [&mut tapped, &mut plain] {
+            lamp.mute(true, false);
+        }
+        let ended = looks(&mut tapped, &mut plain, 30);
+        assert!(ended[29].0.abs() < 1e-9 && !ended[29].2, "{ended:?}");
+    }
+
+    /// The reviewer on #1282: the voice's mute holds until the voice says
+    /// it is open, however long it goes unsaid (a voice ending or
+    /// restarting while muted never reads as open).
+    #[test]
+    fn the_voices_mute_holds_until_it_says_open() {
+        let (mut tapped, mut plain) = twins(vec![]);
+        for lamp in [&mut tapped, &mut plain] {
+            lamp.mute(true, false);
+            lamp.run(5 * SECOND, |_, _| {});
+        }
+        tapped.head(TouchGesture::Tap, 5, 200_000);
+        let looked = looks(&mut tapped, &mut plain, 20);
+        assert!(looked.iter().all(|(_, _, named)| !named), "{looked:?}");
+    }
+
+    /// The seventh on #1282: the tap that clears the voice's mute (the
+    /// restart guard's, `LAMP_RESTORED_MUTE`) gets its look up once the
+    /// voice says it is open. A mute opened later than that, by something
+    /// else, gives no look up for an old tap.
+    #[test]
+    fn the_tap_that_clears_a_mute_looks_up_once_it_is_open() {
+        let (mut tapped, mut plain) = twins(vec![]);
+        for lamp in [&mut tapped, &mut plain] {
+            lamp.mute(true, false);
+        }
+        tapped.head(TouchGesture::Tap, 5, 200_000);
+        looks(&mut tapped, &mut plain, 5);
+        // The voice's once-a-second "still muted" between the tap and the
+        // open uses nothing up (the reviewer on #1282).
+        for lamp in [&mut tapped, &mut plain] {
+            lamp.mute(true, false);
+        }
+        looks(&mut tapped, &mut plain, 5);
+        for lamp in [&mut tapped, &mut plain] {
+            lamp.mute(false, false);
+        }
+        let up = looks(&mut tapped, &mut plain, 20);
+        assert!(up.iter().all(|(_, _, named)| *named), "{up:?}");
+        // Muted again, a tap, and the mute opened only 2 s later.
+        let (mut tapped, mut plain) = twins(vec![]);
+        for lamp in [&mut tapped, &mut plain] {
+            lamp.mute(true, false);
+        }
+        tapped.head(TouchGesture::Tap, 6, 200_000);
+        looks(&mut tapped, &mut plain, 100);
+        for lamp in [&mut tapped, &mut plain] {
+            lamp.mute(false, false);
+        }
+        let late = looks(&mut tapped, &mut plain, 20);
+        assert!(late.iter().all(|(_, _, named)| !named), "{late:?}");
+    }
+
+    /// The same tap does not wake a lamp asleep while it is muted for
+    /// privacy: waking moves it, and nothing moves. Open again, it does.
+    #[test]
+    fn muted_for_privacy_a_tap_does_not_wake_it() {
+        let mut lamp = Lamp::new(catalogue());
+        lamp.run(10 * SECOND, |_, _| {});
+        lamp.hand(Some((9, 3_000_000)));
+        lamp.head(TouchGesture::Hold, 9, 3_000_000);
+        let asleep = lamp.with_hand(None, SECOND);
+        assert!(named(&asleep, "falling asleep"), "{:?}", asleep.state);
+        lamp.engine.set_privacy_muted(true);
+        lamp.head(TouchGesture::Tap, 11, 200_000);
+        let still = lamp.with_hand(None, 300_000);
+        assert!(!named(&still, "waking"), "{:?}", still.state);
+        lamp.engine.set_privacy_muted(false);
+        lamp.head(TouchGesture::Tap, 12, 200_000);
+        let woken = lamp.with_hand(None, 100_000);
+        assert!(named(&woken, "waking"), "{:?}", woken.state);
+    }
+
     #[test]
     fn a_request_not_enabled_or_from_elsewhere_does_nothing() {
         let mut lamp = Lamp::new(catalogue());

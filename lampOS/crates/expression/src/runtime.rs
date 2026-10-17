@@ -59,6 +59,21 @@ pub fn offline_in(message: Option<lamp_bus::Message>) -> bool {
         .is_some_and(|online| online.online == Some(false))
 }
 
+/// Whether the last `voice/privacy` said is the privacy switch closed: a
+/// valid lease with `physical_muted` true, or unknown (the lamp can't
+/// listen then either), however late, so a held-up or restarting sender
+/// never reads as open (the reviewer on #1282). Only never said, said
+/// open, or a lease that fails its check is not closed. Read at each request
+/// from the head and at each step of a look up, never subscribed: the lease
+/// is said every 10 ms (#711). Only the Controls privacy route
+/// (`LAMP_PRIVACY_CONTROLS=on`) says it at all.
+pub fn privacy_muted_in(message: Option<lamp_bus::Message>) -> bool {
+    message
+        .and_then(|message| message.parse::<lamp_msgs::MicrophonePrivacy>().ok())
+        .filter(|lease| lease.check().is_ok())
+        .is_some_and(|lease| lease.physical_muted != Some(false))
+}
+
 /// How often the live service tells the planner the local time of day.
 pub const DAYTIME_EVERY_US: u64 = 60_000_000;
 const DRAIN_LIMIT: usize = 32;
@@ -340,6 +355,9 @@ pub struct Service {
     /// Reads `lamp/online` once a second for the listening face
     /// (`--offline-face`, #830), and when it last did.
     online: Option<(Bus, Option<u64>)>,
+    /// With `--head-touch`, where `voice/privacy` is read at each request
+    /// from the head: a closed privacy switch is no look up (#711).
+    privacy: Option<Bus>,
     /// The clock was last found not set: said once until it is.
     clock_unset: bool,
     /// The keeper's pause (`lamp/pause`), read as the body reads it: paused,
@@ -401,6 +419,7 @@ impl Service {
             last_daytime: None,
             clock_set: None,
             online: None,
+            privacy: None,
             clock_unset: false,
             pause: lamp_body::pause_in::PauseIn::on(bus.clone()),
             paused: false,
@@ -418,6 +437,7 @@ impl Service {
             self.inputs
                 .push(bus.subscribe_typed(topic, "expression", kind)?);
         }
+        self.privacy = Some(bus.clone());
         Ok(self)
     }
 
@@ -518,6 +538,15 @@ impl Service {
                     }
                 };
                 self.sequence = self.sequence.saturating_add(1);
+                // A request from the head is weighed with the privacy
+                // switch as it is now (#711).
+                if message.header.topic == TouchEvent::TOPIC
+                    && let Some(bus) = &self.privacy
+                {
+                    let latest = bus.latest(lamp_msgs::MicrophonePrivacy::TOPIC);
+                    self.engine
+                        .set_privacy_muted(privacy_muted_in(latest.ok().flatten()));
+                }
                 let received = now();
                 // The wall sample belongs to `began`, not this later receive.
                 // Slow draining must age observations rather than renew them.
@@ -551,6 +580,14 @@ impl Service {
                     }
                 }
             }
+        }
+        // A look up at a tap ends when the switch closes under it (#711).
+        if self.engine.looking_up()
+            && let Some(bus) = &self.privacy
+        {
+            let latest = bus.latest(lamp_msgs::MicrophonePrivacy::TOPIC);
+            self.engine
+                .set_privacy_muted(privacy_muted_in(latest.ok().flatten()));
         }
         let at_us = now();
         let mut output = self.engine.tick(at_us);

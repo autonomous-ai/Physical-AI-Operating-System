@@ -184,6 +184,36 @@ Off unless `lamp-expression serve --head-touch`, and Controls runs with
     the hum plays (17 Oct).
   - **Only:** awake, with the body free, and not while the lamp thinks or
     speaks.
+  - **Never while muted for privacy** (First on #711, 17 Oct 10:18). Looking
+    up says "I'm listening", which a muted lamp must not seem to do. Such a
+    tap neither looks up nor wakes a lamp asleep. A mute that begins while
+    it looks up ends the look, eased as usual. Muted means either of these:
+    - **The voice's own mute:** `voice/mute` muted, not `sleep`. The
+      voice's sleep is not this: a tap still wakes it.
+    - **The privacy switch closed:** `voice/privacy` with `physical_muted`.
+      Only the Controls privacy route (`LAMP_PRIVACY_CONTROLS=on`) says
+      `voice/privacy`, and `voice/mute` leaves the switch out. So with the
+      route off, on every lamp today, a closed switch still gets a look-up
+      (the reviewer on #1282).
+    - **Read without subscribing:** the lease is said every 10 ms, so it is
+      read once at each request from the head and at each step of a look.
+    - **The last word holds**, however late, until a word replaces it. So a
+      sender that stops, or a voice ending or restarting while muted, never
+      reads as open. A switch said unknown counts as closed, since the lamp
+      can't listen then either. Only never said, said open, or a lease that
+      fails its check counts as open.
+    - **The tap that clears the voice's mute** (the restart guard's,
+      `LAMP_RESTORED_MUTE`, `controls.md`) gets its look-up, or wakes the
+      lamp, once the voice says it is open, within `TAP_OPENS_US` (1.5 s)
+      of the tap (the seventh on #1282). The voice's once-a-second "still
+      muted" in between uses nothing up.
+    - **Tests:** `alive_engine`'s `muted_for_privacy_a_tap_gets_no_look_up`,
+      `muted_for_privacy_a_tap_does_not_wake_it`,
+      `the_voices_mute_holds_until_it_says_open` and
+      `the_tap_that_clears_a_mute_looks_up_once_it_is_open`. Through the
+      bus, `runtime`'s `a_tap_while_the_privacy_switch_is_closed_gets_no_look_up`
+      and `the_switch_closed_mid_look_ends_it`, and its reader,
+      `a_closed_switch_reads_from_the_last_valid_privacy_lease_said`.
   - **Only the head:** never a turn of the body, so it sends no gaze, which
     would turn the base.
 - Nothing else: a request not enabled, or not from the head, does nothing.

@@ -367,7 +367,8 @@ legacy observation age; it does not convert transcripts into audio timing.
 | `schedule/due` / `ScheduleDue` | Schedule: with an `alive` part, a notice newly due wakes a sleeping lamp, once for each delivery |
 | The local time of day (not a topic) | `serve --zone system` or `--utc-offset-minutes N` itself, at start and every minute; `import` with either, from a recording's wall clock. Only sleep reads it |
 | `controls/touch`, `controls/touch_state` | Only with `serve --head-touch`: the head's Stroke, Hold and Tap, and whether that hand is still there (#711) |
-| `voice/mute` / `VoiceMute` | Only with `serve --head-touch`: asleep while the voice's mute says `sleep`, awake when it opens; kept 3 s ([alive.md](alive.md), "The head"; #711) |
+| `voice/mute` / `VoiceMute` | Only with `serve --head-touch`: asleep while the voice's mute says `sleep`, awake when it opens; muted (not `sleep`), a tap gets no look up, until it says open, however late; kept 3 s for sleep ([alive.md](alive.md), "The head"; #711) |
+| `voice/privacy` / `MicrophonePrivacy` | Only with `serve --head-touch`, read at each request from the head and at each step of a look up, never subscribed: the last valid lease with `physical_muted` true, however late, is the privacy switch closed, and a tap gets no look up. Said only on the Controls privacy route (`LAMP_PRIVACY_CONTROLS=on`) ([alive.md](alive.md); #711) |
 | `light/command` | Actions: the user's lasting on/color/level setting. No light request is emitted before a valid setting is known |
 
 The existing `voice/state` does not carry the private BodyLink's pre-audio

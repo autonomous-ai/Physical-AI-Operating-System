@@ -469,6 +469,8 @@ mod sleep_name {
         room: Publisher,
         name: Publisher,
         activity: Publisher,
+        /// With `serve --head-touch`: the head's requests and `voice/privacy`.
+        head: Option<(Publisher, Publisher)>,
         now_us: u64,
         state: Voice,
         _root: Root,
@@ -480,6 +482,11 @@ mod sleep_name {
         }
 
         fn with(change: fn(runtime::Service) -> runtime::Service) -> Self {
+            Self::with_head(change, false)
+        }
+
+        /// As [`Self::with`], and with `serve --head-touch` when `head`.
+        fn with_head(change: fn(runtime::Service) -> runtime::Service, head: bool) -> Self {
             let root = Root::new();
             let bus = Bus::new(&root.0).unwrap();
             let mut catalogue =
@@ -491,11 +498,13 @@ mod sleep_name {
             // The bus still supplies real publication wall times. Select a
             // night-time offset without changing those envelope timestamps.
             let offset = 23 * 60 + 30 - i32::from(runtime::minute_of_day(runtime::unix_ms(), 0));
-            let service = change(
-                runtime::Service::new(&bus, catalogue, true, "test")
-                    .unwrap()
-                    .with_local_time(offset),
-            );
+            let mut service = runtime::Service::new(&bus, catalogue, true, "test")
+                .unwrap()
+                .with_local_time(offset);
+            if head {
+                service = service.with_head_touch(&bus).unwrap();
+            }
+            let service = change(service);
             bus.publisher_declared(Light::TOPICS[0], &Light::declaration(), "actions")
                 .unwrap()
                 .publish_json(987_654_321, &Light::new(true, "warm", 1).unwrap())
@@ -528,10 +537,86 @@ mod sleep_name {
                         "voice",
                     )
                     .unwrap(),
+                head: head.then(|| {
+                    (
+                        bus.publisher_declared(
+                            lamp_msgs::TouchEvent::TOPIC,
+                            &lamp_msgs::TouchEvent::declaration(),
+                            "controls",
+                        )
+                        .unwrap(),
+                        bus.publisher_declared(
+                            lamp_msgs::MicrophonePrivacy::TOPIC,
+                            &lamp_msgs::MicrophonePrivacy::declaration(),
+                            "voice",
+                        )
+                        .unwrap(),
+                    )
+                }),
                 now_us: START_US,
                 state: Voice::Resting,
                 _root: root,
             }
+        }
+
+        /// `voice/privacy` with the switch closed or open, read at the next
+        /// look.
+        fn switch(&mut self, closed: bool) {
+            let at = self.now_us;
+            let (_, privacy) = self.head.as_mut().expect("with the head");
+            let lease = lamp_msgs::MicrophonePrivacy {
+                stamp: ClockStamp {
+                    clock_id: "test".into(),
+                    at_us: at,
+                    sequence: at,
+                },
+                session_id: "0123456789abcdef".into(),
+                controller_boot: "0123456789abcdef0123456789abcdef".into(),
+                microphone_generation: 1,
+                observed_us: at - 10_000,
+                expires_at_us: at + 30_000,
+                permitted: false,
+                physical_muted: Some(closed),
+            };
+            lease.check().unwrap();
+            privacy.publish_json(987_654_321, &lease).unwrap();
+        }
+
+        /// [`Self::switch`], then a tap on the head, both read at the next
+        /// step.
+        fn tap_with_switch(&mut self, closed: bool) {
+            self.switch(closed);
+            let at = self.now_us;
+            let (taps, _) = self.head.as_mut().expect("with the head");
+            let stamp = ClockStamp {
+                clock_id: "test".into(),
+                at_us: at,
+                sequence: at,
+            };
+            let tap = lamp_msgs::TouchEvent {
+                stamp,
+                session_id: "controls-one".into(),
+                reader_session_id: "gpio".into(),
+                enabled: true,
+                source: lamp_msgs::TouchSource::Head,
+                name: "head".into(),
+                contact_id: at,
+                gesture: lamp_msgs::TouchGesture::Tap,
+                when_speaking: lamp_msgs::TouchIntent::Attend,
+                when_quiet: lamp_msgs::TouchIntent::Attend,
+                when_asleep: Some(lamp_msgs::TouchIntent::Wake),
+                began_us: at - 300_000,
+                observed_us: at,
+                released_us: Some(at - 150_000),
+                active_mask: 0,
+                active_names: vec![],
+                position: None,
+                toward_pad: None,
+                distance: 0.0,
+                speed: 0.0,
+            };
+            tap.check().unwrap();
+            assert_eq!(taps.publish_json(987_654_321, &tap).unwrap().delivered, 1);
         }
 
         fn step(&mut self) -> Output {
@@ -624,6 +709,42 @@ mod sleep_name {
 
     fn has(output: &Output, behaviour: &str) -> bool {
         output.state.behaviours.iter().any(|name| name == behaviour)
+    }
+
+    /// #711 (First, 17 Oct 10:18): through the bus, a tap on the head is
+    /// weighed with `voice/privacy` as it is at that tap. Closed, no look
+    /// up; open, the look up as before.
+    #[test]
+    fn a_tap_while_the_privacy_switch_is_closed_gets_no_look_up() {
+        for closed in [false, true] {
+            let mut lamp = SleepingService::with_head(|service| service, true);
+            for _ in 0..5 {
+                lamp.step();
+            }
+            lamp.tap_with_switch(closed);
+            let looked = (0..5).any(|_| has(&lamp.step(), "looking up at a tap"));
+            assert_eq!(looked, !closed, "closed: {closed}");
+        }
+    }
+
+    /// The reviewer and the seventh on #1282: the switch closed while it
+    /// looks up ends the look, since the switch is read at each step of a
+    /// look; it is down well before the look's own 2 s.
+    #[test]
+    fn the_switch_closed_mid_look_ends_it() {
+        let mut lamp = SleepingService::with_head(|service| service, true);
+        for _ in 0..5 {
+            lamp.step();
+        }
+        lamp.tap_with_switch(false);
+        assert!(has(&lamp.step(), "looking up at a tap"));
+        lamp.switch(true);
+        // Eased out over half a second (`LOOK_UP_OUT_US`), three 200 ms
+        // steps; left alone, the look would hold to its 2 s.
+        let steps = (0..20)
+            .position(|_| !has(&lamp.step(), "looking up at a tap"))
+            .expect("the look ended");
+        assert!(steps <= 4, "{steps}");
     }
 
     #[test]
@@ -830,6 +951,61 @@ fn only_a_service_with_the_offline_face_draws_listening_unavailable_when_offline
     };
     assert_eq!(face(false), lamp_msgs::ExpressionFace::Listening);
     assert_eq!(face(true), lamp_msgs::ExpressionFace::Unavailable);
+}
+
+/// #711: with `--head-touch`, a request from the head is weighed with the
+/// last valid `voice/privacy` said: closed or unknown counts however late
+/// (a held-up or restarting sender never reads as open, the reviewer on
+/// #1282); open or nothing ever said does not.
+#[test]
+fn a_closed_switch_reads_from_the_last_valid_privacy_lease_said() {
+    let root = Root::new();
+    let bus = Bus::new(&root.0).unwrap();
+    let latest = || bus.latest(lamp_msgs::MicrophonePrivacy::TOPIC).unwrap();
+    assert!(!runtime::privacy_muted_in(latest()));
+    let mut out = bus
+        .publisher_declared(
+            lamp_msgs::MicrophonePrivacy::TOPIC,
+            &lamp_msgs::MicrophonePrivacy::declaration(),
+            "voice",
+        )
+        .unwrap();
+    let lease = |sequence, physical_muted: Option<bool>| lamp_msgs::MicrophonePrivacy {
+        stamp: ClockStamp {
+            clock_id: "boot".into(),
+            at_us: 1_000_000,
+            sequence,
+        },
+        session_id: "0123456789abcdef".into(),
+        controller_boot: "0123456789abcdef0123456789abcdef".into(),
+        microphone_generation: 1,
+        observed_us: if physical_muted.is_some() { 990_000 } else { 0 },
+        expires_at_us: 1_030_000,
+        permitted: false,
+        physical_muted,
+    };
+    for (sequence, physical_muted, closed) in [
+        (1, Some(true), true),
+        (2, Some(false), false),
+        (3, None, true),
+    ] {
+        let said = lease(sequence, physical_muted);
+        said.check().unwrap();
+        out.publish_json(sequence, &said).unwrap();
+        assert_eq!(
+            runtime::privacy_muted_in(latest()),
+            closed,
+            "{physical_muted:?}"
+        );
+    }
+    // Closed, then past the lease's 50 ms and the bus's 50 ms of grace:
+    // still closed, until an open one replaces it.
+    out.publish_json(4, &lease(4, Some(true))).unwrap();
+    std::thread::sleep(std::time::Duration::from_millis(150));
+    assert!(latest().unwrap().expired);
+    assert!(runtime::privacy_muted_in(latest()));
+    out.publish_json(5, &lease(5, Some(false))).unwrap();
+    assert!(!runtime::privacy_muted_in(latest()));
 }
 
 /// #830: `--offline-face` reads `lamp/online`: only a fresh, valid "offline"

@@ -185,7 +185,7 @@ lamp-4ace becomes the product's default, so the product takes lamp-4ace's
 set, but for `LAMP_SPEAK_FIRST`: the product's hello is the Welcome back
 skill (`lamp-skills`, #811), spoken through the voice's say service, so the
 voice's own hello is off, as lamp-4ace now has it too. Expression's catalogue differs too (`expression-alive-name-speech` on
-lamp-4ace, `expression-alive` on lamp-52e6): the product takes lamp-4ace's.
+lamp-4ace, `expression-alive` on lamp-52e6): the product takes lamp-4ace's, plus the `speaking` section (#933): the nods on stressed words, the base's sway between sentences (#1067) and the settle at the end, which no catalogue in `deploy/` had, so a product lamp only leaned while it spoke (the body's lean, #1010, needs no catalogue). `speaking_engine`'s `the_products_catalogue_nods_sways_and_settles_as_the_alive_one_does` holds the product's to the alive catalogue's.
 
 **Neither: the person's.** The time zone: `--utc-offset-minutes 420` in
 memory and Expression, `--zone Asia/Ho_Chi_Minh` in schedule. Setup writes

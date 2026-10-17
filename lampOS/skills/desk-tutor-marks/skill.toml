@@ -9,12 +9,14 @@ tool = "show_verdict"
 
 [choice]
 name = "verdict"
-about = "right: every line you could read is right. wrong: you are about to point to the first line that goes wrong. Always give one."
+about = "right: you read the whole page and every line is right. wrong: you are about to point to the first line that goes wrong. Always give one."
 one_of = ["right", "wrong"]
 
 # The gesture at once, as the model begins its answer: V1's short nod
 # (acknowledge, about 2 s) or its tilt (curious, 3 s), each over the
-# reading pose Desk tutor holds. The note sends the model on to answer.
+# reading pose Desk tutor holds. The note sends the model on to answer;
+# a skill has one note, so it fits both verdicts and never asks for a
+# mistake in work that is right (the seventh on #1260).
 [[do]]
 body = { gesture = { right = ["acknowledge"], wrong = ["curious"] } }
-say = "Now answer as the tutor: what is right in a few words, then the first line that goes wrong with a hint or a question."
+say = "Now answer as the tutor, in a sentence or two: what is right, and, if a line goes wrong, that line with a hint or a question, never the answer."

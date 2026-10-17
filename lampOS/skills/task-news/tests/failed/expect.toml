@@ -1,0 +1,17 @@
+# Someone in view at 39 s. Task 3 (codex) is working at 10 s and is in
+# `settled` as failed at 40 s: sad's droop, the light a step dimmer, and the news, asked
+# of the voice. No look and no colour: never a red ring.
+[[expect]]
+at = "40s"
+call = "body.gesture"
+args = { gesture = "caring" }
+
+[[expect]]
+at = "40s"
+call = "light"
+args = { dim = 1 }
+
+[[expect]]
+at = "40s"
+call = "say"
+args = { from = "tasks", task = 3 }

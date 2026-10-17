@@ -3744,3 +3744,546 @@ fn a_held_run_ends_when_its_trigger_value_expires_or_its_topic_goes_silent() {
         assert!(engine.tick((29 + ends_after + 5) * MINUTE).is_empty());
     }
 }
+
+/// Task news (#1021) with `LAMP_SKILLS_ASK` not set, as the program answers
+/// with neither the skip nor the Policy's gate (#958): each done is asked
+/// about on its own, and nothing is done.
+#[test]
+fn task_news_the_policy_declines_does_nothing_and_asks_once_a_task() {
+    let skill = load(&skills_root().join("task-news")).unwrap();
+    let mut engine = Engine::new(vec![skill], false);
+    let case = skills_root().join("task-news/tests/two-done-in-a-row");
+    let mut runs = Vec::new();
+    for message in read_recordings(&case).unwrap() {
+        runs.extend(engine.observe(
+            &message.header.topic,
+            message.header.at_us,
+            &message.payload,
+            message.header.expires_ms,
+        ));
+    }
+    // Tasks 4, 5, 6 and 8: four asks, four refusals, no call.
+    assert_eq!(runs.len(), 4);
+    for run in &runs {
+        assert!(run.calls.is_empty());
+        assert!(run.queue);
+        assert_eq!(
+            stages(&run.events),
+            [
+                SkillStage::Triggered,
+                SkillStage::Asked,
+                SkillStage::Answered
+            ]
+        );
+        assert_eq!(run.events[1].why, "policy news");
+        assert_eq!(run.events[2].allowed, Some(false));
+        run.events.iter().for_each(|event| event.check().unwrap());
+    }
+    assert!(
+        runs[0].events[0]
+            .why
+            .contains("task 4 of settled on tasks/status"),
+        "{}",
+        runs[0].events[0].why
+    );
+}
+
+/// A list's items, each on its own, and steps by the trigger that fired.
+const BY_ITEM: &str = r#"
+[[trigger]]
+name = "done"
+topic = "tasks/status"
+each = "tasks"
+key = "task"
+field = "state"
+equals = "idle"
+when = "appears"
+[[trigger]]
+name = "failed"
+topic = "tasks/status"
+each = "tasks"
+key = "task"
+field = "state"
+equals = "failed"
+when = "appears"
+[ask]
+policy = "news"
+[[do]]
+body = { gesture = "nod" }
+[[do]]
+on = "done"
+say = { from = "tasks" }
+[[do]]
+on = "failed"
+light = { dim = 1 }
+say = "It failed."
+"#;
+
+/// A `tasks/status` with these tasks and states.
+fn tasks(list: &[(u64, &str)]) -> String {
+    let tasks: Vec<String> = list
+        .iter()
+        .map(|(task, state)| format!(r#"{{"task":{task},"engine":"claude","state":"{state}"}}"#))
+        .collect();
+    format!(r#"{{"tasks":[{}]}}"#, tasks.join(","))
+}
+
+#[test]
+fn each_item_of_a_list_on_its_own_and_steps_by_the_trigger_that_fired() {
+    let dir = tempfile::tempdir().unwrap();
+    let skill = skill_with(dir.path(), "news", BY_ITEM);
+    let (a, b, c, d, e) = (
+        tasks(&[(1, "idle"), (2, "working")]),
+        tasks(&[(1, "idle"), (2, "working"), (3, "working")]),
+        tasks(&[(2, "idle"), (3, "failed")]),
+        tasks(&[(2, "idle")]),
+        tasks(&[(2, "working"), (3, "idle")]),
+    );
+    let runs = runs_at(
+        &skill,
+        &[
+            (0, "tasks/status", &a),
+            (10, "tasks/status", &b),
+            (20, "tasks/status", &c),
+            (30, "tasks/status", &d),
+            (40, "tasks/status", &e),
+            (50, "tasks/status", &d),
+        ],
+    );
+    let nod = Call::Gesture("nod".into());
+    // A say from what the voice keeps names the item's task (#1237).
+    let done = |task| {
+        vec![
+            nod.clone(),
+            Call::SayFrom(lamp_skills::Source::Tasks, Some(task)),
+        ]
+    };
+    let failed = vec![
+        nod.clone(),
+        Call::Dim {
+            steps: 1,
+            until_ends: false,
+        },
+        Call::Say("It failed.".into()),
+    ];
+    // Task 1, idle at the start, is not news. At 20 s task 2 is done and
+    // task 3 failed: two runs. At 40 s task 3, failed before and absent at
+    // 30 s, is idle: done. At 50 s task 2 is idle again after working.
+    assert_eq!(
+        runs,
+        [(20, done(2)), (20, failed), (40, done(3)), (50, done(2))]
+    );
+}
+
+/// `tasks/status` with these tasks in its `settled` list (#1048).
+fn settled(list: &[(u64, &str)]) -> String {
+    let settled: Vec<String> = list
+        .iter()
+        .map(|(task, state)| {
+            format!(
+                r#"{{"task":{task},"engine":"claude","state":"{state}","settled":true,"at_unix_ms":1}}"#
+            )
+        })
+        .collect();
+    format!(r#"{{"tasks":[],"settled":[{}]}}"#, settled.join(","))
+}
+
+/// fourth on #1042: every item of #1048's `settled` is first seen already
+/// settled, so an item new to the list counts; what is there at the first
+/// message since the start, or since a reload, does not.
+#[test]
+fn each_item_of_a_list_comes_or_turns_and_a_restart_or_reload_is_not_news() {
+    let dir = tempfile::tempdir().unwrap();
+    let skill = load(&skill_with(
+        dir.path(),
+        "news",
+        &BY_ITEM.replace("each = \"tasks\"", "each = \"settled\""),
+    ))
+    .unwrap();
+    let mut engine = Engine::new(vec![skill.clone()], true);
+    let mut at = 0;
+    let mut send = |engine: &mut Engine, payload: &str| -> Vec<String> {
+        at += 1_000_000;
+        engine
+            .observe("tasks/status", at, payload.as_bytes(), None)
+            .into_iter()
+            .map(|run| run.events[0].why.clone())
+            .collect()
+    };
+    let none: Vec<String> = Vec::new();
+    // The start: tasks 1 and 2 already settled are not news.
+    assert_eq!(
+        send(&mut engine, &settled(&[(1, "idle"), (2, "failed")])),
+        none
+    );
+    assert_eq!(
+        send(&mut engine, &settled(&[(1, "idle"), (2, "failed")])),
+        none
+    );
+    // Task 3 comes in done, once; task 4 as needs_input is neither.
+    let three = send(
+        &mut engine,
+        &settled(&[(1, "idle"), (2, "failed"), (3, "idle"), (4, "needs_input")]),
+    );
+    assert_eq!(three, ["task 3 of settled on tasks/status came to hold"]);
+    assert_eq!(
+        send(&mut engine, &settled(&[(3, "idle"), (4, "needs_input")])),
+        none
+    );
+    // Task 4 turns to failed in the list: news.
+    assert_eq!(
+        send(&mut engine, &settled(&[(3, "idle"), (4, "failed")])).len(),
+        1
+    );
+    // Task 3 leaves and comes back: news again.
+    assert_eq!(send(&mut engine, &settled(&[(4, "failed")])), none);
+    assert_eq!(
+        send(&mut engine, &settled(&[(3, "idle"), (4, "failed")])).len(),
+        1
+    );
+    // A reload: what was there at the reload (3, 4) is not news; the next
+    // message is the next change, so task 5 in it is told (the reviewer on
+    // #1042: a reload lost the next task's news), and so is 6 after it.
+    engine.replace(vec![skill.clone()]);
+    assert_eq!(
+        send(
+            &mut engine,
+            &settled(&[(3, "idle"), (4, "failed"), (5, "idle")])
+        ),
+        ["task 5 of settled on tasks/status came to hold"]
+    );
+    assert_eq!(
+        send(&mut engine, &settled(&[(5, "idle"), (6, "idle")])),
+        ["task 6 of settled on tasks/status came to hold"]
+    );
+    // No list at all is an empty one.
+    assert_eq!(send(&mut engine, r#"{"tasks":[]}"#), none);
+    assert_eq!(send(&mut engine, &settled(&[(6, "idle")])).len(), 1);
+    // A skill new at a reload, its topic kept already: what is there is not
+    // news, and the next change is.
+    let mut fresh = Engine::new(Vec::new(), true);
+    assert_eq!(send(&mut fresh, &settled(&[(7, "idle")])), none);
+    fresh.replace(vec![skill]);
+    assert_eq!(
+        send(&mut fresh, &settled(&[(7, "idle"), (8, "idle")])),
+        ["task 8 of settled on tasks/status came to hold"]
+    );
+}
+
+/// #1237: an item's `from = "tasks"` ask names its task, and a
+/// `from = "schedule"` ask never does, since the voice refuses `task` on it.
+#[test]
+fn an_items_tasks_ask_names_its_task_and_a_schedule_ask_does_not() {
+    let dir = tempfile::tempdir().unwrap();
+    let says = |from: &str| {
+        let skill = load(&skill_with(
+            &dir.path().join(from),
+            "news",
+            &BY_ITEM
+                .replace("each = \"tasks\"", "each = \"settled\"")
+                .replace(
+                    "say = { from = \"tasks\" }",
+                    &format!("say = {{ from = \"{from}\" }}"),
+                ),
+        ))
+        .unwrap();
+        let mut engine = Engine::new(vec![skill], true);
+        engine.observe("tasks/status", 1, settled(&[]).as_bytes(), None);
+        engine
+            .observe("tasks/status", 2, settled(&[(7, "idle")]).as_bytes(), None)
+            .into_iter()
+            .flat_map(|run| run.calls)
+            .filter(|call| matches!(call, Call::SayFrom(..)))
+            .map(|call| call.named())
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(
+        says("tasks"),
+        [("say", serde_json::json!({ "from": "tasks", "task": 7 }))]
+    );
+    assert_eq!(
+        says("schedule"),
+        [("say", serde_json::json!({ "from": "schedule" }))]
+    );
+}
+
+/// The reviewer on #1042: item runs go in the items' order, by number when
+/// the key is one, across the skill's triggers. Task 9 done and task 10
+/// failed in one message are 9's run, then 10's; "10" sorted as text came
+/// first.
+#[test]
+fn item_runs_go_by_the_items_number_across_triggers() {
+    let dir = tempfile::tempdir().unwrap();
+    let skill = load(&skill_with(
+        dir.path(),
+        "news",
+        &BY_ITEM.replace("each = \"tasks\"", "each = \"settled\""),
+    ))
+    .unwrap();
+    let froms = |first: &[(u64, &str)], then: &[(u64, &str)]| {
+        let mut engine = Engine::new(vec![skill.clone()], true);
+        engine.observe("tasks/status", 1, settled(first).as_bytes(), None);
+        engine
+            .observe("tasks/status", 2, settled(then).as_bytes(), None)
+            .into_iter()
+            .map(|run| {
+                let said = run
+                    .calls
+                    .iter()
+                    .any(|call| matches!(call, Call::Say(note) if note == "It failed."));
+                (run.from.unwrap().1.unwrap(), said)
+            })
+            .collect::<Vec<_>>()
+    };
+    let nine = |failed: bool| ("9".to_owned(), failed);
+    let ten = |failed: bool| ("10".to_owned(), failed);
+    // 9 done, 10 failed: the done trigger's and the failed trigger's runs.
+    assert_eq!(
+        froms(&[], &[(9, "idle"), (10, "failed")]),
+        [nine(false), ten(true)]
+    );
+    // 9 failed, 10 done: by number, not by trigger.
+    assert_eq!(
+        froms(&[], &[(9, "failed"), (10, "idle")]),
+        [nine(true), ten(false)]
+    );
+    // Both done, from one trigger: 9 before 10, and before 100.
+    let both = froms(&[], &[(9, "idle"), (10, "idle"), (100, "idle")]);
+    let names: Vec<&str> = both.iter().map(|(name, _)| name.as_str()).collect();
+    assert_eq!(names, ["9", "10", "100"]);
+}
+
+/// With the Policy asked, an item's run asks as news, and its answer starts
+/// it only while that item is still in the list and holds.
+#[test]
+fn an_items_run_asked_of_the_policy_goes_ahead_only_while_its_item_holds() {
+    let dir = tempfile::tempdir().unwrap();
+    let skill = load(&skill_with(dir.path(), "news", BY_ITEM)).unwrap();
+    let mut engine = Engine::new(vec![skill], false).asking_the_policy();
+    let status = |engine: &mut Engine, at_us: u64, list: &[(u64, &str)]| {
+        engine.observe("tasks/status", at_us, tasks(list).as_bytes(), None)
+    };
+    assert!(status(&mut engine, 1, &[(1, "working"), (2, "working")]).is_empty());
+    let runs = status(&mut engine, 2, &[(1, "idle"), (2, "working")]);
+    assert_eq!(runs.len(), 1);
+    let run = &runs[0];
+    assert!(run.queue);
+    assert_eq!(run.from, Some((0, Some("1".into()))));
+    assert_eq!(
+        run.ask.as_ref().unwrap(),
+        &serde_json::json!({ "skill": "news", "act": "news" })
+    );
+    let done = vec![
+        Call::Gesture("nod".into()),
+        // Made again from the run's item: it still names task 1 (#1237).
+        Call::SayFrom(lamp_skills::Source::Tasks, Some(1)),
+    ];
+    assert_eq!(engine.still(run, 3), Some(done));
+    // Task 1 working again, or gone: nothing is done.
+    status(&mut engine, 4, &[(1, "working"), (2, "working")]);
+    assert_eq!(engine.still(run, 5), None);
+    status(&mut engine, 6, &[(2, "idle")]);
+    assert_eq!(engine.still(run, 7), None);
+}
+
+#[test]
+fn the_loader_refuses_an_item_trigger_or_a_step_it_cannot_use() {
+    let dir = tempfile::tempdir().unwrap();
+    for (index, (from, to, why)) in [
+        (
+            "equals = \"idle\"\nwhen = \"appears\"",
+            "equals = \"idle\"\nwhen = \"present\"",
+            "each goes with",
+        ),
+        (
+            "equals = \"idle\"\nwhen = \"appears\"",
+            "equals = \"idle\"\nwhen = \"appears\"\ncooldown = \"1m\"",
+            "each goes with",
+        ),
+        ("key = \"task\"\n", "", "each names a list"),
+        (
+            "name = \"failed\"",
+            "name = \"done\"",
+            "two triggers have one name",
+        ),
+        (
+            "on = \"failed\"",
+            "on = \"later\"",
+            "names none of the skill's triggers",
+        ),
+        (
+            "on = \"done\"\n",
+            "on = \"done\"\nafter = \"say\"\n",
+            "in a skill whose steps name their trigger",
+        ),
+        (
+            "say = \"It failed.\"",
+            "say = \"It failed.\"\n[[do]]\non = \"failed\"\nsay = \"Again.\"",
+            "one say or sound a skill",
+        ),
+        (
+            "body = { gesture = \"nod\" }",
+            "say = \"Hello.\"",
+            "one say or sound a skill",
+        ),
+        // Neither quiet hours nor a held dim on an item's run (the
+        // reviewer on #1042, 09:56).
+        (
+            "[ask]",
+            "[quiet]\nfrom = \"22:00\"\nto = \"08:00\"\n[ask]",
+            "[quiet] in a skill with an each trigger",
+        ),
+        (
+            "light = { dim = 1 }",
+            "light = { dim = 1, until = \"ends\" }",
+            "until = \"ends\" in a skill with an each trigger",
+        ),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        assert!(BY_ITEM.contains(from), "{from}");
+        let skill = skill_with(
+            &dir.path().join(index.to_string()),
+            "news",
+            &BY_ITEM.replacen(from, to, 1),
+        );
+        let error = load(&skill).unwrap_err();
+        assert!(error.contains(why), "{to}: {error}");
+    }
+    // One say for each trigger's run, as written.
+    load(&skill_with(dir.path(), "news", BY_ITEM)).unwrap();
+}
+
+/// The program with an item skill on `tasks/status`'s list `each`, done on
+/// `idle`, while the voice takes 600 ms over each say. Each value of
+/// `values` is published, then waited after for its ms. Until `wanted` done
+/// events: their whys, and each say asked, when.
+fn the_program_with_items(
+    each: &str,
+    values: &[(String, u64)],
+    wanted: usize,
+) -> (Vec<String>, Vec<(Instant, String)>) {
+    // Short: a socket's whole path has to fit in 103 bytes.
+    let dir = tempfile::Builder::new()
+        .prefix("sk")
+        .tempdir_in("/tmp")
+        .unwrap();
+    let root = dir.path();
+    fs::create_dir(root.join("skills")).unwrap();
+    let bus = Bus::new(root.join("bus")).unwrap();
+    let mut events = bus.subscribe(SkillEvent::TOPIC, "test").unwrap();
+    let voice = UnixListener::bind(root.join("say.sock")).unwrap();
+    let (heard, asked) = mpsc::channel();
+    std::thread::spawn(move || {
+        for stream in voice.incoming().flatten() {
+            let mut line = String::new();
+            BufReader::new(&stream).read_line(&mut line).unwrap();
+            let _ = heard.send((Instant::now(), line));
+            for answer in [r#"{"event":"begun","at_us":5}"#, r#"{"outcome":"spoken"}"#] {
+                std::thread::sleep(Duration::from_millis(300));
+                let _ = (&stream).write_all(format!("{answer}\n").as_bytes());
+            }
+        }
+    });
+    let mut command = Command::new(env!("CARGO_BIN_EXE_lamp-skills"));
+    command.args([
+        "--dir".as_ref(),
+        root.join("skills").as_os_str(),
+        "--bus-root".as_ref(),
+        root.join("bus").as_os_str(),
+        "--say-socket".as_ref(),
+        root.join("say.sock").as_os_str(),
+    ]);
+    command.env("LAMP_SKILLS_ASK", "skip");
+    let _running = Running(command.spawn().unwrap());
+    skill_with(
+        &root.join("skills"),
+        "news",
+        &format!(
+            "[trigger]\ntopic = \"tasks/status\"\neach = \"{each}\"\nkey = \"task\"\n\
+             field = \"state\"\nequals = \"idle\"\nwhen = \"appears\"\n\
+             [ask]\npolicy = \"news\"\n[[do]]\nsay = {{ from = \"tasks\" }}\n"
+        ),
+    );
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while bus.subscribers("tasks/status").unwrap().is_empty() {
+        assert!(Instant::now() < deadline, "the skill was never loaded");
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    let mut status = bus
+        .publisher_declared(
+            lamp_msgs::TaskStatus::TOPIC,
+            &lamp_msgs::TaskStatus::declaration(),
+            "tasks",
+        )
+        .unwrap();
+    for (list, wait_ms) in values {
+        let value: serde_json::Value = serde_json::from_str(list).unwrap();
+        status.publish_json(1, &value).unwrap();
+        std::thread::sleep(Duration::from_millis(*wait_ms));
+    }
+    let mut done = Vec::new();
+    while done.len() < wanted && Instant::now() < deadline {
+        if let Some(message) = events.recv(Duration::from_millis(100)).unwrap() {
+            let event = message.parse::<SkillEvent>().unwrap();
+            if event.stage == SkillStage::Done {
+                done.push(event.why);
+            }
+        }
+    }
+    (done, asked.try_iter().collect())
+}
+
+/// The program with two tasks done in one message while the voice takes
+/// 600 ms over each say: both are said, one after the other, neither let go.
+#[test]
+fn the_program_says_each_items_news_in_turn() {
+    let (done, says) = the_program_with_items(
+        "tasks",
+        &[
+            (tasks(&[(1, "working"), (2, "working")]), 100),
+            (tasks(&[(1, "idle"), (2, "idle")]), 100),
+        ],
+        2,
+    );
+    assert_eq!(done, ["say: spoken", "say: spoken"]);
+    assert_eq!(says.len(), 2, "{says:?}");
+    assert!(
+        says.iter()
+            .all(|(_, line)| line.contains("\"from\":\"tasks\""))
+    );
+    // Each ask names its own task, in the tasks' order (#1237).
+    assert!(says[0].1.contains("\"task\":1"), "{says:?}");
+    assert!(says[1].1.contains("\"task\":2"), "{says:?}");
+    // The second is asked only once the first was spoken.
+    assert!(says[1].0 - says[0].0 >= Duration::from_millis(600));
+}
+
+/// The reviewer on #1042 (07:25): tasks 4, 5 and 6 settle in one message;
+/// 5 leaves `settled` while 4's news is said. When 4's run is done, 5's is
+/// let go, said so, and 6's still starts: the queue is not left waiting.
+#[test]
+fn a_queued_run_whose_item_left_is_let_go_and_the_next_still_starts() {
+    let (done, says) = the_program_with_items(
+        "settled",
+        &[
+            (settled(&[]), 100),
+            (settled(&[(4, "idle"), (5, "idle"), (6, "idle")]), 200),
+            (settled(&[(4, "idle"), (6, "idle")]), 100),
+        ],
+        3,
+    );
+    assert_eq!(
+        done,
+        [
+            "say: spoken",
+            "not made: its item no longer holds as its turn came",
+            "say: spoken"
+        ]
+    );
+    assert_eq!(says.len(), 2, "{says:?}");
+    assert!(says[0].1.contains("\"task\":4"), "{says:?}");
+    assert!(says[1].1.contains("\"task\":6"), "{says:?}");
+    assert!(says[1].0 - says[0].0 >= Duration::from_millis(600));
+}

@@ -1,0 +1,57 @@
+# Tasks 4 (claude) and 5 (codex) work from 10 s. Task 4 comes into
+# `settled` as idle at 40 s and task 5 at 42 s, someone in view at both: two
+# runs, each its own look, sway and say, never one. Both stay in `settled`
+# (60 s, 70 s) and are not told again. Tasks 6 and 8 come into it in one
+# message at 70 s, nobody in view: two runs again, without the look. 4 and
+# 5 leave at 160 s, 6 and 8 at 190 s: nothing. (lamp-skills makes the second
+# of a skill's item runs wait for the first, never lets it go: tested in
+# crates/skills/tests/skills.rs.)
+[[expect]]
+at = "40s"
+call = "body.gaze"
+args = { look_at = "face", x = 0.0, y = -0.25, size = 0.25 }
+
+[[expect]]
+at = "40s"
+call = "body.gesture"
+args = { gesture = "happy" }
+
+[[expect]]
+at = "40s"
+call = "say"
+args = { from = "tasks", task = 4 }
+
+[[expect]]
+at = "42s"
+call = "body.gaze"
+args = { look_at = "face", x = 0.0, y = -0.25, size = 0.25 }
+
+[[expect]]
+at = "42s"
+call = "body.gesture"
+args = { gesture = "happy" }
+
+[[expect]]
+at = "42s"
+call = "say"
+args = { from = "tasks", task = 5 }
+
+[[expect]]
+at = "70s"
+call = "body.gesture"
+args = { gesture = "happy" }
+
+[[expect]]
+at = "70s"
+call = "say"
+args = { from = "tasks", task = 6 }
+
+[[expect]]
+at = "70s"
+call = "body.gesture"
+args = { gesture = "happy" }
+
+[[expect]]
+at = "70s"
+call = "say"
+args = { from = "tasks", task = 8 }

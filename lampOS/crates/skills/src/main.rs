@@ -15,7 +15,7 @@ use lamp_skills::{
 use serde_json::json;
 use std::{
     cell::RefCell,
-    collections::{HashMap, HashSet},
+    collections::{HashMap, HashSet, VecDeque},
     io::{self, BufRead, BufReader, Read, Write},
     os::unix::{
         fs::FileTypeExt,
@@ -61,6 +61,9 @@ const LINE_LONGEST: Duration = Duration::from_secs(4);
 /// How often the voice's state, the hand and the pause are read while a run
 /// waits on them.
 const POLL: Duration = Duration::from_millis(20);
+/// The most runs of a list's items that wait for a skill's run under way:
+/// as many tasks as the tasks part keeps.
+const MOST_WAITING: usize = 16;
 
 #[derive(Clone)]
 struct Sockets {
@@ -312,7 +315,7 @@ fn take_skips(
     skips: &mpsc::Receiver<Skip>,
     subscribers: &mut [Subscriber],
     engine: &mut Engine,
-    busy: &mut HashSet<String>,
+    runs: &mut Runs,
     out: &mut Publisher,
     runner: &Runner,
     asking: &mut Asking,
@@ -320,17 +323,17 @@ fn take_skips(
     while let Ok((by, done)) = skips.try_recv() {
         for subscriber in subscribers.iter_mut() {
             while let Some(message) = receive(subscriber, Duration::ZERO) {
-                observe(&message, engine, busy, out, runner, asking);
+                observe(&message, engine, runs, out, runner, asking);
             }
         }
         if let Some((_, answers)) = &mut asking.gate {
-            answer_asks(answers, &mut asking.waiting, engine, busy, out, runner);
+            answer_asks(answers, &mut asking.waiting, engine, runs, out, runner);
         }
         let skipped = clock::skip(by);
         // The asks now late are given up before any answer that came since.
         give_up_late(&mut asking.waiting, out);
         if let Some((_, answers)) = &mut asking.gate {
-            answer_asks(answers, &mut asking.waiting, engine, busy, out, runner);
+            answer_asks(answers, &mut asking.waiting, engine, runs, out, runner);
         }
         let _ = done.send(skipped);
     }
@@ -418,8 +421,9 @@ fn serve(
     if let Some(path) = &options.clock_control {
         clock_control(path, skip)?;
     }
-    // One run a skill at a time: what is under way, by skill.
-    let mut busy = HashSet::new();
+    // One run a skill at a time: what is under way, by skill, and the runs
+    // of a list's items waiting their turn.
+    let mut runs = Runs::default();
     let mut subscribers: Vec<Subscriber> = Vec::new();
     let mut seen = None;
     let mut looked: Option<Instant> = None;
@@ -441,14 +445,15 @@ fn serve(
     );
     loop {
         while let Ok(event) = done.try_recv() {
-            busy.remove(&event.skill);
+            let skill = event.skill.clone();
             publish(&mut out, event);
+            runs.done(&skill, &engine, &mut out, &runner);
         }
         take_skips(
             &skips,
             &mut subscribers,
             &mut engine,
-            &mut busy,
+            &mut runs,
             &mut out,
             &runner,
             &mut asking,
@@ -458,7 +463,7 @@ fn serve(
                 answers,
                 &mut asking.waiting,
                 &engine,
-                &mut busy,
+                &mut runs,
                 &mut out,
                 &runner,
             );
@@ -497,7 +502,7 @@ fn serve(
         }
         if subscribers.is_empty() {
             if let Ok(call) = asks.recv_timeout(clock::poll(Duration::from_millis(250))) {
-                tool_call(call, &mut engine, &mut busy, &mut out, &runner);
+                tool_call(call, &mut engine, &mut runs.busy, &mut out, &runner);
             }
             continue;
         }
@@ -507,7 +512,7 @@ fn serve(
                 &skips,
                 &mut subscribers,
                 &mut engine,
-                &mut busy,
+                &mut runs,
                 &mut out,
                 &runner,
                 &mut asking,
@@ -523,21 +528,21 @@ fn serve(
                         observe(
                             &message,
                             &mut engine,
-                            &mut busy,
+                            &mut runs,
                             &mut out,
                             &runner,
                             &mut asking,
                         );
                     }
                 }
-                tool_call(call, &mut engine, &mut busy, &mut out, &runner);
+                tool_call(call, &mut engine, &mut runs.busy, &mut out, &runner);
             }
             if let Some((_, answers)) = &mut asking.gate {
                 answer_asks(
                     answers,
                     &mut asking.waiting,
                     &engine,
-                    &mut busy,
+                    &mut runs,
                     &mut out,
                     &runner,
                 );
@@ -552,7 +557,7 @@ fn serve(
                 observe(
                     &message,
                     &mut engine,
-                    &mut busy,
+                    &mut runs,
                     &mut out,
                     &runner,
                     &mut asking,
@@ -561,7 +566,7 @@ fn serve(
         }
         // A held run whose trigger topic went silent ends.
         for run in engine.tick(clock::now_us()) {
-            handle(run, &mut busy, &mut out, &runner);
+            handle(run, &mut runs, &mut out, &runner);
         }
     }
 }
@@ -591,7 +596,7 @@ fn receive(subscriber: &mut Subscriber, wait: Duration) -> Option<lamp_bus::Mess
 fn observe(
     message: &lamp_bus::Message,
     engine: &mut Engine,
-    busy: &mut HashSet<String>,
+    runs: &mut Runs,
     out: &mut Publisher,
     runner: &Runner,
     asking: &mut Asking,
@@ -602,13 +607,13 @@ fn observe(
     if let Some(offset) = runner.utc_offset_minutes {
         engine.clock(offset, now_us, unix_ms());
     }
-    let runs = engine.observe(
+    let made = engine.observe(
         &message.header.topic,
         now_us,
         &message.payload,
         message.header.expires_ms,
     );
-    for mut run in runs {
+    for mut run in made {
         for event in std::mem::take(&mut run.events) {
             publish(out, event);
         }
@@ -623,15 +628,15 @@ fn observe(
                 out,
             );
         } else {
-            handle(run, busy, out, runner);
+            handle(run, runs, out, runner);
         }
     }
 }
 
-/// A run the engine made: its events published, and its calls started, or
-/// its held run told that its trigger ended.
-fn handle(run: Run, busy: &mut HashSet<String>, out: &mut Publisher, runner: &Runner) {
-    for event in run.events {
+/// A run the engine made: its events published, and its calls started (or,
+/// an item's, queued), or its held run told that its trigger ended.
+fn handle(mut run: Run, runs: &mut Runs, out: &mut Publisher, runner: &Runner) {
+    for event in std::mem::take(&mut run.events) {
         publish(out, event);
     }
     if run.calls == [Call::Ends] {
@@ -641,7 +646,78 @@ fn handle(run: Run, busy: &mut HashSet<String>, out: &mut Publisher, runner: &Ru
             let _ = end.send(());
         }
     } else if !run.calls.is_empty() {
-        let _ = start(run.skill, run.calls, busy, out, runner);
+        let calls = std::mem::take(&mut run.calls);
+        start_or_queue(run, calls, runs, out, runner);
+    }
+}
+
+/// By skill, the runs of a list's items waiting for its run under way.
+type Queued = HashMap<String, VecDeque<lamp_skills::Run>>;
+
+/// The runs under way, one a skill, and the items' runs waiting for them.
+#[derive(Default)]
+struct Runs {
+    busy: HashSet<String>,
+    queued: Queued,
+}
+
+impl Runs {
+    /// `skill`'s run is done: the next of its queued runs whose item still
+    /// holds starts, its calls made again now, a look at where the face is
+    /// now (the reviewer on #1042: the second of two runs starts 10 to 20 s
+    /// after it was queued). One that no longer holds is let go, said so,
+    /// and the one after it is tried.
+    fn done(&mut self, skill: &str, engine: &Engine, out: &mut Publisher, runner: &Runner) {
+        self.busy.remove(skill);
+        while let Some(run) = self.queued.get_mut(skill).and_then(VecDeque::pop_front) {
+            match engine.still(&run, clock::now_us()) {
+                Some(calls) if !calls.is_empty() => {
+                    let _ = start(run.skill, calls, &mut self.busy, out, runner);
+                    return;
+                }
+                _ => publish(
+                    out,
+                    SkillEvent {
+                        skill: run.skill,
+                        stage: SkillStage::Done,
+                        why: "not made: its item no longer holds as its turn came".into(),
+                        allowed: None,
+                    },
+                ),
+            }
+        }
+    }
+}
+
+/// Starts a run with `calls`, or, for an item's run (`queue`) while the
+/// skill's last is under way, keeps the run for when that one is done: an
+/// item's news is its own, never let go or put together with the run before
+/// it. Its calls are made again when it starts ([`Runs::done`]).
+fn start_or_queue(
+    run: lamp_skills::Run,
+    calls: Vec<Call>,
+    runs: &mut Runs,
+    out: &mut Publisher,
+    runner: &Runner,
+) {
+    if !(run.queue && runs.busy.contains(&run.skill)) {
+        // A trigger's run: nobody waits for its body and light.
+        let _ = start(run.skill, calls, &mut runs.busy, out, runner);
+        return;
+    }
+    let waiting = runs.queued.entry(run.skill.clone()).or_default();
+    if waiting.len() < MOST_WAITING {
+        waiting.push_back(run);
+    } else {
+        publish(
+            out,
+            SkillEvent {
+                skill: run.skill,
+                stage: SkillStage::Done,
+                why: format!("not made: {MOST_WAITING} runs already wait"),
+                allowed: None,
+            },
+        );
     }
 }
 
@@ -789,7 +865,7 @@ fn answer_asks(
     answers: &mut Subscriber,
     waiting: &mut HashMap<u64, (lamp_skills::Run, Instant)>,
     engine: &Engine,
-    busy: &mut HashSet<String>,
+    runs: &mut Runs,
     out: &mut Publisher,
     runner: &Runner,
 ) {
@@ -815,7 +891,7 @@ fn answer_asks(
         if choice == "say_now" && shadow {
             why += " in shadow: nothing is done";
         } else if choice == "say_now" {
-            calls = engine.still(&run.skill, clock::now_us());
+            calls = engine.still(&run, clock::now_us());
             if calls.is_none() {
                 why += ", but its trigger no longer holds: nothing is done";
             }
@@ -830,7 +906,7 @@ fn answer_asks(
             },
         );
         if let Some(calls) = calls.filter(|calls| !calls.is_empty()) {
-            let _ = start(run.skill, calls, busy, out, runner);
+            start_or_queue(run, calls, runs, out, runner);
         }
     }
     give_up_late(waiting, out);
@@ -903,7 +979,7 @@ fn tool_call(
     let made: Vec<Call> = run
         .calls
         .iter()
-        .filter(|call| !matches!(call, Call::Look | Call::Say(_) | Call::SayFrom(_)))
+        .filter(|call| !matches!(call, Call::Look | Call::Say(_) | Call::SayFrom(..)))
         .cloned()
         .collect();
     // Nothing but the wait for the say is nothing to make.
@@ -1133,7 +1209,7 @@ fn perform(
         calls
             .iter()
             .filter(|call| {
-                !matches!(call, Call::Say(_) | Call::SayFrom(_) | Call::Sound { .. })
+                !matches!(call, Call::Say(_) | Call::SayFrom(..) | Call::Sound { .. })
                     && (glow.is_some() || before.is_some() || !is_light(call))
             })
             .cloned()
@@ -1145,10 +1221,15 @@ fn perform(
     // it plays at once or refuses at once, with why.
     let asking = calls.iter().find_map(|call| match call {
         Call::Say(note) => Some(("say", json!({"note": note, "priority": 5}))),
-        Call::SayFrom(source) => Some((
-            "say",
-            json!({"from": source.name(), "priority": source.priority()}),
-        )),
+        Call::SayFrom(source, task) => {
+            let mut ask = json!({"from": source.name(), "priority": source.priority()});
+            // An item's run names its task: the voice gives it that task's
+            // news and no other (#1237).
+            if let Some(task) = task {
+                ask["task"] = json!(task);
+            }
+            Some(("say", ask))
+        }
         Call::Sound { path, .. } => Some(("sound", json!({"sound": path, "priority": 5}))),
         _ => None,
     });
@@ -1618,7 +1699,7 @@ fn make(call: &Call, sockets: &Sockets, bus: &Bus) -> String {
             });
             format!("{first}, held {} s", lasting_us / 1_000_000)
         }
-        Call::Say(_) | Call::SayFrom(_) => "say: made by its own step".into(),
+        Call::Say(_) | Call::SayFrom(..) => "say: made by its own step".into(),
         Call::Sound { .. } => "sound: made by its own step".into(),
         Call::Look => "look: the voice's, asked in the call's answer".into(),
         Call::AfterSay => "after the say".into(),

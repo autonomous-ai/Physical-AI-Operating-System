@@ -112,8 +112,7 @@ lamp.
 needs all of `LAMP_START_OFFLINE=on`, a service (`Lifetime::Serve`), the
 microphone retained, the budget passed and the link still down. The unit
 installed on lamp-4ace has had the switch since #884's run on 16 Oct (set on
-the lamp; the repository's `deploy/lamp-4ace` and `deploy/product` units do
-not carry it yet), so the reason there is the last one: in the 16 Oct cut the
+the lamp; since 17 October the `deploy/product` unit carries it too, #1332), so the reason there is the last one: in the 16 Oct cut the
 link was in fact up (`listening_ready` at 0.5 s). The coordinator's own loop is now
 tested both ways
 (`coordinator::tests::endpoint_session::a_service_started_with_no_link_says_so_once_and_is_ready_when_the_link_comes`,

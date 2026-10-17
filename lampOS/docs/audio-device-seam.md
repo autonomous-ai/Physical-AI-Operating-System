@@ -199,8 +199,8 @@ What keeps the voice up is `--reference-recovery bounded`
 queue, or a dry ring, makes the reference **untrusted** instead of a fault:
 the canceller isn't run and no echo evidence is given, for at most 1 s,
 then it reseeds from fresh reference. It allows three reseeds a minute and
-warms for 3 s. That costs the canceller for a moment, not the voice. The
-repo's units have it off (`switches.md`), but lamp-4ace has run it from a
+warms for 3 s. That costs the canceller for a moment, not the voice. Since 17 October
+the product unit has it on too (#1332); lamp-4ace has run it from a
 drop-in since the morning of 17 October and hadn't ended on `ReferenceLate`
 by 13:21 that day (the first builder on #1178). lamp-cb94 took it at 07:21 UTC,
 with Twelve watching an hour of `NRestarts`, the reference statuses, run

@@ -1,6 +1,6 @@
 # lampOS voice: listens, talks with the model, speaks and drives the light ring (lampOS/docs/serve-runtime.md).
 # The product unit (lampOS/docs/install.md): every lamp's, with the office lamp's options and switches of
-# 2026-10-15. A lamp that needs a switch off says so in lamp-voice.service.d/, never here.
+# 2026-10-17 (lamp-4ace's unit that day, without what only the office has). A lamp that needs a switch off says so in lamp-voice.service.d/, never here.
 # Root: it reads /etc/lampOS/voice (the credential) and runs its microphone and speaker real-time.
 [Unit]
 Description=lampOS voice (lamp-voice serve)
@@ -20,7 +20,7 @@ Group=root
 Slice=lampos-voice.slice
 WorkingDirectory=/
 UMask=0077
-ExecStart=/opt/lampOS/voice/current/lamp-voice serve /etc/lampOS/voice/provider.json /var/lib/lampOS/voice/sessions/${INVOCATION_ID} --noise-suppression off --turn-taking duplex --faint-floor-db -28 --microphone mic2 --reference-clock capture --reference-recovery off --provider-continuation kept-start --playout-start-ms 350 --ring-channel-ceiling 24 --end-silence-ms 600 --controls-stop --endpoint smart-turn-fast
+ExecStart=/opt/lampOS/voice/current/lamp-voice serve /etc/lampOS/voice/provider.json /var/lib/lampOS/voice/sessions/${INVOCATION_ID} --noise-suppression off --turn-taking duplex --faint-floor-db -28 --microphone mic2 --reference-clock capture --reference-recovery bounded --provider-continuation kept-start --playout-start-ms 350 --ring-channel-ceiling 24 --end-silence-ms 600 --controls-stop --endpoint smart-turn-fast --call-wait-ms 2000
 # Microphone and speaker threads may not wait behind other work (lamp-4ace, 2026-10-13).
 CPUSchedulingPolicy=rr
 CPUSchedulingPriority=20
@@ -45,8 +45,8 @@ Environment=LAMP_BUS_ROOT=/run/lampos-bus
 Environment=LAMP_BUS_AUDIO=on
 Environment=LAMP_ATTENTION=busy-near
 Environment=LAMP_AIR_FACTS=on
-Environment=LAMP_RING_EYE=on
-Environment=LAMP_SHORT_SOUNDS=quiet-room
+Environment=LAMP_RING_EYE=strong
+Environment=LAMP_SHORT_SOUNDS=quiet-room-checked
 Environment=LAMP_FIRST_OUTPUT=/var/lib/lampOS/voice/first-output
 Environment=LAMP_SECOND_LOOK=on
 Environment=LAMP_NAME_NOTE=on
@@ -58,6 +58,35 @@ Environment=LAMP_CLOCK=on
 # Tell the time only once the kernel says the clock is set: no battery clock (#811, #830).
 Environment=LAMP_KERNEL_CLOCK=on
 Environment=LAMP_SESSION_FACT=on
+# Switched on lamp-4ace through 16 and 17 October and run there all day; several only in the groups of #1238's
+# census, so their lamp record is that day's running, not a run of their own (install.md).
+# Not here: those that need the second voice's configuration (stop words, the second voice's down-line and wait
+# cue, the voice link: a product lamp has none), the office's own (its Harness target, its say group), and
+# head touch, which needs Controls' and Expression's flags too (#711); those that need another part's flag the product
+# doesn't pass (the Policy holding actions, its hello and progress news, the full look, a restored mute); and "that
+# was weird", a builder's review tool whose marks the reset doesn't wipe (#1332's review).
+Environment=LAMP_TOOL_LEAD_IN=on
+Environment=LAMP_WAIT_KEEPS_ANSWER=on
+Environment=LAMP_STOP_TOLD=on
+Environment=LAMP_ASKER_FIRST=record
+Environment=LAMP_NAMES=checked
+Environment=LAMP_STAFF_NOTE=on
+Environment=LAMP_TASK_NEWS_AT_PAUSE=on
+Environment=LAMP_MEMORY_RULES=on
+Environment=LAMP_LIGHT_REQUESTS=on
+Environment=LAMP_QUIET_PACE=on
+Environment=LAMP_START_OFFLINE=on
+Environment=LAMP_RING_ASLEEP=on
+Environment=LAMP_OTHER_LANGUAGE=sorry
+Environment=LAMP_NAME_IN_PASSING=ignored
+Environment=LAMP_FIRST_WORDS=kept
+Environment=LAMP_TASKS_ASKED=on
+Environment=LAMP_TASKS_WHO=on
+Environment=LAMP_CUT_KEEPS_NAME=on
+Environment=LAMP_SELFTEST_SPEAKER=on
+# Each stall of 50 ms or more in the voice's loops, with what held it, in /run/lampos-voice (#1179): cheap, and
+# what support reads first after a voice ends (#1178).
+Environment=LAMP_STALLS=on
 Environment=LAMP_ROOM_FACTS=on
 # The hello on arrival is the Welcome back skill's (lamp-skills.service, #811), spoken through the
 # say service below; with the voice's own hello on as well the lamp would greet twice.

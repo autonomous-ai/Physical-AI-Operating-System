@@ -81,6 +81,15 @@ pub struct Hearing {
     /// and the lamp's own first word, let through by a canceller that had
     /// not converged either, was heard as a person, plainly.
     pub fresh_blocks: u16,
+    /// Speech where the render at the echo's alignment is silent
+    /// ([`EchoEvidence::silent_at_echo`]), with that alignment no older
+    /// than [`Self::fresh_blocks`], is a person over the lamp: nothing of the
+    /// lamp's is in the window its echo would come from, only the room's
+    /// tail, which the canceller has. Without it such a block says nothing
+    /// ([`Heard::Unknown`]) until the render has been quiet
+    /// [`Self::clear_after_blocks`], so a pause in the lamp's speech under
+    /// 300 ms gave a yield nothing to hear (#828, `LAMP_LISTEN_GAPS=on`).
+    pub silence_heard: bool,
 }
 
 impl Hearing {
@@ -95,6 +104,7 @@ impl Hearing {
         clear_after_blocks: 30,
         plain_percent: 20,
         fresh_blocks: 40,
+        silence_heard: false,
     };
 
     pub fn heard(&self, probability: f32, evidence: &EchoEvidence) -> Heard {
@@ -104,6 +114,14 @@ impl Hearing {
         }
         if !speech {
             return Heard::Under;
+        }
+        if self.silence_heard
+            && evidence.echo.is_none()
+            && evidence
+                .silent_at_echo
+                .is_some_and(|age| age <= self.fresh_blocks)
+        {
+            return Heard::Over;
         }
         match evidence.echo {
             None => Heard::Unknown,
@@ -486,10 +504,46 @@ mod tests {
                 residual_playback_floor,
                 alignment_age_blocks: 0,
             }),
+            silent_at_echo: None,
         }
     }
 
     const HEARING: Hearing = Hearing::EVALUATED;
+
+    /// #828: speech while the render at the echo's alignment is silent,
+    /// the alignment `age` blocks old.
+    fn silent(quiet: u8, age: u16) -> EchoEvidence {
+        EchoEvidence {
+            silent_at_echo: Some(age),
+            ..evidence(quiet, None)
+        }
+    }
+
+    /// #828, listening gaps: in the lamp's own silence a person is heard
+    /// over it, with the switch and a fresh alignment. Without the switch,
+    /// or with no alignment at all, it says nothing, as before; and quiet
+    /// long enough is the clear, as before.
+    #[test]
+    fn speech_in_the_lamps_own_silence_is_over_it_only_with_the_switch() {
+        let listening = Hearing {
+            silence_heard: true,
+            ..Hearing::EVALUATED
+        };
+        assert_eq!(listening.heard(0.9, &silent(5, 12)), Heard::Over);
+        assert_eq!(HEARING.heard(0.9, &silent(5, 12)), Heard::Unknown);
+        // No speech is no person; a stale alignment says nothing.
+        assert_eq!(listening.heard(0.1, &silent(5, 12)), Heard::Under);
+        assert_eq!(listening.heard(0.9, &silent(5, 41)), Heard::Unknown);
+        // No alignment at all is still not evidence of anything.
+        assert_eq!(listening.heard(0.9, &evidence(5, None)), Heard::Unknown);
+        // Quiet long enough is the clear, as before.
+        assert_eq!(listening.heard(0.9, &silent(30, 12)), Heard::Clear);
+        // A render the alignment explains is still the lamp.
+        assert_eq!(
+            listening.heard(0.9, &evidence(0, Some((97, 10)))),
+            Heard::Own
+        );
+    }
 
     #[test]
     fn a_score_alone_decides_nothing_while_the_lamp_is_sounding() {

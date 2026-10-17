@@ -145,6 +145,12 @@ pub struct EchoEvidence {
     /// Present only while non-silent render is matched to the capture.
     /// Absent means "not determined", never "no echo".
     pub echo: Option<EchoMatch>,
+    /// With an alignment held and the render at it silent, that alignment's
+    /// age ([`EchoMatch::alignment_age_blocks`]): `echo` is absent because
+    /// nothing of the lamp's is in the window its echo would come from, and
+    /// not for want of an alignment (#828). None otherwise.
+    #[serde(default)]
+    pub silent_at_echo: Option<u16>,
 }
 
 /// Render history. The length is a power of two so indexing is a mask.
@@ -233,6 +239,9 @@ pub struct EchoObserver {
     /// Which rivals of the held alignment are fitted next.
     rival: i64,
     latest: Option<EchoEvidence>,
+    /// The held alignment's age when the render at it is silent this block
+    /// ([`EchoEvidence::silent_at_echo`]).
+    silent_at: Option<u16>,
 }
 impl Default for EchoObserver {
     fn default() -> Self {
@@ -291,6 +300,7 @@ impl EchoObserver {
             sweep: 0,
             rival: 0,
             latest: None,
+            silent_at: None,
         }
     }
     /// Forget everything. Call wherever the echo canceller is reset.
@@ -357,6 +367,7 @@ impl EchoObserver {
             capture_level: Level::of(raw_energy),
             residual_level: Level::of(clean_energy),
             echo,
+            silent_at_echo: self.silent_at,
         };
         self.latest = Some(evidence);
         evidence
@@ -542,6 +553,7 @@ impl EchoObserver {
     }
 
     fn matched(&mut self, raw_energy: f64) -> Option<EchoMatch> {
+        self.silent_at = None;
         let (low, newest) = self.offsets()?;
         if let Some(alignment) = self.alignment.as_mut() {
             alignment.age_blocks = alignment.age_blocks.saturating_add(1);
@@ -658,20 +670,23 @@ impl EchoObserver {
                 fitted = Some(adopted);
             }
         }
-        let alignment = self.alignment.as_ref()?;
+        let (offset, age_blocks) = self
+            .alignment
+            .as_ref()
+            .map(|alignment| (alignment.offset, alignment.age_blocks))?;
         let fitted = fitted
-            .filter(|fitted| fitted.offset == alignment.offset)
-            .unwrap_or_else(|| self.fitted(raw_energy, alignment.offset, low, newest));
+            .filter(|fitted| fitted.offset == offset)
+            .unwrap_or_else(|| self.fitted(raw_energy, offset, low, newest));
         if fitted.raw.render < SILENT_ENERGY {
+            // Nothing of the lamp's is in the window its echo would come
+            // from: said, apart from having no alignment at all (#828).
+            self.silent_at = Some(age_blocks);
             return None;
         }
         let clean_energy = self.clean.energy();
         let residual_explained = match &fitted.taps {
             Some(taps) => Self::share(taps, &self.clean, clean_energy),
-            None => {
-                self.compare(&self.clean, clean_energy, alignment.offset)
-                    .explained
-            }
+            None => self.compare(&self.clean, clean_energy, offset).explained,
         };
         let other = raw_energy * f64::from(100 - fitted.raw.explained) / 100.0;
         let residual_playback_floor = if clean_energy < SILENT_ENERGY {
@@ -684,7 +699,7 @@ impl EchoObserver {
             capture_explained: fitted.raw.explained,
             residual_explained,
             residual_playback_floor,
-            alignment_age_blocks: alignment.age_blocks,
+            alignment_age_blocks: age_blocks,
         })
     }
 }

@@ -289,9 +289,13 @@ impl SelfTests {
             let failed: Vec<String> = self
                 .failed
                 .iter()
-                .map(|(part, reason)| format!("{part} ({reason})"))
+                .map(|(part, reason)| format!("{} ({reason})", part_known_as(part)))
                 .collect();
-            (Level::Error, format!("failed: {}", failed.join(", ")))
+            let parts = if failed.len() == 1 { "part" } else { "parts" };
+            (
+                Level::Error,
+                format!("{} {parts} failing: {}", failed.len(), failed.join(", ")),
+            )
         };
         let age_s = (now_unix_s - started).max(0.0);
         Some(HealthItem {
@@ -300,6 +304,30 @@ impl SelfTests {
             message: one_line(&message),
             age_ms: (age_s * 1_000.0).min(u64::MAX as f64) as u64,
         })
+    }
+}
+
+/// A self-test part as a person knows it, for the lamp's health line (the
+/// first builder on #705, 17 Oct 15:08). A part not here keeps its name.
+pub fn part_known_as(part: &str) -> &str {
+    match part {
+        "voice_mic" => "the voice microphone",
+        "room_mic" => "the room microphone",
+        "speaker" => "the speaker",
+        "camera" => "the camera",
+        "touch" => "the touch pads",
+        "button" => "the button",
+        "ring" => "the light ring",
+        "head_move" => "the head's small move",
+        "base_yaw" => "the base's turn",
+        "shoulder" => "the shoulder",
+        "elbow" => "the elbow",
+        "head_roll" => "the head's tilt",
+        "head_pitch" => "the head's nod",
+        "air" => "the air sensor",
+        "storage" => "the SD card",
+        "board" => "the computer",
+        other => other,
     }
 }
 
@@ -518,7 +546,7 @@ mod tests {
         assert_eq!(item.level, Level::Error);
         assert_eq!(
             item.message,
-            "failed: ring (red did not light), storage (9 re-tunes timed out)"
+            "2 parts failing: the light ring (red did not light), the SD card (9 re-tunes timed out)"
         );
         assert_eq!(item.age_ms, 90_500);
         let mut tests = SelfTests::default();
@@ -566,7 +594,7 @@ mod tests {
             (item.level, item.message.as_str()),
             (
                 Level::Error,
-                "failed: storage (9 re-tunes timed out), ring (red did not light)"
+                "2 parts failing: the SD card (9 re-tunes timed out), the light ring (red did not light)"
             )
         );
         tests.take(&run(
@@ -575,7 +603,7 @@ mod tests {
         ));
         assert_eq!(
             tests.item(200.0).unwrap().message,
-            "failed: storage (11 re-tunes timed out), ring (red did not light)"
+            "2 parts failing: the SD card (11 re-tunes timed out), the light ring (red did not light)"
         );
         tests.take(&run(
             &[
@@ -601,7 +629,10 @@ mod tests {
         assert_eq!(health.items[0].name, SELFTEST);
         assert_eq!(
             (health.level, health.message.as_str()),
-            (Level::Error, "selftest: failed: ring (red did not light)")
+            (
+                Level::Error,
+                "selftest: 1 part failing: the light ring (red did not light)"
+            )
         );
         assert_eq!(health.missing, ["body"]);
 

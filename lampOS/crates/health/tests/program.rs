@@ -294,26 +294,25 @@ fn show_says_how_the_lamp_is_and_ends_with_its_level() {
     let (out, ended) = shown(&places.show(&[]));
     assert_eq!(ended, status(Level::Ok, board), "{out}");
     let lines: Vec<&str> = out.lines().collect();
-    assert_eq!(lines.len(), 6, "{out}");
+    // The footer says how old the picture is only once it is over 5 s old.
+    assert!(
+        lines.len() == 5 || (lines.len() == 6 && lines[5].starts_with("written ")),
+        "{out}"
+    );
     if well {
         assert_eq!(lines[0], "The lamp is well.");
-        assert!(lines[2].starts_with("  ok     board    "), "{out}");
+        assert_eq!(lines[2], "  ok     computer", "{out}");
     }
     assert_eq!(lines[1], "");
-    assert!(lines[2].ends_with(" s ago"), "{out}");
     assert_eq!(lines[3], "");
     // The hottest of the eight zones, 64.5 °C, and the other numbers.
     assert!(
         lines[4].starts_with(
-            "board  hottest 64 °C (ddr_thermal_zone)  load 0.31  memory 44% used  disk "
+            "computer  hottest 64 °C (ddr_thermal_zone)  load 0.31  memory 44% used  disk "
         ),
         "{out}"
     );
     assert!(lines[4].ends_with("% free  up 2 d 10 h"), "{out}");
-    assert!(
-        lines[5].starts_with("written ") && lines[5].contains(" s ago; the board's numbers "),
-        "{out}"
-    );
     // `show` is what no command means.
     let (same, ended) = shown(&places.show(&["show"]));
     assert_eq!(ended, status(Level::Ok, board));
@@ -327,14 +326,16 @@ fn show_says_how_the_lamp_is_and_ends_with_its_level() {
     let (out, ended) = shown(&places.show(&[]));
     assert_eq!(ended, status(Level::Ok, board), "{out}");
     if well {
-        // Parts as well as each other come by name.
+        // Parts as well as each other come by the name shown.
         assert!(
-            out.starts_with("The lamp is well.\n\n  ok     board  "),
+            out.starts_with(
+                "The lamp is well.\n\n  ok     arm and head\n  ok     computer\n  ok     voice\n"
+            ),
             "{out}"
         );
     }
-    assert!(out.contains("\n  ok     body   "), "{out}");
-    assert!(out.contains("\n  ok     voice  "), "{out}");
+    assert!(out.contains("\n  ok     arm and head\n"), "{out}");
+    assert!(out.contains("\n  ok     voice\n"), "{out}");
 
     // As JSON: the two values as they were published, on one line.
     let output = places.show(&["--json"]);
@@ -367,7 +368,7 @@ fn show_says_how_the_lamp_is_and_ends_with_its_level() {
     if well {
         assert!(
             out.starts_with(
-                "The lamp has a warning: body: yaw is hot\n\n  warn   body   yaw is hot  "
+                "The lamp has a warning: arm and head: yaw is hot\n\n  warn   arm and head  yaw is hot\n"
             ),
             "{out}"
         );
@@ -396,19 +397,13 @@ fn show_says_how_the_lamp_is_and_ends_with_its_level() {
         assert!(
             out.starts_with(
                 "The lamp is not well: voice: the link to the service is down\n\n\
-                 \x20 error  voice  the link to the service is down  "
+                 \x20 error  voice         the link to the service is down\n"
             ),
             "{out}"
         );
         let lines: Vec<&str> = out.lines().collect();
-        assert!(
-            lines[3].starts_with(&format!("  warn   body   {:<31}  ", "yaw is hot")),
-            "{out}"
-        );
-        assert!(
-            lines[4].starts_with(&format!("  ok     board  {:<31}  ", "")),
-            "{out}"
-        );
+        assert!(lines[3] == "  warn   arm and head  yaw is hot", "{out}");
+        assert!(lines[4] == "  ok     computer", "{out}");
     }
     assert_eq!(places.show(&["--json"]).status.code(), Some(2));
 
@@ -538,8 +533,8 @@ fn with_nobody_serving_show_says_so_and_ends_with_3() {
     assert_eq!(ended, Some(0), "{out}");
     assert!(
         out.starts_with(
-            "The lamp is well.\n\n  ok     board    0.1 s ago\n\n\
-             board  no numbers: nobody is publishing board/state\nwritten "
+            "The lamp is well.\n\n  ok     computer\n\n\
+             computer  no numbers: nobody is publishing board/state"
         ),
         "{out}"
     );
@@ -577,7 +572,7 @@ fn a_part_that_is_expected_and_silent_or_has_gone_quiet_ends_show_with_3() {
             "{out}"
         );
     }
-    assert!(out.contains("\n  never reported: eyes\n"), "{out}");
+    assert!(out.contains("\n  not running: camera\n"), "{out}");
 
     let quiet = places.kept("the voice is stale", |health| {
         item(health, "voice").is_some_and(|voice| voice.level == Level::Stale)
@@ -586,10 +581,10 @@ fn a_part_that_is_expected_and_silent_or_has_gone_quiet_ends_show_with_3() {
     let (out, ended) = shown(&places.show(&[]));
     assert_eq!(ended, status(Level::Stale, board), "{out}");
     assert!(
-        out.contains("\n  stale  voice  not heard from for "),
+        out.contains("\n  stale  voice     not heard from for "),
         "{out}"
     );
-    assert!(out.contains("\n  never reported: eyes\n"), "{out}");
+    assert!(out.contains("\n  not running: camera\n"), "{out}");
     let output = places.show(&["--json"]);
     assert_eq!(output.status.code(), status(Level::Stale, board));
     let both: Value = serde_json::from_slice(&output.stdout).unwrap();

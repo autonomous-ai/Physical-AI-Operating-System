@@ -92,7 +92,7 @@ pub fn catalog(sound: bool, light: bool) -> Vec<Function> {
             plain("light_off", "Switch your own light off."),
             Function {
                 name: "light_colour",
-                description: "Set your own light to one of the named colours. Violet is purple; warm white is warm.",
+                description: "Your light can change colour: set your own light to one of the named colours. Violet is purple; warm white is warm. For a step warmer or cooler than it is, use light_warmer or light_cooler.",
                 parameters: Some(json!({
                     "type": "object",
                     "properties": {"colour": {"type": "string", "enum": names}},
@@ -105,7 +105,15 @@ pub fn catalog(sound: bool, light: bool) -> Vec<Function> {
             ),
             plain(
                 "light_dimmer",
-                "Make your own light a step dimmer, keeping its colour, when someone says it is too bright or harsh.",
+                "Make your own light a step dimmer, keeping its colour, when someone says it is too bright or harsh, or asks for it softer or lower.",
+            ),
+            plain(
+                "light_warmer",
+                "Make your own light a step warmer in tone (white, then warm, then orange), keeping its brightness, when someone asks for it warmer, cosier or more golden.",
+            ),
+            plain(
+                "light_cooler",
+                "Make your own light a step cooler in tone (orange, then warm, then white), keeping its brightness, when someone asks for it cooler, whiter, crisper or more like daylight.",
             ),
         ]);
     }
@@ -148,7 +156,10 @@ impl<S: sound::Mixer, L: light::Light> Executive<S, L> {
                     _ => volume.unmute(),
                 }
             }
-            "light_on" | "light_off" | "light_brighter" | "light_dimmer" if nothing => {
+            "light_on" | "light_off" | "light_brighter" | "light_dimmer" | "light_warmer"
+            | "light_cooler"
+                if nothing =>
+            {
                 let Some(light) = self.light.as_mut() else {
                     return unknown();
                 };
@@ -159,6 +170,8 @@ impl<S: sound::Mixer, L: light::Light> Executive<S, L> {
                     "light_on" => light::on(light),
                     "light_off" => light::off(light),
                     "light_brighter" => light::brighter(light),
+                    "light_warmer" => light::warmer(light),
+                    "light_cooler" => light::cooler(light),
                     _ => light::dimmer(light),
                 }
             }
@@ -198,7 +211,7 @@ mod tests {
             ["volume_up", "volume_down", "volume_mute", "volume_unmute"]
         );
         let all = catalog(true, true);
-        assert_eq!(all.len(), 9);
+        assert_eq!(all.len(), 11);
         // The bounds the provider link puts on a function (docs/tools.md).
         for function in &all {
             let mut name = function.name.bytes();
@@ -216,7 +229,7 @@ mod tests {
         // takes anything: a colour out of the ten.
         let file: Value = serde_json::from_str(&catalog_file(&all)).unwrap();
         let listed = file["tools"].as_array().unwrap();
-        assert_eq!(listed.len(), 9);
+        assert_eq!(listed.len(), 11);
         let taking: Vec<&Value> = listed
             .iter()
             .filter(|f| f.get("parameters").is_some())

@@ -230,10 +230,28 @@ fn the_light_is_offered_when_its_owner_appears_and_withdrawn_when_it_goes() {
     };
     until("the owner says what it shows", || owner_says(&bus));
     look_again();
-    until("the light is offered", || names(&home).len() == 5);
+    until("the light is offered", || names(&home).len() == 7);
     assert_eq!(
         ask(&home, b"{\"op\":\"call\",\"name\":\"light_on\"}\n"),
         json!({"ok":true,"result":{"result":"My light is on, purple."}})
+    );
+    assert_eq!(
+        ask(
+            &home,
+            b"{\"op\":\"call\",\"name\":\"light_colour\",\"args\":{\"colour\":\"blue\"}}\n"
+        )["result"]["result"],
+        "My light is blue now."
+    );
+    // Warmer, through the socket as the voice asks it: blue is off the
+    // warmth scale, so it becomes warm, said as what it is now; then a step
+    // cooler, white (the first builder, 17 Oct 14:16).
+    assert_eq!(
+        ask(&home, b"{\"op\":\"call\",\"name\":\"light_warmer\"}\n")["result"]["result"],
+        "My light is warm now."
+    );
+    assert_eq!(
+        ask(&home, b"{\"op\":\"call\",\"name\":\"light_cooler\"}\n")["result"]["result"],
+        "My light is a step cooler, white now."
     );
     assert_eq!(
         ask(

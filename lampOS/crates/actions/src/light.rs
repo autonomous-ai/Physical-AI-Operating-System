@@ -8,7 +8,9 @@
 //! ask for, and the light's functions are not offered.
 //!
 //! The rules: on and off keep the colour and the level; a colour switches
-//! the light on; brighter and dimmer are one level, and stop at the ends.
+//! the light on; brighter and dimmer are one level, and stop at the ends;
+//! warmer and cooler are one step along white, warm and orange, keep the
+//! level, and stop at the ends.
 //! A light that is off is not dark: the ring's owner keeps a faint glow,
 //! which is the sign that the lamp can hear, and the answer says so.
 //!
@@ -166,6 +168,65 @@ pub fn dimmer<L: Light>(light: &mut L) -> Outcome {
     )
 }
 
+/// The light's warmth, coolest first: white, the amber warm, and orange,
+/// each with less green and blue than the one before. "Warmer" and "cooler"
+/// are a step along these (the first builder, 17 Oct 14:16: "make your
+/// light a little warmer" had no tool that does it).
+pub const WARMTH: [&str; 3] = ["white", "warm", "orange"];
+
+/// One step warmer: white to warm, warm to orange. A light in another
+/// colour, asked for warmth, becomes warm. It comes on, at its level.
+pub fn warmer<L: Light>(light: &mut L) -> Outcome {
+    warmth(light, true)
+}
+
+/// One step cooler: orange to warm, warm to white. A light in another
+/// colour, asked for a cooler or whiter light, becomes white.
+pub fn cooler<L: Light>(light: &mut L) -> Outcome {
+    warmth(light, false)
+}
+
+fn warmth<L: Light>(light: &mut L, warmer: bool) -> Outcome {
+    let Some(now) = light.shown() else {
+        return Outcome::Failed(UNREAD.into());
+    };
+    let way = if warmer { "warmer" } else { "cooler" };
+    // A colour off the scale goes to warm or white, which is no step from
+    // it: then the answer says only what it is now (the reviewer on #1316).
+    let on_scale = WARMTH.contains(&now.colour.as_str());
+    let next = match WARMTH.iter().position(|shade| *shade == now.colour) {
+        None if warmer => Some("warm"),
+        None => Some("white"),
+        Some(at) if warmer => WARMTH.get(at + 1).copied(),
+        Some(at) => at.checked_sub(1).map(|below| WARMTH[below]),
+    };
+    let Some(colour) = next else {
+        let end = if warmer { "warm" } else { "cool" };
+        if now.on && !light.covered() {
+            return Outcome::Done(format!(
+                "My light is already as {end} as it goes, {}.",
+                now.colour
+            ));
+        }
+        let said = format!("My light is on, as {end} as it goes, {}.", now.colour);
+        return set(light, Wanted { on: true, ..now }, said);
+    };
+    let said = if on_scale {
+        format!("My light is a step {way}, {colour} now.")
+    } else {
+        format!("My light is {colour} now.")
+    };
+    set(
+        light,
+        Wanted {
+            on: true,
+            colour: colour.to_owned(),
+            level: now.level,
+        },
+        said,
+    )
+}
+
 /// The light through the bus.
 pub struct BusLight {
     bus: lamp_bus::Bus,
@@ -315,12 +376,82 @@ pub(crate) mod tests {
         let mut bottom = covered(light(true, "pink", 1));
         assert_eq!(said(dimmer(&mut bottom)), "My light is at its dimmest.");
         assert_eq!((top.asked.len(), bottom.asked.len()), (1, 1));
+        // At either end of the warmth too (the reviewer on #1316).
+        let mut warmest = covered(light(true, "orange", 3));
+        assert_eq!(
+            said(warmer(&mut warmest)),
+            "My light is on, as warm as it goes, orange."
+        );
+        let mut coolest = covered(light(true, "white", 3));
+        assert_eq!(
+            said(cooler(&mut coolest)),
+            "My light is on, as cool as it goes, white."
+        );
+        assert_eq!((warmest.asked.len(), coolest.asked.len()), (1, 1));
     }
     fn said(outcome: Outcome) -> String {
         match outcome {
             Outcome::Done(said) => said,
             Outcome::Failed(said) => panic!("expected it done, was told: {said}"),
         }
+    }
+
+    /// The first builder, 17 Oct 14:16: "Can you make your light a little
+    /// warmer?" got "my light is a fixed color". Warmer and cooler step
+    /// along white, warm and orange at the light's level, stop at the ends,
+    /// bring another colour to warm or white, and switch a light on.
+    #[test]
+    fn warmer_and_cooler_step_along_white_warm_and_orange() {
+        let mut lamp = Fake::showing(light(true, "white", 3));
+        assert_eq!(
+            said(warmer(&mut lamp)),
+            "My light is a step warmer, warm now."
+        );
+        assert_eq!(
+            said(warmer(&mut lamp)),
+            "My light is a step warmer, orange now."
+        );
+        assert_eq!(
+            said(warmer(&mut lamp)),
+            "My light is already as warm as it goes, orange."
+        );
+        assert_eq!(
+            said(cooler(&mut lamp)),
+            "My light is a step cooler, warm now."
+        );
+        assert_eq!(
+            said(cooler(&mut lamp)),
+            "My light is a step cooler, white now."
+        );
+        assert_eq!(
+            said(cooler(&mut lamp)),
+            "My light is already as cool as it goes, white."
+        );
+        assert_eq!(
+            lamp.asked,
+            [
+                light(true, "warm", 3),
+                light(true, "orange", 3),
+                light(true, "warm", 3),
+                light(true, "white", 3),
+            ]
+        );
+        // Off the scale, no step: only what it is now.
+        let mut blue = Fake::showing(light(true, "blue", 2));
+        assert_eq!(said(warmer(&mut blue)), "My light is warm now.");
+        let mut green = Fake::showing(light(true, "green", 4));
+        assert_eq!(said(cooler(&mut green)), "My light is white now.");
+        let mut dark = Fake::showing(light(false, "white", 1));
+        assert_eq!(
+            said(warmer(&mut dark)),
+            "My light is a step warmer, warm now."
+        );
+        assert_eq!(dark.asked, [light(true, "warm", 1)]);
+        let mut dark_end = Fake::showing(light(false, "orange", 2));
+        assert_eq!(
+            said(warmer(&mut dark_end)),
+            "My light is on, as warm as it goes, orange."
+        );
     }
 
     #[test]

@@ -8773,8 +8773,10 @@ fn drain_capture_control(
         };
         match event {
             WorkerEvent::CapturePrepared { waited, .. } => {
+                // One prepare a capture worker: its start is the one said,
+                // and a later start that opened at once clears it.
+                trace.mic_at_start = waited;
                 if let Some(waited) = waited {
-                    trace.mic_at_start = Some(waited);
                     record(
                         trace,
                         json!({"kind":"mic_waited_at_start","at_us":monotonic_us(),
@@ -9532,8 +9534,8 @@ mod tests {
     }
 
     /// A voice mic waited for at start (#1178) is one plain line in the
-    /// session's events, and is kept for the voice's health; a prepare with
-    /// no wait says nothing more than before.
+    /// session's events, and is kept for the voice's health until the next
+    /// capture start; a prepare with no wait says nothing more than before.
     #[test]
     fn a_mic_waited_for_at_start_is_said_plainly_and_kept_for_the_health() {
         let dir = SessionDirectory::create().unwrap();
@@ -9577,6 +9579,25 @@ mod tests {
             "the voice mic was off USB for 4.3 s at start; opened on try 18"
         );
         assert_eq!(trace.mic_at_start, Some(waited));
+        // A later capture start (after a mute or a sleep) that opened at once
+        // clears it: the note is the latest start's.
+        child
+            .control
+            .send(WorkerEvent::CapturePrepared {
+                epoch: 2,
+                privacy_generation: 1,
+                prepared_at_us: 2,
+                waited: None,
+            })
+            .unwrap();
+        drain_capture_control(
+            &mut parent.control,
+            &mut epoch,
+            NoiseSuppression::Off,
+            &mut trace,
+        )
+        .unwrap();
+        assert_eq!(trace.mic_at_start, None);
     }
 
     #[test]

@@ -1135,3 +1135,24 @@ process (`days_environment_child`, its recall and forget). None has been
 reported failing, and they are left as they are. `rules`'
 `the_fact_is_kept_on_the_bus_and_a_stalled_bus_never_holds_up_a_session`
 asserts `took < 300 ms` on purpose: there the bound is what it checks.
+
+## Memory's timed-out mutation is sent before its caller gives up (#1280)
+
+`lamp-memory::voice`'s
+`a_timed_out_mutation_may_commit_but_cannot_seed_unlinked_journal_history`
+failed on a loaded Intel Mac (load about 21) with a `Timeout` at
+`voice.rs:118`, `Fixture::next`'s 5 s wait for the held write to be answered.
+Its caller, `DaysClient::run`, was given 50 ms, and it checks that bound
+before it writes the request. A client held up before writing gave up
+without sending, or after marking the write uncertain but before the line
+went out, so nothing was held and nothing was ever answered. A 400 ms sleep
+at the top of `run_for` fails it every time (at `voice.rs:403`: with nothing
+sent, nothing is uncertain).
+
+The caller's deadline is now 1 s, the test's own bound, not one the lamp
+runs with (its tools allow up to `ASK_DEADLINE`, 1.5 s). The server's hold
+still decides that the caller times out, and every assertion is unchanged.
+With the 400 ms sleep it passes. Each test in its own process, 30 at once:
+before, 16 of 90 passed (all 74 failures at `voice.rs:118`); after, 90 of 90,
+and 48 of 48 at 16 at once. It takes about 3.9 s instead of 2.0 s, since the
+caller now waits its 1 s twice.

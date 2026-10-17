@@ -1144,7 +1144,10 @@ enum Drained {
 /// after a round that found nothing, since the rest would find nothing too.
 /// Idle, that is one look at each subscriber a pass, where it was eight:
 /// on lamp-75c9 on 2026-10-17 this thread took 5.4% of a core with nothing
-/// happening (#705, 08:37).
+/// happening (#705, 08:37). The bound on a message's wait is unchanged: one
+/// that comes just after the round that found nothing is read at the next
+/// pass, at most one `PUMP_TICK` (2 ms) later, as before. A head tap's stop
+/// comes this way.
 fn drain<S, T: Copy>(
     subscribed: &mut [(S, T)],
     mut read: impl FnMut(&mut S, T) -> io::Result<Pumped>,

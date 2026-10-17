@@ -2161,6 +2161,8 @@ fn asking_the_policy_in(
             root.join("gaze.sock").as_os_str(),
             "--say-socket".as_ref(),
             root.join("say.sock").as_os_str(),
+            "--actions-socket".as_ref(),
+            root.join("actions.sock").as_os_str(),
         ])
         .args(clock.args())
         .env("LAMP_SKILLS_ASK", "policy");
@@ -2412,13 +2414,14 @@ fn asking_the_policy_with_nobody_to_answer_is_no_at_once() {
     assert_eq!(said.try_iter().count(), 0);
 }
 
-/// A dim held until its trigger ends, its ask out to the Policy, and the
-/// skill reloaded with its trigger moved to another topic that also holds
-/// (#1309's post-merge P3): the reload ends the hold before the run began,
-/// so the Policy's `say_now` then does nothing, rather than dim a light
-/// whose end would never come.
-#[test]
-fn a_say_now_after_a_reload_moved_a_held_trigger_does_nothing() {
+/// A skill that dims until its trigger ends, the light blue at 3 and the
+/// actions part stood in for, its ask out to the Policy; with `moved`, the
+/// skill reloaded meanwhile with its trigger moved to another topic that
+/// also holds. Then the Policy says `say_now`, and, after a while, the old
+/// trigger stops holding. Its answer, the `done` if any (within 3 s, or
+/// 300 ms where none is expected), and the
+/// actions part's calls.
+fn a_held_dim_asked_of_the_policy(moved: bool) -> (SkillEvent, Option<SkillEvent>, Vec<String>) {
     // Short: a socket's whole path has to fit in 103 bytes.
     let dir = tempfile::Builder::new()
         .prefix("sr")
@@ -2428,6 +2431,30 @@ fn a_say_now_after_a_reload_moved_a_held_trigger_does_nothing() {
     let bus = Bus::new(root.join("bus")).unwrap();
     let mut events = bus.subscribe(SkillEvent::TOPIC, "test").unwrap();
     let mut asks = bus.subscribe("skills/ask", "policy").unwrap();
+    // The actions part stood in for: each call, the light it shows said.
+    let actions = UnixListener::bind(root.join("actions.sock")).unwrap();
+    let (called, calls) = mpsc::channel::<String>();
+    let ring = bus.clone();
+    std::thread::spawn(move || {
+        let mut shown = ring
+            .publisher_declared("light/state", &Light::declaration(), "ring")
+            .unwrap();
+        let mut light = Light::new(true, "blue", 3).unwrap();
+        for stream in actions.incoming().flatten() {
+            let mut line = String::new();
+            BufReader::new(&stream).read_line(&mut line).unwrap();
+            if line.contains("light_dimmer") {
+                light.level -= 1;
+            } else if line.contains("light_brighter") {
+                light.level += 1;
+            }
+            shown.publish_json(1, &light).unwrap();
+            (&stream)
+                .write_all(b"{\"ok\":true,\"result\":{}}\n")
+                .unwrap();
+            let _ = called.send(line);
+        }
+    });
     // The Policy stood in for: the ask is told, and answered `say_now`
     // once the test says so.
     let (asked, put) = mpsc::channel::<u64>();
@@ -2476,25 +2503,80 @@ fn a_say_now_after_a_reload_moved_a_held_trigger_does_nothing() {
         }
     };
     loaded("air/state");
+    // The light as shown just before the trigger, fresh.
+    bus.publisher_declared("light/state", &Light::declaration(), "ring")
+        .unwrap()
+        .publish_json(1, &Light::new(true, "blue", 3).unwrap())
+        .unwrap();
     let high = serde_json::json!({"co2_ppm": 1300});
     state.publish_json(1, &high).unwrap();
     put.recv_timeout(Duration::from_secs(10)).unwrap();
-    // Its trigger moved to air/indoor, which holds too.
-    skill_with(
-        &skills,
-        "stuffy",
-        &stuffy.replace("air/state", "air/indoor"),
-    );
-    clock.skip(RELOAD);
-    loaded("air/indoor");
-    indoor.publish_json(1, &high).unwrap();
-    // The reload and air/indoor taken in, within the ask's 2.5 s.
+    if moved {
+        // Its trigger moved to air/indoor, which holds too.
+        skill_with(
+            &skills,
+            "stuffy",
+            &stuffy.replace("air/state", "air/indoor"),
+        );
+        clock.skip(RELOAD);
+        loaded("air/indoor");
+        indoor.publish_json(1, &high).unwrap();
+    }
+    // What was published taken in, within the ask's 2.5 s.
     clock.skip(Duration::ZERO);
     answer.send(()).unwrap();
-    let answered = next_answer(&mut events, Instant::now() + Duration::from_secs(10));
+    let deadline = Instant::now() + Duration::from_secs(10);
+    let answered = next_answer(&mut events, deadline);
+    // The dim made, if it is, before the trigger stops holding.
+    let dimmed = calls.recv_timeout(Duration::from_millis(if moved { 300 } else { 5_000 }));
+    state
+        .publish_json(1, &serde_json::json!({"co2_ppm": 900}))
+        .unwrap();
+    clock.skip(Duration::ZERO);
+    let mut done = None;
+    let until = Instant::now() + Duration::from_millis(if moved { 300 } else { 3_000 });
+    while done.is_none() && Instant::now() < until {
+        if let Some(message) = events.recv(Duration::from_millis(100)).unwrap() {
+            let event: SkillEvent = message.parse().unwrap();
+            if event.stage == SkillStage::Done && event.skill == "stuffy" {
+                done = Some(event);
+            }
+        }
+    }
+    let made = dimmed.into_iter().chain(calls.try_iter()).collect();
+    (answered, done, made)
+}
+
+/// A dim held until its trigger ends, its ask out to the Policy, and the
+/// skill reloaded with its trigger moved to another topic that also holds
+/// (#1309's post-merge P3): the reload ends the hold before the run began,
+/// so the Policy's `say_now` then does nothing, rather than dim a light
+/// whose end would never come.
+#[test]
+fn a_say_now_after_a_reload_moved_a_held_trigger_does_nothing() {
+    let (answered, done, calls) = a_held_dim_asked_of_the_policy(true);
     assert_eq!(answered.skill, "stuffy", "{answered:?}");
     assert_eq!(answered.allowed, Some(false), "{answered:?}");
     assert!(answered.why.contains("no longer holds"), "{answered:?}");
+    assert!(done.is_none(), "{done:?}");
+    assert!(calls.is_empty(), "{calls:?}");
+}
+
+/// Its control (Fourth on #1319): with no reload, the same `say_now` dims
+/// the light, and the dim is given back when the trigger stops holding.
+#[test]
+fn a_say_now_with_its_trigger_still_held_dims_until_it_ends() {
+    let (answered, done, calls) = a_held_dim_asked_of_the_policy(false);
+    assert_eq!(answered.allowed, Some(true), "{answered:?}");
+    assert_eq!(calls.len(), 2, "{calls:?}");
+    assert!(calls[0].contains("light_dimmer"), "{calls:?}");
+    assert!(calls[1].contains("light_brighter"), "{calls:?}");
+    let done = done.expect("no done after the trigger ended");
+    assert!(
+        done.why.contains("held until its trigger ended"),
+        "{}",
+        done.why
+    );
 }
 
 /// A skill that is not a hello asks the act its `[ask] policy` names, news,

@@ -153,6 +153,18 @@ pub struct EchoEvidence {
     pub silent_at_echo: Option<u16>,
 }
 
+/// What the skip of [`EchoObserver::skip_while_render_silent`] did: capture
+/// blocks observed, of them skipped, and of those the ones whose search or
+/// held alignment's fit would have run, which are the skips that saved work.
+/// A block in a quiet room with nothing held is skipped, but would have cost
+/// nothing anyway.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Skipped {
+    pub observed: u64,
+    pub skipped: u64,
+    pub saved: u64,
+}
+
 /// Render history. The length is a power of two so indexing is a mask.
 struct History {
     samples: [i16; HISTORY],
@@ -247,10 +259,9 @@ pub struct EchoObserver {
     /// Skip the search while the render it would read is all zeros
     /// ([`EchoObserver::skip_while_render_silent`]).
     skip_silent: bool,
-    /// Capture blocks observed, and of them skipped, since construction:
-    /// kept through a reset, so a run can say how often the skip applied.
-    observed: u64,
-    skipped: u64,
+    /// What the skip did since construction ([`Skipped`]): kept through a
+    /// reset, so a run can say how often it applied.
+    counts: Skipped,
     latest: Option<EchoEvidence>,
     /// The held alignment's age when the render at it is silent this block
     /// ([`EchoEvidence::silent_at_echo`]).
@@ -314,8 +325,7 @@ impl EchoObserver {
             sweep: 0,
             rival: 0,
             skip_silent: false,
-            observed: 0,
-            skipped: 0,
+            counts: Skipped::default(),
             latest: None,
             silent_at: None,
         }
@@ -323,15 +333,14 @@ impl EchoObserver {
     /// Forget everything but [`Self::skip_while_render_silent`] and the
     /// counts of [`Self::skipped`]. Call wherever the echo canceller is reset.
     pub fn reset(&mut self) {
-        let (skip_silent, observed, skipped) = (self.skip_silent, self.observed, self.skipped);
+        let (skip_silent, counts) = (self.skip_silent, self.counts);
         *self = Self::new();
-        (self.skip_silent, self.observed, self.skipped) = (skip_silent, observed, skipped);
+        (self.skip_silent, self.counts) = (skip_silent, counts);
     }
 
-    /// Capture blocks observed since construction, and how many of them the
-    /// search was skipped on ([`Self::skip_while_render_silent`]).
-    pub fn skipped(&self) -> (u64, u64) {
-        (self.observed, self.skipped)
+    /// What [`Self::skip_while_render_silent`] did since construction.
+    pub fn skipped(&self) -> Skipped {
+        self.counts
     }
 
     /// While every render sample any alignment would read is zero (the
@@ -384,7 +393,7 @@ impl EchoObserver {
 
     /// One microphone block before and after cancellation.
     pub fn capture(&mut self, raw: &CaptureBlock, clean: &CaptureBlock) -> EchoEvidence {
-        self.observed += 1;
+        self.counts.observed += 1;
         let reduce = |reducer: &mut Reducer, block: &CaptureBlock| -> [i16; BLOCK] {
             let mut reduced = [0; BLOCK];
             for (target, group) in reduced
@@ -619,7 +628,12 @@ impl EchoObserver {
                 .alignment
                 .as_ref()
                 .map(|alignment| alignment.age_blocks);
-            self.skipped += 1;
+            self.counts.skipped += 1;
+            // Only a loud room is searched, and only a held alignment is
+            // fitted: a quiet block with neither cost nothing to skip.
+            if raw_energy >= SILENT_ENERGY || self.alignment.is_some() {
+                self.counts.saved += 1;
+            }
             return None;
         }
         let mut fitted = None;
@@ -842,7 +856,36 @@ mod tests {
         assert!(matched > 50, "the echo was matched {matched} times");
         // The silences, each less the render's 520 ms reach (none after the
         // reset, or before the lamp first spoke): 324 of 600 blocks.
-        assert_eq!(skipping.skipped(), (600, 324));
-        assert_eq!(searching.skipped(), (600, 0));
+        let skipped = skipping.skipped();
+        assert_eq!((skipped.observed, skipped.skipped), (600, 324));
+        // All but the 39 of the quiet start, before the lamp first spoke and
+        // so with nothing held, saved work.
+        assert_eq!(skipped.saved, 324 - 39);
+        assert_eq!(
+            searching.skipped(),
+            Skipped {
+                observed: 600,
+                ..Skipped::default()
+            }
+        );
+    }
+
+    /// A quiet room with nothing held: the speaker's silence is skipped, but
+    /// no search or fit would have run, so the skip saved nothing (the
+    /// reviewer on #1322).
+    #[test]
+    fn a_quiet_room_with_nothing_held_is_skipped_but_saves_nothing() {
+        let mut skipping = EchoObserver::new();
+        skipping.skip_while_render_silent(true);
+        for block in 0..600u64 {
+            skipping.render(&[0; RENDER_SAMPLES]);
+            let capture: CaptureBlock = std::array::from_fn(|index| {
+                (4.0 * noise(2, block * CAPTURE_SAMPLES as u64 + index as u64)).round() as i16
+            });
+            skipping.capture(&capture, &capture);
+        }
+        let skipped = skipping.skipped();
+        assert_eq!((skipped.observed, skipped.saved), (600, 0));
+        assert!(skipped.skipped > 580, "{skipped:?}");
     }
 }

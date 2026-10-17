@@ -121,12 +121,24 @@ impl OpenAtStart {
 /// with the switch can say how often it applied.
 const EVIDENCE_SAID_EVERY: Duration = Duration::from_secs(60);
 
-/// The journal's line for [`EVIDENCE_SAID_EVERY`]: the blocks processed and
-/// skipped since the last line, from the processor's counts now and then.
-fn evidence_line(now: (u64, u64), then: (u64, u64), over: Duration) -> String {
-    let (blocks, skipped) = (now.0.saturating_sub(then.0), now.1.saturating_sub(then.1));
+/// Whether capture says its line now: only with the switch, once a minute.
+fn evidence_due(on: bool, since: Duration) -> bool {
+    on && since >= EVIDENCE_SAID_EVERY
+}
+
+/// The journal's line for [`EVIDENCE_SAID_EVERY`]: since the last line, the
+/// blocks processed, skipped, and of those the ones that saved work (a loud
+/// room searched or an alignment held fitted, [`lamp_audio::evidence::Skipped`]).
+fn evidence_line(
+    now: lamp_audio::evidence::Skipped,
+    then: lamp_audio::evidence::Skipped,
+    over: Duration,
+) -> String {
+    let blocks = now.observed.saturating_sub(then.observed);
+    let skipped = now.skipped.saturating_sub(then.skipped);
+    let saved = now.saved.saturating_sub(then.saved);
     format!(
-        "lamp-voice: capture: the echo search was skipped on {skipped} of {blocks} blocks in the last {} s (LAMP_QUIET_EVIDENCE=on)",
+        "lamp-voice: capture: the echo search was skipped on {skipped} of {blocks} blocks in the last {} s, {saved} of them loud or with an alignment held (LAMP_QUIET_EVIDENCE=on)",
         over.as_secs()
     )
 }
@@ -918,7 +930,7 @@ fn capture_loop<D: CaptureDevice>(
                     .send(WorkerEvent::ReferenceClock { timing })?;
                 last_diagnostic = monotonic_us();
             }
-            if evidence_skip && evidence_said.0.elapsed() >= EVIDENCE_SAID_EVERY {
+            if evidence_due(evidence_skip, evidence_said.0.elapsed()) {
                 let counts = echo.evidence_skipped();
                 eprintln!(
                     "{}",
@@ -1912,10 +1924,30 @@ mod evidence_line_tests {
 
     #[test]
     fn the_journal_says_the_blocks_skipped_since_its_last_line() {
+        use lamp_audio::evidence::Skipped;
+        let now = Skipped {
+            observed: 7_000,
+            skipped: 6_100,
+            saved: 4_500,
+        };
+        let then = Skipped {
+            observed: 1_000,
+            skipped: 400,
+            saved: 400,
+        };
         assert_eq!(
-            evidence_line((7_000, 6_100), (1_000, 400), Duration::from_millis(60_400)),
-            "lamp-voice: capture: the echo search was skipped on 5700 of 6000 blocks in the last 60 s (LAMP_QUIET_EVIDENCE=on)"
+            evidence_line(now, then, Duration::from_millis(60_400)),
+            "lamp-voice: capture: the echo search was skipped on 5700 of 6000 blocks in the last 60 s, 4100 of them loud or with an alignment held (LAMP_QUIET_EVIDENCE=on)"
         );
+    }
+
+    /// Said only with the switch, and then once a minute.
+    #[test]
+    fn the_line_is_said_only_with_the_switch_once_a_minute() {
+        let minute = EVIDENCE_SAID_EVERY;
+        assert!(!evidence_due(false, minute * 10));
+        assert!(!evidence_due(true, minute - Duration::from_millis(1)));
+        assert!(evidence_due(true, minute));
     }
 }
 

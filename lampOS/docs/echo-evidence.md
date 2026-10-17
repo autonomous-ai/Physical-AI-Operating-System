@@ -273,5 +273,6 @@ the search is not run on a block while every render sample it would read, the
 last 520 ms, is zero: it could match nothing then. The evidence is the same
 block for block: no echo, the held alignment's age in `silent_at_echo`, and
 the search's place moved on as the search would have moved it. A reset keeps
-the switch. See [the voice's runtime](serve-runtime.md#a-quieter-pace-while-nothing-happens-lamp_quiet_paceon)
+the switch, and the counts of what it skipped (`skipped()`). See
+[the voice's runtime](serve-runtime.md#a-quieter-pace-while-nothing-happens-lamp_quiet_paceon)
 for why (the capture worker's CPU in a loud room).
